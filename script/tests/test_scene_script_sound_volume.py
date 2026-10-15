@@ -81,27 +81,33 @@ import AVFoundation
 
     static func exclusions(_ scene: SceneRenderDescriptor, _ scripts: [SceneScriptBindingIR],
                            sound: SceneSoundPlaybackProgram,
-                           timeline: Set<SceneDynamicTarget> = []) -> Set<SceneDynamicTarget> {
+                           timeline: Set<SceneDynamicTarget> = [],
+                           resolvedVolumes: [String: Double] = [:]) -> Set<SceneDynamicTarget> {
         let definitions = SceneScriptScalarProgram.projectedDefinitions(descriptor: scene,
             scriptBindings: scripts, timelineTargets: timeline)
         let volumeTargets = Set(definitions.compactMap { definition -> SceneDynamicTarget? in
             if case .layer(_, .volume) = definition.target { return definition.target }
             return nil
         })
-        return volumeTargets.subtracting(sound.sceneScriptVolumeConsumerTargets(for: definitions))
+        let named = SceneScriptScalarProgram.projectedVolumePropertyKeys(descriptor: scene,
+            scriptBindings: scripts, timelineTargets: timeline)
+        return volumeTargets.subtracting(sound.sceneScriptVolumeConsumerTargets(for: definitions,
+            namedPropertyKeys: named, resolvedPropertyVolumes: resolvedVolumes))
     }
 
     static func candidate(_ scene: SceneRenderDescriptor, _ scripts: [SceneScriptBindingIR],
                           sound: SceneSoundPlaybackProgram,
                           properties: [SceneUserPropertyDefinition] = [],
-                          timeline: Set<SceneDynamicTarget> = []) throws
+                          timeline: Set<SceneDynamicTarget> = [],
+                          resolvedVolumes: [String: Double] = [:]) throws
         -> SceneScriptQuickJSProgramCandidate {
         try .compile(authoredDescriptor: scene, runtimeDescriptor: scene,
             scriptBindings: scripts,
             vectorProjection: SceneScriptVectorProgram.project(descriptor: scene,
                 scriptBindings: scripts), userPropertyDefinitions: properties,
             timelineTargets: timeline,
-            scalarExcludedTargets: exclusions(scene, scripts, sound: sound, timeline: timeline),
+            scalarExcludedTargets: exclusions(scene, scripts, sound: sound, timeline: timeline,
+                resolvedVolumes: resolvedVolumes),
             stringExcludedTargets: [], admittedVectorPassTargets: [], generation: 11)
     }
 
@@ -244,15 +250,268 @@ import AVFoundation
                         path: [SceneScriptBindingPathComponent]? = nil,
                         authored: SceneJSONValue? = nil,
                         type: SceneScriptBindingValueType? = nil,
-                        kind: SceneScriptBindingOwner.Kind? = nil) -> SceneScriptBindingIR {
-        .init(source: binding.source,
+                        kind: SceneScriptBindingOwner.Kind? = nil,
+                        source: String? = nil, property: String? = nil,
+                        inputs: [String: SceneJSONValue]? = nil) -> SceneScriptBindingIR {
+        .init(source: source ?? binding.source,
             owner: .init(kind: kind ?? binding.owner.kind,
                 objectIndex: binding.owner.objectIndex, objectID: binding.owner.objectID,
                 effectIndex: binding.owner.effectIndex, effectID: binding.owner.effectID,
                 passIndex: binding.owner.passIndex, passID: binding.owner.passID),
-            targetPath: path ?? binding.targetPath, properties: binding.properties,
+            targetPath: path ?? binding.targetPath, properties: inputs ?? binding.properties,
             authoredValue: authored ?? binding.authoredValue, valueType: type ?? binding.valueType,
-            wrapperKeys: binding.wrapperKeys, userPropertyKey: binding.userPropertyKey)
+            wrapperKeys: binding.wrapperKeys, userPropertyKey: property ?? binding.userPropertyKey)
+    }
+
+    static func namedDocument(key: String, condition: String, pause: String, play: String,
+                              source: String, resource: String,
+                              extra: [String: Any] = [:]) -> [String: Any] {
+        var wrapper: [String: Any] = [
+            "user": key,
+            "scriptproperties": [
+                pause: ["user": ["name": condition, "condition": "0"], "value": false],
+                play: ["user": ["name": condition, "condition": "1"], "value": false],
+            ],
+        ]
+        wrapper.merge(extra) { _, replacement in replacement }
+        return document(resource: resource, source: source, value: 0.2, extra: wrapper)
+    }
+
+    static func namedScene(_ root: [String: Any], kind: String = "sound") -> SceneRenderDescriptor {
+        var owner = layer(kind: kind)
+        owner.initialConfiguration = SceneJSONValue(jsonObject: (root["objects"] as! [Any])[0])
+        return .init(layers: [owner])
+    }
+
+    static func scalar(_ value: SceneDynamicValue?, is expected: Double) -> Bool {
+        guard case let .scalar(actual)? = value else { return false }
+        return abs(actual - expected) < 1e-12
+    }
+
+    static func namedFacts(audio: URL) throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        for (index, names) in [
+            ("outerGain", "switchA", "silence", "audible", "audio/named.wav"),
+            ("renamedSlider", "gateB", "hold", "resume", "media/renamed.wav"),
+            ("strength", "selector", "freeze", "continueSound", "sound/unseen.wav"),
+        ].enumerated() {
+            let (key, condition, pause, play, resource) = names
+            let local = ["current", "level", "amount"][index]
+            let expression = ["\(local) * .5 + .1", ".1 + \(local) / 2",
+                "(\(local) + \(local)) / 4 + .1"][index]
+            let source = """
+            export var scriptProperties = createScriptProperties()
+                .addCheckbox({name:'\(pause)',value:false})
+                .addCheckbox({name:'\(play)',value:false}).finish();
+            export function update(\(local)) {
+                if (scriptProperties.\(pause)) thisLayer.pause();
+                else if (scriptProperties.\(play)) thisLayer.play();
+                return \(expression);
+            }
+            """
+            let root = namedDocument(key: key, condition: condition, pause: pause, play: play,
+                source: source, resource: resource)
+            let scene = namedScene(root), scripts = bindings(root)
+            let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                key: ["type": "slider", "value": 0.4, "min": 0, "max": 1],
+                condition: ["type": "combo", "value": "1", "options": [
+                    ["label": "Off", "value": "0"], ["label": "On", "value": "1"]]],
+            ])
+            let unassigned = prepared(audio: audio, resource: resource, volume: 0.8, property: key)
+            let accepted = try candidate(scene, scripts, sound: unassigned,
+                properties: catalog.definitions, resolvedVolumes: [key: 0.8])
+            let program = accepted.scalarProgram
+            let plan = unassigned.assigningSceneScriptVolumes(
+                accepted.constructionReport.instantiatedScalarTargets)
+            let compiled = ScenePropertyBindingCompiler().compile(
+                report: SceneUserPropertyBindingParser().parse(root: root), catalog: catalog)
+            var live = ScenePropertyLiveUpdateState(program: compiled.program,
+                effectiveValues: catalog.effectiveValues(overrides: [key: .number(0.8)]),
+                activeConsumerTargets: program.activeLivePropertyInputTargets.union(plan.liveConsumerTargets))
+            let definitions = compiled.program.definitions
+            let registry = SceneSoundPlaybackRegistry(program: plan, epoch: UInt64(20 + index))
+            registry.start(paused: false, userValues: live.userValues)
+            defer { registry.stop() }
+            let actual = player(registry, layer: 16)
+            let owner = program.bindings.first
+            let prefix = "named-\(index)-"
+            facts[prefix + "loop-item-ready-before-gain"] = wait { actual.currentItem != nil }
+            facts[prefix + "raw-default-saved-separate"] = scripts.first?.authoredValue == .number(0.2)
+                && catalog.definitions.first(where: { $0.key == key })?.defaultValue == .number(0.4)
+                && unassigned.bindings.first?.authoredVolume == 0.8
+                && live.userValues[target] == .scalar(0.8)
+            facts[prefix + "one-real-owner-and-live-inputs"] = accepted.constructionReport.isComplete
+                && program.bindings.count == 1 && program.definitions.count == 1
+                && accepted.constructionReport.instantiatedScalarTargets == [target]
+                && compiled.diagnostics.isEmpty && compiled.program.instructions.count == 3
+                && compiled.program.rebuildRequiredPropertyKeys.isEmpty
+                && SceneScriptScalarProgram.projectedVolumePropertyKeys(descriptor: scene,
+                    scriptBindings: scripts) == [target: key]
+            var transaction = SceneEvaluationTransaction()
+            func evaluate(_ expected: Double, action: SceneScriptMediaPlaybackCommand.Action) throws {
+                let previousIntent = registry.sceneScriptSnapshots()[16]
+                try accepted.domain?.publishLayerSnapshot(.empty(frameIndex: live.revision),
+                    descriptor: scene, soundPlaybackSnapshots: registry.sceneScriptSnapshots(),
+                    runtimeFieldLayerIDs: [])
+                let result = program.evaluate(inputs: [target: live.userValues[target]!], frame: frame,
+                    effectivePropertyValues: live.effectiveValues, propertyRevision: live.revision)
+                let commands = result.ownerEffects.flatMap(\.mediaPlaybackCommands)
+                let resolved = transaction.evaluate(frameIndex: live.revision + 1,
+                    definitions: definitions, userValues: live.userValues,
+                    sceneScriptValues: result.values).snapshot
+                let suffix = String(live.revision)
+                facts[prefix + "vm-transform-" + suffix] = result.failures.isEmpty
+                    && scalar(result.values[target], is: expected)
+                    && resolved[target]?.source == .sceneScript
+                    && scalar(resolved[target]?.value, is: expected)
+                    && commands.count == 1 && commands.first?.action == action
+                    && commands.first?.destination == .soundLayer && commands.first?.layerID == 16
+                    && registry.sceneScriptSnapshots()[16] == previousIntent
+                _ = try registry.validate(commands).get()
+                // A looper owns item rotation across playback. Prove gain
+                // publication preserves the currently queued items before
+                // applying the independently validated author playback command.
+                let itemBeforeGain = actual.currentItem
+                let queueBeforeGain = actual.items()
+                registry.apply(snapshot: resolved)
+                facts[prefix + "gain-preserves-current-item-and-queue-" + suffix] = itemBeforeGain != nil
+                    && actual.currentItem === itemBeforeGain
+                    && actual.items().elementsEqual(queueBeforeGain, by: { $0 === $1 })
+                _ = try registry.apply(commands).get()
+                program.finalizeLayerMutations(committing: true)
+                facts[prefix + "same-real-player-and-owner-" + suffix] = actual.volume == Float(expected)
+                    && player(registry, layer: 16) === actual
+                    && program.bindings.first === owner
+            }
+            try evaluate(0.5, action: .play)
+            facts[prefix + "initial-author-play"] = wait { actual.rate == 1 }
+            let edit = live.apply(.number(0.4), forPropertyKey: key)
+            registry.apply(userValues: live.userValues)
+            facts[prefix + "direct-writer-exited"] = edit && actual.volume == Float(0.5)
+            try evaluate(0.3, action: .play)
+            for (input, output) in [(0.6, 0.4), (0.4, 0.3)] {
+                let previousGain = actual.volume
+                facts[prefix + "continuous-input-\(input)"] = live.apply(.number(input), forPropertyKey: key)
+                registry.apply(userValues: live.userValues)
+                facts[prefix + "snapshot-only-writer-\(input)"] = actual.volume == previousGain
+                try evaluate(output, action: .play)
+            }
+            facts[prefix + "conditional-pause-input-live"] = live.apply(.string("0"), forPropertyKey: condition)
+            try evaluate(0.3, action: .pause)
+            facts[prefix + "conditional-pause-reaches-player"] = actual.rate == 0
+                && registry.sceneScriptSnapshots()[16] == false
+            registry.pause()
+            facts[prefix + "conditional-play-input-live"] = live.apply(.string("1"), forPropertyKey: condition)
+            try evaluate(0.3, action: .play)
+            facts[prefix + "host-pause-stays-independent"] = actual.rate == 0
+            registry.resume()
+            facts[prefix + "resume-preserves-author-play"] = wait { actual.rate == 1 }
+            let resendRevision = live.revision
+            facts[prefix + "same-value-noop"] = live.apply(.number(0.4), forPropertyKey: key)
+                && live.revision == resendRevision && actual.volume == Float(0.3)
+            registry.retire(layerIDs: [16])
+            registry.apply(snapshot: snapshot(definitions, script: [target: .scalar(0.9)]))
+            facts[prefix + "retired-named-source-stays-retired"] = actual.currentItem == nil
+                && registry.sceneScriptSnapshots().isEmpty
+            // A candidate that constructs no Scalar owner keeps the original
+            // immediate writer. This does not simulate Session orchestration.
+            let failedRoot = namedDocument(key: key, condition: condition, pause: pause, play: play,
+                source: "export function update(value) { return (", resource: resource)
+            let failed = try candidate(namedScene(failedRoot), bindings(failedRoot), sound: unassigned,
+                properties: catalog.definitions, resolvedVolumes: [key: 0.8])
+            facts[prefix + "construction-failure-has-no-owner"] = failed.scalarProgram.bindings.isEmpty
+                && failed.constructionReport.instantiatedScalarTargets.isEmpty
+            let fallbackPlan = unassigned.assigningSceneScriptVolumes(
+                failed.constructionReport.instantiatedScalarTargets)
+            let direct = SceneSoundPlaybackRegistry(program: fallbackPlan,
+                epoch: UInt64(30 + index))
+            direct.start(paused: true, userValues: [target: .scalar(0.8)])
+            let fallback = player(direct, layer: 16)
+            direct.apply(snapshot: snapshot(definitions, script: [target: .scalar(0.1)]))
+            facts[prefix + "unconstructed-owner-keeps-direct"] = fallback.volume == Float(0.8)
+            direct.apply(userValues: [target: .scalar(0.4)])
+            facts[prefix + "unconstructed-paused-direct-applies"] = fallback.volume == Float(0.4)
+                && fallback.rate == 0
+            direct.stop()
+        }
+        return facts
+    }
+
+    static func namedAdmissionFacts(audio: URL) throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        let source = "export function update(value) { return value * .5 + .1; }"
+        let root = namedDocument(key: "gain", condition: "mode", pause: "pause", play: "play",
+            source: source, resource: "audio/named-admission.wav")
+        let scene = namedScene(root), valid = bindings(root)[0]
+        let plan = prepared(audio: audio, resource: "audio/named-admission.wav", volume: 0.8, property: "gain")
+        let plain = bindings(document(source: source))[0]
+        let rejected: [(String, SceneRenderDescriptor, [SceneScriptBindingIR], Set<SceneDynamicTarget>)] = [
+            ("source-mismatch", scene, [changed(valid, source: source + " ")], []),
+            ("key-mismatch", scene, [changed(valid, property: "other")], []),
+            ("input-mismatch", scene, [changed(valid, inputs: ["pause": .bool(true)])], []),
+            ("duplicate", scene, [valid, valid], []),
+            ("plain-and-named-duplicate", scene, [valid, plain], []),
+            ("timeline", scene, [valid], [target]),
+            ("wrong-host", namedScene(root, kind: "image"), [valid], []),
+            ("wrong-path", scene, [changed(valid,
+                path: [.key("objects"), .index(0), .key("alpha")])], []),
+            ("bool-seed", scene, [changed(valid, authored: .bool(true), type: .boolean)], []),
+            ("string-seed", scene, [changed(valid, authored: .string("0.2"), type: .string)], []),
+            ("negative-seed", scene, [changed(valid, authored: .number(-0.1))], []),
+            ("high-seed", scene, [changed(valid, authored: .number(1.1))], []),
+            ("nonfinite-seed", scene, [changed(valid, authored: .number(.infinity))], []),
+        ]
+        for (name, input, scripts, timeline) in rejected {
+            let accepted = try candidate(input, scripts, sound: plan, timeline: timeline,
+                resolvedVolumes: ["gain": 0.8])
+            facts["named-reject-" + name] = accepted.scalarProgram.bindings.isEmpty
+                && accepted.constructionReport.expectedScalarTargets.isEmpty
+                && SceneScriptScalarProgram.projectedVolumePropertyKeys(descriptor: input,
+                    scriptBindings: scripts, timelineTargets: timeline).isEmpty
+        }
+        for (name, extra) in [
+            ("bool", ["value": true] as [String: Any]), ("string", ["value": "0.2"]),
+            ("null", ["value": NSNull()]), ("invalid-source", ["script": 4]),
+            ("extra", ["extra": false]), ("animation", ["animation": ["id": 4]]),
+        ] {
+            let malformed = namedDocument(key: "gain", condition: "mode", pause: "pause", play: "play",
+                source: source, resource: "audio/named-admission.wav", extra: extra)
+            let parsed = SceneScriptBindingIRParser.parse(document: malformed)
+            facts["named-reader-reject-" + name] = parsed.bindings.isEmpty && !parsed.diagnostics.isEmpty
+        }
+        let definitions = SceneScriptScalarProgram.projectedDefinitions(descriptor: scene, scriptBindings: [valid])
+        let keys = SceneScriptScalarProgram.projectedVolumePropertyKeys(descriptor: scene, scriptBindings: [valid])
+        let simpleRoot = document(source: source, value: 0.2, extra: ["user": "gain"])
+        let simple = try candidate(namedScene(simpleRoot), bindings(simpleRoot), sound: plan,
+            resolvedVolumes: ["gain": 0.8]).scalarProgram
+        let simpleValue = simple.evaluate(inputs: [target: .scalar(0.8)], frame: frame)
+        facts["named-without-declared-properties"] = simple.bindings.count == 1
+            && simpleValue.failures.isEmpty && scalar(simpleValue.values[target], is: 0.5)
+        facts["named-late-proof-raw-differs-from-resolved"] = plan.sceneScriptVolumeConsumerTargets(
+            for: definitions, namedPropertyKeys: keys, resolvedPropertyVolumes: ["gain": 0.8]) == [target]
+        for (name, sound, named, resolved) in [
+            ("missing-key-proof", plan, [:], ["gain": 0.8]),
+            ("wrong-key-proof", plan, [target: "other"], ["gain": 0.8]),
+            ("wrong-target-proof", plan, [.layer(layerID: 999, field: .volume): "gain"], ["gain": 0.8]),
+            ("missing-resolved-proof", plan, keys, [:]),
+            ("wrong-resolved-proof", plan, keys, ["gain": 0.4]),
+            ("nonfinite-resolved-proof", plan, keys, ["gain": Double.nan]),
+            ("wrong-source-property", prepared(audio: audio, volume: 0.8, property: "other"), keys, ["gain": 0.8]),
+            ("missing-resource", prepared(audio: audio, volume: 0.8, property: "gain", available: false), keys, ["gain": 0.8]),
+        ] {
+            facts["named-late-reject-" + name] = sound.sceneScriptVolumeConsumerTargets(for: definitions,
+                namedPropertyKeys: named, resolvedPropertyVolumes: resolved).isEmpty
+            if named == keys {
+                let excluded = try candidate(scene, [valid], sound: sound, resolvedVolumes: resolved)
+                facts["named-late-no-owner-" + name] = excluded.scalarProgram.bindings.isEmpty
+                    && excluded.constructionReport.expectedScalarTargets.isEmpty
+                    && excluded.constructionReport.instantiatedScalarTargets.isEmpty
+            }
+        }
+        let missing = try candidate(scene, [valid], sound: plan)
+        facts["named-no-proof-owner-never-constructed"] = missing.scalarProgram.bindings.isEmpty
+            && missing.constructionReport.expectedScalarTargets.isEmpty
+        return facts
     }
 
     static func admissionFacts(audio: URL) throws -> [String: Bool] {
@@ -270,7 +529,7 @@ import AVFoundation
             ("non-sound", .init(layers: [layer(kind: "image")]), [valid], []),
             ("duplicate", scene, [valid, valid], []),
             ("unknown-wrapper", scene, bindings(document(extra: ["extra": true])), []),
-            ("outer-user", scene, bindings(document(extra: ["user": "gain"])), []),
+            ("outer-user-without-descriptor-identity", scene, bindings(document(extra: ["user": "gain"])), []),
             ("null-outer-user", scene, bindings(document(extra: ["user": NSNull()])), []),
             ("animation-wrapper", scene, bindings(document(extra: ["animation": ["id": 1]])), []),
             ("timeline-collision", scene, [valid], [target]),
@@ -475,12 +734,167 @@ import AVFoundation
         return facts
     }
 
+    // This checks the real Scalar/C mode, independently of Session publication.
+    static func propertyRefreshFacts(audio: URL) throws -> [String: Bool] {
+        let peer = SceneDynamicTarget.layer(layerID: 18, field: .volume)
+        let resource = "audio/property-refresh.wav"
+        let source = """
+        let updates=0, ticks=0, media=0, changes=0, jobs=0;
+        export function init(v) { Promise.resolve().then(()=>{jobs++;}); return v; }
+        export function applyUserProperties(e) {
+            changes++;
+            if(changes===1) engine.setTimeout(()=>{ticks++;},0);
+            Promise.resolve().then(()=>{jobs++;});
+        }
+        export function mediaPlaybackChanged(e) { media+=1; }
+        export function mediaPropertiesChanged(e) { media+=2; }
+        export function mediaThumbnailChanged(e) { media+=4; }
+        export function mediaTimelineChanged(e) { media+=8; }
+        export function update(v) {
+            updates++; Promise.resolve().then(()=>{jobs++;});
+            return (updates+ticks*10+media*100+changes*10000+jobs*100000)/10000000;
+        }
+        """
+        let scene = SceneRenderDescriptor(layers: [layer(), layer(18, index: 1)])
+        let root: [String: Any] = ["objects": [16, 18].map { id in
+            ["id": id, "sound": [resource], "volume": ["script": source, "value": seed]]
+                as [String: Any]
+        }]
+        let soundPlan = SceneSoundPlaybackProgram.compile(document: .init(objects: [16, 18].map {
+            .init(id: $0, sound: sound(resource: resource))
+        }), resourceView: .init(resourcesByReference: [resource: audio]))
+        let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
+            "mode": ["type": "slider", "value": 0, "min": 0, "max": 1]])
+        let accepted = try candidate(scene, bindings(root), sound: soundPlan,
+            properties: catalog.definitions)
+        let program = accepted.scalarProgram
+        var facts: [String: Bool] = [:]
+        let domain = accepted.domain!
+        let originTarget = SceneDynamicTarget.layer(layerID: 18, field: .origin)
+        let scaleTarget = SceneDynamicTarget.layer(layerID: 18, field: .scale)
+        let base = snapshot([
+            .init(target: originTarget, valueType: .vector3, authoredValue: .vector3(0, 0, 0)),
+            .init(target: scaleTarget, valueType: .vector3, authoredValue: .vector3(1, 1, 1)),
+        ], script: [originTarget: .vector3(37, -12, 5), scaleTarget: .vector3(2, 3, 4)])
+        try domain.publishLayerSnapshot(base, descriptor: scene,
+            soundPlaybackSnapshots: [16: false, 18: false])
+        let reader = try SceneScriptValueOwner(domain: domain, source: """
+            export function update(v) {
+                const peer=thisScene.getLayerByID(18);
+                return new Vec3(peer.origin.x,peer.origin.y,
+                    peer.scale.x+(thisLayer.isPlaying()?10:0));
+            }
+            """, target: .layer(layerID: 16, field: .origin), effectNames: [],
+            generation: 11, budget: .default)
+        func readPeer() throws -> SceneDynamicValue {
+            let value = try reader.evaluate(input: .vector3(0, 0, 0), frame: frame,
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}",
+                expectedGeneration: 11, interruptBudget: nil).get().value
+            reader.commitLayerMutations()
+            return value
+        }
+        let fullRead = try readPeer()
+        try domain.publishSoundPlaybackSnapshot(base, descriptor: scene,
+            soundPlaybackSnapshots: [16: true, 18: false], catalogToken: domain.layerCatalogSignature!)
+        let partialRead = try readPeer()
+        domain.discardCommittedLayerSnapshot()
+        facts["partial-sound-snapshot-preserves-dynamic-peer-origin-and-scale"] =
+            fullRead == .vector3(37, -12, 2) && partialRead == .vector3(37, -12, 12)
+        facts["partial-sound-snapshot-discard-restores-vm-mirror"] =
+            try readPeer() == .vector3(37, -12, 2)
+        let owner = program.bindings.first { $0.target == target }!
+        let other = program.bindings.first { $0.target == peer }!
+        let inputs: [SceneDynamicTarget: SceneDynamicValue] = [target: .scalar(seed), peer: .scalar(seed)]
+        func timing(_ runtime: Double, _ delta: Double = 0) -> SceneScriptFrameInput {
+            .init(timing: .init(wallDate: Date(timeIntervalSince1970: runtime),
+                simulationFrameTime: delta, sceneTime: runtime), timeZone: TimeZone(secondsFromGMT: 0)!)
+        }
+        // Real callback pre-arms both owners while init is still pending. All
+        // three primitive paths therefore encounter due work at a new runtime.
+        for binding in program.bindings {
+            _ = try binding.dispatchUserProperties(changedPropertiesJSON: "{\"mode\":0}",
+                scriptPropertiesJSON: "", frame: timing(0), userPropertiesJSON: "{}").get()
+            binding.commitLayerMutations()
+        }
+        let events = SceneScriptMediaFrameEvents(
+            playback: .init(state: 1, generation: 7),
+            properties: .init(title: "Owned title", artist: "Owned artist", generation: 7),
+            thumbnail: .init(hasThumbnail: false, generation: 7),
+            timeline: .init(position: 1, duration: 2, generation: 7))
+        let observed = program.observeMediaEvents(events)
+        let before = program.frameStateSnapshot()
+        func mediaUnconsumed() -> Bool {
+            let state = program.frameStateSnapshot()
+            return state.observedMediaPlaybackEvent == before.observedMediaPlaybackEvent
+                && state.observedMediaPropertiesEvent == before.observedMediaPropertiesEvent
+                && state.observedMediaThumbnailEvent == before.observedMediaThumbnailEvent
+                && state.observedMediaTimelineEvent == before.observedMediaTimelineEvent
+                && state.consumedMediaPlaybackGenerations.isEmpty
+                && state.consumedMediaPropertiesGenerations.isEmpty
+                && state.consumedMediaThumbnailGenerations.isEmpty
+                && state.consumedMediaTimelineGenerations.isEmpty
+        }
+        facts["refresh-fixture-two-real-owners-and-due-timers"] = accepted.constructionReport.isComplete
+            && program.bindings.count == 2 && owner.needsInitialization && other.needsInitialization
+            && mwx_scene_quickjs_owner_active_timer_count(owner.handle) == 1
+            && mwx_scene_quickjs_owner_active_timer_count(other.handle) == 1
+        let empty = program.evaluate(inputs: inputs, frame: timing(4),
+            effectivePropertyValues: ["mode": .number(0)], propertyRevision: 0,
+            propertyRefresh: true, mediaPlaybackEvent: .init(state: 0, generation: 8))
+        facts["refresh-without-filter-does-not-observe-or-call-owners"] = empty.values.isEmpty
+            && empty.failures.isEmpty && empty.ownerEffects.isEmpty && mediaUnconsumed()
+            && owner.needsInitialization && other.needsInitialization
+        let first = program.evaluate(inputs: inputs, frame: timing(5),
+            effectivePropertyValues: ["mode": .number(0)], propertyRevision: 0,
+            targetFilter: target, propertyRefresh: true, observedMediaEvents: observed)
+        program.finalizeLayerMutations(committing: true)
+        facts["refresh-init-property-update-drain-jobs-without-timer-or-media"] = first.failures.isEmpty
+            && scalar(first.values[target], is: 0.0320001) && first.values[peer] == nil
+            && mediaUnconsumed() && other.needsInitialization
+            && mwx_scene_quickjs_owner_active_timer_count(owner.handle) == 1
+            && mwx_scene_quickjs_owner_active_timer_count(other.handle) == 1
+        let second = program.evaluate(inputs: inputs, frame: timing(6),
+            effectivePropertyValues: ["mode": .number(1)], propertyRevision: 1,
+            targetFilter: target, propertyRefresh: true, observedMediaEvents: observed)
+        program.finalizeLayerMutations(committing: true)
+        facts["refresh-advancing-runtime-zero-delta-keeps-peer-and-timer-frozen"] = second.failures.isEmpty
+            && scalar(second.values[target], is: 0.0530002) && second.values[peer] == nil
+            && mediaUnconsumed() && other.needsInitialization
+            && mwx_scene_quickjs_owner_active_timer_count(owner.handle) == 1
+        let resumed = program.evaluate(inputs: inputs, frame: timing(7, 0.1),
+            effectivePropertyValues: ["mode": .number(1)], propertyRevision: 1,
+            observedMediaEvents: observed)
+        program.finalizeLayerMutations(committing: true)
+        let consumed = program.frameStateSnapshot()
+        let generations: [SceneDynamicTarget: UInt64] = [target: 7, peer: 7]
+        facts["refresh-normal-mode-consumes-each-pending-event-and-timer-once"] = resumed.failures.isEmpty
+            && scalar(resumed.values[target], is: 0.0631513)
+            && scalar(resumed.values[peer], is: 0.0321511)
+            && consumed.consumedMediaPlaybackGenerations == generations
+            && consumed.consumedMediaPropertiesGenerations == generations
+            && consumed.consumedMediaThumbnailGenerations == generations
+            && consumed.consumedMediaTimelineGenerations == generations
+            && mwx_scene_quickjs_owner_active_timer_count(owner.handle) == 0
+            && mwx_scene_quickjs_owner_active_timer_count(other.handle) == 0
+        let repeated = program.evaluate(inputs: inputs, frame: timing(8, 0.1),
+            effectivePropertyValues: ["mode": .number(1)], propertyRevision: 1,
+            observedMediaEvents: observed)
+        program.finalizeLayerMutations(committing: true)
+        facts["refresh-normal-mode-does-not-replay-events-or-extra-peer-updates"] = repeated.failures.isEmpty
+            && scalar(repeated.values[target], is: 0.0731514)
+            && scalar(repeated.values[peer], is: 0.0421512)
+        return facts
+    }
+
     static func main() throws {
         let audio = URL(fileURLWithPath: CommandLine.arguments[1])
         var facts = try propertyFacts(audio: audio)
         facts.merge(try admissionFacts(audio: audio)) { _, latest in latest }
         facts.merge(try numericFacts(audio: audio)) { _, latest in latest }
         facts.merge(try lifecycleFacts(audio: audio)) { _, latest in latest }
+        facts.merge(try namedFacts(audio: audio)) { _, latest in latest }
+        facts.merge(try namedAdmissionFacts(audio: audio)) { _, latest in latest }
+        facts.merge(try propertyRefreshFacts(audio: audio)) { _, latest in latest }
         print(String(decoding: try JSONSerialization.data(withJSONObject: facts,
             options: [.sortedKeys]), as: UTF8.self))
     }

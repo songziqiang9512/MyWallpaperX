@@ -140,18 +140,7 @@ extension SceneDesktopWallpaperSession {
                 timing.frameIndex
             )
         }
-        for command in mediaPlaybackCommands {
-            switch command.destination {
-            case .videoTexture: _ = videoTextureSourceRegistry?.apply([command], timing: timing)
-            case .soundLayer: _ = soundPlaybackRegistry?.apply([command])
-            }
-        }
-#if DEBUG
-        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow, !mediaPlaybackCommands.isEmpty {
-            NSLog("MWX DEBUG SCENE: mediaPlaybackCommands=%@ callback=committed frame=%llu",
-                String(describing: mediaPlaybackCommands), timing.frameIndex)
-        }
-#endif
+        commitSceneMediaPlayback(mediaPlaybackCommands, timing: timing)
         if !textureAnimationCommands.isEmpty,
            case .success = context.textureAnimationPlaybackRuntime.apply(
                textureAnimationCommands,
@@ -191,8 +180,9 @@ extension SceneDesktopWallpaperSession {
             NSLog("MWX SceneScript VM: lifecycle=text-clone-adoption failure=%@ code=%@",
                   String(describing: failure), failure.code)
         }
+        let committedEvaluation: SceneEvaluationTransaction.PendingEvaluation
         if layerPlan.createdPreparedTextValues.isEmpty {
-            evaluationTransaction.commit(pendingEvaluation)
+            committedEvaluation = pendingEvaluation
         } else {
             // A birth is the only point where the committed schema expands.
             // Seed its accepted init result in the existing snapshot owner so
@@ -216,13 +206,10 @@ extension SceneDesktopWallpaperSession {
             )
             let expanded = evaluationTransaction.prepare(
                 frameIndex: snapshot.frameIndex, resolution: resolution)
-            evaluationTransaction.commit(expanded)
+            committedEvaluation = expanded
         }
-        soundPlaybackRegistry?.apply(
-            snapshot: pendingEvaluation.snapshot,
-            excludingLayerIDs: layerPlan.destroyedAuthoredLayerIDs
-                .union(layerPlan.retiredDynamicLayerIDs)
-        )
+        commitSceneDynamicEvaluation(committedEvaluation,
+            excludingLayerIDs: layerPlan.destroyedAuthoredLayerIDs.union(layerPlan.retiredDynamicLayerIDs))
         soundPlaybackRegistry?.retire(layerIDs: layerPlan.destroyedAuthoredLayerIDs)
         finalizeSceneScriptLayerSnapshot(context)
         retireDestroyedSceneScriptOwners(
@@ -230,6 +217,33 @@ extension SceneDesktopWallpaperSession {
             frame: scriptFrame
         )
         context.sceneScriptStorageSession?.commitFrameTransaction()
+    }
+
+    func commitSceneMediaPlayback(
+        _ mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand], timing: SceneFrameTiming
+    ) {
+        for command in mediaPlaybackCommands {
+            switch command.destination {
+            case .videoTexture: _ = videoTextureSourceRegistry?.apply([command], timing: timing)
+            case .soundLayer: _ = soundPlaybackRegistry?.apply([command])
+            }
+        }
+#if DEBUG
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow, !mediaPlaybackCommands.isEmpty {
+            NSLog("MWX DEBUG SCENE: mediaPlaybackCommands=%@ callback=committed frame=%llu",
+                String(describing: mediaPlaybackCommands), timing.frameIndex)
+        }
+#endif
+    }
+
+    /// Both cadence and property events publish through the same transaction
+    /// and gain consumer; neither path can write a named script input directly.
+    func commitSceneDynamicEvaluation(
+        _ pending: SceneEvaluationTransaction.PendingEvaluation,
+        excludingLayerIDs: Set<Int> = []
+    ) {
+        evaluationTransaction.commit(pending)
+        soundPlaybackRegistry?.apply(snapshot: pending.snapshot, excludingLayerIDs: excludingLayerIDs)
     }
 
     private func retireDestroyedSceneScriptOwners(

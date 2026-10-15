@@ -480,6 +480,20 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         values
     }
 
+    /// A scoped refresh cannot silently adopt a new schema while retaining
+    /// unrelated resolved values and metadata from the accepted publication.
+    fileprivate nonisolated func matchesPreparedSchema(
+        _ index: SceneDynamicSnapshotDefinitionIndex
+    ) -> Bool {
+        index.authoredDiagnostics.isEmpty
+            && authoredValues == index.authoredValueLanes
+            && userPropertyNumericRanges == index.userPropertyNumericRanges
+            && values.count == index.authoredValues.count
+            && values.allSatisfy { target, resolved in
+                index.definitionsByTarget[target]?.valueType == resolved.value.valueType
+            }
+    }
+
     nonisolated static func empty(
         frameIndex: UInt64,
         generation: UInt64 = 0
@@ -633,6 +647,58 @@ nonisolated struct SceneDynamicSnapshotResolver {
         definitions: [SceneDynamicTargetDefinition]
     ) -> SceneDynamicSnapshotDefinitionIndex {
         SceneDynamicSnapshotDefinitionIndex(definitions: definitions)
+    }
+
+    /// Resolves only the explicitly replaced targets against their prepared
+    /// authored seeds. Unselected values, sources and authored metadata remain
+    /// the accepted base. Lower-priority lanes must be supplied explicitly,
+    /// since the winning value cannot reconstruct a lane hidden by SceneScript.
+    nonisolated func resolveScoped(
+        replacing targets: Set<SceneDynamicTarget>,
+        index: SceneDynamicSnapshotDefinitionIndex,
+        base: SceneDynamicSnapshot,
+        userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    ) -> SceneDynamicSnapshotResolution? {
+        guard base.matchesPreparedSchema(index),
+              targets.allSatisfy({ index.authoredValues[$0] != nil }),
+              userValues.keys.allSatisfy(targets.contains),
+              timelineValues.keys.allSatisfy(targets.contains),
+              sceneScriptValues.keys.allSatisfy(targets.contains) else { return nil }
+
+        var selected: [SceneDynamicTarget: SceneDynamicResolvedValue] = [:]
+        for target in targets { selected[target] = index.authoredValues[target] }
+        var diagnostics: [SceneDynamicSnapshotDiagnostic] = []
+        apply(userValues, source: .userProperty, definitions: index.definitionsByTarget,
+              resolved: &selected, diagnostics: &diagnostics)
+        apply(timelineValues, source: .timeline, definitions: index.definitionsByTarget,
+              resolved: &selected, diagnostics: &diagnostics)
+        apply(sceneScriptValues, source: .sceneScript, definitions: index.definitionsByTarget,
+              resolved: &selected, diagnostics: &diagnostics)
+
+        var resolved = base.resolvedValuesForPreparation()
+        for (target, value) in selected { resolved[target] = value }
+        let affectedTransformLayerIDs = Set(targets.compactMap { target -> Int? in
+            guard case let .layer(layerID, field) = target,
+                  field == .origin || field == .scale || field == .angles else { return nil }
+            return layerID
+        })
+        let dynamicTransformLayerIDs = base.dynamicTransformLayerIDsForFrame
+            .subtracting(affectedTransformLayerIDs)
+            .union(Self.dynamicTransformLayerIDs(
+                in: resolved,
+                candidates: index.dynamicTransformLayerIDs.intersection(affectedTransformLayerIDs)
+            ))
+        return SceneDynamicSnapshotResolution(
+            snapshot: base.replacingResolvedValues(
+                frameIndex: base.frameIndex,
+                generation: base.generation,
+                values: resolved,
+                dynamicTransformLayerIDs: dynamicTransformLayerIDs
+            ),
+            diagnostics: Self.orderedDiagnostics(diagnostics)
+        )
     }
 
     nonisolated func resolve(

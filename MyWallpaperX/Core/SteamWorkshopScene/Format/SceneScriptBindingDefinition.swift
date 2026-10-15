@@ -289,6 +289,7 @@ nonisolated enum SceneScriptBindingIRParser {
                     object[key],
                     owner: objectOwner,
                     path: [.key("objects"), .index(objectIndex), .key(key)],
+                    isSoundObject: object["sound"] != nil,
                     bindings: &bindings,
                     diagnostics: &diagnostics
                 )
@@ -387,6 +388,7 @@ nonisolated enum SceneScriptBindingIRParser {
         _ rawValue: Any?,
         owner: SceneScriptBindingOwner,
         path: [SceneScriptBindingPathComponent],
+        isSoundObject: Bool = false,
         bindings: inout [SceneScriptBindingIR],
         diagnostics: inout [SceneScriptBindingDiagnostic]
     ) {
@@ -408,6 +410,12 @@ nonisolated enum SceneScriptBindingIRParser {
                 wrapper, host: .objectVisibility
             )
             && SceneJSONValue(jsonObject: wrapper["value"] as Any)?.boolValue != nil
+        let directSoundVolumeOwner = isSoundObject && owner.kind == .object
+            && owner.objectIndex.map { path == [
+                .key("objects"), .index($0), .key("volume"),
+            ] } == true
+            && SceneScriptDynamicProviderHostContract
+                .namedSoundVolumeInput(wrapper) != nil
         let directPassPropertyOwner: Bool
         if owner.kind == .pass,
            let property = wrapper["user"] as? String,
@@ -429,7 +437,7 @@ nonisolated enum SceneScriptBindingIRParser {
         }
         if let userValue = wrapper["user"], !(userValue is NSNull),
            !directTextPropertyOwner && !directBooleanVisibilityOwner
-            && !directPassPropertyOwner {
+            && !directPassPropertyOwner && !directSoundVolumeOwner {
             diagnostics.append(.init(code: .conflictingSources, targetPath: path))
             return
         }

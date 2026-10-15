@@ -420,7 +420,8 @@ nonisolated enum SceneScriptMediaEventBridge {
         changedPropertiesJSON: String,
         scriptPropertiesJSON: String,
         frame: SceneScriptFrameInput,
-        userPropertiesJSON: String
+        userPropertiesJSON: String,
+        propertyRefresh: Bool = false
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         guard !changedPropertiesJSON.isEmpty,
               changedPropertiesJSON.utf8.count <= 65_536 else {
@@ -431,9 +432,10 @@ nonisolated enum SceneScriptMediaEventBridge {
         let raw = changedPropertiesJSON.withCString { changed in
             scriptPropertiesJSON.withCString { scriptProperties in
                 userPropertiesJSON.withCString { userProperties in
-                    mwx_scene_quickjs_owner_dispatch_user_properties(
+                    mwx_scene_quickjs_owner_dispatch_user_properties_mode(
                         owner,
                         ownerGeneration,
+                        propertyRefresh ? 1 : 0,
                         changed,
                         changedPropertiesJSON.utf8.count,
                         scriptProperties,

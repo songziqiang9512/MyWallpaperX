@@ -67,6 +67,28 @@ nonisolated extension SceneScriptScalarProgram {
         }
     }
 
+    /// Only uniquely projected volume owners may claim a named input. Resource
+    /// admission and resolved seed identity remain in the Sound Program.
+    static func projectedVolumePropertyKeys(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = []
+    ) -> [SceneDynamicTarget: String] {
+        let candidates = scriptBindings.compactMap { binding ->
+            (target: SceneDynamicTarget, key: String?)? in
+            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
+                  let target = projection(
+                      binding, descriptor: descriptor, timelineTargets: timelineTargets
+                  ), case .layer(_, .volume) = target else { return nil }
+            return (target, binding.userPropertyKey)
+        }
+        let counts = Dictionary(grouping: candidates, by: \.target).mapValues(\.count)
+        return Dictionary(uniqueKeysWithValues: candidates.compactMap { candidate in
+            guard counts[candidate.target] == 1, let key = candidate.key else { return nil }
+            return (candidate.target, key)
+        })
+    }
+
     static func projection(
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor,
@@ -96,11 +118,31 @@ nonisolated extension SceneScriptScalarProgram {
                     || SceneScriptDynamicProviderHostContract.supports(
                         keys: binding.wrapperKeys ?? [], host: .objectScalar
                     )
-                // The Sound Program validates the raw seed against its
-                // admitted resource before any owner module is evaluated.
-                guard binding.targetKey == "volume", validWrapper,
+                if binding.userPropertyKey != nil {
+                    guard let input = SceneScriptDynamicProviderHostContract
+                            .namedSoundVolumeInput(
+                                source: binding.source,
+                                wrapperKeys: binding.wrapperKeys ?? [],
+                                userPropertyKey: binding.userPropertyKey,
+                                value: binding.authoredValue
+                            ),
+                          case let .object(configuration)? = layer.initialConfiguration,
+                          configuration["sound"] != nil,
+                          case let .object(wrapper)? = configuration["volume"],
+                          wrapper.keys.sorted() == binding.wrapperKeys,
+                          wrapper["script"] == .string(input.source),
+                          wrapper["user"] == .string(input.userPropertyKey),
+                          wrapper["value"]?.numberValue?.isFinite == true,
+                          wrapper["scriptproperties"] == (binding.wrapperKeys?.contains("scriptproperties") == true
+                            ? .object(binding.properties) : nil) else { return nil }
+                } else if !validWrapper {
+                    return nil
+                }
+                // Named current values may differ from the IR's raw fallback.
+                // The Sound Program validates their resource/key/resolved seed
+                // identity before any owner module is evaluated.
+                guard binding.targetKey == "volume",
                       layer.contentKind == "sound",
-                      binding.userPropertyKey == nil,
                       !timelineTargets.contains(target),
                       SceneScriptValueOwner.acceptsScalar(authored, for: target)
                 else { return nil }

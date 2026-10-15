@@ -421,7 +421,9 @@ nonisolated struct SceneUserPropertyBindingParser {
                at: Array(components.dropLast(2)),
                root: root
            ) as? [String: Any],
-           let host = Self.sceneScriptHostKind(Array(components.dropLast(2))),
+           let host = Self.sceneScriptHostKind(
+               Array(components.dropLast(2)), object: object
+           ),
            SceneScriptDynamicProviderHostContract.supports(
                wrapper,
                host: host
@@ -606,13 +608,14 @@ nonisolated struct SceneUserPropertyBindingParser {
     }
 
     private nonisolated static func sceneScriptHostKind(
-        _ components: [SceneUserPropertyPathComponent]
+        _ components: [SceneUserPropertyPathComponent], object: [String: Any]
     ) -> SceneScriptDynamicProviderHostContract.HostKind? {
         if components.count == 3,
            key(components[0]) == "objects", index(components[1]) != nil,
            let field = key(components[2]) {
             switch field {
-            case "alpha", "brightness", "fov", "volume": return .objectScalar
+            case "alpha", "brightness", "fov": return .objectScalar
+            case "volume": return object["sound"] != nil ? .soundVolume : .objectScalar
             case "angles", "origin", "scale", "color": return .objectVector
             case "visible": return .objectVisibility
             case "text": return .objectText

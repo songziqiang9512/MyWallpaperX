@@ -46,3 +46,20 @@ snapshot writer只消费无direct property key的binding；旧即时property wri
 独立原包3743305891未参与修法，实际FLAC layer107时钟`0→0.422002`、rate1，人物/日期/频谱画面已查看，正常退出/GPU drained。候选3662790108冷运行在120s预算内未ready（prepare-catalog约70.338s已包含model-build约43.313s，嵌套计时不相加）；看门狗精确回收，未获得该样本画面/volume结果。此为启动大成本线索，尚未定位可避免owner，不计性能回归归因或成功。未验扬声器听感、正常daemon/原生面板本片入口、多屏/设备热插拔；4处nonnull outer-user冲突、3处OGG、handle volume setter及原样本其他未修视觉继续保留。
 
 **材料。** 最小hash/neutral结果、压缩日志及原包和独立实图留`.artifacts/tmp/sound-volume-script-20261016`，本轮样本/HOME/缓存和重试重复图退役；沿用唯一`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`。未抬已满证据提升预算，未删除未知旧材料。Windows VM按用户要求保持运行；未推送。后继先核现役队列共享global/scope正确性静态反例，真实收益须另证，不重启U40无合格载体实验。
+
+
+<a id="sound-mixed-volume"></a>
+
+## Named Slider与条件输入后继（2026-10-16）
+
+**通用语义。** 普通Sound volume的精确`script/user/value`或`script/scriptproperties/user/value`有限Number现可复用同一个Scalar owner。外层Slider作为原typed下层输入，内层条件沿既有codec；raw seed与resolved当前值分域，最终构造成功才由Sound Program移交writer。旧direct仅保未移交target；增益始终经settled snapshot到原AVQueuePlayer，没有第二播放器、输入缓存或clock。合同与边界见[D4](../roadmap/batch2/script-component-api-design.md#sound-volume-named-input)。
+
+**暂停及相邻修正。** 即时与deferred提交前复用原Transaction完整committed snapshot做scoped刷新，只求值受影响mixed owner；未知声明输入保codec fallback，不造schema。显式mode跳timer/media/ended派发但保Promise drain，未选owner/Timeline/transform保持。partial C镜像的reuse修为保留current origin，原全量publisher继续承担更新；未提交镜像沿原discard恢复。副作用仍走原journal/fixed-point/storage和共用commit，暂只接Scalar结果与Sound命令；其他副作用拒绝整个owner。typed下层fallback与整笔取消分开，任意JS堆回滚不在保证范围。
+
+**可比事实。** 前资格App对原314的Combo真实改值拒绝，instruction=0/callback=0且rebuildRequired。候选同原project/pkg六次Combo/slider更新全部接受且窗口/surface不变；暂停三次刷新保持frame31、sceneTime1.096516。恢复后实际窗口可见壁炉、时钟与音乐UI；早期暂停图仍处作者暗入场，不当渲染成功正证。另以隔离派生只替volume为自有`v*.5+.1`、raw=.2/default=.4/启动覆盖=.8及缺失declared input fallback：基础增益.5→.3→.4，主音量.5后的实际player增益.25→.15→.20；四次暂停刷新同frame31/sceneTime1.105989，七次编辑同窗口。自有条件命令可达pause/play，宿主暂停时play保持rate0。派生不冒充原作者算法或听感。
+
+**真实面板。** 普通App→Client→daemon原包将Volume .5改.8、Fireplace Sound On改Off；关闭重开仍Off且Volume条件隐藏，再改On恢复.8，reset回On/.5。全程仅1launch、1candidate/active session `A1A2EA46…`，停止前0 Sound stop；最后Stop两声源、Quit exit0且输入无漂移。只证明本次编辑/重开/reset避免重建，未量化CPU/GPU、延迟、RAM或能耗；不计面板专项完成。独立原包3747190633实际可见角色、时钟及频谱，exit0/输入稳定，未见本批相关缺损，不计整样本parity。
+
+**门与审查。** Debug最终41.453秒、4279输入无漂移，exe `115d9508…`/dylib `cedb7f26…`，deep/strict签名通过；两次Swift编译错误原收据保留。Sound行为门236事实通过，覆盖三组改名/等价式、raw/current分域、VM/player、错误返回/资源/构造、direct退出/退休、显式mode与partial getter/rollback。初轮15失败来自fixture把Looper跨阶段item固定，改为先确认非nil、紧贴每次gain提交检查item及queue不变，跨阶段仍核同player/owner；产品未因此修改。Scoped Transaction 13项有效结果复用。独审先发现deferred漏刷、partial origin回退与缺schema输入scope，均在最近owner修正并补审。
+
+**未覆盖与材料。** deferred visibility与Sound同key实际资源组合、故障后整笔Session取消、多surface、native暂停操作、完整听感/官方parity、OGG/random/spatial及handle setter仍开放。最小hash、neutral结果、压缩原日志与必要实图留`.artifacts/tmp/sound-mixed-volume-20261016/`；临时样本/HOME/cache及编译探针当轮退役，唯一连续DerivedData沿原路径保留。Windows按用户要求保持运行；不推送。后继按现役队列选真实缺口，不以本片闭合宣布性能或能力全完成。

@@ -322,6 +322,7 @@ static JSValue properties_argument(JSContext *context, const void *payload) {
 static MWXSceneQuickJSResult dispatch_event(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
+    bool property_refresh,
     const char *callback_name,
     MWXSceneQuickJSEventArgumentFactory argument_factory,
     const void *payload,
@@ -373,10 +374,11 @@ static MWXSceneQuickJSResult dispatch_event(
     mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
-    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
-        owner, frame, user_properties_json, user_properties_length,
-        diagnostic, diagnostic_capacity
-    );
+    MWXSceneQuickJSResult timer_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_run_due_timers(
+            owner, frame, user_properties_json, user_properties_length,
+            diagnostic, diagnostic_capacity
+        );
     if (timer_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
@@ -430,9 +432,10 @@ static MWXSceneQuickJSResult dispatch_event(
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
-    MWXSceneQuickJSResult ended_result = mwx_scene_quickjs_dispatch_video_ended_callbacks(
-        owner, diagnostic, diagnostic_capacity
-    );
+    MWXSceneQuickJSResult ended_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_dispatch_video_ended_callbacks(
+            owner, diagnostic, diagnostic_capacity
+        );
     if (ended_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_restore_frame_engine_host(owner, previous_engine);
         mwx_scene_quickjs_restore_owner_handles(
@@ -528,6 +531,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     return dispatch_event(
         owner,
         expected_generation,
+        false,
         "mediaThumbnailChanged",
         thumbnail_argument,
         event,
@@ -560,6 +564,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
     return dispatch_event(
         owner,
         expected_generation,
+        false,
         "mediaPlaybackChanged",
         playback_argument,
         event,
@@ -593,6 +598,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_timeline(
     return dispatch_event(
         owner,
         expected_generation,
+        false,
         "mediaTimelineChanged",
         timeline_argument,
         event,
@@ -651,6 +657,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
     return dispatch_event(
         owner,
         expected_generation,
+        false,
         "mediaPropertiesChanged",
         properties_argument,
         event,
@@ -693,7 +700,30 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties(
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
-    if (changed_properties_json == NULL || changed_properties_length == 0 ||
+    return mwx_scene_quickjs_owner_dispatch_user_properties_mode(
+        owner, expected_generation, 0,
+        changed_properties_json, changed_properties_length,
+        script_properties_json, script_properties_length, frame,
+        user_properties_json, user_properties_length, diagnostic, diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties_mode(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    uint32_t property_refresh,
+    const char *changed_properties_json,
+    size_t changed_properties_length,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (property_refresh > 1 || changed_properties_json == NULL ||
+        changed_properties_length == 0 ||
         changed_properties_length > 65536) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid user properties event"
@@ -707,6 +737,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties(
     return dispatch_event(
         owner,
         expected_generation,
+        property_refresh != 0,
         "applyUserProperties",
         json_argument,
         &event,
@@ -760,6 +791,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_cursor(
     return dispatch_event(
         owner,
         expected_generation,
+        false,
         callback,
         cursor_argument,
         event,

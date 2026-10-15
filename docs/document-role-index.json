@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3676c86c19510e4ac8ded544f850aff2538a6940e945c315395a826cb67cc6c9",
+        "sourceSHA256": "356f52d65556008ab08dba75abc88e133854cfc10e95996c41401b43afa75d16",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "Sound pure/mixed后验分列；原包与派生App、暂停冻结刷新、实际增益和normal面板保存/重开/reset单session的来源导航，保冷启动超时及未覆盖边界",
+        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
       }
     },
     {
@@ -634,10 +634,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "11f244cc164f57f85d7e2c5dcb818a0beb695d367241527fe4a74aec720ba045",
+        "sourceSHA256": "e737483fc43f6c27b66cd9fee1042d8cd6b3bc1787181287753c2928d951d6a4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
-        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
+        "scope": "Sound named Slider与声明条件输入沿既有codec、Scalar/Transaction及settled snapshot消费；raw/resolved分域、paused scoped刷新和唯一writer的有界状态导航",
+        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
       }
     },
     {
@@ -708,10 +708,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b1c11d1fef41e5cf03c5436f023d6e43ae6d30501c7db17ac2fa5c5b91e20c56",
+        "sourceSHA256": "2ab60516747d663fdb0c533e3b0bdfce4efbb19e812c1d673328b087096b329d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "Sound mixed volume已实施的精确wrapper/host准入、实际player增益及命令、显式refresh mode/partial镜像和原四方法/纯profile边界导航",
+        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
       }
     },
     {
@@ -2774,7 +2774,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "Sound四播放方法、Vector热更与无outer-user volume字段脚本；既有typed/player增益链、原包/派生/独立结果及冷启动超时分层，不认领听感、性能或完整能力。"
+      "uniqueValue": "Sound四播放方法、Vector热更与无outer-user volume字段脚本；既有typed/player增益链、原包/派生/独立结果及冷启动超时分层。新增#sound-mixed-volume保named Slider/条件输入、冻结Scalar/Transaction、writer移交、partial镜像与真实面板单session后验及Looper测试修正；pure/mixed各自未验边界保留，不认领听感、性能或完整能力。"
     },
     {
       "path": "docs/scene/history/source-material-entry-2026-10-08.md",
@@ -3118,10 +3118,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9adbe3d75d5aa3970a4b8e76d541d9d313c49768163f5828ad289583ec0790c6",
+        "sourceSHA256": "f1ae4d1ae2bf3648b64149a85ca7dceb7b2b071f6c211f43988301e516a81fcd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "mixed Sound volume原包资格与唯一暂停属性事务设计；Timeline三包资格及不命中Puppet pivot反例的边界",
-        "limitations": "设计中未开放profile；本次CLI资格非原生重建复现，无功能修复或性能收益结论"
+        "scope": "Sound mixed volume已实施有界合同；唯一Scalar/Transaction、committed scoped base、暂停输入publication、writer移交及失败/退出职责复核",
+        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
       }
     },
     {
@@ -3180,10 +3180,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0be149db6becfceddacfd5114c18fbdf16b10f0c6cf725feb8a8752232cf636c",
+        "sourceSHA256": "5eb72edcadf5f7560061a14bc2d90304dd7aedc83ef27d1931e7f0b3b2d02964",
         "method": "document_registry --audit + document_health --check",
-        "scope": "mixed Sound volume原包资格与唯一暂停属性事务设计；Timeline三包资格及不命中Puppet pivot反例的边界",
-        "limitations": "设计中未开放profile；本次CLI资格非原生重建复现，无功能修复或性能收益结论"
+        "scope": "替换Sound mixed设计资格为本片原包/派生播放与暂停热改、真实面板保存/重开/reset的有界后验，后继保持真实缺口选序",
+        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
       }
     },
     {
@@ -3215,10 +3215,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dfcfd1ee43000d9d1a1ff476df5e85634a859be42d8ecb7cb3d6174211e6f953",
+        "sourceSHA256": "57b3d4ca3f9118f220c03919d9b95236b32a47abaf733c5c0511741aa85dc0f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "mixed Sound volume原包资格与唯一暂停属性事务设计；Timeline三包资格及不命中Puppet pivot反例的边界",
-        "limitations": "设计中未开放profile；本次CLI资格非原生重建复现，无功能修复或性能收益结论"
+        "scope": "将Sound mixed早门拒绝替换为首链有界已修，指向既有历史锚；deferred实际组合、故障Session取消、多surface及更广mixed继续开放",
+        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
       }
     },
     {

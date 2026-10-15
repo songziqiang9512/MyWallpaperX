@@ -3,11 +3,18 @@ import Foundation
 /// Exact outer-wrapper shapes shared by property routing and the SceneScript
 /// scalar/vector/text candidate catalogs. Boolean visibility may receive an
 /// outer user property through the existing lower-priority typed input channel;
-/// text content is the only other host whose outer `user` key may name a real
-/// user property alongside the script's own declared script properties.
+/// text content and ordinary Sound volume also accept a named outer input.
+/// Sound volume retains its own Number contract instead of widening scalars.
 nonisolated enum SceneScriptDynamicProviderHostContract {
+    struct NamedSoundVolumeInput: Sendable {
+        let source: String
+        let userPropertyKey: String
+        let volumeSeed: Double
+    }
+
     enum HostKind: Equatable, Sendable {
         case objectScalar
+        case soundVolume
         case objectVector
         case objectVisibility
         case objectText
@@ -18,7 +25,7 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
             switch self {
             case .objectVector, .objectText, .particleValue, .passConstant:
                 return true
-            case .objectScalar, .objectVisibility:
+            case .objectScalar, .soundVolume, .objectVisibility:
                 return false
             }
         }
@@ -26,7 +33,7 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
         /// Hosts whose outer `user` key may carry a real user property key
         /// instead of being absent or null.
         var acceptsStringOuterUser: Bool {
-            self == .objectVisibility || self == .objectText
+            self == .objectVisibility || self == .objectText || self == .soundVolume
         }
     }
 
@@ -34,6 +41,9 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
         (host == .objectVisibility
             && (keys == ["script", "user", "value"]
                 || keys == ["script", "scriptproperties", "user", "value"]))
+            || (host == .soundVolume
+                && (keys == ["script", "user", "value"]
+                    || keys == ["script", "scriptproperties", "user", "value"]))
             || (host == .objectText
                 && (keys == ["script", "value"]
                     || keys == ["script", "user", "value"]))
@@ -48,6 +58,9 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
     static func supports(_ wrapper: [String: Any], host: HostKind) -> Bool {
         let keys = wrapper.keys.sorted()
         guard supports(keys: keys, host: host) else { return false }
+        if host == .soundVolume, keys.contains("user") {
+            return namedSoundVolumeInput(wrapper) != nil
+        }
         if host == .objectVisibility,
            let user = wrapper["user"].flatMap(SceneJSONValue.init(jsonObject:)),
            let value = wrapper["value"].flatMap(SceneJSONValue.init(jsonObject:)),
@@ -57,6 +70,39 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
         }
         return !keys.contains("user") || wrapper["user"] is NSNull
             || (host.acceptsStringOuterUser && wrapper["user"] is String)
+    }
+
+    /// This is structural admission only. The Sound Program proves the named
+    /// Slider, resolved startup seed and admitted resource before owner creation.
+    static func namedSoundVolumeInput(
+        _ wrapper: [String: Any]
+    ) -> NamedSoundVolumeInput? {
+        namedSoundVolumeInput(
+            source: wrapper["script"] as? String,
+            wrapperKeys: wrapper.keys.sorted(),
+            userPropertyKey: wrapper["user"] as? String,
+            value: wrapper["value"].flatMap(SceneJSONValue.init(jsonObject:))
+        )
+    }
+
+    static func namedSoundVolumeInput(
+        source: String?, wrapperKeys: [String], userPropertyKey: String?,
+        value: SceneJSONValue?
+    ) -> NamedSoundVolumeInput? {
+        guard wrapperKeys == ["script", "user", "value"]
+                || wrapperKeys == ["script", "scriptproperties", "user", "value"],
+              let source,
+              !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let userPropertyKey,
+              SceneScriptUserPropertyInputContract.validName(userPropertyKey),
+              userPropertyKey == userPropertyKey.trimmingCharacters(in: .whitespacesAndNewlines),
+              !userPropertyKey.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              let volumeSeed = value?.numberValue,
+              volumeSeed.isFinite, (0 ... 1).contains(volumeSeed) else { return nil }
+        return .init(
+            source: source, userPropertyKey: userPropertyKey,
+            volumeSeed: volumeSeed
+        )
     }
 
     /// The same conditional reference shape is used by an outer visibility

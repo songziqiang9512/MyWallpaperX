@@ -37,6 +37,15 @@ struct SceneSoundPlaybackProgram {
 
     let bindings: [Binding]
     let diagnostics: [Diagnostic]
+    private(set) var scriptVolumeTargets: Set<SceneDynamicTarget> = []
+
+    /// Final owner construction transfers gain publication for these targets.
+    /// The property key remains input identity, never a second player writer.
+    func assigningSceneScriptVolumes(_ targets: Set<SceneDynamicTarget>) -> Self {
+        var result = self
+        result.scriptVolumeTargets = targets.intersection(Set(bindings.map(\.volumeTarget)))
+        return result
+    }
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(bindings.compactMap { binding in
@@ -45,10 +54,12 @@ struct SceneSoundPlaybackProgram {
     }
 
     /// The IR seed is authored, while this plan carries the resolved startup
-    /// seed. Only resource-admitted, non-property targets may share the scalar
-    /// script lane; direct property targets retain their existing paused input.
+    /// seed. Named inputs instead prove the same property and resolved seed;
+    /// the IR raw seed stays independently validated by Scalar projection.
     func sceneScriptVolumeConsumerTargets(
-        for definitions: [SceneDynamicTargetDefinition]
+        for definitions: [SceneDynamicTargetDefinition],
+        namedPropertyKeys: [SceneDynamicTarget: String] = [:],
+        resolvedPropertyVolumes: [String: Double] = [:]
     ) -> Set<SceneDynamicTarget> {
         Set(definitions.compactMap { definition in
             guard case .layer(_, .volume) = definition.target,
@@ -56,9 +67,15 @@ struct SceneSoundPlaybackProgram {
                   let binding = bindings.first(where: {
                       $0.volumeTarget == definition.target
                   }),
-                  binding.volumePropertyKey == nil,
-                  binding.authoredVolume.bitPattern == seed.bitPattern
+                  seed.isFinite, (0 ... 1).contains(seed)
             else { return nil }
+            if let key = binding.volumePropertyKey {
+                guard namedPropertyKeys[definition.target] == key,
+                      let current = resolvedPropertyVolumes[key],
+                      current.bitPattern == binding.authoredVolume.bitPattern else { return nil }
+            } else if binding.authoredVolume.bitPattern != seed.bitPattern {
+                return nil
+            }
             return definition.target
         })
     }

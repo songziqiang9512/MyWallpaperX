@@ -204,6 +204,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
+    memcpy(domain->pending_layer_snapshot[layer_index].current_origin,
+           domain->layers[layer_index].current_origin,
+           sizeof(domain->layers[layer_index].current_origin));
     domain->pending_layer_snapshot[layer_index].runtime_fields_staged = true;
     return MWX_SCENE_QUICKJS_OK;
 }

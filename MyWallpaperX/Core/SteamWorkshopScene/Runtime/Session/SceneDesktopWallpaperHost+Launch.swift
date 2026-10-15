@@ -425,7 +425,7 @@ extension SceneDesktopWallpaperHost {
                     " phases=\(boundedProducerConflicts.joined(separator: ","))"
                 )
         }
-        let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
+        var soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
             document: model.sceneDocument,
             resourceView: model.resourceView
         )
@@ -602,8 +602,22 @@ extension SceneDesktopWallpaperHost {
             resolvedMaterialExecutionCapabilities: resolvedMaterialExecutionCapabilities,
             sourceMaterialCandidateConsumerLayerIDs: sourceMaterialCandidateConsumerLayerIDs
         )
+        let namedSoundPropertyKeys = SceneScriptScalarProgram.projectedVolumePropertyKeys(
+            descriptor: authoredRenderDescriptor,
+            scriptBindings: model.sceneDocument.scriptBindings,
+            timelineTargets: timelineTargets)
+        let soundPropertyDefinitions = Dictionary(
+            grouping: model.project.userProperties.definitions, by: \.key)
+        let resolvedPropertyVolumes = soundPropertyDefinitions.reduce(into: [String: Double]()) { values, entry in
+            guard entry.value.count == 1, entry.value[0].kind == .slider,
+                  case let .number(volume)? = runtimeInput.effectivePropertyValues[entry.key],
+                  volume.isFinite else { return }
+            values[entry.key] = volume
+        }
         let soundVolumeConsumerTargets = soundPlaybackProgram
-            .sceneScriptVolumeConsumerTargets(for: sceneScriptScalarDefinitions)
+            .sceneScriptVolumeConsumerTargets(for: sceneScriptScalarDefinitions,
+                namedPropertyKeys: namedSoundPropertyKeys,
+                resolvedPropertyVolumes: resolvedPropertyVolumes)
         // Structural candidates need an actual prepared consumer. Partition
         // them before planning/evaluating modules; construction and fallback
         // use the same exclusions.
@@ -705,6 +719,8 @@ extension SceneDesktopWallpaperHost {
         let propertyVectorScriptProgram = committedPrograms.vectorProgram
         let sceneScriptCursorProgram = committedPrograms.cursorProgram
         let sceneScriptScalarProgram = committedPrograms.scalarProgram
+        soundPlaybackProgram = soundPlaybackProgram.assigningSceneScriptVolumes(
+            soundVolumeConsumerTargets.intersection(Set(sceneScriptScalarProgram.definitions.map(\.target))))
         let sceneScriptStringProgram = committedPrograms.stringProgram
         let passCompilation = committedPrograms.vectorPassCompilation
         let rejectedVectorPassTargets = passCompilation.failedTargets

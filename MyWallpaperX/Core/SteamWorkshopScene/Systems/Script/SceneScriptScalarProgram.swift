@@ -127,6 +127,27 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         }
     }
 
+    func propertyRefreshOwnerTargets(
+        consuming targets: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        Set(bindings.compactMap { owner in
+            guard !retiredTargets.contains(owner.target) else {
+                return nil
+            }
+            let inputs = livePropertyInputTargetsByTarget[owner.target] ?? []
+            return targets.contains(owner.target) || !inputs.isDisjoint(with: targets)
+                ? owner.target : nil
+        })
+    }
+
+    func propertyRefreshInputTargets(
+        for owners: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        owners.reduce(into: owners) { result, owner in
+            result.formUnion(livePropertyInputTargetsByTarget[owner] ?? [])
+        }
+    }
+
     private init(
         domain: SceneScriptQuickJSDomain?,
         bindings: [SceneScriptValueOwner],
@@ -368,6 +389,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         propertyRevision: UInt64? = nil,
         targetFilter: SceneDynamicTarget? = nil,
+        propertyRefresh: Bool = false,
         excludedTargets: Set<SceneDynamicTarget> = [],
         userPropertiesJSON: String = "{}",
         preparedCurrentJSON: String? = nil,
@@ -379,7 +401,14 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptScalarFrameResult {
-        let observedMediaEvent = observedMediaEvents?.thumbnail ?? frameLedger.observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlaybackEvent = observedMediaEvents?.playback ?? frameLedger.observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedPropertiesEvent = observedMediaEvents?.properties ?? frameLedger.observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimelineEvent = observedMediaEvents?.timeline ?? frameLedger.observedMediaTimelineEvent.observe(mediaTimelineEvent)
+        let observedMediaEvent = propertyRefresh ? nil : (observedMediaEvents?.thumbnail
+            ?? frameLedger.observedMediaThumbnailEvent.observe(mediaThumbnailEvent))
+        let observedPlaybackEvent = propertyRefresh ? nil : (observedMediaEvents?.playback
+            ?? frameLedger.observedMediaPlaybackEvent.observe(mediaPlaybackEvent))
+        let observedPropertiesEvent = propertyRefresh ? nil : (observedMediaEvents?.properties
+            ?? frameLedger.observedMediaPropertiesEvent.observe(mediaPropertiesEvent))
+        let observedTimelineEvent = propertyRefresh ? nil : (observedMediaEvents?.timeline
+            ?? frameLedger.observedMediaTimelineEvent.observe(mediaTimelineEvent))
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var timelineInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
@@ -390,7 +419,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         let selectedBindings: ArraySlice<SceneScriptValueOwner>
         if let targetFilter, let index = bindingIndicesByTarget[targetFilter] {
             selectedBindings = bindings[index...index]
-        } else if targetFilter != nil {
+        } else if targetFilter != nil || propertyRefresh {
             selectedBindings = bindings[0..<0]
         } else {
             selectedBindings = bindings[...]
@@ -490,7 +519,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                     scriptPropertiesJSON: propertiesJSON,
                     userPropertiesJSON: userPropertiesJSON,
                     expectedGeneration: generation,
-                    interruptBudget: interruptBudget
+                    interruptBudget: interruptBudget,
+                    propertyRefresh: propertyRefresh
                 ) {
                 case let .success(initialization):
                     if let initialization {
@@ -525,7 +555,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                     userPropertiesJSON: userPropertiesJSON,
                     interruptBudget: interruptBudget,
                     propertyRevision: propertyRevision,
-                    effectivePropertyValues: effectivePropertyValues
+                    effectivePropertyValues: effectivePropertyValues,
+                    propertyRefresh: propertyRefresh
                 ) {
                 case let .success(eventMutations):
                     effects.append(eventMutations)
@@ -538,7 +569,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                     continue
                 }
             }
-            if binding.hasAudioRegistration {
+            if !propertyRefresh, binding.hasAudioRegistration {
                 switch binding.refreshAudio(audioSpectrum) {
                 case .success:
                     if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
@@ -648,7 +679,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 input: .scalar(evaluationInput), frame: frame,
                 scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userPropertiesJSON,
-                expectedGeneration: generation, interruptBudget: interruptBudget
+                expectedGeneration: generation, interruptBudget: interruptBudget,
+                propertyRefresh: propertyRefresh
             )
             switch evaluation {
             case let .success(evaluation):
@@ -748,7 +780,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                         mutationSummary
                     )
                 }
-                if binding.hasAudioRegistration,
+                if !propertyRefresh, binding.hasAudioRegistration,
                    audioSpectrum.generation > 0, !audioSpectrum.isSilent,
                    reportedAudioValueTargets.insert(binding.target).inserted,
                    case let .scalar(inputValue) = input,

@@ -595,6 +595,7 @@ static MWXSceneQuickJSResult call_primitive(
     JSValueConst function,
     double input,
     bool boolean_value,
+    bool property_refresh,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
@@ -657,9 +658,10 @@ static MWXSceneQuickJSResult call_primitive(
             owner, MWX_SCENE_QUICKJS_EXCEPTION
         );
     }
-    MWXSceneQuickJSResult ended_result = mwx_scene_quickjs_dispatch_video_ended_callbacks(
-        owner, diagnostic, diagnostic_capacity
-    );
+    MWXSceneQuickJSResult ended_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_dispatch_video_ended_callbacks(
+            owner, diagnostic, diagnostic_capacity
+        );
     if (ended_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
         mwx_scene_quickjs_restore_owner_handles(
@@ -1892,6 +1894,7 @@ static MWXSceneQuickJSResult initialize_primitive_callback(
     MWXSceneQuickJSOwner *owner,
     double input,
     bool boolean_value,
+    bool property_refresh,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
@@ -1918,7 +1921,7 @@ static MWXSceneQuickJSResult initialize_primitive_callback(
             return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         }
         result = call_primitive(
-            owner, init, input, boolean_value, frame,
+            owner, init, input, boolean_value, property_refresh, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             output, diagnostic, diagnostic_capacity
@@ -1988,9 +1991,34 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properti
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
+    return mwx_scene_quickjs_owner_initialize_primitive_with_properties_mode(
+        owner, expected_generation, input, boolean_value, 0, frame,
+        script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length,
+        output, did_initialize, diagnostic, diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properties_mode(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    uint32_t property_refresh,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || frame == NULL || output == NULL ||
         did_initialize == NULL || !isfinite(input) || boolean_value > 1 ||
+        property_refresh > 1 ||
         (boolean_value != 0 && !owner->value_only && !owner->effectful_boolean) ||
         (boolean_value == 0 && owner->value_only) ||
         (boolean_value != 0 && input != 0 && input != 1) ||
@@ -2020,17 +2048,18 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properti
     mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
-    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
-        owner, frame, user_properties_json, user_properties_length,
-        diagnostic, diagnostic_capacity
-    );
+    MWXSceneQuickJSResult timer_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_run_due_timers(
+            owner, frame, user_properties_json, user_properties_length,
+            diagnostic, diagnostic_capacity
+        );
     if (timer_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
         return timer_result;
     }
     MWXSceneQuickJSResult result = initialize_primitive_callback(
-        owner, input, boolean_value != 0, frame,
+        owner, input, boolean_value != 0, property_refresh != 0, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity
@@ -2129,9 +2158,32 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
+    return mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
+        owner, expected_generation, input, boolean_value, 0, frame,
+        script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length,
+        output, diagnostic, diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    uint32_t property_refresh,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || frame == NULL || output == NULL || !isfinite(input) ||
-        boolean_value > 1 ||
+        boolean_value > 1 || property_refresh > 1 ||
         (boolean_value != 0 &&
          !owner->value_only && !owner->effectful_boolean) ||
         (boolean_value == 0 && owner->value_only) ||
@@ -2157,10 +2209,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
-    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
-        owner, frame, user_properties_json, user_properties_length,
-        diagnostic, diagnostic_capacity
-    );
+    MWXSceneQuickJSResult timer_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_run_due_timers(
+            owner, frame, user_properties_json, user_properties_length,
+            diagnostic, diagnostic_capacity
+        );
     if (timer_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
@@ -2168,7 +2221,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     }
     if (!mwx_scene_quickjs_owner_is_initialized(owner)) {
         MWXSceneQuickJSResult result = initialize_primitive_callback(
-            owner, input, boolean_value != 0, frame,
+            owner, input, boolean_value != 0, property_refresh != 0, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             output, diagnostic, diagnostic_capacity
@@ -2180,9 +2233,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
         }
         input = *output;
     }
-    MWXSceneQuickJSResult puppet_ended_result = mwx_scene_quickjs_dispatch_puppet_animation_end(
-        owner, frame, script_properties_json, script_properties_length,
-        user_properties_json, user_properties_length, diagnostic, diagnostic_capacity);
+    MWXSceneQuickJSResult puppet_ended_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_dispatch_puppet_animation_end(
+            owner, frame, script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length, diagnostic, diagnostic_capacity);
     if (puppet_ended_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         if (failure_permanently_disables(puppet_ended_result)) owner->disabled = true;
@@ -2200,7 +2254,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
         return MWX_SCENE_QUICKJS_OK;
     }
     MWXSceneQuickJSResult result = call_primitive(
-        owner, update, input, boolean_value != 0, frame,
+        owner, update, input, boolean_value != 0, property_refresh != 0, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity

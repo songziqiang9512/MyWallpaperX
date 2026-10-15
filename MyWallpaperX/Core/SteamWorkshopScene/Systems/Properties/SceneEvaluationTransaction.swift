@@ -20,6 +20,10 @@ nonisolated struct SceneEvaluationTransaction {
 
     nonisolated init() {}
 
+    /// The sole accepted publication, including values outside a scoped refresh.
+    /// Preparing a candidate never changes this snapshot.
+    nonisolated var committedSnapshot: SceneDynamicSnapshot? { lastSnapshot }
+
     /// A rejected dynamic input keeps this target's committed current,
     /// irrespective of whether the preceding producer was user or script.
     nonisolated func previousValue(for target: SceneDynamicTarget) -> SceneDynamicValue? {
@@ -90,6 +94,29 @@ nonisolated struct SceneEvaluationTransaction {
             sceneScriptValues: sceneScriptValues
         )
         return prepare(frameIndex: frameIndex, resolution: resolution)
+    }
+
+    /// Replaces selected targets without advancing the simulation clock or
+    /// resolving unrelated owners. Callers provide every selected lower-priority
+    /// input; an omitted lane follows the ordinary resolver's fallback rules.
+    /// A missing committed base or incompatible prepared scope rejects the refresh.
+    nonisolated mutating func prepareScoped(
+        replacing targets: Set<SceneDynamicTarget>,
+        index: SceneDynamicSnapshotDefinitionIndex,
+        userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    ) -> PendingEvaluation? {
+        guard let lastSnapshot,
+              let resolution = resolver.resolveScoped(
+                  replacing: targets,
+                  index: index,
+                  base: lastSnapshot,
+                  userValues: userValues,
+                  timelineValues: timelineValues,
+                  sceneScriptValues: sceneScriptValues
+              ) else { return nil }
+        return prepare(frameIndex: lastSnapshot.frameIndex, resolution: resolution)
     }
 
     /// Assigns the single scene generation to the shared typed payload.

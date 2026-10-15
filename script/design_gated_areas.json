@@ -605,10 +605,11 @@
       "owner": "Scene scalar Program / existing Sound Playback Registry",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "design_notes": "实施前设计见#sound-volume-script：无outer-user首片，raw IR种子与pure Sound Program迟判，原excluded分区，最终snapshot只写无propertyKey目标、旧property入口仅写有key目标；暂停direct-volume保留，mixed准入前须完成唯一paused publication及旧writer退出。approved只准实施，不计播放/性能验收。",
+      "design_notes": "实施前设计见D4 #sound-volume-script与#sound-volume-named-input：raw seed/current分域，Sound Program迟证resource及最终constructed owner后移交唯一snapshot writer；direct writer仅保未移交target。暂停mixed属性以原Transaction committed快照scoped刷新，显式mode冻结timer/media/ended，复用journal/fixed-point/storage与partial镜像，失败fallback和整笔取消分开。approved只准实施，不计整样本或性能验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift"
       ],
       "contentPatterns": []
     },

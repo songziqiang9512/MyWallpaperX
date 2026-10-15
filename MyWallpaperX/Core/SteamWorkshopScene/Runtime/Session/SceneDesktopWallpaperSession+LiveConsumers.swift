@@ -182,6 +182,8 @@ extension SceneDesktopWallpaperSession {
             )
             pendingDeferredLayerVisibilityUpdate = nil
         }
+        guard refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
+            changedPropertyKeys: acceptedKeys) else { return false }
         context.liveState = candidateLiveState
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
         launchContext = context
@@ -257,7 +259,8 @@ extension SceneDesktopWallpaperSession {
             unavailableConsumerTargets: unavailableLiveConsumerTargets(in: context)
         ), soundPlaybackRegistry?.canApply(
             userValues: candidateLiveState.userValues
-        ) != false else {
+        ) != false, refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
+            changedPropertyKeys: pending.changedPropertyKeys) else {
             adoptedSurfaces.forEach {
                 $0.metalView.discardPreparedDeferredBaseImages(
                     layerIDs: pending.layerIDs

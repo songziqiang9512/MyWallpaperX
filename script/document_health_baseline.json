@@ -110,11 +110,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 122,
-      "bytes": 37215
+      "bytes": 37358
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 194083
+      "bytes": 194530
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 413,
-      "bytes": 105274
+      "bytes": 105545
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 317,
-      "bytes": 85502
+      "lines": 319,
+      "bytes": 85017
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -222,7 +222,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 30,
-      "bytes": 10994
+      "bytes": 10751
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 249,
-      "bytes": 74477
+      "bytes": 74533
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1160,20 +1160,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d815e3d79d2aa9090c79b6bd0dd0b9cc01a16a00b1eb28abb76a95aaa9e78234",
-      "after": "1166b7b381f648d2f0ac43402a63e4bac247d28a52cd7f563096b0318121f2ee",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+      "before": "1166b7b381f648d2f0ac43402a63e4bac247d28a52cd7f563096b0318121f2ee",
+      "after": "4573b105a092aa3e81ef5d61222002ccbda0cbb7c3f0026265b156f93e53a32b",
+      "owner": "Sound Scalar/Transaction",
+      "reason": "替换旧mixed拒绝与设计中描述为已实施有界合同；职责保留现役权威，原包/派生、暂停、真实面板及失败过程归既有历史锚。保pure及未验边界，不扩大总体预算、格式或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "b8f39cf1a9790b9c7a88382744dadcd4c0aba4635752da2283d0cc5eda363de4",
-      "after": "95a999127b53e17aa89391cfbd7561db212ec32b9194f010bfa05f1b2465b551",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
+      "before": "95a999127b53e17aa89391cfbd7561db212ec32b9194f010bfa05f1b2465b551",
+      "after": "6ccd45b68479dcefea6c6733ab383f0f65954dee08162170f5e3c3a5951d3df0",
+      "owner": "Sound Scalar/Transaction",
+      "reason": "替换旧mixed拒绝与设计中描述为已实施有界合同；职责保留现役权威，原包/派生、暂停、真实面板及失败过程归既有历史锚。保pure及未验边界，不扩大总体预算、格式或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
     },
     {
       "section": "bodies",
@@ -1205,28 +1205,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "cb75ed6a272e5a9ab6d1ee793a485e34ea9601aed77ab9230297693f6d895bf6",
-      "after": "9ed35514d09c4211c20e7506b6249ad2b5fa9d54ad42b8151d0540a7ed5eb5d2",
-      "owner": "Scene mixed Sound property transaction design",
-      "reason": "真实原包资格排除condition-only旁路；在既有D4先定义唯一paused publication与writer退出，状态及排除结果只归现役卡，不将设计计实施。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "b9adcf2f7f358b7f3b4c0e6dfc690563f548abcdefe5d5fc6782f3d4335e124a",
-      "after": "ac303df3b2ca8acdd8aa6043ca9a7d190c9f8f3757832ee2936e6cb9b7ac801c",
-      "owner": "Scene mixed Sound property transaction design",
-      "reason": "真实原包资格排除condition-only旁路；在既有D4先定义唯一paused publication与writer退出，状态及排除结果只归现役卡，不将设计计实施。",
+      "before": "9ed35514d09c4211c20e7506b6249ad2b5fa9d54ad42b8151d0540a7ed5eb5d2",
+      "after": "c37dae8f4cbb62c06351e1f56a17aeab34b15eaba9a477bfd94f7bb70779481d",
+      "owner": "Sound Scalar/Transaction",
+      "reason": "替换旧mixed拒绝与设计中描述为已实施有界合同；职责保留现役权威，原包/派生、暂停、真实面板及失败过程归既有历史锚。保pure及未验边界，不扩大总体预算、格式或性能结论。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e202fc4179124048d5d80ff893d754b13bc575d77b5b58a70fef9d3877897169",
-      "after": "d9456e71ecd028002ca9678e9a5619ff5e6e0eb44789e76b5a7255c7a8e65bc4",
-      "owner": "Scene mixed Sound property transaction design",
-      "reason": "真实原包资格排除condition-only旁路；在既有D4先定义唯一paused publication与writer退出，状态及排除结果只归现役卡，不将设计计实施。",
+      "before": "d9456e71ecd028002ca9678e9a5619ff5e6e0eb44789e76b5a7255c7a8e65bc4",
+      "after": "9f4e24ec8eb8272276102973f4a859ed9be75c34aaeee4a4a98c116f3ec1ca2c",
+      "owner": "Sound Scalar/Transaction",
+      "reason": "替换旧mixed拒绝与设计中描述为已实施有界合同；职责保留现役权威，原包/派生、暂停、真实面板及失败过程归既有历史锚。保pure及未验边界，不扩大总体预算、格式或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "1d2c6f8249e9a1a062f83eeb45f6fac1961eb61189b4e6442def723585d48c0d",
+      "after": "5cce291b8c6de615787336a375b265c772294a715a1ceff3810dc6c79702189d",
+      "owner": "Sound Scalar/Transaction",
+      "reason": "替换旧mixed拒绝与设计中描述为已实施有界合同；职责保留现役权威，原包/派生、暂停、真实面板及失败过程归既有历史锚。保pure及未验边界，不扩大总体预算、格式或性能结论。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
     }
   ]

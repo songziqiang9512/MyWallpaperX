@@ -1016,6 +1016,24 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
     size_t diagnostic_capacity
 );
 
+// A property refresh evaluates this callback without advancing scheduled work
+// or consuming ended events. Promise jobs still complete with the callback.
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    uint32_t property_refresh,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_bool_with_properties(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -1064,6 +1082,23 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properti
     uint64_t expected_generation,
     double input,
     uint32_t boolean_value,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properties_mode(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    uint32_t property_refresh,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
@@ -1173,6 +1208,21 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
+    const char *changed_properties_json,
+    size_t changed_properties_length,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties_mode(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    uint32_t property_refresh,
     const char *changed_properties_json,
     size_t changed_properties_length,
     const char *script_properties_json,

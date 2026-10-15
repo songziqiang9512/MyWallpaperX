@@ -284,7 +284,8 @@ final class SceneSoundPlaybackRegistry {
     }
 
     func apply(userValues: [SceneDynamicTarget: SceneDynamicValue]) {
-        for binding in program.bindings where binding.volumePropertyKey != nil {
+        for binding in program.bindings where binding.volumePropertyKey != nil
+            && !program.scriptVolumeTargets.contains(binding.volumeTarget) {
             guard let source = sources[binding.layerID],
                   let volume = volume(for: binding, userValues: userValues) else { continue }
             source.apply(volume: volume)
@@ -294,7 +295,8 @@ final class SceneSoundPlaybackRegistry {
     /// Scalar-script outputs have a disjoint target set from the immediate
     /// property lane above. A missing snapshot entry never resets a source.
     func apply(snapshot: SceneDynamicSnapshot, excludingLayerIDs: Set<Int> = []) {
-        for binding in program.bindings where binding.volumePropertyKey == nil {
+        for binding in program.bindings where binding.volumePropertyKey == nil
+            || program.scriptVolumeTargets.contains(binding.volumeTarget) {
             guard !excludingLayerIDs.contains(binding.layerID),
                   let source = sources[binding.layerID],
                   case let .scalar(volume)? = snapshot[binding.volumeTarget]?.value

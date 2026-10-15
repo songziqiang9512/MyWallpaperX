@@ -306,4 +306,165 @@ nonisolated extension SceneScriptQuickJSDomain {
               field != .perspective || resolved.source != .authored else { return authored }
         return value
     }
+    func publishLayerSnapshot(
+        _ snapshot: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        soundPlaybackSnapshots: [Int: Bool] = [:],
+        textureAnimationSnapshots: [
+            Int: SceneTextureAnimationSnapshot
+        ] = [:],
+        particlePlaybackObservations: [Int: SceneParticlePlaybackObservation] = [:],
+        particleInstanceLayerIDs: Set<Int> = [],
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
+        destroyedAuthoredLayerIDs: Set<Int> = [], catalogToken: String? = nil,
+        runtimeFieldLayerIDs: Set<Int>? = nil,
+        preparedTextValues: [Int: String] = [:],
+        awaitingHostFrameOutcome: Bool = false
+    ) throws {
+        if let catalogToken {
+            guard let configured = layerCatalogSignature else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript layer catalog not configured"
+                )
+            }
+            guard configured == catalogToken else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript layer catalog identity changed"
+                )
+            }
+        } else {
+            try configureLayerCatalog(descriptor)
+        }
+        let dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
+        try withLayerSnapshotPublication(snapshot,
+            dynamicTransformIDs: dynamicTransformIDs,
+            awaitingHostFrameOutcome: awaitingHostFrameOutcome) { diagnostic in
+            try publishLayerRuntimeFields(
+                snapshot,
+                descriptor: descriptor,
+                videoSnapshots: videoSnapshots,
+                soundPlaybackSnapshots: soundPlaybackSnapshots,
+                particlePlaybackObservations: particlePlaybackObservations,
+                particleInstanceLayerIDs: particleInstanceLayerIDs,
+                textureAnimationSnapshots: textureAnimationSnapshots, destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
+                runtimeFieldLayerIDs: runtimeFieldLayerIDs,
+                diagnostic: &diagnostic
+            )
+            for (layerID, text) in preparedTextValues {
+                let result = text.withCString {
+                    mwx_scene_quickjs_domain_update_text_clone_value(
+                        handle, Int64(layerID), $0, text.utf8.count, &diagnostic, diagnostic.count
+                    )
+                }
+                guard result == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(result, diagnostic: diagnostic)
+                }
+            }
+            try publishLayerWorldTransformsIfNeeded(
+                snapshot: snapshot,
+                descriptor: descriptor,
+                puppetAttachmentFrames: puppetAttachmentFrames,
+                dynamicTransformIDs: dynamicTransformIDs,
+                diagnostic: &diagnostic
+            )
+            for (index, layer) in descriptor.layers.enumerated() {
+                guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
+                      case let .vector3(x, y, z) = resolved.value,
+                      x.isFinite, y.isFinite, z.isFinite else { continue }
+                let origin = [x, y, z]
+                let result = origin.withUnsafeBufferPointer { pointer in
+                    mwx_scene_quickjs_domain_set_layer_origin(
+                        handle,
+                        UInt32(index),
+                        pointer.baseAddress,
+                        &diagnostic,
+                        diagnostic.count
+                    )
+                }
+                guard result == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(result, diagnostic: diagnostic)
+                }
+            }
+        }
+    }
+
+    /// Update only live Sound observations; retain the committed transforms,
+    /// pose, video, particle and text fields during a paused property event.
+    func publishSoundPlaybackSnapshot(
+        _ snapshot: SceneDynamicSnapshot, descriptor: SceneRenderDescriptor,
+        soundPlaybackSnapshots: [Int: Bool], catalogToken: String
+    ) throws {
+        guard layerCatalogSignature == catalogToken else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("SceneScript layer catalog identity changed")
+        }
+        try withLayerSnapshotPublication(snapshot,
+            dynamicTransformIDs: committedDynamicWorldTransformLayerIDs,
+            awaitingHostFrameOutcome: true) { diagnostic in
+            for (index, layer) in descriptor.layers.enumerated() {
+                let reused = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+                    handle, UInt32(index), &diagnostic, diagnostic.count)
+                guard reused == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(reused, diagnostic: diagnostic)
+                }
+                if layer.contentKind == "sound" {
+                    let result = mwx_scene_quickjs_domain_update_layer_sound_fields(
+                        handle, UInt32(index), soundPlaybackSnapshots[layer.id] == nil ? 0 : 1,
+                        soundPlaybackSnapshots[layer.id] == true ? 1 : 0, &diagnostic, diagnostic.count)
+                    guard result == MWX_SCENE_QUICKJS_OK else {
+                        throw layerSnapshotFailure(result, diagnostic: diagnostic)
+                    }
+                }
+            }
+        }
+    }
+
+    private func withLayerSnapshotPublication(
+        _ snapshot: SceneDynamicSnapshot, dynamicTransformIDs: Set<Int>,
+        awaitingHostFrameOutcome: Bool,
+        update: (inout [CChar]) throws -> Void
+    ) throws {
+        guard layerSnapshotGeneration < UInt64.max else {
+            throw SceneScriptScalarRuntimeFailure.staleOwner
+        }
+        let pendingGeneration = layerSnapshotGeneration + 1
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let beginResult = mwx_scene_quickjs_domain_begin_layer_snapshot(
+            handle,
+            pendingGeneration,
+            layerWorldTransformProjection?.defaultsToPerspective(
+                for: snapshot
+            ) == true ? 1 : 0,
+            &diagnostic,
+            diagnostic.count
+        )
+        guard beginResult == MWX_SCENE_QUICKJS_OK else {
+            throw layerSnapshotFailure(beginResult, diagnostic: diagnostic)
+        }
+        var committed = false
+        defer {
+            if !committed {
+                mwx_scene_quickjs_domain_abort_layer_snapshot(handle)
+            }
+        }
+        try update(&diagnostic)
+        let commitResult = mwx_scene_quickjs_domain_commit_layer_snapshot(
+            handle,
+            &diagnostic,
+            diagnostic.count
+        )
+        guard commitResult == MWX_SCENE_QUICKJS_OK else {
+            throw layerSnapshotFailure(commitResult, diagnostic: diagnostic)
+        }
+        rollbackDynamicWorldTransformLayerIDs =
+            committedDynamicWorldTransformLayerIDs
+        committedDynamicWorldTransformLayerIDs = dynamicTransformIDs
+        layerSnapshotGeneration = pendingGeneration
+        committed = true
+        if !awaitingHostFrameOutcome {
+            finalizeCommittedLayerSnapshot()
+        }
+    }
+
+
 }

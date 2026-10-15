@@ -150,7 +150,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?,
-        retainsValueForNextUpdate: Bool = false
+        retainsValueForNextUpdate: Bool = false,
+        propertyRefresh: Bool = false
     ) -> Result<SceneScriptValueEvaluation?, SceneScriptScalarRuntimeFailure> {
         guard input.valueType == valueType, input.isFinite,
               Self.acceptsScalarValue(input, for: target),
@@ -176,8 +177,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             var output = 0.0
             result = scriptPropertiesJSON.withCString { properties in
                 userPropertiesJSON.withCString { userProperties in
-                    mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                    mwx_scene_quickjs_owner_initialize_primitive_with_properties_mode(
                         handle, expectedGeneration, inputValue, valueType == .bool ? 1 : 0,
+                        propertyRefresh ? 1 : 0,
                         &frameInput, properties, scriptPropertiesJSON.utf8.count,
                         userProperties, userPropertiesJSON.utf8.count,
                         &output, &didInitialize, &diagnostic, diagnostic.count
@@ -270,7 +272,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         scriptPropertiesJSON: String,
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
-        interruptBudget: UInt64?
+        interruptBudget: UInt64?,
+        propertyRefresh: Bool = false
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         guard input.valueType == valueType, input.isFinite,
               Self.acceptsScalarValue(input, for: target),
@@ -294,8 +297,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             var output = 0.0
             result = scriptPropertiesJSON.withCString { properties in
                 userPropertiesJSON.withCString { userProperties in
-                    mwx_scene_quickjs_owner_update_scalar_with_properties(
-                        handle, expectedGeneration, value, &frameInput,
+                    mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
+                        handle, expectedGeneration, value, 0, propertyRefresh ? 1 : 0, &frameInput,
                         properties, scriptPropertiesJSON.utf8.count,
                         userProperties, userPropertiesJSON.utf8.count,
                         &output, &diagnostic, diagnostic.count
@@ -613,7 +616,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil,
         propertyRevision: UInt64? = nil,
-        effectivePropertyValues: [String: SceneUserPropertyValue]? = nil
+        effectivePropertyValues: [String: SceneUserPropertyValue]? = nil,
+        propertyRefresh: Bool = false
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         lastUserPropertyAttemptRevision = propertyRevision
         if let previous = retryUserPropertyValues, let current = effectivePropertyValues {
@@ -631,7 +635,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             changedPropertiesJSON: changedPropertiesJSON,
             scriptPropertiesJSON: scriptPropertiesJSON,
             frame: frame,
-            userPropertiesJSON: userPropertiesJSON
+            userPropertiesJSON: userPropertiesJSON,
+            propertyRefresh: propertyRefresh
         )
         if propertyRevision != nil, mwx_scene_quickjs_owner_can_retry_user_properties(handle) {
             retryUserPropertyValues = effectivePropertyValues
