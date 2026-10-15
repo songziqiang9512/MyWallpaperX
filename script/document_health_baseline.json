@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 214,
-      "bytes": 57780
+      "lines": 230,
+      "bytes": 62490
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -221,8 +221,8 @@
       "bytes": 11699
     },
     "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 26,
-      "bytes": 8336
+      "lines": 28,
+      "bytes": 8616
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -1083,21 +1083,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "0604b80449a8da14a329d2c4361ad30691a6372e4ae112222e62e8417ec08303",
-      "after": "d6311ca28e336c966b028ddafb6bd5a3e040b349072dcf1f5f4a922c73ee7c6f",
-      "owner": "Scene variant preparation",
-      "reason": "批准的兼容v22缓存协议归独立专题；runtime仅新增导航，startup删除失效的重复规范。",
-      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-source-pure-extension"
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "061ebffa854a6e516c094aeaa0da165a5429a07ad97bef1c324a1e0576a54bee",
+      "after": "19a2d8c72ded9e0ba86c71d29352bf5d578137cbdfaab225729dd40570531aa8",
+      "owner": "Scene property scalar/camera",
+      "reason": "批准FOV脚本至唯一相机帧的最小职责与反例验收；现役属性卡只新增待验导航。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/variant-analysis-cache-contract.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "a28321473bb9e44aebf7441c58dc2b6e6c04b23efeeab3174c8717a945a304e3",
-      "owner": "Scene variant preparation",
-      "reason": "批准的兼容v22缓存协议归独立专题；runtime仅新增导航，startup删除失效的重复规范。",
-      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-source-pure-extension"
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "d20a04c12f563857898e06d368f738f227dece7207b17dc6a3c54c31312720a5",
+      "after": "e384058e24ac9c74d23441d7b14b883890f66b0ec9ee1e3aef7ae0dfb5ee915a",
+      "owner": "Scene property scalar/camera",
+      "reason": "批准FOV脚本至唯一相机帧的最小职责与反例验收；现役属性卡只新增待验导航。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
     }
   ]
 }

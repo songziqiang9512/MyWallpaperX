@@ -2863,13 +2863,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b55715015a3f6eec947bfa91f2e7b50042ca7457c05f759c7ff39f8b2f6b5516",
+        "sourceSHA256": "f3d9c16398e920a4252586c97ba273bf747889ff5ddfcc86d01773f140136919",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
-        "limitations": "仅本批设计与后继证据核对；不是全文API、全样本或官方parity验收。"
+        "scope": "仅相机FOV scalar后继设计与现属性卡/设计登记的职责导航；不重新接受历史D4全部范围。",
+        "limitations": "产品未实施；仅设计和导航核对，不表示原生编辑、相机画面、性能或官方parity验收。"
       }
     },
     {
