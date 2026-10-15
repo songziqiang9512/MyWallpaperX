@@ -2435,6 +2435,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/scene-switch-residency-qualification-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "同PID七窗驻留上移与独立vmmap类别诊断；调用/持有owner、逐session退出及长期有界未验"
+    },
+    {
       "path": "docs/scene/history/scene-system-media-input-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

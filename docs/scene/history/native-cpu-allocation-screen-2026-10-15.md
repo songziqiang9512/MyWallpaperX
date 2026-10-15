@@ -99,3 +99,15 @@ SourceFacts按路径读metadata提前发现材质，PreparedStaticModelResources
 大输入chain五轮86.271917/60.693125/100.236333/51.264750/57.235125ms，中位60.693125ms，逐轮metadata scan/含两次read的chain比例中位44.574609%，chain噪声65.152697%；小邻项chain中位0.103625ms、噪声1084.238359%。预登记noise>5%先拒绝，故两者均STOP_NOISE_UNQUALIFIED，不因占比>10%放行、不剔除慢点、不重试或扩参数，未进产品。没有实际App启动分母、CPU/RAM/GPU收益或安全门新通过结论；未来仅在实际启动归因重新支持时重选此职责。
 
 独审复核原数与计算后接受停止；`.artifacts/tmp/mdl-validation-screen-20261015/`保最小源码/命令/身份与五份原数、日志、结果。已停止的大fixture/module cache和审查后的binary共清105,088,339逻辑B；没有App/正式测试或产品修改，原NaN/索引/trailer/Data-slice/工作预算合同保留。
+
+<a id="world-resolver-cpu-qualification"></a>
+
+## 实际world resolver CPU资格：线程覆盖不足
+
+旧HUD world-resolve只读prepared projection，不计实际矩阵解析。本次仅在既有telemetry、DynamicResolver及projection wrapper三处加默认关闭的临时Debug探针，与JPEG共用一次构建/冻结App `c8f4757f…`；同304单surface/defaults/目标60FPS/输出静音，无外部音频发布。首实际resolver调用起30秒warmup后目标10秒，CLOCK_THREAD_CPUTIME_ID计同步范围，native CLOCK_MONOTONIC只用于与原C进程observer对齐；不比较或哈希snapshot，不实现cache/算法。
+
+唯一窗口10.000165s、线程/墙钟读取失败0；679次主线程resolve均full，累计137321036ns，wrapper169次/inclusive34369043ns另列，不能相加。但全程累计nonMainCalls=1且无发生时间，不能证明窗口调用覆盖，结论严格 **UNAVAILABLE_NO_RETRY**。不能因只有一次就假定在启动，也不能把main数字当全部resolver上界或作10%阈值裁决；不据Debug推断优化Release热点。
+
+事后只解析原CSV：按C循环stamp→CPUread→下个stamp，8个完全包含的相邻CPU增量得进程CPU下界8162658917ns，采集包络在native窗口内，实际覆盖跨度仅可界定约7–9s。该分母证据不修补分子覆盖，不计算整体resolver比例。没有重跑、延窗、phase扩大或性能收益。
+
+`.artifacts/tmp/world-resolver-cpu-qualification-20261015/`保协议、全部base/candidate、build源身份、原invalid summary、日志/CSV及完整包含证明。正常退出0、最终gpuDrained=true，精确PID均gone，原媒体/Appcritical/共享cache未变；已清自有runtime176245150 logical B。root按candidate SHA核验后将三处tracked owner精确恢复base；诊断binary与源码边界保留。下一步优先查已证驻留增长的持有来源，再按普通优化配置重建整体CPU归因，不为本探针补跑或盲做world cache。

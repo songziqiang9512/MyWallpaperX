@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 12216
+      "bytes": 12319
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
@@ -1101,15 +1101,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "6c5666b847856b7af41319ab72cc0190e9bf15e6d3368ad991c245efe2a9f04e",
-      "after": "9e6da8a01ababfa229c2cd51ab3083dd1e9c3227cc4e9368a5ab05a33392026b",
-      "owner": "scene-engine",
-      "reason": "以同PID驻留资格和未导出pin边界替换重复的已闭属性摘要，保持唯一性能选序。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "e384058e24ac9c74d23441d7b14b883890f66b0ec9ee1e3aef7ae0dfb5ee915a",
       "after": "ee5d61e19bfc19e2743ada27a0546cf55f854c23e661cfd78f7bb14f8c45f235",
@@ -1125,6 +1116,15 @@
       "owner": "Scene image decoding",
       "reason": "将已支持JPEG方向与显示extent收敛到现有唯一decoder，保embedded原始Int边界、PNG/strict与失败保旧；局部修复不另建路线。",
       "decision": "docs/scene/architecture/scene-resource-admission.md#jpeg-display-layout"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "9e6da8a01ababfa229c2cd51ab3083dd1e9c3227cc4e9368a5ab05a33392026b",
+      "after": "24d6195f60802d6d96f8798baa695ff3b1255af4953f552164f9972fa0b146cb",
+      "owner": "Scene CPU and residency qualification",
+      "reason": "以已审驻留增长/调用覆盖失败替换旧待执行状态，保具体来源与未覆盖边界，不新增串行前置或性能认领。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md"
     }
   ]
 }
