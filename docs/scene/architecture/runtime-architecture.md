@@ -226,7 +226,7 @@ mandatory 资源先于 optional 灯深度。静态输入保留原批准备；存
 
 首帧准备只覆盖当前内容和属性快照实际需要的 Program、shader variant、资源与 surface。未来可能出现的 optional provider、program variant 或未使用 catalog 不能倒灌成首帧的无界 eager compile；它们必须按第 5.5 节的最小失效域，在真正需要前异步准备并通过 generation 复核后原子发布。项目固定 MSL 必须构建期编译，不能在 surface 创建或 draw/pass encode 时首次 `makeLibrary(source:)`。
 
-准备产物按 `PreparedContent -> PreparedLaunchPlan -> PreparedDeviceResources` 分层复用，分别以 content/package generation、属性与 runtime/compiler schema、OS/Metal/compiler/device identity 失效。作者 shader 的持久化缓存只允许保存 accepted Program/Preparation；key 必须覆盖完整 source/source-graph digest、combo、optional provider/readiness、格式与 frontend/compiler schema，value 必须带自身 digest 并在读取后复核 stage、backend、Program identity 和 cache key。拒绝、超时、诊断、损坏或字段失配不得成为可复用成功，统一安全 miss 后在 preparation executor 重建。变体分析的 v22 集合 wire 与前缀校验见[缓存专题合同](variant-analysis-cache-contract.md#variant-analysis-wire)；逐节点准入仍重跑。
+准备产物按 `PreparedContent -> PreparedLaunchPlan -> PreparedDeviceResources` 分层复用，分别以 content/package generation、属性与 runtime/compiler schema、OS/Metal/compiler/device identity 失效。作者 shader 的持久化缓存只允许保存 accepted Program/Preparation；key 必须覆盖完整 source/source-graph digest、combo、optional provider/readiness、格式与 frontend/compiler schema，value 必须带自身 digest 并在读取后复核 stage、backend、Program identity 和 cache key。拒绝、超时、诊断、损坏或字段失配不得成为可复用成功，统一安全 miss 后在 preparation executor 重建。变体分析的 v23 集合 wire 与前缀校验见[缓存专题合同](variant-analysis-cache-contract.md#variant-analysis-wire)；逐节点准入仍重跑。
 
 `MTLTexture`、`MTLLibrary`、`MTLRenderPipelineState`、surface、publication 和其他进程内对象不能直接跨进程序列化。后续 `PreparedDeviceResources` 若使用 Metal binary archive 或等价设备缓存，必须额外绑定 OS、Metal compiler、device registry/family、attachment format/sample count 和 Program identity；在这些门闭合前，磁盘命中只代表 CPU Program/preparation 可复用，不得声明 device 资源或首帧已经 ready。缓存只能复用已经通过安全校验的不可变产物，不能绕过 path/range/ABI、generation、target/publication 或失败合同。具体状态机、进度、候选首帧和回滚要求见[Scene 启动响应与按需诊断合同](scene-launch-responsiveness-contract.md)。
 
@@ -235,7 +235,7 @@ mandatory 资源先于 optional 灯深度。静态输入保留原批准备；存
 | 单元 | 长期职责 | 当前迁移策略 |
 |---|---|---|
 | Swift Scene host | identity、作者顺序、IR、属性、资源/target 生命周期、诊断、Metal 调度 | 保留并收窄；不重复实现完整语言 |
-| Shader preparation | include、directive、combo、PASS、作者 metadata、版本和 source provenance | 复用现有 loss-preserving 部分；逐步解除手写语义 analyzer 的默认阻断权 |
+| Shader preparation | include、directive、combo、PASS、作者 metadata、版本和 source provenance | 复用现有 loss-preserving 部分；逐步解除手写语义 analyzer 的默认阻断权。<a id="malformed-combo-record"></a>坏记录准入归[metadata合同](shader-metadata-failure-contract.md#malformed-combo-record) |
 | Shader backend | 语言解析、类型、stage link、reflection 和 MSL 生成 | 优先验证上游 glslang → SPIR-V → SPIRV-Cross MSL；从上游固定版本集成，不复制 Mirage vendor 或桥接代码 |
 | Material compiler | reflection + slots + defaults + host/author uniforms + render state → Program | 收敛现有 MaterialProgram；普通 authored material 是默认候选，不依赖 effect 名称 |
 | Graph compiler | condition、pass、target、clear、copy、swap、compose、history 和 dependency → graph IR | 扩展现有 AuthoredGraph/GraphTargets，不建立第二套图 |

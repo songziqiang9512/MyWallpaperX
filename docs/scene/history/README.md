@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-16 | Shader/metadata | 局部恢复 | [独立坏COMBO](malformed-combo-record-recovery-2026-10-16.md) | 21目标GPU与20层完整末合成、实际细发丝；三目标及后继透传保留 | [准入合同](../architecture/runtime-architecture.md#malformed-combo-record)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | Particle/RopeTrail | 中性资格与STOP | [world/负细分观察](rope-trail-profile-qualification-2026-10-15.md) | 固定客户端自有直线/曲线/倾斜输出与未解语义；不扩产品支持 | [来源边界](../development/source-index.md#particle-rope-profile-blackbox)、[组件台账](../capabilities/particle-component-coverage.md#7-renderers)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | SceneScript/composition | 资格与撤回 | [空组原型STOP](prepared-empty-composition-2026-10-15.md) | 自有控制有效但真实请求另需透视；撤回无真实收益的省略窄片 | [D4](../roadmap/batch2/script-component-api-design.md#prepared-empty-composition)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | 源材质/资源 | 有界修复 | [输出域与输入分离](source-material-output-domain-2026-10-15.md) | 无采样源实际白转蓝、真实输入用途拒绝与bootstrap事实分域 | [运行合同](../architecture/runtime-architecture.md#源输出域与采样输入分离)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

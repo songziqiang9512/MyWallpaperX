@@ -7,6 +7,8 @@ import CryptoKit
 // Legacy JSONs in variant_analysis_v22 were written once by the unmodified
 // v22 owner b4306295…256f, binary99c7a1ae…fe93, from self-authored comment
 // shader strings. They contain no Workshop sources or media.
+// Their record wire is unchanged, but v22 preparation facts are obsolete. Only
+// test-input re-enveloping as v23 permits the wire check; no runtime migration.
 enum SceneGenericShaderProgramArtifact {
     static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -91,8 +93,8 @@ private func record() -> Cache.Record {
         previousBlurredCompositeFact: nil)
 }
 
-private func file(_ root: URL, _ key: String) -> URL {
-    root.appendingPathComponent("SceneVariantAnalysis-v22").appendingPathComponent(key + ".json")
+private func file(_ root: URL, _ key: String, version: Int = 23) -> URL {
+    root.appendingPathComponent("SceneVariantAnalysis-v\(version)").appendingPathComponent(key + ".json")
 }
 private func object(_ bytes: Data) throws -> [String: Any] {
     try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
@@ -118,10 +120,22 @@ private func readOnlyLoad(_ root: URL, _ key: String) throws -> Cache.Record? {
     return result
 }
 
-private func legacy(_ root: URL) throws {
+private func rewrappedV22Wire(_ root: URL) throws {
     for (key, slots) in [("control-singleton", Set([1])), ("multi-seven", Set(1...7))] {
+        let envelope = try object(Data(contentsOf: file(root, key)))
+        checks[key + "-explicit-v23-envelope"] = envelope["schemaVersion"] as? Int == 23
         let value = try readOnlyLoad(root, key)
-        checks[key + "-legacy-loaded"] = value?.sourceCarriedRGBA?.auxiliaryDataSlots == slots
+        checks[key + "-rewrapped-v22-wire-loaded"] = value?.sourceCarriedRGBA?.auxiliaryDataSlots == slots
+    }
+}
+
+private func obsoleteV22Tier(_ root: URL) throws {
+    let currentDirectory = file(root, "unused").deletingLastPathComponent()
+    for key in ["control-singleton", "multi-seven"] {
+        let url = file(root, key, version: 22), before = try Snapshot(file(root, key, version: 22))
+        checks[key + "-v22-safe-miss"] = Cache.load(keySHA256: key) == nil
+        checks[key + "-v22-load-no-write"] = try Snapshot(url) == before
+        checks[key + "-no-v23-directory"] = !FileManager.default.fileExists(atPath: currentDirectory.path)
     }
 }
 
@@ -182,7 +196,7 @@ private func invalidWire(_ root: URL) throws {
     let url = file(root, key), original = try Data(contentsOf: file(root, key))
     let mutations: [(String, (inout [String: Any]) -> Void)] = [
         ("digest", { $0["recordSHA256"] = "foreign" }),
-        ("version", { $0["schemaVersion"] = 999 }),
+        ("version", { $0["schemaVersion"] = 22 }),
         ("key", { $0["keySHA256"] = "foreign" }),
         ("payload", { envelope in
             var payload = envelope["payload"] as! [String: Any]
@@ -208,7 +222,8 @@ enum VariantCacheWireChecks {
     static func main() throws {
         let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_SCENE_GENERIC_SHADER_CACHE"]!)
         switch CommandLine.arguments[1] {
-        case "legacy": try legacy(root)
+        case "rewrapped-v22-wire": try rewrappedV22Wire(root)
+        case "obsolete-v22-tier": try obsoleteV22Tier(root)
         case "cold-write": try cold(root, write: true)
         case "cold-read": try cold(root, write: false)
         case "ordered-wire": try orderedWire(root)

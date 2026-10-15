@@ -348,17 +348,12 @@ private func runGenericProbe() throws -> ProbeOutput {
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
-    func variantDirectories() -> [URL] {
-        ((try? FileManager.default.contentsOfDirectory(
-            at: URL(fileURLWithPath: root, isDirectory: true),
-            includingPropertiesForKeys: nil
-        )) ?? []).filter { $0.lastPathComponent.hasPrefix("SceneVariantAnalysis-v") }
-    }
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v23")
     let key = "probe-variant-key"
     try expect(
         into: &output,
         SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: key) == nil
-            && variantDirectories().isEmpty,
+            && !FileManager.default.fileExists(atPath: directory.path),
         "read-only-miss"
     )
     let record = SceneResolvedMaterialVariantAnalysisCache.Record(
@@ -380,11 +375,6 @@ private func runVariantProbe() throws -> ProbeOutput {
         previousBlurredCompositeFact: nil
     )
     SceneResolvedMaterialVariantAnalysisCache.store(record: record, keySHA256: key)
-    let directories = variantDirectories()
-    guard directories.count == 1 else {
-        throw ProbeFailure(description: "expected exactly one published variant namespace")
-    }
-    let directory = directories[0]
     let entries = jsonEntries(directory)
     try expect(into: &output, entries.count == 1, "publish")
     let loaded = SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: key)
@@ -490,7 +480,7 @@ private func runDemandProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "demand")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneMaterialDemandAnalysis-v5"
+        root: root, name: "SceneMaterialDemandAnalysis-v6"
     )
     let key = SceneMaterialDemandAnalysisPersistentCache
         .ResourceDemandAnalysisKey(
@@ -623,6 +613,8 @@ private func runPreparationProbe(rejected: Bool) throws -> ProbeOutput {
     var output = ProbeOutput(
         tier: rejected ? "preparation-rejected" : "preparation-accepted"
     )
+    try expect(into: &output, SceneShaderVariantEnvironment.frontendSchemaVersion == 49,
+        "current-frontend-schema")
     if rejected {
         let result = SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: makeProbeContract(),
@@ -875,7 +867,7 @@ class ScenePersistentCacheBehaviorTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneVariantAnalysisCacheWireTests(unittest.TestCase):
-    """Actual cache/support IO, deliberately separate from variant consumers."""
+    """Actual IO/wire checks; obsolete tiers miss despite unchanged record wire."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -918,18 +910,32 @@ class SceneVariantAnalysisCacheWireTests(unittest.TestCase):
         self.assertEqual([name for name, passed in facts.items() if passed is not True], [], facts)
         return facts
 
-    def install_legacy(self, root: Path) -> None:
+    def install_v22_fixture(self, root: Path, *, rewrap_as_v23: bool = False) -> None:
         root.mkdir()
-        shutil.copytree(self.legacy, root / "SceneVariantAnalysis-v22")
+        destination = root / ("SceneVariantAnalysis-v23" if rewrap_as_v23 else "SceneVariantAnalysis-v22")
+        shutil.copytree(self.legacy, destination)
+        if rewrap_as_v23:
+            for path in destination.glob("*.json"):
+                envelope = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(envelope["schemaVersion"], 22)
+                # Test-input adaptation only: the record digest covers payload,
+                # not schemaVersion. Preserve payload and recordSHA256 exactly.
+                envelope["schemaVersion"] = 23
+                path.write_text(json.dumps(envelope, separators=(",", ":")) + "\n", encoding="utf-8")
 
-    def test_original_set_wire_and_new_store_survive_fresh_readers(self) -> None:
-        root = self.work / "legacy"
-        self.install_legacy(root)
-        self.mode("legacy", root)
+    def test_rewrapped_v22_set_wire_and_current_store_survive_fresh_readers(self) -> None:
+        root = self.work / "rewrapped-v22-wire"
+        self.install_v22_fixture(root, rewrap_as_v23=True)
+        self.mode("rewrapped-v22-wire", root)
         cold = self.work / "cold"
         self.mode("cold-write", cold)
-        self.mode("cold-read", cold)  # Independent process, same original owner.
+        self.mode("cold-read", cold)  # Independent process, same current owner.
         self.mode("ordered-wire", self.work / "ordered")
+
+    def test_v22_namespace_is_a_read_only_miss_without_migration(self) -> None:
+        root = self.work / "obsolete-v22-tier"
+        self.install_v22_fixture(root)
+        self.mode("obsolete-v22-tier", root)
 
     def test_invalid_variant_wire_is_a_read_only_safe_miss(self) -> None:
         self.mode("invalid-wire", self.work / "mutations")

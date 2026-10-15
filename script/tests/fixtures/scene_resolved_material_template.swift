@@ -706,7 +706,7 @@ enum Harness {
                 message: "fixture malformed metadata",
                 relativePath: "root.frag",
                 line: 1
-            )], recoverableMalformedCombo: true)
+            )], fragmentSourceOverride: "// [COMBO] {\"combo\":\"RENAMED_MODE\",\"default\": }\r\nvoid main() { gl_FragColor = vec4(1.0); }")
         ))
         let unsafeMalformedSampler = failure(compile(
             material(),

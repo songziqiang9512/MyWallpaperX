@@ -21,7 +21,7 @@ import Foundation
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     // v20 includes function-local comma declarators in scalar/vector broadcasts.
-    private static let schemaVersion = 22
+    private static let schemaVersion = 23
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

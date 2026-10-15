@@ -1,0 +1,16 @@
+<!-- document-role: stable-contract -->
+# Shader metadata 失败合同
+
+<a id="malformed-combo-record"></a>
+
+### 畸形 COMBO 的记录局部失败（2026-10-16 决策）
+
+目标是让合法 shader 不被一条损坏的编辑器 COMBO JSON 记录整段拒绝。当前 parser 已先保留声明、随后记录解析诊断且不生成 Annotation；旧准入却要求另一个无条件合法记录的 outer fields 相同，额外重解析并把不能证明的注释升级为整个 Template 失败。343 的新资格只确认纯注释 COMBO 首门，未读取作者表达或证明其余画面。
+
+依据[来源索引的固定版本记录](../development/source-index.md)，解析失败的 metadata record 可跳过；本片仅开放 parser 已诊断、确切 source line 中无代码且以 COMBO marker 和 JSON payload 开始的记录。由现有 `SceneShaderMalformedMetadataAdmission` 统一模板与预处理器准入，保留原 source、声明和诊断，不生成坏记录的 Annotation、default 或 options，也不修复非法 JSON、要求重复记录或新建 cache。普通帧不参与。inline uniform/sampler、其他 marker、directive/code 混排、无位置诊断和完整性失败仍沿原边界拒绝；未来扩大须另有真实资格。
+
+下游 combo definedness、uniform producer、资源用途、路径/图身份、预算和 backend 仍拥有原验证权。丢失必需 default 不得猜补或借相邻字段回退；失败仍限最小 pass/effect，当前成功不等于整样本完成。旧 outer-field/重复证明及其解析算法在本片退出，不留并行恢复策略；缓存 wire 不变；preparation 语义以 frontend 49、VariantAnalysis v23、DemandAnalysis v6 退出旧 tier，原失败不缓存为成功。
+
+验收覆盖无重复及重命名/等价 source、大小写/CRLF、条件/include、合法邻居保留、坏记录不产生 Annotation；inline sampler/混排/结构安全及下游缺 producer 继续拒绝。原包需证明目标 Program/GPU/末合成与实际画面，另验未参与修法样本，最后独审；任一完整性或错误值猜补反例失败即撤回这片。只在证据支持的记录范围扩能力，不报未经测量的性能收益。
+
+当前状态归[运行证据](../capabilities/runtime-evidence-current.md)，有界结果与未修范围见[实施记录](../history/malformed-combo-record-recovery-2026-10-16.md)；执行顺序只查[现役队列](../roadmap/scene-open-breakpoint-queue.md)。

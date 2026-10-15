@@ -950,7 +950,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         } == ["CATEGORY", "PERSPECTIVE"]
             && skippedMalformedAnnotation.source.contains("{Color\":0")
             && skippedMalformedAnnotation.source.contains("{Noise\":1"),
-        "A duplicated comment-only malformed combo was structured or rejected."
+        "Malformed comment-only combo records were structured or lost with their valid neighbours."
     )
     try write(
         "// [COMBO] {\"combo\":\"MISSING\",\"options\":{Broken:0}}\nSAFE",
@@ -996,46 +996,95 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         "shaders/metadata/malformed_nested_options.frag"
     )
     view = resourceView(loose: looseRoot)
-    try expectFailure(
-        rootPath: "shaders/metadata/malformed_without_duplicate.frag",
-        graph: graph(
-            "shaders/metadata/malformed_without_duplicate.frag",
-            view: view
-        ),
-        environment: environment(),
-        code: .malformedSourceAnnotation
-    )
+    for (name, expectedNames): (String, [String]) in [
+        ("malformed_without_duplicate", []),
+        ("malformed_conflict", ["CATEGORY"]),
+        ("malformed_conditional_duplicate", []),
+        ("malformed_nested_options", ["NESTED"]),
+    ] {
+        let path = "shaders/metadata/\(name).frag"
+        let sourceGraph = graph(path, view: view)
+        guard let raw = sourceGraph.node(at: path) else {
+            throw HarnessFailure(description: "Missing self-owned malformed-record source.")
+        }
+        let parsed = SceneShaderContractSourceParser().parse(raw.source, stageRelativePath: path)
+        let preparedRecord = try prepared(rootPath: path, graph: sourceGraph,
+            environment: environment())
+        try expect(
+            parsed.diagnostics.map(\.code) == [.malformedAnnotation]
+                && preparedRecord.activeAnnotations.compactMap { comboName($0.annotation) } == expectedNames
+                && preparedRecord.source.contains("SAFE")
+                && preparedRecord.source.contains("Broken:0") == raw.source.contains("Broken:0")
+                && preparedRecord.source.contains("{Color:0}") == raw.source.contains("{Color:0}")
+                && preparedRecord.source.contains("{Broken\":0}") == raw.source.contains("{Broken\":0}")
+                && sourceGraph.node(at: path)?.source == raw.source,
+            "Malformed COMBO \(name) was repaired, made an Annotation, lost code, or mutated its diagnostic source."
+        )
+        if name == "malformed_conflict" {
+            guard case let .object(fields) = preparedRecord.activeAnnotations[0].annotation.variantValue else {
+                throw HarnessFailure(description: "Missing independently valid neighbour.")
+            }
+            try expect(fields["default"]?.integerValue == 0,
+                "A malformed record overrode the valid neighbour's default.")
+        }
+    }
     try expectFailure(
         rootPath: "shaders/metadata/malformed_sampler.frag",
         graph: graph("shaders/metadata/malformed_sampler.frag", view: view),
         environment: environment(),
         code: .malformedSourceAnnotation
     )
-    try expectFailure(
-        rootPath: "shaders/metadata/malformed_conflict.frag",
-        graph: graph("shaders/metadata/malformed_conflict.frag", view: view),
-        environment: environment(),
-        code: .malformedSourceAnnotation
-    )
-    try expectFailure(
-        rootPath: "shaders/metadata/malformed_conditional_duplicate.frag",
-        graph: graph(
-            "shaders/metadata/malformed_conditional_duplicate.frag",
-            view: view
-        ),
-        environment: environment(),
-        code: .malformedSourceAnnotation
-    )
-    try expectFailure(
-        rootPath: "shaders/metadata/malformed_nested_options.frag",
-        graph: graph(
-            "shaders/metadata/malformed_nested_options.frag",
-            view: view
-        ),
-        environment: environment(),
-        code: .malformedSourceAnnotation
-    )
     checks.append("malformed_annotation_skip")
+
+    let renamedMalformed = """
+        // [cOmBo] {"combo":"RENAMED_MODE","default":unknown}
+        // [COMBO] [{"combo":"NO_ARRAY_REPAIR",broken]
+        uniform float u_RenamedCarrier;
+        int renamedValue = 2 * 3;
+        """.replacingOccurrences(of: "\n", with: "\r\n")
+    try write(renamedMalformed, to: looseRoot, "shaders/metadata/renamed_record.inc")
+    try write("""
+        #include "renamed_record.inc"
+        #if 0
+        // [COMBO] {"combo":"INACTIVE_BROKEN","default": }
+        #endif
+        int equivalentValue = 6;
+        """, to: looseRoot, "shaders/metadata/renamed_include.frag")
+    view = resourceView(loose: looseRoot)
+    let renamedGraph = graph("shaders/metadata/renamed_include.frag", view: view)
+    let renamedPrepared = try prepared(rootPath: "shaders/metadata/renamed_include.frag",
+        graph: renamedGraph, environment: environment())
+    try expect(
+        SceneShaderContractSourceParser().parse(renamedMalformed,
+            stageRelativePath: "shaders/metadata/renamed_record.inc").diagnostics.map(\.code)
+            == [.malformedAnnotation, .malformedAnnotation]
+            && renamedPrepared.activeAnnotations.isEmpty
+            && renamedPrepared.activeDeclarations.map(\.declaration.name) == ["u_RenamedCarrier"]
+            && renamedPrepared.source.contains("\"default\":unknown")
+            && renamedPrepared.source.contains("NO_ARRAY_REPAIR\",broken]")
+            && renamedPrepared.source.contains("int renamedValue = 2 * 3;")
+            && renamedPrepared.source.contains("int equivalentValue = 6;")
+            && !renamedPrepared.source.contains("INACTIVE_BROKEN")
+            && renamedGraph.node(at: "shaders/metadata/renamed_record.inc")?.source == renamedMalformed,
+        "Case/CRLF/include/renaming changed record-local skipping, declarations, code or raw source."
+    )
+    for (name, source, expected): (String, String, SceneShaderPreprocessor.DiagnosticCode) in [
+        ("inline_combo", "uniform float u_Mixed; // [COMBO] {\"combo\": }\nSAFE", .malformedSourceAnnotation),
+        ("code_mixed", "int retained = 1; // [COMBO] {\"combo\": }\nSAFE", .malformedSourceAnnotation),
+        ("directive_mixed", "#define OWN_VALUE 1 // [COMBO] {\"combo\": }\nOWN_VALUE", .malformedSourceAnnotation),
+        ("other_marker", "// [COMBO_DISABLED] {\"combo\": }\nSAFE", .malformedSourceAnnotation),
+        ("prose_prefix", "// note [COMBO] {\"combo\": }\nSAFE", .malformedSourceAnnotation),
+        ("structural_conditional", "// [COMBO] {\"combo\": }\n#if 1\nSAFE", .unterminatedConditional),
+        ("structural_comment", "// [COMBO] {\"combo\": }\n/*", .unterminatedBlockComment),
+        ("structural_include", "// [COMBO] {\"combo\": }\n#include \"absent_record.inc\"", .missingInclude),
+    ] {
+        let path = "shaders/metadata/\(name).frag"
+        try write(source, to: looseRoot, path)
+        view = resourceView(loose: looseRoot)
+        try expectFailure(rootPath: path, graph: graph(path, view: view),
+            environment: environment(), code: expected)
+    }
+    checks.append("malformed_annotation_record_boundaries")
 
     try write(
         "#if 1\n#include \"open.inc\"\n#endif\nSAFE_PARENT",
@@ -1516,6 +1565,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
         if swiftc is None:
             raise unittest.SkipTest("swiftc is unavailable")
         cls.build_directory = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.build_directory.cleanup)
         build_root = Path(cls.build_directory.name)
         harness = build_root / "SceneShaderPreprocessorHarness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
@@ -1527,7 +1577,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
         environment["SWIFT_MODULECACHE_PATH"] = str(
             build_root / "swift-module-cache"
         )
-        subprocess.run(
+        compilation = subprocess.run(
             [
                 swiftc,
                 "-parse-as-library",
@@ -1538,14 +1588,11 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
             ],
             cwd=REPO_ROOT,
             env=environment,
-            check=True,
             capture_output=True,
             text=True,
         )
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.build_directory.cleanup()
+        if compilation.returncode:
+            raise AssertionError(compilation.stdout + compilation.stderr)
 
     def run_mode(self, mode):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -1588,6 +1635,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
                 "floating_macro",
                 "token_lexing",
                 "malformed_annotation_skip",
+                "malformed_annotation_record_boundaries",
                 "comment_boundaries",
                 "expression_precedence",
                 "preprocessor_budget",

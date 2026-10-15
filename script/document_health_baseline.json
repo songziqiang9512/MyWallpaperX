@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 123992
+      "bytes": 124124
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -70,7 +70,7 @@
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
-      "bytes": 1973
+      "bytes": 2333
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 323,
@@ -109,8 +109,8 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 117,
-      "bytes": 35634
+      "lines": 118,
+      "bytes": 35903
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -226,11 +226,11 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33407
+      "bytes": 33237
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72444
+      "bytes": 72240
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -275,6 +275,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
+    },
+    "docs/scene/architecture/shader-metadata-failure-contract.md": {
+      "lines": 16,
+      "bytes": 2468
     }
   },
   "archives": [
@@ -1146,15 +1150,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "77e1c3a6849b0fb6bf5ab765b62e3347a0fd04374aab4d907adefb1d9ea59952",
-      "after": "ad8a765edbb0438304460af5fa1050135c50c285047af3fdb4db1aaa12548dce",
-      "owner": "Scene source-material preparation",
-      "reason": "源输出域设计替换过时入口问题与重复取舍，保600行上限；补有界实际输出、bootstrap边界及唯一现役队列，详细证据入历史。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#源输出域与采样输入分离"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "977fbfddab8b41f31df806b095322eccab8f84b3c4bea7581c543b0ddbe41333",
       "after": "375ed7ea4610d0601b8edc811e535c6b1337a105a4f486cf9037a6b976cc6039",
@@ -1182,15 +1177,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c3ff741ff5bcda04d4ea029dc1e5b86b3070b1c8e3a5adbdc539faaf4cac2313",
-      "after": "d363be43d9b03245af30222e60a933c376ffd143de5bca84656ddc64cf061df3",
-      "owner": "Scene particle qualification",
-      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
-      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "before": "2ee3956a7a0ffd345096894bd31061b45f28c2af8524a13d4c688d3157c874a7",
       "after": "ac1e3d15138b97af92b1b7178d8e5a622f558e7a13c4fa15aacb7c5de413da46",
@@ -1206,6 +1192,42 @@
       "owner": "Scene particle qualification",
       "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
       "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ad8a765edbb0438304460af5fa1050135c50c285047af3fdb4db1aaa12548dce",
+      "after": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
+      "owner": "Scene shader preparation",
+      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "8c861c91c67d180b74de2c458a97adcce184793b283f7a5ec68a11fe1801be38",
+      "owner": "Scene shader preparation",
+      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/variant-analysis-cache-contract.md",
+      "before": "01083701767597876070f0be9e8dac3e58ff11fe34af266f549bd59712d7961e",
+      "after": "baa3dee7a291d7729340c03ae442dc7a81f27f2f2865339f49e64c8d915d475b",
+      "owner": "Scene shader preparation",
+      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "d363be43d9b03245af30222e60a933c376ffd143de5bca84656ddc64cf061df3",
+      "after": "1f5defdf60854e7f3961028a5cf61fae653150bb1ffa1bbe0775008b3a39594b",
+      "owner": "Scene shader preparation",
+      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
     }
   ]
 }

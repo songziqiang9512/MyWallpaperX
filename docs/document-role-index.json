@@ -14,6 +14,7 @@
       "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "docs/scene/architecture/scene-resource-admission.md",
       "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "docs/scene/architecture/shader-metadata-failure-contract.md",
       "docs/scene/architecture/variant-analysis-cache-contract.md",
       "docs/scene/capabilities/alpha-display-fallback-design.md",
       "docs/scene/capabilities/material-video-assets.md",
@@ -382,13 +383,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0e19d18b4e7cd0f51f275319fb03a445b0e564f17ff70cf26ef3ec3dea79be0c",
+        "sourceSHA256": "bfc34f021a4ae7b08d506b09b9b425389b9ea240660f88dc562c04217a102870",
         "method": "document_registry --audit + document_health --check",
-        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
-        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -460,17 +461,32 @@
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
+      "purpose": "Shader metadata记录级失败、源码/声明保真、共享准入与下游拒绝边界；不决定批次选序。",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e20692ac40a9f21c0ae02b04b1e89764302685b95574fc7b3e4c18e2839dad3e",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+      },
+      "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
+    },
+    {
       "path": "docs/scene/architecture/variant-analysis-cache-contract.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/roadmap/performance-convergence-card.md",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db4333b047a1f9ba27eb7752c4c84c628667f1cbb07ca3959eccbca34c68a89c",
+        "sourceSHA256": "ca275b5ebe46b0957a104f823d5ddc60117730f41e40dbed855905e9e4950759",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅v22集合wire职责与已撤源纯补齐的现役/历史归属；不重复接受其他引擎范围。",
-        "limitations": "导航/合同核对；实际门、App与性能边界只见对应冻结记录，不表示全样本、稳定收益或官方parity。"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -601,13 +617,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "58a57aba18c2c2b6611a97f1a3e846940a3a1f4dbfe65308457e811de3f4b40e",
+        "sourceSHA256": "f3ea841255631f22500f137ac34cc20b55f1328b6b177a3f8271cda4bb97423c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
-        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -785,13 +801,13 @@
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
       "commandPolicy": "reference-only",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c5d0fd909fc7b362580a4d3d854d9a8dfa271fcef48d4ceec58057ac46df39f",
+        "sourceSHA256": "dce415eb4e333b5329f6697f78eaffbd3047a7cd2731653b7ff41deada80079b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
-        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -809,13 +825,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b63e5baadca37b804d5751ba493f54cef93073f3a398091f149c52a41d3c3f1",
+        "sourceSHA256": "6362ff097f92157fc6c1d3cfb704b6f3eaf1eb07bea08e77b14a9ac250534855",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
-        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -1524,6 +1540,19 @@
         "scope": "generic authored field reference, attached permission boundaries and retirement lifetime; one clock actual gain",
         "limitations": "cohort hot update unresolved; no treatment CPU/GPU/memory/launch gain or Windows/full sample parity"
       }
+    },
+    {
+      "path": "docs/scene/history/malformed-combo-record-recovery-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/architecture/variant-analysis-cache-contract.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "343独立坏COMBO模板首门、21目标GPU/20层完整末合成与真实细发丝恢复，三目标/3226后继边界、签名失效反例和独立376；不计性能或完整样本。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",
@@ -3067,13 +3096,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f1b6bd528468b15f0ab512fb259a0fc223075f3a2ce5462534fcf41c17a76e73",
+        "sourceSHA256": "cabd4eaf2935c778c24f0625cad4f5e8daf5cd35f1443ef90d01235465c000d1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
-        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -3088,13 +3117,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "98ea7f4d63ca0f40129ef50eec049457c35acf04899c70a5b3aa5e4e321ed0a2",
+        "sourceSHA256": "a27b8113fc2f07bc274ecb521c782b2341dcc630230090158d484f1997c4fd87",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
-        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
+        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
       }
     },
     {
@@ -3277,7 +3306,8 @@
         "docs/scene/capabilities/scalar-mask-data-purpose.md",
         "docs/scene/roadmap/performance-convergence-card.md",
         "docs/scene/roadmap/properties-panel-card.md",
-        "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md"
+        "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+        "docs/scene/architecture/shader-metadata-failure-contract.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"
