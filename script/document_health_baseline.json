@@ -57,8 +57,8 @@
       "bytes": 15024
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 70,
-      "bytes": 14392
+      "lines": 74,
+      "bytes": 15225
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -222,7 +222,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 8754
+      "bytes": 8753
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -1116,6 +1116,15 @@
       "owner": "scene-engine",
       "reason": "替换已过时FOV仅设计状态，导航真实编辑结果与下一项JPEG资格；不复制验收事实。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "e377a3c1e7ff77b43ed518e4fc663b303e5fe86f8446f8102bf4f6241be54922",
+      "after": "93e7efc4b64753fcd60af9f7ea719b5b69a2b59a8186485f49c60efe91e5a601",
+      "owner": "Scene image decoding",
+      "reason": "将已支持JPEG方向与显示extent收敛到现有唯一decoder，保embedded原始Int边界、PNG/strict与失败保旧；局部修复不另建路线。",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#jpeg-display-layout"
     }
   ]
 }

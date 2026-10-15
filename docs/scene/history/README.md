@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-15 | JPEG/资源属性 | 正确性修复 | [显示方向与尺寸](jpeg-display-layout-2026-10-15.md) | 八方向共用decoder、真实选图/重开/reset及独立入口；不计性能 | [资源合同](../architecture/scene-resource-admission.md#jpeg-display-layout)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-15 | 相机/属性 | 实施证据 | [FOV脚本热更新](camera-layer-fov-live-2026-10-15.md) | prepared消费、Float域/退休反例与原生交互边界，不计性能 | [脚本合同](../capabilities/scenescript-api-coverage.md#camera-layer-fov-scalar)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-15 | 变体缓存/启动 | 正确性修复与STOP | [Set wire与源纯短筛](variant-analysis-cache-wire-correction-2026-10-15.md) | 合法集合wire摘要稳定；源纯补齐单对低于继续门已撤回，不计收益 | [缓存合同](../architecture/variant-analysis-cache-contract.md)、[性能卡](../roadmap/performance-convergence-card.md#sampler-seed-preparation) |
 | 2026-10-15 | Sampler/启动 | 准备收敛 | [完整seed透传](sampler-seed-preparation-convergence-2026-10-15.md) | 同template bootstrap消重、五对暖启动窄接受、混钟撤回/receipt重算与独立短内存信号 | [性能卡](../roadmap/performance-convergence-card.md#sampler-seed-preparation)、[启动合同](../architecture/scene-launch-responsiveness-contract.md) |

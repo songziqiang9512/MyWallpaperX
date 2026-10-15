@@ -1444,6 +1444,18 @@
       ]
     },
     {
+      "path": "docs/scene/history/jpeg-display-layout-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-resource-admission.md",
+        "docs/scene/roadmap/properties-panel-card.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "JPEG EXIF方向和显示extent共享owner，direct/embedded八方向像素、原生选图/重开/reset与独立入口边界"
+    },
+    {
       "path": "docs/scene/history/juno-full-scene-navigation-acceptance-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",

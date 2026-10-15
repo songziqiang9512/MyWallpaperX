@@ -267,23 +267,52 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 nonisolated enum SceneImageTextureUploader {
+    private struct SourceImageLayout {
+        let width: Int
+        let height: Int
+        let orientation: Int
+
+        var displaySize: CGSize {
+            let swapsAxes = orientation >= 5
+            return CGSize(width: swapsAxes ? height : width, height: swapsAxes ? width : height)
+        }
+    }
+
+    private static func sourceImageLayout(
+        _ source: CGImageSource, requiringSupported2DExtent: Bool = false
+    ) -> SourceImageLayout? {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = exactPositiveInteger(properties[kCGImagePropertyPixelWidth]),
+              let height = exactPositiveInteger(properties[kCGImagePropertyPixelHeight]) else { return nil }
+        guard !requiringSupported2DExtent || supports2DExtent(width: width, height: height) else { return nil }
+        let orientation: Int
+        if (CGImageSourceGetType(source) as String?) == "public.jpeg",
+           let raw = properties[kCGImagePropertyOrientation] {
+            guard let value = exactPositiveInteger(raw), (1...8).contains(value) else { return nil }
+            orientation = value
+        } else {
+            orientation = 1
+        }
+        return SourceImageLayout(width: width, height: height, orientation: orientation)
+    }
+
     /// Read the source pixel extent without creating a decoded image or GPU resource.
     static func sourceImageSize(from url: URL) -> CGSize? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL,
-                [kCGImageSourceShouldCache: false] as CFDictionary),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
-                as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
-              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
-              width.doubleValue.isFinite, height.doubleValue.isFinite,
-              width.doubleValue > 0, height.doubleValue > 0 else { return nil }
-        return CGSize(width: width.doubleValue, height: height.doubleValue)
+                [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        return sourceImageLayout(source)?.displaySize
+    }
+
+    static func sourceImageSize(_ data: Data, requiringSupported2DExtent: Bool = false) -> CGSize? {
+        guard let source = CGImageSourceCreateWithData(data as CFData,
+                [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        return sourceImageLayout(source, requiringSupported2DExtent: requiringSupported2DExtent)?.displaySize
     }
 
     /// ImageIO may erase RGB at zero alpha even when it reports straight RGBA.
     /// Keep the PNG source bytes for data consumers and the original color space
     /// for color consumers; both continue through the existing uploader/cache.
-    static func decodeSourceImage(_ data: Data) -> CGImage? {
+    static func decodeSourceImage(_ data: Data, requiringSupported2DExtent: Bool = false) -> CGImage? {
         let signature: [UInt8] = [137, 80, 78, 71, 13, 10, 26, 10]
         let rgbaPNG = data.starts(with: signature) && data.count >= 33
             && data[data.startIndex + 24] == 8 && data[data.startIndex + 25] == 6
@@ -301,7 +330,23 @@ nonisolated enum SceneImageTextureUploader {
             rgba = nil
         }
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+              let layout = sourceImageLayout(source, requiringSupported2DExtent: requiringSupported2DExtent)
+        else { return nil }
+        let image: CGImage
+        if layout.orientation == 1 {
+            guard let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+            image = decoded
+        } else {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: max(layout.width, layout.height),
+            ]
+            guard let transformed = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+            else { return nil }
+            image = transformed
+        }
+        guard CGSize(width: image.width, height: image.height) == layout.displaySize else { return nil }
         guard let rgba else { return image }
         guard supports2DExtent(width: image.width, height: image.height),
               rgba.count == image.width * image.height * 4,

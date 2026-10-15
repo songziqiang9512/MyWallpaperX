@@ -16,6 +16,10 @@ GPU 入口先用 Metal heap size-and-alignment 查询所需字节，在加锁总
 
 base images 清理之后，静态模型与 surface 图片/粒子准备仍可能重新填充同一 loader 的 CPU 解码缓存；各同步准备结束点再次清理可重建缓存，保留已发布 GPU texture 与消费者资源。不得通过清空 GPU cache 或提前返还仍在使用的租约模拟回收。
 
+<a id="jpeg-display-layout"></a>
+
+已准入JPEG的EXIF方向和显示尺寸由原`SceneImageTextureUploader`统一解释：URL header只读metadata得到显示extent，direct-property与embedded TEX像素共用原ImageIO八向变换；5–8交换宽高，像素与physical/mapped extent必须一致。旧MipUploader方向分支委派此owner；不另存方向cache或修改SourceKey、purpose、generation及发布事务。缺省/1保原像素路径，非法metadata/变换尺寸失败沿原局部decode failure，热替换保旧合法资源；PNG hidden-RGB/alpha及encoded-preserved API拒绝非identity方向的合同保留。验收复用真实loader的尺寸/四角、改名与八向变体、坏metadata/PNG邻例，再核真实面板JPEG替换/重开/reset和独立资源入口；未验ICC/HDR及其他格式不据此扩张。
+
 离屏池 automatic 子额度取 Metal 建议工作集的八分之一，仍限 192 MiB–1536 MiB；默认设备区间相当于父账的一半，实际分配继续先取得同一父租约。10-10 完整封面与波形同时执行的合法驻留集合已超过原 /16 子额度：旧 history 有真实 pin、shared pair 已按尺寸去重，不能为过门丢历史或放宽别名。此次只修子额度策略，不增加总账或动态借贷 owner，显式 residentByteBudget、COW、取消/完成和多屏总额约束保持不变。验收包括实际媒体连续播放、父账占用/拒绝观察及低预算/跨surface争用；不据此宣称降低显存或全部重型样本可运行。
 
 预算拒绝沿现有 nil / allocation failure 通道拒绝最小 unsafe unit；不停止健康屏、不挪用仍在飞行的资源、不自动驱逐其他会话。候选不能首帧则按 Session 合同失败并保留 active。旧会话与新会话在 GPU drain 期间一起占额度。低配额或连续请求下可以明确拒绝新候选，禁止靠清空旧画面省预算。
