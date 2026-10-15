@@ -1,10 +1,12 @@
 import Foundation
 import Metal
+import QuartzCore
 
 extension SceneDesktopWallpaperSession {
     final class PendingUserTextureUpdate {
         let update: ScenePlaybackTextureUpdate
         let cancellation = SceneWallpaperLaunchCancellation()
+        var resourceTask: Task<Void, Never>?
         var completion: (@MainActor (ScenePlaybackTextureUpdateOutcome) -> Void)?
 
         init(_ update: ScenePlaybackTextureUpdate,
@@ -25,7 +27,8 @@ extension SceneDesktopWallpaperSession {
         resolvedURLs: [String: URL],
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
-        guard let context = launchContext, context.recordID == update.recordID else {
+        guard let context = launchContext, context.recordID == update.recordID,
+              let registry = videoTextureSourceRegistry else {
             completion(.unavailable)
             return
         }
@@ -74,6 +77,7 @@ extension SceneDesktopWallpaperSession {
         let scriptGeneration = context.propertyVectorScriptProgram.generation
         let queue = context.preparedDeviceResources.baseImages.textureLoader.uploadCommandQueue
         let budget = context.preparedDeviceResources.baseImages.textureLoader.decodeCacheBudget
+        let cacheDirectory = context.cacheDirectory
         let identities = Set(demands.filter { keys.contains($0.propertyKey) })
         // DispatchQueue executes synchronous nonisolated resource APIs. No
         // Task/MainActor hop can move decoding back onto the frame thread.
@@ -82,6 +86,7 @@ extension SceneDesktopWallpaperSession {
                 urlsByPropertyKey: resolvedURLs, requestedIdentities: identities,
                 textureUploadCommandQueue: queue, textureDecodeCacheBudget: budget,
                 device: device, contentGeneration: generation,
+                videoCacheDirectory: cacheDirectory,
                 isCancelled: {
                     do { try token.check(); return false }
                     catch { return true }
@@ -89,48 +94,70 @@ extension SceneDesktopWallpaperSession {
             )
             DispatchQueue.main.async { [weak self] in
                 guard let self else { pending.finish(.superseded); return }
-                self.pendingUserTextureUpdates.removeValue(forKey: generation)
-                guard let current = self.launchContext,
-                      current.recordID == update.recordID,
-                      current.propertyVectorScriptProgram.generation == scriptGeneration,
-                      current.preparedDeviceResources.device.registryID == deviceID,
-                      keys.allSatisfy({ self.latestUserTextureRevisions[$0] == update.revision }),
-                      (try? token.check()) != nil else {
-                    pending.finish(.superseded)
-                    return
+                pending.resourceTask = Task { @MainActor [weak self] in
+                    guard let self else { pending.finish(.superseded); return }
+                    defer { self.pendingUserTextureUpdates.removeValue(forKey: generation) }
+                    @MainActor func isCurrent() -> Bool {
+                        guard let current = self.launchContext else { return false }
+                        return current.recordID == update.recordID
+                            && current.propertyVectorScriptProgram.generation == scriptGeneration
+                            && current.preparedDeviceResources.device.registryID == deviceID
+                            && self.videoTextureSourceRegistry === registry
+                            && !self.surfaces.isEmpty
+                            && keys.allSatisfy { self.latestUserTextureRevisions[$0] == update.revision }
+                            && (try? token.check()) != nil && !Task.isCancelled
+                    }
+                    guard isCurrent() else { pending.finish(.superseded); return }
+                    let selectedIdentities = Set(identities.filter { selectedKeys.contains($0.propertyKey) })
+                        .union(selectedKeys.compactMap {
+                            SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
+                        })
+                    guard loaded.hasPreparedResources(for: selectedIdentities) else {
+                        pending.finish(.failed("texture-update-resource-unavailable")); return
+                    }
+                    var candidates: [SceneVideoTextureSourceRegistry.UserPropertyCandidate] = []
+                    for declaration in loaded.videoDeclarations.values {
+                        guard let candidate = registry.makeUserPropertyCandidate(declaration: declaration, device: device),
+                              await candidate.source.primeInitialFrame(isCancelled: {
+                                  (try? token.check()) == nil || Task.isCancelled
+                              }) else {
+                            pending.finish(isCurrent() ? .failed("texture-update-video-unavailable") : .superseded)
+                            return
+                        }
+                        candidates.append(candidate)
+                    }
+                    guard isCurrent(), let current = self.launchContext else {
+                        pending.finish(.superseded); return
+                    }
+                    var liveState = current.liveState
+                    guard liveState.apply(
+                        replacements: update.values, changedPropertyKeys: keys,
+                        unavailableConsumerTargets: self.unavailableLiveConsumerTargets(in: current),
+                        preparedTexturePropertyKeys: admittedKeys
+                    ), candidates.allSatisfy(registry.canAdoptUserPropertyCandidate) else {
+                        pending.finish(.failed("texture-update-consumer-unavailable")); return
+                    }
+                    // One key, one candidate, no suspension point from admission
+                    // through every surface's immutable binding replacement.
+                    let hostTime = CACurrentMediaTime()
+                    let sceneTime = self.sceneClock.currentSceneTime(hostTime: hostTime)
+                    for candidate in candidates {
+                        guard registry.adoptUserPropertyCandidate(candidate, sceneTime: sceneTime,
+                            hostTime: hostTime, isPaused: self.sceneClock.isPaused) else {
+                            pending.finish(.failed("texture-update-video-adoption-failed")); return
+                        }
+                    }
+                    if candidates.isEmpty { registry.retireUserPropertySources(propertyKeys: keys) }
+                    self.userPropertyTextureLoad = self.userPropertyTextureLoad
+                        .replacing(propertyKeys: keys, with: loaded)
+                    var adoptedContext = current
+                    adoptedContext.liveState = liveState
+                    adoptedContext.userPropertyTextureLoad = self.userPropertyTextureLoad
+                    self.launchContext = adoptedContext
+                    self.publishUserPropertyTextureBindings(registry: registry, device: device)
+                    if self.sceneClock.isPaused { self.startFrameDriver() }
+                    pending.finish(.applied)
                 }
-                let selectedIdentities = Set(identities.filter { selectedKeys.contains($0.propertyKey) })
-                    .union(selectedKeys.compactMap {
-                        SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
-                    })
-                guard loaded.hasCompletePublications(for: selectedIdentities) else {
-                    pending.finish(.failed("texture-update-resource-unavailable"))
-                    return
-                }
-                var liveState = current.liveState
-                guard liveState.apply(
-                    replacements: update.values, changedPropertyKeys: keys,
-                    unavailableConsumerTargets: self.unavailableLiveConsumerTargets(in: current),
-                    preparedTexturePropertyKeys: admittedKeys
-                ) else {
-                    pending.finish(.failed("texture-update-consumer-unavailable"))
-                    return
-                }
-                // Main-thread callbacks are serialized with frame encoding.
-                // Merge the current snapshot, preserving other keys that may
-                // have committed while this worker prepared its resource.
-                self.userPropertyTextureLoad = self.userPropertyTextureLoad
-                    .replacing(propertyKeys: keys, with: loaded)
-                var adoptedContext = current
-                adoptedContext.liveState = liveState
-                adoptedContext.userPropertyTextureLoad = self.userPropertyTextureLoad
-                self.launchContext = adoptedContext
-                for surface in self.surfaces.values {
-                    surface.metalView.adoptUserPropertyTextures(self.userPropertyTextureLoad)
-                    surface.didSubmitSimulationFrame = false
-                }
-                if self.sceneClock.isPaused { self.startFrameDriver() }
-                pending.finish(.applied)
             }
         }
     }
@@ -138,7 +165,56 @@ extension SceneDesktopWallpaperSession {
     func cancelPendingUserTextureUpdates() {
         // Completion stays attached to the worker until it stops reading the
         // selected file, so daemon-owned security scope outlives the read.
-        for pending in pendingUserTextureUpdates.values { pending.cancellation.cancel() }
+        for pending in pendingUserTextureUpdates.values {
+            pending.cancellation.cancel()
+            pending.resourceTask?.cancel()
+        }
         latestUserTextureRevisions.removeAll()
+    }
+
+    func publishUserPropertyTextureBindings(registry: SceneVideoTextureSourceRegistry, device: MTLDevice) {
+        let sources = registry.userPropertySources(
+            declarations: userPropertyTextureLoad.videoDeclarations, device: device
+        )
+        for surface in surfaces.values {
+            surface.metalView.adoptUserPropertyTextures(userPropertyTextureLoad, videoSources: sources)
+            surface.didSubmitSimulationFrame = false
+        }
+    }
+
+    func prepareInitialUserPropertyVideos() {
+        guard let context = launchContext, let registry = videoTextureSourceRegistry,
+              !userPropertyTextureLoad.videoDeclarations.isEmpty else { return }
+        let declarations = userPropertyTextureLoad.videoDeclarations
+        let device = context.preparedDeviceResources.device
+        initialUserVideoPreparation = Task { @MainActor [weak self] in
+            var candidates: [SceneVideoTextureSourceRegistry.UserPropertyCandidate] = []
+            for declaration in declarations.values {
+                guard !Task.isCancelled,
+                      let candidate = registry.makeUserPropertyCandidate(declaration: declaration, device: device),
+                      await candidate.source.primeInitialFrame(isCancelled: { Task.isCancelled }) else {
+                    if !Task.isCancelled, let self, let screen = self.surfaces.keys.first {
+                        self.onFirstFrameCompletion?(screen, false)
+                    }
+                    return
+                }
+                candidates.append(candidate)
+            }
+            guard !Task.isCancelled, let self, self.videoTextureSourceRegistry === registry,
+                  self.launchContext?.recordID == context.recordID,
+                  candidates.allSatisfy(registry.canAdoptUserPropertyCandidate) else { return }
+            let hostTime = CACurrentMediaTime()
+            let sceneTime = self.sceneClock.currentSceneTime(hostTime: hostTime)
+            for candidate in candidates {
+                guard registry.adoptUserPropertyCandidate(candidate, sceneTime: sceneTime,
+                    hostTime: hostTime, isPaused: self.sceneClock.isPaused) else {
+                    if let screen = self.surfaces.keys.first { self.onFirstFrameCompletion?(screen, false) }
+                    return
+                }
+            }
+            self.initialUserVideoPreparation = nil
+            self.publishUserPropertyTextureBindings(registry: registry, device: device)
+            self.startFrameDriver()
+        }
     }
 }

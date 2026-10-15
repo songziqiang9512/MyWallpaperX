@@ -51,6 +51,7 @@ class SceneMetalView: NSView {
     var displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB
     private let solidLayerTexture: MTLTexture?
     private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
+    private var userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:]
     var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
@@ -109,8 +110,12 @@ class SceneMetalView: NSView {
 
     /// Session adopts a complete resource revision between frame callbacks.
     /// Encoding only reads this immutable value, including every purpose.
-    func adoptUserPropertyTextures(_ snapshot: SceneUserPropertyTextureLoadResult) {
+    func adoptUserPropertyTextures(
+        _ snapshot: SceneUserPropertyTextureLoadResult,
+        videoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:]
+    ) {
         userPropertyTextureLoad = snapshot
+        userPropertyVideoSources = videoSources
     }
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
@@ -131,6 +136,7 @@ class SceneMetalView: NSView {
             maximumBytes: 1_024 * 1_024 * 1_024
         ),
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
+        userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         presentationStreamID: UInt64,
         firstFramePresentationRegistration:
@@ -163,6 +169,7 @@ class SceneMetalView: NSView {
         )
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         self.userPropertyTextureLoad = userPropertyTextureLoad
+        self.userPropertyVideoSources = userPropertyVideoSources
         let layer = CAMetalLayer()
         layer.device = renderer.device
         layer.pixelFormat = imageLayerPipeline.pixelFormat
@@ -693,6 +700,9 @@ class SceneMetalView: NSView {
         guard !shouldDeferResolvedMaterialFrame else {
             return .deferred(reasonCode: "resolved-material-frame-in-flight")
         }
+        guard let frameUserTextures = SceneFrameUserPropertyTextureAssembly.make(
+            prepared: userPropertyTextureLoad, videoSources: userPropertyVideoSources, timing: timing
+        ) else { return .deferred(reasonCode: "user-property-video-frame-unavailable") }
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
            timing.frameIndex < debugDrawableUnavailableFrameCount {
@@ -761,8 +771,8 @@ class SceneMetalView: NSView {
         let outcome = renderer.renderFrame(
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
-            userPropertyTextures: userPropertyTextureLoad.textures,
-            userPropertyTextureStates: userPropertyTextureLoad.providerStates,
+            userPropertyTextures: frameUserTextures.textures,
+            userPropertyTextureStates: frameUserTextures.states,
             mediaThumbnail: mediaThumbnail,
             spriteAnimations: spriteAnimations,
             spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,

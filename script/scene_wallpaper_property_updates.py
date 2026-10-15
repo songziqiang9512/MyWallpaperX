@@ -72,7 +72,7 @@ def append_texture_override_argument(
             or not isinstance(raw_path, str)
             or path.is_absolute()
             or ".." in path.parts
-            or path.suffix.lower() not in {".png", ".jpg", ".jpeg"}
+            or path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".mp4", ".mov", ".m4v"}
             or not target.is_relative_to(root)
             or not target.is_file()
         ):

@@ -40,7 +40,7 @@ struct SceneRenderDescriptor {
 enum SceneMaterialPropertyBindingCompiler {
     struct SourceMaterialAlpha {
         let propertyTarget: SceneDynamicTarget?
-        func resolve(snapshot: SceneDynamicSnapshot) -> Float { fatalError("unrelated alpha route") }
+        nonisolated func resolve(snapshot: SceneDynamicSnapshot) -> Float { fatalError("unrelated alpha route") }
     }
 }
 struct SceneBaseMaterialLightingProfile {}
@@ -69,6 +69,7 @@ struct SceneMetalRenderer {
     let textureRegistry: SceneFrameTextureRegistry
 }
 enum ScenePerformanceCounter { case pipelineStateBinds }
+enum SceneGPUStageTimestampHook { static func drew(_ encoder: MTLRenderCommandEncoder) {} }
 final class ScenePerformanceCounterHub {
     static let shared = ScenePerformanceCounterHub()
     func bump(_ value: ScenePerformanceCounter) {}

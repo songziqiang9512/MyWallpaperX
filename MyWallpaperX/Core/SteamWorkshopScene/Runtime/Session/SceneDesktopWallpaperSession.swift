@@ -83,6 +83,7 @@ final class SceneDesktopWallpaperSession {
     var pendingUserTextureUpdates: [UInt64: PendingUserTextureUpdate] = [:]
     var latestUserTextureRevisions: [String: UInt64] = [:]
     var nextUserTextureGeneration: UInt64 = 1
+    var initialUserVideoPreparation: Task<Void, Never>?
     let userTexturePreparationQueue = DispatchQueue(
         label: "com.mywallpaperx.scene-user-textures",
         qos: .userInitiated
@@ -187,6 +188,7 @@ final class SceneDesktopWallpaperSession {
         }
         NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
         installPointerEventMonitorsIfNeeded()
+        prepareInitialUserPropertyVideos()
         NSLog(
             "MWX LAUNCH-STAGE: stage=activate-end elapsedMs=%.0f",
             (CACurrentMediaTime() - activateStageStart) * 1000
@@ -441,6 +443,10 @@ final class SceneDesktopWallpaperSession {
         }
 #endif
         var assetVideoSources: [SceneAssetTextureIdentity: SceneVideoTextureSource] = [:]
+        let userVideoSources = videoTextureSourceRegistry.userPropertySources(
+            declarations: userPropertyTextureLoad.videoDeclarations,
+            device: launchContext.preparedDeviceResources.device
+        )
         for (identity, declaration) in launchContext.materialAssetCatalog.videoDeclarations {
             if let source = videoTextureSourceRegistry.source(
                 declaration: declaration, owner: .asset,
@@ -486,6 +492,7 @@ final class SceneDesktopWallpaperSession {
                 textureDecodeCacheBudget: launchContext.preparedDeviceResources
                     .baseImages.textureLoader.decodeCacheBudget,
                 userPropertyTextureLoad: userPropertyTextureLoad,
+                userPropertyVideoSources: userVideoSources,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 presentationStreamID: UInt64(screenID),

@@ -23,6 +23,13 @@ import Foundation
     var pendingResourceLifetime: ResourceLifetime?
     var activeRecordID: String?
     var activeRequestID: UUID?
+    struct ActiveCallbackPropertyFacts: Equatable {
+        let transportGeneration: UInt64
+        let requestID: UUID
+        let recordID: String?
+        let reachability: ScenePreparedCallbackPropertyReachability
+    }
+    var activeCallbackPropertyFacts: ActiveCallbackPropertyFacts?
     var pendingRequestID: UUID?
     var endpointReady = true
     var transport: Transport? = .init()
@@ -65,12 +72,28 @@ enum DaemonNewlineJSON {
     }
 }
 
+// Unrelated callback-panel metadata storage mirrors the production value API;
+// command admission, acknowledgements and first-present handlers remain real.
+nonisolated struct ScenePreparedCallbackPropertyReachability: Codable, Equatable, Sendable {
+    struct Source: Codable, Equatable, Sendable {
+        let rootPath: String
+        let projectWitness: String
+        let sceneWitness: String
+    }
+    let source: Source
+    let scriptGeneration: UInt64
+    let propertyKeys: Set<String>
+}
 struct SceneWallpaperLaunchState {
-    enum Phase: String { case accepted, launched, cancelled, failed, stopped }
+    enum Phase: String {
+        case accepted, preparingModel, preparingPrograms, preparingResources, preparingSurfaces
+        case launched, cancelled, failed, stopped
+    }
     let requestID: UUID
     let recordID: String?
     let phase: Phase
     let message: String
+    var callbackPropertyReachability: ScenePreparedCallbackPropertyReachability? = nil
 }
 struct SceneFramePresentation {
     let requestID: UUID
@@ -106,12 +129,32 @@ extension Notification.Name {
             client.handleTextureUpdateResult(["revision": revision, "recordID": "own", "outcome": outcome])
         }
         func launch(_ client: SceneDaemonClient, id: UUID, phase: String) {
+            if phase == "accepted" {
+                // This helper models an expected launch round trip. The real
+                // sender fixes the request ID before its accepted event; the
+                // transport leaf here lets each scenario choose that ID.
+                precondition(client.endpointReady && client.transport?.isRunning == true)
+                precondition(client.pendingIntent?.recordID == "own")
+                client.pendingRequestID = id
+            }
             client.handleLaunchState(["requestID": id.uuidString, "recordID": "own", "phase": phase, "message": "own"])
         }
         func first(_ client: SceneDaemonClient, id: UUID) {
             client.handleFirstFrame(["requestID": id.uuidString, "recordID": "own", "uptimeMs": 1])
         }
         var checks: [String: Bool] = [:]
+        do {
+            let c = client()
+            c.pendingIntent = intent()
+            let sentRequestID = UUID()
+            c.pendingRequestID = sentRequestID
+            // Bypass the expected-round-trip helper: an unsolicited event
+            // must not acquire the sender's identity or replace pending state.
+            c.handleLaunchState(["requestID": UUID().uuidString, "recordID": "own",
+                "phase": "accepted", "message": "foreign"])
+            checks["foreign_accepted_keeps_sender_request_identity"] = c.pendingRequestID == sentRequestID
+                && c.launchState == nil && c.activeIntent == intent() && c.pendingIntent == intent()
+        }
         for retirement in ["stop", "switch", "termination"] {
             let c = client(); var results: [String: ScenePlaybackTextureUpdateOutcome] = [:]
             var reentrantCallsAccepted = false

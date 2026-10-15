@@ -59,3 +59,30 @@ enum SceneFrameLayerTextureAssembly {
         )
     }
 }
+
+/// Both typed material consumers and the legacy key lookup read the same atom.
+/// A prepared video file alone cannot satisfy a surface's first-frame gate.
+enum SceneFrameUserPropertyTextureAssembly {
+    struct Snapshot {
+        let textures: [String: MTLTexture]
+        let states: [SceneUserPropertyTextureIdentity: SceneTextureProviderState]
+    }
+
+    static func make(
+        prepared: SceneUserPropertyTextureLoadResult,
+        videoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource],
+        timing: SceneFrameTiming
+    ) -> Snapshot? {
+        var textures = prepared.textures
+        var states = prepared.providerStates
+        for declaration in prepared.videoDeclarations.values {
+            let identity = declaration.identity
+            guard let frame = videoSources[identity]?.prepareFrame(for: timing),
+                  let publication = frame.userPropertyPublication(for: identity),
+                  publication.isComplete, publication.generationIsCurrent else { return nil }
+            states[identity] = .ready(publication)
+            textures[identity.propertyKey] = publication.texture
+        }
+        return Snapshot(textures: textures, states: states)
+    }
+}

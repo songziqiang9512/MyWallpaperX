@@ -933,7 +933,11 @@ extension SceneDesktopWallpaperSession {
         }
         // The shared provider version is resolved once. A failed surface may
         // not roll back a source already referenced by another submitted GPU.
-        videoTextureSourceRegistry?.commitPreparedFrame()
+        if frameOutcomes.contains(where: \.isSubmitted) {
+            videoTextureSourceRegistry?.commitPreparedFrame()
+        } else {
+            videoTextureSourceRegistry?.discardPreparedFrame()
+        }
         if sceneClock.isPaused && !surfaces.values.allSatisfy(\.didSubmitSimulationFrame) {
             return frameOutcomes.contains(where: \.isDeferred) ? .busy : .dropped
         }

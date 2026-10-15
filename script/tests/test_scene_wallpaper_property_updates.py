@@ -179,10 +179,22 @@ class SceneWallpaperPropertyUpdatesTests(unittest.TestCase):
                 json.loads(command[2]),
                 {"customCover": "custom.png"},
             )
+            for extension in ("mp4", "mov", "m4v"):
+                name = "renamed-media." + extension
+                (runtime_sample / name).write_bytes(b"argument-parser-fixture-not-ready-media")
+                media_command: list[str] = []
+                media_failures: list[str] = []
+                benchmark.append_texture_override_argument(
+                    media_command, {"anotherProperty": name}, runtime_sample, media_failures
+                )
+                self.assertEqual(media_failures, [])
+                self.assertEqual(json.loads(media_command[-1]), {"anotherProperty": name})
+            (runtime_sample / "unsupported.webm").write_bytes(b"fixture")
             for invalid in (
                 {"customCover": "../custom.png"},
                 {"customCover": "missing.png"},
                 {"customCover": "custom.tex"},
+                {"customCover": "unsupported.webm"},
                 {"\n": "custom.png"},
                 ["custom.png"],
             ):

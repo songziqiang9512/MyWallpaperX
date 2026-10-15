@@ -287,6 +287,12 @@ struct SceneImageLayerDrawRequest {
         }
         let acceptsCandidate: Bool
         switch (layer.contentKind, baseTextureCandidate.identity) {
+        case let ("image", .provider(.videoUserProperty(property, _, epoch))),
+             let ("solid", .provider(.videoUserProperty(property, _, epoch))):
+            // The base resolver already checked the exact property request.
+            // It remains a provider atom, never an authored layer source.
+            acceptsCandidate = epoch > 0 && property.purpose == .premultipliedColor
+                && baseTextureCandidate.purpose == property.purpose
         case ("image", _):
             acceptsCandidate = true
         case let ("text", .provider(.dynamicText(candidateLayerID))):

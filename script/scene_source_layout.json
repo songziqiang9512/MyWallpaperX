@@ -526,6 +526,7 @@
           "SceneDynamicImageTextureProvider.swift",
           "SceneMediaThumbnailTextureStore.swift",
           "SceneStockNoiseTextureStore.swift",
+          "SceneVideoOwnedFile.swift",
           "SceneVideoPayloadPreparation.swift",
           "SceneVideoProviderLifecycleState.swift",
           "SceneVideoTextureSource.swift",

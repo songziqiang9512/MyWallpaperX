@@ -12,6 +12,8 @@ extension SceneDesktopWallpaperSession {
         let timerWasActive = frameTimer?.isValid == true
 #endif
         if clearContext {
+            initialUserVideoPreparation?.cancel()
+            initialUserVideoPreparation = nil
             cancelPendingUserTextureUpdates()
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil

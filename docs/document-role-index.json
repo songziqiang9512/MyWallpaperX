@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3ea841255631f22500f137ac34cc20b55f1328b6b177a3f8271cda4bb97423c",
+        "sourceSHA256": "c5f6f3a10a465b43b801963d87d5b6398fce6165dc4c935af1d34810899237a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
+        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
       }
     },
     {
@@ -2894,6 +2894,20 @@
       ]
     },
     {
+      "path": "docs/scene/history/user-property-video-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-resource-admission.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "本地PMA视频属性的同Source快照/seed事务、自有GPU与原生UI/重放、真实前景和旧WebM邻例；遮挡/错误输入剔除，metadata真反例修复与最终App复验分列。"
+    },
+    {
       "path": "docs/scene/history/user-texture-live-update-implementation-2026-10-05.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3082,13 +3096,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b751910e304806888af059a84f70b9d469085ad60bc1de0612254e697e29b4c",
+        "sourceSHA256": "ffe1c8153ea6ad9a9aca4048515643a760176bf91f7f85a39f6815caaf715da0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "sampler完整seed消重、暖启动窄接受/原生画面；secondary混钟撤回与receipt重算，独立8s后继及内存来源分类；旧NO-GO保留",
-        "limitations": "仅文档职责/导航核对；不沿用无效secondary，不冒充精确整phase CPU、RAM收益/真实peak安全或完整性能验收。"
+        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
+        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
       }
     },
     {
@@ -3099,10 +3113,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cabd4eaf2935c778c24f0625cad4f5e8daf5cd35f1443ef90d01235465c000d1",
+        "sourceSHA256": "5c59e5a177def1729af9bc2a7d07fa9f0c7516ae452647fbe73416d1b8146a31",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
+        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
       }
     },
     {
@@ -3120,10 +3134,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a27b8113fc2f07bc274ecb521c782b2341dcc630230090158d484f1997c4fd87",
+        "sourceSHA256": "b1a5024ecd41f992cb2116c016209d93d06647858ed9418dd679b2ab3930c96a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
+        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
       }
     },
     {

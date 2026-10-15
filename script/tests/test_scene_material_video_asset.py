@@ -31,10 +31,12 @@ import Foundation
 import Metal
 import simd
 
-func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int) -> SceneResolvedMaterialTemplate {
+func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int,
+                   propertyKey: String? = nil) -> SceneResolvedMaterialTemplate {
     let slot = variant == 0 ? 0 : 2
     let varying = variant == 0 ? "v_TexCoord" : "renamedUV"
     let name = variant == 0 ? "self/neutral" : "alternate/renamed-resource"
+    let annotation = propertyKey == nil ? "" : #" // {"formatcombo":true}"#
     let result = variant == 0
         ? "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
         : "vec2 copiedUV = renamedUV; vec4 sampledColor = texSample2D(g_Texture2, copiedUV); gl_FragColor = sampledColor;"
@@ -47,7 +49,7 @@ func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int) -> SceneResolvedMate
         """),
         (.fragment, name + ".frag", """
         varying vec2 \(varying);
-        uniform sampler2D g_Texture\(slot);
+        uniform sampler2D g_Texture\(slot);\(annotation)
         void main() { \(result) }
         """),
     ]
@@ -65,7 +67,10 @@ func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int) -> SceneResolvedMate
                 rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count) },
             edges: [], diagnostics: [], dependencySHA256: hash))
     var slots = Array<SceneResolvedMaterialTemplate.TextureSlot?>(repeating: nil, count: 8)
-    slots[slot] = .init(index: slot, candidates: [.init(reference: .asset(path), provenance: .explicitBinding)])
+    let reference: SceneResolvedMaterialTemplate.TextureReference = propertyKey.map {
+        .userProperty(.init(key: $0))
+    } ?? .asset(path)
+    slots[slot] = .init(index: slot, candidates: [.init(reference: reference, provenance: .explicitBinding)])
     return .validated(textureSlots: slots, combos: [], uniformDeclarations: [],
         renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
             depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
@@ -74,6 +79,62 @@ func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int) -> SceneResolvedMate
         diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: contract.identity,
             contractIdentity: contract.identity, contractCanonicalSHA256: hash,
             textureSources: [], uniformSources: []))!
+}
+
+func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: MTLDevice) throws -> [String: Bool] {
+    let slot = variant == 0 ? 0 : 2
+    let key = variant == 0 ? "self-picture" : "arbitrary-renamed-picture"
+    let property = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: .premultipliedColor)!
+    let template = mediaTemplate(path, variant: variant, propertyKey: key)
+    let sampler = SceneResolvedMaterialShaderSchema.Sampler(name: "g_Texture\(slot)", slot: slot,
+        mode: .regular, materialKey: nil, isHidden: false, defaultTexture: nil,
+        readinessCombo: nil, sourceProvenPurpose: .premultipliedColor)
+    let formatSlots = try SceneResolvedMaterialTextureResolver.launchTextureFormatSlots(template: template)
+    let profiles = try SceneResolvedMaterialTextureResolver.launchTextureFormatProfiles(template: template,
+        samplers: [slot: sampler], readinessMask: UInt8(1) << UInt8(slot), formatSlots: formatSlots,
+        graphTextureFormatFacts: [:], assetFormatFacts: [:], assetStates: [:]).get()
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+        width: 2, height: 2, mipmapped: false)
+    descriptor.usage = .shaderRead
+    let texture = device.makeTexture(descriptor: descriptor)!
+    let incarnation = UUID()
+    func runtimeKey(format: SceneShaderTextureFormat?, generation: UInt64) throws -> SceneResolvedMaterialVariantKey {
+        // Controlled provider metadata at the production resolver boundary.
+        // The separate native Source gate proves which format the producer supplies.
+        let candidate = SceneTextureCandidate(texture: texture,
+            identity: .provider(.videoUserProperty(property: property, sourceIncarnation: incarnation,
+                lifecycleEpoch: 3)), generation: .provider(contentGeneration: generation),
+            purpose: .premultipliedColor, content: .color(.resolved(.opaque)),
+            physicalSize: .init(width: 2, height: 2), mappedSize: .init(width: 2, height: 2),
+            uvTransform: .identity, sampling: .linearClamp, authoredFormat: format)
+        let publication = SceneTextureProviderPublication(requestIdentity: .materialUserProperty(property),
+            candidate: candidate, contentGeneration: generation)
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+            definitions: [], userValues: [:], timelineValues: [:], sceneScriptValues: [:]).snapshot
+        let frameInputs = SceneAuthoredShaderFrameInputs(frameIndex: 1, screenSize: .init(width: 2, height: 2),
+            sceneTime: 0, dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero,
+            pointerPreviousNDC: .zero, pointerPrimaryButtonDown: false,
+            parallaxPositionNDC: .zero, audioSpectrum: .silent)
+        let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: 1, frameIndex: 1,
+            entries: [.materialUserProperty(property): .ready(.init(publication: publication, resourceGeneration: generation))])
+        let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: snapshot,
+            dynamicSnapshot: dynamic, frameInputs: frameInputs).get()
+        let input = frame.finalizationInput(template: template, layerID: 17,
+            renderSize: .init(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: matrix_identity_float4x4, effectOutputModelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4, implicitFramebufferIdentity: nil)
+        return try SceneResolvedMaterialTextureResolver.variantKey(input, samplers: [slot: sampler],
+            reachableSamplers: [slot: [sampler]], formatSlots: formatSlots,
+            allowPresenceIndependentDefaults: true)
+    }
+    let first = try runtimeKey(format: nil, generation: 1)
+    let later = try runtimeKey(format: nil, generation: 7)
+    let invented = try runtimeKey(format: .rgba8888, generation: 1)
+    return ["formatComboAnnotationReachesOwner": formatSlots == [slot],
+        "externalPropertyLaunchHasNoTEXFormat": profiles.count == 1 && profiles[0][slot] == nil,
+        "externalPropertyRuntimeMatchesLaunchProfile": profiles.contains(first.textureFormats),
+        "providerGenerationDoesNotChangeFormatKey": first == later,
+        "inventedTEXFormatCannotMatchPropertyLaunch": !profiles.contains(invented.textureFormats)]
 }
 
 @main enum Harness {
@@ -115,6 +176,8 @@ func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int) -> SceneResolvedMate
                 checks[String(describing: state) + "DoesNotAcquirePreparedAuthority"] = false
             } catch { checks[String(describing: state) + "DoesNotAcquirePreparedAuthority"] = true }
         }
+        checks.merge(try propertyFormatProfileChecks(path: identity.path, variant: variant,
+            device: MTLCreateSystemDefaultDevice()!)) { _, new in new }
         print(String(decoding: try JSONSerialization.data(withJSONObject: [
             "mediaAdmitted": catalog.launchStates[identity] != .unavailable,
             "report": catalog.reportLines, "checks": checks, "variant": variant,

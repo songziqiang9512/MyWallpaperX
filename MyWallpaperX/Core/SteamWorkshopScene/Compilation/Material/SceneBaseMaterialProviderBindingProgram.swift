@@ -96,6 +96,10 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
                         return false
                     }
                     if case .file = candidate.identity { return true }
+                    if case let .provider(.videoUserProperty(property, _, epoch)) = candidate.identity {
+                        return property == identity && epoch > 0
+                            && property.purpose == .premultipliedColor
+                    }
                     return false
                 }
             }

@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 排程更新：2026-10-16。本文服从[兼容路线](scene-compatibility-roadmap.md)，保存开放问题；本批[坏COMBO局部恢复](../history/malformed-combo-record-recovery-2026-10-16.md)已交付有界实际画面。下一项优先属性卡 U41 视频用户纹理入口，先在原视频/资源事务写完整生命周期设计，再做真实替换；不以首帧静图算视频。N08 world/负细分及composition透视保持unknown，不重复扩无区分矩阵。性能按[性能卡](performance-convergence-card.md)有证触发，属性沿[原typed链](properties-panel-card.md)推进；其他视觉、交互与生命周期余项保留，局部通过不关闭整样本。
+> 排程更新：2026-10-16。本文服从[兼容路线](scene-compatibility-roadmap.md)，只保存开放问题；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生选择/重放、metadata反例及最终App前景可见的有界验收，不计专项完成。随后资格U40连续拖动，尚未fresh复现。N08 world/负细分与composition透视保持unknown，不扩无区分矩阵。属性专项归[工作卡](properties-panel-card.md)，性能按[性能卡](performance-convergence-card.md)有证触发；局部通过不关闭整样本。
 
 ## 1. 全样本依据与状态
 
@@ -140,8 +140,8 @@
 | U37 · 3769364482 | 人物发光突现，应渐显渐隐有呼吸感 | 作者 opacity/Timeline/effect 常量→typed frame→合成，复验完整周期 |
 | U38 · 3750342273 | 缺鼠标晃动镜头视差 | pointer/相机配置→各层变换，沿既有相机 owner 修复 |
 | U39 · 3219398263 | 中间漩涡方向似反，与官方有差异 | 作者时间/角度/UV/空间约定，固定相位对照后裁决方向 |
-| U40 · 3749463715 | 胸部点击拖动仅第一次有效，第二次及后续失效 | pointer capture/up/cancel、状态复位及动画/physics 消费；至少连续三轮 down/move/up 验收 |
-| U41 · 3357627941 | 属性面板无替换视频媒体资源的选择入口 | project 属性类型→现有 AppKit 编辑器/资源选择→typed binding→视频 consumer，不另造 provider |
+| U40 · 3749463715 | 胸部点击拖动仅第一次有效，第二次及后续失效 | 后继资格，尚未fresh复现；沿pointer capture/up/cancel、状态复位及动画/physics，至少连续三轮down/move/up验收 |
+| U41 · 3357627941 | 本地视频入口有界已闭，更宽profile保留 | [实施记录](../history/user-property-video-2026-10-16.md)：复用原资源/视频事务；真实前景与最终身份已复验，非PMA/更宽媒体未扩，不关闭整样本 |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖](../history/property-condition-reachability-2026-10-13.md)与[准备复用](../history/property-preparation-convergence-2026-10-13.md)已闭局部/暖CPU；[原生列表](../history/native-property-list-convergence-2026-10-14.md)退出SwiftUI lazy AX职责，系统滚动首尾、实际Tab/格式热更与独立灯光开关已验；三轮同条件无播放含AX的操作CPU降64.237449%。[显示本地化](../history/property-callback-recovery-2026-10-14.md#property-display-localization)已落地作者优先及有限标准词汇回退，真实面板条件/持久化与独立样本已验；打开/编辑总延迟、完整系统键盘chrome、颜色callback/cohort、更多词汇/locale和长Combo完整显示仍开放 |
 
 新增独立运行观察（2134765860）：普通桌面房间、灯光与时钟有输出，有媒体的中间运行中206/457 text owner报`no setter for property`、右侧黑块未归因；最终无媒体状态下未复现异常且为灰色占位，条件不同不记修复；保留[本批实机记录](../history/property-condition-reachability-2026-10-13.md)，不把内部Host旧通过或本批局部面板修复记作整样本通过。

@@ -30,6 +30,17 @@ final class SceneVideoTextureSource {
             ), authoredFormat: .rgba8888)
         }
 
+        func userPropertyPublication(
+            for property: SceneUserPropertyTextureIdentity
+        ) -> SceneTextureProviderPublication? {
+            guard owner == .userProperty(property),
+                  property.purpose == .premultipliedColor else { return nil }
+            return publication(request: .materialUserProperty(property), provider: .videoUserProperty(
+                property: property, sourceIncarnation: sourceIncarnation,
+                lifecycleEpoch: epoch
+            ), authoredFormat: nil)
+        }
+
         private func publication(
             request: SceneFrameTextureIdentity,
             provider: SceneTextureProviderIdentity,
@@ -59,7 +70,7 @@ final class SceneVideoTextureSource {
     private var item: AVPlayerItem?
     private let videoOutput: AVPlayerItemVideoOutput
     private let textureCache: CVMetalTextureCache
-    private let temporaryFileURL: URL
+    private var ownedFile: SceneVideoOwnedFile?
     let owner: SceneVideoTexturePlaybackOwner
     private let sourceIncarnation = UUID()
     private let capturesLifecycleObservations: Bool
@@ -70,6 +81,15 @@ final class SceneVideoTextureSource {
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
     private var pendingFrameIndex: UInt64?
+    private struct PrimedFrame {
+        let texture: MTLTexture
+        let content: SceneTextureContent
+        let decodedItemTime: TimeInterval?
+    }
+    private var primedFrame: PrimedFrame?
+    private var primeOperationID: UUID?
+    private var primeSeekResult: Bool?
+    private var primePrerollResult: Bool?
     private struct FramePreparationSnapshot {
         let lifecycle: SceneVideoProviderLifecycleState
         let endedGeneration: UInt64
@@ -97,7 +117,7 @@ final class SceneVideoTextureSource {
             capturesLifecycleObservations: capturesLifecycleObservations)
     }
 
-    init?(
+    convenience init?(
         owner: SceneVideoTexturePlaybackOwner,
         mp4PayloadData: Data,
         isWebM: Bool = false,
@@ -105,29 +125,39 @@ final class SceneVideoTextureSource {
         device: MTLDevice,
         capturesLifecycleObservations: Bool = false
     ) {
+        guard let file = try? SceneVideoOwnedFile.allocate(cacheDirectory: cacheDirectory) else {
+            return nil
+        }
+        do {
+            if !isWebM { try mp4PayloadData.write(to: file.url, options: [.atomic]) }
+        } catch {
+            return nil
+        }
+        self.init(owner: owner, fileLease: file, installPreparedItem: !isWebM,
+            device: device, capturesLifecycleObservations: capturesLifecycleObservations)
+        if isWebM { prepareWebMPayload(mp4PayloadData, file: file) }
+    }
+
+    convenience init?(
+        owner: SceneVideoTexturePlaybackOwner,
+        preparedFile: SceneVideoOwnedFile,
+        device: MTLDevice,
+        capturesLifecycleObservations: Bool = false
+    ) {
+        self.init(owner: owner, fileLease: preparedFile, installPreparedItem: true,
+            device: device, capturesLifecycleObservations: capturesLifecycleObservations)
+    }
+
+    private init?(
+        owner: SceneVideoTexturePlaybackOwner,
+        fileLease: SceneVideoOwnedFile,
+        installPreparedItem: Bool,
+        device: MTLDevice,
+        capturesLifecycleObservations: Bool
+    ) {
         self.owner = owner
+        self.ownedFile = fileLease
         self.capturesLifecycleObservations = capturesLifecycleObservations
-        let outputDirectory = cacheDirectory
-            .appendingPathComponent(".mywallpaperx-scene-video-payloads", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(
-                at: outputDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-        } catch {
-            return nil
-        }
-
-        let filename = "video-\(sourceIncarnation.uuidString).mp4"
-        let fileURL = outputDirectory.appendingPathComponent(filename)
-        do {
-            if !isWebM { try mp4PayloadData.write(to: fileURL, options: [.atomic]) }
-        } catch {
-            return nil
-        }
-        temporaryFileURL = fileURL
-
         var maybeTextureCache: CVMetalTextureCache?
         let cacheStatus = CVMetalTextureCacheCreate(
             kCFAllocatorDefault,
@@ -138,7 +168,6 @@ final class SceneVideoTextureSource {
         )
         guard cacheStatus == kCVReturnSuccess,
               let textureCache = maybeTextureCache else {
-            try? FileManager.default.removeItem(at: fileURL)
             return nil
         }
         self.textureCache = textureCache
@@ -159,31 +188,32 @@ final class SceneVideoTextureSource {
         player.isMuted = true
         player.volume = 0
 
-        if isWebM {
-            let preparationID = UUID()
-            payloadPreparationID = preparationID
-            let worker = Task.detached(priority: .utility) {
-                try await SceneVideoPayloadPreparation.writeWebM(mp4PayloadData, to: fileURL)
+        if installPreparedItem { installItem(at: fileLease.url) }
+    }
+
+    private func prepareWebMPayload(_ data: Data, file: SceneVideoOwnedFile) {
+        let preparationID = UUID()
+        payloadPreparationID = preparationID
+        let worker = Task.detached(priority: .utility) {
+            // Cancellation is cooperative. Keep the destination lease until
+            // the actual writer exits, even after Source.stop releases it.
+            defer { withExtendedLifetime(file) {} }
+            try await SceneVideoPayloadPreparation.writeWebM(data, to: file.url)
+        }
+        payloadPreparation = worker
+        Task { [weak self] in
+            defer { withExtendedLifetime(file) {} }
+            let result = await worker.result
+            guard let self, self.payloadPreparationID == preparationID else { return }
+            self.payloadPreparation = nil
+            self.payloadPreparationID = nil
+            switch result {
+            case .success:
+                self.installItem(at: file.url)
+            case let .failure(error):
+                NSLog("MWX video preparation failed: owner=%@ error=%@",
+                    String(describing: self.owner), String(describing: error))
             }
-            payloadPreparation = worker
-            Task { [weak self] in
-                let result = await worker.result
-                guard let self, self.payloadPreparationID == preparationID else {
-                    try? FileManager.default.removeItem(at: fileURL)
-                    return
-                }
-                self.payloadPreparation = nil
-                self.payloadPreparationID = nil
-                switch result {
-                case .success:
-                    self.installItem(at: fileURL)
-                case let .failure(error):
-                    NSLog("MWX video preparation failed: owner=%@ error=%@",
-                        String(describing: owner), String(describing: error))
-                }
-            }
-        } else {
-            installItem(at: fileURL)
         }
     }
 
@@ -200,7 +230,7 @@ final class SceneVideoTextureSource {
             guard let self else { return }
             let observedItemTime = CMTimeGetSeconds(player.currentTime())
             let itemDuration = duration
-            guard lifecycle.isPlaying,
+            guard lifecycle.isAdvancingPlayback,
                   playerEventState.acceptsEndEvent(
                       observedItemTime: observedItemTime,
                       duration: itemDuration,
@@ -231,6 +261,114 @@ final class SceneVideoTextureSource {
     func adoptLifecycleEpoch(_ epoch: UInt64) {
         guard !hasStarted, lifecycle.contentGeneration == 0 else { return }
         lifecycle = SceneVideoProviderLifecycleState(epoch: epoch)
+    }
+
+    /// Qualifies an unregistered property source with the same decoder used
+    /// after adoption. The imported seed is not a lifecycle publication.
+    func primeInitialFrame(isCancelled: @escaping () -> Bool = { false }) async -> Bool {
+        guard !hasStarted, ownedFile != nil, primeOperationID == nil,
+              case let .userProperty(property) = owner,
+              property.purpose == .premultipliedColor,
+              !isCancelled(), !Task.isCancelled else { return false }
+        if primedFrame != nil { return hasCompletePrimedPublication(for: property) }
+        let operationID = UUID()
+        primeOperationID = operationID
+        primeSeekResult = nil
+        primePrerollResult = nil
+        let deadline = ContinuousClock().now.advanced(by: .seconds(10))
+        defer {
+            if primeOperationID == operationID {
+                primeOperationID = nil
+                primeSeekResult = nil
+                primePrerollResult = nil
+                player.pause()
+                player.cancelPendingPrerolls()
+                item?.cancelPendingSeeks()
+            }
+        }
+        guard await waitForPrime(operationID, until: deadline, isCancelled: isCancelled, condition: {
+            self.item?.status == .readyToPlay || self.item?.status == .failed
+        }), let expectedItem = item, expectedItem.status == .readyToPlay else { return false }
+        player.pause()
+        player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            DispatchQueue.main.async {
+                guard let self, self.primeOperationID == operationID,
+                      self.item === expectedItem else { return }
+                self.primeSeekResult = finished
+            }
+        }
+        guard await waitForPrime(operationID, until: deadline, isCancelled: isCancelled,
+            condition: { self.primeSeekResult != nil }), primeSeekResult == true else { return false }
+        player.preroll(atRate: 1) { [weak self] finished in
+            DispatchQueue.main.async {
+                guard let self, self.primeOperationID == operationID,
+                      self.item === expectedItem else { return }
+                self.primePrerollResult = finished
+            }
+        }
+        guard await waitForPrime(operationID, until: deadline, isCancelled: isCancelled,
+            condition: { self.primePrerollResult != nil }), primePrerollResult == true,
+              await waitForPrime(operationID, until: deadline, isCancelled: isCancelled,
+                condition: { self.videoOutput.hasNewPixelBuffer(forItemTime: .zero) }) else { return false }
+        var displayTime = CMTime.invalid
+        guard let buffer = videoOutput.copyPixelBuffer(forItemTime: .zero, itemTimeForDisplay: &displayTime),
+              let texture = makeTexture(from: buffer),
+              primeOperationID == operationID, !isCancelled(), !Task.isCancelled else { return false }
+        primedFrame = PrimedFrame(texture: texture, content: resolvedColorContent(for: buffer),
+            decodedItemTime: displayTime.isNumeric ? CMTimeGetSeconds(displayTime) : nil)
+        guard hasCompletePrimedPublication(for: property) else {
+            primedFrame = nil
+            return false
+        }
+        return true
+    }
+
+    private func waitForPrime(
+        _ operationID: UUID, until deadline: ContinuousClock.Instant,
+        isCancelled: () -> Bool, condition: () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        while clock.now < deadline {
+            guard primeOperationID == operationID, ownedFile != nil,
+                  !hasStarted, !isCancelled(), !Task.isCancelled else { return false }
+            if condition() { return true }
+            do { try await Task.sleep(for: .milliseconds(5)) }
+            catch { return false }
+        }
+        return false
+    }
+
+    func hasCompletePrimedPublication(for property: SceneUserPropertyTextureIdentity) -> Bool {
+        guard lifecycle.contentGeneration == 0, let primedFrame,
+              let publication = makePrimedFrame(from: primedFrame, epoch: lifecycle.epoch)
+                .userPropertyPublication(for: property) else { return false }
+        return publication.isComplete && publication.generationIsCurrent
+    }
+
+    /// Registry calls this once in its synchronous adoption transaction.
+    /// Only the SceneClock anchor and pause policy change; the seed stays
+    /// uncommitted until the first ordinary prepare/commit pair.
+    func activatePrimed(
+        sceneTime: TimeInterval, hostTime: TimeInterval, isPaused: Bool
+    ) -> Bool {
+        guard !hasStarted, primeOperationID == nil,
+              case let .userProperty(property) = owner,
+              hasCompletePrimedPublication(for: property) else { return false }
+        lifecycle.start(sceneTime: sceneTime, hostTime: hostTime)
+        if isPaused {
+            lifecycle.suspend(sceneTime: sceneTime, hostTime: hostTime)
+        } else {
+            lifecycle.resumeSuspension(sceneTime: sceneTime, hostTime: hostTime)
+        }
+        hasStarted = true
+        markPlayerAnchorRequired()
+        return true
+    }
+
+    private func makePrimedFrame(from seed: PrimedFrame, epoch: UInt64) -> Frame {
+        Frame(texture: seed.texture, content: seed.content, contentGeneration: 1,
+            requestedItemTime: 0, decodedItemTime: seed.decodedItemTime, epoch: epoch,
+            owner: owner, sourceIncarnation: sourceIncarnation)
     }
 
     func currentFrame(for timing: SceneFrameTiming) -> Frame? {
@@ -275,6 +413,11 @@ final class SceneVideoTextureSource {
         // AVPlayer publishes a buffer.
         pendingFrameIndex = timing.frameIndex
         guard plan.shouldDecode else { return lastFrame }
+        if let primedFrame, lifecycle.contentGeneration == 0 {
+            let frame = makePrimedFrame(from: primedFrame, epoch: plan.epoch)
+            pendingFrame = frame
+            return frame
+        }
         // An EOF may arrive after preparation but before a rejected frame is
         // retried. Its old Scene time can precede the new loop's zero point.
         // Keep the previous texture until that point instead of scheduling
@@ -286,7 +429,7 @@ final class SceneVideoTextureSource {
         }
 
         let itemTime = boundedItemTime(plan.itemTime)
-        if lifecycle.isPlaying && (needsPlayerAnchor || player.rate == 0) {
+        if lifecycle.isAdvancingPlayback && (needsPlayerAnchor || player.rate == 0) {
             player.setRate(
                 Float(lifecycle.rate),
                 time: itemTime,
@@ -296,7 +439,7 @@ final class SceneVideoTextureSource {
             if !needsPlayerAnchor {
                 playerEventState.didAnchorPlayback()
             }
-        } else if !lifecycle.isPlaying && needsPlayerAnchor {
+        } else if !lifecycle.isAdvancingPlayback && needsPlayerAnchor {
             if pendingSeekID == nil {
                 let seekID = UUID()
                 pendingSeekID = seekID
@@ -314,7 +457,7 @@ final class SceneVideoTextureSource {
             // permanently on the old image.
             return lastFrame
         }
-        if lifecycle.isPlaying && player.rate == 0 {
+        if lifecycle.isAdvancingPlayback && player.rate == 0 {
             needsPlayerAnchor = true
             return lastFrame
         }
@@ -345,7 +488,7 @@ final class SceneVideoTextureSource {
             sourceIncarnation: sourceIncarnation
         )
         needsPlayerAnchor = false
-        if !lifecycle.isPlaying { player.pause() }
+        if !lifecycle.isAdvancingPlayback { player.pause() }
         pendingFrame = frame
         return frame
     }
@@ -369,6 +512,7 @@ final class SceneVideoTextureSource {
             return
         }
         lastFrame = pendingFrame
+        if primedFrame?.texture === pendingFrame.texture { primedFrame = nil }
         if capturesLifecycleObservations, let layerID = owner.layerID {
             NSLog(
                 "MWX video frame: schema=video-frame-v1 layer=%d epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@",
@@ -538,15 +682,13 @@ final class SceneVideoTextureSource {
 
     func pause(sceneTime: TimeInterval, hostTime: TimeInterval) {
         player.pause()
-        guard hasStarted else { return }
         lifecycle.suspend(sceneTime: sceneTime, hostTime: hostTime)
-        markPlayerAnchorRequired()
+        if hasStarted { markPlayerAnchorRequired() }
     }
 
     func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {
-        guard hasStarted else { return }
         lifecycle.resumeSuspension(sceneTime: sceneTime, hostTime: hostTime)
-        markPlayerAnchorRequired()
+        if hasStarted { markPlayerAnchorRequired() }
     }
 
     func rebuild(sceneTime: TimeInterval, hostTime: TimeInterval) {
@@ -558,6 +700,9 @@ final class SceneVideoTextureSource {
 
     func stop() {
         guard lifecycle.stop() else { return }
+        primeOperationID = nil
+        primeSeekResult = nil
+        primePrerollResult = nil
         payloadPreparationID = nil
         payloadPreparation?.cancel()
         payloadPreparation = nil
@@ -566,16 +711,19 @@ final class SceneVideoTextureSource {
             self.endObserver = nil
         }
         player.pause()
+        player.cancelPendingPrerolls()
+        item?.cancelPendingSeeks()
         player.replaceCurrentItem(with: nil)
         item = nil
         lastFrame = nil
         pendingFrame = nil
         pendingFrameIndex = nil
         pendingPreparationSnapshot = nil
+        primedFrame = nil
         pendingSeekID = nil
         playerEventState.invalidateAnchor()
         CVMetalTextureCacheFlush(textureCache, 0)
-        try? FileManager.default.removeItem(at: temporaryFileURL)
+        ownedFile = nil
     }
 
     private func markPlayerAnchorRequired() {

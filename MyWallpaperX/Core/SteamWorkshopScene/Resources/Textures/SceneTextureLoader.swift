@@ -477,6 +477,10 @@ nonisolated final class SceneTextureLoader {
     }
 
     func sourceKey(for url: URL) -> SourceKey? {
+        Self.currentSourceKey(for: url)
+    }
+
+    static func currentSourceKey(for url: URL) -> SourceKey? {
         let canonicalPath = url.resolvingSymlinksInPath().standardizedFileURL.path
         var status = Darwin.stat()
         guard canonicalPath.withCString({

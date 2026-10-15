@@ -31,6 +31,11 @@ nonisolated struct SceneTextureProviderPublication {
         if case let .provider(.videoAsset(asset, _, epoch)) = candidate.identity {
             return requestIdentity == .asset(asset) && epoch > 0
         }
+        if case let .provider(.videoUserProperty(property, _, epoch)) = candidate.identity {
+            return requestIdentity == .materialUserProperty(property) && epoch > 0
+                && property.purpose == .premultipliedColor
+                && candidate.purpose == property.purpose
+        }
         guard case let .system(request) = requestIdentity else { return true }
         let expectedProvider: SceneTextureProviderIdentity?
         switch request.name {

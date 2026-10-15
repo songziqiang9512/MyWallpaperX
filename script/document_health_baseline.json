@@ -57,8 +57,8 @@
       "bytes": 15024
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 74,
-      "bytes": 15225
+      "lines": 90,
+      "bytes": 19022
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 124,
@@ -109,12 +109,12 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 118,
-      "bytes": 35903
+      "lines": 119,
+      "bytes": 36226
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 192495
+      "bytes": 193356
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -222,15 +222,15 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 8913
+      "bytes": 9102
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33237
+      "bytes": 33168
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72240
+      "bytes": 72213
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1096,15 +1096,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "e377a3c1e7ff77b43ed518e4fc663b303e5fe86f8446f8102bf4f6241be54922",
-      "after": "93e7efc4b64753fcd60af9f7ea719b5b69a2b59a8186485f49c60efe91e5a601",
-      "owner": "Scene image decoding",
-      "reason": "将已支持JPEG方向与显示extent收敛到现有唯一decoder，保embedded原始Int边界、PNG/strict与失败保旧；局部修复不另建路线。",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#jpeg-display-layout"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "9e6da8a01ababfa229c2cd51ab3083dd1e9c3227cc4e9368a5ab05a33392026b",
       "after": "24d6195f60802d6d96f8798baa695ff3b1255af4953f552164f9972fa0b146cb",
@@ -1126,15 +1117,6 @@
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "24a457402c0c6ac0b066bd42228072d61553e99cb625449fb88e81666fce1c73",
       "after": "b011de4a83169eecaa9ffda064827cc6243ecff8525e630d46cbf4f9375d22e3",
-      "owner": "Scene material admission",
-      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "3904e6108a579de5e81bfabb34ac64872bc5eb4c502dd53792f14f0ecdc308e5",
-      "after": "ea71caa57739f5b1b08ac2401f81a555f7b15546f318b4fdcb6beed8b488b473",
       "owner": "Scene material admission",
       "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
       "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
@@ -1177,24 +1159,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "2ee3956a7a0ffd345096894bd31061b45f28c2af8524a13d4c688d3157c874a7",
-      "after": "ac1e3d15138b97af92b1b7178d8e5a622f558e7a13c4fa15aacb7c5de413da46",
-      "owner": "Scene particle qualification",
-      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
-      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "eb4737dc0577ca50cc0f1218dabd8307927f2627808f009d79eaae8229ed2ed7",
-      "after": "4766cbfd0491fdce65f8547dd000bcc4db79a6568d94b09993da56039a173acc",
-      "owner": "Scene particle qualification",
-      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
-      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "ad8a765edbb0438304460af5fa1050135c50c285047af3fdb4db1aaa12548dce",
       "after": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
@@ -1222,12 +1186,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "93e7efc4b64753fcd60af9f7ea719b5b69a2b59a8186485f49c60efe91e5a601",
+      "after": "fd098f884ffed53b4cc3e2534363713419fbcbb0d77a45bf6d9e4c2e6d500f66",
+      "owner": "Scene user-property resources",
+      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d363be43d9b03245af30222e60a933c376ffd143de5bca84656ddc64cf061df3",
-      "after": "1f5defdf60854e7f3961028a5cf61fae653150bb1ffa1bbe0775008b3a39594b",
-      "owner": "Scene shader preparation",
-      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
+      "before": "1f5defdf60854e7f3961028a5cf61fae653150bb1ffa1bbe0775008b3a39594b",
+      "after": "c12b19334adc87332733cc847ccfc3179852e63344172dc1749182f8df6236ae",
+      "owner": "Scene user-property resources",
+      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "ea71caa57739f5b1b08ac2401f81a555f7b15546f318b4fdcb6beed8b488b473",
+      "after": "057b861ad81fd3d189c9fdec552d63de3790be6918e908f85c49cb1d645a17e1",
+      "owner": "Scene user-property resources",
+      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "009a2f38250b5098e237b05a1ce3c3c5cb3807fdcd72fa95649e4404af85c5e3",
+      "after": "66e8fa87ed4ec2a833eda84317c4dd3e7227e3e039806dfdb054cd487001b8a0",
+      "owner": "Scene user-property resources",
+      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
     }
   ]
 }

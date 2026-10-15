@@ -119,6 +119,8 @@ enum Harness {
 
         var suspendedPause = SceneVideoProviderLifecycleState(epoch: 81)
         suspendedPause.start(sceneTime: 0, hostTime: 10)
+        _ = suspendedPause.planFrame(frameIndex: 0, sceneTime: 0, hostTime: 10)
+        _ = suspendedPause.didPublish(frameIndex: 0)
         suspendedPause.suspend(sceneTime: 1, hostTime: 11)
         suspendedPause.pause(sceneTime: 9, hostTime: 19)
         let pausedWhileSuspended = suspendedPause.planFrame(
@@ -129,12 +131,42 @@ enum Harness {
 
         var suspendedRebuild = SceneVideoProviderLifecycleState(epoch: 82)
         suspendedRebuild.start(sceneTime: 0, hostTime: 10)
+        _ = suspendedRebuild.planFrame(frameIndex: 0, sceneTime: 0, hostTime: 10)
+        _ = suspendedRebuild.didPublish(frameIndex: 0)
         suspendedRebuild.suspend(sceneTime: 1, hostTime: 11)
         suspendedRebuild.rebuild(sceneTime: 9, hostTime: 19)
         let rebuiltWhileSuspended = suspendedRebuild.planFrame(
             frameIndex: 1,
             sceneTime: 12,
             hostTime: 22
+        )
+
+        // Global suspension can precede the first Source prepare. User play
+        // intent starts normally, while the backend only owes one frozen frame.
+        var initiallySuspended = SceneVideoProviderLifecycleState(epoch: 87)
+        initiallySuspended.suspend(sceneTime: 10, hostTime: 100)
+        initiallySuspended.start(sceneTime: 20, hostTime: 200)
+        let startsSuspended = initiallySuspended.isPlaying
+            && !initiallySuspended.isAdvancingPlayback
+        let frozenFirst = initiallySuspended.planFrame(
+            frameIndex: 0, sceneTime: 20, hostTime: 200
+        )
+        let frozenFirstPublication = initiallySuspended.didPublish(frameIndex: 0)
+        let frozenNext = initiallySuspended.planFrame(
+            frameIndex: 1, sceneTime: 20, hostTime: 300
+        )
+        initiallySuspended.resumeSuspension(sceneTime: 100, hostTime: 400)
+        let resumedFromFrozenFirst = initiallySuspended.planFrame(
+            frameIndex: 2, sceneTime: 100.25, hostTime: 400.25
+        )
+        let resumesFromFrozenFirst = initiallySuspended.isAdvancingPlayback
+
+        var resumedBeforeStart = SceneVideoProviderLifecycleState(epoch: 88)
+        resumedBeforeStart.suspend(sceneTime: 10, hostTime: 100)
+        resumedBeforeStart.resumeSuspension(sceneTime: 20, hostTime: 200)
+        resumedBeforeStart.start(sceneTime: 30, hostTime: 300)
+        let beforeStartResumePlan = resumedBeforeStart.planFrame(
+            frameIndex: 0, sceneTime: 30.25, hostTime: 300.25
         )
 
         var looping = SceneVideoProviderLifecycleState(epoch: 83)
@@ -256,6 +288,16 @@ enum Harness {
                 && close(pausedWhileSuspended.itemTime, 1),
             "suspendedRebuildDoesNotAdvance": !rebuiltWhileSuspended.shouldDecode
                 && close(rebuiltWhileSuspended.itemTime, 1),
+            "firstStartPreservesGlobalSuspension": startsSuspended
+                && frozenFirst.shouldDecode && close(frozenFirst.itemTime, 0)
+                && frozenFirstPublication == 1
+                && !frozenNext.shouldDecode && close(frozenNext.itemTime, 0),
+            "resumeAfterFrozenFirstUsesSceneAnchor": resumesFromFrozenFirst
+                && resumedFromFrozenFirst.shouldDecode
+                && close(resumedFromFrozenFirst.itemTime, 0.25),
+            "resumeBeforeFirstStartClearsSuspension": resumedBeforeStart.isAdvancingPlayback
+                && beforeStartResumePlan.shouldDecode
+                && close(beforeStartResumePlan.itemTime, 0.25),
             "loopNegativeAnchorTransitions": negativeAnchorTransitions,
             "loopPreservesElapsedPhase": close(delayedLoop, 0.25)
                 && close(earlyLoop, 0.02) && close(fastLoop, 0.3)
@@ -276,7 +318,7 @@ enum Harness {
                 && rebuilt.epoch == initialEpoch,
             "stopIsIdempotent": firstStopRequestsCleanup
                 && !secondStopRequestsCleanup
-                && !state.isPlaying,
+                && !state.isPlaying && !state.isAdvancingPlayback,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -363,6 +405,9 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "rebuildIsContinuous",
             "suspendedPauseDoesNotAdvance",
             "suspendedRebuildDoesNotAdvance",
+            "firstStartPreservesGlobalSuspension",
+            "resumeAfterFrozenFirstUsesSceneAnchor",
+            "resumeBeforeFirstStartClearsSuspension",
             "loopNegativeAnchorTransitions",
             "loopPreservesElapsedPhase",
             "loopRestartsAtLatestSceneTime",
@@ -381,7 +426,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
         cls.source = VIDEO_SOURCE.read_text(encoding="utf-8")
 
     def test_initialization_prepares_the_source_without_autoplay(self) -> None:
-        initializer = swift_block(self.source, "init?(\n        owner:")
+        initializer = swift_block(self.source, "private init?(")
         self.assertIsNotNone(initializer)
         assert initializer is not None
         self.assertNotIn(
@@ -483,7 +528,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "NotificationCenter.default.removeObserver",
             "player.pause()",
             "player.replaceCurrentItem(with: nil)",
-            "FileManager.default.removeItem",
+            "ownedFile = nil",
         ):
             with self.subTest(cleanup=token):
                 self.assertIn(token, stop)

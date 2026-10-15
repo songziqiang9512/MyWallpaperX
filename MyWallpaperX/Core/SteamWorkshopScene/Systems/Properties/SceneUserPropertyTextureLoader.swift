@@ -1,11 +1,29 @@
 import Foundation
 import Metal
 
+/// Preparation owns the frozen file; only the video Source can publish frames.
+nonisolated struct SceneUserPropertyVideoDeclaration {
+    let identity: SceneUserPropertyTextureIdentity
+    let file: SceneVideoOwnedFile
+    let source: SceneTextureLoader.SourceKey
+}
+
 nonisolated struct SceneUserPropertyTextureLoadResult {
     let textures: [String: MTLTexture]
     let textureCandidates: [String: SceneTextureCandidate]
     let providerStates: [SceneUserPropertyTextureIdentity: SceneTextureProviderState]
+    let videoDeclarations: [String: SceneUserPropertyVideoDeclaration]
     let reportLines: [String]
+
+    init(textures: [String: MTLTexture], textureCandidates: [String: SceneTextureCandidate],
+         providerStates: [SceneUserPropertyTextureIdentity: SceneTextureProviderState],
+         videoDeclarations: [String: SceneUserPropertyVideoDeclaration] = [:], reportLines: [String]) {
+        self.textures = textures
+        self.textureCandidates = textureCandidates
+        self.providerStates = providerStates
+        self.videoDeclarations = videoDeclarations
+        self.reportLines = reportLines
+    }
 
     static let empty = Self(textures: [:], textureCandidates: [:], providerStates: [:], reportLines: [])
 
@@ -17,8 +35,16 @@ nonisolated struct SceneUserPropertyTextureLoadResult {
                 .merging(replacement.textureCandidates) { _, new in new },
             providerStates: providerStates.filter { !propertyKeys.contains($0.key.propertyKey) }
                 .merging(replacement.providerStates) { _, new in new },
+            videoDeclarations: videoDeclarations.filter { !propertyKeys.contains($0.key) }
+                .merging(replacement.videoDeclarations) { _, new in new },
             reportLines: replacement.reportLines
         )
+    }
+
+    func hasPreparedResources(for identities: Set<SceneUserPropertyTextureIdentity>) -> Bool {
+        identities.allSatisfy {
+            hasCompletePublications(for: [$0]) || videoDeclarations[$0.propertyKey]?.identity == $0
+        }
     }
 
     func hasCompletePublications(for identities: Set<SceneUserPropertyTextureIdentity>) -> Bool {
@@ -33,13 +59,30 @@ nonisolated struct SceneUserPropertyTextureLoadResult {
         _ keys: Set<String>, selectedKeys: Set<String>,
         demands: Set<SceneUserPropertyTextureIdentity>
     ) -> Bool {
+        satisfiesProperties(keys, selectedKeys: selectedKeys, demands: demands,
+                            selectedResourcesReady: hasCompletePublications)
+    }
+
+    func satisfiesPreparedProperties(
+        _ keys: Set<String>, selectedKeys: Set<String>,
+        demands: Set<SceneUserPropertyTextureIdentity>
+    ) -> Bool {
+        satisfiesProperties(keys, selectedKeys: selectedKeys, demands: demands,
+                            selectedResourcesReady: hasPreparedResources)
+    }
+
+    private func satisfiesProperties(
+        _ keys: Set<String>, selectedKeys: Set<String>,
+        demands: Set<SceneUserPropertyTextureIdentity>,
+        selectedResourcesReady: (Set<SceneUserPropertyTextureIdentity>) -> Bool
+    ) -> Bool {
         guard keys.isSubset(of: Set(demands.map(\.propertyKey))) else { return false }
         let identities = Set(demands.filter { keys.contains($0.propertyKey) })
             .union(keys.compactMap {
                 SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
             })
         let selected = Set(identities.filter { selectedKeys.contains($0.propertyKey) })
-        return hasCompletePublications(for: selected)
+        return selectedResourcesReady(selected)
             && identities.subtracting(selected).allSatisfy {
                 if case .absent? = providerStates[$0] { return true }
                 return false
@@ -76,8 +119,12 @@ nonisolated struct SceneUserPropertyTextureLoadResult {
 nonisolated struct SceneUserPropertyTextureLoader {
     private static let supportedFileExtensions: Set<String> = ["png", "jpg", "jpeg"]
 
+    static func isVideo(url: URL) -> Bool {
+        SceneVideoPayloadPreparation.supportsLocalVideo(url: url)
+    }
+
     static func supports(url: URL) -> Bool {
-        supportedFileExtensions.contains(url.pathExtension.localizedLowercase)
+        supportedFileExtensions.contains(url.pathExtension.localizedLowercase) || isVideo(url: url)
     }
 
     func load(
@@ -89,6 +136,7 @@ nonisolated struct SceneUserPropertyTextureLoader {
         ),
         device: MTLDevice,
         contentGeneration: UInt64 = 1,
+        videoCacheDirectory: URL? = nil,
         isCancelled: () -> Bool = { false }
     ) -> SceneUserPropertyTextureLoadResult {
         guard !urlsByPropertyKey.isEmpty || !requestedIdentities.isEmpty else {
@@ -105,6 +153,7 @@ nonisolated struct SceneUserPropertyTextureLoader {
         )
         var textures: [String: MTLTexture] = [:]
         var textureCandidates: [String: SceneTextureCandidate] = [:]
+        var videoDeclarations: [String: SceneUserPropertyVideoDeclaration] = [:]
         var providerStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
         ] = [:]
@@ -124,6 +173,26 @@ nonisolated struct SceneUserPropertyTextureLoader {
             }
             guard Self.supports(url: url) else {
                 reportLines.append("scene user texture \(key): unsupported \(url.pathExtension.lowercased())")
+                continue
+            }
+            if Self.isVideo(url: url) {
+                guard purposes == [.premultipliedColor], let videoCacheDirectory,
+                      let identity = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: .premultipliedColor),
+                      let source = loader.sourceKey(for: url) else {
+                    reportLines.append("scene user texture \(key): video-purpose-or-source-unavailable")
+                    continue
+                }
+                do {
+                    let file = try SceneVideoOwnedFile.snapshot(
+                        from: url, cacheDirectory: videoCacheDirectory, isCancelled: isCancelled,
+                        isSourceCurrent: { loader.sourceKey(for: url) == source }
+                    )
+                    guard !isCancelled(), let frozenSource = loader.sourceKey(for: file.url) else { continue }
+                    videoDeclarations[key] = .init(identity: identity, file: file, source: frozenSource)
+                    reportLines.append("scene user texture \(key): video-prepared-awaiting-first-frame")
+                } catch {
+                    reportLines.append("scene user texture \(key): video-prepare-failed (\(error))")
+                }
                 continue
             }
             let outcomes = loader.loadDirectImageCandidates(
@@ -165,6 +234,7 @@ nonisolated struct SceneUserPropertyTextureLoader {
             textures: textures,
             textureCandidates: textureCandidates,
             providerStates: providerStates,
+            videoDeclarations: videoDeclarations,
             reportLines: reportLines
         )
     }

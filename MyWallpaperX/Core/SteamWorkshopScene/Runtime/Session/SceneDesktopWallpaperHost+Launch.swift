@@ -96,6 +96,7 @@ extension SceneDesktopWallpaperHost {
         completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
     ) {
         cancelPendingLaunch()
+        activeSession?.cancelPendingUserTextureUpdates()
         nextLaunchRequestGeneration &+= 1
         nextSceneScriptGeneration &+= 1
         let requestGeneration = nextLaunchRequestGeneration
@@ -770,6 +771,7 @@ extension SceneDesktopWallpaperHost {
                 textureUploadCommandQueue: textureUploadCommandQueue,
                 textureDecodeCacheBudget: textureDecodeCacheBudget,
                 device: device,
+                videoCacheDirectory: cacheDirectory,
                 isCancelled: {
                     do { try cancellation?.check(); return false }
                     catch { return true }
@@ -777,10 +779,13 @@ extension SceneDesktopWallpaperHost {
             )
         }()
         try cancellation?.check()
-        guard userPropertyTextureLoad.satisfiesRequiredProperties(
+        guard userPropertyTextureLoad.satisfiesPreparedProperties(
             requiredUserTextureKeys, selectedKeys: Set(userPropertyTextureURLs.keys),
             demands: userTextureDemands
-        ) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
+        ), userPropertyTextureURLs.allSatisfy({ key, url in
+            !SceneUserPropertyTextureLoader.isVideo(url: url)
+                || userPropertyTextureLoad.videoDeclarations[key] != nil
+        }) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
         let sourceMaterialCandidateConsumerLayerIDs = resolvedMaterialCatalog

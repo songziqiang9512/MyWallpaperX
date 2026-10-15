@@ -36,6 +36,7 @@
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |
 | Sprite世界空间与深度 | [相机与深度修复](../history/particle-world-depth-2026-10-11.md)：324原包三层准入、主体恢复并实际呈现，379健康回归；后继[信号producer修复](../history/independent-signal-producer-2026-10-11.md)恢复GodRays放射光束；运动形态余项仍开放，不计整样本通过。 |
 | 空composition资格STOP | [撤回记录](../history/prepared-empty-composition-2026-10-15.md)：省略参数原型自有控制有效，真实请求另需constructor与authored透视override；无原包收益故撤回产品/测试，未新增支持或性能结论。 |
+| 视频用户纹理 | [U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
 | 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343原24目标中21执行、20层完整末effect合成；其余目标/3226末段保留，独立376实图及78节点通过。不计性能或整样本完成。 |
 | RopeTrail参数资格STOP | [固定客户端自有对照](../history/rope-trail-profile-qualification-2026-10-15.md)：20图有界观察；负值处理/world语义仍unknown，无产品变化、真实十层恢复或parity结论。 |
 | Puppet默认动态实例 | [prepared默认几何](../history/prepared-puppet-default-instances-2026-10-15.md)：原model/mesh与独立实例、真实shadow触发及退休反例；动画/effect配置、composition、完整视觉与性能未计完成。 |

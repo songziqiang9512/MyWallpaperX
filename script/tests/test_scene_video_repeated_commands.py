@@ -18,6 +18,7 @@ def compile_probe(work):
         str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
         str(SCENE / "Format/SceneWebMContainer.swift"),
         str(PROVIDERS / "SceneVideoPayloadPreparation.swift"),
+        str(PROVIDERS / "SceneVideoOwnedFile.swift"),
         str(SCENE / "Resources/Textures/SceneResourceBudget.swift"),
         str(PROVIDERS / "SceneVideoTextureSource.swift"),
         str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),

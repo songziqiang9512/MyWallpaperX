@@ -2,8 +2,8 @@ import AVFoundation
 import CoreMedia
 import VideoToolbox
 
-/// Container preparation only. Playback, timing and publication remain in the
-/// existing video source. Compressed packets are copied without decoding.
+/// Media input validation and container preparation. Playback, decoding,
+/// timing and publication remain in the existing video source.
 nonisolated enum SceneVideoPayloadPreparation {
     private static let registeredDecoders: Void = {
         VTRegisterSupplementalVideoDecoderIfAvailable(kCMVideoCodecType_VP9)
@@ -11,11 +11,53 @@ nonisolated enum SceneVideoPayloadPreparation {
 
     static func registerDecoders() { _ = registeredDecoders }
 
+    static func supportsLocalVideo(url: URL) -> Bool {
+        ["mp4", "mov", "m4v"].contains(url.pathExtension.lowercased())
+    }
+
     enum Failure: Error {
         case format(OSStatus)
         case buffer(OSStatus)
         case writer(String)
+        case invalidMedia
         case deadlineExceeded
+    }
+
+    /// Offline selection validates real AVFoundation metadata before saving
+    /// intent. This neither creates a decoder nor claims a ready publication.
+    static func validateLocalVideo(at url: URL) async throws {
+        guard url.isFileURL, supportsLocalVideo(url: url) else { throw Failure.invalidMedia }
+        let asset = AVURLAsset(url: url)
+        try await withTaskCancellationHandler {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    try Task.checkCancellation()
+                    let (playable, protected, duration) = try await asset.load(
+                        .isPlayable, .hasProtectedContent, .duration
+                    )
+                    let seconds = CMTimeGetSeconds(duration)
+                    guard playable, !protected, duration.isNumeric,
+                          seconds.isFinite, seconds > 0 else { throw Failure.invalidMedia }
+                    let tracks = try await asset.loadTracks(withMediaType: .video)
+                    guard let track = tracks.first else { throw Failure.invalidMedia }
+                    let size = try await track.load(.naturalSize)
+                    guard size.width.isFinite, size.height.isFinite,
+                          size.width > 0, size.height > 0 else { throw Failure.invalidMedia }
+                    try Task.checkCancellation()
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(10))
+                    asset.cancelLoading()
+                    throw Failure.deadlineExceeded
+                }
+                defer { group.cancelAll() }
+                _ = try await group.next()
+                // Structured scope waits for the metadata child to exit even
+                // on timeout/cancellation; callers can then close file access.
+            }
+        } onCancel: {
+            asset.cancelLoading()
+        }
     }
 
     static func writeWebM(_ payload: Data, to url: URL) async throws {

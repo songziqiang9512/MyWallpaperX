@@ -65,6 +65,12 @@ nonisolated struct SceneVideoProviderLifecycleState {
     private var needsFrameRefresh = false
     private var lastObservedSceneTime: TimeInterval = 0
 
+    /// User playback intent survives a global Scene pause. Backend playback
+    /// may advance only while that intent is not globally suspended.
+    nonisolated var isAdvancingPlayback: Bool {
+        !isStopped && isPlaying && !isSuspended
+    }
+
     nonisolated init(epoch: UInt64) {
         self.epoch = epoch
     }
@@ -79,6 +85,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
         lastObservedSceneTime = sceneTime
         isPlaying = true
         lastPlan = nil
+        needsFrameRefresh = true
         _ = hostTime
     }
 
@@ -99,7 +106,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
             )
         }
 
-        let itemTime = isPlaying && !isSuspended
+        let itemTime = isAdvancingPlayback
             ? itemTime(at: sceneTime)
             : heldItemTime
         let plan = FramePlan(
@@ -109,7 +116,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
             contentGeneration: contentGeneration,
             epoch: epoch,
             shouldDecode: !isStopped && (
-                (isPlaying && !isSuspended) || needsFrameRefresh
+                isAdvancingPlayback || needsFrameRefresh
             )
         )
         lastPlan = plan
@@ -239,7 +246,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
     }
 
     nonisolated func currentTime(at sceneTime: TimeInterval) -> TimeInterval {
-        isPlaying && !isSuspended ? itemTime(at: sceneTime) : heldItemTime
+        isAdvancingPlayback ? itemTime(at: sceneTime) : heldItemTime
     }
 
     nonisolated mutating func rebuild(

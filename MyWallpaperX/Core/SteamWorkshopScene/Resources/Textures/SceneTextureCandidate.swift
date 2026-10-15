@@ -104,6 +104,11 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         sourceIncarnation: UUID,
         lifecycleEpoch: UInt64
     )
+    case videoUserProperty(
+        property: SceneUserPropertyTextureIdentity,
+        sourceIncarnation: UUID,
+        lifecycleEpoch: UInt64
+    )
 
     var reportToken: String {
         switch self {
@@ -133,6 +138,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
             return "video:\(layerID):epoch:\(lifecycleEpoch)"
         case let .videoAsset(asset, incarnation, epoch):
             return "video:\(asset.reportToken):source:\(incarnation.uuidString):epoch:\(epoch)"
+        case let .videoUserProperty(property, incarnation, epoch):
+            return "video-user-property:\(property.reportToken):source:\(incarnation.uuidString):epoch:\(epoch)"
         }
     }
 }
@@ -142,6 +149,7 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
 nonisolated enum SceneVideoTexturePlaybackOwner: Hashable, Sendable {
     case layer(Int)
     case asset
+    case userProperty(SceneUserPropertyTextureIdentity)
 
     var layerID: Int? {
         guard case let .layer(id) = self else { return nil }

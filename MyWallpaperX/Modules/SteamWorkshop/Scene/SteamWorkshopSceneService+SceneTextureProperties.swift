@@ -170,17 +170,33 @@ extension SteamWorkshopService {
         sceneTextureSelectionQueue.async {
             let url = selectedURL.resolvingSymlinksInPath().standardizedFileURL
             let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            var reference: ScenePlaybackTextureReference?
-            if SceneUserPropertyTextureLoader.supports(url: url),
-               (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true,
-               (!validateImage || (try? Data(contentsOf: url, options: .mappedIfSafe))
-                    .flatMap { SceneImageTextureUploader.decodeSourceImage($0) } != nil),
-               let bookmark = Self.makeSceneTexturePropertyBookmarkData(for: url) {
-                reference = .init(url: url, bookmarkData: bookmark)
+            let finish: @Sendable (Bool) -> Void = { valid in
+                let reference: ScenePlaybackTextureReference?
+                if valid, let bookmark = Self.makeSceneTexturePropertyBookmarkData(for: url) {
+                    reference = .init(url: url, bookmarkData: bookmark)
+                } else {
+                    reference = nil
+                }
+                // Metadata validation returns only after its async load has
+                // actually exited, including deadline and cancellation paths.
+                if scoped { url.stopAccessingSecurityScopedResource() }
+                Task { @MainActor in completion(reference) }
             }
-            let prepared = reference
-            Task { @MainActor in completion(prepared) }
+            guard SceneUserPropertyTextureLoader.supports(url: url),
+                  (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else {
+                finish(false)
+                return
+            }
+            if validateImage, SceneVideoPayloadPreparation.supportsLocalVideo(url: url) {
+                Task {
+                    let valid = (try? await SceneVideoPayloadPreparation.validateLocalVideo(at: url)) != nil
+                    finish(valid)
+                }
+                return
+            }
+            let valid = !validateImage || (try? Data(contentsOf: url, options: .mappedIfSafe))
+                .flatMap { SceneImageTextureUploader.decodeSourceImage($0) } != nil
+            finish(valid)
         }
     }
 

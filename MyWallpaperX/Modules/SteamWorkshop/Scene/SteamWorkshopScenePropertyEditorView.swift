@@ -359,7 +359,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 self.clearTextureStatus()
                 self.refreshAcceptedValues(forceRows: Set(self.titles.keys))
             case .failed(_), .unavailable:
-                self.showTextureStatus("部分图片未能恢复默认，已保留这些图片的原选择。", index: nil)
+                self.showTextureStatus("部分图像或视频未能恢复默认，已保留原选择。", index: nil)
             case .superseded:
                 break
             }
@@ -375,7 +375,8 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.png, .jpeg]
+        panel.allowedContentTypes = [.png, .jpeg, .mpeg4Movie, .quickTimeMovie]
+            + [UTType(filenameExtension: "m4v")].compactMap { $0 }
         panel.prompt = "选择"
         panel.beginSheetModal(for: window) { [weak self, weak window, weak panel] response in
             guard let self, let window, let panel, self.window === window,
@@ -414,7 +415,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 }
                 self.refreshAcceptedValues(forceRows: [index])
             case .failed(_), .unavailable:
-                self.showTextureStatus("“\(self.titles[index] ?? definition.key)”图片无法更新，已保留原选择。请选择可读取的 PNG 或 JPEG 图像。", index: index)
+                self.showTextureStatus("“\(self.titles[index] ?? definition.key)”图像或视频无法更新，已保留原选择。请选择可读取的 PNG/JPEG 图像或 MP4/MOV/M4V 视频。", index: index)
             case .superseded:
                 break
             }
@@ -573,10 +574,10 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 let buttons = NSStackView()
                 buttons.orientation = .horizontal
                 buttons.spacing = 8
-                let choose = NSButton(title: "选择图像", target: self, action: #selector(chooseTexture))
+                let choose = NSButton(title: "选择文件", target: self, action: #selector(chooseTexture))
                 choose.bezelStyle = .rounded; choose.controlSize = .small
                 choose.image = NSImage(systemSymbolName: "photo.badge.plus", accessibilityDescription: nil)
-                choose.imagePosition = .imageLeading; choose.toolTip = "选择 PNG 或 JPEG 图像"
+                choose.imagePosition = .imageLeading; choose.toolTip = "选择 PNG/JPEG 图像或 MP4/MOV/M4V 视频"
                 let restore = NSButton(title: "", target: self, action: #selector(clearTexture))
                 restore.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: "恢复默认纹理")
                 restore.isBordered = false; restore.toolTip = "恢复作者提供的默认纹理"

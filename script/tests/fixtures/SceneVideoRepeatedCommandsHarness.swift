@@ -12,20 +12,25 @@ struct SceneScriptMediaPlaybackCommand { enum Destination { case videoTexture };
 enum ColorRepresentation { case opaque, premultipliedAlpha }
 enum ColorResolution { case resolved(ColorRepresentation), unresolved }
 enum SceneTextureContent { case color(ColorResolution) }
-enum ResourceProvider { case video(layerID: Int, lifecycleEpoch: UInt64), videoAsset(asset: SceneAssetTextureIdentity, sourceIncarnation: UUID, lifecycleEpoch: UInt64) }
+enum ResourceProvider { case video(layerID: Int, lifecycleEpoch: UInt64), videoAsset(asset: SceneAssetTextureIdentity, sourceIncarnation: UUID, lifecycleEpoch: UInt64), videoUserProperty(property: SceneUserPropertyTextureIdentity, sourceIncarnation: UUID, lifecycleEpoch: UInt64) }
 enum ResourceIdentity { case provider(ResourceProvider) }
 enum ResourceGeneration { case provider(contentGeneration: UInt64) }
-enum TexturePurpose { case premultipliedColor }
+enum TexturePurpose: Equatable { case premultipliedColor }
 struct SceneAssetTextureIdentity { let purpose: TexturePurpose }
+struct SceneUserPropertyTextureIdentity: Equatable { let propertyKey: String; let purpose: TexturePurpose }
 enum SceneShaderTextureFormat { case rgba8888 }
-enum SceneVideoTexturePlaybackOwner: Equatable { case layer(Int), asset; var layerID: Int? { if case let .layer(id) = self { return id }; return nil } }
+enum SceneVideoTexturePlaybackOwner: Equatable { case layer(Int), asset, userProperty(SceneUserPropertyTextureIdentity); var layerID: Int? { if case let .layer(id) = self { return id }; return nil } }
 enum TextureUV { case identity }
 enum TextureSampling { case linearClamp }
 struct SceneTextureCandidate { let texture: MTLTexture; let identity: ResourceIdentity; let generation: ResourceGeneration; let purpose: TexturePurpose; let content: SceneTextureContent; let physicalSize: CGSize; let mappedSize: CGSize; let uvTransform: TextureUV; let sampling: TextureSampling; var authoredFormat: SceneShaderTextureFormat? = nil }
-enum FrameIdentity { case layerSource(Int), asset(SceneAssetTextureIdentity) }
+enum FrameIdentity { case layerSource(Int), asset(SceneAssetTextureIdentity), materialUserProperty(SceneUserPropertyTextureIdentity) }
 typealias SceneFrameTextureIdentity = FrameIdentity
 typealias SceneTextureProviderIdentity = ResourceProvider
-struct SceneTextureProviderPublication { let requestIdentity: FrameIdentity; let candidate: SceneTextureCandidate; let contentGeneration: UInt64 }
+struct SceneTextureProviderPublication {
+    let requestIdentity: FrameIdentity; let candidate: SceneTextureCandidate; let contentGeneration: UInt64
+    var isComplete: Bool { contentGeneration > 0 }
+    var generationIsCurrent: Bool { contentGeneration > 0 }
+}
 
 @main enum Harness {
  static func main() throws {

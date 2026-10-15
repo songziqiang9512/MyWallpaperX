@@ -1520,13 +1520,15 @@
         "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneWebMContainer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift",
+        "script/tests/test_scene_video_owned_file.py"
       ],
       "modules": [
         "test_scene_video_repeated_commands",
         "test_scene_webm_container",
         "test_scene_tex_media_identity",
-        "test_scene_video_texture_source"
+        "test_scene_video_texture_source",
+        "test_scene_video_owned_file"
       ]
     },
     {
@@ -2790,12 +2792,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+UserTextures.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneTextureProperties.swift",
         "script/tests/test_scene_user_texture_control_plane.py",
-        "script/tests/fixtures/SceneUserTextureControlChecks.swift"
+        "script/tests/fixtures/SceneUserTextureControlChecks.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift",
+        "script/tests/test_scene_user_property_video.py",
+        "script/tests/fixtures/SceneUserPropertyVideoHarness.swift"
       ],
       "modules": [
         "test_scene_user_texture_updates",
         "test_scene_user_property_textures",
-        "test_scene_user_texture_control_plane"
+        "test_scene_user_texture_control_plane",
+        "test_scene_user_property_video"
       ]
     },
     {

@@ -72,3 +72,19 @@ RF05（2026-10-02）纠偏属于①跨 Host/资源/provider 与②唯一资源�
 驱逐只移除completed缓存引用，活跃CompiledVariant/PreparedAssembly与prepared命令保持原强引用。单项超额/权重溢出仍返回原合法结果，仅不长期缓存；不取消in-flight或拒绝作者内容。原NSCondition内的临时Flight把本次结果交给所有已加入waiter，再退出：即使结果不准入或completed项被驱逐，也不能令waiter逐个重编。generic resolution及compiler失败只在本次Flight共享，后续独立请求可修复后重试；不同material/surface或新准备的串行失败请求仍有重试成本，不保证每generation同key只执行一次。普通帧沿原已准备variant选择，不进入compiler；Preparation现有坏输入负缓存仍受同一LRU约束。无stop清空、跨ownerregistry、新CLI、后台timer或普通帧诊断。
 
 最近门覆盖组合失败→修复、按字节/最近使用驱逐、长key/MSL/map/annotation/layout字段、最大单项不缓存仍成功、活跃值驱逐后可用，以及已加入waiter在超预算/失败时只执行一次operation；再复用cold/warm持久cache门。四owner权重上限与Flight共享由真实owner fixture证明；原daemon连续loadScene用于不同shader/Combo及轻重切换，真实App短筛核同PID重访、编译operation与非零surface资源gauge回落。warm门约束首次已成功的同key，失败key重试单列。现协议无原owner终值，旧session/pin退出仍未验，不把shutdown归零或process退出当资源回落证明。[实施证据](../history/shader-completed-cache-retention-2026-10-15.md)已闭行为门、Debug build、三轮真实owner压力及同PID七步真实画面短筛；暖重访无新增成功编译operation，轻场景GPU/pool回落。App CPU/首帧短窗有波动，尚未通过正式整体性能验收；长期pin退出仍开放。若重访反复编译、启动/CPU明显退化或画面改变，先查成本/容量与Flight合同，修正或撤回，不以清cache认领收益。
+
+<a id="user-video-property"></a>
+
+## 视频用户纹理合同
+
+纹理属性的本地 MP4/MOV/M4V 选择、保存与启动重放复用原 AppKit/service/bookmark 与单 key 资源事务；全部 prepared consumer 需求必须为 premultipliedColor，未知用途或任一非PMA需求整 key 拒绝。公开[Texture User Property](https://docs.wallpaperengine.io/en/scene/userproperties/texture.html)允许图片/视频，不规定播放器、切换相位或所有 codec。WebM 用户输入、HDR/alpha/物理多屏及其他格式不由本合同扩张。能力与实际验收归[属性覆盖](../capabilities/runtime-input-property-coverage.md#user-property-video)，[实施记录](../history/user-property-video-2026-10-16.md)保本批身份与未验边界。
+
+原 loader 在后台按共享 SourceKey 前后复核外部来源，只流式写一次私有唯一文件；不整文件 Data、不在 Source 再复制。单文件预算1GiB、最大单次读取1MiB，逐块检查取消、30秒检查间隙期限、实际字节与初始大小；不承诺中断阻塞的OS I/O。只接 regular file，失败清理本候选；prepared declaration 与 Source 共持单一引用计数文件lease，最终引用释放才删文件。bookmark是唯一持久来源，临时路径不进入IPC/replay/preset；权限scope等实际读取/验证退出才释放。snapshot自身SourceKey由同一权威验证，后续不再依赖原URL权限。
+
+既有 SceneVideoTextureSource 仍唯一拥有 AVPlayer/VideoOutput/CV cache、alpha事实、SceneClock映射和 prepare/commit；Registry只登记已采用source，未注册candidate由请求持有。property/key/purpose、source incarnation与单调epoch共同限定provider，沿精确 materialUserProperty 发布；bare key只alias同一typed atom，不借layer/asset身份。外部视频没有TEX authored format，不能从解码物理纹理推造该metadata；未知保持nil。普通帧无文件I/O、解析或整图哈希。
+
+prime用同decoder取得真实item0 buffer并导入Metal，只保私有seed，不消费Scene lifecycle、frameIndex或content generation。候选须可构造完整typed publication并通过原资源预算，再在主线程复核record/program/device、Registry/current candidate/epoch、revision、取消及snapshot身份，重算当前liveState；无yield地采用source、合并资源和值并更新当前全部views，最后原completion发applied。失败、预算、超时或迟到保旧；旧source仅在所有失败点结束后stop，已提交GPU纹理仍由CV backing/预算lease与surface drain保留。
+
+采用时读取当前SceneClock，新视频从seed/零点锚定；暂停首次start保suspension，backend依据实际推进状态而非仅isPlaying。首次active prepare把seed送原pending事务；至少一个surface提交后共享Source才commit换代，全deferred/drop则discard并保seed。surface自身publication保原提交/回滚；重建重新声明已采用source并复用decoder/位置，pending不被active pruning误退。reset撤销整key视频并恢复原absent/default，不重置公共clock；stop/退出取消准备并阻止迟到回生。
+
+启动declaration只证明已准备输入，不能算ready。每个surface在允许提交首帧前必须取得所有选中视频的当前完整publication；隐藏consumer只要求资源ready，任一缺失则deferred。原Host沿GPU完成/first-present晋升候选，失败/超时保旧active及已接受意图。离线选择复用媒体验证owner后保存，不能仅按扩展名接受；bookmark失效保键供reset。验收须含连续真实帧、改名/同URL双key、双向替换、逆序取消、坏/超额保旧、暂停seed、surface事务/重建、启动重放与scope/文件退休；构建、声明、readyToPlay或单首帧不代替这些结果。

@@ -224,8 +224,11 @@ final class SceneFrameTextureRegistry {
             guard let state = assetStates[identity] else { continue }
             publish(state, for: .asset(identity))
         }
+        let typedColorPropertyKeys = Set(userPropertyStates.keys.compactMap {
+            $0.purpose == .premultipliedColor ? $0.propertyKey : nil
+        })
         for key in orderedUserPropertyTextureKeys.resolve(
-            Set(userPropertyTextures.keys), by: <
+            Set(userPropertyTextures.keys).subtracting(typedColorPropertyKeys), by: <
         ) {
             guard let texture = userPropertyTextures[key] else { continue }
             publishPersistent(texture, for: .userProperty(key))
@@ -485,14 +488,29 @@ final class SceneFrameTextureRegistry {
                 // baseline keeps the old resource alive until accept/discard,
                 // and restores it if this surface's frame fails.
                 committedPublications.removeValue(forKey: identity)
+                persistentEntries.removeValue(forKey: identity)
                 priorFrameEntries.removeValue(forKey: identity)
-                priorFrameEntries.removeValue(forKey: .userProperty(property.propertyKey))
+                if property.purpose == .premultipliedColor {
+                    let alias = SceneFrameTextureIdentity.userProperty(property.propertyKey)
+                    persistentEntries.removeValue(forKey: alias)
+                    priorFrameEntries.removeValue(forKey: alias)
+                }
             }
             set(.absent, for: identity)
         case .pending:
             set(.pending, for: identity)
         case .unavailable:
             set(.unavailable, for: identity)
+        }
+        if case let .materialUserProperty(property) = identity,
+           property.purpose == .premultipliedColor {
+            let alias = SceneFrameTextureIdentity.userProperty(property.propertyKey)
+            switch state {
+            case .ready: break // The exact typed resource publishes its own alias.
+            case .absent: set(.absent, for: alias)
+            case .pending: set(.pending, for: alias)
+            case .unavailable: set(.unavailable, for: alias)
+            }
         }
     }
 
@@ -507,6 +525,10 @@ final class SceneFrameTextureRegistry {
         case let (.provider(.videoAsset(incomingAsset, _, incomingEpoch)),
                   .provider(.videoAsset(previousAsset, _, previousEpoch))):
             return incomingAsset == previousAsset && incomingEpoch < previousEpoch
+        case let (.provider(.videoUserProperty(incomingProperty, incomingSource, incomingEpoch)),
+                  .provider(.videoUserProperty(previousProperty, previousSource, previousEpoch))):
+            return incomingProperty == previousProperty && (incomingEpoch < previousEpoch
+                || (incomingEpoch == previousEpoch && incomingSource != previousSource))
         default: return false
         }
     }
@@ -525,5 +547,14 @@ final class SceneFrameTextureRegistry {
         liveSelectionDigest = liveSelectionDigest.replacing(
             identity, previous: previousLookup, with: resource.lookupStatus
         )
+        if case let .materialUserProperty(property) = identity,
+           property.purpose == .premultipliedColor,
+           case let .publication(publication) = resource.stored,
+           publication.requestIdentity == identity, publication.isComplete,
+           publication.candidate.purpose == property.purpose {
+            // Both lookups retain this exact publication and resource generation;
+            // the legacy bare-key view does not mint a second lifecycle atom.
+            publish(resource, for: .userProperty(property.propertyKey))
+        }
     }
 }
