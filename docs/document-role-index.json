@@ -14,6 +14,7 @@
       "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "docs/scene/architecture/scene-resource-admission.md",
       "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "docs/scene/architecture/variant-analysis-cache-contract.md",
       "docs/scene/capabilities/alpha-display-fallback-design.md",
       "docs/scene/capabilities/material-video-assets.md",
       "docs/scene/capabilities/previous-blurred-composite-admission.md",
@@ -384,10 +385,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "edffd907248121f886d596eb4e82a3fe9a04c390059a9c22495f3fd5cd62c216",
+        "sourceSHA256": "548ecbc7da8ea642bdb32b67cb825bb6520a1444aac2340342068d0167e2da3e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "公开stage诊断唯一owner/原CB生命周期与资格历史/现性能卡导航接管，先设计登记已退役",
-        "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
+        "scope": "仅§3.5新增专题导航：变体分析v22 wire、兼容外层扩展和成功回填归variant-analysis-cache-contract；本次未复审其他运行合同。",
+        "limitations": "仅文档归属、链接、锚点和source hash核对，不表示缓存产品实施、App运行、性能或官方parity验收。"
       }
     },
     {
@@ -457,6 +458,20 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+    },
+    {
+      "path": "docs/scene/architecture/variant-analysis-cache-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
+      "currentStateAuthority": "docs/scene/roadmap/performance-convergence-card.md",
+      "lastReviewed": "2026-10-15",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9dc98ba61c94832a8f7476f1cd32b86c8e968ddc2bd179333f72a1da51be1196",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "承接已ACK的v22 wire、外层source-pure扩展和成功回填合同，核对runtime/startup导航与窄设计登记；旧owner一次Set复现只作设计依据。",
+        "limitations": "仅合同归属与导航核对；产品未实施，不表示新增运行、缓存命中覆盖、CPU/内存或启动收益。"
+      }
     },
     {
       "path": "docs/scene/capabilities/README.md",
@@ -3116,6 +3131,7 @@
         "docs/scene/architecture/refactor-baseline.md",
         "docs/scene/architecture/runtime-as-built-map.md",
         "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/architecture/variant-analysis-cache-contract.md",
         "docs/scene/architecture/scene-runtime-daemon-contract.md",
         "docs/scene/development/development-workflow.md",
         "docs/scene/development/official-client-behavior-research-workflow.md",

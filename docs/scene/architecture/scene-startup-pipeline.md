@@ -50,14 +50,8 @@
 
 ## 3. 暖启动持久层（本计划的主体成果）
 
-所有层共享同一套防护合同与 IO 家（`ScenePersistentCacheSupport` /
-`ScenePersistentCacheDigest` / `ScenePersistentSamplerRecord`）：信封
-schemaVersion+键摘要+载荷摘要三重校验、load 路径零副作用（不建目录）、只存成功结果、
-损坏/版本失配安全 miss、`schemaVersion` 为唯一失效杠杆。防护合同由
-`script/tests/test_scene_persistent_cache_behavior.py` 行为回归门锁定
-（四层真实 load/store 探针：只读 miss/发布/命中/损坏与篡改安全 miss/过期
-schema miss；preparation 层经真实消费方驱动，拒绝不发布、跨进程命中不重发、
-损坏自愈）。
+持久化与失效边界归[运行架构 §3.5](runtime-architecture.md#35-启动是候选事务不是全量兼容门)，
+最近行为门为 `script/tests/test_scene_persistent_cache_behavior.py`。下表保留原阶段暖层快照，不代表当前全量启动或设备资源 ready。
 
 | 层 | 文件（Compilation/Material 除注明） | 键 | 缓存内容 | 实测收益 |
 |---|---|---|---|---|
@@ -68,9 +62,8 @@ schema miss；preparation 层经真实消费方驱动，拒绝不发布、跨进
 | 编译产物 v10 | `SceneGenericShaderPrograms-v10`（外部编译器产物；请求 key 覆盖 authored 源和编译语义版本；v14 退役错误的混合类型比较截断，同时覆盖默认目录与环境覆盖目录） | 请求 key（v14；请求信封 schema 仍为 5） | generic Program artifact | 既有 |
 | **PSO binary archive** | `SceneResolvedMaterialPipelineBinaryArchive.swift`（Rendering/Graph） | OS build+device registryID+pixelFormat+sampleCount+writeMask+函数名+renderState+MSL sha256 | 每精确管线身份一个 `.metalarchive` | 机制落地；**命中率需实机统计** |
 
-统一失效规则：任何分析器/normalizer/profile 语义变更必须 bump 对应层
-`schemaVersion`（整个 tier 安全 miss 退役）；`frontendSchemaVersion` 无机械 bump
-保障，不作为失效依据。
+变体 source-pure 补齐、Set wire 摘要修正与旧 binary 兼容的待实施规范，
+统一见[变体分析缓存合同](variant-analysis-cache-contract.md#variant-analysis-source-pure-extension)；不作为本表新增收益。
 
 ## 4. daemon 预热（L1）
 

@@ -8,6 +8,18 @@
   },
   "areas": [
     {
+      "id": "scene-variant-analysis-source-pure-extension",
+      "title": "Variant analysis source-pure facts with compatible v22 wire prefix",
+      "owner": "SceneResolvedMaterialVariantAnalysisCache / existing variant preparation",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/variant-analysis-cache-contract.md",
+      "design_notes": "2026-10-15原owner一次多元素Set摘要miss已复现；B语义经独审ACK与root裁决，完整合同见 #variant-analysis-source-pure-extension。保持v22/key/旧wire前缀，以独立校验的外层optional扩展表达positive/negative，仅原成功点补写，逐node准入不缓存。旧reader控制和真实variant消费门分别验；不能清tier或把inclusive区间当收益。模式只覆盖持久owner，不匹配现三处诊断；approved仅批准设计，不代表缓存产品已实施或性能接受，实施并过门后退役本窄条目至同专题合同。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "scene-hdr-tonemap-edr",
       "title": "Scene HDR / tone mapping / EDR 输出管线",
       "owner": "scene-e-route",

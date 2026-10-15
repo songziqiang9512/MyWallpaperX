@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 121890
+      "bytes": 122102
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -65,8 +65,12 @@
       "bytes": 16182
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
-      "lines": 144,
-      "bytes": 11939
+      "lines": 137,
+      "bytes": 11588
+    },
+    "docs/scene/architecture/variant-analysis-cache-contract.md": {
+      "lines": 33,
+      "bytes": 5837
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 323,
@@ -1076,5 +1080,24 @@
       "end": "evidence-packages"
     }
   ],
-  "adjustments": []
+  "adjustments": [
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "0604b80449a8da14a329d2c4361ad30691a6372e4ae112222e62e8417ec08303",
+      "after": "d6311ca28e336c966b028ddafb6bd5a3e040b349072dcf1f5f4a922c73ee7c6f",
+      "owner": "Scene variant preparation",
+      "reason": "批准的兼容v22缓存协议归独立专题；runtime仅新增导航，startup删除失效的重复规范。",
+      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-source-pure-extension"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/variant-analysis-cache-contract.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "a28321473bb9e44aebf7441c58dc2b6e6c04b23efeeab3174c8717a945a304e3",
+      "owner": "Scene variant preparation",
+      "reason": "批准的兼容v22缓存协议归独立专题；runtime仅新增导航，startup删除失效的重复规范。",
+      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-source-pure-extension"
+    }
+  ]
 }
