@@ -113,8 +113,8 @@
       "bytes": 37215
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 600,
-      "bytes": 194526
+      "lines": 599,
+      "bytes": 194083
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 291,
-      "bytes": 79336
+      "lines": 303,
+      "bytes": 81446
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -222,15 +222,15 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 10099
+      "bytes": 10318
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
       "bytes": 33350
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 247,
-      "bytes": 72842
+      "lines": 248,
+      "bytes": 73570
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1177,36 +1177,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "52d981a8e73799914a2aed354a28b3da57209e0b93c75cc30f4aac7625bd4eaf",
-      "after": "fdc7a5d0d6250a543490c1b29f06d0b4e1ab82398b2ff64662c9087f90b0fcf0",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "b8f39cf1a9790b9c7a88382744dadcd4c0aba4635752da2283d0cc5eda363de4",
       "after": "95a999127b53e17aa89391cfbd7561db212ec32b9194f010bfa05f1b2465b551",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "209dc9f79af6140ea5a6df3a4d7d3b93155ffe301941e34f2d5ccdbf6ece2912",
-      "after": "95703fe6893e6cbfa10c6e67ad07f7c648afe3e2d41270d2ecfa54d9a817a710",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "419a1c64ba799a294e48cccd8568f79df4a31094ba48f44305dc06c821373a95",
-      "after": "b2a818d9dcd919116f1f1b703a14c8b028ca9123d8b13444047ff481f78261fd",
       "owner": "Scene scalar input and Sound playback",
       "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
@@ -1222,21 +1195,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "afe7e1b9ef0d0aee0a34369fa28c66c43650ecdaa810d3bd99ebf011c19bf5f5",
-      "after": "78ac8d22c41fd86b5b5a1622c69c9e37fdb12c302ec6b596973c7854cbf15306",
-      "owner": "Scene shader value type recognition",
-      "reason": "替换已过期scope选序，记录有界启动归因、局部类型识别收益及maxwidth未取得可达门；详细证据留历史。",
-      "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#value-type-recognition"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "0770928ecb110426ba683dedf9581e59ca65761aa6d145d4adc2590bd751b24b",
       "after": "25367bbdcadb40e4e64487e5543b77c76d7f12c2020cc7ae3f8e1875ca3b6dbb",
       "owner": "Scene declaration preparation screen",
       "reason": "以本次完整normalizer/预锁App主指标NO-GO替换候选状态，明确产品撤回并停止微调，避免后继重复试验。",
       "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "95703fe6893e6cbfa10c6e67ad07f7c648afe3e2d41270d2ecfa54d9a817a710",
+      "after": "cb75ed6a272e5a9ab6d1ee793a485e34ea9601aed77ab9230297693f6d895bf6",
+      "owner": "Scene named-user pass scalar",
+      "reason": "新exact Number输入与唯一Script writer已真实闭合；更新原责任合同与当前证据，旧child归因更正和Timeline静态余项保留，过程仅进历史。",
+      "decision": "docs/scene/history/named-user-pass-scalar-2026-10-16.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "78ac8d22c41fd86b5b5a1622c69c9e37fdb12c302ec6b596973c7854cbf15306",
+      "after": "b9adcf2f7f358b7f3b4c0e6dfc690563f548abcdefe5d5fc6782f3d4335e124a",
+      "owner": "Scene named-user pass scalar",
+      "reason": "新exact Number输入与唯一Script writer已真实闭合；更新原责任合同与当前证据，旧child归因更正和Timeline静态余项保留，过程仅进历史。",
+      "decision": "docs/scene/history/named-user-pass-scalar-2026-10-16.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "6ce10255c0fcdc8d3677ef964117bd81afc8dd150d42414d32cb8debd4621e8d",
+      "after": "eab3a92dc153e2205bba512e1094d5652c3755e5c4d0683fa5abb3ba81ac9d0a",
+      "owner": "Scene named-user pass scalar",
+      "reason": "新exact Number输入与唯一Script writer已真实闭合；更新原责任合同与当前证据，旧child归因更正和Timeline静态余项保留，过程仅进历史。",
+      "decision": "docs/scene/history/named-user-pass-scalar-2026-10-16.md"
     }
   ]
 }

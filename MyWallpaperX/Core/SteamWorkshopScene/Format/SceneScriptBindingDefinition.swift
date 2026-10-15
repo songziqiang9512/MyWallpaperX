@@ -413,11 +413,17 @@ nonisolated enum SceneScriptBindingIRParser {
            let property = wrapper["user"] as? String,
            !property.isEmpty,
            property == property.trimmingCharacters(in: .whitespacesAndNewlines),
-           !property.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
-           let value = wrapper["value"] as? String {
-            let components = value.split(whereSeparator: \.isWhitespace)
-            directPassPropertyOwner = components.count == 3
-                && components.allSatisfy { Double($0)?.isFinite == true }
+           !property.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) {
+            if let value = SceneJSONValue(jsonObject: wrapper["value"] as Any)?.numberValue {
+                directPassPropertyOwner = value.isFinite
+                    && wrapper.keys.sorted() == ["script", "user", "value"]
+            } else if let value = wrapper["value"] as? String {
+                let components = value.split(whereSeparator: \.isWhitespace)
+                directPassPropertyOwner = components.count == 3
+                    && components.allSatisfy { Double($0)?.isFinite == true }
+            } else {
+                directPassPropertyOwner = false
+            }
         } else {
             directPassPropertyOwner = false
         }

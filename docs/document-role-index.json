@@ -634,10 +634,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "720fedb44d4b958243737cb029dd0606ec7db7631b94713d36b7e7371ca68948",
+        "sourceSHA256": "11f244cc164f57f85d7e2c5dcb818a0beb695d367241527fe4a74aec720ba045",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
+        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
       }
     },
     {
@@ -1701,6 +1701,19 @@
         "docs/scene/capabilities/scenescript-api-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/named-user-pass-scalar-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "named-user Number pass从当前slider经原Scalar VM到唯一uniform；raw/current分离、真实旋转热改、反例与独立渲染。"
     },
     {
       "path": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md",
@@ -3093,10 +3106,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "44de1e5c42e3de7ffb127619274861dcf6515c7ca9a3c68ba29e18da250013f3",
+        "sourceSHA256": "fd2cb214900f0c7021b4fce9315daad97dc8bc9e27d6d3999c637159de443513",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
+        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
       }
     },
     {
@@ -3155,10 +3168,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b65b6a90ff1b1de898e63b7ac0a89ac7af6857beed001bcfc56cda9c90253f1",
+        "sourceSHA256": "51960e1dac09d578ef0f45838138baf8cc3a5e1068233b24c516f0b57841c11a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "启动采样及类型识别局部收益、maxwidth一次可达资格STOP的准确边界导航",
-        "limitations": "不认领整体CPU/GPU/内存/启动/能耗、全样本、完整媒体或原生面板收益"
+        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
+        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
       }
     },
     {
@@ -3190,10 +3203,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "594c178d4afcd054e37f2f82f6b7fcb57a00bbb79d5c7654387acd054c8437ab",
+        "sourceSHA256": "d2d96c822f1085f2b243c398b0bfacc0db5396237ed2ebf360866dcffd710ca8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享global引用/initializer/语句scope及main-local mutable owner修复与跨freeze验证边界导航",
-        "limitations": "局部作者语义与自有输入证据，真实作者命中范围待量化；不认领完整shader、VM、原生面板、daemon、性能或官方parity"
+        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
+        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
       }
     },
     {

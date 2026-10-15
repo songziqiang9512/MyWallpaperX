@@ -111,7 +111,9 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
                 (authored.userValueKind == .null && authored.userBinding == nil)
                     || (authored.userValueKind == .string
                         && authored.userBinding.flatMap(normalizedProviderValue) != nil
-                        && authored.components?.count == 3
+                        && (authored.components?.count == 3
+                            || (authored.components?.count == 1
+                                && authored.bindingKeys == ["script", "user", "value"]))
                         && authored.components?.allSatisfy(\.isFinite) == true)
             )
         case ["animation", "script", "value"]:

@@ -248,7 +248,21 @@ nonisolated extension SceneScriptScalarProgram {
               let value = pass.constantShaderValues[name],
               value.scriptSource == binding.source,
               value.components?.count == 1,
-              value.components?.first?.bitPattern == authored.bitPattern else {
+              value.components?.first?.isFinite == true else {
+            return nil
+        }
+        // A named input may already hold a saved slider value. Its source and
+        // user identity must match the raw binding; the resolved current value
+        // need not equal the authored fallback retained by the Scalar owner.
+        let namedPropertyInput = binding.userPropertyKey.map {
+            !$0.isEmpty && $0 == value.userBinding
+                && value.userValueKind == .string
+                && binding.wrapperKeys == ["script", "user", "value"]
+                && value.bindingKeys == binding.wrapperKeys
+                && value.timeline == nil
+        } == true
+        guard namedPropertyInput
+                || value.components?.first?.bitPattern == authored.bitPattern else {
             return nil
         }
         let target = SceneDynamicTarget.effectConstant(
@@ -272,6 +286,7 @@ nonisolated extension SceneScriptScalarProgram {
             || (binding.wrapperKeys == ["script", "user", "value"]
                 && binding.properties.isEmpty
                 && value.userValueKind == .null)
+            || (namedPropertyInput && binding.properties.isEmpty)
         guard validWrapper else { return nil }
         return target
     }

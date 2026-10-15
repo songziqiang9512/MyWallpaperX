@@ -894,12 +894,11 @@ enum Harness {
                         && value.valueContributors == [.sceneScript]
                         && value.scriptAttachments.isEmpty
                 } == true,
-            "boundedNullUserProofDoesNotAuthorizeOtherProducers":
-                boundedNamedUserScriptProven?.uniformDeclarations.first.map {
-                    declaration in
+            "boundedNamedScalarAndOtherProducerBoundaries":
+                boundedNamedUserScriptProven?.uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
-                    return value.valueContributors == [.userProperty("mode")]
-                        && value.scriptAttachments == [.unproven]
+                    return value.valueContributors == [.sceneScript]
+                        && value.scriptAttachments.isEmpty
                 } == true
                 && boundedTimelineScriptProven?.uniformDeclarations.first.map {
                     declaration in
@@ -993,6 +992,7 @@ enum Harness {
                 "graphRoleIdentityInvariant", "programAssemblyIdentityInvariant",
             ] && stablePhases.map(\.rawValue) == ["preparation", "frontend", "color"],
         ]
+        result.merge(namedScalarClassifierContracts()) { _, new in new }
         result.merge(sourceContracts()) { _, new in new }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

@@ -136,6 +136,31 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["recoveredFailures"], 0, value)
         self.assertTrue(value["badAndRecoveryChangesAccepted"], value)
 
+    def test_named_pass_scalar_uses_saved_current_input_and_continuous_vm_transform(self) -> None:
+        value = self.result()["namedUserScalar"]
+        for observations in value["variantFacts"]:
+            for key, passed in observations.items():
+                self.assertTrue(passed, (key, value))
+        for actual in value["variantValues"]:
+            for observed, expected in zip(actual, [1.925, 0.725, 1.325]):
+                self.assertAlmostEqual(observed, expected, places=10)
+
+    def test_named_scalar_parser_and_projection_preserve_exact_boundaries(self) -> None:
+        value = self.result()["namedUserScalar"]
+        for group in ["parserRejections", "projectionRejections", "propertyDefinitionFailures"]:
+            for key, passed in value[group].items():
+                self.assertTrue(passed, (group, key, value))
+        self.assertEqual(value["legacyParserCounts"], [1, 1, 1])
+
+    def test_named_pass_return_boundary_keeps_current_user_fallback(self) -> None:
+        value = self.result()["namedUserScalar"]
+        self.assertEqual(set(value["badReturnFacts"]),
+                         {"bool", "string", "vec2", "nan", "infinity", "throw", "undefined"})
+        for key, passed in value["badReturnFacts"].items():
+            self.assertTrue(passed, (key, value))
+            expected = {"bool": 1.0, "string": 0.5}.get(key, 0.4)
+            self.assertAlmostEqual(value["badFallbacks"][key], expected)
+
     @classmethod
     def setUpClass(cls) -> None:
         clang = shutil.which("clang")

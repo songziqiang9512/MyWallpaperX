@@ -126,6 +126,41 @@ nonisolated struct SceneRenderDescriptor {
     let layers: [Layer]
     let materialPasses: [MaterialPassDescriptor]
 }
+
+func namedScalarClassifierContracts() -> [String: Bool] {
+    let target = SceneDynamicTarget.effectConstant(layerID: 41, effectIndex: 2, passIndex: 3, name: "turn")
+    func binding(_ components: [Double] = [0.6], keys: [String] = ["script", "user", "value"],
+                 proof: Set<SceneDynamicTarget> = [], user: String = "dial", timeline: Bool? = nil,
+                 runtimeInput: String? = nil)
+        -> SceneResolvedMaterialScriptBindingClassifier.Binding? {
+        SceneResolvedMaterialScriptBindingClassifier.binding(authored: .init(
+            rawValue: "0.6", valueKind: "binding", userBinding: user, userValueKind: .string,
+            components: components, timeline: timeline,
+            scriptSource: "export function update(value) { return value * 3 + 0.125; }", bindingKeys: keys),
+            userValue: runtimeInput, target: target, provenSceneScriptValueTargets: proof)
+    }
+    func unproven(_ value: SceneResolvedMaterialScriptBindingClassifier.Binding?) -> Bool {
+        value?.valueContributors == [.userProperty("dial")] && value?.scriptAttachments == [.unproven]
+    }
+    let renamed = ["dial", "knob", "positionAmount"].allSatisfy { user in
+        let value = binding(proof: [target], user: user, runtimeInput: user)
+        return value?.valueContributors == [.sceneScript] && value?.scriptAttachments.isEmpty == true
+    }
+    return [
+        "namedScalarRenamedProofsSingleWriter": renamed,
+        "namedScalarAbsentProofKeepsUserFallback": unproven(binding()),
+        "namedScalarWrongTargetProofKeepsAttachment": unproven(binding(proof: [
+            .effectConstant(layerID: 41, effectIndex: 2, passIndex: 3, name: "other")])),
+        "namedScalarMixedWrapperUnproven": unproven(binding(
+            keys: ["script", "scriptproperties", "user", "value"], proof: [target])),
+        "namedScalarVec2NotClaimed": unproven(binding([0.2, 0.3], proof: [target])),
+        "namedScalarNonFiniteNotClaimed": unproven(binding([.infinity], proof: [target])),
+        "namedScalarExtraNotClaimed": unproven(binding(keys: ["extra", "script", "user", "value"], proof: [target])),
+        "namedScalarAnimationNotClaimed": binding(keys: ["animation", "script", "user", "value"],
+            proof: [target], timeline: true)?.scriptAttachments == [.unproven],
+    ]
+}
+
 '''
 
 
@@ -247,10 +282,20 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "boundedPropertyScriptExactProofBecomesSoleValue",
             "boundedNullUserScriptNeedsExactProof",
             "boundedNullUserScriptExactProofBecomesSoleValue",
-            "boundedNullUserProofDoesNotAuthorizeOtherProducers",
+            "boundedNamedScalarAndOtherProducerBoundaries",
             "colorUserScriptOwnsSingleValue",
             "colorUserUnprovenRemainsAttached",
             "colorUserMalformedRejected",
+        ])
+
+    def test_named_user_scalar_proof_is_exact_and_single_writer(self) -> None:
+        self.assert_contracts([
+            "namedScalarRenamedProofsSingleWriter",
+            "namedScalarAbsentProofKeepsUserFallback",
+            "namedScalarWrongTargetProofKeepsAttachment",
+            "namedScalarMixedWrapperUnproven", "namedScalarVec2NotClaimed",
+            "namedScalarNonFiniteNotClaimed", "namedScalarExtraNotClaimed",
+            "namedScalarAnimationNotClaimed",
         ])
 
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:

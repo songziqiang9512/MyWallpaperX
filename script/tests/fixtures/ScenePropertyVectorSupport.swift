@@ -257,6 +257,8 @@ struct SceneRenderDescriptor {
         var authoredLightIntensity: Float? { nil }
         let scaleHasScript: Bool?
         let alpha: Double?
+        var brightness: Double? = nil
+        var supportsUserPropertyImageSourceModulationConsumer = false
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil

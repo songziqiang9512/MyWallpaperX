@@ -16,6 +16,18 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+<a id="named-user-pass-scalar"></a>
+
+## Named-user pass scalar 输入（2026-10-16，有界已实施）
+
+目标是让 effect pass 的有限 Number `script/user/value` 包装进入现有 Scalar owner；outer user 是当前属性输入，脚本返回值是唯一高优先级 uniform producer。真实 slider 包装已定位，原入口仅允许 named-user Vec3，故在 binding 解析即丢失 scalar owner。选择补接现有输入链，不加 VM、属性状态、frame writer 或特殊 shader profile。
+
+Binding reader 只扩有限非 Bool Number 与规范化命名 user；Scalar projection 校验完整 owner/path/source、wrapper、user identity 及单分量类型。matching named input 的 resolved descriptor 可以与 raw authored fallback 不同，owner definition 仍保 raw seed；无 user 分支保原 seed 一致性。Material classifier 仅消费 exact target proof，将 user 留作输入，不能忽略脚本或登记并行输出。原 property compiler→preliminary snapshot→Scalar VM→settled snapshot→Program uniform/graph/唯一 compositor 全链复用，普通帧不增加解析或全图扫描。
+
+首片只扩无 animation 的 `script/user/value` Number；scriptproperties 混合、数值 String、Bool、Vec2、其他 host 与 Timeline 控制不扩。缺失/错误/重复定义的属性仍由原 property compiler 诊断并提供原 authored/current fallback；没有 VM proof 保留 unproven attachment，失败返回、事务拒绝与退休沿原局部回退，不提前确认事件或发布部分结果。
+
+验收用改名及等价表达式确认真实输入被脚本变换，覆盖非默认保存值启动、连续热改、错误类型/非有限返回、缺失或重复 owner、未知 wrapper/竞争 Timeline及健康旧 scalar/Vec3/property-only。最终隔离 App 须直接确认 target identity、typed 输入/输出与 encoded uniform、GPU/末合成/下一帧及实际旋转响应；未参与修法内容另作真实渲染。若没有实际 owner/consumer 或画面响应，保留未证边界，不扩大 wrapper 或颜色域；一个有效构建和最近门可复用。
+
 <a id="camera-layer-fov-scalar"></a>
 
 ## Camera layer FOV scalar（2026-10-15）
