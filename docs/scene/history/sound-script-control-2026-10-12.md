@@ -43,6 +43,6 @@ snapshot writer只消费无direct property key的binding；旧即时property wri
 
 **实际App边界。** 原包3800728730:23从0到1 Scalar owner，music两次热改接受且同window/surface，Sound clock推进，画面实际查看正常；没有该开关改变gain的证据，不把Bool推断为音量数值因果。首轮继承公共静音，后轮仅用进程参数解除静音，未改用户偏好。为闭合增益链，隔离派生副本仅改该volume wrapper和自有slider声明、保原画面/MP3资源；真实native gain为`0.4→0.1→0.4`，两次热改接受且window41214不变、无callback失败、正常退出/GPU drained。首个自有fixture漏声明scriptProperties产生局部异常，补公开createScriptProperties声明后才通过；失败尝试不计结果。该派生门不是原作者公式或官方听感对照。
 
-独立原包3743305891未参与修法，实际FLAC layer107时钟`0→0.422002`、rate1，人物/日期/频谱画面已查看，正常退出/GPU drained。候选3662790108冷运行在120s预算内未ready（prepare-catalog约70.338s、model-build约43.313s，阶段可能包含或串接，不相加）；看门狗精确回收，未获得该样本画面/volume结果。此为启动大成本线索，尚未定位可避免owner，不计性能回归归因或成功。未验扬声器听感、正常daemon/原生面板本片入口、多屏/设备热插拔；4处nonnull outer-user冲突、3处OGG、handle volume setter及原样本其他未修视觉继续保留。
+独立原包3743305891未参与修法，实际FLAC layer107时钟`0→0.422002`、rate1，人物/日期/频谱画面已查看，正常退出/GPU drained。候选3662790108冷运行在120s预算内未ready（prepare-catalog约70.338s已包含model-build约43.313s，嵌套计时不相加）；看门狗精确回收，未获得该样本画面/volume结果。此为启动大成本线索，尚未定位可避免owner，不计性能回归归因或成功。未验扬声器听感、正常daemon/原生面板本片入口、多屏/设备热插拔；4处nonnull outer-user冲突、3处OGG、handle volume setter及原样本其他未修视觉继续保留。
 
 **材料。** 最小hash/neutral结果、压缩日志及原包和独立实图留`.artifacts/tmp/sound-volume-script-20261016`，本轮样本/HOME/缓存和重试重复图退役；沿用唯一`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`。未抬已满证据提升预算，未删除未知旧材料。Windows VM按用户要求保持运行；未推送。后继先核现役队列共享global/scope正确性静态反例，真实收益须另证，不重启U40无合格载体实验。

@@ -218,11 +218,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 51,
-      "bytes": 11465
+      "bytes": 11562
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 9838
+      "bytes": 10099
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -1204,24 +1204,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "024ba85334ca27af7f76647ca73272ea9199cbd178d8be7090fd9e52f9e39c3b",
-      "after": "b4be4625ab270689fb8cd5e13fc744e7c7e4c8a863e68e328920c628710da1c3",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "7b121d8330e9c129ffb496781e9b8c701fcab923107976685ae2a1a9631915d9",
-      "after": "afe7e1b9ef0d0aee0a34369fa28c66c43650ecdaa810d3bd99ebf011c19bf5f5",
-      "owner": "Scene scalar input and Sound playback",
-      "reason": "复用既有Scalar/typed snapshot和唯一Sound player增益的局部字段接续；保互斥paused direct入口及原包/派生/独立、超时与未验入口边界，不扩大格式、听感或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-script"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "419a1c64ba799a294e48cccd8568f79df4a31094ba48f44305dc06c821373a95",
       "after": "b2a818d9dcd919116f1f1b703a14c8b028ca9123d8b13444047ff481f78261fd",
@@ -1237,6 +1219,24 @@
       "owner": "Scene shader global scope",
       "reason": "在现有596行内替换两处已修引用债并明确真实命中未验；详细冻结与像素过程进入历史。",
       "decision": "docs/scene/history/shader-global-scope-2026-10-16.md#shader-global-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "b4be4625ab270689fb8cd5e13fc744e7c7e4c8a863e68e328920c628710da1c3",
+      "after": "0770928ecb110426ba683dedf9581e59ca65761aa6d145d4adc2590bd751b24b",
+      "owner": "Scene shader value type recognition",
+      "reason": "替换已过期scope选序，记录有界启动归因、局部类型识别收益及maxwidth未取得可达门；详细证据留历史。",
+      "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#value-type-recognition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "afe7e1b9ef0d0aee0a34369fa28c66c43650ecdaa810d3bd99ebf011c19bf5f5",
+      "after": "78ac8d22c41fd86b5b5a1622c69c9e37fdb12c302ec6b596973c7854cbf15306",
+      "owner": "Scene shader value type recognition",
+      "reason": "替换已过期scope选序，记录有界启动归因、局部类型识别收益及maxwidth未取得可达门；详细证据留历史。",
+      "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#value-type-recognition"
     }
   ]
 }

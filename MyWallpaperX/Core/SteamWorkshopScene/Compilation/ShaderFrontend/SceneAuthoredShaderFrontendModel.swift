@@ -152,29 +152,28 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Codable, Ha
     case float4x4
 
     init?(authoredName: String) {
-        let mappings: [String: Self] = [
-            "bool": .bool,
-            "int": .int,
-            "uint": .uint,
-            "float": .float,
-            "ivec2": .int2,
-            "ivec3": .int3,
-            "ivec4": .int4,
-            "uvec2": .uint2,
-            "uvec3": .uint3,
-            "uvec4": .uint4,
-            "vec2": .float2,
-            "vec3": .float3,
-            "vec4": .float4,
-            "mat2": .float2x2,
-            "mat3": .float3x3,
-            "mat4": .float4x4,
-            "float2": .float2,
-            "float3": .float3,
-            "float4": .float4,
-        ]
-        guard let value = mappings[authoredName] else { return nil }
-        self = value
+        switch authoredName {
+        case "bool": self = .bool
+        case "int": self = .int
+        case "uint": self = .uint
+        case "float": self = .float
+        case "ivec2": self = .int2
+        case "ivec3": self = .int3
+        case "ivec4": self = .int4
+        case "uvec2": self = .uint2
+        case "uvec3": self = .uint3
+        case "uvec4": self = .uint4
+        case "vec2": self = .float2
+        case "vec3": self = .float3
+        case "vec4": self = .float4
+        case "mat2": self = .float2x2
+        case "mat3": self = .float3x3
+        case "mat4": self = .float4x4
+        case "float2": self = .float2
+        case "float3": self = .float3
+        case "float4": self = .float4
+        default: return nil
+        }
     }
 
     var metalName: String { rawValue }

@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-16 | Shader/启动CPU | 局部成本修正 | [类型识别与启动栈](shader-value-type-recognition-2026-10-16.md) | 同域switch的三配对-O/Debug局部收益；helper/整体成本及文字可达性未证 | [性能卡](../roadmap/performance-convergence-card.md)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-16 | Shader/词法引用 | 通用正确性修复 | [Global scope与mutable varying](shader-global-scope-2026-10-16.md) | initializer、语句scope与精确global token；跨freeze像素及独立真实回归，不计性能 | [覆盖表](../capabilities/render-graph-shader-coverage.md#op-shader-syntax)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-16 | Shader/metadata | 局部恢复 | [独立坏COMBO](malformed-combo-record-recovery-2026-10-16.md) | 21目标GPU与20层完整末合成、实际细发丝；三目标及后继透传保留 | [准入合同](../architecture/runtime-architecture.md#malformed-combo-record)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | Particle/RopeTrail | 中性资格与STOP | [world/负细分观察](rope-trail-profile-qualification-2026-10-15.md) | 固定客户端自有直线/曲线/倾斜输出与未解语义；不扩产品支持 | [来源边界](../development/source-index.md#particle-rope-profile-blackbox)、[组件台账](../capabilities/particle-component-coverage.md#7-renderers)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

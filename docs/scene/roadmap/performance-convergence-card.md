@@ -20,7 +20,7 @@
 **当前性能决策。** [普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)已取得当前-O/WMO renderer CPU及独立实际栈，材质图准备与粒子仍有成本，未证其中多少可省，不据此重启旧容器/排序/cache候选。[stage资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)、[TEX存储](../history/static-tex-storage-screen-2026-10-15.md)及root/graph/MDL/pin短筛保原结论；不重复局部优化campaign。主研发先补[功能断点](scene-open-breakpoint-queue.md)，仅在明确可避免工作及唯一owner后再开性能实现。
 
 
-**新增启动线索。** [Sound后验的366冷启动](../history/sound-script-control-2026-10-12.md#sound-volume-script)在120s预算内未ready，已保分阶段/输入身份并回收；阶段总量尚未定位可避免工作，不相加推算CPU或重启旧MDL/cache短筛。后续归因先找重复准备及唯一owner，再决定有界消融；本轮没有启动收益或该样本渲染结论。
+**新增启动线索与局部修正。** [类型名识别记录](../history/shader-value-type-recognition-2026-10-16.md)合并366冷启动归因及原model内字典→switch：5s App栈不含晚出helper、未ready/看门狗退出，嵌套阶段不相加；三配对-O/WMO与Debug只接受lookup局部CPU收益，不外推启动或整进程。单rewrite重复声明扫描仍是候选，须有额外集成/整体证据再决定，不惯性扩cache或重复五对；原366可见结果仍未取得。
 
 <a id="sampler-seed-preparation"></a>
 

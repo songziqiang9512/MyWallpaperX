@@ -2673,6 +2673,19 @@
       "uniqueValue": "不可变shader identity哈希复用；五对局部查询及构造代价、整体CPU单对未达继续门与内存上移边界"
     },
     {
+      "path": "docs/scene/history/shader-value-type-recognition-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/capabilities/render-graph-shader-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "有界启动栈归因、同域类型switch的-O/Debug局部CPU对照与独立真实回归；maxwidth未取得可达门，未认领整体收益。"
+    },
+    {
       "path": "docs/scene/history/shared-script-resource-preparation-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3128,10 +3141,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7bc34aae6997ce233ebb19f20c879cd251f14a106f19833331fe28a1ab3e976c",
+        "sourceSHA256": "71c09cb00f690257f8d680d010b81095a434de49acac945aca1972322c3c9dc2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "启动采样及类型识别局部收益、maxwidth一次可达资格STOP的准确边界导航",
+        "limitations": "不认领整体CPU/GPU/内存/启动/能耗、全样本、完整媒体或原生面板收益"
       }
     },
     {
@@ -3142,10 +3155,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f8876ad71811c0751eb6b27f8bbd707241dd39c75c7e2f4e467f6896cc8f9b66",
+        "sourceSHA256": "9b65b6a90ff1b1de898e63b7ac0a89ac7af6857beed001bcfc56cda9c90253f1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound volume字段脚本沿既有Scalar/settled snapshot消费到同player增益；原包owner热改、派生增益、独立FLAC及366冷启动超时分层导航",
-        "limitations": "仅文档/来源边界复核；保互斥paused direct入口、outer-user/handle/OGG缺口，未验正常daemon/原生面板、听感、设备/多屏或性能，不计完整样本"
+        "scope": "启动采样及类型识别局部收益、maxwidth一次可达资格STOP的准确边界导航",
+        "limitations": "不认领整体CPU/GPU/内存/启动/能耗、全样本、完整媒体或原生面板收益"
       }
     },
     {
