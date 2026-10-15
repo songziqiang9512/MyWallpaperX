@@ -2926,9 +2926,9 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "99a006051858f45b89eb75a7a17d5c43a6ab9627a2475ef4fe9054eaf805fea0",
+        "sourceSHA256": "2b3a42504e1fdd072e37891a7c7ba6eef472a0ecdaf746f409b9b7100039eeef",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅camera-layer FOV设计退为原scalar能力合同/历史证据导航；不重新接受历史D4全部范围。",
+        "scope": "prepared特殊实例的候选职责与未定准入设计；原已实施文字/FOV范围不重开",
         "limitations": "只审导航与单一权威，不替代原生、性能或官方parity验收；实际运行边界归本轮历史。"
       }
     },

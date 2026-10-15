@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 250,
-      "bytes": 68861
+      "lines": 264,
+      "bytes": 72508
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -1119,15 +1119,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "6d4cef104f69b43d9a06380e95293e4a39d44c7bfb5315f9758275bdfcb1a4bc",
-      "after": "4c327b6ed31566be56e9c2ad0607f01e7f07460253c4cf3c7bd67099850cd1e6",
-      "owner": "scene-script-runtime",
-      "reason": "同步prepared文字实例的设计/能力/冻结证据并替换N06过时状态，保未验边界；同一事实按职责分工。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-text-clone"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "d9f1def041ddebf8b0180887b9958df84cccea8516441f293f154a0f7e040a6a",
       "after": "d03b0579f70782c1f3e35dc42ce813bce9a8d2e668fddbce8507f39735f47949",
@@ -1179,6 +1170,15 @@
       "owner": "Scene material admission",
       "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
       "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "4c327b6ed31566be56e9c2ad0607f01e7f07460253c4cf3c7bd67099850cd1e6",
+      "after": "9f62dbf9a61e26bdd3c9416aadb8413411a762e75c39182c0c2cac0f25dae7fa",
+      "owner": "Scene prepared instance design",
+      "reason": "新增特殊实例的准备/可变状态/共同提交及退出边界；先核实际请求，未定语义保持设计门关闭，不冒充能力实施。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
     }
   ]
 }

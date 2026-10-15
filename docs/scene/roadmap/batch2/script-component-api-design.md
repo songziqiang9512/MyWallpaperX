@@ -81,6 +81,20 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 
 产品原particle frame是整个cadence的共享native预算/事务作用域，开启它不能拒绝普通文字创建。同步子模块构造、init与失败销毁期间，在上述词法激活scope暂存并抑制原emission/boundary hooks，所有出口恢复原hooks/opaque；不重置active、work、limit或reserved。子init的particle播放/emit命令在原native入口、任何Swift preview/reserve或可捕获错误之前设sticky失败并拒绝creator，即使module阶段尚无provisional指针也按原nested激活身份拒绝；查询如被允许仍扣原共享work。父先前prefix/query候选不能被child end/discard边界清除。验收以原particle scope包围create并核前后父输入/预算、正常与失败出口、健康suffix；禁止为绕过此门关闭产品particle事务或新增第二模拟owner。
 
+<a id="prepared-puppet-clone"></a>
+
+## 已准备特殊实例后继（2026-10-15，设计中）
+
+**选题与资格。** 下一候选为已准备Puppet实例，其次为空composition实例；文字显式style先需已证请求，不沿外观猜font或继承padding。source声明动画/effects不代表create请求要求继承，先取实际请求与成功准备结果的白名单metadata，避免为未请求语义重构。[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)公开配置创建，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html)公开播放控制；两页未裁决clone出生相位、配置省略或source销毁后的关系。只为实际影响首片的unknown做自有黑盒，不取私有算法。未定准入保持设计门关闭，设计门不阻止只读取证。
+
+**职责与旧链退出。** 在原prepared-device/launch资源内形成可信Puppet模板：已验证mesh/rig/reference/attachments、选定动画轨道/evaluator、atlas logical extent及创建配置资格。静态作者层和clone共用同一准备结果，退出重复MDL/轨道解析；不另建独立资源registry或clock。mesh/indices/UV/不可变轨道与采样资源可共享，PlaybackState、clip位置/显隐/blend、bone overrides、physics/scratch、vertex ring、clipping临时目标及publication/FIFO每实例独立。GeometryProduct绑定新实例state，不能复制捕获原state的闭包；atlas只作mesh采样，不能以quad或bind-pose冒充请求的动画。
+
+**数据流与提交。** 原catalog模板资格→create journal携新layer identity/template identity与typed配置→原DynamicLayerRuntime候选/fixed-point→共同commit→原AnimationPlaybackRuntime及surface安装→同一typed LayerFrame/GeometryProduct/唯一compositor。出生/退休是已有plan的差量，普通帧不解析或扫描catalog。首次动画相位按取得的行为合同处理，不把原sceneTime初始化擅改成birth-zero。现负ID动画bridge和bone owner权限不能全局移除；实际需要的clone脚本/控制应沿原owner授权、回调与退休接通，未消费字段在出生前拒绝，不静默丢弃。请求effects时给新identity实例化原graph/target/history，未支持的组合不能借模板成功伪装可用。
+
+**失败与退出。** 模板缺失/配置漂移在journal分配前局部拒绝；父throw、预算或Swift晚拒绝、同帧生灭均不留下clip/surface登记。只在原共同接纳后安装实例；surface资源失败局部不可用，不回滚已执行JS或伪造geometry。单clone与creator连带退休撤原动画、surface及授权，in-flight资源按原completion释放；source退休不得提前销毁仍被合法实例使用的模板。空composition如后继实施，只复用原utility source/ordering/graph/pool出口，不复制source最终纹理，也不预设子成员复制。
+
+**最近验收与停止。** 先核实际own-data字段类型/包装、prepared匹配及返回结果，不输出script/raw配置；准备侧只核mesh/rig/clip计数、是否可动、fallback、atlas与graph状态。再用自有双实例证明请求动画的非静态mesh位移、独立pose/变换、throw/晚拒绝无残留及退休一个后peer继续，另验真实候选与未参与修法样本。改名/等价配置和缺template、错误代次、用途冲突保邻反例。若真实请求依赖首片外脚本/graph或没有可消费的prepared结果，收口资格并重新排队，不以无可见收益的基础设施扩张计交付。性能只在重复准备确有可比收益时单独验收。
+
 ## 图层 perspective typed setter 后继（2026-10-12）
 
 真实作者在图层 init 设置 `thisLayer.perspective`，随后只更新 angles/origin/scale；原桥接没有此 accessor，赋值成为无渲染消费者的 JS 自有属性。公开 [SceneScript 类型声明](https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts) 的 IEffectLayer（image/text 的共同表面）及 model 图层声明可读写 Boolean perspective，含义为透视而非平面绘制；公开 HTML ILayer 简表未完整列出派生属性。此次先闭合已准备图层及现动态 image/text handle 的 setter/getter，不扩 createLayer Object 配置、size、资源 profile 或文字克隆。

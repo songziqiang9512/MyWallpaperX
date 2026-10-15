@@ -77,6 +77,22 @@
       ]
     },
     {
+      "id": "scene-prepared-puppet-clone",
+      "title": "已准备Puppet独立实例与动画生命周期",
+      "owner": "scene-script-runtime",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "2026-10-15 prepared-puppet-clone只完成职责候选设计：共享原launch静态准备、实例私有PlaybackState/clip/surface publication、原journal/fixed-point共同提交及差量退休，不新增registry/clock/compositor。实际create字段/成功准备结果、首片需要的出生相位/脚本/graph语义未裁决，保持blocked；只读取证可继续。取得最小中性合同后修订本条范围再实施，不因source动画声明推断请求继承。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScriptPreparedPuppet*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneQuickJSPuppetClone*.c"
+      ],
+      "contentPatterns": [
+        "SceneScriptPreparedPuppetLayerTemplate",
+        "prepared_puppet_template"
+      ]
+    },
+    {
       "id": "scene-composition-render-target",
       "title": "composition作者采集成员、模式与顺序",
       "owner": "scene-e-route",
