@@ -123,9 +123,15 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
     ) -> Bool {
         guard let slot else { return true }
         guard template.textureSlots.indices.contains(slot),
-              let declaration = template.textureSlots[slot],
-              !declaration.candidates.isEmpty,
-              samplers[slot]?.mode == .opacityMask else { return false }
+              let sampler = samplers[slot],
+              sampler.mode == .opacityMask else { return false }
+        // A missing authored override still consumes the prepared sampler's
+        // typed asset default through the ordinary texture resolver. Defaults
+        // cannot rescue an unsupported or malformed authored candidate.
+        guard let declaration = template.textureSlots[slot] else {
+            return sampler.hasTypedAuxiliaryDefault
+        }
+        guard !declaration.candidates.isEmpty else { return false }
         return declaration.candidates.allSatisfy {
             if case .asset = $0.reference { return true }
             return false

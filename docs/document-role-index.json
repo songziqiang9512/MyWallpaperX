@@ -551,13 +551,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8762c76197b8d94f1bdfacf030a86889e36307fc0e758f46448cd4edbb8a638f",
+        "sourceSHA256": "b21dac116b05e94b601ffb52a5ca8da6b8cb918f40a4615dad386d149a1688a1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现有 material owner 数值与名称准入设计",
-        "limitations": "设计和导航不代表 GPU/样本验收。"
+        "scope": "默认mask准入合同与原schema/resolver职责同步；产品运行证据另归后验记录",
+        "limitations": "本导航收据不替代测试、GPU/样本、性能或官方parity验收。"
       }
     },
     {
@@ -596,9 +596,9 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "14e0dd3be5e5ca53d9e1f3d158fe58d58eae51896175274c7098ec1923c2f2c9",
+        "sourceSHA256": "2ccfd8243a0f635d480c4c97881018e2d2d7026a44abfe8483b05e0fca4ecb16",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批prepared文字实例冻结记录与原有导航链接；非全部旧证据HEAD重验",
+        "scope": "本批文字实例及默认mask后继导航；非全部旧证据HEAD重验",
         "limitations": "仅导航及本批限定结果；不关闭特殊clone、全部布局/交互或性能验收。"
       }
     },
@@ -1797,8 +1797,8 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "entrypoint": "docs/scene/history/README.md",
-      "cutoffDate": "2026-10-12",
-      "uniqueValue": "公共准入红/绿反例、实际两段Blur及未参与修法样本画面；stock测试隔离和旧有界cohort债。"
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "公共准入及typed default mask红绿反例、真实GPU/末合成、独立实图；stock测试隔离和旧有界cohort债。"
     },
     {
       "path": "docs/scene/history/property-callback-recovery-2026-10-14.md",

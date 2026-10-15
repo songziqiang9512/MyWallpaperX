@@ -26,3 +26,15 @@
 ## 文档归属与产物
 
 稳定设计只拥有目标/边界，覆盖表只记当前有界能力，运行索引与队列只指向本记录；新增短合同与集中例外行的budget调整不复制批次流水账。临时HOME、样本副本、编译probe/cache及冗余ready截图在核验原件哈希/进程退出后清理；保留必要的前后截图、压缩日志、身份与中性收据。全局证据缓存预算不足时不扩大或删除未知材料，精确清理/提取结果记本机cleanup.json。连续迭代仅保留原单份构建缓存供下一批。
+
+## 默认mask补接（2026-10-15）
+
+<a id="default-mask-followup"></a>
+
+基线`be785aa9c`的准备期白名单探针确认：2960821850的215/effect0终端owner、graph与float3静态色均成立；mask1为opacityMask及asset default，作者槽缺席，旧Eligibility错误拒绝。只在该缺席分支复用原`hasTypedAuxiliaryDefault`，显式override仍须非空all-assets；原resolver继续检查purpose/readiness/publication和既有noise缺失替代。探针已撤，无新算法、profile、资源或输出owner。
+
+最终Debug App SHA-256 `8ddd05c9a691cdc1dbbf28bac0e6e4b35a21b7dae67ec6cc25b0d1705f19e9eb`；唯一产品文件SHA `07d5370cfa7df1c1ed81d5291abe3e1d3cf1c19b3b228a0fd0c94df1a6627f26`。相同原包副本的frame0/1均由目标0材质/4拒绝变4/0，后继1–3效果与末compositor消费成立；全帧24→28材质、7→3拒绝，余项均visibility-disabled。真实画面已查，原参数模糊差异小，不计整图视觉闭合或parity。未参与修法的3248220186球粒子/光束/时间实际呈现，frame0/1为9材质、0拒绝；三次运行均正常退出、GPU排空。
+
+新自有CPU门实际经过parser→preparation→原analyzer/schema/purpose→Eligibility，变量/资源改名和采样别名正控，以及default/type/override/identity/color/owner反例共5正/16反全部成立，2测试通过；235源码无漂移。它不证明资源加载或GPU像素，真实输出由上述App运行补足。一次最终独审接受，无可行动P1/P2；只登记最近门，不重复整矩阵，无性能收益声明。
+
+最小身份/日志/前后截图与收据保在`.artifacts/tmp/n05-prepared-probe-20261015/`；全局证据缓存原已超1GiB预算，不扩容、不删未知证据。本轮可重建样本/HOME/缓存、重复截图和生成源码清理，继续复用原单份构建缓存。多屏、HDR物理显示、属性全组合、长期运行与完整画面仍未验。

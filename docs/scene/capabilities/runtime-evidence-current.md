@@ -20,8 +20,8 @@
 | 原生属性面板/CPU | [原生列表后验](../history/native-property-list-convergence-2026-10-14.md)：系统首尾、实际格式/灯光热更新与三轮有界CPU；完整键盘chrome、多surface、媒体及engine性能未闭。 |
 | Sampler与纹理发布 | [mip](../history/compiled-data-mip-preservation-2026-10-12.md)；[取余](../history/scalar-floating-remainder-2026-10-12.md)；[视频asset与日期复验](../history/material-video-assets-2026-10-12.md)。 |
 | Graph颜色用途与旧验证债 | [用途协调与合成验收](../history/graph-color-purpose-reconciliation-2026-10-12.md)：graph传输与直色数学复用原转换，旧中间PMA/末合成fixture更正；真实296未见节点恢复，独立213画面保持，不计整样本收益。 |
-| 标量数据遮罩 | [用途协调后验](../history/scalar-mask-data-purpose-2026-10-12.md)：二维数据红通道保原用途；296目标节点恢复GPU并经后继末合成，23→24材质、8→7拒绝；独立213画面保持。余Blur及整样本验收开放。 |
-| 前级与模糊结果合成 | [公共准入后验](../history/previous-blurred-composite-admission-2026-10-12.md)：恢复两段Blur实际GPU/末合成与画面模糊，独立原包健康画面保持；主体显隐与整图parity未闭。 |
+| 标量数据遮罩 | [用途协调后验](../history/scalar-mask-data-purpose-2026-10-12.md)：二维数据红通道保原用途；296目标节点恢复GPU并经后继末合成，23→24材质、8→7拒绝；独立213画面保持。后继Blur见下行；整样本验收开放。 |
+| 前级与模糊结果合成 | [准入与默认mask后验](../history/previous-blurred-composite-admission-2026-10-12.md#default-mask-followup)：默认资源沿原resolver补接四节点GPU与末合成，独立实图保持；主体显隐、完整视觉与parity未闭。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | Prepared文字实例 | [独立状态与真实shadow](../history/prepared-text-clones-2026-10-15.md)：时钟/user clone同窗口热更、creator事务与quiescent退出已证；特殊clone、字体/布局及全样本parity保留，无性能收益声明。 |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |

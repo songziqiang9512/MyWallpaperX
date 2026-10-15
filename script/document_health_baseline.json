@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
-      "bytes": 2978
+      "bytes": 3112
     },
     "docs/scene/capabilities/puppet-clipping-design.md": {
       "lines": 33,
@@ -106,11 +106,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 596,
-      "bytes": 345429
+      "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 114,
-      "bytes": 34663
+      "bytes": 34707
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -222,15 +222,15 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 8839
+      "bytes": 8913
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33173
+      "bytes": 33151
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 71073
+      "bytes": 71091
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1110,15 +1110,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "e20f08bc8b3247f60c567f070dcd820860d42863528b385aab35730cd02e9ae6",
-      "after": "3904e6108a579de5e81bfabb34ac64872bc5eb4c502dd53792f14f0ecdc308e5",
-      "owner": "Scene capability sequencing",
-      "reason": "以当前普通优化构建资格及局部优化收益递减重排能力主线；N06文字、N05 Blur与专项卡各保唯一顺序，未验性能和视觉不记完成。",
-      "decision": "docs/scene/roadmap/scene-compatibility-roadmap.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "before": "0c5b626af80178a06dadab8404d7f770b4e170089243e5234b088628e9981e4c",
       "after": "23261c351242eca0295378a016d21efcca3989bc420ec2948cbc2cd29836f005",
@@ -1146,12 +1137,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
+      "before": "43f876b33a4182564ed51c6b377efc8a35ddb1fec966f42d2c349effb53373b5",
+      "after": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
+      "owner": "Scene material admission",
+      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "24a457402c0c6ac0b066bd42228072d61553e99cb625449fb88e81666fce1c73",
+      "after": "b011de4a83169eecaa9ffda064827cc6243ecff8525e630d46cbf4f9375d22e3",
+      "owner": "Scene material admission",
+      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a1f4b5d4f1d75613cf8abb49844566b92a0971e40e69bd73535ee92385c12028",
-      "after": "8ae01f7ee462c019fa7ccaeb4217752ac0eb572490f23b135dd08d168db0cfac",
-      "owner": "scene-script-runtime",
-      "reason": "同步prepared文字实例的设计/能力/冻结证据并替换N06过时状态，保未验边界；同一事实按职责分工。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-text-clone"
+      "before": "8ae01f7ee462c019fa7ccaeb4217752ac0eb572490f23b135dd08d168db0cfac",
+      "after": "7e247959b7e81cfe1f7e38a87ba97fa21701b56c6a0089cf20056650fe06e11f",
+      "owner": "Scene material admission",
+      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "3904e6108a579de5e81bfabb34ac64872bc5eb4c502dd53792f14f0ecdc308e5",
+      "after": "ea71caa57739f5b1b08ac2401f81a555f7b15546f318b4fdcb6beed8b488b473",
+      "owner": "Scene material admission",
+      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "17ec0352f881d0170bd93edf78ab304da00ef520ab162f18a11201bdd1a35049",
+      "after": "7fd837a7faa2867929ec53041ceef7d006eb2ebe3b86593dc17905193d25a79c",
+      "owner": "Scene material admission",
+      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
     }
   ]
 }

@@ -1141,6 +1141,16 @@
       ]
     },
     {
+      "id": "previous-composite-default-mask",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+        "script/tests/test_scene_previous_composite_default_mask.py"
+      ],
+      "modules": [
+        "test_scene_previous_composite_default_mask"
+      ]
+    },
+    {
       "id": "authored-fallback-owner-revocation",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
