@@ -109,12 +109,12 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 120,
-      "bytes": 36578
+      "lines": 121,
+      "bytes": 36923
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 193356
+      "bytes": 194174
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -137,8 +137,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 412,
-      "bytes": 104659
+      "lines": 413,
+      "bytes": 105137
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -222,7 +222,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 9295
+      "bytes": 9622
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72689
+      "bytes": 72908
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1123,15 +1123,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "d03b0579f70782c1f3e35dc42ce813bce9a8d2e668fddbce8507f39735f47949",
-      "after": "6122d49f86e8f785ec9201cf7191a0b1b1c4a3a86d2ff0634db6e0d6b2319001",
-      "owner": "scene-script-runtime",
-      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "977fbfddab8b41f31df806b095322eccab8f84b3c4bea7581c543b0ddbe41333",
       "after": "375ed7ea4610d0601b8edc811e535c6b1337a105a4f486cf9037a6b976cc6039",
@@ -1195,33 +1186,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "009a2f38250b5098e237b05a1ce3c3c5cb3807fdcd72fa95649e4404af85c5e3",
-      "after": "66e8fa87ed4ec2a833eda84317c4dd3e7227e3e039806dfdb054cd487001b8a0",
-      "owner": "Scene user-property resources",
-      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f84d55acf4c1491ae812764581d82a2dc5bc2150d091961636a928e01c1ad94b",
-      "after": "13482b34bf17becec6bd4578a3f3167a3218582727291debb0972980540f4263",
-      "owner": "Scene input and Puppet qualification",
-      "reason": "U40官方载体2/2资格失败后停止，保零impulse调用及语义unknown；交接仅净化/证据边界接受，未授权数值实现，不宣称功能修复。",
-      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "80cf477ec6f43c2bd3b262f34de42d8a4657efebd57012846235d7b95e144a16",
-      "after": "7dcd396388bff019cc3bb8fb46652aa9ec0f17ade4b610482cb149844907967d",
-      "owner": "Scene input and Puppet qualification",
-      "reason": "U40官方载体2/2资格失败后停止，保零impulse调用及语义unknown；交接仅净化/证据边界接受，未授权数值实现，不宣称功能修复。",
-      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "before": "322432c972faf28036f3119887ac76f69b0d0918e613a4d0d5b58127255933fa",
       "after": "3f2c4ff22e9d6f34f5cbbf1893bd8e12e8e4ca75c4fda3d672c0d407c59bbd81",
@@ -1231,12 +1195,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "13482b34bf17becec6bd4578a3f3167a3218582727291debb0972980540f4263",
+      "after": "d815e3d79d2aa9090c79b6bd0dd0b9cc01a16a00b1eb28abb76a95aaa9e78234",
+      "owner": "Scene scalar input and source modulation",
+      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "6122d49f86e8f785ec9201cf7191a0b1b1c4a3a86d2ff0634db6e0d6b2319001",
+      "after": "b8f39cf1a9790b9c7a88382744dadcd4c0aba4635752da2283d0cc5eda363de4",
+      "owner": "Scene scalar input and source modulation",
+      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "7dcd396388bff019cc3bb8fb46652aa9ec0f17ade4b610482cb149844907967d",
+      "after": "7b121d8330e9c129ffb496781e9b8c701fcab923107976685ae2a1a9631915d9",
+      "owner": "Scene scalar input and source modulation",
+      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5f76d6345facace6d5d519b78ea36fcde1a0a4e7908b73c9e16d4ced8ae76ab5",
-      "after": "a8168c7a094a196938d109d4006512f6ed0b6651304ebecfcce5245797a9a424",
-      "owner": "Scene input and Puppet qualification",
-      "reason": "U40官方载体2/2资格失败后停止，保零impulse调用及语义unknown；交接仅净化/证据边界接受，未授权数值实现，不宣称功能修复。",
-      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
+      "before": "a8168c7a094a196938d109d4006512f6ed0b6651304ebecfcce5245797a9a424",
+      "after": "419a1c64ba799a294e48cccd8568f79df4a31094ba48f44305dc06c821373a95",
+      "owner": "Scene scalar input and source modulation",
+      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "66e8fa87ed4ec2a833eda84317c4dd3e7227e3e039806dfdb054cd487001b8a0",
+      "after": "52d981a8e73799914a2aed354a28b3da57209e0b93c75cc30f4aac7625bd4eaf",
+      "owner": "Scene scalar input and source modulation",
+      "reason": "既有scalar投影/property输入与prepared typed消费者的普通image brightness局部补齐；正文保真实热改/明暗、原生保存及退出/异常验收边界，不扩大宿主或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#layer-brightness-live-update"
     }
   ]
 }

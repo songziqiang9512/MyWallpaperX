@@ -38,3 +38,24 @@ Debug构建30.718秒、诊断Release构建50.147秒均成功，记录输入无�
 真实原生列表出现该标题行，默认0.9→0.5，关闭重开仍0.5，再调0.7并恢复默认0.9；全程1次candidate/activated session，精确专用defaults域最终为{}，Stop/CmdQ exit0。此交互不替代direct Host的像素证据，也不计输入到呈现延迟。独立原样213运行PASS、loaded=1且failures为空；实际after图可见完整暖室、窗外蓝景、家具和时钟，未见本批亮度接线引入的异常，只计独立原样渲染，不外推全兼容或HDR显示验收。
 
 本后继证据在`.artifacts/tmp/property-layer-brightness-20261014/`，最近门收据`proof/nearest-validation-summary.json`，运行分别见`live/report.json`、`static-control/report.json`和`normal-ui/candidate/interaction-result.json`。未测CPU/GPU耗时、内存、能耗或延迟收益；多surface、暂停热编辑、物理EDR及全census/官方parity仍未验。产物收尾由本批最终清理收据记录。
+
+
+<a id="image-brightness-script"></a>
+
+## 后继：普通图片brightness脚本与属性输入（2026-10-16）
+
+通用缺口在两个共享入口：Scalar projection丢弃object brightness，property parser也未把该宿主的scriptproperties识别为objectScalar。现复用同一Scalar Program与typed snapshot，Host从既有live消费者提取prepared source-modulation资格，无消费者目标在模块评估前沿原excluded partition退出；没有新renderer、属性store或输出owner。合同与数值/失败边界归[brightness合同](../capabilities/runtime-input-property-coverage.md#layer-brightness-live-update)，Timeline、provider、completed source、model/Puppet及依赖宿主不借此扩张。
+
+自有真实QuickJS反例为1 binding→0 projected/owners；初修后的6项live失败又定位上述parser遗漏。最终49个行为事实通过：三组改名/等价表达式、同owner属性热改、snapshot到真实brightness消费者、负值黑/HDR/Float有限域、overflow局部fallback及恢复、alpha peer、wrapper/identity/重复/Timeline反例，late排除的literal createLayer不留下最终资源请求。hidden消费者原/新方法同一fixture均11项通过；普通user brightness、text pointsize相邻门通过。FOV旧fixture漏现役frameSchema转发已补；删除只测getter读取次数的退役collection形状断言，保首次/未知ID/五次重复退休及其58项事件/输出事实，最终通过，不据此认领成本下降。
+
+最终Developer ID签名Debug构建24.466秒成功，4,278输入无漂移；App SHA `1cb22e6cd1df91b9e60c339b45ea8c72d0937238eaf6b4d0e480811263f24eef`，dylib SHA `06b949fd0fa4c4cbf7224060266417d827ddf4a5cf6872f2a7f6c5bff3d7b765`。独审冻结11文件、drift=[]、GO，仅为本切片；最终文档另同步，不重建产品。
+
+真实290原包副本选Box Image第二项使1165实际可见，同PCM/属性协议下scalar owner 12→14，newproperty1两次3→1热改由false/false变true/true，均单surface/window且安全停止、GPU drained、exit0、无输入漂移。宽频协议最低档经常为0，其截图不算亮度响应正证；固定55Hz后该档约0.57，星空随3→1变暗。root查看完整实际图；事后中心星空RGB8均值B为98.0858→83.5676，另三块同向，仅辅助方向，不是同相位parity或物理HDR证据。相同七个启动invalid-source保留。
+
+未参与修法的289原包副本中33为实际可见effectful图片，准备/编码记录接纳，人物与边框真实呈现，exit0及GPU drained。另七个origin owner exception仍开放，未做该样本属性事件A/B，不计整样本通过或完整特效正确。
+
+普通产品入口另用隔离工坊/HOME/defaults：原生“音频闪烁”Slider 1.3→3→1、关窗重开仍1.00、恢复默认回1.30，全程仅session `7F4056E0-8D0D-4AE9-B8A3-8DC23558DDBF`激活一次。首次以symlink Scene目录导致零记录的准备尝试不计验收，已改物理测试副本；正常桌面像素未捕获，与前述受控Host画面分开。最终操作未赶在480秒看门狗前Stop/Quit，进程SIGTERM并被回收，不计该入口正常退出；原生保存/重开/reset与独立Host的安全停止分别取证。
+
+本批只计功能与热更新接线，不计CPU/GPU、RAM、启动或能耗收益。多surface、物理HDR、官方数值/画面、其他脚本宿主和完整能力仍未验。后继按现役队列继续sound volume等可达缺口；U40停止研究不记为修复。
+
+证据根`.artifacts/tmp/image-brightness-script-20261016/`保neutral receipts、输入/构建hash、gzip日志及三张必要图；primary保RGB8局部派生图并记录完整原图hash/裁剪区域，heldout保完整图，不用于HDR/物理屏结论。已清149项重建环境/原始runtime与重复PNG、生成shader等共1,147,863,811B，保留约16.5MB；子代理另清各自harness产物，收据分列。只有既有一份DerivedData供连续批复用，全局promotion预算条件未变故未重试，也未删除未知证据。

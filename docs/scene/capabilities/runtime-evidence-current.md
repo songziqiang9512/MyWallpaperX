@@ -36,6 +36,7 @@
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |
 | Sprite世界空间与深度 | [相机与深度修复](../history/particle-world-depth-2026-10-11.md)：324原包三层准入、主体恢复并实际呈现，379健康回归；后继[信号producer修复](../history/independent-signal-producer-2026-10-11.md)恢复GodRays放射光束；运动形态余项仍开放，不计整样本通过。 |
 | 空composition资格STOP | [撤回记录](../history/prepared-empty-composition-2026-10-15.md)：省略参数原型自有控制有效，真实请求另需constructor与authored透视override；无原包收益故撤回产品/测试，未新增支持或性能结论。 |
+| 图片brightness脚本 | [普通图片后继](../history/effectful-image-property-color-2026-10-14.md#image-brightness-script)：补Scalar与property输入首断点，真实热改、星空明暗、原生保存/重开/reset同session；独立effectful实图及其origin异常、原生看门狗退出分列，不计性能或整样本完成。 |
 | 连续Puppet拖动资格 | [U40 fresh记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)：首轮骨/GPU写入、释放异常及后两轮失效已对应；native尝试未资格，候选host依赖未动态归因，官方载体2/2资格失败后停止且未发出impulse，参数/响应unknown，没有交互修复或性能结论。 |
 | 视频用户纹理 | [U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
 | 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343原24目标中21执行、20层完整末effect合成；其余目标/3226末段保留，独立376实图及78节点通过。不计性能或整样本完成。 |

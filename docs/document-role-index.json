@@ -620,17 +620,25 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69f484929c74581a2f61c217929e48e423851ab7069f433c9b54e71a7275a943",
+        "sourceSHA256": "4b88814cd12a9f03a8845e0bebd8a599706e3c75142a5689669af00ec1f60986",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
-        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
+        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
+        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
       }
     },
     {
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "fbf2bfe6e7010f8f98839d2111eafb59f880f287b370cc108eed231f9bfa1fce",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
+        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+      }
     },
     {
       "path": "docs/scene/capabilities/runtime-systems-reference.md",
@@ -696,7 +704,15 @@
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "2a47230a8d172a41eaa2c9779c0641e70f255ae3bdfe98c4a9bd38fd958ae1fa",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
+        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
+      }
     },
     {
       "path": "docs/scene/capabilities/scenescript-runtime-implementation-contract.md",
@@ -1273,8 +1289,8 @@
         "docs/scene/capabilities/runtime-input-property-coverage.md",
         "docs/scene/roadmap/properties-panel-card.md"
       ],
-      "cutoffDate": "2026-10-14",
-      "uniqueValue": "effectful image颜色prepared consumer准入、跨surface与共享alias反例及真实编辑边界"
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "effectful image颜色与普通brightness的既有scalar/typed消费者接续；保真实热改/明暗、原生保存/重开/reset及看门狗退出、独立样本异常边界，不计性能或完整能力。"
     },
     {
       "path": "docs/scene/history/embedded-webm-video-2026-10-10.md",
@@ -3112,10 +3128,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c557daca83c3dde36dadd541b8d85fe9a8caac88e09a9bf09174d0ac9cef646f",
+        "sourceSHA256": "b9985fa3f5581ef6454b6666cb3f22e65e1313fb8e58e8304948753877eb50ab",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
-        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
+        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
+        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
       }
     },
     {
@@ -3147,10 +3163,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bf0de520476d7e994b9609a77024dfb69dd021b6f87822b78351d247df8fa8dd",
+        "sourceSHA256": "c7b511a657f5050c55db2591c6c11c0ec05fc7cfb6ef50387d63af97639404fa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
-        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
+        "scope": "普通image brightness的既有scalar投影/property输入与prepared typed消费者局部补齐，代表热改/可见及原生保存边界；U40仍停止unknown",
+        "limitations": "仅文档/来源导航核对；原生看门狗退出与独立Host安全停止分列，未验多屏/物理HDR/官方parity，不计性能或整样本完成"
       }
     },
     {

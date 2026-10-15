@@ -589,6 +589,22 @@ extension SceneDesktopWallpaperHost {
                 .intersection(propertyVectorPassCandidateTargets)
         let resolvedMaterialExecutionCapabilities =
             provisionalMaterialExecutionCapabilities
+        let sourceMaterialCandidateConsumerLayerIDs = resolvedMaterialCatalog
+            .sourceMaterialCandidateConsumerLayerIDs(in: runtimeInput.renderDescriptor)
+        let imageModulationConsumerTargets = Self.imageLayerModulationConsumerTargets(
+            in: runtimeInput.renderDescriptor,
+            resolvedMaterialExecutionCapabilities: resolvedMaterialExecutionCapabilities,
+            sourceMaterialCandidateConsumerLayerIDs: sourceMaterialCandidateConsumerLayerIDs
+        )
+        // Structural candidates may include an image whose prepared source
+        // already owns modulation. Exclude it before planning/evaluating any
+        // module, using the same partition for construction and fallback.
+        let scalarExcludedTargets = boundedSceneScriptTargets.union(
+            sceneScriptScalarTargets.filter { target in
+                guard case .layer(_, .brightness) = target else { return false }
+                return !imageModulationConsumerTargets.contains(target)
+            }
+        )
         let firstSurfaceRuntimePreparation =
             ScenePreparedFirstSurfaceRuntimeTask(
                 catalog: resolvedMaterialCatalog,
@@ -626,7 +642,7 @@ extension SceneDesktopWallpaperHost {
                 namedAnimations: timelineProgram.bindings.compactMap { binding in
                     binding.animation.options.name.map { (binding.target, $0) }
                 },
-                scalarExcludedTargets: boundedSceneScriptTargets,
+                scalarExcludedTargets: scalarExcludedTargets,
                 stringExcludedTargets: sceneScriptStringExcludedTargets,
                 admittedVectorPassTargets: vectorPassTargets,
                 generation: sceneScriptGeneration,
@@ -663,7 +679,7 @@ extension SceneDesktopWallpaperHost {
             vectorProjection: model.propertyVectorProjection,
             constructionReport: committedPrograms.constructionReport,
             timelineTargets: timelineTargets,
-            scalarExcludedTargets: boundedSceneScriptTargets,
+            scalarExcludedTargets: scalarExcludedTargets,
             stringExcludedTargets: sceneScriptStringExcludedTargets,
             routeDisabledTargets: sceneScriptVectorMediaRoute == .disableGeneric
                 ? propertyVectorMediaTargets : []
@@ -788,8 +804,6 @@ extension SceneDesktopWallpaperHost {
         }) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
-        let sourceMaterialCandidateConsumerLayerIDs = resolvedMaterialCatalog
-            .sourceMaterialCandidateConsumerLayerIDs(in: runtimeInput.renderDescriptor)
         let preparedSourceMaterialTargets: Set<SceneDynamicTarget> = Set(firstSurfaceRuntime.sourceMaterials.values
             .flatMap { material in
                 material.template.uniformDeclarations.compactMap { declaration in

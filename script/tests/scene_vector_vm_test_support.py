@@ -384,6 +384,7 @@ struct SceneRenderDescriptor {
         var colorRGB: [Float]? = nil
         var scaleHasScript: Bool? = nil
         let alpha: Double?
+        var brightness: Double? = nil
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil
@@ -393,6 +394,7 @@ struct SceneRenderDescriptor {
         var sizeWH: [Float]? = nil
         var imagePath: String? = nil
         var staticModelPath: String? = nil
+        var puppetMeshPath: String? = nil
         var spotLight: Int? = nil
         var directionalLight: Int? = nil
         var authoredLightIntensity: Float? = nil
@@ -407,6 +409,11 @@ struct SceneRenderDescriptor {
         var parentAttachmentBindFrame: [Float]? = nil
         var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
         var initialConfiguration: SceneJSONValue? = nil
+
+        var supportsUserPropertyImageSourceModulationConsumer: Bool {
+            contentKind == "image" && puppetMeshPath == nil && staticModelPath == nil
+                && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
+        }
     }
 
     var layers: [Layer]

@@ -747,6 +747,22 @@
       ]
     },
     {
+      "id": "image-brightness-script",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
+        "script/tests/test_scene_script_image_brightness.py"
+      ],
+      "modules": [
+        "test_scene_script_image_brightness",
+        "test_scene_image_brightness_property",
+        "test_scene_hidden_property_consumers"
+      ]
+    },
+    {
       "id": "instance-base-texture-selection",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",

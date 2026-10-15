@@ -164,6 +164,7 @@ struct SceneRuntimeInput {
     var effectivePropertyValues: [String: SceneUserPropertyValue]
 }
 enum SceneDesktopWallpaperHost {
+    __IMAGE_MODULATION_CONSUMERS__
     __ACTIVE_CONSUMERS__
     __MAKE_LIVE_STATE__
 }
@@ -549,31 +550,58 @@ HARNESS = r'''
             let capabilities: [Int: SceneResolvedMaterialExecutionCapabilityCatalog.Capability] = effects.isEmpty ? [:] : [4: .init()]
             var ready = state([image], [brightnessBinding], values: ["gain": .number(0.9)], colorCapabilities: capabilities)
             brightnessFacts[prefix + "-ready"] = ready.apply(.number(2), forPropertyKey: "gain")
+                && ready.activeConsumerTargets.contains(brightness)
+                && ready.activeConsumerTargets.contains(.layer(layerID: 4, field: .color))
                 && ready.userValues[brightness] == .scalar(2) && ready.revision == 1
-            for kind in ["puppet", "model", "dependency", "namedProvider", "completed"] {
+                && image.visible == false
+            var visible = image; visible.visible = true
+            var visibleState = state([visible], [brightnessBinding], values: ["gain": .number(0.9)],
+                colorCapabilities: capabilities)
+            brightnessFacts[prefix + "-visible"] = visibleState.apply(.number(0.5), forPropertyKey: "gain")
+                && visibleState.userValues[brightness] == .scalar(0.5) && visibleState.revision == 1
+            for kind in ["puppet", "model", "dependency", "dependencyIDs", "namedProvider", "completed"] {
                 var layer = image
                 if kind == "puppet" { layer.puppetMeshPath = "changed.mdl" }
                 if kind == "model" { layer.staticModelPath = "changed.model" }
                 if kind == "dependency" { layer.authoredDependencies = [91] }
+                if kind == "dependencyIDs" { layer.dependencyLayerIDs = [91] }
                 let layers = kind == "namedProvider" ? [layer,
                     SceneRenderDescriptor.Layer(id: 91, contentKind: "image", namedProviderLayerIDs: [4])] : [layer]
                 var rejected = state(layers, [brightnessBinding], values: ["gain": .number(0.9)],
                     colorCapabilities: capabilities, sourceCandidates: kind == "completed" ? [4] : [])
                 let before = rejected
                 brightnessFacts[prefix + "-" + kind] = !rejected.apply(.number(2), forPropertyKey: "gain")
+                    && !rejected.activeConsumerTargets.contains(brightness)
                     && unchanged(rejected, before)
             }
         }
-        let rejectedCapabilities: [(String, SceneResolvedMaterialExecutionCapabilityCatalog.Capability?)] = [
-            ("missing", nil), ("main", .init(sourceRoute: .capturedMainTargetTexture)),
-            ("transparent", .init(sourceRoute: .transparentDirectDraw)),
-            ("dependency", .init(dependencyOwnership: .externalPrimary))]
-        for (name, capability) in rejectedCapabilities {
+        for (name, layer, excluded) in [("coldTemplate", effectedImage, true),
+            ("sharedSourceAlias", alias, true), ("failedTemplate", failed, false),
+            ("absentTemplate", absent, false)] {
+            let target = SceneDynamicTarget.layer(layerID: layer.id, field: .brightness)
+            var s = state([layer], [.init(key: "renamedGain", target: target,
+                type: .scalar, seed: .scalar(0.9))], values: ["renamedGain": .number(0.9)],
+                colorCapabilities: [layer.id: .init()], sourceCandidates: candidates)
+            let before = s
+            let accepted = s.apply(.number(2), forPropertyKey: "renamedGain")
+            brightnessFacts[name] = accepted == !excluded
+                && s.activeConsumerTargets.contains(target) == !excluded
+                && (excluded ? unchanged(s, before) : s.userValues[target] == .scalar(2))
+        }
+        let rejectedCapabilities: [(String, SceneResolvedMaterialExecutionCapabilityCatalog.Capability?, Bool)] = [
+            ("missing", nil, false), ("unresolved", .init(), true),
+            ("main", .init(sourceRoute: .capturedMainTargetTexture), false),
+            ("transparent", .init(sourceRoute: .transparentDirectDraw), false),
+            ("internal", .init(dependencyOwnership: .graphInternal), false),
+            ("dependency", .init(dependencyOwnership: .externalPrimary), false),
+            ("aggregate", .init(dependencyOwnership: .externalAggregate), false)]
+        for (name, capability, unresolved) in rejectedCapabilities {
             let layer = SceneRenderDescriptor.Layer(id: 4, contentKind: "image", effects: [1])
             var rejected = state([layer], [brightnessBinding], values: ["gain": .number(0.9)],
-                colorCapabilities: capability.map { [4: $0] } ?? [:])
+                colorCapabilities: capability.map { [4: $0] } ?? [:], unresolved: unresolved ? [4] : [])
             let before = rejected
-            brightnessFacts[name] = !rejected.apply(.number(2), forPropertyKey: "gain") && unchanged(rejected, before)
+            brightnessFacts[name] = !rejected.apply(.number(2), forPropertyKey: "gain")
+                && !rejected.activeConsumerTargets.contains(brightness) && unchanged(rejected, before)
         }
         rows["brightness"] = brightnessFacts
         let composition = SceneRenderDescriptor.Layer(id: 9, contentKind: "composition",
@@ -680,8 +708,11 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix="mwx-hidden-property-")
         work = Path(cls.temp.name)
         source_path = Path(os.environ.get("MWX_HIDDEN_PROPERTY_HOST_SOURCE", HOST_SOURCE))
-        host = method_body(source_path.read_text(), "static func activeLiveConsumerTargets(")
-        factory = method_body(source_path.read_text(), "static func makeLivePropertyState(")
+        source = source_path.read_text()
+        host = method_body(source, "static func activeLiveConsumerTargets(")
+        factory = method_body(source, "static func makeLivePropertyState(")
+        modulation_marker = "static func imageLayerModulationConsumerTargets("
+        modulation = method_body(source, modulation_marker) if modulation_marker in source else ""
         # Only adapts an added input parameter for an old-owner counterexample;
         # no admission rule is reproduced in the fixture.
         definitions_argument = ", propertyDefinitions: definitions" if "propertyDefinitions:" in factory else ""
@@ -696,6 +727,7 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         )
         harness = work / "Probe.swift"
         harness.write_text(STUBS.replace("__ACTIVE_CONSUMERS__", host)
+            .replace("__IMAGE_MODULATION_CONSUMERS__", modulation)
             .replace("__MAKE_LIVE_STATE__", factory)
             .replace("__COLOR_ELIGIBILITY__", color)
             .replace("__SOURCE_CANDIDATES__", method_body(CATALOG_SOURCE.read_text(),

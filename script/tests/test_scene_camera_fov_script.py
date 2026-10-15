@@ -78,27 +78,16 @@ struct SceneScriptMediaFrameCoordinator {
     init(vectorProgram: SceneScriptVectorProgram, stringProgram: SceneScriptStringProgram,
          scalarProgram: SceneScriptScalarProgram) {}
 }
-final class RetirementProgramReads {
-    var scalar = 0, string = 0, vector = 0
-    var snapshot: [Int] { [scalar, string, vector] }
-}
 struct SceneDesktopWallpaperLaunchContext {
     let frameSchema: SceneDesktopWallpaperLaunchFrameSchema
-    private let scalarProgram: SceneScriptScalarProgram
-    private let stringProgram: SceneScriptStringProgram
+    var sceneScriptStatefulTargets: Set<SceneDynamicTarget> {
+        frameSchema.sceneScriptStatefulTargets
+    }
+    let sceneScriptScalarProgram: SceneScriptScalarProgram
+    let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
-    private let vectorProgram: SceneScriptVectorProgram
+    let propertyVectorScriptProgram: SceneScriptVectorProgram
     let liveState: ScenePropertyLiveUpdateState
-    let programReads = RetirementProgramReads()
-    var sceneScriptScalarProgram: SceneScriptScalarProgram {
-        programReads.scalar += 1; return scalarProgram
-    }
-    var sceneScriptStringProgram: SceneScriptStringProgram {
-        programReads.string += 1; return stringProgram
-    }
-    var propertyVectorScriptProgram: SceneScriptVectorProgram {
-        programReads.vector += 1; return vectorProgram
-    }
     init(frameSchema: SceneDesktopWallpaperLaunchFrameSchema,
          sceneScriptScalarProgram: SceneScriptScalarProgram,
          sceneScriptStringProgram: SceneScriptStringProgram,
@@ -106,9 +95,11 @@ struct SceneDesktopWallpaperLaunchContext {
          propertyVectorScriptProgram: SceneScriptVectorProgram,
          liveState: ScenePropertyLiveUpdateState) {
         self.frameSchema = frameSchema
-        scalarProgram = sceneScriptScalarProgram; stringProgram = sceneScriptStringProgram
+        self.sceneScriptScalarProgram = sceneScriptScalarProgram
+        self.sceneScriptStringProgram = sceneScriptStringProgram
         self.sceneScriptCursorProgram = sceneScriptCursorProgram
-        vectorProgram = propertyVectorScriptProgram; self.liveState = liveState
+        self.propertyVectorScriptProgram = propertyVectorScriptProgram
+        self.liveState = liveState
     }
 }
 struct SceneDesktopWallpaperSession {}

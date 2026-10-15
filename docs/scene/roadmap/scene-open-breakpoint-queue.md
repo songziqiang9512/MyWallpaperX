@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 排程更新：2026-10-16。本文服从[兼容路线](scene-compatibility-roadmap.md)，只保存开放问题；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生选择/重放、metadata反例及最终App前景可见的有界验收，不计专项完成。[U40连续拖动](../history/repeated-puppet-drag-qualification-2026-10-16.md)已fresh复现首轮骨写、释放异常后失效，现追候选host impulse依赖缺口，动态归因未证；官方载体2/2资格失败后停止，未发出impulse，参数/响应unknown，不标修复。N08 world/负细分与composition透视保持unknown，不扩无区分矩阵。属性专项归[工作卡](properties-panel-card.md)，性能按[性能卡](performance-convergence-card.md)有证触发；局部通过不关闭整样本。
+> 排程更新：2026-10-16。本文服从[兼容路线](scene-compatibility-roadmap.md)，只保存开放问题；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生选择/重放、metadata反例及最终App前景可见的有界验收，不计专项完成。[U40连续拖动](../history/repeated-puppet-drag-qualification-2026-10-16.md)已fresh复现首轮骨写、释放异常后失效，现追候选host impulse依赖缺口，动态归因未证；官方载体2/2资格失败后停止，未发出impulse，参数/响应unknown，不标修复。[普通图片brightness脚本](../history/effectful-image-property-color-2026-10-14.md#image-brightness-script)已闭有界热改/可见与原生保存；后继先设计sound volume脚本到既有player的typed消费。N08 world/负细分与composition透视保持unknown，不扩无区分矩阵。属性专项归[工作卡](properties-panel-card.md)，性能按[性能卡](performance-convergence-card.md)有证触发；局部通过不关闭整样本。
 
 ## 1. 全样本依据与状态
 

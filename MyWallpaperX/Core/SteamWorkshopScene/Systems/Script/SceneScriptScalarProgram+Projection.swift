@@ -85,6 +85,28 @@ nonisolated extension SceneScriptScalarProgram {
         if binding.owner.kind == .object {
             let layer = descriptor.layers[objectIndex]
             if binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key("brightness"),
+            ] {
+                let target = SceneDynamicTarget.layer(
+                    layerID: layerID, field: .brightness
+                )
+                let validWrapper =
+                    (binding.wrapperKeys == ["script", "value"]
+                        && binding.properties.isEmpty)
+                    || SceneScriptDynamicProviderHostContract.supports(
+                        keys: binding.wrapperKeys ?? [], host: .objectScalar
+                    )
+                // Preparation separately excludes targets without an ordinary
+                // source multiplier, before any owner module is evaluated.
+                guard binding.targetKey == "brightness", validWrapper,
+                      !timelineTargets.contains(target),
+                      layer.supportsUserPropertyImageSourceModulationConsumer,
+                      layer.brightness?.bitPattern == authored.bitPattern,
+                      SceneScriptValueOwner.acceptsScalar(authored, for: target)
+                else { return nil }
+                return target
+            }
+            if binding.targetPath == [
                 .key("objects"), .index(objectIndex), .key("fov"),
             ] {
                 let target = SceneDynamicTarget.layer(layerID: layerID, field: .fov)

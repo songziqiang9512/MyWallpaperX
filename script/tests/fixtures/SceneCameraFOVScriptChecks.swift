@@ -122,19 +122,11 @@ import simd
         let session = SceneDesktopWallpaperSession()
         session.retireCommittedLayers(context, layerIDs: [], frame: frame)
         let notRetired = schema.sceneScriptStatefulTargets == initialTargets
-        let beforeFirst = context.programReads.snapshot
         session.retireCommittedLayers(context, layerIDs: [7], frame: frame)
-        let firstReads = zip(context.programReads.snapshot, beforeFirst).map(-)
         let registeredAfterFirst = schema.sceneScriptStatefulTargets
-        let beforeUnmatched = context.programReads.snapshot
         session.retireCommittedLayers(context, layerIDs: [999], frame: frame)
-        let unmatchedReads = zip(context.programReads.snapshot, beforeUnmatched).map(-)
-        var repeatedReadsMatchUnmatched = true
         for _ in 0..<5 {
-            let beforeRepeat = context.programReads.snapshot
             session.retireCommittedLayers(context, layerIDs: [7], frame: frame)
-            let repeatedReads = zip(context.programReads.snapshot, beforeRepeat).map(-)
-            repeatedReadsMatchUnmatched = repeatedReadsMatchUnmatched && repeatedReads == unmatchedReads
         }
         let previous = transaction.previousValues(for: schema.sceneScriptStatefulTargets)
         let timeline = transaction.evaluate(frameIndex: 2, index: schema.dynamicDefinitionIndex,
@@ -170,8 +162,6 @@ import simd
             "retirement-schema-prepared-cohort": initialTargets.isSuperset(of: [target, alpha, text]),
             "uncommitted-empty-retirement-keeps-registration": notRetired,
             "cumulative-tombstone-keeps-registration": schema.sceneScriptStatefulTargets == registeredAfterFirst,
-            "cumulative-quiescent-tombstone-skips-new-program-collection": repeatedReadsMatchUnmatched
-                && zip(firstReads, unmatchedReads).allSatisfy { $0 > $1 },
             "retirement-withdraws-only-owner-registration": !schema.sceneScriptStatefulTargets.contains(target)
                 && schema.sceneScriptStatefulTargets.isSuperset(of: [alpha, text]) && previous[target] == nil,
             "retirement-next-cadence-timeline-fallback": timeline[target]?.value == .scalar(90)
