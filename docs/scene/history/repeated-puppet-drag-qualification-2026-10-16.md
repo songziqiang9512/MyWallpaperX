@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # U40 连续 Puppet 拖动：fresh 资格与候选 API 缺口
 
-> **历史证据 — 非现役入口**。截止：2026-10-16。记录仍在进行的资格与候选依赖定位，没有交互修复、官方冲量语义或完整样本通过结论。
+> **历史证据 — 非现役入口**。截止：2026-10-16。记录fresh复现与已停止的官方资格；载体2/2失败，冲量语义仍unknown，没有交互修复或完整样本通过结论。
 
 当前状态与后继归[断点队列](../roadmap/scene-open-breakpoint-queue.md)，属性专项归[工作卡](../roadmap/properties-panel-card.md)，执行边界归[兼容路线](../roadmap/scene-compatibility-roadmap.md)。
 
@@ -46,11 +46,11 @@ native-attempt-2 的短down/up被同帧合并，没有首轮scriptWritten骨响�
 最终中性AST报告确认两层各有独立4331B wrapper，回调形态均含update/down/up/init；各一处`applyBonePhysicsImpulse`调用为两参`[Number,Vec3]`，现役host注册缺该API，其他投影公共依赖有定义。
 这是与异常时序相符的候选API依赖缺口，与队列既有impulse/angular未知项相接；尚未动态调用归因，不能写成已确证该call导致异常。
 只有真实API按已证合同实施后同输入恢复，才能进一步直接验证因果；本文不引用作者片段或未净化runtime载荷。
-省略angular对显式0的官方Q1资格进行中，尚无经审结果；default、direction空间及实际冲量响应仍unknown。
+官方Q1在2/2 fixture qualification失败后停止；第二个opaque MDL自有格线getter读回localX+40，但预登记4个ROI×31帧均无变形，未取得可见骨姿态正对照。两次均未发出任何impulse调用，所有angular、省略default、direction空间及冲量响应仍unknown。
 禁止no-op、猜default或削减异常fuse把后续callback恢复包装为物理修复。
 
-最小后继是有区分力的省略/显式参数正反对照；取得合同后才决定现役host与motion消费的最小改动。
-如果仍不能证明非零冲量/姿态结果，保unknown并停止该实现分支；不得只用有效handle、零错误或位置跳变验收。
+本轮停止，不扩参数矩阵、不实施此API；将来重启须先证明载体的骨姿态真实进入可见渲染，不能以getter变化替代。
+`handoff-review-receipt.json`的approved=true仅接受净化与证据边界；numeric contract未接受，implementationAuthorizedByThisReceipt=false，不授权默认值或solver实现。
 修复后的原样三轮持续响应、释放后继续更新、健康邻居与原生入口仍需重新验收。
 本轮不关闭N06、N08、其他Puppet profile、整样本视觉、物理多屏或性能专项。
 
@@ -62,6 +62,6 @@ native-attempt-2 的短down/up被同帧合并，没有首轮scriptWritten骨响�
 最终中性API projection SHA为`15cbbe780ef729c015d809336063229afdd5f40695fe6e8037f9b7d1c75f0dd5`，receipt SHA为`16cc240a8a6a13c98f763142751150f7dbb7ccb758e6205c7f6f8a03e26486a8`。
 `cleanup.json`保留controlled三张held及一张released PNG，共30,791,766B；native/pose无资格及重复PNG已删，必要日志gzip、中性投影与执行receipt保留。
 本次清10个file/65,399,845B；前轮native-cleanup另记344项/948,068,524B，分列为磁盘产物清理，不计内存或性能收益。owned App=[]且GPU drained；原374 project/pkg重核sourceDrift=[]。
-同根`sample/3749463715`只读副本及`home`保留供后继opaque seed/修后同环境复验；唯一DerivedData仍为`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`。
-全局promotion预算拒绝条件未变、未重试，未知证据未删；官方VM按用户要求保持运行，Q1资格尚无经审结果，不将环境保留或未完成研究算修复。
+研究停止后已确认无打开句柄并清理同根样本副本及HOME共792文件/90,837,449B，收据为`environment-retirement-cleanup.json`；唯一DerivedData仍供后继批复用。
+全局promotion预算拒绝条件未变、未重试，未知证据未删。官方资格根`.artifacts/tmp/u40-bone-impulse-blackbox-20261016/`保中性交接；窗口及本轮guest/cache已精确清理，VM按用户要求保持running，研究停止不等于U40修复。
 真实用户媒体只读；U41既有提交`b132add7`不作为U40修复；提交、推送与发布状态由root另行汇报。

@@ -4,7 +4,7 @@
 
 > 当前主线：**公共能力补齐与逻辑正确性**。以真实作者内容、共享首断点和实际播放对照推进，最终逐步让样本根中的每一个Scene正确运行。
 >
-> 执行顺序更新：2026-10-16。主力继续公共能力与逻辑正确性；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生/可见与相邻metadata反例的有界验收，[U40连续拖动](../history/repeated-puppet-drag-qualification-2026-10-16.md)已fresh复现，下一步限定候选impulse host依赖与参数语义资格，动态归因未证，尚无修复。具体开放状态只归[断点队列](scene-open-breakpoint-queue.md)，不计整专项或整样本完成。性能按[工作卡](performance-convergence-card.md)有证触发；N08等未知合同保留，不扩无区分实验。纹理/合成→特效→频谱及P0关联方向不变。
+> 执行顺序更新：2026-10-16。主力继续公共能力与逻辑正确性；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生/可见与相邻metadata反例的有界验收，[U40连续拖动](../history/repeated-puppet-drag-qualification-2026-10-16.md)已fresh复现，候选impulse依赖动态归因未证；官方载体2/2资格失败后停止，参数/响应unknown，尚无修复。具体开放状态只归[断点队列](scene-open-breakpoint-queue.md)，不计整专项或整样本完成。性能按[工作卡](performance-convergence-card.md)有证触发；N08等未知合同保留，不扩无区分实验。纹理/合成→特效→频谱及P0关联方向不变。
 >
 > 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](../capabilities/coverage-ledger.md)、专项表、[代码地图](../architecture/runtime-as-built-map.md)、[运行证据索引](../capabilities/runtime-evidence-current.md)、[样本调试台账](../capabilities/scene-sample-debug-ledger.md)和[样本验收台账](../capabilities/scene-sample-acceptance-ledger.md)拥有。本文中的新增字段和工具扩展是待实现交付要求，不表示工具已经支持。
 

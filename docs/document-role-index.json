@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "437ba6a15f7823a7f085f07d1cb4da89000a4a0beb119177ecfed9b40412817f",
+        "sourceSHA256": "69f484929c74581a2f61c217929e48e423851ab7069f433c9b54e71a7275a943",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
-        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
+        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
+        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
       }
     },
     {
@@ -2131,7 +2131,7 @@
         "docs/scene/roadmap/scene-compatibility-roadmap.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "U40首轮骨/GPU响应后释放异常与重复失效的fresh资格；中性候选API依赖与未证动态归因分离，Q1进行中无经审结果，不构成功能修复。"
+      "uniqueValue": "U40 fresh重复拖动失败与候选API依赖；官方载体2/2资格失败且零impulse调用，停止unknown；交接仅净化/证据边界通过，不含numeric contract或实现授权。"
     },
     {
       "path": "docs/scene/history/rf01-shader-default-binding-implementation-2026-10-02.md",
@@ -3112,10 +3112,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f6de42a77eda6f0627c400dba1701e858bd831c607356771e50836b9cecfd51d",
+        "sourceSHA256": "c557daca83c3dde36dadd541b8d85fe9a8caac88e09a9bf09174d0ac9cef646f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
-        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
+        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
+        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
       }
     },
     {
@@ -3126,10 +3126,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "23ac8e9894ef6d4df7df62a52ab269f39ba9f36d630f9940c997f9438fc7f691",
+        "sourceSHA256": "33405fa4fba63d2be4a45d09ac79f1c63af0a70b46287b9990bb0a8e9b546c3b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
-        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
+        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
+        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
       }
     },
     {
@@ -3147,10 +3147,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1da93ff2c94e303cbc5502879bdf351933fa304c890b8b6e8d0d0fe9353feaac",
+        "sourceSHA256": "bf0de520476d7e994b9609a77024dfb69dd021b6f87822b78351d247df8fa8dd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
-        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
+        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
+        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
       }
     },
     {
