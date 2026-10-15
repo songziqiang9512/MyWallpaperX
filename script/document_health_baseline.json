@@ -218,19 +218,19 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 12319
+      "bytes": 11063
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 8753
+      "bytes": 8839
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 32931
+      "bytes": 33173
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72605
+      "bytes": 72730
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1101,15 +1101,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "e384058e24ac9c74d23441d7b14b883890f66b0ec9ee1e3aef7ae0dfb5ee915a",
-      "after": "ee5d61e19bfc19e2743ada27a0546cf55f854c23e661cfd78f7bb14f8c45f235",
-      "owner": "scene-engine",
-      "reason": "替换已过时FOV仅设计状态，导航真实编辑结果与下一项JPEG资格；不复制验收事实。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "e377a3c1e7ff77b43ed518e4fc663b303e5fe86f8446f8102bf4f6241be54922",
       "after": "93e7efc4b64753fcd60af9f7ea719b5b69a2b59a8186485f49c60efe91e5a601",
@@ -1125,6 +1116,33 @@
       "owner": "Scene CPU and residency qualification",
       "reason": "以已审驻留增长/调用覆盖失败替换旧待执行状态，保具体来源与未覆盖边界，不新增串行前置或性能认领。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "e20f08bc8b3247f60c567f070dcd820860d42863528b385aab35730cd02e9ae6",
+      "after": "3904e6108a579de5e81bfabb34ac64872bc5eb4c502dd53792f14f0ecdc308e5",
+      "owner": "Scene capability sequencing",
+      "reason": "以当前普通优化构建资格及局部优化收益递减重排能力主线；N06文字、N05 Blur与专项卡各保唯一顺序，未验性能和视觉不记完成。",
+      "decision": "docs/scene/roadmap/scene-compatibility-roadmap.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "0c5b626af80178a06dadab8404d7f770b4e170089243e5234b088628e9981e4c",
+      "after": "23261c351242eca0295378a016d21efcca3989bc420ec2948cbc2cd29836f005",
+      "owner": "Scene capability sequencing",
+      "reason": "以当前普通优化构建资格及局部优化收益递减重排能力主线；N06文字、N05 Blur与专项卡各保唯一顺序，未验性能和视觉不记完成。",
+      "decision": "docs/scene/roadmap/scene-compatibility-roadmap.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "97e3dbbd3301db35f71353719b856350e4918ee2357eca2703a8b01f63dceb9b",
+      "after": "e260d7b2f2a4be554d304b59ad3dc112c43542d3ccba88417fd39c87271eea33",
+      "owner": "Scene capability sequencing",
+      "reason": "以当前普通优化构建资格及局部优化收益递减重排能力主线；N06文字、N05 Blur与专项卡各保唯一顺序，未验性能和视觉不记完成。",
+      "decision": "docs/scene/roadmap/scene-compatibility-roadmap.md"
     }
   ]
 }

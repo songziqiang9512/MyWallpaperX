@@ -38,3 +38,5 @@ Malloc Large (empty) dirty 24.5M→45.6M、Small (empty) 10.1M→10.6M；SWAPPED
 私有generic磁盘缓存起终1743文件/13932301 logical B，按相对路径、SHA及大小比较added/removed/changed全0；它不能排除进程内或其他缓存保有。源码只读检查未见显式NSPurgeableData/NSDiscardableContent/Metal purgeable接口，不能凭zone名归因ImageIO、shader或解码缓存。下一项须定位新增12个purgeable allocation的调用方与消费者退出后的持有者，再选择修法；不凭类别清空缓存或提高预算。
 
 证据根 `.artifacts/tmp/scene-switch-residency-categories-20261015/`，完整vmmap、输入身份、缓存起终清单与收据保留。五窗正常结束、最终gpuDrained=true，输入无漂移。两条轨迹及类别解释已独审；原始采样不重跑。所有daemon/sampler/probe已退出，两份运行副本各清理178945454 logical B；保留当前App、唯一DerivedData及必要原始证据。没有30分钟/20次切换、最低设备、多屏、HDR或正式Release结论。
+
+后继先用公开purgeable API的2MiB自有carrier做工具资格：heap明确枚举zone/地址/大小，唯一lite malloc_history live查询只有空Call graph、没有caller帧。没有启动真正Scene五load，不推断Scene所有purgeable栈都不可用；普通malloc双对照未执行，保源码待有必要时重选。carrier正常释放/退出且精确PID消失，binary/dSYM清理50440 logical B。原输出及资格边界归`.artifacts/tmp/scene-switch-residency-owner-qualification-20261015/`，持有owner仍开放，不凭zone清cache或上调预算。

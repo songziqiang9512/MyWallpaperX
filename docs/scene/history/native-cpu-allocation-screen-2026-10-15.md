@@ -111,3 +111,15 @@ SourceFacts按路径读metadata提前发现材质，PreparedStaticModelResources
 事后只解析原CSV：按C循环stamp→CPUread→下个stamp，8个完全包含的相邻CPU增量得进程CPU下界8162658917ns，采集包络在native窗口内，实际覆盖跨度仅可界定约7–9s。该分母证据不修补分子覆盖，不计算整体resolver比例。没有重跑、延窗、phase扩大或性能收益。
 
 `.artifacts/tmp/world-resolver-cpu-qualification-20261015/`保协议、全部base/candidate、build源身份、原invalid summary、日志/CSV及完整包含证明。正常退出0、最终gpuDrained=true，精确PID均gone，原媒体/Appcritical/共享cache未变；已清自有runtime176245150 logical B。root按candidate SHA核验后将三处tracked owner精确恢复base；诊断binary与源码边界保留。下一步优先查已证驻留增长的持有来源，再按普通优化配置重建整体CPU归因，不为本探针补跑或盲做world cache。
+
+<a id="ordinary-release-cpu-attribution"></a>
+
+## 普通Release整体归因：保成本线索，转功能主线
+
+当前源码的一次普通Release构建已核实际`-O`/WMO、无DEBUG/诊断xcconfig；332.261s、4298输入无漂移。沿唯一DerivedData构建并隔离签名staging，App SHA `3d4e49951d10802d391af750933f5f6c6f22bd668ee22e71957d2c8ac01254f1`，App/dSYM UUID一致、debug.dylib明确不存在。仅用生产daemon入口及隔离304副本，避免普通Release没有debug库根重定向而扫描真实库；父App及系统音频生产端不在本次范围。setVolume=0为volatile gain，不用持久setMuted；无外部音频/媒体发布。
+
+匹配首呈现、单surface与两次stats后30s暖机，唯一20s无profiler窗口取得20点。原C时间戳跨度18.999971s、CPU增量13.016664458s，约685.09ms/s；采集发生在pre-read stamp之后，接收钟仅作窗口连接，两者都不是精确采集时刻。stats约19.004s累计rendered增1140、busy/dropped/fallback增0，不能当GPU完成数/尾部。随后独立一次6s sample成功且符号/源行有效：材质graph准备及资源准入/编码、粒子更新是可见分支；嵌套采样节点不相加、不换算CPU毫秒或调用数。
+
+没有基线/候选对照，不与旧Debug或singlefile数字宣称收益，不证明当前成本中多少可安全省掉。保留这些实际owner线索，未取得明确可避免工作前不重启旧容器/排序/cache试探；下一研发主线转真实功能缺口。温度、功率、GPU逐帧成本和整App仍未验。
+
+`.artifacts/tmp/optimized-daemon-cpu-attribution-20261015/`保协议、冻结源/配置/App/dSYM、原CPU与sample、owner选点及退出核验。正常退出0、最终gpuDrained=true、精确PID消失，输入/Appcritical/原媒体/共享cache无漂移；运行副本已清176245150 logical B。私有cache结束清单未导出，不认领磁盘增长/释放。保此普通优化App供后继复用，不继续扩大实验。
