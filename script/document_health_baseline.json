@@ -42,7 +42,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 122102
+      "bytes": 122048
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -66,11 +66,11 @@
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 137,
-      "bytes": 11588
+      "bytes": 11603
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
-      "lines": 33,
-      "bytes": 5837
+      "lines": 19,
+      "bytes": 1973
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 323,
@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11699
+      "bytes": 11947
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
@@ -1083,21 +1083,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "061ebffa854a6e516c094aeaa0da165a5429a07ad97bef1c324a1e0576a54bee",
-      "after": "19a2d8c72ded9e0ba86c71d29352bf5d578137cbdfaab225729dd40570531aa8",
-      "owner": "Scene property scalar/camera",
-      "reason": "批准FOV脚本至唯一相机帧的最小职责与反例验收；现役属性卡只新增待验导航。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
+      "path": "docs/scene/architecture/scene-startup-pipeline.md",
+      "before": "902b4dde20c19fce3a2a2968a1a796249a610275679d22c1bf8f5fed6ecd1c54",
+      "after": "0fc4236fa0334f671fbccf7c3ef4e76707ebad5c6353f1424dae649ec0f92e1b",
+      "owner": "Scene variant cache",
+      "reason": "源纯补齐未达App继续门已撤回；稳定合同收敛Set wire修复，现役卡仅保STOP与历史导航。",
+      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-wire"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "d20a04c12f563857898e06d368f738f227dece7207b17dc6a3c54c31312720a5",
-      "after": "e384058e24ac9c74d23441d7b14b883890f66b0ec9ee1e3aef7ae0dfb5ee915a",
-      "owner": "Scene property scalar/camera",
-      "reason": "批准FOV脚本至唯一相机帧的最小职责与反例验收；现役属性卡只新增待验导航。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "13e9202eab42c1fbd7cbe745c9b402b8c1283ab1a589dd7eee03b3a52942e524",
+      "after": "6c5666b847856b7af41319ab72cc0190e9bf15e6d3368ad991c245efe2a9f04e",
+      "owner": "Scene variant cache",
+      "reason": "源纯补齐未达App继续门已撤回；稳定合同收敛Set wire修复，现役卡仅保STOP与历史导航。",
+      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-wire"
     }
   ]
 }

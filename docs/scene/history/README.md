@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-15 | 变体缓存/启动 | 正确性修复与STOP | [Set wire与源纯短筛](variant-analysis-cache-wire-correction-2026-10-15.md) | 合法集合wire摘要稳定；源纯补齐单对低于继续门已撤回，不计收益 | [缓存合同](../architecture/variant-analysis-cache-contract.md)、[性能卡](../roadmap/performance-convergence-card.md#sampler-seed-preparation) |
 | 2026-10-15 | Sampler/启动 | 准备收敛 | [完整seed透传](sampler-seed-preparation-convergence-2026-10-15.md) | 同template bootstrap消重、五对暖启动窄接受、混钟撤回/receipt重算与独立短内存信号 | [性能卡](../roadmap/performance-convergence-card.md#sampler-seed-preparation)、[启动合同](../architecture/scene-launch-responsiveness-contract.md) |
 | 2026-10-15 | 属性/交互CPU | 收敛证据 | [详情展示失效](property-detail-invalidation-convergence-2026-10-15.md) | 真实详情52反例、共同active控制窗与无资格前轮、原生编辑/Stop及独立画面边界 | [属性卡](../roadmap/properties-panel-card.md#detail-display-invalidation)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-15 | CPU/分配 | 归因与撤回 | [原生入口与实例物化](native-cpu-allocation-screen-2026-10-15.md) | 双PID/媒体helper、实际分配调用点、粒子两版局部回退与未执行边界 | [性能卡](../roadmap/performance-convergence-card.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

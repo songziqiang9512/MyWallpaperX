@@ -22,7 +22,7 @@
 
 <a id="sampler-seed-preparation"></a>
 
-**Sampler seed准备。** [实现与证据](../history/sampler-seed-preparation-convergence-2026-10-15.md)已窄接受Debug暖重返启动，保原256fallback/固定点/variant及逐node准入，无新cache；native304/独立324通过。原混钟secondary已撤回。两项独立内存后继差幅不一致，分类未定因，secondary未接受；不称整CPU/RAM/GPU收益，稳定边界并入长期轻重切换，不重跑startup五对。[MDL双阶段短筛](../history/native-cpu-allocation-screen-2026-10-15.md#mdl-validation-screen)噪声超门，STOP、不进产品，缺实际启动分母时不重筛；旧ready-request-wave及其他NO-GO保持。
+**Sampler seed准备。** [实现与证据](../history/sampler-seed-preparation-convergence-2026-10-15.md)已窄接受Debug暖重返启动，保原256fallback/固定点/variant及逐node准入，无新cache；native304/独立324通过。原混钟secondary已撤回。两项独立内存后继差幅不一致，分类未定因，secondary未接受；不称整CPU/RAM/GPU收益，稳定边界并入长期轻重切换，不重跑startup五对。[变体分析补齐](../history/variant-analysis-cache-wire-correction-2026-10-15.md)暖返回单对仅降8.020%，未达预锁继续门，源纯扩展/回填/诊断已撤、不扩五对；仅保Set wire通用正确性修复，不计性能收益。[MDL双阶段短筛](../history/native-cpu-allocation-screen-2026-10-15.md#mdl-validation-screen)噪声超门，STOP、不进产品，缺实际启动分母时不重筛；旧ready-request-wave及其他NO-GO保持。
 
 [完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)已实现97MiB权重子限/Flight共享，真实owner三轮压力footprint下降85.428740%，保暖重访与轻场景资源回落；App CPU/首帧波动、最终pin与长稳未验，不计整体收益。[ready-request波次](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)、[双层分段](../history/gpu-cost-screening-2026-10-14.md#ordered-pair-segmentation-screen)无收益已撤回；[源码归因资格](../history/gpu-cost-screening-2026-10-14.md#source-cost-qualification)遇原内容Xcode Lite上限，停止重抓/重编及盲改shader。帧内purpose检查各有职责，不凭低覆盖旧暖栈写cache原型。
 

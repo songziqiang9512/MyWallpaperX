@@ -99,6 +99,8 @@ SWIFT_SOURCES = [
     *scene_swift_sources("resolved_material_frame_finalization"),
 ]
 
+# Preparation/frame source groups overlap; each Swift file is one compiler input.
+SWIFT_SOURCES = list(dict.fromkeys(SWIFT_SOURCES))
 
 FIXTURE_ROOT = REPOSITORY_ROOT / "script/tests/fixtures"
 SUPPORT_SOURCE = FIXTURE_ROOT / "SceneResolvedMaterialFinalizerSupport.swift"

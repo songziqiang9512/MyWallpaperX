@@ -385,10 +385,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "548ecbc7da8ea642bdb32b67cb825bb6520a1444aac2340342068d0167e2da3e",
+        "sourceSHA256": "001481eeb02a86784ee63d1b706197c14d518617c0c3f10007b30bb26a5ec488",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅§3.5新增专题导航：变体分析v22 wire、兼容外层扩展和成功回填归variant-analysis-cache-contract；本次未复审其他运行合同。",
-        "limitations": "仅文档归属、链接、锚点和source hash核对，不表示缓存产品实施、App运行、性能或官方parity验收。"
+        "scope": "仅v22集合wire职责与已撤源纯补齐的现役/历史归属；不重复接受其他引擎范围。",
+        "limitations": "导航/合同核对；实际门、App与性能边界只见对应冻结记录，不表示全样本、稳定收益或官方parity。"
       }
     },
     {
@@ -467,10 +467,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9dc98ba61c94832a8f7476f1cd32b86c8e968ddc2bd179333f72a1da51be1196",
+        "sourceSHA256": "db4333b047a1f9ba27eb7752c4c84c628667f1cbb07ca3959eccbca34c68a89c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "承接已ACK的v22 wire、外层source-pure扩展和成功回填合同，核对runtime/startup导航与窄设计登记；旧owner一次Set复现只作设计依据。",
-        "limitations": "仅合同归属与导航核对；产品未实施，不表示新增运行、缓存命中覆盖、CPU/内存或启动收益。"
+        "scope": "仅v22集合wire职责与已撤源纯补齐的现役/历史归属；不重复接受其他引擎范围。",
+        "limitations": "导航/合同核对；实际门、App与性能边界只见对应冻结记录，不表示全样本、稳定收益或官方parity。"
       }
     },
     {
@@ -2758,6 +2758,18 @@
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/variant-analysis-cache-wire-correction-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/variant-analysis-cache-contract.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "v22集合wire原owner复现/修复；源纯兼容扩展真实单对未达继续门、原型撤回与证据边界"
     },
     {
       "path": "docs/scene/history/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",

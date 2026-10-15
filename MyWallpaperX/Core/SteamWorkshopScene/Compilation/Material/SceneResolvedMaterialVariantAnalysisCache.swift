@@ -100,6 +100,90 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let colorUniform: String
     }
 
+    // Preserve legacy Set array order until its original digest is verified.
+    // Only newly projected Set fields are sorted; other arrays keep their order.
+    private struct SourceCarriedRGBAWire: Codable {
+        let sourceSlot: Int
+        let transfer: SourceCarriedRGBAMirror.Transfer
+        let shape: SourceCarriedRGBAMirror.Shape
+        let auxiliaryDataSlots: [Int]
+        init(_ value: SourceCarriedRGBAMirror) {
+            sourceSlot = value.sourceSlot
+            transfer = value.transfer
+            shape = value.shape
+            auxiliaryDataSlots = value.auxiliaryDataSlots.sorted()
+        }
+        var mirror: SourceCarriedRGBAMirror {
+            .init(sourceSlot: sourceSlot, transfer: transfer, shape: shape,
+                  auxiliaryDataSlots: Set(auxiliaryDataSlots))
+        }
+    }
+
+    private struct ConditionalGeneratedRGBWire: Codable {
+        let alphaCarrierSlot: Int
+        let generatedOpaqueColorSlots: [Int]
+        let scalarRedSlots: [Int]
+        let scalarGreenSlots: [Int]
+        let scalarBlueSlots: [Int]
+        let scalarAlphaSlots: [Int]
+        init(_ value: ConditionalGeneratedRGBMirror) {
+            alphaCarrierSlot = value.alphaCarrierSlot
+            generatedOpaqueColorSlots = value.generatedOpaqueColorSlots.sorted()
+            scalarRedSlots = value.scalarRedSlots.sorted()
+            scalarGreenSlots = value.scalarGreenSlots.sorted()
+            scalarBlueSlots = value.scalarBlueSlots.sorted()
+            scalarAlphaSlots = value.scalarAlphaSlots.sorted()
+        }
+        var mirror: ConditionalGeneratedRGBMirror {
+            .init(alphaCarrierSlot: alphaCarrierSlot,
+                  generatedOpaqueColorSlots: Set(generatedOpaqueColorSlots),
+                  scalarRedSlots: Set(scalarRedSlots), scalarGreenSlots: Set(scalarGreenSlots),
+                  scalarBlueSlots: Set(scalarBlueSlots), scalarAlphaSlots: Set(scalarAlphaSlots))
+        }
+    }
+
+    private struct SameAlphaReconstructedWire: Codable {
+        let sourceSlot: Int
+        let auxiliarySlots: [Int]
+        let preservesSnapshotAlpha: Bool
+        init(_ value: SameAlphaReconstructedMirror) {
+            sourceSlot = value.sourceSlot
+            auxiliarySlots = value.auxiliarySlots.sorted()
+            preservesSnapshotAlpha = value.preservesSnapshotAlpha
+        }
+        var mirror: SameAlphaReconstructedMirror {
+            .init(sourceSlot: sourceSlot, auxiliarySlots: Set(auxiliarySlots),
+                  preservesSnapshotAlpha: preservesSnapshotAlpha)
+        }
+    }
+
+    private struct AuxiliaryRedCarrierWire: Codable {
+        let sourceSlot: Int
+        let auxiliaryRedSlots: [Int]
+        init(_ value: AuxiliaryRedCarrierMirror) {
+            sourceSlot = value.sourceSlot
+            auxiliaryRedSlots = value.auxiliaryRedSlots.sorted()
+        }
+        var mirror: AuxiliaryRedCarrierMirror {
+            .init(sourceSlot: sourceSlot, auxiliaryRedSlots: Set(auxiliaryRedSlots))
+        }
+    }
+
+    private struct ColorBlendCarrierWire: Codable {
+        let sourceSlot: Int
+        let auxiliaryRedSlots: [Int]
+        let alphaOutput: ColorBlendCarrierMirror.AlphaOutput
+        init(_ value: ColorBlendCarrierMirror) {
+            sourceSlot = value.sourceSlot
+            auxiliaryRedSlots = value.auxiliaryRedSlots.sorted()
+            alphaOutput = value.alphaOutput
+        }
+        var mirror: ColorBlendCarrierMirror {
+            .init(sourceSlot: sourceSlot, auxiliaryRedSlots: Set(auxiliaryRedSlots),
+                  alphaOutput: alphaOutput)
+        }
+    }
+
     private struct PersistedRecord: Codable {
         let canonicalVertex: String
         let canonicalFragment: String
@@ -110,12 +194,12 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let sourceColorTransfer: SceneShaderColorTransfer
         let rgba8UnormAccumulatorSourceSlot: Int?
         let spatialWeightedColorBlend: SpatialWeightedColorBlendMirror?
-        let sourceCarriedRGBA: SourceCarriedRGBAMirror?
-        let conditionalGeneratedRGB: ConditionalGeneratedRGBMirror?
-        let sameAlphaReconstructedRGB: SameAlphaReconstructedMirror?
+        let sourceCarriedRGBA: SourceCarriedRGBAWire?
+        let conditionalGeneratedRGB: ConditionalGeneratedRGBWire?
+        let sameAlphaReconstructedRGB: SameAlphaReconstructedWire?
         let neutralTextureResolution: NeutralTextureResolutionMirror?
-        let alphaAttenuationFact: AuxiliaryRedCarrierMirror?
-        let colorBlendFact: ColorBlendCarrierMirror?
+        let alphaAttenuationFact: AuxiliaryRedCarrierWire?
+        let colorBlendFact: ColorBlendCarrierWire?
         let previousBlurredCompositeFact: PreviousBlurredCompositeShapeMirror?
     }
 
@@ -210,12 +294,12 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             rgba8UnormAccumulatorSourceSlot:
                 record.rgba8UnormAccumulatorSourceSlot,
             spatialWeightedColorBlend: record.spatialWeightedColorBlend,
-            sourceCarriedRGBA: record.sourceCarriedRGBA,
-            conditionalGeneratedRGB: record.conditionalGeneratedRGB,
-            sameAlphaReconstructedRGB: record.sameAlphaReconstructedRGB,
+            sourceCarriedRGBA: record.sourceCarriedRGBA.map(SourceCarriedRGBAWire.init),
+            conditionalGeneratedRGB: record.conditionalGeneratedRGB.map(ConditionalGeneratedRGBWire.init),
+            sameAlphaReconstructedRGB: record.sameAlphaReconstructedRGB.map(SameAlphaReconstructedWire.init),
             neutralTextureResolution: record.neutralTextureResolution,
-            alphaAttenuationFact: record.alphaAttenuationFact,
-            colorBlendFact: record.colorBlendFact,
+            alphaAttenuationFact: record.alphaAttenuationFact.map(AuxiliaryRedCarrierWire.init),
+            colorBlendFact: record.colorBlendFact.map(ColorBlendCarrierWire.init),
             previousBlurredCompositeFact: record.previousBlurredCompositeFact
         )
     }
@@ -265,12 +349,12 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             rgba8UnormAccumulatorSourceSlot:
                 payload.rgba8UnormAccumulatorSourceSlot,
             spatialWeightedColorBlend: payload.spatialWeightedColorBlend,
-            sourceCarriedRGBA: payload.sourceCarriedRGBA,
-            conditionalGeneratedRGB: payload.conditionalGeneratedRGB,
-            sameAlphaReconstructedRGB: payload.sameAlphaReconstructedRGB,
+            sourceCarriedRGBA: payload.sourceCarriedRGBA.map { $0.mirror },
+            conditionalGeneratedRGB: payload.conditionalGeneratedRGB.map { $0.mirror },
+            sameAlphaReconstructedRGB: payload.sameAlphaReconstructedRGB.map { $0.mirror },
             neutralTextureResolution: payload.neutralTextureResolution,
-            alphaAttenuationFact: payload.alphaAttenuationFact,
-            colorBlendFact: payload.colorBlendFact,
+            alphaAttenuationFact: payload.alphaAttenuationFact.map { $0.mirror },
+            colorBlendFact: payload.colorBlendFact.map { $0.mirror },
             previousBlurredCompositeFact: payload.previousBlurredCompositeFact
         )
     }

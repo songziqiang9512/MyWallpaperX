@@ -871,5 +871,67 @@ class ScenePersistentCacheBehaviorTests(unittest.TestCase):
         self.assertEqual(entries()[0].read_bytes(), published)
 
 
+@unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+class SceneVariantAnalysisCacheWireTests(unittest.TestCase):
+    """Actual cache/support IO, deliberately separate from variant consumers."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-variant-wire-")
+        cls.work = Path(cls.temporary.name)
+        cls.binary = cls.work / "wire-probe"
+        cls.fixture = REPOSITORY_ROOT / "script/tests/fixtures/SceneVariantAnalysisCacheWireChecks.swift"
+        cls.legacy = cls.fixture.parent / "variant_analysis_v22"
+        cls.proof = Path(os.environ["MWX_VARIANT_WIRE_PROOF"]) if os.environ.get("MWX_VARIANT_WIRE_PROOF") else None
+        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                   str(SCENE_ROOT / "Compilation/Material/ScenePersistentCacheSupport.swift"),
+                   str(SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift"),
+                   str(cls.fixture), "-module-cache-path", str(cls.work / "module-cache"),
+                   "-o", str(cls.binary)]
+        compiled = subprocess.run(command, cwd=REPOSITORY_ROOT, capture_output=True, text=True)
+        if cls.proof:
+            cls.proof.mkdir(parents=True, exist_ok=True)
+            (cls.proof / "compiler.log").write_text(compiled.stdout + compiled.stderr)
+            (cls.proof / "compile-command.json").write_text(json.dumps(command, indent=2) + "\n")
+        if compiled.returncode:
+            cls.temporary.cleanup()
+            raise AssertionError(compiled.stderr)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary.cleanup()
+
+    def mode(self, name: str, root: Path) -> dict:
+        root.mkdir(exist_ok=True)
+        environment = {**os.environ, "MWX_SCENE_GENERIC_SHADER_CACHE": str(root)}
+        completed = subprocess.run(["/usr/bin/env", str(self.binary), name],
+                                   cwd=REPOSITORY_ROOT, env=environment,
+                                   capture_output=True, text=True, timeout=20)
+        if self.proof:
+            (self.proof / f"{root.name}-{name}.json").write_text(completed.stdout)
+            (self.proof / f"{root.name}-{name}.stderr.log").write_text(completed.stderr)
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        facts = json.loads(completed.stdout)
+        self.assertTrue(facts)
+        self.assertEqual([name for name, passed in facts.items() if passed is not True], [], facts)
+        return facts
+
+    def install_legacy(self, root: Path) -> None:
+        root.mkdir()
+        shutil.copytree(self.legacy, root / "SceneVariantAnalysis-v22")
+
+    def test_original_set_wire_and_new_store_survive_fresh_readers(self) -> None:
+        root = self.work / "legacy"
+        self.install_legacy(root)
+        self.mode("legacy", root)
+        cold = self.work / "cold"
+        self.mode("cold-write", cold)
+        self.mode("cold-read", cold)  # Independent process, same original owner.
+        self.mode("ordered-wire", self.work / "ordered")
+
+    def test_invalid_variant_wire_is_a_read_only_safe_miss(self) -> None:
+        self.mode("invalid-wire", self.work / "mutations")
+
+
 if __name__ == "__main__":
     unittest.main()

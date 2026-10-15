@@ -48,7 +48,7 @@
 早期版本无 `runner-pre-launch`/`prepare-*` 标记，曾把 prelude 尾段误归"激活/首帧"；
 现表以 700917d6 后的标记体系为准（更正记录见运行证据段）。
 
-## 3. 暖启动持久层（本计划的主体成果）
+## 3. 暖启动持久层导航
 
 持久化与失效边界归[运行架构 §3.5](runtime-architecture.md#35-启动是候选事务不是全量兼容门)，
 最近行为门为 `script/tests/test_scene_persistent_cache_behavior.py`。下表保留原阶段暖层快照，不代表当前全量启动或设备资源 ready。
@@ -62,8 +62,8 @@
 | 编译产物 v10 | `SceneGenericShaderPrograms-v10`（外部编译器产物；请求 key 覆盖 authored 源和编译语义版本；v14 退役错误的混合类型比较截断，同时覆盖默认目录与环境覆盖目录） | 请求 key（v14；请求信封 schema 仍为 5） | generic Program artifact | 既有 |
 | **PSO binary archive** | `SceneResolvedMaterialPipelineBinaryArchive.swift`（Rendering/Graph） | OS build+device registryID+pixelFormat+sampleCount+writeMask+函数名+renderState+MSL sha256 | 每精确管线身份一个 `.metalarchive` | 机制落地；**命中率需实机统计** |
 
-变体 source-pure 补齐、Set wire 摘要修正与旧 binary 兼容的待实施规范，
-统一见[变体分析缓存合同](variant-analysis-cache-contract.md#variant-analysis-source-pure-extension)；不作为本表新增收益。
+变体 Set wire 修正见[缓存合同](variant-analysis-cache-contract.md#variant-analysis-wire)；源纯补齐短筛未达门，已撤回，
+证据与边界见[修复记录](../history/variant-analysis-cache-wire-correction-2026-10-15.md)，不作为本表新增收益。
 
 ## 4. daemon 预热（L1）
 
