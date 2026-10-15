@@ -63,3 +63,20 @@ snapshot writer只消费无direct property key的binding；旧即时property wri
 **门与审查。** Debug最终41.453秒、4279输入无漂移，exe `115d9508…`/dylib `cedb7f26…`，deep/strict签名通过；两次Swift编译错误原收据保留。Sound行为门236事实通过，覆盖三组改名/等价式、raw/current分域、VM/player、错误返回/资源/构造、direct退出/退休、显式mode与partial getter/rollback。初轮15失败来自fixture把Looper跨阶段item固定，改为先确认非nil、紧贴每次gain提交检查item及queue不变，跨阶段仍核同player/owner；产品未因此修改。Scoped Transaction 13项有效结果复用。独审先发现deferred漏刷、partial origin回退与缺schema输入scope，均在最近owner修正并补审。
 
 **未覆盖与材料。** deferred visibility与Sound同key实际资源组合、故障后整笔Session取消、多surface、native暂停操作、完整听感/官方parity、OGG/random/spatial及handle setter仍开放。最小hash、neutral结果、压缩原日志与必要实图留`.artifacts/tmp/sound-mixed-volume-20261016/`；临时样本/HOME/cache及编译探针当轮退役，唯一连续DerivedData沿原路径保留。Windows按用户要求保持运行；不推送。后继按现役队列选真实缺口，不以本片闭合宣布性能或能力全完成。
+
+
+<a id="sound-ogg-native"></a>
+
+## OGG平台原生声源（2026-10-16）
+
+原Sound Program以固定扩展表拒绝OGG，即使系统已能解码。按[D4](../roadmap/batch2/script-component-api-design.md#sound-ogg-native)先落平台能力设计，再在同一sourceFailure中以一次lazy原生MIME能力查询条件接纳`.ogg`。路径→格式→资源、作者顺序首available即停止及逐源原因不变；不增加decoder、transcode、player或resource owner。FLAC/MP3/WAV保旧，M4A/WebM不借平台宽能力放开。平台false仍沿原unsupported源跳下一个；并非按OS版本猜测或保证文件可decode。
+
+当前macOS27.0.1的真实3662790108:915 OggS资源（1,261,122B，SHA `06cf8ca1…`）由AVAudioFile实际解1024帧、44.1kHz/双声道，AVURLAsset可播且一条audio track，AVQueuePlayer ready/时钟前进；WAV控制正常。再沿实际产品Program→Registry，以改名大写OGG引用消费同资源，并用自有PCM经已安装FFmpeg native Vorbis生成另一OGG，二者均ready/时钟前进；同player pause/play、健康WAV同窗推进、stop/退休后空集合成立。静音实验不计听感。
+
+坏OGG只产生本源failed事件，终态currentItem为空、timeControl为waiting、registry查询false；健康WAV继续。外部probe三次过严终态断言分别假定failed item常驻、rate归零和空queue仍有有限clock；原始false收据保留，未据此修改产品。最终9项observable事实通过：此机空queue无有效clock，AVPlayer仍可保请求rate1，不能把rate当实际播放。未新增解码失败后换源或完整错误恢复。
+
+18项Program门通过（1.396秒），覆盖源顺序、大小写/改名、缺资源与非法路径、相邻格式；capability=false臂有可移植断言和静态核，但本机未执行该分支。Debug23.286秒、4279项输入无漂移，exe `a2bebf08…`/dylib `9dd22435…`，deep/strict签名通过。独立原314在该App4.354秒ready、14.321秒正常exit0/输入稳定/gpuDrained，实际壁炉/时钟/音乐UI可见，未见本片相关缺损。
+
+完整569MB原3662790108本次冷启动120秒仍在shader准备，未ready，owned watchdog终止且进程组退出；不当永久启动失败，也不认领原包三层声音/画面已恢复。资源级实际消费与完整样本结果分列；全codec、最低系统实机false分支、听感/官方parity及性能未证。静态独审检查唯一owner、源选择与失败反例；最终运行收据按限定范围补审。
+
+材料留`.artifacts/tmp/ogg-sound-qualification-20261016/`的hash、neutral结果、压缩日志与独立实图，已停止样本/HOME/cache/probe binary当轮清理；只沿用原一份DerivedData。不将原媒体加入Git；Windows按用户要求保持运行。后续按队列继续，未以格式开放关闭声音专项或性能目标。

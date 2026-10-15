@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "356f52d65556008ab08dba75abc88e133854cfc10e95996c41401b43afa75d16",
+        "sourceSHA256": "0ffcead180ea60ef9cc8ea968b511da682f88cfb74375a59b52ccda922886678",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound pure/mixed后验分列；原包与派生App、暂停冻结刷新、实际增益和normal面板保存/重开/reset单session的来源导航，保冷启动超时及未覆盖边界",
-        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
+        "scope": "OGG平台条件准入与真实/自有资源级Program/Registry消费后验；坏源终态、WAV peer、独立314与whole366冷启动未ready分列导航",
+        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
       }
     },
     {
@@ -634,10 +634,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e737483fc43f6c27b66cd9fee1042d8cd6b3bc1787181287753c2928d951d6a4",
+        "sourceSHA256": "2bba91601b7a2dc7de77409a9b86b5c8e8ec1d2eed3994d0a697570b2cbfda9f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound named Slider与声明条件输入沿既有codec、Scalar/Transaction及settled snapshot消费；raw/resolved分域、paused scoped刷新和唯一writer的有界状态导航",
-        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
+        "scope": "普通Sound的OGG原生平台准入、作者首available源及资源级实际消费边界；不改变原输入/Scalar/Transaction合同",
+        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
       }
     },
     {
@@ -708,10 +708,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2ab60516747d663fdb0c533e3b0bdfce4efbb19e812c1d673328b087096b329d",
+        "sourceSHA256": "9741bf3443a7817768c2f4a3f3c6526a61a454f34685b9c50d82ab43bec99203",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound mixed volume已实施的精确wrapper/host准入、实际player增益及命令、显式refresh mode/partial镜像和原四方法/纯profile边界导航",
-        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
+        "scope": "OGG沿原Sound Program/Registry的有界格式准入与资源级后验导航；四方法、pure/mixed volume及handle边界继续各自所有权",
+        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
       }
     },
     {
@@ -2774,7 +2774,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "Sound四播放方法、Vector热更与无outer-user volume字段脚本；既有typed/player增益链、原包/派生/独立结果及冷启动超时分层。新增#sound-mixed-volume保named Slider/条件输入、冻结Scalar/Transaction、writer移交、partial镜像与真实面板单session后验及Looper测试修正；pure/mixed各自未验边界保留，不认领听感、性能或完整能力。"
+      "uniqueValue": "Sound四播放方法、Vector热更、pure volume字段脚本及#sound-mixed-volume的named输入/冻结事务、writer移交、partial镜像和原生面板后验；保原包/派生/独立与冷启动超时分层、Looper测试修正及各自未验边界。#sound-ogg-native新增原生平台门、真实/自有资源级Registry消费、坏源终态与外部probe错误断言、whole366未ready的分列证据，不认领听感、性能或完整能力。"
     },
     {
       "path": "docs/scene/history/source-material-entry-2026-10-08.md",
@@ -3118,10 +3118,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f1ae4d1ae2bf3648b64149a85ca7dceb7b2b071f6c211f43988301e516a81fcd",
+        "sourceSHA256": "e4f09c28ed110f5bb2897b1b12aa61aebc78151b077105e9a97947c6044f67d4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sound mixed volume已实施有界合同；唯一Scalar/Transaction、committed scoped base、暂停输入publication、writer移交及失败/退出职责复核",
-        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
+        "scope": "OGG平台格式门的唯一Program能力事实、路径/逐源选择与既有Registry生命周期；准备准入和文件decode、资源级与整包结果分域",
+        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
       }
     },
     {
@@ -3215,10 +3215,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "57b3d4ca3f9118f220c03919d9b95236b32a47abaf733c5c0511741aa85dc0f6",
+        "sourceSHA256": "50059d23ad68fe083e72f24b76e2347c268cc3f269ace23f4a69061e14d904d2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "将Sound mixed早门拒绝替换为首链有界已修，指向既有历史锚；deferred实际组合、故障Session取消、多surface及更广mixed继续开放",
-        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
+        "scope": "OGG从固定拒绝调整为平台门及资源级已消费；whole366 shader准备超时、平台false实机及更广codec/换源缺口继续开放",
+        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
       }
     },
     {

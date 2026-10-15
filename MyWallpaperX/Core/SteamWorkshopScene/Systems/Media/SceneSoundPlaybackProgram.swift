@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 
 /// Launch-scoped typed plan for authored Sound layers. The program admits only
@@ -219,8 +220,13 @@ struct SceneSoundPlaybackProgram {
         }
     }
 
-    /// Per-source guards: path legality and the supported-extension list both
-    /// still apply to every authored source, not only the first.
+    /// Platform format capability is stable preparation metadata, not proof
+    /// that an individual file or codec can decode. Playback keeps that owner.
+    private static let nativeOggPlaybackAvailable =
+        AVURLAsset.isPlayableExtendedMIMEType("audio/ogg")
+
+    /// Each attempted source checks path legality before format capability;
+    /// selection stops at the first available resource.
     private static func sourceFailure(
         _ path: String
     ) -> (reason: Diagnostic.Reason, detail: String)? {
@@ -231,7 +237,8 @@ struct SceneSoundPlaybackProgram {
         }
         let supportedExtensions: Set<String> = ["flac", "mp3", "wav"]
         let fileExtension = sourceExtension(of: path)
-        guard supportedExtensions.contains(fileExtension) else {
+        guard supportedExtensions.contains(fileExtension)
+                || (fileExtension == "ogg" && nativeOggPlaybackAvailable) else {
             return (.audioFormatUnsupported, fileExtension)
         }
         return nil

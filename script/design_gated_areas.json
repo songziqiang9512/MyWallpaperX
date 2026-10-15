@@ -458,7 +458,7 @@
       "owner": "SceneScript / SceneSoundPlaybackRegistry",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "design_notes": "2026-10-12 决策先于实现：泛化既有Video命令通道携带明确destination，唯一预算与owner事务；Sound意图独立于宿主pause，旧Video类型名退出。批准不等于播放验收。",
+      "design_notes": "D4 #Sound-script-control与#sound-ogg-native已设计：同一普通layer identity、media journal/fixed-point与唯一Sound Registry；single重复play重头、pause续播/stop归零，宿主意图分离。OGG仅在原Sound Program准备owner以平台原生MIME能力一次查询限定准入，沿作者顺序取首个可用资源、逐源诊断并保旧三格式；不增codec/player/运行期换源，不将格式门当实际解码。approved仅准实施，真实解码/时钟和原包/独立画面分验，性能/parity未证。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlayback*.swift"
       ],

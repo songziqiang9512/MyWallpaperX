@@ -110,6 +110,7 @@ struct SceneResourceView {
 '''
 
 PROGRAM_HARNESS_SOURCE = r'''
+import AVFoundation
 import Foundation
 
 @main
@@ -195,8 +196,27 @@ enum Harness {
             ),
             .init(
                 id: oggLayerID,
-                sound: sound(paths: ["audio/blocked.ogg"], mode: "single")
+                sound: sound(paths: ["audio/native.ogg"], mode: "single")
             ),
+            .init(
+                id: 212,
+                sound: sound(paths: ["renamed/first.OGG", "audio/first.wav"], mode: "loop")
+            ),
+            .init(
+                id: 213,
+                sound: sound(paths: ["audio/other.webm", "audio/caps.mp3"], mode: "loop")
+            ),
+            .init(
+                id: 214,
+                sound: sound(paths: ["audio/other.m4a"], mode: "single")
+            ),
+            .init(
+                id: 215,
+                sound: sound(paths: ["../escape.ogg"], mode: "loop")
+            ),
+            .init(id: 216, sound: sound(paths: ["audio/first.wav", "audio/unused.ogg"], mode: "loop")),
+            .init(id: 217, sound: sound(paths: ["audio/gone.wav", "renamed/second.OGG"], mode: "single")),
+            .init(id: 218, sound: sound(paths: ["audio/gone.ogg", "audio/missing.wav"], mode: "loop")),
             .init(
                 id: mixedCaseSingleLayerID,
                 sound: sound(paths: ["audio/caps.mp3"], mode: "Single")
@@ -235,6 +255,11 @@ enum Harness {
             "audio/one-shot.wav": URL(fileURLWithPath: "/fixture/one-shot.wav"),
             "audio/nonspatial.mp3": URL(fileURLWithPath: "/fixture/nonspatial.mp3"),
             "audio/spatial.mp3": URL(fileURLWithPath: "/fixture/spatial.mp3"),
+            "audio/native.ogg": URL(fileURLWithPath: "/fixture/native.ogg"),
+            "renamed/first.OGG": URL(fileURLWithPath: "/fixture/renamed-first.ogg"),
+            "audio/other.webm": URL(fileURLWithPath: "/fixture/other.webm"),
+            "audio/other.m4a": URL(fileURLWithPath: "/fixture/other.m4a"),
+            "renamed/second.OGG": URL(fileURLWithPath: "/fixture/second-renamed.ogg"),
         ])
 
         let program = SceneSoundPlaybackProgram.compile(
@@ -242,6 +267,9 @@ enum Harness {
             resourceView: resourceView
         )
         let payload: [String: Any] = [
+            // This harness verifies preparation only; these resource carriers
+            // do not pretend to contain encoded audio or prove playback.
+            "platformOggPlayable": AVURLAsset.isPlayableExtendedMIMEType("audio/ogg"),
             "admittedLayerIDs": program.bindings.map(\.layerID),
             "bindings": program.bindings.map { binding in
                 ["layerID": binding.layerID, "source": binding.displayPath, "startsSilent": binding.startsSilent]
@@ -716,7 +744,9 @@ class SceneSoundPlaybackProgramTests(unittest.TestCase):
         )
         self.assertEqual(
             layer_diagnostics(self.payload, 206),
-            [("audioFormatUnsupported", "ogg")],
+            [("resourceUnavailable", "audio/missing.ogg")]
+            if self.payload["platformOggPlayable"]
+            else [("audioFormatUnsupported", "ogg")],
         )
 
     def test_all_sources_unavailable_keep_their_per_source_reasons(self) -> None:
@@ -743,12 +773,51 @@ class SceneSoundPlaybackProgramTests(unittest.TestCase):
             [("resourceUnavailable", "audio/absent.mp3")],
         )
 
-    def test_ogg_source_remains_unsupported(self) -> None:
-        self.assertNotIn(208, self.payload["admittedLayerIDs"])
-        self.assertEqual(
-            layer_diagnostics(self.payload, 208),
-            [("audioFormatUnsupported", "ogg")],
-        )
+    def test_ogg_source_admission_follows_platform_capability(self) -> None:
+        if self.payload["platformOggPlayable"]:
+            self.assertIn(208, self.payload["admittedLayerIDs"])
+            self.assertEqual(layer_binding_sources(self.payload, 208), ["/fixture/native.ogg"])
+            self.assertEqual(layer_diagnostics(self.payload, 208), [])
+        else:
+            self.assertNotIn(208, self.payload["admittedLayerIDs"])
+            self.assertEqual(layer_diagnostics(self.payload, 208), [("audioFormatUnsupported", "ogg")])
+
+    def test_platform_ogg_preserves_authored_first_source_and_case_normalization(self) -> None:
+        supported = self.payload["platformOggPlayable"]
+        self.assertIn(212, self.payload["admittedLayerIDs"])
+        self.assertEqual(layer_binding_sources(self.payload, 212),
+                         ["/fixture/renamed-first.ogg" if supported else "/fixture/first.wav"])
+        self.assertEqual(layer_diagnostics(self.payload, 212),
+                         [] if supported else [("audioFormatUnsupported", "ogg")])
+
+    def test_other_native_media_formats_do_not_expand_the_sound_profile(self) -> None:
+        self.assertEqual(layer_binding_sources(self.payload, 213), ["/fixture/caps.mp3"])
+        self.assertEqual(layer_diagnostics(self.payload, 213), [("audioFormatUnsupported", "webm")])
+        self.assertNotIn(214, self.payload["admittedLayerIDs"])
+        self.assertEqual(layer_diagnostics(self.payload, 214), [("audioFormatUnsupported", "m4a")])
+
+    def test_first_available_wav_ignores_later_missing_ogg(self) -> None:
+        self.assertEqual(layer_binding_sources(self.payload, 216), ["/fixture/first.wav"])
+        self.assertEqual(layer_diagnostics(self.payload, 216), [])
+
+    def test_platform_ogg_can_be_the_second_available_source(self) -> None:
+        supported = self.payload["platformOggPlayable"]
+        self.assertEqual(layer_binding_sources(self.payload, 217),
+                         ["/fixture/second-renamed.ogg"] if supported else [])
+        self.assertEqual(layer_diagnostics(self.payload, 217),
+                         [("resourceUnavailable", "audio/gone.wav")]
+                         + ([] if supported else [("audioFormatUnsupported", "ogg")]))
+
+    def test_missing_ogg_and_wav_preserve_both_attempt_reasons(self) -> None:
+        self.assertNotIn(218, self.payload["admittedLayerIDs"])
+        first = ("resourceUnavailable", "audio/gone.ogg") if self.payload["platformOggPlayable"] \
+            else ("audioFormatUnsupported", "ogg")
+        self.assertEqual(layer_diagnostics(self.payload, 218),
+                         [first, ("resourceUnavailable", "audio/missing.wav")])
+
+    def test_ogg_path_legality_precedes_platform_and_resource_admission(self) -> None:
+        self.assertNotIn(215, self.payload["admittedLayerIDs"])
+        self.assertEqual(layer_diagnostics(self.payload, 215), [("malformedSourceList", "../escape.ogg")])
 
     def test_non_loop_mode_is_rejected_with_the_typed_reason(self) -> None:
         self.assertNotIn(303, self.payload["admittedLayerIDs"])

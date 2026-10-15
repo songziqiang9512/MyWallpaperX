@@ -275,7 +275,7 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 
 ## Sound 播放控制接入（2026-10-12）
 
-目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。本次播放方法不扩volume脚本属性（后继见下节）；random/spatial/OGG不借此准入，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。
+目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。本次播放方法不扩volume脚本属性（后继见下节）；random/spatial不借此准入，OGG后继见[平台格式门](#sound-ogg-native)，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。
 
 复用现video command buffer/owner effects/frame validation/commit链，将其显式泛化为media playback command，携带videoTexture/soundLayer destination；保留一个64条预算与一次收集，不复制Sound回调/事件/遍历。旧Video名称迁移后退出，不保留alias或第二命令buffer。Video纹理handle沿原接口，Sound方法复用普通layer handle身份/过期检查；只对prepared registry有来源的层开放。查询读取当帧已发布状态，并在公开/黑盒合同要求时投影当前callback暂存命令；只读Bool仅可查询，不获得播放权限；异常、捕获后的预算超额和owner拒绝均随原事务丢弃，不在VM调用中操作AVPlayer。
 
@@ -285,12 +285,22 @@ Vector applyUserProperties原已执行，但live state仅登记Scalar/String导�
 
 验收：真实VM方法→typed destination→owner提交/拒绝→AVQueuePlayer时钟与查询；startsilent、重复play、pause位置、stop归零重播、single自然结束、宿主暂停/恢复与停止后恢复、stale句柄/跨owner/throw/超额回滚，Video原方法回归。真实3761619125选曲脚本四MP3进入链，其他样本仅报告准入子集。Debug构建、独审及隔离运行，不把方法存在或player ready当成已播放；无法验证的模式继续记录首断点。
 
+<a id="sound-ogg-native"></a>
+
+### OGG平台原生准入（2026-10-16，平台限定准备、资源级已消费）
+
+Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePlayer继续唯一播放。`.ogg`仅在`AVURLAsset.isPlayableExtendedMIMEType("audio/ogg")`为true时进入原链；[Apple能力查询](https://developer.apple.com/documentation/avfoundation/avurlasset/isplayableextendedmimetype%28_%3A%29)针对给定container/codec声明报告可播放性，本片只据容器查询形成一次静态准备事实，不保证具体文件成功。当前最低系统可调用该API，不按系统版本猜支持。FLAC/MP3/WAV保持，不加codec、header解析、转码、player或资源owner，不泛开放M4A/WebM。
+
+路径安全先于格式门；平台false沿原`audioFormatUnsupported/ogg`跳到下一作者源，平台true但资源缺失仍为`resourceUnavailable`。首个available resource命中即停止准备，不全列表验证，也不等同首个decodable文件。坏codec/异步decode失败仍沿现Registry事件、日志与局部边界；坏OGG已观察到failed及空队列，不以其rate仍非零或非finite时钟判为成功，未新增异步失败后换源。平台false实机、所有codec与听感未闭，不把平台query或available当文件播放保证。
+
+[OGG资源级后验](../../history/sound-script-control-2026-10-12.md#sound-ogg-native)记录真实原样源及自有Vorbis经Program→Registry ready/时钟推进、同player pause/play、stop/retire与WAV健康对照；最近Program门及Debug构建已通过。完整原包仍在shader准备期未ready，没有该输入的原包音频/画面收益，不据启动超时否定格式。未取得整包恢复、最低系统实机parity或性能结论，不向Git加入原媒体；若真实Registry不能消费某输入，保持资源局部失败，不另建播放链。
+
 
 <a id="sound-volume-script"></a>
 
 ## Sound volume标量脚本接续（2026-10-16，有界实施）
 
-**目标与边界。** 普通Sound的`script/value`或`script/scriptproperties/value`音量经现Scalar VM→最终typed `.layer(.volume)` snapshot→唯一Sound Registry/AVQueuePlayer，改变实际增益而不重建播放器或场景。公开[ISoundLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html)只定义volume为播放音量，[update](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)定义当前属性值与返回更新值；越界/clamp及mixed优先级未获完整官方合同。现沿Sound有限`[0,1]`项目准入，越界走owner局部失败，不擅自夹取；精确named outer-user组合见[后继合同](#sound-volume-named-input)，Timeline、OGG、spatial/random与volume setter不扩。
+**目标与边界。** 普通Sound的`script/value`或`script/scriptproperties/value`音量经现Scalar VM→最终typed `.layer(.volume)` snapshot→唯一Sound Registry/AVQueuePlayer，改变实际增益而不重建播放器或场景。公开[ISoundLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html)只定义volume为播放音量，[update](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)定义当前属性值与返回更新值；越界/clamp及mixed优先级未获完整官方合同。现沿Sound有限`[0,1]`项目准入，越界走owner局部失败，不擅自夹取；精确named outer-user组合见[后继合同](#sound-volume-named-input)，Timeline、spatial/random与volume setter不扩，OGG仅按[平台格式门](#sound-ogg-native)准入。
 
 **准备与种子。** IR `authoredValue`是raw fallback唯一事实；Sound定义和原Program的`authoredVolume`是property resolver后的启动种子，不能冒充raw。无outer-user首片以object/path/wrapper/typed输入形成结构候选，原Sound Program纯compile前移到QuickJS前，按真实资源/模式准入及同layer raw seed一致性迟判，通过既有`scalarExcludedTargets`统一planned/requested/constructed/fallback。缺binding、音源、种子不符拒绝该owner；不新增descriptor soundVolume或第二种子owner，不创建player提前消费脚本。Device资源最终需求仍只来自committed domain。
 
@@ -298,7 +308,7 @@ Vector applyUserProperties原已执行，但live state仅登记Scalar/String导�
 
 **暂停及退出。** candidate Source仍在首帧前创建并继承宿主pause/mute；增益更新不改变作者play/pause/stop/startsilent、rate/queue/seek。旧direct volume暂停时继续即时生效；无outer-user脚本仍遵守冻结cadence，master/mute只作用于已消费baseVolume。仅下节的mixed owner在属性事件上做scoped刷新，不开放全部Sound暂停update。资源decode失败仅Sound局部，Sound epoch/owner退休和stop撤observer/queue，迟到事件不能复活。
 
-**验收与停止。** 先真实Scalar VM反证及变量/资源/等价表达式变体，再沿同snapshot验证同一个真实AVQueuePlayer gain和下一cadence；覆盖无关属性不重置、暂停direct-volume编辑、master/mute、作者暂停/停止不复活、错误返回/缺音源/seed冲突、retire/取消及健康peer。现Sound Program/命令门复用，仅新失败重验。真实MP3 primary与独立内容分别核owner/提交值/播放器进展及画面，admitted/ready不当作可听或完整样本通过。公开/neutral schema候选3800728730:23及3662790108:2989只用于验证，不进入算法或准入。named后继不扩大其他mixed形态或OGG；若无实际增益链或出现生命周期回退，先撤该volume route，不扩参数/格式矩阵。
+**验收与停止。** 先真实Scalar VM反证及变量/资源/等价表达式变体，再沿同snapshot验证同一个真实AVQueuePlayer gain和下一cadence；覆盖无关属性不重置、暂停direct-volume编辑、master/mute、作者暂停/停止不复活、错误返回/缺音源/seed冲突、retire/取消及健康peer。现Sound Program/命令门复用，仅新失败重验。真实MP3 primary与独立内容分别核owner/提交值/播放器进展及画面，admitted/ready不当作可听或完整样本通过。公开/neutral schema候选3800728730:23及3662790108:2989只用于验证，不进入算法或准入。named后继不扩大其他mixed形态；OGG独立按平台格式门处理。若无实际增益链或出现生命周期回退，先撤该volume route，不扩参数/格式矩阵。
 
 实施边界与真实增益、原包/独立内容、超时及未验入口统一见[Sound volume后验](../../history/sound-script-control-2026-10-12.md#sound-volume-script)；本节保留职责和退出选择，不复制运行状态。
 
