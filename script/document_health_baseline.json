@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 303,
-      "bytes": 81446
+      "lines": 317,
+      "bytes": 85502
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -221,16 +221,16 @@
       "bytes": 11731
     },
     "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 28,
-      "bytes": 10318
+      "lines": 30,
+      "bytes": 10994
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
       "bytes": 33350
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 248,
-      "bytes": 73795
+      "lines": 249,
+      "bytes": 74477
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1195,24 +1195,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "95703fe6893e6cbfa10c6e67ad07f7c648afe3e2d41270d2ecfa54d9a817a710",
-      "after": "cb75ed6a272e5a9ab6d1ee793a485e34ea9601aed77ab9230297693f6d895bf6",
-      "owner": "Scene named-user pass scalar",
-      "reason": "新exact Number输入与唯一Script writer已真实闭合；更新原责任合同与当前证据，旧child归因更正和Timeline静态余项保留，过程仅进历史。",
-      "decision": "docs/scene/history/named-user-pass-scalar-2026-10-16.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "78ac8d22c41fd86b5b5a1622c69c9e37fdb12c302ec6b596973c7854cbf15306",
-      "after": "b9adcf2f7f358b7f3b4c0e6dfc690563f548abcdefe5d5fc6782f3d4335e124a",
-      "owner": "Scene named-user pass scalar",
-      "reason": "新exact Number输入与唯一Script writer已真实闭合；更新原责任合同与当前证据，旧child归因更正和Timeline静态余项保留，过程仅进历史。",
-      "decision": "docs/scene/history/named-user-pass-scalar-2026-10-16.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "ec95c0d21ff9c70a1a00c9c32bf8fb2ac559a057a05a85567729671efc864696",
       "after": "3d7690ba0ff083c6071276305cdd43f16411f362155ddb5ca608ff6bd79f1a60",
@@ -1222,12 +1204,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "cb75ed6a272e5a9ab6d1ee793a485e34ea9601aed77ab9230297693f6d895bf6",
+      "after": "9ed35514d09c4211c20e7506b6249ad2b5fa9d54ad42b8151d0540a7ed5eb5d2",
+      "owner": "Scene mixed Sound property transaction design",
+      "reason": "真实原包资格排除condition-only旁路；在既有D4先定义唯一paused publication与writer退出，状态及排除结果只归现役卡，不将设计计实施。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "b9adcf2f7f358b7f3b4c0e6dfc690563f548abcdefe5d5fc6782f3d4335e124a",
+      "after": "ac303df3b2ca8acdd8aa6043ca9a7d190c9f8f3757832ee2936e6cb9b7ac801c",
+      "owner": "Scene mixed Sound property transaction design",
+      "reason": "真实原包资格排除condition-only旁路；在既有D4先定义唯一paused publication与writer退出，状态及排除结果只归现役卡，不将设计计实施。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "eab3a92dc153e2205bba512e1094d5652c3755e5c4d0683fa5abb3ba81ac9d0a",
-      "after": "e202fc4179124048d5d80ff893d754b13bc575d77b5b58a70fef9d3877897169",
-      "owner": "Scene static child Rope",
-      "reason": "新bounded变换与准入需写明唯一owner及预算；替换错误全child预算和已修拒绝，保精确视觉/官方与其他profile余项，过程进历史。",
-      "decision": "docs/scene/history/static-child-rope-2026-10-16.md"
+      "before": "e202fc4179124048d5d80ff893d754b13bc575d77b5b58a70fef9d3877897169",
+      "after": "d9456e71ecd028002ca9678e9a5619ff5e6e0eb44789e76b5a7255c7a8e65bc4",
+      "owner": "Scene mixed Sound property transaction design",
+      "reason": "真实原包资格排除condition-only旁路；在既有D4先定义唯一paused publication与writer退出，状态及排除结果只归现役卡，不将设计计实施。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-volume-named-input"
     }
   ]
 }

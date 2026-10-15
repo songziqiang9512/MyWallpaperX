@@ -301,3 +301,17 @@ Vector applyUserProperties原已执行，但live state仅登记Scalar/String导�
 **验收与停止。** 先真实Scalar VM反证及变量/资源/等价表达式变体，再沿同snapshot验证同一个真实AVQueuePlayer gain和下一cadence；覆盖无关属性不重置、暂停direct-volume编辑、master/mute、作者暂停/停止不复活、错误返回/缺音源/seed冲突、retire/取消及健康peer。现Sound Program/命令门复用，仅新失败重验。真实MP3 primary与独立内容分别核owner/提交值/播放器进展及画面，admitted/ready不当作可听或完整样本通过；默认只一次最终Debug、独审和相称运行。公开/neutral schema候选3800728730:23及3662790108:2989只用于验证，不进入算法或准入。4处outer-user冲突及3处OGG保持缺口，不为增加覆盖放宽本片；若无实际增益链或出现生命周期回退，先撤该volume route，不扩参数/格式矩阵。
 
 实施边界与真实增益、原包/独立内容、超时及未验入口统一见[Sound volume后验](../../history/sound-script-control-2026-10-12.md#sound-volume-script)；本节保留职责和退出选择，不复制运行状态。
+
+<a id="sound-volume-named-input"></a>
+
+### Named volume与声明输入后继（2026-10-16，设计中，尚未开放）
+
+**目标与资格。** 让普通Sound的有限Number `script/scriptproperties/user/value`沿同一Scalar owner接收外层slider及内层条件输入，实际调增益和播放意图并避免编辑重建。3147346398的原始volume同时绑定0…1 slider与两个Combo条件Bool输入；一次现役App资格取得instruction=0、callback=0、rebuildRequired=true及真实改值拒绝。这不是无consumer的条件Combo；不能加value-only例外、忽略script或复用无关字体callback来宣称可热更。资格事实留`.artifacts/tmp/condition-combo-qualification-20261016/`，CLI拒绝不等于本轮已执行原生面板重建，尚无性能收益。
+
+**唯一责任与选择。** Reader只解除已证明Sound volume的精确组合冲突；条件解析、ScriptProperty输入codec、effective property store与typed target继续原实现。raw seed、resolved slider当前值、declared properties分域，不复制provider解析。Sound Program须成为每个已准备volume最终writer策略的唯一事实：已接纳mixed target从旧即时property writer退出，增益只从既有settled snapshot消费；外层user只进入原较低优先级typed输入，值和回退由原Scalar/Transaction验收，不能与VM返回值竞争或直接写player。resource、raw/resolved seed、owner construction及fallback须沿同一准备链证明，不按样本/键名准入，不提前建player。
+
+**暂停是本片必需能力。** 不采用全场景重跑或Registry旁路。沿现session/frame-driver和SceneEvaluationTransaction建立显式属性刷新事务：冻结scene时间/delta，限制回调求值到此次真实受影响的mixed-volume owner，复用其完整journal、fixed-point验证、commit/discard与最终typed publication。未参与owner的update、timer、粒子/动画clock和事件消费位置不变；跨层副作用仍经原事务验证；被拒owner的未提交播放命令丢弃，增益只消费原Scalar/Transaction已接纳的fallback snapshot，整笔刷新取消则保持上次增益/意图，禁止重放回调。不能用raw slider冒充脚本结果，也不能令原paused direct-volume失效。输入revision及cadence身份仍由现owner掌握，不能因局部刷新标记其他owner事件已消费；具体复用入口与回滚须在实施前核清，缺该能力就保持mixed拒绝。
+
+**现有入口与提交基准。** paused `renderFrame`仅复用画面，LiveConsumers目前只换LiveState并调用direct writer，不能借调用完整renderFrame绕过暂停。复用Scalar的targetFilter、原journal/fixed-point验证和Transaction prepare/commit；scoped更新须以该Transaction持有的完整last accepted snapshot为base，未触及的Timeline/脚本值保持，旧previous-value存储从同一快照派生，不另建音量或snapshot缓存。schema/generation变更沿原生命周期失效。SceneClock暂停已有sceneTime冻结/delta0，frameIndex不冒增；publication身份复用原property revision/evaluation generation和callback epoch，不新增clock。通用Scalar运行失败可沿原已验证下层值降级；必须通过相同typed snapshot接纳，不能把其与整笔取消混成临时slider直写。
+
+**验收与停止。** 最小可交付必须同时闭合正在播放及暂停编辑的同player/item增益、条件play/pause/stop与独立宿主暂停意图；证明一个输入更新只调用一次相应owner、其他owner/timer不被额外求值，恢复后不重放。变量/资源/属性改名与等价式、初始saved slider≠raw seed、同值重发、连续改值/reset、JS throw/非法数值/Swift拒绝、构造失败、取消/退休、旧direct与无outer-user健康peer一并覆盖；真实原包及未参与修法内容核实际画面/播放器与相称原生面板。缺少单一暂停publication或需要第二writer/输入缓存时停止开放profile，先完成共享事务设计；不能只放宽三个guard后提交能力。

@@ -57,7 +57,8 @@
 | solid多stage普通混合分域 | **无依赖及有界named正交链已接通**：原GraphExecutor按最后成功active材质回放，必要时由原pool保留被尾段覆盖的输入；无Candidate使用作者尺寸，保留高级混合旧准入。自有120×60三缩放尺寸格与官方一致，64周期条纹active/inactive分域已实际App验证；独立GPU/原样本回归及named consumer边界见[终端链记录](../history/terminal-material-chain-2026-10-11.md)。[无需provider graph output的single named输入](../history/named-solid-source-extent-2026-10-12.md)已复用原链；graph-final依赖、provider、复杂FBO/history和native3D多stage未扩域，不加第二输出owner。 |
 | 透明target的alphaWeightedAdditive | **待研究**：普通源coverage已修，named/透明target的完整alpha合成尚未同输入裁决，见[coverage证据](../capabilities/runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)。先核唯一compositor当前blend，不能重新造光束专用补偿 |
 | named纹理optional回退 | **编译ABI丢失已修**：generic accepted直接传递已校验PMA槽；3078285611原包192/effect2恢复材质执行、named189绑定、首帧/下一帧GPU与最终合成，benchmark PASS；自有半透明色与非法三候选反例通过。真实换曲/previous封面及完整视觉仍待验；不再把原`optional-named-fallback-unproven`当未修。[修复证据](../history/mixed-provider-color-abi-2026-10-08.md) |
-| Timeline event-only控制归属 | **静态反例待复验**：Vec2/Vec3或数值String的animation/script/value可能未获VM control owner，却由classifier仅凭event-only形态吞掉attachment；当前scalar named-user修复不扩此域。须以现target准入证明control owner、保Timeline唯一值来源，再验证媒体事件可达与健康scalar；不能只扩wrapper或忽略脚本。 |
+| Timeline event-only控制归属 | **静态反例待复验**：Vec2/Vec3或数值String的animation/script/value可能未获VM control owner，却由classifier仅凭event-only形态吞掉attachment；当前scalar named-user修复不扩此域。须以现target准入证明control owner、保Timeline唯一值来源，再验证媒体事件可达与健康scalar；不能只扩wrapper或忽略脚本。10-16三包有界资格只见现有Number control，未找到该Vec/String真实target，暂不扩API或扩搜。 |
+| Sound mixed volume输入 | **原包可达缺口，先设计暂停publication**：314的外层0…1 slider与声明pause/play条件输入在Reader/host被拒，实际Combo改值拒绝且rebuildRequired；不是condition-only例外。沿[D4](batch2/script-component-api-design.md#sound-volume-named-input)保唯一gain writer与暂停即时编辑，未实施、未计性能收益。 |
 | stock noise视觉等价 | **待研究**：按需准备/readiness已修；缺资产synthetic替代的密度/语义未证。375时钟包自带clouds，不属于替代收益；见[资源链证据](../capabilities/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation) |
 | 更多条件/隐藏组与依赖 | **能力边界/待复验**：根层effect/Bloom条件、style热切及嵌套image/text成员已贯通；更多condition、跨层依赖、隐藏层级、group transform/alpha/clip等按[D1](batch2/composition-render-target-design.md)逐个真实profile闭合，保持固定准备闭包与唯一输出 |
 | 同层secondary可见覆盖 | **待复验**：同层_a/_b路由已执行，不能继续列作统一拒绝；未激活及其他形态仍需producer→consumer→最终输出对照。旧v2“11PASS/2FAIL”不是当前缺陷全集 |
@@ -71,7 +72,7 @@
 
 | 样本/现象 | 当前剩余与下一门 |
 |---|---|
-| 3226487183 游离手臂、侧脸碎片 | **待归因**：composition成员闭包已修，Puppet姿态/挂点合成仍错。层1028 authored origin(-70,-606)，rootWorld(-154.9,414.9)，117顶点4个入视锥；934/876拆分件亦错位。沿origin→attachment/bone world→skinning核首错坐标，门为手臂画外、侧脸对齐且组级效果不回退。[闭包记录](../history/composition-member-closure-2026-10-07.md) |
+| 3226487183 游离手臂、侧脸碎片 | **待归因**：composition成员闭包已修，Puppet姿态/挂点合成仍错。层1028 authored origin(-70,-606)，rootWorld(-154.9,414.9)，117顶点4个入视锥；934/876拆分件亦错位。10-16原包资格表明1028/934/876均无parent/attachment、默认center且origin含script；非center挂点pivot静态反例不命中，不能把origin seed当实际脚本输出。沿origin实际VM输出→bone/pose→skinning核首错坐标，门为手臂画外、侧脸对齐且组级效果不回退。[闭包记录](../history/composition-member-closure-2026-10-07.md) |
 | 833227004 流动效果缺失 | **首断点已修**：共享源Program恢复真实多帧flow与完整映射；受控后effect组合已消费同源。完整同时间官方parity仍未证，见[记录](../history/source-material-entry-2026-10-08.md) |
 | 3809618616 全屏渐变、照片 | **原技术缺陷已修**：int compound恢复150柱，TEXB3/ImageIO方向恢复照片；剩余音频活动、完整交互与显示比例裁切复验。见[最终380运行](../history/committed-range-review-repairs-2026-10-07.md#整合验证)，不能继续写“照片归待修D” |
 | 3791967416 合成/眼部/局部图案 | 裁剪有界片已完成：最终冻结eye105闭眼无虹膜；原包intro已退，barcode/audio数据槽/seek/bone alpha技术链已修。**完整眼部周期、局部图案与整体官方视觉仍开放**，见[最终身份与未验边界](../history/puppet-clipping-2026-10-08.md#跨样本app与最终冻结)；不重开已闭首断点 |

@@ -3118,10 +3118,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fd2cb214900f0c7021b4fce9315daad97dc8bc9e27d6d3999c637159de443513",
+        "sourceSHA256": "9adbe3d75d5aa3970a4b8e76d541d9d313c49768163f5828ad289583ec0790c6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
-        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
+        "scope": "mixed Sound volume原包资格与唯一暂停属性事务设计；Timeline三包资格及不命中Puppet pivot反例的边界",
+        "limitations": "设计中未开放profile；本次CLI资格非原生重建复现，无功能修复或性能收益结论"
       }
     },
     {
@@ -3180,10 +3180,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "51960e1dac09d578ef0f45838138baf8cc3a5e1068233b24c516f0b57841c11a",
+        "sourceSHA256": "0be149db6becfceddacfd5114c18fbdf16b10f0c6cf725feb8a8752232cf636c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
-        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
+        "scope": "mixed Sound volume原包资格与唯一暂停属性事务设计；Timeline三包资格及不命中Puppet pivot反例的边界",
+        "limitations": "设计中未开放profile；本次CLI资格非原生重建复现，无功能修复或性能收益结论"
       }
     },
     {
@@ -3215,10 +3215,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "47a0a743c739088064b4a1c7b4f51ad3006c67ac85152a1cd8c6f1d0cd24b461",
+        "sourceSHA256": "dfcfd1ee43000d9d1a1ff476df5e85634a859be42d8ecb7cb3d6174211e6f953",
         "method": "document_registry --audit + document_health --check",
-        "scope": "static child Rope变换/构造期credit、实际非零batch与退休；parent/child视觉归属和其他profile继续留队列",
-        "limitations": "文档与有界行为核对；不认领完整样本、官方视觉或CPU/GPU/RAM收益"
+        "scope": "mixed Sound volume原包资格与唯一暂停属性事务设计；Timeline三包资格及不命中Puppet pivot反例的边界",
+        "limitations": "设计中未开放profile；本次CLI资格非原生重建复现，无功能修复或性能收益结论"
       }
     },
     {
