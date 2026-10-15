@@ -1,6 +1,8 @@
 #include "SceneQuickJS.h"
 
+#include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int failures;
@@ -113,7 +115,122 @@ static MWXSceneQuickJSStorageReadResult callback_setter(
     return MWX_SCENE_QUICKJS_STORAGE_READ_FOUND;
 }
 
+// Self-authored requests and external prepared metadata only. No model, clip,
+// material, or media fixture is loaded by this C admission test.
+static char *image_identity(const char *path, size_t length) {
+    char *identity = malloc(length + 1);
+    if (identity == NULL) return NULL;
+    for (size_t i = 0; i < length; ++i)
+        identity[i] = (char)tolower((unsigned char)path[i]);
+    identity[length] = '\0';
+    return identity;
+}
+
+static void puppet_create_cases(void) {
+    MWXSceneQuickJSDomain *domain = make_domain();
+    if (domain == NULL) return;
+    char diagnostic[512] = {0};
+    expect(mwx_scene_quickjs_domain_set_asset_path_normalizer(domain, image_identity)
+        == MWX_SCENE_QUICKJS_OK, "prepared identity normalizer", diagnostic);
+    MWXSceneQuickJSDynamicImageDescriptor resources[] = {
+        {.model_path = "models/rig.json",
+         .natural_size = {80, 60}, .autosize = 1, .uses_puppet = 2},
+        {.model_path = "models/renamed-rig.json",
+         .natural_size = {80, 60}, .autosize = 1, .uses_puppet = 1},
+        {.model_path = "models/photo.json",
+         .natural_size = {80, 60}, .autosize = 0, .uses_puppet = 0},
+    };
+    // Use actual byte counts so renaming the fixture resource is independent
+    // of admission; the deliberately malformed boolean is the only bad field.
+    for (size_t i = 0; i < sizeof(resources) / sizeof(*resources); ++i)
+        resources[i].model_path_length = strlen(resources[i].model_path);
+    expect(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(domain, 3,
+        resources, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+        "non-boolean prepared puppet metadata rejected", diagnostic);
+    resources[0].uses_puppet = 1;
+    expect(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(domain, 3,
+        resources, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "prepared puppet and ordinary catalog", diagnostic);
+    publish(domain, 1, 9);
+    MWXSceneQuickJSOwner *allowed = owner(domain,
+        "const registered=engine.registerAsset('models/rig.json');"
+        "export function update(v){const initial=thisScene.getLayerCount();"
+        "const renamed={image:'MODELS/RENAMED-RIG.JSON',name:'renamed'};"
+        "const inputs=['models/rig.json',renamed,{image:'models/rig.json'},registered];"
+        "for(const request of inputs)if(!thisScene.createLayer(request))throw Error('default');"
+        "if(thisScene.getLayerCount()!==initial+inputs.length)throw Error('count');return 4;}");
+    if (allowed != NULL) {
+        update(allowed, 1, 4, "default puppet String, Object, renamed resource and registered asset");
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(allowed) == 4,
+            "four default creates reach the real journal", diagnostic);
+        mwx_scene_quickjs_owner_commit_layer_mutations(allowed);
+    }
+    MWXSceneQuickJSOwner *rejected = owner(domain,
+        "export function update(v){const initial=thisScene.getLayerCount();let reads=0;"
+        "for(const key of ['animations','puppetAnimationLayers','effects']){"
+        "for(const value of [undefined,null,[]]){const request={image:'models/rig.json'};request[key]=value;"
+        "if(thisScene.createLayer(request)!==null)throw Error('own field');}"
+        "const inherited=Object.create(Object.create({[key]:[]}));inherited.image='models/rig.json';"
+        "if(thisScene.createLayer(inherited)!==null)throw Error('inherited field');}"
+        "const accessor={image:'models/rig.json',get animations(){reads++;throw Error('getter');}};"
+        "if(thisScene.createLayer(accessor)!==null||reads!==0)throw Error('getter evaluated');"
+        "const trapped=new Proxy({image:'models/rig.json'},{has(t,k){"
+        "if(k==='effects')throw Error('presence-trip');return Reflect.has(t,k);}});"
+        "let caught=false;try{thisScene.createLayer(trapped);}catch(e){caught=String(e).includes('presence-trip');}"
+        "if(!caught||thisScene.getLayerCount()!==initial)throw Error('exception or provisional layer');"
+        "let probes=0;const plainProxy=new Proxy({image:'models/rig.json',name:'healthy-suffix'},{"
+        "has(t,k){probes++;return Reflect.has(t,k);}});"
+        "if(!thisScene.createLayer(plainProxy)||probes!==3)throw Error('healthy suffix');return 1;}");
+    if (rejected != NULL) {
+        update(rejected, 1, 1, "unsupported own/inherited fields reject, getter is not invoked, Proxy exception survives");
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(rejected) == 1,
+            "only healthy suffix is journaled", diagnostic);
+        mwx_scene_quickjs_owner_commit_layer_mutations(rejected);
+    }
+    MWXSceneQuickJSOwner *ordinary = owner(domain,
+        "export function update(v){let probes=0,reads=0;const target={image:'models/photo.json',size:'9 7',"
+        "get animations(){reads++;throw Error('ordinary getter');},puppetAnimationLayers:[],effects:[]};"
+        "const request=new Proxy(target,{has(){probes++;throw Error('ordinary has');}});"
+        "if(!thisScene.createLayer(request)||probes||reads)throw Error('ordinary regression');return 1;}");
+    if (ordinary != NULL) {
+        update(ordinary, 1, 1, "ordinary image performs no new unsupported-field lookups");
+        mwx_scene_quickjs_owner_commit_layer_mutations(ordinary);
+    }
+    const char *failures_to_rollback[] = {
+        "export function update(v){thisScene.createLayer({image:'models/rig.json',name:'rollback-prefix'});"
+        "thisScene.createLayer(new Proxy({image:'models/rig.json'},{has(){throw Error('has-failed');}}));return 0;}",
+        "export function update(v){thisScene.createLayer({image:'models/rig.json',name:'rollback-prefix'});"
+        "thisScene.createLayer({get image(){throw Error('image-failed');}});return 0;}",
+    };
+    for (size_t i = 0; i < sizeof(failures_to_rollback) / sizeof(*failures_to_rollback); ++i) {
+        MWXSceneQuickJSOwner *failed = owner(domain, failures_to_rollback[i]);
+        if (failed == NULL) continue;
+        MWXSceneQuickJSFrameInput frame = {.frame_time = 1.0 / 60.0};
+        double output = -1;
+        expect(mwx_scene_quickjs_owner_update_scalar(failed, 41, 1, &frame, &output,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_EXCEPTION,
+            "uncaught has/getter exception reaches existing callback failure", diagnostic);
+        mwx_scene_quickjs_owner_discard_layer_mutations(failed);
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(failed) == 0,
+            "failed callback journal discarded", diagnostic);
+        MWXSceneQuickJSOwner *peer = owner(domain,
+            "export function update(v){if(thisScene.getLayer('rollback-prefix')!==null)throw Error('residue');"
+            "if(!thisScene.createLayer('models/renamed-rig.json'))throw Error('healthy peer');return 1;}");
+        if (peer != NULL) {
+            update(peer, 1, 1, "discard leaves no failed prefix and healthy peer creates");
+            mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+        }
+        mwx_scene_quickjs_owner_destroy(peer);
+        mwx_scene_quickjs_owner_destroy(failed);
+    }
+    mwx_scene_quickjs_owner_destroy(ordinary);
+    mwx_scene_quickjs_owner_destroy(rejected);
+    mwx_scene_quickjs_owner_destroy(allowed);
+    mwx_scene_quickjs_domain_destroy(domain);
+}
+
 int main(void) {
+    puppet_create_cases();
     MWXSceneQuickJSDomain *domain = make_domain();
     if (domain == NULL) return 1;
     publish(domain, 1, 9);

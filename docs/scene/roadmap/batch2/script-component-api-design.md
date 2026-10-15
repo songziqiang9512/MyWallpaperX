@@ -83,17 +83,17 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 
 <a id="prepared-puppet-clone"></a>
 
-## 已准备特殊实例后继（2026-10-15，设计中）
+## 已准备特殊实例（2026-10-15，默认Puppet几何有界已接）
 
-**选题与资格。** 下一候选为已准备Puppet实例，其次为空composition实例；文字显式style先需已证请求，不沿外观猜font或继承padding。source声明动画/effects不代表create请求要求继承，先取实际请求与成功准备结果的白名单metadata，避免为未请求语义重构。[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)公开配置创建，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html)公开播放控制；两页未裁决clone出生相位、配置省略或source销毁后的关系。只为实际影响首片的unknown做自有黑盒，不取私有算法。未定准入保持设计门关闭，设计门不阻止只读取证。
+**选题与资格。** 首片为已准备Puppet模型的默认几何实例，其次为空composition实例；文字显式style先需已证请求，不沿外观猜font或继承padding。实际原包31次create有25次普通命中、6次特殊模型缺失；六请求的own及完整已核原型链均没有animations/puppetAnimationLayers/effects，五Puppet源的mesh已成功准备。source声明不代表请求继承：不复制源动画、脚本或effects，不为本片新建子VM owner。[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)公开配置创建，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html)公开播放控制；两页未裁决clone出生相位、配置省略或source销毁后的关系。只为实际影响首片的unknown做自有黑盒，不取私有算法。本片准入限静态atlas与原普通单pass builtin image材质、已准备model/mesh和无动画/effect请求；其他配置继续局部拒绝，动画/graph后继仍未裁决。
 
-**职责与旧链退出。** 在原prepared-device/launch资源内形成可信Puppet模板：已验证mesh/rig/reference/attachments、选定动画轨道/evaluator、atlas logical extent及创建配置资格。静态作者层和clone共用同一准备结果，退出重复MDL/轨道解析；不另建独立资源registry或clock。mesh/indices/UV/不可变轨道与采样资源可共享，PlaybackState、clip位置/显隐/blend、bone overrides、physics/scratch、vertex ring、clipping临时目标及publication/FIFO每实例独立。GeometryProduct绑定新实例state，不能复制捕获原state的闭包；atlas只作mesh采样，不能以quad或bind-pose冒充请求的动画。
+**职责与旧链退出。** 在原prepared-device/launch资源内形成可信Puppet模板：已验证mesh/rig/reference/attachments、按实际配置准备的pose/evaluator、静态atlas logical extent及创建资格。PreparedAsset不固化source selected clips；原作者配置与默认创建分别准备pose，无动画请求沿原empty-selection reference skinning或exact bind几何，保shear/小行列式及局部fallback。静态作者层和clone共用同一准备结果，退出重复MDL/轨道解析；不另建独立资源registry或clock。mesh/indices/UV/不可变轨道与采样资源可共享，PlaybackState、clip位置/显隐/blend、bone overrides、physics/scratch、vertex ring、clipping临时目标及publication/FIFO每实例独立。GeometryProduct绑定新实例state，不能复制捕获原state的闭包；atlas只作mesh采样，不能以quad或bind-pose冒充请求的动画。
 
-**数据流与提交。** 原catalog模板资格→create journal携新layer identity/template identity与typed配置→原DynamicLayerRuntime候选/fixed-point→共同commit→原AnimationPlaybackRuntime及surface安装→同一typed LayerFrame/GeometryProduct/唯一compositor。出生/退休是已有plan的差量，普通帧不解析或扫描catalog。首次动画相位按取得的行为合同处理，不把原sceneTime初始化擅改成birth-zero。现负ID动画bridge和bone owner权限不能全局移除；实际需要的clone脚本/控制应沿原owner授权、回调与退休接通，未消费字段在出生前拒绝，不静默丢弃。请求effects时给新identity实例化原graph/target/history，未支持的组合不能借模板成功伪装可用。
+**数据流与提交。** 原catalog模板资格→create journal携新layer identity/template identity与typed配置→原DynamicLayerRuntime候选/fixed-point→共同commit→原AnimationPlaybackRuntime及surface安装→同一typed LayerFrame/GeometryProduct/唯一compositor。出生/退休是已有plan的差量，普通帧不解析或扫描catalog。首次动画相位按取得的行为合同处理，不把原sceneTime初始化擅改成birth-zero。现负ID动画bridge和bone owner权限不能全局移除；实际需要的clone脚本/控制应沿原owner授权、回调与退休接通，未消费字段在出生前拒绝，不静默丢弃。本片遇到动画/effect字段沿原异常/事务规则局部拒绝，不忽略非空配置。未来请求effects时须给新identity实例化原graph/target/history，不能借模板成功伪装可用。
 
 **失败与退出。** 模板缺失/配置漂移在journal分配前局部拒绝；父throw、预算或Swift晚拒绝、同帧生灭均不留下clip/surface登记。只在原共同接纳后安装实例；surface资源失败局部不可用，不回滚已执行JS或伪造geometry。单clone与creator连带退休撤原动画、surface及授权，in-flight资源按原completion释放；source退休不得提前销毁仍被合法实例使用的模板。空composition如后继实施，只复用原utility source/ordering/graph/pool出口，不复制source最终纹理，也不预设子成员复制。
 
-**最近验收与停止。** 先核实际own-data字段类型/包装、prepared匹配及返回结果，不输出script/raw配置；准备侧只核mesh/rig/clip计数、是否可动、fallback、atlas与graph状态。再用自有双实例证明请求动画的非静态mesh位移、独立pose/变换、throw/晚拒绝无残留及退休一个后peer继续，另验真实候选与未参与修法样本。改名/等价配置和缺template、错误代次、用途冲突保邻反例。若真实请求依赖首片外脚本/graph或没有可消费的prepared结果，收口资格并重新排队，不以无可见收益的基础设施扩张计交付。性能只在重复准备确有可比收益时单独验收。
+**最近验收与停止。** 实施与未验边界见[默认实例记录](../../history/prepared-puppet-default-instances-2026-10-15.md)。本片用自有双实例验证真实mesh轮廓/默认reference或bind几何、独立state/变换、throw/晚拒绝无残留及退休一个后peer继续，另验真实候选与未参与修法样本；动画字段不复制source，用失败反例锁定。未来动画实例另须非静态mesh位移与独立播放事实。改名/等价配置和缺template、错误代次、用途冲突保邻反例。若真实请求依赖首片外脚本/graph或没有可消费的prepared结果，收口资格并重新排队，不以无可见收益的基础设施扩张计交付。性能只在重复准备确有可比收益时单独验收。
 
 ## 图层 perspective typed setter 后继（2026-10-12）
 

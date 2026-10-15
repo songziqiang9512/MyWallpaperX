@@ -25,7 +25,7 @@ final class SceneDynamicImageTextureProvider {
         }
         var layerSources: [Int: SceneLayerSourcePublication] = [:]
         var pending: Set<Int> = []
-        for layer in topology.dynamicLayers where layer.contentKind == "image" {
+        for layer in topology.dynamicLayers where layer.contentKind == "image" && layer.puppetMeshPath == nil {
             guard let modelPath = layer.imagePath,
                   let resource = resources[modelPath.lowercased()],
                   let candidate = resource.loaded.candidate,

@@ -596,7 +596,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                 model_path: UnsafePointer(paths[index]!),
                 model_path_length: entry.value.modelPath.utf8.count,
                 natural_size: (Double(entry.value.renderSizeWH[0]), Double(entry.value.renderSizeWH[1])),
-                autosize: entry.value.autosize ? 1 : 0)
+                autosize: entry.value.autosize ? 1 : 0,
+                uses_puppet: entry.value.puppetMeshPath != nil ? 1 : 0)
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = descriptors.withUnsafeBufferPointer { buffer in

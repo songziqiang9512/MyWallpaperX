@@ -118,6 +118,63 @@ import Foundation
             owner.commitLayerMutations()
         }
         result["callbackValuesAfterCatalogRejectionAndCurrentPublication"] = values
+        let imageDomain = try SceneScriptQuickJSDomain()
+        try imageDomain.configureLayerCatalog(authored)
+        let ordinary = SceneScriptDynamicImageLayerTemplate(
+            modelPath: "models/fresh-photo.json", renderSizeWH: [64, 48])
+        let puppet = SceneScriptDynamicImageLayerTemplate(
+            modelPath: "models/fresh-rig.json", renderSizeWH: [64, 48],
+            puppetMeshPath: "meshes/fresh-rig.mdl")
+        try imageDomain.configureDynamicImageCatalog([
+            ordinary.modelPath: ordinary, puppet.modelPath: puppet,
+        ])
+        do {
+            var changed = puppet
+            changed.puppetMeshPath = nil
+            try imageDomain.configureDynamicImageCatalog([
+                ordinary.modelPath: ordinary, changed.modelPath: changed,
+            ])
+            result["puppetCatalogMarkerDriftRejected"] = false
+        } catch {
+            result["puppetCatalogMarkerDriftRejected"] = true
+        }
+        try imageDomain.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: authored)
+        // These self-authored requests consume only typed prepared metadata;
+        // the harness never opens the named model, mesh or texture files.
+        let imageSource = """
+        export function update(v) {
+            const instance = thisScene.createLayer('models/fresh-rig.json');
+            if (!instance) throw Error('prepared default');
+            let rejected = 0;
+            for (const key of ['animations', 'puppetAnimationLayers', 'effects']) {
+                const request = {image:'models/fresh-rig.json'};
+                request[key] = [];
+                if (thisScene.createLayer(request) !== null) throw Error('unsupported field');
+                rejected++;
+            }
+            const inherited = Object.create({effects:undefined});
+            inherited.image = 'models/fresh-rig.json';
+            if (thisScene.createLayer(inherited) !== null) throw Error('inherited field');
+            rejected++;
+            const photo = thisScene.createLayer({image:'models/fresh-photo.json',
+                animations:[], puppetAnimationLayers:[], effects:[]});
+            if (!photo) throw Error('ordinary regression');
+            return new Vec3(1, 1, rejected);
+        }
+        """
+        let imageOwner = try SceneScriptValueOwner(domain: imageDomain, source: imageSource,
+            target: .layer(layerID: 17, field: .color), valueType: .vector3,
+            effectNames: [], allowsStatefulLayerSideEffects: true,
+            generation: 1, budget: .default)
+        let imageEvaluation = try imageOwner.evaluate(input: .vector3(0, 0, 0),
+            frame: .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+                simulationFrameTime: 1.0 / 60, sceneTime: 0)),
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}",
+            expectedGeneration: 1, interruptBudget: nil).get()
+        guard case let .vector3(x, y, z) = imageEvaluation.value else { fatalError("image result") }
+        result["puppetCatalogBridgeValues"] = [x, y, z]
+        result["puppetCatalogBridgeMutationPaths"] = imageEvaluation.layerMutations.compactMap(\.assetPath).sorted()
+        imageOwner.commitLayerMutations()
         print(String(decoding: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -168,6 +225,13 @@ class SceneScriptInitialLayerConfigurationTests(unittest.TestCase):
             self.swift_result["callbackValuesAfterCatalogRejectionAndCurrentPublication"],
             [[77, 3, 1], [77, 3, 9]],
         )
+
+    def test_prepared_puppet_marker_reaches_actual_create_admission(self) -> None:
+        self.assertIs(self.swift_result["puppetCatalogMarkerDriftRejected"], True)
+        self.assertEqual(self.swift_result["puppetCatalogBridgeValues"], [1, 1, 4])
+        self.assertEqual(self.swift_result["puppetCatalogBridgeMutationPaths"], [
+            "models/fresh-photo.json", "models/fresh-rig.json",
+        ])
 
 
 if __name__ == "__main__":

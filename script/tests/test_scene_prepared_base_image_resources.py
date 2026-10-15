@@ -108,11 +108,16 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertEqual(self.facts[name]["dynamicCount"], 0)
 
     def test_deferred_missing_and_special_providers_are_not_opened(self) -> None:
-        for name in ("deferred", "missing", "puppet", "composition", "solid", "animated"):
+        for name in ("deferred", "missing", "composition", "solid", "animated"):
             with self.subTest(name=name):
                 self.assertEqual(self.facts[name]["loads"], 0)
                 self.assertEqual(self.facts[name]["dynamicCount"], 0)
         self.assertTrue(self.facts["deferred"]["pending"])
+        # A static Puppet atlas can now be prepared once, but the controlled
+        # unavailable mesh backend cannot qualify a new geometry instance.
+        self.assertEqual(self.facts["puppet"]["loads"], 1)
+        self.assertTrue(self.facts["puppet"]["hasOutcome"])
+        self.assertEqual(self.facts["puppet"]["dynamicCount"], 0)
 
     def test_failed_or_untyped_publication_cannot_escape_into_dynamic_resources(self) -> None:
         for name in ("decodeFailure", "uploadFailure", "noCandidate", "mismatchedCandidate", "loadedAnimation"):

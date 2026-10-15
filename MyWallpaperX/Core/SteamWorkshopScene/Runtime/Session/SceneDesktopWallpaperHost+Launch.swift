@@ -748,7 +748,8 @@ extension SceneDesktopWallpaperHost {
                 let autosize = autosizeByModelPath[key] ?? false
                 guard !autosize || resource.naturalSizeWH != nil else { return nil }
                 return (key, SceneScriptDynamicImageLayerTemplate(modelPath: resource.modelPath,
-                    renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize))
+                    renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize,
+                    puppetMeshPath: resource.puppetMeshPath))
             })
         try propertyVectorScriptProgram.domain?.configureDynamicImageCatalog(dynamicImageTemplates)
         let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands

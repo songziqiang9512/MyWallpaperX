@@ -78,18 +78,17 @@
     },
     {
       "id": "scene-prepared-puppet-clone",
-      "title": "已准备Puppet独立实例与动画生命周期",
+      "title": "已准备Puppet默认几何动态实例",
       "owner": "scene-script-runtime",
-      "status": "blocked-pending-design",
+      "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "design_notes": "2026-10-15 prepared-puppet-clone只完成职责候选设计：共享原launch静态准备、实例私有PlaybackState/clip/surface publication、原journal/fixed-point共同提交及差量退休，不新增registry/clock/compositor。实际create字段/成功准备结果、首片需要的出生相位/脚本/graph语义未裁决，保持blocked；只读取证可继续。取得最小中性合同后修订本条范围再实施，不因source动画声明推断请求继承。",
+      "design_notes": "2026-10-15 D4 prepared-puppet-clone按真实请求裁决默认几何首片：原包六个特殊create在ordinary catalog缺失，固定动画/effect keys在own和完整plain原型链均absent；五Puppet源mesh准备成功。只开放静态atlas/原plain builtin image材质/已准备model与无动画/effect请求；共享PreparedAsset但按实际配置分别PreparedPose，默认reference empty-selection或原exact bind，不复制source动画/脚本/effects，不开放负ID动画/bone控制。原launch资源、DynamicLayer plan/fixed-point、BaseImageTextureStore geometry atom与completion退休各保唯一owner；构造/晚拒绝/单实例及creator退休均验。未来animated/effectful创建未批准；approved不是产品能力或视觉验收。",
       "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScriptPreparedPuppet*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneQuickJSPuppetClone*.c"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedPuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift"
       ],
       "contentPatterns": [
-        "SceneScriptPreparedPuppetLayerTemplate",
-        "prepared_puppet_template"
+        "ScenePreparedPuppetResources"
       ]
     },
     {

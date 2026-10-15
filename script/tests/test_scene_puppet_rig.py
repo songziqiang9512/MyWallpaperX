@@ -242,66 +242,6 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         if completed.returncode != 0:
             raise AssertionError(f"harness run failed:\n{completed.stderr}")
         cls.results = {entry["file"]: entry for entry in json.loads(completed.stdout)}
-        # Execute the actual initial getter and path resolver verbatim. Omit the
-        # unrelated Metal preparation methods so this regression needs no GPU.
-        from script.tests.test_scene_puppet_playback import SWIFT_SOURCES as evaluator_sources
-        load_source = (SCENE_ROOT / "Systems/Puppet/ScenePuppetLayerLoad.swift").read_text()
-        getter_source = load_source[:load_source.index("    struct Outcome {")]
-        getter_source += load_source[load_source.index("    /// The mesh path comes from extracted pkg JSON;"):]
-        getter_source += r'''
-struct SceneRenderDescriptor {
-    struct Layer { let id: Int; let puppetMeshPath: String? }
-}
-@main enum InitialGetterHarness {
-    static func main() throws {
-        var rows: [[String: Any]] = []
-        for path in CommandLine.arguments.dropFirst() {
-            let url = URL(fileURLWithPath: path)
-            let layer = SceneRenderDescriptor.Layer(id: 1, puppetMeshPath: url.lastPathComponent)
-            var row: [String: Any] = ["file": url.lastPathComponent]
-            if let pose = ScenePuppetLayerLoad.boneConfiguration(for: layer,
-                cacheDirectory: url.deletingLastPathComponent()) {
-                row["available"] = true
-                row["local"] = pose.localMatrices
-                row["world"] = pose.worldMatrices
-            } else { row["available"] = false }
-            rows.append(row)
-        }
-        print(String(decoding: try JSONSerialization.data(withJSONObject: rows), as: UTF8.self))
-    }
-}
-'''
-        getter_harness = tmp / "initial-getter.swift"
-        getter_harness.write_text(getter_source)
-        getter_binary = tmp / "initial-getter"
-        getter_compile = subprocess.run(["swiftc", *map(str, evaluator_sources),
-            str(SCENE_ROOT / "Format/ScenePuppetBoneCatalog.swift"),
-            str(SCENE_ROOT / "Systems/Script/ScenePuppetBoneTransformBridge.swift"),
-            str(getter_harness), "-o", str(getter_binary)], capture_output=True, text=True)
-        if getter_compile.returncode:
-            raise AssertionError(getter_compile.stderr)
-        cls.getter_bind_matrices = {}
-        getter_inputs = []
-        for name, root_bind, tail in (("bind-shear.mdl", matrix(4), b""),
-                                     ("bind-small-det.mdl", matrix(4), b""),
-                                     ("getter-reference.mdl", matrix(4), reference_tail),
-                                     ("getter-shear-reference.mdl", matrix(4), None)):
-            if name == "bind-shear.mdl":
-                root_bind[4] = 0.25
-            elif name == "bind-small-det.mdl":
-                root_bind[0] = 1e-8
-            if tail is None:
-                shear_reference = matrix(20, 30)
-                shear_reference[4] = 0.25
-                tail = b"\0\0\1" + struct.pack("<32f", *shear_reference, *matrix(7, 9))
-            path = tmp / name
-            path.write_bytes(build_rig_mdl(**legacy, bind_matrices=[root_bind, matrix(2)], skeleton_tail=tail))
-            getter_inputs.append(str(path))
-            cls.getter_bind_matrices[name] = list(struct.unpack("<16f", struct.pack("<16f", *root_bind)))
-        getter_run = subprocess.run([str(getter_binary), *getter_inputs], capture_output=True, text=True)
-        if getter_run.returncode:
-            raise AssertionError(getter_run.stderr)
-        cls.initial_getter_results = {row["file"]: row for row in json.loads(getter_run.stdout)}
 
     @classmethod
     def tearDownClass(cls):
@@ -390,23 +330,6 @@ struct SceneRenderDescriptor {
     def test_modern_declared_reference_is_not_silently_treated_as_supported(self):
         for version in ("MDLV0021", "MDLV0023"):
             self.assertIn("reference pose is unverified", self.results[f"{version}-unsupported-reference.mdl"]["error"])
-
-    def test_initial_getter_preserves_exact_bind_without_reference(self):
-        for name in ("bind-shear.mdl", "bind-small-det.mdl"):
-            with self.subTest(name=name):
-                row = self.initial_getter_results[name]
-                self.assertTrue(row["available"], row)
-                self.assertEqual(row["local"][:16], self.getter_bind_matrices[name])
-                self.assertEqual(row["local"][16:], matrix(2))
-                self.assertEqual(row["world"][:16], row["local"][:16])
-
-    def test_initial_reference_getter_uses_evaluator_validation(self):
-        row = self.initial_getter_results["getter-reference.mdl"]
-        self.assertTrue(row["available"], row)
-        self.assertEqual(row["local"][12:15], [20, 30, 0])
-        self.assertEqual(row["local"][28:31], [7, 9, 0])
-        self.assertEqual(row["world"][28:31], [27, 39, 0])
-        self.assertFalse(self.initial_getter_results["getter-shear-reference.mdl"]["available"])
 
     def test_three_real_sources_parse_both_verified_strides_when_available(self):
         if len(self.real_assets) != 3:

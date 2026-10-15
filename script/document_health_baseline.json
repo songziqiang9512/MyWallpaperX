@@ -109,8 +109,8 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 114,
-      "bytes": 34707
+      "lines": 115,
+      "bytes": 34963
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -137,8 +137,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 411,
-      "bytes": 103654
+      "lines": 412,
+      "bytes": 104659
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -202,7 +202,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 264,
-      "bytes": 72508
+      "bytes": 73168
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -226,11 +226,11 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33151
+      "bytes": 33176
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 71091
+      "bytes": 71279
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1110,24 +1110,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "0c5b626af80178a06dadab8404d7f770b4e170089243e5234b088628e9981e4c",
-      "after": "23261c351242eca0295378a016d21efcca3989bc420ec2948cbc2cd29836f005",
-      "owner": "Scene capability sequencing",
-      "reason": "以当前普通优化构建资格及局部优化收益递减重排能力主线；N06文字、N05 Blur与专项卡各保唯一顺序，未验性能和视觉不记完成。",
-      "decision": "docs/scene/roadmap/scene-compatibility-roadmap.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "d9f1def041ddebf8b0180887b9958df84cccea8516441f293f154a0f7e040a6a",
-      "after": "d03b0579f70782c1f3e35dc42ce813bce9a8d2e668fddbce8507f39735f47949",
-      "owner": "scene-script-runtime",
-      "reason": "同步prepared文字实例的设计/能力/冻结证据并替换N06过时状态，保未验边界；同一事实按职责分工。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-text-clone"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "before": "43f876b33a4182564ed51c6b377efc8a35ddb1fec966f42d2c349effb53373b5",
       "after": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
@@ -1146,15 +1128,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8ae01f7ee462c019fa7ccaeb4217752ac0eb572490f23b135dd08d168db0cfac",
-      "after": "7e247959b7e81cfe1f7e38a87ba97fa21701b56c6a0089cf20056650fe06e11f",
-      "owner": "Scene material admission",
-      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "3904e6108a579de5e81bfabb34ac64872bc5eb4c502dd53792f14f0ecdc308e5",
       "after": "ea71caa57739f5b1b08ac2401f81a555f7b15546f318b4fdcb6beed8b488b473",
@@ -1164,20 +1137,47 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "17ec0352f881d0170bd93edf78ab304da00ef520ab162f18a11201bdd1a35049",
-      "after": "7fd837a7faa2867929ec53041ceef7d006eb2ebe3b86593dc17905193d25a79c",
-      "owner": "Scene material admission",
-      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7e247959b7e81cfe1f7e38a87ba97fa21701b56c6a0089cf20056650fe06e11f",
+      "after": "49262c117817866d3caa44548e4ab33ce350a1e5140e70ed8e80b3189a1f4cf4",
+      "owner": "scene-script-runtime",
+      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "d03b0579f70782c1f3e35dc42ce813bce9a8d2e668fddbce8507f39735f47949",
+      "after": "6122d49f86e8f785ec9201cf7191a0b1b1c4a3a86d2ff0634db6e0d6b2319001",
+      "owner": "scene-script-runtime",
+      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "4c327b6ed31566be56e9c2ad0607f01e7f07460253c4cf3c7bd67099850cd1e6",
-      "after": "9f62dbf9a61e26bdd3c9416aadb8413411a762e75c39182c0c2cac0f25dae7fa",
-      "owner": "Scene prepared instance design",
-      "reason": "新增特殊实例的准备/可变状态/共同提交及退出边界；先核实际请求，未定语义保持设计门关闭，不冒充能力实施。",
+      "before": "9f62dbf9a61e26bdd3c9416aadb8413411a762e75c39182c0c2cac0f25dae7fa",
+      "after": "d176a05be2d3c1ee4f3965bdbfe9798968c880b681fcdfca3fd222829b914d01",
+      "owner": "scene-script-runtime",
+      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "5dbfb90a84d854f61027d982c03632c8e0b992d8e62732eab416f5fb5621f28f",
+      "after": "7bbb6a758f4ee9c0630266c6f1e8d8764a5641d360e16af7da11b63f006fc78a",
+      "owner": "scene-script-runtime",
+      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "7fd837a7faa2867929ec53041ceef7d006eb2ebe3b86593dc17905193d25a79c",
+      "after": "b78460e4448275493431525e7d6df6c4bd0624529385a0c7c0eeb6ef04d5fc2c",
+      "owner": "scene-script-runtime",
+      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
     }
   ]

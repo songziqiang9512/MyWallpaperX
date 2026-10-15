@@ -498,6 +498,7 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
             encoding="utf-8"
         )
+        view += (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift").read_text(encoding="utf-8")
         preflight = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")

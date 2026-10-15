@@ -4,9 +4,10 @@ extension SceneDesktopWallpaperLaunchContext {
     func configurePreparedPuppetBones() throws {
         for layer in runtimeInput.renderDescriptor.layers
         where layer.puppetMeshPath != nil {
-            guard let bones = ScenePuppetLayerLoad.boneConfiguration(
-                for: layer, cacheDirectory: cacheDirectory
-            ) else { continue }
+            guard let meshPath = layer.puppetMeshPath,
+                  case let .ready(asset)? = preparedDeviceResources.baseImages.puppets.assetsByMeshPath[meshPath.lowercased()],
+                  let bones = ScenePuppetLayerLoad.boneConfiguration(for: asset, layerID: layer.id)
+            else { continue }
             _ = try configurePuppetBones(
                 layerID: layer.id,
                 localMatrices: bones.localMatrices,

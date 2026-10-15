@@ -83,3 +83,30 @@ extension SceneDesktopWallpaperSession {
         return transaction
     }
 }
+
+extension SceneDesktopWallpaperSession {
+    func particlePlaybackObservations(
+        context: SceneDesktopWallpaperLaunchContext,
+        committed: [Int: SceneParticlePlaybackSnapshot]
+    ) -> [Int: SceneParticlePlaybackObservation] {
+        guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs,
+              surfaces.values.allSatisfy({ $0.scriptGeneration == context.propertyVectorScriptProgram.generation }) else { return [:] }
+        var observations: [Int: SceneParticlePlaybackObservation] = [:]
+        for layer in context.runtimeInput.renderDescriptor.layers where layer.contentKind == "particle" {
+            let current = committed[layer.id] ?? .init()
+            var live = false, pending = false, rearm = false, complete = true
+            for surface in surfaces.values {
+                guard let value = surface.metalView.particlePlaybackObservation(layerID: layer.id),
+                      value.intent == current.intent, value.revision == current.revision else { complete = false; break }
+                live = live || value.liveAny
+                pending = pending || value.emissionPending
+                rearm = rearm || value.rearmHasWork
+            }
+            if complete {
+                observations[layer.id] = .init(liveAny: live, emissionPending: pending,
+                    rearmHasWork: rearm, intent: current.intent, revision: current.revision)
+            }
+        }
+        return observations
+    }
+}

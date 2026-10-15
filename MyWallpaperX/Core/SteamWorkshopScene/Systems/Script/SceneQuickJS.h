@@ -412,6 +412,7 @@ typedef struct MWXSceneQuickJSDynamicImageDescriptor {
     size_t model_path_length;
     double natural_size[2];
     uint32_t autosize;
+    uint32_t uses_puppet;
 } MWXSceneQuickJSDynamicImageDescriptor;
 
 /* Launch-prepared metadata only. The domain copies these values before the

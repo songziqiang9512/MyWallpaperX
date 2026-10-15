@@ -37,13 +37,13 @@ private struct SceneStartupReportBuffer {
 }
 
 class SceneMetalView: NSView {
-    private let metalDevice: MTLDevice
+    let metalDevice: MTLDevice
     private let preparedDynamicTextFieldsByLayerID:
         [Int: Set<SceneDynamicTextField>]
     private let presentationStreamID: UInt64
     private let textureAnimationPlaybackRuntime:
         SceneTextureAnimationPlaybackRuntime
-    private let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
+    let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     let usesLinearDisplayOutput: Bool
@@ -51,7 +51,7 @@ class SceneMetalView: NSView {
     var displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB
     private let solidLayerTexture: MTLTexture?
     private var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
-    private var imageTextures = SceneBaseImageTextureStore()
+    var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
@@ -60,7 +60,10 @@ class SceneMetalView: NSView {
     var debugDrawableUnavailableFrameCount: UInt64 = 0
 #endif
     var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
-    private var imagePipeline: SceneImageLayerPipeline?
+    var puppetResourceView: SceneResourceView?
+    var dynamicPuppetTopologyRevision: UInt64?
+    var dynamicPuppetLayerIDs: Set<Int> = []
+    var imagePipeline: SceneImageLayerPipeline?
     var particlePlayback: SceneParticlePlaybackState?
     var preparedParticleLayerIDs: Set<Int> {
         particlePlayback?.preparedLayerIDs ?? []
@@ -83,7 +86,7 @@ class SceneMetalView: NSView {
     private var firstFramePresentationRegistration:
         ((CAMetalDrawable) -> Bool)?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
-    private weak var preparedBaseImages: ScenePreparedBaseImageResources?
+    weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: URL] = [:]
     private var adoptedDeferredBaseImageURLs: [Int: URL] = [:]
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
@@ -242,9 +245,6 @@ class SceneMetalView: NSView {
             resourceView: resourceView,
             descriptor: renderer.renderDescriptor
         )
-        let clippingPipeline = ScenePipelineSlot<MTLRenderPipelineState> { [metalDevice] in
-            ScenePuppetClipping.makePipeline(device: metalDevice)
-        }
         var report = SceneStartupReportBuffer(enabled: logURL != nil)
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
@@ -254,6 +254,9 @@ class SceneMetalView: NSView {
         var preparedBaseImageHitCount = 0
         renderer.installResolvedMaterialExecutionEvidence()
         self.preparedBaseImages = preparedBaseImages
+        puppetResourceView = resourceView
+        dynamicPuppetTopologyRevision = nil
+        dynamicPuppetLayerIDs.removeAll(keepingCapacity: true)
         deferredBaseImageURLs.removeAll(keepingCapacity: true)
         adoptedDeferredBaseImageURLs.removeAll(keepingCapacity: true)
         report.append("Scene preview texture load report")
@@ -346,56 +349,21 @@ class SceneMetalView: NSView {
             case let .loaded(baseLoad):
                 let texture = baseLoad.texture
                 var puppetMessage: String?
-                let clippingDomain = UUID()
-                if layer.puppetMeshPath != nil,
-                   let imagePipeline,
-                   let puppetOutcome = ScenePuppetLayerLoad.preparedGeometry(
-                       for: layer,
-                       atlasTexture: texture,
-                       cacheDirectory: cacheDirectory,
-                       device: metalDevice,
-                       pipeline: imagePipeline,
-                       clippingPipeline: { clippingPipeline.resolve() },
-                       loadClippingMask: { name in
-                           guard let url = resolver.resolveTextureFile(named: name),
-                                 case let .loaded(texture) = loader.loadDataTexture(from: url, device: metalDevice)
-                           else { return nil }
-                           return texture
-                       },
-                       allocateClippingMask: { [offscreenTexturePool] clip, width, height, commandBuffer in
-                           guard let target = offscreenTexturePool.reservePuppetClipping(
-                               layerID: layer.id, clipID: clip, domain: clippingDomain,
-                               width: width, height: height, commandBuffer: commandBuffer) else { return nil }
-                           let pin = target.pin
-                           return .init(texture: target.texture, release: { pin.release() })
-                       }
+                if let pose = preparedBaseImages.puppets.posesByLayerID[layer.id],
+                   let puppetOutcome = instantiatePuppetGeometry(
+                       for: layer, pose: pose, atlasTexture: texture,
+                       resources: preparedBaseImages, resolver: resolver
                    ) {
-                    let registration = puppetOutcome.playback.map {
-                        puppetAnimationPlaybackRuntime.register(layerID: layer.id,
-                            selection: $0.selection, authoredLayers: layer.puppetAnimationLayers)
+                    if let product = puppetOutcome.geometryProduct {
+                        loaded.setPuppetGeometry(product, samplingAtlas: texture,
+                            samplingCandidate: baseLoad.candidate, layerID: layer.id)
+                    } else if puppetOutcome.allowsMissingMeshTextureProduct {
+                        loaded.set(texture, candidate: nil, layerID: layer.id)
                     }
-                    if case let .failure(failure)? = registration {
-                        NSLog("MWX Puppet: layer=%d animation definition rejected: %@",
-                            layer.id, String(describing: failure))
-                        puppetMessage = "; puppet animation definition rejected"
-                    } else {
-                        if let product = puppetOutcome.geometryProduct {
-                            loaded.setPuppetGeometry(
-                                product,
-                                samplingAtlas: texture,
-                                samplingCandidate: baseLoad.candidate,
-                                layerID: layer.id
-                            )
-                        } else if puppetOutcome.allowsMissingMeshTextureProduct {
-                            loaded.set(texture, candidate: nil, layerID: layer.id)
-                        }
-                        if let playback = puppetOutcome.playback {
-                            loadedPuppetPlaybackStates[layer.id] = playback
-                        }
-                        if report.isEnabled {
-                            puppetMessage = "; \(puppetOutcome.message)"
-                        }
+                    if let playback = puppetOutcome.playback {
+                        loadedPuppetPlaybackStates[layer.id] = playback
                     }
+                    if report.isEnabled { puppetMessage = "; \(puppetOutcome.message)" }
                 } else if layer.puppetMeshPath == nil {
                     loaded.set(
                         texture,

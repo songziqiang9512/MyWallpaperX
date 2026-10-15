@@ -3027,6 +3027,26 @@
         "test_scene_resolved_material_program_finalizer",
         "test_scene_material_copy_history_rendering"
       ]
+    },
+    {
+      "id": "scene-prepared-puppet-instances",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedPuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+        "script/tests/test_scene_puppet_preparation.py",
+        "script/tests/fixtures/ScenePuppetPreparationCases.swift"
+      ],
+      "modules": [
+        "test_scene_puppet_preparation",
+        "test_scene_puppet_animation_playback_runtime",
+        "test_scene_script_initial_layer_configuration",
+        "test_scene_prepared_base_image_resources",
+        "test_scene_puppet_buffer_publication"
+      ]
     }
   ],
   "method_gates": {

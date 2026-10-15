@@ -71,6 +71,17 @@ enum Observation {
     static var evidence: [[SIMD2<Float>]] = []
     static weak var previousCommand: MTLCommandBuffer?
 }
+// This gate does not test optional GPU stage timing. Keep that diagnostic
+// disabled at the external observation boundary; all geometry, publication,
+// native encoder creation, draw commands and GPU completion remain real.
+enum SceneGPUStageTimestampHook {
+    static func render(_ commandBuffer: MTLCommandBuffer,
+                       _ descriptor: MTLRenderPassDescriptor,
+                       role: String) -> MTLRenderCommandEncoder? {
+        commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+    }
+    static func drew(_ encoder: MTLRenderCommandEncoder) {}
+}
 extension MTLDevice {
     func makeSceneBuffer(length: Int) -> MTLBuffer? {
         guard let buffer = makeBuffer(length: length, options: .storageModeShared) else {

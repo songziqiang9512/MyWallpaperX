@@ -6,6 +6,7 @@ import Metal
 struct SceneResourceView {
     let projectRootURL: URL
     let packageRootURL: URL?
+    var primaryRootURL: URL { packageRootURL ?? projectRootURL }
     struct Resource { let url: URL }
     func resource(relativePath: String) -> Resource? {
         let url = projectRootURL.appendingPathComponent(relativePath)
@@ -19,7 +20,18 @@ struct SceneAssetCatalog {
         var autosize: Bool? = nil
         var declaredSizeWH: [Float]? = nil
         var hasDeclaredSizeFields = false
+        var puppetPath: String? = nil
     }
+}
+// Puppet model parsing is outside this controlled ordinary-image ownership
+// gate. The complete CPU preparation contract has its own production-source gate.
+enum ScenePuppetLayerLoad { struct PreparedPose {} }
+struct ScenePreparedPuppetResources {
+    static func prepare(descriptor: SceneRenderDescriptor, cacheDirectory: URL,
+                        cancellationCheck: () throws -> Void) throws -> Self {
+        try cancellationCheck(); return .init()
+    }
+    func defaultPose(for layer: SceneRenderDescriptor.Layer) -> ScenePuppetLayerLoad.PreparedPose? { nil }
 }
 struct SceneRenderDescriptor {
     struct Layer {

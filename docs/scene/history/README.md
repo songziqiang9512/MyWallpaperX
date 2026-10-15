@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-15 | SceneScript/Puppet | 有界实现 | [默认几何动态实例](prepared-puppet-default-instances-2026-10-15.md) | 共享CPU准备、独立mesh实例与跨surface重建退休边界 | [D4](../roadmap/batch2/script-component-api-design.md#prepared-puppet-clone)、[API](../capabilities/scenescript-api-coverage.md#prepared-puppet-default-instances)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | SceneScript/动态文字 | 有界实现 | [prepared文字实例](prepared-text-clones-2026-10-15.md) | 独立状态、事务/退休与真实shadow热更；六个特殊clone及排版余项未闭 | [D4](../roadmap/batch2/script-component-api-design.md#prepared-text-clone)、[API](../capabilities/scenescript-api-coverage.md#prepared-text-clones)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | JPEG/资源属性 | 正确性修复 | [显示方向与尺寸](jpeg-display-layout-2026-10-15.md) | 八方向共用decoder、真实选图/重开/reset及独立入口；不计性能 | [资源合同](../architecture/scene-resource-admission.md#jpeg-display-layout)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-15 | 切换/内存 | 资格与类别诊断 | [轻重切换驻留](scene-switch-residency-qualification-2026-10-15.md) | 七窗footprint上移、独立purgeable类别增量；调用/持有owner未定，不计收益 | [性能卡](../roadmap/performance-convergence-card.md) |

@@ -98,6 +98,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
 
     private let lock = NSLock()
     private var definitions: [Int: LayerDefinition] = [:]
+    private var dynamicTopologyRevision: UInt64?
     private var states: [Int: [ClipState]] = [:]
     private var lastSceneTime: Double?
     private var latestFrame: FrameSnapshot?
@@ -199,6 +200,30 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         latestFrame = frame
         lastSceneTime = currentSceneTime
         return frame
+    }
+
+    /// Committed membership belongs to this launch owner, independently of
+    /// surface reconstruction. The lazy set is built only at a topology change.
+    func synchronizeDynamicLayers(
+        topologyRevision: UInt64,
+        liveLayerIDs: @autoclosure () -> Set<Int>
+    ) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard dynamicTopologyRevision != topologyRevision else { return }
+        let live = liveLayerIDs()
+        let retired = Set(definitions.keys.filter { $0 < 0 && !live.contains($0) })
+        for layerID in retired {
+            definitions.removeValue(forKey: layerID)
+            states.removeValue(forKey: layerID)
+        }
+        appliedCommands = appliedCommands.filter { !retired.contains($0.value.identity.layerID) }
+        if let frame = latestFrame {
+            latestFrame = .init(frameIndex: frame.frameIndex, sceneTime: frame.sceneTime,
+                layers: frame.layers.filter { !retired.contains($0.key) },
+                animationSnapshots: frame.animationSnapshots.filter { !retired.contains($0.identity.layerID) })
+        }
+        dynamicTopologyRevision = topologyRevision
     }
 
     /// Validation is side-effect free; a rejected owner cannot partially control a clip.

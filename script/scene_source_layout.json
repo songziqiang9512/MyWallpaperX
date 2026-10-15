@@ -381,6 +381,7 @@
           "SceneMetalView+Pointer.swift",
           "SceneMetalView+PointerEvents.swift",
           "SceneMetalView+PuppetBones.swift",
+          "SceneMetalView+PuppetResources.swift",
           "SceneMetalView+SceneScriptCursorInteraction.swift",
           "SceneMetalView.swift",
           "SceneResolvedMaterialFramePreflight+Admission.swift",
@@ -614,7 +615,8 @@
           "SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
           "SceneDesktopWallpaperLaunchContext+StartupReport.swift",
           "SceneDesktopWallpaperLaunchFrameSchema.swift",
-          "ScenePreparedDeviceResources.swift"
+          "ScenePreparedDeviceResources.swift",
+          "ScenePreparedPuppetResources.swift"
         ],
         "responsibility": "Session: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       }

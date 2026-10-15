@@ -134,6 +134,31 @@ final class ScenePuppetPlaybackState {
         } catch {
             return .failure(.resourceAllocationFailed)
         }
+        return make(
+            layerID: layerID, mesh: mesh, evaluator: evaluator,
+            selection: selection, attachments: attachments,
+            atlasTexture: atlasTexture, layerWidth: layerWidth,
+            layerHeight: layerHeight, device: device, pipeline: pipeline,
+            clipping: clipping
+        )
+    }
+
+    /// A prepared pose can be instantiated for more than one layer or surface.
+    /// Only immutable evaluation data is shared; all CPU staging, bone state,
+    /// GPU buffers and submission state below belong to the new instance.
+    static func make(
+        layerID: Int,
+        mesh: SceneMdlPuppetMesh,
+        evaluator: ScenePuppetAnimationEvaluator,
+        selection: ScenePuppetAnimationSelection,
+        attachments: [SceneMdlPuppetAttachment],
+        atlasTexture: MTLTexture,
+        layerWidth: Float,
+        layerHeight: Float,
+        device: MTLDevice,
+        pipeline: SceneImageLayerPipeline,
+        clipping: ScenePuppetClipping? = nil
+    ) -> Result<Output, Failure> {
         guard layerWidth.isFinite, layerHeight.isFinite,
               layerWidth >= 1, layerHeight >= 1 else {
             return .failure(.degenerateLayerSize)

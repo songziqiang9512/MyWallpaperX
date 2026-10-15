@@ -596,10 +596,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2ccfd8243a0f635d480c4c97881018e2d2d7026a44abfe8483b05e0fca4ecb16",
+        "sourceSHA256": "fc44ecdcc29e2743f8210b27a4be5c9e5ea5ed05f7c2b263916d5f2acc757bb5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批文字实例及默认mask后继导航；非全部旧证据HEAD重验",
-        "limitations": "仅导航及本批限定结果；不关闭特殊clone、全部布局/交互或性能验收。"
+        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
+        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
       }
     },
     {
@@ -796,10 +796,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e33244c6610fc9f2ddc1b01d3a309aa656d7fb754cab5ba5f19b24e79214f476",
+        "sourceSHA256": "1f008ecc620d270d0483fe05003927889f565dbed3fe3276594136875eb1ac7d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批prepared文字实例冻结记录与原有导航链接；非全部旧证据HEAD重验",
-        "limitations": "仅导航及本批限定结果；不关闭特殊clone、全部布局/交互或性能验收。"
+        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
+        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
       }
     },
     {
@@ -1773,6 +1773,19 @@
         "limitations": "No all-sample, official parity, stable end-to-end startup, HDR history or long switching acceptance"
       },
       "lastReviewed": "2026-10-13"
+    },
+    {
+      "path": "docs/scene/history/prepared-puppet-default-instances-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/roadmap/batch2/script-component-api-design.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "Prepared Puppet默认几何、共享模型准备、独立实例、真实shadow触发与跨surface重建退休边界；动画/graph与性能未验。"
     },
     {
       "path": "docs/scene/history/prepared-text-clones-2026-10-15.md",
@@ -2926,10 +2939,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2b3a42504e1fdd072e37891a7c7ba6eef472a0ecdaf746f409b9b7100039eeef",
+        "sourceSHA256": "11e241860edf5c1e5ab078ab9bb997ee8b2331c645d4da4cf4bafa7ea77cd930",
         "method": "document_registry --audit + document_health --check",
-        "scope": "prepared特殊实例的候选职责与未定准入设计；原已实施文字/FOV范围不重开",
-        "limitations": "只审导航与单一权威，不替代原生、性能或官方parity验收；实际运行边界归本轮历史。"
+        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
+        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
       }
     },
     {
@@ -3012,13 +3025,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e5b4b256068204a14ed470c797e09d317711bc7b1d3fba3cc43f6f2126eb44a3",
+        "sourceSHA256": "7f9df86607244157bc192c52001d7557b054f1074dc99f56c421770ff1c91e2a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批Solar原TypeError保持开放，2938612768两版fixed13既有失败与画面裁切未归因的导航核对",
-        "limitations": "导航复核不冒充全架构、样本兼容、整进程性能、能耗或Release；实际执行身份与边界归本批历史证据。"
+        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
+        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
       }
     },
     {

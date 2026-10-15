@@ -185,6 +185,7 @@ typedef struct MWXSceneQuickJSDynamicImageRecord {
     char *identity_key;
     double natural_size[2];
     bool autosize;
+    bool uses_puppet;
 } MWXSceneQuickJSDynamicImageRecord;
 
 typedef struct MWXSceneQuickJSTextCloneSnapshot {

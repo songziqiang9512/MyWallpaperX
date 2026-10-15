@@ -7,6 +7,8 @@ struct ScenePreparedDynamicImageResource {
     /// Source image extent retained before texture normalization/downscaling.
     /// The same decode owner supplies TEX and direct-image native metadata.
     var naturalSizeWH: [Float]? = nil
+    var puppetMeshPath: String? = nil
+    var puppetPose: ScenePuppetLayerLoad.PreparedPose? = nil
 
     var renderSizeWH: [Float] {
         [Float(loaded.texture.width), Float(loaded.texture.height)]
@@ -24,7 +26,8 @@ nonisolated enum SceneDeferredBaseImageStatus: Equatable {
 /// Device-bound ordinary base images shared by every AppKit surface. The
 /// initially visible entries are prepared before activation; eligible dormant
 /// Combo alternatives are published on demand by this same owner. Animated,
-/// puppet, video, and other surface-scoped providers keep their lifecycle owners.
+/// video and other providers keep their lifecycle owners. Puppet CPU models and
+/// static atlases are shared; pose/physics/GPU geometry remain surface-scoped.
 final class ScenePreparedBaseImageResources {
     private struct Entry {
         let source: SceneTextureLoader.SourceKey
@@ -46,6 +49,7 @@ final class ScenePreparedBaseImageResources {
     }
 
     let textureLoader: SceneTextureLoader
+    let puppets: ScenePreparedPuppetResources
     private let deferredTextureLoader: SceneTextureLoader
     private let deferredSpriteTextureLoader = SceneMultiImageSpriteTextureLoader()
     private let deferredLock = NSLock()
@@ -67,6 +71,7 @@ final class ScenePreparedBaseImageResources {
 
     private init(
         textureLoader: SceneTextureLoader,
+        puppets: ScenePreparedPuppetResources,
         sceneGeneration: UInt64,
         device: MTLDevice,
         deviceRegistryID: UInt64,
@@ -77,6 +82,7 @@ final class ScenePreparedBaseImageResources {
         failedCount: Int
     ) {
         self.textureLoader = textureLoader
+        self.puppets = puppets
         self.deferredTextureLoader = SceneTextureLoader(
             uploadCommandQueue: textureLoader.uploadCommandQueue,
             decodeCacheBudget: textureLoader.decodeCacheBudget
@@ -122,6 +128,9 @@ final class ScenePreparedBaseImageResources {
             resourceView: resourceView,
             descriptor: descriptor
         )
+        let puppets = try ScenePreparedPuppetResources.prepare(
+            descriptor: descriptor, cacheDirectory: resourceView.primaryRootURL,
+            cancellationCheck: cancellationCheck)
         var entries: [Int: Entry] = [:]
         var loadedCount = 0
         var failedCount = 0
@@ -144,14 +153,14 @@ final class ScenePreparedBaseImageResources {
             guard SceneBaseImageTextureLoad.specializedLoadReason(
                 url: url,
                 container: container,
-                usesPuppet: layer.puppetMeshPath != nil
+                usesPuppet: false
             ) == nil else {
                 continue
             }
             let naturalSize = textureLoader.preparedNaturalImageSize(from: url, source: source)
                 .map { [Float($0.width), Float($0.height)] }
             entries[layer.id] = .init(source: source, outcome: nil, naturalSizeWH: naturalSize)
-            if layer.contentKind == "image", container?.isVideoMp4 != true,
+            if layer.contentKind == "image", layer.puppetMeshPath == nil, container?.isVideoMp4 != true,
                let model = layer.imagePath.flatMap({ models[$0] }) {
                 if model.autosize == true, let naturalSize,
                    naturalSize.allSatisfy({ $0.isFinite && $0 > 0 }) {
@@ -182,7 +191,7 @@ final class ScenePreparedBaseImageResources {
             try cancellationCheck()
             let outcome = SceneBaseImageTextureLoad.load(
                 from: request.url,
-                usesPuppet: false,
+                usesPuppet: layer.puppetMeshPath != nil,
                 loader: textureLoader,
                 spriteTextureLoader: spriteTextureLoader,
                 device: device
@@ -200,6 +209,8 @@ final class ScenePreparedBaseImageResources {
         let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
         for modelPath in requestedModels.sorted() {
             try cancellationCheck()
+            // Puppet resources enter below through mesh + straight atlas, never a quad.
+            if models[modelPath]?.puppetPath != nil { continue }
             guard let url = resolver.resolvePrimaryTexture(modelPath: modelPath),
                   let source = textureLoader.sourceKey(for: url) else {
                 failedCount += 1
@@ -279,9 +290,12 @@ final class ScenePreparedBaseImageResources {
                   loaded.animation == nil,
                   let candidate = loaded.candidate,
                   candidate.texture === loaded.texture else { continue }
+            let pose = puppets.defaultPose(for: layer)
+            guard layer.puppetMeshPath == nil || pose != nil else { continue }
             dynamicImageResources[modelPath.lowercased()] = .init(
                 modelPath: modelPath, loaded: loaded,
-                naturalSizeWH: entry.naturalSizeWH
+                naturalSizeWH: entry.naturalSizeWH,
+                puppetMeshPath: layer.puppetMeshPath, puppetPose: pose
             )
         }
         // Every launch texture is GPU-published past this point: drop the
@@ -291,6 +305,7 @@ final class ScenePreparedBaseImageResources {
         textureLoader.evictDecodedCaches()
         return ScenePreparedBaseImageResources(
             textureLoader: textureLoader,
+            puppets: puppets,
             sceneGeneration: sceneGeneration,
             device: device,
             deviceRegistryID: device.registryID,

@@ -433,6 +433,30 @@ func evaluate(_ frame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
         }
         output["endedUnsupportedModes"] = unsupportedModes
 
+        let retirement = ScenePuppetAnimationPlaybackRuntime()
+        let liveDefinition = selection(layer(binding: nil), animation())
+        for id in [42, -1, -2] {
+            try retirement.register(layerID: id, selection: liveDefinition,
+                authoredLayers: [liveDefinition.clips[0].layer]).get()
+        }
+        let beforeRetirement = retirement.advance(frameIndex: 1, sceneTime: 2,
+            dynamicValues: visible([:]))
+        retirement.synchronizeDynamicLayers(topologyRevision: 2, liveLayerIDs: [-2])
+        let sameRetirement = retirement.advance(frameIndex: 1, sceneTime: 90,
+            dynamicValues: visible([:]))
+        let afterRetirement = retirement.advance(frameIndex: 2, sceneTime: 2.5,
+            dynamicValues: visible([:]))
+        retirement.synchronizeDynamicLayers(topologyRevision: 3, liveLayerIDs: [])
+        let rebuiltWithoutHistory = retirement.advance(frameIndex: 2, sceneTime: 90,
+            dynamicValues: visible([:]))
+        output["dynamicRetirement"] = [rebuiltWithoutHistory[-2] == nil,
+            rebuiltWithoutHistory[42] != nil, sameRetirement[-1] == nil,
+            sameRetirement[42] != nil, sameRetirement[-2] != nil,
+            report(sameRetirement, layerID: -2) == report(beforeRetirement, layerID: -2),
+            afterRetirement[-1] == nil,
+            report(afterRetirement, layerID: -2) != report(beforeRetirement, layerID: -2),
+            !sameRetirement.animationSnapshots.contains { $0.identity.layerID == -1 }]
+
         print(String(decoding: try JSONSerialization.data(withJSONObject: output,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -459,6 +483,9 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
                 raise RuntimeError(run.stdout + run.stderr)
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True, timeout=30)
             cls.result = json.loads(run.stdout)
+
+    def test_dynamic_retirement_removes_only_the_retired_instance_and_preserves_consumed_peers(self) -> None:
+        self.assertEqual(self.result["dynamicRetirement"], [True] * 9)
 
     def test_hidden_position_freezes_and_resumes_current_cadence_only(self) -> None:
         result = self.result["hiddenResume"]

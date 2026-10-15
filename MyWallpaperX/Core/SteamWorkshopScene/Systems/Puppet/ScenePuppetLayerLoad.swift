@@ -2,9 +2,8 @@ import Foundation
 import Metal
 import simd
 
-/// Load-time bridge: resolves a layer's puppet `.mdl`, parses the bind-pose
-/// mesh, and creates either an animated or bind-pose GeometryProduct. The
-/// atlas is retained only by that product as a sampling resource.
+/// Prepares immutable MDL and pose data, then creates layer/surface-owned
+/// GeometryProducts. The atlas remains a sampling resource of each product.
 enum ScenePuppetLayerLoad {
     private enum MeshFileResolution {
         case ready(URL)
@@ -23,28 +22,132 @@ enum ScenePuppetLayerLoad {
         let localMatrices: [Double]
     }
 
+    /// A launch may retain this result by its existing mesh resource identity.
+    /// No source layer's selected clips, mutable playback or raw Data live here.
+    struct PreparedAsset {
+        let meshPath: String
+        let mesh: SceneMdlPuppetMesh
+        let attachments: [SceneMdlPuppetAttachment]
+        fileprivate let rig: Result<SceneMdlPuppetRig, Error>
+        fileprivate let animationSet: Result<SceneMdlPuppetAnimationSet?, Error>?
+        fileprivate let referenceEvaluator: Result<ScenePuppetAnimationEvaluator, Error>?
+        fileprivate let initialBones: BoneConfiguration?
+    }
+
+    enum AssetPreparation {
+        case ready(PreparedAsset)
+        case unavailable(allowsMissingMeshTextureProduct: Bool, message: String)
+    }
+
+    /// Opaque immutable configuration, prepared separately for an authored
+    /// source and for each admitted creation template. An empty configuration
+    /// never acquires the source layer's animation selection or script state.
+    struct PreparedPose {
+        fileprivate enum PlaybackKind {
+            case animation
+            case reference
+            case script
+
+            var failurePrefix: String {
+                switch self {
+                case .animation: return "animation geometry rejected"
+                case .reference, .script: return "script pose rejected"
+                }
+            }
+        }
+
+        fileprivate enum Geometry {
+            case unavailable(allowsMissingMeshTextureProduct: Bool, message: String)
+            case bind(PreparedAsset, fallbackMessage: String?)
+            case evaluated(PreparedAsset, ScenePuppetAnimationSelection,
+                           ScenePuppetAnimationEvaluator, PlaybackKind)
+        }
+
+        fileprivate let geometry: Geometry
+    }
+
+    static func prepareAsset(
+        meshPath: String,
+        cacheDirectory: URL,
+        needsAnimations: Bool
+    ) -> AssetPreparation {
+        let meshURL: URL
+        switch meshFileResolution(relativePath: meshPath, cacheDirectory: cacheDirectory) {
+        case let .ready(url):
+            meshURL = url
+        case .absent:
+            return .unavailable(allowsMissingMeshTextureProduct: true,
+                message: "puppet mesh unavailable (\(meshPath))")
+        case .rejected:
+            return .unavailable(allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh path rejected (\(meshPath))")
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: meshURL)
+        } catch {
+            return .unavailable(allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh read failed (\(meshPath))")
+        }
+        let mesh: SceneMdlPuppetMesh
+        do {
+            mesh = try SceneMdlPuppetMeshReader.read(data: data)
+        } catch let error as SceneMdlPuppetMeshReadError {
+            return .unavailable(allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh rejected: \(error.description) (\(meshPath))")
+        } catch {
+            return .unavailable(allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh rejected: unknown parse failure (\(meshPath))")
+        }
+        let attachments = (try? SceneMdlPuppetAttachmentReader.read(data: data)) ?? []
+        let rig: Result<SceneMdlPuppetRig, Error> = Result {
+            try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
+        }
+        let animationSet: Result<SceneMdlPuppetAnimationSet?, Error>? = needsAnimations
+            ? Result { try SceneMdlPuppetAnimationReader.read(data: data) } : nil
+        let referenceEvaluator: Result<ScenePuppetAnimationEvaluator, Error>?
+        if case let .success(value) = rig, value.referenceLocalMatricesColumnMajor != nil {
+            referenceEvaluator = Result { try ScenePuppetAnimationEvaluator(mesh: mesh, rig: value) }
+        } else {
+            referenceEvaluator = nil
+        }
+        let initialBones: BoneConfiguration?
+        if case let .success(value) = rig {
+            initialBones = initialBoneConfiguration(rig: value, referenceEvaluator: referenceEvaluator)
+        } else {
+            initialBones = nil
+        }
+        return .ready(.init(meshPath: meshPath, mesh: mesh, attachments: attachments,
+            rig: rig, animationSet: animationSet, referenceEvaluator: referenceEvaluator,
+            initialBones: initialBones))
+    }
+
     static func boneConfiguration(
-        for layer: SceneRenderDescriptor.Layer,
-        cacheDirectory: URL
+        for asset: PreparedAsset,
+        layerID: Int? = nil
     ) -> BoneConfiguration? {
-        guard let puppetMeshPath = layer.puppetMeshPath,
-              case let .ready(meshURL) = meshFileResolution(
-                  relativePath: puppetMeshPath,
-                  cacheDirectory: cacheDirectory
-              ),
-              let data = try? Data(contentsOf: meshURL),
-              let mesh = try? SceneMdlPuppetMeshReader.read(data: data),
-              let rig = try? SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
-        else { return nil }
+        if let layerID, case let .success(rig) = asset.rig {
+            logPhysicsDiagnostics(rig: rig, layerID: layerID)
+        }
+        return asset.initialBones
+    }
+
+    private static func logPhysicsDiagnostics(rig: SceneMdlPuppetRig, layerID: Int) {
         for (index, bone) in rig.bones.enumerated() {
             if let diagnostic = bone.physicsDiagnostic {
                 NSLog("MWX Puppet: layer=%d bone=%d fallback=authored-pose reason=%@",
-                      layer.id, index, diagnostic)
+                      layerID, index, diagnostic)
             }
         }
+    }
+
+    private static func initialBoneConfiguration(
+        rig: SceneMdlPuppetRig,
+        referenceEvaluator: Result<ScenePuppetAnimationEvaluator, Error>?
+    ) -> BoneConfiguration? {
         let localMatrices: [simd_float4x4]
         if rig.referenceLocalMatricesColumnMajor != nil {
-            guard let evaluator = try? ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig),
+            guard case let .success(evaluator)? = referenceEvaluator,
                   let neutralPose = try? evaluator.boneTransforms(
                       selection: .init(clips: [], composition: .layered), frameSamples: []
                   ) else { return nil }
@@ -80,68 +183,122 @@ enum ScenePuppetLayerLoad {
         let message: String
     }
 
+    static func preparePose(
+        for layer: SceneRenderDescriptor.Layer,
+        asset preparation: AssetPreparation,
+        usesDefaultConfiguration: Bool = false
+    ) -> PreparedPose? {
+        guard layer.puppetMeshPath != nil else { return nil }
+        let animationLayers = usesDefaultConfiguration ? [] : layer.puppetAnimationLayers
+        let hasInlineScript = !usesDefaultConfiguration && layer.hasInlineScript
+        let asset: PreparedAsset
+        switch preparation {
+        case let .ready(value):
+            asset = value
+        case let .unavailable(allowsMissing, message):
+            return .init(geometry: .unavailable(
+                allowsMissingMeshTextureProduct: allowsMissing, message: message))
+        }
+        if case let .success(rig) = asset.rig, let diagnostic = rig.referencePoseDiagnostic {
+            NSLog("MWX Puppet: layer=%d fallback=bind-pose reason=%@", layer.id, diagnostic)
+        }
+        var fallbackMessage: String?
+        var needsReferenceOnlyPlayback = false
+        if !animationLayers.isEmpty {
+            do {
+                _ = try asset.rig.get()
+                guard let preparedAnimationSet = asset.animationSet else {
+                    return .init(geometry: .bind(asset,
+                        fallbackMessage: "animation unavailable: data was not prepared"))
+                }
+                guard let animationSet = try preparedAnimationSet.get() else {
+                    return .init(geometry: .bind(asset,
+                        fallbackMessage: "animation rejected: version-matched MDLA is absent"))
+                }
+                switch ScenePuppetAnimationSelector.select(
+                    layers: animationLayers, animationSet: animationSet
+                ) {
+                case let .success(selection?):
+                    return evaluatedPose(asset: asset, selection: selection, kind: .animation)
+                case .success(nil):
+                    fallbackMessage = "animation inactive: no visible layer"
+                    if case let .success(rig) = asset.rig {
+                        needsReferenceOnlyPlayback = rig.referenceLocalMatricesColumnMajor != nil
+                    }
+                case let .failure(failure):
+                    fallbackMessage = "animation rejected: \(failure.description)"
+                }
+            } catch let failure as SceneMdlPuppetRigReadError {
+                fallbackMessage = "animation rig rejected: \(failure.description)"
+            } catch let failure as SceneMdlPuppetAnimationReadError {
+                fallbackMessage = "animation data rejected: \(failure.description)"
+            } catch {
+                fallbackMessage = "animation rejected: unknown parse failure"
+            }
+        }
+        // Empty requests retain the original reference/bind decision. They do
+        // not inherit clips or inline script merely because a source had them.
+        if animationLayers.isEmpty || needsReferenceOnlyPlayback,
+           case let .success(rig) = asset.rig,
+           hasInlineScript || rig.referenceLocalMatricesColumnMajor != nil {
+            return evaluatedPose(asset: asset,
+                selection: .init(clips: [], composition: .layered),
+                kind: rig.referenceLocalMatricesColumnMajor != nil ? .reference : .script)
+        }
+        return .init(geometry: .bind(asset, fallbackMessage: fallbackMessage))
+    }
+
+    private static func evaluatedPose(
+        asset: PreparedAsset,
+        selection: ScenePuppetAnimationSelection,
+        kind: PreparedPose.PlaybackKind
+    ) -> PreparedPose {
+        do {
+            let evaluator: ScenePuppetAnimationEvaluator
+            if selection.clips.isEmpty, let referenceEvaluator = asset.referenceEvaluator {
+                evaluator = try referenceEvaluator.get()
+            } else {
+                evaluator = try ScenePuppetAnimationEvaluator(mesh: asset.mesh,
+                    rig: asset.rig.get(), additiveAnimations: selection.clips.map(\.animation))
+            }
+            return .init(geometry: .evaluated(asset, selection, evaluator, kind))
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            return .init(geometry: .bind(asset,
+                fallbackMessage: "\(kind.failurePrefix): \(failure.description)"))
+        } catch {
+            return .init(geometry: .bind(asset, fallbackMessage:
+                "\(kind.failurePrefix): \(ScenePuppetPlaybackState.Failure.resourceAllocationFailed.description)"))
+        }
+    }
+
     static func preparedGeometry(
         for layer: SceneRenderDescriptor.Layer,
+        preparedPose: PreparedPose,
         atlasTexture: MTLTexture,
-        cacheDirectory: URL,
         device: MTLDevice,
         pipeline: SceneImageLayerPipeline,
         clippingPipeline: () -> MTLRenderPipelineState? = { nil },
         loadClippingMask: (String) -> MTLTexture? = { _ in nil },
         allocateClippingMask: @escaping ScenePuppetClipping.Allocator = { _, _, _, _ in nil }
     ) -> Outcome? {
-        guard let puppetMeshPath = layer.puppetMeshPath else { return nil }
-        let meshURL: URL
-        switch meshFileResolution(
-            relativePath: puppetMeshPath,
-            cacheDirectory: cacheDirectory
-        ) {
-        case let .ready(url):
-            meshURL = url
-        case .absent:
-            return Outcome(
-                geometryProduct: nil,
-                playback: nil,
-                allowsMissingMeshTextureProduct: true,
-                message: "puppet mesh unavailable (\(puppetMeshPath))"
-            )
-        case .rejected:
-            return Outcome(
-                geometryProduct: nil,
-                playback: nil,
-                allowsMissingMeshTextureProduct: false,
-                message: "puppet mesh path rejected (\(puppetMeshPath))"
-            )
+        guard layer.puppetMeshPath != nil else { return nil }
+        let asset: PreparedAsset
+        let evaluated: (ScenePuppetAnimationSelection, ScenePuppetAnimationEvaluator,
+                        PreparedPose.PlaybackKind)?
+        var animationFallbackMessage: String?
+        switch preparedPose.geometry {
+        case let .unavailable(allowsMissing, message):
+            return Outcome(geometryProduct: nil, playback: nil,
+                allowsMissingMeshTextureProduct: allowsMissing, message: message)
+        case let .bind(value, fallbackMessage):
+            asset = value
+            evaluated = nil
+            animationFallbackMessage = fallbackMessage
+        case let .evaluated(value, selection, evaluator, kind):
+            asset = value
+            evaluated = (selection, evaluator, kind)
         }
-        let data: Data
-        do {
-            data = try Data(contentsOf: meshURL)
-        } catch {
-            return Outcome(
-                geometryProduct: nil,
-                playback: nil,
-                allowsMissingMeshTextureProduct: false,
-                message: "puppet mesh read failed (\(puppetMeshPath))"
-            )
-        }
-        let mesh: SceneMdlPuppetMesh
-        do {
-            mesh = try SceneMdlPuppetMeshReader.read(data: data)
-        } catch let error as SceneMdlPuppetMeshReadError {
-            return Outcome(
-                geometryProduct: nil,
-                playback: nil,
-                allowsMissingMeshTextureProduct: false,
-                message: "puppet mesh rejected: \(error.description) (\(puppetMeshPath))"
-            )
-        } catch {
-            return Outcome(
-                geometryProduct: nil,
-                playback: nil,
-                allowsMissingMeshTextureProduct: false,
-                message: "puppet mesh rejected: unknown parse failure (\(puppetMeshPath))"
-            )
-        }
+        let mesh = asset.mesh
         let clipping: ScenePuppetClipping?
         if mesh.clipRecords.isEmpty {
             clipping = nil
@@ -161,103 +318,32 @@ enum ScenePuppetLayerLoad {
         let renderSize = layer.renderSizeWH ?? []
         let layerWidth = renderSize.count > 0 ? renderSize[0] : 0
         let layerHeight = renderSize.count > 1 ? renderSize[1] : 0
-        let attachments = (try? SceneMdlPuppetAttachmentReader.read(data: data)) ?? []
-        let rigResult: Result<SceneMdlPuppetRig, Error> = Result {
-            try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
-        }
-        if case let .success(rig) = rigResult, let diagnostic = rig.referencePoseDiagnostic {
-            NSLog("MWX Puppet: layer=%d fallback=bind-pose reason=%@", layer.id, diagnostic)
-        }
-        var animationFallbackMessage: String?
-        var needsReferenceOnlyPlayback = false
-        if layer.puppetAnimationLayers.isEmpty == false {
-            do {
-                let rig = try rigResult.get()
-                guard let animationSet = try SceneMdlPuppetAnimationReader.read(data: data) else {
-                    animationFallbackMessage = "animation rejected: version-matched MDLA is absent"
-                    return staticOutcome(
-                        layer: layer,
-                        mesh: mesh,
-                        atlasTexture: atlasTexture,
-                        layerWidth: layerWidth,
-                        layerHeight: layerHeight,
-                        device: device,
-                        pipeline: pipeline,
-                        clipping: clipping,
-                        animationFallbackMessage: animationFallbackMessage
-                    )
-                }
-                switch ScenePuppetAnimationSelector.select(
-                    layers: layer.puppetAnimationLayers,
-                    animationSet: animationSet
-                ) {
-                case let .success(selection?):
-                    switch ScenePuppetPlaybackState.make(
-                        layerID: layer.id,
-                        mesh: mesh,
-                        rig: rig,
-                        selection: selection,
-                        attachments: attachments,
-                        atlasTexture: atlasTexture,
-                        layerWidth: layerWidth,
-                        layerHeight: layerHeight,
-                        device: device,
-                        pipeline: pipeline,
-                        clipping: clipping
-                    ) {
-                    case let .success(output):
-                        return Outcome(
-                            geometryProduct: output.product,
-                            playback: output.state,
-                            allowsMissingMeshTextureProduct: false,
-                            message: String(
-                                format: "puppet world geometry OK %@ mode=%@ ids=%@ clips=%d verts=%d tris=%d",
-                                mesh.version,
-                                selection.composition.rawValue,
-                                selection.clips.map { String($0.animation.id) }.joined(separator: ","),
-                                selection.clips.count,
-                                mesh.vertices.count,
-                                mesh.triangleCount
-                            )
-                        )
-                    case let .failure(failure):
-                        animationFallbackMessage = "animation geometry rejected: \(failure.description)"
-                    }
-                case .success(nil):
-                    animationFallbackMessage = "animation inactive: no visible layer"
-                    needsReferenceOnlyPlayback = rig.referenceLocalMatricesColumnMajor != nil
-                case let .failure(failure):
-                    animationFallbackMessage = "animation rejected: \(failure.description)"
-                }
-            } catch let failure as SceneMdlPuppetRigReadError {
-                animationFallbackMessage = "animation rig rejected: \(failure.description)"
-            } catch let failure as SceneMdlPuppetAnimationReadError {
-                animationFallbackMessage = "animation data rejected: \(failure.description)"
-            } catch {
-                animationFallbackMessage = "animation rejected: unknown parse failure"
-            }
-        }
-        // A reference pose or script can deform a rig without an active clip.
-        // Empty selections retain the same evaluator, frame and publication owner.
-        if layer.puppetAnimationLayers.isEmpty || needsReferenceOnlyPlayback,
-           case let .success(rig) = rigResult,
-           layer.hasInlineScript || rig.referenceLocalMatricesColumnMajor != nil {
+        if let (selection, evaluator, kind) = evaluated {
             switch ScenePuppetPlaybackState.make(
-                layerID: layer.id, mesh: mesh, rig: rig,
-                selection: .init(clips: [], composition: .layered),
-                attachments: attachments,
+                layerID: layer.id, mesh: mesh, evaluator: evaluator,
+                selection: selection, attachments: asset.attachments,
                 atlasTexture: atlasTexture, layerWidth: layerWidth,
                 layerHeight: layerHeight,
                 device: device, pipeline: pipeline, clipping: clipping
             ) {
             case let .success(output):
+                let message: String
+                switch kind {
+                case .animation:
+                    message = String(
+                        format: "puppet world geometry OK %@ mode=%@ ids=%@ clips=%d verts=%d tris=%d",
+                        mesh.version, selection.composition.rawValue,
+                        selection.clips.map { String($0.animation.id) }.joined(separator: ","),
+                        selection.clips.count, mesh.vertices.count, mesh.triangleCount)
+                case .reference:
+                    message = "puppet reference world geometry prepared"
+                case .script:
+                    message = "puppet script world geometry prepared"
+                }
                 return Outcome(geometryProduct: output.product, playback: output.state,
-                    allowsMissingMeshTextureProduct: false,
-                    message: rig.referenceLocalMatricesColumnMajor != nil
-                        ? "puppet reference world geometry prepared"
-                        : "puppet script world geometry prepared")
+                    allowsMissingMeshTextureProduct: false, message: message)
             case let .failure(failure):
-                animationFallbackMessage = "script pose rejected: \(failure.description)"
+                animationFallbackMessage = "\(kind.failurePrefix): \(failure.description)"
             }
         }
         return staticOutcome(

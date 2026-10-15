@@ -16,6 +16,7 @@ nonisolated struct SceneScriptDynamicImageLayerTemplate: Equatable, Sendable {
     let modelPath: String
     let renderSizeWH: [Float]
     var autosize: Bool = false
+    var puppetMeshPath: String? = nil
 
     var defaultRenderSizeWH: [Float] { autosize ? renderSizeWH : [1, 1] }
 }

@@ -84,7 +84,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
             disablesParallaxPropagation: false, timelines: [],
             timelineDiagnostics: [], particleTimelines: [],
             particleTimelineDiagnostics: [], modelCropOffsetXY: nil,
-            puppetMeshPath: nil, text: nil, textStyle: nil, textScript: nil,
+            puppetMeshPath: template.puppetMeshPath, text: nil, textStyle: nil, textScript: nil,
             scriptBindings: nil, textureAnimationScripts: nil,
             hasInlineScript: false, effects: [], effectFiles: [],
             texturePaths: []

@@ -466,6 +466,21 @@ static JSValue create_layer(
             free(text); free(font); free(name); free(asset_path);
             return JS_NULL;
         }
+        if (resource != NULL && resource->uses_puppet && JS_IsObject(argv[0])) {
+            // This prepared template supplies default geometry only. Presence
+            // includes inherited fields; it never reads an animation/effect
+            // value or silently inherits the authored source configuration.
+            const char *unsupported_fields[] = {"animations", "puppetAnimationLayers", "effects"};
+            for (size_t index = 0; index < sizeof(unsupported_fields) / sizeof(*unsupported_fields); ++index) {
+                JSAtom field = JS_NewAtom(context, unsupported_fields[index]);
+                int present = field == JS_ATOM_NULL ? -1 : JS_HasProperty(context, argv[0], field);
+                if (field != JS_ATOM_NULL) JS_FreeAtom(context, field);
+                if (present != 0) {
+                    free(text); free(font); free(name); free(asset_path);
+                    return present < 0 ? JS_EXCEPTION : JS_NULL;
+                }
+            }
+        }
         if (resource != NULL && strcmp(asset_path, resource->model_path) != 0) {
             char *canonical = strdup(resource->model_path);
             if (canonical == NULL) {
