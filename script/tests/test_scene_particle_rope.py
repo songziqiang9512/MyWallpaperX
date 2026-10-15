@@ -46,6 +46,7 @@ enum Harness {
         let result: [String: Any] = [
             "profiles": profileContract(),
             "topology": topologyContract(),
+            "scaledGeometry": scaledGeometryContract(),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -261,6 +262,58 @@ enum Harness {
         ]
     }
 
+    private static func scaledGeometryContract() -> [String: Any] {
+        let ribbon = plan(["name": "rope", "subdivision": 0], maximumCount: 3)!
+        let local = [
+            particle(id: 0, position: SIMD3(1, 2, 3), size: 2),
+            particle(id: 1, position: SIMD3(5, 6, 7), size: 4),
+            particle(id: 2, position: SIMD3(9, 2, 11), size: 6),
+        ]
+        let scaled = ribbon.instances(
+            particles: local, origin: SIMD3(10, 20, 30),
+            particleOrigins: [1: SIMD3(40, 50, 60)],
+            scale: SIMD3(2, 2, 3), layerAlpha: 1
+        )
+        let worldNodes = [
+            particle(id: 0, position: SIMD3(12, 24, 39), size: 4),
+            particle(id: 1, position: SIMD3(50, 62, 81), size: 8),
+            particle(id: 2, position: SIMD3(28, 24, 63), size: 12),
+        ]
+        func signature(_ instances: [SceneParticleGPUInstance]) -> [[Float]] {
+            instances.map { item in [
+                item.positionAndSize.x, item.positionAndSize.y,
+                item.positionAndSize.z, item.positionAndSize.w,
+                item.velocityAndTrail.x, item.velocityAndTrail.y,
+                item.velocityAndTrail.z, item.velocityAndTrail.w,
+                item.frame0B.z, item.frame0B.w, item.rotationAndAlpha.w,
+            ] }
+        }
+        let smooth = plan(["name": "rope", "subdivision": 3], maximumCount: 3)!
+        let smoothScaled = smooth.instances(
+            particles: local, origin: SIMD3(10, 20, 30),
+            particleOrigins: [1: SIMD3(40, 50, 60)],
+            scale: SIMD3(2, 2, 3), layerAlpha: 1
+        )
+        return [
+            "positions": scaled.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            },
+            "displacements": scaled.map {
+                [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
+            },
+            "halfWidths": scaled.map(\.positionAndSize.w),
+            "matchesExplicitWorldNodes": signature(scaled)
+                == signature(ribbon.instances(particles: worldNodes, layerAlpha: 1)),
+            "curvedCount": smoothScaled.count,
+            "curvedMatchesExplicitWorldNodes": signature(smoothScaled)
+                == signature(smooth.instances(particles: worldNodes, layerAlpha: 1)),
+            "rootIdentityUnchanged": signature(ribbon.instances(particles: local, layerAlpha: 1))
+                == signature(ribbon.instances(
+                    particles: local, scale: SIMD3(repeating: 1), layerAlpha: 1
+                )),
+        ]
+    }
+
     private static func particle(
         id: UInt64,
         position: SIMD3<Double>,
@@ -413,6 +466,16 @@ class SceneParticleRopeTests(unittest.TestCase):
             self.assertAlmostEqual(actual[1], expected[1], places=6)
         self.assertEqual(topology["fallbackUVRanges"], [[0, 0.5], [0.5, 1]])
         self.assertEqual(topology["translatedPosition"], [115, 20])
+
+    def test_legal_child_scale_prepares_3d_nodes_before_the_existing_spline(self) -> None:
+        result = self.result["scaledGeometry"]
+        self.assertEqual(result["positions"], [[31, 43, 60], [39, 43, 72]])
+        self.assertEqual(result["displacements"], [[38, 38, 42], [-22, -38, -18]])
+        self.assertEqual(result["halfWidths"], [3, 5])
+        self.assertTrue(result["matchesExplicitWorldNodes"])
+        self.assertEqual(result["curvedCount"], 8)
+        self.assertTrue(result["curvedMatchesExplicitWorldNodes"])
+        self.assertTrue(result["rootIdentityUnchanged"])
 
 
 if __name__ == "__main__":

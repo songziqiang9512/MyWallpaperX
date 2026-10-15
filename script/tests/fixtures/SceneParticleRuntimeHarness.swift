@@ -252,6 +252,8 @@ enum Harness {
             try printJSON(syntheticRopeTrail())
         case "rope-synthetic":
             try printJSON(syntheticRope())
+        case "static-scaled-rope-synthetic":
+            try printJSON(syntheticStaticScaledRope())
         case "dynamic-control-point-synthetic":
             try printJSON(syntheticDynamicControlPoint())
         case "child-float-safety":

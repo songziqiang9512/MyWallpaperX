@@ -632,6 +632,64 @@ class SceneParticleRuntimeTests(
             result["diagnosticDetails"],
         )
 
+    def test_static_child_rope_scale_and_launch_expansion_budget(self) -> None:
+        result = self.run_harness("static-scaled-rope-synthetic")
+        observed = result["observed"]
+        self.assertEqual(observed["geometry"], {"inclined": 1})
+        self.assertEqual(observed["equivalent"], {"renamed-ribbon": 1})
+        self.assertEqual(result["geometryPositions"], [[17, 21, 32]])
+        self.assertEqual(result["geometryHalfWidths"], [4])
+        self.assertEqual(result["geometryDisplacements"], [[8, 8, 12]])
+        for field in ["Positions", "HalfWidths", "Displacements"]:
+            self.assertEqual(result["equivalent" + field], result["geometry" + field])
+        # The second large candidate is rejected without consuming the credit
+        # needed by the later medium candidate. The legacy profile costs zero.
+        self.assertEqual(observed["ordered"], {
+            "large-a": 101, "medium": 101, "legacy": 64,
+        })
+        self.assertEqual(observed["exact"], {"boundary": 86, "exact": 34})
+        self.assertEqual(observed["over"], {"boundary": 86, "legacy": 64})
+        # A prior particle-capacity rejection must not reserve Rope credit.
+        self.assertEqual(observed["capacity"], {
+            "capacity-0": 2, "capacity-1": 2, "capacity-2": 2,
+            "capacity-tail": 2, "large-a": 101,
+        })
+        self.assertEqual(observed["rejections"], {"bridge": 2, "legacy": 64})
+        diagnostics = result["diagnostics"]
+        for layer_id in [823, 825]:
+            self.assertIn(f"{layer_id}:staticRopeExpansionBudget:segments=24576", diagnostics)
+        self.assertFalse(any(detail.startswith("824:") for detail in diagnostics))
+        self.assertIn(
+            "826:aggregateSystemBudget:systems=64:particleCapacity=65536", diagnostics,
+        )
+        for name in ["event-scaled", "world-movement", "nested-scaled"]:
+            self.assertIn(
+                f"827:particles/{name}.json:childScaleOutsideBoundedProfile", diagnostics,
+            )
+        for name in ["malformed-scale", "negative-scale", "nonuniform-scale"]:
+            self.assertIn(
+                f"827:particles/{name}.json:unsupportedTransformOrControlPoint", diagnostics,
+            )
+        for name in ["large-b", "nested-large"]:
+            self.assertIn(f"827:particles/{name}.json:ropeAggregateSegmentBudget", diagnostics)
+        self.assertTrue(result["replayMatches"])
+        self.assertTrue(result["uploadsMatch"])
+        self.assertEqual(result["afterTeardownChildSystems"], 0)
+        self.assertEqual(result["afterTeardownChildParticles"], 0)
+        # Columns: cadence, child segments, live child systems, child particles.
+        # These samples precede teardown, so an empty tail must be natural.
+        cadences = result["naturalRetirementCadences"]
+        self.assertGreater(cadences[0][1], 0)
+        self.assertEqual(cadences[0][2], 1)
+        self.assertGreaterEqual(cadences[0][3], 2)
+        retirement = next(index for index, row in enumerate(cadences) if row[2] == 0)
+        self.assertGreater(retirement, 0)
+        self.assertLess(retirement, len(cadences) - 1)
+        self.assertEqual(cadences[retirement - 1][2], 1)
+        for row in cadences[retirement:]:
+            self.assertEqual(row[1:], [0, 0, 0])
+        self.assertTrue(result["naturalRetirementReplayMatches"])
+
     def test_stock_tex_reference_loads_through_particle_runtime(self) -> None:
         bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"
         result = self.run_harness("stock-synthetic", str(bundle))

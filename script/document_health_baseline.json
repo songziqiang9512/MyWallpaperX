@@ -93,8 +93,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 401,
-      "bytes": 141059
+      "lines": 415,
+      "bytes": 144184
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 73570
+      "bytes": 73795
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1114,15 +1114,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "e88ca25411fe4518fca6681f775e705ead96a35004953861eb34972baeffdb16",
-      "after": "ec95c0d21ff9c70a1a00c9c32bf8fb2ac559a057a05a85567729671efc864696",
-      "owner": "Scene particle qualification",
-      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
-      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "ad8a765edbb0438304460af5fa1050135c50c285047af3fdb4db1aaa12548dce",
       "after": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
@@ -1222,12 +1213,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "ec95c0d21ff9c70a1a00c9c32bf8fb2ac559a057a05a85567729671efc864696",
+      "after": "3d7690ba0ff083c6071276305cdd43f16411f362155ddb5ca608ff6bd79f1a60",
+      "owner": "Scene static child Rope",
+      "reason": "新bounded变换与准入需写明唯一owner及预算；替换错误全child预算和已修拒绝，保精确视觉/官方与其他profile余项，过程进历史。",
+      "decision": "docs/scene/history/static-child-rope-2026-10-16.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6ce10255c0fcdc8d3677ef964117bd81afc8dd150d42414d32cb8debd4621e8d",
-      "after": "eab3a92dc153e2205bba512e1094d5652c3755e5c4d0683fa5abb3ba81ac9d0a",
-      "owner": "Scene named-user pass scalar",
-      "reason": "新exact Number输入与唯一Script writer已真实闭合；更新原责任合同与当前证据，旧child归因更正和Timeline静态余项保留，过程仅进历史。",
-      "decision": "docs/scene/history/named-user-pass-scalar-2026-10-16.md"
+      "before": "eab3a92dc153e2205bba512e1094d5652c3755e5c4d0683fa5abb3ba81ac9d0a",
+      "after": "e202fc4179124048d5d80ff893d754b13bc575d77b5b58a70fef9d3877897169",
+      "owner": "Scene static child Rope",
+      "reason": "新bounded变换与准入需写明唯一owner及预算；替换错误全child预算和已修拒绝，保精确视觉/官方与其他profile余项，过程进历史。",
+      "decision": "docs/scene/history/static-child-rope-2026-10-16.md"
     }
   ]
 }

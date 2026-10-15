@@ -219,8 +219,11 @@ enum SceneParticleChildGraphExpansion {
         case let .unsupported(detail):
             return .rejected("\(path):\(detail)")
         }
+        let permitsStaticRope = render.rope != nil && depth == 1
+            && trigger == .staticChild && asset.definition.children.isEmpty
+            && !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
         if transform.hasScale {
-            guard render.rope == nil,
+            guard render.rope == nil || permitsStaticRope,
                   asset.definition.children.isEmpty,
                   !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
             else { return .rejected("\(path):childScaleOutsideBoundedProfile") }
@@ -317,8 +320,9 @@ enum SceneParticleChildGraphExpansion {
             return .rejected("\(path):ropeAnimatedTextureUnsupported")
         }
         let systemBudget = trigger == .staticChild ? 1 : maximum
-        if let rope = render.rope,
-           systemBudget > 8_192 / max(rope.maximumGeneratedSegments, 1)
+        if let rope = render.rope, !permitsStaticRope,
+           systemBudget > SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate
+                / max(rope.maximumGeneratedSegments, 1)
         {
             return .rejected("\(path):ropeAggregateSegmentBudget")
         }

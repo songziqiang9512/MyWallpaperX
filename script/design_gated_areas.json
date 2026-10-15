@@ -611,6 +611,24 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-static-child-rope-scale",
+      "title": "Static Rope child变换与有界增量几何准入",
+      "owner": "SceneParticleChildRuntime / SceneParticleRopePlan",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "2026-10-16批准depth1 static Rope既有变换消费与构造期incremental segment credit；32768−8192依据现单Rope与旧child包络，event/nested保原门。没有新allocator/clock/geometry算法；真实pointer child、相邻反例及成本另验，不因设计记支持。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildInstanceBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildTemplateSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift"
+      ],
+      "contentPatterns": [
+        "maximumStaticRopeExpansionSegments"
+      ]
     }
   ]
 }

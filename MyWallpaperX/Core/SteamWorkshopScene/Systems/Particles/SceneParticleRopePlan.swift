@@ -9,7 +9,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
     static let maximumSubdivisionCount = 100
     /// Covers the corpus worst case (maxcount 256, subdivision 100 ->
     /// 25,755 segments) and the subdivision-16/maxcount-500 shape (8,483).
-    /// Child rope aggregation keeps its own smaller cross-system budget.
+    /// Child event aggregation and static expansion keep their own envelopes.
     static let maximumGeneratedSegmentCount = 32_768
     static let minimumUVScale = 1.0 / 1_024.0
     static let maximumUVScale = 1_024.0
@@ -74,6 +74,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         particles: [SceneParticleState],
         origin: SIMD3<Double> = .zero,
         particleOrigins: [UInt64: SIMD3<Double>] = [:],
+        scale: SIMD3<Double> = SIMD3(repeating: 1),
         layerAlpha: Float,
         simulationTime: TimeInterval = 0
     ) -> [SceneParticleGPUInstance] {
@@ -87,7 +88,11 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         }
         let nodes = particles.map { particle -> Node in
             let authoredOrigin = particleOrigins[particle.id] ?? origin
-            return Node(particle: particle, position: authoredOrigin + particle.position)
+            return Node(
+                particle: particle,
+                position: authoredOrigin + scale * particle.position,
+                size: scale.x * particle.size
+            )
         }
         guard nodes.allSatisfy({ Self.valid($0.position) }) else { return [] }
         let nodeUVs = uvPositions(for: particles, simulationTime: simulationTime)
@@ -174,7 +179,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
             + tangent1 * (t3 - t2)
         return Sample(
             position: position,
-            size: Self.mix(current.particle.size, next.particle.size, t),
+            size: Self.mix(current.size, next.size, t),
             color: Self.mix(current.particle.color, next.particle.color, t),
             alpha: Self.mix(current.particle.alpha, next.particle.alpha, t)
         )
@@ -269,6 +274,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
     private struct Node {
         let particle: SceneParticleState
         let position: SIMD3<Double>
+        let size: Double
     }
 
     private struct Sample {
@@ -280,7 +286,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         static func linear(_ first: Node, _ second: Node, _ t: Double) -> Sample {
             Sample(
                 position: SceneParticleRopePlan.mix(first.position, second.position, t),
-                size: SceneParticleRopePlan.mix(first.particle.size, second.particle.size, t),
+                size: SceneParticleRopePlan.mix(first.size, second.size, t),
                 color: SceneParticleRopePlan.mix(first.particle.color, second.particle.color, t),
                 alpha: SceneParticleRopePlan.mix(first.particle.alpha, second.particle.alpha, t)
             )

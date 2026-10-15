@@ -57,6 +57,7 @@ enum SceneParticleChildInstanceBuilder {
                 particles: system.simulator.particles,
                 origin: system.origin,
                 particleOrigins: system.isWorldSpace ? system.particleOrigins : [:],
+                scale: template.transform.scale,
                 layerAlpha: layerAlpha,
                 simulationTime: system.simulator.simulationTime
             ))

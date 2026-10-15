@@ -146,6 +146,8 @@ final class SceneParticleChildRuntime {
         var performance = expansion.performanceDetails
         let staticTemplates = templates.filter { $0.trigger == .staticChild }
         var staticCapacity = Self.maximumParticlesPerDepth
+        var staticRopeExpansionCapacity =
+            SceneParticleChildTemplateSupport.maximumStaticRopeExpansionSegments
         for (offset, template) in staticTemplates.enumerated() {
             guard systems.count < Self.maximumSystemsPerDepth,
                   template.particleBudget <= staticCapacity else {
@@ -153,7 +155,18 @@ final class SceneParticleChildRuntime {
                 if !performance.contains(detail) { performance.append(detail) }
                 continue
             }
+            let ropeExpansion = template.rope.map {
+                max($0.maximumGeneratedSegments
+                    - SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate, 0)
+            } ?? 0
+            guard ropeExpansion <= staticRopeExpansionCapacity else {
+                let detail = "staticRopeExpansionBudget:segments="
+                    + "\(SceneParticleChildTemplateSupport.maximumStaticRopeExpansionSegments)"
+                if !performance.contains(detail) { performance.append(detail) }
+                continue
+            }
             staticCapacity -= template.particleBudget
+            staticRopeExpansionCapacity -= ropeExpansion
             systems.append(SceneParticleChildSystem(
                 id: nextSystemID,
                 templateIndex: template.index,

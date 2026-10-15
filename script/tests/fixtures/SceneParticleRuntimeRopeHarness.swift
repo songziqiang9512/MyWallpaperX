@@ -363,6 +363,221 @@ extension Harness {
         ]
     }
 
+    static func syntheticStaticScaledRope() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-static-scaled-rope-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writePNG(directory.appendingPathComponent("materials/renamed.png"))
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        func leaf(
+            _ name: String, maximum: Int = 4, subdivision: Int = 0,
+            renderer: String = "rope", flags: Int = 0,
+            movementWorld: Bool = false, alternate: Bool = false,
+            children: [[String: Any]] = []
+        ) throws -> String {
+            let path = "particles/\(name).json"
+            let origins: [Any]
+            if alternate { origins = ["1 2 3", "5 6 7"] }
+            else { origins = [[1, 2, 3], [5, 6, 7]] }
+            var render: [String: Any] = ["name": renderer]
+            if renderer == "rope" { render["subdivision"] = subdivision }
+            try writeJSON([
+                "material": alternate ? "materials/renamed.json" : "materials/shared.json",
+                "maxcount": maximum, "flags": flags,
+                "emitter": origins.map { origin in [
+                    "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                    "origin": origin, "distancemin": 0, "distancemax": 0,
+                ] },
+                "initializer": [
+                    ["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "sizerandom", "min": 4, "max": 4],
+                ],
+                "operator": movementWorld ? [["name": "movement", "flags": 1]] : [],
+                "renderer": [render], "children": children,
+            ], to: directory.appendingPathComponent(path))
+            return path
+        }
+        func child(
+            _ path: String, type: String = "static", scale: Any = [1, 1, 1],
+            origin: Any = [0, 0, 0]
+        ) -> [String: Any] {
+            ["name": path, "type": type, "maxcount": 1, "scale": scale, "origin": origin]
+        }
+        var layers: [SceneRenderDescriptor.Layer] = []
+        var labels: [Int: String] = [:]
+        func container(_ id: Int, _ label: String, children: [[String: Any]]) throws {
+            let path = "particles/root-\(label).json"
+            try writeParticle(path, material: "materials/shared.json",
+                rate: 0, instantaneous: 1, children: children, under: directory)
+            layers.append(layer(id, path))
+            labels[id] = label
+        }
+
+        let inclined = try leaf("inclined", flags: 1)
+        let renamed = try leaf("renamed-ribbon", flags: 1, alternate: true)
+        try container(821, "geometry", children: [
+            child(inclined, scale: [2, 2, 3], origin: [11, 13, 17]),
+        ])
+        try container(822, "equivalent", children: [
+            child(renamed, scale: "2 2 3", origin: "11 13 17"),
+        ])
+
+        let largeA = try leaf("large-a", maximum: 256, subdivision: 100)
+        let largeB = try leaf("large-b", maximum: 256, subdivision: 100)
+        let medium = try leaf("medium", maximum: 151, subdivision: 100)
+        let legacy = try leaf("legacy", maximum: 129, subdivision: 63)
+        try container(823, "ordered", children: [
+            child(largeA), child(largeB), child(medium), child(legacy),
+        ])
+        // 32766 and 8194 reserve exactly the available incremental envelope.
+        let boundary = try leaf("boundary", maximum: 382, subdivision: 85)
+        let exact = try leaf("exact", maximum: 242, subdivision: 33)
+        let over = try leaf("over-one", maximum: 150, subdivision: 54)
+        try container(824, "exact", children: [child(boundary), child(exact)])
+        try container(825, "over", children: [child(boundary), child(over), child(legacy)])
+
+        var occupied: [[String: Any]] = []
+        for index in 0..<3 {
+            occupied.append(child(try leaf("capacity-\(index)", maximum: 20_000,
+                renderer: "sprite")))
+        }
+        occupied.append(child(try leaf("capacity-tail", maximum: 5_236, renderer: "sprite")))
+        // Only 300 particle slots remain: reject 382 before reserving credit,
+        // then admit a 256-capacity Rope that needs the larger expansion.
+        occupied.append(child(boundary))
+        occupied.append(child(largeA))
+        try container(826, "capacity", children: occupied)
+
+        let event = try leaf("event-scaled")
+        let world = try leaf("world-movement", movementWorld: true)
+        let nested = try leaf("nested-scaled", children: [child(inclined, type: "eventspawn")])
+        let malformed = try leaf("malformed-scale")
+        let negative = try leaf("negative-scale")
+        let nonuniform = try leaf("nonuniform-scale")
+        let nestedLarge = try leaf("nested-large", maximum: 256, subdivision: 100)
+        let bridge = try leaf("bridge", renderer: "sprite", children: [
+            child(nestedLarge, type: "eventspawn"),
+        ])
+        try container(827, "rejections", children: [
+            child(event, type: "eventspawn", scale: [2, 2, 3]),
+            child(world, scale: [2, 2, 3]), child(nested, scale: [2, 2, 3]),
+            child(malformed, scale: "bad"), child(negative, scale: [-1, -1, 1]),
+            child(nonuniform, scale: [2, 3, 4]),
+            child(largeB, type: "eventspawn"), child(bridge), child(legacy),
+        ])
+        let runtime = SceneParticleRuntime(descriptor: .init(
+            layers: layers, renderOrderLayerIDs: layers.map(\.id),
+            materialPasses: [
+                .init(materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"], blending: "additive"),
+                .init(materialPath: "materials/renamed.json", shaderPath: "genericparticle",
+                    texturePaths: ["renamed.png"], blending: "additive"),
+            ]
+        ), cacheDirectory: directory, device: device)
+        func signatures(_ batches: [SceneParticleDrawBatch]) -> [String: [[Float]]] {
+            Dictionary(uniqueKeysWithValues: batches.map { batch in
+                ("\(batch.layerID):\(batch.particlePath)", batch.instances.map { item in [
+                    item.positionAndSize.x, item.positionAndSize.y,
+                    item.positionAndSize.z, item.positionAndSize.w,
+                    item.velocityAndTrail.x, item.velocityAndTrail.y, item.velocityAndTrail.z,
+                    item.frame0B.z, item.frame0B.w, item.rotationAndAlpha.w,
+                ] })
+            })
+        }
+        let initial = runtime.frameSnapshot()
+        _ = runtime.advance(by: 1.0 / 60.0)
+        let first = runtime.advance(by: 1.0 / 60.0)
+        let expected = signatures(first)
+        let systemCount = runtime.lifecycleSnapshot.childSystemCount
+        runtime.restoreFrame(initial)
+        _ = runtime.advance(by: 1.0 / 60.0)
+        let replay = runtime.advance(by: 1.0 / 60.0)
+        let replayMatches = expected == signatures(replay)
+            && systemCount == runtime.lifecycleSnapshot.childSystemCount
+        var observed: [String: [String: Int]] = [:]
+        for batch in replay where !batch.particlePath.hasPrefix("particles/root-") {
+            let name = URL(fileURLWithPath: batch.particlePath).deletingPathExtension().lastPathComponent
+            observed[labels[batch.layerID]!, default: [:]][name] = batch.instances.count
+        }
+        let geometry = replay.first { $0.particlePath == inclined }?.instances ?? []
+        let alias = replay.first { $0.particlePath == renamed }?.instances ?? []
+        let uploadsMatch = replay.allSatisfy { batch in
+            batch.instanceBuffer.update(device: device, instances: batch.instances)
+                && batch.instanceBuffer.count == batch.instances.count
+        }
+        let diagnostics = runtime.diagnostics.map { "\($0.layerID ?? -1):\($0.detail ?? "")" }
+        runtime.teardown()
+        let shortPath = "particles/short-scaled-ribbon.json"
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 16, "flags": 1,
+            "emitter": [[0, 0, 0], [10, 5, 3]].map { point in [
+                "name": "sphererandom", "rate": 60, "duration": 0.04,
+                "origin": point, "distancemin": 0, "distancemax": 0,
+            ] },
+            "initializer": [
+                ["name": "lifetimerandom", "min": 0.05, "max": 0.05],
+                ["name": "sizerandom", "min": 4, "max": 4],
+            ],
+            "renderer": [["name": "rope", "subdivision": 1]],
+        ], to: directory.appendingPathComponent(shortPath))
+        try writeParticle("particles/root-retirement.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [child(shortPath, scale: [2, 2, 3], origin: [11, 13, 17])],
+            under: directory)
+        let naturalRuntime = SceneParticleRuntime(descriptor: .init(
+            layers: [layer(828, "particles/root-retirement.json")],
+            renderOrderLayerIDs: [828], materialPasses: [
+                .init(materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"], blending: "additive"),
+            ]
+        ), cacheDirectory: directory, device: device)
+        func naturalSequence() -> (rows: [[Int]], geometry: [[String: [[Float]]]]) {
+            var rows: [[Int]] = []
+            var geometry: [[String: [[Float]]]] = []
+            for cadence in 1...12 {
+                let batches = naturalRuntime.advance(by: 1.0 / 60.0)
+                let count = batches.first { $0.particlePath == shortPath }?.instances.count ?? 0
+                let lifecycle = naturalRuntime.lifecycleSnapshot
+                rows.append([cadence, count, lifecycle.childSystemCount,
+                    lifecycle.childParticleCount])
+                geometry.append(signatures(batches))
+            }
+            return (rows, geometry)
+        }
+        let naturalInitial = naturalRuntime.frameSnapshot()
+        let completedSequence = naturalSequence()
+        naturalRuntime.restoreFrame(naturalInitial)
+        let replayedSequence = naturalSequence()
+        let naturalReplayMatches = completedSequence.rows == replayedSequence.rows
+            && completedSequence.geometry == replayedSequence.geometry
+        naturalRuntime.teardown()
+        return [
+            "observed": observed,
+            "geometryPositions": geometry.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            },
+            "geometryHalfWidths": geometry.map(\.positionAndSize.w),
+            "geometryDisplacements": geometry.map {
+                [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
+            },
+            "equivalentPositions": alias.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            },
+            "equivalentHalfWidths": alias.map(\.positionAndSize.w),
+            "equivalentDisplacements": alias.map {
+                [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
+            },
+            "replayMatches": replayMatches, "uploadsMatch": uploadsMatch,
+            "diagnostics": diagnostics,
+            "afterTeardownChildSystems": runtime.lifecycleSnapshot.childSystemCount,
+            "afterTeardownChildParticles": runtime.lifecycleSnapshot.childParticleCount,
+            "naturalRetirementCadences": completedSequence.rows,
+            "naturalRetirementReplayMatches": naturalReplayMatches,
+        ]
+    }
+
     static func ropeTrailSignature(
         _ batch: SceneParticleDrawBatch?
     ) -> [Float] {

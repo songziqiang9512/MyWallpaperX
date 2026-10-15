@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-16 | Particle/static Rope | 有界功能修正 | [child变换与扩展准入](static-child-rope-2026-10-16.md) | 原birthOrigin上缩放、构造期credit、自然退休；原包child非零batch及独立渲染，精确视觉仍留队列 | [粒子合同](../capabilities/particle-component-coverage.md#static-child-rope-design)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-16 | 属性/SceneScript | 通用输入补接 | [Named-user pass scalar](named-user-pass-scalar-2026-10-16.md) | raw seed与当前slider分离、唯一VM writer、实际封面旋转及同窗口热改 | [输入覆盖](../capabilities/runtime-input-property-coverage.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-16 | Shader/启动CPU | 局部成本修正 | [类型识别与启动栈](shader-value-type-recognition-2026-10-16.md) | 同域switch局部收益；声明准备App短筛NO-GO撤回，文字可达性未证 | [性能卡](../roadmap/performance-convergence-card.md)、[属性卡](../roadmap/properties-panel-card.md) |
 | 2026-10-16 | Shader/词法引用 | 通用正确性修复 | [Global scope与mutable varying](shader-global-scope-2026-10-16.md) | initializer、语句scope与精确global token；跨freeze像素及独立真实回归，不计性能 | [覆盖表](../capabilities/render-graph-shader-coverage.md#op-shader-syntax)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

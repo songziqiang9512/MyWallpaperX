@@ -15,7 +15,8 @@ enum SceneParticleChildEventColorAdmission {
 }
 
 /// Project-owned bounded child transform profile. Screen-plane scale stays uniform;
-/// mirroring, rotation, nested scaling, ropes, and world-space movement remain fail-closed.
+/// mirroring, rotation, nested scaling, and world-space movement remain fail-closed.
+/// Rope consumes this frame only in the depth-one static profile.
 struct SceneParticleChildTransform: Equatable {
     private static let minimumScale = 1.0 / 1_024.0
     private static let maximumScale = 1_024.0
@@ -67,6 +68,13 @@ struct SceneParticleChildTransform: Equatable {
 }
 
 enum SceneParticleChildTemplateSupport {
+    /// Existing per-template envelope for event/nested Rope systems.
+    static let maximumRopeSegmentsPerTemplate = 8_192
+    /// Static children can share one root Rope's additional segment envelope.
+    /// This is preparation work credit, not a GPU slot or total resident budget.
+    static let maximumStaticRopeExpansionSegments =
+        SceneParticleRopePlan.maximumGeneratedSegmentCount - maximumRopeSegmentsPerTemplate
+
     static func eventColorAdmission(
         definition: SceneParticleDefinition,
         trigger: SceneParticleChildTrigger

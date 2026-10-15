@@ -561,13 +561,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "201cf9b52fb59288d89bf1b181b00c0019936b76b146ee43f2c36fb8da574fdd",
+        "sourceSHA256": "1a7a46994c3b42db90369a5e12a7e6f60cb1be0e273ef4f30bb16d268a9bad51",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
-        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+        "scope": "static child Rope变换/构造期credit、实际非零batch与退休；parent/child视觉归属和其他profile继续留队列",
+        "limitations": "文档与有界行为核对；不认领完整样本、官方视觉或CPU/GPU/RAM收益"
       }
     },
     {
@@ -2803,6 +2803,18 @@
       "uniqueValue": "源Program输出域/采样输入解耦、同输入真实白转蓝、bootstrap与reachable事实分离及有界反例；不计性能收益。"
     },
     {
+      "path": "docs/scene/history/static-child-rope-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "static Rope child变换与构造期credit，原包child batch、自然退休与精确视觉归属边界。"
+    },
+    {
       "path": "docs/scene/history/static-image-autosize-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3203,10 +3215,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d2d96c822f1085f2b243c398b0bfacc0db5396237ed2ebf360866dcffd710ca8",
+        "sourceSHA256": "47a0a743c739088064b4a1c7b4f51ad3006c67ac85152a1cd8c6f1d0cd24b461",
         "method": "document_registry --audit + document_health --check",
-        "scope": "named-user pass scalar唯一值合同、实际旋转与热改、未覆盖边界导航；队列另更正child Rope资格并保Timeline静态风险",
-        "limitations": "导航与记录边界复核；不认领完整样本、官方数值parity、系统媒体、原生面板专项或性能收益"
+        "scope": "static child Rope变换/构造期credit、实际非零batch与退休；parent/child视觉归属和其他profile继续留队列",
+        "limitations": "文档与有界行为核对；不认领完整样本、官方视觉或CPU/GPU/RAM收益"
       }
     },
     {
