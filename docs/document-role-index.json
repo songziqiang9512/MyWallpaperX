@@ -544,7 +544,15 @@
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-15",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "201cf9b52fb59288d89bf1b181b00c0019936b76b146ee43f2c36fb8da574fdd",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
+        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+      }
     },
     {
       "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
@@ -596,10 +604,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "487b72f9946b6677073c74cc25da6f3086289568893f735592ff8b29ea71704b",
+        "sourceSHA256": "58a57aba18c2c2b6611a97f1a3e846940a3a1f4dbfe65308457e811de3f4b40e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
-        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
+        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
+        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
       }
     },
     {
@@ -776,7 +784,15 @@
       "role": "reference",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
-      "commandPolicy": "reference-only"
+      "commandPolicy": "reference-only",
+      "lastReviewed": "2026-10-15",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "7c5d0fd909fc7b362580a4d3d854d9a8dfa271fcef48d4ceec58057ac46df39f",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
+        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+      }
     },
     {
       "path": "docs/scene/history/2d-lit-image-light-contract-2026-10-06.md",
@@ -796,10 +812,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "02fdfa3c3477b624b1e597722387394003c5065d0a8270f60e307712dd00f556",
+        "sourceSHA256": "4b63e5baadca37b804d5751ba493f54cef93073f3a398091f149c52a41d3c3f1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
-        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
+        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
+        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
       }
     },
     {
@@ -2277,6 +2293,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/source-index.md",
+        "docs/scene/capabilities/particle-component-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "固定官方客户端自有直线、曲线、复合倾斜输入的可见输出、q1环境失效和未解负细分/world语义；停止扩矩阵且不新增产品支持。"
+    },
+    {
       "path": "docs/scene/history/runtime-evidence-batches-through-2026-10-03.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3037,7 +3066,15 @@
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。"
+      "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。",
+      "lastReviewed": "2026-10-15",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "f1b6bd528468b15f0ab512fb259a0fc223075f3a2ce5462534fcf41c17a76e73",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
+        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
+      }
     },
     {
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
@@ -3054,10 +3091,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d9118f7b6030256b7cfe91001f5f1ffca8186b2e6acf241db6f4ab610d225acd",
+        "sourceSHA256": "98ea7f4d63ca0f40129ef50eec049457c35acf04899c70a5b3aa5e4e321ed0a2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
-        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
+        "scope": "N08固定客户端研究的unknown与STOP、N03历史模板首门及下一资格路由",
+        "limitations": "文档来源、导航与状态复核；不新增产品能力、官方算法、parity或性能结论"
       }
     },
     {

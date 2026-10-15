@@ -124,6 +124,9 @@
 
 ### 1.5 Particles
 
+<a id="particle-rope-profile-blackbox"></a>
+2026-10-15 的 `official-client-dynamic-golden` 有界资格：固定 2.8.0.42、自有输入及 engine-age 标记下，RopeTrail 的 renderer flags=0/1、subdivision=-16 输入均可产生线带；曲线对照只观察到接点外观差异，倾斜对照未区分 world orientation。输出存在不证明负值被如何消费，完整负值/world/UV 语义仍 unknown；无产品准入或等级变化。卡片、20 张有效原图、失效 q1、locale 过滤反例和停止门统一见[研究记录](../history/rope-trail-profile-qualification-2026-10-15.md)。
+
 - https://docs.wallpaperengine.io/en/scene/particles/introduction.html
 - https://docs.wallpaperengine.io/en/scene/particles/component/general.html
 - https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html

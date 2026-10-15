@@ -248,6 +248,8 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)。
 
+2026-10-15 的[固定客户端 RopeTrail 资格](../development/source-index.md#particle-rope-profile-blackbox)只保留自有输入的可见输出与未解负 subdivision/world 语义；未扩现役 profile 或下表等级，N08 真实十层仍未恢复验收。
+
 | ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | R01 Sprite | 每个粒子绘制独立 textured sprite。 | `L3` | [DEF] [RUN] [GPU] [SAMP] [T-GPU] [T-RUN] | 自有quad、首纹理、两blend；显式sampling将TEX filter/address/mip送入Metal sampler。普通root/child加载straight RGB/alpha，先采样/跨帧混合，再只乘一次纹理alpha，以premultiplied输出和`ONE` source factor合成。generic layer alpha（静态/绑定/脚本）不调制粒子，instance alpha独立有效；见[官方alpha合同](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-particle-alpha-contract)。160组GPU反例覆盖空间/跨帧滤波、两blend、粒子alpha、背景及overbright，见[插值证据](runtime-evidence-current.md#e-2026-09-27-particle-straight-interpolation)。普通Sprite顶点与折射切线共用负角Z→X→Y旋转，与公开stock ComputeParticleTangents经现有normalizer/compiler的三轴basis GPU读回一致；有非对称卡片、混合角、非identity basis与折射方向门。精确size、legacy scalar angle、复杂camera/orientation仍无Windows pixel parity。 | 尺寸/旋转/alpha/color/UV/sampling 的 Windows golden。 |

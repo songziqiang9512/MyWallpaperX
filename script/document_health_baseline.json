@@ -93,8 +93,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 399,
-      "bytes": 140794
+      "lines": 401,
+      "bytes": 141059
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -109,8 +109,8 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 116,
-      "bytes": 35399
+      "lines": 117,
+      "bytes": 35634
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -226,11 +226,11 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33344
+      "bytes": 33407
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 71847
+      "bytes": 72444
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1164,15 +1164,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "38d40efef864d8eacc30d428869222ab96f45082544691fe3b85c787cd598e43",
-      "after": "c3ff741ff5bcda04d4ea029dc1e5b86b3070b1c8e3a5adbdc539faaf4cac2313",
-      "owner": "Scene capability qualification",
-      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "d176a05be2d3c1ee4f3965bdbfe9798968c880b681fcdfca3fd222829b914d01",
       "after": "209dc9f79af6140ea5a6df3a4d7d3b93155ffe301941e34f2d5ccdbf6ece2912",
@@ -1182,21 +1173,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "e88ca25411fe4518fca6681f775e705ead96a35004953861eb34972baeffdb16",
+      "after": "ec95c0d21ff9c70a1a00c9c32bf8fb2ac559a057a05a85567729671efc864696",
+      "owner": "Scene particle qualification",
+      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
+      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "c3ff741ff5bcda04d4ea029dc1e5b86b3070b1c8e3a5adbdc539faaf4cac2313",
+      "after": "d363be43d9b03245af30222e60a933c376ffd143de5bca84656ddc64cf061df3",
+      "owner": "Scene particle qualification",
+      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
+      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "1e25bbb348ae269d162be6fc4c2d7b3d60b2c56d5728a7f97f5d111dc8da2139",
-      "after": "2ee3956a7a0ffd345096894bd31061b45f28c2af8524a13d4c688d3157c874a7",
-      "owner": "Scene capability qualification",
-      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
+      "before": "2ee3956a7a0ffd345096894bd31061b45f28c2af8524a13d4c688d3157c874a7",
+      "after": "ac1e3d15138b97af92b1b7178d8e5a622f558e7a13c4fa15aacb7c5de413da46",
+      "owner": "Scene particle qualification",
+      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
+      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d38649c9a3f32ab22035f4abb5266c1b4b7207ebedda1536d4a1f730bc3090c5",
-      "after": "eb4737dc0577ca50cc0f1218dabd8307927f2627808f009d79eaae8229ed2ed7",
-      "owner": "Scene capability qualification",
-      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
+      "before": "eb4737dc0577ca50cc0f1218dabd8307927f2627808f009d79eaae8229ed2ed7",
+      "after": "4766cbfd0491fdce65f8547dd000bcc4db79a6568d94b09993da56039a173acc",
+      "owner": "Scene particle qualification",
+      "reason": "只补N08有界研究/unknown的入口、停止门与343历史模板首门资格；完整过程归单份历史，不新增产品能力。",
+      "decision": "docs/scene/history/rope-trail-profile-qualification-2026-10-15.md#停止与后继"
     }
   ]
 }
