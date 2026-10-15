@@ -690,13 +690,6 @@
       "path": "script/tests/test_scene_property_live_routing.py",
       "scope": "ScenePropertyLiveRoutingTests.test_layer_color_is_live_for_solid_and_effectless_image_layers",
       "method": "assertIn",
-      "literal": "if layer.supportsDirectLayerColorConsumer",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_property_live_routing.py",
-      "scope": "ScenePropertyLiveRoutingTests.test_layer_color_is_live_for_solid_and_effectless_image_layers",
-      "method": "assertIn",
       "literal": "let hasConsumer = layer.supportsDirectLayerColorConsumer",
       "count": 1
     },

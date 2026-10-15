@@ -502,7 +502,10 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         )
 
 
-    def test_user_color_potential_is_separate_from_script_and_prepared_admission(self) -> None:
+    def test_layer_color_is_live_for_solid_and_effectless_image_layers(self) -> None:
+        # Legacy source wiring only: this does not execute Service filtering or
+        # RuntimeModel's upstream Script consumer selection. Prepared Host
+        # admission has executable coverage in SceneHiddenPropertyConsumerTests.
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn("case let .layerColor(layerID):", support)
         layer_color = support[
@@ -520,20 +523,6 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn('contentKind == "image" && effects.isEmpty', eligibility)
         self.assertNotIn('contentKind == "text"', eligibility)
         self.assertNotIn('contentKind == "particle"', eligibility)
-
-        consumers = method_body(
-            self.live_consumers, "static func activeLiveConsumerTargets("
-        )
-        image_case = consumers[
-            consumers.index('case "image":') : consumers.index('case "text":')
-        ]
-        self.assertIn("layer.supportsUserPropertyLayerColorConsumer", image_case)
-        self.assertIn("resolvedMaterialExecutionCapabilities.claim(layerID: layer.id)", image_case)
-        self.assertIn("resolvedMaterialExecutionCapabilities.resolve(claim.token)", image_case)
-        self.assertIn("case .capturedLayerTexture = capability.sourceRoute", image_case)
-        self.assertIn("case .none = capability.dependencyOwnership", image_case)
-        self.assertIn("!sourceMaterialCandidateConsumerLayerIDs.contains(layer.id)", image_case)
-        self.assertIn(".layer(layerID: layer.id, field: .color)", image_case)
 
         model = self.runtime_model
         self.assertIn("let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(", model)
