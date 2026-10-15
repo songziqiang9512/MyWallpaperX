@@ -585,6 +585,19 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-prepared-empty-composition",
+      "title": "已准备空composition创建与控制链",
+      "owner": "Scene prepared resource template / DynamicLayerRuntime",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "省略参数空组原型自有控制有效，但真实请求需constructor透视override、authored target286 perspective=true且当前capture无消费者；无原包收益已撤回。重启须先修订D4透视采集/回绘与实际消费者设计，不能只开放kind或删除guard。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION",
+        "SceneScriptPreparedResourceLayerTemplate"
+      ]
     }
   ]
 }

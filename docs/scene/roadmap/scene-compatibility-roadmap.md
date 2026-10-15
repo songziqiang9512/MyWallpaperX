@@ -4,7 +4,7 @@
 
 > 当前主线：**公共能力补齐与逻辑正确性**。以真实作者内容、共享首断点和实际播放对照推进，最终逐步让样本根中的每一个Scene正确运行。
 >
-> 执行顺序更新：2026-10-15。近期局部性能筛选收益递减，主力转功能；文字wrapper、Puppet默认几何与默认mask窄片已交付，源材质无采样入口已恢复实际输出，后继按覆盖/风险比较composition真实请求与无base源准备；具体条目归[断点队列](scene-open-breakpoint-queue.md)。性能按[工作卡](performance-convergence-card.md)由已证大成本或回归触发，不要求逐批微调。纹理/合成→特效→频谱的长期方向及未修问题保留；P0关联持续并行，旧证据不冒充当前复测。
+> 执行顺序更新：2026-10-15。近期局部性能筛选收益递减，主力转功能；文字wrapper、Puppet默认几何与默认mask窄片已交付，源材质无采样入口已恢复实际输出，空composition原型无真实请求收益已撤回，透视需求保留；下一项优先资格N08十个可见RopeTrail的world/负细分合同，不扩无实际候选的无base准备；具体条目归[断点队列](scene-open-breakpoint-queue.md)。性能按[工作卡](performance-convergence-card.md)由已证大成本或回归触发，不要求逐批微调。纹理/合成→特效→频谱的长期方向及未修问题保留；P0关联持续并行，旧证据不冒充当前复测。
 >
 > 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](../capabilities/coverage-ledger.md)、专项表、[代码地图](../architecture/runtime-as-built-map.md)、[运行证据索引](../capabilities/runtime-evidence-current.md)、[样本调试台账](../capabilities/scene-sample-debug-ledger.md)和[样本验收台账](../capabilities/scene-sample-acceptance-ledger.md)拥有。本文中的新增字段和工具扩展是待实现交付要求，不表示工具已经支持。
 

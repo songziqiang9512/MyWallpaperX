@@ -95,6 +95,16 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 
 **最近验收与停止。** 实施与未验边界见[默认实例记录](../../history/prepared-puppet-default-instances-2026-10-15.md)。本片用自有双实例验证真实mesh轮廓/默认reference或bind几何、独立state/变换、throw/晚拒绝无残留及退休一个后peer继续，另验真实候选与未参与修法样本；动画字段不复制source，用失败反例锁定。未来动画实例另须非静态mesh位移与独立播放事实。改名/等价配置和缺template、错误代次、用途冲突保邻反例。若真实请求依赖首片外脚本/graph或没有可消费的prepared结果，收口资格并重新排队，不以无可见收益的基础设施扩张计交付。性能只在重复准备确有可比收益时单独验收。
 
+<a id="prepared-empty-composition"></a>
+
+### 空 composition 创建资格（2026-10-15，原型撤回）
+
+**当前裁决。** [隔离原型](../../history/prepared-empty-composition-2026-10-15.md)证明省略特殊配置/透视时可沿原catalog、create journal、DynamicLayerRuntime与utility plan建立独立空组，并控制真实可见peer；但真实288请求携constructor透视override，且target286的authored setter写true。前者早拒绝返回null，允许它则后者仍使原共同bundle拒绝。省略窄片未改善真实请求，产品与测试原型已撤回，不新增支持，不以自有fixture替代收益。
+
+**保留的职责设计。** 如后继取得真实可消费profile，泛化原资源层template/kind与同一domain catalog；image/Puppet保原device资源，composition只携可信utility资格，不伪Loaded图片、不复制source成员/effects/脚本或最终纹理。原身份、事务/fixed-point、typed topology、排序与退休继续唯一；无effect空组只规范顺序，不新增capture/graph/target。普通帧不解析或扫描资源。显式动画/effects、背景/config、成员/dependency及透视配置必须有typed消费者后才开放，getter/Proxy异常保原owner撤回。
+
+**重启门。** 公开IScene只有通用创建/排序/延迟销毁合同；composition透视、动态背景默认及成员复制仍unknown。当前utility固定screen-space，采集UV仅三角affine，不能只删除perspective guard或强置false冒充支持true。重启先取得自有正控制与透视false/true、非零深度/倾角、第四角/采集回绘/cursor的可区分合同，保存新设计并同步登记。保省略C2→Swift nil和普通image/text的继承语义；明确未消费override在出生前拒绝、ABI/后续setter在共同接纳前复核。无可见差异或无合格真实请求就停止扩域，按现役队列重选。
+
 ## 图层 perspective typed setter 后继（2026-10-12）
 
 真实作者在图层 init 设置 `thisLayer.perspective`，随后只更新 angles/origin/scale；原桥接没有此 accessor，赋值成为无渲染消费者的 JS 自有属性。公开 [SceneScript 类型声明](https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts) 的 IEffectLayer（image/text 的共同表面）及 model 图层声明可读写 Boolean perspective，含义为透视而非平面绘制；公开 HTML ILayer 简表未完整列出派生属性。此次先闭合已准备图层及现动态 image/text handle 的 setter/getter，不扩 createLayer Object 配置、size、资源 profile 或文字克隆。

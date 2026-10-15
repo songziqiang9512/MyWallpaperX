@@ -596,10 +596,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1c0257f100ee8ddaca3ead4509101055b119a4238ec2871e298b015a22954f84",
+        "sourceSHA256": "487b72f9946b6677073c74cc25da6f3086289568893f735592ff8b29ea71704b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
-        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
+        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
+        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
       }
     },
     {
@@ -796,10 +796,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "caa70ba797b6138b82c04d5160e50a87ff22425e4955c9fb876025eb6c756a97",
+        "sourceSHA256": "02fdfa3c3477b624b1e597722387394003c5065d0a8270f60e307712dd00f556",
         "method": "document_registry --audit + document_health --check",
-        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
-        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
+        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
+        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
       }
     },
     {
@@ -1773,6 +1773,18 @@
         "limitations": "No all-sample, official parity, stable end-to-end startup, HDR history or long switching acceptance"
       },
       "lastReviewed": "2026-10-13"
+    },
+    {
+      "path": "docs/scene/history/prepared-empty-composition-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "空composition原型自有控制通过但真实请求需要透视override；无原包收益撤回产品与测试，保资格边界及重启门。"
     },
     {
       "path": "docs/scene/history/prepared-puppet-default-instances-2026-10-15.md",
@@ -2953,10 +2965,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "11e241860edf5c1e5ab078ab9bb997ee8b2331c645d4da4cf4bafa7ea77cd930",
+        "sourceSHA256": "899d6159aa5b1fd52d724fa5252cb9c0f98ba8709592d3a43d3e052a517c984c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
-        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
+        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
+        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
       }
     },
     {
@@ -3042,10 +3054,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a69910b119d340ae402a57a9d6062489e87885ac2a5a77420cf344582f30f1ec",
+        "sourceSHA256": "d9118f7b6030256b7cfe91001f5f1ffca8186b2e6acf241db6f4ab610d225acd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
-        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
+        "scope": "空composition资格STOP、产品撤回与N08下一资格的唯一现役路由",
+        "limitations": "文档导航与状态，不代表新增能力、全样本或性能验收"
       }
     },
     {

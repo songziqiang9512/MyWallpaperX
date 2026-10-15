@@ -109,8 +109,8 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 115,
-      "bytes": 35128
+      "lines": 116,
+      "bytes": 35399
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 264,
-      "bytes": 73168
+      "lines": 274,
+      "bytes": 75062
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -226,11 +226,11 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33231
+      "bytes": 33344
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 71433
+      "bytes": 71847
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1146,15 +1146,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "9f62dbf9a61e26bdd3c9416aadb8413411a762e75c39182c0c2cac0f25dae7fa",
-      "after": "d176a05be2d3c1ee4f3965bdbfe9798968c880b681fcdfca3fd222829b914d01",
-      "owner": "scene-script-runtime",
-      "reason": "默认Puppet几何实例新增能力/冻结证据，并替换旧特殊clone状态及维护现役选序；非重复过程。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-puppet-clone"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "77e1c3a6849b0fb6bf5ab765b62e3347a0fd04374aab4d907adefb1d9ea59952",
       "after": "ad8a765edbb0438304460af5fa1050135c50c285047af3fdb4db1aaa12548dce",
@@ -1174,29 +1165,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "49262c117817866d3caa44548e4ab33ce350a1e5140e70ed8e80b3189a1f4cf4",
-      "after": "38d40efef864d8eacc30d428869222ab96f45082544691fe3b85c787cd598e43",
-      "owner": "Scene source-material preparation",
-      "reason": "源输出域设计替换过时入口问题与重复取舍，保600行上限；补有界实际输出、bootstrap边界及唯一现役队列，详细证据入历史。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#源输出域与采样输入分离"
+      "before": "38d40efef864d8eacc30d428869222ab96f45082544691fe3b85c787cd598e43",
+      "after": "c3ff741ff5bcda04d4ea029dc1e5b86b3070b1c8e3a5adbdc539faaf4cac2313",
+      "owner": "Scene capability qualification",
+      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "d176a05be2d3c1ee4f3965bdbfe9798968c880b681fcdfca3fd222829b914d01",
+      "after": "209dc9f79af6140ea5a6df3a4d7d3b93155ffe301941e34f2d5ccdbf6ece2912",
+      "owner": "Scene capability qualification",
+      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "7bbb6a758f4ee9c0630266c6f1e8d8764a5641d360e16af7da11b63f006fc78a",
-      "after": "1e25bbb348ae269d162be6fc4c2d7b3d60b2c56d5728a7f97f5d111dc8da2139",
-      "owner": "Scene source-material preparation",
-      "reason": "源输出域设计替换过时入口问题与重复取舍，保600行上限；补有界实际输出、bootstrap边界及唯一现役队列，详细证据入历史。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#源输出域与采样输入分离"
+      "before": "1e25bbb348ae269d162be6fc4c2d7b3d60b2c56d5728a7f97f5d111dc8da2139",
+      "after": "2ee3956a7a0ffd345096894bd31061b45f28c2af8524a13d4c688d3157c874a7",
+      "owner": "Scene capability qualification",
+      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b78460e4448275493431525e7d6df6c4bd0624529385a0c7c0eeb6ef04d5fc2c",
-      "after": "d38649c9a3f32ab22035f4abb5266c1b4b7207ebedda1536d4a1f730bc3090c5",
-      "owner": "Scene source-material preparation",
-      "reason": "源输出域设计替换过时入口问题与重复取舍，保600行上限；补有界实际输出、bootstrap边界及唯一现役队列，详细证据入历史。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#源输出域与采样输入分离"
+      "before": "d38649c9a3f32ab22035f4abb5266c1b4b7207ebedda1536d4a1f730bc3090c5",
+      "after": "eb4737dc0577ca50cc0f1218dabd8307927f2627808f009d79eaae8229ed2ed7",
+      "owner": "Scene capability qualification",
+      "reason": "只保留真实请求透视首断点、无收益原型撤回与下一资格；细节归历史，不扩大功能或性能声明。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-empty-composition"
     }
   ]
 }
