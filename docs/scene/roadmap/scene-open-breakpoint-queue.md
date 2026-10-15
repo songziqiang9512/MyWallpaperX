@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 排程更新：2026-10-16。本文服从[兼容路线](scene-compatibility-roadmap.md)，只保存开放问题；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生选择/重放、metadata反例及最终App前景可见的有界验收，不计专项完成。随后资格U40连续拖动，尚未fresh复现。N08 world/负细分与composition透视保持unknown，不扩无区分矩阵。属性专项归[工作卡](properties-panel-card.md)，性能按[性能卡](performance-convergence-card.md)有证触发；局部通过不关闭整样本。
+> 排程更新：2026-10-16。本文服从[兼容路线](scene-compatibility-roadmap.md)，只保存开放问题；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生选择/重放、metadata反例及最终App前景可见的有界验收，不计专项完成。[U40连续拖动](../history/repeated-puppet-drag-qualification-2026-10-16.md)已fresh复现首轮骨写、释放异常后失效，现追候选host impulse依赖缺口，动态归因未证；官方省略参数资格进行中、无经审结果，不标修复。N08 world/负细分与composition透视保持unknown，不扩无区分矩阵。属性专项归[工作卡](properties-panel-card.md)，性能按[性能卡](performance-convergence-card.md)有证触发；局部通过不关闭整样本。
 
 ## 1. 全样本依据与状态
 
@@ -140,7 +140,7 @@
 | U37 · 3769364482 | 人物发光突现，应渐显渐隐有呼吸感 | 作者 opacity/Timeline/effect 常量→typed frame→合成，复验完整周期 |
 | U38 · 3750342273 | 缺鼠标晃动镜头视差 | pointer/相机配置→各层变换，沿既有相机 owner 修复 |
 | U39 · 3219398263 | 中间漩涡方向似反，与官方有差异 | 作者时间/角度/UV/空间约定，固定相位对照后裁决方向 |
-| U40 · 3749463715 | 胸部点击拖动仅第一次有效，第二次及后续失效 | 后继资格，尚未fresh复现；沿pointer capture/up/cancel、状态复位及动画/physics，至少连续三轮down/move/up验收 |
+| U40 · 3749463715 | fresh三轮复现：首轮实际骨/GPU响应，释放异常后后两轮owner disabled | [资格记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)：中性调用形态显示候选bone impulse host依赖缺口，动态归因未证；angular缺省与响应仍unknown，先官方自有对照，不用no-op或削fuse算修复 |
 | U41 · 3357627941 | 本地视频入口有界已闭，更宽profile保留 | [实施记录](../history/user-property-video-2026-10-16.md)：复用原资源/视频事务；真实前景与最终身份已复验，非PMA/更宽媒体未扩，不关闭整样本 |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖](../history/property-condition-reachability-2026-10-13.md)与[准备复用](../history/property-preparation-convergence-2026-10-13.md)已闭局部/暖CPU；[原生列表](../history/native-property-list-convergence-2026-10-14.md)退出SwiftUI lazy AX职责，系统滚动首尾、实际Tab/格式热更与独立灯光开关已验；三轮同条件无播放含AX的操作CPU降64.237449%。[显示本地化](../history/property-callback-recovery-2026-10-14.md#property-display-localization)已落地作者优先及有限标准词汇回退，真实面板条件/持久化与独立样本已验；打开/编辑总延迟、完整系统键盘chrome、颜色callback/cohort、更多词汇/locale和长Combo完整显示仍开放 |
 
@@ -165,7 +165,7 @@
 | 累计tombstone扫描Program绑定的非阻断成本 | **能力缺口**：作者退休历史登记剩余Program绑定扫描；同页后继仅关闭双demand memo抖动，未宣称消除此成本。 先取得同输入有效性能基线，再在同owner简化；不新增缓存/拓扑owner。 是成本后继，不是已测FPS/能耗退化。 [依据1](../capabilities/runtime-evidence-current.md)、[依据2](../history/authored-layer-retirement-2026-10-07.md) |
 | cursor/Solid/previous-pointer的未证公开语义与Host组合 | **待研究/复验**：localPosition已恢复像素单位，但官方Y原点、text padding/puppet hitBox、缺省/隐藏Solid及父语义未定；按住中途关闭/重开、跨owner动态handle/stale及previous侧作者效果未验。 先自有官方/Host组合反例，再原生录屏；保留旧capture up而无hit不click。 不从绘制visible推导命中过滤，不因普通拖放用户通过关闭所有输入语义。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-cursor-local-pixels)、[依据2](../capabilities/runtime-evidence-current.md#e-2026-09-28-dynamic-solid) |
 | 雷电每周期数量上限与remainder | **待研究/复验**：405/412因maxtoemitperperiod=32先在periodic profile拒绝，不是instance count/rate倍率；公开Emitter和现有参考不能裁定限额执行。 受控官方确定每窗数量、fraction remainder、跨窗与count/rate组合，再在现emitter状态内实现。 原包加载8/8或根系统存在不等于雷电恢复。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-periodic-instance-overrides) |
-| bone physics impulse、gravity/spring与高级Puppet profile | **待研究/复验**：选骨/蒙皮后松手100ms到applyBonePhysicsImpulse可达；省略angular、physics-disabled、direction空间及数值仍unknown。IK、跨层geometry provider和完整3D另需专项。 只用公开/作者/官方受控观测补合同，净化交接给独立实现，沿原journal/motion推进。 不以no-op、位置跳变或空API伪造冲量；不消费私有实现表达。 [依据1](../capabilities/runtime-evidence-current.md#e-2026-09-28-bone-impulse-research) |
+| bone physics impulse、gravity/spring与高级Puppet profile | **待研究/复验**：[U40资格](../history/repeated-puppet-drag-qualification-2026-10-16.md)已证首轮骨响应后释放异常，中性报告显示候选两参impulse host依赖缺口（动态归因未证）；省略angular、physics-disabled、direction空间及数值仍unknown，官方Q1进行中、无经审结果。沿原journal/motion取得合同后再实现，不以no-op、位置跳变或削fuse造修复；IK/跨层geometry/完整3D未扩。 [既有研究](../capabilities/runtime-evidence-current.md#e-2026-09-28-bone-impulse-research) |
 | clipping未知source alpha/nested软边及更多格式 | **待研究/复验**：当前只有opaque sources和单样本规则获受控证据；本地GPU nested交集不是官方nested parity，非一source coverage局部关闭。legacy suffix、更多版本未知。 真实引用优先；官方受控fractional source alpha/nested/软边区分，再扩已有IR/prepare/fragment链。 51样本reader非回退不能算51样本裁剪获益；不因源列表含self推定cycle。 [依据1](../history/puppet-clipping-2026-10-08.md) |
 | Puppet mixing/ended/lookup等未开放控制语义 | **待研究/复验**：多clip非一alpha、非共轴多轨及额外opaque顺序没有完整官方合同；ended只已证loop单次越界，single/mirror/多圈及跨层lookup/create/destroy关闭。 先找到authored可达需求与可区分官方控制，再设计局部owner支持及typed unsupported。 自然single/mirror姿态可播放不等于ended callbacks已支持。 [依据1](../history/puppet-static-weight-2026-10-07.md)、[依据2](../history/puppet-bone-alpha-2026-10-07.md) |
 | directional/point/spot及2D ambient精确光照合同 | **待研究/复验**：spot正X轴/轴边锥角与模型ambient/sky半球响应已闭；方向光原球面估算法线/分桶不能再作数值合同，固定法线朝向/父旋转/零角有界已证、完整响应仍待测；point剖面不一致、spot父级缩放/完整响应、2D ambient/spot/directional、config point=false象限及k精确值未全定。 分类型/consumer的自有官方black-box矩阵，保留已落地门控/有界4灯/零点最大能量。 2D >4灯整包拒绝与零点哨兵已闭；两旧测试红由`e4443511`/`49672888`[明确偿清](../history/head-preexisting-red-clearance-2026-10-07.md)，不重新列为产品缺陷。 [依据1](../history/static-model-light-input-semantics-2026-10-06.md)、[依据2](../history/2d-lit-image-light-contract-2026-10-06.md) |

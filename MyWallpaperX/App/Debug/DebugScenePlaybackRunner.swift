@@ -54,6 +54,11 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        if let reason = pointerDragTimingPreconditionFailure {
+            NSLog("MWX DEBUG SCENE: phase=precondition-failed reason=%@", reason)
+            terminate(after: 0.1)
+            return
+        }
         let requestsPointerTrajectory = ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-pointer-trajectory-json"
         )

@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c5f6f3a10a465b43b801963d87d5b6398fce6165dc4c935af1d34810899237a8",
+        "sourceSHA256": "437ba6a15f7823a7f085f07d1cb4da89000a4a0beb119177ecfed9b40412817f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
-        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
+        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
+        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
       }
     },
     {
@@ -2121,6 +2121,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/roadmap/properties-panel-card.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "U40首轮骨/GPU响应后释放异常与重复失效的fresh资格；中性候选API依赖与未证动态归因分离，Q1进行中无经审结果，不构成功能修复。"
+    },
+    {
       "path": "docs/scene/history/rf01-shader-default-binding-implementation-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3099,10 +3112,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ffe1c8153ea6ad9a9aca4048515643a760176bf91f7f85a39f6815caaf715da0",
+        "sourceSHA256": "f6de42a77eda6f0627c400dba1701e858bd831c607356771e50836b9cecfd51d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
-        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
+        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
+        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
       }
     },
     {
@@ -3113,10 +3126,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5c59e5a177def1729af9bc2a7d07fa9f0c7516ae452647fbe73416d1b8146a31",
+        "sourceSHA256": "23ac8e9894ef6d4df7df62a52ab269f39ba9f36d630f9940c997f9438fc7f691",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
-        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
+        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
+        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
       }
     },
     {
@@ -3134,10 +3147,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b1a5024ecd41f992cb2116c016209d93d06647858ed9418dd679b2ab3930c96a",
+        "sourceSHA256": "1da93ff2c94e303cbc5502879bdf351933fa304c890b8b6e8d0d0fe9353feaac",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U41稳定职责与有界验收导航、metadata反例及最终App证据分层；U40仅资格，N08 unknown保留",
-        "limitations": "仅本次文档/来源边界核对；实际门与运行身份归单份history，不代表专项、全样本、物理多屏或性能验收"
+        "scope": "U40 fresh三轮与候选API依赖的证据/归因边界，官方Q1进行中无经审结果；U41已验及N06/N08旧边界保留",
+        "limitations": "仅本次文档/来源边界核对；未动态归因、未修U40、非原生/官方交互parity或性能验收"
       }
     },
     {

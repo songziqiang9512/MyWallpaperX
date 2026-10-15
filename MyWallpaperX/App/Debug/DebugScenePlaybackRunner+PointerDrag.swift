@@ -4,6 +4,7 @@ import Foundation
 
 extension DebugScenePlaybackRunner {
     static func movePointer(to normalized: SIMD2<Float>) {
+        guard !isClosing else { return }
         runtimeHost.setDebugPointerOverride(.init(
             current: normalized,
             isInside: true,
@@ -29,6 +30,7 @@ extension DebugScenePlaybackRunner {
         primaryButtonIsDown: Bool,
         state: String
     ) {
+        guard !isClosing else { return }
         runtimeHost.setDebugPointerOverride(.init(
             current: normalized,
             isInside: true,
@@ -44,6 +46,7 @@ extension DebugScenePlaybackRunner {
     }
 
     static func setPointerOutside() {
+        guard !isClosing else { return }
         runtimeHost.setDebugPointerOverride(.init())
         NSLog("MWX DEBUG SCENE: phase=pointer-state state=outside")
     }
@@ -100,14 +103,20 @@ extension DebugScenePlaybackRunner {
     }
 
     static var requestedDragPointer: SIMD2<Float>? {
-        guard let payload = argumentValue(
-            after: "--mwx-debug-scene-cursor-drag-to-json"
-        ),
+        strictPointerPoint(after: "--mwx-debug-scene-cursor-drag-to-json")
+    }
+
+    private static func strictPointerPoint(after flag: String) -> SIMD2<Float>? {
+        guard let payload = argumentValue(after: flag),
               let data = payload.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data)
                 as? [String: Any],
-              let x = (object["x"] as? NSNumber)?.doubleValue,
-              let y = (object["y"] as? NSNumber)?.doubleValue,
+              let rawX = object["x"] as? NSNumber,
+              let rawY = object["y"] as? NSNumber,
+              CFGetTypeID(rawX) != CFBooleanGetTypeID(),
+              CFGetTypeID(rawY) != CFBooleanGetTypeID() else { return nil }
+        let x = rawX.doubleValue, y = rawY.doubleValue
+        guard
               x.isFinite,
               y.isFinite,
               (-1...1).contains(x),
@@ -117,13 +126,71 @@ extension DebugScenePlaybackRunner {
         return SIMD2(Float(x), Float(y))
     }
 
+    struct PointerDragTiming {
+        let count: Int
+        let pressSeconds: TimeInterval
+        let heldSeconds: TimeInterval
+        let betweenSeconds: TimeInterval
+    }
+
+    private static let pointerDragTimingFlag = "--mwx-debug-scene-cursor-drag-timing-json"
+
+    static var requestedPointerDragTiming: PointerDragTiming? {
+        guard let payload = argumentValue(after: pointerDragTimingFlag),
+              let data = payload.data(using: .utf8), data.count <= 1_024,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              Set(object.keys) == ["count", "pressSeconds", "heldSeconds", "betweenSeconds"] else { return nil }
+        func number(_ key: String) -> Double? {
+            guard let value = object[key] as? NSNumber,
+                  CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite else { return nil }
+            return value.doubleValue
+        }
+        guard let count = number("count"), (1...8).contains(count), count.rounded() == count,
+              let press = number("pressSeconds"), (0.28...5).contains(press),
+              let held = number("heldSeconds"), (0.28...5).contains(held),
+              let between = number("betweenSeconds"), (0.28...10).contains(between) else { return nil }
+        return .init(count: Int(count), pressSeconds: press, heldSeconds: held, betweenSeconds: between)
+    }
+
+    /// Validate the complete bounded plan before launching a Scene. A wall-clock
+    /// alignment can wait up to one minute, so reserve that worst case here.
+    static var pointerDragTimingPreconditionFailure: String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains(pointerDragTimingFlag) else { return nil }
+        guard arguments.filter({ $0 == pointerDragTimingFlag }).count == 1,
+              let timing = requestedPointerDragTiming else { return "invalid-pointer-drag-timing" }
+        guard strictPointerPoint(after: "--mwx-debug-scene-hover-pointer-json") != nil,
+              requestedDragPointer != nil, !requestedPrimaryClick, !requestedPrimaryClickSubframe,
+              !arguments.contains("--mwx-debug-scene-pointer-trajectory-json") else {
+            return "ambiguous-pointer-drag-timing"
+        }
+        var maximumStartDelay = 1.0
+        if let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
+           let second = Double(raw), second.isFinite, (0..<60).contains(second) {
+            maximumStartDelay = 60
+        }
+        // Existing hover entry: 0.35 + 0.28 seconds. Each explicit round
+        // captures released after 0.28 seconds; the next round waits from there.
+        let plan = maximumStartDelay + 0.35 + 0.28
+            + Double(timing.count) * (timing.pressSeconds + timing.heldSeconds + 0.28)
+            + Double(timing.count - 1) * timing.betweenSeconds + 0.2
+        return plan < requestedDuration - 0.5 ? nil : "pointer-drag-timing-exceeds-duration"
+    }
+
     static func schedulePointerDrag(
         outputDirectory: URL,
         from start: SIMD2<Float>,
         to destination: SIMD2<Float>
     ) {
+        guard !isClosing else { return }
+        if let timing = requestedPointerDragTiming {
+            schedulePointerDragRound(outputDirectory: outputDirectory, from: start,
+                to: destination, timing: timing, ordinal: 1)
+            return
+        }
         setPointer(at: start, primaryButtonIsDown: true, state: "press")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            guard !isClosing else { return }
             setPointer(
                 at: destination,
                 primaryButtonIsDown: true,
@@ -133,6 +200,7 @@ extension DebugScenePlaybackRunner {
                 requestSnapshot(reason: "drag-held", outputDirectory: outputDirectory)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                guard !isClosing else { return }
                 setPointer(
                     at: destination,
                     primaryButtonIsDown: false,
@@ -142,6 +210,7 @@ extension DebugScenePlaybackRunner {
                     requestSnapshot(reason: "spring-after", outputDirectory: outputDirectory)
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                    guard !isClosing else { return }
                     requestSnapshot(
                         reason: "hover",
                         outputDirectory: outputDirectory
@@ -153,6 +222,42 @@ extension DebugScenePlaybackRunner {
                                 reason: "after",
                                 outputDirectory: outputDirectory
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static func schedulePointerDragRound(
+        outputDirectory: URL, from start: SIMD2<Float>, to destination: SIMD2<Float>,
+        timing: PointerDragTiming, ordinal: Int
+    ) {
+        guard !isClosing else { return }
+        setPointer(at: start, primaryButtonIsDown: true, state: "press")
+        DispatchQueue.main.asyncAfter(deadline: .now() + timing.pressSeconds) {
+            guard !isClosing else { return }
+            setPointer(at: destination, primaryButtonIsDown: true, state: "drag")
+            DispatchQueue.main.asyncAfter(deadline: .now() + timing.heldSeconds / 2) {
+                guard !isClosing else { return }
+                requestSnapshot(reason: String(format: "drag-%02d-held", ordinal), outputDirectory: outputDirectory)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + timing.heldSeconds) {
+                guard !isClosing else { return }
+                setPointer(at: destination, primaryButtonIsDown: false, state: "release")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                    guard !isClosing else { return }
+                    requestSnapshot(reason: String(format: "drag-%02d-released", ordinal), outputDirectory: outputDirectory)
+                    if ordinal < timing.count {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + timing.betweenSeconds) {
+                            guard !isClosing else { return }
+                            schedulePointerDragRound(outputDirectory: outputDirectory, from: start,
+                                to: destination, timing: timing, ordinal: ordinal + 1)
+                        }
+                    } else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            guard !isClosing else { return }
+                            setPointerOutside()
                         }
                     }
                 }

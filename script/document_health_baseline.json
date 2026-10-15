@@ -109,8 +109,8 @@
       "bytes": 345605
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 119,
-      "bytes": 36226
+      "lines": 120,
+      "bytes": 36533
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -222,15 +222,15 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 9102
+      "bytes": 9254
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
-      "bytes": 33168
+      "bytes": 33332
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72213
+      "bytes": 72620
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1195,30 +1195,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1f5defdf60854e7f3961028a5cf61fae653150bb1ffa1bbe0775008b3a39594b",
-      "after": "c12b19334adc87332733cc847ccfc3179852e63344172dc1749182f8df6236ae",
-      "owner": "Scene user-property resources",
-      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "ea71caa57739f5b1b08ac2401f81a555f7b15546f318b4fdcb6beed8b488b473",
-      "after": "057b861ad81fd3d189c9fdec552d63de3790be6918e908f85c49cb1d645a17e1",
-      "owner": "Scene user-property resources",
-      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "009a2f38250b5098e237b05a1ce3c3c5cb3807fdcd72fa95649e4404af85c5e3",
       "after": "66e8fa87ed4ec2a833eda84317c4dd3e7227e3e039806dfdb054cd487001b8a0",
       "owner": "Scene user-property resources",
       "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
       "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "c12b19334adc87332733cc847ccfc3179852e63344172dc1749182f8df6236ae",
+      "after": "f84d55acf4c1491ae812764581d82a2dc5bc2150d091961636a928e01c1ad94b",
+      "owner": "Scene input and Puppet qualification",
+      "reason": "将U40未fresh旧状态替换为有界三轮资格及候选API依赖，轮次/身份集中单份history，不宣称动态因果、官方语义或交互修复。",
+      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "057b861ad81fd3d189c9fdec552d63de3790be6918e908f85c49cb1d645a17e1",
+      "after": "80cf477ec6f43c2bd3b262f34de42d8a4657efebd57012846235d7b95e144a16",
+      "owner": "Scene input and Puppet qualification",
+      "reason": "将U40未fresh旧状态替换为有界三轮资格及候选API依赖，轮次/身份集中单份history，不宣称动态因果、官方语义或交互修复。",
+      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "4e13b705bd628d669c14b2623313490d1414b76d3eaf73e00d90dbdf07a41bdf",
+      "after": "322432c972faf28036f3119887ac76f69b0d0918e613a4d0d5b58127255933fa",
+      "owner": "Scene input and Puppet qualification",
+      "reason": "将U40未fresh旧状态替换为有界三轮资格及候选API依赖，轮次/身份集中单份history，不宣称动态因果、官方语义或交互修复。",
+      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "bba11996289157d9d1aafe28dbdd0ef8a55a7a3c61bcffa4a1f98cf51925ae97",
+      "after": "5f76d6345facace6d5d519b78ea36fcde1a0a4e7908b73c9e16d4ced8ae76ab5",
+      "owner": "Scene input and Puppet qualification",
+      "reason": "将U40未fresh旧状态替换为有界三轮资格及候选API依赖，轮次/身份集中单份history，不宣称动态因果、官方语义或交互修复。",
+      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
     }
   ]
 }

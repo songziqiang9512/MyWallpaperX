@@ -95,6 +95,40 @@ extension SceneMetalView {
                     Float(bones.worldMatrices[13]), Float(bones.worldMatrices[14]), 1)
                 NSLog("MWX DEBUG SCENE: phase=puppet-owner-pose layer=%d bones=%d rootWorld=%.6f,%.6f,%.6f frame=%llu",
                     layerID, bones.parentIndices.count, root.x, root.y, root.z, timing.frameIndex)
+                if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
+                    // Qualification only: project the already-published pose,
+                    // without exposing names or evaluating another hierarchy.
+                    let projection = camera.viewProjection(for: layer) * model
+                    let count = min(bones.parentIndices.count, bones.worldMatrices.count / 16)
+                    for index in 0..<count {
+                        let offset = index * 16
+                        let origin = SIMD4(
+                            Float(bones.worldMatrices[offset + 12]),
+                            Float(bones.worldMatrices[offset + 13]),
+                            Float(bones.worldMatrices[offset + 14]), 1)
+                        let world = meshToWorld * origin
+                        let clip = projection * origin
+                        guard [world.x, world.y, world.z, clip.x, clip.y, clip.z, clip.w]
+                            .allSatisfy(\.isFinite), abs(clip.w) > 1e-8 else {
+                            NSLog("MWX DEBUG SCENE: phase=puppet-bone-origin layer=%d bone=%d frame=%llu finite=false inViewport=false projectionDomain=layer-render",
+                                layerID, index, timing.frameIndex)
+                            continue
+                        }
+                        let ndc = SIMD3(clip.x, clip.y, clip.z) / clip.w
+                        guard ndc.x.isFinite, ndc.y.isFinite, ndc.z.isFinite else {
+                            NSLog("MWX DEBUG SCENE: phase=puppet-bone-origin layer=%d bone=%d frame=%llu finite=false inViewport=false projectionDomain=layer-render",
+                                layerID, index, timing.frameIndex)
+                            continue
+                        }
+                        let inViewport = clip.w > 0
+                            && (-1...1).contains(ndc.x) && (-1...1).contains(ndc.y)
+                            && (0...1).contains(ndc.z)
+                        NSLog("MWX DEBUG SCENE: phase=puppet-bone-origin layer=%d bone=%d frame=%llu world=%.6f,%.6f,%.6f ndc=%.6f,%.6f,%.6f finite=true inViewport=%@ projectionDomain=layer-render",
+                            layerID, index, timing.frameIndex,
+                            world.x, world.y, world.z, ndc.x, ndc.y, ndc.z,
+                            inViewport ? "true" : "false")
+                    }
+                }
             }
 #endif
         }

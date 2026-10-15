@@ -79,7 +79,7 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
                                 from_launch: bool = False) -> None:
         events = payload["events"]
         names = [row["event"] for row in events
-                 if row["event"] != "turn-after-press"
+                 if not row["event"].startswith("turn-after-")
                  and not row["event"].startswith("capture:series-")]
         expected = ["pointer:up" if from_launch else "pointer:outside", "launch",
                     "launch-complete", "ready", "pointer:outside", "capture:before",
@@ -127,6 +127,101 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         self.assert_pointer_sequence(self.run_schedule(extra=(
             "--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}'
         )), drag=True)
+
+    def test_default_drag_preserves_single_round_delays_and_snapshot_reasons(self) -> None:
+        payload = self.run_schedule("legacy-drag-full", extra=(
+            "--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}',
+        ))
+        events = payload["events"]
+        self.assertEqual([row["event"] for row in events if row["event"].startswith("capture:")],
+                         ["capture:before", "capture:drag-held", "capture:hover", "capture:after",
+                          "capture:spring-after"])
+        down = [row for row in events if row["event"] == "pointer:down"]
+        release = next(row for row in events if row["event"] == "pointer:up" and row["time"] > down[1]["time"])
+        self.assertEqual(len(down), 2)
+        for elapsed in [down[1]["time"] - down[0]["time"], release["time"] - down[1]["time"]]:
+            self.assertGreaterEqual(elapsed, 0.25)
+            self.assertLess(elapsed, 0.75)
+        spring = next(row for row in events if row["event"] == "capture:spring-after")
+        self.assertGreaterEqual(spring["time"] - release["time"], 5.95)
+        self.assertIsNone(payload["dragTiming"])
+
+    def test_three_explicit_drags_hold_across_runloop_turns_and_use_unique_captures(self) -> None:
+        timing = {"count": 3, "pressSeconds": 0.32, "heldSeconds": 0.4, "betweenSeconds": 0.32}
+        payload = self.run_schedule(extra=("--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}',
+            "--mwx-debug-scene-cursor-drag-timing-json", json.dumps(timing)))
+        events = payload["events"]
+        captures = [row["event"] for row in events if row["event"].startswith("capture:")]
+        self.assertEqual(captures, ["capture:before"] + [f"capture:drag-{i:02d}-{phase}"
+            for i in range(1, 4) for phase in ("held", "released")])
+        self.assertEqual(len(captures), len(set(captures)))
+        down = [row for row in events if row["event"] == "pointer:down"]
+        self.assertEqual(len(down), 6)
+        previous_release = None
+        for i in range(3):
+            press, move = down[i * 2:i * 2 + 2]
+            release = next(row for row in events if row["event"] == "pointer:up" and row["time"] > move["time"])
+            held = next(row for row in events if row["event"] == f"capture:drag-{i + 1:02d}-held")
+            released = next(row for row in events if row["event"] == f"capture:drag-{i + 1:02d}-released")
+            self.assertEqual(press["point"], [0.25, -0.5])
+            self.assertEqual(move["point"], [0.75, 0.25])
+            self.assertGreaterEqual(move["time"] - press["time"], timing["pressSeconds"] - 0.02)
+            self.assertGreaterEqual(release["time"] - move["time"], timing["heldSeconds"] - 0.02)
+            self.assertLess(move["time"], held["time"])
+            self.assertLess(held["time"], release["time"])
+            self.assertGreaterEqual(released["time"] - release["time"], 0.26)
+            for marker, start, end in [("turn-after-press", press, move), ("turn-after-drag", move, release)]:
+                self.assertTrue(any(row["event"] == marker and start["time"] <= row["time"] < end["time"] for row in events))
+            if previous_release is not None:
+                self.assertGreaterEqual(press["time"] - previous_release["time"], timing["betweenSeconds"] + 0.26)
+            previous_release = release
+        self.assertEqual(events[-1]["event"], "pointer:outside")
+        self.assertIsNone(payload["dragTimingFailure"])
+
+    def test_explicit_drag_callbacks_stop_when_closing_mid_hold(self) -> None:
+        payload = self.run_schedule("close-during-drag", extra=(
+            "--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}',
+            "--mwx-debug-scene-cursor-drag-timing-json",
+            '{"count":3,"pressSeconds":0.4,"heldSeconds":0.4,"betweenSeconds":0.3}',
+        ))
+        self.assertEqual(payload["events"][-1]["event"], "closed")
+        self.assertEqual(sum(row["event"] == "pointer:down" for row in payload["events"]), 2)
+
+    def test_explicit_drag_timing_rejects_invalid_numbers_shapes_and_combinations(self) -> None:
+        timing = {"count": 3, "pressSeconds": 1, "heldSeconds": 2, "betweenSeconds": 6}
+        base = ("--mwx-debug-scene-duration", "30", "--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}')
+        flag = "--mwx-debug-scene-cursor-drag-timing-json"
+        valid = self.run_schedule("arguments", extra=base + (flag, json.dumps(timing)))
+        self.assertIsNone(valid["dragTimingFailure"])
+        self.assertEqual(valid["dragTiming"], timing)
+        invalids = [[], {**timing, "unknown": 1}, {k: v for k, v in timing.items() if k != "heldSeconds"}]
+        for key in timing:
+            invalids.extend([{**timing, key: value} for value in [True, "1", None, float("inf")]])
+        invalids.extend({**timing, key: value} for key, values in [
+            ("count", [0, 9, 1.5]), ("pressSeconds", [0.279, 5.01]),
+            ("heldSeconds", [0.279, 5.01]), ("betweenSeconds", [0.279, 10.01]),
+        ] for value in values)
+        for value in invalids:
+            with self.subTest(value=value):
+                result = self.run_schedule("arguments", extra=base + (flag, json.dumps(value)))
+                self.assertEqual(result["dragTimingFailure"], "invalid-pointer-drag-timing")
+        for conflict in [("--mwx-debug-scene-primary-click",), ("--mwx-debug-scene-primary-double-click",),
+                         ("--mwx-debug-scene-primary-click-subframe",),
+                         ("--mwx-debug-scene-pointer-trajectory-json", "[[0,0],[1,1]]")]:
+            result = self.run_schedule("arguments", extra=base + (flag, json.dumps(timing)) + conflict)
+            self.assertEqual(result["dragTimingFailure"], "ambiguous-pointer-drag-timing")
+        for hover, drag in [(False, '{"x":0,"y":0}'), (True, '{"x":true,"y":0}'),
+                            (True, '{"x":2,"y":0}'), (True, "broken")]:
+            result = self.run_schedule("arguments", pointer=hover, extra=(
+                "--mwx-debug-scene-duration", "30", "--mwx-debug-scene-cursor-drag-to-json", drag,
+                flag, json.dumps(timing)))
+            self.assertEqual(result["dragTimingFailure"], "ambiguous-pointer-drag-timing")
+        missing_drag = self.run_schedule("arguments", extra=("--mwx-debug-scene-duration", "30", flag, json.dumps(timing)))
+        self.assertEqual(missing_drag["dragTimingFailure"], "ambiguous-pointer-drag-timing")
+        exceeded = self.run_schedule("arguments", extra=base + (flag, json.dumps({**timing, "count": 8})))
+        self.assertEqual(exceeded["dragTimingFailure"], "pointer-drag-timing-exceeds-duration")
+        rejected = self.run_schedule(pointer=False, extra=(flag, json.dumps(timing)))
+        self.assertEqual(rejected["events"], [])
 
     def test_click_release_is_delayed_but_subframe_release_precedes_next_turn(self) -> None:
         for subframe in (False, True):

@@ -27,11 +27,16 @@ final class HarnessHost {
 
     func setDebugPointerOverride(_ value: Pointer) {
         let pressed = value.isPrimaryButtonDown && !pointer.isPrimaryButtonDown
+        let dragged = value.isPrimaryButtonDown && pointer.isPrimaryButtonDown
+            && value.current != pointer.current
         pointer = value
         let state = !value.isInside ? "outside" : value.isPrimaryButtonDown ? "down" : "up"
         DebugScenePlaybackRunner.record("pointer:\(state)", point: value.current)
         if pressed {
             DispatchQueue.main.async { DebugScenePlaybackRunner.record("turn-after-press") }
+        }
+        if dragged {
+            DispatchQueue.main.async { DebugScenePlaybackRunner.record("turn-after-drag") }
         }
     }
 
@@ -106,8 +111,13 @@ struct SceneDebugPointerScheduleHarness {
             "afterDelay": Runner.requestedAfterSnapshotDelay,
             "periodicInterval": Runner.requestedPeriodicSnapshotInterval as Any? ?? NSNull(),
             "duration": Runner.requestedDuration,
+            "dragTimingFailure": Runner.pointerDragTimingPreconditionFailure as Any? ?? NSNull(),
         ]
-        if scenario != "arguments" {
+        if let timing = Runner.requestedPointerDragTiming {
+            payload["dragTiming"] = ["count": timing.count, "pressSeconds": timing.pressSeconds,
+                "heldSeconds": timing.heldSeconds, "betweenSeconds": timing.betweenSeconds]
+        } else { payload["dragTiming"] = NSNull() }
+        if scenario != "arguments", Runner.pointerDragTimingPreconditionFailure == nil {
             if scenario == "already-closing" { Runner.isClosing = true }
             let task = Task { @MainActor in
                 try await Runner.launchForEvidence(
@@ -144,12 +154,23 @@ struct SceneDebugPointerScheduleHarness {
                     if scenario != "fault-early-capture" {
                         Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: nil)
                     }
-                    if scenario == "close-before-capture" {
+                    if scenario == "close-during-drag" {
+                        await Runner.waitFor("turn-after-drag")
+                        Runner.isClosing = true
+                        Runner.record("closed")
+                        try await Task.sleep(for: .seconds(0.9))
+                    } else if scenario == "close-before-capture" {
                         Runner.isClosing = true
                         // Let the actual regular/periodic callbacks become due.
                         try await Task.sleep(for: .seconds(1.75))
                     } else {
-                        await Runner.waitFor("capture:after")
+                        if let timing = Runner.requestedPointerDragTiming {
+                            await Runner.waitFor(String(format: "capture:drag-%02d-released", timing.count))
+                            try await Task.sleep(for: .seconds(0.25))
+                        } else {
+                            await Runner.waitFor("capture:after")
+                            if scenario == "legacy-drag-full" { await Runner.waitFor("capture:spring-after") }
+                        }
                         if Runner.requestedPeriodicSnapshotInterval != nil {
                             await Runner.waitFor("capture:series-0001")
                         }
