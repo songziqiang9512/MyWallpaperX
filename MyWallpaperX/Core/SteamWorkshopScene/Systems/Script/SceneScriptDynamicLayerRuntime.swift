@@ -23,6 +23,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
     private var dynamicLayerCreatorTargetsByID: [Int: SceneDynamicTarget] = [:]
+    private var textTemplateIdentitiesByLayerID: [Int: UInt64] = [:]
+    private let textTemplates: [UInt64: SceneScriptPreparedTextTemplate]
     private var dynamicLayerValueRevision: UInt64 = 0
     private var destroyedAuthoredLayerIDs: Set<Int> = []
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -39,6 +41,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         authoredMutationLayerIDs: Set<Int>,
         dynamicImageTemplates:
             [String: SceneScriptDynamicImageLayerTemplate] = [:],
+        textTemplates: [UInt64: SceneScriptPreparedTextTemplate] = [:],
         layerOrderProjection: (@Sendable (Set<UInt64>)
             -> Result<[Int]?, SceneScriptScalarRuntimeFailure>)? = nil
     ) {
@@ -47,6 +50,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
         self.dynamicImageTemplates = dynamicImageTemplates
+        self.textTemplates = textTemplates
         self.layerOrderProjection = layerOrderProjection
         order = descriptor.renderOrderLayerIDs
         let initialDefinitions = descriptor.layers.flatMap { layer -> [SceneDynamicTargetDefinition] in
@@ -65,6 +69,41 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         authoredDefinitionsByTarget = Dictionary(
             uniqueKeysWithValues: initialDefinitions.map { ($0.target, $0) }
         )
+    }
+
+    /// Rebind an existing prepared property producer to accepted clone targets.
+    /// Values remain owned by liveState; no property decoding or second evaluator.
+    func projectPreparedTextUserValues(
+        from values: [SceneDynamicTarget: SceneDynamicValue],
+        previousValue: (SceneDynamicTarget) -> SceneDynamicValue? = { _ in nil }
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        guard !textTemplateIdentitiesByLayerID.isEmpty else { return values }
+        var projected = values
+        for (layerID, identity) in textTemplateIdentitiesByLayerID {
+            guard let template = textTemplates[identity], template.outerUserInstruction != nil,
+                  let value = values[template.sourceTarget] else { continue }
+            let target = SceneDynamicTarget.text(layerID: layerID, field: .content)
+            if case let .string(text) = value, SceneScriptLayerMutation.acceptsDynamicText(text) {
+                projected[target] = value
+            } else if case let .string(text)? = previousValue(target),
+                      SceneScriptLayerMutation.acceptsDynamicText(text) {
+                projected[target] = .string(text)
+            } else {
+                projected[target] = .string(template.authoredSeed)
+            }
+        }
+        return projected
+    }
+
+    /// Interest is the committed template membership, not a catalog-wide scan.
+    func preparedTextValues(in snapshot: SceneDynamicSnapshot) -> [Int: String] {
+        var values: [Int: String] = [:]
+        for layerID in textTemplateIdentitiesByLayerID.keys {
+            if case let .string(value)? = snapshot[.text(layerID: layerID, field: .content)]?.value {
+                values[layerID] = value
+            }
+        }
+        return values
     }
 
     func snapshot() -> SceneScriptLayerTopologySnapshot {
@@ -114,6 +153,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var candidateOrder = order
         var candidateLayers = dynamicLayersByID
         var candidateCreators = dynamicLayerCreatorTargetsByID
+        var candidateTextTemplates = textTemplateIdentitiesByLayerID
         var candidateDestroyedAuthoredLayerIDs = destroyedAuthoredLayerIDs
         var candidateAuthoredValues = authoredLayerValues
         var candidateDefinitionOrder = authoredDefinitionOrder
@@ -270,7 +310,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     guard authoredLayer.contentKind == "text",
                           authoredLayer.text != nil,
                           authoredLayer.textStyle != nil,
-                          mutation.text.utf8.count <= 4_096,
+                          SceneScriptLayerMutation.acceptsDynamicText(mutation.text),
                           !mutation.text.contains("\0") else {
                         return .failure(.invalidArgument(
                             "invalid authored text layer mutation"
@@ -325,7 +365,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                   mutation.pointSize.isFinite, (1...1024).contains(mutation.pointSize),
                   mutation.color.x.isFinite,
                   mutation.color.y.isFinite, mutation.color.z.isFinite,
-                  mutation.text.utf8.count <= 4_096,
+                  SceneScriptLayerMutation.acceptsDynamicText(mutation.text),
                   mutation.font.utf8.count <= 1_024 else {
                 return .failure(.invalidArgument("invalid dynamic layer mutation"))
             }
@@ -345,6 +385,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 }
                 candidateOrder.removeAll { $0 == mutation.layerID }
                 candidateCreators.removeValue(forKey: mutation.layerID)
+                candidateTextTemplates.removeValue(forKey: mutation.layerID)
+                candidateDefinitionOrder.removeAll { Self.layerID(for: $0) == mutation.layerID }
+                candidateDefinitions = candidateDefinitions.filter { Self.layerID(for: $0.key) != mutation.layerID }
+                candidateAuthoredValues = candidateAuthoredValues.filter { Self.layerID(for: $0.key) != mutation.layerID }
+                requiresRetirement = true
             case .upsert:
                 let layer: SceneRenderDescriptor.Layer?
                 if let assetPath = mutation.assetPath {
@@ -370,6 +415,28 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                             .map(candidateDestroyedAuthoredLayerIDs.contains) ?? false)
                     }
                 }
+                if mutation.textTemplateIdentity != 0 {
+                    guard mutation.assetPath == nil,
+                          let template = textTemplates[mutation.textTemplateIdentity],
+                          candidateTextTemplates[mutation.layerID].map({
+                              $0 == mutation.textTemplateIdentity
+                          }) ?? true else {
+                        return .failure(.invalidArgument("dynamic text template identity is unavailable"))
+                    }
+                    candidateTextTemplates[mutation.layerID] = mutation.textTemplateIdentity
+                    let definition = template.definition(layerID: mutation.layerID)
+                    if candidateDefinitions[definition.target] == nil {
+                        candidateDefinitionOrder.append(definition.target)
+                        candidateDefinitions[definition.target] = definition
+                    }
+                } else if candidateTextTemplates[mutation.layerID] != nil {
+                    return .failure(.invalidArgument("dynamic text template identity changed"))
+                }
+                if candidateLayers[mutation.layerID] != nil,
+                   candidateTextTemplates[mutation.layerID] != nil,
+                   mutation.fields.contains(.text) {
+                    candidateAuthoredValues[.text(layerID: mutation.layerID, field: .content)] = .string(mutation.text)
+                }
                 candidateLayers[mutation.layerID] = layer
             }
         }
@@ -380,9 +447,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             case let .failure(failure): return .failure(failure)
             }
             Self.finalizeTopology(requiresRetirement: requiresRetirement, projectedOrder: projected,
-                destroyedAuthoredLayerIDs: candidateDestroyedAuthoredLayerIDs,
+                destroyedAuthoredLayerIDs: candidateDestroyedAuthoredLayerIDs, authoredLayerIDs: authoredLayerIDs,
                 order: &candidateOrder, layers: &candidateLayers, creators: &candidateCreators,
-                definitionOrder: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                definitionOrder: &candidateDefinitionOrder, definitions: &candidateDefinitions,
+                values: &candidateAuthoredValues)
         }
         guard candidateLayers.count <= 256,
               Set(candidateOrder).count == candidateOrder.count,
@@ -398,6 +466,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         order = candidateOrder
         dynamicLayersByID = candidateLayers
         dynamicLayerCreatorTargetsByID = candidateCreators
+        textTemplateIdentitiesByLayerID = candidateTextTemplates.filter { candidateLayers[$0.key] != nil }
         destroyedAuthoredLayerIDs = candidateDestroyedAuthoredLayerIDs
         authoredLayerValues = candidateAuthoredValues
         authoredDefinitionOrder = candidateDefinitionOrder
@@ -414,29 +483,42 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     /// then remove retired identities in one projection, across all peer owners.
     private static func finalizeTopology(
         requiresRetirement: Bool, projectedOrder: [Int]?,
-        destroyedAuthoredLayerIDs: Set<Int>, order: inout [Int],
+        destroyedAuthoredLayerIDs: Set<Int>, authoredLayerIDs: Set<Int>, order: inout [Int],
         layers: inout [Int: SceneRenderDescriptor.Layer],
         creators: inout [Int: SceneDynamicTarget],
         definitionOrder: inout [SceneDynamicTarget],
-        definitions: inout [SceneDynamicTarget: SceneDynamicTargetDefinition]
+        definitions: inout [SceneDynamicTarget: SceneDynamicTargetDefinition],
+        values: inout [SceneDynamicTarget: SceneDynamicValue]
     ) {
         if let projectedOrder { order = projectedOrder }
         guard requiresRetirement else { return }
-        let retiredDynamicIDs = Set(creators.compactMap { dynamicID, creator -> Int? in
-            guard let creatorLayerID = layerID(for: creator),
-                  destroyedAuthoredLayerIDs.contains(creatorLayerID) else { return nil }
-            return dynamicID
-        })
-        for layerID in retiredDynamicIDs {
-            layers.removeValue(forKey: layerID)
-            creators.removeValue(forKey: layerID)
+        var retiredDynamicIDs: Set<Int> = []
+        while true {
+            let newlyRetired = Set(creators.compactMap { dynamicID, creator -> Int? in
+                guard let creatorLayerID = layerID(for: creator),
+                      destroyedAuthoredLayerIDs.contains(creatorLayerID)
+                        || retiredDynamicIDs.contains(creatorLayerID)
+                        || (!authoredLayerIDs.contains(creatorLayerID) && layers[creatorLayerID] == nil)
+                else { return nil }
+                return dynamicID
+            }).subtracting(retiredDynamicIDs)
+            guard !newlyRetired.isEmpty else { break }
+            retiredDynamicIDs.formUnion(newlyRetired)
+            for layerID in newlyRetired {
+                layers.removeValue(forKey: layerID)
+                creators.removeValue(forKey: layerID)
+            }
         }
+        let removedLayerIDs = destroyedAuthoredLayerIDs.union(retiredDynamicIDs)
         order.removeAll { destroyedAuthoredLayerIDs.contains($0) || retiredDynamicIDs.contains($0) }
         definitionOrder.removeAll { target in
-            layerID(for: target).map(destroyedAuthoredLayerIDs.contains) ?? false
+            layerID(for: target).map(removedLayerIDs.contains) ?? false
         }
         definitions = definitions.filter { target, _ in
-            !(layerID(for: target).map(destroyedAuthoredLayerIDs.contains) ?? false)
+            !(layerID(for: target).map(removedLayerIDs.contains) ?? false)
+        }
+        values = values.filter { target, _ in
+            !(layerID(for: target).map(removedLayerIDs.contains) ?? false)
         }
     }
 
@@ -458,6 +540,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         let originalOrder = order
         let originalLayers = dynamicLayersByID
         let originalCreators = dynamicLayerCreatorTargetsByID
+        let originalTextTemplates = textTemplateIdentitiesByLayerID
         let originalDestroyedAuthoredLayerIDs = destroyedAuthoredLayerIDs
         let originalValues = authoredLayerValues
         let originalDefinitionOrder = authoredDefinitionOrder
@@ -480,11 +563,20 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             authoredLayerValues: publishCandidate ? authoredLayerValues : originalValues,
             authoredDefinitionOrder: publishCandidate ? authoredDefinitionOrder : originalDefinitionOrder,
             authoredDefinitionsByTarget: publishCandidate ? authoredDefinitionsByTarget : originalDefinitions,
-            dynamicTopologyChanged: publishCandidate && dynamicTopologyChanged
+            dynamicTopologyChanged: publishCandidate && dynamicTopologyChanged,
+            textTemplateIdentitiesByLayerID: publishCandidate ? textTemplateIdentitiesByLayerID : originalTextTemplates,
+            retiredDynamicLayerIDs: publishCandidate ? Set(originalLayers.keys).subtracting(dynamicLayersByID.keys) : [],
+            createdPreparedTextValues: publishCandidate ? Dictionary(uniqueKeysWithValues:
+                textTemplateIdentitiesByLayerID.keys.filter { originalLayers[$0] == nil }.compactMap { layerID in
+                    dynamicLayersByID[layerID]?.text.map {
+                        (SceneDynamicTarget.text(layerID: layerID, field: .content), SceneDynamicValue.string($0))
+                    }
+                }) : [:]
         )
         order = originalOrder
         dynamicLayersByID = originalLayers
         dynamicLayerCreatorTargetsByID = originalCreators
+        textTemplateIdentitiesByLayerID = originalTextTemplates
         destroyedAuthoredLayerIDs = originalDestroyedAuthoredLayerIDs
         authoredLayerValues = originalValues
         authoredDefinitionOrder = originalDefinitionOrder
@@ -617,6 +709,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         order = plan.order
         dynamicLayersByID = plan.dynamicLayersByID
         dynamicLayerCreatorTargetsByID = plan.dynamicLayerCreatorTargetsByID
+        textTemplateIdentitiesByLayerID = plan.textTemplateIdentitiesByLayerID
         destroyedAuthoredLayerIDs = plan.destroyedAuthoredLayerIDs
         authoredLayerValues = plan.authoredLayerValues
         authoredDefinitionOrder = plan.authoredDefinitionOrder
@@ -700,9 +793,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 failures: failures + [.init(ownerTarget: nil, failure: failure)])
         }
         Self.finalizeTopology(requiresRetirement: requiresRetirement, projectedOrder: projectedOrder,
-            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
+            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs, authoredLayerIDs: authoredLayerIDs,
             order: &order, layers: &dynamicLayersByID, creators: &dynamicLayerCreatorTargetsByID,
-            definitionOrder: &authoredDefinitionOrder, definitions: &authoredDefinitionsByTarget)
+            definitionOrder: &authoredDefinitionOrder, definitions: &authoredDefinitionsByTarget,
+            values: &authoredLayerValues)
+        textTemplateIdentitiesByLayerID = textTemplateIdentitiesByLayerID.filter { dynamicLayersByID[$0.key] != nil }
         return .init(
             committedMutationCount: committedMutationCount,
             committedDynamicMutationCount: committedDynamicMutationCount,
@@ -724,215 +819,4 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
     }
 
-    private static func authoredTargets(
-        _ mutation: SceneScriptLayerMutation
-    ) -> [SceneDynamicTarget] {
-        authoredValues(mutation).map(\.0)
-    }
-
-    private static func layerID(for target: SceneDynamicTarget) -> Int? {
-        switch target {
-        case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _),
-             let .effectConstant(layerID, _, _, _), let .materialConstant(layerID, _, _, _),
-             let .particle(layerID, _), let .scriptInstanceProperty(layerID, _):
-            layerID
-        default:
-            nil
-        }
-    }
-
-    /// Multiple authored owners may intentionally publish the same field and
-    /// value (for example, duplicated controller layers in one authored
-    /// scene). Such writes are idempotent and preserve authored order. A later
-    /// owner that disagrees remains a hard conflict because accepting it would
-    /// make the final value depend on an implicit last-writer policy.
-    private static func authoredValues(
-        _ mutation: SceneScriptLayerMutation
-    ) -> [(SceneDynamicTarget, SceneDynamicValue)] {
-        guard !mutation.isDynamic, mutation.kind == .upsert else { return [] }
-        var values: [(SceneDynamicTarget, SceneDynamicValue)] = []
-        if mutation.fields.contains(.alpha) {
-            values.append((.layer(layerID: mutation.layerID, field: .alpha), .scalar(mutation.alpha)))
-        }
-        if mutation.fields.contains(.particleAlpha) {
-            values.append((.particle(layerID: mutation.layerID, field: .alpha), .scalar(mutation.particleAlpha)))
-        }
-        if mutation.fields.contains(.color) {
-            values.append((.layer(layerID: mutation.layerID, field: .color),
-                .vector3(mutation.color.x, mutation.color.y, mutation.color.z)))
-        }
-        if mutation.fields.contains(.origin) {
-            values.append((
-                .layer(layerID: mutation.layerID, field: .origin),
-                .vector3(mutation.origin.x, mutation.origin.y, mutation.origin.z)
-            ))
-        }
-        if mutation.fields.contains(.scale) {
-            values.append((
-                .layer(layerID: mutation.layerID, field: .scale),
-                .vector3(mutation.scale.x, mutation.scale.y, mutation.scale.z)
-            ))
-        }
-        if mutation.fields.contains(.angles) {
-            values.append((
-                .layer(layerID: mutation.layerID, field: .angles),
-                .vector3(mutation.angles.x, mutation.angles.y, mutation.angles.z)
-            ))
-        }
-        if mutation.fields.contains(.perspective), let perspective = mutation.perspective {
-            values.append((.layer(layerID: mutation.layerID, field: .perspective), .bool(perspective)))
-        }
-        if mutation.fields.contains(.solid) {
-            values.append((.layer(layerID: mutation.layerID, field: .solid), .bool(mutation.solid)))
-        }
-        if mutation.fields.contains(.visibility) {
-            values.append((
-                .layer(layerID: mutation.layerID, field: .visibility),
-                .bool(mutation.visible)
-            ))
-        }
-        if mutation.fields.contains(.text) {
-            values.append((
-                .text(layerID: mutation.layerID, field: .content),
-                .string(mutation.text)
-            ))
-        }
-        if mutation.fields.contains(.font) {
-            values.append((
-                .text(layerID: mutation.layerID, field: .font),
-                .string(mutation.font)
-            ))
-        }
-        values += mutation.effectVisibilities.sorted { $0.key < $1.key }.map {
-            (.effectVisibility(layerID: mutation.layerID, effectIndex: $0.key), .bool($0.value))
-        }
-        return values
-    }
-
-    /// Dynamic upserts carry their complete frame value record, but that does
-    /// not make them a new graph topology. Only identity/order or the
-    /// structural resource lane or immutable creation size invalidates the renderer's prepared
-    /// descriptor projection. Position, scale, angles, visibility, alpha,
-    /// color, text and font are applied to the cached projection per frame.
-    private static func dynamicTopologyChanged(
-        currentOrder: [Int],
-        currentLayers: [Int: SceneRenderDescriptor.Layer],
-        candidateOrder: [Int],
-        candidateLayers: [Int: SceneRenderDescriptor.Layer]
-    ) -> Bool {
-        guard currentOrder == candidateOrder,
-              currentLayers.count == candidateLayers.count,
-              currentLayers.keys == candidateLayers.keys else {
-            return true
-        }
-        for layerID in currentLayers.keys {
-            guard let current = currentLayers[layerID],
-                  let candidate = candidateLayers[layerID],
-                  current.id == candidate.id,
-                  current.contentKind == candidate.contentKind,
-                  current.imagePath == candidate.imagePath,
-                  current.sizeWH == candidate.sizeWH else {
-                return true
-            }
-        }
-        return false
-    }
-
-    private static func initialAuthoredDefinitions(
-        for layer: SceneRenderDescriptor.Layer
-    ) -> [SceneDynamicTargetDefinition] {
-        [
-            .layer(layerID: layer.id, field: .origin),
-            .layer(layerID: layer.id, field: .scale),
-            .layer(layerID: layer.id, field: .angles),
-            .layer(layerID: layer.id, field: .visibility),
-        ].compactMap { definition(for: $0, layer: layer) }
-    }
-
-    private static func ensureDefinition(
-        for target: SceneDynamicTarget,
-        layer: SceneRenderDescriptor.Layer,
-        order: inout [SceneDynamicTarget],
-        definitions: inout [SceneDynamicTarget: SceneDynamicTargetDefinition]
-    ) {
-        guard definitions[target] == nil,
-              let definition = definition(for: target, layer: layer) else {
-            return
-        }
-        definitions[target] = definition
-        order.append(target)
-    }
-
-    private static func definition(
-        for target: SceneDynamicTarget,
-        layer: SceneRenderDescriptor.Layer
-    ) -> SceneDynamicTargetDefinition? {
-        switch target {
-        case let .particle(layerID, .alpha) where layerID == layer.id && layer.contentKind == "particle":
-            .init(target: target, valueType: .scalar,
-                  authoredValue: .scalar(layer.particleInstanceOverride?.alpha?.value?.scalarValue ?? 1))
-        case let .effectVisibility(layerID, effectIndex)
-            where layerID == layer.id && layer.effects.indices.contains(effectIndex):
-            .init(target: target, valueType: .bool, authoredValue: .bool(layer.effects[effectIndex].visible ?? true))
-        case let .layer(layerID, .alpha) where layerID == layer.id:
-            .init(target: target, valueType: .scalar, authoredValue: .scalar(layer.alpha ?? 1))
-        case let .layer(layerID, .color) where layerID == layer.id:
-            .init(target: target, valueType: .vector3,
-                  authoredValue: vector3(layer.colorRGB, fallback: [1, 1, 1]))
-        case let .layer(layerID, .origin) where layerID == layer.id:
-            .init(
-                target: target, valueType: .vector3,
-                authoredValue: vector3(layer.originXYZ, fallback: [0, 0, 0])
-            )
-        case let .layer(layerID, .scale) where layerID == layer.id:
-            .init(
-                target: target, valueType: .vector3,
-                authoredValue: vector3(layer.scaleXYZ, fallback: [1, 1, 1])
-            )
-        case let .layer(layerID, .angles) where layerID == layer.id:
-            .init(
-                target: target, valueType: .vector3,
-                authoredValue: vector3(layer.anglesXYZ, fallback: [0, 0, 0])
-            )
-        case let .layer(layerID, .perspective) where layerID == layer.id:
-            .init(target: target, valueType: .bool, authoredValue: .bool(layer.usesPerspective ?? false))
-        case let .layer(layerID, .solid) where layerID == layer.id:
-            .init(target: target, valueType: .bool, authoredValue: .bool(layer.solid ?? true))
-        case let .layer(layerID, .visibility) where layerID == layer.id:
-            .init(
-                target: target, valueType: .bool,
-                authoredValue: .bool(layer.visible ?? true)
-            )
-        case let .text(layerID, .content)
-            where layerID == layer.id && layer.contentKind == "text"
-                && layer.textStyle != nil:
-            .init(
-                target: target, valueType: .string,
-                authoredValue: .string(layer.text ?? "")
-            )
-        case let .text(layerID, .font)
-            where layerID == layer.id && layer.contentKind == "text"
-                && layer.textStyle != nil:
-            .init(
-                target: target, valueType: .string,
-                authoredValue: .string(layer.textStyle?.fontPath ?? "")
-            )
-        case let .text(layerID, .color) where layerID == layer.id && layer.contentKind == "text":
-            .init(target: target, valueType: .vector3,
-                  authoredValue: vector3(layer.textStyle?.colorRGB, fallback: [1, 1, 1]))
-        default:
-            nil
-        }
-    }
-
-    private static func vector3(
-        _ values: [Float]?,
-        fallback: [Double]
-    ) -> SceneDynamicValue {
-        let resolved = values?.map(Double.init) ?? fallback
-        let padded = (0..<3).map { index in
-            index < resolved.count ? resolved[index] : fallback[index]
-        }
-        return .vector3(padded[0], padded[1], padded[2])
-    }
 }

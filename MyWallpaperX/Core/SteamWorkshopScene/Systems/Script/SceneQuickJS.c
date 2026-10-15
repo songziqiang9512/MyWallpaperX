@@ -517,10 +517,23 @@ static bool get_function(
     return true;
 }
 
+bool mwx_scene_quickjs_domain_charge_work(MWXSceneQuickJSDomain *domain, uint64_t work) {
+    if (!domain || domain->interrupted) return false;
+    if ((domain->cancellation_check && domain->cancellation_check(domain->cancellation_opaque)) ||
+        work > domain->interrupt_budget) {
+        domain->interrupt_budget = 0;
+        domain->interrupted = true;
+        return false;
+    }
+    domain->interrupt_budget -= work;
+    return true;
+}
+
 void mwx_scene_quickjs_begin_callback(MWXSceneQuickJSOwner *owner) {
     MWXSceneQuickJSDomain *domain = owner->domain;
-    domain->callback_epoch += 1;
-    if (domain->callback_epoch == 0) domain->callback_epoch = 1;
+    domain->callback_epoch_issuer += 1;
+    if (domain->callback_epoch_issuer == 0) domain->callback_epoch_issuer = 1;
+    domain->callback_epoch = domain->callback_epoch_issuer;
     domain->callback_active = true;
     domain->active_owner = owner;
 }
@@ -539,6 +552,19 @@ static MWXSceneQuickJSResult drain_jobs_after_call(
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
+    if (owner->domain->interrupted) {
+        mwx_scene_quickjs_discard_jobs(owner);
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript native work budget exceeded");
+        return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+    }
+    if (owner->text_clone_failed ||
+        (owner->domain->text_clone_depth != 0 &&
+         mwx_scene_quickjs_owner_has_job_residue(owner))) {
+        mwx_scene_quickjs_discard_jobs(owner);
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "prepared text clone transaction rejected");
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     if (JS_IsException(result)) {
         mwx_scene_quickjs_discard_jobs(owner);
         return MWX_SCENE_QUICKJS_OK;
@@ -748,6 +774,16 @@ static MWXSceneQuickJSResult call_primitive(
     return MWX_SCENE_QUICKJS_OK;
 }
 
+// Dynamic text clones share the original createLayer text representation.
+// Authored String outputs retain their existing 65536-byte/NUL semantics.
+static bool string_value_fits_owner(
+    const MWXSceneQuickJSOwner *owner, const char *value, size_t length, bool input
+) {
+    const bool clone = owner->text_clone_template_identity != 0;
+    const size_t maximum = clone ? MWX_SCENE_QUICKJS_MAX_LAYER_TEXT : 65536;
+    return length <= maximum && (!(input || clone) || memchr(value, 0, length) == NULL);
+}
+
 static MWXSceneQuickJSResult call_string(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
@@ -904,7 +940,7 @@ static MWXSceneQuickJSResult call_string(
     }
     size_t length = 0;
     const char *string = JS_ToCStringLen(domain->context, &length, result);
-    if (string == NULL || length > 65536 || length >= output_capacity) {
+    if (string == NULL || !string_value_fits_owner(owner, string, length, false) || length >= output_capacity) {
         if (string != NULL) JS_FreeCString(domain->context, string);
         JS_FreeValue(domain->context, result);
         write_diagnostic(
@@ -1239,6 +1275,8 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
     if (domain == NULL) {
         return;
     }
+    mwx_scene_quickjs_destroy_text_clone_queue(domain);
+    mwx_scene_quickjs_destroy_text_templates(domain);
     mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
     mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     free(domain->named_animations);
@@ -1303,6 +1341,8 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     uint64_t generation,
     uint64_t interrupt_budget,
     bool value_only,
+    bool capture_text_template,
+    JSValueConst prepared_module,
     MWXSceneQuickJSResult *result,
     char *diagnostic,
     size_t diagnostic_capacity
@@ -1343,13 +1383,10 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     const bool compile_had_exception = JS_HasException(domain->context);
     JSValue compile_previous_exception = compile_had_exception
         ? JS_GetException(domain->context) : JS_UNDEFINED;
-    JSValue module = JS_Eval(
-        domain->context,
-        module_source,
-        source_length,
-        "inline.scene.js",
-        JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY
-    );
+    JSValue module = JS_IsUndefined(prepared_module)
+        ? JS_Eval(domain->context, module_source, source_length, "inline.scene.js",
+                  JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY)
+        : JS_DupValue(domain->context, prepared_module);
     const bool compile_has_exception = JS_HasException(domain->context);
     free(module_source);
     if (JS_IsException(module) || compile_has_exception) {
@@ -1388,10 +1425,12 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         return NULL;
     }
     owner->domain = domain;
+    owner->text_template_source = JS_UNDEFINED;
     owner->module = JS_UNDEFINED;
     domain->next_owner_identity += 1;
     if (domain->next_owner_identity == 0 || domain->next_owner_identity > INT64_MAX) {
         JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner identity exhausted");
         return NULL;
@@ -1399,6 +1438,9 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     owner->identity = domain->next_owner_identity;
     owner->generation = generation;
     owner->value_only = value_only;
+    // Optional preparation must not turn a healthy source into a failed owner.
+    if (capture_text_template)
+        mwx_scene_quickjs_capture_text_source(owner, module, source, source_length);
     owner->material_function_layer = JS_UNDEFINED;
     owner->scene_handle = JS_UNDEFINED;
     owner->object_handle = JS_UNDEFINED;
@@ -1423,6 +1465,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     if (owner->effect_names == NULL) {
         if (result != NULL) *result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner allocation failed");
         return NULL;
@@ -1449,6 +1492,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
             mwx_scene_quickjs_restore_module_engine_host(owner, previous_global_engine);
         JS_FreeValue(domain->context, module);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         MWXSceneQuickJSResult failure = bind_has_exception
             ? native_exception_result(domain->context, binding_exception)
@@ -1482,6 +1526,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         JS_FreeValue(domain->context, module);
         mwx_scene_quickjs_destroy_audio_host(owner);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         write_diagnostic(
             diagnostic, diagnostic_capacity,
@@ -1501,6 +1546,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         mwx_scene_quickjs_destroy_audio_host(owner);
         mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         domain->value_only_guard_active = false;
         return NULL;
@@ -1532,6 +1578,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         mwx_scene_quickjs_destroy_audio_host(owner);
         mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         domain->value_only_guard_active = false;
         return NULL;
@@ -1548,6 +1595,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         mwx_scene_quickjs_destroy_audio_host(owner);
         mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         domain->value_only_guard_active = false;
         return NULL;
@@ -1559,6 +1607,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         mwx_scene_quickjs_destroy_audio_host(owner);
         mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         write_diagnostic(
             diagnostic,
@@ -1588,6 +1637,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         mwx_scene_quickjs_destroy_audio_host(owner);
         mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         MWXSceneQuickJSResult failure = namespace_has_exception
             ? native_exception_result(domain->context, namespace_exception)
@@ -1627,6 +1677,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
         mwx_scene_quickjs_destroy_owner_handles(owner);
         mwx_scene_quickjs_destroy_audio_host(owner);
         JS_FreeValue(domain->context, owner->module);
+        mwx_scene_quickjs_release_text_source(owner);
         free(owner);
         MWXSceneQuickJSResult failure = install_has_exception
             ? native_exception_result(domain->context, installation_exception)
@@ -1655,6 +1706,27 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     return owner;
 }
 
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_text_with_budget(
+    MWXSceneQuickJSDomain *domain, const char *source, size_t source_length,
+    uint64_t generation, uint64_t interrupt_budget, MWXSceneQuickJSResult *result,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    return create_owner_with_budget(domain, source, source_length, generation,
+        interrupt_budget, false, true, JS_UNDEFINED, result, diagnostic, diagnostic_capacity);
+}
+
+MWXSceneQuickJSOwner *mwx_scene_quickjs_create_prepared_text_owner(
+    MWXSceneQuickJSDomain *domain, JSValueConst module, uint64_t generation,
+    MWXSceneQuickJSResult *result, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (domain->interrupted || !domain->interrupt_budget) {
+        if (result) *result = MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+        return NULL;
+    }
+    return create_owner_with_budget(domain, "prepared", 8, generation,
+        domain->interrupt_budget, false, false, module, result, diagnostic, diagnostic_capacity);
+}
+
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_with_budget(
     MWXSceneQuickJSDomain *domain,
     const char *source,
@@ -1666,7 +1738,7 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_with_budget(
     size_t diagnostic_capacity
 ) {
     return create_owner_with_budget(
-        domain, source, source_length, generation, interrupt_budget, false,
+        domain, source, source_length, generation, interrupt_budget, false, false, JS_UNDEFINED,
         result, diagnostic, diagnostic_capacity
     );
 }
@@ -1682,7 +1754,7 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_value_only_with_budget(
     size_t diagnostic_capacity
 ) {
     return create_owner_with_budget(
-        domain, source, source_length, generation, interrupt_budget, true,
+        domain, source, source_length, generation, interrupt_budget, true, false, JS_UNDEFINED,
         result, diagnostic, diagnostic_capacity
     );
 }
@@ -1698,7 +1770,7 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
     size_t diagnostic_capacity
 ) {
     MWXSceneQuickJSOwner *owner = create_owner_with_budget(
-        domain, source, source_length, generation, interrupt_budget, false,
+        domain, source, source_length, generation, interrupt_budget, false, false, JS_UNDEFINED,
         result, diagnostic, diagnostic_capacity
     );
     if (owner != NULL) owner->effectful_boolean = true;
@@ -1767,6 +1839,12 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
         free(owner->dynamic_image_aliases[i].model_path);
     }
     free(owner->dynamic_image_aliases);
+    mwx_scene_quickjs_finish_text_clones(owner, false);
+    if (owner->text_clone_template_identity && owner->target_layer_configured &&
+        owner->target_layer_index < owner->domain->layer_count &&
+        owner->domain->layers[owner->target_layer_index].text_property_owner_identity == owner->identity)
+        owner->domain->layers[owner->target_layer_index].text_property_owner_identity = 0;
+    mwx_scene_quickjs_release_text_source(owner);
     mwx_scene_quickjs_discard_jobs(owner);
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);
@@ -2207,7 +2285,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_string(
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || owner->value_only || input == NULL ||
-        input_length > 65536 || memchr(input, '\0', input_length) != NULL ||
+        !string_value_fits_owner(owner, input, input_length, true) ||
         frame == NULL || output == NULL || output_capacity == 0 ||
         output_length == NULL || did_initialize == NULL ||
         !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
@@ -2305,8 +2383,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     size_t diagnostic_capacity
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
-    if (owner == NULL || owner->value_only || input == NULL || input_length > 65536 ||
-        memchr(input, '\0', input_length) != NULL || frame == NULL ||
+    if (owner == NULL || owner->value_only || input == NULL ||
+        !string_value_fits_owner(owner, input, input_length, true) || frame == NULL ||
         output == NULL || output_capacity == 0 || output_length == NULL ||
         !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
         frame->time_of_day > 1 || !isfinite(frame->frame_time) ||

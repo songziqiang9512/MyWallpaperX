@@ -103,9 +103,27 @@ enum MWXSceneQuickJSLayerAccessScope {
     MWX_SCENE_QUICKJS_LAYER_AUTHORED_REFERENCE,
 };
 
+
+typedef struct MWXSceneQuickJSTextTemplate {
+    JSValue wrapper;
+    uint8_t *bytecode;
+    size_t bytecode_length;
+    char *authored_seed;
+    char *current_input;
+    char *script_properties;
+    size_t input_length, properties_length;
+    uint64_t generation;
+    uint32_t kind;
+    uint32_t alias_count;
+    struct MWXSceneQuickJSDynamicImageAliasRecord *aliases;
+    bool inputs_available;
+} MWXSceneQuickJSTextTemplate;
+
 typedef struct MWXSceneQuickJSLayerRecord {
     int64_t layer_id;
     int64_t parent_id;
+    MWXSceneQuickJSTextTemplate *text_template;
+    uint64_t text_template_identity, text_property_owner_identity;
     char *name;
     char *text;
     char *font;
@@ -130,6 +148,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     int32_t order_index;
     uint64_t owner_identity;
     uint64_t dirty_owner_identity;
+    uint32_t dirty_fields;
     bool visible;
     bool solid;
     uint32_t perspective;
@@ -167,6 +186,13 @@ typedef struct MWXSceneQuickJSDynamicImageRecord {
     double natural_size[2];
     bool autosize;
 } MWXSceneQuickJSDynamicImageRecord;
+
+typedef struct MWXSceneQuickJSTextCloneSnapshot {
+    uint32_t layer_index;
+    int64_t layer_id;
+    char *text;
+    struct MWXSceneQuickJSTextCloneSnapshot *next;
+} MWXSceneQuickJSTextCloneSnapshot;
 
 typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     char *text;
@@ -284,6 +310,7 @@ typedef struct MWXSceneQuickJSStorageMutationRecord {
 // operation journal so multiple owners can mutate one frame safely.
 typedef struct MWXSceneQuickJSDynamicLayerValueBaseline {
     uint32_t layer_index;
+    uint32_t dirty_fields;
     double current_origin[3];
     double scale[3];
     double angles[3];
@@ -366,6 +393,9 @@ struct MWXSceneQuickJSDomain {
     size_t dynamic_layer_transaction_participant_count;
     size_t dynamic_layer_topology_participant_count;
     uint64_t layer_snapshot_generation;
+    MWXSceneQuickJSTextCloneSnapshot *pending_text_clone_snapshot;
+    MWXSceneQuickJSTextCloneSnapshot *rollback_text_clone_snapshot;
+    size_t pending_text_clone_count;
     MWXSceneQuickJSStagedLayerSnapshot *pending_layer_snapshot;
     uint64_t pending_layer_snapshot_generation;
     bool pending_defaults_to_perspective;
@@ -386,6 +416,9 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSStorageRead storage_read;
     void *storage_opaque;
     char *storage_screen_identity;
+    uint64_t callback_epoch_issuer;
+    unsigned text_clone_depth;
+    MWXSceneQuickJSOwner *committed_text_clone_head, *committed_text_clone_tail;
 };
 
 typedef struct MWXSceneQuickJSDynamicImageAliasRecord {
@@ -398,6 +431,14 @@ struct MWXSceneQuickJSOwner {
     JSValue module;
     uint64_t identity;
     uint64_t generation;
+    JSValue text_template_source;
+    uint8_t *text_template_bytecode;
+    size_t text_template_bytecode_length;
+    MWXSceneQuickJSOwner *provisional_text_creator;
+    MWXSceneQuickJSOwner *text_clone_children, *text_clone_children_tail, *text_clone_next;
+    uint64_t text_clone_template_identity, text_clone_creator_identity;
+    int64_t text_clone_layer_id;
+    bool text_clone_failed;
     bool initialized;
     bool initialization_pending;
     MWXSceneQuickJSTimerFrameSnapshot *initialization_timers;
@@ -796,5 +837,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_end(
     const char *user_properties_json, size_t user_properties_length,
     char *diagnostic, size_t diagnostic_capacity);
 bool mwx_scene_quickjs_assign_script_properties(MWXSceneQuickJSOwner *owner, const char *json, size_t length);
+
+void mwx_scene_quickjs_capture_text_source(MWXSceneQuickJSOwner *, JSValueConst, const char *, size_t);
+void mwx_scene_quickjs_release_text_source(MWXSceneQuickJSOwner *);
+bool mwx_scene_quickjs_layer_owns_dynamic_target(MWXSceneQuickJSOwner *, const MWXSceneQuickJSLayerRecord *);
+MWXSceneQuickJSOwner *mwx_scene_quickjs_create_prepared_text_owner(
+    MWXSceneQuickJSDomain *, JSValueConst, uint64_t, MWXSceneQuickJSResult *, char *, size_t);
+MWXSceneQuickJSOwner *mwx_scene_quickjs_text_transaction_owner(MWXSceneQuickJSOwner *);
+bool mwx_scene_quickjs_domain_charge_work(MWXSceneQuickJSDomain *, uint64_t);
+uint64_t mwx_scene_quickjs_match_text_template(MWXSceneQuickJSDomain *, JSValueConst);
+bool mwx_scene_quickjs_text_template_matches_identity(MWXSceneQuickJSDomain *, JSValueConst, uint64_t);
+char *mwx_scene_quickjs_text_template_input(MWXSceneQuickJSDomain *, uint64_t);
+bool mwx_scene_quickjs_text_clone_can_begin(MWXSceneQuickJSOwner *, uint64_t);
+bool mwx_scene_quickjs_activate_text_clone(MWXSceneQuickJSOwner *, uint32_t, uint64_t);
+void mwx_scene_quickjs_finish_text_clones(MWXSceneQuickJSOwner *, bool);
+bool mwx_scene_quickjs_text_exports_supported(MWXSceneQuickJSOwner *);
+void mwx_scene_quickjs_destroy_text_templates(MWXSceneQuickJSDomain *);
+void mwx_scene_quickjs_destroy_text_clone_queue(MWXSceneQuickJSDomain *);
 
 #endif

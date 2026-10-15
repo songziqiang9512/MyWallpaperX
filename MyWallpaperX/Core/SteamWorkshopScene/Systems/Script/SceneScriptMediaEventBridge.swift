@@ -357,6 +357,15 @@ nonisolated struct SceneScriptProgramFrameState: Sendable {
 
 nonisolated struct SceneScriptProgramTimerFrameState: @unchecked Sendable {
     let snapshots: [OpaquePointer?]
+    /// Dynamic String bindings can retire while an in-flight frame still owns
+    /// these native snapshots. Pin the exact owners until snapshot disposal.
+    let capturedValueOwners: [SceneScriptValueOwner]?
+
+    init(snapshots: [OpaquePointer?], capturedValueOwners: [SceneScriptValueOwner]? = nil) {
+        self.snapshots = snapshots
+        self.capturedValueOwners = capturedValueOwners
+    }
+
     var isComplete: Bool { snapshots.allSatisfy { $0 != nil } }
 }
 

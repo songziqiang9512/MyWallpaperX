@@ -10,6 +10,27 @@ struct SceneScriptProgramFrameStates {
 }
 
 extension SceneDesktopWallpaperSession {
+    /// Prepare the shared callback inputs before any VM family can create a
+    /// text instance. These projections belong to the current simulation frame.
+    func prepareSceneScriptFrame(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> SceneScriptFrameInput {
+        let surface = surfaces.count == 1
+            ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
+                timing: timing, dynamicValues: dynamicValues) : nil
+        let failures = context.sceneScriptStringProgram.preparePreparedTextCloneInputs(
+            userValues: context.liveState.userValues,
+            effectivePropertyValues: context.liveState.effectiveValues,
+            propertyRevision: context.liveState.revision)
+        for (target, failure) in failures {
+            NSLog("MWX SceneScript VM: target=%@ preparation=text-template-input failure=%@ code=%@",
+                String(describing: target), String(describing: failure), failure.code)
+        }
+        return .init(timing: timing, surface: surface)
+    }
+
     func sceneScriptProgramFrameState(
         _ context: SceneDesktopWallpaperLaunchContext
     ) -> SceneScriptProgramFrameStates {
@@ -108,7 +129,6 @@ extension SceneDesktopWallpaperSession {
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
     ) {
-        evaluationTransaction.commit(pendingEvaluation)
         sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
         if !animationMutations.isEmpty,
            case .success = context.timelinePlaybackRuntime.apply(
@@ -160,10 +180,48 @@ extension SceneDesktopWallpaperSession {
             context, plan: layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        let adoption = context.sceneScriptStringProgram.adoptCommittedPreparedTextClones(
+            frame: scriptFrame, liveTextTemplates: layerPlan.textTemplateIdentitiesByLayerID)
+        context.frameSchema.registerStatefulTargets(Set(adoption.definitions.map(\.target)))
+        for (target, failure) in adoption.failures {
+            NSLog("MWX SceneScript VM: target=%@ lifecycle=text-clone-adoption failure=%@ code=%@",
+                  String(describing: target), String(describing: failure), failure.code)
+        }
+        if let failure = adoption.queueFailure {
+            NSLog("MWX SceneScript VM: lifecycle=text-clone-adoption failure=%@ code=%@",
+                  String(describing: failure), failure.code)
+        }
+        if layerPlan.createdPreparedTextValues.isEmpty {
+            evaluationTransaction.commit(pendingEvaluation)
+        } else {
+            // A birth is the only point where the committed schema expands.
+            // Seed its accepted init result in the existing snapshot owner so
+            // next update(value) receives it; the authored fallback stays raw.
+            let targets = Set(context.frameSchema.dynamicDefinitions.map(\.target))
+            let snapshot = pendingEvaluation.snapshot
+            var scripts = snapshot.values(for: targets, source: .sceneScript)
+            for (target, value) in layerPlan.createdPreparedTextValues {
+                guard case let .text(layerID, .content) = target,
+                      let identity = layerPlan.textTemplateIdentitiesByLayerID[layerID],
+                      context.sceneScriptStringProgram.preparedTextTemplates[identity]?.kind == .script else { continue }
+                scripts[target] = value
+            }
+            let resolution = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: snapshot.frameIndex, generation: snapshot.generation,
+                index: context.frameSchema.dynamicDefinitionIndex,
+                userValues: context.sceneScriptDynamicLayerRuntime.projectPreparedTextUserValues(
+                    from: context.liveState.userValues, previousValue: evaluationTransaction.previousValue(for:)),
+                timelineValues: snapshot.values(for: targets, source: .timeline),
+                sceneScriptValues: scripts
+            )
+            let expanded = evaluationTransaction.prepare(
+                frameIndex: snapshot.frameIndex, resolution: resolution)
+            evaluationTransaction.commit(expanded)
+        }
         soundPlaybackRegistry?.retire(layerIDs: layerPlan.destroyedAuthoredLayerIDs)
         finalizeSceneScriptLayerSnapshot(context)
         retireDestroyedSceneScriptOwners(
-            context, layerIDs: layerPlan.destroyedAuthoredLayerIDs,
+            context, layerIDs: layerPlan.destroyedAuthoredLayerIDs.union(layerPlan.retiredDynamicLayerIDs),
             frame: scriptFrame
         )
         context.sceneScriptStorageSession?.commitFrameTransaction()
@@ -196,13 +254,9 @@ extension SceneDesktopWallpaperSession {
             effectivePropertyValues: values, userPropertiesJSON: userPropertiesJSON
         )
         if !outcomes.isEmpty {
-            let retiredTargets = Set(
-                (context.sceneScriptScalarProgram.bindings + context.sceneScriptStringProgram.bindings)
-                    .compactMap { layerIDs.contains($0.layerID) ? $0.target : nil }
-                + context.propertyVectorScriptProgram.bindings.compactMap {
-                    layerIDs.contains($0.owner.layerID) ? $0.definition.target : nil
-                }
-            )
+            let retiredTargets = context.sceneScriptStatefulTargets.filter { target in
+                SceneScriptLayerMutationBridge.layerID(for: target).map(layerIDs.contains) ?? false
+            }
             context.frameSchema.retireStatefulTargets(retiredTargets)
             NSLog("MWX SceneScript VM: lifecycle=layer-retirement owners=%d destroyCallbacks=%d quiescent=%d failures=%d sceneTime=%.3f",
                 outcomes.count, outcomes.filter(\.destroyCallbackInvoked).count,

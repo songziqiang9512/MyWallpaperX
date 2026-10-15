@@ -253,8 +253,7 @@ static JSValue layer_set(
             "Boolean value owner may only write its target visibility"
         );
     }
-    const bool dynamic_target = record->dynamic &&
-        record->owner_identity == owner->identity;
+    const bool dynamic_target = mwx_scene_quickjs_layer_owns_dynamic_target(owner, record);
     const bool authored_target = !record->dynamic && !owner->value_only;
     const bool value_authored_target = !record->dynamic &&
         value_owner_target_visibility;
@@ -536,6 +535,7 @@ static JSValue layer_set(
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         }
         free(record->text); record->text = copy;
+        record->dirty_fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT;
         break;
     }
     case LAYER_FONT: {

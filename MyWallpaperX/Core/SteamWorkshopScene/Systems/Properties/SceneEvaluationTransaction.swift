@@ -20,6 +20,12 @@ nonisolated struct SceneEvaluationTransaction {
 
     nonisolated init() {}
 
+    /// A rejected dynamic input keeps this target's committed current,
+    /// irrespective of whether the preceding producer was user or script.
+    nonisolated func previousValue(for target: SceneDynamicTarget) -> SceneDynamicValue? {
+        lastSnapshot?[target]?.value
+    }
+
     /// Values published by the preceding frame for stateful SceneScript
     /// owners.  The accessor is intentionally read-only and target-scoped so
     /// the host can feed callback state forward without exposing or replacing

@@ -55,6 +55,32 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 
 接口复用现层名称/顺序解析及带代次的 handle 校验。现值、事务和资源仍由原 owner 负责；读取初始配置不代表 createLayer 已能消费其中所有字段。对不支持的资源保持局部拒绝，不能把 Puppet 扁平化或对缺少 provider 返回假成功。验收覆盖三入口、嵌套副本隔离、实时值不污染初始值、缺层/旧句柄、配置 identity 变化、现 create/destroy/rollback；真实 App 则核对原 34 个失败 target 的实际分布、普通图片模板复用与实际脚本角度输出，不以方法存在或截图非黑计完成。
 
+<a id="prepared-text-clone"></a>
+
+## 已准备文字 wrapper 动态实例（2026-10-15，有界实施）
+
+**目标与范围。** `createLayer({text: …})`应区分String、静态value、user绑定和script wrapper；有状态脚本的两个clone必须各自持有模块状态、init/update、输入修订和退休状态，不能把wrapper字符串化、只取fallback或共享原namespace。现真实缺口包含一个已准备时钟脚本与两个纯user wrapper；后者应走原property typed链，不为其创建空VM owner。初片仅复用本launch成功准备的作者文字模板，不接任意新源码、Puppet/composition、动态配置getter或新的资源发现。官方自有中性实验已证独立init/update及create返回后立即`.text`可见init结果；user/throw/destroy沿项目既有合同验收，不称官方parity。
+
+**唯一准备与身份。** 原domain layer catalog持有作者wrapper及其String/property准备资格；script模板在原compile-only结果执行前保存可信进程内字节载体，原source owner仍消费同一次编译，clone经原VM读入为fresh模块，普通cadence不解析或编译源码。模板不是磁盘bytecode cache，跟launch/domain预算和退出释放；源层退休不销毁已被合法clone使用的模板。载体仅在当前可信domain内读入，不从不可信包或磁盘bytecode取得执行权。来源需完整value/user/script/scriptproperties及宿主准备语义匹配，不用名字、当前文字或源码hash猜模板，不给getInitial返回值加可观察token。不确定、修改后未准备或歧义配置在journal分配前局部拒绝。候选为原catalog内有界own-data匹配：先拒Proxy/accessor/不支持class，再用自有数据字段比较；须先证不触发getter、原型稀疏项或额外序列化副作用，不能直接递归JSON任意调用参数。
+
+**同步激活。** 原create journal分配provisional层后，由原domain实例化prepared子owner，绑定新layer target及原codec解析的当前输入，在返回handle前执行现String init并写同一临时record。父callback续行须恢复原owner、有效callback epoch、engine/thisLayer/thisObject、frame输入、value-only权限、异常及job归属；身份分配保持单调，子工作计入父剩余interrupt/native/heap预算，不因nested入口重置。只开放这一受限激活边界，不能全局删除callback guards。现动态写入检查把creator等同active owner，需保留record creator及其连带退休权，另让该层已授权String property owner访问自己的target；不将creator改成子owner，也不放开跨owner句柄。
+
+**事务与typed输出。** 子实例是creator bundle的provisional贡献。init期间的typed写入和命令必须进入同一可验证贡献，不能只返回文字而漏副作用；子init失败、父throw、预算失败或后置Swift/fixed-point拒绝时，原子拒绝依赖此次创建的creator bundle并撤回子owner、timer、roots、命令及文字；父catch不能把不完整创建重新接纳，清理期间的destroy副作用也不发布，健康peer继续。已接纳clone后续update失败沿原String previous-current/禁用与重试边界处理，不重新初始化source或peer。这里只保证项目原typed/host事务，不承诺回滚任意JS共享堆。接纳后原StringProgram持有script clone及其ledger；纯user/value复用原property codec与binding producer；script与outer user共存时，沿原objectText合同将user作为低优先级typed输入，String owner仍是唯一最终producer，不能并排登记两个输出。原DynamicLayerRuntime plan发布新增target定义/生产者及实际删除事件差量，frame schema按该revision刷新；原typed snapshot→TextTextureStore→publication/compositor继续唯一消费。作者fallback、init输出与当前值分开；无首帧整景重建或逐帧catalog扫描。
+
+**ABI与持有转移。** 模板只登记原String/property准备成功的catalog层及完整wrapper；String构造从同一次compile-only保存可信字节。C原create/journal暂持fresh子VM handle及其creator依赖，采用原frame的user输入和模板当前已解析script-properties；接纳前的typed贡献归creator bundle，共同commit/discard。原StringProgram在已提交队列中接管handle与prepared元数据，C退出持有，随后仅存property-owner身份授权；不能在普通帧扫描全catalog找新owner。StringProgram在各族VM执行前刷新模板输入，按属性revision复用原codec结果。纯user/value只携带prepared binding身份和作者seed，原property producer输出投影到新target，不为它建立脚本owner。DynamicLayerRuntime负责接纳/删除binding与定义，StringProgram负责脚本状态；二者经原plan/schema revision进入typed snapshot，不新增服务、VM或输出链。
+
+**退出与回调边界。** 单clone销毁、creator退休连带删除和launch退出，沿原retire/destroy/cleanup retry恰好撤一次贡献，陈旧异步raster不得复活；仅传destroyedAuthoredLayerIDs不足。初片覆盖init/update/applyUserProperties/destroy及现typed输入，不静默漏media/cursor/audio：按实际exports/注册资格明确拒绝尚未接线的模板，或在原coordinator按接纳revision更新，禁止第二dispatcher。现job drain/discard作用于整个runtime；在父已有pending job时直接嵌套会误消费/删除父队列。这是实施前资格门，不能仅save/restore active_owner掩盖。首片只核同步范围：所有可能执行JS的字段读取结束后，在journal/birth前要求parent无job residue（含pending queue、active rejection和overflow）及待决VM异常；不满足仅局部拒绝本次wrapper create，不能清父队列，旧String入口不加此限制。nested activation depth限1，子init再创建script wrapper不开放；子模块/init如排job，在执行这些job前拒绝并仅清当前子队列，避免每次drain重置64-job计数绕过父callback预算。未来若开放子job，必须共享最外callback剩余计数及原owner/frame命令/变更总预算。恢复后父新增jobs仍由原流程处理。父job/rejection、嵌套create及异常完整性须保持这些资格门，不扩大vendored job机制作为默认前置。
+
+**实施与后继验收。** 本片限定范围已沿[冻结后验](../../history/prepared-text-clones-2026-10-15.md)完成真实C/Swift、隔离作者shadow选项、独立文字样本及退出验证。后继仍须保变量/资源改名与等价wrapper、双clone独立init/update/user、父throw/晚拒绝、坏返回与健康peer、单clone/creator退休/旧generation及原particle cadence作用域。值变化须到实际文字/画面，门通过、模块数和非黑不替代验收。任意新源码、未接事件、特殊clone与完整样本parity继续开放，不把本窄片等同N06完成。
+
+动态String binding在原retire边界清理quiescent负ID owner及其定义、输入索引和派生缓存，避免反复创建/销毁积累至launch结束。原timer frame snapshot须强持捕获时的准确owner，restore/discard不再与可变bindings按位置zip；已退休owner不恢复，snapshot释放后owner自然退出。作者source模板保留到domain退出。原frame ledger与JSON cache按同一删除target清理，不新建退休队列；schema按已提交删除事件移除stateful target。验收包含持有旧snapshot时删除中间clone、健康peer恢复/丢弃及多轮创建退休后owner数量回落。
+
+队列take只按已共同接纳的DynamicLayerRuntime plan中`layerID→template identity`移交：同帧新生又随creator删除、无live成员或身份不符的子handle直接释放，不注册String binding/stateful target。接管不等于新的拓扑接纳权。init中的topology operation沿原creator journal，接纳后的自身sort沿已有property owner授权重放；creator身份和删除权不转移。动态TEXT dirty ABI只区分显式setter与完整record镜像，其余动态字段不因此开放。`user:null`与省略user保持同一无绑定语义，完整wrapper比较仍保真。
+
+动态文字沿原layer ABI限制为最多4096 UTF-8字节且无嵌入NUL，统一在typed mutation合同校验。同步init、已接管clone的输入/返回值及纯user投影均在最早target边界局部拒绝越界；普通作者String原65536返回合同不缩小。非法user输入保留唯一evaluation transaction的上一安全current，首次无值用作者seed；镜像继续做完整性校验，不吞错或跳过坏target来伪造成功。需验证4096/4097及NUL、坏clone后健康peer仍更新，不能因一个视觉值让共享VM停止。该限制是现动态layer ABI边界，不是官方文字上限。
+
+产品原particle frame是整个cadence的共享native预算/事务作用域，开启它不能拒绝普通文字创建。同步子模块构造、init与失败销毁期间，在上述词法激活scope暂存并抑制原emission/boundary hooks，所有出口恢复原hooks/opaque；不重置active、work、limit或reserved。子init的particle播放/emit命令在原native入口、任何Swift preview/reserve或可捕获错误之前设sticky失败并拒绝creator，即使module阶段尚无provisional指针也按原nested激活身份拒绝；查询如被允许仍扣原共享work。父先前prefix/query候选不能被child end/discard边界清除。验收以原particle scope包围create并核前后父输入/预算、正常与失败出口、健康suffix；禁止为绕过此门关闭产品particle事务或新增第二模拟owner。
+
 ## 图层 perspective typed setter 后继（2026-10-12）
 
 真实作者在图层 init 设置 `thisLayer.perspective`，随后只更新 angles/origin/scale；原桥接没有此 accessor，赋值成为无渲染消费者的 JS 自有属性。公开 [SceneScript 类型声明](https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts) 的 IEffectLayer（image/text 的共同表面）及 model 图层声明可读写 Boolean perspective，含义为透视而非平面绘制；公开 HTML ILayer 简表未完整列出派生属性。此次先闭合已准备图层及现动态 image/text handle 的 setter/getter，不扩 createLayer Object 配置、size、资源 profile 或文字克隆。

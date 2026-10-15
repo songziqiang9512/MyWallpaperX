@@ -593,13 +593,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "695e9071d6d43430a4b011e1f9977a873fb435bfd844d2b718eb9fa9b1f5f2bb",
+        "sourceSHA256": "14e0dd3be5e5ca53d9e1f3d158fe58d58eae51896175274c7098ec1923c2f2c9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生面板与属性异常恢复证据入口及原快照导航链接；非全部旧包HEAD运行复验",
-        "limitations": "导航复核不冒充全架构、全样本、整App性能或Release验收；事实按本批冻结记录。"
+        "scope": "本批prepared文字实例冻结记录与原有导航链接；非全部旧证据HEAD重验",
+        "limitations": "仅导航及本批限定结果；不关闭特殊clone、全部布局/交互或性能验收。"
       }
     },
     {
@@ -793,13 +793,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6fee294a0a2cc5fc2e71d5dbe5b8b2ac008a25f74a0dce1b5e70aeb48274878a",
+        "sourceSHA256": "e33244c6610fc9f2ddc1b01d3a309aa656d7fb754cab5ba5f19b24e79214f476",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批编译测量历史指针与Solar局部TypeError开放状态导航复核",
-        "limitations": "不代表该异常已归因或修复，不关闭完整视觉与产品验收"
+        "scope": "本批prepared文字实例冻结记录与原有导航链接；非全部旧证据HEAD重验",
+        "limitations": "仅导航及本批限定结果；不关闭特殊clone、全部布局/交互或性能验收。"
       }
     },
     {
@@ -1773,6 +1773,19 @@
         "limitations": "No all-sample, official parity, stable end-to-end startup, HDR history or long switching acceptance"
       },
       "lastReviewed": "2026-10-13"
+    },
+    {
+      "path": "docs/scene/history/prepared-text-clones-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/roadmap/batch2/script-component-api-design.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "Prepared文字wrapper独立实例、creator事务/退休、particle cadence隔离及真实clock/user shadow热更新；性能与全样本边界。"
     },
     {
       "path": "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md",

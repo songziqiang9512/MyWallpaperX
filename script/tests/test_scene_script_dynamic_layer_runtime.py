@@ -21,6 +21,7 @@ SOURCES = [
     SCENE_SCRIPT / "SceneScriptLayerMutation.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyModels.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime+Values.swift",
 ]
 
 HARNESS = r'''
@@ -81,6 +82,23 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let target: SceneDynamicTarget
     let valueType: SceneDynamicValueType
     let authoredValue: SceneDynamicValue
+}
+
+// External prepared metadata only; the runtime under test owns projection,
+// admission and retirement. String/VM preparation is exercised by the VM gate.
+nonisolated struct SceneScriptPreparedTextTemplate {
+    let sourceTarget: SceneDynamicTarget
+    let authoredSeed: String
+    let outerUserInstruction: Int?
+    func definition(layerID: Int) -> SceneDynamicTargetDefinition {
+        .init(target: .text(layerID: layerID, field: .content), valueType: .string,
+              authoredValue: .string(authoredSeed))
+    }
+}
+nonisolated struct SceneDynamicSnapshot {
+    struct Resolved { let value: SceneDynamicValue }
+    var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    subscript(_ target: SceneDynamicTarget) -> Resolved? { values[target].map { .init(value: $0) } }
 }
 
 nonisolated struct SceneParticleInstanceOverride: Sendable {
@@ -214,7 +232,8 @@ func mutation(
     assetPath: String? = nil,
     color: SIMD3<Double> = .init(repeating: 1),
     ownerTarget: SceneDynamicTarget? = nil,
-    perspective: Bool? = nil
+    perspective: Bool? = nil,
+    textTemplateIdentity: UInt64 = 0
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
@@ -222,7 +241,8 @@ func mutation(
         visible: visible, alpha: alpha, origin: origin,
         scale: scale, angles: angles,
         color: color, pointSize: 32, text: text, font: font,
-        assetPath: assetPath, ownerTarget: ownerTarget, perspective: perspective
+        assetPath: assetPath, ownerTarget: ownerTarget, perspective: perspective,
+        textTemplateIdentity: textTemplateIdentity
     )
 }
 
@@ -618,7 +638,74 @@ enum Harness {
             ])]
         ) { _ in [] }
         perspectiveConsumerRuntime.commit(perspectiveIsolation.admission.layerPlan)
+        let templateSource = SceneDynamicTarget.text(layerID: 20, field: .content)
+        let cloneTarget = SceneDynamicTarget.text(layerID: -101, field: .content)
+        let nestedTarget = SceneDynamicTarget.text(layerID: -102, field: .content)
+        let templateRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor, authoredMutationLayerIDs: [10], textTemplates: [
+                1: .init(sourceTarget: templateSource, authoredSeed: "raw", outerUserInstruction: 1),
+                2: .init(sourceTarget: templateSource, authoredSeed: "script-raw", outerUserInstruction: nil)
+            ])
+        let templateBirth = templateRuntime.preflightIsolatingOwners([
+            mutation(-101, text: "init-A", ownerTarget: ownerA, textTemplateIdentity: 1),
+            mutation(-102, text: "init-B", ownerTarget: cloneTarget, textTemplateIdentity: 2)
+        ])
+        let templatePreflightReadOnly = templateRuntime.snapshot().dynamicLayers.isEmpty
+            && templateRuntime.projectPreparedTextUserValues(from: [templateSource: .string("user")])[cloneTarget] == nil
+        templateRuntime.commit(templateBirth)
+        let userAlias = templateRuntime.projectPreparedTextUserValues(from: [templateSource: .string("user")])
+        let userAtLimit = templateRuntime.projectPreparedTextUserValues(
+            from: [templateSource: .string(String(repeating: "x", count: 4_096))])
+        let userTooLong = templateRuntime.projectPreparedTextUserValues(
+            from: [templateSource: .string(String(repeating: "x", count: 4_097))],
+            previousValue: { $0 == cloneTarget ? .string("previous-safe") : nil })
+        let userNUL = templateRuntime.projectPreparedTextUserValues(
+            from: [templateSource: .string("bad\0input")],
+            previousValue: { $0 == cloneTarget ? .string("previous-safe") : nil })
+        let userWithoutPrevious = templateRuntime.projectPreparedTextUserValues(
+            from: [templateSource: .string("bad\0input")])
+        let birthDefinition = templateRuntime.authoredLayerDefinitions.first { $0.target == cloneTarget }
+        let textMirror = templateRuntime.preparedTextValues(in: .init(values: [
+            cloneTarget: .string("current-A"), nestedTarget: .string("current-B"), templateSource: .string("source")]))
+        let unknownTemplate = templateRuntime.apply([
+            mutation(-103, textTemplateIdentity: 999)
+        ])
+        let missingTemplate = templateRuntime.apply([mutation(-101, text: "wrong")])
+        _ = templateRuntime.apply([
+            mutation(-101, text: "mirror", origin: .init(3, 4, 5),
+                ownerTarget: ownerA, textTemplateIdentity: 1)
+        ])
+        let transformDoesNotFreezeText = templateRuntime.snapshot().authoredLayerValues[cloneTarget] == nil
+        _ = templateRuntime.apply([
+            mutation(-102, text: "explicit", fields: [.text], ownerTarget: cloneTarget, textTemplateIdentity: 2)
+        ])
+        let actualSetterPublished = templateRuntime.snapshot().authoredLayerValues[nestedTarget] == .string("explicit")
+        let creatorDelete = templateRuntime.preflightIsolatingOwners([
+            mutation(10, dynamic: false, kind: .destroy, ownerTarget: ownerA)
+        ])
+        let cascadeReadOnly = templateRuntime.snapshot().dynamicLayers.count == 2
+        templateRuntime.commit(creatorDelete)
+        let afterCascade = templateRuntime.snapshot()
         let payload: [String: Any] = [
+            "templateBirthReadOnly": templatePreflightReadOnly,
+            "templateBirthSeparatesSeedAndInit": birthDefinition?.authoredValue == .string("raw")
+                && templateBirth.createdPreparedTextValues[cloneTarget] == .string("init-A"),
+            "templateUserAliasOnlyPreparedUser": userAlias[cloneTarget] == .string("user")
+                && userAlias[nestedTarget] == nil && userAlias[templateSource] == .string("user"),
+            "templateUserBoundsAreTargetLocal": userAtLimit[cloneTarget] == .string(String(repeating: "x", count: 4_096))
+                && userTooLong[cloneTarget] == .string("previous-safe")
+                && userNUL[cloneTarget] == .string("previous-safe")
+                && userWithoutPrevious[cloneTarget] == .string("raw")
+                && userTooLong[templateSource] == .string(String(repeating: "x", count: 4_097)),
+            "templateMirrorUsesLiveMembership": textMirror == [-101: "current-A", -102: "current-B"],
+            "templateUnknownOrMissingRejectLocally": !succeeded(unknownTemplate) && !succeeded(missingTemplate)
+                && transformDoesNotFreezeText,
+            "templateExplicitSetterPublished": actualSetterPublished,
+            "templateCreatorCascadeRetiresDescendants": cascadeReadOnly
+                && creatorDelete.retiredDynamicLayerIDs == [-101, -102] && afterCascade.dynamicLayers.isEmpty,
+            "templateCascadeReleasesValuesDefinitionsAndAliases": afterCascade.authoredLayerValues[nestedTarget] == nil
+                && templateRuntime.authoredLayerDefinitions.allSatisfy { $0.target != cloneTarget && $0.target != nestedTarget }
+                && templateRuntime.projectPreparedTextUserValues(from: [templateSource: .string("next")])[cloneTarget] == nil,
             "perspectivePreflightReadOnly": perspectiveBeforeCommit,
             "perspectiveImageTextAccepted": perspectiveCommitted.authoredLayerValues[perspectiveImage] == .bool(true)
                 && perspectiveCommitted.authoredLayerValues[perspectiveText] == .bool(false),
@@ -802,6 +889,13 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         for key in ("perspectivePreflightReadOnly", "perspectiveImageTextAccepted",
                     "perspectiveFalseAndMissingBool", "perspectiveValueChangeKeepsSchemaAndTopology",
                     "perspectiveUnsupportedIsLocal"):
+            self.assertTrue(self.result[key], key)
+
+    def test_prepared_text_birth_projection_and_cascade_use_committed_membership(self) -> None:
+        for key in ("templateBirthReadOnly", "templateBirthSeparatesSeedAndInit",
+                    "templateUserAliasOnlyPreparedUser", "templateUserBoundsAreTargetLocal", "templateMirrorUsesLiveMembership",
+                    "templateUnknownOrMissingRejectLocally", "templateExplicitSetterPublished",
+                    "templateCreatorCascadeRetiresDescendants", "templateCascadeReleasesValuesDefinitionsAndAliases"):
             self.assertTrue(self.result[key], key)
 
     def test_create_and_value_update_publish_only_through_snapshots(self) -> None:

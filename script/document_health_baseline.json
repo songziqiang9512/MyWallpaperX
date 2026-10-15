@@ -109,8 +109,8 @@
       "bytes": 345429
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 113,
-      "bytes": 34403
+      "lines": 114,
+      "bytes": 34663
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -137,8 +137,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 410,
-      "bytes": 102787
+      "lines": 411,
+      "bytes": 103654
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 224,
-      "bytes": 59281
+      "lines": 250,
+      "bytes": 68861
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 248,
-      "bytes": 72730
+      "bytes": 71073
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1092,15 +1092,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "2e6bb16e5a6ab8fd08610e550e5e0fe381134b48fa48731bec5b2e955bef9225",
-      "after": "d9f1def041ddebf8b0180887b9958df84cccea8516441f293f154a0f7e040a6a",
-      "owner": "scene-engine",
-      "reason": "将已验证camera-layer FOV及共享退休语义放入原scalar能力合同，区分ICamera handle与未验边界；无第二合同。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "e377a3c1e7ff77b43ed518e4fc663b303e5fe86f8446f8102bf4f6241be54922",
       "after": "93e7efc4b64753fcd60af9f7ea719b5b69a2b59a8186485f49c60efe91e5a601",
@@ -1137,12 +1128,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "97e3dbbd3301db35f71353719b856350e4918ee2357eca2703a8b01f63dceb9b",
-      "after": "e260d7b2f2a4be554d304b59ad3dc112c43542d3ccba88417fd39c87271eea33",
-      "owner": "Scene capability sequencing",
-      "reason": "以当前普通优化构建资格及局部优化收益递减重排能力主线；N06文字、N05 Blur与专项卡各保唯一顺序，未验性能和视觉不记完成。",
-      "decision": "docs/scene/roadmap/scene-compatibility-roadmap.md"
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "6d4cef104f69b43d9a06380e95293e4a39d44c7bfb5315f9758275bdfcb1a4bc",
+      "after": "4c327b6ed31566be56e9c2ad0607f01e7f07460253c4cf3c7bd67099850cd1e6",
+      "owner": "scene-script-runtime",
+      "reason": "同步prepared文字实例的设计/能力/冻结证据并替换N06过时状态，保未验边界；同一事实按职责分工。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-text-clone"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "d9f1def041ddebf8b0180887b9958df84cccea8516441f293f154a0f7e040a6a",
+      "after": "d03b0579f70782c1f3e35dc42ce813bce9a8d2e668fddbce8507f39735f47949",
+      "owner": "scene-script-runtime",
+      "reason": "同步prepared文字实例的设计/能力/冻结证据并替换N06过时状态，保未验边界；同一事实按职责分工。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-text-clone"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a1f4b5d4f1d75613cf8abb49844566b92a0971e40e69bd73535ee92385c12028",
+      "after": "8ae01f7ee462c019fa7ccaeb4217752ac0eb572490f23b135dd08d168db0cfac",
+      "owner": "scene-script-runtime",
+      "reason": "同步prepared文字实例的设计/能力/冻结证据并替换N06过时状态，保未验边界；同一事实按职责分工。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-text-clone"
     }
   ]
 }

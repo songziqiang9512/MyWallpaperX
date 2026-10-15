@@ -54,8 +54,17 @@ static void clear_snapshot(
     *snapshot = NULL;
 }
 
+static void clear_text_clone_snapshot(MWXSceneQuickJSTextCloneSnapshot **head) {
+    while (*head) {
+        MWXSceneQuickJSTextCloneSnapshot *next = (*head)->next;
+        free((*head)->text); free(*head); *head = next;
+    }
+}
+
 static void clear_pending_snapshot(MWXSceneQuickJSDomain *domain) {
     if (domain == NULL) return;
+    clear_text_clone_snapshot(&domain->pending_text_clone_snapshot);
+    domain->pending_text_clone_count = 0;
     clear_snapshot(
         &domain->pending_layer_snapshot,
         domain->authored_layer_count
@@ -65,6 +74,7 @@ static void clear_pending_snapshot(MWXSceneQuickJSDomain *domain) {
 
 static void clear_rollback_snapshot(MWXSceneQuickJSDomain *domain) {
     if (domain == NULL) return;
+    clear_text_clone_snapshot(&domain->rollback_text_clone_snapshot);
     clear_snapshot(
         &domain->rollback_layer_snapshot,
         domain->authored_layer_count
@@ -478,6 +488,36 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_origin(
     return MWX_SCENE_QUICKJS_OK;
 }
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_text_clone_value(
+    MWXSceneQuickJSDomain *domain, int64_t layer_id, const char *text, size_t length,
+    char *diagnostic, size_t capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, capacity, "");
+    if (!domain || domain->callback_active || !domain->pending_layer_snapshot || !text ||
+        length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT || memchr(text, 0, length)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    uint32_t index = domain->authored_layer_count;
+    for (; index < domain->layer_count; ++index)
+        if (domain->layers[index].layer_id == layer_id && domain->layers[index].configured &&
+            domain->layers[index].dynamic && !domain->layers[index].destroyed &&
+            domain->layers[index].text_template_identity) break;
+    if (index == domain->layer_count) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    MWXSceneQuickJSTextCloneSnapshot *entry = domain->pending_text_clone_snapshot;
+    for (; entry; entry = entry->next) if (entry->layer_index == index) break;
+    if (!entry && domain->pending_text_clone_count >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS)
+        return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+    char *copy = copy_snapshot_string(text, length);
+    if (!copy) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    if (!entry) {
+        entry = calloc(1, sizeof(*entry));
+        if (!entry) { free(copy); return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; }
+        entry->layer_index = index; entry->layer_id = layer_id;
+        entry->next = domain->pending_text_clone_snapshot;
+        domain->pending_text_clone_snapshot = entry; ++domain->pending_text_clone_count;
+    }
+    free(entry->text); entry->text = copy;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
     MWXSceneQuickJSDomain *domain,
     char *diagnostic,
@@ -494,6 +534,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
+    for (MWXSceneQuickJSTextCloneSnapshot *entry = domain->pending_text_clone_snapshot; entry; entry = entry->next)
+        if (entry->layer_index >= domain->layer_count || !domain->layers[entry->layer_index].configured ||
+            domain->layers[entry->layer_index].destroyed || domain->layers[entry->layer_index].layer_id != entry->layer_id ||
+            !domain->layers[entry->layer_index].text_template_identity) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     bool order_changed = false;
     for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
         if (!domain->layers[index].configured ||
@@ -681,6 +725,12 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->texture_animation_shared_is_playing =
             previous_texture_animation_shared_is_playing;
     }
+    for (MWXSceneQuickJSTextCloneSnapshot *entry = domain->pending_text_clone_snapshot; entry; entry = entry->next) {
+        char *old = domain->layers[entry->layer_index].text;
+        domain->layers[entry->layer_index].text = entry->text; entry->text = old;
+    }
+    domain->rollback_text_clone_snapshot = domain->pending_text_clone_snapshot;
+    domain->pending_text_clone_snapshot = NULL; domain->pending_text_clone_count = 0;
     if (order_changed) mwx_scene_quickjs_compact_layer_order(domain);
     domain->rollback_layer_snapshot = domain->pending_layer_snapshot;
     domain->rollback_layer_snapshot_generation = domain->layer_snapshot_generation;
@@ -764,6 +814,12 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
             saved->texture_animation_shared_current_frame;
         record->texture_animation_shared_is_playing =
             saved->texture_animation_shared_is_playing;
+    }
+    for (MWXSceneQuickJSTextCloneSnapshot *entry = domain->rollback_text_clone_snapshot; entry; entry = entry->next) {
+        if (entry->layer_index >= domain->layer_count || !domain->layers[entry->layer_index].configured ||
+            domain->layers[entry->layer_index].layer_id != entry->layer_id) continue;
+        free(domain->layers[entry->layer_index].text);
+        domain->layers[entry->layer_index].text = entry->text; entry->text = NULL;
     }
     for (uint32_t i = 0; i < domain->rollback_layer_order_count && i < domain->layer_count; ++i)
         domain->layers[i].order_index = domain->rollback_layer_order[i];

@@ -12,6 +12,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_
     MWXSceneQuickJSOwner *owner,
     uint32_t layer_index
 ) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
     for (size_t index = 0; index < owner->authored_layer_mutation_count; ++index) {
         MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
             &owner->authored_layer_mutations[index];
@@ -25,6 +26,7 @@ mwx_scene_quickjs_authored_mutation_baseline_for_layer(
     MWXSceneQuickJSOwner *owner,
     uint32_t layer_index
 ) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
     for (size_t index = 0;
          index < owner->authored_layer_mutation_baseline_count; ++index) {
         MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
@@ -38,6 +40,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
     MWXSceneQuickJSOwner *owner,
     uint32_t layer_index
 ) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
     MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
         mwx_scene_quickjs_authored_mutation_for_layer(owner, layer_index);
     if (mutation != NULL) return mutation;
@@ -160,6 +163,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
                 ? staged->font
                 : (record->font == NULL ? "" : record->font),
             .asset_path = record->asset_path == NULL ? "" : record->asset_path,
+            .text_template_identity = record->text_template_identity,
         };
         memcpy(mutation->origin, staged->origin, sizeof(mutation->origin));
         memcpy(mutation->scale, staged->scale, sizeof(mutation->scale));
@@ -176,7 +180,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         *mutation = (MWXSceneQuickJSLayerMutation){
             .kind = record->destroyed ? MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY
                                       : MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
-            .dynamic = record->dynamic, .fields = 0, .layer_id = record->layer_id,
+            .dynamic = record->dynamic, .fields = record->dirty_fields, .layer_id = record->layer_id,
             .order_index = record->order_index, .visible = record->visible, .solid = record->solid,
             .perspective = record->perspective,
             .alpha = record->alpha, .point_size = record->point_size,
@@ -184,6 +188,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .text = record->text == NULL ? "" : record->text,
             .font = record->font == NULL ? "" : record->font,
             .asset_path = record->asset_path == NULL ? "" : record->asset_path,
+            .text_template_identity = record->text_template_identity,
         };
         memcpy(mutation->origin, record->current_origin, sizeof(mutation->origin));
         memcpy(mutation->scale, record->scale, sizeof(mutation->scale));

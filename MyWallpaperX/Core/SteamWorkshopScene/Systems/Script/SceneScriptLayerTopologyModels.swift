@@ -48,6 +48,9 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     let authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition]
     let dynamicTopologyChanged: Bool
+    var textTemplateIdentitiesByLayerID: [Int: UInt64] = [:]
+    var retiredDynamicLayerIDs: Set<Int> = []
+    var createdPreparedTextValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
 }
 
 nonisolated struct SceneScriptOwnerEffectsAdmission: Sendable {

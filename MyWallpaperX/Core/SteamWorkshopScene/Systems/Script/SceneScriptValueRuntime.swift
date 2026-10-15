@@ -61,227 +61,65 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return pendingInitializationValue
     }
 
+    /// Both compiled owners and already initialized C children enter this one
+    /// Swift lifetime. Adopting a child never mutates its VM namespace or state.
     init(
-        domain: SceneScriptQuickJSDomain,
-        source: String,
-        target: SceneDynamicTarget,
-        valueType: SceneDynamicValueType = .vector3,
-        effectNames: [String?],
-        hasCurrentAnimation: Bool = false,
+        domain: SceneScriptQuickJSDomain, handle: OpaquePointer,
+        target: SceneDynamicTarget, layerID: Int,
+        valueType: SceneDynamicValueType, generation: UInt64,
+        budget: SceneScriptScalarBudget,
         puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil,
         dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
         allowsStatefulLayerSideEffects: Bool = false,
-        effectVisibilityGetterSeed: Bool? = nil,
-        generation: UInt64,
-        budget: SceneScriptScalarBudget,
-        constructionWork: SceneScriptConstructionWorkBudget? = nil
-    ) throws {
-        guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              [.scalar, .bool, .vector2, .vector3, .string].contains(valueType),
-              generation > 0 else { throw SceneScriptScalarRuntimeFailure.invalidSource }
-        if valueType == .scalar, case let .text(_, field) = target, field != .pointSize {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scalar text target")
-        }
-        self.puppetAnimationIdentity = puppetAnimationIdentity
+        exports: SceneScriptValueOwnerExports
+    ) {
         self.domain = domain
+        self.handle = handle
         self.target = target
+        self.layerID = layerID
+        self.valueType = valueType
         self.generation = generation
         self.budget = budget
-        self.valueType = valueType
-        // Discovery must not grant layer-side-effect permission to a value-only
-        // Bool/effect/Puppet owner. Other value families retain their VM contract.
-        var imagePaths = dynamicImagePathsByAuthoredIdentity
-        let acceptsImageRequests: Bool = {
-            if valueType != .bool { return true }
-            guard puppetAnimationIdentity == nil, case .layer(_, .visibility) = target else { return false }
-            return allowsStatefulLayerSideEffects || !imagePaths.isEmpty
-        }()
-        if acceptsImageRequests {
-            for reference in SceneScriptDynamicImageReferenceAnalysis.references(
-                in: source, availableModelPaths: domain.dynamicImageAvailableModelPaths
-            ) ?? [] {
-                imagePaths[reference.authoredPath.lowercased()] = reference.modelPath
-            }
-        }
-        self.dynamicImagePathsByAuthoredIdentity = imagePaths
+        self.puppetAnimationIdentity = puppetAnimationIdentity
+        self.dynamicImagePathsByAuthoredIdentity = dynamicImagePathsByAuthoredIdentity
         self.allowsStatefulLayerSideEffects = allowsStatefulLayerSideEffects
-        if let constructionWork, !constructionWork.consume() {
-            throw constructionWork.failure
+        hasAudioRegistration = exports.hasAudioRegistration
+        handlesMediaThumbnail = exports.handlesMediaThumbnail
+        handlesMediaPlayback = exports.handlesMediaPlayback
+        handlesMediaProperties = exports.handlesMediaProperties
+        handlesMediaTimeline = exports.handlesMediaTimeline
+        handlesUserProperties = exports.handlesUserProperties
+        handlesInit = exports.handlesInit
+        handlesUpdate = exports.handlesUpdate
+        exportedCursorEvents = exports.exportedCursorEvents
+    }
+
+    /// C transfers one committed handle; the caller retains ownership on error.
+    convenience init(
+        adoptingPreparedTextClone handle: OpaquePointer, layerID: Int,
+        templateOwner: SceneScriptValueOwner
+    ) throws {
+        guard layerID < 0 else { throw SceneScriptScalarRuntimeFailure.staleOwner }
+        let exports = try SceneScriptValueOwnerExports.read(owner: handle)
+        guard exports.supportsPreparedTextClone else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("unwired prepared text clone exports")
         }
-        try domain.checkConstructionBoundary()
-        var diagnostic = [CChar](repeating: 0, count: 512)
-        var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
-        let created = source.withCString {
-            if valueType == .bool && (allowsStatefulLayerSideEffects
-                || !dynamicImagePathsByAuthoredIdentity.isEmpty) {
-                mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
-                    domain.handle, $0, source.utf8.count, generation,
-                    budget.interruptBudget, &creationResult,
-                    &diagnostic, diagnostic.count
-                )
-            } else if valueType == .bool {
-                mwx_scene_quickjs_owner_create_value_only_with_budget(
-                    domain.handle, $0, source.utf8.count, generation,
-                    budget.interruptBudget, &creationResult,
-                    &diagnostic, diagnostic.count
-                )
-            } else {
-                mwx_scene_quickjs_owner_create_with_budget(
-                    domain.handle, $0, source.utf8.count, generation,
-                    budget.interruptBudget, &creationResult,
-                    &diagnostic, diagnostic.count
-                )
-            }
-        }
-        do {
-            try domain.checkConstructionBoundary()
-        } catch {
-            if let created { mwx_scene_quickjs_owner_destroy(created) }
-            throw error
-        }
-        guard let created else {
-            throw Self.failure(creationResult, diagnostic)
-        }
-        var handlesMediaThumbnail = false
-        var handlesMediaPlayback = false
-        var handlesMediaProperties = false
-        var handlesMediaTimeline = false
-        var handlesUserProperties = false
-        var handlesInit = false
-        var handlesUpdate = false
-        var exportedCursorEvents: Set<SceneScriptCursorEventKind> = []
-        var ownerHasAudioRegistration = false
-        do {
-            guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                    "SceneScript owner layer identity unavailable"
-                )
-            }
-            self.layerID = layerID
-            let layerResult = mwx_scene_quickjs_owner_configure_layer_identity(
-                created,
-                Int64(layerID),
-                &diagnostic,
-                diagnostic.count
-            )
-            guard layerResult == MWX_SCENE_QUICKJS_OK else {
-                throw Self.failure(layerResult, diagnostic)
-            }
-            try SceneScriptLayerMutationBridge.configureDynamicImageAliases(
-                owner: created, paths: imagePaths)
-            let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
-                created,
-                SceneScriptLayerMutationBridge.propertyObjectIsLayer(target) ? 1 : 0,
-                &diagnostic,
-                diagnostic.count
-            )
-            guard scopeResult == MWX_SCENE_QUICKJS_OK else {
-                throw Self.failure(scopeResult, diagnostic)
-            }
-            try SceneScriptLayerMutationBridge.configureEffectVisibilityTarget(
-                owner: created, target: target,
-                // The getter's read default is the binding's authored seed,
-                // not the definition's prepared snapshot seed.
-                seedVisible: effectVisibilityGetterSeed ?? true
-            )
-            try SceneScriptEffectHandleBridge.configure(
-                owner: created,
-                effectNames: effectNames
-            )
-            try SceneScriptAnimationHandleBridge.configure(
-                owner: created,
-                hasCurrentAnimation: hasCurrentAnimation
-            )
-            if let puppetAnimationIdentity {
-                guard valueType == .bool, allowsStatefulLayerSideEffects,
-                      !hasCurrentAnimation, puppetAnimationIdentity.layerID == layerID,
-                      let id = puppetAnimationIdentity.animationLayerID,
-                      target == ScenePuppetAnimationPropertyTarget.visibility(layerID: layerID, animationLayerID: id) else {
-                    throw SceneScriptScalarRuntimeFailure.invalidArgument("Puppet animation target identity mismatch")
-                }
-                try SceneScriptPuppetAnimationBridge.configure(owner: created, identity: puppetAnimationIdentity)
-            }
-            handlesMediaThumbnail = try SceneScriptOwnerExportBridge.contains(
-                "mediaThumbnailChanged", owner: created
-            )
-            handlesMediaPlayback = try SceneScriptOwnerExportBridge.contains(
-                "mediaPlaybackChanged", owner: created
-            )
-            handlesMediaProperties = try SceneScriptOwnerExportBridge.contains(
-                "mediaPropertiesChanged", owner: created
-            )
-            handlesMediaTimeline = try SceneScriptOwnerExportBridge.contains(
-                "mediaTimelineChanged", owner: created
-            )
-            handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
-                "applyUserProperties", owner: created
-            )
-            handlesInit = try SceneScriptOwnerExportBridge.contains(
-                "init", owner: created
-            )
-            handlesUpdate = try SceneScriptOwnerExportBridge.contains(
-                "update", owner: created
-            )
-            for event in SceneScriptCursorEventKind.allCases {
-                if try SceneScriptOwnerExportBridge.contains(
-                    event.callbackName, owner: created
-                ) {
-                    exportedCursorEvents.insert(event)
-                }
-            }
-            ownerHasAudioRegistration = SceneScriptAudioHost.hasRegistration(
-                owner: created
-            )
-            if valueType == .bool {
-                let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
-                    "destroy", owner: created
-                )
-                let hasMediaHook = handlesMediaThumbnail || handlesMediaPlayback
-                    || handlesMediaProperties || handlesMediaTimeline
-                let hasCursorHook = !exportedCursorEvents.isEmpty
-                let hasEventHook = hasMediaHook || handlesUserProperties
-                    || hasCursorHook
-                if handlesInit || handlesUpdate {
-                    // A stateful owner's destroy hook joins the existing
-                    // exactly-once teardown dispatch (fail-soft, journal
-                    // discarded); value-less lanes keep the stricter shape.
-                    guard allowsStatefulLayerSideEffects || !handlesDestroy,
-                          (allowsStatefulLayerSideEffects || !hasMediaHook),
-                          (allowsStatefulLayerSideEffects
-                            || exportedCursorEvents.isEmpty),
-                          (dynamicImagePathsByAuthoredIdentity.isEmpty
-                            && !allowsStatefulLayerSideEffects
-                            ? !ownerHasAudioRegistration
-                            : true) else {
-                        throw SceneScriptScalarRuntimeFailure.invalidSource
-                    }
-                } else {
-                    // Event callbacks share the stateful mutation journal and
-                    // current audio snapshot. Registration does not require a
-                    // per-frame update; idle owners keep the existing event/
-                    // timer scheduling and borrowed cursor ownership.
-                    guard hasEventHook,
-                          !handlesDestroy,
-                          allowsStatefulLayerSideEffects else {
-                        throw SceneScriptScalarRuntimeFailure.invalidSource
-                    }
-                }
-            }
-        } catch {
-            mwx_scene_quickjs_owner_destroy(created)
-            throw error
-        }
-        handle = created
-        hasAudioRegistration = ownerHasAudioRegistration
-        self.handlesMediaThumbnail = handlesMediaThumbnail
-        self.handlesMediaPlayback = handlesMediaPlayback
-        self.handlesMediaProperties = handlesMediaProperties
-        self.handlesMediaTimeline = handlesMediaTimeline
-        self.handlesUserProperties = handlesUserProperties
-        self.handlesInit = handlesInit
-        self.handlesUpdate = handlesUpdate
-        self.exportedCursorEvents = exportedCursorEvents
-        domain.dynamicImageRequestedModelPaths.formUnion(imagePaths.values)
+        self.init(
+            domain: templateOwner.domain, handle: handle,
+            target: .text(layerID: layerID, field: .content), layerID: layerID,
+            valueType: .string, generation: templateOwner.generation,
+            budget: templateOwner.budget,
+            dynamicImagePathsByAuthoredIdentity: templateOwner.dynamicImagePathsByAuthoredIdentity,
+            allowsStatefulLayerSideEffects: templateOwner.allowsStatefulLayerSideEffects,
+            exports: exports
+        )
+    }
+
+    var supportsPreparedTextClone: Bool {
+        valueType == .string && !hasAudioRegistration
+            && !handlesMediaThumbnail && !handlesMediaPlayback
+            && !handlesMediaProperties && !handlesMediaTimeline
+            && exportedCursorEvents.isEmpty
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }

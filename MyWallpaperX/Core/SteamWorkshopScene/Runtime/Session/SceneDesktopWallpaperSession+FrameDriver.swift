@@ -240,11 +240,14 @@ extension SceneDesktopWallpaperSession {
         // SceneScript `update(value)` receives the current published value;
         // the authored descriptor is only the seed. Carry forward typed
         // targets when no higher-priority user/timeline producer is present.
+        let frameUserValues = launchContext.sceneScriptDynamicLayerRuntime
+            .projectPreparedTextUserValues(from: launchContext.liveState.userValues,
+                previousValue: evaluationTransaction.previousValue(for:))
         let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets
         let previousSceneScriptValues = evaluationTransaction
             .previousValues(for: sceneScriptStatefulTargets)
             .filter { target, _ in
-                launchContext.liveState.userValues[target] == nil
+                frameUserValues[target] == nil
                     && timelineValues[target] == nil
             }
         var commonSceneScriptValues = previousSceneScriptValues
@@ -258,7 +261,7 @@ extension SceneDesktopWallpaperSession {
             frameIndex: timing.frameIndex,
             generation: 0,
             index: definitionIndex,
-            userValues: launchContext.liveState.userValues,
+            userValues: frameUserValues,
             timelineValues: timelineValues,
             sceneScriptValues: boundedSceneScriptValues
         )
@@ -271,16 +274,8 @@ extension SceneDesktopWallpaperSession {
                 effectiveValues: launchContext.liveState.effectiveValues,
                 revision: launchContext.liveState.revision
             )
-        let sceneScriptSurfaceInput = surfaces.count == 1
-            ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
-                timing: timing,
-                dynamicValues: preliminaryForSceneScript
-            )
-            : nil
-        let sceneScriptFrame = SceneScriptFrameInput(
-            timing: timing,
-            surface: sceneScriptSurfaceInput
-        )
+        let sceneScriptFrame = prepareSceneScriptFrame(
+            launchContext, timing: timing, dynamicValues: preliminaryForSceneScript)
         launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
@@ -319,6 +314,7 @@ extension SceneDesktopWallpaperSession {
                         layerMutationSnapshot.destroyedAuthoredLayerIDs,
                     catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
                     runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs,
+                    preparedTextValues: launchContext.sceneScriptDynamicLayerRuntime.preparedTextValues(in: preliminaryForSceneScript),
                     awaitingHostFrameOutcome: true
                 )
             if surfaces.count == 1 {

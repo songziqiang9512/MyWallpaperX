@@ -73,6 +73,14 @@ bool mwx_scene_quickjs_layer_callback_owns(MWXSceneQuickJSOwner *owner) {
         owner->domain->callback_active && owner->domain->active_owner == owner;
 }
 
+bool mwx_scene_quickjs_layer_owns_dynamic_target(MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSLayerRecord *record) {
+    return record->dynamic && (record->owner_identity == owner->identity ||
+        (record->text_property_owner_identity == owner->identity && owner->target_layer_configured &&
+         owner->target_layer_index < owner->domain->layer_count &&
+         &owner->domain->layers[owner->target_layer_index] == record));
+}
+
 MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(
     MWXSceneQuickJSLayerAccessHandle *handle,
     enum MWXSceneQuickJSLayerAccessScope scope

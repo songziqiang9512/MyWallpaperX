@@ -124,6 +124,46 @@ static bool read_optional_string(
     JS_FreeCString(context, string); return *output != NULL;
 }
 
+// Object text is admitted only by an already prepared catalog identity.
+static bool read_optional_text(JSContext *context, MWXSceneQuickJSDomain *domain,
+    JSValueConst object, char **output, uint64_t *identity) {
+    JSValue value = JS_GetPropertyStr(context, object, "text");
+    if (JS_IsObject(value)) {
+        *identity = mwx_scene_quickjs_match_text_template(domain, value);
+        *output = *identity ? mwx_scene_quickjs_text_template_input(domain, *identity) : calloc(1, 1);
+        if (!*identity) *identity = UINT64_MAX;
+        JS_FreeValue(context, value);
+        return *output != NULL;
+    }
+    if (JS_IsUndefined(value)) {
+        JS_FreeValue(context, value); *output = calloc(1, 1); return *output != NULL;
+    }
+    size_t length = 0;
+    const char *text = JS_ToCStringLen(context, &length, value);
+    JS_FreeValue(context, value);
+    if (!text || length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT || memchr(text, 0, length)) {
+        if (text) JS_FreeCString(context, text);
+        return false;
+    }
+    *output = malloc(length + 1);
+    if (*output) { memcpy(*output, text, length); (*output)[length] = 0; }
+    JS_FreeCString(context, text);
+    return *output != NULL;
+}
+
+static bool text_identity_unchanged(JSContext *context, MWXSceneQuickJSDomain *domain,
+    JSValueConst configuration, uint64_t identity) {
+    if (JS_IsProxy(configuration)) return false;
+    JSPropertyDescriptor property = {.value=JS_UNDEFINED,.getter=JS_UNDEFINED,.setter=JS_UNDEFINED};
+    JSAtom key = JS_NewAtom(context, "text");
+    int found = JS_GetOwnProperty(context, &property, configuration, key);
+    JS_FreeAtom(context, key);
+    bool valid = found == 1 && (property.flags & JS_PROP_TMASK) == JS_PROP_NORMAL &&
+        mwx_scene_quickjs_text_template_matches_identity(domain, property.value, identity);
+    JS_FreeValue(context, property.value); JS_FreeValue(context, property.getter); JS_FreeValue(context, property.setter);
+    return valid;
+}
+
 static bool read_optional_font(
     JSContext *context,
     MWXSceneQuickJSDomain *domain,
@@ -322,9 +362,8 @@ static JSValue create_layer(
         domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS ||
         owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS)
         return JS_NULL;
-    if (!mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(owner))
-        return JS_ThrowInternalError(context, "dynamic layer transaction unavailable");
     char *text = NULL, *font = NULL, *name = NULL;
+    uint64_t text_template_identity = 0;
     char *asset_path = NULL;
     double point_size = 32, alpha = 1;
     double origin[3] = {0, 0, 0};
@@ -361,7 +400,7 @@ static JSValue create_layer(
             return JS_EXCEPTION;
         }
     } else {
-        if (!read_optional_string(context, argv[0], "text", MWX_SCENE_QUICKJS_MAX_LAYER_TEXT, &text) ||
+        if (!read_optional_text(context, domain, argv[0], &text, &text_template_identity) ||
             !read_optional_font(context, domain, argv[0], &font) ||
             !read_optional_string(context, argv[0], "name", MWX_SCENE_QUICKJS_MAX_LAYER_NAME, &name) ||
             !read_optional_asset_path(context, argv[0], &asset_path) ||
@@ -457,6 +496,24 @@ static JSValue create_layer(
             return JS_NULL;
         }
     }
+    // All fields that can execute JavaScript have completed before admission.
+    if (text_template_identity && (text_template_identity == UINT64_MAX || asset_path[0] != 0 ||
+        !text_identity_unchanged(context, domain, argv[0], text_template_identity) ||
+        !mwx_scene_quickjs_text_clone_can_begin(owner, text_template_identity))) {
+        free(text); free(font); free(name); free(asset_path);
+        return JS_NULL;
+    }
+    // A child cannot introduce a second nested topology/command transaction.
+    // Ordinary String create outside this new activation keeps its old path.
+    if (domain->text_clone_depth != 0) {
+        owner->text_clone_failed = true;
+        free(text); free(font); free(name); free(asset_path);
+        return JS_NULL;
+    }
+    if (!mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(owner)) {
+        free(text); free(font); free(name); free(asset_path);
+        return JS_ThrowInternalError(context, "dynamic layer transaction unavailable");
+    }
     int64_t identity = -1;
     for (;;) {
         bool collision = false;
@@ -507,8 +564,14 @@ static JSValue create_layer(
         *record = (MWXSceneQuickJSLayerRecord){0};
         return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     }
+    if (text_template_identity && !mwx_scene_quickjs_activate_text_clone(owner, index, text_template_identity)) {
+        // Birth has occurred: even a caller catch cannot accept this bundle.
+        owner->text_clone_failed = true;
+        return JS_NULL;
+    }
     JSValue handle = mwx_scene_quickjs_layer_make_layer_handle(context, owner, index, true);
     if (JS_IsException(handle)) {
+        if (text_template_identity) owner->text_clone_failed = true;
         free(record->name);
         free(record->text);
         free(record->font);
@@ -591,7 +654,7 @@ static JSValue sort_layer(
     );
     if (target == NULL)
         return JS_ThrowTypeError(context, "sortLayer target is stale");
-    if (target->dynamic && target->owner_identity != owner->identity)
+    if (target->dynamic && !mwx_scene_quickjs_layer_owns_dynamic_target(owner, target))
         return JS_ThrowTypeError(context, "sortLayer target is not an owned dynamic layer");
     int32_t count = mwx_scene_quickjs_layer_active_count(owner->domain);
     int32_t desired = (int32_t)order_value >= count ? count - 1 : (int32_t)order_value;

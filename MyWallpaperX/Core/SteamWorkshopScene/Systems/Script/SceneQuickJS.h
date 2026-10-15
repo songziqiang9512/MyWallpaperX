@@ -161,6 +161,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
     const char *text;
     const char *font;
     const char *asset_path;
+    uint64_t text_template_identity; /* 0: ordinary String */
 } MWXSceneQuickJSLayerMutation;
 
 /// A typed Puppet bone write emitted by the existing layer owner transaction.
@@ -670,6 +671,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_origin(
     size_t diagnostic_capacity
 );
 
+/// Sparse prepared dynamic text projection in the existing snapshot transaction.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_text_clone_value(
+    MWXSceneQuickJSDomain *domain, int64_t layer_id, const char *text, size_t length,
+    char *diagnostic, size_t diagnostic_capacity);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
     MWXSceneQuickJSDomain *domain,
     char *diagnostic,
@@ -699,6 +705,37 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     char *diagnostic,
     size_t diagnostic_capacity
 );
+
+
+/// Prepared catalog text binding; 1=value, 2=user, 3=script. A script source
+/// must use create_text_with_budget so its original compile can supply bytes.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_prepare_text_template(
+    MWXSceneQuickJSDomain *domain, MWXSceneQuickJSOwner *source_owner,
+    int64_t authored_layer_id, uint32_t binding_kind,
+    const char *authored_seed, size_t seed_length,
+    const char *current_input, size_t input_length,
+    const char *script_properties_json, size_t properties_length,
+    uint64_t *template_identity, char *diagnostic, size_t diagnostic_capacity);
+
+/// NULL input with length zero marks current inputs unavailable without
+/// retiring the prepared identity. NULL properties with zero length means none.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_refresh_text_template_inputs(
+    MWXSceneQuickJSDomain *domain, uint64_t template_identity,
+    const char *current_input, size_t input_length,
+    const char *script_properties_json, size_t properties_length,
+    char *diagnostic, size_t diagnostic_capacity);
+
+/// Transfers one committed child to the original StringProgram. An empty queue
+/// returns OK and *child=NULL. The caller now owns/destroys a non-NULL child.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_take_committed_text_clone(
+    MWXSceneQuickJSDomain *domain, MWXSceneQuickJSOwner **child,
+    uint64_t *template_identity, int64_t *dynamic_layer_id,
+    uint64_t *creator_identity, char *diagnostic, size_t diagnostic_capacity);
+
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_text_with_budget(
+    MWXSceneQuickJSDomain *domain, const char *source, size_t source_length,
+    uint64_t generation, uint64_t interrupt_budget, MWXSceneQuickJSResult *result,
+    char *diagnostic, size_t diagnostic_capacity);
 
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_with_budget(
     MWXSceneQuickJSDomain *domain,

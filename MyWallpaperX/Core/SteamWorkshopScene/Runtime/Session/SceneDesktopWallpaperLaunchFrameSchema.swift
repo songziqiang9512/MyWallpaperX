@@ -34,6 +34,10 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         sceneScriptStatefulTargets.subtract(targets)
     }
 
+    func registerStatefulTargets(_ targets: Set<SceneDynamicTarget>) {
+        sceneScriptStatefulTargets.formUnion(targets)
+    }
+
     /// Static producers are merged once at launch. Dynamic authored layer
     /// definitions are appended only when the layer runtime publishes a new
     /// topology revision after a successful frame commit.
@@ -144,10 +148,20 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
             // A malformed authored configuration cannot authorize a frame catalog.
             sceneScriptLayerCatalogToken = nil
         }
+        let templateFailures = sceneScriptStringProgram.configurePreparedTextTemplates(
+            domain: propertyVectorScriptProgram.domain,
+            descriptor: runtimeInput.renderDescriptor,
+            propertyBindingProgram: runtimeInput.propertyBindingProgram
+        )
+        for (target, failure) in templateFailures {
+            NSLog("MWX SceneScript VM: target=%@ preparation=text-template failure=%@ code=%@",
+                  String(describing: target), String(describing: failure), failure.code)
+        }
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
             dynamicImageTemplates: dynamicImageTemplates,
+            textTemplates: sceneScriptStringProgram.preparedTextTemplates,
             layerOrderProjection: { [domain = propertyVectorScriptProgram.domain] identities in
                 guard let domain else { return identities.isEmpty ? .success(nil) : .failure(.staleOwner) }
                 return domain.projectPendingLayerOrder(accepting: identities)

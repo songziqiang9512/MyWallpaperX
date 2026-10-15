@@ -303,7 +303,6 @@ nonisolated enum SceneScriptLayerMutationBridge {
     // validation at this ABI boundary so malformed native data cannot become
     // a permissive Swift mutation and then reach the shared frame plan.
     private static let maximumLayerIdentity: Int64 = 9_007_199_254_740_991
-    private static let maximumTextBytes = 4_096
     private static let maximumFontBytes = 1_024
     private static let maximumAssetPathBytes = 1_024
 
@@ -465,6 +464,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
             switch (kind, raw.dynamic, raw.fields) {
             case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):
                 break
+            case (.upsert, 1, _) where fields == [.text]:
+                break
             case (.upsert, 0, 0):
                 // An order-only authored mutation: the script sorted this
                 // authored layer and the record carries the new order index.
@@ -491,7 +492,10 @@ nonisolated enum SceneScriptLayerMutationBridge {
             let text = String(cString: textPointer)
             let font = String(cString: fontPointer)
             let assetPath = String(cString: assetPathPointer)
-            guard text.utf8.count <= maximumTextBytes,
+            guard raw.dynamic == 0 || !fields.contains(.text) || assetPath.isEmpty else {
+                return .failure(.invalidArgument("dynamic text field requires a text layer"))
+            }
+            guard SceneScriptLayerMutation.acceptsDynamicText(text),
                   font.utf8.count <= maximumFontBytes,
                   assetPath.utf8.count <= maximumAssetPathBytes else {
                 return .failure(.invalidArgument("layer mutation string exceeds ABI limit"))
@@ -515,7 +519,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0,
                 particleAlpha: raw.particle_alpha,
                 perspective: raw.perspective == 2 ? nil : raw.perspective != 0,
-                size: raw.size_available == 0 ? nil : .init(raw.size.0, raw.size.1)
+                size: raw.size_available == 0 ? nil : .init(raw.size.0, raw.size.1),
+                textTemplateIdentity: raw.text_template_identity
             ))
         }
         return .success(output)
@@ -759,6 +764,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
         destroyedAuthoredLayerIDs: Set<Int> = [], catalogToken: String? = nil,
         runtimeFieldLayerIDs: Set<Int>? = nil,
+        preparedTextValues: [Int: String] = [:],
         awaitingHostFrameOutcome: Bool = false
     ) throws {
         if let catalogToken {
@@ -809,6 +815,16 @@ nonisolated extension SceneScriptQuickJSDomain {
             runtimeFieldLayerIDs: runtimeFieldLayerIDs,
             diagnostic: &diagnostic
         )
+        for (layerID, text) in preparedTextValues {
+            let result = text.withCString {
+                mwx_scene_quickjs_domain_update_text_clone_value(
+                    handle, Int64(layerID), $0, text.utf8.count, &diagnostic, diagnostic.count
+                )
+            }
+            guard result == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(result, diagnostic: diagnostic)
+            }
+        }
         let dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
         try publishLayerWorldTransformsIfNeeded(
             snapshot: snapshot,

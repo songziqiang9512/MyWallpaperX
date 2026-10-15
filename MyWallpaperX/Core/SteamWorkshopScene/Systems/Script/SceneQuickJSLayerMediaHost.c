@@ -329,6 +329,20 @@ bool mwx_scene_quickjs_layer_define_get_video_texture(
 static JSValue layer_playback_call(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    if (domain != NULL && domain->text_clone_depth != 0 && magic != 3) {
+        // Reject before handle/argument lookup or any Swift preview/reservation.
+        // During module evaluation the child has no provisional parent yet.
+        MWXSceneQuickJSOwner *nested = domain->callback_active
+            ? domain->active_owner : domain->module_owner;
+        if (nested != NULL) {
+            nested->text_clone_failed = true;
+            nested->particle_playback_command_overflow = true;
+            if (nested->provisional_text_creator != NULL)
+                nested->provisional_text_creator->text_clone_failed = true;
+        }
+        return JS_ThrowTypeError(context, "prepared text init particle commands are unavailable");
+    }
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
     if ((magic == 4 ? argc != 1 : argc != 0) || record == NULL)

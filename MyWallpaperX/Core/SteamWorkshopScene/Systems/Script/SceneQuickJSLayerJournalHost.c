@@ -9,7 +9,13 @@
 #include <strings.h>
 
 bool mwx_scene_quickjs_layer_mark_dirty(MWXSceneQuickJSOwner *owner, MWXSceneQuickJSLayerRecord *record) {
-    if (!record->dirty || record->dirty_owner_identity != owner->identity) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
+    if (record->dirty && record->dirty_owner_identity != owner->identity) {
+        owner->layer_mutation_overflow = true;
+        return false;
+    }
+    if (!record->dirty) {
+        record->dirty_fields = 0;
         if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
             owner->layer_mutation_overflow = true;
             return false;
@@ -88,10 +94,16 @@ bool mwx_scene_quickjs_layer_journal_dynamic_layer_value(
     MWXSceneQuickJSOwner *owner,
     uint32_t layer_index
 ) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
     if (!mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(owner) ||
         layer_index >= owner->domain->layer_count) return false;
     // A newly-created record has no previous value to restore.  Its slot is
     // removed by the creation journal on discard.
+    if (owner->domain->layers[layer_index].dirty &&
+        owner->domain->layers[layer_index].dirty_owner_identity != owner->identity) {
+        owner->layer_mutation_overflow = true;
+        return false;
+    }
     if (created_layer_slot_for_owner(owner, layer_index)) return true;
     if (value_baseline_for_layer(owner, layer_index) != NULL) return true;
     if (owner->dynamic_layer_value_baseline_count >=
@@ -103,6 +115,7 @@ bool mwx_scene_quickjs_layer_journal_dynamic_layer_value(
         ];
     *baseline = (MWXSceneQuickJSDynamicLayerValueBaseline){
         .layer_index = layer_index,
+        .dirty_fields = record->dirty_fields,
         .alpha = record->alpha,
         .visible = record->visible, .solid = record->solid,
         .perspective = record->perspective,
@@ -222,6 +235,7 @@ bool mwx_scene_quickjs_layer_append_dynamic_layer_topology_operation(
     uint32_t layer_index,
     int32_t order_index
 ) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
     if (!mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(owner) ||
         owner->domain == NULL ||
         !begin_dynamic_layer_topology_transaction(owner->domain)) return false;
@@ -266,6 +280,7 @@ static void mark_owner_topology_operations(
 void mwx_scene_quickjs_layer_discard_last_dynamic_layer_topology_operation(
     MWXSceneQuickJSOwner *owner
 ) {
+    owner = mwx_scene_quickjs_text_transaction_owner(owner);
     if (owner == NULL || owner->domain == NULL) return;
     MWXSceneQuickJSDomain *domain = owner->domain;
     if (domain->dynamic_layer_topology_operation_count == 0) return;
@@ -313,7 +328,9 @@ static bool project_dynamic_layer_topology(
             break;
         case MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT:
             if (!record->configured || !active[index] ||
-                (record->dynamic && record->owner_identity != operation->owner_identity)) break;
+                (record->dynamic && record->owner_identity != operation->owner_identity &&
+                 (record->text_property_owner_identity == 0 ||
+                  record->text_property_owner_identity != operation->owner_identity))) break;
             topology_sequence_remove(sequence, count, index);
             active[index] = topology_sequence_insert(sequence, count, index, operation->order_index);
             break;
@@ -413,6 +430,7 @@ static void clear_layer_mutation_buffers(
         if (record->dirty && record->dirty_owner_identity == owner->identity) {
             record->dirty = false;
             record->dirty_owner_identity = 0;
+            record->dirty_fields = 0;
         }
     }
 }
@@ -482,6 +500,7 @@ static void restore_dynamic_layer_journal(
         record->visible = baseline->visible;
         record->solid = baseline->solid;
         record->perspective = baseline->perspective;
+        record->dirty_fields = baseline->dirty_fields;
     }
 }
 
@@ -531,6 +550,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     if (owner == NULL || owner->domain == NULL) return;
     if (owner->domain->particle_boundary != NULL)
         owner->domain->particle_boundary(owner->domain->particle_emission_opaque, owner, 1);
+    mwx_scene_quickjs_finish_text_clones(owner, false);
     mwx_scene_quickjs_puppet_animation_finish_transaction(owner, false);
     owner->initialization_pending = false;
     if (owner->initialization_timers != NULL) {
@@ -561,6 +581,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    mwx_scene_quickjs_finish_text_clones(owner, true);
     mwx_scene_quickjs_puppet_animation_finish_transaction(owner, true);
     if (owner->initialization_pending) owner->initialized = true;
     owner->initialization_pending = false;
@@ -584,6 +605,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
 
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL) return;
+    owner->text_clone_failed = false;
     owner->puppet_animation_command_count = 0;
     owner->puppet_animation_registration_count = 0;
     owner->puppet_animation_command_overflow = false;

@@ -42,26 +42,32 @@ nonisolated struct SceneScriptStringProgramConstruction: @unchecked Sendable {
 /// both value-returning updates and event-only mutations of the same layer;
 /// output still publishes through the shared typed snapshot and compositor.
 nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRetirement, @unchecked Sendable {
-    let definitions: [SceneDynamicTargetDefinition]
-    let bindings: [SceneScriptValueOwner]
-    let inputTargets: Set<SceneDynamicTarget>
+    var definitions: [SceneDynamicTargetDefinition]
+    var bindings: [SceneScriptValueOwner]
+    var inputTargets: Set<SceneDynamicTarget>
     let inputValueTypes: Set<SceneDynamicValueType>
-    private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
+    var bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let generation: UInt64
     private let authoredOrdinals: [SceneDynamicTarget: Int]
-    let propertyInputsByTarget:
+    var propertyInputsByTarget:
         [SceneDynamicTarget: [String: SceneScriptPropertyInput]]
-    private let livePropertyInputTargetsByTarget:
+    var livePropertyInputTargetsByTarget:
         [SceneDynamicTarget: Set<SceneDynamicTarget>]
     private let userPropertyKinds: [String: SceneUserPropertyKind]
-    let liveUserPropertyConsumerTargetsByKey:
+    var liveUserPropertyConsumerTargetsByKey:
         [String: Set<SceneDynamicTarget>]
-    let livePropertyInputTargets: Set<SceneDynamicTarget>
+    var livePropertyInputTargets: Set<SceneDynamicTarget>
     var disabledTargets: Set<SceneDynamicTarget> = []
     var retiredTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     let frameLedger = SceneScriptProgramFrameLedger()
-    private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
+    var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
+
+    // Derived projections of the domain's prepared catalog. C remains the
+    // wrapper/bytecode authority; Swift retains typed inputs and owner policy.
+    var preparedTextTemplates: [UInt64: SceneScriptPreparedTextTemplate] = [:]
+    var preparedTextTemplateDomain: SceneScriptQuickJSDomain?
+    var preparedTextTemplateInputRevision: UInt64?
 
     var hasAudioConsumers: Bool {
         bindings.contains { !disabledTargets.contains($0.target) && $0.hasAudioRegistration }
@@ -649,11 +655,72 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
     func restoreFrameState(
         _ state: SceneScriptProgramFrameState,
         rejectedOwnerTargets: Set<SceneDynamicTarget>? = nil
-    ) { frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets) }
+    ) {
+        frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets)
+        frameLedger.retain(targets: Set(bindings.map(\.target)))
+    }
 
-    func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.timerFrameSnapshot() }) }
-    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.target) { $0.0.restoreTimerFrame($0.1) } } }
-    func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.discardTimerFrame($0.1) } }
+    func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState {
+        .init(snapshots: bindings.map { $0.timerFrameSnapshot() }, capturedValueOwners: bindings)
+    }
+
+    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) {
+        for (owner, snapshot) in zip(state.capturedValueOwners ?? bindings, state.snapshots) {
+            guard !retiredTargets.contains(owner.target),
+                  let index = bindingIndicesByTarget[owner.target],
+                  bindings[index] === owner else { continue }
+            owner.restoreTimerFrame(snapshot)
+        }
+    }
+
+    func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) {
+        zip(state.capturedValueOwners ?? bindings, state.snapshots).forEach {
+            $0.0.discardTimerFrame($0.1)
+        }
+    }
+
+    /// Reuse the shared teardown and retry authority. Only quiescent dynamic
+    /// owners leave the launch program; captured timer frames pin their native
+    /// lifetime until those exact snapshots have been discarded.
+    func retire(
+        layerIDs: Set<Int>, frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        let outcomes = SceneScriptOwnerLifecycleBridge.retire(
+            owners: bindings, layerIDs: layerIDs, frame: frame,
+            propertiesByTarget: propertyInputsByTarget,
+            effectivePropertyValues: effectivePropertyValues,
+            userPropertiesJSON: userPropertiesJSON,
+            disabledTargets: &disabledTargets, retiredTargets: &retiredTargets
+        )
+        let removed = Set(bindings.compactMap { owner in
+            owner.layerID < 0 && retiredTargets.contains(owner.target) ? owner.target : nil
+        })
+        guard !removed.isEmpty else { return outcomes }
+        bindings.removeAll { removed.contains($0.target) }
+        definitions.removeAll { removed.contains($0.target) }
+        bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map {
+            ($0.element.target, $0.offset)
+        })
+        inputTargets.subtract(removed)
+        for target in removed {
+            propertyInputsByTarget.removeValue(forKey: target)
+            livePropertyInputTargetsByTarget.removeValue(forKey: target)
+        }
+        for key in liveUserPropertyConsumerTargetsByKey.keys {
+            liveUserPropertyConsumerTargetsByKey[key]?.subtract(removed)
+        }
+        livePropertyInputTargets = livePropertyInputTargetsByTarget.values.reduce(into: []) {
+            $0.formUnion($1)
+        }
+        disabledTargets.subtract(removed)
+        retiredTargets.subtract(removed)
+        reportedTargets.subtract(removed)
+        scriptPropertiesJSONCache.remove(targets: removed)
+        frameLedger.remove(targets: removed)
+        return outcomes
+    }
 
     func finalizeLayerMutations(
         committing: Bool,

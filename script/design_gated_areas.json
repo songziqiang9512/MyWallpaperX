@@ -60,6 +60,23 @@
       ]
     },
     {
+      "id": "scene-prepared-text-clone",
+      "title": "已准备文字 wrapper 动态实例与同步初始化",
+      "owner": "scene-script-runtime",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "2026-10-15 D4 prepared-text-clone同步窄范围设计明确：同domain准备字节fresh模块、完整own-data模板匹配、depth1且子job执行前拒绝，父residue局部拒绝/单调epoch/剩余预算；C原journal暂持子handle、接纳后移交唯一StringProgram，纯user走原property producer，typed贡献与creator同bundle、删除差量退休。最小资格不代替真实negativeID授权、Swift晚拒绝/副作用/画面与生命周期验收；async nested与未接回调仍不开放。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScriptDynamicText*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneQuickJSTextClone*.c"
+      ],
+      "contentPatterns": [
+        "mwx_scene_quickjs_instantiate_text_clone",
+        "SceneScriptPreparedTextClone",
+        "prepared_text_template"
+      ]
+    },
+    {
       "id": "scene-composition-render-target",
       "title": "composition作者采集成员、模式与顺序",
       "owner": "scene-e-route",

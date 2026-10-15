@@ -23,6 +23,7 @@
 | 标量数据遮罩 | [用途协调后验](../history/scalar-mask-data-purpose-2026-10-12.md)：二维数据红通道保原用途；296目标节点恢复GPU并经后继末合成，23→24材质、8→7拒绝；独立213画面保持。余Blur及整样本验收开放。 |
 | 前级与模糊结果合成 | [公共准入后验](../history/previous-blurred-composite-admission-2026-10-12.md)：恢复两段Blur实际GPU/末合成与画面模糊，独立原包健康画面保持；主体显隐与整图parity未闭。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
+| Prepared文字实例 | [独立状态与真实shadow](../history/prepared-text-clones-2026-10-15.md)：时钟/user clone同窗口热更、creator事务与quiescent退出已证；特殊clone、字体/布局及全样本parity保留，无性能收益声明。 |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
 | 普通静态图片尺寸 | [自动尺寸](../history/static-image-autosize-2026-10-12.md)：原资源头部尺寸经同一prepared sizeWH供getter/cursor/绘制，TEX/改名PNG及model宽高共24格首/后帧实际像素已验；原延迟加载保留。两份独立原包未见布局回归，不计全样本parity。 |
 | 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态9格、String/Vec2与省略尺寸实际输出已验；原自然尺寸/资源映射复用，特殊资源与完整wrapper仍开放。 |

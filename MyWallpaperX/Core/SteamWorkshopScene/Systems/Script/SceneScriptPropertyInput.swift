@@ -246,6 +246,10 @@ nonisolated struct SceneScriptPropertyInputJSONCache {
     private var revision: UInt64?
     private var encodedByTarget: [SceneDynamicTarget: String] = [:]
 
+    mutating func remove(targets: Set<SceneDynamicTarget>) {
+        for target in targets { encodedByTarget.removeValue(forKey: target) }
+    }
+
     mutating func value(
         for target: SceneDynamicTarget,
         inputs: [String: SceneScriptPropertyInput],
@@ -285,6 +289,18 @@ nonisolated struct SceneScriptAppliedUserPropertyState: Sendable {
     private var valuesByTarget:
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
     private var revisionsByTarget: [SceneDynamicTarget: UInt64] = [:]
+
+    mutating func remove(targets: Set<SceneDynamicTarget>) {
+        for target in targets {
+            valuesByTarget.removeValue(forKey: target)
+            revisionsByTarget.removeValue(forKey: target)
+        }
+    }
+
+    mutating func retain(targets: Set<SceneDynamicTarget>) {
+        valuesByTarget = valuesByTarget.filter { targets.contains($0.key) }
+        revisionsByTarget = revisionsByTarget.filter { targets.contains($0.key) }
+    }
 
     func changedJSON(
         for target: SceneDynamicTarget,

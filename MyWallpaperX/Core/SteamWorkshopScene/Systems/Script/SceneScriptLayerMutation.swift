@@ -1,6 +1,13 @@
 import Foundation
 
 nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
+    static let maximumTextUTF8Bytes = 4_096
+
+    /// Dynamic layer text crosses a length-delimited, NUL-terminated C ABI.
+    static func acceptsDynamicText(_ text: String) -> Bool {
+        text.utf8.count <= maximumTextUTF8Bytes && !text.utf8.contains(0)
+    }
+
     enum Kind: Equatable, Sendable { case upsert, destroy }
 
     struct Fields: OptionSet, Equatable, Sendable {
@@ -59,6 +66,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let assetPath: String?
     let ownerTarget: SceneDynamicTarget?
     let effectVisibilities: [Int: Bool]
+    /// Identity of an admitted wrapper in the domain's prepared catalog.
+    /// Zero denotes the existing literal-String dynamic layer path.
+    let textTemplateIdentity: UInt64
 
     init(
         kind: Kind,
@@ -81,7 +91,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         solid: Bool = true,
         particleAlpha: Double = 1,
         perspective: Bool? = nil,
-        size: SIMD2<Double>? = nil
+        size: SIMD2<Double>? = nil,
+        textTemplateIdentity: UInt64 = 0
     ) {
         self.kind = kind
         self.isDynamic = isDynamic
@@ -104,6 +115,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         self.assetPath = assetPath
         self.ownerTarget = ownerTarget
         self.effectVisibilities = effectVisibilities
+        self.textTemplateIdentity = textTemplateIdentity
     }
 
     func owned(by target: SceneDynamicTarget) -> Self {
@@ -112,7 +124,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size
+            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
 
@@ -122,7 +134,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size
+            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
 
@@ -133,7 +145,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: assetPath, ownerTarget: ownerTarget,
-            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size
+            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
 
@@ -181,7 +193,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             effectVisibilities: effectVisibilities.merging(newer.effectVisibilities) { _, new in new },
             solid: newer.fields.contains(.solid) ? newer.solid : solid,
             particleAlpha: newer.fields.contains(.particleAlpha) ? newer.particleAlpha : particleAlpha,
-            perspective: newer.fields.contains(.perspective) ? newer.perspective : perspective
+            perspective: newer.fields.contains(.perspective) ? newer.perspective : perspective,
+            textTemplateIdentity: newer.textTemplateIdentity != 0 ? newer.textTemplateIdentity : textTemplateIdentity
         )
     }
 }

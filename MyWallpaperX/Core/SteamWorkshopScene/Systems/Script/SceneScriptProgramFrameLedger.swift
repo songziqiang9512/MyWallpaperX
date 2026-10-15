@@ -23,6 +23,26 @@ nonisolated final class SceneScriptProgramFrameLedger {
     var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
     var appliedUserProperties = SceneScriptAppliedUserPropertyState()
 
+    func remove(targets: Set<SceneDynamicTarget>) {
+        for target in targets {
+            consumedMediaThumbnailGenerations.removeValue(forKey: target)
+            consumedMediaPlaybackGenerations.removeValue(forKey: target)
+            consumedMediaPropertiesGenerations.removeValue(forKey: target)
+            consumedMediaTimelineGenerations.removeValue(forKey: target)
+        }
+        appliedUserProperties.remove(targets: targets)
+    }
+
+    /// A held frame may predate permanent String-owner retirement. Restoring
+    /// its acknowledgement must not recreate per-owner records after release.
+    func retain(targets: Set<SceneDynamicTarget>) {
+        consumedMediaThumbnailGenerations = consumedMediaThumbnailGenerations.filter { targets.contains($0.key) }
+        consumedMediaPlaybackGenerations = consumedMediaPlaybackGenerations.filter { targets.contains($0.key) }
+        consumedMediaPropertiesGenerations = consumedMediaPropertiesGenerations.filter { targets.contains($0.key) }
+        consumedMediaTimelineGenerations = consumedMediaTimelineGenerations.filter { targets.contains($0.key) }
+        appliedUserProperties.retain(targets: targets)
+    }
+
     func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents {
         .init(
             playback: observedMediaPlaybackEvent.observe(events.playback),
