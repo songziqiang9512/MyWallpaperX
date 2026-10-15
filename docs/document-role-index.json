@@ -385,10 +385,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "001481eeb02a86784ee63d1b706197c14d518617c0c3f10007b30bb26a5ec488",
+        "sourceSHA256": "0e19d18b4e7cd0f51f275319fb03a445b0e564f17ff70cf26ef3ec3dea79be0c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅v22集合wire职责与已撤源纯补齐的现役/历史归属；不重复接受其他引擎范围。",
-        "limitations": "导航/合同核对；实际门、App与性能边界只见对应冻结记录，不表示全样本、稳定收益或官方parity。"
+        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
+        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
       }
     },
     {
@@ -504,13 +504,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7618111d3a2779d1443ae135ca16f94dfff4ca1def4e2e7e82b80782b3d377a",
+        "sourceSHA256": "8f4a4c7a9429934d34c5b78e80cff7fc1547373e286f5145d5a610687aa74fc6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批原生列表合同/证据/未闭范围的导航同步，非全部旧运行记录复验",
-        "limitations": "不代表未知MDLS后缀、官方逐像素、完整交互或全样本验收。"
+        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
+        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
       }
     },
     {
@@ -596,10 +596,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fc44ecdcc29e2743f8210b27a4be5c9e5ea5ed05f7c2b263916d5f2acc757bb5",
+        "sourceSHA256": "1c0257f100ee8ddaca3ead4509101055b119a4238ec2871e298b015a22954f84",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
-        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
+        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
+        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
       }
     },
     {
@@ -796,10 +796,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1f008ecc620d270d0483fe05003927889f565dbed3fe3276594136875eb1ac7d",
+        "sourceSHA256": "caa70ba797b6138b82c04d5160e50a87ff22425e4955c9fb876025eb6c756a97",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
-        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
+        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
+        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
       }
     },
     {
@@ -2650,6 +2650,20 @@
       ]
     },
     {
+      "path": "docs/scene/history/source-material-output-domain-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "源Program输出域/采样输入解耦、同输入真实白转蓝、bootstrap与reachable事实分离及有界反例；不计性能收益。"
+    },
+    {
       "path": "docs/scene/history/static-image-autosize-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3028,10 +3042,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7f9df86607244157bc192c52001d7557b054f1074dc99f56c421770ff1c91e2a",
+        "sourceSHA256": "a69910b119d340ae402a57a9d6062489e87885ac2a5a77420cf344582f30f1ec",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet默认几何能力、prepared职责、现役后继与证据的唯一权威路由",
-        "limitations": "导航与正文同步不替代GPU、原生、性能或官方parity验收；实际范围归本轮历史。"
+        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
+        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
       }
     },
     {

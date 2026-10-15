@@ -510,6 +510,7 @@
       "Assets": {
         "file_globs": [
           "SceneAssetCatalog.swift",
+          "SceneModelResourceIdentity.swift",
           "SceneResourceIndex.swift",
           "SceneResourceReferenceIndex.swift",
           "SceneResourceView.swift",
@@ -616,6 +617,7 @@
           "SceneDesktopWallpaperLaunchContext+StartupReport.swift",
           "SceneDesktopWallpaperLaunchFrameSchema.swift",
           "ScenePreparedDeviceResources.swift",
+          "ScenePreparedDeviceResources+SourceMaterials.swift",
           "ScenePreparedPuppetResources.swift"
         ],
         "responsibility": "Session: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."

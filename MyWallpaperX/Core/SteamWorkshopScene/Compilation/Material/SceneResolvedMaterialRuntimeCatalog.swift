@@ -47,11 +47,6 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let key: SourceMaterialKey
         let entry: Entry
         var sharedModelPath: String? = nil
-
-        static func modelPathIdentity(_ path: String) -> String {
-            path.replacingOccurrences(of: "\\", with: "/")
-                .trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-        }
     }
 
     enum Entry {
@@ -104,7 +99,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     private enum ResourceDemandAnalysis {
         case ready(
             textureFormatSlots: Set<Int>,
-            samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+            samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+            reachableSamplerSlots: Set<Int>
         )
         case failed(String)
     }
@@ -173,12 +169,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             guard case .template = source.entry else { continue }
             consumers.insert(source.key.layerID)
             if let model = source.sharedModelPath {
-                sharedModels.insert(SourceMaterialEntry.modelPathIdentity(model))
+                sharedModels.insert(SceneModelResourceIdentity(model).value)
             }
         }
         for layer in descriptor.layers {
             if let model = layer.imagePath,
-               sharedModels.contains(SourceMaterialEntry.modelPathIdentity(model)) {
+               sharedModels.contains(SceneModelResourceIdentity(model).value) {
                 consumers.insert(layer.id)
             }
         }
@@ -559,7 +555,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 .load(key: analysisKey) {
                 return .ready(
                     textureFormatSlots: persisted.textureFormatSlots,
-                    samplers: persisted.samplers
+                    samplers: persisted.samplers,
+                    reachableSamplerSlots: persisted.reachableSamplerSlots
                 )
             }
             do {
@@ -569,7 +566,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     template,
                     implicitFramebufferIdentity: implicitFramebufferIdentity
                 )
-                // Non-presence defaults participate before the fixed point. A
+                let reachableSamplerSlots = Set(samplers.keys)
+                // Non-presence declarations participate before the fixed point. A
                 // combo-bearing default is demanded only when a stable prepared
                 // variant actually retains that sampler.
                 for (slot, sampler) in try SceneResolvedMaterialShaderSchema
@@ -580,11 +578,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 SceneMaterialDemandAnalysisPersistentCache.store(
                     textureFormatSlots: textureFormatSlots,
                     samplers: samplers,
+                    reachableSamplerSlots: reachableSamplerSlots,
                     key: analysisKey
                 )
                 return .ready(
                     textureFormatSlots: textureFormatSlots,
-                    samplers: samplers
+                    samplers: samplers,
+                    reachableSamplerSlots: reachableSamplerSlots
                 )
             } catch {
                 return .failed(String(describing: error))
@@ -592,10 +592,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         }
         let textureFormatSlots: Set<Int>
         let samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        let reachableSamplerSlots: Set<Int>
         switch analysis {
-        case let .ready(formatSlots, reachable):
+        case let .ready(formatSlots, reachable, activeSlots):
             textureFormatSlots = formatSlots
             samplers = reachable
+            reachableSamplerSlots = activeSlots
         case let .failed(errorDescription):
 #if DEBUG
             print(
@@ -626,14 +628,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 guard let textureSlot = projection.slot else { continue }
                 let reference = projected.candidate.reference
                 guard let slotSamplers = samplers[slotIndex], !slotSamplers.isEmpty else {
-                    recordUnproven(
-                        reference,
-                        owner: owner,
-                        slot: slotIndex,
-                        code: .purposeUnproven,
-                        sampler: nil,
-                        issues: &issues
-                    )
+                    // No reachable or bootstrap sampler consumes this slot.
                     continue
                 }
                 for sampler in slotSamplers {
@@ -643,14 +638,16 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                             candidateOrdinal: projected.ordinal,
                             sampler: sampler
                         )?.purpose else {
-                        recordUnproven(
-                            reference,
-                            owner: owner,
-                            slot: slotIndex,
-                            code: .purposeUnproven,
-                            sampler: sampler,
-                            issues: &issues
-                        )
+                        if reachableSamplerSlots.contains(slotIndex) {
+                            recordUnproven(
+                                reference,
+                                owner: owner,
+                                slot: slotIndex,
+                                code: .purposeUnproven,
+                                sampler: sampler,
+                                issues: &issues
+                            )
+                        }
                         continue
                     }
                     switch reference {
@@ -688,14 +685,16 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 guard case let .asset(path)? = sampler.defaultTexture else { continue }
                 let reference = Template.TextureReference.asset(path)
                 guard let purpose = sampler.purpose(for: reference) else {
-                    Self.diagnoseUnproven(
-                        .asset(path), owner: owner, slot: sampler.slot,
-                        code: .purposeUnproven, sampler: sampler
-                    )
-                    issues.insert(.init(
-                        owner: owner, slot: sampler.slot,
-                        reference: .asset(path), code: .purposeUnproven
-                    ))
+                    if reachableSamplerSlots.contains(slotIndex) {
+                        Self.diagnoseUnproven(
+                            .asset(path), owner: owner, slot: sampler.slot,
+                            code: .purposeUnproven, sampler: sampler
+                        )
+                        issues.insert(.init(
+                            owner: owner, slot: sampler.slot,
+                            reference: .asset(path), code: .purposeUnproven
+                        ))
+                    }
                     continue
                 }
                 demands.insert(.init(path: path, purpose: purpose))

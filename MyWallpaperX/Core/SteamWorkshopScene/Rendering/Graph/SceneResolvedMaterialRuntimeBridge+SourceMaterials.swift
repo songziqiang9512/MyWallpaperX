@@ -34,7 +34,20 @@ extension SceneResolvedMaterialRuntimeBridge {
         let bindFrame: (SceneResolvedMaterialFinalizationInput)
             -> Result<SceneResolvedMaterialProgram, SceneResolvedMaterialFailure>
         let pixelFormat: MTLPixelFormat
-        let sourceIdentity: SceneAssetTextureIdentity
+        enum OutputDomain {
+            case sampledAsset(SceneAssetTextureIdentity)
+            case baseImage
+
+            func matchesSampledSource(_ program: SceneResolvedMaterialProgram) -> Bool {
+                switch self {
+                case let .sampledAsset(identity):
+                    program.textureSlots.first??.registryIdentity == .asset(identity)
+                case .baseImage:
+                    (program.textureSlots.first ?? nil) == nil
+                }
+            }
+        }
+        let outputDomain: OutputDomain
         var sharedModelPath: String? = nil
     }
 
@@ -48,7 +61,7 @@ extension SceneResolvedMaterialRuntimeBridge {
             return .init(layerID: layerID, prototypeLayerID: layerID)
         }
         guard let modelPath else { return nil }
-        let normalized = SceneResolvedMaterialRuntimeCatalog.SourceMaterialEntry.modelPathIdentity(modelPath)
+        let normalized = SceneModelResourceIdentity(modelPath).value
         guard let prototype = sourceMaterialPrototypeByModel[normalized] else { return nil }
         return .init(layerID: layerID, prototypeLayerID: prototype)
     }
@@ -82,14 +95,23 @@ extension SceneResolvedMaterialRuntimeBridge {
                 return imageTextures.candidate(for: $0, matching: base) != nil
             }
             guard !layerIDs.isEmpty,
-                  let material = sourceMaterials[layerID], material.pixelFormat == pool.pixelFormat,
-                  let source = original.textureRegistrySnapshot.resource(for: .asset(material.sourceIdentity)),
-                  source.publication.candidate.materialProgramUVTransform() != nil,
-                  !source.publication.candidate.isSpriteSheet,
+                  let material = sourceMaterials[layerID], material.pixelFormat == pool.pixelFormat else { continue }
+            let sourceCandidate: SceneTextureCandidate?
+            switch material.outputDomain {
+            case let .sampledAsset(identity):
+                sourceCandidate = original.textureRegistrySnapshot.resource(for: .asset(identity))?
+                    .publication.candidate
+            case .baseImage:
+                sourceCandidate = imageTextures[layerID].flatMap {
+                    imageTextures.candidate(for: layerID, matching: $0)
+                }
+            }
+            guard let sourceCandidate,
+                  sourceCandidate.materialProgramUVTransform() != nil,
+                  !sourceCandidate.isSpriteSheet,
                   let target = pool.reserveSourceMaterial(layerID: layerID,
-                    width: source.publication.texture.width, height: source.publication.texture.height,
+                    width: sourceCandidate.texture.width, height: sourceCandidate.texture.height,
                     commandBuffer: commandBuffer) else { continue }
-            let sourceCandidate = source.publication.candidate
             let size = CGSize(width: target.texture.width, height: target.texture.height)
             let input = original.finalizationInput(template: material.template, layerID: layerID,
                 renderSize: size,
@@ -102,7 +124,7 @@ extension SceneResolvedMaterialRuntimeBridge {
                 submissions.logSink("source material frame rejected: layer=\(layerID) reason=\(failure)")
             }
             guard case let .success(program) = finalized,
-                  program.textureSlots.first??.registryIdentity == .asset(material.sourceIdentity),
+                  material.outputDomain.matchesSampledSource(program),
                   let pass = encoder.prepare(program: program, target: target.texture),
                   pass.storedContent == .color(.resolved(.premultipliedAlpha))
                     || pass.storedContent == .color(.resolved(.straightAlpha))

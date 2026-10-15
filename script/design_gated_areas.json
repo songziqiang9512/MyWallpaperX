@@ -572,6 +572,19 @@
       "contentPatterns": [
         "ScenePlaybackTextureUpdateOutcome"
       ]
+    },
+    {
+      "id": "scene-source-material-output-domain",
+      "title": "源材质输出域与采样输入分离",
+      "owner": "Scene material preparation / layer-source publication",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "2026-10-15 先设计：源输出域与采样输入分离小节。保留实际slot0资产物理/padding域；全variant无slot0采样时只借已完整普通base-image域，不伪造输入或Candidate；无base/effect晚绑定保持开放。真实输入仍沿原schema/finalizer/encoder，原pool/submission/publication唯一。批准边界不代表验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources+SourceMaterials.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Preparation ownership tests; the controlled loader does not test decoding/draws."""
+"""Whole preparation owners with controlled loader/compiler/encoder boundaries.
+
+These checks allocate native texture identities but do not compile shaders,
+submit draw commands, or qualify rendered output.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PREPARATION = SCENE / "Runtime/Session/ScenePreparedDeviceResources.swift"
+SOURCE_MATERIALS = SCENE / "Runtime/Session/ScenePreparedDeviceResources+SourceMaterials.swift"
 RESOLVER = SCENE / "Resources/Textures/SceneTexturePathResolver.swift"
 BUILTIN = SCENE / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"
 RENDER_STATE = SCENE / "Compilation/Material/SceneMaterialRenderState.swift"
@@ -31,7 +36,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         binary = workspace / "checks"
         source = Path(os.environ.get("MWX_PREPARED_BASE_IMAGE_SOURCE", PREPARATION))
         compile_result = subprocess.run(
-            ["xcrun", "swiftc", "-swift-version", "5", str(source), str(RESOLVER),
+            ["xcrun", "swiftc", "-swift-version", "5", str(source), str(SOURCE_MATERIALS), str(RESOLVER),
              str(BUILTIN), str(RENDER_STATE), str(SCENE / "Format/SceneJSONValue.swift"),
              str(FIXTURE), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
@@ -150,6 +155,55 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertEqual(self.facts[name]["loads"], 1)
                 self.assertTrue(self.facts[name]["hasOutcome"])
                 self.assertEqual(self.facts[name]["dynamicCount"], 0)
+
+    def test_complete_variants_without_sampler_zero_use_only_base_image_domain(self) -> None:
+        for name in ("sourceInactive", "sourceInactiveNoCandidate", "sourceOtherSamplerOnly"):
+            with self.subTest(name=name):
+                case = self.facts[name]
+                self.assertEqual(case["preparedCount"], 1)
+                self.assertEqual(case["outputDomain"], "baseImage")
+                self.assertEqual(case["sampledPath"], "")
+                self.assertEqual(case["sampledPurpose"], "")
+                self.assertEqual(case["warmupCalls"], 1)
+                self.assertEqual(case["warmupPlanCount"], 2)
+                self.assertEqual(case["reasons"], [])
+
+    def test_active_sampler_zero_requires_one_exact_purpose_across_all_variants(self) -> None:
+        case = self.facts["sourceActiveSamePurpose"]
+        self.assertEqual(case["preparedCount"], 1)
+        self.assertEqual(case["outputDomain"], "sampledAsset")
+        self.assertEqual(case["sampledPath"], "materials/renamed-color.png")
+        self.assertEqual(case["sampledPurpose"], "straightAlbedo")
+        self.assertEqual(case["sharedModelPath"], "models/renamed-source.json")
+        self.assertEqual(case["warmupCalls"], 1)
+        self.assertEqual(case["warmupPlanCount"], 2)
+        self.assertEqual(case["reasons"], [])
+        for name in ("sourceActiveUnknownPurpose", "sourceActiveConflictingPurposes",
+                     "sourceMixedActiveInactive"):
+            with self.subTest(name=name):
+                rejected = self.facts[name]
+                self.assertEqual(rejected["preparedCount"], 0)
+                self.assertEqual(rejected["warmupCalls"], 0)
+                self.assertEqual(rejected["reasons"], ["source-domain-variant-dependent"])
+
+    def test_source_domain_selection_preserves_envelope_and_pipeline_rejections(self) -> None:
+        reasons = {
+            "sourceIncompleteEnvelope": "variant-envelope-incomplete",
+            "sourceEmptyEnvelope": "variant-envelope-incomplete",
+            "sourceSchemaFailure": "variant-schema",
+            "sourcePrecompileFailure": "controlledPrecompileFailure",
+            "sourceActiveMissingCandidate": "source-domain-unavailable",
+            "sourcePlanFailure": "pipeline-plan-incomplete",
+            "sourceWarmupFailure": "pipeline-warmup",
+            "sourceWarmupNoReady": "pipeline-warmup",
+        }
+        for name, reason in reasons.items():
+            with self.subTest(name=name):
+                case = self.facts[name]
+                self.assertEqual(case["preparedCount"], 0)
+                self.assertEqual(case["reasons"], [reason])
+                self.assertEqual(case["warmupCalls"], int(name in {
+                    "sourceWarmupFailure", "sourceWarmupNoReady"}))
 
 
 if __name__ == "__main__":

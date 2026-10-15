@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 排程更新：2026-10-15，条目证据日期按各记录。本文服从[兼容路线](scene-compatibility-roadmap.md)，保存开放问题，不建立第二阶段。N06文字wrapper、Puppet默认几何实例与N05默认mask拒绝已补接；后继先比较composition实例与源材质缺口的可见收益。性能按[性能卡](performance-convergence-card.md)有证触发，属性继续[原typed链](properties-panel-card.md)；其他视觉、交互与生命周期余项保留，局部通过不关闭整样本。
+> 排程更新：2026-10-15，条目证据日期按各记录。本文服从[兼容路线](scene-compatibility-roadmap.md)，保存开放问题，不建立第二阶段。N06文字wrapper、Puppet默认几何实例与N05默认mask拒绝已补接；源材质无采样入口已取得有界真实输出；后继继续比较composition真实可见请求与无base源准备，按证据选序。性能按[性能卡](performance-convergence-card.md)有证触发，属性继续[原typed链](properties-panel-card.md)；其他视觉、交互与生命周期余项保留，局部通过不关闭整样本。
 
 ## 1. 全样本依据与状态
 
@@ -45,7 +45,7 @@
 
 | 待办 | 状态、证据与下一关闭门 |
 |---|---|
-| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层中3609108600与3610154602的0–1 user Alpha已接原/clone消费者并完成实际运行；3665307769的mixed user color及内层开关接入既有Vec3 owner，原包彩虹已运行、受控热切通过；原包颜色热切的同key visible错配已按官方保Bool合同修复。同model多source已沿原入口接通，见[共享材质证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；Power=.99已进入完整共享源Program，原360彩色频谱及Alpha热切已验；宽域Alpha仍待补。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因；自有literal-blue源在官方2.8.0.42为蓝，而当前native源准入`texture-purpose-unproven`后回退白色，见`/private/tmp/mwx-self-composite-contract-20261008/native/snapshot-rejected`；这是通用自定义源片段入口缺口，不能用后续effect同色通过掩盖，另沿源Program准入补齐。 |
+| 自定义源材质未准入组合 | **首入口已修，公共边界待补**：[833静态双纹理源](../history/source-material-entry-2026-10-08.md)已实际执行并消费后effect；3层中性静态乘色改由既有compositor消费，已跑通3原样本；原“7层动态常量”中1层已有S4，不再列为缺能力，其余6层中3609108600与3610154602的0–1 user Alpha已接原/clone消费者并完成实际运行；3665307769的mixed user color及内层开关接入既有Vec3 owner，原包彩虹已运行、受控热切通过；原包颜色热切的同key visible错配已按官方保Bool合同修复。同model多source已沿原入口接通，见[共享材质证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；Power=.99已进入完整共享源Program，原360彩色频谱及Alpha热切已验；宽域Alpha仍待补。1层perspective、更多multi-pass/provider待证。细分见该记录的后继更正；不能把已修380照片归入同根因；自有literal-blue的无采样入口已按[输出域/输入分离](../history/source-material-output-domain-2026-10-15.md)修复：同输入真实白转蓝，active未知用途仍拒绝；首片须有完整普通base域，不放开无base程序源、混合variant域或更广provider。seed/default无用准备与无base+effect晚绑定保持开放，不能把常量源成功外推所有custom。 |
 | 显隐属性的其他非Bool/缺失类型引用 | **color范围已修，其他输入待复验**：243场景/project身份核同的直连layer.visible统计有color 2样本2处、slider 3样本4处、缺定义40处及有声明但无type的2处；合计27样本48处只是声明。color两原包3665307769/3078285611热切现已实际变色、不重建；完成记录归入[显隐错配修复](../history/source-material-entry-2026-10-08.md#后继修正颜色与显隐错配局部保留)。slider与缺定义不得沿用该合同或直接认定失败，按同key合法消费者、当前回退及官方可观察行为继续归因。 |
 | 材质颜色的组合缺口 | **部分已修，组合余项待补**：静态中性RGB已进入原/动态图层；脚本tint占用layer color的覆盖已修，迁至materialConstant并退出clone颜色覆写；受控前后GPU及原379彩虹通过。named组合仍待官方合同与实际消费者证实，不直接给raw capture叠加材质调制。复核10候选样本/11层没有named边；193频谱12条named声明被作者previous绑定覆盖，不能计为漏Alpha。3690859128双source共用模型限制已修，证据见[共享材质](../capabilities/runtime-evidence-current.md#e-2026-10-08-shared-source-material)；首引用删除后的官方续跑未知，保留既有安全退休，不能外推所有材料实例范围 |
 | 普通unlit数值边界 | **溢出已修、下溢待修**：4×1e38×1e-37的Inf沿现shader回算有限40，无全图压暗/cap。[有界证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product)。source alpha=.5、vertex=.25、R8clip=128/255的weighted组合仍输出0（数学RGB≈2.5098），属于既有fast-math下溢；此失败保留，不能由溢出正例关闭。优先真实多source颜色消费者，数值余项不扩大为所有HDR已修 |

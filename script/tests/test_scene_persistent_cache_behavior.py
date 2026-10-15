@@ -490,7 +490,7 @@ private func runDemandProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "demand")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneMaterialDemandAnalysis-v4"
+        root: root, name: "SceneMaterialDemandAnalysis-v5"
     )
     let key = SceneMaterialDemandAnalysisPersistentCache
         .ResourceDemandAnalysisKey(
@@ -506,6 +506,7 @@ private func runDemandProbe() throws -> ProbeOutput {
     SceneMaterialDemandAnalysisPersistentCache.store(
         textureFormatSlots: [0, 3],
         samplers: [:],
+        reachableSamplerSlots: [0, 3],
         key: key
     )
     let entries = jsonEntries(directory)
@@ -514,7 +515,8 @@ private func runDemandProbe() throws -> ProbeOutput {
     try expect(
         into: &output,
         loaded?.textureFormatSlots == [0, 3]
-            && loaded?.samplers.isEmpty == true,
+            && loaded?.samplers.isEmpty == true
+            && loaded?.reachableSamplerSlots == [0, 3],
         "hit"
     )
     let entry = entries[0]

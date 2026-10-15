@@ -175,8 +175,9 @@ final class SceneTextureLoader {
     func evictDecodedCaches() {}
 }
 
-// Link-only surfaces from the rest of the whole production source. No worker,
-// shader, static-model, or material-runtime algorithm is exercised by this test.
+// External boundaries for the whole production preparation owners. The source
+// material cases below exercise the actual prepareSourceMaterialPrograms method;
+// shader compilation, pipeline creation and draws remain controlled, not tested.
 enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUnavailable }
 final class SceneImageLayerPipeline {
     static var reject = false
@@ -197,12 +198,24 @@ struct ScenePreparedStaticModelResources {
 }
 struct SceneResolvedMaterialExecutionCapabilityCatalog {}
 struct SceneAssetTextureIdentity { let path: String; let purpose: String }
-enum TestReference { case asset(String), unavailable }
-struct TestSampler { func purpose(for reference: TestReference) -> String? { nil } }
+enum TestReference: Hashable { case asset(String), unavailable }
+struct TestSampler {
+    // Prepared typed facts supplied by the external compiler boundary. This
+    // does not replace or test production shader-purpose derivation.
+    let purposes: [TestReference: String]
+    func purpose(for reference: TestReference) -> String? { purposes[reference] }
+}
 struct TestTemplate {
     struct Slot { struct Candidate { let reference: TestReference }; let candidates: [Candidate] }
     let textureSlots: [Slot?]
     let renderState: Int
+    var fixture = TestVariantFixture()
+}
+struct TestVariantFixture {
+    var schemaAccepted = true
+    var precompileAccepted = true
+    var allEntriesReady = true
+    var variants: [SceneResolvedMaterialVariantCache.Variant] = []
 }
 struct SceneResolvedMaterialRuntimeCatalog {
     struct Entry {
@@ -213,10 +226,11 @@ struct SceneResolvedMaterialRuntimeCatalog {
         let sharedModelPath: String?
     }
     let sourceMaterialTargetFormat = TestColorFormat()
-    let sourceMaterialEntries: [Int: Entry] = [:]
+    var sourceMaterialEntries: [Int: Entry] = [:]
 }
 struct SceneMaterialAssetTextureCatalog { let launchFormatFacts = 0; let launchStates = 0 }
 struct SceneResolvedMaterialVariantCache {
+    struct Frontend { let planAvailable: Bool }
     struct Variant {
         struct Shader {
             struct Vertex { let frontendSchemaVersion: Int }
@@ -225,24 +239,43 @@ struct SceneResolvedMaterialVariantCache {
         }
         let activeSamplers: [Int: TestSampler]
         let preparedShader: Shader
-        let frontendProgram: Int
+        let frontendProgram: Frontend
     }
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
+    let fixture: TestVariantFixture
     static func launchValidated(template: TestTemplate, maximumVariantCount: Int,
-                                assetFormatFacts: Int) -> Result<Self, TestError> { .failure(.unused) }
+                                assetFormatFacts: Int) -> Result<Self, TestError> {
+        template.fixture.schemaAccepted ? .success(.init(fixture: template.fixture))
+            : .failure(.controlledSchemaFailure)
+    }
     func precompileLaunchEnvelope(implicitFramebufferIdentity: String?, outputIsRGBA8Unorm: Bool,
-                                 assetStates: Int) -> Result<Void, TestError> { .failure(.unused) }
-    func launchEnvelopeCapabilitySnapshot() -> Envelope { .init(allEntriesReady: false, variants: []) }
+                                 assetStates: Int) -> Result<Void, TestError> {
+        fixture.precompileAccepted ? .success(()) : .failure(.controlledPrecompileFailure)
+    }
+    func launchEnvelopeCapabilitySnapshot() -> Envelope {
+        .init(allEntriesReady: fixture.allEntriesReady, variants: fixture.variants)
+    }
 }
-enum TestError: Error { case unused }
-struct SceneResolvedMaterialPassEncoder {
+enum TestError: Error { case controlledSchemaFailure, controlledPrecompileFailure }
+final class SceneResolvedMaterialPassEncoder {
     struct WarmupPlan {
-        init?(identity: String, preparedKey: String, frontend: Int, renderState: Int,
+        init?(identity: String, preparedKey: String,
+              frontend: SceneResolvedMaterialVariantCache.Frontend, renderState: Int,
               frontendSchemaVersion: Int, pixelFormat: MTLPixelFormat,
-              writeMask: MTLColorWriteMask, device: MTLDevice) { return nil }
+              writeMask: MTLColorWriteMask, device: MTLDevice) {
+            // Fault injection at the external pipeline boundary only.
+            guard frontend.planAvailable else { return nil }
+        }
     }
     struct Report { let failedKeyCount: Int; let readyKeyCount: Int }
-    func warmup(_ plans: [WarmupPlan]) -> Report { .init(failedKeyCount: 0, readyKeyCount: 0) }
+    var reportOverride: Report?
+    private(set) var warmupCalls = 0
+    private(set) var warmupPlanCount = 0
+    func warmup(_ plans: [WarmupPlan]) -> Report {
+        warmupCalls += 1
+        warmupPlanCount += plans.count
+        return reportOverride ?? .init(failedKeyCount: 0, readyKeyCount: plans.count)
+    }
 }
 struct SceneResolvedMaterialProgramFinalizer {
     static func finalize(_ input: Int, variantCache: SceneResolvedMaterialVariantCache) -> Int { input }
@@ -250,8 +283,14 @@ struct SceneResolvedMaterialProgramFinalizer {
 final class SceneResolvedMaterialRuntimeBridge {
     typealias LogSink = (String) -> Void
     struct PreparedSourceMaterial {
+        enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage }
+        let outputDomain: OutputDomain
+        let sharedModelPath: String?
         init(template: TestTemplate, bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
-             sourceIdentity: SceneAssetTextureIdentity, sharedModelPath: String?) {}
+             outputDomain: OutputDomain, sharedModelPath: String?) {
+            self.outputDomain = outputDomain
+            self.sharedModelPath = sharedModelPath
+        }
     }
     struct Submissions {
         struct Executor { let materialEncoder: SceneResolvedMaterialPassEncoder? }
@@ -461,6 +500,84 @@ enum Checks {
         try check("additive", layers: [ordinary]) { $0.materialPasses[0].blending = "additive" }
         try check("depthEnabled", layers: [ordinary]) { $0.materialPasses[0].depthTest = "enabled" }
         try check("alphaWriting", layers: [ordinary]) { $0.materialPasses[0].alphaWriting = "enabled" }
+
+        // External prepared variant metadata drives the whole production source
+        // owner. No copied admission predicate or shader/GPU surrogate is run.
+        let colorReference = TestReference.asset("materials/renamed-color.png")
+        let colorSlot = TestTemplate.Slot(candidates: [.init(reference: colorReference)])
+        func variant(_ key: String, samplerZero: TestSampler? = nil,
+                     otherSampler: Bool = false, planAvailable: Bool = true)
+            -> SceneResolvedMaterialVariantCache.Variant {
+            var samplers: [Int: TestSampler] = [:]
+            if let samplerZero { samplers[0] = samplerZero }
+            if otherSampler { samplers[2] = .init(purposes: [colorReference: "normal"]) }
+            return .init(activeSamplers: samplers,
+                preparedShader: .init(cacheKey: key, vertex: .init(frontendSchemaVersion: 1)),
+                frontendProgram: .init(planAvailable: planAvailable))
+        }
+        let colorSampler = TestSampler(purposes: [colorReference: "straightAlbedo"])
+        let unknownSampler = TestSampler(purposes: [:])
+        let normalSampler = TestSampler(purposes: [colorReference: "normal"])
+        let inactiveVariants = [variant("inactive-a"), variant("inactive-b")]
+        let activeVariants = [variant("active-a", samplerZero: colorSampler),
+                              variant("active-b", samplerZero: colorSampler)]
+        func sourceCase(_ name: String,
+                        variants: [SceneResolvedMaterialVariantCache.Variant],
+                        slots: [TestTemplate.Slot?]? = nil,
+                        allEntriesReady: Bool = true, schemaAccepted: Bool = true,
+                        precompileAccepted: Bool = true,
+                        warmupReport: SceneResolvedMaterialPassEncoder.Report? = nil) {
+            let template = TestTemplate(textureSlots: slots ?? [colorSlot], renderState: 0,
+                fixture: .init(schemaAccepted: schemaAccepted,
+                    precompileAccepted: precompileAccepted, allEntriesReady: allEntriesReady,
+                    variants: variants))
+            let catalog = SceneResolvedMaterialRuntimeCatalog(sourceMaterialEntries: [17: .init(
+                key: .init(reportToken: "source:17:renamed-owned-source"), entry: .template(template),
+                sharedModelPath: "models/renamed-source.json")])
+            let encoder = SceneResolvedMaterialPassEncoder()
+            encoder.reportOverride = warmupReport
+            var logs: [String] = []
+            let prepared = ScenePreparedDeviceResources.prepareSourceMaterialPrograms(
+                catalog: catalog, assets: .init(), device: device, encoder: encoder,
+                logSink: { logs.append($0) })
+            var domain = "absent", sampledPath = "", sampledPurpose = ""
+            if let value = prepared[17] {
+                switch value.outputDomain {
+                case .baseImage: domain = "baseImage"
+                case let .sampledAsset(identity):
+                    domain = "sampledAsset"
+                    sampledPath = identity.path
+                    sampledPurpose = identity.purpose
+                }
+            }
+            results[name] = [
+                "preparedCount": prepared.count, "outputDomain": domain,
+                "sampledPath": sampledPath, "sampledPurpose": sampledPurpose,
+                "sharedModelPath": prepared[17]?.sharedModelPath ?? "",
+                "warmupCalls": encoder.warmupCalls, "warmupPlanCount": encoder.warmupPlanCount,
+                "reasons": logs.compactMap { $0.components(separatedBy: " reason=").dropFirst().first },
+                "logs": logs,
+            ]
+        }
+        sourceCase("sourceInactive", variants: inactiveVariants)
+        sourceCase("sourceInactiveNoCandidate", variants: inactiveVariants, slots: [])
+        sourceCase("sourceOtherSamplerOnly", variants: [variant("other-a", otherSampler: true),
+                                                         variant("other-b", otherSampler: true)])
+        sourceCase("sourceActiveSamePurpose", variants: activeVariants)
+        sourceCase("sourceActiveUnknownPurpose", variants: [variant("unknown", samplerZero: unknownSampler)])
+        sourceCase("sourceActiveConflictingPurposes", variants: [activeVariants[0],
+            variant("conflict", samplerZero: normalSampler)])
+        sourceCase("sourceMixedActiveInactive", variants: [activeVariants[0], inactiveVariants[0]])
+        sourceCase("sourceIncompleteEnvelope", variants: inactiveVariants, allEntriesReady: false)
+        sourceCase("sourceEmptyEnvelope", variants: [])
+        sourceCase("sourceSchemaFailure", variants: inactiveVariants, schemaAccepted: false)
+        sourceCase("sourcePrecompileFailure", variants: inactiveVariants, precompileAccepted: false)
+        sourceCase("sourceActiveMissingCandidate", variants: activeVariants, slots: [])
+        sourceCase("sourcePlanFailure", variants: [variant("no-plan", planAvailable: false), inactiveVariants[0]])
+        sourceCase("sourceWarmupFailure", variants: inactiveVariants,
+                   warmupReport: .init(failedKeyCount: 1, readyKeyCount: 1))
+        sourceCase("sourceWarmupNoReady", variants: inactiveVariants,
+                   warmupReport: .init(failedKeyCount: 0, readyKeyCount: 0))
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

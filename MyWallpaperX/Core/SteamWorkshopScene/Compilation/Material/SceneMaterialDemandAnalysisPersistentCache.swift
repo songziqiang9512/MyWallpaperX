@@ -70,7 +70,7 @@ struct ResourceDemandAnalysisKey: Hashable {
 
 
     typealias Template = SceneResolvedMaterialTemplate
-    private static let schemaVersion = 4
+    private static let schemaVersion = 5
     private static let maximumEntryBytes = 256 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -84,6 +84,7 @@ struct ResourceDemandAnalysisKey: Hashable {
         private struct PersistedAnalysis: Codable {
             let textureFormatSlots: [Int]
             let samplers: [PersistedSlot]
+            let reachableSamplerSlots: [Int]
         }
 
     private struct Envelope: Codable {
@@ -240,7 +241,8 @@ struct ResourceDemandAnalysisKey: Hashable {
 
         private static func persisted(
             textureFormatSlots: Set<Int>,
-            samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+            samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+            reachableSamplerSlots: Set<Int>
         ) -> PersistedAnalysis? {
             var persistedSlots: [PersistedSlot] = []
             for slot in samplers.keys.sorted() {
@@ -263,7 +265,8 @@ struct ResourceDemandAnalysisKey: Hashable {
             }
             return PersistedAnalysis(
                 textureFormatSlots: textureFormatSlots.sorted(),
-                samplers: persistedSlots
+                samplers: persistedSlots,
+                reachableSamplerSlots: reachableSamplerSlots.sorted()
             )
         }
 
@@ -277,7 +280,7 @@ struct ResourceDemandAnalysisKey: Hashable {
 
     static func load(
         key: ResourceDemandAnalysisKey
-    ) -> (textureFormatSlots: Set<Int>, samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>])? {
+    ) -> (textureFormatSlots: Set<Int>, samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>], reachableSamplerSlots: Set<Int>)? {
         guard let directory = cacheDirectory(createIfNeeded: false),
               let digest = keyDigest(key) else { return nil }
         let url = directory.appendingPathComponent(
@@ -304,20 +307,23 @@ struct ResourceDemandAnalysisKey: Hashable {
         }
         return (
             Set(envelope.payload.textureFormatSlots),
-            samplers
+            samplers,
+            Set(envelope.payload.reachableSamplerSlots)
         )
     }
 
     static func store(
         textureFormatSlots: Set<Int>,
         samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        reachableSamplerSlots: Set<Int>,
         key: ResourceDemandAnalysisKey
     ) {
         guard let directory = cacheDirectory(createIfNeeded: true),
               let digest = keyDigest(key),
               let payload = persisted(
                   textureFormatSlots: textureFormatSlots,
-                  samplers: samplers
+                  samplers: samplers,
+                  reachableSamplerSlots: reachableSamplerSlots
               ),
               let analysisSHA = analysisDigest(payload) else { return }
         let envelope = Envelope(

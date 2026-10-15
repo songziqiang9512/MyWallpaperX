@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-15 | 源材质/资源 | 有界修复 | [输出域与输入分离](source-material-output-domain-2026-10-15.md) | 无采样源实际白转蓝、真实输入用途拒绝与bootstrap事实分域 | [运行合同](../architecture/runtime-architecture.md#源输出域与采样输入分离)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | SceneScript/Puppet | 有界实现 | [默认几何动态实例](prepared-puppet-default-instances-2026-10-15.md) | 共享CPU准备、独立mesh实例与跨surface重建退休边界 | [D4](../roadmap/batch2/script-component-api-design.md#prepared-puppet-clone)、[API](../capabilities/scenescript-api-coverage.md#prepared-puppet-default-instances)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | SceneScript/动态文字 | 有界实现 | [prepared文字实例](prepared-text-clones-2026-10-15.md) | 独立状态、事务/退休与真实shadow热更；六个特殊clone及排版余项未闭 | [D4](../roadmap/batch2/script-component-api-design.md#prepared-text-clone)、[API](../capabilities/scenescript-api-coverage.md#prepared-text-clones)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-15 | JPEG/资源属性 | 正确性修复 | [显示方向与尺寸](jpeg-display-layout-2026-10-15.md) | 八方向共用decoder、真实选图/重开/reset及独立入口；不计性能 | [资源合同](../architecture/scene-resource-admission.md#jpeg-display-layout)、[属性卡](../roadmap/properties-panel-card.md) |

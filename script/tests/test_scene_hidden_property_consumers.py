@@ -79,7 +79,6 @@ struct SceneResolvedMaterialRuntimeCatalog {
         var key: Key
         var entry: Entry
         var sharedModelPath: String? = nil
-        __MODEL_PATH_IDENTITY__
     }
     var sourceMaterialEntries: [Int: SourceMaterialEntry]
     __SOURCE_CANDIDATES__
@@ -701,8 +700,6 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
             .replace("__COLOR_ELIGIBILITY__", color)
             .replace("__SOURCE_CANDIDATES__", method_body(CATALOG_SOURCE.read_text(),
                 "func sourceMaterialCandidateConsumerLayerIDs("))
-            .replace("__MODEL_PATH_IDENTITY__", method_body(CATALOG_SOURCE.read_text(),
-                "static func modelPathIdentity("))
             .replace("__SOURCE_MATERIAL_STORAGE__", method_body(SOURCE_MATERIAL_STORAGE_SOURCE.read_text(),
                 "var sourceMaterials:"))
             .replace("__SOURCE_MATERIAL_CONSUMER__", method_body(SOURCE_MATERIAL_SOURCE.read_text(),
@@ -711,7 +708,8 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         binary = work / "probe"
         compiled = subprocess.run(
             ["swiftc", "-enable-upcoming-feature", "MemberImportVisibility",
-             *map(str, SWIFT_SOURCES), str(VISIBILITY_SOURCE), str(harness),
+             *map(str, SWIFT_SOURCES), str(VISIBILITY_SOURCE),
+             str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"), str(harness),
              "-module-cache-path", str(work / "cache"), "-o", str(binary)],
             capture_output=True, text=True,
         )
