@@ -264,6 +264,28 @@ void main() {
                 self.assertEqual(output["canonicalFragment"], source)
                 self.assertTrue(output["idempotent"])
 
+    def test_broadcast_uses_parameter_facts_without_borrowing_peer_types(self) -> None:
+        source = (
+            "vec2 helper(float scalar) { vec2 result = scalar; return result; }\n"
+            "void main() { vec3 scalar = vec3(0.1); vec2 result = 0.25; "
+            "gl_FragColor = vec4(result + helper(0.5), 0.0, 1.0); }"
+        )
+        expected = (
+            "vec2 helper(float scalar) { vec2 result = vec2(scalar); return result; }\n"
+            "void main() { vec3 scalar = vec3(0.1); vec2 result = vec2(0.25); "
+            "gl_FragColor = vec4(result + helper(0.5), 0.0, 1.0); }"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            authored = Path(directory) / "source.frag"
+            authored.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), "--analyze", str(authored)], text=True,
+            ))
+        self.assertEqual(output["strictDiagnosticCodes"], [])
+        self.assertEqual(output["typeDiagnosticCodes"], [])
+        self.assertEqual(output["canonicalFragment"], expected)
+        self.assertTrue(output["idempotent"])
+
     def test_dynamic_loop_does_not_bypass_syntax_or_custom_overload_guards(self) -> None:
         cases = [
             ("vec3 max(int bound, vec3 value) { return value; }", "max(0, color)"),

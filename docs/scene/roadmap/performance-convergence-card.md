@@ -20,7 +20,7 @@
 **当前性能决策。** [普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)已取得当前-O/WMO renderer CPU及独立实际栈，材质图准备与粒子仍有成本，未证其中多少可省，不据此重启旧容器/排序/cache候选。[stage资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)、[TEX存储](../history/static-tex-storage-screen-2026-10-15.md)及root/graph/MDL/pin短筛保原结论；不重复局部优化campaign。主研发先补[功能断点](scene-open-breakpoint-queue.md)，仅在明确可避免工作及唯一owner后再开性能实现。
 
 
-**新增启动线索与局部修正。** [类型名识别记录](../history/shader-value-type-recognition-2026-10-16.md)合并366冷启动归因及原model内字典→switch：5s App栈不含晚出helper、未ready/看门狗退出，嵌套阶段不相加；三配对-O/WMO与Debug只接受lookup局部CPU收益，不外推启动或整进程。单rewrite重复声明扫描仍是候选，须有额外集成/整体证据再决定，不惯性扩cache或重复五对；原366可见结果仍未取得。
+**新增启动线索与局部修正。** [类型名识别记录](../history/shader-value-type-recognition-2026-10-16.md)合并366冷启动归因及原model内字典→switch：5s App栈不含晚出helper、未ready/看门狗退出，嵌套阶段不相加；三配对-O/WMO与Debug只接受lookup局部CPU收益，不外推启动或整进程。[单rewrite声明准备短筛](../history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen)虽证真实normalizer局部下降，App primary仅降6.002%、未达预锁10%继续门，NO-GO且产品已还原，不再重试或扩cache/五对；后继转功能断点，原366可见结果仍未取得。
 
 <a id="sampler-seed-preparation"></a>
 

@@ -33,4 +33,21 @@
 
 启动收据与独审保留 `.artifacts/tmp/scene-startup-attribution-20261016/`；局部完整配对、noise 复核、精确 enum/harness/token/case 身份保留 `.artifacts/tmp/scene-value-type-recognition-20261016/result.json` 及同目录材料。局部二进制/模块缓存及本轮已退出的样本/HOME、generated source、重复图已清理；保原字节实图、neutral JSON与压缩日志，唯一连续DerivedData仍沿原路径，不声称逻辑字节等同物理释放。
 
-单次 rewrite 内声明事实重复扫描仍是候选，须先有额外集成与整体成本证据再决定；不因局部 lookup 收益惯性增加 cache、扩大重建策略或重复启动五对。真实 compiler 回归、完整启动与该候选是否值得继续分别裁决。
+单次 rewrite 声明准备后继已短筛并撤回，见[后继决策](#declaration-preparation-screen)；类型 lookup 已接受的局部结论保留，不扩为整体收益。
+
+<a id="declaration-preparation-screen"></a>
+## 单次 rewrite 声明事实准备短筛（撤回）
+
+方案在原 Syntax owner 内一次准备 whole-unit immutable declaration facts，各 assignment 仍按原 function exclusions 与严格 before-index 查询；原 scanner、unique/names 路径、数组/函数名否决及重复声明顺序不变，零候选直接返回，无新 cache、identity 或 scope 规则。
+
+独立静态审查 GO；normalizer harness 编译实际 frontend 源码闭包与 normalizer，核完整 rewrite 输出，未用 scanner 微基准代替集成结果。独立 parameter 类型回归两臂 PASS，作为有独立价值的长期反例保留。
+
+首轮 `-O` 因 sparse 噪声 STOP；唯一干净 retry 的 dense 局部 CPU 降46.856%，zero/sparse 不回退、主要噪声低于5%。两轮原数据均保留，不用 retry 覆盖失败记录，也不外推 App 收益。
+
+预锁 App primary 为从 prepareEntry 累计的 prepare-catalog：同输入、隔离空缓存单对61891→58176ms，降6.002%，未达10%继续门；inner compile15970→11852ms仅为 secondary，不能替换 primary。系统/Metal cache 未声明冷。
+
+两 App 均74材质、inputDrift=[]，按计划在目标阶段后终止（exit -15），owned groups 为空；未取得 ready、渲染或 GPU drained 证据。staging 调度与首轮 normalizer 计时窗口重叠无法排除，不强作因果归因；App两臂前缀另行串行测量。
+
+决策 NO-GO，两个候选产品文件已还原 HEAD；恢复后的 Debug build22.829s、4278输入稳定，当前产品不保留声明准备候选。此前类型 lookup 修正继续保留。
+
+证据在 `.artifacts/tmp/scene-declaration-preparation-20261016/decision.json`、`app-prefix-plan.json`及同目录配对/输出材料；本片不再追加 App campaign或重试，后继转功能断点，不据局部结果重启 cache、MDL 或排序筛选。

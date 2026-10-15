@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 51,
-      "bytes": 11562
+      "bytes": 11731
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
@@ -1222,21 +1222,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "b4be4625ab270689fb8cd5e13fc744e7c7e4c8a863e68e328920c628710da1c3",
-      "after": "0770928ecb110426ba683dedf9581e59ca65761aa6d145d4adc2590bd751b24b",
-      "owner": "Scene shader value type recognition",
-      "reason": "替换已过期scope选序，记录有界启动归因、局部类型识别收益及maxwidth未取得可达门；详细证据留历史。",
-      "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#value-type-recognition"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "afe7e1b9ef0d0aee0a34369fa28c66c43650ecdaa810d3bd99ebf011c19bf5f5",
       "after": "78ac8d22c41fd86b5b5a1622c69c9e37fdb12c302ec6b596973c7854cbf15306",
       "owner": "Scene shader value type recognition",
       "reason": "替换已过期scope选序，记录有界启动归因、局部类型识别收益及maxwidth未取得可达门；详细证据留历史。",
       "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#value-type-recognition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "0770928ecb110426ba683dedf9581e59ca65761aa6d145d4adc2590bd751b24b",
+      "after": "25367bbdcadb40e4e64487e5543b77c76d7f12c2020cc7ae3f8e1875ca3b6dbb",
+      "owner": "Scene declaration preparation screen",
+      "reason": "以本次完整normalizer/预锁App主指标NO-GO替换候选状态，明确产品撤回并停止微调，避免后继重复试验。",
+      "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen"
     }
   ]
 }

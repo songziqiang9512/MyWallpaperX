@@ -2683,7 +2683,7 @@
         "docs/scene/roadmap/properties-panel-card.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "有界启动栈归因、同域类型switch的-O/Debug局部CPU对照与独立真实回归；maxwidth未取得可达门，未认领整体收益。"
+      "uniqueValue": "有界启动栈归因与同域type switch局部收益；声明事实准备的normalizer正收益、App主阶段未过门及撤回；maxwidth资格未知。"
     },
     {
       "path": "docs/scene/history/shared-script-resource-preparation-2026-10-12.md",
@@ -3141,10 +3141,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "71c09cb00f690257f8d680d010b81095a434de49acac945aca1972322c3c9dc2",
+        "sourceSHA256": "f32fabc12e217969244f4f8aa16efd85d27eb3c691935cf77f2ae4d876d63fcd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "启动采样及类型识别局部收益、maxwidth一次可达资格STOP的准确边界导航",
-        "limitations": "不认领整体CPU/GPU/内存/启动/能耗、全样本、完整媒体或原生面板收益"
+        "scope": "类型识别局部已接受、声明事实准备App主阶段6.002%未过10%后撤回及后继转功能",
+        "limitations": "仅导航/实验边界复核，不认领整体CPU/GPU/内存/正式启动或能耗改善"
       }
     },
     {
