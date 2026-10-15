@@ -85,6 +85,22 @@ nonisolated extension SceneScriptScalarProgram {
         if binding.owner.kind == .object {
             let layer = descriptor.layers[objectIndex]
             if binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key("fov"),
+            ] {
+                let target = SceneDynamicTarget.layer(layerID: layerID, field: .fov)
+                let validWrapper = (binding.wrapperKeys == ["script", "value"] && binding.properties.isEmpty)
+                    || SceneScriptDynamicProviderHostContract.supports(
+                        keys: binding.wrapperKeys ?? [], host: .objectScalar)
+                guard binding.targetKey == "fov", validWrapper,
+                      !timelineTargets.contains(target),
+                      SceneParticleCameraFrame.acceptsNativePerspectiveProjection(camera: descriptor.camera),
+                      let cameraPath = layer.cameraPath,
+                      cameraPath.camera.lowercased() == "default",
+                      cameraPath.fov?.bitPattern == authored.bitPattern,
+                      SceneScriptValueOwner.acceptsScalar(authored, for: target) else { return nil }
+                return target
+            }
+            if binding.targetPath == [
                 .key("objects"), .index(objectIndex), .key("pointsize"),
             ] {
                 let target = SceneDynamicTarget.text(

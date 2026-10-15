@@ -18,19 +18,13 @@
 
 <a id="camera-layer-fov-scalar"></a>
 
-## Camera layer FOV scalar 后继（2026-10-15，仅设计）
+## Camera layer FOV scalar（2026-10-15）
 
-**目标与已知断点。** 让合法 native-perspective default-camera layer 的作者 FOV 属性脚本沿现 scalar Program、VM 和 typed snapshot 更新原相机帧，恢复其内部 Slider 的真实消费；不新增 camera、VM、clock、store 或 renderer owner。保留的真实324输入中，layer148的 `fov={script,scriptproperties,value:100}` 用两个 Slider 控制 `minvalue/maxvalue`，作者 update 返回 `initialValue*(smoothedAudio*(max-min)+min)`。现 parser 保留脚本与 fallback，但 property host 分类和 scalar target projection 均未准入 FOV，原 camera frame 只消费静态 `cameraPath.fov`。这是具体能力缺口，尚无本片产品或原生验收；不由定义存在推断面板一定显示，也不称已复现编辑误重建。样本身份只作回归，不进入准入条件。
+合法 native-perspective default-camera layer 的 FOV 属性脚本复用原 scalar Program、QuickJS domain、typed snapshot和唯一 camera-frame。现役准入、数值、来源、失败/退休与未覆盖合同统一见[Property-bound 核心合同](../../capabilities/scenescript-api-coverage.md#2-property-bound-核心合同)；实现与验证身份、原生结果及未验边界只记[限定证据](../../history/camera-layer-fov-live-2026-10-15.md)。本段不另维护状态或测试清单，`ICamera` JS handle仍不因此开放。
 
-**限定输入与职责。** 只准现 descriptor 已能形成 native-perspective camera 的 `camera:"default"` layer，保原合法 world frame、near/far 和作者顺序/显隐选择；orthographic、non-default、缺 camera consumer 或畸形 wrapper 不开放。沿 `SceneScriptDynamicProviderHostContract` 的 object scalar wrapper/共享 input codec分类 `fov`，内部 user 输入仍只用原 scriptproperties 合同；不扫描脚本文本猜消费，不开放额外层 API、direct FOV user wrapper 或任意相机字段。property binding compiler、Host active/unavailable consumer 与原子 cohort 必须使用实际已准备 scalar target：同 key 多 target 有一个缺失/不安全则保原拒绝，不能只放行控件。
+取舍保留：Bindings只分类原object-scalar wrapper，不从raw JSON重算camera资格；prepared projection复用原camera owner的ortho/clip条件，实际layer world-frame/FOV override继续由同一consumer验证，不能以scene fallback完整性替代真实layer-camera资格。内部属性只更新原VM输入，不按样本/脚本文本猜消费，不扩direct FOV user、Timeline/animation或其他相机字段，不新造VM、camera、clock、last-value cache或投影公式。
 
-原 scalar Program/ValueOwner 在既有 QuickJS domain 中 compile/init/update 并发布 layer-scoped `.layer(layerID,.fov)` scalar；不另造 FOV VM 或值表。唯一 `SceneParticleCameraFrame.nativePerspectiveOverride` 按原顺序选中可见 default-camera 后，读取同帧 snapshot 中该 layer 的 FOV，否则走原 `cameraPath.fov`/scene fallback。原 `makeCameraFrame` 继续一次产生共享 camera，renderer、particle、pointer/parallax 和后续 pass 不各自求值；原 origin/zoom、投影公式与 compositor 不改。
-
-**来源、数值与失败。** 静态 descriptor 仍是 authored fallback；内部属性只更新该 VM 的输入，不另写相机。全局 authored→userProperty→timeline→sceneScript 优先权与原 owner bundle/fixed-point 提交不变；本片仅有合法 scalar script 发布 FOV，FOV Timeline/animation仍未接，含 animation 或冲突来源的 wrapper 拒绝，不能用优先级排序冒充动画执行。authored 初值、init/update 返回和 typed 发布都服从原相机的同一 Float 有限且 `0<fov<180` 度合同；不 clamp、不借 zoom 代换或新造投影/角度公式。
-
-非法返回只拒绝该 owner 本轮值及同 bundle 副作用，沿现 previous-current保最后有效相机（首个有效输出前保静态fallback），健康 peer 继续；编译、预算、generation与硬失败沿原局部禁用/诊断。隐藏/未选中的 camera 只失去本帧相机选择，不因此新停用有副作用的 VM；owner 真正停用/退休时由原 snapshot/lifecycle撤回其贡献并恢复低优先静态输入，恢复只走原重新准入/初始化，不加retry循环或last-value cache。属性重置只恢复内部输入，不能为编辑重跑 init、重置作者音频平滑或重建Scene；stop/cancel/replace清理原代，迟到值不得复活旧相机。
-
-**验收与退出。** 先补真实 parser→binding/Program→QuickJS→snapshot→唯一 camera-frame 的行为门；受控静音输入使作者100度初值在 min 1→0.8时得到100→80度及不同投影，变量/属性键/资源名改名仍等价。反例覆盖0/180/NaN/Float越界、动画冲突、orthographic/non-default、缺/禁用consumer、同key多target原子拒绝、双camera显隐/作者顺序、pause/stop/旧generation与健康peer，失败保旧相机且不发布副作用。复用 `test_scene_nested_property_binding.py`、`test_scene_property_vector_script.py::test_scalar_script_properties_follow_live_typed_user_input` 与 `test_scene_particle_camera_frame.py::test_native_camera_layer_overrides_saved_editor_view`，不复制VM/投影算法。随后才做324原生两次有效编辑/重开/reset与独立已有native-perspective样本原样构图；尚未执行，不计兼容或性能收益。通过后将稳定 FOV 职责转入原相机/属性能力合同并退役窄登记；无实际 prepared consumer或生命周期/投影反例失败则停在本断点，不扩大相机家族。此后继独立于其他历史D4批次，不将其重新设为串行前置。
+真正topology退休只在原已提交lifecycle沿binding owner.layerID撤唯一Schema登记；失败禁用继续保previous-current，不能混作退休。累计墓碑在全部quiescent后不再新增bindings收集，cleanup重试仍可撤权；held snapshot、健康peer和原Scene代际屏障保持。该后继独立于其他历史D4批次，不将其重新设为串行前置。
 
 ## Legacy RegExp capture 后继（2026-10-13）
 

@@ -3,6 +3,7 @@ import Foundation
 
 struct SceneParticleCameraFrame {
     struct NativePerspectiveOverride {}
+    static func acceptsNativePerspectiveProjection(camera: SceneRenderDescriptor.Camera) -> Bool { false }
     static func usesNativePerspective(camera: SceneRenderDescriptor.Camera, nativePerspectiveOverride: NativePerspectiveOverride? = nil) -> Bool { false }
     static func nativePerspectiveOverride(
         descriptor: SceneRenderDescriptor, layersByID: [Int: SceneRenderDescriptor.Layer],
@@ -146,6 +147,7 @@ struct SceneUtilityLayer {
 
 struct SceneRenderDescriptor {
     enum SceneShaderUserValueKind { case null, string }
+    struct CameraPath { let camera: String; let fov: Double? }
     struct Camera { var orthoHeight: Float? = nil }
     var camera = Camera()
     struct TextStyle {
@@ -238,7 +240,7 @@ struct SceneRenderDescriptor {
     }
     struct Layer {
         var initialConfiguration: SceneJSONValue? = nil
-        var cameraPath: Bool? = nil
+        var cameraPath: CameraPath? = nil
         let id: Int
         let layerIndex: Int
         let name: String?

@@ -37,7 +37,9 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     let sceneScriptStorageSession: SceneScriptLocalStorageSession?
     let frameSchema: SceneDesktopWallpaperLaunchFrameSchema
-    let sceneScriptStatefulTargets: Set<SceneDynamicTarget>
+    var sceneScriptStatefulTargets: Set<SceneDynamicTarget> {
+        frameSchema.sceneScriptStatefulTargets
+    }
     var dynamicDefinitions: [SceneDynamicTargetDefinition] {
         frameSchema.dynamicDefinitions
     }
@@ -843,7 +845,6 @@ extension SceneDesktopWallpaperHost {
             sceneScriptDynamicLayerRuntime: frameSchema.dynamicLayerRuntime,
             sceneScriptStorageSession: sceneScriptStorageSession,
             frameSchema: frameSchema,
-            sceneScriptStatefulTargets: frameSchema.sceneScriptStatefulTargets,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             soundPlaybackProgram: soundPlaybackProgram,
             liveState: Self.makeLivePropertyState(

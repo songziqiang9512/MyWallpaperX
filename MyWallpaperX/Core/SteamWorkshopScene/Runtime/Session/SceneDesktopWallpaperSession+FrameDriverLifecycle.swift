@@ -196,6 +196,14 @@ extension SceneDesktopWallpaperSession {
             effectivePropertyValues: values, userPropertiesJSON: userPropertiesJSON
         )
         if !outcomes.isEmpty {
+            let retiredTargets = Set(
+                (context.sceneScriptScalarProgram.bindings + context.sceneScriptStringProgram.bindings)
+                    .compactMap { layerIDs.contains($0.layerID) ? $0.target : nil }
+                + context.propertyVectorScriptProgram.bindings.compactMap {
+                    layerIDs.contains($0.owner.layerID) ? $0.definition.target : nil
+                }
+            )
+            context.frameSchema.retireStatefulTargets(retiredTargets)
             NSLog("MWX SceneScript VM: lifecycle=layer-retirement owners=%d destroyCallbacks=%d quiescent=%d failures=%d sceneTime=%.3f",
                 outcomes.count, outcomes.filter(\.destroyCallbackInvoked).count,
                 outcomes.filter(\.snapshot.isQuiescent).count,

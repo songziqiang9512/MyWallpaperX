@@ -429,13 +429,19 @@ struct SceneParticleCameraFrame: Sendable {
         nativePerspectiveCamera(camera, override: nativePerspectiveOverride) != nil
     }
 
+    static func acceptsNativePerspectiveProjection(
+        camera: SceneRenderDescriptor.CameraDescriptor
+    ) -> Bool {
+        camera.orthoWidth == nil && camera.orthoHeight == nil
+            && camera.nearZ.isFinite && camera.nearZ > 0
+            && camera.farZ.isFinite && camera.farZ > camera.nearZ
+    }
+
     private static func nativePerspectiveCamera(
         _ camera: SceneRenderDescriptor.CameraDescriptor,
         override: NativePerspectiveOverride?
     ) -> NativePerspectiveCamera? {
-        guard camera.orthoWidth == nil, camera.orthoHeight == nil,
-              camera.nearZ.isFinite, camera.nearZ > 0,
-              camera.farZ.isFinite, camera.farZ > camera.nearZ else {
+        guard acceptsNativePerspectiveProjection(camera: camera) else {
             return nil
         }
         let eye: SIMD3<Float>

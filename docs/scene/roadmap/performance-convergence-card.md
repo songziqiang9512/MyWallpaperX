@@ -26,7 +26,7 @@
 
 [完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)已实现97MiB权重子限/Flight共享，真实owner三轮压力footprint下降85.428740%，保暖重访与轻场景资源回落；App CPU/首帧波动、最终pin与长稳未验，不计整体收益。[ready-request波次](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)、[双层分段](../history/gpu-cost-screening-2026-10-14.md#ordered-pair-segmentation-screen)无收益已撤回；[源码归因资格](../history/gpu-cost-screening-2026-10-14.md#source-cost-qualification)遇原内容Xcode Lite上限，停止重抓/重编及盲改shader。帧内purpose检查各有职责，不凭低覆盖旧暖栈写cache原型。
 
-嵌套String与未绑定Bool已闭实际热编辑，不计CPU百分比。base-image/natural-size、分阶段首帧、长期切换仍待验；MDL保上述STOP。旧E/AS上传峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频和最低设备边界按实际热点启用。shader fallback在合法输入与回退审计前不得退役。
+属性能力进度归[属性卡](properties-panel-card.md)，不计CPU百分比。下一项先做当前冻结App同PID轻/重往返，比较同一轻场景各次回落平台的footprint、GPU分配/目标池及原退休事实，找持续增长后再修持有owner；逐session成功drain/pin/总账未导出，不由最终退出冒充全部释放。base-image/natural-size、分阶段首帧及长期切换最终验收仍开放。旧E/AS上传峰值、聚合预算、静态按需/多屏背压、冷暖编译、媒体/音频和最低设备边界按实际热点启用；shader fallback在合法输入与回退审计前不得退役。
 
 <a id="prepared-material-frame-payload"></a>
 

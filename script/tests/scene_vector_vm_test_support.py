@@ -111,6 +111,7 @@ import simd
 
 struct SceneParticleCameraFrame {
     struct NativePerspectiveOverride {}
+    static func acceptsNativePerspectiveProjection(camera: SceneRenderDescriptor.Camera) -> Bool { false }
     static func usesNativePerspective(camera: SceneRenderDescriptor.Camera, nativePerspectiveOverride: NativePerspectiveOverride? = nil) -> Bool { false }
     static func nativePerspectiveOverride(
         descriptor: SceneRenderDescriptor, layersByID: [Int: SceneRenderDescriptor.Layer],
@@ -238,6 +239,7 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 }
 
 struct SceneRenderDescriptor {
+    struct CameraPath { let camera: String; let fov: Double? }
     struct Camera {
         var parallaxEnabled = false
         var orthoHeight: Float? = nil
@@ -361,7 +363,7 @@ struct SceneRenderDescriptor {
     }
 
     struct Layer {
-        var cameraPath: Bool? = nil
+        var cameraPath: CameraPath? = nil
         let id: Int
         let layerIndex: Int
         let name: String?

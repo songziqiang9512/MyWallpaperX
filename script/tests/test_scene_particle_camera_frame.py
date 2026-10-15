@@ -12,7 +12,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
@@ -346,16 +346,21 @@ enum Harness {
 
         let perspectiveTarget = SceneDynamicTarget.layer(layerID: 91, field: .perspective)
         let scriptedLayer = SceneRenderDescriptor.Layer(id: 91, utilityLayer: nil, usesPerspective: false)
-        var scriptSnapshot = SceneDynamicSnapshot(values: [perspectiveTarget: .init(value: .bool(true), source: .sceneScript)])
+        func perspectiveSnapshot(_ value: SceneDynamicValue, source: SceneDynamicSource = .sceneScript) -> SceneDynamicSnapshot {
+            SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [.init(target: perspectiveTarget, valueType: .bool, authoredValue: .bool(false))],
+                sceneScriptValues: source == .sceneScript ? [perspectiveTarget: value] : [:]).snapshot
+        }
+        var scriptSnapshot = perspectiveSnapshot(.bool(true))
         let scriptedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: scriptSnapshot)
-        scriptSnapshot.values[perspectiveTarget] = .init(value: .bool(false), source: .sceneScript)
+        scriptSnapshot = perspectiveSnapshot(.bool(false))
         let flatFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: scriptSnapshot)
         let nativeFlatFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: scriptSnapshot)
-        let authoredSeed = SceneDynamicSnapshot(values: [perspectiveTarget: .init(value: .bool(false), source: .authored)])
+        let authoredSeed = perspectiveSnapshot(.bool(false), source: .authored)
         let nativeInheritedFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: authoredSeed)
         let inheritedLayer = SceneRenderDescriptor.Layer(id: 91, utilityLayer: nil, usesPerspective: nil)
         let utilityOverride = SceneRenderDescriptor.Layer(id: 91, utilityLayer: true, usesPerspective: true)
-        let invalidSnapshot = SceneDynamicSnapshot(values: [perspectiveTarget: .init(value: .scalar(1), source: .sceneScript)])
+        let invalidSnapshot = perspectiveSnapshot(.scalar(1))
         let wrongTypedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: invalidSnapshot)
         let missingFOVCamera = SceneRenderDescriptor.CameraDescriptor(
             eye: [0, 0, 0], center: [0, 0, 0], up: [0, 1, 0],

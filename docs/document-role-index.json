@@ -857,6 +857,18 @@
       ]
     },
     {
+      "path": "docs/scene/history/camera-layer-fov-live-2026-10-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/properties-panel-card.md"
+      ],
+      "cutoffDate": "2026-10-15",
+      "uniqueValue": "Camera-layer FOV原scalar/typed消费、退休登记与累计墓碑成本反例；原生编辑和独立画面边界"
+    },
+    {
       "path": "docs/scene/history/canvas-perspective-default-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2878,10 +2890,10 @@
       "lastReviewed": "2026-10-15",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3d9c16398e920a4252586c97ba273bf747889ff5ddfcc86d01773f140136919",
+        "sourceSHA256": "99a006051858f45b89eb75a7a17d5c43a6ab9627a2475ef4fe9054eaf805fea0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅相机FOV scalar后继设计与现属性卡/设计登记的职责导航；不重新接受历史D4全部范围。",
-        "limitations": "产品未实施；仅设计和导航核对，不表示原生编辑、相机画面、性能或官方parity验收。"
+        "scope": "仅camera-layer FOV设计退为原scalar能力合同/历史证据导航；不重新接受历史D4全部范围。",
+        "limitations": "只审导航与单一权威，不替代原生、性能或官方parity验收；实际运行边界归本轮历史。"
       }
     },
     {

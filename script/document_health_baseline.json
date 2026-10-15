@@ -114,7 +114,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 192500
+      "bytes": 192495
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -137,8 +137,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 409,
-      "bytes": 100990
+      "lines": 410,
+      "bytes": 102787
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 230,
-      "bytes": 62490
+      "lines": 224,
+      "bytes": 59281
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -218,11 +218,11 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11947
+      "bytes": 12216
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 28,
-      "bytes": 8616
+      "bytes": 8754
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 245,
@@ -1092,12 +1092,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "2e6bb16e5a6ab8fd08610e550e5e0fe381134b48fa48731bec5b2e955bef9225",
+      "after": "d9f1def041ddebf8b0180887b9958df84cccea8516441f293f154a0f7e040a6a",
+      "owner": "scene-engine",
+      "reason": "将已验证camera-layer FOV及共享退休语义放入原scalar能力合同，区分ICamera handle与未验边界；无第二合同。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "13e9202eab42c1fbd7cbe745c9b402b8c1283ab1a589dd7eee03b3a52942e524",
-      "after": "6c5666b847856b7af41319ab72cc0190e9bf15e6d3368ad991c245efe2a9f04e",
-      "owner": "Scene variant cache",
-      "reason": "源纯补齐未达App继续门已撤回；稳定合同收敛Set wire修复，现役卡仅保STOP与历史导航。",
-      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-wire"
+      "before": "6c5666b847856b7af41319ab72cc0190e9bf15e6d3368ad991c245efe2a9f04e",
+      "after": "9e6da8a01ababfa229c2cd51ab3083dd1e9c3227cc4e9368a5ab05a33392026b",
+      "owner": "scene-engine",
+      "reason": "以同PID驻留资格和未导出pin边界替换重复的已闭属性摘要，保持唯一性能选序。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "e384058e24ac9c74d23441d7b14b883890f66b0ec9ee1e3aef7ae0dfb5ee915a",
+      "after": "ee5d61e19bfc19e2743ada27a0546cf55f854c23e661cfd78f7bb14f8c45f235",
+      "owner": "scene-engine",
+      "reason": "替换已过时FOV仅设计状态，导航真实编辑结果与下一项JPEG资格；不复制验收事实。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#camera-layer-fov-scalar"
     }
   ]
 }

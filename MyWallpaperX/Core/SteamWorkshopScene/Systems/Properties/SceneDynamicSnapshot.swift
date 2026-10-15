@@ -118,12 +118,20 @@ nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, S
     case alpha
     case brightness
     case intensity
+    case fov
     case origin
     case size
     case scale
     case angles
     case color
     case volume
+
+    /// Camera-layer scalar outputs use the same representable degree domain
+    /// as NativePerspectiveOverride; the terminal camera still validates pose.
+    nonisolated static func acceptsFOV(_ value: Double) -> Bool {
+        let degrees = Float(value)
+        return degrees.isFinite && degrees > 0 && degrees < 180
+    }
 }
 
 private extension SceneDynamicLayerField {
@@ -131,7 +139,7 @@ private extension SceneDynamicLayerField {
         switch self {
         case .intensity:
             0 ... Double(Float.greatestFiniteMagnitude)
-        case .solid, .perspective, .visibility, .alpha, .brightness, .origin, .size, .scale, .angles, .color,
+        case .solid, .perspective, .visibility, .alpha, .brightness, .fov, .origin, .size, .scale, .angles, .color,
              .volume:
             nil
         }
@@ -273,6 +281,12 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
 }
 
 private extension SceneDynamicTarget {
+    nonisolated func acceptsRepresentableValue(_ value: SceneDynamicValue) -> Bool {
+        guard case .layer(_, .fov) = self else { return true }
+        guard case let .scalar(degrees) = value else { return false }
+        return SceneDynamicLayerField.acceptsFOV(degrees)
+    }
+
     nonisolated var userPropertyScalarRange: ClosedRange<Double>? {
         switch self {
         case let .camera(field):
@@ -502,6 +516,7 @@ nonisolated struct SceneDynamicSnapshotDiagnostic: Equatable, Sendable {
         case unknownTarget
         case valueTypeMismatch
         case nonFiniteValue
+        case valueOutOfRange
         case userPropertyValueOutOfRange
     }
 
@@ -569,6 +584,11 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
                     target: definition.target,
                     source: .authored
                 ))
+                continue
+            }
+            guard definition.target.acceptsRepresentableValue(definition.authoredValue) else {
+                authoredDiagnostics.append(.init(code: .valueOutOfRange,
+                    target: definition.target, source: .authored))
                 continue
             }
             authoredValues[definition.target] = .init(
@@ -785,6 +805,10 @@ nonisolated struct SceneDynamicSnapshotResolver {
             }
             guard value.isFinite else {
                 diagnostics.append(.init(code: .nonFiniteValue, target: target, source: source))
+                continue
+            }
+            guard target.acceptsRepresentableValue(value) else {
+                diagnostics.append(.init(code: .valueOutOfRange, target: target, source: source))
                 continue
             }
             guard source != .userProperty

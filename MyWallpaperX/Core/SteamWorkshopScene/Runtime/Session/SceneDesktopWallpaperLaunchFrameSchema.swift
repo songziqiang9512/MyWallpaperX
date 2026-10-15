@@ -8,7 +8,7 @@ import Foundation
 /// topology may publish a new target after a successful frame.
 nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Sendable {
     let dynamicLayerRuntime: SceneScriptDynamicLayerRuntime
-    let sceneScriptStatefulTargets: Set<SceneDynamicTarget>
+    private(set) var sceneScriptStatefulTargets: Set<SceneDynamicTarget>
     let mediaFrameCoordinator: SceneScriptMediaFrameCoordinator
     /// Launch-frozen QuickJS layer catalog identity. The frame driver publishes
     /// the runtime descriptor every frame, so the schema verifies once at
@@ -27,6 +27,12 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         [Int: Set<SceneDynamicTextField>] = [:]
     private var cachedRuntimeFieldLayerRevision: UInt64?
     private var cachedRuntimeFieldLayerIDs: Set<Int> = []
+
+    /// Only committed topology retirement withdraws a producer. Failed owners
+    /// keep previous-current; pending and held frame snapshots remain intact.
+    func retireStatefulTargets(_ targets: Set<SceneDynamicTarget>) {
+        sceneScriptStatefulTargets.subtract(targets)
+    }
 
     /// Static producers are merged once at launch. Dynamic authored layer
     /// definitions are appended only when the layer runtime publishes a new

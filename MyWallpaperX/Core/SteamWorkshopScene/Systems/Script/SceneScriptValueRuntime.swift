@@ -910,6 +910,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
 
     static func acceptsScalar(_ value: Double, for target: SceneDynamicTarget) -> Bool {
         guard value.isFinite else { return false }
+        if case .layer(_, .fov) = target {
+            return SceneDynamicLayerField.acceptsFOV(value)
+        }
         if case .layer(_, .intensity) = target {
             return value >= 0 && value <= Double(Float.greatestFiniteMagnitude)
         }

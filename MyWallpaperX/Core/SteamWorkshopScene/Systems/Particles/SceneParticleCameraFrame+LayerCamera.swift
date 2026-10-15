@@ -26,7 +26,14 @@ extension SceneParticleCameraFrame {
             }),
               let cameraPath = layer.cameraPath,
               let worldFrame = worldFrames[layer.id] else { return nil }
-        let fov = cameraPath.fov.map(Float.init) ?? fallbackCamera.fovDegrees
+        let fov: Float?
+        if let resolved = dynamicValues[.layer(layerID: layer.id, field: .fov)],
+           case let .scalar(degrees) = resolved.value,
+           SceneDynamicLayerField.acceptsFOV(degrees) {
+            fov = Float(degrees)
+        } else {
+            fov = cameraPath.fov.map(Float.init) ?? fallbackCamera.fovDegrees
+        }
         guard let fov else { return nil }
         return SceneParticleCameraFrame.NativePerspectiveOverride(
             worldFrame: worldFrame,
