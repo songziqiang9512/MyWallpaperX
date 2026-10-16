@@ -52,11 +52,11 @@
 - [资料来源索引](../development/source-index.md)：官方公开资料、官方黑盒/静态观察、corpus、第三方参考的裁决边界。
 - [官方客户端行为研究工作流](../development/official-client-behavior-research-workflow.md)：只有公开资料和现有证据不足以决定当前纵向切片时才使用。
 - [官方页面映射](../development/reference/official-page-map.md)：公开页面到合同 anchor 的入口；目录和 crosswalk 仅作按需交叉参考。
-- [官方客户端静态取证](../development/reference/client-runtime-static-forensics.md)：版本有界的高层职责和顺序，不是产品实现输入。
-- [MirageWallpaper 静态研究](../development/reference/miragewallpaper-rendering-reference.md)：固定 revision 的 clean-room 结构对照，不定义官方语义或像素真值。
+- [官方客户端静态取证](../development/reference/client-runtime-static-forensics.md)：版本有界的研究观察，不是稳定实现合同。
+- [MirageWallpaper 静态研究](../development/reference/miragewallpaper-rendering-reference.md)：固定 revision 的参考研究，不定义官方语义或像素真值。
 - [Scene corpus 清单](scene-corpus-capability-inventory.md)：作者输入影响面，不证明当前运行支持。
 
-标为取证或研究用途的文档不得成为普通实现上下文的前置阅读。实现只消费项目自有行为合同、正反 fixture 和可复核的官方结果摘要；不得复制地址、伪代码、私有 shader/payload、资产或算法表达。
+研究资料按需阅读，不作为每批前置；可以在同一上下文研究后独立实现，不因阅读停工。不得直接复制、照译或移植参考实现，目标行为与验收仍归本项目现役合同。
 
 ## 维护规则
 

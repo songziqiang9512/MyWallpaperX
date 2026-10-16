@@ -59,7 +59,7 @@
 - 每个 runtime 与 callback 必须有 heap、stack、deadline、每帧 CPU/job/timer/mutation/identity 预算。exception、unhandled rejection、NaN/Inf、stale handle、timeout 与 OOM 只熔断最小 owner；runtime 不再可信时才重建该 scene VM，同时保住不依赖脚本的安全画面。
 - reload 建立新 generation，切换成功后才撤销旧 owner；teardown 停止 dispatch、interrupt callback、取消 job/timer/event、丢弃 pending mutation、按项目合同调用 `destroy` exactly once、撤销 handle 并证明 owner/job/timer/handle 归零。
 
-官方事件顺序、默认值或数值边界未由公开合同/黑盒确认时保持 unknown；研究任务可按官方客户端工作流生成一个中性行为合同，fresh implementation context 只接收该合同和项目自有正反门。不得把 2.8.42 的 V8 数据结构、record、常量或静态调用顺序当成 QuickJS-NG 的实现模板。
+官方事件顺序、默认值或数值边界未确认时保持 unknown；可按研究工作流阅读参考并在同一上下文独立实现，用自有正反门与实际运行验证。不得把 2.8.42 的 V8 结构或参考代码直接复制、照译或移植到 QuickJS-NG。
 
 等级使用本专题本地定义：
 

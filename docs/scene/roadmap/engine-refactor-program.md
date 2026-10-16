@@ -46,7 +46,7 @@ Apple Silicon 的平台、语言和依赖政策由[技术栈合同](../../archit
 
 重要能力或 owner/identity/lifecycle 变化先修订所属专题设计，再实施；普通局部修复直接推进。设计说明完整数据流、替代方案、失败半径、取消/退出和最近正反例，沿[仓库工作流](../../development/repository-workflow.md#设计判定与记录)登记，不为每个 helper 新建任务书。
 
-资源越界、stale handle 和错误代次拒绝最小不安全单元；普通视觉失败局部降级，保留合法 previous/current 与不受影响内容。不按样本、路径、哈希或源码形状选择视觉算法，不复制参考实现；研究边界遵循[clean-room 工作流](../development/official-client-behavior-research-workflow.md)。
+资源越界、stale handle 和错误代次拒绝最小不安全单元；普通视觉失败局部降级，保留合法 previous/current 与不受影响内容。不按样本、路径、哈希或源码形状选择视觉算法，不复制参考实现；参考阅读与独立实现遵循[研究工作流](../development/official-client-behavior-research-workflow.md)。
 
 验证复用[工作流的风险分级](../../development/repository-workflow.md#并行与验证)。先用最近门和短实验筛选，短实验不作性能验收；目标收益成立后执行工作卡规定的同条件多轮比较、变体/相邻反例、独立真实样本和一次最终独审。正确性或生命周期退化立即纠偏；连续两次有区分力实验仍无收益，停止该方向并重新选题。
 

@@ -14,7 +14,7 @@
 >
 > 性质：clean-room 静态结构证据，不是运行时或像素等价证据
 >
-> 文档角色：`official-client-static-observation / research-context-only`。本文不是官方公开规范、产品实现说明或算法说明。implementation agent 不得依据地址邻域、调用关系、字段偏移、客户端控制流描述或本文遗留的“必须/应/可指导”措辞直接落代码；这些措辞一律只表示审查时的研究假设。产品实现只能消费已经独立写入项目语义合同的行为边界、项目正反 fixture 与官方结果对照协议，当前能力与任务顺序只查现役台账、证据索引和路线。
+> 文档角色：`official-client-static-observation / research-context-only`。本文是固定客户端的静态观察与研究假设，不是官方公开规范或现役实现合同。实现者可阅读研究，按[研究工作流](../official-client-behavior-research-workflow.md)独立实现和验证，不因阅读停工或更换上下文。当前能力与顺序仍查现役台账、证据索引和路线。
 
 ## 1. 目的与边界
 
@@ -610,7 +610,7 @@ media generation N
 
 ## 8. 静态观察支持的项目合同候选（非实现输入）
 
-本节只归纳可供项目合同评审的关系，不更新任何 `L0-L4` 等级，也不是 implementation checklist。每一项只有在现役项目合同用独立措辞重新定义、配套项目正反 fixture，并按声明需要加入官方动态对照后，才能取得实现授权；未完成该转换时保持 research-context-only：
+本节归纳项目合同候选，不更新任何 `L0-L4` 等级，也不决定开发顺序。可据此研究并按授权独立实现；产品目标、正反 fixture 和实际验收仍需在本项目中明确，不能把静态观察直接当作已支持能力：
 
 1. **纹理**：format、purpose、physical/mapped、UV、sampler、alpha/color 与 generation 必须共同进入 identity；`nointerpolation/clampuvs` 分别进入 filter/address policy，cache key 不得只取这两个布尔位；动态写入必须由显式 generation/reprepare 合同承接；
 2. **RenderGraph**：condition 先于 admission；ordinary/copy/swap/compose 保持 typed node；copy 是 target operation，swap 改 logical mapping，compose 推进 layer-local full-frame pair；FBO 的 authored extent、fit、scale、unique、clear 与 UV policy 必须分别保真，resource mapping 必须受 effect/reset generation 治理；

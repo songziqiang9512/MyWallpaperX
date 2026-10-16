@@ -4,7 +4,7 @@
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
-> 本索引只导航来源；开发顺序见[Scene路线](../roadmap/scene-compatibility-roadmap.md)，能力/运行事实见[覆盖台账](../capabilities/coverage-ledger.md)和[运行证据索引](../capabilities/runtime-evidence-current.md)。来源不足时，先按[官方研究工作流](official-client-behavior-research-workflow.md)建立有界问题、研究卡、clean-room输出和官方黑盒门，不得直接宽泛反编译或实施产品。
+> 本索引只导航来源；开发顺序见[Scene路线](../roadmap/scene-compatibility-roadmap.md)，能力/运行事实见[覆盖台账](../capabilities/coverage-ledger.md)和[运行证据索引](../capabilities/runtime-evidence-current.md)。来源不足时，按[官方研究工作流](official-client-behavior-research-workflow.md)有界研究、独立实现和验证，不要求因阅读更换上下文。
 
 本页是全库 named source taxonomy 的唯一分类入口。以下来源不得在一个结论中互相替代，也不得再另建 `A`–`E` 全局等级：
 
@@ -12,13 +12,13 @@
 |---|---|---|
 | `official-public-contract` | 官方 Designer 文档、公开声明、官方示例及其固定 revision | 未公开的内部 GraphExecutor、shader 数学或调度算法 |
 | `official-client-dynamic-golden` | 固定 Wallpaper Engine 客户端、输入、环境、时间和事件下的黑盒画面/状态/时序观察 | 客户端内部实现、其他版本/环境或未纳入对照的 profile |
-| `official-client-static-observation` | 固定 Wallpaper Engine 2.8.42/build `23967692` 安装物、字符串、changelog 与 bounded clean-room 静态观察 | 其他版本、macOS/Metal 实现、Windows 像素等价或可复制的官方算法 |
+| `official-client-static-observation` | 固定 Wallpaper Engine 2.8.42/build `23967692` 安装物、字符串、changelog 与有界静态观察 | 其他版本、macOS/Metal 实现、Windows 像素等价或可直接采用的官方实现 |
 | `authored-corpus-observation` | 合法取得的 Workshop/默认工程及其隔离解析结果 | 官方默认值、跨版本稳定性、客户端内部算法或 MyWallpaperX 已支持该形态 |
-| `third-party-reference-pattern` | 固定 revision 的 MirageWallpaper 等第三方项目所展示的职责分层、状态传递和顺序 | 官方语义、MyWallpaperX 当前能力或可直接复制的实现 |
+| `third-party-reference-pattern` | 固定 revision 的 MirageWallpaper 等第三方项目的职责、算法、状态传递和顺序 | 官方语义、MyWallpaperX 当前能力或可直接复制的实现 |
 | `MyWallpaperX-current-evidence` | 当前代码/配置、自动门，以及绑定精确 commit、App、fixture 和环境的可复现运行证据 | 未运行路径、未覆盖输入、跨版本结果或 Wallpaper Engine 等价；代码/测试存在也不单独证明可见结果 |
 | `MyWallpaperX-strategy` | 项目自有的兼容运行时架构、路线、安全边界和验证决策 | 官方内部处理方式、当前已经支持或用户可见结果 |
 
-未知内部行为保持unknown；作者语料、第三方猜测或自有strategy不得冒充官方规则。静态观察是`research-context-only`；产品不得消费地址、伪代码、函数体、私有算法或静态原文，只消费独立语义合同、项目正反fixture和官方对照协议。
+未知内部行为保持unknown；作者语料、第三方猜测或自有strategy不得冒充官方规则。旧`research-context-only`标签表示来源与局限，不禁止实现者阅读。可研究作者源码和参考实现，由同一Agent继续独立实现；不得直接复制、照译或移植，以项目正反fixture和实际运行验收。
 
 ## 1. 官方公开资料
 
@@ -35,7 +35,7 @@
 
 本轮固定官方文档 revision：[`b26412295cbfd0ee5cdceff67e2c95069527aa1b`](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs/commit/b26412295cbfd0ee5cdceff67e2c95069527aa1b)，也是 2026-07-22 核验时的远端 `HEAD`。线上页面与源码发生漂移时，先对比该 revision，不从记忆猜改动。
 
-补证先查现役合同、合法corpus和官方公开资料，再做固定输入的官方黑盒差分。若仍无法解答阻塞公共设计的字段归属、producer-to-consumer顺序、状态或生命周期问题，才对哈希固定客户端做有界clean-room静态复核；官方资料不足或需全链交叉检查时才读固定revision第三方参考。取证导航不决定开发顺序，Ghidra/Mirage不是每批前置；禁止复制算法、payload、伪代码、地址或资产，静态结构不能替代自有正反门、隔离样本或官方动态golden。
+补证先复用现役合同、合法corpus和公开资料，仍有关键歧义时按问题与成本选择黑盒、固定客户端静态研究或固定revision第三方参考。取证导航不决定开发顺序，Ghidra/Mirage不是每批前置；阅读不触发停工，不直接复制或移植参考实现，静态结构不能替代自有正反门、隔离样本或官方动态golden。
 
 2026-07-22 sitemap 中 Scene 页面按首级目录计数：
 
@@ -82,7 +82,7 @@
 
 2026-08-13 复核官方历史framebuffer material alias：官方客户端`locale/ui_en-us.json`把`ui_editor_properties_framebuffer`定义为“Framebuffer”；官方安装内历史stock shader以`material:"ui_editor_properties_framebuffer", hidden:true`标注`g_Texture0`，现代stock则使用`material:"framebuffer", label:"ui_editor_properties_framebuffer"`。Mirage固定revision `da4fa7b3ee33e9e94c59307f47098aa521f21aa6`只作`third-party-reference-pattern`结构交叉验证：material annotation作为uniform alias，作者slot 0为空时绑定当前pass input。三项材料已足够界定exact历史token与现代framebuffer semantic等价的职责路径，无需新增Ghidra；项目只在regular hidden `g_Texture0` slot 0上归一该exact token，相似editor key、label-only、显式作者asset、错slot/name/mode继续失败关闭，不复制官方/Mirage shader、payload或算法表达，也不声称Windows像素/时序等价。现役产品与运行证据见[E-HISTORICAL-FRAMEBUFFER-MATERIAL-ALIAS](../history/runtime-evidence-index.md#e-historical-framebuffer-material-alias)。
 
-2026-08-12 复核官方 [SceneScript media events](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/media.html)、[MediaPlaybackEvent](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/MediaPlaybackEvent.html) 与 [update event](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)：公开合同明确 playback state 为 0 stopped / 1 playing / 2 paused，逐帧动画应消费 `engine.frametime`；2.8.42 固定客户端静态研究只记录了被检路径中 event-before-update 的候选顺序，不是 generic VM 的现役实现合同。Mirage 固定 revision 只交叉支持“host event queue → SceneScript consumer → frame render”的架构顺序，未提供可用 macOS 系统媒体 provider，thumbnail 颜色也不能作为官方真值。项目当前的严格 AST placeholder-fade typed evaluator 把 media event 先写入本地状态、再用同帧 delta 推进，这只是该 bounded owner 的 `MyWallpaperX-strategy`；不执行 JavaScript，也不会把该顺序外推到通用 SceneScript。产品当前没有 live provider 并明确报告 `input=unavailable events=0`。未经 fresh-context 研究交接和官方黑盒对照，不得声称 Windows effective-delta、系统播放器接入、通用事件顺序或视觉等价。
+2026-08-12 复核官方 [SceneScript media events](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/media.html)、[MediaPlaybackEvent](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/MediaPlaybackEvent.html) 与 [update event](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)：公开合同明确 playback state 为 0 stopped / 1 playing / 2 paused，逐帧动画应消费 `engine.frametime`；2.8.42 固定客户端静态研究只记录了被检路径中 event-before-update 的候选顺序，不是 generic VM 的现役实现合同。Mirage 固定 revision 只交叉支持“host event queue → SceneScript consumer → frame render”的架构顺序，未提供可用 macOS 系统媒体 provider，thumbnail 颜色也不能作为官方真值。项目当时的严格 AST placeholder-fade typed evaluator 把 media event 先写入本地状态、再用同帧 delta 推进，这是该 bounded owner 的 `MyWallpaperX-strategy`；当时不执行 JavaScript，也不能把该顺序外推到通用 SceneScript。当时没有 live provider 并报告 `input=unavailable events=0`。未经官方黑盒对照，不得声称 Windows effective-delta、通用事件顺序或视觉等价；现役系统媒体能力以当前合同和运行证据为准。
 
 2026-08-02 复核官方 [Blur Precise effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) 与 [Effects overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)：公开页把它定义为作用于完整 layer 的精确 Gaussian blur，并允许作者调整 kernel size 与 X/Y scale；更大的 kernel 增加模糊范围和性能成本，overview 只把其更清晰的轮廓/光束表现作为选择方向。页面不公开私有 `KERNEL` 数值映射、采样权重、`ENABLEMASK`/`MASK` wire、pass/RT 结构或跨后端舍入。项目当前 `KERNEL=0/1/2` identity 来自合法 authored 语料与 stock 结构研究，GPU 使用项目自有 large/7-tap binomial/3-tap binomial profile；不得把这些系数写成官方算法或 Windows 像素等价。
 

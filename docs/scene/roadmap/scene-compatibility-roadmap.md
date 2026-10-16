@@ -159,9 +159,9 @@ evidence key 绑定内容 fingerprint、代码/App identity、合同/schema revi
 
 ### 5.1 研究只解决当前公共设计歧义
 
-按[来源索引](../development/source-index.md)及[研究工作流](../development/official-client-behavior-research-workflow.md)，先查现役合同、官方公开文档/声明、合法 corpus 与已有结果；仍有影响实现选择的 unknown 时设计单变量黑盒实验。Ghidra 只在公开/黑盒不足时做有界职责、顺序、状态或生命周期研究。
+按[来源索引](../development/source-index.md)及[研究工作流](../development/official-client-behavior-research-workflow.md)，先复用现役合同、公开资料、合法 corpus 与已有结果；仍有关键 unknown 时，按问题与成本选择黑盒或有界参考/静态研究。
 
-MirageWallpaper 有明确问题时才固定 revision，交叉核对职责/状态流并记 divergence；不是官方真值。私有 shader/算法/payload、取证原始输出及第三方实现表达不进入产品上下文。静态研究与 fresh implementation context 分离，只交接经审查中性合同、自有 fixture 和官方对照协议；完整继承研究对话不算隔离。
+可以阅读作者脚本、shader、参考源码及反编译资料，研究后由同一 Agent 独立实现；不因阅读停工或更换上下文，不直接复制、照译或移植参考实现。MirageWallpaper 等第三方参考须固定 revision并记 divergence，不能代替官方行为和实际结果验收。
 
 ### 5.2 复用工具
 

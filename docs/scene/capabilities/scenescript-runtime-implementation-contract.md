@@ -10,7 +10,7 @@
 >
 > VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)和[兼容运行时架构](../architecture/runtime-architecture.md)统一约束。MyWallpaperX 的现役目标是 QuickJS-NG per-scene runtime/context + Swift typed host bridge；JavaScriptCore 只保留为历史候选和对照。官方公开合同只确认 SceneScript 基于 ECMAScript 并使用 wallpaper host API，不公开 QuickJS-NG、MyWallpaperX owner/预算策略或内部帧提交协议；下文 V8、record、timer 和 teardown 结论均是 2.8.42 固定客户端静态观察。
 >
-> **文档角色：`official-client-static-observation / research-context-only`。** 本页不是稳定实现合同，不得直接交给 implementation agent，也不授权照译其中的客户端常量、公式、布局、record 或顺序。研究任务只能按[官方客户端行为研究工作流](../development/official-client-behavior-research-workflow.md)把当前有界问题压缩成经审查的中性行为合同；fresh implementation context 只接收该合同、项目自有 fixture 与官方黑盒协议。产品策略、失败边界和验收门只以本文链接的现役合同为准。
+> **文档角色：`official-client-static-observation / research-context-only`。** 本页不是稳定实现合同。实现者可以阅读研究，按[官方客户端行为研究工作流](../development/official-client-behavior-research-workflow.md)独立实现，不要求新上下文；不得直接复制、照译或移植参考实现。产品策略、失败边界和验收门以现役合同为准，静态观察不能代替运行证据。
 
 ## 1. 为什么需要这份文档
 
@@ -398,7 +398,7 @@ immutable Swift frame snapshot
 
 ## 10. 静态研究候选的区分问题
 
-下表仅把结构化文件与 executable 静态路径整理为研究任务可以区分的问题。它不是现役验收门、不是 implementation backlog，也不自动升级 API 等级；任何项目实现门都必须在 fresh-context 交接后重新写入现役 API 合同或路线。
+下表仅把结构化文件与 executable 静态路径整理为可研究的问题，不是现役验收门或 implementation backlog，也不自动升级 API 等级；新的项目实现门应写入现役 API 合同或路线，不要求 fresh-context 交接。
 
 | 能力 | 静态候选观察 | 可由独立研究区分的行为问题 |
 |---|---|---|

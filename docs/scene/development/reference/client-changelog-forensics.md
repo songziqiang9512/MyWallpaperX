@@ -4,7 +4,7 @@
 取证快照：Wallpaper Engine 2.8.42 `ui/dist/scripts/scripts.js` 内嵌变更日志
 审查方式：只读静态提取，459 个 revision / 741 条变更 / 45 KB 正文
 
-> 文档角色：`official-client-static-observation / research-context-only`。本文只保留固定 2.8.42 客户端内嵌 changelog 的版本证据；不是产品实现说明、算法说明、现役能力或任务入口。implementation agent 不得把 changelog 条目、本文的历史解读或客户端内部措辞直接翻译成代码，只能消费项目自有语义合同、正反 fixture 与官方结果对照协议。现役事实查[覆盖台账](../../capabilities/coverage-ledger.md)与[运行证据索引](../../capabilities/runtime-evidence-current.md)，顺序查[Scene 兼容路线](../../roadmap/scene-compatibility-roadmap.md)。
+> 文档角色：`official-client-static-observation / research-context-only`。本文只保留固定 2.8.42 changelog 的版本证据，不证明现役能力。实现者可阅读研究，按[研究工作流](../official-client-behavior-research-workflow.md)独立实现和验证。现役事实查[覆盖台账](../../capabilities/coverage-ledger.md)与[运行证据索引](../../capabilities/runtime-evidence-current.md)，顺序查[Scene 兼容路线](../../roadmap/scene-compatibility-roadmap.md)。
 
 > 官方在编辑器 UI 脚本里内嵌了逐版本变更日志：`assets/**` 只给出当前 build 的静态数据形态，changelog 给出「哪一版加了什么、改了什么、为什么改」。
 >

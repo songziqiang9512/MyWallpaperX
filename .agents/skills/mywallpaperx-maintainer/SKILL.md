@@ -37,7 +37,7 @@ Interpret instructions by strength:
 
 | Strength | Meaning |
 |---|---|
-| Hard boundary | User/workspace safety, clean-room separation, single product output ownership, identity/lifecycle integrity, and evidence honesty. |
+| Hard boundary | User/workspace safety, independent implementation without copying references, single product output ownership, identity/lifecycle integrity, and evidence honesty. |
 | Default method | Producer-to-consumer tracing, vertical slices, local failure radius, and risk-scaled verification. Deviate when stronger evidence justifies a better method and state the replacement gate. |
 | Routing hint | Type, path, command, or current owner clue. Verify it live and correct this Skill when stale. |
 
@@ -68,7 +68,7 @@ For cross-runtime work, load only the affected module references and trace the c
 
 Discover current switch and output owners from live call sites, notifications, construction, apply, teardown, and publication paths; do not preserve a moving type-name list in this Skill. If a unified coordinator becomes the target, establish it first in the canonical architecture and migrate ownership explicitly.
 
-Do not broadly load `docs/history/`, `.codex` reports, real Workshop content, or `Reference Project/`. Read history only for a named historical question. Read clean-room reference material only under the active research workflow and context-separation rules.
+Do not broadly load `docs/history/`, `.codex` reports, real Workshop content, or `Reference Project/`. Read history only for a named historical question. Read author scripts, shaders, reference source, or static analysis as needed under the active research workflow; reading does not require stopping work or changing agents or contexts. Implement independently rather than copying, translating, or transplanting a reference implementation.
 
 ## Define The Decision Note
 

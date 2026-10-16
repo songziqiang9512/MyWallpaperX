@@ -4,7 +4,7 @@
 取证快照：Wallpaper Engine 2.8.42 `locale/ui_en-us.json`（3,332 keys）及同族 `core_en-us.json`（96 keys）、`var_en-us.json`（28 keys），36 种语言各三族
 审查方式：只读静态提取
 
-> 文档角色：`official-client-static-observation / research-context-only`。字符串表只能确认固定 2.8.42 编辑器的字段标签和作者可见说明，不是官方公开运行合同、产品实现说明或 MyWallpaperX 现役能力/顺序。实现代理不得把标签、相邻关系或本文推断直接翻译为代码；产品实现只能消费经项目独立形成的行为合同、正反 fixture 与官方结果对照协议。来源分类见[资料来源与证据索引](../source-index.md)。
+> 文档角色：`official-client-static-observation / research-context-only`。字符串表只确认固定 2.8.42 的字段标签与说明，不证明运行语义或现役能力。实现者可阅读研究，按[研究工作流](../official-client-behavior-research-workflow.md)独立实现和验证；标签不要求停工或新上下文。来源分类见[资料来源与证据索引](../source-index.md)。
 
 > 字符串表是这个固定客户端快照中**字段名到作者可见措辞**的直接对照：wire 字段（`horizontalalign`、`maxrows`、`controlpoint`…）在编辑器里叫什么、归哪个面板、和哪些枚举值成组。它还保留每个粒子组件与 utility 层的一句话说明——这些说明比 179 个官方网页更细，但仍只是版本有界的静态观察。
 >

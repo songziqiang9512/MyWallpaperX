@@ -4,7 +4,7 @@
 取证快照：Wallpaper Engine 2.8.42 `projects/defaultprojects`
 审查方式：只读静态解析 `scene.json`
 
-> 文档角色：`official-client-static-observation / research-context-only`。本文只记录固定 2.8.42 随包默认工程中 13 处内联脚本的静态 JSON 形态，不是现役能力、实现说明或通用运行语义。implementation agent 只能消费已经写入项目自有 SceneScript 合同的 IR、正反 fixture 和动态对照协议，不能从本文的样本源码、字段邻接或推断直接生成产品代码。
+> 文档角色：`official-client-static-observation / research-context-only`。本文记录固定 2.8.42 默认工程中 13 处内联脚本的静态形态，不证明现役能力或通用运行语义。实现者可阅读研究，按[研究工作流](../official-client-behavior-research-workflow.md)独立实现和验证；不得直接复制或移植参考实现。
 >
 > 2026-07-25 审查开始时，[SceneScript API 覆盖表](../../capabilities/scenescript-api-coverage.md) 曾把 property-bound 实例记为 `L0`，并以 `ScriptSource + owner + target + authoredValue + valueType` 为当时缺口。该等级已经撤权；本文只保留五项静态输入形态，当前能力与缺口只查现役覆盖表和[运行证据索引](../../capabilities/runtime-evidence-current.md)。
 >

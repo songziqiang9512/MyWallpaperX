@@ -1,13 +1,13 @@
 # Scene 开发方法
 
-目标是在原生 macOS Swift/Metal 底座上兼容 Wallpaper Engine 作者的 Scene 行为与可见结果。执行结构遵循仓库架构合同；官方结果一致性按有界同输入对照验证，私有实现研究遵守下述 clean-room 隔离。
+目标是在原生 macOS Swift/Metal 底座上兼容 Wallpaper Engine 作者的 Scene 行为与可见结果。执行结构遵循仓库架构合同；官方结果一致性按有界同输入对照验证，参考研究与独立实现遵守下述方法。
 
 本参考保存 Scene 开发中跨批次仍有用的取证、纵向切片、identity、失效域和可见证据方法。它不保存当前路线阶段、compiler/VM 选择快照、能力数字、sample、route 统计或最近 PASS；这些只能从现役入口和当前运行取得。
 
 ## 目录
 
 1. [按问题选择权威](#按问题选择权威)
-2. [来源与上下文隔离](#来源与上下文隔离)
+2. [来源与独立实现](#来源与独立实现)
 3. [重建统一执行链](#重建统一执行链)
 4. [定义 correctness atom](#定义-correctness-atom)
 5. [Identity、frame channel 与失效域](#identityframe-channel-与失效域)
@@ -30,19 +30,20 @@
 | 当前能力及明确缺口 | `docs/scene/capabilities/coverage-ledger.md` 与命中专项表 |
 | 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/capabilities/runtime-evidence-current.md` |
 | 来源类别和可用边界 | `docs/scene/development/source-index.md` |
-| 公开资料仍不足时的官方黑盒/clean-room 研究与独立实现交接 | `docs/scene/development/official-client-behavior-research-workflow.md` |
+| 官方黑盒、参考研究与独立实现 | `docs/scene/development/official-client-behavior-research-workflow.md` |
 | corpus 中作者实际声明了什么 | `docs/scene/capabilities/scene-corpus-capability-inventory.md`；不证明运行支持 |
 | gate 成员、phase、readiness | 当前脚本 `--help`、`script/scene_validation_gates.json`、`script/scene_fast_suite.json` |
 
 不要每次 Scene 任务读取所有入口。工程任务由对应现役工作卡选序，作者兼容由兼容路线选序；涉及两条路线时选一个主结果与验收，能力台账和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
 
-## 来源与上下文隔离
+<a id="来源与上下文隔离"></a>
+## 来源与独立实现
 
 做语义结论时使用 `source-index.md` 当前定义的来源名和边界，不从 Skill 复制一份固定枚举。始终分开：作者公开合同、固定官方客户端可观察结果、版本有界静态职责、authored corpus、第三方结构模式、项目当前证据和项目策略。
 
-公开资料、现有 golden 和合法 corpus 仍不能回答会阻塞当前 atom 的 observable 时，先定义候选解释和区分实验，优先官方客户端黑盒差分。只有黑盒仍不能决定 producer、identity/state、顺序、生命周期或失败边界时，才启动有界 clean-room 静态研究。
+公开资料、现有 golden 和合法 corpus 仍不能回答当前问题时，定义候选解释和区分实验，选择能最快消除关键歧义的黑盒或有界源码/静态研究；静态结论不能替代官方运行结果。
 
-`research-context-only` 内容、反编译地址/指令/伪代码、私有算法表达、shader、资产、payload 和常量表不能进入 implementation context。研究任务只交接经审查的中性行为合同、自有 fixture 与官方对照协议；实现由 fresh context 独立完成。第三方项目只提供职责/状态/顺序 checklist，不定义官方语义或可复制实现。
+可以阅读作者脚本、shader、参考源码和反编译资料，研究后由同一 Agent 继续独立实现；阅读本身不触发停工或上下文隔离。旧 `research-context-only` 标签表示证据来源与局限，不是阅读禁令。不得直接复制、照译或移植参考实现；把结论落实到本项目的唯一 owner，以自有正反 fixture 和实际运行验收。第三方实现不能定义官方语义或证明官方结果一致。
 
 ## 重建统一执行链
 

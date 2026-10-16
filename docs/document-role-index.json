@@ -741,10 +741,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1ff1f05dff0bf7b2057fa649da245ebf0e90823af4251fe78af2e4656317137d",
+        "sourceSHA256": "41e0c6e0c5ad63b26c4acf49b47ef90081acd16c85f29bbd36491814fb018138",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核D4同parent prepared Puppet lookup、API/对象覆盖、现役队列及运行索引受影响段；CPU name/index/异目标与自有self-index GPU分列，335未知MDLA资源前置保留，370无可调度callback的准备诊断转参考。其他段未作fresh运行复验。",
-        "limitations": "原self沿既有证据；新GPU仅自有单parent/self-index0，未证name/sibling GPU、335原包恢复、跨parent/model/create或完整parity与性能收益。370顶层/私有副作用unknown，不称模块整体无效或已修。213右黑块仍unknown，无归属opacityMask日志不列作已证失败target；其他既有边界保持。"
+        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
+        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
       }
     },
     {
@@ -779,13 +779,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0968d0b95bf1ce0209a8f54693ec5abcedf1d23861160d89915a07bbd923d601",
+        "sourceSHA256": "02812ce44c248063376b1194da2d3aee5c6b23ca761d213771fa3a5d1110fd84",
         "method": "document_registry --audit + document_health --check",
-        "scope": "可选优化增量screen与正式WMO验收的唯一入口和基线隔离核对",
-        "limitations": "仅导航/配置职责；不证明产品性能或所有局部编辑快速"
+        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
+        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
       }
     },
     {
@@ -793,13 +793,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/development/source-index.md",
-      "lastReviewed": "2026-10-03",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0849c6fb1520a2aa23f8cb82f8b96fd0867dc6e674a013e706f87ce3ab7d082",
+        "sourceSHA256": "a25561d101790143a8e0c3524f255c1f5bf13e695acf42fafa9ed50b514efd01",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文档职责迁移后的角色、链接和锚点核对；旧复核依据保存在迁移报告",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
+        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
       }
     },
     {
@@ -853,10 +853,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dce415eb4e333b5329f6697f78eaffbd3047a7cd2731653b7ff41deada80079b",
+        "sourceSHA256": "8493dfbaccab09213e82365ea231349a1264b4bb71c4b980110b21a3d2985de4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
+        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
       }
     },
     {
@@ -3238,10 +3238,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4b50909c7f010d7613297e1f0ab7022036b9357c3980cf513eb993d087f393ab",
+        "sourceSHA256": "9a7fd395391e56d61f383149bfb38989aac9119b62e9d7f7b5fde2bcd27ac5a0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
+        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
       }
     },
     {
@@ -3280,10 +3280,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ecdabcc976735a1f71f41f1f0773750999551e006f89f3bcaa2f0992ebf33681",
+        "sourceSHA256": "9bf68014ec15bb9550cba735510dd7ee75a40b0b9a4fab9c2e5668a6ae5acb2d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
+        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
       }
     },
     {

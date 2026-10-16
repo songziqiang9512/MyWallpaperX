@@ -74,4 +74,4 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 - 现在能什么：[`semantics/coverage-ledger.md`](../capabilities/coverage-ledger.md)及专项表；
 - 实际发生什么：[`semantics/runtime-evidence-current.md`](../capabilities/runtime-evidence-current.md)。
 
-资料的热/冷分层、官方参考与代码的边界、长流水账的读取范围见[`语义手册`](../capabilities/README.md)。同一事实只保留一个权威解释。历史、研究取证、原始报告和本机缓存按需读取，不进入普通实现上下文。无决定性证据时停止写文档，回到代码和共享运行断点。
+资料的热/冷分层、官方参考与代码的边界、长流水账的读取范围见[`语义手册`](../capabilities/README.md)。同一事实只保留一个权威解释。历史、研究取证、原始报告和本机缓存按需读取，不设为每批前置或要求隔离实现上下文。无决定性证据时停止写文档，回到代码和共享运行断点。

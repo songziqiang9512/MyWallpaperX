@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 413,
-      "bytes": 107420
+      "bytes": 107341
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -154,11 +154,11 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 77,
-      "bytes": 11857
+      "bytes": 11878
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
-      "lines": 282,
-      "bytes": 19030
+      "lines": 264,
+      "bytes": 17214
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
       "lines": 499,
@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
-      "bytes": 7447
+      "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 46,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
-      "bytes": 22598
+      "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 50,
@@ -1150,48 +1150,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b71718f9d4d340e5189419ef4495f849dba17fb7095225c7d690bca0f4430b88",
-      "after": "a005ff66ea01dd3d0955cc78761640117e6a05033ebd9634ac65cc66cd66b0c5",
-      "owner": "Scene prepared Puppet / shared Script transaction maintainers",
-      "reason": "同parent prepared lookup沿唯一Runtime与现有事务有界实施；D4集中合同及CPU/自有GPU/原包前置边界，覆盖表只短链，队列删除旧项与无故障资格诊断；正文精确收紧，替换上一批过期adjustment，不增加硬上限或刷新无关review。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup"
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "1d49e839a602242ba07c4177c641d807b0127eafae7512c82903685118eb3403",
+      "after": "4420e97dda982640642083588de1aa6417dacfa3a3167330238cad184d7f33c2",
+      "owner": "scene-research-workflow",
+      "reason": "落实用户允许参考阅读与同上下文独立实现的规则；不增加研究前置、硬预算或重复事实。",
+      "decision": "docs/scene/development/official-client-behavior-research-workflow.md#71-ai-研究与实现"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fe1f02a4acc78121d49b83bdb90a9746e20ca20fe27aca0c2b190778b67451ca",
-      "after": "f4936b858aa615d9d431f478037a836a4632e409972d09c375acea5042afb4c9",
-      "owner": "Scene prepared Puppet / shared Script transaction maintainers",
-      "reason": "同parent prepared lookup沿唯一Runtime与现有事务有界实施；D4集中合同及CPU/自有GPU/原包前置边界，覆盖表只短链，队列删除旧项与无故障资格诊断；正文精确收紧，替换上一批过期adjustment，不增加硬上限或刷新无关review。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "43e32088965100a8fbfb575648f5a73c599fefce12d399afc555f40bd12c5d1f",
-      "after": "b87d3cdeec227848e7c85313b7e0b52c88dac29e88b596e8174a1ab0f10c32a2",
-      "owner": "Scene prepared Puppet / shared Script transaction maintainers",
-      "reason": "同parent prepared lookup沿唯一Runtime与现有事务有界实施；D4集中合同及CPU/自有GPU/原包前置边界，覆盖表只短链，队列删除旧项与无故障资格诊断；正文精确收紧，替换上一批过期adjustment，不增加硬上限或刷新无关review。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "e78f093e3b7ecd079cba6f160403a382cf885143491e74c667af8a0328192248",
-      "after": "2e185b7b61eb07fdad0b3b4825b6479612bdbc46302aaf8963a10e13208c9eaa",
-      "owner": "Scene prepared Puppet / shared Script transaction maintainers",
-      "reason": "同parent prepared lookup沿唯一Runtime与现有事务有界实施；D4集中合同及CPU/自有GPU/原包前置边界，覆盖表只短链，队列删除旧项与无故障资格诊断；正文精确收紧，替换上一批过期adjustment，不增加硬上限或刷新无关review。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d2e180a3bff4d3290f1dfe9f9aed4bc474d9f3b4b13541d72214b507f07b2683",
-      "after": "1236faa933b10cb209baba521f49bdb05a75fbfe4d91af047be35b339d142afb",
-      "owner": "Scene prepared Puppet / shared Script transaction maintainers",
-      "reason": "同parent prepared lookup沿唯一Runtime与现有事务有界实施；D4集中合同及CPU/自有GPU/原包前置边界，覆盖表只短链，队列删除旧项与无故障资格诊断；正文精确收紧，替换上一批过期adjustment，不增加硬上限或刷新无关review。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup"
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "4e8b3e7db528ba48f274a9e2e8ee0ca2f46d2989005d88ff21e550ec98a0dc2c",
+      "after": "18b9bbd658fb6d55a2c920488f366f9616cf0561b6d7da678b3e9b324b20e3ed",
+      "owner": "scene-research-workflow",
+      "reason": "落实用户允许参考阅读与同上下文独立实现的规则；不增加研究前置、硬预算或重复事实。",
+      "decision": "docs/scene/development/official-client-behavior-research-workflow.md#71-ai-研究与实现"
     }
   ]
 }

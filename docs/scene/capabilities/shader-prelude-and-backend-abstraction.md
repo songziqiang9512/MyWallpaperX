@@ -6,7 +6,7 @@
 > - `official-client-static-observation`：本文的 Wallpaper Engine 2.8.42/build `23967692` 快照只观察到随包 source/prelude，以及 normal DirectX material-pass 链的“自定义 preparation → WE HLSL translator → 动态 `D3DCompile`”；不外推到其他版本或 Metal。
 > - `MyWallpaperX-strategy`：项目现役首选是“小型 dialect normalization/generated prelude → glslang → SPIR-V → SPIRV-Cross MSL/reflection → Metal”。这是项目自有策略，不是官方客户端路径；外部 frontend 可编译也不自动证明 GPU 执行或视觉等价。
 >
-> **文档角色：`research-context-only`。** 本页混合公开 source 表面、作者语料观察和固定客户端静态观察，不是产品实现输入。implementation agent 不得从本文复制 shader、公式、常量、rewrite 或客户端 translator 细节；当前切片必须先由独立研究任务产出经审查的中性 source/behavior 合同，再由 fresh context 通过项目 fixture 和官方黑盒协议实现。产品 frontend、backend、失败边界和验收门只以本文链接的现役合同为准。
+> **文档角色：`research-context-only`。** 本页混合公开 source、作者语料与固定客户端静态观察，不是稳定实现合同。实现者可按[研究工作流](../development/official-client-behavior-research-workflow.md)阅读并独立实现，不要求新上下文，不直接复制、照译或移植参考实现。产品 frontend、backend、失败边界和验收门以现役合同为准，静态观察不能代替运行结果。
 
 审查日期：2026-07-25
 架构角色与后端策略复核：2026-08-15
