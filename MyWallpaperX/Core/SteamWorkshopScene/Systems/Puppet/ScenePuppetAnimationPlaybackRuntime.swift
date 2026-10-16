@@ -28,6 +28,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         case unconsumedCadence(frameIndex: UInt64)
         case unknownIdentity(ScenePuppetAnimationIdentity)
         case invalidValue(ScenePuppetAnimationIdentity)
+        case invalidControlSource(layerID: Int, animationLayerID: Int)
+        case invalidControlTarget(ScenePuppetAnimationIdentity)
         case commandBudgetExceeded
         case duplicateCommand
         case staleCommand
@@ -230,6 +232,43 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     func validate(_ commands: [ScenePuppetAnimationCommand], frameIndex: UInt64) -> Result<Void, Failure> {
         lock.lock()
         defer { lock.unlock() }
+        return admission(commands, frameIndex: frameIndex).map { _ in () }
+    }
+
+    /// Prepared nested owners may control playback of sibling clips, while a
+    /// visibility write remains owned by its exact typed property target.
+    /// Validation does not change playback or publish a second native state.
+    func validate(
+        _ commands: [ScenePuppetAnimationCommand],
+        sourceLayerID: Int,
+        sourceAnimationLayerID: Int,
+        frameIndex: UInt64
+    ) -> Result<Void, Failure> {
+        lock.lock()
+        defer { lock.unlock() }
+        var source: ScenePuppetAnimationIdentity?
+        for clip in definitions[sourceLayerID]?.clips ?? []
+            where clip.identity.animationLayerID == sourceAnimationLayerID {
+            guard source == nil else {
+                return .failure(.invalidControlSource(
+                    layerID: sourceLayerID, animationLayerID: sourceAnimationLayerID
+                ))
+            }
+            source = clip.identity
+        }
+        guard let source else {
+            return .failure(.invalidControlSource(
+                layerID: sourceLayerID, animationLayerID: sourceAnimationLayerID
+            ))
+        }
+        for command in commands {
+            guard command.identity.layerID == source.layerID else {
+                return .failure(.invalidControlTarget(command.identity))
+            }
+            if case .setVisible = command.action, command.identity != source {
+                return .failure(.invalidControlTarget(command.identity))
+            }
+        }
         return admission(commands, frameIndex: frameIndex).map { _ in () }
     }
 

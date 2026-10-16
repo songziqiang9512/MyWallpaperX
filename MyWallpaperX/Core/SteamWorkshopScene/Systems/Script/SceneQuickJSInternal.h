@@ -280,6 +280,27 @@ typedef struct MWXSceneQuickJSTimerRecord {
     bool active;
 } MWXSceneQuickJSTimerRecord;
 
+typedef struct MWXSceneQuickJSPuppetAnimationIdentity {
+    int64_t layer_id;
+    uint32_t animation_layer_index;
+    int64_t animation_layer_id;
+    uint32_t has_animation_layer_id;
+} MWXSceneQuickJSPuppetAnimationIdentity;
+
+typedef struct MWXSceneQuickJSPuppetAnimationRecord {
+    MWXSceneQuickJSPuppetAnimationSnapshot snapshot;
+    uint64_t incarnation;
+    bool available;
+} MWXSceneQuickJSPuppetAnimationRecord;
+
+// Only the nested owner's typed Boolean value is provisional here. Playback
+// fields are read from the domain mirror plus the existing command journal.
+typedef struct MWXSceneQuickJSPuppetVisibilityValue {
+    bool present;
+    bool value;
+    size_t journal_cutoff;
+} MWXSceneQuickJSPuppetVisibilityValue;
+
 struct MWXSceneQuickJSTimerFrameSnapshot {
     double timer_runtime;
     bool timer_runtime_initialized;
@@ -287,7 +308,11 @@ struct MWXSceneQuickJSTimerFrameSnapshot {
     JSValue puppet_animation_callbacks[MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS];
     size_t puppet_animation_callback_count;
     uint64_t puppet_animation_delivered_sequence;
-    MWXSceneQuickJSPuppetAnimationSnapshot puppet_animation_overlay;
+    size_t puppet_animation_command_count;
+    size_t puppet_animation_command_read_start;
+    size_t puppet_animation_registration_count;
+    bool puppet_animation_command_overflow;
+    MWXSceneQuickJSPuppetVisibilityValue puppet_animation_visibility;
     bool puppet_animation_visibility_staged;
 };
 
@@ -408,6 +433,9 @@ struct MWXSceneQuickJSDomain {
     int32_t *rollback_layer_order;
     uint32_t rollback_layer_order_count;
     MWXSceneQuickJSOwner *puppet_animation_owners;
+    MWXSceneQuickJSPuppetAnimationRecord *puppet_animations;
+    size_t puppet_animation_count;
+    uint64_t puppet_animation_incarnation_issuer;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;
@@ -482,10 +510,13 @@ struct MWXSceneQuickJSOwner {
     bool puppet_animation_configured, puppet_animation_available;
     bool puppet_animation_command_overflow, puppet_animation_visibility_staged;
     MWXSceneQuickJSOwner *puppet_animation_next;
-    char *puppet_animation_name;
-    MWXSceneQuickJSPuppetAnimationSnapshot puppet_animation_committed;
-    MWXSceneQuickJSPuppetAnimationSnapshot puppet_animation_overlay;
+    MWXSceneQuickJSPuppetAnimationIdentity puppet_animation_identity;
+    uint64_t puppet_animation_incarnation;
+    size_t puppet_animation_catalog_index;
+    bool puppet_animation_catalog_bound;
+    MWXSceneQuickJSPuppetVisibilityValue puppet_animation_visibility;
     size_t puppet_animation_command_count, puppet_animation_callback_count;
+    size_t puppet_animation_command_read_start;
     size_t puppet_animation_registration_count;
     uint64_t puppet_animation_delivered_sequence;
     MWXSceneQuickJSPuppetAnimationCommand puppet_animation_commands[MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_COMMANDS];
@@ -831,6 +862,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_
 bool mwx_scene_quickjs_define_layer_effect_access(MWXSceneQuickJSOwner *, JSValue, uint32_t);
 
 JSValue mwx_scene_quickjs_puppet_animation_handle(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_define_puppet_animation_lookup(MWXSceneQuickJSOwner *owner, JSValue layer);
 void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner *owner, bool commit);
 void mwx_scene_quickjs_destroy_puppet_animation_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner *owner, double *output);

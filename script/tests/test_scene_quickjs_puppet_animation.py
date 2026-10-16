@@ -43,9 +43,357 @@ HARNESS = r'''
             case let .setVisible(v): "visible:\(v)"
         }}
     }
+    static let sibling = ScenePuppetAnimationIdentity(layerID:42,animationLayerIndex:1,animationLayerID:208)
+    static let foreign = ScenePuppetAnimationIdentity(layerID:43,animationLayerIndex:0,animationLayerID:91)
+    static func prepared(_ id:ScenePuppetAnimationIdentity,_ name:String,_ current:Double,_ playing:Bool=true,
+                         _ sequence:UInt64=0,fps:Double=30) -> ScenePuppetAnimationSnapshot {
+        .init(identity:id,animationID:id == sibling ? 78 : 77,name:name,framesPerSecond:fps,frameCount:360,
+            duration:12,currentFrame:current,isPlaying:playing,rate:1,blend:1,visible:true,
+            endedSequence:sequence,supportsEndedCallbacks:true,endedFailure:nil)
+    }
+    static func mirrors(_ name:String="Side arc") -> [ScenePuppetAnimationSnapshot] {
+        [prepared(identity,"Authored clip",3),prepared(sibling,name,29,false),prepared(foreign,"Foreign clip",55)]
+    }
+    static func lookupOwner(_ source:String,_ states:[ScenePuppetAnimationSnapshot]?=nil)
+        throws -> (SceneScriptQuickJSDomain,SceneScriptValueOwner) {
+        let domain=try SceneScriptQuickJSDomain()
+        let d=SceneRenderDescriptor(layers:descriptor().layers + [
+            .init(id:43,layerIndex:1,name:"foreign",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],
+                scaleHasScript:nil,alpha:1,effects:[])])
+        try domain.configureLayerCatalog(d)
+        try domain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,
+            definitions:[]).snapshot,descriptor:d)
+        let owner=try SceneScriptValueOwner(domain:domain,source:source,target:target,valueType:.bool,effectNames:[],
+            puppetAnimationIdentity:identity,allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
+        try domain.publishPuppetAnimationSnapshot(states ?? mirrors());return(domain,owner)
+    }
+    static func at(_ owner:SceneScriptValueOwner,_ time:Double,_ generation:UInt64=1,delta:Double=0.016)
+        -> Result<SceneScriptValueEvaluation,SceneScriptScalarRuntimeFailure> {
+        owner.evaluate(input:.bool(true),frame:.init(timing:.init(wallDate:Date(timeIntervalSince1970:0),
+            simulationFrameTime:delta,sceneTime:time)),scriptPropertiesJSON:"",userPropertiesJSON:"{}",
+            expectedGeneration:generation,interruptBudget:nil)
+    }
+    static func failed(_ result:Result<SceneScriptValueEvaluation,SceneScriptScalarRuntimeFailure>) -> Bool {
+        if case .failure=result { return true };return false
+    }
+    enum RecoveryFixtureFailure: Error {
+        case phase(damage:String,stage:String,underlying:Error)
+    }
+    static func phase(_ name:String) {
+        FileHandle.standardError.write(Data(("fixture-phase="+name+"\n").utf8))
+    }
+    static func nativeLookupRuntime(_ duplicateSource:Bool=false,siblingName:String="Side arc") throws -> ScenePuppetAnimationPlaybackRuntime {
+        let first=ScenePuppetAnimationLayer(id:91,animationID:77,name:"Authored clip",additive:false,
+            blend:1,blendIn:false,blendOut:false,blendTime:0,rate:1,visible:true,visibilityBinding:nil)
+        let second=ScenePuppetAnimationLayer(id:duplicateSource ? 91 : 208,animationID:78,name:siblingName,additive:true,
+            blend:1,blendIn:false,blendOut:false,blendTime:0,rate:1,visible:true,visibilityBinding:nil)
+        func clip(_ id:Int) -> SceneMdlPuppetAnimation {
+            .init(id:id,name:"clip-\(id)",mode:"loop",framesPerSecond:30,frameCount:360,
+                transformsByBone:[(0...360).map{_ in .init(translation:.zero,rotation:.zero,
+                    scale:SIMD3(repeating:1))}],alphaByBone:nil)
+        }
+        let runtime=ScenePuppetAnimationPlaybackRuntime()
+        try runtime.register(layerID:42,selection:.init(clips:[.init(layer:first,animation:clip(77)),
+            .init(layer:second,animation:clip(78))],composition:.layered),authoredLayers:[first,second]).get()
+        try runtime.register(layerID:43,selection:.init(clips:[.init(layer:first,animation:clip(77))],
+            composition:.singleAbsolute),authoredLayers:[first]).get()
+        _=runtime.advance(frameIndex:1,sceneTime:0,dynamicValues:SceneDynamicSnapshotResolver()
+            .resolve(frameIndex:1,generation:1,definitions:[]).snapshot)
+        if !duplicateSource {
+            let seed:[ScenePuppetAnimationCommand]=[
+                .init(identity:identity,action:.setFrame(3),callbackEpoch:0,ordinal:0),
+                .init(identity:sibling,action:.setFrame(29),callbackEpoch:0,ordinal:1),
+                .init(identity:sibling,action:.pause,callbackEpoch:0,ordinal:2)]
+            try runtime.apply(seed,frameIndex:1).get()
+        }
+        return runtime
+    }
+    static func lookupChecks() throws -> [String:Any] {
+        var out:[String:Any]=[:];var variants:[Bool]=[]
+        // Name resolves a real sibling, index resolves authored order rather than editor ID.
+        for (name,variable,index) in [("Side arc","branch","1"),("Renamed sweep","track","Number(3)-2"),
+                                     ("clip-rebound","motion","Math.floor(1.75)")] {
+            phase("lookup/name-index-variant/\(name)")
+            let native=try nativeLookupRuntime(siblingName:name)
+            let source="""
+            let cached;let visits=0;
+            export function update(v){visits++;const own=thisLayer.getAnimationLayer(0);
+              const \(variable)=thisLayer.getAnimationLayer('\(name)');
+              if(thisLayer.id!==42||own.name!=='Authored clip'||own.getFrame()!==3)throw new Error('self identity');
+              if(visits===1){cached=thisLayer.getAnimationLayer(\(index));
+                if(\(variable).getFrame()!==29||\(variable).isPlaying()||cached.name!=='\(name)')throw new Error('sibling identity');
+                cached.stop();if(cached.getFrame()!==0||cached.isPlaying())throw new Error('stop reset');
+                cached.play();cached.setFrame(16/2);own.pause();
+                return cached.getFrame()===8&&cached.isPlaying()&&!own.isPlaying();}
+              return cached.getFrame()===8&&cached.isPlaying()&&!own.isPlaying();}
+            """
+            let (domain,owner)=try lookupOwner(source,native.snapshots())
+            let first=try evaluate(owner).get();let commands=first.puppetAnimationCommands
+            try native.validate(commands,sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1).get()
+            try native.apply(commands,frameIndex:1).get();owner.commitLayerMutations()
+            let committed=native.snapshots()
+            try domain.publishPuppetAnimationSnapshot(committed)
+            let next=try evaluate(owner).get();owner.commitLayerMutations()
+            variants.append(first.value == .bool(true) && next.value == .bool(true)
+                && actions(commands) == ["stop","play","frame:8.0","pause"]
+                && commands.map(\.identity) == [sibling,sibling,sibling,identity]
+                && committed.first{$0.identity == sibling}?.currentFrame == 8
+                && committed.first{$0.identity == identity}?.currentFrame == 3
+                && next.puppetAnimationCommands.isEmpty)
+        }
+        out["lookupVariants"]=variants
+
+        // Three real primitive entries share pending state, but each ABI read
+        // exports only its new commands until native acceptance/publication.
+        phase("lookup/initialize-properties-update")
+        let sequenceNative=try nativeLookupRuntime()
+        let (sequenceDomain,sequenceOwner)=try lookupOwner("""
+        let a;let updates=0;
+        export function init(v){a=thisLayer.getAnimationLayer(1);a.stop();a.setFrame(7);return v;}
+        export function applyUserProperties(e){if(a.getFrame()!==7||a.isPlaying())throw new Error('init journal lost');
+          a.play();a.setFrame(11);}
+        export function update(v){if(a.getFrame()!==11)throw new Error('property journal lost');
+          if(updates++===0){if(!a.isPlaying())throw new Error('play journal lost');a.pause();}
+          else if(a.isPlaying())throw new Error('native publication lost');return true;}
+        """,sequenceNative.snapshots())
+        let initialized=try sequenceOwner.initializeIfNeeded(input:.bool(true),frame:frame,scriptPropertiesJSON:"",
+            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()!
+        let propertyChange=try sequenceOwner.dispatchUserProperties(changedPropertiesJSON:"{\"enabled\":true}",
+            scriptPropertiesJSON:"",frame:frame,userPropertiesJSON:"{\"enabled\":true}").get()
+        let updated=try evaluate(sequenceOwner).get()
+        out["lookupPrimitiveRanges"]=[actions(initialized.puppetAnimationCommands),
+            actions(propertyChange.puppetAnimationCommands),actions(updated.puppetAnimationCommands)]
+        let sequenceCommands=initialized.puppetAnimationCommands+propertyChange.puppetAnimationCommands+updated.puppetAnimationCommands
+        try sequenceNative.validate(sequenceCommands,sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1).get()
+        try sequenceNative.apply(sequenceCommands,frameIndex:1).get();sequenceOwner.commitLayerMutations()
+        let sequenceCommitted=sequenceNative.snapshots()
+        out["lookupPrimitiveNative"]=sequenceCommands.allSatisfy{$0.identity == sibling}
+            && sequenceCommitted.first{$0.identity == sibling}?.currentFrame == 11
+            && sequenceCommitted.first{$0.identity == sibling}?.isPlaying == false
+            && sequenceCommitted.first{$0.identity == identity}?.currentFrame == 3
+        try sequenceDomain.publishPuppetAnimationSnapshot(sequenceCommitted)
+        let afterCommit=try evaluate(sequenceOwner).get()
+        out["lookupPrimitiveAfterCommit"]=afterCommit.value == .bool(true) && afterCommit.puppetAnimationCommands.isEmpty
+        sequenceOwner.commitLayerMutations()
+
+        phase("lookup/invalid-inputs")
+        let (_,invalid)=try lookupOwner("""
+        export function update(v){let rejected=0;
+          for(const key of ['absent',-1,1.5,Infinity,NaN,91]){
+            try{thisLayer.getAnimationLayer(key);}catch(e){if(e instanceof RangeError)rejected++;}}
+          for(const key of [null,true,{},[]]){
+            try{thisLayer.getAnimationLayer(key);}catch(e){if(e instanceof TypeError)rejected++;}}
+          try{thisLayer.getAnimationLayer();}catch(e){if(e instanceof TypeError)rejected++;}
+          try{thisScene.getLayer('foreign').getAnimationLayer(0);}catch(e){if(e instanceof TypeError)rejected++;}
+          return rejected===12;}
+        """)
+        out["lookupBadInputs"]=try evaluate(invalid).get().value == .bool(true);invalid.commitLayerMutations()
+        phase("lookup/duplicate-name")
+        let (_,duplicate)=try lookupOwner("""
+        export function update(v){let rejected=false;try{thisLayer.getAnimationLayer('Authored clip');}
+          catch(e){rejected=e instanceof RangeError;}thisLayer.getAnimationLayer(1).pause();return rejected;}
+        """,[prepared(identity,"Authored clip",3),prepared(sibling,"Authored clip",29,false)])
+        let duplicateResult=try evaluate(duplicate).get();out["lookupDuplicateName"]=duplicateResult.value == .bool(true)
+            && duplicateResult.puppetAnimationCommands.map(\.identity) == [sibling];duplicate.commitLayerMutations()
+
+        // Other owners never observe or borrow this owner's uncommitted handle/journal.
+        phase("lookup/cross-owner-writer")
+        let (sharedDomain,writer)=try lookupOwner("""
+        export function update(v){shared.borrowed=thisLayer.getAnimationLayer(1);shared.borrowed.setFrame(17);
+          return shared.borrowed.getFrame()===17;}
+        """)
+        out["lookupLocalRead"]=try evaluate(writer).get().value == .bool(true)
+        let observer=try SceneScriptValueOwner(domain:sharedDomain,source:"""
+        export function update(v){let rejected=false;try{shared.borrowed.play();}catch(e){rejected=e instanceof TypeError;}
+          return rejected&&thisObject.getFrame()===29&&!thisObject.isPlaying();}
+        """,target:ScenePuppetAnimationPropertyTarget.visibility(layerID:42,animationLayerID:208),valueType:.bool,
+            effectNames:[],puppetAnimationIdentity:sibling,allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
+        phase("lookup/cross-owner-observer-bootstrap")
+        let pendingWriterCommands=mwx_scene_quickjs_owner_puppet_animation_command_count(writer.handle)
+        try sharedDomain.publishPuppetAnimationSnapshot(mirrors())
+        let observed=try evaluate(observer).get();out["lookupOwnerIsolation"]=observed.value == .bool(true)
+            && observed.puppetAnimationCommands.isEmpty
+            && mwx_scene_quickjs_owner_puppet_animation_command_count(writer.handle) == pendingWriterCommands
+        observer.commitLayerMutations();writer.discardLayerMutations()
+        phase("lookup/non-nested-owner")
+        let ordinary=try SceneScriptValueOwner(domain:sharedDomain,source:"""
+        export function update(v){try{thisLayer.getAnimationLayer(0);}catch(e){if(e instanceof TypeError)return v;}throw new Error('unprepared owner');}
+        """,target:.layer(layerID:42,field:.origin),effectNames:[],generation:1,budget:.default)
+        out["lookupNonNested"]=try ordinary.evaluate(input:.vector3(1,2,3),frame:frame,scriptPropertiesJSON:"",
+            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get().value == .vector3(1,2,3)
+        ordinary.commitLayerMutations()
+
+        phase("lookup/target-lifetime-cache")
+        let (lifetimeDomain,lifetime)=try lookupOwner("""
+        let cached;export function update(v){if(!cached){cached=thisLayer.getAnimationLayer(1);return true;}
+          try{cached.play();}catch(e){if(e instanceof TypeError)return true;throw e;}return false;}
+        """)
+        _=try evaluate(lifetime).get();lifetime.commitLayerMutations()
+        phase("lookup/target-missing")
+        try lifetimeDomain.publishPuppetAnimationSnapshot([prepared(identity,"Authored clip",3)])
+        let missingHandle=try evaluate(lifetime).get();lifetime.commitLayerMutations()
+        phase("lookup/target-reappeared-old-cache")
+        try lifetimeDomain.publishPuppetAnimationSnapshot(mirrors())
+        let reappearedHandle=try evaluate(lifetime).get();lifetime.commitLayerMutations()
+        out["lookupRetiredHandle"]=[missingHandle.value == .bool(true) && missingHandle.puppetAnimationCommands.isEmpty,
+            reappearedHandle.value == .bool(true) && reappearedHandle.puppetAnimationCommands.isEmpty]
+        let fresh=try SceneScriptValueOwner(domain:lifetimeDomain,source:"export function update(v){thisLayer.getAnimationLayer(1).pause();return v;}",
+            target:target,valueType:.bool,effectNames:[],puppetAnimationIdentity:identity,
+            allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
+        phase("lookup/target-reappeared-fresh-owner-bootstrap")
+        try lifetimeDomain.publishPuppetAnimationSnapshot(mirrors())
+        out["lookupFreshAfterReappear"]=try evaluate(fresh).get().puppetAnimationCommands.map(\.identity) == [sibling]
+        fresh.commitLayerMutations();out["lookupGenerationRejected"]=failed(at(fresh,1,2))
+        phase("lookup/destroyed-owner-cache")
+        var retired:(SceneScriptQuickJSDomain,SceneScriptValueOwner)?=try lookupOwner(
+            "export function update(v){shared.retiredSibling=thisLayer.getAnimationLayer(1);return v;}")
+        let retiredDomain=retired!.0;_=try evaluate(retired!.1).get();retired!.1.commitLayerMutations();retired=nil
+        let successor=try SceneScriptValueOwner(domain:retiredDomain,source:"""
+        export function update(v){try{shared.retiredSibling.play();}catch(e){return e instanceof TypeError;}
+          return false;}
+        """,target:target,valueType:.bool,effectNames:[],puppetAnimationIdentity:identity,
+            allowsStatefulLayerSideEffects:true,generation:2,budget:.default)
+        phase("lookup/destroyed-owner-successor-bootstrap")
+        try retiredDomain.publishPuppetAnimationSnapshot(mirrors())
+        out["lookupDestroyedOwner"]=try at(successor,1,2).get().value == .bool(true)
+        successor.commitLayerMutations()
+
+        // Present-but-invalid records recover their old incarnation. A real
+        // absence remains distinct (lookupRetiredHandle above).
+        var metadataRecovery:[Bool]=[]
+        for damage in ["finite","fps","duplicate"] {
+            phase("lookup/metadata-recovery/\(damage)")
+            var recoveryStage="setup"
+            do {
+                let (recoveryDomain,recoveryOwner)=try lookupOwner("""
+                let own,peer;export function update(v){if(!own){own=thisLayer.getAnimationLayer(0);
+                  peer=thisLayer.getAnimationLayer(1);}return own.getFrame()===engine.runtime
+                    &&peer.getFrame()===engine.runtime+26&&!peer.isPlaying();}
+                """)
+                let healthyIdentity = damage == "fps" ? identity : sibling
+                let healthyFrame = damage == "fps" ? 3 : 29
+                let healthy=try SceneScriptValueOwner(domain:recoveryDomain,
+                    source:"export function update(v){return thisObject.getFrame()===\(healthyFrame);}",
+                    target:ScenePuppetAnimationPropertyTarget.visibility(layerID:42,
+                        animationLayerID:healthyIdentity.animationLayerID!),valueType:.bool,effectNames:[],
+                    puppetAnimationIdentity:healthyIdentity,allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
+                recoveryStage="cache-initial-handles"
+                try recoveryDomain.publishPuppetAnimationSnapshot(mirrors())
+                _=try at(recoveryOwner,3).get();recoveryOwner.commitLayerMutations()
+                var damaged=mirrors()
+                if damage == "finite" { damaged[0]=prepared(identity,"Authored clip",.nan) }
+                else if damage == "fps" { damaged[1]=prepared(sibling,"Side arc",29,false,fps:60) }
+                else { damaged.insert(damaged[0],at:1) }
+                recoveryStage="publish-invalid-and-run-healthy-owner"
+                try recoveryDomain.publishPuppetAnimationSnapshot(damaged)
+                // Do not execute the damaged owner: an uncaught exception has
+                // its own permanent fuse and is not a publisher recovery test.
+                let healthyResult=try at(healthy,4).get();healthy.commitLayerMutations()
+                recoveryStage="restore-and-read-cached-handles"
+                try recoveryDomain.publishPuppetAnimationSnapshot([
+                    prepared(identity,"Authored clip",6),prepared(sibling,"Side arc",32,false),mirrors()[2]])
+                let restored=try at(recoveryOwner,6).get();recoveryOwner.commitLayerMutations()
+                recoveryStage="stable-layout-current-values"
+                try recoveryDomain.publishPuppetAnimationSnapshot([
+                    prepared(identity,"Authored clip",9),prepared(sibling,"Side arc",35,false),mirrors()[2]])
+                let refreshed=try at(recoveryOwner,9).get();recoveryOwner.commitLayerMutations()
+                metadataRecovery.append(healthyResult.value == .bool(true)
+                    && healthyResult.puppetAnimationCommands.isEmpty && restored.value == .bool(true)
+                    && refreshed.value == .bool(true) && refreshed.puppetAnimationCommands.isEmpty)
+            } catch {
+                throw RecoveryFixtureFailure.phase(damage:damage,stage:recoveryStage,underlying:error)
+            }
+        }
+        out["lookupMetadataRecovery"]=metadataRecovery
+
+        var forbidden:[Bool]=[]
+        for (caseIndex,operation) in ["a.visible=false","a.addEndedCallback(()=>{})","throw new Error('rollback')"].enumerated() {
+            phase("lookup/rejected-bundle/\(caseIndex)")
+            let (_,owner)=try lookupOwner("export function update(v){const a=thisLayer.getAnimationLayer(1);a.stop();\(operation);return v;}")
+            forbidden.append(failed(evaluate(owner)) && mwx_scene_quickjs_owner_puppet_animation_command_count(owner.handle)==0)
+        }
+        out["lookupRejectedBundles"]=forbidden
+        phase("lookup/shared-command-budget")
+        let (_,overflow)=try lookupOwner("""
+        export function update(v){const a=thisLayer.getAnimationLayer(1);for(let i=0;i<65;i++){
+          try{(i%2?a:thisObject).play();}catch(e){}}return v;}
+        """)
+        if case let .failure(f)=evaluate(overflow){out["lookupBudgetFailure"]=f.code}
+        out["lookupBudgetCommands"]=mwx_scene_quickjs_owner_puppet_animation_command_count(overflow.handle)
+
+        // Cached self lookup retains existing Bool arbitration and natural-ended ownership.
+        phase("lookup/self-ended-and-visible-setup")
+        let (selfDomain,selfOwner)=try lookupOwner("""
+        let own;export function init(v){own=thisLayer.getAnimationLayer(0);
+          own.addEndedCallback(()=>{own.pause();own.visible=false;});return v;}
+        export function update(v){return true;}
+        """)
+        _=try evaluate(selfOwner).get();selfOwner.commitLayerMutations()
+        phase("lookup/self-ended-and-visible-delivery")
+        try selfDomain.publishPuppetAnimationSnapshot([prepared(identity,"Authored clip",3,true,1),mirrors()[1]])
+        let ended=try evaluate(selfOwner).get();out["lookupSelfEnded"]=ended.value == .bool(false)
+            && actions(ended.puppetAnimationCommands) == ["pause","visible:false"]
+            && ended.puppetAnimationCommands.allSatisfy{$0.identity == identity};selfOwner.commitLayerMutations()
+        let endedNative=try nativeLookupRuntime()
+        try endedNative.validate(ended.puppetAnimationCommands,sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1).get()
+        try endedNative.apply(ended.puppetAnimationCommands,frameIndex:1).get()
+
+        phase("lookup/timer-rollback-setup")
+        let (_,timer)=try lookupOwner("""
+        let a;export function init(v){a=thisLayer.getAnimationLayer(1);engine.setTimeout(()=>{
+          a.stop();a.setFrame(14);thisObject.visible=false;},500);return v;}
+        export function update(v){return true;}
+        """)
+        _=try at(timer,1).get();timer.commitLayerMutations();let saved=timer.timerFrameSnapshot()
+        phase("lookup/timer-fire-and-restore")
+        let firstTimer=try at(timer,1.5,delta:0.5).get();timer.discardLayerMutations();timer.restoreTimerFrame(saved)
+        let retryTimer=try at(timer,1.5,delta:0.5).get();out["lookupTimerRollback"]=firstTimer.value == .bool(false)
+            && retryTimer.value == .bool(false) && actions(firstTimer.puppetAnimationCommands) == ["stop","frame:14.0","visible:false"]
+            && actions(retryTimer.puppetAnimationCommands) == actions(firstTimer.puppetAnimationCommands)
+            && firstTimer.puppetAnimationCommands.map(\.identity) == [sibling,sibling,identity]
+        out["lookupTimerDetails"]=["firstValue":String(describing:firstTimer.value),
+            "retryValue":String(describing:retryTimer.value),
+            "firstActions":actions(firstTimer.puppetAnimationCommands),
+            "retryActions":actions(retryTimer.puppetAnimationCommands),
+            "firstIdentities":firstTimer.puppetAnimationCommands.map{[$0.identity.layerID,
+                $0.identity.animationLayerIndex,$0.identity.animationLayerID ?? -1]},
+            "retryIdentities":retryTimer.puppetAnimationCommands.map{[$0.identity.layerID,
+                $0.identity.animationLayerIndex,$0.identity.animationLayerID ?? -1]}] as [String:Any]
+        timer.commitLayerMutations();timer.discardTimerFrame(saved)
+
+        phase("lookup/swift-runtime-rejection")
+        let native=try nativeLookupRuntime();let (rejectDomain,reject)=try lookupOwner("""
+        let n=0;export function update(v){n++;const a=thisLayer.getAnimationLayer(1);
+          if(n===1){a.rate=-1;a.setFrame(10);}return n===1||(a.rate===1&&a.getFrame()===29&&!a.isPlaying());}
+        """)
+        try rejectDomain.publishPuppetAnimationSnapshot(native.snapshots());let before=native.snapshots()
+        let rejected=try evaluate(reject).get().puppetAnimationCommands
+        let rejectedAdmission=native.validate(rejected,sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)
+        out["lookupSwiftReject"] = !registration(rejectedAdmission) && native.snapshots() == before
+        reject.discardLayerMutations();out["lookupSwiftRetry"]=try evaluate(reject).get().value == .bool(true)
+        reject.commitLayerMutations()
+        phase("lookup/source-target-admission")
+        let visibleSibling=ScenePuppetAnimationCommand(identity:sibling,action:.setVisible(false),callbackEpoch:1,ordinal:0)
+        let foreignTarget=ScenePuppetAnimationCommand(identity:foreign,action:.pause,callbackEpoch:1,ordinal:0)
+        let duplicateNative=try nativeLookupRuntime(true)
+        out["lookupRuntimeAdmission"]=[
+            !registration(native.validate([],sourceLayerID:42,sourceAnimationLayerID:999,frameIndex:1)),
+            registration(native.validate([visibleSibling],frameIndex:1))
+                && !registration(native.validate([visibleSibling],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
+            registration(native.validate([foreignTarget],frameIndex:1))
+                && !registration(native.validate([foreignTarget],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
+            !registration(duplicateNative.validate([],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
+            native.snapshots() == before]
+        return out
+    }
+    static func registration(_ result:Result<Void,ScenePuppetAnimationPlaybackRuntime.Failure>) -> Bool {
+        if case .success=result{return true};return false
+    }
     static func main() throws {
-        var out:[String:Any]=[:]
+        phase("main/lookup-suite")
+        var out=try lookupChecks()
         // Real nested parser + candidate projection, including authored properties.
+        phase("main/parser-projection")
         let source="""
         export var scriptProperties=createScriptProperties().addSlider({name:'percentage',value:1,min:0,max:1,integer:false}).finish();
         export function init(v) {
@@ -73,6 +421,7 @@ HARNESS = r'''
         program.finalizeLayerMutations(committing:true)
 
         // Module-owned persistent handle; ended callbacks run before update.
+        phase("main/persistent-handle-setup")
         let (persistentDomain,persistent)=try make("""
         let a;
         export function init(v){a=thisObject;a.addEndedCallback(()=>{if(thisLayer.name!=="parent"||thisLayer.getBoneCount()!==1||thisLayer.getLocalBoneOrigin(0).x!==0)throw new Error("bound layer");a.stop();});return v;}
@@ -81,6 +430,7 @@ HARNESS = r'''
         try persistent.configurePuppetBones(layerID:42,
             localMatrices:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],names:["root"],parents:[-1])
         _=try evaluate(persistent).get();persistent.commitLayerMutations()
+        phase("main/persistent-ended-delivery")
         try persistentDomain.publishPuppetAnimationSnapshot([snapshot(1.25,1)])
         let ended=try evaluate(persistent).get()
         out["endedActions"]=actions(ended.puppetAnimationCommands);out["endedBeforeUpdate"]=ended.value == .bool(false)
@@ -89,6 +439,7 @@ HARNESS = r'''
         persistent.commitLayerMutations()
 
         // Host rejection restores roots and controls but consumes natural-end input.
+        phase("main/host-rejection-rollback")
         let (rollbackDomain,rollback)=try make("""
         let a;export function init(v){a=thisObject;a.addEndedCallback(()=>a.pause());return v;}
         export function update(v){if(!a.isPlaying())a.addEndedCallback(()=>a.setFrame(23));return v;}
@@ -105,6 +456,7 @@ HARNESS = r'''
         rollback.commitLayerMutations()
 
         // The same rejection boundary through the real program owner bundle.
+        phase("main/program-owner-rejection")
         let programSource="""
         let a;export function init(v){a=thisObject;a.addEndedCallback(()=>a.pause());return v;}
         export function update(v){if(!a.isPlaying())a.addEndedCallback(()=>a.setFrame(23));return v;}
@@ -139,6 +491,7 @@ HARNESS = r'''
         rejectedProgram.finalizeLayerMutations(committing:true)
 
         // Setter visibility and returned nested Bool share one publication.
+        phase("main/self-visible-arbitration")
         let (_,visibility)=try make("""
         export function init(v){thisObject.rate=2;thisObject.blend=.25;return v;}
         export function update(v){thisObject.visible=false;return true;}
@@ -148,6 +501,7 @@ HARNESS = r'''
         visibility.commitLayerMutations()
 
         // Finite raw seek is observable immediately, including unclamped bounds.
+        phase("main/finite-seek")
         let (_,bounds)=try make("""
         export function update(v){thisObject.pause();thisObject.setFrame(-1.5);if(thisObject.getFrame()!==-1.5)throw new Error('raw');
           thisObject.setFrame(720.5);return !thisObject.isPlaying()&&thisObject.getFrame()===720.5;}
@@ -155,9 +509,11 @@ HARNESS = r'''
         let bounded=try evaluate(bounds).get();out["boundsValue"]=bounded.value == .bool(true);out["boundsActions"]=actions(bounded.puppetAnimationCommands)
         bounds.commitLayerMutations()
 
+        phase("main/init-throw")
         let (_,throwing)=try make("export function init(v){thisObject.addEndedCallback(()=>thisObject.stop());thisObject.play();throw new Error('failed');}")
         if case let .failure(failure)=evaluate(throwing){out["throwFailure"]=failure.code}
         out["throwCommands"]=mwx_scene_quickjs_owner_puppet_animation_command_count(throwing.handle)
+        phase("main/ended-throw")
         let (failedEndDomain,failedEnd)=try make("""
         let a;export function init(v){a=thisObject;a.addEndedCallback(()=>{a.pause();throw new Error('ended failed');});return v;}
         export function update(v){return v;}
@@ -168,6 +524,7 @@ HARNESS = r'''
         out["endedThrowCommands"]=mwx_scene_quickjs_owner_puppet_animation_command_count(failedEnd.handle)
         out["endedThrowPending"]=mwx_scene_quickjs_owner_has_pending_puppet_animation_end(failedEnd.handle)
 
+        phase("main/stale-self-handle")
         var held:(SceneScriptQuickJSDomain,SceneScriptValueOwner)?=try make("export function init(v){shared.savedAnimation=thisObject;return v;}")
         let staleDomain=held!.0
         _=try evaluate(held!.1).get();held!.1.commitLayerMutations();held=nil
@@ -176,14 +533,17 @@ HARNESS = r'''
         let staleResult=wrongOwner.evaluate(input:.vector3(0,0,0),frame:frame,scriptPropertiesJSON:"",userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil)
         if case let .failure(failure)=staleResult{out["staleHandleFailure"]=failure.code}
 
+        phase("main/command-budget")
         let (_,overflow)=try make("export function update(v){for(let i=0;i<65;i++){try{thisObject.play();}catch(e){}}return v;}")
         if case let .failure(failure)=evaluate(overflow){out["overflowFailure"]=failure.code}
         out["overflowCommands"]=mwx_scene_quickjs_owner_puppet_animation_command_count(overflow.handle)
+        phase("main/ended-root-budget")
         let (_,roots)=try make("export function init(v){for(let i=0;i<17;i++)thisObject.addEndedCallback(()=>thisObject.pause());return v;}")
         if case let .failure(failure)=evaluate(roots){out["rootBudgetFailure"]=failure.code}
 
         // C admits finite Float writes; the actual shared runtime rejects a
         // negative rate atomically and the owner mirror rolls back with it.
+        phase("main/swift-runtime-rejection")
         let authoredLayer=ScenePuppetAnimationLayer(id:91,animationID:77,name:"Authored clip",additive:false,
             blend:1,blendIn:false,blendOut:false,blendTime:0,rate:1,visible:true,visibilityBinding:nil)
         let clip=SceneMdlPuppetAnimation(id:77,name:"Authored clip",mode:"loop",framesPerSecond:30,frameCount:360,
@@ -206,19 +566,23 @@ HARNESS = r'''
         out["swiftRejectMirrorRetry"]=actions(try evaluate(rejectOwner).get().puppetAnimationCommands)
         rejectOwner.commitLayerMutations()
 
+        phase("main/missing-metadata")
         let (missingDomain,missing)=try make("export function update(v){return thisObject.isPlaying();}")
         try missingDomain.publishPuppetAnimationSnapshot([])
         if case let .failure(failure)=evaluate(missing){out["missingFailure"]=failure.code}
         // Existing ordinary owners remain executable when one prepared clip is absent.
+        phase("main/ordinary-peer-after-missing")
         let peer=try SceneScriptValueOwner(domain:missingDomain,source:"export function update(v){return v.add(new Vec3(1,0,0));}",
             target:.layer(layerID:42,field:.origin),effectNames:[],generation:1,budget:.default)
         let peerResult=try peer.evaluate(input:.vector3(0,0,0),frame:frame,scriptPropertiesJSON:"",userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
         out["missingPeer"]=peerResult.value == .vector3(1,0,0);peer.commitLayerMutations()
 
+        phase("main/unsupported-ended-profile")
         try persistentDomain.publishPuppetAnimationSnapshot([snapshot(5,2,.multipleLoopsCrossed)])
         if case let .failure(failure)=evaluate(persistent){out["endedUnsupported"]=failure.code}
         out["endedUnsupportedPending"]=mwx_scene_quickjs_owner_has_pending_puppet_animation_end(persistent.handle)
         if case let .failure(failure)=evaluate(persistent){out["endedUnsupportedRetry"]=failure.code}
+        phase("main/teardown")
         let (_,teardown)=try make("export function init(v){thisObject.addEndedCallback(()=>thisObject.stop());return v;}")
         _=try evaluate(teardown).get();teardown.commitLayerMutations()
         let torn=teardown.teardown(frame:frame,scriptPropertiesJSON:"",userPropertiesJSON:"{}")
@@ -245,6 +609,44 @@ class PuppetAnimationHostTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.tmp.cleanup()
+
+    def test_lookup_name_index_variants_reach_the_actual_shared_runtime(self):
+        self.assertEqual(self.values["lookupVariants"], [True] * 3)
+
+    def test_lookup_pending_journal_survives_init_properties_update_without_duplicate_exports(self):
+        self.assertEqual(self.values["lookupPrimitiveRanges"],
+                         [["stop", "frame:7.0"], ["play", "frame:11.0"], ["pause"]])
+        self.assertTrue(self.values["lookupPrimitiveNative"])
+        self.assertTrue(self.values["lookupPrimitiveAfterCommit"])
+
+    def test_lookup_input_and_owner_scope_reject_without_aliasing_self(self):
+        for key in ("lookupBadInputs", "lookupDuplicateName", "lookupLocalRead",
+                    "lookupOwnerIsolation", "lookupNonNested"):
+            with self.subTest(check=key):
+                self.assertTrue(self.values[key])
+
+    def test_cached_lookup_handles_keep_owner_generation_and_target_lifetime(self):
+        self.assertEqual(self.values["lookupRetiredHandle"], [True, True])
+        for key in ("lookupFreshAfterReappear", "lookupGenerationRejected", "lookupDestroyedOwner"):
+            with self.subTest(check=key):
+                self.assertTrue(self.values[key])
+
+    def test_present_invalid_metadata_recovers_cached_handles_and_stable_layout_refreshes_values(self):
+        self.assertEqual(self.values["lookupMetadataRecovery"], [True] * 3)
+
+    def test_lookup_forbidden_sibling_effects_throw_and_budget_rollback_whole_bundle(self):
+        self.assertEqual(self.values["lookupRejectedBundles"], [True] * 3)
+        self.assertEqual(self.values["lookupBudgetFailure"], "mutation-overflow")
+        self.assertEqual(self.values["lookupBudgetCommands"], 0)
+
+    def test_lookup_self_ended_and_timer_rollback_preserve_visibility_arbitration(self):
+        self.assertTrue(self.values["lookupSelfEnded"])
+        self.assertTrue(self.values["lookupTimerRollback"], self.values["lookupTimerDetails"])
+
+    def test_lookup_runtime_admission_keeps_source_target_and_atomic_rejection(self):
+        self.assertTrue(self.values["lookupSwiftReject"])
+        self.assertTrue(self.values["lookupSwiftRetry"])
+        self.assertEqual(self.values["lookupRuntimeAdmission"], [True] * 5)
 
     def test_nested_author_init_receives_metadata_and_seek_commands(self):
         v=self.values

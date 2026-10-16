@@ -608,9 +608,10 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL) return;
     owner->text_clone_failed = false;
-    owner->puppet_animation_command_count = 0;
+    // Primitive entries export only their new range. Keep earlier callbacks'
+    // commands for this owner's read-your-writes until the shared frame barrier.
+    owner->puppet_animation_command_read_start = owner->puppet_animation_command_count;
     owner->puppet_animation_registration_count = 0;
-    owner->puppet_animation_command_overflow = false;
     mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(owner);
     clear_layer_mutation_buffers(owner);
     owner->particle_playback_command_count = 0;

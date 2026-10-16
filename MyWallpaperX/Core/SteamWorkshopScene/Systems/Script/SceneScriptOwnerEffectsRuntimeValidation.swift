@@ -39,19 +39,21 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
             let reason: String?
             if owner.puppetAnimationCallbackRegistrations < 0 {
                 reason = "invalid Puppet animation callback registration count"
-            } else if !owner.puppetAnimationCommands.allSatisfy({ command in
-                guard let id = command.identity.animationLayerID else { return false }
-                return owner.ownerTarget == ScenePuppetAnimationPropertyTarget.visibility(
-                    layerID: command.identity.layerID, animationLayerID: id)
-            }) {
-                reason = "Puppet animation command does not belong to its nested owner"
             } else if puppetCommandCount > 64 {
                 reason = "frame Puppet animation command budget exceeded"
             } else if let puppetAnimationRuntime {
-                switch puppetAnimationRuntime.validate(owner.puppetAnimationCommands,
-                    frameIndex: timing.frameIndex) {
-                case .success: reason = nil
-                case let .failure(failure): reason = String(describing: failure)
+                if case let .scriptInstanceProperty(layerID, path) = owner.ownerTarget,
+                   path.count == 3, path[0] == "puppetAnimationLayer", path[2] == "visible",
+                   let animationLayerID = Int(path[1]), String(animationLayerID) == path[1] {
+                    switch puppetAnimationRuntime.validate(
+                        owner.puppetAnimationCommands, sourceLayerID: layerID,
+                        sourceAnimationLayerID: animationLayerID, frameIndex: timing.frameIndex
+                    ) {
+                    case .success: reason = nil
+                    case let .failure(failure): reason = String(describing: failure)
+                    }
+                } else {
+                    reason = "Puppet animation controls require a prepared nested owner"
                 }
             } else { reason = "Puppet animation runtime unavailable" }
             if let reason {

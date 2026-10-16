@@ -298,7 +298,11 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     }
     snapshot->puppet_animation_callback_count = owner->puppet_animation_callback_count;
     snapshot->puppet_animation_delivered_sequence = owner->puppet_animation_delivered_sequence;
-    snapshot->puppet_animation_overlay = owner->puppet_animation_overlay;
+    snapshot->puppet_animation_command_count = owner->puppet_animation_command_count;
+    snapshot->puppet_animation_command_read_start = owner->puppet_animation_command_read_start;
+    snapshot->puppet_animation_registration_count = owner->puppet_animation_registration_count;
+    snapshot->puppet_animation_command_overflow = owner->puppet_animation_command_overflow;
+    snapshot->puppet_animation_visibility = owner->puppet_animation_visibility;
     snapshot->puppet_animation_visibility_staged = owner->puppet_animation_visibility_staged;
     for (size_t i = 0; i < owner->puppet_animation_callback_count; i++)
         snapshot->puppet_animation_callbacks[i] = JS_DupValue(owner->domain->context, owner->puppet_animation_callbacks[i]);
@@ -331,7 +335,11 @@ bool mwx_scene_quickjs_owner_timer_restore(
     // scheduled work roll back, but an already invoked event never replays.
     if (owner->puppet_animation_delivered_sequence < snapshot->puppet_animation_delivered_sequence)
         owner->puppet_animation_delivered_sequence = snapshot->puppet_animation_delivered_sequence;
-    owner->puppet_animation_overlay = snapshot->puppet_animation_overlay;
+    owner->puppet_animation_command_count = snapshot->puppet_animation_command_count;
+    owner->puppet_animation_command_read_start = snapshot->puppet_animation_command_read_start;
+    owner->puppet_animation_registration_count = snapshot->puppet_animation_registration_count;
+    owner->puppet_animation_command_overflow = snapshot->puppet_animation_command_overflow;
+    owner->puppet_animation_visibility = snapshot->puppet_animation_visibility;
     owner->puppet_animation_visibility_staged = snapshot->puppet_animation_visibility_staged;
     // Restore scheduled work, but retain the owner's lifetime issuance counter:
     // closures from discarded work must not cancel a subsequently issued timer.

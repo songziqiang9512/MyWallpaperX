@@ -459,6 +459,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!mwx_scene_quickjs_define_layer_animation_accessor(
             owner, owner->material_function_layer, UINT32_MAX, false
         )) return false;
+    if (!mwx_scene_quickjs_define_puppet_animation_lookup(owner, owner->material_function_layer)) return false;
     const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"size", LAYER_SIZE, false},

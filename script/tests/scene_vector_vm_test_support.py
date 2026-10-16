@@ -103,6 +103,7 @@ C_SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerValueHost.c",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetBoneHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetAnimationHost.c",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSParticleInstanceHost.c",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c",

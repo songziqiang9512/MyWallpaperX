@@ -271,6 +271,26 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 控制数据由共享播放 owner 发布只读 metadata/state 快照，C handle 只持身份、镜像及有序 callback overlay。play/pause/stop/setFrame 和 rate/blend/visible 的写入进入同一个 owner effect bundle；原始帧位置与渲染采样位置分开，显式越界 seek 只在采样端钳位。普通帧先推进播放并发布骨骼，再执行脚本；本片以已证的下一帧姿态作为验收下限，最终 GPU 相位不冒称官方一致。ended 注册必须在现有事务成功时保留、失败时撤销，使用实际自然结束事件并在 update 前执行；重复 cadence 不再次消费，未知 mirror/跨多圈行为需明确有界 profile，不能用假回调掩盖。控制命令上限取既有 owner/frame 与场景通道预算较小者；失败拒绝整个 owner bundle，重算其他 owner，不扩大到整个父层或 scene。
 
+<a id="puppet-animation-layer-lookup"></a>
+
+### 已准备 Puppet 动画层 lookup（2026-10-16，CPU及self-index GPU有界已验）
+
+**目标与取舍。** 公开 [IImageLayer.getAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html#getanimationlayer-name-stringnumber-ianimationlayer) 按 name 或 index 查现有动画层，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html) 的 play 恢复、stop 停止并复位；不能用属性 Timeline 或当前 nested owner 的别名代替所查 target。一次开放任意 layer handle 会扩大跨父层权限、target 生命周期和事件归属；当前实现限已有 prepared Puppet nested-owner 经 thisLayer 查询同 parent 的已准备动画层。String 名称与有限非负整数 authored index 均解析真实 target，不按样本、名字或当前动画 ID 分派。真实中性资格证明 receiver 是同 parent thisLayer；335原包在参数解析前被真实准备合同拒绝，实参类型与解析后的目标仍未知，不能据调用存在宣称已恢复播放。
+
+**准备与身份。** 复用 ScenePuppetAnimationPlaybackRuntime 的定义、snapshots 与唯一 SceneClock；原 domain publication 入口持唯一 prepared committed 镜像，含 parent layer ID、authored animation index、可用 ID、名称及 clip metadata。无匹配、重名、越界/非整数 index 局部拒绝。仍在 publication 中的同 identity 临时坏数值、metadata 不符或重复 identity 只令该记录不可用，保留一份旧名称/metadata/incarnation，恢复原合法输入可恢复；真正缺席后重现分配新 incarnation，旧缓存不回生。稳定布局先全量验证 identity/metadata/有限域，再原位更新数值、复用 names/incarnation 与 prepared source 索引，健康路径零 C 分配；这是实现结构，不是性能收益证据。无动画创建、模型发现或动态 clone 动画准入。
+
+**镜像迁移。** 原 thisObject 与新 lookup 共用 target resolver；owner 单 animation committed/overlay/name 副本已退出。getter 从 domain committed 记录重放本 owner 同 identity 的有界 command journal，其他 owner 的未提交命令不可见，不缓存另一套 target overlay或推进 C 时钟。原自层 Boolean 返回值仅保一项 owner-local typed 当前值及 journal 截点，维持自 target 的 visible 读回与原 setter 优先级，绝不写 sibling 或冒充播放位置；此投影同样可撤回。
+
+**命令与提交。** 句柄绑定 domain、source owner identity/generation、resolved target identity 和 incarnation，每次 callback 重验 source 为已准备 nested-owner、parent 相同及 target 存活；同 owner 跨 callback/timer 可复用，跨 owner、旧代、同代删除/退休、callback 外均拒。Swift 沿显式 prepared source→同 parent target 验证再复用 Runtime.validate，未删除安全合同。play/pause/stop/setFrame/rate/blend 沿原数值域和有序 journal；同 owner 未提交的 initialize、事件、update 共享最多64条命令，仅通过 export cursor 导出当前 primitive 新范围，避免 Swift 重复收集，不另开通道或提高原 owner/frame/scene 预算。
+
+**回滚与旧能力。** native accepted bundle 是唯一 commit；失败或 fixed-point 剔除由原 TimerSnapshot 恢复 count/export cursor、溢出状态、timer/ended roots 与自层 Bool 投影，其他 owner 和播放状态保持，已消费自然 ended 序号不倒退。共同 barrier 清 journal；C 在 finish 不改共享镜像，下一合法 cadence 仍由真实 Runtime 发布，未另加发布 producer。最后 configured Puppet owner 释放时清 catalog，名称只由 canonical 记录持有；生命周期不新增第二 registry。
+
+**冲突边界。** thisObject 原 self visible setter、Boolean 返回值仲裁和 ended 注册/派发保持；lookup 回 self 走同一路径。sibling visible setter 与 addEndedCallback 显式拒绝，避免绕过该 target 的 typed visibility producer 或把结束事件注册到调用者；getter 和已准入播放命令按真实 target 工作。跨 parent、非 nested owner、任意 layer handle 后继另验，不借方法存在宣称完整 IImageLayer。
+
+**有界验收。** 最近真实 C→ABI→Swift→共享 Runtime 的15项host门、22项邻门及签名Debug通过：name/index、改名/等价数字、self/sibling不同target读回、stop/play、缓存句柄、多primitive新范围、回滚、临时坏值恢复与真实缺席后的ABA拒绝均在CPU链验证，原self visible/ended边界保持。自有单parent输入仅使用已准备layer1221/index0/id6070、clip2471，lookup(0)的stop于frame0提交，timer play于frame29提交；stop生效后frame2–26的9个GPU骨hash相同，play后111条记录有79个不同hash，122条draw均GPUcompleted、4222顶点，退出正常、输入无漂移且GPU排空，root与独审查看after。此为`S4 bounded single-parent/self-index0`，不外推name或sibling GPU、完整原包、官方parity或性能。普通有界证据归 `.artifacts/scene-evidence/runs/puppet-animation-layer-lookup-20261016/`，保留14天。
+
+**原包前置与停止。** 335原包由缺少方法推进到已安装入口的prepared-source拒绝，命令0，无新pose/GPU或画面收益。更早断点为layer524动画1356的MDLA0006现代尾部29字节零合同中出现非零字段，现reader转bind几何、不注册动画playback；只证明作者资产结构不在已验证profile，字段意义未知保持STOP，不能跳过校验或删source guard。该最小失败长期保护于 `.artifacts/scene-evidence/runs/puppet-auxiliary-trailer-20261016/`；lookup实际参数与所求target仍未知，不称335已恢复。跨parent/任意layer handle、模型或动态动画创建、该真实资源的播放与完整官方parity均未闭合。
+
 ## 属性 Timeline retained handle 后继（2026-10-08）
 
 真实作者在 `init` 保存 `thisObject.getAnimation()`，随后在媒体事件调用 `stop/play`；原 callback epoch 限制使该合法同 owner 调用报 stale。公开 [IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html) 返回当前属性的 [IAnimation](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimation.html)，未规定 callback 临时寿命；此片不冒称已有官方缓存行为黑盒。沿现 property Timeline bridge 保持当前 target、play/pause/stop journal 与唯一 Timeline runtime，组件及图层的 accessor 和返回 handle 共用 domain、单调 owner identity 和 generation；每次调用从当前 active owner 解析并校验同身份、同代、未禁用和当前 Timeline 可用，不保存可能释放的 owner 指针。合法 init/event/timer/update 间复用成立，callback 外、跨 owner、销毁或同代重建均拒绝；JS throw 和 Swift 拒绝继续走既有 owner bundle 接纳/撤回，不因 handle 持久化重放命令或新增 clock。named lookup、rate 和其他 IAnimation 方法不在本片。真实 VM 及 ASan 门验证 init→media、事务拒绝、disabled、generation、销毁重建后保留的 handle、`thisObject` 和 detached accessor，以及健康 peer；实际原包运行另证。
