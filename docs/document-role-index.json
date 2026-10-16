@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fd15697e4c31f0d0840aa239fe6d53567e05102e4d47501da839e81aff447e7f",
+        "sourceSHA256": "4e268b90b578fca3c0ce6d1ab75e7fd7ed8890115d1a60f389ddfa7fcde08793",
         "method": "document_registry --audit + document_health --check",
-        "scope": "213同媒体基线到候选的pointsize首错消失、首次字号发布与真实标题换词；主要文字/阴影、artist输入和独立314实图分列",
-        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
+        "scope": "343原有效PID27688默认输入余项的既有证据重分类：407/3226属性关闭透传、529 authored隐藏，保21目标/20层恢复和激活后未知",
+        "limitations": "仅对保留的PID27688默认输入与中性receipt做文档复核；未新增当前HEAD App运行或验证。407/3226为visibility-disabled activation passthrough，529层authored visibility=false；未执行/rejectedNodes计数不能单独认定编译缺口。激活后的compiler/GPU/效果、具体公开控制与作者意图、全景及性能均未获本轮验收；原21/20恢复数和其他既有边界保持。"
       }
     },
     {
@@ -1568,7 +1568,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "343独立坏COMBO模板首门、21目标GPU/20层完整末合成与真实细发丝恢复，三目标/3226后继边界、签名失效反例和独立376；不计性能或完整样本。"
+      "uniqueValue": "343独立坏COMBO模板首门、21目标GPU/20层完整末合成与真实细发丝恢复；同PID默认余407/3226属性关闭透传、529作者隐藏的后验重分类，签名失效反例和独立376；激活后/公开控制/全景未验，不计性能或完整样本。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",
@@ -3241,10 +3241,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "adea21876dc6d3c9d99bf91b36b2f9e0abb07ee84e1980c792901f4970185b18",
+        "sourceSHA256": "bd409f219999ba52dda9c61ab0d654df156cfb8adc30ce83e11dd78402698675",
         "method": "document_registry --audit + document_health --check",
-        "scope": "213旧no-setter观察替换为共享pointsize setter有界后验；标题可见、artist仅输入、右黑块及全部媒体/字体parity余项分列",
-        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
+        "scope": "N03的343未执行余项由不明拒绝更正为同PID默认property-inactive/hidden边界；未证明新增compiler缺口，保公开激活输入及全景待验",
+        "limitations": "仅对保留的PID27688默认输入与中性receipt做文档复核；未新增当前HEAD App运行或验证。407/3226为visibility-disabled activation passthrough，529层authored visibility=false；未执行/rejectedNodes计数不能单独认定编译缺口。激活后的compiler/GPU/效果、具体公开控制与作者意图、全景及性能均未获本轮验收；原21/20恢复数和其他既有边界保持。"
       }
     },
     {

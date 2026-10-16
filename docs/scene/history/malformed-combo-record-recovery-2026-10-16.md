@@ -11,7 +11,7 @@
 
 ## 真实结果与限制
 
-有效 Developer ID Debug App 的 343 原包运行 PID 27688：正常退出、未超时、App drift=[]、GPU drained。原 24 目标中 21 个 exact layer/effect/node 从无执行变为 generic-only 实际执行，目标 effect 均有 succeeded/completed、material>0/rejected0 回执并进入后续合成。20 个恢复层末 effect 无拒绝且 compositorConsumed=true；3226 的末 effect3 仍以 material0/rejected1 透传，不能算完整效果恢复。407 的两目标和 529 的一目标仍无 target 执行，保持开放。
+有效 Developer ID Debug App 的 343 原包运行 PID 27688：正常退出、未超时、App drift=[]、GPU drained。原 24 目标中 21 个 exact layer/effect/node 从无执行变为 generic-only 实际执行，目标 effect 均有 succeeded/completed、material>0/rejected0 回执并进入后续合成。20 个恢复层末 effect 无拒绝且 compositorConsumed=true。对同一保留默认输入的后继复核表明：407/effect0、1及3226/effect3为property-inactive，已准入且走visibility-disabled activation passthrough；frame0/4均succeeded/GPU completed，3226末段已合成。529/effect1已准入，但layer529 authored visibility=false，未到实际消费。不能仅凭rejectedNodes=1或无执行列为新增compiler缺口；激活后效果、公开控制及完整样本仍未验。
 
 额前及耳侧原先缺失的细发丝实际出现，连续帧仍可见且位置变化；新增 named capture 沿原 provider 链消费。PNG 不是同模拟相位，不量化逐像素差，不把其余皮肤、衣摆或完整交互差异一并关闭。当前总 generic 材质执行由 25 到 89，是恢复更多作者工作，不是性能下降/提升的可比测量。
 
@@ -23,4 +23,4 @@
 
 ## 收据与保留
 
-忽略根 `.artifacts/tmp/343-template-qualification-20261015/` 保留输入 SHA、冻结源码身份、探针 diff/退役、typed 安全投影、测试/签名及进程回执。`target-receipts.json` 的 terminal rows 包含未变的 407，恢复计数只取上述 21/20，不能把全表计为新增。必要原图为基线一张、修后两张和独立样本一张；清理去留以该根 `cleanup.json` 为准。真实媒体始终只读，当前有效 App 与唯一 DerivedData 延续后继批次，不发布或推送。
+忽略根 `.artifacts/tmp/343-template-qualification-20261015/` 保留输入 SHA、冻结源码身份、探针 diff/退役、typed 安全投影、测试/签名及进程回执。`target-receipts.json` 的 terminal rows 包含未变的 407，恢复计数仍取21/20。默认关闭/隐藏的复核见`default-activation-remaining-targets-review.json`（SHA256 `0bce3ca332fb49b1a40a022d594dc834dd602f5e98808ffc0a0e4fbbc8cae236`），绑定原PID27688而非新HEAD运行；运行激活由原StageActivationPolicy判断，层显隐由SceneLayerVisibility消费，未增加运行或验证。必要原图为基线一张、修后两张和独立样本一张；清理去留以该根 `cleanup.json` 为准。真实媒体始终只读，当前有效 App 与唯一 DerivedData 延续后继批次，不发布或推送。

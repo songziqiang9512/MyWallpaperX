@@ -43,7 +43,7 @@
 | 文字handle字号setter | [pointsize限定记录](../history/text-layer-pointsize-setter-2026-10-16.md)：213同媒体基线→候选首错消失，原字号/文字typed链与真实标题换词可见；两层为主要文字/阴影，artist仅输入，独立314实图保持。非面板新能力，不销右黑块或全部媒体/字体parity，无性能结论。 |
 | 连续Puppet拖动资格 | [U40 fresh记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)：首轮骨/GPU写入、释放异常及后两轮失效已对应；native尝试未资格，候选host依赖未动态归因，官方载体2/2资格失败后停止且未发出impulse，参数/响应unknown，没有交互修复或性能结论。 |
 | 视频用户纹理 | [U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
-| 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343原24目标中21执行、20层完整末effect合成；其余目标/3226末段保留，独立376实图及78节点通过。不计性能或整样本完成。 |
+| 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343恢复21目标/20层；余407/3226属性关闭、529作者隐藏，未证新编译缺口。独立376保持；激活后、全景及性能未验。 |
 | RopeTrail参数资格STOP | [固定客户端自有对照](../history/rope-trail-profile-qualification-2026-10-15.md)：20图有界观察；负值处理/world语义仍unknown，无产品变化、真实十层恢复或parity结论。 |
 | Puppet默认动态实例 | [prepared默认几何](../history/prepared-puppet-default-instances-2026-10-15.md)：原model/mesh与独立实例、真实shadow触发及退休反例；动画/effect配置、composition、完整视觉与性能未计完成。 |
 | Puppet角色组装 | <a id="e-2026-10-11-puppet-reference"></a>[独立reference补接](../history/puppet-reference-pose-2026-10-11.md)：三个原包主体恢复，旧无reference动态/静态反例保留；287 effect回退与288脚本/片区余项单列，不记整样本或官方数值parity。 |
