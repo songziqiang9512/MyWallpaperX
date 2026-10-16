@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 433,
-      "bytes": 112334
+      "lines": 449,
+      "bytes": 116523
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -1169,11 +1169,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "bbbef2ca8e9c9083d382ede1ffdef865a9f0af969128926bc5ee7356cbd2f90e",
-      "after": "ba07db134aaea1bb4d85a183b93f78748c3ad26835848fb539525565b98c0b46",
-      "owner": "scene-general-bloom-script",
-      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
+      "before": "ade99852fe66ae4aebda6f6da144135a62c93c70fe52f03c79c0567630382b5a",
+      "after": "4a42f0322fa720449104715ae0b0e6481d3aa0796cca09102d09eec55e522875",
+      "owner": "scene-sound-random-design",
+      "reason": "已定位默认可达Sound random缺口，实施前在原D4补唯一Program/Registry/clock设计及query载体STOP；不创建平行计划，不预支播放与parity。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
     },
     {
       "section": "bodies",
