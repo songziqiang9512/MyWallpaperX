@@ -5,24 +5,6 @@ enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuf
 enum SceneTextGeometry {
     static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }
 }
-enum SceneUserPropertyValue {}
-enum SceneUserPropertyKind { case sceneTexture }
-struct SceneUserPropertyDefinition {
-    let key: String
-    let kind: SceneUserPropertyKind
-}
-struct SceneUserPropertyCatalog {
-    let definitions: [SceneUserPropertyDefinition]
-    static let empty = SceneUserPropertyCatalog(definitions: [])
-}
-
-struct SceneUserPropertyDocumentResolver {
-    func resolve(
-        root: [String: Any],
-        catalog: SceneUserPropertyCatalog,
-        overrides: [String: SceneUserPropertyValue]
-    ) -> SceneUserPropertyResolution { SceneUserPropertyResolution(root: root) }
-}
 struct ScenePkgExtractionReport { let outputURL: URL? }
 struct SceneProject {
     let rootURL: URL

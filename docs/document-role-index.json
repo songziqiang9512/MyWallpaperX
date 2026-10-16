@@ -667,10 +667,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a345fc1ff38b149bbc0680c1c098079827f2104ce73fc44711e7523400a98b27",
+        "sourceSHA256": "7ac8599ef87da85b516561faf95b5bf7c60e89543fe2bc98b06fdbd6a4006550",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
-        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
+        "scope": "ordinary LDR general bloomstrength Timeline沿原IR/Program/Playback/事务/Bloom consumer有界实施；原始seed与启动current分域，G8退出静态缺口、scene Script G9保留，受控光晕/381与独立314证据分列",
+        "limitations": "仅复核本片合同与已有中性/执行收据；未读作者Script body，不作381同相A/B、官方数值/完整视觉parity、HDR Timeline或scene Script支持、音频与性能收益结论；静态审计其他项未fresh运行复验。"
       }
     },
     {
@@ -3204,10 +3204,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "58ee2b08124bc247b2ae341702397aab0c702ed3ada6bfbeebc72ce93e917e74",
+        "sourceSHA256": "8dc80eaef929ab2e3588e8aa95a9dc6d071228e52677b4fc480533279c4cd80b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
-        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
+        "scope": "ordinary LDR general bloomstrength Timeline沿原IR/Program/Playback/事务/Bloom consumer有界实施；原始seed与启动current分域，G8退出静态缺口、scene Script G9保留，受控光晕/381与独立314证据分列",
+        "limitations": "仅复核本片合同与已有中性/执行收据；未读作者Script body，不作381同相A/B、官方数值/完整视觉parity、HDR Timeline或scene Script支持、音频与性能收益结论；静态审计其他项未fresh运行复验。"
       }
     },
     {
@@ -3294,10 +3294,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0a653303bec74bd11468538e7be363dbe76372bb7a3a17a87a3260ff4c399e5b",
+        "sourceSHA256": "3ff7052748d3674bfd428f96be8ded2b74b982f03a78a0f63ac6429c4a1da454",
         "method": "document_registry --audit + document_health --check",
-        "scope": "R40共享角度合同与有界App/像素证据、已修项退出；213无归属mask诊断资格纠正，376旧云形差异保留。其他条目沿既有身份与边界，未作全页运行复验。",
-        "limitations": "文档复核不等于全库/官方parity、全HDR/多屏、账号或性能验收；本片输入和运行身份仅见精确收据。"
+        "scope": "ordinary LDR general bloomstrength Timeline沿原IR/Program/Playback/事务/Bloom consumer有界实施；原始seed与启动current分域，G8退出静态缺口、scene Script G9保留，受控光晕/381与独立314证据分列",
+        "limitations": "仅复核本片合同与已有中性/执行收据；未读作者Script body，不作381同相A/B、官方数值/完整视觉parity、HDR Timeline或scene Script支持、音频与性能收益结论；静态审计其他项未fresh运行复验。"
       }
     },
     {

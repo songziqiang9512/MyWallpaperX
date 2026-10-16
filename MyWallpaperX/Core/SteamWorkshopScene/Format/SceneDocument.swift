@@ -155,7 +155,10 @@ struct SceneDocumentLoader {
             authoredRoot: authoredValue,
             declaredVersion: SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version"),
             camera: Self.parseCamera(root["camera"] as? [String: Any]),
-            general: Self.parseGeneral(root["general"] as? [String: Any]),
+            general: Self.parseGeneral(
+                root["general"] as? [String: Any],
+                authoredRoot: sourceRoot["general"] as? [String: Any]
+            ),
             objectCount: rawObjects.count,
             effectCount: objects.reduce(0) { $0 + $1.effectFiles.count },
             referencedResourcePaths: referencedPaths.sorted {

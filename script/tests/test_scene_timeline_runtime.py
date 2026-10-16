@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import subprocess
 import tempfile
@@ -25,6 +26,7 @@ GRAPH_EXECUTOR_SOURCE = (
 )
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
@@ -223,6 +225,44 @@ SCENE_FIXTURE = {
     ],
 }
 
+
+def general_bloom_fixtures():
+    def scene(layer_id=71, name="Beacon", key="glow", numeric=float):
+        animation = {
+            "c0": [keyframe(numeric(0), 0), keyframe(numeric(40), 1.36),
+                   keyframe(numeric(90), 0)],
+            "options": {"fps": numeric(30), "length": numeric(150),
+                        "mode": "loop", "wraploop": True, "name": name},
+        }
+        return {
+            "version": 3,
+            "general": {"hdr": False, "bloom": True,
+                        "bloomstrength": {"user": key, "value": 0.35,
+                                          "animation": animation}},
+            "objects": [{"id": layer_id, "name": name, "image": f"models/user/{name}.json",
+                         "size": "100 100", "alpha": {
+                             "value": 0.25, "animation": {
+                                 "c0": [keyframe(0, 0.25), keyframe(30, 0.75)],
+                                 "options": {"fps": 30, "length": 30, "mode": "single"}}}}],
+        }
+    base = scene(numeric=int)
+    cases = {"loop": base, "renamed": scene(803, "Afterimage", "alternate_gain")}
+    for label in ("hdr", "relative", "combined", "lanes", "wrap", "malformed",
+                  "script", "script_false", "script_null"):
+        cases[label] = copy.deepcopy(base)
+    cases["hdr"]["general"]["hdr"] = True
+    wrapper = lambda label: cases[label]["general"]["bloomstrength"]
+    wrapper("relative")["animation"]["relative"] = True
+    wrapper("combined")["animation"]["options"]["parent"] = {"key": "alpha"}
+    wrapper("lanes")["animation"]["c1"] = [keyframe(0, 0), keyframe(40, 1)]
+    wrapper("wrap")["animation"]["options"]["mode"] = "single"
+    wrapper("malformed")["animation"]["options"]["fps"] = 0
+    wrapper("script")["script"] = "export function update(value) { return value; }"
+    wrapper("script_false")["script"] = False
+    wrapper("script_null")["script"] = None
+    return cases
+
+
 HARNESS_SOURCE = r'''
 import Foundation
 enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
@@ -297,15 +337,115 @@ enum HarnessError: Error { case missingFixture, descriptorRejected }
 
 @main
 enum Harness {
+    static func generalChecks(
+        _ document: SceneDocument, _ descriptor: SceneRenderDescriptor,
+        _ program: SceneTimelineProgram
+    ) throws -> [String: Any] {
+        let target = SceneDynamicTarget.scene(.bloomStrength)
+        let healthy = SceneDynamicTarget.layer(layerID: descriptor.layers[0].id, field: .alpha)
+        let bloomBindings = program.bindings.filter { $0.target == target }
+        var result: [String: Any] = [
+            "parsedIR": document.general.timelines?.count ?? 0,
+            "preparedIR": descriptor.generalTimelines?.count ?? 0,
+            "irPreserved": document.general.timelines == descriptor.generalTimelines,
+            "parseDiagnostics": document.general.timelineDiagnostics ?? [],
+            "preparedDiagnostics": descriptor.generalTimelineDiagnostics ?? [],
+            "diagnostics": program.diagnostics,
+            "hasScript": document.general.timelines?.first?.hasScript ?? false,
+            "bloomBindings": bloomBindings.count,
+            "healthyLayerSurvives": SceneTimelineRuntime.values(
+                program: program, sceneTime: 40.0 / 30
+            )[healthy] != nil,
+            "currentStrength": Double(descriptor.camera.bloom.strength),
+            "isHDRConsumer": descriptor.camera.bloom.hdr != nil,
+        ]
+        var boundaryTransaction = SceneEvaluationTransaction()
+        let boundary = boundaryTransaction.evaluate(
+            frameIndex: 0,
+            definitions: SceneTimelineRuntime.mergedDefinitions(
+                propertyDefinitions: [], timelineProgram: program
+            ),
+            timelineValues: SceneTimelineRuntime.values(program: program, sceneTime: 40.0 / 30)
+        )
+        result["generalPublicationPresent"] = boundary.snapshot[target] != nil
+        result["fallbackStrength"] = Double(
+            descriptor.camera.bloom.resolving(boundary.snapshot).strength
+        )
+        guard let binding = bloomBindings.first else { return result }
+        guard case let .scalar(seed) = binding.definition.authoredValue else {
+            throw HarnessError.descriptorRejected
+        }
+        result["rawBindingSeed"] = seed
+        result["rawIRSeed"] = Double(document.general.timelines![0].authoredValue)
+        let definitions = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: [binding.definition], timelineProgram: program
+        )
+        result["sharedDefinitionCount"] = definitions.filter { $0.target == target }.count
+        let index = SceneDynamicSnapshotResolver.prepare(definitions: definitions)
+        let playback = SceneTimelinePlaybackRuntime(program: program)
+        var transaction = SceneEvaluationTransaction()
+        var frame: UInt64 = 0
+        var allTimeline = true
+        func sample(_ time: Double) -> Double {
+            let resolution = transaction.evaluate(
+                frameIndex: frame, index: index, userValues: [target: .scalar(0.9)],
+                timelineValues: playback.values(sceneTime: time)
+            )
+            frame += 1
+            allTimeline = allTimeline && resolution.diagnostics.isEmpty
+                && resolution.snapshot[target]?.source == .timeline
+                && resolution.snapshot[healthy]?.source == .timeline
+            return Double(descriptor.camera.bloom.resolving(resolution.snapshot).strength)
+        }
+        let peakTime = 40.0 / 30
+        var samples = [sample(0), sample(peakTime), sample(5 + peakTime)]
+        try playback.apply([.init(target: target, command: .pause)],
+                           sceneTime: 5 + peakTime).get()
+        samples.append(sample(8))
+        let committed = transaction.committedSnapshot!
+        var canceledValues = playback.values(sceneTime: 9)
+        canceledValues.merge(try playback.preview(
+            [.init(target: target, command: .stop)], sceneTime: 9
+        ).get()) { _, value in value }
+        let canceled = transaction.prepare(
+            frameIndex: frame, index: index, userValues: [target: .scalar(0.9)],
+            timelineValues: canceledValues
+        )
+        result["pendingStopValue"] = Double(
+            descriptor.camera.bloom.resolving(canceled.snapshot).strength
+        )
+        result["discardPreservesPublication"] = transaction.committedSnapshot == committed
+        samples.append(sample(9))
+        try playback.apply([.init(target: target, command: .stop)], sceneTime: 10).get()
+        samples.append(sample(11))
+        try playback.apply([.init(target: target, command: .play)], sceneTime: 12).get()
+        samples.append(sample(12 + peakTime))
+        result["samples"] = samples
+        result["allSamplesUseTimeline"] = allTimeline
+        return result
+    }
+
     static func main() throws {
-        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
+        guard (2...3).contains(CommandLine.arguments.count) else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
-        let document = try SceneDocumentLoader().load(from: sceneURL)
+        let isGeneral = CommandLine.arguments.count == 3
+        var catalog = SceneUserPropertyCatalog.empty
+        if isGeneral {
+            let projectURL = sceneURL.deletingLastPathComponent().appendingPathComponent("project.json")
+            let root = try JSONSerialization.jsonObject(with: Data(contentsOf: projectURL))
+            catalog = SceneUserPropertyDefinitionParser().parse(projectRoot: root as! [String: Any])
+        }
+        let overrides = Dictionary(uniqueKeysWithValues: catalog.definitions.map {
+            ($0.key, SceneUserPropertyValue.number(0.9))
+        })
+        let document = try SceneDocumentLoader().load(
+            from: sceneURL, propertyCatalog: catalog, propertyOverrides: overrides
+        )
         guard let descriptor = SceneRenderDescriptorBuilder().build(
             project: SceneProject(
                 rootURL: sceneURL.deletingLastPathComponent(),
                 entryPath: sceneURL.lastPathComponent,
-                userProperties: .empty
+                userProperties: catalog
             ),
             sceneDocument: document,
             assetCatalog: SceneAssetCatalog(
@@ -321,6 +461,16 @@ enum Harness {
             throw HarnessError.descriptorRejected
         }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
+        if isGeneral {
+            var result = try generalChecks(document, descriptor, program)
+            if case let .number(value)? = catalog.defaultValues.values.first {
+                result["catalogDefault"] = value
+            }
+            print(String(decoding: try JSONSerialization.data(
+                withJSONObject: result, options: [.sortedKeys]
+            ), as: UTF8.self))
+            return
+        }
 
         // 模拟 host：一个已有的 property definition 与 layer 10 的 alpha 撞 target。
         let sharedTarget = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
@@ -337,6 +487,8 @@ enum Harness {
             "definitionCount": merged.count,
             "sharedTargetDefinitionCount": merged.filter { $0.target == sharedTarget }.count,
             "bindingCount": program.bindings.count,
+            "absentGeneralTimelineIR": document.general.timelines == nil
+                && descriptor.generalTimelines == nil,
         ]
 
         // 走真实 resolver：断言 Timeline 值真的落进 snapshot 而不是被丢弃。
@@ -529,6 +681,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(
             prefix="mwx-scene-timeline-runtime-"
         )
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
@@ -537,7 +690,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         binary = directory / "scene-timeline-runtime"
         compilation = subprocess.run(
             [
-                "swiftc",
+                "swiftc", "-module-cache-path", str(directory / "module-cache"),
                 *(str(source) for source in SWIFT_SOURCES),
                 str(harness),
                 "-o",
@@ -552,6 +705,20 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
             [str(binary), str(scene)], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
+        cls.general_results = {}
+        for label, fixture in general_bloom_fixtures().items():
+            case = directory / label
+            case.mkdir()
+            entry = case / "scene.json"
+            entry.write_text(json.dumps(fixture), encoding="utf-8")
+            key = fixture["general"]["bloomstrength"]["user"]
+            project = {"general": {"properties": {key: {
+                "type": "slider", "value": 0.6, "min": 0, "max": 2}}}}
+            (case / "project.json").write_text(json.dumps(project), encoding="utf-8")
+            result = subprocess.run(
+                [str(binary), str(entry), "general"], check=True, capture_output=True, text=True
+            )
+            cls.general_results[label] = json.loads(result.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -560,6 +727,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
     def test_shared_target_is_not_duplicated_in_definitions(self) -> None:
         # 七条 binding：既有四条、vector effect constant、camera origin/zoom 原子组。
         self.assertEqual(self.result["bindingCount"], 7)
+        self.assertTrue(self.result["absentGeneralTimelineIR"])
         # layer10 alpha 两边都声明，合并后只能有一份，否则 resolver 会整个丢弃
         self.assertEqual(self.result["sharedTargetDefinitionCount"], 1)
         # 1 条 property + 6 条 timeline 独有
@@ -703,6 +871,57 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertGreater(samples["half"]["generation"], samples["t0"]["generation"])
         self.assertGreater(samples["late"]["generation"], samples["closing"]["generation"])
         self.assertEqual(samples["lateAgain"]["generation"], samples["late"]["generation"])
+
+    def test_general_bloom_reaches_resolving_without_overriding_authored_seed(self) -> None:
+        for label in ("loop", "renamed", "script_null"):
+            case = self.general_results[label]
+            with self.subTest(case=label):
+                self.assertEqual(case["bloomBindings"], 1, case)
+                self.assertEqual(case["parsedIR"], 1, case)
+                self.assertTrue(case["irPreserved"], case)
+                self.assertEqual(case["parseDiagnostics"], [], case)
+                self.assertEqual(case["diagnostics"], [], case)
+                self.assertFalse(case["hasScript"], case)
+                self.assertEqual(case["sharedDefinitionCount"], 1, case)
+                self.assertAlmostEqual(case["rawBindingSeed"], 0.35, places=6)
+                self.assertAlmostEqual(case["rawIRSeed"], 0.35, places=6)
+                self.assertAlmostEqual(case["catalogDefault"], 0.6, places=6)
+                self.assertAlmostEqual(case["currentStrength"], 0.9, places=6)
+                self.assertTrue(case["allSamplesUseTimeline"], case)
+                self.assertTrue(case["healthyLayerSurvives"], case)
+                self.assertEqual(len(case["samples"]), 7, case)
+                for actual, expected in zip(case["samples"], [0, 1.36, 1.36, 1.36, 1.36, 0, 1.36]):
+                    self.assertAlmostEqual(actual, expected, places=5, msg=str(case))
+                self.assertEqual(case["pendingStopValue"], 0, case)
+                self.assertTrue(case["discardPreservesPublication"], case)
+
+    def test_general_rejection_is_local_and_keeps_authored_ir(self) -> None:
+        reasons = {"hdr": "unsupportedHost", "relative": "relativeUnsupported",
+                   "combined": "combinedAnimationUnsupported", "lanes": "componentMismatch",
+                   "wrap": "invalidWrapLoop", "script": "unsupportedScriptSource",
+                   "script_false": "unsupportedScriptSource"}
+        for label, reason in reasons.items():
+            case = self.general_results[label]
+            with self.subTest(case=label):
+                self.assertEqual(case["bloomBindings"], 0, case)
+                self.assertFalse(case["generalPublicationPresent"], case)
+                self.assertAlmostEqual(case["fallbackStrength"], 0.9, places=6)
+                self.assertEqual(case["parsedIR"], 1, case)
+                self.assertTrue(case["irPreserved"], case)
+                self.assertTrue(case["healthyLayerSurvives"], case)
+                self.assertTrue(any(reason in d for d in case["diagnostics"]), case)
+        self.assertTrue(self.general_results["hdr"]["isHDRConsumer"])
+        for label in ("script", "script_false"):
+            self.assertTrue(self.general_results[label]["hasScript"])
+        malformed = self.general_results["malformed"]
+        self.assertEqual(malformed["parsedIR"], 0, malformed)
+        self.assertEqual(malformed["preparedIR"], 0, malformed)
+        self.assertTrue(malformed["parseDiagnostics"], malformed)
+        self.assertEqual(malformed["parseDiagnostics"], malformed["preparedDiagnostics"])
+        self.assertEqual(malformed["bloomBindings"], 0, malformed)
+        self.assertFalse(malformed["generalPublicationPresent"], malformed)
+        self.assertAlmostEqual(malformed["fallbackStrength"], 0.9, places=6)
+        self.assertTrue(malformed["healthyLayerSurvives"], malformed)
 
     def test_combined_camera_members_share_the_owner_clock_and_snapshot(self) -> None:
         self.assertEqual(

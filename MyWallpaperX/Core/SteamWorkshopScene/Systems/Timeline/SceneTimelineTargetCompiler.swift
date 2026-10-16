@@ -33,6 +33,8 @@ nonisolated enum SceneTimelineTargetCompiler {
     private nonisolated enum Diagnostic: String {
         /// 宿主属性没有对应的 `SceneDynamicTarget`，或本批未接该 target。
         case unsupportedHost
+        /// Scene-level Script has no admitted value producer in this profile.
+        case unsupportedScriptSource
         /// 当前只为 layer transform 定标了作者基值加动画偏移；其他 relative 仍拒绝。
         case relativeUnsupported
         /// 普通 Combined Animation 尚未定标；受限 2D camera origin↔zoom 由专用编译器处理。
@@ -55,6 +57,34 @@ nonisolated enum SceneTimelineTargetCompiler {
         let cameraProgram = Scene2DCameraTimelineCompiler.compile(descriptor: descriptor)
         var candidates: [(binding: SceneTimelineBinding, label: String)] = []
         var diagnostics = cameraProgram.diagnostics
+
+        diagnostics.append(contentsOf: (descriptor.generalTimelineDiagnostics ?? []).map {
+            "general \($0)"
+        })
+        for timeline in descriptor.generalTimelines ?? [] {
+            let label = "general \(timeline.host.rawValue)"
+            guard descriptor.camera.bloom.hdr == nil else {
+                diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                continue
+            }
+            guard !timeline.hasScript else {
+                diagnostics.append("\(label): \(Diagnostic.unsupportedScriptSource.rawValue)")
+                continue
+            }
+            guard timeline.authoredValue.isFinite else {
+                diagnostics.append("\(label): \(Diagnostic.invalidAuthoredValue.rawValue)")
+                continue
+            }
+            switch timeline.host {
+            case .bloomStrength:
+                append(
+                    animation: timeline.animation,
+                    target: .scene(.bloomStrength), valueType: .scalar,
+                    authoredValue: .scalar(Double(timeline.authoredValue)),
+                    label: label, into: &candidates, diagnostics: &diagnostics
+                )
+            }
+        }
 
         for layer in descriptor.layers {
             diagnostics.append(contentsOf: layer.timelineDiagnostics.map {

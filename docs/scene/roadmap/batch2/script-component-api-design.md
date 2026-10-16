@@ -277,6 +277,23 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 含 `init` 的属性脚本仍可能变换值，不能仅因没有 `update` 改判为纯 Timeline 控制。已准入且带 Timeline 的 scalar 值管线在 idle 只投影当前 typed 输入和原有有限数据属性 overlay，保持 SceneScript 值发布而不重跑 VM。单次求值结果不可变地保留是否透传输入：本次实际 init、pending initialization、update 或有限 bound overlay 的主动值不标为透传，不按数值相等推断来源。现有 frame admission 在同一次已接纳 Timeline preview 上更新透传值，仍发布 SceneScript source；投影复用原 target scalar 校验，非法候选保留已验证当前值。固定点拒绝后沿原命令集合重算，不重放回调、再次读属性或新增 preview/clock。没有命令的普通帧保留原值，失败/disabled/退休和旧 snapshot 恢复继续遵守原 owner 生命周期；event-only Timeline 控制保持唯一 Timeline 值 producer，无 Timeline 的稳定 owner 保留原 idle 跳过。材质 finalizer 不放宽 source 校验，也不以 authored fallback 掩盖缺失输出。
 
+<a id="general-bloom-strength-timeline"></a>
+## General Bloom strength Timeline（2026-10-16，有界实施）
+
+普通 LDR `general.bloomstrength` 的 absolute scalar animation 已接入原 Bloom 消费者；本片复用原 Timeline 及后处理，不新增 scene Script API、插值算法或 clock。
+
+`SceneDocumentLoader` 从 sourceRoot 的原始 general 保留共享 `SceneTimelineAnimation`、作者 fallback（缺省1）、非 null Script 标记和诊断；effective general 仍生成启动当前配置。可选 general Timeline IR/diagnostics 位于 prepared descriptor 根层，不塞入 camera，也不把 saved/current user 值当作者 seed。compiler 以原始 seed 生成 `.scene(.bloomStrength)` binding，经现有 definition merge、PlaybackRuntime、SceneEvaluationTransaction/resolver 到 `SceneBloomConfiguration.resolving`；renderer 不读原 wrapper。
+
+准入以实际 Bloom consumer 选择为准：只有 `camera.bloom.hdr == nil` 接纳本片 Timeline，HDR 保留 IR/diagnostic而无该 producer。`user+animation` 沿原 property/Timeline 优先级，重复目标按原规则；任何非 null Script 竞争源保真并局部拒绝该 Timeline，不执行脚本、不借 object 身份、不撤其他合法来源。scene Script producer（G9）仍未实施。
+
+relative、group、错 lane、非法 wrap与非有限/坏结构沿原 parser/compiler 拒绝；消费端不可表示值沿现 fallback。原数值与 Bézier controls 保留，不按样本或关键帧极值添加非负/0…1 clamp。失败只退出该 producer，静态/property fallback、健康 layer及 HDR 消费原路保留。共享 playback/事务继续独占 pause/play/stop、preview/commit、取消与 snapshot 恢复；普通帧无新增解析、编译或 last-value cache。
+
+生产链测试一次编译17项通过：原7 binding/15项保持，独立自有输入核 raw `.35`/catalog默认 `.6`/启动 override `.9`分域、frame40（40/30秒）输出1.36、loop、pause/stop/恢复、未提交候选保旧 publication、Timeline高于同 target user、改名/等价数字及局部拒绝。Debug构建30.708秒通过；测试不替代实际渲染。
+
+受控静态白块只改变 strength Timeline：正值与zero hold图的571,536个本体像素无差，外部134,796个像素出现光晕，峰值50/255，主代理已查看。原3810943704候选22 image/43 effects实际 GPU completed、surface1→0、gpuDrained且无漂移，实图已查看；其原 Bézier保留，不称同相A/B、官方数值parity、全样本或性能收益。未参与修法的314完成12秒运行、exit0、无漂移、GPU completed与surface1→0/drained；独立代理实看壁炉/反光、时钟、频谱及音符光效，仅作回归，不推音频、Bloom因果或parity。
+
+正式本机证据归 `.artifacts/scene-evidence/runs/general-bloom-strength-timeline-20261016/`；17项原测试收据在 `.artifacts/tmp/general-bloom-timeline-20261016/tests/attempt-01.json`。更广 general hosts、scene Script、HDR strength Timeline与未知值合同仍开放；需额外 clock/视觉算法时停止，不以局部门或ready外推。
+
 ## fallback / route
 
 unsupported API/配置是局部脚本调用失败，保留先前有效对象和画面；stale handle/跨 generation、越界、OOM/timeout/预算超限硬拒绝该不安全事务。禁止将失败返回伪装成有效 native handle。迁移沿现役 bridge `prefer-generic`→`generic-only`，旧 setter 同批撤权。

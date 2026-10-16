@@ -175,6 +175,17 @@
       ]
     },
     {
+      "id": "general-timeline",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift"
+      ],
+      "modules": [
+        "test_scene_timeline_runtime",
+        "test_scene_timeline_document",
+        "test_scene_bloom_post_process"
+      ]
+    },
+    {
       "id": "format",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/**",

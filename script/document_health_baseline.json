@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 194913
+      "bytes": 195191
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 367,
-      "bytes": 94761
+      "lines": 384,
+      "bytes": 97874
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -234,7 +234,7 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 50,
-      "bytes": 12866
+      "bytes": 12666
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 136,
@@ -1150,30 +1150,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "c631d736a32b515cdeaf85bad6423adc671462912e78c00d680451d7fda34543",
-      "after": "b71718f9d4d340e5189419ef4495f849dba17fb7095225c7d690bca0f4430b88",
-      "owner": "Scene bounded standalone spot maintainers",
-      "reason": "补充共享Timeline角度消费合同和真实pause/stop/恢复、独立原包证据；不扩lighting profile或性能结论。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#standalone-spot-playback"
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "a67cca35f31aa6122bc20cfeac2ff4fd486090b28f1afbab6517fa296a84f87d",
+      "after": "b73a32d8ef8210522674d1fa5180856183ac29fe9811cde0a6c6997883832ee8",
+      "owner": "Scene general Timeline / existing Bloom consumer maintainers",
+      "reason": "普通LDR strength Timeline沿原共享owner补接；D4保唯一合同与有界执行，覆盖/静态审计替换旧未实施状态并保G9，精确正文预算随增减收紧，历史R40 adjustment不累积。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-timeline"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "db01e366daaf9b6dc109211e426013c6ee40110a107b9233d0064e10125ac2ec",
-      "after": "fe1f02a4acc78121d49b83bdb90a9746e20ca20fe27aca0c2b190778b67451ca",
-      "owner": "Scene bounded standalone spot maintainers",
-      "reason": "补充共享Timeline角度消费合同和真实pause/stop/恢复、独立原包证据；不扩lighting profile或性能结论。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#standalone-spot-playback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "664feb4c073eb4ba824caaae9fa2af08c7c38badc86556b421c1476cd635dc18",
-      "after": "d2e180a3bff4d3290f1dfe9f9aed4bc474d9f3b4b13541d72214b507f07b2683",
-      "owner": "Scene bounded standalone spot maintainers",
-      "reason": "补充共享Timeline角度消费合同和真实pause/stop/恢复、独立原包证据；不扩lighting profile或性能结论。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#standalone-spot-playback"
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "02297fa42cd7f90704aef56cb7d7b5f65660560b1af7c6c105c1ec1442291388",
+      "after": "e78f093e3b7ecd079cba6f160403a382cf885143491e74c667af8a0328192248",
+      "owner": "Scene general Timeline / existing Bloom consumer maintainers",
+      "reason": "普通LDR strength Timeline沿原共享owner补接；D4保唯一合同与有界执行，覆盖/静态审计替换旧未实施状态并保G9，精确正文预算随增减收紧，历史R40 adjustment不累积。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-timeline"
     }
   ]
 }

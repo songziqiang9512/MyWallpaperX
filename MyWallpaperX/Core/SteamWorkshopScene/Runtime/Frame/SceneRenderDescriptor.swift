@@ -47,6 +47,8 @@ struct SceneRenderDescriptor: Codable {
     let camera: CameraDescriptor
     var lighting: LightingDescriptor? = nil
     var hdrEnabled: Bool = false
+    var generalTimelines: [SceneDocument.SceneGeneralTimeline]? = nil
+    var generalTimelineDiagnostics: [String]? = nil
 
     var colorTargetFormat: SceneGraphRenderTargetPlan.TextureFormat {
         hdrEnabled ? .rgba16f : .rgbaBackbuffer
@@ -132,6 +134,8 @@ struct SceneRenderDescriptorBuilder {
                 distanceFog: sceneDocument.general.distanceFog
             ),
             hdrEnabled: sceneDocument.general.hdrEnabled,
+            generalTimelines: sceneDocument.general.timelines,
+            generalTimelineDiagnostics: sceneDocument.general.timelineDiagnostics,
             layers: sceneDocument.objects.enumerated().map { index, object in
                 let contentKind = contentKind(for: object, solidModelPaths: solidModelPaths)
                 return SceneRenderDescriptor.Layer(

@@ -22,7 +22,9 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
@@ -226,31 +228,6 @@ struct SceneTextDescriptor: Codable {
 enum SceneTextGeometry {
     static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? {
         authoredSize
-    }
-}
-
-enum SceneUserPropertyValue {}
-enum SceneUserPropertyKind { case sceneTexture }
-
-struct SceneUserPropertyDefinition {
-    let key: String
-    let kind: SceneUserPropertyKind
-}
-
-struct SceneUserPropertyCatalog {
-    let definitions: [SceneUserPropertyDefinition]
-    static let empty = SceneUserPropertyCatalog(definitions: [])
-}
-
-
-
-struct SceneUserPropertyDocumentResolver {
-    func resolve(
-        root: [String: Any],
-        catalog: SceneUserPropertyCatalog,
-        overrides: [String: SceneUserPropertyValue]
-    ) -> SceneUserPropertyResolution {
-        SceneUserPropertyResolution(root: root)
     }
 }
 

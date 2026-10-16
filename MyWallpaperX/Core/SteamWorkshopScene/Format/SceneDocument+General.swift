@@ -1,6 +1,18 @@
 import Foundation
 
 extension SceneDocument {
+    /// Authored scene-level host identity; interpolation stays in the shared
+    /// Timeline IR and execution remains the existing prepared Program's job.
+    struct SceneGeneralTimeline: Codable, Equatable {
+        enum Host: String, CaseIterable, Codable {
+            case bloomStrength = "bloomstrength"
+        }
+        let host: Host
+        let animation: SceneTimelineAnimation
+        let authoredValue: Float
+        let hasScript: Bool
+    }
+
     // general.* fields that participate in the current 2D runtime.
     struct GeneralDescriptor: Codable {
         struct DistanceFog: Codable {
@@ -58,6 +70,9 @@ extension SceneDocument {
         var bloomHDRScatter: Float? = nil
         var bloomHDRFeather: Float? = nil
         var bloomHDRIterations: Float? = nil
+        // Optional for decoding descriptors written before general Timelines.
+        var timelines: [SceneGeneralTimeline]? = nil
+        var timelineDiagnostics: [String]? = nil
     }
 }
 
@@ -100,11 +115,13 @@ extension SceneDocumentLoader {
     }
 
     nonisolated static func parseGeneral(
-        _ root: [String: Any]?
+        _ root: [String: Any]?,
+        authoredRoot: [String: Any]? = nil
     ) -> SceneDocument.GeneralDescriptor {
         let ortho = root?["orthogonalprojection"] as? [String: Any]
         let width = ortho?["width"].flatMap(Self.floatValue)
         let height = ortho?["height"].flatMap(Self.floatValue)
+        let timelines = generalTimelines(authoredRoot ?? root)
         return SceneDocument.GeneralDescriptor(
             orthoWidth: width,
             orthoHeight: height,
@@ -145,8 +162,34 @@ extension SceneDocumentLoader {
             bloomHDRThreshold: root?["bloomhdrthreshold"].flatMap(Self.floatValue),
             bloomHDRScatter: root?["bloomhdrscatter"].flatMap(Self.floatValue),
             bloomHDRFeather: root?["bloomhdrfeather"].flatMap(Self.floatValue),
-            bloomHDRIterations: root?["bloomhdriterations"].flatMap(Self.floatValue)
+            bloomHDRIterations: root?["bloomhdriterations"].flatMap(Self.floatValue),
+            timelines: timelines.animations.isEmpty ? nil : timelines.animations,
+            timelineDiagnostics: timelines.diagnostics.isEmpty ? nil : timelines.diagnostics
         )
+    }
+
+    nonisolated private static func generalTimelines(
+        _ root: [String: Any]?
+    ) -> (animations: [SceneDocument.SceneGeneralTimeline], diagnostics: [String]) {
+        var animations: [SceneDocument.SceneGeneralTimeline] = []
+        var diagnostics: [String] = []
+        for host in SceneDocument.SceneGeneralTimeline.Host.allCases {
+            let raw = root?[host.rawValue]
+            let result = SceneTimelineAnimationParser.parse(host: raw)
+            if let animation = result.animation {
+                let wrapper = raw as? [String: Any]
+                let script = wrapper?["script"]
+                animations.append(.init(
+                    host: host, animation: animation,
+                    authoredValue: Self.floatValue(raw) ?? 1,
+                    hasScript: script != nil && !(script is NSNull)
+                ))
+            }
+            diagnostics.append(contentsOf: result.diagnostics.map {
+                "\(host.rawValue):\($0.token)"
+            })
+        }
+        return (animations, diagnostics)
     }
 
     nonisolated private static func cameraShakeEnabled(
