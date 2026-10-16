@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 176,
-      "bytes": 49705
+      "lines": 177,
+      "bytes": 50581
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -237,8 +237,8 @@
       "bytes": 12870
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 139,
-      "bytes": 26939
+      "lines": 138,
+      "bytes": 26756
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1204,15 +1204,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2d17c6f4e1ceb3d1be85e214f876807d523410ad38606ade6f731d9dd7fe0a97",
-      "after": "a349654b060dcd5f3322c8bdac46acf8bc4734baafd53e43f53702f43f54781e",
-      "owner": "scene-script-runtime",
-      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "4a8c290d47a7cbecf35597c318d6aa7532bdde0d062bd56742ed046eed467417",
       "after": "5fbb0a31d5d51c5f565ec0e0ba612f120f03499765be031fed0a55dec31f185e",
@@ -1237,6 +1228,15 @@
       "owner": "scene-script-runtime",
       "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a349654b060dcd5f3322c8bdac46acf8bc4734baafd53e43f53702f43f54781e",
+      "after": "dcd59f6da73a781dc076da42f2f3ff8faa4b8425228aab39a80fed00b5a5fa63",
+      "owner": "scene-current-breakpoint-qualification",
+      "reason": "默认入场fresh后期画面与退出已证，记录有界结果并退役N10旧观察；N03更新当前精确类型/资源首断点而非沿用旧分组计数。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-intro-phase"
     }
   ]
 }

@@ -653,9 +653,9 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cd60cef7bfacf9a52ac7d30a26e2925d472584fd5ff2c9932af45bddd98c56b4",
+        "sourceSHA256": "f231cb27b84351d8a7e632d837cb0a43c7d4ba5a7585ac0a7157e8e582ddbe66",
         "method": "document_registry --audit + document_health --check",
-        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
+        "scope": "默认入场阶段fresh后期呈现与旧N10观察退役导航；N03当前精确断点更新，旧普查原身份与其他未验项保留。",
         "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },
