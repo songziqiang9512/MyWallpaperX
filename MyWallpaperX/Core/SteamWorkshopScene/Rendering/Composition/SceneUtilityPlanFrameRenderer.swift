@@ -149,6 +149,7 @@ enum SceneUtilityPlanFrameRenderer {
                     isolatedGroupSource: isolatedGroupSource.map {
                         (texture: $0.texture, pixelSize: $0.pixelSize)
                     },
+                    captureMVP: cameraFrame.captureViewProjection(for: layer) * model,
                     executionTrace: effectExecutionTrace
                 )
             }

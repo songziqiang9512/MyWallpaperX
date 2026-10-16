@@ -128,7 +128,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram,
         sceneScriptOwnerLayerIDs: Set<Int>,
-        dynamicImageTemplates: [String: SceneScriptDynamicImageLayerTemplate],
+        preparedResourceLayerTemplates: [String: SceneScriptPreparedResourceLayerTemplate],
         timelineProgram: SceneTimelineProgram,
         textScriptProgram: SceneTextScriptProgram
     ) {
@@ -160,7 +160,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
-            dynamicImageTemplates: dynamicImageTemplates,
+            preparedResourceLayerTemplates: preparedResourceLayerTemplates,
             textTemplates: sceneScriptStringProgram.preparedTextTemplates,
             layerOrderProjection: { [domain = propertyVectorScriptProgram.domain] identities in
                 guard let domain else { return identities.isEmpty ? .success(nil) : .failure(.staleOwner) }

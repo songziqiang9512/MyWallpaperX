@@ -87,6 +87,7 @@ struct SceneRenderDescriptor {
         var id: Int = 0
         let utilityLayer: Bool?
         let usesPerspective: Bool?
+        var hasPerspectiveGeometryConsumer = false
     }
 
     struct CameraDescriptor {

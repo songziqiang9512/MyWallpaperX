@@ -3,7 +3,7 @@
 
 # D1 — composition 采集范围、source 与目标生命周期
 
-> 状态：2026-10-04 普通 composition 的 parent 分组、根位置与 copybackground 已经有界官方黑盒裁决并完成实施验收；结果见[执行记录](../../history/d1-composition-authored-order-implementation-2026-10-04.md)。passthrough、特殊变换/裁切及完整官方 parity 未开放。开发顺序只由[兼容路线](../scene-compatibility-roadmap.md)维护。
+> 状态：2026-10-04 普通 composition 的 parent 分组、根位置与 copybackground 已经有界官方黑盒裁决并完成实施验收；结果见[执行记录](../../history/d1-composition-authored-order-implementation-2026-10-04.md)。后继无子层透视范围见本卡；passthrough、其他特殊变换/裁切及完整官方 parity 未开放。开发顺序只由[兼容路线](../scene-compatibility-roadmap.md)维护。
 
 ## 目标合同与判据
 
@@ -32,6 +32,14 @@
 真实339的独立composition可在启动前开启CRT、色差和示波器模式，但运行中同键被拒绝。首断点是inactive effect准备准入漏掉composition，不是shader能力缺失。把现有standalone fullscreen准备规则推广到SourceRoute已支持的无父子、无依赖composition；保留原effect Program、activation passthrough、capture计划和唯一compositor。普通值更新只发布typed snapshot，不重编或重建场景。provider、named消费、passthrough、父子及未知source形态不借此开放；脚本候选也不能绕过utility依赖限制。
 
 完整图与真实资源准备成功才声明live consumer，缺shader或同键任一目标缺能力时原子拒绝且保留旧画面。先用原产品同输入红例，再验自有composition效果开关/健康后方层像素、缺shader负门、真实339三个开关的graph/GPU/合成及同窗口恢复。与启动时同选项对照，完成这条现有链的准备遗漏即收口；不新增运行owner，不据执行计数声明官方全图一致。
+
+## 无子层 composition 的透视回绘决定（2026-10-16）
+
+真实288的286无parent、成员或依赖，默认copybackground=true，两项已有effect；init显式写perspective=true，并创建不继承effect的空composition。固定官方2.8.0.42自有1210×786正控制使用非零z、Y倾角、反色和不对称标记。false为矩形，true为四角各自可定位的梯形，内部横线随输出倾斜；这反证屏幕对齐projective pullback，支持平面采集后透视回绘的有界profile。正式测量与身份由本批证据持有，不能把同一对照外推成员、native-camera、passthrough或官方cursor parity。
+
+**职责。** 原CameraFrame只对无parent/成员/依赖、非passthrough且copybackground=true的composition接纳现有静态/typed perspective；其他utility沿旧策略。原imageModelMatrix分别按平面/输出策略求同一world frame的card，原CaptureGeometry以captureMVP决定affine sourceUV和source extent，以outputMVP决定最终quad。平面路径复用同一矩阵，不增普通帧解析/缓存；capture仍经原readable pass、pool、prepared graph和唯一compositor。cursor/effect投影使用最终输出MVP；不增加homography算法或第二相机。group的viewport源/1:1回绘不借此改变，未知形态的setter保持原bundle拒绝。
+
+**失败与验收。** 数值/资源安全沿原最小拒绝，普通effect失败沿原局部回退；创建/回滚与退休仍属DynamicLayerRuntime。先验false/true的四角、非零深度倾角、内部标记及同MVP cursor反投影；保fullscreen、group、project/依赖、native相机和健康peer反例，再做Debug及实际288控制/画面和独立原包。若原包仍无可见收益则不保留空创建基础设施，按队列重选；此设计不预报修复、性能或完整parity。
 
 ## 现有资源合同与历史依据
 

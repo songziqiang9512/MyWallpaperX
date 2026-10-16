@@ -263,10 +263,12 @@ struct SceneParticleCameraFrame: Sendable {
         layerOverride ?? defaultsToPerspective
     }
 
-    /// Utility captures use the screen-space camera policy. The model card
-    /// orientation must resolve through the same policy as its projection.
+    /// Local composition captures may replay through perspective. Group and
+    /// other utility targets retain the screen-space policy; native-camera
+    /// composition capture is not part of this profile.
     func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
-        guard layer.utilityLayer == nil else { return false }
+        if layer.utilityLayer != nil,
+           defaultsToPerspective || !layer.hasPerspectiveGeometryConsumer { return false }
         if let resolved = dynamicValues?[.layer(layerID: layer.id, field: .perspective)],
            resolved.source != .authored, case let .bool(value) = resolved.value {
             return value
@@ -276,6 +278,15 @@ struct SceneParticleCameraFrame: Sendable {
 
     func viewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
         viewProjection(usesPerspective: resolvesPerspective(for: layer))
+    }
+
+    /// Capture the same flat local background before replaying its texture
+    /// through the output projection. Ordinary image/utility routes agree.
+    func captureViewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
+        if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer {
+            return orthographicViewProjection
+        }
+        return viewProjection(for: layer)
     }
 
     /// Resolve a prepared particle batch through the existing camera and basis.

@@ -97,7 +97,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "design_notes": "2026-10-04 固定官方自有黑盒批准普通 composition parent 组、根位置合成、copybackground 缺省/true 纳入 enclosing 背景及 false 透明源；按现有 pool/graph/compositor 实施。passthrough、特殊变换/裁切和完整 parity 未批准；approved 不是已实现。",
+      "design_notes": "2026-10-04 固定官方自有黑盒批准普通 composition parent 组、根位置合成、copybackground 缺省/true 纳入 enclosing 背景及 false 透明源；按现有 pool/graph/compositor 实施。passthrough、特殊变换/裁切和完整 parity 未批准；approved 不是已实现。 2026-10-16 D1追加无parent/成员/依赖、copybackground=true且非passthrough的composition：flat采集与perspective回绘分离，共用现camera/world/pool/compositor，cursor用输出矩阵；group及其他utility不扩，官方正控制不预支原包验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
       ],
@@ -590,9 +590,9 @@
       "id": "scene-prepared-empty-composition",
       "title": "已准备空composition创建与控制链",
       "owner": "Scene prepared resource template / DynamicLayerRuntime",
-      "status": "blocked-pending-design",
+      "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "design_notes": "省略参数空组原型自有控制有效，但真实请求需constructor透视override、authored target286 perspective=true且当前capture无消费者；无原包收益已撤回。重启须先修订D4透视采集/回绘与实际消费者设计，不能只开放kind或删除guard。",
+      "design_notes": "2026-10-16 D4 #prepared-empty-composition重启：真实请求own Boolean true、authored286 childless背景采集已资格；D1限定平面captureMVP与透视outputMVP分离。原prepared-resource catalog/journal/typed topology接空composition，不继承成员/effects/source纹理；未消费字段出生前拒绝，原事务/退休不变。实际原包可见收益、四角/标记/cursor、失败邻例与独审另验，无收益撤回。",
       "matchPatterns": [],
       "contentPatterns": [
         "MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION",

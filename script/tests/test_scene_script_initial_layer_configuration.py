@@ -15,7 +15,17 @@ import tempfile
 import unittest
 
 from .scene_vector_vm_test_support import (
-    C_SOURCES, QUICKJS, ROOT, VM, compile_vector_harness,
+    C_SOURCES, QUICKJS, ROOT, VM, SWIFT_PREAMBLE, compile_vector_harness,
+)
+
+
+# Compile the actual configuration that the scalar projection now consults;
+# this carrier supplies only the ordinary disabled configuration.
+PREAMBLE = SWIFT_PREAMBLE.replace(
+    "    struct Camera {\n", "    struct Camera {\n        var bloom = SceneBloomConfiguration.disabled\n", 1)
+EXTRA_SOURCES = (
+    VM.parent.parent / "Rendering/Composition/SceneBloomPostProcess.swift",
+    VM.parent.parent / "Resources/Textures/SceneResourceBudget.swift",
 )
 
 
@@ -120,18 +130,18 @@ import Foundation
         result["callbackValuesAfterCatalogRejectionAndCurrentPublication"] = values
         let imageDomain = try SceneScriptQuickJSDomain()
         try imageDomain.configureLayerCatalog(authored)
-        let ordinary = SceneScriptDynamicImageLayerTemplate(
+        let ordinary = SceneScriptPreparedResourceLayerTemplate(
             modelPath: "models/fresh-photo.json", renderSizeWH: [64, 48])
-        let puppet = SceneScriptDynamicImageLayerTemplate(
+        let puppet = SceneScriptPreparedResourceLayerTemplate(
             modelPath: "models/fresh-rig.json", renderSizeWH: [64, 48],
             puppetMeshPath: "meshes/fresh-rig.mdl")
-        try imageDomain.configureDynamicImageCatalog([
+        try imageDomain.configurePreparedResourceLayerCatalog([
             ordinary.modelPath: ordinary, puppet.modelPath: puppet,
         ])
         do {
             var changed = puppet
             changed.puppetMeshPath = nil
-            try imageDomain.configureDynamicImageCatalog([
+            try imageDomain.configurePreparedResourceLayerCatalog([
                 ordinary.modelPath: ordinary, changed.modelPath: changed,
             ])
             result["puppetCatalogMarkerDriftRejected"] = false
@@ -175,6 +185,76 @@ import Foundation
         result["puppetCatalogBridgeValues"] = [x, y, z]
         result["puppetCatalogBridgeMutationPaths"] = imageEvaluation.layerMutations.compactMap(\.assetPath).sorted()
         imageOwner.commitLayerMutations()
+        let compositionDomain = try SceneScriptQuickJSDomain()
+        try compositionDomain.configureLayerCatalog(authored)
+        let compositionTemplate = SceneScriptPreparedResourceLayerTemplate(
+            modelPath: "models/owned-composition.json", renderSizeWH: [640, 480], kind: .composition)
+        try compositionDomain.configurePreparedResourceLayerCatalog([
+            compositionTemplate.modelPath: compositionTemplate])
+        try compositionDomain.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: authored)
+        let compositionSource = """
+        let born;
+        export function update(v) {
+            if(v.x===0){
+                const choices=[undefined,false,!!1];
+                for(let i=0;i<choices.length;i++){
+                    const request={image:'models/owned-composition.json',name:'own-composition-'+i,size:'18 9'};
+                    if(i>0)request.perspective=choices[i];
+                    const layer=thisScene.createLayer(request);
+                    if(!layer)throw Error('prepared composition');
+                    if(i===2)born=layer;
+                }
+                return new Vec3(3, born.perspective?1:0, born.size.x);
+            }
+            if(thisScene.getLayer('own-composition-2')!==null||thisScene.getInitialLayerConfig(born)!==null)
+                throw Error('late rejection leaked');
+            return new Vec3(7,8,9);
+        }
+        """
+        let compositionOwner = try SceneScriptValueOwner(domain: compositionDomain,
+            source: compositionSource, target: .layer(layerID: 17, field: .origin),
+            valueType: .vector3, effectNames: [], allowsStatefulLayerSideEffects: true,
+            generation: 1, budget: .default)
+        let compositionStep = { (x: Double) throws in
+            try compositionOwner.evaluate(input: .vector3(x,0,0),
+                frame: .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+                    simulationFrameTime: 1.0/60, sceneTime: x)),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}",
+                expectedGeneration: 1, interruptBudget: nil).get()
+        }
+        let compositionBorn = try compositionStep(0)
+        result["compositionBridgeTriState"] = compositionBorn.layerMutations.map {
+            $0.perspective.map { $0 ? 1 : 0 } ?? -1 }
+        result["compositionBridgeSizes"] = compositionBorn.layerMutations.map { [$0.size!.x,$0.size!.y] }
+        result["compositionBridgeOutput"] = compositionBorn.value == .vector3(3,1,18)
+        compositionOwner.discardLayerMutations()
+        result["compositionLateRejectNoResidue"] = try compositionStep(1).value == .vector3(7,8,9)
+        compositionOwner.commitLayerMutations()
+        let sourceLayer = SceneRenderDescriptor.Layer(id: 70, layerIndex: 0, name: "source-container",
+            visible: true, originXYZ: [0,0,10], scaleXYZ: [1,1,1], alpha: 1,
+            effects: [], contentKind: "composition", imagePath: compositionTemplate.modelPath,
+            utilityLayer: .init(kind: .composition, copyBackground: true, passthrough: false))
+        var sourceDescriptor = SceneRenderDescriptor(layers: [sourceLayer])
+        sourceDescriptor.camera.orthoHeight = 600
+        let setter = SceneScriptLayerMutation(kind: .upsert, isDynamic: false,
+            fields: [.perspective], layerID: 70, orderIndex: 0, visible: true, alpha: 1,
+            origin: .zero, scale: .init(repeating: 1), angles: .zero, color: .init(repeating: 1),
+            pointSize: 32, text: "", font: "", assetPath: nil, perspective: true)
+        let sourceRuntime = SceneScriptDynamicLayerRuntime(descriptor: sourceDescriptor,
+            authoredMutationLayerIDs: [70])
+        result["authoredCompositionOrthoSetter"] = (try? sourceRuntime.apply([setter]).get()) != nil
+            && sourceRuntime.snapshot().authoredLayerValues[.layer(layerID: 70,field: .perspective)] == .bool(true)
+        sourceDescriptor.camera.orthoHeight = nil
+        let nativeRuntime = SceneScriptDynamicLayerRuntime(descriptor: sourceDescriptor,
+            authoredMutationLayerIDs: [70])
+        if case .failure = nativeRuntime.apply([setter]) { result["nativeCompositionSetterRejected"] = true }
+        else { result["nativeCompositionSetterRejected"] = false }
+        var grouped = sourceLayer; grouped.childLayerIDs = [71]
+        sourceDescriptor.layers = [grouped]; sourceDescriptor.camera.orthoHeight = 600
+        let groupedRuntime = SceneScriptDynamicLayerRuntime(descriptor: sourceDescriptor,
+            authoredMutationLayerIDs: [70])
+        if case .failure = groupedRuntime.apply([setter]) { result["groupedCompositionSetterRejected"] = true }
+        else { result["groupedCompositionSetterRejected"] = false }
         print(String(decoding: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -188,7 +268,8 @@ class SceneScriptInitialLayerConfigurationTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory(prefix="scene-initial-config-")
         cls.addClassCleanup(cls.temporary.cleanup)
         directory = Path(cls.temporary.name)
-        binary = compile_vector_harness(directory, HARNESS, "initial-configuration")
+        binary = compile_vector_harness(directory, HARNESS, "initial-configuration",
+            extra_swift_sources=EXTRA_SOURCES, preamble=PREAMBLE)
         clang = shutil.which("clang")
         if clang is None:
             raise RuntimeError("clang is required")
@@ -225,6 +306,17 @@ class SceneScriptInitialLayerConfigurationTests(unittest.TestCase):
             self.swift_result["callbackValuesAfterCatalogRejectionAndCurrentPublication"],
             [[77, 3, 1], [77, 3, 9]],
         )
+
+    def test_empty_composition_tristate_reaches_swift_and_late_discard(self) -> None:
+        self.assertGreaterEqual(self.c_result["compositionFacts"], 25)
+        self.assertEqual(self.swift_result["compositionBridgeTriState"], [-1, 0, 1])
+        self.assertEqual(self.swift_result["compositionBridgeSizes"], [[18, 9]] * 3)
+        self.assertIs(self.swift_result["compositionBridgeOutput"], True)
+        self.assertIs(self.swift_result["compositionLateRejectNoResidue"], True)
+        for key in ("authoredCompositionOrthoSetter", "nativeCompositionSetterRejected",
+                    "groupedCompositionSetterRejected"):
+            with self.subTest(key=key):
+                self.assertIs(self.swift_result[key], True)
 
     def test_prepared_puppet_marker_reaches_actual_create_admission(self) -> None:
         self.assertIs(self.swift_result["puppetCatalogMarkerDriftRejected"], True)

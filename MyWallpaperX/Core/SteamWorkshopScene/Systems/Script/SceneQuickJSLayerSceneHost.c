@@ -466,12 +466,17 @@ static JSValue create_layer(
             free(text); free(font); free(name); free(asset_path);
             return JS_NULL;
         }
-        if (resource != NULL && resource->uses_puppet && JS_IsObject(argv[0])) {
-            // This prepared template supplies default geometry only. Presence
-            // includes inherited fields; it never reads an animation/effect
-            // value or silently inherits the authored source configuration.
-            const char *unsupported_fields[] = {"animations", "puppetAnimationLayers", "effects"};
-            for (size_t index = 0; index < sizeof(unsupported_fields) / sizeof(*unsupported_fields); ++index) {
+        if (resource != NULL && resource->resource_kind != MWX_SCENE_QUICKJS_PREPARED_LAYER_IMAGE && JS_IsObject(argv[0])) {
+            // Special templates supply only prepared empty/default geometry.
+            // Presence covers prototypes without invoking unknown values.
+            const char *puppet_fields[] = {"animations", "puppetAnimationLayers", "effects"};
+            const char *composition_fields[] = {"animations", "puppetAnimationLayers", "effects",
+                "copybackground", "config", "parent", "children", "dependencies"};
+            bool composition = resource->resource_kind == MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION;
+            const char **unsupported_fields = composition ? composition_fields : puppet_fields;
+            size_t field_count = composition ? sizeof(composition_fields) / sizeof(*composition_fields)
+                : sizeof(puppet_fields) / sizeof(*puppet_fields);
+            for (size_t index = 0; index < field_count; ++index) {
                 JSAtom field = JS_NewAtom(context, unsupported_fields[index]);
                 int present = field == JS_ATOM_NULL ? -1 : JS_HasProperty(context, argv[0], field);
                 if (field != JS_ATOM_NULL) JS_FreeAtom(context, field);

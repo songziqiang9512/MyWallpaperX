@@ -242,7 +242,7 @@ extension SceneMetalRenderer {
             parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
             visibleHalfExtents: cameraFrame.coverHalfExtents,
             usesPerspective: cameraFrame.resolvesPerspective(for: layer))
-        let mvp = cameraFrame.viewProjection(for: layer) * model
+        let mvp = cameraFrame.captureViewProjection(for: layer) * model
         if preparesCapacityOnly {
             return dependencyRuntime.prepareCaptureCapacity(layer: layer, sourceTexture: source?.texture,
                 sourceCandidate: source?.candidate, layerMVP: mvp, viewportSize: viewportSize,

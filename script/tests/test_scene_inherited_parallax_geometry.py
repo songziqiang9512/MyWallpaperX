@@ -53,6 +53,7 @@ struct SceneRenderDescriptor {
         var contentKind = "image"
         var textStyle: TextStyle?, imageAlignment: String?
         var utilityLayer: Bool?, usesPerspective: Bool?
+        var hasPerspectiveGeometryConsumer = false
     }
     var camera = CameraDescriptor()
 }

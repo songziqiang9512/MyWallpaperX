@@ -326,12 +326,18 @@ typedef struct MWXSceneQuickJSCursorEvent {
  * This pure function has no opaque state and must not call author JavaScript. */
 typedef char *(*MWXSceneQuickJSAssetPathNormalizer)(const char *path, size_t length);
 
+typedef enum MWXSceneQuickJSPreparedLayerKind {
+    MWX_SCENE_QUICKJS_PREPARED_LAYER_IMAGE = 0,
+    MWX_SCENE_QUICKJS_PREPARED_LAYER_PUPPET = 1,
+    MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION = 2
+} MWXSceneQuickJSPreparedLayerKind;
+
 typedef struct MWXSceneQuickJSDynamicImageDescriptor {
     const char *model_path;
     size_t model_path_length;
     double natural_size[2];
     uint32_t autosize;
-    uint32_t uses_puppet;
+    uint32_t resource_kind;
 } MWXSceneQuickJSDynamicImageDescriptor;
 
 #endif

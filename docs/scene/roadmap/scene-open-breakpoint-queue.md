@@ -12,7 +12,6 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| N06 · prepared composition创建及透视消费 | **能力缺口。** 2887542690的真实constructor带perspective override，其实际Bool未观测；authored utility286的显式true也使共同bundle拒绝。现capture的屏幕仿射策略不能消费该透视。空组原型没有原包收益，已撤回；黑遮挡、字体/偏移/片区布局与完整交互仍待当前复验 | 先证明实际请求配置与composition true的采集/回绘几何合同，再沿prepared catalog→journal/topology→原utility plan交付可见控制结果。不得继承source effects/成员/final texture，也不能用false镜像掩盖缺口。[STOP与边界](../history/prepared-empty-composition-2026-10-15.md) |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **10-16 fresh受控三轮仍未闭合。** 首轮598可见骨写，释放后TypeError，后两轮callback停；562正常。同包静态跟进定位CursorUp延时链首个缺失host方法为`applyBonePhysicsImpulse`，实际形态为Number+Vec3两参；不是getAnimation缺失，尚无动态PC因果证明 | 官方载体2/2资格失败，angular缺省/空间/响应仍unknown；先取得可见骨姿态正控与数值合同，禁止no-op、猜default或削fuse。修后同输入三轮持续响应、释放后继续更新及健康邻居。[原动态证据](../history/repeated-puppet-drag-qualification-2026-10-16.md)；静态资格：`.artifacts/tmp/repeated-drag-consumer-qualification-20261016/qualification.json` |
 | N03/N06 · 其余旧项待复验 | **最后关联为10-11等旧运行，不能当HEAD已复现。** 2890473419特殊资源/undefined.visible；3789316755独立BAD_RETURN；3337494481 callback invalid-argument及五条首帧source-not-ready中一条未恢复 | 同身份复验精确target，区分局部fallback、启动恢复与持续缺失，不按统一TypeError扩API；333的Rope缺口只归N08。[原普查](../history/new-scene-intake-2026-10-11.md)、[Sound边界](../history/sound-script-control-2026-10-12.md) |
@@ -32,6 +31,7 @@
 
 | 样本 / 旧观察 | 当前边界与下一关闭门 |
 |---|---|
+| 2887542690 · 音频ROI、黑遮挡/字体与片区布局 | 10-16 composition创建、286控制及限定透视回绘已接通，原visible-of-null退出；只证旧外悬蓝条同位置消失。固定pointer显隐消融未找到音频条的可重复正证，资格STOP，不能称图框内音频恢复；其他旧具体视觉与完整交互仍待当前可区分证据。[本批边界](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 右侧旧黑块 | 10-16默认日景及作者Night(Lights On) String选项4实图未定位独立右黑矩形；亮吊灯、书柜和地板可见，灰白海报与软阴影仍在。旧精确ROI、媒体和墙钟/viewport phase未齐，不写已修；移出当前已确认缺陷，先取同状态可区分复现再追source/effect/compositor，不据两条无归属mask诊断实施。[夜景限期证据](../../../.artifacts/scene-evidence/runs/213-black-region-night-qualification-20261016/manifest.json)；标题修复不重开。 |
 | 3768903841 · 云形/烟花细节 | 旧Worley云形及烟花/色彩细节未取得同相位关闭。10-16 R40独立原包复验四束spot GPU成功、底部光束可见，实图仍有横向深色云片；只证明当前呈现，不据此判新根因或整样本通过。先同phase对齐实际source/Program与ROI，不因四束恢复关闭旧云形差异。[原边界](../history/runtime-evidence-index.md#e-spot-light) |
 | 3226487183 · 游离手臂、侧脸碎片 | 旧图的1028/934/876错位未闭。10-16中性资格只证无parent/attachment、center且origin含script，非center pivot静态反例不命中；seed不能当实际VM输出。沿实际origin→pose/bone→skinning对齐，并保composition成员效果。[闭包证据](../history/composition-member-closure-2026-10-07.md) |

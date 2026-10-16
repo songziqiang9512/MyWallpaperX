@@ -92,9 +92,9 @@ extension SceneMetalRenderer {
             commandBuffer: commandBuffer
         )
         let time = Float(frameContext.sceneTime)
-        let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
+        let imageModel: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
             layer, renderSizeOverride in
-            cameraFrame.viewProjection(for: layer) * self.imageModelMatrix(
+            self.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
                 renderSizeOverride: renderSizeOverride,
@@ -104,6 +104,9 @@ extension SceneMetalRenderer {
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer)
             )
+        }
+        let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
+            cameraFrame.viewProjection(for: $0) * imageModel($0, $1)
         }
         let geometryMVP: (
             SceneRenderDescriptor.Layer, SceneGeometryProduct
@@ -387,19 +390,12 @@ extension SceneMetalRenderer {
                     )
                     desiredSize = viewportSize
                 } else {
-                    let model = imageModelMatrix(
-                        for: layer,
-                        worldFramesByLayerID: worldFramesByLayerID,
-                        parallaxMouseNormalized:
-                            frameContext.cameraParallaxPosition,
-                        configuration: parallaxConfiguration,
-                        visibleHalfExtents: cameraFrame.coverHalfExtents,
-                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                    )
+                    let model = imageModel(layer, nil)
                     guard let geometry = SceneCaptureGeometryResolver.resolve(
                         kind: utility.kind,
                         layerMVP: cameraFrame.viewProjection(for: layer) * model,
-                        viewportSize: viewportSize
+                        viewportSize: viewportSize,
+                        captureMVP: cameraFrame.captureViewProjection(for: layer) * model
                     ) else {
                         return .rejected(
                             reasonCode: "utility-offscreen-size-unavailable"
@@ -557,10 +553,9 @@ extension SceneMetalRenderer {
                     dependencyUnavailability = .providerSourceUnavailable
                     break
                 }
-                let providerMVP = imageMVP(
-                    providerLayer,
-                    imageTextures.layerSourceRenderSize(for: providerLayer.id)
-                )
+                let providerMVP = cameraFrame.captureViewProjection(for: providerLayer)
+                    * imageModel(providerLayer,
+                        imageTextures.layerSourceRenderSize(for: providerLayer.id))
                 let preparedOutputExtent = preparedGraphOutputExtent(
                     for: binding.providerLayerID,
                     plans: byLayerID

@@ -575,27 +575,28 @@ nonisolated extension SceneScriptQuickJSDomain {
         return String(decoding: try encoder.encode(configuration), as: UTF8.self)
     }
 
-    func configureDynamicImageCatalog(
-        _ templates: [String: SceneScriptDynamicImageLayerTemplate]
+    func configurePreparedResourceLayerCatalog(
+        _ templates: [String: SceneScriptPreparedResourceLayerTemplate]
     ) throws {
-        if let configured = dynamicImageCatalog {
+        if let configured = preparedResourceLayerCatalog {
             guard configured == templates else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument("dynamic image catalog identity changed")
+                throw SceneScriptScalarRuntimeFailure.invalidArgument("prepared resource layer catalog identity changed")
             }
             return
         }
         guard templates.count <= 4096,
               templates.allSatisfy({ key, value in
                   key == value.modelPath.lowercased() && value.renderSizeWH.count == 2 &&
-                    value.renderSizeWH.allSatisfy { $0.isFinite && $0 > 0 }
+                    value.renderSizeWH.allSatisfy { $0.isFinite && $0 > 0 } &&
+                    (value.kind != .composition || (!value.autosize && value.puppetMeshPath == nil))
               }) else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid dynamic image catalog")
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid prepared resource layer catalog")
         }
         let entries = templates.sorted { $0.key < $1.key }
         let paths = entries.map { $0.value.modelPath.withCString { strdup($0) } }
         defer { paths.forEach { free($0) } }
         guard paths.allSatisfy({ $0 != nil }) else {
-            throw SceneScriptScalarRuntimeFailure.memoryExceeded("dynamic image catalog paths")
+            throw SceneScriptScalarRuntimeFailure.memoryExceeded("prepared resource layer catalog paths")
         }
         let descriptors = entries.enumerated().map { index, entry in
             MWXSceneQuickJSDynamicImageDescriptor(
@@ -603,7 +604,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                 model_path_length: entry.value.modelPath.utf8.count,
                 natural_size: (Double(entry.value.renderSizeWH[0]), Double(entry.value.renderSizeWH[1])),
                 autosize: entry.value.autosize ? 1 : 0,
-                uses_puppet: entry.value.puppetMeshPath != nil ? 1 : 0)
+                resource_kind: entry.value.kind == .composition ? 2
+                    : (entry.value.puppetMeshPath != nil ? 1 : 0))
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = descriptors.withUnsafeBufferPointer { buffer in
@@ -613,7 +615,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         guard result == MWX_SCENE_QUICKJS_OK else {
             throw layerSnapshotFailure(result, diagnostic: diagnostic)
         }
-        dynamicImageCatalog = templates
+        preparedResourceLayerCatalog = templates
     }
 
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {

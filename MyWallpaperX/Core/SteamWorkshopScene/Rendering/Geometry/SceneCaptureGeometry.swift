@@ -100,7 +100,8 @@ enum SceneCaptureGeometryResolver {
     nonisolated static func resolve(
         kind: SceneUtilityLayer.Kind,
         layerMVP: simd_float4x4,
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        captureMVP: simd_float4x4? = nil
     ) -> SceneCaptureGeometry? {
         guard viewportSize.width.isFinite, viewportSize.height.isFinite,
               viewportSize.width > 0, viewportSize.height > 0 else {
@@ -114,13 +115,14 @@ enum SceneCaptureGeometryResolver {
             )
         }
 
-        guard let topLeft = sourceUV(position: SIMD2(-0.5, 0.5), mvp: layerMVP),
-              let topRight = sourceUV(position: SIMD2(0.5, 0.5), mvp: layerMVP),
-              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: layerMVP) else {
+        let sourceMVP = captureMVP ?? layerMVP
+        guard let topLeft = sourceUV(position: SIMD2(-0.5, 0.5), mvp: sourceMVP),
+              let topRight = sourceUV(position: SIMD2(0.5, 0.5), mvp: sourceMVP),
+              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: sourceMVP) else {
             return nil
         }
         guard let pixelSize = projectedPixelSize(
-            layerMVP: layerMVP,
+            layerMVP: sourceMVP,
             viewportSize: viewportSize
         ) else { return nil }
 

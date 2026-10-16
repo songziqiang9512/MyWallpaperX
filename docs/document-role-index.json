@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "720960a48a9b672ec579126b365720b47cb5fd613e04e1aa66e60004a6c7dc03",
+        "sourceSHA256": "13788cf33939004ccd5efac34d6722cb921a457d3cb2d9fefb8803e4059bd3a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
-        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
+        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
+        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
       }
     },
     {
@@ -749,10 +749,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "80af91941e41f134c801913070a51f6e5b6f53fab9e621ce7434ac946e469c18",
+        "sourceSHA256": "0aa9bcdca7a37693f359f3316a8b44b510edbb4f5631c4879b45f9d2490a23a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
+        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
       }
     },
     {
@@ -1031,6 +1031,18 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/batch2/composition-render-target-design.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/composition-local-perspective-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "真实true composition请求接入原prepared/事务与平面采集-透视回绘；自有四角与实际controller/GPU已验，真实音频ROI最后消融未获正证，边界保留。"
     },
     {
       "path": "docs/scene/history/composition-member-closure-2026-10-07.md",
@@ -3212,10 +3224,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2ca753663fe59be85efde7955692064d2c98e38043563bc94b05240848046e78",
+        "sourceSHA256": "4e55f773bfcc70c43481e93186e5567c66bd4bf18e203bf3c0fac9e3933d3def",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
+        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
       }
     },
     {
@@ -3302,10 +3314,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d5d318a087cd4f44245e13efa27b3945fe4ea067b6ab80b0deb27aa90fd616f6",
+        "sourceSHA256": "cc9c1d8afa297dd2d3b480aa112252f550e05caf92f485a84064b1e868f8dbd8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "213夜景控制复验的观察边界与periodic cap实际样本身份纠正",
-        "limitations": "独立查看实图及原包静态身份；未证明旧黑块修复、雷电恢复、完整视觉或性能"
+        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
+        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
       }
     },
     {
@@ -3316,10 +3328,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0971ca7cd71343c06a5ab604642d97c9574febba79836ee76106fa6ff3e58b3c",
+        "sourceSHA256": "bcc4cf634d3a167045d4f4a06e4162d9dcc2fe08cbd5f84d9cd020f8d7ac9f31",
         "method": "document_registry --audit + document_health --check",
-        "scope": "213夜景控制复验的观察边界与periodic cap实际样本身份纠正",
-        "limitations": "独立查看实图及原包静态身份；未证明旧黑块修复、雷电恢复、完整视觉或性能"
+        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
+        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
       }
     },
     {

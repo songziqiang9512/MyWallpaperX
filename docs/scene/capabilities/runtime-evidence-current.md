@@ -39,7 +39,7 @@
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |
 | Sprite世界空间与深度 | [相机与深度修复](../history/particle-world-depth-2026-10-11.md)：324原包三层准入、主体恢复并实际呈现，379健康回归；后继[信号producer修复](../history/independent-signal-producer-2026-10-11.md)恢复GodRays放射光束；运动形态余项仍开放，不计整样本通过。 |
-| 空composition资格STOP | [撤回记录](../history/prepared-empty-composition-2026-10-15.md)：省略参数原型自有控制有效，真实请求另需constructor与authored透视override；无原包收益故撤回产品/测试，未新增支持或性能结论。 |
+| 空composition与局部透视 | [限定后继](../history/composition-local-perspective-2026-10-16.md)：真实true请求接原catalog/事务，flat采集与透视回绘分离；288 controller/GPU已执行，音频可见ROI未证，保留队列。 |
 | 图片brightness脚本 | [普通图片后继](../history/effectful-image-property-color-2026-10-14.md#image-brightness-script)：补Scalar与property输入首断点，真实热改、星空明暗、原生保存/重开/reset同session；独立effectful实图及其origin异常、原生看门狗退出分列，不计性能或整样本完成。 |
 | Sound volume字段脚本 | [pure后验](../history/sound-script-control-2026-10-12.md#sound-volume-script)与[mixed后验](../history/sound-script-control-2026-10-12.md#sound-mixed-volume)分列原包/派生App、暂停冻结刷新、真实增益及normal面板保存/重开/reset单session，独立原包实图保持；366冷启动超时、deferred实际组合/故障Session取消、多surface与听感保留，无性能结论。 |
 | OGG Sound平台格式 | [资源级后验](../history/sound-script-control-2026-10-12.md#sound-ogg-native)：真实915音频与自有OGG经原Program/Registry ready、时钟、命令及退休，坏文件/WAV peer分验；完整366冷启动120秒未ready，原包声音/画面未证，独立314实图保持，无性能或听感/parity结论。 |
@@ -150,6 +150,10 @@
 <a id="evidence-packages"></a>
 
 ## 3. 证据包
+
+<a id="e-2026-10-16-composition-local-perspective"></a>
+
+2026-10-16：[无子层composition透视后验](../history/composition-local-perspective-2026-10-16.md)保存官方自有几何、原生四角/局部纹理、真实288 controller与音频ROI STOP、独立326、CPU/事务及退出边界；限期包`composition-local-perspective-20261016`，不计性能或整样本恢复。
 
 <a id="e-2026-10-16-unused-version-combo"></a>
 

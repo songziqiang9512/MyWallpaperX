@@ -147,13 +147,11 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 
 <a id="prepared-empty-composition"></a>
 
-### 空 composition 创建资格（2026-10-15，原型撤回）
+### 已准备空composition与限定透视消费者（2026-10-16）
 
-**当前裁决。** [隔离原型](../../history/prepared-empty-composition-2026-10-15.md)证明省略特殊配置/透视时可沿原catalog、create journal、DynamicLayerRuntime与utility plan建立独立空组，并控制真实可见peer；但真实288请求携constructor透视override，且target286的authored setter写true。前者早拒绝返回null，允许它则后者仍使原共同bundle拒绝。省略窄片未改善真实请求，产品与测试原型已撤回，不新增支持，不以自有fixture替代收益。
+[前轮省略原型](../../history/prepared-empty-composition-2026-10-15.md)因真实true请求无消费者而撤回；后继已锁真实Object的own Boolean true及authored286无成员背景采集，按[D1](composition-render-target-design.md)的flat capture/output分离重开。现实施沿原prepared resource模板/kind、同一catalog/journal/候选/topology接空composition，接受省略/false/true；普通size与初始配置可用边界保持。source的effects/成员/脚本/最终纹理不继承，无effect只参与顺序。未消费animations/effects、背景/config、parent/children/dependencies出生前拒绝，getter/Proxy异常和晚拒绝共同撤回，原排序/退休/creator归属不变。
 
-**保留的职责设计。** 如后继取得真实可消费profile，泛化原资源层template/kind与同一domain catalog；image/Puppet保原device资源，composition只携可信utility资格，不伪Loaded图片、不复制source成员/effects/脚本或最终纹理。原身份、事务/fixed-point、typed topology、排序与退休继续唯一；无effect空组只规范顺序，不新增capture/graph/target。普通帧不解析或扫描资源。显式动画/effects、背景/config、成员/dependency及透视配置必须有typed消费者后才开放，getter/Proxy异常保原owner撤回。
-
-**重启门。** 公开IScene只有通用创建/排序/延迟销毁合同；composition透视、动态背景默认及成员复制仍unknown。当前utility固定screen-space，采集UV仅三角affine，不能只删除perspective guard或强置false冒充支持true。重启先取得自有正控制与透视false/true、非零深度/倾角、第四角/采集回绘/cursor的可区分合同，保存新设计并同步登记。保省略C2→Swift nil和普通image/text的继承语义；明确未消费override在出生前拒绝、ABI/后续setter在共同接纳前复核。无可见差异或无合格真实请求就停止扩域，按现役队列重选。
+本片限定正交canvas的普通childless背景采集；authored setter、factory与CameraFrame共用实际几何消费者，group、native-camera及未知profile不扩。[有界运行后验](../../history/composition-local-perspective-2026-10-16.md)区分已执行的真实controller/typed/GPU回绘与未证音频ROI；不能用句柄、旧蓝条消失或全景其他卡片倾转宣称图框音频恢复。动态图层初始配置仍unavailable，特殊配置和完整288交互保持开放。新成员/effect配置须给新identity准备原graph/history及明确变换消费次数，不把本片空模板扩成clone。
 
 ## 图层 perspective typed setter 后继（2026-10-12）
 

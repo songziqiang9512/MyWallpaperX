@@ -30,7 +30,7 @@ import Foundation
         descriptor.modelMaterialLinks = models.map { .init(modelPath: $0, materialPath: "material") }
         let domain = try SceneScriptQuickJSDomain()
         try domain.configureLayerCatalog(descriptor)
-        try domain.configureDynamicImageCatalog([
+        try domain.configurePreparedResourceLayerCatalog([
             models[0].lowercased(): .init(modelPath: models[0], renderSizeWH: [200,100], autosize: true),
             models[1].lowercased(): .init(modelPath: models[1], renderSizeWH: [320,160], autosize: true)])
         try domain.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: descriptor)
@@ -138,15 +138,15 @@ import Foundation
         let descriptor = SceneRenderDescriptor(layers: [first, second])
         let domain = try SceneScriptQuickJSDomain()
         try domain.configureLayerCatalog(descriptor)
-        let catalog: [String: SceneScriptDynamicImageLayerTemplate] = [
+        let catalog: [String: SceneScriptPreparedResourceLayerTemplate] = [
             "models/auto.json": .init(modelPath: "models/auto.json", renderSizeWH: [200, 100], autosize: true),
             "models/manual.json": .init(modelPath: "models/manual.json", renderSizeWH: [200, 100])]
-        try domain.configureDynamicImageCatalog(catalog)
-        try domain.configureDynamicImageCatalog(catalog)
+        try domain.configurePreparedResourceLayerCatalog(catalog)
+        try domain.configurePreparedResourceLayerCatalog(catalog)
         var changed = catalog
         changed["models/auto.json"] = .init(modelPath: "models/auto.json", renderSizeWH: [300, 150], autosize: true)
         var identityRejected = false
-        do { try domain.configureDynamicImageCatalog(changed) }
+        do { try domain.configurePreparedResourceLayerCatalog(changed) }
         catch { identityRejected = true }
         try domain.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: descriptor)
         func owner(_ source: String) throws -> SceneScriptValueOwner {
@@ -212,7 +212,7 @@ import Foundation
         ])
         let domain = try SceneScriptQuickJSDomain()
         try domain.configureLayerCatalog(descriptor)
-        try domain.configureDynamicImageCatalog([path.lowercased(): .init(
+        try domain.configurePreparedResourceLayerCatalog([path.lowercased(): .init(
             modelPath: path, renderSizeWH: [640, 320])])
         try domain.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: descriptor)
         let source = """

@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 169,
-      "bytes": 47037
+      "lines": 173,
+      "bytes": 47400
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 109055
+      "bytes": 109554
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -165,8 +165,8 @@
       "bytes": 110178
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 46,
-      "bytes": 8174
+      "lines": 54,
+      "bytes": 10046
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 435,
-      "bytes": 112779
+      "lines": 433,
+      "bytes": 112334
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 49,
-      "bytes": 12559
+      "bytes": 12665
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 139,
-      "bytes": 27386
+      "bytes": 27122
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1168,15 +1168,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "3c39c4d868e3cd02f3e0b06f25ed94699242d3fdf5c137696e17085fc7090b0a",
-      "after": "4054d030d8565943e1dcf608b54891668c22fefd63a8fcd69f94bba9c616d9e9",
-      "owner": "scene-general-bloom-script",
-      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "bbbef2ca8e9c9083d382ede1ffdef865a9f0af969128926bc5ee7356cbd2f90e",
       "after": "ba07db134aaea1bb4d85a183b93f78748c3ad26835848fb539525565b98c0b46",
@@ -1205,20 +1196,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6f13f149cfaee303bcb5907ff8370cf66cfac46a0e5719cebc2e47d55d7f9f7c",
-      "after": "039da9bfdf338fd489e0f35dffd8c1a17dece75d1ca3250090b6e42df50d187e",
-      "owner": "scene-unused-version-combo",
-      "reason": "有界材质像素收益留原证据库细节区，首读快照仅加精确指针；不扩大150行首读上限。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
+      "before": "039da9bfdf338fd489e0f35dffd8c1a17dece75d1ca3250090b6e42df50d187e",
+      "after": "f321d7f7b7c12866e0cc974887f5edfac502e7495d616fd224d3565a540c0703",
+      "owner": "scene-composition-local-perspective",
+      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "4054d030d8565943e1dcf608b54891668c22fefd63a8fcd69f94bba9c616d9e9",
+      "after": "b21f84c0d7a75b8fcfa2ffddedf8d2a1e0bf0895b4a250560a6f535b3670190e",
+      "owner": "scene-composition-local-perspective",
+      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "8ea2dd521db4c749956d8813be6cc460577cdc5063da04b0e9165e763c538768",
+      "after": "e6588e8c9f9893823eaabe934aade9ef2b54cebb2897c0de39c568cf357b1b8c",
+      "owner": "scene-composition-local-perspective",
+      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "be8883885da6f8d345d40d5f3e234f516326e1ddcbb3a5a1fade2934ba96a424",
-      "after": "96da5e046ed0075c8a17ba22884378a503ea939e70d6e219fc3f6c3803c69ffe",
-      "owner": "scene-consumer-qualification",
-      "reason": "纠正375与374粒子cap的错误身份关联，保真正未支持组件及STOP边界，引用正式限期静态证据包。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-visual-repairs"
+      "before": "96da5e046ed0075c8a17ba22884378a503ea939e70d6e219fc3f6c3803c69ffe",
+      "after": "c6a318c3205063f076e1479f232b75025fa08e63ce1358ef0807cff1af46710e",
+      "owner": "scene-composition-local-perspective",
+      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     }
   ]
 }

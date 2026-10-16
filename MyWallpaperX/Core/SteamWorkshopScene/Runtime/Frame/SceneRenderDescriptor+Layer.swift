@@ -84,6 +84,18 @@ extension SceneRenderDescriptor {
             contentKind == "image" || contentKind == "solid"
         }
 
+        /// The local capture/replay profile. Group targets already contain
+        /// member world transforms and retain their full-viewport output.
+        nonisolated var hasPerspectiveGeometryConsumer: Bool {
+            guard let utility = utilityLayer else {
+                return ["image", "solid", "text", "model"].contains(contentKind)
+            }
+            return utility.kind == .composition && contentKind == "composition"
+                && utility.copyBackground && !utility.passthrough
+                && parentID == nil && childLayerIDs.isEmpty
+                && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
+        }
+
         nonisolated var supportsDirectLayerColorConsumer: Bool {
             contentKind == "solid"
                 || (contentKind == "image" && effects.isEmpty)

@@ -785,16 +785,25 @@ extension SceneDesktopWallpaperHost {
         let autosizeByModelPath = Dictionary(uniqueKeysWithValues: model.assetCatalog.models.map {
             ($0.relativePath.lowercased(), $0.autosize ?? false)
         })
-        let dynamicImageTemplates = Dictionary(uniqueKeysWithValues:
+        var preparedResourceLayerTemplates = Dictionary(uniqueKeysWithValues:
             preparedDeviceResources.baseImages.dynamicImageResources.compactMap {
-                key, resource -> (String, SceneScriptDynamicImageLayerTemplate)? in
+                key, resource -> (String, SceneScriptPreparedResourceLayerTemplate)? in
                 let autosize = autosizeByModelPath[key] ?? false
                 guard !autosize || resource.naturalSizeWH != nil else { return nil }
-                return (key, SceneScriptDynamicImageLayerTemplate(modelPath: resource.modelPath,
+                return (key, SceneScriptPreparedResourceLayerTemplate(modelPath: resource.modelPath,
                     renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize,
                     puppetMeshPath: resource.puppetMeshPath))
             })
-        try propertyVectorScriptProgram.domain?.configureDynamicImageCatalog(dynamicImageTemplates)
+        // Empty clones carry only the prepared utility kind; no source effects,
+        // members, scripts or final texture enter their creation template.
+        if (runtimeInput.renderDescriptor.camera.orthoHeight ?? 0) > 0 {
+            for layer in runtimeInput.renderDescriptor.layers where layer.utilityLayer?.kind == .composition {
+                guard let path = layer.imagePath else { continue }
+                preparedResourceLayerTemplates[path.lowercased()] = .init(
+                    modelPath: path, renderSizeWH: [1, 1], kind: .composition)
+            }
+        }
+        try propertyVectorScriptProgram.domain?.configurePreparedResourceLayerCatalog(preparedResourceLayerTemplates)
         let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands
             .union(baseMaterialProviderBindings.userPropertyDemands)
             .union(runtimeInput.renderDescriptor.texturePropertyKeys.compactMap {
@@ -847,7 +856,7 @@ extension SceneDesktopWallpaperHost {
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
-            dynamicImageTemplates: dynamicImageTemplates,
+            preparedResourceLayerTemplates: preparedResourceLayerTemplates,
             timelineProgram: timelineProgram,
             textScriptProgram: textScriptProgram
         )

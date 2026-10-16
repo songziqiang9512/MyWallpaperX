@@ -49,13 +49,15 @@ nonisolated extension SceneRenderDescriptor.Layer {
 }
 
 nonisolated extension SceneRenderDescriptor.Layer {
-    static func dynamicImage(
+    static func preparedResourceLayer(
         _ mutation: SceneScriptLayerMutation,
-        template: SceneScriptDynamicImageLayerTemplate
+        template: SceneScriptPreparedResourceLayerTemplate
     ) -> Self? {
         guard mutation.isDynamic, mutation.kind == .upsert,
               mutation.assetPath?.caseInsensitiveCompare(template.modelPath)
-                == .orderedSame else { return nil }
+                == .orderedSame,
+              template.kind != .composition || (!template.autosize && template.puppetMeshPath == nil)
+                else { return nil }
         guard let origin = Self.descriptorTransform(mutation.origin),
               let scale = Self.descriptorTransform(mutation.scale),
               let angles = Self.descriptorTransform(mutation.angles) else {
@@ -69,9 +71,11 @@ nonisolated extension SceneRenderDescriptor.Layer {
         guard size.count == 2, size.allSatisfy({ $0.isFinite && $0 > 0 }) else { return nil }
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
-            cameraPath: nil, contentKind: "image",
+            cameraPath: nil, contentKind: template.kind == .composition ? "composition" : "image",
             imagePath: template.modelPath, usesPerspective: mutation.perspective, particlePath: nil,
-            spotLight: nil, particleInstanceOverride: nil, utilityLayer: nil,
+            spotLight: nil, particleInstanceOverride: nil,
+            utilityLayer: template.kind == .composition
+                ? SceneUtilityLayer(kind: .composition, copyBackground: true, passthrough: false) : nil,
             dependencyLayerIDs: [], authoredDependencies: [], parentID: nil,
             childLayerIDs: [], attachmentName: nil,
             parentAttachmentBindFrame: nil, puppetAnimationLayers: [],

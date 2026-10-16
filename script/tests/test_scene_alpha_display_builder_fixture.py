@@ -90,6 +90,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingProgram.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingProgramValidator.swift",
@@ -243,6 +244,11 @@ HARNESS_SOURCE = r'''
 enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
 import Foundation
 import Metal
+
+// This builder/factory gate does not prepare native FOV consumers.
+enum SceneParticleCameraFrame {
+    static func acceptsNativePerspectiveProjection(camera: SceneRenderDescriptor.CameraDescriptor) -> Bool { false }
+}
 
 enum SceneMdlStaticModelReader {
     static func readMaterialPathMetadata(data rawData: Data) throws -> String { "" }
@@ -464,7 +470,7 @@ enum SceneTextGeometry {
 @main
 enum Harness {
     static func creationGeometry() -> [String: Any] {
-        let template = SceneScriptDynamicImageLayerTemplate(
+        let template = SceneScriptPreparedResourceLayerTemplate(
             modelPath: "models/renamed-resource.json", renderSizeWH: [4, 4])
         func mutation(_ size: SIMD2<Double>?, path: String = "models/renamed-resource.json") -> SceneScriptLayerMutation {
             .init(kind: .upsert, isDynamic: true, fields: [], layerID: -1,
@@ -474,15 +480,45 @@ enum Harness {
                 pointSize: 32, text: "", font: "", assetPath: path,
                 size: size, perspective: true)
         }
-        let created = SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(200, 100)), template: template)
-        let fallback = SceneRenderDescriptor.Layer.dynamicImage(mutation(nil), template: template)
+        let created = SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(.init(200, 100)), template: template)
+        let fallback = SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(nil), template: template)
         return ["explicitSize": created?.renderSizeWH ?? [],
             "preparedFallbackSize": fallback?.renderSizeWH ?? [],
             "usesPerspective": created?.usesPerspective == true,
             "anglesRemainRadians": created?.anglesXYZ == [0, 0.6, 0],
-            "invalidSizeRejected": SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(0, 100)), template: template) == nil &&
-                SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(.infinity, 100)), template: template) == nil,
-            "unmatchedResourceRejected": SceneRenderDescriptor.Layer.dynamicImage(mutation(.init(200, 100), path: "models/neighbor.json"), template: template) == nil]
+            "invalidSizeRejected": SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(.init(0, 100)), template: template) == nil &&
+                SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(.init(.infinity, 100)), template: template) == nil,
+            "unmatchedResourceRejected": SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(.init(200, 100), path: "models/neighbor.json"), template: template) == nil]
+    }
+
+    static func compositionGeometry() -> [String: Any] {
+        let template = SceneScriptPreparedResourceLayerTemplate(
+            modelPath: "models/own-container.json", renderSizeWH: [640,480], kind: .composition)
+        func mutation(_ id: Int, _ perspective: Bool?) -> SceneScriptLayerMutation {
+            .init(kind: .upsert, isDynamic: true, fields: [], layerID: id,
+                orderIndex: 1, visible: true, solid: false, alpha: 0.75,
+                origin: .init(Double(id),20,30), scale: .init(2,3,4),
+                angles: .init(0,0.6,0), color: .init(0.2,0.4,0.6),
+                pointSize: 32, text: "", font: "", assetPath: template.modelPath,
+                size: .init(18,9), perspective: perspective)
+        }
+        let layers = [nil, false, true].enumerated().compactMap {
+            SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(-1-$0.offset,$0.element), template: template)
+        }
+        var bad = template; bad.autosize = true
+        var mesh = template; mesh.puppetMeshPath = "meshes/unrelated.mdl"
+        return ["count":layers.count,
+            "perspective":layers.map { $0.usesPerspective.map { $0 ? 1 : 0 } ?? -1 },
+            "sizes":layers.map { $0.renderSizeWH ?? [] },
+            "independent":Set(layers.map(\.id)).count == 3 && layers.map { $0.originXYZ?[0] ?? 0 } == [-1,-2,-3],
+            "emptyOnly":layers.allSatisfy { $0.contentKind == "composition" && $0.utilityLayer?.kind == .composition
+                && $0.utilityLayer?.copyBackground == true && $0.utilityLayer?.passthrough == false
+                && $0.parentID == nil && $0.childLayerIDs.isEmpty && $0.dependencyLayerIDs.isEmpty
+                && $0.authoredDependencies.isEmpty && $0.effects.isEmpty && $0.effectFiles.isEmpty
+                && $0.scriptBindings == nil && !$0.hasInlineScript && $0.texturePaths.isEmpty
+                && $0.puppetMeshPath == nil && $0.hasPerspectiveGeometryConsumer },
+            "invalidTemplateRejected":SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(-1,true),template:bad) == nil
+                && SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(-1,true),template:mesh) == nil]
     }
 
     static func main() throws {
@@ -539,6 +575,7 @@ enum Harness {
             "catalogDimensions": catalogDimensions,
             "preparedGeometry": preparedGeometry,
             "creationGeometry": creationGeometry(),
+            "compositionGeometry": compositionGeometry(),
             "layers": layers,
             "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(
                 in: model.renderDescriptor
@@ -677,6 +714,15 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         if hasattr(cls, "temporary_directory"):
             cls.temporary_directory.cleanup()
+
+    def test_empty_composition_factory_preserves_tristate_and_independent_geometry(self) -> None:
+        value = self.result["compositionGeometry"]
+        self.assertEqual(value["count"], 3)
+        self.assertEqual(value["perspective"], [-1, 0, 1])
+        self.assertEqual(value["sizes"], [[18, 9]] * 3)
+        for key in ("independent", "emptyOnly", "invalidTemplateRejected"):
+            with self.subTest(key=key):
+                self.assertIs(value[key], True)
 
     def test_fixture_loads_without_missing_resources(self) -> None:
         self.assertEqual(self.result["missingResources"], [])

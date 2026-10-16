@@ -17,8 +17,8 @@ from .scene_vector_vm_test_support import SWIFT_PREAMBLE, compile_vector_harness
 PREAMBLE = SWIFT_PREAMBLE[:SWIFT_PREAMBLE.index("extension SceneRenderDescriptor.Layer {")] + r'''
 extension SceneRenderDescriptor.Layer {
     static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? { nil }
-    static func dynamicImage(_ mutation: SceneScriptLayerMutation,
-                             template: SceneScriptDynamicImageLayerTemplate) -> Self? {
+    static func preparedResourceLayer(_ mutation: SceneScriptLayerMutation,
+                             template: SceneScriptPreparedResourceLayerTemplate) -> Self? {
         var layer = Self(id: mutation.layerID, layerIndex: mutation.orderIndex,
             name: nil, visible: mutation.visible, originXYZ: [0,0,0],
             scaleXYZ: [1,1,1], alpha: mutation.alpha, effects: [])
@@ -27,6 +27,14 @@ extension SceneRenderDescriptor.Layer {
     }
 }
 '''
+PREAMBLE = PREAMBLE.replace(
+    "    struct Camera {\n", "    struct Camera {\n        var bloom = SceneBloomConfiguration.disabled\n", 1)
+SCENE_ROOT = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene"
+EXTRA_SOURCES = (
+    SCENE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
+    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
+)
+
 
 HARNESS = r'''
 @main enum Harness {
@@ -38,13 +46,13 @@ HARNESS = r'''
                   originXYZ:[0,0,0],scaleXYZ:[1,1,1],alpha:1,effects:[])
         })
         descriptor.modelMaterialLinks = [.init(modelPath:path,materialPath:"material")]
-        let catalog: [String:SceneScriptDynamicImageLayerTemplate] = [path:.init(modelPath:path,renderSizeWH:[200,100])]
+        let catalog: [String:SceneScriptPreparedResourceLayerTemplate] = [path:.init(modelPath:path,renderSizeWH:[200,100])]
         let domain = try SceneScriptQuickJSDomain()
         try domain.configureLayerCatalog(descriptor)
-        try domain.configureDynamicImageCatalog(catalog)
+        try domain.configurePreparedResourceLayerCatalog(catalog)
         try domain.publishLayerSnapshot(.empty(frameIndex:1),descriptor:descriptor)
         let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,
-            authoredMutationLayerIDs:[101,102,103],dynamicImageTemplates:catalog,
+            authoredMutationLayerIDs:[101,102,103],preparedResourceLayerTemplates:catalog,
             layerOrderProjection:{ domain.projectPendingLayerOrder(accepting:$0) })
         return (descriptor,domain,runtime)
     }
@@ -332,7 +340,7 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.temporary = tempfile.TemporaryDirectory(prefix="scene-layer-order-")
         cls.addClassCleanup(cls.temporary.cleanup)
-        binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "layer-order", preamble=PREAMBLE)
+        binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "layer-order", preamble=PREAMBLE, extra_swift_sources=EXTRA_SOURCES)
         completed = subprocess.run([str(binary)], capture_output=True, text=True)
         if completed.returncode:
             raise AssertionError(completed.stdout + completed.stderr)

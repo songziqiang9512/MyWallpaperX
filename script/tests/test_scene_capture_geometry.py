@@ -64,6 +64,30 @@ enum Harness {
             layerMVP: localMVP,
             viewportSize: CGSize(width: 0, height: 800)
         )
+        // Independent projective output: w varies across the card. Its
+        // fourth corner is not reconstructible from an affine capture UV.
+        let outputMVP = simd_float4x4(
+            SIMD4(1, 0, 0, 0.6), SIMD4(0, 1, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0.1, -0.2, 0.4, 1)
+        )
+        let replay = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: outputMVP,
+            viewportSize: viewport, captureMVP: localMVP
+        )!
+        let localPoints: [SIMD2<Float>] = [SIMD2(-0.3, 0.2), .zero, SIMD2(0.4, -0.1)]
+        let cursorPoints = localPoints.map { point -> [Float] in
+            let clip = replay.outputMVP * SIMD4(point.x, point.y, 0, 1)
+            let recovered = SceneLayerCursorGeometry.layerPoint(
+                mouseNormalized: SIMD2(clip.x, clip.y) / clip.w,
+                modelViewProjection: replay.outputMVP
+            )!
+            return [recovered.x, recovered.y]
+        }
+        let replayCorners = [SIMD2<Float>(-0.5, 0.5), SIMD2(0.5, 0.5),
+                             SIMD2(0.5, -0.5), SIMD2(-0.5, -0.5)].map { point -> [Float] in
+            let clip = replay.outputMVP * SIMD4(point.x, point.y, 0, 1)
+            return [clip.x / clip.w, clip.y / clip.w]
+        }
         let projected = SceneCaptureGeometryResolver.projectedPixelSize(
             layerMVP: SceneMatrix.scale(SIMD3<Float>(1.5, 0.25, 1)),
             viewportSize: viewport
@@ -132,6 +156,11 @@ enum Harness {
             "localYAxis": vector(local.sourceUV.yAxis),
             "localSize": [local.pixelSize.width, local.pixelSize.height],
             "localOutput": matrix(local.outputMVP),
+            "replaySource": [vector(replay.sourceUV.origin),
+                             vector(replay.sourceUV.xAxis), vector(replay.sourceUV.yAxis)],
+            "replaySize": [replay.pixelSize.width, replay.pixelSize.height],
+            "replayCorners": replayCorners,
+            "replayCursorPoints": cursorPoints,
             "fullscreenOrigin": vector(fullscreen.sourceUV.origin),
             "fullscreenAxes": [
                 fullscreen.sourceUV.xAxis.x, fullscreen.sourceUV.xAxis.y,
@@ -257,6 +286,25 @@ class SceneCaptureGeometryTests(unittest.TestCase):
             self.result["localOutput"],
             [1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 0, 0.5, -0.25, 0, 1],
         )
+
+    def test_perspective_replay_preserves_flat_source_and_extent(self) -> None:
+        self.assertEqual(self.result["replaySource"], [[0.5, 0.5], [0.5, 0], [0, 0.25]])
+        self.assertEqual(self.result["replaySize"], [500, 200])
+
+    def test_all_four_output_corners_retain_projective_division(self) -> None:
+        expected = [[-0.4 / 0.7, 0.3 / 0.7], [0.6 / 1.3, 0.3 / 1.3],
+                    [0.6 / 1.3, -0.7 / 1.3], [-0.4 / 0.7, -0.7 / 0.7]]
+        for actual, target in zip(self.result["replayCorners"], expected, strict=True):
+            for value, wanted in zip(actual, target, strict=True):
+                self.assertAlmostEqual(value, wanted, places=6)
+        corners = self.result["replayCorners"]
+        self.assertGreater(abs(corners[0][1] + corners[2][1] - corners[1][1] - corners[3][1]), 0.5)
+
+    def test_cursor_inverts_output_instead_of_flat_capture(self) -> None:
+        for actual, expected in zip(self.result["replayCursorPoints"],
+                                    [[-0.3, 0.2], [0, 0], [0.4, -0.1]], strict=True):
+            for value, wanted in zip(actual, expected, strict=True):
+                self.assertAlmostEqual(value, wanted, places=6)
 
     def test_fullscreen_uses_identity_viewport_geometry(self) -> None:
         self.assertEqual(self.result["fullscreenOrigin"], [0, 0])

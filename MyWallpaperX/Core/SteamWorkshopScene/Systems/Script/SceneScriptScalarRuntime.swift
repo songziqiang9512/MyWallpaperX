@@ -101,7 +101,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     var layerCatalogSignature: String?
     var dynamicImageAvailableModelPaths: [String] = []
     var dynamicImageRequestedModelPaths: Set<String> = []
-    var dynamicImageCatalog: [String: SceneScriptDynamicImageLayerTemplate]?
+    var preparedResourceLayerCatalog: [String: SceneScriptPreparedResourceLayerTemplate]?
     var layerSnapshotGeneration: UInt64 = 0
     var layerWorldTransformProjection:
         SceneScriptLayerWorldTransformProjection?

@@ -102,7 +102,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_asset_path_normalizer(
     MWXSceneQuickJSDomain *domain, MWXSceneQuickJSAssetPathNormalizer normalizer
 );
 
-/* Launch-prepared metadata only. The domain copies these values before the
+/* Launch-prepared resource-layer metadata, including empty composition.
+ * The legacy ABI name does not imply a texture publication.
+ * The domain copies these values before the
  * first callback; this catalog never loads or selects resources. */
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
     MWXSceneQuickJSDomain *domain, uint32_t count,

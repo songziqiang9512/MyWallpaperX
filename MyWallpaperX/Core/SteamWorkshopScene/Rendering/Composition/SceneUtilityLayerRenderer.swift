@@ -24,6 +24,7 @@ enum SceneUtilityLayerRenderer {
         mainPass: SceneMainPassEncoder,
         resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil,
         isolatedGroupSource: (texture: MTLTexture, pixelSize: CGSize)? = nil,
+        captureMVP: simd_float4x4? = nil,
         executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bool {
         guard plan.shouldCapture else {
@@ -84,7 +85,8 @@ enum SceneUtilityLayerRenderer {
         guard let geometry = SceneCaptureGeometryResolver.resolve(
                   kind: plan.kind,
                   layerMVP: layerMVP,
-                  viewportSize: viewportSize
+                  viewportSize: viewportSize,
+                  captureMVP: captureMVP
               ) else {
             return false
         }

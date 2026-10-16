@@ -187,7 +187,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
     MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
     for (uint32_t index = 0; index < count; ++index) {
         const MWXSceneQuickJSDynamicImageDescriptor *input = &descriptors[index];
-        if (!mwx_scene_quickjs_layer_valid_asset_path(input->model_path, input->model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) || input->autosize > 1 || input->uses_puppet > 1 ||
+        if (!mwx_scene_quickjs_layer_valid_asset_path(input->model_path, input->model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) || input->autosize > 1 || input->resource_kind > MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION ||
+            (input->resource_kind == MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION && input->autosize != 0) ||
             !(input->natural_size[0] > 0 && input->natural_size[1] > 0 &&
               input->natural_size[0] <= FLT_MAX && input->natural_size[1] <= FLT_MAX)) {
             result = MWX_SCENE_QUICKJS_INVALID_ARGUMENT; break;
@@ -204,7 +205,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
         records[index].model_path[input->model_path_length] = '\0';
         memcpy(records[index].natural_size, input->natural_size, sizeof(input->natural_size));
         records[index].autosize = input->autosize != 0;
-        records[index].uses_puppet = input->uses_puppet != 0;
+        records[index].resource_kind = (MWXSceneQuickJSPreparedLayerKind)input->resource_kind;
     }
     if (result != MWX_SCENE_QUICKJS_OK) {
         for (uint32_t index = 0; index < count; ++index) {
@@ -213,7 +214,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
         }
         free(records);
         mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
-                                          "invalid prepared dynamic image catalog");
+                                          "invalid prepared resource layer catalog");
         return result;
     }
     domain->dynamic_image_resources = records;

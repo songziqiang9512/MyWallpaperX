@@ -15,6 +15,7 @@ VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 
 SWIFT_SOURCES = [
+    SCENE / "Rendering/Composition/SceneUtilityLayer.swift",
     SCENE / "Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
     SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
     VM / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
@@ -377,15 +378,7 @@ struct SceneRenderDescriptor {
         }
     }
 
-    struct UtilityLayer {
-        enum Kind {
-            case composition
-        }
-
-        let kind: Kind
-        let copyBackground: Bool
-        let passthrough: Bool
-    }
+    typealias UtilityLayer = SceneUtilityLayer
 
     struct Layer {
         var cameraPath: CameraPath? = nil
@@ -427,6 +420,16 @@ struct SceneRenderDescriptor {
         var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
         var initialConfiguration: SceneJSONValue? = nil
 
+        var hasPerspectiveGeometryConsumer: Bool {
+            guard let utilityLayer else {
+                return ["image", "solid", "text", "model"].contains(contentKind)
+            }
+            return utilityLayer.kind == .composition && contentKind == "composition" && parentID == nil
+                && childLayerIDs.isEmpty && dependencyLayerIDs.isEmpty
+                && authoredDependencies.isEmpty && utilityLayer.copyBackground
+                && !utilityLayer.passthrough
+        }
+
         var supportsUserPropertyImageSourceModulationConsumer: Bool {
             contentKind == "image" && puppetMeshPath == nil && staticModelPath == nil
                 && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
@@ -444,9 +447,9 @@ extension SceneRenderDescriptor.Layer {
         nil
     }
 
-    static func dynamicImage(
+    static func preparedResourceLayer(
         _ mutation: SceneScriptLayerMutation,
-        template: SceneScriptDynamicImageLayerTemplate
+        template: SceneScriptPreparedResourceLayerTemplate
     ) -> Self? {
         nil
     }

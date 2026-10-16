@@ -7,6 +7,7 @@
 
 static int failures;
 static int facts;
+static int composition_facts;
 
 static void expect(int condition, const char *label, const char *diagnostic) {
     facts += 1;
@@ -134,20 +135,20 @@ static void puppet_create_cases(void) {
         == MWX_SCENE_QUICKJS_OK, "prepared identity normalizer", diagnostic);
     MWXSceneQuickJSDynamicImageDescriptor resources[] = {
         {.model_path = "models/rig.json",
-         .natural_size = {80, 60}, .autosize = 1, .uses_puppet = 2},
+         .natural_size = {80, 60}, .autosize = 1, .resource_kind = 255},
         {.model_path = "models/renamed-rig.json",
-         .natural_size = {80, 60}, .autosize = 1, .uses_puppet = 1},
+         .natural_size = {80, 60}, .autosize = 1, .resource_kind = 1},
         {.model_path = "models/photo.json",
-         .natural_size = {80, 60}, .autosize = 0, .uses_puppet = 0},
+         .natural_size = {80, 60}, .autosize = 0, .resource_kind = 0},
     };
     // Use actual byte counts so renaming the fixture resource is independent
-    // of admission; the deliberately malformed boolean is the only bad field.
+    // of admission; the deliberately malformed kind is the only bad field.
     for (size_t i = 0; i < sizeof(resources) / sizeof(*resources); ++i)
         resources[i].model_path_length = strlen(resources[i].model_path);
     expect(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(domain, 3,
         resources, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
-        "non-boolean prepared puppet metadata rejected", diagnostic);
-    resources[0].uses_puppet = 1;
+        "unknown prepared resource kind rejected", diagnostic);
+    resources[0].resource_kind = 1;
     expect(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(domain, 3,
         resources, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "prepared puppet and ordinary catalog", diagnostic);
@@ -229,7 +230,135 @@ static void puppet_create_cases(void) {
     mwx_scene_quickjs_domain_destroy(domain);
 }
 
+static void composition_create_cases(void) {
+    int before = facts;
+    MWXSceneQuickJSDomain *domain = make_domain();
+    if (domain == NULL) return;
+    char diagnostic[512] = {0};
+    expect(MWX_SCENE_QUICKJS_PREPARED_LAYER_IMAGE == 0 &&
+        MWX_SCENE_QUICKJS_PREPARED_LAYER_PUPPET == 1 &&
+        MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION == 2, "prepared kind ABI values", diagnostic);
+    expect(mwx_scene_quickjs_domain_set_asset_path_normalizer(domain, image_identity)
+        == MWX_SCENE_QUICKJS_OK, "composition identity normalizer", diagnostic);
+    MWXSceneQuickJSDynamicImageDescriptor resources[] = {
+        {.model_path="models/container.json", .natural_size={640,480}, .autosize=1,
+         .resource_kind=MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION},
+        {.model_path="models/renamed-container.json", .natural_size={320,240},
+         .resource_kind=MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION},
+        {.model_path="models/photo.json", .natural_size={80,60},
+         .resource_kind=MWX_SCENE_QUICKJS_PREPARED_LAYER_IMAGE},
+    };
+    for (size_t i=0; i<3; ++i) resources[i].model_path_length=strlen(resources[i].model_path);
+    expect(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(domain,3,resources,
+        diagnostic,sizeof(diagnostic))==MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+        "composition autosize cannot poison resource catalog",diagnostic);
+    resources[0].autosize=0;
+    expect(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(domain,3,resources,
+        diagnostic,sizeof(diagnostic))==MWX_SCENE_QUICKJS_OK,"composition typed catalog",diagnostic);
+    publish(domain,1,9);
+    MWXSceneQuickJSOwner *perspective=owner(domain,
+        "export function update(v){const options=[{}, {perspective:false}, {perspective:!false}];"
+        "for(const o of options){o.image='models/container.json';const born=thisScene.createLayer(o);"
+        "if(!born)throw Error('perspective create');"
+        "if(born.perspective!==Boolean(o.perspective))throw Error('current perspective getter');}"
+        "const inherited=Object.create({perspective:true});inherited.image='MODELS/RENAMED-CONTAINER.JSON';"
+        "if(!thisScene.createLayer(inherited))throw Error('inherited perspective');return options.length+1;}");
+    if(perspective){
+        update(perspective,1,4,"composition nil/false/true and inherited Bool create through the journal");
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(perspective)==4,
+            "each independent composition has one upsert",diagnostic);
+        const uint8_t expected[]={2,0,1,1};
+        for(uint32_t i=0;i<4;++i){MWXSceneQuickJSLayerMutation m={0};
+            expect(mwx_scene_quickjs_owner_layer_mutation_at(perspective,i,&m,diagnostic,sizeof(diagnostic))
+                ==MWX_SCENE_QUICKJS_OK && m.dynamic && m.perspective==expected[i],
+                "composition tri-state survives actual C ABI",diagnostic);}
+        mwx_scene_quickjs_owner_commit_layer_mutations(perspective);
+    }
+    MWXSceneQuickJSOwner *allowed=owner(domain,
+        "const registered=engine.registerAsset('models/container.json');let a,b;"
+        "export function update(v){if(v===1){"
+        "a=thisScene.createLayer({image:'MODELS/RENAMED-CONTAINER.JSON',name:'container-a',size:'18 9'});"
+        "b=thisScene.createLayer({image:'models/container.json',name:'container-b'});"
+        "if(!a||!b||!thisScene.createLayer(registered))throw Error('empty defaults');return 3;}"
+        "if(v===2){thisScene.sortLayer(a,thisScene.getLayerCount()-1);"
+        "const ordered=thisScene.enumerateLayers();if(ordered[ordered.length-1].name!=='container-a')throw Error('sort');"
+        "thisScene.destroyLayer(a);if(thisScene.getLayer('container-a')!==null||!b.visible)throw Error('destroy peer');return 2;}"
+        "if(thisScene.getLayer('container-a')!==null||!thisScene.getLayer('container-b').visible)throw Error('retired');return 1;}");
+    if (allowed) {
+        update(allowed,1,3,"composition object, rename and registered asset reach create");
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(allowed)==3,"only three creates journaled",diagnostic);
+        MWXSceneQuickJSLayerMutation mutation={0};
+        expect(mwx_scene_quickjs_owner_layer_mutation_at(allowed,0,&mutation,diagnostic,sizeof(diagnostic))
+            ==MWX_SCENE_QUICKJS_OK && mutation.dynamic && mutation.layer_id<0 &&
+            strcmp(mutation.asset_path,"models/renamed-container.json")==0 &&
+            mutation.size_available && mutation.size[0]==18 && mutation.size[1]==9,
+            "canonical identity and explicit geometry survive ABI",diagnostic);
+        expect(mwx_scene_quickjs_owner_layer_mutation_at(allowed,1,&mutation,diagnostic,sizeof(diagnostic))
+            ==MWX_SCENE_QUICKJS_OK && mutation.size_available && mutation.size[0]==1 && mutation.size[1]==1,
+            "composition default geometry does not inherit model size",diagnostic);
+        mwx_scene_quickjs_owner_commit_layer_mutations(allowed);
+        update(allowed,2,2,"sort and destroy retain independent composition peer");
+        mwx_scene_quickjs_owner_commit_layer_mutations(allowed);
+        update(allowed,3,1,"committed retirement leaves healthy composition peer");
+        mwx_scene_quickjs_owner_commit_layer_mutations(allowed);
+    }
+    MWXSceneQuickJSOwner *rejected=owner(domain,
+        "export function update(v){const initial=thisScene.getLayerCount();let reads=0;"
+        "for(const key of ['animations','puppetAnimationLayers','effects','copybackground','config','parent','children','dependencies']){"
+        "for(const value of [undefined,null,[]]){const r={image:'models/container.json'};r[key]=value;"
+        "if(thisScene.createLayer(r)!==null)throw Error('own field');}"
+        "const inherited=Object.create(Object.create({[key]:undefined}));inherited.image='models/container.json';"
+        "if(thisScene.createLayer(inherited)!==null)throw Error('inherited field');"
+        "const accessor={image:'models/container.json'};Object.defineProperty(accessor,key,{get(){reads++;throw Error('getter');}});"
+        "if(thisScene.createLayer(accessor)!==null)throw Error('accessor presence');}"
+        "if(reads||thisScene.getLayerCount()!==initial)throw Error('read or provisional residue');"
+        "let trapped=false;try{thisScene.createLayer(new Proxy({image:'models/container.json'},{has(t,k){"
+        "if(k==='dependencies')throw Error('composition-has');return Reflect.has(t,k);}}));}"
+        "catch(e){trapped=String(e).includes('composition-has');}if(!trapped)throw Error('lost exception');"
+        "let probes=0;const photo=new Proxy({image:'models/photo.json',get config(){reads++;throw Error('ordinary config');}},"
+        "{has(){probes++;throw Error('ordinary has');}});if(!thisScene.createLayer(photo)||reads||probes)throw Error('ordinary changed');"
+        "if(!thisScene.createLayer('models/container.json'))throw Error('healthy suffix');return 2;}");
+    if(rejected){
+        update(rejected,1,2,"composition fixed-key presence rejects without getters and ordinary path unchanged");
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(rejected)==2,"only healthy suffix and ordinary peer publish",diagnostic);
+        mwx_scene_quickjs_owner_commit_layer_mutations(rejected);
+    }
+    const char *bad[] = {
+        "export function update(v){thisScene.createLayer({image:'models/container.json',name:'composition-prefix'});"
+        "thisScene.createLayer(new Proxy({image:'models/container.json'},{has(){throw Error('composition-presence');}}));return 0;}",
+        "export function update(v){thisScene.createLayer({image:'models/container.json',name:'composition-prefix'});throw Error('owner-throw');}",
+        "export function update(v){thisScene.createLayer({image:'models/container.json',name:'composition-prefix'});"
+        "thisScene.createLayer({image:'models/container.json',get perspective(){throw Error('perspective-getter');}});return 0;}",
+    };
+    for(size_t i=0;i<sizeof(bad)/sizeof(*bad);++i){
+        MWXSceneQuickJSOwner *failed=owner(domain,bad[i]);
+        if(!failed)continue;
+        double output=-1;MWXSceneQuickJSFrameInput frame={.frame_time=1.0/60.0};
+        expect(mwx_scene_quickjs_owner_update_scalar(failed,41,1,&frame,&output,diagnostic,sizeof(diagnostic))
+            ==MWX_SCENE_QUICKJS_EXCEPTION,"composition owner exception propagates",diagnostic);
+        mwx_scene_quickjs_owner_discard_layer_mutations(failed);
+        expect(mwx_scene_quickjs_owner_layer_mutation_count(failed)==0,"composition failed journal discarded",diagnostic);
+        MWXSceneQuickJSOwner *peer=owner(domain,
+            "export function update(v){if(thisScene.getLayer('composition-prefix')!==null)throw Error('residue');"
+            "if(!thisScene.getLayer('container-b').visible||!thisScene.createLayer('models/renamed-container.json'))throw Error('peer');return 1;}");
+        if(peer){update(peer,1,1,"failed owner leaves committed peer and later create healthy");mwx_scene_quickjs_owner_commit_layer_mutations(peer);}
+        mwx_scene_quickjs_owner_destroy(peer);mwx_scene_quickjs_owner_destroy(failed);
+    }
+    MWXSceneQuickJSOwner *discarded=owner(domain,
+        "let staged;export function update(v){if(v===1){staged=thisScene.createLayer({image:'models/container.json',name:'discarded-composition'});"
+        "if(!staged)throw Error('create');return 1;}if(thisScene.getLayer('discarded-composition')!==null||"
+        "thisScene.getInitialLayerConfig(staged)!==null)throw Error('discard residue');return 2;}");
+    if(discarded){update(discarded,1,1,"composition provisional create");mwx_scene_quickjs_owner_discard_layer_mutations(discarded);
+        update(discarded,2,2,"explicit discard retires composition handle");}
+    mwx_scene_quickjs_owner_destroy(discarded);mwx_scene_quickjs_owner_destroy(rejected);
+    mwx_scene_quickjs_owner_destroy(perspective);
+    mwx_scene_quickjs_owner_destroy(allowed);mwx_scene_quickjs_domain_destroy(domain);
+    composition_facts=facts-before;
+}
+
+
 int main(void) {
+    composition_create_cases();
     puppet_create_cases();
     MWXSceneQuickJSDomain *domain = make_domain();
     if (domain == NULL) return 1;
@@ -331,6 +460,6 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(callback);
     mwx_scene_quickjs_owner_destroy(read);
     mwx_scene_quickjs_domain_destroy(domain);
-    printf("{\"facts\":%d,\"failures\":%d}\n", facts, failures);
+    printf("{\"facts\":%d,\"failures\":%d,\"compositionFacts\":%d}\n", facts, failures, composition_facts);
     return failures == 0 ? 0 : 1;
 }

@@ -101,7 +101,7 @@ import simd
             sharedLayerAlphaProgram: .init(), propertyVectorScriptProgram: candidate.vectorProgram,
             sceneScriptFallbackDefinitions: [], sceneScriptScalarProgram: candidate.scalarProgram,
             sceneScriptStringProgram: candidate.stringProgram, sceneScriptOwnerLayerIDs: [7, 8],
-            dynamicImageTemplates: [:], timelineProgram: .init(), textScriptProgram: .init())
+            preparedResourceLayerTemplates: [:], timelineProgram: .init(), textScriptProgram: .init())
         return .init(frameSchema: schema, sceneScriptScalarProgram: candidate.scalarProgram,
             sceneScriptStringProgram: candidate.stringProgram, sceneScriptCursorProgram: candidate.cursorProgram,
             propertyVectorScriptProgram: candidate.vectorProgram,

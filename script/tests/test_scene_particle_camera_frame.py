@@ -36,6 +36,7 @@ struct SceneRenderDescriptor {
         struct CameraPath { let camera: String; let fov: Double? }
         let utilityLayer: Bool?
         let usesPerspective: Bool?
+        var hasPerspectiveGeometryConsumer = false
     }
 
     let camera: CameraDescriptor
@@ -360,6 +361,8 @@ enum Harness {
         let nativeInheritedFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: authoredSeed)
         let inheritedLayer = SceneRenderDescriptor.Layer(id: 91, utilityLayer: nil, usesPerspective: nil)
         let utilityOverride = SceneRenderDescriptor.Layer(id: 91, utilityLayer: true, usesPerspective: true)
+        var composition = utilityOverride
+        composition.hasPerspectiveGeometryConsumer = true
         let invalidSnapshot = perspectiveSnapshot(.scalar(1))
         let wrongTypedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: invalidSnapshot)
         let missingFOVCamera = SceneRenderDescriptor.CameraDescriptor(
@@ -406,6 +409,17 @@ enum Harness {
             "typedFalseOverridesNative": !nativeFlatFrame.resolvesPerspective(for: inheritedLayer),
             "authoredSeedPreservesNativeDefault": nativeInheritedFrame.resolvesPerspective(for: inheritedLayer),
             "typedUtilityStaysScreenSpace": !scriptedFrame.resolvesPerspective(for: utilityOverride),
+            "compositionStaticOutputIsPerspective": frame.viewProjection(for: composition)
+                == frame.perspectiveViewProjection,
+            "compositionTypedOutputIsPerspective": scriptedFrame.viewProjection(for: composition)
+                == frame.perspectiveViewProjection,
+            "compositionTypedFalseRestoresFlat": flatFrame.viewProjection(for: composition)
+                == frame.orthographicViewProjection,
+            "compositionCaptureRemainsFlat": scriptedFrame.captureViewProjection(for: composition)
+                == frame.orthographicViewProjection,
+            "compositionNativeRemainsUnsupported": !nativeFrame.resolvesPerspective(for: composition),
+            "ordinaryImageCaptureFollowsOutput": scriptedFrame.captureViewProjection(for: scriptedLayer)
+                == scriptedFrame.viewProjection(for: scriptedLayer),
             "wrongTypedValueKeepsStatic": !wrongTypedFrame.resolvesPerspective(for: scriptedLayer),
             "catalogDefaultMatchesNativeFrame": SceneParticleCameraFrame.usesNativePerspective(camera: nativeCamera) == nativeFrame.defaultsToPerspective,
             "catalogDefaultMatchesOrthoFrame": SceneParticleCameraFrame.usesNativePerspective(camera: camera) == frame.defaultsToPerspective,
@@ -787,6 +801,12 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
                     "layerCameraFalseOverridesInherited", "hiddenLayerCameraFallsBack",
                     "wrongTypedValueKeepsStatic", "catalogDefaultMatchesNativeFrame",
                     "catalogDefaultMatchesOrthoFrame"):
+            self.assertTrue(self.result[key], key)
+
+    def test_local_composition_separates_flat_capture_from_typed_output(self) -> None:
+        for key in ("compositionStaticOutputIsPerspective", "compositionTypedOutputIsPerspective",
+                    "compositionTypedFalseRestoresFlat", "compositionCaptureRemainsFlat",
+                    "compositionNativeRemainsUnsupported", "ordinaryImageCaptureFollowsOutput"):
             self.assertTrue(self.result[key], key)
 
     def test_native_camera_preserves_world_up_through_metal_clip_space(self) -> None:

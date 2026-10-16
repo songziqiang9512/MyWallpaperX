@@ -12,11 +12,13 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
 }
 
-nonisolated struct SceneScriptDynamicImageLayerTemplate: Equatable, Sendable {
+nonisolated struct SceneScriptPreparedResourceLayerTemplate: Equatable, Sendable {
+    enum Kind: Equatable, Sendable { case image, composition }
     let modelPath: String
     let renderSizeWH: [Float]
     var autosize: Bool = false
     var puppetMeshPath: String? = nil
+    var kind: Kind = .image
 
     var defaultRenderSizeWH: [Float] { autosize ? renderSizeWH : [1, 1] }
 }

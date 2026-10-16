@@ -18,6 +18,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private let authoredLayerIDs: Set<Int>
     private let authoredLayersByID: [Int: SceneRenderDescriptor.Layer]
     private let cameraOriginInputLayerID: Int?
+    private let supportsCompositionPerspective: Bool
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
     private var authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
@@ -32,26 +33,27 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private var cachedSnapshotTopologyRevision: UInt64?
     private var cachedSnapshotDynamicLayerValueRevision: UInt64?
     private var cachedDynamicLayers: [SceneRenderDescriptor.Layer] = []
-    private let dynamicImageTemplates:
-        [String: SceneScriptDynamicImageLayerTemplate]
+    private let preparedResourceLayerTemplates:
+        [String: SceneScriptPreparedResourceLayerTemplate]
     private let layerOrderProjection: (@Sendable (Set<UInt64>)
         -> Result<[Int]?, SceneScriptScalarRuntimeFailure>)?
 
     init(
         descriptor: SceneRenderDescriptor,
         authoredMutationLayerIDs: Set<Int>,
-        dynamicImageTemplates:
-            [String: SceneScriptDynamicImageLayerTemplate] = [:],
+        preparedResourceLayerTemplates:
+            [String: SceneScriptPreparedResourceLayerTemplate] = [:],
         textTemplates: [UInt64: SceneScriptPreparedTextTemplate] = [:],
         layerOrderProjection: (@Sendable (Set<UInt64>)
             -> Result<[Int]?, SceneScriptScalarRuntimeFailure>)? = nil
     ) {
         authoredLayerIDs = Set(descriptor.layers.map(\.id))
         cameraOriginInputLayerID = descriptor.camera.default2DOriginInputLayerID
+        supportsCompositionPerspective = (descriptor.camera.orthoHeight ?? 0) > 0
         authoredLayersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
-        self.dynamicImageTemplates = dynamicImageTemplates
+        self.preparedResourceLayerTemplates = preparedResourceLayerTemplates
         self.textTemplates = textTemplates
         self.layerOrderProjection = layerOrderProjection
         order = descriptor.renderOrderLayerIDs
@@ -283,8 +285,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
                 if mutation.fields.contains(.perspective),
-                   (mutation.perspective == nil || authoredLayer.utilityLayer != nil
-                    || !["image", "solid", "text", "model"].contains(authoredLayer.contentKind)) {
+                   (mutation.perspective == nil || !authoredLayer.hasPerspectiveGeometryConsumer
+                    || (authoredLayer.utilityLayer != nil && !supportsCompositionPerspective)) {
                     return .failure(.invalidArgument("layer has no perspective geometry consumer"))
                 }
                 for (flag, field, value): (SceneScriptLayerMutation.Fields, SceneDynamicLayerField, Bool)
@@ -420,14 +422,17 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             case .upsert:
                 let layer: SceneRenderDescriptor.Layer?
                 if let assetPath = mutation.assetPath {
-                    guard let template = dynamicImageTemplates[
+                    guard let template = preparedResourceLayerTemplates[
                         assetPath.lowercased()
                     ] else {
                         return .failure(.invalidArgument(
-                            "dynamic image resource is not launch-ready"
+                            "prepared resource layer is not launch-ready"
                         ))
                     }
-                    layer = .dynamicImage(mutation, template: template)
+                    guard template.kind != .composition || supportsCompositionPerspective else {
+                        return .failure(.invalidArgument("composition requires an orthographic canvas"))
+                    }
+                    layer = .preparedResourceLayer(mutation, template: template)
                 } else {
                     layer = .dynamicText(mutation)
                 }

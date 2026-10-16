@@ -78,8 +78,8 @@ import Foundation
             plannedVectorTargets: projection.nonPassTargets, timelineTargets: [], scalarExcludedTargets: [],
             stringExcludedTargets: [], excludedStandaloneCursorLayerIDs: [], dynamicImageRequestsOnly: true)
         let upperBound = Set(planned.flatMap { SceneScriptDynamicImageReferenceAnalysis.references(in: $0, descriptor: d) ?? [] }.map(\.modelPath))
-        try domain.configureDynamicImageCatalog(Dictionary(uniqueKeysWithValues: models.map {
-            ($0.lowercased(), SceneScriptDynamicImageLayerTemplate(modelPath: $0, renderSizeWH: [200,100], autosize: false)) }))
+        try domain.configurePreparedResourceLayerCatalog(Dictionary(uniqueKeysWithValues: models.map {
+            ($0.lowercased(), SceneScriptPreparedResourceLayerTemplate(modelPath: $0, renderSizeWH: [200,100], autosize: false)) }))
         try domain.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: d)
         let v = c.vectorProgram.evaluate(inputs: [.layer(layerID: 17, field: .visibility): .bool(true),
             .layer(layerID: 17, field: .origin): .vector3(0,0,0)], effectivePropertyValues: [:], frame: frame)
@@ -148,7 +148,7 @@ import Foundation
             scriptBindings: [binding(cursorSource,"visible")], vectorProjection: .init(candidates:[],materialBindings:[]),
             userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [], stringExcludedTargets: [],
             admittedVectorPassTargets: [], generation: 1)
-        try cursor.domain!.configureDynamicImageCatalog(["models/real.json":
+        try cursor.domain!.configurePreparedResourceLayerCatalog(["models/real.json":
             .init(modelPath:"models/real.json",renderSizeWH:[200,100],autosize:false)])
         try cursor.domain!.publishLayerSnapshot(.empty(frameIndex: 1), descriptor: cursorD)
         let hit = SceneScriptCursorHit(layerID:17,worldPosition:.zero,localPosition:.zero)
@@ -163,7 +163,7 @@ import Foundation
                 contentKind:"text",text:"authored",textStyle:.init(fontPath:nil,colorRGB:[1,1,1],pointSize:24)) })
         aliasD.modelMaterialLinks = aliasModels.map { .init(modelPath:$0,materialPath:"material") }
         let aliasDomain = try SceneScriptQuickJSDomain(); try aliasDomain.configureLayerCatalog(aliasD)
-        try aliasDomain.configureDynamicImageCatalog(Dictionary(uniqueKeysWithValues:aliasModels.enumerated().map {
+        try aliasDomain.configurePreparedResourceLayerCatalog(Dictionary(uniqueKeysWithValues:aliasModels.enumerated().map {
             ($0.element,.init(modelPath:$0.element,renderSizeWH:$0.offset == 0 ? [200,100] : [320,160],autosize:true)) }))
         try aliasDomain.publishLayerSnapshot(.empty(frameIndex:1),descriptor:aliasD)
         var aliasPaths:[String] = [];var aliasSizes:[[Double]] = [];var aliasOwners:[SceneScriptValueOwner] = []
