@@ -374,7 +374,7 @@ enum Harness {
         let cameraWorld = SceneMatrix.translation(SIMD3<Float>(10, 20, 30))
         let selectedCamera = SceneParticleCameraFrame.nativePerspectiveOverride(
             descriptor: cameraDescriptor, layersByID: [7: cameraLayer],
-            worldFrames: [7: cameraWorld], dynamicValues: .init())
+            worldFrames: [7: cameraWorld], dynamicValues: .empty(frameIndex: 0))
         let layerCameraFrame = SceneParticleCameraFrame(camera: missingFOVCamera,
             viewportSize: viewport, nativePerspectiveOverride: selectedCamera)
         let layerCameraFlatFrame = SceneParticleCameraFrame(camera: missingFOVCamera,
@@ -383,7 +383,7 @@ enum Harness {
         cameraLayer.visible = false
         let hiddenCamera = SceneParticleCameraFrame.nativePerspectiveOverride(
             descriptor: cameraDescriptor, layersByID: [7: cameraLayer],
-            worldFrames: [7: cameraWorld], dynamicValues: .init())
+            worldFrames: [7: cameraWorld], dynamicValues: .empty(frameIndex: 0))
         let result: [String: Any] = [
             "defaultProjectionRows": defaultProjectionRows,
             "invalidFOVRows": invalidFOVRows,

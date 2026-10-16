@@ -64,6 +64,8 @@ extension SceneMetalView {
             if (renderer.renderDescriptor.hdrEnabled && !renderer.renderDescriptor.camera.clearEnabled)
                 || renderer.hasPreparedReflectionConsumers {
                 invalidateResolvedMaterialRuntime(reason: .allocationReprepare)
+            } else {
+                onRenderInvalidated?(.surface)
             }
         }
     }

@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # Default 2D camera 输入与画布适屏
 
-> **历史证据 — 非现役入口**。截止2026-10-16。限定输入合同归[D4](../roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs)，当前消费归[输入覆盖](../capabilities/runtime-input-property-coverage.md#3-scene-与-camera-输入)，未验视觉与后继归[队列U43](../roadmap/scene-open-breakpoint-queue.md)。不将正常比例裁切、作者留底与引擎输入缺口合并裁决。
+> **历史证据 — 非现役入口**。截止2026-10-16。限定输入合同归[D4](../roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs)，当前消费归[输入覆盖](../capabilities/runtime-input-property-coverage.md#3-scene-与-camera-输入)，未验视觉与后继归[现役队列](../roadmap/scene-open-breakpoint-queue.md)。不将正常比例裁切、作者留底与引擎输入缺口合并裁决。
 
 ## 通用修复
 
@@ -36,6 +36,22 @@ camera origin handle setter仍按原preflight整owner包拒绝；此片只支持
 新真实parser/descriptor/property/Vector C owner/resolver/camera-frame门3/3 PASS88.298s、155inputs/drift[]。63事实全true，改名/等价表达式两变体的origin跨三帧保持(120,-40,620)，zoom0.73→1→0.8；健康peer下一cadence、origin-Z0完整旧链、非法shape/zoom/重复path/native、camera setter及throw整包撤回通过。前两次fixture失败分别来自value-only观察器及未传production preliminary base，修正测试编排而未降低数值断言；原失败日志保留。既有Combined原method另1/1 PASS10.620s、52inputs/drift[]；首次0test编译失败来自旧user DTO/resolver缺正式Contract，仅将注册替换为现正式family，原SCENE_FIXTURE和方法AST与HEAD相同。
 
 未参与修法的3147346398使用同一候选App：PID24703，ready4.307510s/总12.285260s、exit0/noTimeout、inputDrift=[]、ownedGroupGone、GPU排空。首/后帧graph及surface均completed；根代理实看火光/砖墙、时钟日期与music line保留，不证明音频/完整parity。跨比例数值与暂停resize后继分列，不以单物理屏两样本证明全部适屏。
+
+## 不同比例核验与暂停尺寸后继
+
+普通播放尺寸主链独立只读审覆盖canvas/camera、point→backing调用、source逻辑/物理extent、MVP、末compositor与等尺寸display mapping，未发现额外fit或二次裁切。居中cover跨比例裁掉一轴属正常；偏置/旋转/视差且没有足够overscan可露clear area，不私自移动或拉伸。screen anchor加非零camera XY仍须官方自有组合资格，不由helper缺参直接改公式。
+
+最近CameraFrame四方法PASS2.559s；Anchor两方法PASS，含真实Metal像素覆盖，未重复。首组合invocation中Camera旧载体因已退役的空Snapshot initializer而编译受阻，Anchor两门已通过；仅将两处`.init()`改正式`.empty(frameIndex:0)`后重跑受阻四门，原方法/输入不变。原日志及18inputs稳定收据在`aspect-review/summary.json`。
+
+独立小探针直接编译生产CameraFrame/Projection八源，六profile共34事实全true，compile/run2.152s：1920×1080、origin(120,-40,620)、zoom0.8在960×540/1260×540/540×960/1920×1080的visible half依次(1200,675)/(1200,514.286)/(379.688,675)/(1200,675)。中心/边界NDC正确、像素X/Y等比例、z=0平面两种投影XY一致。304的1512×982与3024×1964、zoom0.73均为half(2277.934,1479.452)，每100世界单位像素约33.188→66.376。只证明投影密度等价，不冒充AppKit Retina切换、真实跨屏或完整pointer事件。
+
+普通SDR暂停resize另有已复现的首错：实际drawable尺寸变化后未通知原`.surface` invalidator，已停driver继续保留旧图。camera-v3签名App基线28.888192s，App exit0/GPU排空/ownedGroupGone/inputs稳定；两次resize accepted，暂停内零resize导出、零VM更新、零capture queue拒绝，恢复后两图才导出且均为原3024×1964。原HDR clear=false/reflection分支已reset通知，不能用它代表普通SDR。
+
+局部修正仅在原size owner的普通changed分支通知一次原invalidator；HDR/reflection仍走原allocation reset，同尺寸静默。Session原异步weak/exact-surface调度复用暂停snapshot，以当前extent重算camera，不在resize内同步render或新增driver/VM更新。两文件独立静态GO/sourceDrift=[]；候选SDR门PASS24.893s，两PNG均暂停内完成，实际1512×982→3024×1964，白卡边界缩半/恢复且VM witness不更新。原HDR门PASS36.463s，暂停内两次mapped GPU completion同frame49、allocation2/3，原像素断言通过；第二张PNG异步导出到resume后，不称两HDR文件均暂停内完成。两次inputs稳定、ownedGroupGone，deep/strict签名PASS。不将等比resize称为跨比例App运行。
+
+候选Debug build PASS25.296641s、4281inputs/drift[]；exe SHA256 `837719b32c80c380abc56368a803d9ec1ad9cabe35e8489670df56f343a5a941`，dylib `aa0f7d5cab4afc01db03d2ca771f7c975fa98ca55a4ae0825bbbdcb006d11256`。独立原包314再跑PID29036：ready4.297019s/总12.273675s、exit0/无timeout/无输入漂移/ownedGroupGone/GPU排空；根代理实看火光、砖墙、时钟日期和music line仍在。全部时长仅为验收身份，不认领性能收益。暂停修正收据根`.artifacts/tmp/paused-drawable-resize-20261016/`，`candidate-summary.json`与`independent-runtime-summary.json`绑定实际结果；已精确删353,820,166逻辑B临时环境/副本/raw诊断，日志gzip回读通过，保必要基线/候选PNG与收据约17.0MiB，见`cleanup.json`。
+
+屏幕anchor与camera XY自有官方资格在零组即失败：固定客户端实际1512×982窗口全黑、无card/文字正控，并出现0xC0000005/read0崩溃提示。按预登记停止，X/Y未执行，没有相机符号或anchor行为结论，不据此改项目投影。输入/窗口/原图及失败身份仅保`.artifacts/tmp/camera-screen-anchor-qualification-20261016/`；共享receiver的精确窗口关闭受阻时保最小gueststage，不强杀用户客户端或关闭VM。原U43已证输入缺口/暂停resize修复及169露底资格退出待修队列；更宽golden缺失只保能力边界，不冒充新视觉缺陷。
 
 ## 证据去留
 

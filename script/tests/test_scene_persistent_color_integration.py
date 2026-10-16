@@ -20,10 +20,11 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires an explicitly frozen Debug executable")
         cls.app = Path(app).resolve(strict=True)
 
-    def run_color(self, once=False, resize=False, clear=False, app=None, expected_color=(255, 64, 128)):
+    def run_color(self, once=False, resize=False, clear=False, app=None, expected_color=(255, 64, 128),
+                  hdr=True, source_color="1 0.25 0.5"):
         visibility = {"value": True, "script": "export function update(value){shared.ticks=(shared.ticks||0)+1; return shared.ticks===1;}"} if once else True
-        scene = {"version": 3, "general": {"orthogonalprojection": {"width": 128, "height": 128}, "clearcolor": "0 0 0", "clearenabled": clear, "hdr": True},
-                 "objects": [{"id": 1, "name": "HDR source", "image": "models/util/solidlayer.json", "origin": "64 64 0", "size": "64 64", "color": "1 0.25 0.5", "visible": visibility},
+        scene = {"version": 3, "general": {"orthogonalprojection": {"width": 128, "height": 128}, "clearcolor": "0 0 0", "clearenabled": clear, "hdr": hdr},
+                 "objects": [{"id": 1, "name": "HDR source", "image": "models/util/solidlayer.json", "origin": "64 64 0", "size": "64 64", "color": source_color, "visible": visibility},
                              {"id": 2, "name": "Stable green peer", "image": "models/util/solidlayer.json", "origin": "110 110 0", "size": "12 12", "color": "0 1 0"}]}
         if resize:
             scene["objects"].append({"id": 3, "name": "Offscreen callback witness", "image": "models/util/solidlayer.json", "origin": "1000 1000 0", "size": "1 1", "visible": {"value": True, "script": "export function update(value){shared.frames=(shared.frames||0)+1; return shared.frames%2===1;}"}})
@@ -45,6 +46,10 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
             if resize:
                 env["MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"] = "1.5:3"
                 command.extend(["--mwx-debug-scene-resize-sequence", "2:0.5,3:1"])
+                if not hdr:
+                    # Drain ordinary ready/after requests before pause so the
+                    # two required resize captures observe the redraw itself.
+                    command.extend(["--mwx-debug-scene-after-snapshot-delay", "1.2"])
             result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
             log = result.stdout + result.stderr
             captures = list(evidence.glob("*-window.png"))
@@ -117,6 +122,31 @@ class ScenePersistentColorIntegrationTests(unittest.TestCase):
         full = ready["size"]
         self.assertEqual(half["size"], (full[0] // 2, full[1] // 2))
         self.assertEqual(restored["size"], full)
+        for original, resized in zip(ready["bounds"], half["bounds"]):
+            self.assertLessEqual(abs(original / 2 - resized), 1)
+        self.assertEqual(restored["bounds"], ready["bounds"])
+
+    def test_paused_sdr_resize_redraws_current_snapshot_without_vm_advance(self):
+        log, captures = self.run_color(resize=True, clear=True, hdr=False,
+                                      source_color="1 1 1", expected_color=(255, 255, 255))
+        paused = log.index("phase=pause-resume state=paused accepted=true")
+        resume_requested = log.index("phase=playback-state requested=resumed", paused)
+        resumed = log.index("phase=pause-resume state=resumed accepted=true")
+        middle = log[paused:resume_requested]
+        for index, scale in enumerate(("0.5000", "1.0000")):
+            self.assertIn(f"phase=surface-resize index={index} scale={scale} accepted=true", middle)
+            self.assertRegex(middle, rf"phase=snapshot reason=resize-{index:02d} request=\d+ source=metal")
+        self.assertNotRegex(middle, r"layer=3 source=sceneScript")
+        self.assertRegex(log[:paused], r"layer=3 source=sceneScript")
+        self.assertRegex(log[resumed:], r"layer=3 source=sceneScript")
+        self.assertNotIn("phase=snapshot-rejected", log)
+        self.assertNotIn("phase=snapshot-failed", log)
+        self.assertNotIn("diagnostic=scene-color-completed", log)
+        ready = captures["scene-ready-window.png"]
+        half = captures["scene-resize-00-window.png"]
+        restored = captures["scene-resize-01-window.png"]
+        self.assertEqual(half["size"], tuple(n // 2 for n in ready["size"]))
+        self.assertEqual(restored["size"], ready["size"])
         for original, resized in zip(ready["bounds"], half["bounds"]):
             self.assertLessEqual(abs(original / 2 - resized), 1)
         self.assertEqual(restored["bounds"], ready["bounds"])

@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 126,
-      "bytes": 38696
+      "bytes": 38784
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -229,8 +229,8 @@
       "bytes": 33350
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 251,
-      "bytes": 75824
+      "lines": 250,
+      "bytes": 75154
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1159,15 +1159,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "134e27f3437f8b471cad31b6968c52babcaaac0d0a6e468eedec9c8417d1c665",
-      "after": "93f9068996d7200a17d5f2e5b6870fdf3e855ec6bf731e66c61b1ae8ad0885e6",
-      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
-      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "0d70bc266ce104bc5c98834f098dcd4e83a0a270223f9513b56375676a04cf2d",
       "after": "43e32088965100a8fbfb575648f5a73c599fefce12d399afc555f40bd12c5d1f",
@@ -1228,6 +1219,15 @@
       "owner": "Default 2D camera prepared inputs / typed camera snapshot",
       "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "93f9068996d7200a17d5f2e5b6870fdf3e855ec6bf731e66c61b1ae8ad0885e6",
+      "after": "db01e366daaf9b6dc109211e426013c6ee40110a107b9233d0064e10125ac2ec",
+      "owner": "SceneMetalView drawable geometry / existing surface invalidator",
+      "reason": "尺寸后继实际修复普通SDR暂停resize漏通知，保原HDR映射路径；索引只增多比例/密度与实际验收指针，详情仍在同一历史，不保已修U43队列条目。",
+      "decision": "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
     }
   ]
 }

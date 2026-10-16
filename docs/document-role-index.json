@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5117c5aebe694487778d8b4429cab303e796671ad901cc305a4a722dc1fcdd9e",
+        "sourceSHA256": "824bfc8ae93ee6a5ff2f5d6a578deeca0f14a86380c8b434cafef6f83c6c2b77",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
-        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
+        "scope": "尺寸后继的生产投影/Anchor GPU边界、SDR暂停drawable changed通知与原HDR邻例、独立314；U43实际修复与169同aspect资格退出队列",
+        "limitations": "仅导航和本批边界；等比resize不证明跨比例App/Retina/多屏；anchor-camera官方零组无可见资格，停止且保unknown，无parity/性能收益结论。"
       }
     },
     {
@@ -1216,7 +1216,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "默认2D相机混合输入/字段退旧/source identity修正，真实VM与旧Combined门、304倍率同窗可见及169同aspect官方留底资格；保跨比例/暂停resize/整样本与性能边界。"
+      "uniqueValue": "默认2D混合相机输入/source identity与304倍率同窗恢复、169同aspect官方留底；生产多比例/密度与Anchor GPU、SDR暂停resize基线/实修/原HDR邻例及独立314，保官方anchor零组失败与余界。"
     },
     {
       "path": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md",
@@ -3254,10 +3254,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b09e4393c1026512c8ca7a8b7109cf8731b63c36a1454389346471833f3444a2",
+        "sourceSHA256": "bd409f219999ba52dda9c61ab0d654df156cfb8adc30ce83e11dd78402698675",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
-        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
+        "scope": "尺寸后继的生产投影/Anchor GPU边界、SDR暂停drawable changed通知与原HDR邻例、独立314；U43实际修复与169同aspect资格退出队列",
+        "limitations": "仅导航和本批边界；等比resize不证明跨比例App/Retina/多屏；anchor-camera官方零组无可见资格，停止且保unknown，无parity/性能收益结论。"
       }
     },
     {
