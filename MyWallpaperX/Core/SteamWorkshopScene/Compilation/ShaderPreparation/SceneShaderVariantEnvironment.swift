@@ -252,7 +252,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 49
+    static let frontendSchemaVersion = 50
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
@@ -315,11 +315,12 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         if let unsupported = normalizedResolutions.first(where: {
             !Self.hasVerifiedHostResolution($0)
                 && Self.unresolvedRequirement(for: $0.binding.name) != nil
+                && Self.unresolvedRequirement(for: $0.binding.name) != .clientVersion
         }) {
             throw SceneShaderVariantFailure(
                 code: .unsupportedEnvironmentDefine,
                 identifier: unsupported.binding.name,
-                message: "Version, format, backend and platform macros require a verified host provider."
+                message: "Format, backend and platform macros require a verified host provider."
             )
         }
         sourceDialect = .wallpaperEngineGLSLLike
@@ -349,7 +350,13 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
     }
 
     func selectedMacroDefinitions() -> [String: SceneShaderMacroDefinition] {
-        Dictionary(uniqueKeysWithValues: (environmentDefines + combos).map {
+        // Keep authored version records in the variant identity, but never
+        // mistake their values (including explicit undefined) for host facts.
+        // The preprocessor rejects actual reads through its existing unresolved
+        // environment checks; unused records do not affect prepared source.
+        Dictionary(uniqueKeysWithValues: (environmentDefines + combos).filter {
+            Self.unresolvedRequirement(for: $0.name) != .clientVersion
+        }.map {
             ($0.name, $0.definition)
         })
     }

@@ -501,10 +501,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e20692ac40a9f21c0ae02b04b1e89764302685b95574fc7b3e4c18e2839dad3e",
+        "sourceSHA256": "bfefaf7c1425f0075e26da252ad99b9e98b0450ed6599de3dab9dcf9eee4f610",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
+        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -639,10 +639,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c6cfb28f69937f2d174e7e274fa08731b88b041732b28a276c76a56a1c5e8d68",
+        "sourceSHA256": "82c93c166c625c5911a03ae9d9aedd267cb5cb4a882f18fb04779cdc25ab696f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享global引用/initializer/语句scope及main-local mutable owner修复与跨freeze验证边界导航",
-        "limitations": "局部作者语义与自有输入证据，真实作者命中范围待量化；不认领完整shader、VM、原生面板、daemon、性能或官方parity"
+        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
+        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "68fc91a08d07c4ed792cf67b3c4e340e3a7369c5e908c33e658a2e45af603642",
+        "sourceSHA256": "720960a48a9b672ec579126b365720b47cb5fd613e04e1aa66e60004a6c7dc03",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
+        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
       }
     },
     {
@@ -3260,10 +3260,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "647720483c01984d4865ef443f14cc8059c8f75ed5bf145d5adf1a01660c1ba5",
+        "sourceSHA256": "aac13b79b86d15cf3dc385d03b9284336b2d7e48a17fb8033ceef694003bdbc3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
+        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
       }
     },
     {
@@ -3302,10 +3302,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4810a0f1256bc1ff2c93cbdc1b44a38b1cd7d54259104c50b7628e81b17901e3",
+        "sourceSHA256": "6a917724b43df71aabd5003324b214147343ee5e33fff391d81e203e97b95bcd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
+        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
       }
     },
     {
@@ -3316,10 +3316,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d8359b15db3108bb1220f1ff04f2f5936d122e011a0d70c6d179fe8002cef544",
+        "sourceSHA256": "863e652863d72771f0ae7ef15f0e2e17712723ccdfdb6bd0abd7a49b0c8fa1fb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
+        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
       }
     },
     {

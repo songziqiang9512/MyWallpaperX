@@ -14,3 +14,13 @@
 验收覆盖无重复及重命名/等价 source、大小写/CRLF、条件/include、合法邻居保留、坏记录不产生 Annotation；inline sampler/混排/结构安全及下游缺 producer 继续拒绝。原包需证明目标 Program/GPU/末合成与实际画面，另验未参与修法样本，最后独审；任一完整性或错误值猜补反例失败即撤回这片。只在证据支持的记录范围扩能力，不报未经测量的性能收益。
 
 当前状态归[运行证据](../capabilities/runtime-evidence-current.md)，有界结果与未修范围见[实施记录](../history/malformed-combo-record-recovery-2026-10-16.md)；执行顺序只查[现役队列](../roadmap/scene-open-breakpoint-queue.md)。
+
+<a id="unused-client-version-combo"></a>
+
+### 未消费的客户端版本字段（2026-10-16 决策）
+
+目标是避免合法材质因携带未使用的 `VERSION` / `SHADERVERSION` 而在源码准备前被误拒绝。两者始终是 case-sensitive、尚无可信 provider 的客户端版本名；材质整数不能证明官方客户端版本，也不能授权版本分支。当前 environment 初始化直接拒绝全部这类记录，早于真实宏消费，导致没有相关依赖的源码也失去原有材质路径。
+
+沿原 VariantEnvironment 保留 authored resolution 与 variant identity，但不把未验证 client-version 记录发布到 selected definitions、initial macro table 或下游 integer facts。复用现有 Preprocessor 的有效分支读取检查：普通代码、展开后的别名、条件与 active include 真正读取版本名仍局部拒绝；inactive 分支不消费，注释与字符串不属于宏读取。source define/undef、runtime requirement 对版本的声明也不能制造可信 provider。后端语言、平台、纹理格式及 authored environmentDefines 的现有准入不扩大，不新增扫描器、宏算法、材质例外或 renderer。
+
+该变化只退役客户端版本记录的提前拒绝；错误值、冲突、shader/include 身份、预算、sampler、color/render state 和资源生命周期仍由原 owner 验证。frontend50、variant analysis24 与 demand analysis7 的语义版本共同退出旧 cache tier；prepared source 中未使用记录不影响文本，身份仍区分作者输入。验收以原有 source→Program→GPU→唯一合成为终点，包含名称/数值/include 变体、实际消费的邻例与未参与修法样本；若下游仍拒绝，只报告已推进的首断点，不把整层或整样本记完成。没有同条件性能测量就不报性能收益。

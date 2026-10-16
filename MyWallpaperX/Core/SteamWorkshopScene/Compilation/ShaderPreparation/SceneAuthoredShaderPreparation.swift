@@ -704,11 +704,10 @@ nonisolated enum SceneAuthoredShaderPreparation {
         case .failure: return nil
         }
         return Dictionary(uniqueKeysWithValues:
-            environment.comboResolutions.compactMap { resolution in
-                guard case let .defined(.integer(value)) =
-                        resolution.binding.definition,
+            environment.selectedMacroDefinitions().compactMap { name, definition in
+                guard case let .defined(.integer(value)) = definition,
                       let exact = Int(exactly: value) else { return nil }
-                return (resolution.binding.name, exact)
+                return (name, exact)
             }
         )
     }

@@ -10,6 +10,8 @@
 
 ## 1. 当前证据快照
 
+新增证据：[未消费版本字段的材质变换](#e-2026-10-16-unused-version-combo)。
+
 先核对各包输入/App/code identity、执行层级与后继记录。
 
 | 查询主题 | 本页证据入口 |
@@ -148,6 +150,19 @@
 <a id="evidence-packages"></a>
 
 ## 3. 证据包
+
+<a id="e-2026-10-16-unused-version-combo"></a>
+
+### 未消费版本字段：材质变换恢复（2026-10-16）
+
+[合同](../architecture/shader-metadata-failure-contract.md#unused-client-version-combo)已落原 VariantEnvironment；frontend50、VariantAnalysis24、DemandAnalysis7退旧。单次签名Debug构建26.137s、4327输入无漂移，exe `2ece1095…553070` / dylib `8143dcb6…ff1c6c`。新40组行为检查与原variant/preprocessor两module通过，含有效版本读取拒绝、条件/include/别名及大小写普通combo。一次独审核代码与实图，未认领性能收益。
+
+同一自有静态材质固定`VERSION=2`、gain2/power1，两臂仅换App；旧版失去材质变换，新版source owner77已prepared、首/后帧encoded与surface GPUcompleted，共55次resolved-material执行后进入唯一输出。窗口中心256²共65,536像素全由RGBA(64,64,64,255)变为(128,128,128,255)。这只证明该通用unused字段边界的可见收益，不是官方色彩标定。
+
+真实314同输入旧早拒`invalid-environment,VERSION`已推进到`neutral-texture-tint-proof`，layer50 source render-state仍拒，原视频保持；4条完成graph属于其他效果，不算目标层恢复。独立376原包未参与修法，31条完成graph/29条terminal消费记录，人物、烟花、日期与横向深云片实际呈现；旧云形/颜色余项仍开放。各run无输入漂移、退出0、进程组消失、surface1→0且GPU drained。完整相位、HDR、面板、多屏、长稳与官方parity未验。
+
+限期必要证据：`.artifacts/scene-evidence/runs/unused-version-combo-20261016/`，含同输入新旧截图/运行、测试、独审及font/impulse/CPU资格，普通14天；实际包身份以manifest为准。
+
 
 下方各 `E-*` 永久锚点转接归档中的原始输入、代码/产品身份、运行结果和边界；按单条查询。日期记录与后继修正不能合并成一个不存在的运行身份，旧 PASS 也不证明当前构建已复现。现役能力摘要从[能力台账](coverage-ledger.md#current-overview)进入。
 

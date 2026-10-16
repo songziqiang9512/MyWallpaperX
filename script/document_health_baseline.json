@@ -73,8 +73,8 @@
       "bytes": 11603
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 16,
-      "bytes": 2468
+      "lines": 26,
+      "bytes": 4317
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -113,12 +113,12 @@
       "bytes": 5005
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 596,
-      "bytes": 346017
+      "lines": 600,
+      "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 154,
-      "bytes": 45191
+      "lines": 169,
+      "bytes": 47037
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -222,7 +222,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 47,
-      "bytes": 10109
+      "bytes": 10031
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 49,
-      "bytes": 11811
+      "bytes": 12144
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 139,
-      "bytes": 27762
+      "bytes": 27612
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1168,15 +1168,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "320142a76d9967cd6ab57889903741607c761aa85244b242a1010a99016fdbd3",
-      "after": "6f13f149cfaee303bcb5907ff8370cf66cfac46a0e5719cebc2e47d55d7f9f7c",
-      "owner": "scene-general-bloom-script",
-      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "3c39c4d868e3cd02f3e0b06f25ed94699242d3fdf5c137696e17085fc7090b0a",
       "after": "4054d030d8565943e1dcf608b54891668c22fefd63a8fcd69f94bba9c616d9e9",
@@ -1195,21 +1186,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "bcc7db42b4708655b40d1b9153adb3b2224024a81af6c839d57baacb729a0760",
-      "after": "85d5c885b0f2ee2f725ea27f2647482b43d848df053297ed2cf8f28897fa02e1",
-      "owner": "scene-general-bloom-script",
-      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "8c861c91c67d180b74de2c458a97adcce184793b283f7a5ec68a11fe1801be38",
+      "after": "916922105aa731a7900ce31f6d791e92d0d9acce159c0a27df4671d765b5cc94",
+      "owner": "scene-unused-version-combo",
+      "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "16a590f9aaefb0aa659b44dff5836598e4c8c15b30d2726b9e713926c27f4f3c",
-      "after": "d527972bc9577c6a7bc39309150c6fc925b12369bdfef052a87737778da71d7e",
-      "owner": "scene-general-bloom-script",
-      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "9ec33ff62bd45e0230fb5165ecdc18f009d512b1c0906eb7b4ebf03a4dd92f5b",
+      "after": "e70ba3dc5fcf31eb1bc50c96783714913d994ad39772f96222d8c63380551402",
+      "owner": "scene-unused-version-combo",
+      "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "de8d3506eb038eb577bc60554412f885734f609eb63ee1cdf8e6b7a917e9badd",
+      "after": "be8883885da6f8d345d40d5f3e234f516326e1ddcbb3a5a1fade2934ba96a424",
+      "owner": "scene-unused-version-combo",
+      "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6f13f149cfaee303bcb5907ff8370cf66cfac46a0e5719cebc2e47d55d7f9f7c",
+      "after": "039da9bfdf338fd489e0f35dffd8c1a17dece75d1ca3250090b6e42df50d187e",
+      "owner": "scene-unused-version-combo",
+      "reason": "有界材质像素收益留原证据库细节区，首读快照仅加精确指针；不扩大150行首读上限。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
     }
   ]
 }
