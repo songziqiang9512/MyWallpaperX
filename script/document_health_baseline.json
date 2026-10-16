@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 190,
-      "bytes": 11810
+      "lines": 200,
+      "bytes": 14567
     },
     "docs/architecture/repository-map.md": {
       "lines": 30,
@@ -1273,6 +1273,15 @@
       "owner": "scene-puppet-query-render",
       "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "cda08e94ead5b9a140711dde115b2661830f9f03f39bf29c4d753f45059edaf8",
+      "after": "56bacd95d3482fc3a8ed2c29e1dc13804886f3655c09a20d30ce033a879f7931",
+      "owner": "steam-preview-ui",
+      "reason": "在原AppKit权威记录共同预览状态、静态保留与旧实现退出；独审补齐本地版本、图片候选顺序、成功来源和缓存持有共享producer的消费者租约。",
+      "decision": "docs/architecture/appkit-migration.md#steam-缩略图状态与资源寿命"
     }
   ]
 }

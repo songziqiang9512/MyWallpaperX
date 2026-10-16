@@ -2,7 +2,8 @@ import AppKit
 import CoreGraphics
 import ImageIO
 
-enum SteamWorkshopPreviewImageCache {
+nonisolated enum SteamWorkshopPreviewImageCache {
+    static let animationDecodeQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.steamworkshop.preview.animation", qos: .utility)
     // 网格/详情/下载弹窗共用一份解码缓存：按像素字节设 128MB 上限，
     // 防止长会话浏览时已解码位图驻留膨胀到数百 MB 以上。
     static let shared = ThumbnailCache(
@@ -33,23 +34,24 @@ func steamWorkshopPreviewCacheKey(for url: URL) -> String {
 
 func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String {
     let fileURL = url.standardizedFileURL
-    let resourceValues = try? fileURL.resourceValues(forKeys: [
-        .contentModificationDateKey,
-        .fileSizeKey
-    ])
-    let modificationTime = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
-    let fileSize = resourceValues?.fileSize ?? 0
-    return "steam-local-preview:\(fileURL.path):\(fileSize):\(modificationTime)"
+    let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+    let modificationTime = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+    let fileSize = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
+    let inode = (attributes?[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0
+    let device = (attributes?[.systemNumber] as? NSNumber)?.uint64Value ?? 0
+    return "steam-local-preview:\(fileURL.path):\(device):\(inode):\(fileSize):\(modificationTime)"
 }
 
 func steamWorkshopLoadLocalPreviewImage(
     from url: URL,
+    cancellation: SteamWorkshopPreviewLoadCancellation? = nil,
     completion: @escaping (NSImage?) -> Void
 ) {
-    SteamWorkshopPreviewImageCache.shared.loadImageData(
+    SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(
         forKey: steamWorkshopLocalPreviewCacheKey(for: url),
         loader: { try? Data(contentsOf: url) },
         decoder: steamWorkshopPreviewImage(from:),
+        cancellation: cancellation,
         completion: completion
     )
 }
@@ -70,7 +72,7 @@ func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool {
 
 /// 8×8 亮度采样：近全黑（均值 <0.03 且极差 <0.025，即几乎无内容起伏）
 /// 判为可疑。这是"首帧黑底"GIF 的判定核心，静态解码与可疑检测共用。
-func steamWorkshopSampledLumaIsSuspicious(_ cgImage: CGImage) -> Bool {
+nonisolated func steamWorkshopSampledLumaIsSuspicious(_ cgImage: CGImage) -> Bool {
     let sampleWidth = 8
     let sampleHeight = 8
     var pixels = [UInt8](repeating: 0, count: sampleWidth * sampleHeight * 4)
@@ -106,11 +108,11 @@ func steamWorkshopSampledLumaIsSuspicious(_ cgImage: CGImage) -> Bool {
     return meanLuma < 0.03 && (maxLuma - minLuma) < 0.025
 }
 
-func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool {
+nonisolated func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool {
     image.size.width > 4 && image.size.height > 4
 }
 
-func steamWorkshopPreviewImage(from data: Data) -> NSImage? {
+nonisolated func steamWorkshopPreviewImage(from data: Data) -> NSImage? {
     let sourceOptions: [CFString: Any] = [
         kCGImageSourceShouldCache: false
     ]
@@ -123,7 +125,7 @@ func steamWorkshopPreviewImage(from data: Data) -> NSImage? {
     return steamWorkshopStaticPreviewImage(from: source) ?? NSImage(data: data)
 }
 
-func steamWorkshopPreviewImage(from url: URL) -> NSImage? {
+nonisolated func steamWorkshopPreviewImage(from url: URL) -> NSImage? {
     let sourceOptions: [CFString: Any] = [
         kCGImageSourceShouldCache: false
     ]
@@ -135,7 +137,7 @@ func steamWorkshopPreviewImage(from url: URL) -> NSImage? {
 
 /// 动画变体解码：仅当数据确实是多帧动画时成功，否则返回 nil。
 /// 结果不进共享内存缓存——由调用方短生命周期持有。
-func steamWorkshopAnimatedPreviewImage(from data: Data) -> NSImage? {
+nonisolated func steamWorkshopAnimatedPreviewImage(from data: Data) -> NSImage? {
     let sourceOptions: [CFString: Any] = [
         kCGImageSourceShouldCache: false
     ]
@@ -151,6 +153,7 @@ func steamWorkshopAnimatedPreviewImage(from data: Data) -> NSImage? {
 func steamWorkshopLoadAnimatedPreview(
     from url: URL,
     cacheKey: String,
+    cancellation: SteamWorkshopPreviewLoadCancellation? = nil,
     completion: @escaping (NSImage?) -> Void
 ) {
     let loader: @Sendable () async -> Data? = {
@@ -164,13 +167,21 @@ func steamWorkshopLoadAnimatedPreview(
     }
     SteamWorkshopPreviewImageCache.shared.loadRawDataAsync(
         forKey: cacheKey,
-        loader: loader
+        loader: loader,
+        cancellation: cancellation
     ) { data in
-        completion(data.flatMap(steamWorkshopAnimatedPreviewImage(from:)))
+        guard cancellation?.cancelled != true else { return }
+        SteamWorkshopPreviewImageCache.animationDecodeQueue.async {
+            guard cancellation?.cancelled != true else { return }
+            let image = data.flatMap(steamWorkshopAnimatedPreviewImage(from:))
+            DispatchQueue.main.async {
+                if cancellation?.cancelled != true { completion(image) }
+            }
+        }
     }
 }
 
-private func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {
+private nonisolated func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {
     image.representations.contains { representation in
         guard let bitmap = representation as? NSBitmapImageRep else { return false }
         let frameCount = bitmap.value(forProperty: .frameCount) as? Int ?? 1
@@ -185,7 +196,7 @@ private func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {
 /// 默认取第 0 帧，会整卡显示黑色。这里复用视频缩略图管线的多候选模式：
 /// 首帧采样为近全黑时顺序前进（8 帧封顶）取第一个非黑帧；全部可疑时保留
 /// 首帧（忠实于源）。悬停动画路径不受影响，仍从原始数据完整重放。
-private func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixelSize: Int = 800) -> NSImage? {
+private nonisolated func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixelSize: Int = 800) -> NSImage? {
     let frameCount = CGImageSourceGetCount(source)
     let options: [CFString: Any] = [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -212,7 +223,7 @@ private func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixe
     return steamWorkshopRGBAImage(from: first)
 }
 
-private func steamWorkshopRGBAImage(from cgImage: CGImage) -> NSImage? {
+private nonisolated func steamWorkshopRGBAImage(from cgImage: CGImage) -> NSImage? {
     let width = cgImage.width
     let height = cgImage.height
     guard width > 0, height > 0 else { return nil }

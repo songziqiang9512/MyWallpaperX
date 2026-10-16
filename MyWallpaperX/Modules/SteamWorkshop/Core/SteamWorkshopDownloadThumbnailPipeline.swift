@@ -169,11 +169,7 @@ final class SteamWorkshopDownloadThumbnailPipeline {
     }
 
     private func cacheKey(for videoURL: URL) -> String {
-        let normalizedPath = videoURL.standardizedFileURL.path
-        let values = try? videoURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
-        let modificationStamp = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
-        let fileSize = values?.fileSize ?? 0
-        let rawKey = "\(normalizedPath)|\(modificationStamp)|\(fileSize)"
+        let rawKey = steamWorkshopLocalPreviewCacheKey(for: videoURL)
         return SHA256.hash(data: Data(rawKey.utf8))
             .map { String(format: "%02x", $0) }
             .joined()

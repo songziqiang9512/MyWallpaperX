@@ -292,6 +292,7 @@ final class SteamWorkshopDownloadRowView: NSView {
     /// 当前行绑定内容的 workshopItemId；同内容刷新时用于保留封面加载状态。
     private var boundItemID: String?
     private var currentPreviewURL: URL?
+    private var currentPreviewKey: String?
     private var previewCancellation: SteamWorkshopPreviewLoadCancellation?
     private var lastByteSample: (bytes: Int64, date: Date)?
     private var lastProgressSequence = -1
@@ -520,6 +521,7 @@ final class SteamWorkshopDownloadRowView: NSView {
             previewCancellation?.cancel()
             previewCancellation = nil
             currentPreviewURL = nil
+            currentPreviewKey = nil
         }
         lastByteSample = nil
         lastProgressSequence = -1
@@ -707,33 +709,36 @@ final class SteamWorkshopDownloadRowView: NSView {
     private func loadPreviewIfNeeded(itemID: String) {
         let url = service.browserItemForDownload(id: itemID)?.previewImageURL
             ?? service.downloads.first(where: { $0.id == itemID })?.previewURL
-        guard currentPreviewURL != url || (thumbnailView.image == nil && url != nil) else { return }
+        let identityKey = url.map { $0.isFileURL ? steamWorkshopLocalPreviewCacheKey(for: $0) : steamWorkshopPreviewCacheKey(for: $0) }
+        guard currentPreviewKey != identityKey || (thumbnailView.image == nil && url != nil) else { return }
         currentPreviewURL = url
+        currentPreviewKey = identityKey
         previewCancellation?.cancel()
         previewCancellation = nil
         thumbnailView.image = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)
         guard let url else { return }
+        let cancellation = SteamWorkshopPreviewLoadCancellation()
+        previewCancellation = cancellation
         if url.isFileURL {
-            steamWorkshopLoadLocalPreviewImage(from: url) { [weak self] image in
-                guard let self, self.currentPreviewURL == url, let image else { return }
+            steamWorkshopLoadLocalPreviewImage(from: url, cancellation: cancellation) { [weak self] image in
+                guard let self, self.currentPreviewURL == url, !cancellation.cancelled, let image else { return }
                 self.thumbnailView.image = image
             }
             return
         }
         let key = steamWorkshopPreviewCacheKey(for: url)
-        if let cached = SteamWorkshopPreviewImageCache.shared.cachedOrDiskImage(forKey: key) {
+        if let cached = SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: key) {
             thumbnailView.image = cached
             return
         }
-        let cancellation = SteamWorkshopPreviewLoadCancellation()
-        previewCancellation = cancellation
+        // The cache coalesces consumers and cancels the producer only after
+        // the last consumer exits; this token belongs to the row's interest.
         SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(forKey: key, loader: {
             await SteamWorkshopPreviewRequestCoordinator.shared.loadData(
                 from: url,
-                priority: .visible,
-                cancellation: cancellation
+                priority: .visible
             )
-        }, decoder: { data in NSImage(data: data) }) { [weak self] image in
+        }, decoder: steamWorkshopPreviewImage(from:), cancellation: cancellation) { [weak self] image in
             guard let self, self.currentPreviewURL == url, !cancellation.cancelled, let image else { return }
             self.thumbnailView.image = image
             self.previewCancellation = nil

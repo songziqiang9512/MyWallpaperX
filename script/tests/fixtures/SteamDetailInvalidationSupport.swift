@@ -94,8 +94,27 @@ final class SteamWorkshopService {
 extension SteamWorkshopDownloadRecord { var isDependencyBackedWeb: Bool { false } }
 func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String { url.path }
 func steamWorkshopPreviewCacheKey(for url: URL) -> String { url.absoluteString }
-func steamWorkshopLoadAnimatedPreview(from url: URL, cacheKey: String, completion: @escaping (NSImage?) -> Void) { preconditionFailure("nil preview required") }
-func steamWorkshopLoadLocalPreviewImage(from url: URL, completion: @escaping (NSImage?) -> Void) { preconditionFailure("nil preview required") }
+enum FixturePreview {
+    static var localLoads: [URL] = []
+    static var animationLoads = 0
+    static var animationURLs: [URL] = []
+    static var remoteKeys: [String] = []
+    static var failLocal = false
+    static var failRemote = false
+    static var animateRemote = false
+    static let image = NSImage(size: NSSize(width: 48, height: 48))
+    static let remoteImage = NSImage(size: NSSize(width: 48, height: 48))
+    static let remoteAnimation = NSImage(size: NSSize(width: 48, height: 48))
+}
+func steamWorkshopLoadAnimatedPreview(from url: URL, cacheKey: String, cancellation: SteamWorkshopPreviewLoadCancellation? = nil, completion: @escaping (NSImage?) -> Void) {
+    FixturePreview.animationLoads += 1
+    FixturePreview.animationURLs.append(url)
+    completion(!url.isFileURL && FixturePreview.animateRemote ? FixturePreview.remoteAnimation : nil)
+}
+func steamWorkshopLoadLocalPreviewImage(from url: URL, cancellation: SteamWorkshopPreviewLoadCancellation? = nil, completion: @escaping (NSImage?) -> Void) {
+    FixturePreview.localLoads.append(url)
+    completion(FixturePreview.failLocal ? nil : FixturePreview.image)
+}
 func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool { false }
 func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool { true }
 func steamWorkshopPreviewImage(from data: Data) -> NSImage? { nil }
@@ -106,11 +125,25 @@ final class SteamWorkshopDownloadThumbnailPipeline {
 final class SteamWorkshopPreviewImageCache {
     static let shared = SteamWorkshopPreviewImageCache()
     func cachedImage(forKey key: String) -> NSImage? { nil }
-    func loadImageDataAsync(forKey key: String, loader: @escaping () async -> Data?, decoder: @escaping (Data) -> NSImage?, completion: @escaping (NSImage?) -> Void) { preconditionFailure("nil preview required") }
+    func remove(forKey key: String) {}
+    func loadImageDataAsync(forKey key: String, loader: @escaping () async -> Data?, decoder: @escaping (Data) -> NSImage?, cancellation: SteamWorkshopPreviewLoadCancellation? = nil, completion: @escaping (NSImage?) -> Void) {
+        FixturePreview.remoteKeys.append(key)
+        completion(FixturePreview.failRemote ? nil : FixturePreview.remoteImage)
+    }
 }
+enum SteamWorkshopPreviewRequestPriority { case userInitiated, visible }
 final class SteamWorkshopPreviewRequestCoordinator {
-    enum Priority { case userInitiated }
+    typealias Priority = SteamWorkshopPreviewRequestPriority
     static let shared = SteamWorkshopPreviewRequestCoordinator()
     func loadData(from url: URL, priority: Priority) async -> Data? { nil }
     func markCachedImageSuspicious(forKey key: String) {}
+    func resetFailureState(for url: URL) {}
+    func nextRetryDelay(for url: URL, priority: Priority) -> TimeInterval? { nil }
+}
+
+nonisolated final class SteamWorkshopPreviewLoadCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var cancelled: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    func cancel() { lock.lock(); value = true; lock.unlock() }
 }

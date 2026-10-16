@@ -28,6 +28,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
             work = pathlib.Path(temporary)
             paths = [ui / 'SteamWorkshopItemDetailSheet.swift', ui / 'SteamWorkshopItemDetailSheet+Observation.swift',
                 ui / 'SteamWorkshopDetailFooterView.swift', ui / 'SteamWorkshopPreviewPlaceholderView.swift',
+                ui / 'SteamWorkshopPreviewState.swift', ui / 'SteamWorkshopItemDetailPreviewSupport.swift',
                 core / 'SteamWorkshopDownloadProgress.swift', core / 'SteamWorkshopDetailRefreshSupport.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
@@ -51,7 +52,6 @@ class SteamDetailLayoutTests(unittest.TestCase):
             fragments += [declaration(validation, prefix) for prefix in [
                 'enum SteamWorkshopWebDependencyStatus', 'enum SteamWorkshopWebValidationSeverity']]
             fragments.append(declaration(read(ui / 'AppKitSteamWorkshopBrowserItemSupportViews.swift'), 'enum SteamWorkshopDownloadProgressPalette'))
-            fragments.append(declaration(read(ui / 'SteamWorkshopItemDetailPreviewSupport.swift'), 'final class SteamWorkshopPreviewImageContainerView'))
             service = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift')
             fragments.append('extension SteamWorkshopService {\n' + '\n\n'.join(declaration(service, prefix) for prefix in [
                 'private enum ScenePropertyOverrideStore', '    func scenePropertyOverrides(',

@@ -39,15 +39,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     let titleMarqueeView = SteamWorkshopMarqueeTextView()
     let statusBadgeButton = SteamWorkshopOverlayIconButton()
 
-    var previewLoadCancellation: SteamWorkshopPreviewLoadCancellation?
-    var previewRetryTask: Task<Void, Never>?
-    var currentPreviewURL: URL?
-    var isPreviewLoadInFlight = false
-    /// Hover 期临时动画源（不进共享缓存）；nil 表示当前显示的是静态帧。
-    var currentAnimatedPreviewImage: NSImage?
-    /// Hover 动画装载代数：退出卡片/换内容使在途回调过期。
-    var hoverAnimationGeneration = 0
-    private var currentPreviewSourceURL: URL?
+    lazy var previewState: SteamWorkshopPreviewState = {
+        let state = SteamWorkshopPreviewState()
+        state.onChange = { [weak self] in self?.applyPreviewState() }
+        return state
+    }()
     private var currentDownloadVideoURL: URL?
     private var isPlayingRecord = false
     private var currentTitleText = ""
@@ -175,16 +171,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     override func prepareForReuse() {
         super.prepareForReuse()
         unbindDownloadProgress()
-        previewLoadCancellation?.cancel()
-        previewLoadCancellation = nil
-        currentPreviewURL = nil
-        isPreviewLoadInFlight = false
+        previewState.reset()
         currentDownloadVideoURL = nil
         currentTitleText = ""
         titleMarqueeView.text = ""
         previewImageView.image = nil
-        currentAnimatedPreviewImage = nil
-        hoverAnimationGeneration += 1
         onOpen = nil
         onDownload = nil
         onSetAsWallpaper = nil
@@ -222,7 +213,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         overlayBar.setProgressAnimationVisible(false)
         overlayBar.applyProgress(style: .neutral, fraction: nil, indeterminate: false, animated: false)
         statusBadgeButton.layer?.removeAnimation(forKey: "steam.status.spin")
-        previewRetryTask?.cancel()
         refreshThemeAwareAppearance()
     }
 
@@ -248,7 +238,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentDisplayContext = displayContext
         isPlayingRecord = isPlaying && displayContext == .downloads
         currentDownloadVideoURL = downloadRecord?.videoURL
-        currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
         currentItem = item
         (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
@@ -284,7 +273,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         // receiveDownloadProgress 的 tick-diff 早退拦截，初始内容应用改为
         // 显式执行——否则标题、状态徽章与操作按钮在首次配置时全部缺位。
         applyCurrentContent()
-        loadPreview(from: item.previewImageURL, fallbackVideoURL: currentDownloadVideoURL)
+        loadPreview(from: item.previewImageURL, fallbackImageURL: downloadRecord?.browserItem?.previewImageURL,
+                    fallbackVideoURL: currentDownloadVideoURL)
     }
 
     func configureMetadataOnly(
@@ -309,7 +299,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentDisplayContext = displayContext
         isPlayingRecord = isPlaying && displayContext == .downloads
         currentDownloadVideoURL = downloadRecord?.videoURL
-        currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
         currentItem = item
         (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
@@ -344,7 +333,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         // 与 configure 相同：绑定回放的 nil 快照被 tick-diff 早退拦截，
         // 初始内容应用显式执行。
         applyCurrentContent()
-        loadPreview(from: item.previewImageURL, fallbackVideoURL: currentDownloadVideoURL)
+        loadPreview(from: item.previewImageURL, fallbackImageURL: downloadRecord?.browserItem?.previewImageURL,
+                    fallbackVideoURL: currentDownloadVideoURL)
     }
 
     override func viewDidLayout() {
@@ -417,21 +407,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     }
 
     func forceReloadPreview() {
-        previewRetryTask?.cancel()
-        previewLoadCancellation?.cancel()
-        previewLoadCancellation = nil
-
-        if let currentPreviewSourceURL, !currentPreviewSourceURL.isFileURL {
-            let cacheKey = steamWorkshopPreviewCacheKey(for: currentPreviewSourceURL)
-            SteamWorkshopPreviewImageCache.shared.remove(forKey: cacheKey)
-            SteamWorkshopPreviewRequestCoordinator.shared.resetFailureState(for: currentPreviewSourceURL)
-        }
-
-        currentPreviewURL = nil
-        previewImageView.image = nil
-        currentAnimatedPreviewImage = nil
-        hoverAnimationGeneration += 1
-        loadPreview(from: currentPreviewSourceURL, fallbackVideoURL: currentDownloadVideoURL)
+        previewState.reload()
     }
 
     func setKeyboardFocus(_ focused: Bool) {

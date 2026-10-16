@@ -2452,10 +2452,24 @@
       "patterns": [
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadThumbnailPipeline.swift",
+        "script/tests/fixtures/SteamDetailInvalidationHarness.swift",
+        "script/tests/fixtures/SteamDetailInvalidationSupport.swift",
+        "script/tests/fixtures/SteamPreviewLifecycleHarness.swift",
+        "script/tests/fixtures/SteamPreviewStateChecks.swift"
       ],
       "modules": [
-        "test_steam_list_thumbnail_animation"
+        "test_steam_list_thumbnail_animation",
+        "test_steam_preview_lifecycle",
+        "test_steam_detail_layout",
+        "test_steam_download_card_progress_diff",
+        "test_steam_download_tasks_popover"
       ]
     },
     {
@@ -3132,6 +3146,20 @@
         "test_scene_script_initial_layer_configuration",
         "test_scene_prepared_base_image_resources",
         "test_scene_puppet_buffer_publication"
+      ]
+    },
+    {
+      "id": "thumbnail-cache-consumer-lifetime",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewRequestCoordinator.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "script/tests/fixtures/SteamThumbnailLeaseChecks.swift"
+      ],
+      "modules": [
+        "test_thumbnail_cache_leases"
       ]
     }
   ],

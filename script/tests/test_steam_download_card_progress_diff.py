@@ -33,6 +33,7 @@ SOURCES = [
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
     UI / "AppKitSteamWorkshopBrowserItemSupportViews.swift",
     UI / "SteamWorkshopPreviewPlaceholderView.swift",
+    UI / "SteamWorkshopPreviewState.swift",
     CORE / "SteamWorkshopPreviewImageSupport.swift",
     CORE / "SteamWorkshopPreviewRequestCoordinator.swift",
     CORE / "SteamWorkshopModels.swift",

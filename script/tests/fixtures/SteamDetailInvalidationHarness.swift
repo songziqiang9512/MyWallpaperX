@@ -42,6 +42,7 @@ import Foundation
             displayCondition: nil, defaultValue: .number(0), options: [])
         let originalRoots = roots(detail), originalFooter = footer(detail).subviews
         let initialConstraints = constraints(detail)
+        checks["downloadDetailPrefersLocalOverRemoteMetadata"] = FixturePreview.localLoads == [URL(fileURLWithPath: "/fixture/local-preview.gif")]
         let initialPreviewState = previewState(detail)
         let initialHeightConstraint = previewHeightConstraints(detail).first
         var pulses = 0
@@ -74,6 +75,7 @@ import Foundation
         checks["metadataChangesRebuildActualLabels"] = metadataRebuilt && labels(detail).contains("Metadata 10")
         checks["requiredRebuildsKeepOnePreviewHeight"] = previewHeights(detail) == 1 && constraints(detail) == requiredConstraintCount
             && previewHeightConstraints(detail).first === initialHeightConstraint && previewHeight(detail) == 156
+        checks["metadataRebuildDoesNotReloadPreview"] = FixturePreview.localLoads.count == 1 && FixturePreview.animationLoads == 1
         let rebuiltPreviewState = previewState(detail)
         let beforeConfigure = roots(detail)
         detail.configure(item: service.selectedDownloadDetailItem!); settle(detail)
@@ -200,12 +202,18 @@ import Foundation
         for (name, force) in forceSources {
             let before = roots(detail)
             let refreshes = service.steamSubscriptions.refreshCalls
+            let previewLoads = FixturePreview.localLoads.count
+            let animationLoads = FixturePreview.animationLoads
             service.objectWillChange.send()
             force()
             checks["pendingServiceCannotSwallowForce-\(name)"] = drainUntil(detail) {
                 !same(before, roots(detail)) && service.steamSubscriptions.refreshCalls > refreshes
                     && !detail.isRebuildScheduled && !detail.isForcedRebuildScheduled
             }
+            let preview = views(detail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
+            checks["forceKeepsReadyPreview-\(name)"] = preview.previewState.image === FixturePreview.image
+                && preview.previewState.placeholder == .hidden && FixturePreview.localLoads.count == previewLoads
+                && FixturePreview.animationLoads == animationLoads
         }
         let afterForced = roots(detail)
         let afterForcedRefreshes = service.steamSubscriptions.refreshCalls
@@ -226,6 +234,33 @@ import Foundation
         }
         checks["allRequiredRebuildsKeepPreviewConstraintBounded"] = previewHeights(detail) == 1
             && previewHeightConstraints(detail).first === initialHeightConstraint && previewHeight(detail) == 156
+        qualify()
+        FixturePreview.failLocal = true
+        FixturePreview.animateRemote = true
+        let badLocalDetail = AppKitSteamWorkshopItemDetailView(item: item)
+        settle(badLocalDetail)
+        let fallbackPreview = views(badLocalDetail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
+        checks["actualDetailBadLocalUsesRemoteWithoutVideo"] = fallbackPreview.previewState.image === FixturePreview.remoteAnimation
+            && fallbackPreview.previewState.placeholder == .hidden
+            && FixturePreview.remoteKeys.last == item.previewImageURL?.absoluteString
+            && FixturePreview.animationURLs.last == item.previewImageURL
+        fallbackPreview.previewState.setAnimationActive(false)
+        checks["actualDetailRemoteFallbackKeepsStatic"] = fallbackPreview.previewState.image === FixturePreview.remoteImage
+        service.record = makeRecord(browserItem: item)
+        let projected = service.record!.displayItemForToolbar
+        service.selectedDownloadDetailItem = projected
+        service.selectedDownloadInspectorItem = projected
+        let projectedDetail = AppKitSteamWorkshopItemDetailView(item: projected)
+        settle(projectedDetail)
+        let projectedPreview = views(projectedDetail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
+        checks["downloadProjectionRetainsRecordsRemoteFallback"] = projected.previewImageURL?.isFileURL == true
+            && projectedPreview.previewState.image === FixturePreview.remoteAnimation
+            && FixturePreview.animationURLs.last == item.previewImageURL
+        FixturePreview.failRemote = true
+        let bothBadDetail = AppKitSteamWorkshopItemDetailView(item: item)
+        settle(bothBadDetail)
+        let bothBad = views(bothBadDetail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
+        checks["actualDetailBothCandidatesFailWithoutVideo"] = bothBad.previewState.image == nil && bothBad.previewState.placeholder == .unavailable
         let output: [String: Any] = ["checks": checks, "ordinaryUpdates": 20, "propertyPulses": pulses,
             "propertyDispatches": PlaybackCommandMultiplexer.shared.propertyDispatches,
             "previewInitial": initialPreviewState, "previewAfterMetadata": rebuiltPreviewState,
@@ -279,18 +314,18 @@ import Foundation
             authorWorkshopURL: URL(string: "https://example.invalid/author"), hasAdultContent: false,
             summary: "Synthetic detail fixture", descriptionText: "Fixed wrapping description. 固定中文描述检查实际布局。",
             tags: ["Scene", "Customizable", "Audio responsive"], workshopTypeText: "Scene", ageRatingText: "Everyone", genreText: "Fantasy",
-            categoryText: "Scene", dependencyIDs: [], previewImageURL: nil, previewVideoURL: nil, previewAssetKind: .stillImage,
+            categoryText: "Scene", dependencyIDs: [], previewImageURL: URL(string: "https://example.invalid/remote-metadata.gif"), previewVideoURL: nil, previewAssetKind: .stillImage,
             fileSizeText: "2 MB", resolutionText: "1920 x 1080", postedText: "2026-01-01", updatedText: "2026-10-15",
             favoritesText: "200", subscriptionsText: "1000", scoreText: "浏览 3000", lifetimeFavoritesText: "400", lifetimeSubscriptionsText: "5000",
             visibilityText: "Public", moderationText: "Approved", detailFields: [], detailURL: URL(string: "https://example.invalid/detail")!)
     }
     static func makeRecord(id: String = "detail-probe", kind: SteamWorkshopDownloadContentType = .scene,
         status: SteamWorkshopDownloadRecord.Status = .ready, size: String = "2 MB", source: URL? = nil,
-        exported: URL? = nil, dependency: SteamWorkshopWebDependencyStatus = .none) -> SteamWorkshopDownloadRecord {
+        exported: URL? = nil, dependency: SteamWorkshopWebDependencyStatus = .none, browserItem: SteamWorkshopBrowserItem? = nil) -> SteamWorkshopDownloadRecord {
         SteamWorkshopDownloadRecord(id: id, title: "Scene", description: "fixture", tags: [],
             folderURL: URL(fileURLWithPath: "/fixture"), projectFileURL: nil, ownEntryHTMLURL: nil, dependencyHostEntryHTMLURL: nil,
-            dependencyHostFolderURL: nil, entryHTMLURL: nil, resolvedWebRootURL: nil, previewURL: nil, sourceVideoURL: source,
+            dependencyHostFolderURL: nil, entryHTMLURL: nil, resolvedWebRootURL: nil, previewURL: URL(fileURLWithPath: "/fixture/local-preview.gif"), sourceVideoURL: source,
             exportedVideoURL: exported, updatedAt: Date(timeIntervalSince1970: 0), sizeText: size, status: status,
-            browserItem: nil, contentType: kind, dependencyItemID: nil, dependencyStatus: dependency)
+            browserItem: browserItem, contentType: kind, dependencyItemID: nil, dependencyStatus: dependency)
     }
 }

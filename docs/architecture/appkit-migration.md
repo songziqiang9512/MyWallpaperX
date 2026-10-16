@@ -4,7 +4,7 @@
 
 > 状态：现役迁移目标与剩余工作入口
 >
-> 最近核对：2026-08-26。下文各阶段的“当前进展”保留 2026-05-17 批次记录；当前残留以本节清单和代码扫描为准。
+> 最近核对：2026-10-17（SwiftUI 残留与 Steam 预览职责）。下文各阶段的“当前进展”保留 2026-05-17 批次记录；当前残留以本节清单和代码扫描为准。
 >
 > 长期权威：本计划与[技术栈与架构路线边界](technology-stack-boundaries.md)共同确定最终 UI 为 Swift + AppKit。迁移完成前只维护下列 SwiftUI 残留，不新增 SwiftUI 产品面、设置页、桌面宿主或 hosting bridge；若要改变 0 SwiftUI 目标，必须先修改长期技术路线，而不是在功能批次中隐式扩张。
 
@@ -12,10 +12,9 @@
 
 ## 当前判断
 
-截至 2026-10-14，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 3 个文件：
+截至 2026-10-17，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 2 个文件：
 
 - `Shared/UI/InspectorHostBridge.swift`
-- `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift`
 - `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift`
 
 Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 inspector bridge 和 Steam Workshop 详情辅助 UI。迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
@@ -56,6 +55,17 @@ Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 
   - inspector present：mount 模块提供的 `NSView`。
   - 选中项清空：发起 inspector close。
 - 各模块 inspector 内容改为 AppKit `NSView`。
+
+### Steam 缩略图状态与资源寿命
+
+2026-10-17 设计：网格默认静态、悬停播放，详情打开播放；两者共用每视图一个 `SteamWorkshopPreviewState`，只投影预览状态，不取得壁纸 runtime 或共享缓存的权威。当前两份加载分支会在 GIF 退出且缓存未命中时清空图片，详情重建也会重启加载；以共同状态替换它们，不增加另一份缓存或网络调度器。
+
+- 数据流：已下载记录的本地 preview 优先于远程元数据 URL → 原 `ThumbnailCache` / request coordinator → 静态就绪 → 可选临时 GIF → 原 `NSImageView`。本地图片按可解码尺寸接纳，近黑启发式只用于静态帧挑选和视频候选，不把合法黑图判成丢图。
+- 下载队列封面只消费同一静态解码缓存，不通过默认 NSImage 解码将原始 GIF 写回静态内存预算。共享 cache 持有异步 producer 和消费者租约：退出只撤销本消费者，最后消费者退出才取消 producer；不把单卡 token 传入合并网络 loader。无取消语义的既有消费者固定保活，旧任务完成不得提交到同 key 的新一代；落盘先写私有临时文件，再在短锁内复核 producer 并原子发布。显式失效同时撤销 image/raw/raw-prefetch 的缓存发布权，仍允许既有消费者接收结果，IO/trim 不持请求锁。既有 coordinator 继续拥有网络并发/超时，取消需及时释放活跃槽。
+- 每视图保留当前静态图，GIF 仅在激活期间持有；退出、隐藏立即恢复静态图，缓存淘汰不影响已显示内容。失败或非动画源保留静态图；动画解码在后台串行执行，交付回主线程。
+- 图片候选按本地 → 远程 → 视频尝试；已下载显示投影中的本地 URL 不遮蔽原始 record.browserItem 的远端候选，动画使用实际成功来源；请求身份含各候选的内容键与刷新版本，本地键含设备/inode、mtime 和 size，覆盖稳定路径的原子版本替换。同身份配置无副作用，切换/复用推进代数；仅后备变化时保留仍属于当前候选的成功图，主图已就绪时不重启加载。迟到回调只可提交给原代数。
+- loading/失败占位只在没有当前可用图时显示；自动重试有时间边界。资源不变的元数据、订阅和 Scene 启动通知不得重新触发解码；不同资源不能借用旧图。
+- 旧网格和详情的独立加载/动画状态同时退出；无调用者的 SwiftUI preview wrapper 删除。验收使用真实 GIF/静态图片、缓存移除、重复配置、快速进出、A→B→A 迟到、刷新失败与跨消费者场景，另做 Debug 构建和隔离 AppKit 运行；不把通知模拟等同于真实 Scene 负载或线上 Steam 验收。
 
 ## 分阶段执行
 

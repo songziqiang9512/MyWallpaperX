@@ -6,7 +6,7 @@ enum SteamWorkshopPreviewRequestPriority {
     case prefetch
 }
 
-nonisolated final class SteamWorkshopPreviewLoadCancellation: @unchecked Sendable {
+nonisolated final class SteamWorkshopPreviewLoadCancellation: ThumbnailCacheLoadCancellation, @unchecked Sendable {
     private let lock = NSLock()
     private var isCancelled = false
     private var cancellationHandler: (@Sendable () -> Void)?
@@ -63,6 +63,8 @@ final class SteamWorkshopPreviewRequestCoordinator {
         var retryAfter: Date
         var isPermanent: Bool
     }
+
+    init(session: URLSession) { self.session = session }
 
     private init() {
         let configuration = URLSessionConfiguration.default

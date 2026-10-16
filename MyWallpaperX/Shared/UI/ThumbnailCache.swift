@@ -9,6 +9,14 @@
 
 import AppKit
 import CryptoKit
+import Darwin
+
+/// A consumer cancellation, distinct from the shared producer's task lifetime.
+nonisolated protocol ThumbnailCacheLoadCancellation: Sendable {
+    var cancelled: Bool { get }
+    func installCancellationHandler(_ handler: @escaping @Sendable () -> Void)
+    func clearCancellationHandler()
+}
 
 /// 异步缩略图加载缓存。
 /// 线程安全：并发读写通过 NSLock 保护 in-flight 表，NSCache 本身线程安全。
@@ -23,6 +31,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// 磁盘缓存 namespace：同一缓存根目录下按 `<ns>/` 子目录隔离，
     /// 「清除缓存」可按 namespace 实例级清空，不再整根互殃。
     private let namespace: String
+    private let writeEncodedData: @Sendable (Data, URL) throws -> Void
 
     /// 失败负缓存（可选，默认关闭，仅作用于 load(forKey:loader:completion:)）：
     /// loader 返回 nil 时记录结论，重复加载直接回 nil，避免损坏内容反复触发 IO/解码。
@@ -32,8 +41,16 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private let decodeQueue: DispatchQueue
     private let imageCache = NSCache<NSString, NSImage>()
     private var inFlight: [String: [(NSImage?) -> Void]] = [:]
+    private enum AsyncKey: Hashable { case image(String), raw(String) }
+    private final class AsyncRequest: @unchecked Sendable {
+        var consumers = Set<UUID>()
+        var pinned = false
+        var allowsCaching = true
+        var task: Task<Void, Never>?
+    }
+    private var asyncRequests: [AsyncKey: AsyncRequest] = [:]
     private var rawDataInFlight: [String: [(Data?) -> Void]] = [:]
-    private var rawDataPrefetchInFlight = Set<String>()
+    private var rawDataPrefetchInFlight: [String: AsyncRequest] = [:]
     private let lock = NSLock()
 
     /// 磁盘缓存根目录：~/Library/Caches/<bundleID>/thumbnails/<namespace>/
@@ -82,10 +99,12 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
          countLimit: Int = 360,
          totalCostLimit: Int = 128 * 1024 * 1024,
          namespace: String,
-         usesFailureCache: Bool = false) {
+         usesFailureCache: Bool = false,
+         writeEncodedData: @escaping @Sendable (Data, URL) throws -> Void = { try $0.write(to: $1) }) {
         self.countLimit = countLimit
         self.totalCostLimit = totalCostLimit
         self.namespace = namespace
+        self.writeEncodedData = writeEncodedData
         self.failureCache = usesFailureCache ? NSCache<NSString, NSNumber>() : nil
         self.decodeQueue = DispatchQueue(label: label, qos: .utility)
         failureCache?.countLimit = 256
@@ -116,6 +135,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         lock.lock()
         if inFlight[key] != nil {
             inFlight[key]?.append(completion)
+            asyncRequests[.image(key)]?.pinned = true
             lock.unlock()
             return
         }
@@ -163,6 +183,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         lock.lock()
         if inFlight[key] != nil {
             inFlight[key]?.append(completion)
+            asyncRequests[.image(key)]?.pinned = true
             lock.unlock()
             return
         }
@@ -198,47 +219,98 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         forKey key: String,
         loader: @escaping @Sendable () async -> Data?,
         decoder: @escaping @Sendable (Data) -> NSImage? = { NSImage(data: $0) },
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         completion: @escaping (NSImage?) -> Void
     ) {
+        guard cancellation?.cancelled != true else { return }
         if let cached = imageCache.object(forKey: key as NSString) {
             completion(cached)
             return
         }
-
-        lock.lock()
-        if inFlight[key] != nil {
-            inFlight[key]?.append(completion)
-            lock.unlock()
-            return
+        let consumer = UUID()
+        let deliver: (NSImage?) -> Void = { image in
+            cancellation?.clearCancellationHandler()
+            if cancellation?.cancelled != true { completion(image) }
         }
-        inFlight[key] = [completion]
+        lock.lock()
+        let startsProducer = inFlight[key] == nil
+        if startsProducer {
+            inFlight[key] = []
+            asyncRequests[.image(key)] = AsyncRequest()
+        }
+        inFlight[key]?.append(deliver)
+        let request = asyncRequests[.image(key)]
+        if cancellation != nil { request?.consumers.insert(consumer) }
+        else { request?.pinned = true }
         lock.unlock()
-
-
+        if let request, let cancellation {
+            cancellation.installCancellationHandler { [weak self] in
+                self?.detachConsumer(consumer, key: .image(key), request: request)
+            }
+        }
+        guard startsProducer, let request else { return }
         decodeQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self, self.isCurrentImageRequest(request, key: key) else { return }
             let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL),
-               let image = decoder(data) {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                self.finish(key: key, image: image)
+            if let data = try? Data(contentsOf: diskURL), let image = decoder(data) {
+                self.finishImageRequest(request, key: key, image: image)
                 return
             }
-
-            Task { [weak self] in
-                guard let self else { return }
-                guard let data = await loader(),
-                      let image = decoder(data) else {
-                    self.finish(key: key, image: nil)
-                    return
-                }
-
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                try? data.write(to: diskURL, options: .atomic)
-                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-                self.finish(key: key, image: image)
+            let task = Task { [weak self] in
+                guard let self, !Task.isCancelled else { return }
+                let data = await loader()
+                guard !Task.isCancelled else { return }
+                let image = data.flatMap(decoder)
+                self.finishImageRequest(request, key: key, image: image, encodedData: image == nil ? nil : data)
             }
+            self.lock.lock()
+            if self.asyncRequests[.image(key)] === request { request.task = task }
+            else { task.cancel() }
+            self.lock.unlock()
         }
+    }
+
+    private func detachConsumer(_ consumer: UUID, key: AsyncKey, request: AsyncRequest) {
+        lock.lock()
+        guard asyncRequests[key] === request else { lock.unlock(); return }
+        request.consumers.remove(consumer)
+        guard request.consumers.isEmpty, !request.pinned else { lock.unlock(); return }
+        asyncRequests.removeValue(forKey: key)
+        switch key {
+        case let .image(key): inFlight.removeValue(forKey: key)
+        case let .raw(key): rawDataInFlight.removeValue(forKey: key)
+        }
+        let task = request.task
+        request.task = nil
+        lock.unlock()
+        task?.cancel()
+    }
+
+    private func isCurrentImageRequest(_ request: AsyncRequest, key: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return asyncRequests[.image(key)] === request
+    }
+
+    @discardableResult
+    private func finishImageRequest(_ request: AsyncRequest, key: String, image: NSImage?, encodedData: Data? = nil) -> Bool {
+        let staged = stageEncodedData(encodedData)
+        defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
+        lock.lock()
+        guard asyncRequests[.image(key)] === request else { lock.unlock(); return false }
+        if request.allowsCaching {
+            if let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
+            if let image { imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image)) }
+        }
+        let completions = inFlight.removeValue(forKey: key) ?? []
+        asyncRequests.removeValue(forKey: .image(key))
+        request.task = nil
+        lock.unlock()
+        if staged != nil {
+            Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
+        }
+        DispatchQueue.main.async { completions.forEach { $0(image) } }
+        return true
     }
 
     /// 异步取回原始编码数据，但不把解码结果写进内存缓存。
@@ -248,47 +320,76 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     func loadRawDataAsync(
         forKey key: String,
         loader: @escaping @Sendable () async -> Data?,
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         completion: @escaping (Data?) -> Void
     ) {
-        lock.lock()
-        if rawDataInFlight[key] != nil {
-            rawDataInFlight[key]?.append(completion)
-            lock.unlock()
-            return
+        guard cancellation?.cancelled != true else { return }
+        let consumer = UUID()
+        let deliver: (Data?) -> Void = { data in
+            cancellation?.clearCancellationHandler()
+            if cancellation?.cancelled != true { completion(data) }
         }
-        rawDataInFlight[key] = [completion]
+        lock.lock()
+        let startsProducer = rawDataInFlight[key] == nil
+        if startsProducer {
+            rawDataInFlight[key] = []
+            asyncRequests[.raw(key)] = AsyncRequest()
+        }
+        rawDataInFlight[key]?.append(deliver)
+        let request = asyncRequests[.raw(key)]!
+        if cancellation != nil { request.consumers.insert(consumer) }
+        else { request.pinned = true }
         lock.unlock()
-
+        cancellation?.installCancellationHandler { [weak self] in
+            self?.detachConsumer(consumer, key: .raw(key), request: request)
+        }
+        guard startsProducer else { return }
         decodeQueue.async { [weak self] in
             guard let self else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL) {
-                self.finishRawData(key: key, data: data)
+            self.lock.lock()
+            let current = self.asyncRequests[.raw(key)] === request
+            self.lock.unlock()
+            guard current else { return }
+            if let data = try? Data(contentsOf: self.diskCacheURL(for: key)) {
+                self.finishRawData(request, key: key, data: data, persist: false)
                 return
             }
-            Task { [weak self] in
-                guard let self else { return }
-                guard let data = await loader() else {
-                    self.finishRawData(key: key, data: nil)
-                    return
-                }
-                try? data.write(to: diskURL, options: .atomic)
-                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-                self.finishRawData(key: key, data: data)
+            let task = Task { [weak self] in
+                guard let self, !Task.isCancelled else { return }
+                let data = await loader()
+                guard !Task.isCancelled else { return }
+                self.finishRawData(request, key: key, data: data, persist: true)
             }
+            self.lock.lock()
+            if self.asyncRequests[.raw(key)] === request { request.task = task }
+            else { task.cancel() }
+            self.lock.unlock()
         }
     }
 
-    private func finishRawData(key: String, data: Data?) {
+    private func finishRawData(_ request: AsyncRequest, key: String, data: Data?, persist: Bool) {
+        let staged = stageEncodedData(persist ? data : nil)
+        defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         lock.lock()
-        let completions = rawDataInFlight[key] ?? []
-        rawDataInFlight[key] = nil
+        guard asyncRequests[.raw(key)] === request else { lock.unlock(); return }
+        if request.allowsCaching, let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
+        let completions = rawDataInFlight.removeValue(forKey: key) ?? []
+        asyncRequests.removeValue(forKey: .raw(key))
+        request.task = nil
         lock.unlock()
-        // 与 finish(key:image:) 相同的主线程交付契约：消费方直接操作
-        // NSView/NSImage 属性，后台交付会跨线程改视图。
-        DispatchQueue.main.async {
-            completions.forEach { $0(data) }
+        if staged != nil {
+            Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
         }
+        DispatchQueue.main.async { completions.forEach { $0(data) } }
+    }
+
+    /// Stage expensive IO outside the request lock. Only the still-current
+    /// producer may atomically publish its file while finishing that request.
+    private func stageEncodedData(_ data: Data?) -> URL? {
+        guard let data else { return nil }
+        let staged = diskCacheDir.appendingPathComponent(".thumbnail-\(UUID().uuidString).pending")
+        do { try writeEncodedData(data, staged); return staged }
+        catch { try? FileManager.default.removeItem(at: staged); return nil }
     }
 
     /// 预取：触发后台加载但不注册回调。
@@ -403,28 +504,27 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         guard imageCache.object(forKey: key as NSString) == nil else { return }
 
         lock.lock()
-        guard !rawDataPrefetchInFlight.contains(key) else { lock.unlock(); return }
-        rawDataPrefetchInFlight.insert(key)
+        guard rawDataPrefetchInFlight[key] == nil else { lock.unlock(); return }
+        let request = AsyncRequest()
+        rawDataPrefetchInFlight[key] = request
         lock.unlock()
 
         decodeQueue.async { [weak self] in
             guard let self else { return }
             let diskURL = self.diskCacheURL(for: key)
             if FileManager.default.fileExists(atPath: diskURL.path) {
-                self.finishRawDataPrefetch(key: key)
+                self.finishRawDataPrefetch(request, key: key)
                 return
             }
 
             Task { [weak self] in
                 guard let self else { return }
                 guard let data = await loader() else {
-                    self.finishRawDataPrefetch(key: key)
+                    self.finishRawDataPrefetch(request, key: key)
                     return
                 }
 
-                try? data.write(to: diskURL, options: .atomic)
-                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-                self.finishRawDataPrefetch(key: key)
+                self.finishRawDataPrefetch(request, key: key, data: data)
             }
         }
     }
@@ -435,6 +535,13 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     }
 
     func remove(forKey key: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        // Existing consumers may finish their shared fetch, but it cannot
+        // repopulate an explicitly invalidated cache after this deletion.
+        asyncRequests[.image(key)]?.allowsCaching = false
+        asyncRequests[.raw(key)]?.allowsCaching = false
+        rawDataPrefetchInFlight[key]?.allowsCaching = false
         imageCache.removeObject(forKey: key as NSString)
         try? FileManager.default.removeItem(at: diskCacheURL(for: key))
     }
@@ -446,7 +553,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     /// 同步读取缓存，优先内存，其次磁盘。
     /// 适合需要避免首次占位闪烁的场景。
-    /// 现存调用方：SteamWorkshopDownloadTasksPopover（清单外文件）；
     /// 新代码请优先使用 load 的异步管线，不要新增同步磁盘解码入口。
     func cachedOrDiskImage(
         forKey key: String,
@@ -550,10 +656,15 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         }
     }
 
-    private func finishRawDataPrefetch(key: String) {
+    private func finishRawDataPrefetch(_ request: AsyncRequest, key: String, data: Data? = nil) {
+        let staged = stageEncodedData(data)
+        defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         lock.lock()
-        rawDataPrefetchInFlight.remove(key)
+        guard rawDataPrefetchInFlight[key] === request else { lock.unlock(); return }
+        if request.allowsCaching, let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
+        rawDataPrefetchInFlight.removeValue(forKey: key)
         lock.unlock()
+        if staged != nil { Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit) }
     }
 
     private func diskCacheURL(for key: String) -> URL {

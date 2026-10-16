@@ -11,7 +11,7 @@ sequence, so a screenful of cards staggered scrolling. The contract now:
 - only a hovered card animates, and leaving the card stops it again,
 - keyboard focus never plays the preview,
 - the detail sheet keeps its always-animated preview
-  (SteamWorkshopItemDetailPreviewSupport owns that switch, untouched here).
+  (the shared preview state is activated by its detail container).
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ SOURCES = [
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
     UI / "AppKitSteamWorkshopBrowserItemSupportViews.swift",
     UI / "SteamWorkshopPreviewPlaceholderView.swift",
+    UI / "SteamWorkshopPreviewState.swift",
     CORE / "SteamWorkshopPreviewImageSupport.swift",
     CORE / "SteamWorkshopPreviewRequestCoordinator.swift",
     ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
@@ -148,6 +149,15 @@ import Foundation
                 userData: nil
             )!
         }
+
+        // Deterministic loader delivery isolates mouse eligibility here. The
+        // lifecycle gate separately exercises real GIF data and cache eviction.
+        item.previewState = SteamWorkshopPreviewState(loaders: .init(
+            image: { _, _, done in done(NSImage(size: NSSize(width: 48, height: 48))) },
+            animation: { _, _, done in done(NSImage(size: NSSize(width: 48, height: 48))) },
+            video: { _, done in done(nil) }, retryDelay: { _ in nil }, invalidate: { _ in }))
+        item.previewState.onChange = { [weak item] in item?.applyPreviewState() }
+        item.loadPreview(from: URL(fileURLWithPath: "/fixture/preview.gif"), fallbackVideoURL: nil)
 
         // 1. Fresh card: static frame.
         precondition(!item.previewImageView.animates, "a fresh card must not animate")

@@ -316,7 +316,9 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
         previewView.configure(
             itemID: currentItem.id,
-            previewImageURL: currentItem.previewImageURL,
+            previewImageURL: latestDownloadRecord?.previewURL ?? currentItem.previewImageURL,
+            fallbackImageURL: currentItem.previewImageURL.flatMap { $0.isFileURL ? nil : $0 }
+                ?? latestDownloadRecord?.browserItem?.previewImageURL,
             fallbackVideoURL: latestDownloadRecord?.videoURL,
             refreshToken: service.previewReloadToken
         )
