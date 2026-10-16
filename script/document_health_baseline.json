@@ -165,8 +165,8 @@
       "bytes": 110178
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 54,
-      "bytes": 10046
+      "lines": 56,
+      "bytes": 10857
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -238,7 +238,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 138,
-      "bytes": 26960
+      "bytes": 26924
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1177,15 +1177,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "8ea2dd521db4c749956d8813be6cc460577cdc5063da04b0e9165e763c538768",
-      "after": "e6588e8c9f9893823eaabe934aade9ef2b54cebb2897c0de39c568cf357b1b8c",
-      "owner": "scene-composition-local-perspective",
-      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "f9eddf433a72b42d6dbf3d6a539308e1c3b89b7b6542c477a1b195f157213dc2",
       "after": "a6639b25a74b3537fe65837805dfe674fbe7df483db6e5e64c72e1917af2ce97",
@@ -1255,6 +1246,15 @@
       "owner": "scene-performance-convergence",
       "reason": "关闭stage的真实copy caller与一次独立GPU信号只作有界资格，记录无App收益及设计成本停止边界，不新增执行campaign。",
       "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#inactive-stage-copy-screen"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "e6588e8c9f9893823eaabe934aade9ef2b54cebb2897c0de39c568cf357b1b8c",
+      "after": "1fcefeab6c9ad1b09702b90a662b4956d9397c5bc1f2a9631eb8a6c26cc488b5",
+      "owner": "scene-composition-native-qualification",
+      "reason": "D1记录两轮缺正控后的STOP与重开门；不开放native/depth能力，不新增实现路线。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     }
   ]
 }
