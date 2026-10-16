@@ -237,8 +237,8 @@
       "bytes": 12666
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 137,
-      "bytes": 27792
+      "lines": 139,
+      "bytes": 28377
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1150,11 +1150,11 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "74e301806aa5df62ff08cf331ccc922bde6bbd132e185021c7ba82d0fb355cbd",
-      "after": "6fee82ee343499173fe21ed3a48804737a3b50bf87b130d6150573b86ab90386",
-      "owner": "scene-properties",
-      "reason": "记录共享integer转换的局部安全fallback及已证/未证边界；不新增解析器或重复状态。",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1236faa933b10cb209baba521f49bdb05a75fbfe4d91af047be35b339d142afb",
+      "after": "ee8c5e61f572a5ddeb3a9046ccdbd06fe39b88ccd89287c127717818e7b0d67d",
+      "owner": "scene-breakpoint-queue",
+      "reason": "更新真实资格并移除缺API/无consumer的误归因，保留未解producer边界与限期证据。",
       "decision": "docs/development/repository-workflow.md#设计判定与记录"
     }
   ]

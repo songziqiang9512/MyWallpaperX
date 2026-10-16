@@ -3308,10 +3308,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0dc5ea78e78e64cf236988ad73b1ead9be6a08b69ed221eb5b8c75024bb70a1b",
+        "sourceSHA256": "a2b1a5a3349f79c101fd67d8f0a72f1efc40bb23b1c43184630641788fb01329",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核D4同parent prepared Puppet lookup、API/对象覆盖、现役队列及运行索引受影响段；CPU name/index/异目标与自有self-index GPU分列，335未知MDLA资源前置保留，370无可调度callback的准备诊断转参考。其他段未作fresh运行复验。",
-        "limitations": "原self沿既有证据；新GPU仅自有单parent/self-index0，未证name/sibling GPU、335原包恢复、跨parent/model/create或完整parity与性能收益。370顶层/私有副作用unknown，不称模块整体无效或已修。213右黑块仍unknown，无归属opacityMask日志不列作已证失败target；其他既有边界保持。"
+        "scope": "361同身份读源资格及304实际callback consumer的当前边界，退出无依据的API/condition-only修法",
+        "limitations": "不关闭动态producer/import未知、完整样本parity或304真实热改验收"
       }
     },
     {

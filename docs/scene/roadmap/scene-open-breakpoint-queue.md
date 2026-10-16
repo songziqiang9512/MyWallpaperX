@@ -18,12 +18,14 @@
 | 3078285611 · 三个speed脚本异常 | **10-16同签名App/default属性fresh复现。** layer60的effect6/22/24、pass0 speed均TypeError:toPrimitive，无completed callback/typed输出；图仍可fallback/GPU完成。实图人物/粉背景/底白条可见，不证明speed正确 | numeric门通过，公共读取未取得新缺失依赖；当前STOP、未改产品，不追加第二App或猜转换规则。后继需独立证明公共API/实际类型边界，不能把callback exception当BAD_RETURN或因无媒体直接判修复。中性证据：.artifacts/tmp/307-speed-qualification-20261016/neutral-runtime-facts.json |
 | 2134765860 · 右侧旧黑块 | **具体视觉余项保留。** 10-16 pointsize/text首错已修、真实标题两次换词可见；两层是主要文字/阴影，artist仅输入。右侧旧黑块未销。两条opacityMask slot1诊断没有owner/source身份，不能列为两个当前失败target；同基线/候选各37个frame0 effect CPU invocation均encoded-output，亦不证明视觉正确 | 同媒体/属性下定位实际source→effect/合成→最终ROI，保已恢复标题及健康peer。不据无归属诊断重开mask修法；资格收据`.artifacts/tmp/213-opacity-mask-followup-20261016/qualification-review.json`。不得把旧无媒体灰占位、artist输入或fallback算黑块修复；全部媒体/字体parity未知。[当前运行边界](../history/text-layer-pointsize-setter-2026-10-16.md) |
 | N03 · 335动画准备STOP | **3351179520于10-16 fresh：layer524动画1356的MDLA0006现代尾字段非零，超出已验证布局；现保bind几何、无动画playback。** nested751的lookup入口在参数解析前因source未准备拒绝，实际参数/所求target未知，不是查找API未实现或父层visibility故障 | 未知字段意义保持STOP，先资格化资源合同，不能忽略字段、猜alpha范围或删除prepared-source guard。长期最小证据：`.artifacts/scene-evidence/runs/puppet-auxiliary-trailer-20261016/`；[lookup限定验收](../capabilities/runtime-evidence-current.md#e-2026-10-16-puppet-animation-layer-lookup)不关闭本项 |
-| N03/N06 · 其余旧项待复验 | **最后关联为10-11等旧运行，不能当HEAD已复现。** 2890473419特殊资源/undefined.visible；3789316755独立BAD_RETURN；3610154602 layer435在Alpha复验中对null调用getTextureAnimation；3337494481 callback invalid-argument及五条首帧source-not-ready中一条未恢复 | 同身份复验精确target，区分局部fallback、启动恢复与持续缺失，不按统一TypeError扩API；333的Rope缺口只归N08。[原普查](../history/new-scene-intake-2026-10-11.md)、[Sound边界](../history/sound-script-control-2026-10-12.md) |
+| N03/N06 · 其余旧项待复验 | **最后关联为10-11等旧运行，不能当HEAD已复现。** 2890473419特殊资源/undefined.visible；3789316755独立BAD_RETURN；3337494481 callback invalid-argument及五条首帧source-not-ready中一条未恢复 | 同身份复验精确target，区分局部fallback、启动恢复与持续缺失，不按统一TypeError扩API；333的Rope缺口只归N08。[原普查](../history/new-scene-intake-2026-10-11.md)、[Sound边界](../history/sound-script-control-2026-10-12.md) |
 | N10 · 3632513108入场/激活待核 | **10-11只取得天空/花瓣图，无当前完整入场资格。** 未证明是缺图、作者阶段或属性状态 | 先固定默认属性、phase与实际激活链，再判是否有可见缺口。3374523158/3471294034的旧准备拒绝尚无默认可见资格，不能借此列作当前画面失败。[原普查](../history/new-scene-intake-2026-10-11.md) |
 | 普通unlit数值下溢 | **10-08自有GPU旧反例，未fresh复验、真实样本影响未证。** weighted输入source alpha=.5、vertex=.25、R8 clip=128/255仍把应约2.5098的RGB算成0；既有fast-math下溢未由溢出修复关闭 | 沿唯一颜色乘积/片元owner保有限结果及alpha，不全图压暗、加cap或换混合。先取得真实活跃消费者，分开数学反例与用户画面收益。[现有证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product) |
 
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
+
+3610154602于10-16同身份复验并读源资格后，不再按“缺getTextureAnimation API”排实现：435.alpha/origin首错依赖当前缺席的播放器控件，423只存在一层parent却读取祖父；公开missing lookup/null及无父undefined合同已执行。其余动态创建/导入是否应提供缺席控件仍unknown，不记作者错误或样本完成；取得合法producer证据后再开共享首断点。人物、城市、时钟与橙色频谱实际呈现，非完整parity。限期证据：`.artifacts/scene-evidence/runs/texture-animation-owner-qualification-20261016/`。
 
 ## 2. 具体视觉差异：保留观察，待当前身份复验
 
@@ -114,7 +116,7 @@
 | U42 · 面板打开/编辑、长Combo与显示语言余项 | 原生列表/AX滚动及有限本地化已有有界验收；旧“浏览严重卡顿/中文都变英文”不能无条件沿用。打开/编辑总延迟、完整系统键盘chrome、长Combo完整显示及更多locale仍待当前实际资格；未审词汇不直接算错译。先单个可达控件和用户动作/成本，沿原Intent→store→consumer验证 |
 | font String公共合同候选 · 3448845950 | **10-16中性资格，未证当前故障。** 11 text targets/6模块有38次applyUserProperties中的font写；实际RHS类型、callback可达性和TypeError因果均unknown。公开String path与现C registered asset-handle输入存在静态边界差异。先一次实际属性callback核精确类型/准入/typed发布，复用text.font→journal→CoreText；无可达差异即STOP，不归因旧TypeError、不直接开放任意路径。中性证据：.artifacts/tmp/typeerror-two-package-qualification-20261016/font-followup-candidate.json |
 
-显隐slider/缺定义、条件-only Combo、maxwidth script等旧声明/候选不等于缺热更新：先有同身份instruction/callback/rebuild及可见consumer资格。314 fireplacesound实际属于Sound mixed而非condition-only，已按原事务修复；不为此另造condition evaluator。
+显隐slider/缺定义、条件-only Combo、maxwidth script等旧声明/候选不等于缺热更新：先有同身份instruction/callback/rebuild及可见consumer资格。314 fireplacesound属Sound mixed，已修；304 clock_lang已有真实text模块applyUserProperties consumer，亦非condition-only；不另造condition evaluator或value-only旁路。
 
 ## 5. 其他有具体依据的合同/验证债
 
