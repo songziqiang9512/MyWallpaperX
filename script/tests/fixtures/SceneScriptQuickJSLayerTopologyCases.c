@@ -36,7 +36,8 @@ void mwx_fixture_dynamic_layer_creation_cases(MWXSceneScriptQuickJSFixture *fixt
     );
     fixture->failures += mwx_fixture_layer_mutation(
         fixture->dynamic_layer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
-        1, 0, 0, 1, "tick", "dynamic layer snapshot"
+        1, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT,
+        0, 1, "tick", "dynamic layer snapshot"
     );
     // The product host finalizes every owner after the surface barrier.  Keep
     // the direct C harness at that same boundary before the next owner may

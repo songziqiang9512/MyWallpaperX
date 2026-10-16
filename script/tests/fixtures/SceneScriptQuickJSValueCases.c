@@ -138,6 +138,124 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "Vec2 mix with number amount"
     );
 
+    // Fixed official 2.8.0.42 finite-operand observations, with renamed and
+    // equivalent expressions. Result class and RHS immutability below retain
+    // this host's existing contract; the official probe did not measure them.
+    static const struct {
+        const char *method;
+        double expected[4][3];
+    } arithmetic_cases[] = {
+        {"add", {{10,16,20}, {10,14,22}, {10,16,20}, {10,16,25}}},
+        {"subtract", {{6,8,20}, {6,10,18}, {6,8,20}, {6,8,15}}},
+        {"multiply", {{16,48,20}, {16,24,40}, {16,48,0}, {16,48,100}}},
+        {"divide", {{4,3,20}, {4,6,10}, {4,3,INFINITY}, {4,3,4}}},
+    };
+    const char *arithmetic_operands[] = {
+        "new Vec2(2,4)", "2", "new Vec3(2,4,0)", "new Vec3(2,4,5)"
+    };
+    for (size_t operation = 0; operation < 4; ++operation) {
+        for (size_t operand = 0; operand < 4; ++operand) {
+            char source[1024], label[128];
+            const bool raw_infinity = isinf(arithmetic_cases[operation].expected[operand][2]);
+            snprintf(source, sizeof(source),
+                "export function update(value){"
+                "const lhs=new Vec3(8,12,20);const rhs=%s;"
+                "const rx=rhs.x,ry=rhs.y,rz=rhs.z;const result=lhs.%s(rhs);"
+                "if(result===lhs||result===rhs||!(result instanceof Vec3)||"
+                "lhs.x!==8||lhs.y!==12||lhs.z!==20||"
+                "rhs.x!==rx||rhs.y!==ry||rhs.z!==rz)throw Error('arithmetic identity');%s}",
+                arithmetic_operands[operand], arithmetic_cases[operation].method,
+                raw_infinity
+                    ? "if(result.z!==Infinity)throw Error('explicit zero divisor');return new Vec3(result.x,result.y,1);"
+                    : "return result;");
+            snprintf(label, sizeof(label), "Vec3 %s operand %s",
+                arithmetic_cases[operation].method, arithmetic_operands[operand]);
+            MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+                fixture->domain, source, strlen(source), 137,
+                fixture->diagnostic, sizeof(fixture->diagnostic));
+            fixture->failures += mwx_fixture_check(owner != NULL, label, fixture->diagnostic);
+            if (owner == NULL) continue;
+            double expected[3];
+            memcpy(expected, arithmetic_cases[operation].expected[operand], sizeof(expected));
+            if (raw_infinity) expected[2] = 1;
+            fixture->failures += mwx_fixture_update_vec3(
+                owner, 137, vec3_input, "", "{}", MWX_SCENE_QUICKJS_OK, expected, label);
+            mwx_scene_quickjs_owner_destroy(owner);
+        }
+
+        char renamed_source[768], renamed_label[128];
+        snprintf(renamed_source, sizeof(renamed_source),
+            "export function update(renamedInput){"
+            "const receiver=new Vec3(4,6,10).multiply(2);"
+            "const delta=new Vec2(6/3,2+2);const next=receiver['%s'](delta);"
+            "if(next===receiver||next===delta||!(next instanceof Vec3)||"
+            "receiver.x!==8||receiver.y!==12||receiver.z!==20||"
+            "delta.x!==2||delta.y!==4)throw Error('renamed arithmetic identity');return next;}",
+            arithmetic_cases[operation].method);
+        snprintf(renamed_label, sizeof(renamed_label), "Vec3 %s renamed equivalent Vec2",
+            arithmetic_cases[operation].method);
+        MWXSceneQuickJSOwner *renamed = mwx_scene_quickjs_owner_create(
+            fixture->domain, renamed_source, strlen(renamed_source), 138,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(renamed != NULL, renamed_label, fixture->diagnostic);
+        if (renamed != NULL) {
+            fixture->failures += mwx_fixture_update_vec3(
+                renamed, 138, vec3_input, "", "{}", MWX_SCENE_QUICKJS_OK,
+                arithmetic_cases[operation].expected[0], renamed_label);
+            mwx_scene_quickjs_owner_destroy(renamed);
+        }
+    }
+
+    // Constructor lifting and invalid explicit Vec3/scalar inputs are separate
+    // from the nominal Vec2 operand rule. No plain-object API is added here.
+    static const struct {
+        const char *expression;
+        MWXSceneQuickJSResult status;
+        double expected[3];
+        const char *label;
+    } arithmetic_neighbors[] = {
+        {"new Vec3(new Vec2(2,4))", MWX_SCENE_QUICKJS_OK, {2,4,0}, "Vec3 Vec2 constructor still zero lifts"},
+        {"new Vec3(2,4)", MWX_SCENE_QUICKJS_OK, {2,4,0}, "Vec3 two-number constructor still zero lifts"},
+        {"new Vec3(2)", MWX_SCENE_QUICKJS_OK, {2,2,2}, "Vec3 scalar constructor still splats"},
+        {"new Vec3(8,12,20).multiply(new Vec3(2,4,undefined))", MWX_SCENE_QUICKJS_BAD_RETURN, {0}, "explicit undefined Vec3 component is not a missing dimension"},
+        {"new Vec3(8,12,20).add(new Vec3(2,4,NaN))", MWX_SCENE_QUICKJS_BAD_RETURN, {0}, "explicit NaN Vec3 component stays invalid"},
+        {"new Vec3(8,12,20).add(new Vec3(2,4,Infinity))", MWX_SCENE_QUICKJS_BAD_RETURN, {0}, "explicit infinite Vec3 component stays invalid"},
+        {"new Vec3(8,12,20).multiply(NaN)", MWX_SCENE_QUICKJS_BAD_RETURN, {0}, "nonfinite scalar does not become Vec2"},
+        {"new Vec3(8,12,20).multiply({x:2,y:4})", MWX_SCENE_QUICKJS_BAD_RETURN, {0}, "plain xy object is not classified as Vec2"},
+    };
+    for (size_t index = 0; index < sizeof(arithmetic_neighbors) / sizeof(arithmetic_neighbors[0]); ++index) {
+        char source[512];
+        snprintf(source, sizeof(source), "export function update(v){return %s;}",
+            arithmetic_neighbors[index].expression);
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 139,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, arithmetic_neighbors[index].label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        fixture->failures += mwx_fixture_update_vec3(
+            owner, 139, vec3_input, "", "{}", arithmetic_neighbors[index].status,
+            arithmetic_neighbors[index].expected, arithmetic_neighbors[index].label);
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
+    const char *explicit_zero_divisor_source =
+        "export function update(v){if(v.x===8)return v.divide(new Vec3(2,4,0));return v;}";
+    MWXSceneQuickJSOwner *explicit_zero_divisor = mwx_scene_quickjs_owner_create(
+        fixture->domain, explicit_zero_divisor_source, strlen(explicit_zero_divisor_source), 140,
+        fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(explicit_zero_divisor != NULL,
+        "explicit zero divisor compile", fixture->diagnostic);
+    if (explicit_zero_divisor != NULL) {
+        const double nonzero_z_input[3] = {8,12,20};
+        fixture->failures += mwx_fixture_update_vec3(
+            explicit_zero_divisor, 140, nonzero_z_input, "", "{}",
+            MWX_SCENE_QUICKJS_BAD_RETURN, NULL, "explicit zero divide raw Infinity cannot publish as typed Vec3");
+        fixture->failures += mwx_fixture_update_vec3(
+            explicit_zero_divisor, 140, vec3_input, "", "{}", MWX_SCENE_QUICKJS_OK,
+            vec3_input, "same owner recovers after explicit nonfinite arithmetic return");
+        mwx_scene_quickjs_owner_destroy(explicit_zero_divisor);
+    }
+
     const char *vec3_noop_mutation_source =
         "export function update(value) {"
         "thisLayer.angles = new Vec3(0, 0, 0);"

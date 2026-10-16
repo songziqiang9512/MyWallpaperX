@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0ffcead180ea60ef9cc8ea968b511da682f88cfb74375a59b52ccda922886678",
+        "sourceSHA256": "bfce2a0d5f04b9fa5d2583a07771fef84100d605be35183a63b4050555f6afdf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "OGG平台条件准入与真实/自有资源级Program/Registry消费后验；坏源终态、WAV peer、独立314与whole366冷启动未ready分列导航",
-        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
+        "scope": "Vec3/Vec2固定官方24case、真实VM与原包1128首错消失的后验导航；同窗热改、独立314实图及未观测位置motion分列",
+        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
       }
     },
     {
@@ -708,10 +708,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9741bf3443a7817768c2f4a3f3c6526a61a454f34685b9c50d82ab43bec99203",
+        "sourceSHA256": "723b27efff627cc20d5361ff052dc781a864327526dc5cfd32344df24bc3c112",
         "method": "document_registry --audit + document_health --check",
-        "scope": "OGG沿原Sound Program/Registry的有界格式准入与资源级后验导航；四方法、pure/mixed volume及handle边界继续各自所有权",
-        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
+        "scope": "Vec3/Vec2混合算术限定实现、四方法与scalar/显式Vec3/构造边界；官方24case、真实VM及原包首错消失各自来源导航",
+        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
       }
     },
     {
@@ -3012,6 +3012,19 @@
       "uniqueValue": "v22集合wire原owner复现/修复；源纯兼容扩展真实单对未达继续门、原型撤回与证据边界"
     },
     {
+      "path": "docs/scene/history/vec3-mixed-dimension-arithmetic-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "固定官方24case的Vec3/Vec2缺维数值与独立中性交接、共享ValueHost四方法修复、真实VM及TEXT滞后fixture修正；原包1128首错消失与S3、同窗热改及独立314实图分列，保位置motion/整样本/parity未知和缓存不同无性能结论。"
+    },
+    {
       "path": "docs/scene/history/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3118,10 +3131,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e4f09c28ed110f5bb2897b1b12aa61aebc78151b077105e9a97947c6044f67d4",
+        "sourceSHA256": "e7c27702a48f0dc1211e44cf93967f4f53c4489485a81f1fb8d6e5d23d53479d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "OGG平台格式门的唯一Program能力事实、路径/逐源选择与既有Registry生命周期；准备准入和文件decode、资源级与整包结果分域",
-        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
+        "scope": "Vec3四算术对实际Vec2的共享ValueHost职责、typed维度准入与保旧构造/显式Vec3/finite publication；固定官方数值合同和独立实施、运行证据分列",
+        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
       }
     },
     {
@@ -3215,10 +3228,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50059d23ad68fe083e72f24b76e2347c268cc3f269ace23f4a69061e14d904d2",
+        "sourceSHA256": "2fc82524e9277109455f057b76032fd04c78b668d3c0aacdd294bbdd965711af",
         "method": "document_registry --audit + document_health --check",
-        "scope": "OGG从固定拒绝调整为平台门及资源级已消费；whole366 shader准备超时、平台false实机及更广codec/换源缺口继续开放",
-        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
+        "scope": "U13的1128混合向量首断点由官方缺维规则未定替换为共享owner已接及S3后验；光束、封面/裁切、544作者异常与整样本余项继续开放",
+        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
       }
     },
     {

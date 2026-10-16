@@ -77,17 +77,28 @@ int mwx_fixture_layer_mutation(
     MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_layer_mutation_at(
         owner, index, &mwx_fixture_mutation, diagnostic, sizeof(diagnostic)
     );
-    return mwx_fixture_check(
-        result == MWX_SCENE_QUICKJS_OK
+    const int matched = result == MWX_SCENE_QUICKJS_OK
             && mwx_fixture_mutation.kind == expected_kind
             && mwx_fixture_mutation.dynamic == (uint32_t)expected_dynamic
             && mwx_fixture_mutation.fields == expected_fields
             && (expected_id == 0 || mwx_fixture_mutation.layer_id == expected_id)
             && mwx_fixture_mutation.order_index == expected_order
-            && strcmp(mwx_fixture_mutation.text, expected_text) == 0,
-        label,
-        diagnostic
+            && strcmp(mwx_fixture_mutation.text, expected_text) == 0;
+    if (matched) return 0;
+    char detail[1024];
+    snprintf(
+        detail, sizeof(detail),
+        "result=%d kind=%u/%u dynamic=%u/%u fields=%u/%u "
+        "id=%lld/%lld order=%d/%d text='%.80s'/'%.80s' %.160s",
+        (int)result, mwx_fixture_mutation.kind, expected_kind,
+        mwx_fixture_mutation.dynamic, (uint32_t)expected_dynamic,
+        mwx_fixture_mutation.fields, expected_fields,
+        (long long)mwx_fixture_mutation.layer_id, (long long)expected_id,
+        mwx_fixture_mutation.order_index, expected_order,
+        mwx_fixture_mutation.text == NULL ? "<null>" : mwx_fixture_mutation.text,
+        expected_text, diagnostic
     );
+    return mwx_fixture_check(0, label, detail);
 }
 
 

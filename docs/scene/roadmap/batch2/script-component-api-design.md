@@ -16,6 +16,18 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+<a id="vector-mixed-dimension-arithmetic"></a>
+
+## Vec3 与 Vec2 混合算术（2026-10-16，限定实现已接）
+
+目标是让受支持的 Vec3 接收者对实际 Vec2 执行 `add/subtract/multiply/divide` 时，仅运算共同的 x/y，原样保留接收者 z。按[官方研究边界](../../development/official-client-behavior-research-workflow.md)固定官方 2.8.0.42（executable SHA256 `daac1ea7…bda07`）的 24 个自有黑盒 case 已确认该数值行为、改名直调一致、左值不变及返回另一对象；黑盒没有验证 prototype/instanceof，返回 Vec3 沿公开 API 签名与现 owner，不混作黑盒类型实证。
+
+唯一实现 owner 是 `SceneQuickJSValueHost` 的共享 Vec3 四方法：仅在实际 Vec2 向量操作数分支保留 z，仍构造新 Vec3，其他运算表达式与调用链不变。不以 `rhs.z === undefined`、零值或 duck object 字段推断维度，不在 layer、property、media 或 typed publication 另补算术。原错误是读取 Vec2 不存在的 z 后产生 NaN；修复该 producer，不放宽 finite publication。
+
+构造 `Vec3(Vec2)`/`Vec3(x,y)` 仍补零，单 Number 构造及算术仍广播至全部 xyz；显式 Vec3 的 z=0、undefined、NaN/Infinity 仍走原三维运算，显式零除法不改成缺维保留。非法 typed 返回、previous-current 回退、journal 与失败后恢复沿原边界。Vec4、mix、plain object、追加 z 的 Vec2、反向维度、非有限与正负零的官方规则未由本次黑盒裁决，不将本片结果外推为其官方一致性证据，也不为这些未证表面扩 API。
+
+验收复用真实 QuickJS owner harness：四方法直接调用及变量改名/等价表达式、返回新对象且两操作数不变、scalar 与显式 Vec3、零扩展构造及非有限 typed 返回反例；不新建 vector owner 或测试算法。最近门、Debug、原包1128首错消失及独立实图的身份归[限定证据](../../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)，原包保owner-executed，未直接观测位置向量或完整motion；不据此关闭 U13 光束、媒体或整样本差异。失败保留原局部降级，不增加 cache、identity 或逐帧准备。
+
 <a id="named-user-pass-scalar"></a>
 
 ## Named-user pass scalar 输入（2026-10-16，有界已实施）
