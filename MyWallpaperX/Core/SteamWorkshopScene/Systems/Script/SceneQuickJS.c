@@ -2242,6 +2242,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
         if (failure_permanently_disables(puppet_ended_result)) owner->disabled = true;
         return puppet_ended_result;
     }
+    MWXSceneQuickJSResult puppet_event_result = property_refresh ? MWX_SCENE_QUICKJS_OK
+        : mwx_scene_quickjs_dispatch_puppet_animation_events(owner, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length, &input, diagnostic, diagnostic_capacity);
+    if (puppet_event_result != MWX_SCENE_QUICKJS_OK) {
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+        if (failure_permanently_disables(puppet_event_result)) owner->disabled = true;
+        return puppet_event_result;
+    }
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);

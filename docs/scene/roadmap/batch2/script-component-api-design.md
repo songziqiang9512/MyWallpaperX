@@ -275,7 +275,7 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 ### 已准备 Puppet 动画层 lookup（2026-10-16，CPU及self-index GPU有界已验）
 
-**目标与取舍。** 公开 [IImageLayer.getAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html#getanimationlayer-name-stringnumber-ianimationlayer) 按 name 或 index 查现有动画层，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html) 的 play 恢复、stop 停止并复位；不能用属性 Timeline 或当前 nested owner 的别名代替所查 target。一次开放任意 layer handle 会扩大跨父层权限、target 生命周期和事件归属；当前实现限已有 prepared Puppet nested-owner 经 thisLayer 查询同 parent 的已准备动画层。String 名称与有限非负整数 authored index 均解析真实 target，不按样本、名字或当前动画 ID 分派。真实中性资格证明 receiver 是同 parent thisLayer；335原包在参数解析前被真实准备合同拒绝，实参类型与解析后的目标仍未知，不能据调用存在宣称已恢复播放。
+**目标与取舍。** 公开 [IImageLayer.getAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html#getanimationlayer-name-stringnumber-ianimationlayer) 按 name 或 index 查现有动画层，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html) 的 play 恢复、stop 停止并复位；不能用属性 Timeline 或当前 nested owner 的别名代替所查 target。一次开放任意 layer handle 会扩大跨父层权限、target 生命周期和事件归属；当前实现限已有 prepared Puppet nested-owner 经 thisLayer 查询同 parent 的已准备动画层。String 名称与有限非负整数 authored index 均解析真实 target，不按样本、名字或当前动画 ID 分派。真实中性资格证明 receiver 是同 parent thisLayer；335最初在参数解析前被资源准备合同拒绝，后继读源和资源资格确认其按String名称查同parent目标，资源事件与实际播放进展归[事件链路](#puppet-animation-events)，不由lookup入口存在性推断。
 
 **准备与身份。** 复用 ScenePuppetAnimationPlaybackRuntime 的定义、snapshots 与唯一 SceneClock；原 domain publication 入口持唯一 prepared committed 镜像，含 parent layer ID、authored animation index、可用 ID、名称及 clip metadata。无匹配、重名、越界/非整数 index 局部拒绝。仍在 publication 中的同 identity 临时坏数值、metadata 不符或重复 identity 只令该记录不可用，保留一份旧名称/metadata/incarnation，恢复原合法输入可恢复；真正缺席后重现分配新 incarnation，旧缓存不回生。稳定布局先全量验证 identity/metadata/有限域，再原位更新数值、复用 names/incarnation 与 prepared source 索引，健康路径零 C 分配；这是实现结构，不是性能收益证据。无动画创建、模型发现或动态 clone 动画准入。
 
@@ -289,7 +289,25 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 **有界验收。** 最近真实 C→ABI→Swift→共享 Runtime 的15项host门、22项邻门及签名Debug通过：name/index、改名/等价数字、self/sibling不同target读回、stop/play、缓存句柄、多primitive新范围、回滚、临时坏值恢复与真实缺席后的ABA拒绝均在CPU链验证，原self visible/ended边界保持。自有单parent输入仅使用已准备layer1221/index0/id6070、clip2471，lookup(0)的stop于frame0提交，timer play于frame29提交；stop生效后frame2–26的9个GPU骨hash相同，play后111条记录有79个不同hash，122条draw均GPUcompleted、4222顶点，退出正常、输入无漂移且GPU排空，root与独审查看after。此为`S4 bounded single-parent/self-index0`，不外推name或sibling GPU、完整原包、官方parity或性能。普通有界证据归 `.artifacts/scene-evidence/runs/puppet-animation-layer-lookup-20261016/`，保留14天。
 
-**原包前置与停止。** 335原包由缺少方法推进到已安装入口的prepared-source拒绝，命令0，无新pose/GPU或画面收益。更早断点为layer524动画1356的MDLA0006现代尾部29字节零合同中出现非零字段，现reader转bind几何、不注册动画playback；只证明作者资产结构不在已验证profile，字段意义未知保持STOP，不能跳过校验或删source guard。该最小失败长期保护于 `.artifacts/scene-evidence/runs/puppet-auxiliary-trailer-20261016/`；lookup实际参数与所求target仍未知，不称335已恢复。跨parent/任意layer handle、模型或动态动画创建、该真实资源的播放与完整官方parity均未闭合。
+**原包初始边界。** 最初335因MDLA0006现代尾部被整段零合同拒绝，lookup随prepared source退出，命令0；这份历史失败及原始身份保存在 `.artifacts/scene-evidence/runs/puppet-auxiliary-trailer-20261016/`。后继已定位其中事件记录，现状只由[事件链路与限定验收](#puppet-animation-events)拥有，不再把旧unknown当当前STOP；跨parent/任意layer handle、模型或动态动画创建和完整官方parity仍未闭。
+
+<a id="puppet-animation-events"></a>
+
+### Puppet 源帧事件与动画接续（2026-10-16，有界实施与原包接续已验）
+
+**目标与取舍。** 修复合法现代MDLA事件记录被零填充合同拒绝、以及prepared动画无法经`animationEvent(event,value)`接续播放的共享链。335的同一资源两clip分别有1/0事件，事件名与nested Bool脚本输入精确匹配：初始化停止目标clip，收到另一clip的命名事件后播放；只读资格不算已恢复。公开[事件指南](https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html)与[AnimationEvent](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AnimationEvent.html)提供源帧、name/frame及同层callback表面。选择复用原PlaybackRuntime和owner事务；只放松reader会漏掉真实事件消费，另建surface计时器或完整Timeline事件平台均不采用。
+
+**资源与准入。** 现现代尾部拆为已验证的零六浮点字段、缺席后续scalar曲线及有界事件列表，不再整体按29零字节处理。保留每条事件的原时间字段及JSON的name/frame，按长度、数量、有限性、帧域和已知字段验证，错误仍拒该动画组并走原layer bind fallback。首片只接loop正向、内部非零源帧、正rate；0/end边界、mirror/single事件及未解释曲线继续显式拒绝，原无事件profile不收窄。JSON.frame作为本项目有界源帧调度合同；原时间字段保留，不据单一时间/帧对应宣称官方单位或精确时序。额外兼容性检查须写明项目策略，不复制参考实现或固定资产字节。
+
+**唯一时钟与派发。** 原launch-owned `ScenePuppetAnimationPlaybackRuntime.advance`在既有可见/播放/rate的phase增量上产生immutable occurrence；暂停、隐藏、rate0和同cadence复用不新增事件，seek/stop命令本身不补发穿越事件。顺序按同parent内实际跨越位置、authored clip/event顺序稳定；首片只跨0或1个loop边界，区间内事件按预算枚举，更多圈或超预算报局部失败，不截断后声称成功。原FrameDriver一次发布给domain，各surface仅消费原pose，不发callback。
+
+**最小消费者与事务。** 首片限已准备的Puppet nested Bool owner，接收同parent各clip的事件；不借假的layer身份或扩大跨parent权限。原owner在init完成后、update前调用`animationEvent(event,value)`，Bool返回更新原typed值，undefined保输入；命令与返回值进同一owner bundle，沿原Swift admission、fixed-point和共同commit。其余值族/非Puppet/Timeline事件不随片开放，但未接线的export不能撤掉既有init/update或文字clone。事件接入原owner有界pending队列，occurrence identity使同cadence重复publication不重入；消费游标与原TimerSnapshot/journal共同commit/rollback，下一cadence仍保留未提交payload。暂不可用而identity/incarnation仍合法的receiver保队，恢复后执行；真实退休才清旧事件。callback失败只影响该owner；健康peer继续，源播放不因单个receiver失败倒退。队列满不能静默丢事件。既有JS heap不回滚，不能把native撤回写成任意脚本堆事务。
+
+**成本与退出。** 无事件cadence不扫描全owner派发、不序列化场景或重新读MDL；无事件owner不内联分配整份FIFO，首次真实事件才分配有界队列与payload，并计入原VM内存预算。资源解析只在准备期，事件与消费状态由原PlaybackRuntime/VM owner各持其职责，不建第二clock、资源registry或提交权。propertyRefresh不派发/消费事件。事件队列及callback引用随owner退休归零，reload不跨代重放。
+
+**验收。** 自有两clip MDLA及真实C→ABI→Runtime门验证改名/等价JSON、event 1/0相邻资源、正确parent、未初始化、Bool/undefined/坏返回、同cadence与跨cadence拒绝重试、暂停/隐藏/seek/rate0、loop穿越、预算、throw/晚拒绝和退休；不复制作者脚本作测试算法。签名Debug后用原335证实际准备、init stop及事件后play命令、目标clip推进和GPU骨变形；未参与修法样本保播放与退出。没有事件后实际目标推进或出现新的更早准备缺口就停下重排，不把reader通过、base动画或非黑当事件恢复；官方同相位与性能收益另验。
+
+**限定结果。** 原生产链reader门30 PASS/1既有资源skip，PlaybackRuntime原27项通过、最后两处修订仅补6事件门，真实QuickJS/Swift18项通过；最后event/name分配异常guard另经C闭包编译及静态独审，辅助standalone低heap行为资格失败不计PASS。签名Debug后原335的524/index1/id751于frame0提交stop、frame3因源事件提交play，目标clip510快照由42.445推进至262.283并loop回6.831；131条5805顶点骨输出均GPU completed且各hash不同。原包画面人物/纸片/雨/倒影已查看；独立379人物/花朵/图案保留，两run均exit0、输入无漂移、surface1→0与GPU排空。关闭旧资源准备STOP及该String-self事件接续，不外推任意sibling、完整样本/官方相位或性能；身份、证据与剩余范围归[事件运行记录](../../capabilities/runtime-evidence-current.md#e-2026-10-16-puppet-animation-events)。
 
 ## 属性 Timeline retained handle 后继（2026-10-08）
 

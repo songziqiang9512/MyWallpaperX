@@ -13,6 +13,24 @@ nonisolated enum ScenePuppetAnimationEndedFailure: String, Error, Equatable, Sen
     case sequenceOverflow
 }
 
+/// One natural forward crossing, issued once by the launch playback owner.
+/// Identity plus sequence stays stable when a cadence is published again.
+nonisolated struct ScenePuppetAnimationEventOccurrence: Equatable, Sendable {
+    let identity: ScenePuppetAnimationIdentity
+    let sequence: UInt64
+    let name: String
+    let frame: Int
+}
+
+nonisolated enum ScenePuppetAnimationEventFailure: String, Error, Equatable, Sendable {
+    case unsupportedMode
+    case invalidEvent
+    case nonFinitePhase
+    case multipleLoopsCrossed
+    case eventBudgetExceeded
+    case sequenceOverflow
+}
+
 /// A committed mirror for SceneScript. It has no independent playback clock.
 nonisolated struct ScenePuppetAnimationSnapshot: Equatable, Sendable {
     let identity: ScenePuppetAnimationIdentity

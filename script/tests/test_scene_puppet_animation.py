@@ -58,6 +58,10 @@ enum Harness {
                         "alphaByBone": animation.alphaByBone.map {
                             $0.map { $0.map { Double($0) } } as Any
                         } ?? NSNull(),
+                        "events": animation.events.map {
+                            ["name": $0.name, "frame": $0.frame,
+                             "recordedTime": Double($0.recordedTime)] as [String: Any]
+                        },
                         "firstTransform": animation.transformsByBone.first?.first.map {
                             [
                                 Double($0.translation.x), Double($0.translation.y),
@@ -104,6 +108,13 @@ def transform(frame: int, bone: int, nan_component: bool = False) -> tuple[float
     )
 
 
+def event_record(recorded_time: float, payload: object, *, terminated: bool = True) -> bytes:
+    encoded = payload if isinstance(payload, bytes) else json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":")
+    ).encode()
+    return struct.pack("<f", recorded_time) + encoded + (b"\0" if terminated else b"")
+
+
 def animation_record(
     animation_id: int,
     name: str,
@@ -126,6 +137,9 @@ def animation_record(
     alpha_presence: int | None = None,
     legacy_trailer: bool = False,
     legacy_trailer34: bool = False,
+    events: list[bytes] | None = None,
+    declared_event_count: int | None = None,
+    modern_prefix: bytes = b"\0" * 25,
 ) -> bytes:
     body = bytearray(struct.pack("<II", animation_id, header_state))
     body += name.encode() + b"\0"
@@ -180,7 +194,10 @@ def animation_record(
         body += struct.pack(f"<{sample_count}f", *values)
     else:
         body += b"\0"
-    body += b"\0" * 29
+    body += modern_prefix
+    records = events or []
+    body += struct.pack("<I", len(records) if declared_event_count is None else declared_event_count)
+    body += b"".join(records)
     return bytes(body)
 
 
@@ -228,6 +245,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         compilation = subprocess.run(
             [
                 "swiftc",
+                "-module-cache-path", str(tmp / "module-cache"),
                 str(SWIFT_MODEL_SOURCE),
                 str(SWIFT_SOURCE),
                 str(harness),
@@ -372,6 +390,90 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 [animation_record(103, "Unknown", 2, 2, mode="pingpong")]
             ),
         }
+        cue = event_record(0.125, {"frame": 2, "name": "Wake_Ω"})
+        cls.fixtures["events-two-clips.mdl"] = build_mdl([
+            animation_record(501, "Source motion", 4, 2, events=[cue]),
+            animation_record(502, "Target motion", 4, 2),
+        ])
+        cls.fixtures["renamed-event-resource.mdl"] = build_mdl([
+            animation_record(671, "改名动画", 6, 2, fps=60, events=[event_record(
+                -7, b' { "name" : "\\u4fe1\\u53f7", "frame" : 2.0 } '
+            )]),
+        ])
+        budget_records = [event_record(0, {"frame": 1, "name": "cue"})] * 1024
+        bounded_payload = json.dumps({"frame": 1, "name": "Ω" * 512},
+                                     ensure_ascii=False, separators=(",", ":")).encode()
+        bounded_payload += b" " * (4096 - len(bounded_payload))
+        cls.fixtures["event-exact-string-budgets.mdl"] = build_mdl([
+            animation_record(672, "Exact budgets", 2, 2,
+                             events=[event_record(0.25, bounded_payload)])
+        ])
+        for count in (4, 5):
+            cls.fixtures[f"event-total-{count * 1024}.mdl"] = build_mdl([
+                animation_record(700 + index, f"Budget {index}", 2, 2,
+                                 events=budget_records)
+                for index in range(count)
+            ])
+        invalid_payloads = {
+            "array": [], "syntax": b"{", "utf8": b"\xff",
+            "missing-name": {"frame": 2}, "missing-frame": {"name": "cue"},
+            "extra-key": {"frame": 2, "name": "cue", "extra": 1},
+            "frame-bool": {"frame": True, "name": "cue"},
+            "frame-string": {"frame": "2", "name": "cue"},
+            "frame-fraction": {"frame": 1.5, "name": "cue"},
+            "frame-zero": {"frame": 0, "name": "cue"},
+            "frame-end": {"frame": 4, "name": "cue"},
+            "frame-negative": {"frame": -1, "name": "cue"},
+            "frame-huge": {"frame": 1e30, "name": "cue"},
+            "empty-name": {"frame": 2, "name": ""},
+            "name-number": {"frame": 2, "name": 1},
+            "name-nul": {"frame": 2, "name": "a\0b"},
+            "name-bytes": {"frame": 2, "name": "界" * 342},
+            "payload-bytes": b" " * 4097 + b'{"frame":2,"name":"cue"}',
+        }
+        for label, payload in invalid_payloads.items():
+            cls.fixtures[f"bad-event-{label}.mdl"] = build_mdl([
+                animation_record(501, "Malformed cue", 4, 2,
+                                 events=[event_record(0.125, payload)])
+            ])
+        for label, value in (("nan", math.nan), ("inf", math.inf), ("negative-inf", -math.inf)):
+            cls.fixtures[f"bad-event-time-{label}.mdl"] = build_mdl([
+                animation_record(501, "Invalid recorded field", 4, 2,
+                                 events=[event_record(value, {"frame": 2, "name": "cue"})])
+            ])
+        for count in (1025, 0xFFFFFFFF):
+            cls.fixtures[f"bad-event-count-{count}.mdl"] = build_mdl([
+                animation_record(501, "Count", 4, 2, declared_event_count=count,
+                                 events=budget_records + [cue] if count == 1025 else None)
+            ])
+        for mode in ("mirror", "single"):
+            cls.fixtures[f"bad-event-mode-{mode}.mdl"] = build_mdl([
+                animation_record(501, "Mode", 4, 2, mode=mode, events=[cue])
+            ])
+        cls.fixtures["bad-event-short-time.mdl"] = build_mdl([
+            animation_record(501, "Short field", 4, 2, events=[b"\0\0"])
+        ])
+        cls.fixtures["bad-event-count-mismatch.mdl"] = build_mdl([
+            animation_record(501, "Count mismatch", 4, 2, events=[cue], declared_event_count=2),
+            animation_record(502, "Healthy next", 4, 2),
+        ])
+        cls.fixtures["bad-event-missing-terminator.mdl"] = build_mdl([
+            animation_record(501, "No terminator", 4, 2,
+                             events=[event_record(0.125, {"frame": 2, "name": "cue"}, terminated=False)])
+        ])
+        outside = bytearray(cls.fixtures["events-two-clips.mdl"])
+        marker = outside.index(b"MDLA0006\0")
+        # Leave physical bytes after the declared MDLA end: they cannot finish the JSON.
+        first_payload = outside.index(b'{"frame":2,"name":')
+        struct.pack_into("<I", outside, marker + 9, first_payload + 8)
+        cls.fixtures["bad-event-outside-declared-block.mdl"] = bytes(outside)
+        cls.fixtures["bad-modern-aabb.mdl"] = build_mdl([
+            animation_record(501, "Unknown bounds", 4, 2,
+                             modern_prefix=struct.pack("<f", 1) + b"\0" * 21)
+        ])
+        cls.fixtures["bad-modern-scalar-presence.mdl"] = build_mdl([
+            animation_record(501, "Unknown curve", 4, 2, modern_prefix=b"\0" * 24 + b"\1")
+        ])
         for label, value in (
             ("negative", -0.01), ("above-one", 1.01),
             ("nan", float("nan")), ("infinity", float("inf")),
@@ -423,6 +525,58 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
 
     def test_absent_block_returns_no_animation_set(self):
         self.assertEqual(self.results["absent.mdl"].get("absent"), True)
+
+    def test_modern_events_preserve_typed_fields_and_next_clip_boundary(self):
+        entry = self.results["events-two-clips.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        first, second = entry["animations"]
+        self.assertEqual([first["id"], second["id"]], [501, 502])
+        self.assertEqual(first["sampleCounts"], [5, 5])
+        self.assertEqual(first["events"], [{"name": "Wake_Ω", "frame": 2, "recordedTime": 0.125}])
+        self.assertEqual(second["events"], [])
+        self.assertEqual(second["lastTransform"][:3], [0, 8, 0])
+
+    def test_event_json_equivalence_and_renamed_unicode_resource(self):
+        entry = self.results["renamed-event-resource.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        animation = entry["animations"][0]
+        self.assertEqual((animation["id"], animation["name"], animation["fps"]), (671, "改名动画", 60))
+        self.assertEqual(animation["events"], [{"name": "信号", "frame": 2, "recordedTime": -7}])
+        bounded = self.results["event-exact-string-budgets.mdl"]
+        self.assertTrue(bounded["ok"], bounded)
+        event = bounded["animations"][0]["events"][0]
+        self.assertEqual(len(event["name"].encode()), 1024)
+        self.assertEqual((event["frame"], event["recordedTime"]), (1, 0.25))
+
+    def test_event_count_budgets_are_independent_of_transform_budget(self):
+        accepted = self.results["event-total-4096.mdl"]
+        self.assertTrue(accepted["ok"], accepted)
+        self.assertEqual([len(a["events"]) for a in accepted["animations"]], [1024] * 4)
+        rejected = self.results["event-total-5120.mdl"]
+        self.assertFalse(rejected["ok"], rejected)
+        self.assertIn("invalid bounded event record", rejected["error"])
+
+    def test_malformed_event_records_and_unsupported_modes_fail_closed(self):
+        for name in self.fixtures:
+            if not name.startswith("bad-event-"):
+                continue
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid bounded event record", entry["error"])
+
+    def test_zero_event_versions_and_unexplained_modern_fields_keep_boundaries(self):
+        for name in ("valid.mdl", "valid-modern-alpha.mdl", "valid-mdlv0016.mdl",
+                     "valid-legacy.mdl", "valid-mdlv0019.mdl", "valid-mirror.mdl", "valid-single.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertTrue(entry["ok"], entry)
+                self.assertTrue(all(a["events"] == [] for a in entry["animations"]))
+        for name in ("bad-modern-aabb.mdl", "bad-modern-scalar-presence.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid verified auxiliary track", entry["error"])
 
     def test_mdlv0017_mdls0002_mdla0004_preserves_the_same_transform_ir(self):
         entry = self.results["valid-legacy.mdl"]

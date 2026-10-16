@@ -65,6 +65,71 @@ nonisolated enum SceneScriptPuppetAnimationBridge {
 }
 
 extension SceneScriptQuickJSDomain {
+    /// One cadence's native occurrences. The existing C owner retains pending
+    /// payload through rejected publications; neither side advances a clock.
+    func publishPuppetAnimationEvents(
+        _ events: [ScenePuppetAnimationEventOccurrence],
+        failures: [ScenePuppetAnimationIdentity: ScenePuppetAnimationEventFailure]
+    ) throws {
+        guard !events.isEmpty || !failures.isEmpty else { return }
+        guard mwx_scene_quickjs_domain_puppet_animation_owner_count(handle) > 0 else { return }
+        var names: [UnsafeMutablePointer<CChar>] = []
+        defer { names.forEach { free($0) } }
+        func record(_ identity: ScenePuppetAnimationIdentity) throws -> MWXSceneQuickJSPuppetAnimationEvent {
+            guard identity.layerID >= 0,
+                  let index = UInt32(exactly: identity.animationLayerIndex) else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid Puppet event identity")
+            }
+            var raw = MWXSceneQuickJSPuppetAnimationEvent()
+            raw.layer_id = Int64(identity.layerID)
+            raw.animation_layer_index = index
+            raw.animation_layer_id = Int64(identity.animationLayerID ?? 0)
+            raw.has_animation_layer_id = identity.animationLayerID == nil ? 0 : 1
+            return raw
+        }
+        var records: [MWXSceneQuickJSPuppetAnimationEvent] = []
+        for event in events {
+            var raw = try record(event.identity)
+            if event.sequence == 0 || event.name.isEmpty || event.name.utf8.count > 1024
+                || event.name.utf8.contains(0) || event.frame < 0
+                || event.frame > 9_007_199_254_740_991 {
+                raw.failure = 2
+            } else {
+                guard let name = strdup(event.name) else {
+                    throw SceneScriptScalarRuntimeFailure.memoryExceeded("Puppet event payload")
+                }
+                names.append(name)
+                raw.sequence = event.sequence
+                raw.name = UnsafePointer(name)
+                raw.frame = Int64(event.frame)
+            }
+            records.append(raw)
+        }
+        for (identity, failure) in failures.sorted(by: {
+            if $0.key.layerID != $1.key.layerID { return $0.key.layerID < $1.key.layerID }
+            return $0.key.animationLayerIndex < $1.key.animationLayerIndex
+        }) {
+            var raw = try record(identity)
+            switch failure {
+            case .unsupportedMode: raw.failure = 1
+            case .invalidEvent: raw.failure = 2
+            case .nonFinitePhase: raw.failure = 3
+            case .multipleLoopsCrossed: raw.failure = 4
+            case .eventBudgetExceeded: raw.failure = 5
+            case .sequenceOverflow: raw.failure = 6
+            }
+            records.append(raw)
+        }
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = records.withUnsafeBufferPointer {
+            mwx_scene_quickjs_domain_publish_puppet_animation_events(
+                handle, $0.baseAddress, $0.count, &diagnostic, diagnostic.count)
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            throw SceneScriptPuppetAnimationBridge.failure(result, diagnostic)
+        }
+    }
+
     /// Installed after owner construction and before init; ordinary frames
     /// replace only this mirror, never advance an independent native clock.
     func publishPuppetAnimationSnapshot(_ snapshots: [ScenePuppetAnimationSnapshot]) throws {

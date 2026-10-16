@@ -18,6 +18,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         let sceneTime: Double
         fileprivate let layers: [Int: LayerFrame]
         let animationSnapshots: [ScenePuppetAnimationSnapshot]
+        let animationEvents: [ScenePuppetAnimationEventOccurrence]
+        let eventFailures: [ScenePuppetAnimationIdentity: ScenePuppetAnimationEventFailure]
 
         subscript(layerID: Int) -> LayerFrame? { layers[layerID] }
     }
@@ -49,6 +51,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 && lhs.animation.frameCount == rhs.animation.frameCount
                 && lhs.animation.transformsByBone == rhs.animation.transformsByBone
                 && lhs.animation.alphaByBone == rhs.animation.alphaByBone
+                && lhs.animation.events == rhs.animation.events
         }
 
         var usesDynamicVisibility: Bool {
@@ -84,10 +87,18 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         var visible: Bool
         var endedSequence: UInt64 = 0
         var endedFailure: ScenePuppetAnimationEndedFailure?
+        var eventSequence: UInt64 = 0
+        var eventFailure: ScenePuppetAnimationEventFailure?
 
         func phase(_ clip: ClipDefinition) -> Double {
             (playbackTime ?? 0) * rate * Double(clip.animation.framesPerSecond) + phaseOffset
         }
+    }
+
+    private struct EventCrossing {
+        let clipIndex: Int
+        let eventIndex: Int
+        let fraction: Double
     }
 
     private struct CommandKey: Hashable, Comparable {
@@ -107,6 +118,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     private var appliedCommands: [CommandKey: ScenePuppetAnimationCommand] = [:]
     private var lastCommandKey: CommandKey?
     static let commandBudget = 64
+    /// One parent's event batch is atomic; overflow never publishes a prefix.
+    static let eventBudget = 64
 
     /// Only preparation compares immutable tracks. Registering the same layer
     /// for a second surface or rebuild preserves the launch's consumed position.
@@ -138,7 +151,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         definitions[layerID] = definition
         states[layerID] = clips.map { clip in
             ClipState(rate: clip.layer.rate ?? 1, blend: clip.layer.blend ?? 1,
-                visible: clip.layer.visible == true)
+                visible: clip.layer.visible == true,
+                eventFailure: Self.eventDefinitionFailure(clip))
         }
         return .success(())
     }
@@ -161,6 +175,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         let elapsed = sameCadence ? 0 : max(0, currentSceneTime - (lastSceneTime ?? currentSceneTime))
         if !sameCadence { appliedCommands.removeAll(keepingCapacity: true) }
         var animationSnapshots = sameCadence ? latestFrame!.animationSnapshots : []
+        var animationEvents = sameCadence ? latestFrame!.animationEvents : []
+        var eventFailures = sameCadence ? latestFrame!.eventFailures : [:]
         layers.reserveCapacity(definitions.count)
         for (layerID, definition) in definitions {
             // Paused surface rebuilding may register a newly prepared layer
@@ -169,6 +185,9 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
             guard layers[layerID] == nil else { continue }
             var local = states[layerID]!
             var samples: [ScenePuppetAnimationEvaluator.FrameSample?] = []
+            var crossings: [EventCrossing] = []
+            var eventSources: Set<Int> = []
+            var eventBatchOverflowed = false
             samples.reserveCapacity(definition.clips.count)
             for index in definition.clips.indices {
                 let clip = definition.clips[index]
@@ -189,16 +208,59 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                     }
                     if local[index].explicitFrame == nil {
                         Self.recordEnded(clip: clip, previousPhase: previousPhase, state: &local[index])
+                        switch Self.eventCrossings(clip: clip, clipIndex: index,
+                            previousPhase: previousPhase, state: local[index]) {
+                        case let .success(events):
+                            if !events.isEmpty {
+                                eventSources.insert(index)
+                                if events.count > Self.eventBudget - crossings.count {
+                                    eventBatchOverflowed = true
+                                    crossings.removeAll(keepingCapacity: true)
+                                } else if !eventBatchOverflowed {
+                                    crossings.append(contentsOf: events)
+                                }
+                            }
+                        case let .failure(failure):
+                            local[index].eventFailure = failure
+                            if failure == .eventBudgetExceeded {
+                                eventSources.insert(index)
+                                eventBatchOverflowed = true
+                                crossings.removeAll(keepingCapacity: true)
+                            }
+                        }
                     }
                 }
                 samples.append(local[index].visible ? Self.sample(clip: clip, state: local[index]) : nil)
                 animationSnapshots.append(Self.snapshot(clip: clip, state: local[index]))
             }
+            if eventBatchOverflowed {
+                for index in eventSources { local[index].eventFailure = .eventBudgetExceeded }
+            } else {
+                crossings.sort {
+                    if $0.fraction != $1.fraction { return $0.fraction < $1.fraction }
+                    return $0.clipIndex == $1.clipIndex
+                        ? $0.eventIndex < $1.eventIndex : $0.clipIndex < $1.clipIndex
+                }
+                for crossing in crossings {
+                    let index = crossing.clipIndex
+                    let clip = definition.clips[index]
+                    let event = clip.animation.events[crossing.eventIndex]
+                    local[index].eventSequence += 1
+                    animationEvents.append(.init(identity: clip.identity,
+                        sequence: local[index].eventSequence, name: event.name, frame: event.frame))
+                }
+            }
+            for index in definition.clips.indices {
+                if let failure = local[index].eventFailure {
+                    eventFailures[definition.clips[index].identity] = failure
+                }
+            }
             states[layerID] = local
             layers[layerID] = LayerFrame(samples: samples, blends: local.map(\.blend))
         }
         let frame = FrameSnapshot(frameIndex: frameIndex, sceneTime: currentSceneTime, layers: layers,
-            animationSnapshots: Self.sorted(animationSnapshots))
+            animationSnapshots: Self.sorted(animationSnapshots),
+            animationEvents: animationEvents, eventFailures: eventFailures)
         latestFrame = frame
         lastSceneTime = currentSceneTime
         return frame
@@ -223,7 +285,9 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         if let frame = latestFrame {
             latestFrame = .init(frameIndex: frame.frameIndex, sceneTime: frame.sceneTime,
                 layers: frame.layers.filter { !retired.contains($0.key) },
-                animationSnapshots: frame.animationSnapshots.filter { !retired.contains($0.identity.layerID) })
+                animationSnapshots: frame.animationSnapshots.filter { !retired.contains($0.identity.layerID) },
+                animationEvents: frame.animationEvents.filter { !retired.contains($0.identity.layerID) },
+                eventFailures: frame.eventFailures.filter { !retired.contains($0.key.layerID) })
         }
         dynamicTopologyRevision = topologyRevision
     }
@@ -412,5 +476,46 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         guard crossings == 1 else { state.endedFailure = .multipleLoopsCrossed; return }
         guard state.endedSequence < UInt64.max else { state.endedFailure = .sequenceOverflow; return }
         state.endedSequence += 1
+    }
+
+    private static func eventDefinitionFailure(_ clip: ClipDefinition) -> ScenePuppetAnimationEventFailure? {
+        guard !clip.animation.events.isEmpty else { return nil }
+        guard clip.animation.mode == "loop" else { return .unsupportedMode }
+        guard clip.animation.frameCount > 0, clip.animation.framesPerSecond.isFinite,
+              clip.animation.framesPerSecond > 0,
+              clip.animation.events.allSatisfy({
+                  !$0.name.isEmpty && !$0.name.contains("\0") && $0.recordedTime.isFinite
+                      && $0.frame > 0 && $0.frame < clip.animation.frameCount
+              }) else { return .invalidEvent }
+        return nil
+    }
+
+    private static func eventCrossings(
+        clip: ClipDefinition, clipIndex: Int, previousPhase: Double, state: ClipState
+    ) -> Result<[EventCrossing], ScenePuppetAnimationEventFailure> {
+        guard !clip.animation.events.isEmpty else { return .success([]) }
+        if let failure = state.eventFailure { return .failure(failure) }
+        let current = state.phase(clip)
+        guard previousPhase.isFinite, current.isFinite else { return .failure(.nonFinitePhase) }
+        let previous = max(0, previousPhase)
+        guard state.rate > 0, current > previous else { return .success([]) }
+        let count = Double(clip.animation.frameCount)
+        let firstLoop = floor(previous / count)
+        let lastLoop = floor(current / count)
+        guard lastLoop - firstLoop <= 1 else { return .failure(.multipleLoopsCrossed) }
+        var crossings: [EventCrossing] = []
+        for (index, event) in clip.animation.events.enumerated() {
+            for loop in firstLoop == lastLoop ? [firstLoop] : [firstLoop, lastLoop] {
+                let phase = loop * count + Double(event.frame)
+                guard phase > previous, phase <= current else { continue }
+                guard crossings.count < eventBudget else { return .failure(.eventBudgetExceeded) }
+                crossings.append(.init(clipIndex: clipIndex, eventIndex: index,
+                    fraction: (phase - previous) / (current - previous)))
+            }
+        }
+        guard UInt64(crossings.count) <= UInt64.max - state.eventSequence else {
+            return .failure(.sequenceOverflow)
+        }
+        return .success(crossings)
     }
 }

@@ -298,6 +298,8 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     }
     snapshot->puppet_animation_callback_count = owner->puppet_animation_callback_count;
     snapshot->puppet_animation_delivered_sequence = owner->puppet_animation_delivered_sequence;
+    snapshot->puppet_event_cursor = owner->puppet_event_cursor;
+    snapshot->puppet_event_queue_epoch = owner->puppet_event_queue_epoch;
     snapshot->puppet_animation_command_count = owner->puppet_animation_command_count;
     snapshot->puppet_animation_command_read_start = owner->puppet_animation_command_read_start;
     snapshot->puppet_animation_registration_count = owner->puppet_animation_registration_count;
@@ -335,6 +337,11 @@ bool mwx_scene_quickjs_owner_timer_restore(
     // scheduled work roll back, but an already invoked event never replays.
     if (owner->puppet_animation_delivered_sequence < snapshot->puppet_animation_delivered_sequence)
         owner->puppet_animation_delivered_sequence = snapshot->puppet_animation_delivered_sequence;
+    // Source payload is retained until commit; only provisional consumption
+    // rolls back. Retirement/commit invalidates snapshots of the old queue.
+    if (owner->puppet_event_queue_epoch == snapshot->puppet_event_queue_epoch &&
+        snapshot->puppet_event_cursor <= owner->puppet_event_count)
+        owner->puppet_event_cursor = snapshot->puppet_event_cursor;
     owner->puppet_animation_command_count = snapshot->puppet_animation_command_count;
     owner->puppet_animation_command_read_start = snapshot->puppet_animation_command_read_start;
     owner->puppet_animation_registration_count = snapshot->puppet_animation_registration_count;

@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable {
     case unsupportedMagic(String)
@@ -15,6 +16,7 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
     case invalidTrack(animationID: Int, boneIndex: Int)
     case invalidTransform(animationID: Int, boneIndex: Int, frameIndex: Int)
     case invalidAuxiliaryTrack(Int)
+    case invalidEventTrack(Int)
 
     nonisolated var description: String {
         switch self {
@@ -46,6 +48,8 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
             return "invalid animation \(id) transform at bone \(boneIndex) frame \(frameIndex)"
         case let .invalidAuxiliaryTrack(id):
             return "invalid verified auxiliary track for animation \(id)"
+        case let .invalidEventTrack(id):
+            return "invalid bounded event record for animation \(id)"
         }
     }
 }
@@ -117,6 +121,10 @@ enum SceneMdlPuppetAnimationReader {
     private static let transformByteCount = 36
     private static let maxAbsoluteTransformValue: Float = 1_000_000
     private static let auxiliaryTrackKey: UInt32 = 0x418A_55D5
+    // Project preparation budgets, not official file-format limits.
+    private static let maxEventsPerAnimation = 1024
+    private static let maxTotalEvents = 4096
+    private static let maxEventPayloadBytes = 4096
 
     static func read(data rawData: Data) throws -> SceneMdlPuppetAnimationSet? {
         let data = rawData.startIndex == 0 ? rawData : Data(rawData)
@@ -202,6 +210,7 @@ enum SceneMdlPuppetAnimationReader {
 
         var ids: Set<Int> = []
         var totalSamples = 0
+        var totalEvents = 0
         var animations: [SceneMdlPuppetAnimation] = []
         animations.reserveCapacity(count)
         for index in 0 ..< count {
@@ -274,15 +283,19 @@ enum SceneMdlPuppetAnimationReader {
                 boneCount: boneCount,
                 sampleCount: sampleCount
             )
-            let alphaByBone = try readTrailer(
+            let trailer = try readTrailer(
                 data: data,
                 cursor: &cursor,
                 bound: endOffset,
                 animationID: id,
                 boneCount: boneCount,
                 sampleCount: sampleCount,
+                frameCount: frameCount,
+                mode: mode,
+                eventBudget: maxTotalEvents - totalEvents,
                 contract: trailerContract
             )
+            totalEvents += trailer.events.count
             animations.append(SceneMdlPuppetAnimation(
                 id: id,
                 name: name,
@@ -290,7 +303,8 @@ enum SceneMdlPuppetAnimationReader {
                 framesPerSecond: framesPerSecond,
                 frameCount: frameCount,
                 transformsByBone: transforms,
-                alphaByBone: alphaByBone
+                alphaByBone: trailer.alphaByBone,
+                events: trailer.events
             ))
         }
         guard cursor == endOffset else {
@@ -358,19 +372,22 @@ enum SceneMdlPuppetAnimationReader {
         animationID: Int,
         boneCount: Int,
         sampleCount: Int,
+        frameCount: Int,
+        mode: String,
+        eventBudget: Int,
         contract: TrailerContract
-    ) throws -> [[Float]]? {
+    ) throws -> (alphaByBone: [[Float]]?, events: [SceneMdlPuppetAnimation.Event]) {
         if contract == .legacyZeros10 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return nil
+            return (nil, [])
         }
         if contract == .legacyZeros34 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 34) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return nil
+            return (nil, [])
         }
         let alphaByBone = try readPerBoneAlphaTracks(
             data: data,
@@ -384,7 +401,7 @@ enum SceneMdlPuppetAnimationReader {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return alphaByBone
+            return (alphaByBone, [])
         }
         guard cursor < bound else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
@@ -412,10 +429,65 @@ enum SceneMdlPuppetAnimationReader {
         } else if hasAuxiliaryTrack != 0 {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
-        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
+        // Keep the verified zero AABB and absent scalar-curve profile.
+        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 25) else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
-        return alphaByBone
+        let events = try readEvents(
+            data: data, cursor: &cursor, bound: bound, animationID: animationID,
+            frameCount: frameCount, mode: mode, eventBudget: eventBudget
+        )
+        return (alphaByBone, events)
+    }
+
+    private static func readEvents(
+        data: Data, cursor: inout Int, bound: Int, animationID: Int,
+        frameCount: Int, mode: String, eventBudget: Int
+    ) throws -> [SceneMdlPuppetAnimation.Event] {
+        guard cursor + 4 <= bound else {
+            throw SceneMdlPuppetAnimationReadError.invalidEventTrack(animationID)
+        }
+        let count = Int(readUInt32(data, at: cursor))
+        cursor += 4
+        if count == 0 { return [] }
+        guard mode == "loop", count <= maxEventsPerAnimation,
+              count <= eventBudget, count <= (bound - cursor) / 5 else {
+            throw SceneMdlPuppetAnimationReadError.invalidEventTrack(animationID)
+        }
+        var events: [SceneMdlPuppetAnimation.Event] = []
+        events.reserveCapacity(count)
+        for _ in 0 ..< count {
+            guard cursor + 4 <= bound else {
+                throw SceneMdlPuppetAnimationReadError.invalidEventTrack(animationID)
+            }
+            let recordedTime = readFloat(data, at: cursor)
+            cursor += 4
+            guard recordedTime.isFinite else {
+                throw SceneMdlPuppetAnimationReadError.invalidEventTrack(animationID)
+            }
+            let payload: String
+            do {
+                payload = try readString(
+                    data: data, cursor: &cursor, bound: bound,
+                    maxBytes: maxEventPayloadBytes, animationID: animationID
+                )
+            } catch {
+                throw SceneMdlPuppetAnimationReadError.invalidEventTrack(animationID)
+            }
+            guard let object = try? JSONSerialization.jsonObject(with: Data(payload.utf8)),
+                  let fields = object as? [String: Any],
+                  Set(fields.keys) == Set(["name", "frame"]),
+                  let name = fields["name"] as? String,
+                  !name.isEmpty, name.utf8.count <= maxNameBytes, !name.contains("\0"),
+                  let number = fields["frame"] as? NSNumber,
+                  CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  let frame = Int(exactly: number.doubleValue),
+                  frame > 0, frame < frameCount else {
+                throw SceneMdlPuppetAnimationReadError.invalidEventTrack(animationID)
+            }
+            events.append(.init(name: name, frame: frame, recordedTime: recordedTime))
+        }
+        return events
     }
 
     private static func readPerBoneAlphaTracks(

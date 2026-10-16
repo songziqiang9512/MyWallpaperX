@@ -81,8 +81,8 @@
       "bytes": 2333
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 329,
-      "bytes": 65307
+      "lines": 330,
+      "bytes": 66137
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -117,8 +117,8 @@
       "bytes": 346017
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 127,
-      "bytes": 39945
+      "lines": 141,
+      "bytes": 42616
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -145,8 +145,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 413,
-      "bytes": 107341
+      "lines": 415,
+      "bytes": 108346
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 404,
-      "bytes": 103788
+      "lines": 422,
+      "bytes": 108955
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -237,8 +237,8 @@
       "bytes": 12666
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 139,
-      "bytes": 28377
+      "lines": 138,
+      "bytes": 27700
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1150,12 +1150,39 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1236faa933b10cb209baba521f49bdb05a75fbfe4d91af047be35b339d142afb",
-      "after": "ee8c5e61f572a5ddeb3a9046ccdbd06fe39b88ccd89287c127717818e7b0d67d",
-      "owner": "scene-breakpoint-queue",
-      "reason": "更新真实资格并移除缺API/无consumer的误归因，保留未解producer边界与限期证据。",
-      "decision": "docs/development/repository-workflow.md#设计判定与记录"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "a005ff66ea01dd3d0955cc78761640117e6a05033ebd9634ac65cc66cd66b0c5",
+      "after": "b6a7dd904479abc07d23d97220f47b2bae600d2b33679b685a2719c891b38ef0",
+      "owner": "scene-puppet-animation-events",
+      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f4936b858aa615d9d431f478037a836a4632e409972d09c375acea5042afb4c9",
+      "after": "320142a76d9967cd6ab57889903741607c761aa85244b242a1010a99016fdbd3",
+      "owner": "scene-puppet-animation-events",
+      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "2e331814b00a1896ed81d6891878bbe67dcd8de019cb6d841bd2f6bd6fe120d5",
+      "after": "3c39c4d868e3cd02f3e0b06f25ed94699242d3fdf5c137696e17085fc7090b0a",
+      "owner": "scene-puppet-animation-events",
+      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "2e185b7b61eb07fdad0b3b4825b6479612bdbc46302aaf8963a10e13208c9eaa",
+      "after": "bbbef2ca8e9c9083d382ede1ffdef865a9f0af969128926bc5ee7356cbd2f90e",
+      "owner": "scene-puppet-animation-events",
+      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
     }
   ]
 }

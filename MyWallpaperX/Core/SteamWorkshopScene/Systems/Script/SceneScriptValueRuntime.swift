@@ -48,6 +48,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             || mwx_scene_quickjs_owner_has_staged_effect_visibility(handle)
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
             || mwx_scene_quickjs_owner_has_pending_puppet_animation_end(handle)
+            || mwx_scene_quickjs_owner_has_pending_puppet_animation_events(handle)
     }
 
     /// Authored `init` runs once, before any other authored callback. A route
@@ -321,25 +322,21 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             }
             publishedValue = .scalar(output)
         case let .bool(value):
-            var output: UInt32 = 0
+            var output = 0.0
             result = scriptPropertiesJSON.withCString { properties in
                 userPropertiesJSON.withCString { userProperties in
-                    if allowsDynamicLayerSideEffects {
-                        mwx_scene_quickjs_owner_update_effectful_bool_with_properties(
-                            handle, expectedGeneration, value ? 1 : 0, &frameInput,
-                            properties, scriptPropertiesJSON.utf8.count,
-                            userProperties, userPropertiesJSON.utf8.count,
-                            &output, &diagnostic, diagnostic.count
-                        )
-                    } else {
-                        mwx_scene_quickjs_owner_update_bool_with_properties(
-                            handle, expectedGeneration, value ? 1 : 0, &frameInput,
-                            properties, scriptPropertiesJSON.utf8.count,
-                            userProperties, userPropertiesJSON.utf8.count,
-                            &output, &diagnostic, diagnostic.count
-                        )
-                    }
+                    mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
+                        handle, expectedGeneration, value ? 1 : 0, 1,
+                        propertyRefresh ? 1 : 0, &frameInput,
+                        properties, scriptPropertiesJSON.utf8.count,
+                        userProperties, userPropertiesJSON.utf8.count,
+                        &output, &diagnostic, diagnostic.count
+                    )
                 }
+            }
+            if result == MWX_SCENE_QUICKJS_OK, output != 0 && output != 1 {
+                discardLayerMutations()
+                return .failure(.badReturn("invalid Boolean output"))
             }
             publishedValue = .bool(output != 0)
         case let .string(value):

@@ -290,8 +290,16 @@ typedef struct MWXSceneQuickJSPuppetAnimationIdentity {
 typedef struct MWXSceneQuickJSPuppetAnimationRecord {
     MWXSceneQuickJSPuppetAnimationSnapshot snapshot;
     uint64_t incarnation;
+    uint64_t event_published_sequence;
     bool available;
 } MWXSceneQuickJSPuppetAnimationRecord;
+
+typedef struct MWXSceneQuickJSPuppetPendingEvent {
+    MWXSceneQuickJSPuppetAnimationIdentity identity;
+    uint64_t incarnation;
+    char *name;
+    int64_t frame;
+} MWXSceneQuickJSPuppetPendingEvent;
 
 // Only the nested owner's typed Boolean value is provisional here. Playback
 // fields are read from the domain mirror plus the existing command journal.
@@ -308,6 +316,8 @@ struct MWXSceneQuickJSTimerFrameSnapshot {
     JSValue puppet_animation_callbacks[MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS];
     size_t puppet_animation_callback_count;
     uint64_t puppet_animation_delivered_sequence;
+    size_t puppet_event_cursor;
+    uint64_t puppet_event_queue_epoch;
     size_t puppet_animation_command_count;
     size_t puppet_animation_command_read_start;
     size_t puppet_animation_registration_count;
@@ -508,6 +518,11 @@ struct MWXSceneQuickJSOwner {
     size_t video_ended_callback_count;
     bool current_animation_available;
     bool puppet_animation_configured, puppet_animation_available;
+    bool puppet_handles_events;
+    uint32_t puppet_event_failure;
+    size_t puppet_event_count, puppet_event_cursor;
+    uint64_t puppet_event_queue_epoch;
+    MWXSceneQuickJSPuppetPendingEvent *puppet_events;
     bool puppet_animation_command_overflow, puppet_animation_visibility_staged;
     MWXSceneQuickJSOwner *puppet_animation_next;
     MWXSceneQuickJSPuppetAnimationIdentity puppet_animation_identity;
@@ -866,6 +881,10 @@ bool mwx_scene_quickjs_define_puppet_animation_lookup(MWXSceneQuickJSOwner *owne
 void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner *owner, bool commit);
 void mwx_scene_quickjs_destroy_puppet_animation_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner *owner, double *output);
+MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_events(
+    MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSFrameInput *frame,
+    const char *properties, size_t properties_length, const char *users, size_t users_length,
+    double *value, char *diagnostic, size_t diagnostic_capacity);
 MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_end(
     MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json, size_t script_properties_length,

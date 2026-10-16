@@ -287,6 +287,8 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 这一段只保留当时建立的能力边界，不赋予任何现役优先级；开发顺序只看[Scene 兼容路线](../roadmap/scene-compatibility-roadmap.md)。
 
+2026-10-16 MDLA事件资格：合法335资源与固定Mirage revision `77e4886e619514391f3f0ebd9433cce525eb261b` 的 `ModelCompiler.cpp` ParseAnimation/ParseAnimBoneCurves、`PuppetRig.cppm` AnimEvent交叉定位现代事件记录；第三方结构仅为 `third-party-reference-pattern`，未复制、翻译或移植实现。公开[事件指南](https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html)与[AnimationEvent](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AnimationEvent.html)约束同层callback及name/frame；原时间Float单位和官方精确调度仍unknown。格式边界归[MDLA合同](../capabilities/scene-format-and-render-graph.md)，准备、派发和事务归[D4事件设计](../roadmap/batch2/script-component-api-design.md#puppet-animation-events)，运行结论只查[限定证据](../capabilities/runtime-evidence-current.md#e-2026-10-16-puppet-animation-events)。
+
 ### 1.11 2.8.42 客户端快照静态取证资料组
 
 Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快照。文档会继续维护，但结论不能自动外推到其他客户端版本。下表是证据导航，不是开发顺序；查阅时需避免把旧审计快照、深层静态证据和项目现状混为一体：

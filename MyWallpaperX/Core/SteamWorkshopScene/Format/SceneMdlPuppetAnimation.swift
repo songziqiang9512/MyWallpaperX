@@ -1,4 +1,11 @@
 struct SceneMdlPuppetAnimation {
+    struct Event: Equatable, Sendable {
+        let name: String
+        let frame: Int
+        /// Preserves the recorded field without assigning it a time unit.
+        let recordedTime: Float
+    }
+
     struct Transform: Equatable, Sendable {
         let translation: SIMD3<Float>
         let rotation: SIMD3<Float>
@@ -14,6 +21,7 @@ struct SceneMdlPuppetAnimation {
     /// Exported per-bone alpha samples use the same frame schedule as TRS.
     /// Absence means opaque; exported values are consumed directly.
     let alphaByBone: [[Float]]?
+    let events: [Event]
 
     init(
         id: Int,
@@ -22,7 +30,8 @@ struct SceneMdlPuppetAnimation {
         framesPerSecond: Float,
         frameCount: Int,
         transformsByBone: [[Transform]],
-        alphaByBone: [[Float]]? = nil
+        alphaByBone: [[Float]]? = nil,
+        events: [Event] = []
     ) {
         self.id = id
         self.name = name
@@ -31,6 +40,7 @@ struct SceneMdlPuppetAnimation {
         self.frameCount = frameCount
         self.transformsByBone = transformsByBone
         self.alphaByBone = alphaByBone
+        self.events = events
     }
 
     nonisolated var durationSeconds: Float {

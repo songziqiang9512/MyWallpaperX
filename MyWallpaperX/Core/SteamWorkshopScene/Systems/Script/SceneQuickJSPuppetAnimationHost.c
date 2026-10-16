@@ -52,16 +52,82 @@ static bool parent_alive(MWXSceneQuickJSOwner *owner, int64_t layer_id) {
         layer->layer_id == layer_id && (pending == NULL || !pending->destroyed);
 }
 
-static MWXSceneQuickJSPuppetAnimationRecord *source_record(MWXSceneQuickJSOwner *owner) {
+static MWXSceneQuickJSPuppetAnimationRecord *resolve_source(
+    MWXSceneQuickJSOwner *owner, bool executable) {
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
-        !owner->puppet_animation_configured || !owner->puppet_animation_available ||
+        !owner->puppet_animation_configured || owner->puppet_animation_incarnation == 0 ||
         !parent_alive(owner, owner->puppet_animation_identity.layer_id)) return NULL;
     if (owner->puppet_animation_catalog_index >= owner->domain->puppet_animation_count) return NULL;
     MWXSceneQuickJSPuppetAnimationRecord *record =
         &owner->domain->puppet_animations[owner->puppet_animation_catalog_index];
-    return record != NULL && record->available &&
+    return (!executable || (owner->puppet_animation_available && record->available)) &&
         same_identity(snapshot_identity(&record->snapshot), owner->puppet_animation_identity) &&
         record->incarnation == owner->puppet_animation_incarnation ? record : NULL;
+}
+
+static MWXSceneQuickJSPuppetAnimationRecord *source_record(MWXSceneQuickJSOwner *owner) {
+    return resolve_source(owner, true);
+}
+
+static void clear_pending_events(MWXSceneQuickJSOwner *owner) {
+    for (size_t i = 0; i < owner->puppet_event_count; ++i) js_free_rt(owner->domain->runtime, owner->puppet_events[i].name);
+    js_free_rt(owner->domain->runtime, owner->puppet_events);
+    owner->puppet_events = NULL;
+    owner->puppet_event_count = owner->puppet_event_cursor = 0;
+    owner->puppet_event_failure = 0;
+    if (owner->puppet_event_queue_epoch != UINT64_MAX) owner->puppet_event_queue_epoch++;
+}
+
+uint32_t mwx_scene_quickjs_owner_animation_event_export(const MWXSceneQuickJSOwner *owner) {
+    if (owner == NULL) return 0;
+    JSContext *context = owner->domain->context;
+    JSValue function = JS_GetPropertyStr(context, owner->module, "animationEvent");
+    uint32_t kind = JS_IsUndefined(function) ? 0 : JS_IsFunction(context, function) ? 1 : 2;
+    JS_FreeValue(context, function);
+    return kind;
+}
+
+bool mwx_scene_quickjs_owner_has_pending_puppet_animation_events(const MWXSceneQuickJSOwner *owner) {
+    return owner != NULL && !owner->disabled && owner->puppet_handles_events &&
+        (owner->puppet_event_failure != 0 || owner->puppet_event_cursor < owner->puppet_event_count);
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animation_events(
+    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSPuppetAnimationEvent *events,
+    size_t count, char *diagnostic, size_t diagnostic_capacity) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active ||
+        (count != 0 && events == NULL)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (size_t i = 0; i < count; ++i) {
+        const MWXSceneQuickJSPuppetAnimationEvent *event = &events[i];
+        MWXSceneQuickJSPuppetAnimationIdentity identity = { event->layer_id,
+            event->animation_layer_index, event->animation_layer_id, event->has_animation_layer_id };
+        MWXSceneQuickJSPuppetAnimationRecord *record = record_for_identity(domain, identity);
+        uint32_t failure = event->failure;
+        if (!failure && (event->sequence == 0 || event->name == NULL ||
+            strlen(event->name) == 0 || strlen(event->name) > 1024 || event->frame < 0 ||
+            event->frame > INT64_C(9007199254740991))) failure = 2;
+        if (!failure && (record == NULL || record->incarnation == 0 ||
+            event->sequence <= record->event_published_sequence)) continue;
+        for (MWXSceneQuickJSOwner *owner = domain->puppet_animation_owners;
+             owner != NULL; owner = owner->puppet_animation_next) {
+            if (!owner->puppet_handles_events || resolve_source(owner, false) == NULL ||
+                owner->puppet_animation_identity.layer_id != event->layer_id) continue;
+            if (failure) { owner->puppet_event_failure = failure; continue; }
+            if (owner->puppet_event_count == 64) { owner->puppet_event_failure = 5; continue; }
+            if (owner->puppet_events == NULL) {
+                owner->puppet_events = js_malloc_rt(domain->runtime, 64 * sizeof(*owner->puppet_events));
+                if (owner->puppet_events == NULL) { owner->puppet_event_failure = 8; continue; }
+            }
+            char *name = js_malloc_rt(domain->runtime, strlen(event->name) + 1);
+            if (name == NULL) { owner->puppet_event_failure = 8; continue; }
+            strcpy(name, event->name);
+            owner->puppet_events[owner->puppet_event_count++] =
+                (MWXSceneQuickJSPuppetPendingEvent){ identity, record->incarnation, name, event->frame };
+        }
+        if (!failure) record->event_published_sequence = event->sequence;
+    }
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 static MWXSceneQuickJSOwner *handle_owner(const PuppetAnimationHandle *handle) {
@@ -317,6 +383,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
         layer_id, authored_index, animation_layer_id, has_animation_layer_id };
     owner->puppet_animation_catalog_index = SIZE_MAX;
     owner->puppet_animation_configured = true;
+    owner->puppet_handles_events = mwx_scene_quickjs_owner_animation_event_export(owner) != 0;
     owner->puppet_animation_next = owner->domain->puppet_animation_owners;
     owner->domain->puppet_animation_owners = owner;
     return MWX_SCENE_QUICKJS_OK;
@@ -366,6 +433,8 @@ static void refresh_owners(MWXSceneQuickJSDomain *domain, bool layout_changed) {
         }
         owner->puppet_animation_available = !owner->disabled && record != NULL && record->available &&
             owner->puppet_animation_incarnation == record->incarnation;
+        if (record == NULL || owner->puppet_animation_incarnation != record->incarnation)
+            clear_pending_events(owner);
         if (owner->puppet_animation_baseline == NULL && owner->puppet_animation_command_count == 0) {
             owner->puppet_animation_visibility = (MWXSceneQuickJSPuppetVisibilityValue){0};
             owner->puppet_animation_visibility_staged = false;
@@ -431,6 +500,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animations(
         if (old != NULL && old->incarnation != 0) {
             records[i].snapshot = old->snapshot;
             records[i].incarnation = old->incarnation;
+            records[i].event_published_sequence = old->event_published_sequence;
             reused_names[old - domain->puppet_animations] = true;
             // Still present but malformed is transient unavailability, not
             // removal. Keep the proven metadata and allow its valid restoration.
@@ -536,6 +606,80 @@ void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner 
     owner->puppet_animation_visibility_staged = false;
 }
 
+MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_events(
+    MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSFrameInput *frame,
+    const char *properties, size_t properties_length, const char *users, size_t users_length,
+    double *value, char *diagnostic, size_t diagnostic_capacity) {
+    if (!mwx_scene_quickjs_owner_has_pending_puppet_animation_events(owner)) return MWX_SCENE_QUICKJS_OK;
+    if (owner->puppet_event_failure) {
+        const char *reasons[] = { "", "unsupportedMode", "invalidEvent", "nonFinitePhase",
+            "multipleLoopsCrossed", "eventBudgetExceeded", "sequenceOverflow", "invalidEvent", "event allocation failed" };
+        uint32_t code = owner->puppet_event_failure;
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
+            code < sizeof(reasons) / sizeof(reasons[0]) ? reasons[code] : "invalid event failure");
+        return code == 5 ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW :
+            code == 8 ? MWX_SCENE_QUICKJS_MEMORY_EXCEEDED : MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (source_record(owner) == NULL) {
+        if (resolve_source(owner, false) != NULL) return MWX_SCENE_QUICKJS_OK;
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "Puppet event receiver is temporarily unavailable");
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    }
+    if (!puppet_transaction(owner)) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    JSContext *context = owner->domain->context;
+    JSValue function = JS_GetPropertyStr(context, owner->module, "animationEvent");
+    if (!JS_IsFunction(context, function)) {
+        JS_FreeValue(context, function);
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "animationEvent must be a function");
+        return MWX_SCENE_QUICKJS_BAD_RETURN;
+    }
+    mwx_scene_quickjs_begin_callback(owner);
+    JSValue layer = JS_UNDEFINED, scene = JS_UNDEFINED, object = JS_UNDEFINED, engine = JS_UNDEFINED;
+    bool assigned = mwx_scene_quickjs_assign_script_properties(owner, properties, properties_length);
+    bool handles = assigned && mwx_scene_quickjs_bind_owner_handles(owner, &layer, &scene, &object);
+    bool bound = handles && mwx_scene_quickjs_bind_frame_engine_host(owner, frame, users, users_length, &engine);
+    MWXSceneQuickJSResult result = bound ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_EXCEPTION;
+    while (result == MWX_SCENE_QUICKJS_OK && owner->puppet_event_cursor < owner->puppet_event_count) {
+        const MWXSceneQuickJSPuppetPendingEvent *pending = &owner->puppet_events[owner->puppet_event_cursor];
+        MWXSceneQuickJSPuppetAnimationRecord *record = record_for_identity(owner->domain, pending->identity);
+        if (record == NULL || record->incarnation != pending->incarnation) {
+            owner->puppet_event_cursor++; continue;
+        }
+        JSValue event = JS_NewObject(context);
+        JSValue name = JS_IsException(event) ? JS_EXCEPTION : JS_NewString(context, pending->name);
+        if (JS_IsException(event) || JS_IsException(name)) {
+            JS_FreeValue(context, name); JS_FreeValue(context, event);
+            (void)mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
+            result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+            break;
+        }
+        bool created =
+            JS_DefinePropertyValueStr(context, event, "name", name, JS_PROP_C_W_E) >= 0 &&
+            JS_DefinePropertyValueStr(context, event, "frame", JS_NewFloat64(context, (double)pending->frame), JS_PROP_C_W_E) >= 0;
+        if (!created) { JS_FreeValue(context, event); result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; break; }
+        JSValue arguments[] = { event, JS_NewBool(context, *value != 0) };
+        JSValue returned = JS_Call(context, function, owner->module, 2, arguments);
+        JS_FreeValue(context, event); JS_FreeValue(context, arguments[1]);
+        if (JS_IsException(returned)) result = mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
+        else if (JS_IsBool(returned)) *value = JS_ToBool(context, returned);
+        else if (!JS_IsUndefined(returned)) {
+            mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "animationEvent expects Boolean or undefined return");
+            result = MWX_SCENE_QUICKJS_BAD_RETURN;
+        }
+        JS_FreeValue(context, returned);
+        if (result == MWX_SCENE_QUICKJS_OK) result = mwx_scene_quickjs_drain_jobs(owner, diagnostic, diagnostic_capacity);
+        if (result == MWX_SCENE_QUICKJS_OK) {
+            owner->puppet_event_cursor++;
+            mwx_scene_quickjs_prepare_puppet_animation_visibility(owner, value);
+        }
+    }
+    if (bound && !mwx_scene_quickjs_restore_frame_engine_host(owner, engine)) result = MWX_SCENE_QUICKJS_EXCEPTION;
+    if (handles && !mwx_scene_quickjs_restore_owner_handles(owner, layer, scene, object)) result = MWX_SCENE_QUICKJS_EXCEPTION;
+    mwx_scene_quickjs_end_callback(owner);
+    JS_FreeValue(context, function);
+    return result;
+}
+
 void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner *owner, bool commit) {
     MWXSceneQuickJSPuppetAnimationRecord *record = source_record(owner);
     bool visible = record != NULL && current_state(owner, record).visible;
@@ -546,6 +690,15 @@ void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner 
     }
     if (commit && record != NULL)
         owner->puppet_animation_visibility = (MWXSceneQuickJSPuppetVisibilityValue){ true, visible, 0 };
+    if (commit && owner->puppet_event_cursor != 0) {
+        size_t consumed = owner->puppet_event_cursor;
+        for (size_t i = 0; i < consumed; ++i) js_free_rt(owner->domain->runtime, owner->puppet_events[i].name);
+        owner->puppet_event_count -= consumed;
+        memmove(owner->puppet_events, owner->puppet_events + consumed,
+            owner->puppet_event_count * sizeof(*owner->puppet_events));
+        owner->puppet_event_cursor = 0;
+        if (owner->puppet_event_queue_epoch != UINT64_MAX) owner->puppet_event_queue_epoch++;
+    }
     owner->puppet_animation_command_count = 0;
     owner->puppet_animation_command_read_start = 0;
     owner->puppet_animation_registration_count = 0;
@@ -556,6 +709,7 @@ void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner 
 
 void mwx_scene_quickjs_destroy_puppet_animation_host(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL) return;
+    clear_pending_events(owner);
     MWXSceneQuickJSOwner **cursor = &owner->domain->puppet_animation_owners;
     while (*cursor != NULL && *cursor != owner) cursor = &(*cursor)->puppet_animation_next;
     if (*cursor == owner) *cursor = owner->puppet_animation_next;

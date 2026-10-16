@@ -278,6 +278,21 @@ extension SceneDesktopWallpaperSession {
         let puppetAnimationFrame = launchContext.puppetAnimationPlaybackRuntime.advance(
             frameIndex: timing.frameIndex, sceneTime: timing.sceneTime,
             dynamicValues: preliminaryForSceneScript)
+#if DEBUG
+        // Reuse the opt-in bone evidence profile and the already sampled frame;
+        // a changing combined mesh alone cannot prove which clip resumed.
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+           timing.frameIndex <= 1200, timing.frameIndex % 30 == 0 {
+            for animation in puppetAnimationFrame.animationSnapshots
+            where ScenePuppetBoneEvidence.isEnabled(for: animation.identity.layerID) {
+                NSLog("MWX DEBUG SCENE: phase=puppet-animation-playback layer=%d index=%d animationLayer=%@ animation=%d frame=%llu currentFrame=%.6f playing=%@ visible=%@",
+                    animation.identity.layerID, animation.identity.animationLayerIndex,
+                    animation.identity.animationLayerID.map(String.init) ?? "none", animation.animationID,
+                    timing.frameIndex, animation.currentFrame,
+                    animation.isPlaying ? "true" : "false", animation.visible ? "true" : "false")
+            }
+        }
+#endif
         let userPropertiesJSON = launchContext.propertyVectorScriptProgram
             .userPropertiesJSON(
                 effectiveValues: launchContext.liveState.effectiveValues,
@@ -326,6 +341,9 @@ extension SceneDesktopWallpaperSession {
                     preparedTextValues: launchContext.sceneScriptDynamicLayerRuntime.preparedTextValues(in: preliminaryForSceneScript),
                     awaitingHostFrameOutcome: true
                 )
+            try launchContext.propertyVectorScriptProgram.domain?.publishPuppetAnimationEvents(
+                puppetAnimationFrame.animationEvents,
+                failures: puppetAnimationFrame.eventFailures)
             if surfaces.count == 1 {
                 try surfaces.values.first?.metalView
                     .publishSceneScriptPuppetPoseFrame(

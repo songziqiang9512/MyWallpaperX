@@ -536,10 +536,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "488ff17a0b1154725e55a3b7a41e9706c6e2b1916553dcd010dd4c4a3fd7eb09",
+        "sourceSHA256": "2645c8c13c187f064447d5ff010caed9bd991d97efa4e79bbb1a20ab6d608f22",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核D4同parent prepared Puppet lookup、API/对象覆盖、现役队列及运行索引受影响段；CPU name/index/异目标与自有self-index GPU分列，335未知MDLA资源前置保留，370无可调度callback的准备诊断转参考。其他段未作fresh运行复验。",
-        "limitations": "原self沿既有证据；新GPU仅自有单parent/self-index0，未证name/sibling GPU、335原包恢复、跨parent/model/create或完整parity与性能收益。370顶层/私有副作用unknown，不称模块整体无效或已修。213右黑块仍unknown，无归属opacityMask日志不列作已证失败target；其他既有边界保持。"
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "31ce090e2e8dce07411ddfe6a3994a1083312a19d53541b28ac3a448f911b7ee",
+        "sourceSHA256": "3a413633299d8650e0e369fe11fe301597baf4d8f2a574ee41514cd8706b9c80",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核D4同parent prepared Puppet lookup、API/对象覆盖、现役队列及运行索引受影响段；CPU name/index/异目标与自有self-index GPU分列，335未知MDLA资源前置保留，370无可调度callback的准备诊断转参考。其他段未作fresh运行复验。",
-        "limitations": "原self沿既有证据；新GPU仅自有单parent/self-index0，未证name/sibling GPU、335原包恢复、跨parent/model/create或完整parity与性能收益。370顶层/私有副作用unknown，不称模块整体无效或已修。213右黑块仍unknown，无归属opacityMask日志不列作已证失败target；其他既有边界保持。"
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
       }
     },
     {
@@ -719,7 +719,15 @@
       "role": "reference",
       "entrypoint": "docs/scene/development/source-index.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
-      "commandPolicy": "reference-only"
+      "commandPolicy": "reference-only",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e981bc89952583614c1258860ef3cb7b59ae34f288bfa91984ae8d1bf72206b1",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
+      }
     },
     {
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
@@ -741,10 +749,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "41e0c6e0c5ad63b26c4acf49b47ef90081acd16c85f29bbd36491814fb018138",
+        "sourceSHA256": "f63039cad1488ea695d8846f3a70ba8a3f784307fc2b56487362538af7103ca0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
-        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
       }
     },
     {
@@ -853,10 +861,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8493dfbaccab09213e82365ea231349a1264b4bb71c4b980110b21a3d2985de4",
+        "sourceSHA256": "8f6fe0e94171e1ad9034fd3010eb2a393c1bc2bda43dfe2b19fe6dcb6cb53687",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
-        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
       }
     },
     {
@@ -3204,10 +3212,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f26c5f35a1f40721304ab1274c317a582dd3662caa9e317cde6e88d98ebc263b",
+        "sourceSHA256": "a40af8f146f76d134b8f8cd664d43aac458ec96b5daf235e4c9fce05a55d78fb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核D4同parent prepared Puppet lookup、API/对象覆盖、现役队列及运行索引受影响段；CPU name/index/异目标与自有self-index GPU分列，335未知MDLA资源前置保留，370无可调度callback的准备诊断转参考。其他段未作fresh运行复验。",
-        "limitations": "原self沿既有证据；新GPU仅自有单parent/self-index0，未证name/sibling GPU、335原包恢复、跨parent/model/create或完整parity与性能收益。370顶层/私有副作用unknown，不称模块整体无效或已修。213右黑块仍unknown，无归属opacityMask日志不列作已证失败target；其他既有边界保持。"
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
       }
     },
     {
@@ -3308,10 +3316,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a2b1a5a3349f79c101fd67d8f0a72f1efc40bb23b1c43184630641788fb01329",
+        "sourceSHA256": "d30dbda1149b53f01645dd5d944df6af922d34e70de5c98b4465358f0de1bbb6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "361同身份读源资格及304实际callback consumer的当前边界，退出无依据的API/condition-only修法",
-        "limitations": "不关闭动态producer/import未知、完整样本parity或304真实热改验收"
+        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
+        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
       }
     },
     {

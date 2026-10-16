@@ -10,6 +10,7 @@ nonisolated struct SceneScriptValueOwnerExports {
     let handlesUserProperties: Bool
     let handlesInit: Bool
     let handlesUpdate: Bool
+    let animationEventExport: UInt32
     let exportedCursorEvents: Set<SceneScriptCursorEventKind>
     let hasAudioRegistration: Bool
 
@@ -34,6 +35,7 @@ nonisolated struct SceneScriptValueOwnerExports {
             handlesUserProperties: SceneScriptOwnerExportBridge.contains("applyUserProperties", owner: owner),
             handlesInit: SceneScriptOwnerExportBridge.contains("init", owner: owner),
             handlesUpdate: SceneScriptOwnerExportBridge.contains("update", owner: owner),
+            animationEventExport: mwx_scene_quickjs_owner_animation_event_export(owner),
             exportedCursorEvents: cursorEvents,
             hasAudioRegistration: SceneScriptAudioHost.hasRegistration(owner: owner)
         )
@@ -181,7 +183,7 @@ extension SceneScriptValueOwner {
                     || exports.handlesMediaProperties || exports.handlesMediaTimeline
                 let hasCursorHook = !exports.exportedCursorEvents.isEmpty
                 let hasEventHook = hasMediaHook || exports.handlesUserProperties
-                    || hasCursorHook
+                    || hasCursorHook || (puppetAnimationIdentity != nil && exports.animationEventExport == 1)
                 if exports.handlesInit || exports.handlesUpdate {
                     // A stateful owner's destroy hook joins the existing
                     // exactly-once teardown dispatch (fail-soft, journal

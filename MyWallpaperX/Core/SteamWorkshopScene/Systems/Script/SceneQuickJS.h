@@ -19,6 +19,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_animation_command_at(
     MWXSceneQuickJSPuppetAnimationCommand *command,
     char *diagnostic, size_t diagnostic_capacity);
 bool mwx_scene_quickjs_owner_has_pending_puppet_animation_end(const MWXSceneQuickJSOwner *owner);
+uint32_t mwx_scene_quickjs_owner_animation_event_export(const MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_owner_has_pending_puppet_animation_events(const MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animation_events(
+    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSPuppetAnimationEvent *events,
+    size_t count, char *diagnostic, size_t diagnostic_capacity);
 
 void mwx_scene_quickjs_domain_begin_particle_frame(MWXSceneQuickJSDomain *domain,
     MWXSceneQuickJSParticleEmission callback, MWXSceneQuickJSParticleBoundary boundary,

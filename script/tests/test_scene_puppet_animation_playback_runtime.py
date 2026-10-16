@@ -37,12 +37,13 @@ func layer(id: Int = 10, animationID: Int = 1, rate: Double = 1,
         rate: rate, visible: visible, visibilityBinding: binding, hasVisibilityScript: script ? true : nil)
 }
 func animation(id: Int = 1, mode: String = "loop", fps: Float = 2,
-               alpha: [[Float]]? = nil) -> SceneMdlPuppetAnimation {
+               alpha: [[Float]]? = nil,
+               events: [SceneMdlPuppetAnimation.Event] = []) -> SceneMdlPuppetAnimation {
     .init(id: id, name: "track", mode: mode, framesPerSecond: fps, frameCount: 4,
         transformsByBone: [(0...4).map { frame in
             .init(translation: SIMD3(Float(frame), 0, 0), rotation: .zero,
                 scale: SIMD3(repeating: 1))
-        }], alphaByBone: alpha)
+        }], alphaByBone: alpha, events: events)
 }
 func selection(_ layer: ScenePuppetAnimationLayer,
                _ animation: SceneMdlPuppetAnimation) -> ScenePuppetAnimationSelection {
@@ -77,6 +78,165 @@ func state(_ snapshot: ScenePuppetAnimationSnapshot) -> [String: Any] {
      "rate": snapshot.rate, "blend": snapshot.blend, "visible": snapshot.visible,
      "ended": snapshot.endedSequence, "supportsEnded": snapshot.supportsEndedCallbacks,
      "endedFailure": snapshot.endedFailure?.rawValue ?? ""]
+}
+func event(_ name: String, _ frame: Int) -> SceneMdlPuppetAnimation.Event {
+    .init(name: name, frame: frame, recordedTime: 17.25)
+}
+func events(_ frame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot) -> [[String: Any]] {
+    frame.animationEvents.map { ["parent": $0.identity.layerID,
+        "clip": $0.identity.animationLayerIndex, "sequence": $0.sequence,
+        "name": $0.name, "frame": $0.frame] }
+}
+func eventRuntime(_ candidate: ScenePuppetAnimationSelection, parent: Int = 42)
+    throws -> ScenePuppetAnimationPlaybackRuntime {
+    let runtime = ScenePuppetAnimationPlaybackRuntime()
+    try runtime.register(layerID: parent, selection: candidate,
+        authoredLayers: candidate.clips.map(\.layer)).get()
+    return runtime
+}
+func step(_ runtime: ScenePuppetAnimationPlaybackRuntime, _ frame: UInt64, _ time: Double,
+          visible value: Bool = true) -> ScenePuppetAnimationPlaybackRuntime.FrameSnapshot {
+    runtime.advance(frameIndex: frame, sceneTime: time, dynamicValues: visible([42: value]))
+}
+func animationEventReport() throws -> [String: Any] {
+    var output: [String: Any] = [:]
+    let definition = selection(layer(binding: nil),
+        animation(events: [event("renamed-early", 1), event("late", 3)]))
+    let runtime = try eventRuntime(definition)
+    let initial = step(runtime, 0, 0)
+    let before = step(runtime, 1, 0.49)
+    let exact = step(runtime, 2, 0.5)
+    let late = step(runtime, 3, 1.5)
+    let wrapped = step(runtime, 4, 2.5)
+    let duplicate = step(runtime, 4, 99)
+    let stale = step(runtime, 3, 99)
+    try runtime.register(layerID: 77, selection: definition,
+        authoredLayers: definition.clips.map(\.layer)).get()
+    let lateParent = step(runtime, 4, 99)
+    let noCrossing = step(runtime, 5, 2.75)
+    output["crossing"] = ["initial": events(initial), "before": events(before),
+        "exact": events(exact), "late": events(late), "wrapped": events(wrapped),
+        "same": duplicate.animationEvents == wrapped.animationEvents
+            && stale.animationEvents == wrapped.animationEvents
+            && lateParent.animationEvents == wrapped.animationEvents,
+        "lateParentPrepared": lateParent[77] != nil, "next": events(noCrossing)]
+    let changed = selection(definition.clips[0].layer,
+        animation(events: [event("different-source", 1), event("late", 3)]))
+    output["eventDefinitionConflict"] = !registration(runtime.register(layerID: 42,
+        selection: changed, authoredLayers: changed.clips.map(\.layer)))
+
+    let ordering = ScenePuppetAnimationSelection(clips: [
+        .init(layer: layer(binding: nil), animation: animation(events: [
+            event("authored-first", 1), event("authored-second", 1)])),
+        .init(layer: layer(id: 11, animationID: 2, binding: nil),
+            animation: animation(id: 2, fps: 4, events: [event("fast-first", 1), event("fast-tie", 2)]))
+    ], composition: .layered)
+    let ordered = try eventRuntime(ordering)
+    _ = step(ordered, 0, 0)
+    output["ordering"] = events(step(ordered, 1, 0.5))
+    let acrossBoundary = try eventRuntime(definition)
+    _ = step(acrossBoundary, 0, 1.25)
+    output["wrapOrder"] = events(step(acrossBoundary, 1, 2.75))
+
+    let controlled = try eventRuntime(definition)
+    _ = step(controlled, 0, 0)
+    let id = controlled.snapshots()[0].identity
+    try controlled.apply([control(id, .setFrame(3), 1)], frameIndex: 0).get()
+    let seek = step(controlled, 1, 0.1)
+    try controlled.apply([control(id, .stop, 2)], frameIndex: 1).get()
+    let stopped = step(controlled, 2, 10)
+    try controlled.apply([control(id, .play, 3)], frameIndex: 2).get()
+    let resumed = step(controlled, 3, 10.25)
+    try controlled.apply([control(id, .setRate(0), 4)], frameIndex: 3).get()
+    let zero = step(controlled, 4, 20)
+    try controlled.apply([control(id, .setRate(1), 5), control(id, .pause, 5, 1)], frameIndex: 4).get()
+    let paused = step(controlled, 5, 30)
+    try controlled.apply([control(id, .play, 6)], frameIndex: 5).get()
+    let played = step(controlled, 6, 30.3)
+    try controlled.apply([control(id, .stop, 7)], frameIndex: 6).get()
+    let frozen = step(controlled, 6, 100)
+    output["controls"] = ["quiet": [seek, stopped, resumed, zero, paused].allSatisfy {
+            $0.animationEvents.isEmpty && $0.eventFailures.isEmpty },
+        "play": events(played), "frozen": frozen.animationEvents == played.animationEvents]
+
+    let dynamic = try eventRuntime(selection(layer(), definition.clips[0].animation))
+    _ = step(dynamic, 0, 0)
+    _ = step(dynamic, 1, 0.25)
+    let hidden = step(dynamic, 2, 10, visible: false)
+    let restored = step(dynamic, 3, 10.25)
+    let stationary = step(dynamic, 4, 10.25)
+    output["visibility"] = ["hidden": events(hidden), "restored": events(restored),
+        "stationary": events(stationary)]
+
+    let tooMany = (0..<33).map { event("entry-\($0)", 1) }
+    let overBudget = ScenePuppetAnimationSelection(clips: [
+        .init(layer: layer(binding: nil), animation: animation(events: tooMany)),
+        .init(layer: layer(id: 11, animationID: 2, binding: nil),
+            animation: animation(id: 2, events: tooMany))
+    ], composition: .layered)
+    let failing = try eventRuntime(overBudget)
+    try failing.register(layerID: 77, selection: definition,
+        authoredLayers: definition.clips.map(\.layer)).get()
+    _ = step(failing, 0, 0)
+    let budget = step(failing, 1, 0.5)
+    let retained = step(failing, 2, 0.75)
+    output["budget"] = ["events": events(budget), "failureCount": budget.eventFailures.count,
+        "failures": budget.eventFailures.values.map(\.rawValue).sorted(),
+        "healthyPose": budget[42]!.samples.allSatisfy { $0 != nil },
+        "retainedFailures": retained.eventFailures == budget.eventFailures]
+    let sourceOverflowDefinition = ScenePuppetAnimationSelection(clips: [
+        .init(layer: layer(binding: nil), animation: animation(events:
+            (0...ScenePuppetAnimationPlaybackRuntime.eventBudget).map { event("overflow-\($0)", 1) })),
+        .init(layer: layer(id: 11, animationID: 2, binding: nil),
+            animation: animation(id: 2, events: [event("healthy-sibling", 1)]))
+    ], composition: .layered)
+    let sourceOverflow = try eventRuntime(sourceOverflowDefinition)
+    _ = step(sourceOverflow, 0, 0)
+    let rejectedParent = step(sourceOverflow, 1, 0.5)
+    output["sourceBudget"] = rejectedParent.animationEvents.isEmpty
+        && rejectedParent.eventFailures.count == 2
+        && rejectedParent.eventFailures.values.allSatisfy { $0 == .eventBudgetExceeded }
+    let full = try eventRuntime(selection(layer(binding: nil), animation(
+        events: (0..<ScenePuppetAnimationPlaybackRuntime.eventBudget).map { event("at-limit-\($0)", 1) })))
+    _ = step(full, 0, 0)
+    let fullFrame = step(full, 1, 0.5)
+    output["atBudget"] = fullFrame.animationEvents.count == 64 && fullFrame.eventFailures.isEmpty
+
+    let multi = try eventRuntime(definition)
+    _ = step(multi, 0, 0)
+    let multiple = step(multi, 1, 5)
+    let overflow = try eventRuntime(selection(layer(binding: nil),
+        animation(fps: .greatestFiniteMagnitude, events: [event("finite-metadata", 1)])))
+    _ = step(overflow, 0, 0)
+    let nonFinite = step(overflow, 1, .greatestFiniteMagnitude)
+    var invalid: [String] = []
+    for candidate in [animation(mode: "mirror", events: [event("mode", 1)]),
+                      animation(events: [event("boundary", 0)])] {
+        let owner = try eventRuntime(selection(layer(binding: nil), candidate))
+        invalid.append(contentsOf: step(owner, 0, 0).eventFailures.values.map(\.rawValue))
+    }
+    let noEvents = try eventRuntime(selection(layer(binding: nil), animation()))
+    _ = step(noEvents, 0, 0)
+    let noEventProfile = step(noEvents, 1, 100)
+    output["failures"] = ["multiple": multiple.eventFailures.values.map(\.rawValue),
+        "multipleEvents": events(multiple), "multiplePose": multiple[42]!.samples[0] != nil,
+        "nonFinite": nonFinite.eventFailures.values.map(\.rawValue), "invalid": invalid,
+        "noEventProfile": noEventProfile.eventFailures.isEmpty && noEventProfile.animationEvents.isEmpty]
+
+    let retirement = try eventRuntime(definition)
+    try retirement.register(layerID: -1, selection: definition,
+        authoredLayers: definition.clips.map(\.layer)).get()
+    let badDefinition = selection(layer(binding: nil), animation(mode: "single", events: [event("mode", 1)]))
+    try retirement.register(layerID: -2, selection: badDefinition,
+        authoredLayers: badDefinition.clips.map(\.layer)).get()
+    _ = step(retirement, 0, 0)
+    let beforeRetire = step(retirement, 1, 0.5)
+    retirement.synchronizeDynamicLayers(topologyRevision: 1, liveLayerIDs: [])
+    let retired = step(retirement, 1, 99)
+    output["retirement"] = ["beforeEvents": beforeRetire.animationEvents.count,
+        "beforeFailures": beforeRetire.eventFailures.count, "events": events(retired),
+        "failures": retired.eventFailures.count, "removedPose": retired[-1] == nil && retired[-2] == nil]
+    return output
 }
 func evaluate(_ frame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
               selection: ScenePuppetAnimationSelection) throws -> [Double] {
@@ -457,6 +617,7 @@ func evaluate(_ frame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
             report(afterRetirement, layerID: -2) != report(beforeRetirement, layerID: -2),
             !sameRetirement.animationSnapshots.contains { $0.identity.layerID == -1 }]
 
+        output["animationEvents"] = try animationEventReport()
         print(String(decoding: try JSONSerialization.data(withJSONObject: output,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -483,6 +644,63 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
                 raise RuntimeError(run.stdout + run.stderr)
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True, timeout=30)
             cls.result = json.loads(run.stdout)
+
+    def test_source_frame_crossings_survive_same_cadence_republication_and_late_registration(self) -> None:
+        result = self.result["animationEvents"]["crossing"]
+        self.assertEqual(result["initial"], [])
+        self.assertEqual(result["before"], [])
+        for key, name, frame, sequence in [("exact", "renamed-early", 1, 1),
+                                           ("late", "late", 3, 2), ("wrapped", "renamed-early", 1, 3)]:
+            self.assertEqual(result[key], [{"parent": 42, "clip": 0, "sequence": sequence,
+                                            "name": name, "frame": frame}])
+        self.assertTrue(result["same"])
+        self.assertTrue(result["lateParentPrepared"])
+        self.assertEqual(result["next"], [])
+        self.assertTrue(self.result["animationEvents"]["eventDefinitionConflict"])
+
+    def test_event_order_uses_crossing_time_then_authored_clip_and_record_order(self) -> None:
+        result = self.result["animationEvents"]
+        self.assertEqual([event["name"] for event in result["ordering"]],
+                         ["fast-first", "authored-first", "authored-second", "fast-tie"])
+        self.assertEqual([event["sequence"] for event in result["ordering"]], [1, 1, 2, 2])
+        self.assertEqual([event["name"] for event in result["wrapOrder"]], ["late", "renamed-early"])
+
+    def test_controls_hidden_and_stationary_cadences_never_synthesize_seek_events(self) -> None:
+        result = self.result["animationEvents"]
+        self.assertTrue(result["controls"]["quiet"])
+        self.assertEqual([event["name"] for event in result["controls"]["play"]], ["renamed-early"])
+        self.assertTrue(result["controls"]["frozen"])
+        self.assertEqual(result["visibility"]["hidden"], [])
+        self.assertEqual(result["visibility"]["stationary"], [])
+        self.assertEqual([event["name"] for event in result["visibility"]["restored"]], ["renamed-early"])
+
+    def test_parent_budget_is_atomic_and_preserves_other_parent_and_pose(self) -> None:
+        result = self.result["animationEvents"]
+        self.assertTrue(result["atBudget"])
+        self.assertTrue(result["sourceBudget"])
+        budget = result["budget"]
+        self.assertEqual([event["parent"] for event in budget["events"]], [77])
+        self.assertEqual(budget["failureCount"], 2)
+        self.assertEqual(budget["failures"], ["eventBudgetExceeded"] * 2)
+        self.assertTrue(budget["healthyPose"])
+        self.assertTrue(budget["retainedFailures"])
+
+    def test_unsupported_events_fail_locally_without_narrowing_existing_no_event_playback(self) -> None:
+        result = self.result["animationEvents"]["failures"]
+        self.assertEqual(result["multiple"], ["multipleLoopsCrossed"])
+        self.assertEqual(result["multipleEvents"], [])
+        self.assertTrue(result["multiplePose"])
+        self.assertEqual(result["nonFinite"], ["nonFinitePhase"])
+        self.assertEqual(result["invalid"], ["unsupportedMode", "invalidEvent"])
+        self.assertTrue(result["noEventProfile"])
+
+    def test_retire_filters_events_and_failures_without_reissuing_peer_occurrences(self) -> None:
+        result = self.result["animationEvents"]["retirement"]
+        self.assertEqual(result["beforeEvents"], 2)
+        self.assertEqual(result["beforeFailures"], 1)
+        self.assertEqual([event["parent"] for event in result["events"]], [42])
+        self.assertEqual(result["failures"], 0)
+        self.assertTrue(result["removedPose"])
 
     def test_dynamic_retirement_removes_only_the_retired_instance_and_preserves_consumed_peers(self) -> None:
         self.assertEqual(self.result["dynamicRetirement"], [True] * 9)

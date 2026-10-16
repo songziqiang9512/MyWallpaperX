@@ -572,6 +572,7 @@ void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
     // domain topology lock or leak into a later snapshot.
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     owner->authored_layer_baseline_available = false;
+    if (owner->puppet_animation_configured) mwx_scene_quickjs_destroy_puppet_animation_host(owner);
     owner->generation += 1;
     owner->disabled = true;
 }
