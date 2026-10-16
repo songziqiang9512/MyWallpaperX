@@ -472,4 +472,12 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 
 **失败与验收。** 缺失/重复定义、非法/非有限RGB、其他String类型和不健康owner保原拒绝与整键rollback；不新增通知/store/renderer。最近真实VM门覆盖改名/等价表达式、cold/hot/重复编辑、原Number fallback及相邻非法/非Color输入；原333实际Scalar回调与画面、独立健康样本及退出另验。若需要通用coercion、额外输入owner或改JS slot类型则停止本片，另取区分证据。此修复不认领CPU/GPU收益。
 
-[有界后验](../../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)记录原333首错退出、自有Scalar同窗编辑与独立画面；原包最后一次合法编辑仍被拒，特殊composition和完整交互不随此关闭。
+[有界后验](../../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)记录原333首错退出、自有Scalar同窗编辑与独立画面；当时残留的末次合法编辑拒绝由[回调退场后继](#retired-property-callback-consumers)接续，特殊composition和完整交互不随此关闭。
+
+<a id="retired-property-callback-consumers"></a>
+
+### 永久删除后的属性回调消费者（2026-10-16，有界已实施）
+
+333同时间无非法输入对照仍拒绝末次合法编辑；精确guard证实，启动时冻结的全键callback集合仍包含已永久删除的347.visibility。选择修正事件消费者投影，不复活owner、不削失败准入，也不改VM事件或属性存储。Session从唯一DynamicLayerRuntime的已提交tombstone，使用现有target→layer映射，只投影本次keys已永久删除的callback receivers；LiveUpdateState仅从事件集合减去它们。显式typed instructions的消费者、值验证及原子提交仍全部保留，避免把活跃text clone复用的原输入当成已死数据源。暂时隐藏、disabled、待retry或资源未ready且无tombstone者继续阻挡；无存活consumer的键保原边界。新dynamic callback注册、widget owner退场和全无消费者的面板值不随片开放。
+
+普通/合并编辑、deferred完成及userTexture异步再次准入都重新读已提交事实；拒绝或未提交的destroy不能改变参与者，不新增退休registry、全场景刷新或帧内工作。永久删除后清理失败仍由原生命周期重试，不重新登记事件订阅。复用现有callback派发与owner teardown，值revision只随实际成功变化递增。门验证改名/类型、同值no-op、未退休失败peer、显式绑定/共享输入及全事件owner退休；原包同时间对照与原非法→合法序列、自有离场/调值画面及独立原包归[后验](../../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)。异步再次准入已审调用，实际deferred/resource删除竞态、完整原生面板/存储、多surface/HDR及性能未验；若需忽略活跃失败owner或传播到共享typed输入，则停止扩大并另立合同。

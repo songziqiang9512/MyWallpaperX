@@ -17,7 +17,7 @@
 
 **详情失效现役合同。** 原DetailSheet仅在activeRecordID匹配的ready Scene、raw sourceVideoURL/exportedVideoURL均nil时比较内存展示输入；Web/Video/非active/非ready/不明确fallback保原重建。比较resolved item/raw latest record及下载/依赖任务、进度presence/phase、刷新/错误、预览token和账号订阅，不调用playable/videoURL等I/O getter。只过滤Service普通通知，保每次属性保存/事件；WallpaperManager、launch、auth、subscriptions及显式configure/inspection/诊断保强制刷新，原coalescer累计force、执行前清位。只在真实rebuild后记rendered状态，保最终值与重入；持久preview唯一height约束重挂可重激活。不得读/哈希媒体、准备Scene或另建事件/store/cache。详见[实现与证据](../history/property-detail-invalidation-convergence-2026-10-15.md)。
 
-**当前范围。** 已完成切片从待办退出：条件/准备复用、原生列表、回调局部恢复、属性展示本地化、文字/颜色/brightness/背景色、资源选择/reset、FOV、JPEG方向/尺寸、视频入口、Sound mixed/named输入等的实际边界归[输入覆盖](../capabilities/runtime-input-property-coverage.md)、[SceneScript覆盖](../capabilities/scenescript-api-coverage.md)及其证据链接。不能从一次接线推导整个面板、全部离散选项或完整视觉已通过，也不重复这些批次的收尾。
+**当前范围。** 已完成切片从待办退出：条件/准备复用、原生列表、回调局部恢复与[永久删除后的事件退订](../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)、属性展示本地化、文字/颜色/brightness/背景色、资源选择/reset、FOV、JPEG方向/尺寸、视频入口、Sound mixed/named输入等的实际边界归[输入覆盖](../capabilities/runtime-input-property-coverage.md)、[SceneScript覆盖](../capabilities/scenescript-api-coverage.md)及其证据链接。不能从一次接线推导整个面板、全部离散选项或完整视觉已通过，也不重复这些批次的收尾。
 
 **整数元数据安全。** `order/index/precision`沿唯一定义parser向零截断并安全转换，超出Int范围走原字段fallback，不丢整份定义或影响健康邻项。自有越界JSON在旧parser触发SIGTRAP，修后边界/改名/相邻合法输入门3/3通过，签名Debug构建通过且输入无漂移；未证明真实包曾崩溃，也不计性能收益。最小证据：`.artifacts/tmp/property-integer-metadata-20261016/implementation-freeze.json`及同目录`debug-build.json`。
 

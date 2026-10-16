@@ -118,11 +118,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 178,
-      "bytes": 50906
+      "bytes": 50993
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 195545
+      "bytes": 195659
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 475,
-      "bytes": 122428
+      "lines": 483,
+      "bytes": 124386
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
-      "bytes": 7161
+      "bytes": 7285
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
@@ -238,7 +238,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 138,
-      "bytes": 26924
+      "bytes": 26867
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1205,29 +1205,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "dcd59f6da73a781dc076da42f2f3ff8faa4b8425228aab39a80fed00b5a5fa63",
-      "after": "8a708532dd708574075c7d724658c509d02267d4da22d1678288178cbf2bb338",
-      "owner": "scene-script-property-input",
-      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+      "before": "8a708532dd708574075c7d724658c509d02267d4da22d1678288178cbf2bb338",
+      "after": "f09ed3415b4fb7282c7a6a487539395c049db493465709f0c105d2ca9e404e40",
+      "owner": "scene-property-callback-lifecycle",
+      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "0c42d0857cd7fcd0dcd1bd2f480d729379ccee940268fc058a1e2f6d38e79687",
-      "after": "f5dd775de97e4618412fb509c4cbe56fe7f76bdcf56f8cadb5a64972b65705e1",
-      "owner": "scene-script-property-input",
-      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+      "before": "f5dd775de97e4618412fb509c4cbe56fe7f76bdcf56f8cadb5a64972b65705e1",
+      "after": "921dfcae54aa56c852925ca5e317d01d27db9a8339e8430e7b3fc1df729f87ee",
+      "owner": "scene-property-callback-lifecycle",
+      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "cad8bc615d1d0a7d1d8ce4b0a3ff532bca664658b95c505d351385bf75baf95d",
-      "after": "b051e4ee663ba27a11ec1cd253d87f89731c225f967204d52ab45a7d63711cab",
-      "owner": "scene-script-property-input",
-      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+      "before": "b051e4ee663ba27a11ec1cd253d87f89731c225f967204d52ab45a7d63711cab",
+      "after": "180e89af6c51c01af90dd2a3f79d0c22e01419c6eb145c31392e9708731515a3",
+      "owner": "scene-property-callback-lifecycle",
+      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
     },
     {
       "section": "bodies",
@@ -1255,6 +1255,15 @@
       "owner": "scene-composition-native-qualification",
       "reason": "D1记录两轮缺正控后的STOP与重开门；不开放native/depth能力，不新增实现路线。",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "6fee82ee343499173fe21ed3a48804737a3b50bf87b130d6150573b86ab90386",
+      "after": "1a2e1721b08a2514b5d899ddc174cc4c260c4c20d345c2e810cf8ad909bba747",
+      "owner": "scene-property-callback-lifecycle",
+      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
     }
   ]
 }

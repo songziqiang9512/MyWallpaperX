@@ -13,11 +13,14 @@ extension SceneDesktopWallpaperSession {
               }) else { return [] }
         let state = context.liveState
         let unavailable = unavailableLiveConsumerTargets(in: context)
+        let retiredCallbacks = retiredPropertyCallbackTargets(
+            in: context, propertyKeys: Set(definitions.map(\.key)))
         let rebuild = Set(state.program.rebuildRequiredPropertyKeys)
         let instructions = Dictionary(grouping: state.program.instructions, by: \.propertyKey)
         return Set(Dictionary(grouping: definitions, by: \.key).compactMap { key, definitions in
             guard definitions.count == 1, let definition = definitions.first,
-                  let targets = state.scriptUserPropertyConsumerTargetsByKey[key], !targets.isEmpty,
+                  let targets = state.scriptUserPropertyConsumerTargetsByKey[key]?
+                    .subtracting(retiredCallbacks), !targets.isEmpty,
                   !rebuild.contains(key),
                   targets.union((instructions[key] ?? []).map(\.target)).allSatisfy({
                       state.activeConsumerTargets.contains($0) && !unavailable.contains($0)
@@ -68,6 +71,22 @@ extension SceneDesktopWallpaperSession {
             .union(particleTargets)
     }
 
+    /// Only committed authored deletions end launch-registered callbacks.
+    /// This does not retire their prepared value inputs or retryable peers.
+    func retiredPropertyCallbackTargets(
+        in context: SceneDesktopWallpaperLaunchContext,
+        propertyKeys: Set<String>
+    ) -> Set<SceneDynamicTarget> {
+        let destroyed = context.sceneScriptDynamicLayerRuntime.snapshot().destroyedAuthoredLayerIDs
+        guard !destroyed.isEmpty else { return [] }
+        return propertyKeys.reduce(into: []) { result, key in
+            for target in context.liveState.scriptUserPropertyConsumerTargetsByKey[key] ?? [] {
+                if let layerID = SceneScriptLayerMutationBridge.layerID(for: target),
+                   destroyed.contains(layerID) { result.insert(target) }
+            }
+        }
+    }
+
     @discardableResult
     func applyUserPropertyValue(
         _ value: SceneUserPropertyValue,
@@ -93,13 +112,29 @@ extension SceneDesktopWallpaperSession {
         }
         var candidateLiveState = context.liveState
         let unavailableTargets = unavailableLiveConsumerTargets(in: context)
+        let retiredCallbacks = retiredPropertyCallbackTargets(
+            in: context, propertyKeys: changedPropertyKeys)
         guard candidateLiveState.apply(
             replacements: replacements,
             changedPropertyKeys: changedPropertyKeys,
-            unavailableConsumerTargets: unavailableTargets
-        ), soundPlaybackRegistry?.canApply(
+            unavailableConsumerTargets: unavailableTargets,
+            retiredScriptCallbackTargets: retiredCallbacks
+        ) else {
+#if DEBUG
+            logLivePropertyRejection(keys: changedPropertyKeys, state: context.liveState,
+                unavailable: unavailableTargets, retiredCallbacks: retiredCallbacks,
+                reason: "value-or-consumer-admission")
+#endif
+            return false
+        }
+        guard soundPlaybackRegistry?.canApply(
             userValues: candidateLiveState.userValues
         ) != false else {
+#if DEBUG
+            logLivePropertyRejection(keys: changedPropertyKeys, state: context.liveState,
+                unavailable: unavailableTargets, retiredCallbacks: retiredCallbacks,
+                reason: "sound-input-admission")
+#endif
             return false
         }
         var deferredLayerIDs = deferredLayerVisibilitySelection(
@@ -127,7 +162,9 @@ extension SceneDesktopWallpaperSession {
             guard candidateLiveState.apply(
                 replacements: acceptedReplacements,
                 changedPropertyKeys: acceptedKeys,
-                unavailableConsumerTargets: unavailableTargets
+                unavailableConsumerTargets: unavailableTargets,
+                retiredScriptCallbackTargets: retiredPropertyCallbackTargets(
+                    in: context, propertyKeys: acceptedKeys)
             ), soundPlaybackRegistry?.canApply(
                 userValues: candidateLiveState.userValues
             ) != false else {
@@ -256,7 +293,9 @@ extension SceneDesktopWallpaperSession {
         guard candidateLiveState.apply(
             replacements: pending.replacements,
             changedPropertyKeys: pending.changedPropertyKeys,
-            unavailableConsumerTargets: unavailableLiveConsumerTargets(in: context)
+            unavailableConsumerTargets: unavailableLiveConsumerTargets(in: context),
+            retiredScriptCallbackTargets: retiredPropertyCallbackTargets(
+                in: context, propertyKeys: pending.changedPropertyKeys)
         ), soundPlaybackRegistry?.canApply(
             userValues: candidateLiveState.userValues
         ) != false, refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
@@ -291,6 +330,24 @@ extension SceneDesktopWallpaperSession {
             state: "committed"
         )
     }
+
+#if DEBUG
+    private func logLivePropertyRejection(
+        keys: Set<String>, state: ScenePropertyLiveUpdateState,
+        unavailable: Set<SceneDynamicTarget>, retiredCallbacks: Set<SceneDynamicTarget>, reason: String
+    ) {
+        guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow else { return }
+        let targets = Set(state.program.instructions.lazy.filter {
+            keys.contains($0.propertyKey)
+        }.map(\.target)).union(keys.reduce(into: Set<SceneDynamicTarget>()) { result, key in
+            result.formUnion(state.scriptUserPropertyConsumerTargetsByKey[key] ?? [])
+        }.subtracting(retiredCallbacks))
+        NSLog("MWX live property rejection: reason=%@ keys=%@ revision=%llu inactive=%@ unavailable=%@",
+            reason, keys.sorted().joined(separator: ","), state.revision,
+            targets.subtracting(state.activeConsumerTargets).map { String(describing: $0) }.sorted().joined(separator: ";"),
+            targets.intersection(unavailable).map { String(describing: $0) }.sorted().joined(separator: ";"))
+    }
+#endif
 
     func logDeferredLayerVisibilityTransition(
         generation: UInt64,

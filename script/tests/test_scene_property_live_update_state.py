@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     TARGET_MAPPING_SOURCE,
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift",
 ]
 
 HARNESS = r'''
@@ -756,6 +757,7 @@ enum Harness {
             "unavailableScriptEventWasAtomic": unavailableScriptEventWasAtomic,
         ]
         payload.merge(repeatFacts) { _, new in new }
+        payload.merge(SceneRetiredCallbackLiveUpdateChecks.run()) { _, new in new }
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -982,6 +984,13 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
             update.index("PlaybackCommandMultiplexer.shared.dispatch("),
             update.rindex("scheduleActiveScenePropertyRender"),
         )
+
+
+    def test_retired_callbacks_preserve_surviving_typed_consumers_and_atomic_boundaries(self) -> None:
+        facts = {key: value for key, value in self.result.items() if key.startswith("retired-callback-")}
+        self.assertTrue(facts)
+        for key, value in facts.items():
+            self.assertTrue(value, key)
 
 
 if __name__ == "__main__":

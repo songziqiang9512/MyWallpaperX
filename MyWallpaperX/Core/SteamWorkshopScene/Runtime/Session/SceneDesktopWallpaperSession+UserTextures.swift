@@ -52,6 +52,8 @@ extension SceneDesktopWallpaperSession {
         guard keys.isSubset(of: admittedKeys), candidateState.apply(
             replacements: update.values, changedPropertyKeys: keys,
             unavailableConsumerTargets: unavailableLiveConsumerTargets(in: context),
+            retiredScriptCallbackTargets: retiredPropertyCallbackTargets(
+                in: context, propertyKeys: keys),
             preparedTexturePropertyKeys: admittedKeys
         ) else {
             completion(.unavailable)
@@ -133,6 +135,8 @@ extension SceneDesktopWallpaperSession {
                     guard liveState.apply(
                         replacements: update.values, changedPropertyKeys: keys,
                         unavailableConsumerTargets: self.unavailableLiveConsumerTargets(in: current),
+                        retiredScriptCallbackTargets: self.retiredPropertyCallbackTargets(
+                            in: current, propertyKeys: keys),
                         preparedTexturePropertyKeys: admittedKeys
                     ), candidates.allSatisfy(registry.canAdoptUserPropertyCandidate) else {
                         pending.finish(.failed("texture-update-consumer-unavailable")); return

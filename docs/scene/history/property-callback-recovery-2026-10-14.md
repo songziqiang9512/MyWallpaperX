@@ -175,3 +175,13 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 同App自有探针8个Scalar实际执行，初始两行各四格与官方参照逐ROI误差0；编辑后String分类仍102/255、finite scalar仍153/255，值指纹由204变102，全部静态参照保持。合法→合法→非法→合法为true/true/false/true，同窗；非法输入未破坏恢复。独立3264246690原包人物/警戒带实际呈现、VM异常0；原锯齿/点击/布条差异不关闭。三次有效run exit0、输入无漂移、surface1→0且GPU排空。首次自有native仅缺PKG而未ready，按同字节scene重新打包后复验；不是产品修复或运行通过。
 
 最近真实VM门152/152事实、119输入无漂移，含改名/等价builder、原fallback、冷热/重复/no-op、非法RGB、非Color String及owner异常原子拒绝。首轮两条测试误要求Vector提供Scalar式failure字典，修为实际拒绝且不发布，未迎合测试改产品。独立静态审查覆盖late pass与PreparedText/cursor继承；其专门动态组合及完整原生面板/保存恢复、多surface/HDR、media/fade、CPU/GPU收益未验。普通输入与保留的最小未解决边界归`.artifacts/scene-evidence/runs/color-numeric-slot-20261016/`；官方原图在`/private/tmp/mwx-333-property-slot-20261016/`，VM保持运行。
+
+<a id="retired-property-callback-consumers"></a>
+
+## 后继：永久删除的callback不再阻挡存活属性（2026-10-16）
+
+通用合同与调用边界由[D4](../roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers)拥有。原333的末次合法编辑拒绝不是非法RGB污染：诊断版签名Debug `1f260233…75cf9`在同2/4/6/8秒时序将第三步换为当前值no-op，前三步true、末步仍false，revision仍2，精确unavailable为347.visibility；该owner于6.496秒永久删除并quiescent。这里只加窄拒绝日志，未改原准入。Session从已提交tombstone投影事件参与者，显式typed输入与原完整键校验保持。
+
+候选签名Debug executable `bae65f3a2e4e3845352549b6fbe10f0e14a885ad2c495432c2ba430e92255452` / dylib `d1b1127deda4337e03e6de5e810da327471f8c8668303b111b94e05dba9a9e6b`，4331构建输入无漂移。原包恢复原合法A/合法B/非法RGB/合法C序列，结果true/true/false/true，347于6.537秒退休后C获准，同window48670、surface1。自有改名探针追加9004 callback于5.007秒永久离场，随后C同窗48701获准；实际角落由RGB(255,51,204)变黑，原赋值格204→102，15个注册ROI精确，类型/有限性、健康Number行及静态参照不变。root查看原图并重算原始像素；这证明值到达实际画面，未验完整原生面板、持久化或编辑延迟。
+
+最近门18测试一次通过，含改名/等价RGB、未退休失败peer、共享模板输入与同target显式instruction、整批原子、非法值、全callback退休后的changed拒绝/同值no-op，以及callback-only Bool不能误入未绑定Bool通道。独立原包3264246690人物/警戒带呈现、音频时钟推进；三候选run均VM失败0、exit0、输入无漂移、surface1→0且GPU排空。独立审查覆盖Session五处再次准入与prepared callback投影；实际deferred/resource删除竞态、dynamic新callback、widget owner退场、多surface/HDR仍未验。未计CPU/GPU/内存或重建耗时收益；Host拒绝不触发client重启，不能把旧false当实际重建次数。原333五个特殊composition source和229效果fallback仍开放。限期证据：`.artifacts/scene-evidence/runs/retired-property-callback-consumers-20261016/`。

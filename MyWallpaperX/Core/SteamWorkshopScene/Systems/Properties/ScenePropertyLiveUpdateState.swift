@@ -56,12 +56,14 @@ nonisolated struct ScenePropertyLiveUpdateState {
     nonisolated mutating func apply(
         _ value: SceneUserPropertyValue,
         forPropertyKey propertyKey: String,
-        unavailableConsumerTargets: Set<SceneDynamicTarget> = []
+        unavailableConsumerTargets: Set<SceneDynamicTarget> = [],
+        retiredScriptCallbackTargets: Set<SceneDynamicTarget> = []
     ) -> Bool {
         apply(
             replacements: [propertyKey: value],
             changedPropertyKeys: [propertyKey],
-            unavailableConsumerTargets: unavailableConsumerTargets
+            unavailableConsumerTargets: unavailableConsumerTargets,
+            retiredScriptCallbackTargets: retiredScriptCallbackTargets
         )
     }
 
@@ -70,6 +72,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
         replacements: [String: SceneUserPropertyValue],
         changedPropertyKeys: Set<String>,
         unavailableConsumerTargets: Set<SceneDynamicTarget> = [],
+        retiredScriptCallbackTargets: Set<SceneDynamicTarget> = [],
         preparedTexturePropertyKeys: Set<String> = []
     ) -> Bool {
         guard !changedPropertyKeys.isEmpty else { return true }
@@ -96,8 +99,11 @@ nonisolated struct ScenePropertyLiveUpdateState {
         var expectedTargets: Set<SceneDynamicTarget> = []
         for propertyKey in changedPropertyKeys {
             let instructions = instructionsByPropertyKey[propertyKey] ?? []
-            let scriptTargets =
-                scriptUserPropertyConsumerTargetsByKey[propertyKey] ?? []
+            // A committed layer deletion ends its event subscriptions. Keep
+            // explicit value producers below: a live clone may still consume
+            // a prepared input whose identity belongs to its source template.
+            let registeredScriptTargets = scriptUserPropertyConsumerTargetsByKey[propertyKey] ?? []
+            let scriptTargets = registeredScriptTargets.subtracting(retiredScriptCallbackTargets)
             let consumerTargets = Set(instructions.map(\.target))
                 .union(scriptTargets)
             let preparedTexture = preparedTexturePropertyKeys.contains(propertyKey)
@@ -105,7 +111,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
                 && effectiveValues[propertyKey]?.stringValue != nil
             let valueOnlyBoolean: Bool
             if unboundBooleanPropertyKeys.contains(propertyKey),
-               instructions.isEmpty, scriptTargets.isEmpty,
+               instructions.isEmpty, registeredScriptTargets.isEmpty,
                !preparedTexturePropertyKeys.contains(propertyKey),
                case .bool? = replacements[propertyKey],
                case .bool? = effectiveValues[propertyKey] {
