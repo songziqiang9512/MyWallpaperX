@@ -255,7 +255,9 @@ handle 包含 scene generation、owner kind、object identity 与生命周期 ep
 
 Scalar/String通过现生命周期bridge内的value-owner协议共用一个退休入口；Vector复用同一清理循环，Cursor只负责自有owner及借用注册注销，不新增生命周期owner。没有待退休owner时不重建binding属性表。
 
-不新建对象树、clock或销毁队列。拒绝owner的删除不触发退休；先写后删、删后写、重复删除、带child拒绝、被删provider/组合成员不回生均需反例。已实施证据见[删除与退休记录](../../history/authored-layer-retirement-2026-10-07.md)。核心门为真实parser→VM→typed plan→下一帧descriptor，目标timer/update停止、健康peer保持、动态副本同步移除、throw/Swift拒绝无提前退休，以及原样本4秒后暗幕和Logo退出真实合成。官方精确callback先后、多屏呈现及父层级联另验，不能把局部leaf实现称为完整IScene。
+不新建对象树、clock或销毁队列。拒绝owner的删除不触发退休；先写后删、销毁优先规范化的删后写、重复删除、未完整请求的child分支拒绝、被删provider/组合成员不回生均需反例。已实施证据见[删除与退休记录](../../history/authored-layer-retirement-2026-10-07.md)。核心门为真实parser→VM→typed plan→下一帧descriptor，目标timer/update停止、健康peer保持、动态副本同步移除、throw/Swift拒绝无提前退休，以及原样本4秒后暗幕和Logo退出真实合成。官方精确callback先后、多屏呈现及父层级联另验，不能把局部leaf实现称为完整IScene。
+
+**完整显式分支删除后继（2026-10-16，有界已实施）。** Project Bool入口接通后，真实owner同时明确删除Logo父、子层，但旧leaf guard在父层先行拒绝整笔。只允许同一个owner bundle明确包含所有仍存活作者后代的删除请求；按原descriptor的声明及实际parent边核完整性，各请求仍独立校验identity、预算、字段、顺序及重复删除，任一失败撤回整owner。已提交child tombstone不再阻止清理空父层。复用原tombstone、下一帧topology、cohort退休与在途资源寿命；不隐式添加后代、不跨peer凑齐删除、不扩大单独parent删除或另建子树owner。正反门覆盖父先/子先、多级完整/缺一、漏报child、后代无效/throw、跨owner和同帧回滚；实际原包需同时证明Logo退休与口罩effect切换，否则保留后续断点。
 
 ## Puppet 动画层后继（2026-10-07）
 
@@ -481,3 +483,13 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 333同时间无非法输入对照仍拒绝末次合法编辑；精确guard证实，启动时冻结的全键callback集合仍包含已永久删除的347.visibility。选择修正事件消费者投影，不复活owner、不削失败准入，也不改VM事件或属性存储。Session从唯一DynamicLayerRuntime的已提交tombstone，使用现有target→layer映射，只投影本次keys已永久删除的callback receivers；LiveUpdateState仅从事件集合减去它们。显式typed instructions的消费者、值验证及原子提交仍全部保留，避免把活跃text clone复用的原输入当成已死数据源。暂时隐藏、disabled、待retry或资源未ready且无tombstone者继续阻挡；无存活consumer的键保原边界。新dynamic callback注册、widget owner退场和全无消费者的面板值不随片开放。
 
 普通/合并编辑、deferred完成及userTexture异步再次准入都重新读已提交事实；拒绝或未提交的destroy不能改变参与者，不新增退休registry、全场景刷新或帧内工作。永久删除后清理失败仍由原生命周期重试，不重新登记事件订阅。复用现有callback派发与owner teardown，值revision只随实际成功变化递增。门验证改名/类型、同值no-op、未退休失败peer、显式绑定/共享输入及全事件owner退休；原包同时间对照与原非法→合法序列、自有离场/调值画面及独立原包归[后验](../../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)。异步再次准入已审调用，实际deferred/resource删除竞态、完整原生面板/存储、多surface/HDR及性能未验；若需忽略活跃失败owner或传播到共享typed输入，则停止扩大并另立合同。
+
+<a id="project-utility-visibility"></a>
+
+### Project utility 的 Boolean owner（2026-10-16，有界已实施）
+
+**目标与首断点。** 已资格的真实点击能进入原cursor owner，但共享状态的消费者挂在project层visible上，被候选contentKind和utility限制提前丢弃，未创建VM owner。选择补齐此普通Bool入口，优于猜事件API或绕过作者脚本。仅接无parent/children、无dependency及authoredDependency的project capture；其既有source route、Program和graph仍须独立通过准备。同束删除仍按上文完整显式分支合同，不跨peer借未提交tombstone。不为脚本副作用单建调度器，也不按源码形状决定准入。
+
+**唯一链路与失败。** 原Bool Program持有init/update/属性事件及typed owner effects；返回值进入现layer.visibility，effect setter沿现bundle共同提交/撤回。现动态visibility admission保留固定root准备需求，utility planner保留初始隐藏的capture能力；当帧snapshot和原active execution demand决定是否实际编码，不逐帧重建计划。无effect仍是无像素的合法值owner，资源或Program不可用不伪造捕获。composition保持现支持范围；parent/child、依赖project和错误kind继续拒绝，fullscreen脚本及project effect的初始隐藏激活不随片扩展。
+
+**验收与停止。** 自有VM输入验证Bool返回与跨effect副作用、改名/等价表达式、原子失败及邻近不准入形态；隔离App以相同窗口证明脚本持续更新和实际effect像素切换，另验project自身false→true→false及未参与修法内容。原包口罩变化须同时有owner、typed effect/graph执行和实际ROI，点击命中或非黑不足。不能承接动态capture或出现更早owner缺失时停下重排；多surface/HDR、完整样本及性能另验。

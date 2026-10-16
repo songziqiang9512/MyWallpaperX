@@ -82,7 +82,7 @@
 | U28 · 2684431262 | 与官方显示差异大；现描述不足以定算法，先取得当前构图/逐层首个不同ROI |
 | U29 · 3470948192 | 旧30秒越过intro仍黑水滴/缺发光，另旧人工记录有NaN、文字碎片、异常背景。未由模型emission首门关闭，均待当前真实输出/异常target复验 |
 | U30 · 3750813609 | 旧观察①闪电缺失；②时钟颜色/发光不符；③雨弱，均待同phase复验。10-16原包身份复核：雷电为121→lightning2，普通Sphere/rate1，无periodic cap；旧405/412+cap32关联错误已删，它们属3749463715，能力缺口只归[静态审计](scene-full-sample-static-audit.md)。未找到121 root静态准入拒绝，不推断其视觉原因。 |
-| U31 · 3264246690 | ①人物边缘锯齿；②点击换口罩缺失；③警戒带运动错误。解码/采样、hit/事件、时序分别复验；mesh/atlas首门已修不关闭本项 |
+| U31 · 3264246690 | ①人物边缘锯齿；②警戒带运动仍待当前画面对照。点击口罩已沿project Bool owner/完整显式删除接通，实际before戴口罩、click后露嘴且effect执行切换，不再列缺失；[后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)。帧目标规划误拒另沿唯一pool修复，不据此关闭运动轨迹或AA；mesh/atlas旧首门保持已修。 |
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |
 | U33 · 3769688830 | 玩偶应左右循环转而现单向转；核rotation/oscillation/Timeline的相位和方向，不专设摆动算法 |
 | U35 · 2974757317 | 卡片下多出独立矩形频谱；先证作者是否本有该层，再核named/previous、层序/变换/clip，不直接隐藏 |

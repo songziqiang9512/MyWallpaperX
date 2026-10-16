@@ -19,7 +19,7 @@ struct SceneLayerDisplayScriptOwnership {
 }
 struct SceneRenderDescriptor {
     struct Utility {
-        enum Kind: String { case composition, fullscreen }
+        enum Kind: String { case composition, fullscreen, project }
         let kind: Kind
         var copyBackground = true
         var passthrough = false
@@ -529,6 +529,40 @@ struct SceneDependencyRenderPlan {
                 definitions: [definition], userValues: [target(owner): .bool(value)]).snapshot
             return SceneLayerVisibility.visibleLayerIDs(in: descriptor, snapshot: snapshot).sorted()
         }
+        func projectCapture(_ violation: String? = nil) -> SceneRenderDescriptor {
+            var root = SceneRenderDescriptor.Layer(id: 940, contentKind: "project",
+                utilityLayer: .init(kind: .project), effects: [.init(visible: true)])
+            var extras: [SceneRenderDescriptor.Layer] = []
+            switch violation {
+            case "parent": root.parentID = 950
+            case "child": root.childLayerIDs = [941]; extras = [.init(id: 941, parentID: 940)]
+            case "unlisted-child": extras = [.init(id: 941, parentID: 940)]
+            case "dependency": root.dependencyLayerIDs = [950]
+            case "authored-dependency": root.authoredDependencies = [950]
+            case "kind": root.contentKind = "fullscreen"
+            case "utility": root.utilityLayer = .init(kind: .composition)
+            case "duplicate": extras = [root]
+            case nil: break
+            default: fatalError("unknown project capture fixture")
+            }
+            return .init(layers: [root, .init(id: 950, visible: true, contentKind: "solid")] + extras)
+        }
+        let project = projectCapture()
+        output["projectTargets"] = ids(project, candidates: [target(940)])
+        output["projectNoOwner"] = ids(project, candidates: [])
+        output["scriptProjectTargets"] = ids(project, candidates: [], scripts: true)
+        output["projectHidden"] = backgroundVisible(project, owner: 940, value: false)
+        output["projectShown"] = backgroundVisible(project, owner: 940, value: true)
+        output["projectHiddenAgain"] = backgroundVisible(project, owner: 940, value: false)
+        output["invalidProjectTargets"] = Dictionary(uniqueKeysWithValues:
+            ["parent", "child", "unlisted-child", "dependency", "authored-dependency",
+             "kind", "utility", "duplicate"].map {
+                ($0, ids(projectCapture($0), candidates: [target(940)]))
+            })
+#if PREPARATION_API
+        output["projectPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: project, candidates: [target(940)]).sorted()
+#endif
         output["hiddenBackgroundFalse"] = backgroundVisible(hiddenBackground, owner: 150, value: false)
         output["hiddenBackgroundTrue"] = backgroundVisible(hiddenBackground, owner: 150, value: true)
         output["clockBackgroundFalse"] = backgroundVisible(clockShape, owner: 160, value: false)
@@ -727,6 +761,18 @@ class ScriptVisibleRootTests(unittest.TestCase):
         self.assertEqual(self.result['hiddenBackgroundPreparation'], [150])
         self.assertEqual(self.result['hiddenBackgroundFalse'], [151])
         self.assertEqual(self.result['hiddenBackgroundTrue'], [150, 151])
+
+    def test_project_capture_prepares_and_uses_committed_visibility(self):
+        self.assertEqual(self.result['projectTargets'], [940])
+        self.assertEqual(self.result['projectNoOwner'], [])
+        self.assertEqual(self.result['scriptProjectTargets'], [940, 950])
+        self.assertEqual(self.result['projectPreparation'], [940])
+        self.assertEqual(self.result['projectHidden'], [950])
+        self.assertEqual(self.result['projectShown'], [940, 950])
+        self.assertEqual(self.result['projectHiddenAgain'], [950])
+        for name, targets in self.result['invalidProjectTargets'].items():
+            with self.subTest(case=name):
+                self.assertEqual(targets, [])
 
     def test_nested_childless_background_capture_keeps_parent_visibility_authority(self):
         self.assertEqual(self.result['clockBackgroundTargets'], [160, 161, 162])

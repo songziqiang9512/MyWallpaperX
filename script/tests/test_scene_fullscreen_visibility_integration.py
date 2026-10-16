@@ -37,7 +37,7 @@ def white_png():
 
 
 def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=False,
-                    missing_shader=False, legal_particle=False):
+                    missing_shader=False, legal_particle=False, project_script=False):
     def visible(condition, fallback=True):
         return {"user": {"name": "mode", "condition": condition}, "value": fallback}
     objects = [
@@ -97,6 +97,20 @@ def fixture_entries(*, mixed_particle=False, no_capture=False, inactive_effect=F
     properties = {"mode": definition}
     if inactive_effect:
         properties["fx"] = {"type": "bool", "value": False}
+    if project_script:
+        # Same captured-main consumer with an unseen resource name. The outer
+        # Bool is an input to the real VM, whose return owns layer visibility.
+        scene = json.loads(entries["scene.json"])
+        scene["objects"][1]["image"] = "models/util/projectlayer.json"
+        scene["objects"][1]["visible"] = {
+            "user": "mode", "value": False,
+            "script": "export function update(enabled) { return !!enabled; }"}
+        entries["scene.json"] = encoded(scene)
+        entries["models/util/projectlayer.json"] = entries.pop("models/util/fullscreenlayer.json")
+        entries = {name.replace("own_dim", "owned_project_gain"):
+                   data.replace(b"own_dim", b"owned_project_gain")
+                   for name, data in entries.items()}
+        properties["mode"] = {"type": "bool", "value": False}
     return {"type": "scene", "file": "scene.json", "general": {"properties": properties}}, entries
 
 
@@ -120,7 +134,7 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
         cls.frozen_app_hashes = app_hashes(cls.app)
 
     def run_case(self, *, mixed_particle=False, no_capture=False, inactive_effect=False,
-                 missing_shader=False, legal_particle=False, launch=None, sequence=None,
+                 missing_shader=False, legal_particle=False, project_script=False, launch=None, sequence=None,
                  expected_dims=None):
         unavailable = mixed_particle or missing_shader
         launch = launch or {"mode": "off", **({"fx": False} if inactive_effect else {})}
@@ -148,10 +162,12 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                     "expectedStepAccepted": accepted, "mixedParticleMissingTexture": mixed_particle,
                     "noEffectNoOp": no_capture, "initiallyInactiveEffect": inactive_effect,
                     "missingEffectFragment": missing_shader, "legalParticleCohort": legal_particle,
+                    "projectVisibilityScript": project_script,
                     "snapshotTimesSeconds": times, "snapshotOracles": snapshots,
                     "captureMapping": "centered orthographic cover, 256 square canvas"}
         project, entries = fixture_entries(mixed_particle=mixed_particle, no_capture=no_capture,
-            inactive_effect=inactive_effect, missing_shader=missing_shader, legal_particle=legal_particle)
+            inactive_effect=inactive_effect, missing_shader=missing_shader, legal_particle=legal_particle,
+            project_script=project_script)
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
         with tempfile.TemporaryDirectory(prefix="mwx-fullscreen-visibility-") as temporary:
             root = Path(temporary)
@@ -234,6 +250,11 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
 
     def test_prepared_fullscreen_can_show_and_hide_in_authored_slot(self):
         self.run_case()
+
+    def test_project_script_can_reveal_hide_and_reveal_its_prepared_capture(self):
+        self.run_case(project_script=True, launch={"mode": False},
+            sequence=[{"mode": True}, {"mode": False}, {"mode": True}],
+            expected_dims=[True, False, True])
 
     def test_missing_particle_texture_rejects_the_entire_fullscreen_cohort(self):
         self.run_case(mixed_particle=True)

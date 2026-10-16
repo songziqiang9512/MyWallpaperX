@@ -90,9 +90,150 @@ private func quiet(_ outcomes: [SceneScriptOwnerTeardownOutcome]) -> Bool {
         && $0.snapshot.destroyCallbackCount == 1 }
 }
 
+private func branchRetirementChecks() throws -> [String: Bool] {
+    var facts: [String: Bool] = [:]
+    var branch = descriptor(child: true)
+    branch.layers[4].childLayerIDs = [22]
+    branch.layers.append(.init(id: 22, layerIndex: 5, name: "grandchild", visible: true,
+        originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [], parentID: 21))
+    let liveVisibility = SceneDynamicTarget.layer(layerID: 40, field: .visibility)
+    func program(_ d: SceneRenderDescriptor, _ body: String) throws -> SceneScriptQuickJSProgramCandidate {
+        try make(d, [
+            binding("export function update(v){\(body)return v;}",
+                10, 0, "visible", .bool(true), .boolean),
+            binding("export function update(v){thisLayer.alpha=.61;return v;}",
+                40, 3, "visible", .bool(true), .boolean),
+        ])
+    }
+    func evaluate(_ c: SceneScriptQuickJSProgramCandidate, _ time: Double = 0) -> SceneScriptVectorFrameResult {
+        c.vectorProgram.evaluate(inputs: [controller: .bool(true), liveVisibility: .bool(true)],
+            effectivePropertyValues: [:], frame: frame(time))
+    }
+    func topology(_ d: SceneRenderDescriptor) -> SceneScriptDynamicLayerRuntime {
+        .init(descriptor: d, authoredMutationLayerIDs: Set(d.layers.map(\.id)))
+    }
+    let complete = "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');thisScene.destroyLayer('grandchild');"
+    for (label, body) in [
+        ("parent-first", complete),
+        ("child-first", "thisScene.destroyLayer('grandchild');thisScene.destroyLayer('child');thisScene.destroyLayer('victim');"),
+    ] {
+        let c = try program(branch, body), runtime = topology(branch)
+        let result = evaluate(c), plan = runtime.preflightOwnerEffects(result.ownerEffects)
+        facts["\(label)-VM-and-admission"] = result.failures.isEmpty && plan.rejectedOwners.isEmpty
+        facts["\(label)-preflight-is-deferred"] = runtime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+        finish(c)
+        runtime.commit(plan.layerPlan)
+        let snapshot = runtime.snapshot()
+        facts["\(label)-complete-branch-committed"] = snapshot.destroyedAuthoredLayerIDs == [20, 21, 22]
+            && Set(snapshot.renderOrderLayerIDs) == [10, 30, 40]
+            && snapshot.authoredLayerValues[liveAlpha] == .scalar(0.61)
+        let duplicate = topology(branch)
+        if case .failure = duplicate.apply(result.layerMutations + result.layerMutations) {
+            facts["\(label)-duplicate-batch-rejected"] = duplicate.snapshot().destroyedAuthoredLayerIDs.isEmpty
+        } else { facts["\(label)-duplicate-batch-rejected"] = false }
+    }
+
+    for (label, body) in [
+        ("parent-only", "thisScene.destroyLayer('victim');"),
+        ("missing-grandchild", "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');"),
+        ("unknown-descendant", "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');thisScene.destroyLayer('absent');"),
+        ("throw-after-complete", complete + "throw Error('rollback');"),
+    ] {
+        let c = try program(branch, body), runtime = topology(branch)
+        let result = evaluate(c), plan = runtime.preflightOwnerEffects(result.ownerEffects)
+        let rejected = Set(plan.rejectedOwners.compactMap(\.ownerTarget))
+        facts["\(label)-owner-rejected"] = result.failures[controller] != nil || rejected.contains(controller)
+        finish(c, rejected: rejected)
+        runtime.commit(plan.layerPlan)
+        facts["\(label)-no-retirement-and-healthy-peer"] = runtime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+            && runtime.snapshot().authoredLayerValues[liveAlpha] == .scalar(0.61)
+            && result.values[liveVisibility] == .bool(true)
+    }
+
+    // Authored handles remain readable until the common barrier. A later
+    // setter does not revive the layer: the existing C journal normalizes a
+    // destroyed record to a fieldless destroy, so destruction wins.
+    let writeAfterDelete = try program(branch,
+        complete + "thisScene.getLayer('victim').alpha=.3;")
+    let writeRuntime = topology(branch), writeResult = evaluate(writeAfterDelete)
+    let writePlan = writeRuntime.preflightOwnerEffects(writeResult.ownerEffects)
+    facts["write-after-delete-destroy-wins"] = writeResult.failures.isEmpty
+        && writePlan.rejectedOwners.isEmpty
+        && writeResult.layerMutations.contains {
+            $0.layerID == 20 && $0.kind == .destroy && $0.fields.isEmpty
+        }
+    finish(writeAfterDelete)
+    writeRuntime.commit(writePlan.layerPlan)
+    facts["write-after-delete-no-value-residue"] = writeRuntime.snapshot().destroyedAuthoredLayerIDs == [20, 21, 22]
+        && writeRuntime.snapshot().authoredLayerValues[victimAlpha] == nil
+        && writeRuntime.snapshot().authoredLayerValues[liveAlpha] == .scalar(0.61)
+
+    // Actual parent links must remain authoritative even if the descriptor's
+    // child list is incomplete. This branch request deliberately omits22.
+    var unlisted = branch
+    unlisted.layers[4].childLayerIDs = []
+    let unlistedProgram = try program(unlisted,
+        "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');")
+    let unlistedRuntime = topology(unlisted), unlistedResult = evaluate(unlistedProgram)
+    let unlistedPlan = unlistedRuntime.preflightOwnerEffects(unlistedResult.ownerEffects)
+    facts["unlisted-actual-child-rejected"] = unlistedResult.failures.isEmpty
+        && unlistedPlan.rejectedOwners.contains { $0.ownerTarget == controller }
+        && unlistedRuntime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+    finish(unlistedProgram, rejected: [controller])
+
+    // A downstream admission failure cannot publish the already validated
+    // complete branch's tombstones or suppress an unrelated owner's write.
+    let lateProgram = try program(branch, complete), lateRuntime = topology(branch)
+    let lateResult = evaluate(lateProgram)
+    let late = lateRuntime.preflightOwnerEffectsToFixedPoint(lateResult.ownerEffects,
+        rejectingExternally: { _ in [controller] })
+    facts["late-rejection-is-deferred"] = lateRuntime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+        && late.externallyRejectedOwners == [controller]
+    finish(lateProgram, rejected: late.externallyRejectedOwners)
+    lateRuntime.commit(late.admission.layerPlan)
+    facts["late-rejection-preserves-peer"] = lateRuntime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+        && lateRuntime.snapshot().authoredLayerValues[liveAlpha] == .scalar(0.61)
+
+    let pair = descriptor(child: true)
+    let split = try make(pair, [
+        binding("export function update(v){thisScene.destroyLayer('child');return v;}",
+            10, 0, "visible", .bool(true), .boolean),
+        binding("export function update(v){thisScene.destroyLayer('victim');return v;}",
+            40, 3, "visible", .bool(true), .boolean),
+    ])
+    let splitRuntime = topology(pair), splitResult = evaluate(split)
+    let splitPlan = splitRuntime.preflightOwnerEffects(splitResult.ownerEffects)
+    facts["cross-owner-requests-do-not-combine"] = splitResult.failures.isEmpty
+        && Set(splitPlan.rejectedOwners.compactMap(\.ownerTarget)) == [liveVisibility]
+    finish(split, rejected: [liveVisibility])
+    splitRuntime.commit(splitPlan.layerPlan)
+    facts["cross-owner-only-child-commits"] = splitRuntime.snapshot().destroyedAuthoredLayerIDs == [21]
+        && splitRuntime.snapshot().renderOrderLayerIDs.contains(20)
+
+    let sequential = try make(pair, [binding("""
+        export function update(v) {
+            thisScene.destroyLayer(engine.runtime < 1 ? 'child' : 'victim'); return v;
+        }
+        """, 10, 0, "visible", .bool(true), .boolean)])
+    let sequentialRuntime = topology(pair)
+    let childResult = evaluate(sequential), childPlan = sequentialRuntime.preflightOwnerEffects(childResult.ownerEffects)
+    finish(sequential)
+    sequentialRuntime.commit(childPlan.layerPlan)
+    let parentResult = evaluate(sequential, 2), parentPlan = sequentialRuntime.preflightOwnerEffects(parentResult.ownerEffects)
+    facts["committed-child-tombstone-allows-parent"] = childPlan.rejectedOwners.isEmpty
+        && sequentialRuntime.snapshot().destroyedAuthoredLayerIDs == [21]
+        && parentResult.failures.isEmpty && parentPlan.rejectedOwners.isEmpty
+    finish(sequential)
+    sequentialRuntime.commit(parentPlan.layerPlan)
+    facts["later-cadence-parent-commits"] = sequentialRuntime.snapshot().destroyedAuthoredLayerIDs == [20, 21]
+        && !sequentialRuntime.snapshot().renderOrderLayerIDs.contains(20)
+    return facts
+}
+
 @main enum Harness {
     static func main() throws {
         var out: [String: Any] = [:]
+        out["branchRetirement"] = try branchRetirementChecks()
         // Name, handle and authored order resolve one target, while the
         // controller's Boolean stays true and lookup remains deferred.
         var forms: [[String: Any]] = []
@@ -293,6 +434,13 @@ class SceneScriptAuthoredLayerRetirementTests(unittest.TestCase):
 
     def test_retired_update_timer_and_cursor_work_cannot_revive_or_stop_peer(self) -> None:
         self.assertTrue(all(self.result["after"].values()), self.result["after"])
+
+    def test_complete_same_owner_branch_retirement_is_atomic_and_isolated(self) -> None:
+        facts = self.result["branchRetirement"]
+        self.assertTrue(facts)
+        for name, accepted in facts.items():
+            with self.subTest(fact=name):
+                self.assertTrue(accepted)
 
 
 if __name__ == "__main__":

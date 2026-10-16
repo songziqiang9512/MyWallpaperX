@@ -682,11 +682,11 @@ nonisolated extension SceneScriptVectorProgram {
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              ["image", "solid", "text", "container", "composition", "particle",
+              ["image", "solid", "text", "container", "composition", "project", "particle",
                "pointLight", "spotLight", "directionalLight"].contains(
                   layer.contentKind
               ),
-              Self.admitsUtilityLayerVisibility(layer) else { return nil }
+              Self.admitsUtilityLayerVisibility(layer, descriptor: descriptor) else { return nil }
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty)
@@ -724,20 +724,28 @@ nonisolated extension SceneScriptVectorProgram {
         )
     }
 
-    /// A utility layer's visibility participates in the static utility
-    /// planning that its consumption feeds, so those layers stay outside
-    /// scripted visibility. A bare composelayer without dependency metadata
-    /// is just the standard authored container (corpus: 2974757317/3264246690/
-    /// 3357627941/3448845950 script its `visible`); excluding it orphaned the
-    /// binding into the event-only cursor lane, whose frame-free contract
-    /// rejects frame-evaluating owners (`invalidSource`).
+    /// Fixed composition groups and standalone project captures consume the
+    /// committed visibility snapshot. Other utility shapes still lack the
+    /// preparation contract needed to reveal them after launch.
     private static func admitsUtilityLayerVisibility(
-        _ layer: SceneRenderDescriptor.Layer
+        _ layer: SceneRenderDescriptor.Layer,
+        descriptor: SceneRenderDescriptor
     ) -> Bool {
-        guard let utilityLayer = layer.utilityLayer else { return true }
-        return utilityLayer.kind == .composition
-            && layer.dependencyLayerIDs.isEmpty
-            && layer.authoredDependencies.isEmpty
+        guard let utilityLayer = layer.utilityLayer else {
+            return layer.contentKind != "project"
+        }
+        guard layer.dependencyLayerIDs.isEmpty,
+              layer.authoredDependencies.isEmpty else { return false }
+        switch utilityLayer.kind {
+        case .composition:
+            return layer.contentKind != "project"
+        case .project:
+            return layer.contentKind == utilityLayer.kind.rawValue
+                && layer.parentID == nil && layer.childLayerIDs.isEmpty
+                && !descriptor.layers.contains { $0.parentID == layer.id }
+        case .fullscreen:
+            return false
+        }
     }
 
     /// This is deliberately narrower than general Vec3 execution. It does not

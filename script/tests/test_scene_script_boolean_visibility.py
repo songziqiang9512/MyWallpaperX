@@ -31,10 +31,11 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
             Path(cls.temporary_directory.name),
             HARNESS,
             "scene-bool-visible",
-            preamble=vm.SWIFT_PREAMBLE.replace("    struct Camera {\n",
-                "    struct Camera {\n        var bloom = SceneBloomConfiguration.disabled\n", 1),
+            preamble=vm.SWIFT_PREAMBLE.replace("        var bloom = Bloom()\n",
+                "        var bloom = SceneBloomConfiguration.disabled\n", 1),
             extra_swift_sources=(
                 Path(__file__).parent / "fixtures/SceneScriptBooleanReturnChecks.swift",
+                Path(__file__).parent / "fixtures/SceneScriptProjectVisibilityChecks.swift",
                 vm.SCENE / "Rendering/Composition/SceneBloomPostProcess.swift",
                 vm.SCENE / "Resources/Textures/SceneResourceBudget.swift",
             ),
@@ -62,6 +63,12 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
 
     def test_native_bool_return_contract_and_stateful_continuity(self) -> None:
         for fact, accepted in self.value["returnContract"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(accepted)
+
+    def test_childless_project_owner_evaluates_and_preserves_its_boundaries(self) -> None:
+        self.assertTrue(self.value["projectVisibility"])
+        for fact, accepted in self.value["projectVisibility"].items():
             with self.subTest(fact=fact):
                 self.assertTrue(accepted)
 

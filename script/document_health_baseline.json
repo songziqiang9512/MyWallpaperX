@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 178,
-      "bytes": 50993
+      "lines": 179,
+      "bytes": 51315
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 110303
+      "bytes": 109388
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 483,
-      "bytes": 124386
+      "lines": 495,
+      "bytes": 127167
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -238,7 +238,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 138,
-      "bytes": 26743
+      "bytes": 27008
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1186,36 +1186,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "4a8c290d47a7cbecf35597c318d6aa7532bdde0d062bd56742ed046eed467417",
-      "after": "5fbb0a31d5d51c5f565ec0e0ba612f120f03499765be031fed0a55dec31f185e",
-      "owner": "scene-script-runtime",
-      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8a708532dd708574075c7d724658c509d02267d4da22d1678288178cbf2bb338",
-      "after": "f09ed3415b4fb7282c7a6a487539395c049db493465709f0c105d2ca9e404e40",
-      "owner": "scene-property-callback-lifecycle",
-      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "f5dd775de97e4618412fb509c4cbe56fe7f76bdcf56f8cadb5a64972b65705e1",
       "after": "921dfcae54aa56c852925ca5e317d01d27db9a8339e8430e7b3fc1df729f87ee",
-      "owner": "scene-property-callback-lifecycle",
-      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "b051e4ee663ba27a11ec1cd253d87f89731c225f967204d52ab45a7d63711cab",
-      "after": "180e89af6c51c01af90dd2a3f79d0c22e01419c6eb145c31392e9708731515a3",
       "owner": "scene-property-callback-lifecycle",
       "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
@@ -1249,21 +1222,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "604f4dff731116694ab38f207ba92eb3318941aed58b69e967a31968fe54f5a7",
-      "after": "4e9e22a07a7331ee86c6ad0f82965a84f62987b12803878c23f68a1054c4d137",
-      "owner": "scene-puppet-query-observation",
-      "reason": "用已资格setter/视觉脉冲与query分道证据替换早期载体STOP概括；保留未闭合及研究停止边界。",
-      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "3cd71e08b850d57fef09c3f498c22cdbbee4091db0fb8b16c68807d24cc4d795",
       "after": "9217f0eb7c02f166d537e37cb826cf94af8e3262b27b6f6448ab4b56ecc21557",
       "owner": "scene-puppet-query-observation",
       "reason": "用已资格setter/视觉脉冲与query分道证据替换早期载体STOP概括；保留未闭合及研究停止边界。",
       "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "180e89af6c51c01af90dd2a3f79d0c22e01419c6eb145c31392e9708731515a3",
+      "after": "48d4015f16d6eede0f24fcc2d7b3c89e98d6acc87252ecdca9a38b99c5fdfe5d",
+      "owner": "scene-project-visibility-retirement",
+      "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "4e9e22a07a7331ee86c6ad0f82965a84f62987b12803878c23f68a1054c4d137",
+      "after": "39938fb414868f1ae8fd369b2d6df4a9d8222381d77e26f91762c9fd14c8e90a",
+      "owner": "scene-project-visibility-retirement",
+      "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f09ed3415b4fb7282c7a6a487539395c049db493465709f0c105d2ca9e404e40",
+      "after": "eb8099ba7e9d847c8c15ef136cb0ef0aaf33f4cef117a7638a3a3aa0da48bde7",
+      "owner": "scene-project-visibility-retirement",
+      "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
     }
   ]
 }

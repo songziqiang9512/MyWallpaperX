@@ -38,4 +38,20 @@
 
 冻结源码见 `/private/tmp/mwx-scene-demand-eye-20261007/source-identity.json`；Debug build、最终App嵌套签名及独立只读审查通过，CDHash `6e71acb788e45f8f0b07c7ddf37cd8ef4bdbc1ad`。focused 45 PASS/1 App门控skip；随后冻结App下补跑该native门，连同5个named-provider删除像素反例和模型隐藏/恢复，共7项PASS。新需求门在真实runtime、测试plan计数器下证明64次重复查询不再重算及四个key分别失效；不把测试计数当FPS或能耗测量。首轮App测试误在签名完成前启动，5项因Sparkle Team ID尚不一致退出；仅保留失败日志说明，最终7项已在完整签名后重跑。
 
+<a id="project-visibility-complete-retirement"></a>
+
+## Project Boolean入口与完整显式分支（2026-10-16）
+
+原3264246690受控点击在424中心实际命中，口罩仍不切换。首因是3197的project visible被content-kind及utility准入丢弃，正常返回Bool的更新脚本未成为owner。入口接通后的中间App又暴露同一bundle明确删除245父层、382子层被leaf guard拒绝；三条mutation整笔撤回，不能只放行口罩effect。
+
+修复复用原effectful Bool Program、dynamic visibility admission与utility planner，保独立无parent/children/dependency的project capture准备，snapshot决定实际执行。唯一DynamicLayerRuntime接受同owner明确请求的完整存活作者分支，声明child与实际parent边都核闭合；已提交child tombstone不阻挡空父清理，未提交peer的删除不能凑齐。原fields/identity/预算、重复请求、原子撤回、cohort退休和GPU资源寿命不变，不做隐式父层级联。
+
+真实QuickJS门通过project返回值、跨effect副作用、rollback、改名/等价变体、nil/mismatch utility及其他相邻拒绝。退休门证明父/子先序、多级完整分支、缺后代、跨owner、已提交tombstone和失败撤回；新fixture最初误把删后写设为必须拒绝，已按原C journal的destroy优先、无属性残留纠正，未因此改产品。原失败日志保留，只重跑受影响方法。
+
+自有App的初始隐藏project经Bool VM在同窗执行false→true→false→true；声明ROI依次白/灰/白/灰，健康绿色对照保持，三次编辑全部接受，session/window没有重建。原326最终同输入点击前为黑口罩，点击后及稍后均露嘴；389/effect0由禁用passthrough转为实际material执行并GPU completed，VM拒绝为0。首帧三条侧效全部接纳；Logo原默认隐藏，截图无Logo不能单独证明其销毁或完整开场动画。未参与修法的335原包实际渲染另验，结果与身份随正式包保留。
+
+实际合并画面验收App为Debug `-Onone`，executable SHA256 `7326bdb161db12d9bebb20e3bd466f427c28c97d615b2f470bbe104ab8ea91e2`、dylib `e06f3121323216f1c1e061699b4770bb3c164dc8302c1ff55960cc19ea87aa36`；4331构建输入无漂移、嵌套签名通过。自有显隐首次画面及第一轮335证据使用前一有效App `36a4411f…`/`a8b4bfa4…`，其后仅补nil utility拒绝和[composition分配复验](d1-composition-source-implementation-2026-10-02.md)，原326已在最终App再验；最后再收紧canonical parser不产生的project/错误utility合成形态，最近18项Bool门通过，最终Debug构建`3311b3ec…`/`67a3de26…`与签名通过；valid project及encode未变，未为该反例重复GPU。各轮完整身份分别保存，不混为同一构建。
+
+正式必要证据归`.artifacts/scene-evidence/runs/project-visibility-composition-completion-20261016/`。本片只关闭U31点击缺失；人物AA、警戒带轨迹、原生面板/OS输入、完整开场动画、HDR/多surface与官方parity仍未验，不认领性能或能耗收益。
+
 原样本25秒退出0，身体及眼层继续实际绘制，暗幕/Logo未回退；benchmark仍只因固定中心鼠标未达到hover变化门而FAIL，不能据此通过交互或完整样本验收。48/48纹理、6个Puppet层、10个clip进入当前运行链路。眼部仍需相同viewport、pointer和固定动画phase的官方对照；本批没有改作者眼层配置，也没有FPS改善结论。证据根保留日志、报告、身份及必要截图；构建缓存沿前批复用。

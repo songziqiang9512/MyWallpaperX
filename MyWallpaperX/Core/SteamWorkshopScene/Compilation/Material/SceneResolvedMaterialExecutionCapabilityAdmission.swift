@@ -110,6 +110,10 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                 || (layer.contentKind == "fullscreen"
                     && layer.utilityLayer?.kind == .fullscreen
                     && layer.dependencyLayerIDs.isEmpty)
+                || (layer.contentKind == "project"
+                    && layer.utilityLayer?.kind == .project
+                    && layer.dependencyLayerIDs.isEmpty
+                    && layer.authoredDependencies.isEmpty)
             else { continue }
             guard (try? SceneUtilityLayerSourceRoute.resolve(
                 layer: layer, descriptor: descriptor

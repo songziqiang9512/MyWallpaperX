@@ -122,6 +122,11 @@ enum SceneUtilityLayerRuntimePlanner {
                 && resolvedMaterialLayerIDs.contains(layer.id)
                 && layer.parentID == nil && layer.childLayerIDs.isEmpty
                 && layer.dependencyLayerIDs.isEmpty && sourceRoute != nil
+            let preparedProject = utility.kind == .project
+                && layer.contentKind == "project"
+                && layer.parentID == nil && layer.childLayerIDs.isEmpty
+                && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
+                && sourceRoute != nil && resolvedMaterialLayerIDs.contains(layer.id)
             let isolatedComposition = utility.kind == .composition
                 && sourceRoute?.usesIsolatedGroupTarget == true
             let preparedComposition = utility.kind == .composition
@@ -137,7 +142,7 @@ enum SceneUtilityLayerRuntimePlanner {
                 && sourceRoute?.capturesCompositionSubtree == false
                 && resolvedMaterialLayerIDs.contains(layer.id)
                 && (isAggregate || isLegacyExecutable)
-            let preparedUtility = preparedFullscreen || preparedComposition
+            let preparedUtility = preparedFullscreen || preparedProject || preparedComposition
                 || preparedDependencyComposition
             // Hidden prepared groups retain their source plan. No-effect
             // groups retain only ordering and allocate no capture target.

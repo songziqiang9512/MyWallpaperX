@@ -150,7 +150,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private func apply(
         _ mutations: [SceneScriptLayerMutation],
         publishingTopologyRevision: Bool,
-        deferringFinalization: Bool = false
+        deferringFinalization: Bool = false,
+        committedDestroyedAuthoredLayerIDs: Set<Int>? = nil
     ) -> Result<AppliedChanges, SceneScriptScalarRuntimeFailure> {
         guard mutations.count <= 512 else {
             return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
@@ -164,6 +165,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var candidateDefinitionOrder = authoredDefinitionOrder
         var candidateDefinitions = authoredDefinitionsByTarget
         var authoredTargets = Set<SceneDynamicTarget>()
+        // A parent can retire only when this same atomic owner request also
+        // explicitly retires every live child. Each requested child is checked
+        // in turn, so a deeper incomplete branch still rejects the whole owner.
+        let requestedAuthoredDestroyIDs = Set(mutations.compactMap { mutation in
+            !mutation.isDynamic && mutation.kind == .destroy ? mutation.layerID : nil
+        })
+        let previouslyRetiredIDs = committedDestroyedAuthoredLayerIDs
+            ?? destroyedAuthoredLayerIDs
         // Values and membership validate locally. Only the domain journal
         // projects render order after the accepted owner set has settled.
         var requiresRetirement = false
@@ -183,7 +192,15 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 }
                 if mutation.kind == .destroy {
                     guard mutation.fields.isEmpty, mutation.orderIndex >= 0,
-                          authoredLayer.childLayerIDs.isEmpty,
+                          authoredLayer.childLayerIDs.allSatisfy({
+                              requestedAuthoredDestroyIDs.contains($0)
+                                  || previouslyRetiredIDs.contains($0)
+                          }),
+                          !authoredLayersByID.values.contains(where: { child in
+                              child.parentID == mutation.layerID
+                                  && !requestedAuthoredDestroyIDs.contains(child.id)
+                                  && !previouslyRetiredIDs.contains(child.id)
+                          }),
                           !candidateDestroyedAuthoredLayerIDs.contains(mutation.layerID) else {
                         return .failure(.invalidArgument(
                             "invalid authored layer destroy"
@@ -791,6 +808,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var committedMutationCount = 0
         var committedDynamicMutationCount = 0
         var requiresRetirement = false
+        let committedDestroyedIDs = destroyedAuthoredLayerIDs
         for owner in ownerOrder {
             guard let batch = grouped[owner] else { continue }
             let authoredValues = batch.flatMap(Self.authoredValues)
@@ -806,7 +824,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 ))
                 continue
             }
-            switch apply(batch, publishingTopologyRevision: false, deferringFinalization: true) {
+            switch apply(batch, publishingTopologyRevision: false, deferringFinalization: true,
+                         committedDestroyedAuthoredLayerIDs: committedDestroyedIDs) {
             case let .success(changes):
                 requiresRetirement = requiresRetirement || changes.requiresRetirement
                 for (target, value) in authoredValues
