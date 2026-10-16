@@ -35,8 +35,8 @@ import Foundation
                 }
                 row["clips"] = mesh.clipRecords.map {
                     ["id": Int($0.id), "flags": Int($0.flags),
-                     "options": [Int($0.rawOptions.x), Int($0.rawOptions.y)],
-                     "path": $0.maskTexturePath, "target": $0.targetPartOrdinal,
+                     "reserved": Int($0.reserved),
+                     "path": $0.maskTexturePath, "targets": $0.targetPartOrdinals,
                      "sources": $0.sourcePartOrdinals] as [String: Any]
                 }
             } catch {
@@ -51,9 +51,14 @@ import Foundation
 '''
 
 
-def record(target=1, sources=(0, 1, 2), path=b'masks/paint', options=(0, 1), flags=0, identifier=17):
-    return struct.pack('<2I', identifier, flags) + path + b'\0' + struct.pack(
-        '<4I', *options, target, len(sources)) + struct.pack('<' + 'I' * len(sources), *sources)
+def record(target=1, sources=(0, 1, 2), path=b'masks/paint', reserved=0, flags=0,
+           identifier=17, *, targets=None, target_count=None, source_count=None):
+    targets = (target,) if targets is None else tuple(targets)
+    return (struct.pack('<2I', identifier, flags) + path + b'\0'
+            + struct.pack('<2I', reserved, len(targets) if target_count is None else target_count)
+            + struct.pack('<' + 'I' * len(targets), *targets)
+            + struct.pack('<I', len(sources) if source_count is None else source_count)
+            + struct.pack('<' + 'I' * len(sources), *sources))
 
 
 def suffix(*, extra=True, parts=None, records=None, extra_count=1, extra_size=36):
@@ -99,13 +104,28 @@ class ScenePuppetClippingTests(unittest.TestCase):
             'bare-modern': fixture(b''),
             'legacy': fixture(b'uninterpreted old-version suffix', b'MDLV0016', 52),
             'multi': fixture(suffix(records=[record(0, (2,)), record(2, (0, 1), identifier=18)])),
+            'two-targets': fixture(suffix(records=[record(targets=(0, 2))])),
+            'renamed-two-targets': fixture(suffix(
+                parts=[(901, 0, 0, 3), (0xffffffff, 0, 3, 3), (7, 0, 6, 3)],
+                records=[record(targets=(2, 0), path=b'changed/coverage', identifier=0xffffffff)])),
             'duplicates': fixture(suffix(records=[record(1, (0, 0, 1))])),
             'huge-id': fixture(suffix(parts=[(0xffffffff, 0, 0, 3), (18, 0, 3, 3), (9, 0, 6, 3)])),
             'target-oob': fixture(suffix(records=[record(3)])),
             'source-oob': fixture(suffix(records=[record(sources=(0xffffffff,))])),
             'source-empty': fixture(suffix(records=[record(sources=())])),
             'duplicate-target': fixture(suffix(records=[record(), record(identifier=18)])),
-            'unsupported-options': fixture(suffix(records=[record(options=(0, 2))])),
+            'duplicate-target-in-group': fixture(suffix(records=[record(targets=(1, 1))])),
+            'duplicate-target-across-groups': fixture(suffix(records=[
+                record(targets=(0, 1)), record(targets=(1, 2), identifier=18)])),
+            'multi-target-oob': fixture(suffix(records=[record(targets=(0, 3))])),
+            'target-empty': fixture(suffix(records=[record(targets=())])),
+            'target-count-huge': fixture(suffix(records=[record(target_count=0xffffffff)])),
+            'source-count-huge': fixture(suffix(records=[record(targets=(0, 2), source_count=0xffffffff)])),
+            'target-count-mismatch': fixture(suffix(records=[record(targets=(0, 2), target_count=1)])),
+            'truncated-multi-targets': fixture(suffix(records=[record(targets=(0, 2))[:-20]])),
+            'truncated-multi-source-count': fixture(suffix(records=[record(targets=(0, 2))[:-14]])),
+            'truncated-multi-sources': fixture(suffix(records=[record(targets=(0, 2))[:-1]])),
+            'unsupported-reserved': fixture(suffix(records=[record(reserved=1)])),
             'unsupported-flags': fixture(suffix(records=[record(flags=1)])),
             'path-empty': fixture(suffix(records=[record(path=b'')])),
             'path-invalid-utf8': fixture(suffix(records=[record(path=b'\xff')])),
@@ -120,6 +140,9 @@ class ScenePuppetClippingTests(unittest.TestCase):
             'empty-parts': fixture(suffix(parts=[
                 (10, 0, 0, 0), (11, 0, 0, 3), (12, 0, 3, 0),
                 (13, 0, 3, 6), (14, 0, 9, 0)], records=[record(3, (1, 2))])),
+            'multi-empty-part': fixture(suffix(parts=[
+                (10, 0, 0, 0), (11, 0, 0, 3), (12, 0, 3, 0),
+                (13, 0, 3, 6), (14, 0, 9, 0)], records=[record(sources=(1, 2), targets=(2, 3))])),
         }
         for label, changed in [
             ('range-gap', (18, 0, 6, 3)), ('range-overlap', (18, 0, 0, 3)),
@@ -163,9 +186,18 @@ class ScenePuppetClippingTests(unittest.TestCase):
 
     def test_self_and_duplicate_source_candidates_are_preserved_without_fake_dag(self):
         self.assertEqual(self.results['clip']['clips'], [
-            dict(id=17, flags=0, options=[0, 1], path='masks/paint', target=1, sources=[0, 1, 2])])
+            dict(id=17, flags=0, reserved=0, path='masks/paint', targets=[1], sources=[0, 1, 2])])
         self.assertEqual(self.results['duplicates']['clips'][0]['sources'], [0, 0, 1])
         self.assertTrue(self.results['multi']['ok'], self.results['multi'])
+
+    def test_counted_targets_keep_record_identity_and_authored_ordinals(self):
+        self.assertEqual(self.results['two-targets']['clips'], [
+            dict(id=17, flags=0, reserved=0, path='masks/paint', targets=[0, 2], sources=[0, 1, 2])])
+        renamed = self.results['renamed-two-targets']
+        self.assertTrue(renamed['ok'], renamed)
+        self.assertEqual([part['id'] for part in renamed['parts']], [901, 0xffffffff, 7])
+        self.assertEqual(renamed['clips'], [dict(id=0xffffffff, flags=0, reserved=0,
+            path='changed/coverage', targets=[2, 0], sources=[0, 1, 2])])
 
     def test_optional_stream_and_empty_clip_layout_keep_geometry(self):
         self.assertTrue(self.results['no-extra']['ok'], self.results['no-extra'])
@@ -185,8 +217,11 @@ class ScenePuppetClippingTests(unittest.TestCase):
         self.assertTrue(value['ok'], value)
         self.assertEqual([p['count'] for p in value['parts']], [0, 3, 0, 6, 0])
         self.assertEqual([p['ordinal'] for p in value['parts']], list(range(5)))
-        self.assertEqual(value['clips'][0]['target'], 3)
+        self.assertEqual(value['clips'][0]['targets'], [3])
         self.assertEqual(value['clips'][0]['sources'], [1, 2])
+        multi = self.results['multi-empty-part']
+        self.assertTrue(multi['ok'], multi)
+        self.assertEqual(multi['clips'][0]['targets'], [2, 3])
 
     def test_ranges_must_partition_the_original_triangle_indices_in_order(self):
         for label in ['range-gap', 'range-overlap', 'range-misaligned', 'range-oob',
@@ -195,9 +230,12 @@ class ScenePuppetClippingTests(unittest.TestCase):
                 self.assertFalse(self.results[label]['ok'], self.results[label])
                 self.assertIn('draw-part', self.results[label]['error'])
 
-    def test_relation_indices_paths_and_options_are_bounded(self):
+    def test_relation_counts_indices_paths_and_reserved_are_bounded(self):
         for label in ['target-oob', 'source-oob', 'source-empty', 'duplicate-target',
-                      'unsupported-options', 'unsupported-flags', 'path-empty', 'path-invalid-utf8']:
+                      'duplicate-target-in-group', 'duplicate-target-across-groups',
+                      'multi-target-oob', 'target-empty', 'target-count-huge', 'source-count-huge',
+                      'target-count-mismatch', 'unsupported-reserved', 'unsupported-flags',
+                      'path-empty', 'path-invalid-utf8']:
             with self.subTest(label=label):
                 self.assertFalse(self.results[label]['ok'], self.results[label])
 
@@ -205,7 +243,8 @@ class ScenePuppetClippingTests(unittest.TestCase):
         labels = [key for key in self.results if key.startswith('cut-') and key != 'cut-0']
         labels += ['truncated-record', 'truncated-envelope', 'extra-track-count',
                    'extra-size', 'trailing-byte', 'presence', 'part-byte-count',
-                   'empty-seven-nonzero', 'empty-eight']
+                   'empty-seven-nonzero', 'empty-eight', 'truncated-multi-targets',
+                   'truncated-multi-source-count', 'truncated-multi-sources']
         for label in labels:
             with self.subTest(label=label):
                 self.assertFalse(self.results[label]['ok'], self.results[label])

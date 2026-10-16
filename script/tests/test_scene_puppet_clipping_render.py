@@ -24,8 +24,11 @@ import simd
 final class Allocations {
     let device: MTLDevice
     var attempts: [[Int]] = []
+    var successes: [Int] = []
+    var releasedOrdinals: [Int] = []
     var releases = 0
     var denyAll = false
+    var deniedOrdinals: Set<Int> = []
     var remaining: Int?
     init(_ device: MTLDevice, remaining: Int? = nil) {
         self.device = device; self.remaining = remaining
@@ -33,23 +36,31 @@ final class Allocations {
     func reserve(_ ordinal: Int, _ width: Int, _ height: Int,
                  _ commandBuffer: MTLCommandBuffer) -> ScenePuppetClipping.Allocation? {
         attempts.append([ordinal, width, height])
-        guard !denyAll, remaining != 0 else { return nil }
+        guard !denyAll, !deniedOrdinals.contains(ordinal), remaining != 0 else { return nil }
         let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm,
             width: width, height: height, mipmapped: false)
         desc.storageMode = .private; desc.usage = [.renderTarget, .shaderRead]
         guard let texture = device.makeTexture(descriptor: desc) else { return nil }
         if let remaining { self.remaining = remaining - 1 }
-        return .init(texture: texture, release: { self.releases += 1 })
+        successes.append(ordinal)
+        return .init(texture: texture, release: {
+            self.releases += 1; self.releasedOrdinals.append(ordinal)
+        })
     }
 }
 
 @main enum Harness {
     typealias Mesh = SceneMdlPuppetMesh
     static func record(_ target: Int, _ sources: [Int]) -> Mesh.ClipRecord {
-        .init(id: UInt32(target), flags: 0, rawOptions: SIMD2(0, 1),
-            maskTexturePath: "fixture/paint", targetPartOrdinal: target, sourcePartOrdinals: sources)
+        record([target], sources, identifier: UInt32(target))
     }
-    static func fixture(_ rects: [SIMD4<Float>], colors: [Int], records: [Mesh.ClipRecord]) -> Mesh {
+    static func record(_ targets: [Int], _ sources: [Int],
+                       path: String = "fixture/paint", identifier: UInt32 = 17) -> Mesh.ClipRecord {
+        .init(id: identifier, flags: 0, reserved: 0,
+            maskTexturePath: path, targetPartOrdinals: targets, sourcePartOrdinals: sources)
+    }
+    static func fixture(_ rects: [SIMD4<Float>], colors: [Int], records: [Mesh.ClipRecord],
+                        emptyParts: Set<Int> = [], partIDs: [UInt32]? = nil) -> Mesh {
         var vertices: [Mesh.Vertex] = [], indices: [UInt16] = [], parts: [Mesh.DrawPart] = []
         for (ordinal, rect) in rects.enumerated() {
             let base = UInt16(vertices.count), offset = indices.count
@@ -60,9 +71,11 @@ final class Allocations {
                          SIMD2(rect.x, rect.w), SIMD2(rect.z, rect.w)].map {
                 .init(x: $0.x, y: $0.y, z: 0, u: u, v: 0.5)
             }
-            indices += [base, base + 1, base + 2, base + 2, base + 1, base + 3]
-            parts.append(.init(ordinal: ordinal, id: UInt32(ordinal), flags: 0,
-                               indexOffset: offset, indexCount: 6))
+            if !emptyParts.contains(ordinal) {
+                indices += [base, base + 1, base + 2, base + 2, base + 1, base + 3]
+            }
+            parts.append(.init(ordinal: ordinal, id: partIDs?[ordinal] ?? UInt32(ordinal), flags: 0,
+                               indexOffset: offset, indexCount: emptyParts.contains(ordinal) ? 0 : 6))
         }
         return .init(version: "MDLV0023", vertexStride: 80, meshBlockOffset: 9,
                      vertices: vertices, indices: indices, drawParts: parts, clipRecords: records)
@@ -115,12 +128,15 @@ final class Allocations {
                 allocate: { allocations.reserve($0, $1, $2, $3) })
         }
         func render(_ mesh: Mesh, _ clipping: ScenePuppetClipping, posed: [SceneQuadVertex]? = nil,
-                    points: [String: SIMD2<Float>] = standardPoints) -> [String: [UInt8]] {
+                    points: [String: SIMD2<Float>] = standardPoints,
+                    followup: SIMD4<Float>? = nil,
+                    prepared: ((Int) -> Void)? = nil) -> [String: [UInt8]] {
             let posed = posed ?? vertices(mesh), (vb, ib) = buffers(mesh, posed)
             let command = queue.makeCommandBuffer()!
             var releases: [() -> Void] = []
             clipping.prepare(commandBuffer: command, extent: SIMD2(64, 64), mvp: matrix_identity_float4x4,
                 retainAuxiliary: { releases.append($0) }, vertices: posed, vertexBuffer: vb, indexBuffer: ib)
+            prepared?(releases.count)
             let target = texture(.bgra8Unorm, 64, 64, target: true)
             let pass = MTLRenderPassDescriptor()
             pass.colorAttachments[0].texture = target
@@ -137,6 +153,17 @@ final class Allocations {
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneLayerFragmentUniforms>.stride, index: 0)
             encoder.setFragmentTexture(atlas, index: 0); encoder.setFragmentTexture(atlas, index: 1)
             clipping.draw(encoder: encoder, sourceTexture: atlas, indexBuffer: ib)
+            if let rect = followup {
+                var ordinary = [SIMD2(rect.x, rect.y), SIMD2(rect.z, rect.y),
+                                SIMD2(rect.x, rect.w), SIMD2(rect.z, rect.w)].map {
+                    SceneQuadVertex(position: $0, texcoord: SIMD2(0.625, 0.5))
+                }
+                // Keep the clipping owner's final fragment state. A fresh
+                // pipeline binder here would conceal a missing mask reset.
+                encoder.setVertexBytes(&ordinary,
+                    length: ordinary.count * MemoryLayout<SceneQuadVertex>.stride, index: 0)
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+            }
             encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
             releases.forEach { $0() }
             guard command.status == .completed, command.error == nil else { fatalError("GPU completion") }
@@ -212,6 +239,73 @@ final class Allocations {
         let unavailableFrame = render(unavailable, owner(unavailable, [1: white, 2: white], localBudget),
             points: ["left": SIMD2(-0.5, 0), "right": SIMD2(0.6, 0)])
 
+        let upper = SIMD4<Float>(-0.9, 0, 0.9, 0.9)
+        let firstTarget = SIMD4<Float>(-0.8, -0.5, -0.2, 0.5)
+        let secondTarget = SIMD4<Float>(0.35, -0.25, 0.65, 0.25)
+        let multiRects = [upper, firstTarget, secondTarget, healthy]
+        let multiPoints: [String: SIMD2<Float>] = [
+            "firstTop": SIMD2(-0.5, 0.25), "firstBottom": SIMD2(-0.5, -0.25),
+            "secondTop": SIMD2(0.5, 0.125), "secondBottom": SIMD2(0.5, -0.125),
+            "healthy": SIMD2(0.7, 0.7), "followup": SIMD2(0, -0.75)]
+        // Only one paint entry serves both targets in record0. Record1 uses
+        // gray, so confusing its original ordinal with execution item2 is visible.
+        let multi = fixture(multiRects, colors: [0, 1, 2, 2], records: [
+            record([1, 2], [0, 0], path: "fixture/shared-paint"), record(3, [0])])
+        let multiAlloc = Allocations(device)
+        weak var retainedPaint: MTLTexture?
+        let multiOwner: ScenePuppetClipping = autoreleasepool {
+            let paint = texture(.r8Unorm, 4, 4, bytes: Array(repeating: 255, count: 16))
+            retainedPaint = paint
+            return owner(multi, [0: paint, 1: gray], multiAlloc)
+        }
+        let paintHeld = retainedPaint != nil
+        var multiLeaseEvents: [[Int]] = []
+        let multiFrame = render(multi, multiOwner, points: multiPoints,
+            prepared: { multiLeaseEvents.append([$0, multiAlloc.releases]) })
+        let multiRepeatFrame = render(multi, multiOwner, points: multiPoints,
+            prepared: { multiLeaseEvents.append([$0, multiAlloc.releases]) })
+        let multiFailureAlloc = Allocations(device); multiFailureAlloc.deniedOrdinals = [0]
+        let multiFailureFrame = render(multi,
+            owner(multi, [0: white, 1: gray], multiFailureAlloc), points: multiPoints)
+        let renamedMulti = fixture(multiRects, colors: [0, 1, 2, 2], records: [
+            record([1, 2], [0, 0], path: "changed/matte", identifier: 9001),
+            record([3], [0], path: "changed/secondary", identifier: 77)],
+            partIDs: [41, 0xffffffff, 901, 2])
+        let renamedMultiAlloc = Allocations(device)
+        let renamedMultiFrame = render(renamedMulti,
+            owner(renamedMulti, [0: white, 1: gray], renamedMultiAlloc), points: multiPoints)
+
+        let multiEmpty = fixture(multiRects + [left], colors: [0, 1, 2, 2, 0],
+            records: [record([1, 2], [0, 4, 0])], emptyParts: [1, 4])
+        let multiEmptyAlloc = Allocations(device)
+        let multiEmptyFrame = render(multiEmpty,
+            owner(multiEmpty, [0: white], multiEmptyAlloc), points: multiPoints)
+
+        let multiNested = fixture([upper, full, firstTarget, secondTarget, healthy],
+            colors: [0, 0, 1, 2, 2], records: [
+                record(1, [0]), record([2, 3], [1, 1]), record(4, [0])])
+        let multiNestedAlloc = Allocations(device)
+        let multiNestedFrame = render(multiNested,
+            owner(multiNested, [0: white, 1: gray, 2: white], multiNestedAlloc), points: multiPoints)
+        let multiNestedFailureAlloc = Allocations(device); multiNestedFailureAlloc.deniedOrdinals = [0]
+        let multiNestedFailureFrame = render(multiNested,
+            owner(multiNested, [0: white, 1: gray, 2: white], multiNestedFailureAlloc), points: multiPoints)
+
+        // target1 excludes itself; target2 must still depend on target1.
+        // Dropping every target in the group would incorrectly show target2
+        // after target1's allocation failed.
+        let multiPeerSource = fixture(multiRects, colors: [0, 1, 2, 2], records: [
+            record([1, 2], [0, 1, 0]), record(3, [0])])
+        let multiPeerAlloc = Allocations(device); multiPeerAlloc.deniedOrdinals = [0]
+        let multiPeerFrame = render(multiPeerSource,
+            owner(multiPeerSource, [0: white, 1: gray], multiPeerAlloc), points: multiPoints)
+        let multiState = fixture(Array(multiRects.prefix(3)), colors: [0, 1, 2],
+            records: [record([1, 2], [0])])
+        let multiStateAlloc = Allocations(device)
+        let multiStateFrame = render(multiState,
+            owner(multiState, [0: white], multiStateAlloc), points: multiPoints,
+            followup: SIMD4(-0.1, -0.85, 0.1, -0.65))
+
         // Interior perspective derivative maximum: the corner-only estimate
         // underallocates width to about 44 although the interior needs >=127.
         let roi = fixture([SIMD4(0, 0, 1, 10), SIMD4(0, 0, 1, 10)], colors: [0, 1], records: [record(1, [0])])
@@ -245,6 +339,19 @@ final class Allocations {
             "localBudgetAttempts": localBudget.attempts, "localBudgetReleases": localBudget.releases,
             "roiAttempts": roiAlloc.attempts, "chain": chainFrame, "chainAttempts": chainAlloc.attempts,
             "chainCount": chain.clipRecords.count,
+            "multi": multiFrame, "multiRepeat": multiRepeatFrame, "multiRenamed": renamedMultiFrame,
+            "multiFailure": multiFailureFrame, "multiAttempts": multiAlloc.attempts,
+            "multiLeaseEvents": multiLeaseEvents, "multiSuccesses": multiAlloc.successes,
+            "multiReleased": multiAlloc.releasedOrdinals, "multiPaintHeld": paintHeld,
+            "multiFailureAttempts": multiFailureAlloc.attempts,
+            "multiFailureReleased": multiFailureAlloc.releasedOrdinals,
+            "multiEmpty": multiEmptyFrame, "multiEmptyAttempts": multiEmptyAlloc.attempts,
+            "multiNested": multiNestedFrame, "multiNestedAttempts": multiNestedAlloc.attempts,
+            "multiNestedFailure": multiNestedFailureFrame,
+            "multiNestedFailureAttempts": multiNestedFailureAlloc.attempts,
+            "multiNestedFailureReleased": multiNestedFailureAlloc.releasedOrdinals,
+            "multiPeerSourceFailure": multiPeerFrame, "multiPeerAttempts": multiPeerAlloc.attempts,
+            "multiState": multiStateFrame,
         ]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
@@ -343,6 +450,66 @@ class ScenePuppetClippingRenderTests(unittest.TestCase):
         self.assert_pixel("emptySource", "left", [160, 80, 40, 255])
         self.assert_pixel("emptySource", "right", [0, 0, 0, 0])
         self.assert_pixel("emptySource", "healthy", [0, 200, 0, 255])
+
+    def test_shared_record_clips_both_targets_and_keeps_the_next_record_paint(self):
+        for frame in ("multi", "multiRepeat", "multiRenamed"):
+            self.assert_pixel(frame, "firstTop", [160, 80, 40, 255])
+            self.assert_pixel(frame, "secondTop", [0, 200, 0, 255])
+            self.assert_pixel(frame, "healthy", [0, 100, 0, 128])
+            for point in ("firstBottom", "secondBottom"):
+                self.assert_pixel(frame, point, [0, 0, 0, 0])
+        # Separate target bounds require two independently sampled ROIs.
+        for requests in (self.result["multiAttempts"][:3], self.result["multiAttempts"][3:]):
+            self.assertCountEqual(requests, [[0, 22, 34], [1, 12, 18], [2, 12, 12]])
+
+    def test_one_multi_target_allocation_failure_keeps_the_other_target(self):
+        for point in ("firstTop", "firstBottom", "secondBottom"):
+            self.assert_pixel("multiFailure", point, [0, 0, 0, 0])
+        self.assert_pixel("multiFailure", "secondTop", [0, 200, 0, 255])
+        self.assert_pixel("multiFailure", "healthy", [0, 100, 0, 128])
+        self.assertCountEqual([row[0] for row in self.result["multiFailureAttempts"]], [0, 1, 2])
+        self.assertCountEqual(self.result["multiFailureReleased"], [1, 2])
+
+    def test_multi_target_nested_coverage_keeps_independent_component(self):
+        self.assert_pixel("multiNested", "firstTop", [80, 40, 20, 128])
+        self.assert_pixel("multiNested", "secondTop", [0, 100, 0, 128])
+        for frame in ("multiNested", "multiNestedFailure"):
+            self.assert_pixel(frame, "healthy", [0, 200, 0, 255])
+            for point in ("firstBottom", "secondBottom"):
+                self.assert_pixel(frame, point, [0, 0, 0, 0])
+        for point in ("firstTop", "secondTop"):
+            self.assert_pixel("multiNestedFailure", point, [0, 0, 0, 0])
+        order = [row[0] for row in self.result["multiNestedAttempts"]]
+        self.assertCountEqual(order, [0, 1, 2, 3])
+        self.assertLess(order.index(0), order.index(1))
+        self.assertLess(order.index(0), order.index(2))
+        self.assertCountEqual([row[0] for row in self.result["multiNestedFailureAttempts"]], [0, 3])
+        self.assertEqual(self.result["multiNestedFailureReleased"], [3])
+
+    def test_current_target_self_filter_preserves_the_other_target_dependency(self):
+        self.assert_pixel("multiFailure", "secondTop", [0, 200, 0, 255])
+        self.assert_pixel("multiPeerSourceFailure", "secondTop", [0, 0, 0, 0])
+        self.assert_pixel("multiPeerSourceFailure", "healthy", [0, 100, 0, 128])
+        self.assertCountEqual([row[0] for row in self.result["multiPeerAttempts"]], [0, 2])
+
+    def test_empty_target_and_empty_source_keep_the_nonempty_target_ordinal(self):
+        for point in ("firstTop", "firstBottom", "secondBottom"):
+            self.assert_pixel("multiEmpty", point, [0, 0, 0, 0])
+        self.assert_pixel("multiEmpty", "secondTop", [0, 200, 0, 255])
+        self.assert_pixel("multiEmpty", "healthy", [0, 200, 0, 255])
+        self.assertEqual(self.result["multiEmptyAttempts"], [[1, 12, 18]])
+
+    def test_prepared_paint_and_per_target_leases_survive_repeated_submission(self):
+        self.assertTrue(self.result["multiPaintHeld"])
+        self.assertEqual(self.result["multiLeaseEvents"], [[3, 0], [3, 3]])
+        self.assertCountEqual(self.result["multiSuccesses"], [0, 1, 2] * 2)
+        self.assertCountEqual(self.result["multiReleased"], [0, 1, 2] * 2)
+
+    def test_last_multi_target_does_not_leak_mask_into_following_ordinary_draw(self):
+        self.assert_pixel("multiState", "firstTop", [160, 80, 40, 255])
+        self.assert_pixel("multiState", "secondTop", [0, 200, 0, 255])
+        self.assert_pixel("multiState", "secondBottom", [0, 0, 0, 0])
+        self.assert_pixel("multiState", "followup", [0, 200, 0, 255])
 
     def test_perspective_roi_bounds_interior_sampling_density(self):
         requests = self.result["roiAttempts"]

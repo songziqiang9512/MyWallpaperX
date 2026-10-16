@@ -137,7 +137,7 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 
 ### 3.4 Puppet 部件裁剪
 
-`L3 bounded / S4 fixed-frame visible`：已证 MDLV0023 的 draw-part/clip records 与 R8 paint 进入同一pose、GeometryProduct、main/named辅助准备及原part顺序draw，保留合法空part ordinal与已证空后缀。职责与失败规则只由[部件裁剪合同](puppet-clipping-design.md)拥有；[本批运行证据](runtime-evidence-current.md#e-2026-10-08-puppet-clipping)区分固定帧、原包与reader非回退验证，不登记整样本或性能通过。
+`L3 bounded / S4 fixed-frame and main-figure visible`：已证 MDLV0023 的 draw-part/clip records 与 R8 paint 进入同一pose、GeometryProduct、main/named辅助准备及原part顺序draw，保留合法空part ordinal与已证空后缀；counted多target数组沿原逐target ROI/依赖和共享paint接通，[原357人物及独立379](runtime-evidence-current.md#puppet-multi-target-20261017)已实看。职责与失败规则只由[部件裁剪合同](puppet-clipping-design.md)拥有；[本批运行证据](runtime-evidence-current.md#e-2026-10-08-puppet-clipping)区分固定帧、原包与reader非回退验证，不登记整样本或性能通过。
 
 opaque重叠max有固定官方四输入端点支持；nested仅本地GPU输入/输出成立。非一source vertexCoverage对应clip局部拒绝；其官方合并语义、nested/软边parity、更多格式、原样本局部图案与完整视觉保持未证，不能由本片升级。
 

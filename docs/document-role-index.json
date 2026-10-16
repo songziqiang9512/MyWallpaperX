@@ -533,13 +533,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2645c8c13c187f064447d5ff010caed9bd991d97efa4e79bbb1a20ab6d608f22",
+        "sourceSHA256": "c50566ed66e923fc5650cf12c1db7ea93ef46883acff43f7bc89e710b931afe5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
-        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
+        "scope": "核对多target裁剪唯一合同、原包主体恢复与剩余动画/图标/effect边界、现役队列与机器生成台账引用。",
+        "limitations": "导航/合同同步；具体执行身份见有界证据，不计完整样本、官方像素parity或性能验收。"
       }
     },
     {
@@ -622,13 +622,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/advanced-object-coverage.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-08",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "227140ef85dcd4a28a1259d8c4b3c9c02f3418a97b53d981dfb96fa184753dea",
+        "sourceSHA256": "b4819cd6cf9f00dd7da642a87d780d3abc79dda7ccdf3caf6d16669fa04cd66b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "维护单一裁剪职责合同，核对合法空part、精确空后缀与准备期source去重/排self/empty；运行身份及验收边界只链接证据权威。",
-        "limitations": "导航和合同维护；不声明官方nested/软边、非一source alpha、完整样本或性能验收。"
+        "scope": "核对多target裁剪唯一合同、原包主体恢复与剩余动画/图标/effect边界、现役队列与机器生成台账引用。",
+        "limitations": "导航/合同同步；具体执行身份见有界证据，不计完整样本、官方像素parity或性能验收。"
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "90d12d031518d932f9ea6de64593e63bb22a6c356ce5814046751cfcaff7071a",
+        "sourceSHA256": "ba5c84fc51e7382d70f4609bdca0afc9dd61ff0468495445d1805bf944633328",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空effect集合getter合同及原359过场fallback、独立335/官方/VM证据和队列退出导航。",
-        "limitations": "只复核本片合同/结果链接；不代表非空官方行为、更广交互、全样本或性能重新验收。"
+        "scope": "核对多target裁剪唯一合同、原包主体恢复与剩余动画/图标/effect边界、现役队列与机器生成台账引用。",
+        "limitations": "导航/合同同步；具体执行身份见有界证据，不计完整样本、官方像素parity或性能验收。"
       }
     },
     {
@@ -737,10 +737,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "adbe2e3f8b78eb0b3926ae9a50ecbdf48aae1664dc5a0998f371501916f6e467",
+        "sourceSHA256": "d44346eeb51f091fa8f5bd5b741b95bcda6fb5221191e67b3f813cffc9d1b188",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空effect集合getter合同及原359过场fallback、独立335/官方/VM证据和队列退出导航。",
-        "limitations": "只复核本片合同/结果链接；不代表非空官方行为、更广交互、全样本或性能重新验收。"
+        "scope": "核对多target裁剪唯一合同、原包主体恢复与剩余动画/图标/effect边界、现役队列与机器生成台账引用。",
+        "limitations": "导航/合同同步；具体执行身份见有界证据，不计完整样本、官方像素parity或性能验收。"
       }
     },
     {
@@ -3335,10 +3335,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9638bad0c6d8d4f4489d79c821fc2d20e9e7b7b1062d22d0422dbbb2bee1dec0",
+        "sourceSHA256": "63c6768f6a7ad7681dafdfadbd137b936bdc183385e6cb92c536131e774f3d49",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空effect集合getter合同及原359过场fallback、独立335/官方/VM证据和队列退出导航。",
-        "limitations": "只复核本片合同/结果链接；不代表非空官方行为、更广交互、全样本或性能重新验收。"
+        "scope": "核对多target裁剪唯一合同、原包主体恢复与剩余动画/图标/effect边界、现役队列与机器生成台账引用。",
+        "limitations": "导航/合同同步；具体执行身份见有界证据，不计完整样本、官方像素parity或性能验收。"
       }
     },
     {
@@ -3349,10 +3349,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0f6defc30e2025b0ba61709e7d69fe976b2ed04c459cd41a9294b657ba17f678",
+        "sourceSHA256": "1f0fedba02520eb9dabb36eff9897bb47e2cb666898d322ca2d1200896b42ef8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "空effect集合getter合同及原359过场fallback、独立335/官方/VM证据和队列退出导航。",
-        "limitations": "只复核本片合同/结果链接；不代表非空官方行为、更广交互、全样本或性能重新验收。"
+        "scope": "核对多target裁剪唯一合同、原包主体恢复与剩余动画/图标/effect边界、现役队列与机器生成台账引用。",
+        "limitations": "导航/合同同步；具体执行身份见有界证据，不计完整样本、官方像素parity或性能验收。"
       }
     },
     {

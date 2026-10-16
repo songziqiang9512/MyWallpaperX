@@ -6,9 +6,21 @@
 
 ## 输入与准备
 
-- `MDLV0023` 已证 suffix 保存 16-byte draw-part ranges 与 clipping records。target/source 是零基 part ordinal；保留原 id、flags 和 options，仅接受已证形状。range 必须按序完整划分原 indices，合法 `count=0` part保留原ordinal、不推进index offset，不能压缩表；target 唯一、引用合法；self 与重复 source 在 IR 中保真，执行时排除 target 自身。精确七零字节的无stream/parts/clips后缀兼容返回空IR，包含既存stride48输入；只接受exact length/bytes，不吞畸形populated metadata。未知布局、坏范围或重复 target 拒绝该 mesh，不用完整白 atlas 代替。
+- `MDLV0023` 已证 suffix 保存 16-byte draw-part ranges 与 clipping records。target/source 是零基 part ordinal；关系保存原 id、flags、reserved word及两组有计数的ordinal数组，仅接受已证形状。range 必须按序完整划分原 indices，合法 `count=0` part保留原ordinal、不推进index offset，不能压缩表；target数组非空、组内及跨record唯一，source数组非空，引用合法且计数受后缀剩余字节约束；self 与重复 source 在 IR 中保真，执行时排除当前target自身。精确七零字节的无stream/parts/clips后缀兼容返回空IR，包含既存stride48输入；只接受exact length/bytes，不吞畸形populated metadata。未知布局、坏范围或重复 target 拒绝该 mesh，不用完整白 atlas 代替。
 - Load 沿现有 TextureLoader 的 preserved-channel 路径读取 R8 paint；关系、资源与依赖顺序在准备期建立。执行source列表仅准备一次，去重并排除self与空part；原DTO的ordinal和source数组不变。额外 vec3 stream 保留边界但不参与变形，旧版无 clip 的 mesh 继续原直绘。普通帧不重读格式、纹理或重建关系。
 - 有贡献的source若也是被裁剪target，则先准备其coverage；空part不形成coverage依赖，也不使健康source的union失效。用有界迭代拓扑顺序处理嵌套；cycle 及其真实下游保持不可用，独立分量继续。不新增 graph、clock、pose 或最终输出 owner。
+
+## 多目标关系扩展决定
+
+目标是恢复因同一clip关联多个target而被整体拒绝的合法mesh。原reader把path后的`reserved, targetCount`误当固定`(0,1)`选项；删除guard仍会错位读取后续sourceCount。原单目标DTO退役为`targetPartOrdinals`，不保留平行兼容字段，不跳record或改用atlas quad。
+
+职责保持`MDL reader → mesh IR → ScenePuppetClipping → 既有geometry/main或named encoder → 唯一compositor`。reader一次解析完整的target/source数组并校验格式、引用与target唯一性；现clipping owner在准备期将一个record投影成每个target的执行项，复用同一paint，去重source并仅排当前target/空part。既有拓扑顺序、每target变形后ROI、R8 pool租约和submission保留继续生效；不新建格式、mask、pose或输出owner。普通帧只准备当前pose的coverage。
+
+选择逐target ROI是保留现有采样与局部失败合同的最小扩展；合并大ROI会改变密度、预算和失败半径，当前没有收益证据，暂不加入。相同已准备nested target的coverage继续共用；不重复读取paint或解析关系。共享source的两次ROI raster有实际不同采样域，后续若成为成本热点再同条件测量，不宣称本批性能收益。
+
+失败与退出：未知flags/reserved、空数组、越界/截断或重复target仍按mesh安全边界拒绝；缺paint、ROI/预算/encoder失败与cycle按现合同只隐藏相关target及真实下游。非一source coverage、未知软边与多目标间相互为source的官方语义不因数组准入自动升级。
+
+原始字节与独立样本已定位两组counted ordinal数组；结构修正仅复用已有逐target裁剪，允许与固定官方正控并行实施以缩短等待，不新增coverage算法。验收前必须取得自有两target/同paint/source正控，能区分第二target被裁、未被裁及遗漏，并有单target邻例；不成立即撤回未接纳扩展。最近格式门覆盖改名/变更part id、两数组基数、计数截断、重复/越界与旧单target；GPU门验证两target各自实际coverage及一个ROI失败时健康target、nested/独立分量和后继draw状态，保pool/submission生命周期。一次Debug构建后检查原包主幅及未参与修法的真实Puppet，审查绑定最终输入/源码；人物仍缺失时沿首个实际失败继续定位，不能把格式准入当作已恢复。
 
 ## 当前帧与绘制
 
@@ -24,10 +36,10 @@
 
 缺 paint、非 R8、预算不足、辅助 encoder/ROI 不可用或未准备的 nested 依赖，只隐藏对应 target 和真实下游；健康 part、附件与邻层继续。identity/generation 或格式越界按既有 publication/mesh 安全边界拒绝，不用无裁剪画面回退。
 
-尚未证明：fractional source vertexCoverage 的合并、官方 nested/软边像素 parity、更多 MDL/record 形状及未知 flags/options、任意深度/性能与完整 Workshop 兼容率。上述范围不能由单样本闭眼恢复或本地 GPU 门升级。
+尚未证明：fractional source vertexCoverage 的合并、官方 nested/软边像素 parity、更多 MDL/record 形状及未知 flags/reserved、任意深度/性能与完整 Workshop 兼容率。上述范围不能由单样本闭眼恢复或本地 GPU 门升级。
 
 ## 验证与维护
 
 最近门：`test_scene_puppet_clipping`、`test_scene_puppet_clipping_shader`、`test_scene_puppet_clipping_render`、`test_scene_puppet_clipping_pool`、`test_scene_puppet_buffer_publication`、`test_scene_geometry_auxiliary_lifetime`。它们分别检查格式边界、RGBA/union 输入输出、nested/cycle/局部失败、pool identity/预算/pins 和旧几何保留，不替代固定官方或产品画面验收。
 
-扩展未知 profile 前先修订本合同并取得能区分行为的官方输入；运行结果只写入证据owner。设计批准登记指向本稳定合同，实施与回归证据归档，仍待证明的能力由断点队列推进；设计批准不代表完整样本、性能或官方parity通过。
+本次多target数组的固定官方mask子门及原包中央人物恢复见[限定证据](runtime-evidence-current.md#puppet-multi-target-20261017)；标签辅助joint失败与人物动画/其余效果未闭分列，不能宣称完整播放。扩展未知 profile 前先修订本合同并取得能区分行为的官方输入；运行结果只写入证据owner。设计批准登记指向本稳定合同，实施与回归证据归档，仍待证明的能力由断点队列推进；设计批准不代表完整样本、性能或官方parity通过。

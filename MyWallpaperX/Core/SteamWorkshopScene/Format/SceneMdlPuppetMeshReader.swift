@@ -30,9 +30,9 @@ struct SceneMdlPuppetMesh {
     struct ClipRecord: Equatable {
         let id: UInt32
         let flags: UInt32
-        let rawOptions: SIMD2<UInt32>
+        let reserved: UInt32
         let maskTexturePath: String
-        let targetPartOrdinal: Int
+        let targetPartOrdinals: [Int]
         let sourcePartOrdinals: [Int]
     }
 
@@ -330,8 +330,8 @@ enum SceneMdlPuppetMeshReader {
         }
         let clipCount = Int(readUInt32(data, at: cursor))
         cursor += 4
-        // Each supported record has two words, a nonempty NUL path, four
-        // relation words, and at least one source ordinal.
+        // Each record has two header words, a nonempty NUL path, a reserved
+        // word and two counted ordinal arrays, each with at least one part.
         guard clipCount <= (bound - cursor) / 30 else {
             throw SceneMdlPuppetMeshReadError.invalidClippingLayout
         }
@@ -346,18 +346,35 @@ enum SceneMdlPuppetMeshReader {
             let flags = readUInt32(data, at: cursor + 4)
             cursor += 8
             let path = try readMaskPath(data, cursor: &cursor, bound: bound, recordIndex: index)
-            guard cursor + 16 <= bound else {
+            guard cursor + 8 <= bound else {
                 throw SceneMdlPuppetMeshReadError.invalidClipRecord(index: index)
             }
-            let options = SIMD2(readUInt32(data, at: cursor), readUInt32(data, at: cursor + 4))
-            let target = Int(readUInt32(data, at: cursor + 8))
-            let sourceCount = Int(readUInt32(data, at: cursor + 12))
-            cursor += 16
-            guard flags == 0, options == SIMD2<UInt32>(0, 1) else {
+            let reserved = readUInt32(data, at: cursor)
+            let targetCount = Int(readUInt32(data, at: cursor + 4))
+            cursor += 8
+            guard flags == 0, reserved == 0 else {
                 throw SceneMdlPuppetMeshReadError.unsupportedClippingOptions(index: index)
             }
-            guard parts.indices.contains(target), targets.insert(target).inserted,
-                  sourceCount > 0, sourceCount <= (bound - cursor) / 4 else {
+            guard targetCount > 0, targetCount <= parts.count,
+                  targetCount <= (bound - cursor) / 4 else {
+                throw SceneMdlPuppetMeshReadError.invalidClipRecord(index: index)
+            }
+            var recordTargets: [Int] = []
+            recordTargets.reserveCapacity(targetCount)
+            for _ in 0 ..< targetCount {
+                let target = Int(readUInt32(data, at: cursor))
+                guard parts.indices.contains(target), targets.insert(target).inserted else {
+                    throw SceneMdlPuppetMeshReadError.invalidClipRecord(index: index)
+                }
+                recordTargets.append(target)
+                cursor += 4
+            }
+            guard cursor + 4 <= bound else {
+                throw SceneMdlPuppetMeshReadError.invalidClipRecord(index: index)
+            }
+            let sourceCount = Int(readUInt32(data, at: cursor))
+            cursor += 4
+            guard sourceCount > 0, sourceCount <= (bound - cursor) / 4 else {
                 throw SceneMdlPuppetMeshReadError.invalidClipRecord(index: index)
             }
             var sources: [Int] = []
@@ -372,8 +389,8 @@ enum SceneMdlPuppetMeshReader {
                 sources.append(source)
                 cursor += 4
             }
-            clips.append(.init(id: id, flags: flags, rawOptions: options,
-                maskTexturePath: path, targetPartOrdinal: target, sourcePartOrdinals: sources))
+            clips.append(.init(id: id, flags: flags, reserved: reserved,
+                maskTexturePath: path, targetPartOrdinals: recordTargets, sourcePartOrdinals: sources))
         }
         guard cursor == bound else {
             throw SceneMdlPuppetMeshReadError.invalidClippingLayout

@@ -60,13 +60,18 @@ final class ScenePuppetClipping {
         let texture: MTLTexture
         let transform: SIMD4<Float>
     }
+    private struct Target {
+        let recordIndex: Int
+        let partOrdinal: Int
+        let sourceParts: [Int]
+    }
     private let mesh: SceneMdlPuppetMesh
     private let pipeline: MTLRenderPipelineState?
     private let paintTextures: [Int: MTLTexture]
     private let allocate: Allocator
-    private let recordByTarget: [Int: Int]
+    private let targetIndexByPart: [Int: Int]
     private let preparationOrder: [Int]
-    private let sourceParts: [[Int]]
+    private let targets: [Target]
     private var prepared: [Int: Mask] = [:]
     private var opaqueSources: [Int: Bool] = [:]
 
@@ -76,22 +81,26 @@ final class ScenePuppetClipping {
         self.pipeline = pipeline
         self.paintTextures = paintTextures
         self.allocate = allocate
-        sourceParts = mesh.clipRecords.map { record in
+        let targets = mesh.clipRecords.enumerated().flatMap { index, record in
             var seen: Set<Int> = []
-            return record.sourcePartOrdinals.filter {
-                $0 != record.targetPartOrdinal && mesh.drawParts[$0].indexCount > 0
-                    && seen.insert($0).inserted
+            let sources = record.sourcePartOrdinals.filter {
+                mesh.drawParts[$0].indexCount > 0 && seen.insert($0).inserted
+            }
+            return record.targetPartOrdinals.map { target in
+                Target(recordIndex: index, partOrdinal: target,
+                       sourceParts: sources.filter { $0 != target })
             }
         }
-        // The reader admits one clip record per target. Self is a source
-        // candidate in real exports, but the official renderer excludes it.
+        self.targets = targets
+        // Each target belongs to exactly one authored record. Project its
+        // execution once, while sharing that record's paint resource.
         let byTarget = Dictionary(uniqueKeysWithValues:
-            mesh.clipRecords.enumerated().map { ($0.element.targetPartOrdinal, $0.offset) })
-        recordByTarget = byTarget
-        var indegrees = Array(repeating: 0, count: mesh.clipRecords.count)
+            targets.enumerated().map { ($0.element.partOrdinal, $0.offset) })
+        targetIndexByPart = byTarget
+        var indegrees = Array(repeating: 0, count: targets.count)
         var consumers: [Int: [Int]] = [:]
-        for index in mesh.clipRecords.indices {
-            let dependencies = Set(sourceParts[index].compactMap { byTarget[$0] })
+        for index in targets.indices {
+            let dependencies = Set(targets[index].sourceParts.compactMap { byTarget[$0] })
             indegrees[index] = dependencies.count
             for dependency in dependencies { consumers[dependency, default: []].append(index) }
         }
@@ -119,12 +128,12 @@ final class ScenePuppetClipping {
         opaqueSources.removeAll(keepingCapacity: true)
         guard let pipeline else { return }
         for index in preparationOrder {
-            let record = mesh.clipRecords[index]
-            let sources = sourceParts[index]
+            let targetPart = targets[index]
+            let sources = targetPart.sourceParts
             // Reject a missing dependency before allocating any target, so
             // unavailable nested components cannot consume healthy parts' budget.
-            guard let paint = paintTextures[index],
-                  sources.allSatisfy({ recordByTarget[$0] == nil || prepared[$0] != nil }),
+            guard let paint = paintTextures[targetPart.recordIndex],
+                  sources.allSatisfy({ targetIndexByPart[$0] == nil || prepared[$0] != nil }),
                   sources.allSatisfy({ ordinal in
                       if let opaque = opaqueSources[ordinal] { return opaque }
                       let part = mesh.drawParts[ordinal]
@@ -134,7 +143,7 @@ final class ScenePuppetClipping {
                       opaqueSources[ordinal] = opaque
                       return opaque
                   }),
-                  let roi = region(part: mesh.drawParts[record.targetPartOrdinal],
+                  let roi = region(part: mesh.drawParts[targetPart.partOrdinal],
                                    vertices: vertices, extent: extent, mvp: mvp),
                   let allocation = allocate(index, roi.width, roi.height, commandBuffer) else { continue }
             let target = allocation.texture
@@ -153,7 +162,7 @@ final class ScenePuppetClipping {
                 continue
             }
             retainAuxiliary(allocation.release)
-            encoder.label = "Puppet part clipping \(record.targetPartOrdinal)"
+            encoder.label = "Puppet part clipping \(targetPart.partOrdinal)"
             encoder.setRenderPipelineState(pipeline)
             encoder.setCullMode(.none)
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
@@ -175,7 +184,7 @@ final class ScenePuppetClipping {
                 #endif
             }
             encoder.endEncoding()
-            prepared[record.targetPartOrdinal] = Mask(texture: target, transform: roi.transform)
+            prepared[targetPart.partOrdinal] = Mask(texture: target, transform: roi.transform)
         }
     }
 
@@ -183,7 +192,7 @@ final class ScenePuppetClipping {
         for part in mesh.drawParts where part.indexCount > 0 {
             let mask = prepared[part.ordinal]
             // Ordinary auxiliary failure hides only the dependent target.
-            if recordByTarget[part.ordinal] != nil && mask == nil { continue }
+            if targetIndexByPart[part.ordinal] != nil && mask == nil { continue }
             SceneImageLayerPipeline.bindClipMask(encoder: encoder,
                 texture: mask?.texture ?? sourceTexture, transform: mask?.transform ?? .zero)
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: part.indexCount,

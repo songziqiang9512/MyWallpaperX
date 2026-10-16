@@ -383,7 +383,7 @@
       "owner": "scene-p-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/puppet-clipping-design.md",
-      "design_notes": "有界实施由同路径stable-contract维护：MDLV0023 part/paint、合法空part保ordinal、精确空后缀、opaque max、nested交集、同pose main/named直绘和pool/submission生命周期。执行source在准备期去重并排self/empty，保留原DTO。固定官方端点支持opaque重叠不累积paint；nested仅本地GPU验证。非一source alpha、更多格式与官方nested/软边parity仍关闭；approved不代表完整样本或性能验收。",
+      "design_notes": "有界实施由同路径stable-contract维护：MDLV0023 part/paint、合法空part保ordinal、精确空后缀、opaque max、nested交集、同pose main/named直绘和pool/submission生命周期。多目标counted target/source结构由原字节与独立样本定位；原reader完整解析、原clipping owner准备期投影逐target ROI/DAG，共用paint与原pool/submission，允许与固定自有官方资格并行实施，正控不成立不接纳扩展；退役误命名rawOptions/单target DTO，不另建mask或输出owner。source去重并排当前self/empty，原DTO保真，未知flags/reserved与坏格式拒绝。非一source alpha、其他格式及官方nested/软边parity仍关闭；批准设计不代表实施、整样本或性能验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/ScenePuppetClipping*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneMdlPuppetClipping*.swift"
