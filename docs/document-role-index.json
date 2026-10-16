@@ -533,13 +533,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b1b76e0869b6ab50a032deadb2dea762249aac777349dd41971006e910fb396d",
+        "sourceSHA256": "03b6a68ee8ef126786df849a99760fe160922d91d6a82fc58424123145c1ea5c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对独立角色reference的现役合同、先行设计、历史证据入口及最近门；仅更新导航与正文身份。",
-        "limitations": "仅文档入口、角色、合同/状态职责及hash核对；不代表重新运行产品、官方数值或逐像素parity、完整交互、全样本或普通产品入口验收。"
+        "scope": "R40共享角度合同与有界App/像素证据、已修项退出；213无归属mask诊断资格纠正，376旧云形差异保留。其他条目沿既有身份与边界，未作全页运行复验。",
+        "limitations": "文档复核不等于全库/官方parity、全HDR/多屏、账号或性能验收；本片输入和运行身份仅见精确收据。"
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "824bfc8ae93ee6a5ff2f5d6a578deeca0f14a86380c8b434cafef6f83c6c2b77",
+        "sourceSHA256": "330b8fa15ef467cb7ce3544433cb2b2c3d5dacc4872ce5e64bea70233cd47387",
         "method": "document_registry --audit + document_health --check",
-        "scope": "尺寸后继的生产投影/Anchor GPU边界、SDR暂停drawable changed通知与原HDR邻例、独立314；U43实际修复与169同aspect资格退出队列",
-        "limitations": "仅导航和本批边界；等比resize不证明跨比例App/Retina/多屏；anchor-camera官方零组无可见资格，停止且保unknown，无parity/性能收益结论。"
+        "scope": "R40共享角度合同与有界App/像素证据、已修项退出；213无归属mask诊断资格纠正，376旧云形差异保留。其他条目沿既有身份与边界，未作全页运行复验。",
+        "limitations": "文档复核不等于全库/官方parity、全HDR/多屏、账号或性能验收；本片输入和运行身份仅见精确收据。"
       }
     },
     {
@@ -3294,10 +3294,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e0a199d828de829f3b750b88089c5c6839248a63ceba4448fdde58908f058a2e",
+        "sourceSHA256": "0a653303bec74bd11468538e7be363dbe76372bb7a3a17a87a3260ff4c399e5b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "R40共享角度合同与有界App/像素证据、已修项退出；213无归属mask诊断资格纠正，376旧云形差异保留。其他条目沿既有身份与边界，未作全页运行复验。",
+        "limitations": "文档复核不等于全库/官方parity、全HDR/多屏、账号或性能验收；本片输入和运行身份仅见精确收据。"
       }
     },
     {
@@ -3308,10 +3308,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5fff3ca874a2f9a58b21ced1b7247dca8ca7b3b37f0633d78b62e2f0db5d197d",
+        "sourceSHA256": "c497b5d3c600142f10ef0f38106295c619966ff6c717cb2aed32dbaedf9d4ebf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "R40共享角度合同与有界App/像素证据、已修项退出；213无归属mask诊断资格纠正，376旧云形差异保留。其他条目沿既有身份与边界，未作全页运行复验。",
+        "limitations": "文档复核不等于全库/官方parity、全HDR/多屏、账号或性能验收；本片输入和运行身份仅见精确收据。"
       }
     },
     {

@@ -14,6 +14,7 @@
 
 | 查询主题 | 本页证据入口 |
 |---|---|
+| 聚光锥逐动画播放 | [共享角度合同与验收](advanced-object-coverage.md#standalone-spot-playback)：旧App已复现typed pause而cone继续动；候选pause受控ROI零变化、peer继续，play/stop/恢复均响应。原包376四灯GPU/实际底部光束保持，云形/烟花及完整parity未闭，无性能收益声明。 |
 | 默认2D相机/画布适屏 | [相机输入与同宽高比后验](../history/default-2d-camera-inputs-2026-10-16.md)：304原包作者倍率与同窗热改实际可见，169灰带官方同aspect亦有；追加生产投影多比例/密度与Anchor GPU门、SDR暂停resize实修和原HDR邻例；AppKit Retina/跨屏、全景与性能结论分列。 |
 | App音频触发桌面冻结 | [普通桌面权限与资源驻留](../history/terminal-attachment-desktop-freeze-2026-10-10.md)：包含342真实App音频、封面依赖/热切与312健康回归；亮度、性能及证据边界见该页。 |
 | 样本声明与运行关联 | [243份声明快照](scene-corpus-capability-inventory.md)、[验收来源](scene-sample-acceptance-ledger.md)保留旧身份；[10-11新增37份普查](../history/new-scene-intake-2026-10-11.md)补当前279成员中的新增运行，未验全库正确率；待修归[队列](../roadmap/scene-open-breakpoint-queue.md) |

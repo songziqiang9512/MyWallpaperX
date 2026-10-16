@@ -112,7 +112,7 @@ final class SceneSpotLightPipeline {
         intensity: Float,
         worldOrigin: SIMD2<Float>,
         viewProjection: simd_float4x4,
-        sceneTime: Double,
+        authoredAngle: Float,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
         guard color.x.isFinite, color.y.isFinite, color.z.isFinite,
@@ -126,7 +126,7 @@ final class SceneSpotLightPipeline {
               viewProjection.columns.1.allFinite,
               viewProjection.columns.2.allFinite,
               viewProjection.columns.3.allFinite,
-              let authoredAngle = plan.authoredAngle(at: sceneTime) else {
+              authoredAngle.isFinite else {
             return false
         }
         let outerHalfWidth = plan.radius * tan(plan.outerConeRadians * 0.5)

@@ -3,7 +3,6 @@ import simd
 
 final class SceneSpotLightRuntime {
     struct Frame {
-        let sceneTime: Double
         let dynamicValues: SceneDynamicSnapshot
         let viewProjection: simd_float4x4
         let mainPass: SceneMainPassEncoder
@@ -15,7 +14,6 @@ final class SceneSpotLightRuntime {
             mainPass: SceneMainPassEncoder,
             commandBuffer: MTLCommandBuffer
         ) {
-            sceneTime = frameContext.sceneTime
             dynamicValues = frameContext.dynamicValues
             viewProjection = cameraFrame.viewProjection(
                 usesPerspective: cameraFrame.defaultsToPerspective
@@ -79,7 +77,7 @@ final class SceneSpotLightRuntime {
             intensity: intensity,
             worldOrigin: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
             viewProjection: frame.viewProjection,
-            sceneTime: frame.sceneTime,
+            authoredAngle: plan.currentAngle(in: frame.dynamicValues),
             encoder: encoder
         )
         telemetry.record(layerID: layerID, encoded: encoded, on: frame.commandBuffer)

@@ -13,7 +13,6 @@ nonisolated struct SceneSpotLightPlan {
     let exponent: Float
     let volumetricsExponent: Float
     let baseAngles: SIMD3<Float>
-    let angleAnimation: SceneTimelineAnimation
 
     nonisolated init?(
         layer: SceneRenderDescriptor.Layer,
@@ -64,7 +63,6 @@ nonisolated struct SceneSpotLightPlan {
         self.exponent = exponent
         self.volumetricsExponent = volumetricsExponent
         baseAngles = SIMD3(angleValues[0], angleValues[1], angleValues[2])
-        angleAnimation = timeline.animation
     }
 
     /// The standalone cone consumes these live fields from the same typed
@@ -101,17 +99,18 @@ nonisolated struct SceneSpotLightPlan {
         return true
     }
 
-    nonisolated func authoredAngle(at sceneTime: Double) -> Float? {
-        let values = SceneTimelineEvaluator.values(
-            of: angleAnimation,
-            sceneTime: sceneTime
-        )
-        guard values.count == 3,
-              values.allSatisfy(\.isFinite) else {
-            return nil
+    /// Timeline playback and relative composition have already been resolved by
+    /// the shared frame snapshot. Keep the bounded cone's authored XY geometry,
+    /// while consuming the same angle as the other light consumers.
+    nonisolated func currentAngle(in snapshot: SceneDynamicSnapshot) -> Float {
+        guard let resolved = snapshot[.layer(layerID: layerID, field: .angles)],
+              resolved.source != .authored,
+              case let .vector3(x, y, z) = resolved.value,
+              x.isFinite, y.isFinite, z.isFinite,
+              Float(x).isFinite, Float(y).isFinite, Float(z).isFinite else {
+            return baseAngles.z
         }
-        let result = Double(baseAngles.z) + values[2]
-        return result.isFinite ? Float(result) : nil
+        return Float(z)
     }
 
     private nonisolated static func validAngleAnimation(

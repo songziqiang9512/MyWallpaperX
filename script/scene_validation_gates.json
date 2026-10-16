@@ -935,6 +935,22 @@
       ]
     },
     {
+      "id": "spot-light",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift",
+        "script/tests/test_scene_spot_light_plan.py",
+        "script/tests/test_scene_spot_light_rendering.py"
+      ],
+      "modules": [
+        "test_scene_spot_light_plan",
+        "test_scene_spot_light_rendering",
+        "test_scene_timeline_runtime",
+        "test_scene_script_named_timeline"
+      ]
+    },
+    {
       "id": "rendering",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/**",
@@ -963,8 +979,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationPlaybackRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
@@ -1786,8 +1800,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageRuntimeDisposition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBlendModeShaderSource.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift"
       ],
       "keywords": [
         "effect",

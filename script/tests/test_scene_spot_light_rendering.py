@@ -38,11 +38,6 @@ struct SceneSpotLightPlan {
     let density: Float
     let exponent: Float
     let volumetricsExponent: Float
-    let baseAngle: Float
-
-    func authoredAngle(at sceneTime: Double) -> Float? {
-        baseAngle + Float(sceneTime) * 0.2
-    }
 }
 
 @main
@@ -59,8 +54,7 @@ enum Harness {
             outerConeRadians: outerDegrees * .pi / 180,
             density: 3.93,
             exponent: 2.68,
-            volumetricsExponent: 2.82,
-            baseAngle: .pi / 2
+            volumetricsExponent: 2.82
         )
     }
 
@@ -69,7 +63,7 @@ enum Harness {
         queue: MTLCommandQueue,
         pipeline: SceneSpotLightPipeline,
         plan: SceneSpotLightPlan,
-        time: Double,
+        angle: Float,
         color: SIMD3<Float>? = nil,
         intensity: Float? = nil,
         origin: SIMD2<Float> = SIMD2(-0.55, 0.82),
@@ -99,7 +93,7 @@ enum Harness {
             intensity: intensity ?? plan.intensity,
             worldOrigin: origin,
             viewProjection: matrix_identity_float4x4,
-            sceneTime: time,
+            authoredAngle: angle,
             encoder: encoder
         )
         encoder.endEncoding()
@@ -132,21 +126,31 @@ enum Harness {
             print("{\"metalUnavailable\":true}")
             return
         }
-        let first = render(device: device, queue: queue, pipeline: pipeline, plan: plan(), time: 0)
-        let second = render(device: device, queue: queue, pipeline: pipeline, plan: plan(), time: 2)
+        let first = render(
+            device: device, queue: queue, pipeline: pipeline,
+            plan: plan(), angle: .pi / 2
+        )
+        let sameAngle = render(
+            device: device, queue: queue, pipeline: pipeline,
+            plan: plan(), angle: .pi / 2
+        )
+        let second = render(
+            device: device, queue: queue, pipeline: pipeline,
+            plan: plan(), angle: .pi / 2 + 0.4
+        )
         let narrow = render(
             device: device,
             queue: queue,
             pipeline: pipeline,
             plan: plan(outerDegrees: 2.91),
-            time: 0
+            angle: .pi / 2
         )
         let zeroIntensity = render(
             device: device,
             queue: queue,
             pipeline: pipeline,
             plan: plan(),
-            time: 0,
+            angle: .pi / 2,
             intensity: 0
         )
         let dynamicColor = render(
@@ -154,7 +158,7 @@ enum Harness {
             queue: queue,
             pipeline: pipeline,
             plan: plan(),
-            time: 0,
+            angle: .pi / 2,
             color: SIMD3(1, 0, 0)
         )
         let invalid = render(
@@ -162,7 +166,7 @@ enum Harness {
             queue: queue,
             pipeline: pipeline,
             plan: plan(),
-            time: 0,
+            angle: .pi / 2,
             origin: SIMD2(.nan, 0)
         )
         let invalidIntensity = render(
@@ -170,15 +174,23 @@ enum Harness {
             queue: queue,
             pipeline: pipeline,
             plan: plan(),
-            time: 0,
+            angle: .pi / 2,
             intensity: .nan
+        )
+        let invalidAngle = render(
+            device: device, queue: queue, pipeline: pipeline,
+            plan: plan(), angle: .nan
+        )
+        let infiniteAngle = render(
+            device: device, queue: queue, pipeline: pipeline,
+            plan: plan(), angle: .infinity
         )
         let brightBackground = render(
             device: device,
             queue: queue,
             pipeline: pipeline,
             plan: plan(),
-            time: 0,
+            angle: .pi / 2,
             background: 1
         )
         let visibleOffsets = stride(from: 0, to: first.bytes.count, by: 4).filter {
@@ -212,7 +224,14 @@ enum Harness {
             },
             "projectsUpward": alphaTotal(first.bytes, rows: 0..<(height / 2))
                 > alphaTotal(first.bytes, rows: (height * 3 / 4)..<height),
-            "timelineMovesBeam": first.bytes != second.bytes,
+            "sameAnglePixelsStable": sameAngle.accepted && first.bytes == sameAngle.bytes,
+            "explicitAngleMovesBeam": first.bytes != second.bytes,
+            "invalidAnglesRejected": !invalidAngle.accepted && !infiniteAngle.accepted,
+            "invalidAnglesLeaveClearTarget": [invalidAngle.bytes, infiniteAngle.bytes]
+                .allSatisfy { bytes in
+                    !stride(from: 0, to: bytes.count, by: 4)
+                        .contains { bytes[$0 + 3] > 0 }
+                },
             "outerConeChangesWidth": first.bytes != narrow.bytes,
             "zeroIntensityClearsCone": zeroIntensity.accepted
                 && !stride(from: 0, to: zeroIntensity.bytes.count, by: 4)
@@ -229,7 +248,7 @@ enum Harness {
 
 
 class SceneSpotLightRenderingTests(unittest.TestCase):
-    def test_soft_cone_is_visible_animated_and_premultiplied(self) -> None:
+    def test_soft_cone_uses_explicit_angle_and_is_premultiplied(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
         with tempfile.TemporaryDirectory(prefix="scene-spot-light-rendering-") as directory:
@@ -238,7 +257,7 @@ class SceneSpotLightRenderingTests(unittest.TestCase):
             binary = temporary / "scene-spot-light-rendering"
             harness.write_text(HARNESS, encoding="utf-8")
             compilation = subprocess.run(
-                ["xcrun", "--sdk", "macosx", "swiftc", *(str(path) for path in SOURCES), str(harness), "-framework", "Metal", "-o", str(binary)],
+                ["xcrun", "--sdk", "macosx", "swiftc", "-module-cache-path", str(temporary / "module-cache"), *(str(path) for path in SOURCES), str(harness), "-framework", "Metal", "-o", str(binary)],
                 capture_output=True,
                 text=True,
             )
@@ -257,7 +276,10 @@ class SceneSpotLightRenderingTests(unittest.TestCase):
         self.assertTrue(result["featheredEdge"], result)
         self.assertTrue(result["preservesLitBackground"], result)
         self.assertTrue(result["projectsUpward"], result)
-        self.assertTrue(result["timelineMovesBeam"], result)
+        self.assertTrue(result["sameAnglePixelsStable"], result)
+        self.assertTrue(result["explicitAngleMovesBeam"], result)
+        self.assertTrue(result["invalidAnglesRejected"], result)
+        self.assertTrue(result["invalidAnglesLeaveClearTarget"], result)
         self.assertTrue(result["outerConeChangesWidth"], result)
         self.assertTrue(result["zeroIntensityClearsCone"], result)
         self.assertTrue(result["dynamicColorChangesCone"], result)

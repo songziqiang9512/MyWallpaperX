@@ -81,8 +81,8 @@
       "bytes": 2333
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 323,
-      "bytes": 63524
+      "lines": 329,
+      "bytes": 64960
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -117,8 +117,8 @@
       "bytes": 346017
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 126,
-      "bytes": 38784
+      "lines": 127,
+      "bytes": 39127
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -233,12 +233,12 @@
       "bytes": 22598
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 51,
-      "bytes": 13773
+      "lines": 50,
+      "bytes": 12866
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 136,
-      "bytes": 27272
+      "bytes": 27328
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1150,75 +1150,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "5bc108aba65691a058bda54c2d38da803b53f45024468e898cb39dc43d9ecff7",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "c631d736a32b515cdeaf85bad6423adc671462912e78c00d680451d7fda34543",
+      "after": "b71718f9d4d340e5189419ef4495f849dba17fb7095225c7d690bca0f4430b88",
+      "owner": "Scene bounded standalone spot maintainers",
+      "reason": "补充共享Timeline角度消费合同和真实pause/stop/恢复、独立原包证据；不扩lighting profile或性能结论。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#standalone-spot-playback"
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "e4d58b125f54c772924ca642fba00d381e5820a03c72de473b4e96907b4227e8",
-      "after": "ba100120dba89209bfe6e4b74b69947aa76819704ff4f69f4a040c47e37c77c5",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "db01e366daaf9b6dc109211e426013c6ee40110a107b9233d0064e10125ac2ec",
+      "after": "fe1f02a4acc78121d49b83bdb90a9746e20ca20fe27aca0c2b190778b67451ca",
+      "owner": "Scene bounded standalone spot maintainers",
+      "reason": "补充共享Timeline角度消费合同和真实pause/stop/恢复、独立原包证据；不扩lighting profile或性能结论。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#standalone-spot-playback"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "before": "2d18cfdd755132a8a6d7d33861f368d3c93b84c89b89e36c7e35ed988f340379",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "02f51174c787946d946b6a2f7b702d758ade64de4f903e14bef48ac3deab7343",
-      "after": "4e8b3e7db528ba48f274a9e2e8ee0ca2f46d2989005d88ff21e550ec98a0dc2c",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "3ea05a610610f8ba7eaf4bd51343c869a82940e007b92700351174425239021d",
-      "after": "74e301806aa5df62ff08cf331ccc922bde6bbd132e185021c7ba82d0fb355cbd",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b03228c27d3f4ef5d9d6a5776400c333f7d31e22bdd802f1897d5441e9ce9251",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",
-      "before": "3560d7aaf2c57772fa9dcc29e976ffbbc5f9233a399c3ed255cbfe7aa5df8f21",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "archives",
-      "path": "docs/scene/history/reference-evidence-implementation-cards-through-2026-10-16.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "8d8c524bd50f0a83721824479b719e553493676963ae363e9d1b686bfc9bffd9",
-      "owner": "Scene roadmap / Steam acquisition contract maintainers",
-      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "664feb4c073eb4ba824caaae9fa2af08c7c38badc86556b421c1476cd635dc18",
+      "after": "d2e180a3bff4d3290f1dfe9f9aed4bc474d9f3b4b13541d72214b507f07b2683",
+      "owner": "Scene bounded standalone spot maintainers",
+      "reason": "补充共享Timeline角度消费合同和真实pause/stop/恢复、独立原包证据；不扩lighting profile或性能结论。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#standalone-spot-playback"
     }
   ]
 }

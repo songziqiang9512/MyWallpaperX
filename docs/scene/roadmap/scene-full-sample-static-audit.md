@@ -10,14 +10,13 @@
 
 - 保留：当前明确的准入拒绝、缺失 producer/consumer，或可由同一输入构造的职责/状态不一致；写清范围与首 owner。**静态可证能力缺口不等于真实样本故障或可见恢复。**
 - 不保留为当前缺陷：仅因没有专用 effect 派发键、出现 unsupported 字样、字段只被保真、旧代码退役或旧截图异常而得出的结论；generic Program、editor-only metadata 和合法局部回退须分别核对。
-- 本轮仅查生产代码、现役合同和已有中性收据；未重新普查原包、读取作者 JS/GLSL、运行测试/build/App/官方客户端。因此不产生最新全样本覆盖数，也不把下表的待验证门写成已执行结果。
+- 初次静态复核只查生产代码、现役合同和已有中性收据，未重新普查原包或读取作者 JS/GLSL；后继已修项按其合同和实际验收退出。本页不产生最新全样本覆盖数，也不把下表的待验证门写成已执行结果。
 - 2026-10-09 原报告及逐样本附录可由 `git show 680e54846:docs/scene/roadmap/scene-full-sample-static-audit.md`追溯；后继真实运行归[运行证据](../capabilities/runtime-evidence-current.md)及对应 history。旧计数、严重度和不可回源的审查 totals 不继续参与当前判定。
 
 ## 画面合成与播放
 
 | 当前问题 | 现役首断点与已支持边界 | 最小验证/退出条件 |
 |---|---|---|
-| **体积 spot cone 与共享 Timeline 的角度状态分离**（原 R40） | [SceneSpotLightPlan.authoredAngle](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift)按 `sceneTime`直接调用 evaluator；[cone draw](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift)消费该值。同层 `.angles` 又由[Timeline compiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift)进入共享 playback/typed snapshot。cone 没有消费该播放状态，不能由普通 Timeline 的 pause/stop 自动保证一致。静态问题仍在，未在当前 App 复现。 | 复用[spot plan](../../../script/tests/test_scene_spot_light_plan.py)、[渲染](../../../script/tests/test_scene_spot_light_rendering.py)与[named Timeline](../../../script/tests/test_scene_script_named_timeline.py)最近门，给同一合法 cone 的角度施加 pause/resume/stop，比较 cone 与共享光照方向；统一到原 playback owner 后退出独立求值。 |
 | **resolved effect 的非 overwrite render state 尚未执行**（原 G21） | [typed state](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift)保留 `translucent/additive`等枚举，但[pass encoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)仍只准入 normal、depth/write disabled、nocull、alpha unspecified/enabled 的 fullscreen overwrite。不能外推为所有 additive/translucent 都失败：粒子和模型有各自已支持消费者。 | 先取得真实 active pass 的精确 state/输出用途，再补同一 Program 的像素门；factor、alpha convention、`alphawriting=default`未定时不放宽。权威边界见[render state](../capabilities/render-graph-shader-coverage.md)。 |
 | **scene 级 Bloom 的 Timeline/Script producer 未接入已有 typed consumer**（原 G8/G9） | [General parser](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift)从 `bloomstrength`读静态 value；[Timeline compiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift)遍历 layer/instance/effect，未接 general Timeline；[Scalar projection](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift)要求 object identity。`.scene(.bloomStrength)`及[Bloom snapshot consumer](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.swift)已存在，不能写成 Bloom 整体不支持。 | 旧 metadata 指向 `3810943704` 的 strength Timeline、`2134765860` 的 scene Script；仅作选题入口，未 fresh 复现。先证明一条合法定义进入同一 Timeline/VM producer，再以不同 seed/输出、暂停和静态邻例验证真实 Bloom；不另建 clock 或 postprocess。 |
 | **动态特殊资源创建仍有明确拒绝面** | [createLayer](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c)对 Puppet 的 `animations/puppetAnimationLayers/effects`配置仍局部拒绝；prepared 默认 Puppet 与 text/image 实例已存在。composition 创建亦未开放为完整共享 capture/replay，不可把特殊资源扁平化成普通 image。 | 以实际 constructor 请求和已准备资源为准，先区分默认实例、额外配置与资源未准备；[已准备 Puppet](../history/prepared-puppet-default-instances-2026-10-15.md)和[composition STOP](../history/prepared-empty-composition-2026-10-15.md)边界保留。没有新的真实收益时不重开空 composition 或已验 clone 窄片。 |
@@ -28,7 +27,7 @@
 
 ## 性能
 
-[性能卡](performance-convergence-card.md)独占成本证据与继续/停止决策。旧 R1–R53 的结构重复、读盘次数、缓存域数及推算成本不在本页继续作为当前性能缺陷；其中有播放正确性意义的 R40 已单列。声明准备、排序、working-view、capture/identity 等 NO-GO 不因旧报告仍能找到类似代码而重启。没有新的普通配置大成本与唯一 owner 证据时，继续画面/播放功能。
+[性能卡](performance-convergence-card.md)独占成本证据与继续/停止决策。旧 R1–R53 的结构重复、读盘次数、缓存域数及推算成本不在本页继续作为当前性能缺陷；其中 R40 的播放状态问题已由[共享角度消费](../capabilities/advanced-object-coverage.md#standalone-spot-playback)闭合并退出，不继续作为重复求值优化排期。声明准备、排序、working-view、capture/identity 等 NO-GO 不因旧报告仍能找到类似代码而重启。没有新的普通配置大成本与唯一 owner 证据时，继续画面/播放功能。
 
 ## 属性与其他接口
 

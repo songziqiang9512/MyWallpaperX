@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE_ROOT / "Format/SceneTimelineAnimation.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift",
+    SCENE_ROOT / "Systems/Timeline/SceneTimelineEvaluator.swift",
+    SCENE_ROOT / "Systems/Timeline/SceneTimelineRuntime.swift",
+    SCENE_ROOT / "Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+    SCENE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SCENE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
@@ -36,6 +39,7 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let layerIndex: Int
+        let name: String
         let contentKind: String
         let spotLight: SceneSpotLightDefinition?
         let visible: Bool?
@@ -49,12 +53,19 @@ struct SceneRenderDescriptor {
     }
 }
 
-enum SceneDynamicLayerField: Hashable {
-    case intensity
+// Prepared binding carriers only. Playback, additive evaluation and snapshot
+// validation below compile their production owners, not harness algorithms.
+struct SceneTimelineBinding {
+    enum Composition { case absolute, additive }
+    let definition: SceneDynamicTargetDefinition
+    let animation: SceneTimelineAnimation
+    let composition: Composition
+    var target: SceneDynamicTarget { definition.target }
 }
 
-enum SceneDynamicTarget: Hashable {
-    case layer(layerID: Int, field: SceneDynamicLayerField)
+struct SceneTimelineProgram {
+    let bindings: [SceneTimelineBinding]
+    let diagnostics: [String]
 }
 
 enum SceneScriptBindingPathComponent: Equatable {
@@ -138,11 +149,13 @@ enum Harness {
         light: SceneSpotLightDefinition? = definition(),
         animation: SceneTimelineAnimation = animation(),
         visible: Bool = true,
-        scriptHost: String? = nil
+        scriptHost: String? = nil,
+        name: String = "Cone"
     ) -> SceneRenderDescriptor.Layer {
         .init(
             id: id,
             layerIndex: 0,
+            name: name,
             contentKind: "spotLight",
             spotLight: light,
             visible: visible,
@@ -182,6 +195,192 @@ enum Harness {
         )
     }
 
+    static func binding(
+        for layer: SceneRenderDescriptor.Layer
+    ) -> SceneTimelineBinding {
+        let angles = layer.anglesXYZ!
+        return .init(
+            definition: .init(
+                target: .layer(layerID: layer.id, field: .angles),
+                valueType: .vector3,
+                authoredValue: .vector3(
+                    Double(angles[0]), Double(angles[1]), Double(angles[2])
+                )
+            ),
+            animation: layer.timelines[0].animation,
+            composition: .additive
+        )
+    }
+
+    static func mirrorAngles() -> [Float] {
+        let input = layer(id: 253)
+        let plan = SceneSpotLightPlan(layer: input)!
+        let program = SceneTimelineProgram(
+            bindings: [binding(for: input)], diagnostics: []
+        )
+        let runtime = SceneTimelinePlaybackRuntime(program: program)
+        let definitions = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: [], timelineProgram: program
+        )
+        return [0.0, 3.5, 7.0, 10.5, 14.0].enumerated().map { index, time in
+            let resolved = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: UInt64(index), generation: 1,
+                definitions: definitions,
+                timelineValues: runtime.values(sceneTime: time)
+            )
+            return plan.currentAngle(in: resolved.snapshot)
+        }
+    }
+
+    static func playbackCase(id: Int, name: String) throws -> [String: Any] {
+        let input = layer(id: id, name: name)
+        let peer = layer(id: id + 9_000, name: name + " peer")
+        let plan = SceneSpotLightPlan(layer: input)!
+        let peerPlan = SceneSpotLightPlan(layer: peer)!
+        let target = SceneDynamicTarget.layer(layerID: id, field: .angles)
+        let program = SceneTimelineProgram(
+            bindings: [binding(for: input), binding(for: peer)], diagnostics: []
+        )
+        let runtime = SceneTimelinePlaybackRuntime(program: program)
+        let definitions = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: [], timelineProgram: program
+        )
+        let index = SceneDynamicSnapshotResolver.prepare(definitions: definitions)
+        var validChain = true
+        var frame: UInt64 = 0
+        func sample(_ time: Double) -> (angle: Float, peer: Float) {
+            let resolution = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: frame, generation: 11, index: index,
+                timelineValues: runtime.values(sceneTime: time)
+            )
+            frame += 1
+            let snapshot = resolution.snapshot
+            let angle = plan.currentAngle(in: snapshot)
+            if let resolved = snapshot[target],
+               resolved.source == .timeline,
+               case let .vector3(_, _, z) = resolved.value {
+                validChain = validChain && resolution.diagnostics.isEmpty
+                    && angle == Float(z)
+            } else {
+                validChain = false
+            }
+            return (angle, peerPlan.currentAngle(in: snapshot))
+        }
+        let start = sample(0)
+        let playing = sample(2)
+        try runtime.apply([.init(target: target, command: .pause)], sceneTime: 2).get()
+        let paused8 = sample(8)
+        let paused13 = sample(13)
+        try runtime.apply([.init(target: target, command: .play)], sceneTime: 13).get()
+        let resumed = sample(13)
+        let resumed14 = sample(14)
+        try runtime.apply([.init(target: target, command: .stop)], sceneTime: 14).get()
+        let stopped = sample(14)
+        let stopped20 = sample(20)
+        try runtime.apply([.init(target: target, command: .play)], sceneTime: 20).get()
+        let restarted = sample(20)
+        let restarted21 = sample(21)
+        return [
+            "id": id, "name": name,
+            "angles": [
+                start.angle, playing.angle, paused8.angle, paused13.angle,
+                resumed.angle, resumed14.angle, stopped.angle, stopped20.angle,
+                restarted.angle, restarted21.angle,
+            ],
+            "productionTimelineLaneReachedAngle": validChain,
+            "peerContinuesWhileTargetPaused": paused8.peer != paused13.peer,
+            "targetDefinitionCount": definitions.filter { $0.target == target }.count,
+        ]
+    }
+
+    static func snapshot(
+        target: SceneDynamicTarget,
+        value: SceneDynamicValue?,
+        source: SceneDynamicSource = .timeline,
+        authored: SceneDynamicValue = .vector3(0, 0, 2.35619)
+    ) -> SceneDynamicSnapshotResolution {
+        let definition = SceneDynamicTargetDefinition(
+            target: target,
+            valueType: authored.valueType,
+            authoredValue: authored
+        )
+        let values = value.map { [target: $0] } ?? [:]
+        return SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 0, generation: 4, definitions: [definition],
+            userValues: source == .userProperty ? values : [:],
+            timelineValues: source == .timeline ? values : [:],
+            sceneScriptValues: source == .sceneScript ? values : [:]
+        )
+    }
+
+    static func fallbackCases() -> [String: Any] {
+        let plan = SceneSpotLightPlan(layer: layer(id: 63))!
+        let target = SceneDynamicTarget.layer(layerID: 63, field: .angles)
+        let base = plan.baseAngles.z
+        var fallback: [String: Bool] = [
+            "missing": plan.currentAngle(in: .empty(frameIndex: 0)) == base,
+            "authoredOnly": plan.currentAngle(in: snapshot(
+                target: target, value: nil, authored: .vector3(0, 0, 1.1)
+            ).snapshot) == base,
+            "wrongLayer": plan.currentAngle(in: snapshot(
+                target: .layer(layerID: 64, field: .angles),
+                value: .vector3(0, 0, 0.4)
+            ).snapshot) == base,
+            "wrongField": plan.currentAngle(in: snapshot(
+                target: .layer(layerID: 63, field: .origin),
+                value: .vector3(0, 0, 0.4)
+            ).snapshot) == base,
+        ]
+        let wrongTypes: [SceneDynamicValue] = [
+            .scalar(0.4), .bool(true), .vector2(0.2, 0.4),
+            .vector4(0, 0, 0.4, 1), .string("0.4"),
+        ]
+        for (index, value) in wrongTypes.enumerated() {
+            let resolved = snapshot(
+                target: target, value: value, authored: value
+            )
+            fallback["wrongType\(index)"] = resolved.snapshot[target]?.source == .timeline
+                && plan.currentAngle(in: resolved.snapshot) == base
+        }
+        let overflow = Double(Float.greatestFiniteMagnitude) * 2
+        let oversized: [SceneDynamicValue] = [
+            .vector3(overflow, 0, 0.4),
+            .vector3(0, -overflow, 0.4),
+            .vector3(0, 0, overflow),
+        ]
+        for (index, value) in oversized.enumerated() {
+            let resolved = snapshot(target: target, value: value)
+            fallback["floatOverflow\(index)"] =
+                resolved.snapshot[target]?.source == .timeline
+                && plan.currentAngle(in: resolved.snapshot) == base
+        }
+        for (index, value) in [
+            SceneDynamicValue.vector3(.nan, 0, 0.4),
+            .vector3(0, .infinity, 0.4), .vector3(0, 0, -.infinity),
+        ].enumerated() {
+            let resolved = snapshot(target: target, value: value)
+            fallback["nonFinite\(index)"] = !resolved.diagnostics.isEmpty
+                && plan.currentAngle(in: resolved.snapshot) == base
+        }
+        let live = snapshot(target: target, value: .vector3(0.2, -0.6, 1.25))
+        let user = snapshot(
+            target: target, value: .vector3(0, 0, 0.75), source: .userProperty
+        )
+        let overlay = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1, generation: 4,
+            definitions: [binding(for: layer(id: 63)).definition],
+            timelineValues: [target: .vector3(0, 0, 0.8)],
+            sceneScriptValues: [target: .vector3(0.1, 0.2, 0.45)]
+        )
+        return [
+            "fallbacks": fallback,
+            "resolvedZNotAddedTwice": plan.currentAngle(in: live.snapshot) == 1.25,
+            "userPropertyLaneAccepted": plan.currentAngle(in: user.snapshot) == 0.75,
+            "sceneScriptPrecedence": overlay.snapshot[target]?.source == .sceneScript
+                && plan.currentAngle(in: overlay.snapshot) == Float(0.45),
+        ]
+    }
+
     static func main() throws {
         let first = SceneSpotLightPlan(layer: layer(id: 253))
         let second = SceneSpotLightPlan(layer: layer(id: 999))
@@ -199,9 +398,7 @@ enum Harness {
             "castshadow": ["user": "shadow", "value": true],
             "solid": true,
         ])
-        let angles = [0.0, 3.5, 7.0, 10.5, 14.0].compactMap {
-            first?.authoredAngle(at: $0)
-        }
+        let angles = mirrorAngles()
         let result: [String: Any] = [
             "parsed": parsed?.kind == "lspot"
                 && parsed?.colorRGB == [0.1, 0.2, 0.3]
@@ -210,6 +407,11 @@ enum Harness {
                 && parsed?.castsShadow == true,
             "sharedIDsAccepted": first != nil && second != nil,
             "mirrorAngles": angles,
+            "playbackCases": try [
+                playbackCase(id: 253, name: "Upper Lantern"),
+                playbackCase(id: 991, name: "Renamed Azure Cone"),
+            ],
+            "snapshotConsumption": fallbackCases(),
             "loopRejected": SceneSpotLightPlan(
                 layer: layer(id: 1, animation: animation(mode: .loop))
             ) == nil,
@@ -286,7 +488,7 @@ enum Harness {
 
 
 class SceneSpotLightPlanTests(unittest.TestCase):
-    def test_strict_profile_and_relative_mirror_clock(self) -> None:
+    def test_strict_profile_and_shared_timeline_playback(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
         with tempfile.TemporaryDirectory(prefix="scene-spot-light-plan-") as directory:
@@ -295,7 +497,7 @@ class SceneSpotLightPlanTests(unittest.TestCase):
             binary = temporary / "scene-spot-light-plan"
             harness.write_text(HARNESS, encoding="utf-8")
             compilation = subprocess.run(
-                ["swiftc", "-parse-as-library", *(str(path) for path in SOURCES), str(harness), "-o", str(binary)],
+                ["swiftc", "-parse-as-library", "-module-cache-path", str(temporary / "module-cache"), *(str(path) for path in SOURCES), str(harness), "-o", str(binary)],
                 capture_output=True,
                 text=True,
             )
@@ -322,6 +524,35 @@ class SceneSpotLightPlanTests(unittest.TestCase):
         self.assertAlmostEqual(angles[0], angles[4], places=4)
         self.assertAlmostEqual(angles[1], angles[3], places=4)
         self.assertLess(angles[2], angles[1])
+        base = 2.35619
+        sweep = 1.3089924
+        for actual, expected in zip(
+            angles, [base, base - sweep / 2, base - sweep, base - sweep / 2, base]
+        ):
+            self.assertAlmostEqual(actual, expected, places=5)
+        expected_playback = [
+            base, base - sweep * 2 / 7,
+            base - sweep * 2 / 7, base - sweep * 2 / 7,
+            base - sweep * 2 / 7, base - sweep * 3 / 7,
+            base, base, base, base - sweep / 7,
+        ]
+        self.assertEqual(len(result["playbackCases"]), 2, result)
+        for case in result["playbackCases"]:
+            with self.subTest(layer=case["id"], name=case["name"]):
+                self.assertTrue(case["productionTimelineLaneReachedAngle"], case)
+                self.assertTrue(case["peerContinuesWhileTargetPaused"], case)
+                self.assertEqual(case["targetDefinitionCount"], 1, case)
+                self.assertEqual(len(case["angles"]), len(expected_playback), case)
+                for actual, expected in zip(case["angles"], expected_playback):
+                    self.assertAlmostEqual(actual, expected, places=5, msg=str(case))
+        consumption = result["snapshotConsumption"]
+        self.assertEqual(len(consumption["fallbacks"]), 15, consumption)
+        for name, held_authored in consumption["fallbacks"].items():
+            with self.subTest(fallback=name):
+                self.assertTrue(held_authored, consumption)
+        self.assertTrue(consumption["resolvedZNotAddedTwice"], consumption)
+        self.assertTrue(consumption["userPropertyLaneAccepted"], consumption)
+        self.assertTrue(consumption["sceneScriptPrecedence"], consumption)
 
 
 if __name__ == "__main__":
