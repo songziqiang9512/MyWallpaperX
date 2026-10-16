@@ -605,6 +605,7 @@
           "SceneDesktopWallpaperSession+PointerEvents.swift",
           "SceneDesktopWallpaperSession+ParticleEmission.swift",
           "SceneDesktopWallpaperSession+Shutdown.swift",
+          "SceneDesktopWallpaperSession+SoundProperties.swift",
           "SceneDesktopWallpaperSession+SurfaceTeardown.swift",
           "SceneDesktopWallpaperSession+TextScriptReport.swift",
           "SceneDesktopWallpaperSession+VideoProviders.swift",
