@@ -341,14 +341,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "官方九凤人物/彩色主幅在原native中被黑层遮住；独立只关闭177.visible消融恢复，702仍122次destroy拒绝，故不归因destroy；getEffect miss合同待官方资格。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立destroy拒绝仍在，不再归因初始黑幕。官方仅基础构图对照，完整背景选择/过场交互、viewport/phase与全部属性未验。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/empty-effect-lookup-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/samples/3599986633/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/samples/3599986633/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/empty-effect-lookup-20261017/final/samples/3599986633/runtime_evidence.zip"
       ],
-      "remainingDifferences": "官方九凤人物/彩色主幅在原native中被黑层遮住；独立只关闭177.visible消融恢复，702仍122次destroy拒绝，故不归因destroy；getEffect miss合同待官方资格。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "主幅初始黑遮挡已修；702独立删除拒绝及完整背景选择/过场交互、精确官方画面/运动仍未验，不据未验项宣称新视觉缺陷。",
       "officialComparison": "compared"
     },
     "3605722997": {

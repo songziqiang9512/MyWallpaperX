@@ -12,7 +12,6 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| 缺失effect查询阻断作者fallback · 3599986633主幅被黑层遮挡 | **10-17实际主幅全黑、右字/图标在；官方目录截屏有九凤人物和彩色背景。** 177过场黑solid后绘制；175的getEffect(0)在零effect时抛错，被作者catch吞掉，alpha回退未到。只关闭177.visible的隔离消融恢复主幅，702同122次destroy拒绝仍在，故不把destroy列作本次根因 | 固定官方自有空effect集合七种lookup已返回null；沿原handle lookup→typed alpha/journal修正此合同，非空集合边界保旧；合法hit、无effect、名字/数字miss、非法输入、撤回与健康peer均验。最终原包默认初始化须自行解除遮挡，不改作者alpha或默认隐藏177。 |
 | Puppet clipping准入 · 3577990983中央人物缺失 | **10-17原包after有烟火/栏杆却无官方截屏的中央Reze；ready黑不等于持续全黑。** layer31现存MDL的record0 flags/options被reader拒，故无合法mesh/source；不允许用atlas假quad遮掩。其余effect缺口单独归下一行 | 先读精确clip输入及现mask/skinning合同，用可区分的自有正反例准入实际语义；不猜flags、不跳record、也不因资源纹理可读宣称人物已渲染。修后看原包完整主幅和独立Puppet。 |
 | active effect输入/来源准入缺口 · 358/357/363/382增量 | **10-17真实局部回退。** 358七个clipping效果slot1 RGBA用途proof拒；357的320另拒slot1、210 framebuilder缺insideAlpha Vec2 producer、233 Combined Timeline被parent/children门拒；363的765 Blur被whole-stage childless门拒；382的17/effect1 lightshafts slot1绑定失败。不是同一算法，也未将每条标签认成可见缺图 | 沿各prepared Program的首个错误身份依次裁用途/typed producer/cohort，复用原graph与compositor；不能把RGBA改当红mask、扩大capture或为效果名加旁路。先修有最大明确ROI收益者；参数/来源已满足却仍拒才扩相应通用准入。 |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
@@ -22,6 +21,8 @@
 
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
+
+3599986633的初始黑幕已退出：固定官方空effect集合lookup返回null后，原两handle入口对齐此合同，作者初始化能沿原alpha journal解除177过场遮挡；原包默认实图已恢复九凤主幅，独立335画面保持。702的destroy拒绝另保原运行观察，不当作初始缺图根因；完整背景选择/过场交互未验不自动新增缺陷。证据归[限定后验](../capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017)。
 
 3610154602于10-16同身份复验并读源资格后，不再按“缺getTextureAnimation API”排实现：435.alpha/origin首错依赖当前缺席的播放器控件，423只存在一层parent却读取祖父；公开missing lookup/null及无父undefined合同已执行。其余动态创建/导入是否应提供缺席控件仍unknown，不记作者错误或样本完成；取得合法producer证据后再开共享首断点。人物、城市、时钟与橙色频谱实际呈现，非完整parity。限期证据：`.artifacts/scene-evidence/runs/texture-animation-owner-qualification-20261016/`。
 

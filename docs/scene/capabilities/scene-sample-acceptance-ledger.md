@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（300 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `2071a298df74d91206f0b026b6b241b5df5c25836c7ab7d145e16e27eaa66d61`（生成于 2026-10-16T17:53:30.857012+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `a24dc6d1dea49431fcd5d6b16c2befe566620233e9461a575a3b882d73a56cd3`。
-- 本页生成于 2026-10-16T17:53:31.005886+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `b2a5ba0078c9645dee5ea7bbecb64f4c9f7368d96ef83bd1e272520c4e8f231e`。
+- 本页生成于 2026-10-16T18:48:29.420203+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -204,7 +204,7 @@
 | `3587571382` | 【凡人修仙传】宋玉  璀璨夺目 | 15(0) bool 5 color 3 slider 7 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3589454154` | 土星 \| Saturn - Sykm | 113(2) bool 29 color 1 group 7 scenetexture 17 slider 26 te… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3597772384` | Lost Landscape \| northway. | 138(116) bool 65 color 2 combo 3 group 4 scenetexture 24 sl… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 山景、雨和时钟呈现；active鸟粒子部分控制点force未准入，非整个粒子层失败。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚… |
-| `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 官方九凤人物/彩色主幅在原native中被黑层遮住；独立只关闭177.visible消融恢复，702仍122次destroy拒绝，故不归因destroy；ge… |
+| `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立de… |
 | `3601801724` | ash一爪布鲁托 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3601964477` | 千咲 \|\| 鸣潮  \|\| 枫 \|\| 4K | 44(19) bool 19 color 5 group 3 slider 7 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
 | `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` |  |

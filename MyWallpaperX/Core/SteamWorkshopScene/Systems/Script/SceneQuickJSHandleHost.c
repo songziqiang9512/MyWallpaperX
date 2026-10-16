@@ -162,9 +162,12 @@ static JSValue get_effect(
     (void)this_value;
     (void)magic;
     MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
-    if (owner == NULL || argc != 1 || owner->effect_names == NULL) {
+    if (owner == NULL || owner->effect_names == NULL) {
         return JS_ThrowTypeError(context, "getEffect host is unavailable");
     }
+    // An empty prepared catalog returns null before interpreting the selector.
+    if (owner->effect_count == 0) return JS_NULL;
+    if (argc != 1) return JS_ThrowTypeError(context, "getEffect host is unavailable");
     int64_t index = -1;
     if (JS_IsString(argv[0])) {
         size_t length = 0;
@@ -907,6 +910,7 @@ static JSValue layer_get_effect(JSContext *ctx, JSValueConst this_value,
     MWXSceneQuickJSLayerRecord *r = effect_layer_record(h);
     if (r == NULL) return JS_ThrowTypeError(ctx, "layer effect handle is stale");
     if (count_only) return JS_NewUint32(ctx, r->effect_count);
+    if (r->effect_count == 0) return JS_NULL;
     int64_t index = -1;
     if (argc == 1 && JS_IsString(argv[0])) {
         size_t length = 0;

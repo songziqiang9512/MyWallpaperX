@@ -11,16 +11,25 @@ HARNESS = r'''
     static let target = SceneDynamicTarget.layer(layerID: 1, field: .origin)
     static let effect = SceneDynamicTarget.effectVisibility(layerID: 2, effectIndex: 0)
     static let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970: 0), simulationFrameTime: 0.016, sceneTime: 1))
-    static let descriptor = SceneRenderDescriptor(layers: [
+    static func catalog(renamed: Bool = false) -> SceneRenderDescriptor { .init(layers: [
         .init(id: 1, layerIndex: 0, name: "controller", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1, effects: []),
         .init(id: 2, layerIndex: 1, name: "card", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1,
-              effects: [.init(name: "beam", visible: false), .init(name: "beam", visible: true)], contentKind: "text", text: "card", textStyle: .init(fontPath: "fonts/original.ttf", colorRGB: nil, pointSize: 20))
-    ])
-    static func make(_ source: String, destroyOwner: Bool = false) throws -> (SceneScriptQuickJSDomain, SceneScriptCursorProgram) {
+              effects: [.init(name: "beam", visible: false), .init(name: "beam", visible: true)], contentKind: "text", text: "card", textStyle: .init(fontPath: "fonts/original.ttf", colorRGB: nil, pointSize: 20)),
+        .init(id: 3, layerIndex: 2, name: renamed ? "clear-source" : "blank", visible: true,
+              originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: 1, effects: [], contentKind: "image", sizeWH: [100,100])
+    ]) }
+    static let descriptor = catalog()
+    static func make(_ source: String, destroyOwner: Bool = false, ownerLayerID: Int = 1,
+                     catalog: SceneRenderDescriptor = descriptor) throws -> (SceneScriptQuickJSDomain, SceneScriptCursorProgram) {
         let d = try SceneScriptQuickJSDomain()
-        try d.configureLayerCatalog(descriptor)
-        let o = try SceneScriptValueOwner(domain: d, source: source, target: destroyOwner ? .layer(layerID: 2, field: .visibility) : target, valueType: destroyOwner ? .bool : .vector3, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
-        let b = SceneScriptCursorBinding(layerID: destroyOwner ? 2 : 1, authoredOrdinal: 0, owner: o, events: o.exportedCursorEvents, ownsOwner: true, scriptProperties: [:], ownerSeedValue: destroyOwner ? .bool(true) : .vector3(0,0,0))
+        try d.configureLayerCatalog(catalog)
+        let id = destroyOwner ? 2 : ownerLayerID
+        let o = try SceneScriptValueOwner(domain: d, source: source,
+            target: .layer(layerID: id, field: destroyOwner ? .visibility : .origin),
+            valueType: destroyOwner ? .bool : .vector3,
+            effectNames: catalog.layers.first { $0.id == id }!.effects.map(\.name),
+            allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
+        let b = SceneScriptCursorBinding(layerID: id, authoredOrdinal: 0, owner: o, events: o.exportedCursorEvents, ownsOwner: true, scriptProperties: [:], ownerSeedValue: destroyOwner ? .bool(true) : .vector3(0,0,0))
         return (d, .init(bindings: [b], generation: 1))
     }
     static func sample(_ down: Bool, layerID: Int = 1) -> SceneScriptCursorFrameSample {
@@ -28,6 +37,111 @@ HARNESS = r'''
     }
     static func click(_ p: SceneScriptCursorProgram, layerID: Int = 1) -> SceneScriptCursorFrameResult {
         p.dispatch(batch: .init(samples: [sample(false, layerID: layerID), sample(true, layerID: layerID), sample(false, layerID: layerID)], overflowed: false), frame: frame, userPropertiesJSON: "{}")
+    }
+    static func alphaFallback(renamed: Bool, commit: Bool) throws -> [String: Any] {
+        let descriptor = catalog(renamed: renamed)
+        let name = renamed ? "clear-source" : "blank"
+        let fallback = renamed ? "if (absent === null) { surface.alpha=1-1; }"
+            : "if (!absent) surface.alpha=0;"
+        let source = """
+        export function cursorClick(e) {
+            const surface=thisScene.getLayer('\(name)');
+            let probes=0;
+            for(const layer of [thisLayer,surface]) {
+                if(layer.getEffectCount()!==0) throw Error('nonempty catalog');
+                for(const selector of [0,7,'\(renamed ? "renamed-missing" : "missing")',-1,0.5,{}]) {
+                    if(layer.getEffect(selector)!==null) throw Error('empty result must be null');
+                    ++probes;
+                }
+                if(layer.getEffect()!==null) throw Error('empty arity result');
+                ++probes;
+            }
+            const absent=surface.getEffect(7);
+            \(fallback)
+            if(thisLayer.getEffect(0)===null) thisLayer.alpha=0.25;
+            if(surface.alpha!==0 || thisLayer.alpha!==0.25) throw Error('staged alpha');
+            thisLayer.origin=new Vec3(probes,0,0);
+            shared.ownEmptyLookup=thisLayer.getEffect;
+            shared.crossEmptyLookup=surface.getEffect;
+        }
+        """
+        let (domain, program) = try make(source, catalog: descriptor)
+        let result = click(program)
+        let mutations = SceneScriptLayerMutation.coalescing(result.layerMutations)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [1,3])
+        let plan = runtime.preflightOwnerEffects(result.ownerEffects)
+        let ownAlpha = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
+        let peerAlpha = SceneDynamicTarget.layer(layerID: 3, field: .alpha)
+        let beforeEmpty = runtime.snapshot().authoredLayerValues.isEmpty
+        if commit { runtime.commit(plan.layerPlan) }
+        program.finalizeLayerMutations(committing: commit)
+        let values = runtime.snapshot().authoredLayerValues
+        if commit {
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 2,
+                definitions: runtime.authoredLayerDefinitions, sceneScriptValues: values).snapshot
+            try domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
+        }
+        let reader = try SceneScriptValueOwner(domain: domain,
+            source: "export function update(v){return new Vec3(thisLayer.alpha,thisScene.getLayer('\(name)').alpha,thisScene.getLayer('\(name)').getEffectCount());}",
+            target: target, effectNames: [], generation: 1, budget: .default)
+        let read = reader.evaluate(input: .vector3(0,0,0), frame: frame, scriptPropertiesJSON: "",
+            userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)
+        let expected = commit ? SceneDynamicValue.vector3(0.25,0,0) : .vector3(1,1,0)
+        let restored = (try? read.get().value) == expected
+        reader.commitLayerMutations()
+        var foreignRejected: [Bool] = []
+        for lookup in ["ownEmptyLookup", "crossEmptyLookup"] {
+            let foreign = try SceneScriptValueOwner(domain: domain,
+                source: "export function update(v){shared.\(lookup)();return v;}",
+                target: .layer(layerID: 2, field: .origin), effectNames: ["beam","beam"],
+                generation: 1, budget: .default)
+            if case .failure = foreign.evaluate(input: .vector3(0,0,0), frame: frame,
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil) {
+                foreignRejected.append(true)
+            } else { foreignRejected.append(false) }
+            foreign.discardLayerMutations()
+        }
+        return ["failures": result.failures.count, "probes": mutations.first { $0.layerID == 1 }?.origin.x ?? -1,
+            "alphas": mutations.filter { $0.fields.contains(.alpha) }.sorted { $0.layerID < $1.layerID }.map(\.alpha),
+            "rejected": plan.rejectedOwners.count, "beforeEmpty": beforeEmpty,
+            "published": commit ? values[ownAlpha] == .scalar(0.25) && values[peerAlpha] == .scalar(0) : values.isEmpty,
+            "nextFrame": restored, "foreignRejected": foreignRejected]
+    }
+    static func nonemptyLookup(own: Bool) throws -> Bool {
+        let id = own ? 2 : 1
+        let (domain, program) = try make("""
+        export function cursorClick(e) {
+            const layer=\(own ? "thisLayer" : "thisScene.getLayer('card')");
+            if(layer.getEffectCount()!==2 || layer.getEffect(0).name!=='beam' || layer.getEffect('beam').name!=='beam') throw Error('hit');
+            let rejected=0;
+            for(const selector of [7,'missing',-1,0.5,{}]) {
+                try { layer.getEffect(selector); } catch(_) { ++rejected; }
+            }
+            try { layer.getEffect(); } catch(_) { ++rejected; }
+            thisLayer.origin=new Vec3(rejected,0,0);
+        }
+        """, ownerLayerID: id)
+        let result = click(program, layerID: id)
+        let passed = result.failures.isEmpty && result.layerMutations.first { $0.layerID == id }?.origin.x == 6
+        program.finalizeLayerMutations(committing: false)
+        withExtendedLifetime(domain) {}
+        return passed
+    }
+    static func staleEmptyLookup() throws -> Bool {
+        let (domain, program) = try make("let saved; export function cursorClick(e){if(saved){saved.getEffect();}else{saved=thisScene.getLayer('blank');}}")
+        let first = click(program)
+        program.finalizeLayerMutations(committing: true)
+        try domain.publishLayerSnapshot(.empty(frameIndex: 3), descriptor: descriptor, destroyedAuthoredLayerIDs: [3])
+        let stale = click(program)
+        program.finalizeLayerMutations(committing: false)
+        let healthy = try SceneScriptValueOwner(domain: domain,
+            source: "export function update(v){return new Vec3(thisLayer.getEffectCount(),thisLayer.getEffect()===null?1:0,9);}",
+            target: target, effectNames: [], generation: 1, budget: .default)
+        let suffix = healthy.evaluate(input: .vector3(0,0,0), frame: frame, scriptPropertiesJSON: "",
+            userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)
+        healthy.commitLayerMutations()
+        return first.failures.isEmpty && !stale.failures.isEmpty && stale.layerMutations.isEmpty
+            && (try? suffix.get().value) == .vector3(0,1,9)
     }
     static func main() throws {
         var out: [String: Any] = [:]
@@ -104,6 +218,14 @@ HARNESS = r'''
         _ = uncommitted.preflightOwnerEffects(rejectedResult.ownerEffects)
         rejectedProgram.finalizeLayerMutations(committing: false)
         out["discarded"] = uncommitted.snapshot().authoredLayerValues.isEmpty
+        for renamed in [false,true] {
+            for commit in [false,true] {
+                out["empty-\(renamed)-\(commit)"] = try alphaFallback(renamed: renamed, commit: commit)
+            }
+        }
+        out["nonemptyOwn"] = try nonemptyLookup(own: true)
+        out["nonemptyCross"] = try nonemptyLookup(own: false)
+        out["staleEmptyAndHealthyPeer"] = try staleEmptyLookup()
         print(String(data: try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
@@ -138,3 +260,20 @@ class CrossLayerEffectVisibilityTests(unittest.TestCase):
         self.assertTrue(self.result['foreignOwnerRejected'])
         self.assertTrue(self.result['retained'])
         self.assertTrue(self.result['staleRejected'])
+
+    def test_empty_catalog_returns_null_and_fallback_alpha_commits_or_discards(self):
+        for renamed in (False, True):
+            for commit in (False, True):
+                with self.subTest(renamed=renamed, commit=commit):
+                    row = self.result[f'empty-{str(renamed).lower()}-{str(commit).lower()}']
+                    self.assertEqual((row['failures'], row['probes'], row['rejected']), (0, 14, 0))
+                    self.assertEqual(row['alphas'], [0.25, 0])
+                    self.assertTrue(row['beforeEmpty'])
+                    self.assertTrue(row['published'])
+                    self.assertTrue(row['nextFrame'])
+                    self.assertEqual(row['foreignRejected'], [True, True])
+
+    def test_empty_lookup_keeps_lifecycle_guards_and_nonempty_rules(self):
+        self.assertTrue(self.result['nonemptyOwn'])
+        self.assertTrue(self.result['nonemptyCross'])
+        self.assertTrue(self.result['staleEmptyAndHealthyPeer'])

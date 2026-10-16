@@ -377,18 +377,26 @@ enum SceneDocumentLoader {
     static func childBoundary(_ source:String, sourceEffect:Bool=false,
                               scriptOuterUser:Bool=true) throws -> [String:Any] {
         let f=try fixture(clockSource:source,sourceEffect:sourceEffect,scriptOuterUser:scriptOuterUser)
-        let expected=scriptOuterUser ? "launch-body|I1":"base|I1"
+        let expected=(scriptOuterUser ? "launch-body|I1":"base|I1") + (sourceEffect ? "|E0":"")
+        let effectProbe=sourceEffect ? """
+            return new Vec3(thisScene.getLayer('clock').getEffectCount(),0,0);
+            """ : "return v;"
         let owner=try creator(f,"""
             export function update(v){const raw=thisScene.getInitialLayerConfig('clock').text;
                 const a=thisScene.createLayer({text:raw}),b=thisScene.createLayer({text:raw});
                 if(!a || !b || a.text!=='\(expected)' || b.text!=='\(expected)')
-                    throw Error('child boundary');return v;}
+                    throw Error('child boundary');\(effectProbe)}
             """)
         let created=run(owner,f)
         owner.commitLayerMutations()
         let adopted=adopt(f,(try? created.get().layerMutations) ?? [])
-        return ["status":status(created),"adopted":adopted.definitions.count,
+        var output:[String:Any]=["status":status(created),"adopted":adopted.definitions.count,
             "birthCount":(try? created.get().layerMutations.count) ?? -1]
+        if sourceEffect, case let .vector3(original,_,_)? = try? created.get().value {
+            output["sourceEffectCount"]=original
+            output["childEffectTexts"]=(try? created.get().layerMutations.filter(\.isDynamic).map(\.text)) ?? []
+        }
+        return output
     }
     static func unwired(_ source:String) throws -> [String:Any] {
         let f=try fixture(clockSource:source)
@@ -727,7 +735,7 @@ enum SceneDocumentLoader {
     static func main() throws {
         let childJob="export var scriptProperties={prefix:'fallback'}; export function init(v){Promise.resolve().then(()=>{throw Error('child job must not run');});return v;}"
         let nested="export var scriptProperties={prefix:'fallback'}; export function init(v){if(thisScene.createLayer({text:thisScene.getInitialLayerConfig('clock').text})!==null)throw Error('nested script');return v+'|I1';}"
-        let effect="export var scriptProperties={prefix:'fallback'}; export function init(v){let missing=false;try{thisLayer.getEffect('source-effect');}catch(_){missing=true;}if(!missing)throw Error('fake effect');return v+'|I1';}"
+        let effect="export var scriptProperties={prefix:'fallback'}; export function init(v){if(thisLayer.getEffectCount()!==0 || thisLayer.getEffect('source-effect')!==null)throw Error('fake effect');return v+'|I1|E'+thisLayer.getEffectCount();}"
         let animation="export var scriptProperties={prefix:'fallback'}; export function init(v){thisObject.getAnimation().play();return v;}"
         let output:[String:Any]=["dual":try dual(false),"renamed":try dual(true),
             "wrappers":try wrappers(),"parentThrow":try rejection("throw Error('parent');"),
@@ -811,7 +819,9 @@ class PreparedTextCloneTests(unittest.TestCase):
         self.assertEqual(self.result["depthOne"], {"status": "ok", "adopted": 2, "birthCount": 2})
 
     def test_dynamic_text_does_not_inherit_fake_effect_consumers(self) -> None:
-        self.assertEqual(self.result["effectBoundary"], {"status": "ok", "adopted": 2, "birthCount": 2})
+        self.assertEqual(self.result["effectBoundary"], {"status": "ok", "adopted": 2,
+            "birthCount": 2, "sourceEffectCount": 1,
+            "childEffectTexts": ["launch-body|I1|E0", "launch-body|I1|E0"]})
 
     def test_unwired_templates_reject_locally(self) -> None:
         for name in ("unwiredMedia", "unwiredCursor", "unwiredAudio"):

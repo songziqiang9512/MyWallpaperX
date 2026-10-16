@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 179,
-      "bytes": 52249
+      "lines": 180,
+      "bytes": 53284
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 361,
-      "bytes": 59535
+      "bytes": 59561
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 109587
+      "bytes": 110039
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -233,12 +233,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 53,
-      "bytes": 15647
+      "lines": 52,
+      "bytes": 14968
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 144,
-      "bytes": 30384
+      "lines": 145,
+      "bytes": 30129
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1223,11 +1223,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "9217f0eb7c02f166d537e37cb826cf94af8e3262b27b6f6448ab4b56ecc21557",
-      "after": "26b68b0d3962795d969edb7af07c8c2f93110cae4b8f47ddc03fb8615f9f2576",
-      "owner": "scene-intake-basic-composition",
-      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "26b68b0d3962795d969edb7af07c8c2f93110cae4b8f47ddc03fb8615f9f2576",
+      "after": "4f480beeabaf4c2824e4476d8dc97f0a027f3cbd491204d5a0d60181c3a619cb",
+      "owner": "scene-empty-effect-lookup",
+      "reason": "空effect集合沿原两handle入口返回null，官方/真实VM/原359主幅与独立335已有界验收；完成首断点退出静态表和队列，非空selector及更广交互不扩。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017"
     },
     {
       "section": "bodies",
@@ -1241,20 +1241,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a2ce3d7fed52816e01dc3cbdb3171d677a24c5ca16654ebb389845e24937eb39",
-      "after": "35c313983352bf7a0abc9b4e0dc062ede24f42ec3e03535421b52f23b52e1010",
-      "owner": "scene-intake-basic-composition",
-      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "35c313983352bf7a0abc9b4e0dc062ede24f42ec3e03535421b52f23b52e1010",
+      "after": "56cd040ff7af360962e5eaf0683fa772616ce17ad50860965619d41e8ba252c0",
+      "owner": "scene-empty-effect-lookup",
+      "reason": "空effect集合沿原两handle入口返回null，官方/真实VM/原359主幅与独立335已有界验收；完成首断点退出静态表和队列，非空selector及更广交互不扩。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "559490778cc65b84197e6129b761b8afdfd40bc0577eda6f6c73e61695ac71e8",
-      "after": "477748d1a2f6153d0e745328df57f1b1511d06bb4aec75fe104dcba101600116",
-      "owner": "scene-intake-basic-composition",
-      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "477748d1a2f6153d0e745328df57f1b1511d06bb4aec75fe104dcba101600116",
+      "after": "5027b93c6cf6d646e003d38517603cbd97e3d472ed9e83a5902c8436aeb64447",
+      "owner": "scene-empty-effect-lookup",
+      "reason": "空effect集合沿原两handle入口返回null，官方/真实VM/原359主幅与独立335已有界验收；完成首断点退出静态表和队列，非空selector及更广交互不扩。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017"
     },
     {
       "section": "bodies",
@@ -1268,11 +1268,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "e250239c9d1bfd004b1f6e9730f9f6c64cb5bf0f07c988cdeb96519b802cd89e",
-      "after": "d55bf2067c3e4a4c2bf1fd5e3214815bb90054fd16fd49b48a4299233cc567eb",
-      "owner": "scene-puppet-query-render",
-      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+      "before": "d55bf2067c3e4a4c2bf1fd5e3214815bb90054fd16fd49b48a4299233cc567eb",
+      "after": "8314a0cc51c189e0ffff1fb6995305815eafc45a41b510a07ce612da264229e4",
+      "owner": "scene-empty-effect-lookup",
+      "reason": "空effect集合沿原两handle入口返回null，官方/真实VM/原359主幅与独立335已有界验收；完成首断点退出静态表和队列，非空selector及更广交互不扩。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017"
     },
     {
       "section": "bodies",
@@ -1286,11 +1286,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "bc7743a8000737cd98a9dee118aa90cc5ded59eea629bfcfdf5319f6ffa8fb54",
-      "after": "f89de1660dd645e2d560114a5fa860b9d00043336ff116eb659ebc08251887a8",
-      "owner": "scene-intake-basic-composition",
-      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "f89de1660dd645e2d560114a5fa860b9d00043336ff116eb659ebc08251887a8",
+      "after": "671f0dad0adef8805452213d72123a6432536762efbaa4126af3928ade7513cd",
+      "owner": "scene-empty-effect-lookup",
+      "reason": "空effect集合沿原两handle入口返回null，官方/真实VM/原359主幅与独立335已有界验收；完成首断点退出静态表和队列，非空selector及更广交互不扩。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017"
     }
   ]
 }
