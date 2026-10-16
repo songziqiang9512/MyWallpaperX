@@ -46,7 +46,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 124124
+      "bytes": 124157
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -1255,6 +1255,15 @@
       "owner": "scene-project-visibility-retirement",
       "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
+      "after": "0c823dd674c6593fc7975ec96c3eb691d4ecc718674d87100026551df0dd8da4",
+      "owner": "scene-composition-allocation",
+      "reason": "Composition成功分配沿现唯一pool复核reset epoch及精确key generation/缺席，普通completion释放不再被全局revision误拒；预算/陈旧/OOM回收边界保持。",
+      "decision": "docs/scene/history/d1-composition-source-implementation-2026-10-02.md#completion-safe-composition-allocation"
     }
   ]
 }

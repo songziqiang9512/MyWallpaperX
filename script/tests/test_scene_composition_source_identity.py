@@ -21,6 +21,119 @@ SWIFT_SOURCES = list(dict.fromkeys(pool_fixture.SWIFT_SOURCES + dependency_fixtu
 HARNESS = pool_fixture.HARNESS.split("@main", 1)[0] + r'''
 @main
 enum CompositionSourceProbe {
+    static func allocationCommitInterleavings(
+        device: MTLDevice, queue: MTLCommandQueue
+    ) -> [String: Bool] {
+        func makePool() -> SceneOffscreenTexturePool {
+            SceneOffscreenTexturePool(device: device, maxDimension: 64,
+                residentByteBudget: 4096)
+        }
+        func current(_ pool: SceneOffscreenTexturePool, _ id: Int,
+                     _ width: Int, _ height: Int) -> MTLTexture? {
+            guard case let .composition(texture, _)? = pool.allocationCache.allocation(
+                for: .compositionGroup(layerID: id, width: width, height: height))
+            else { return nil }
+            return texture
+        }
+        var facts: [String: Bool] = [:]
+        for (id, width, height, replacesPinnedTarget) in [
+            (101, 16, 8, false), (709, 12, 10, true),
+        ] {
+            let pool = makePool()
+            let oldCommand = queue.makeCommandBuffer()!
+            let nextCommand = queue.makeCommandBuffer()!
+            let unrelated = pool.compositionGroupTarget(layerID: id + 1,
+                width: width, height: height, commandBuffer: oldCommand)!
+            let previous = replacesPinnedTarget ? pool.compositionGroupTarget(
+                layerID: id, width: width, height: height,
+                commandBuffer: oldCommand) : nil
+            let epoch = pool.allocationCache.resetEpoch
+            let revision = pool.allocationCache.revision
+            var allocated: MTLTexture?
+            var factoryCalls = 0
+            var releasedBeforeCommit = false
+            let target = pool.compositionGroupTarget(layerID: id,
+                width: width, height: height, commandBuffer: nextCommand,
+                textureFactory: { descriptor in
+                    factoryCalls += 1
+                    // Existing hook runs after the allocation snapshot. This
+                    // legal release changes no target identity or reset epoch.
+                    unrelated.pin.release()
+                    releasedBeforeCommit = pool.allocationCache.revision != revision
+                    allocated = device.makeTexture(descriptor: descriptor)
+                    return allocated
+                })
+            let variant = replacesPinnedTarget ? "replacement" : "cold"
+            facts["unrelated-release-\(variant)"] = factoryCalls == 1
+                && releasedBeforeCommit && allocated != nil && target != nil
+                && target?.texture === allocated
+                && target?.texture.width == width && target?.texture.height == height
+                && current(pool, id, width, height) === target?.texture
+                && current(pool, id + 1, width, height) === unrelated.texture
+                && pool.allocationCache.resetEpoch == epoch
+                && (previous == nil || (previous?.texture !== target?.texture
+                    && previous?.pin.generation != target?.pin.generation))
+                && pool.residentByteCost == width * height * 4
+                    * (replacesPinnedTarget ? 3 : 2)
+            previous?.pin.release(); target?.pin.release(); pool.reset()
+            facts["unrelated-release-\(variant)-cleanup"] = pool.residentByteCost == 0
+        }
+
+        let resetPool = makePool()
+        let oldCommand = queue.makeCommandBuffer()!
+        let held = resetPool.compositionGroupTarget(layerID: 201, width: 16,
+            height: 8, commandBuffer: oldCommand)!
+        let epoch = resetPool.allocationCache.resetEpoch
+        var resetCalls = 0
+        var resetAllocated: MTLTexture?
+        let resetTarget = resetPool.compositionGroupTarget(layerID: 101,
+            width: 16, height: 8, commandBuffer: queue.makeCommandBuffer()!,
+            textureFactory: { descriptor in
+                resetCalls += 1
+                resetPool.reset()
+                resetAllocated = device.makeTexture(descriptor: descriptor)
+                return resetAllocated
+            })
+        facts["reset-rejects-stale-candidate"] = resetCalls == 1
+            && resetAllocated != nil && resetTarget == nil
+            && resetPool.allocationCache.resetEpoch != epoch
+            && current(resetPool, 101, 16, 8) == nil
+            && resetPool.residentByteCost == 512
+        held.pin.release()
+        facts["reset-releases-held-source"] = resetPool.residentByteCost == 0
+
+        let sameKeyPool = makePool()
+        let outerCommand = queue.makeCommandBuffer()!
+        let innerCommand = queue.makeCommandBuffer()!
+        var winner: (texture: MTLTexture, pin: SceneGraphRenderTargetResidencyPin)?
+        var outerAllocated: MTLTexture?
+        var outerCalls = 0, innerCalls = 0
+        let outer = sameKeyPool.compositionGroupTarget(layerID: 101,
+            width: 16, height: 8, commandBuffer: outerCommand,
+            textureFactory: { descriptor in
+                outerCalls += 1
+                winner = sameKeyPool.compositionGroupTarget(layerID: 101,
+                    width: 16, height: 8, commandBuffer: innerCommand,
+                    textureFactory: { nested in
+                        innerCalls += 1
+                        return device.makeTexture(descriptor: nested)
+                    })
+                outerAllocated = device.makeTexture(descriptor: descriptor)
+                return outerAllocated
+            })
+        let reread = sameKeyPool.compositionGroupTarget(layerID: 101,
+            width: 16, height: 8, commandBuffer: innerCommand)
+        facts["same-key-publication-keeps-winner"] = outerCalls == 1
+            && innerCalls == 1 && outerAllocated != nil && winner != nil
+            && outer == nil && current(sameKeyPool, 101, 16, 8) === winner?.texture
+            && reread?.texture === winner?.texture
+            && reread?.pin.generation == winner?.pin.generation
+            && sameKeyPool.residentByteCost == 512
+        winner?.pin.release(); reread?.pin.release(); sameKeyPool.reset()
+        facts["same-key-publication-cleanup"] = sameKeyPool.residentByteCost == 0
+        return facts
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"metalUnavailable\":true}")
@@ -252,6 +365,8 @@ enum CompositionSourceProbe {
         renamed.cancel(); runtimePool.reset()
         let result: [String: Any] = [
             "metalUnavailable": false,
+            "allocationCommitInterleavings": allocationCommitInterleavings(
+                device: device, queue: queue),
             "coldAllocated": first != nil,
             "exactExtent": first.map { [$0.texture.width, $0.texture.height] } ?? [],
             "sameRootReused": first != nil && first?.texture === repeated?.texture,
@@ -319,6 +434,23 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
             "transparentSharedInput": True, "backgroundRemainsIndependent": True,
             "terminalReusesCompletedInput": True, "completedAndReleased": True,
         })
+
+    def test_unrelated_pin_release_preserves_legal_source_allocation(self) -> None:
+        for variant in ("cold", "replacement"):
+            for suffix in ("", "-cleanup"):
+                fact = f"unrelated-release-{variant}{suffix}"
+                with self.subTest(fact=fact):
+                    self.assertTrue(self.result["allocationCommitInterleavings"][fact], self.result)
+
+    def test_reset_rejects_stale_source_candidate_and_preserves_held_pin(self) -> None:
+        for fact in ("reset-rejects-stale-candidate", "reset-releases-held-source"):
+            with self.subTest(fact=fact):
+                self.assertTrue(self.result["allocationCommitInterleavings"][fact], self.result)
+
+    def test_same_key_publication_keeps_new_winner(self) -> None:
+        for fact in ("same-key-publication-keeps-winner", "same-key-publication-cleanup"):
+            with self.subTest(fact=fact):
+                self.assertTrue(self.result["allocationCommitInterleavings"][fact], self.result)
 
     def test_submitted_source_pins_and_empty_gpu_clear(self) -> None:
         import os

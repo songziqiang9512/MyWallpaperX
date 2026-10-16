@@ -5,6 +5,16 @@
 
 > **历史证据 — 非现役入口**。当前权威：[D1设计](../roadmap/batch2/composition-render-target-design.md)、[兼容路线](../roadmap/scene-compatibility-roadmap.md)、[运行证据](../capabilities/runtime-evidence-current.md)。最终候选与独立验收登记见下文；不以资源正确性证明作者成员语义。
 
+<a id="completion-safe-composition-allocation"></a>
+
+## Completion期间的单目标分配复验（2026-10-16）
+
+326运行出现多个运动composition root的`frame-target-plan-rejected`。同轮静态追踪发现单目标allocation仍以全池revision复验，和现shared-pair的epoch/精确目标身份合同不一致。自有确定性反例用既有textureFactory，在Metal成功分配前释放无关root的真实pin：epoch/目标状态不变，合法新texture却被拒绝；正常分配对照成功。此反例证明通用owner缺陷，未证明历史326的每条诊断都由它触发；诊断按signature去重，也不是总拒帧数。
+
+原`allocateCompositionTexture`同时服务独立source和group。成功候选只核同一reset epoch、原key generation或真实缺席，再以现`stageCandidates`按当前residents重验预算与pin/retire；reset或同key新发布仍拒陈旧candidate。真实分配失败后的回收保留严格revision，不借此改容量、驱逐或图算法。最近真实Metal门验证冷/替换分配中的无关pin释放、reset旧pin寿命及同key nested winner；原透明clear与completion基线保持。
+
+与[project入口](authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)共用最终签名Debug和原326一次同条件运行，规划拒绝由此前非零降为0，7个utility capture均成功，口罩点击仍实际切换，benchmark PASS。该11秒观察仅是有界合成正确性证据；不能据一次零诊断认领长期稳定、帧率、CPU/GPU或内存收益，也不关闭警戒带轨迹问题。必要证据随`.artifacts/scene-evidence/runs/project-visibility-composition-completion-20261016/`保留。
+
 ## 目标和边界
 
 现有planner已选择的source必须经过实际target分配、成员写入、graph preparation与采样进入唯一terminal。只修该资源合同，不修改parent/copybackground/passthrough成员语义；后者仍由D1设计待定案段拥有。参考项目只提供[中性合同](d1-composition-neutral-contract-2026-10-02.md)，没有复制其算法、shader或payload。

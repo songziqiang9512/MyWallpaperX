@@ -419,10 +419,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bfc34f021a4ae7b08d506b09b9b425389b9ea240660f88dc562c04217a102870",
+        "sourceSHA256": "8bcd1c7f06491b7321a8e8f153bf1db3f1a0542978cdeb48f3f989ade6901f25",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "Composition单目标成功分配的epoch/key复验与既有pool/reclaim合同、有界反例及原326后验导航。",
+        "limitations": "仅此资源owner合同/来源边界；不代表其他能力、完整样本或性能重新验收。"
       }
     },
     {

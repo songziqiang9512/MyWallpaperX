@@ -355,8 +355,9 @@ final class SceneOffscreenTexturePool {
         return current
     }
 
-    /// Single-target composition uses the same allocation/revision boundary
-    /// for standalone sources and composition groups; pinning follows commit.
+    /// Standalone sources and groups share one allocation boundary. Completion
+    /// may release unrelated pins while Metal allocates; only reset or a change
+    /// to this key makes a successful candidate stale. Pinning follows commit.
     private func allocateCompositionTexture(
         key: CacheKey, width: Int, height: Int, label: String,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?
@@ -364,15 +365,18 @@ final class SceneOffscreenTexturePool {
         guard let byteCost = byteCost(width: width, height: height, textureCount: 1),
               byteCost <= residentByteBudget else { return nil }
         let protected: Set<CacheKey> = [key]
-        guard var expectedRevision = allocationCache.locked({ () -> UUID? in
+        guard let original = allocationCache.locked({
+            () -> (revision: UUID, epoch: UUID, generation: UInt64?)? in
             var proposed = allocationCache.residents
             if let previous = proposed.removeValue(forKey: .current(key)), previous.isPinned {
                 proposed[.retired(previous.allocation.generation)] = previous
             }
             guard allocationCache.evictToFit(&proposed, incomingCost: byteCost,
                                             protected: protected) else { return nil }
-            return allocationCache.revision
+            return (allocationCache.revision, allocationCache.resetEpoch,
+                    allocationCache.residents[.current(key)]?.allocation.generation)
         }) else { return nil }
+        var expectedRevision = original.revision
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
             width: width, height: height, mipmapped: false)
         descriptor.usage = [.renderTarget, .shaderRead]
@@ -394,7 +398,9 @@ final class SceneOffscreenTexturePool {
         texture.label = label
         let candidate = Candidate(key: key, allocation: .composition(texture, identity), byteCost: byteCost)
         return allocationCache.locked {
-            guard allocationCache.revision == expectedRevision,
+            guard allocationCache.resetEpoch == original.epoch,
+                  allocationCache.residents[.current(key)]?.allocation.generation
+                    == original.generation,
                   let staged = allocationCache.stageCandidates([candidate], protectedKeys: protected)
             else { return nil }
             allocationCache.apply(staged)
