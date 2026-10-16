@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "13788cf33939004ccd5efac34d6722cb921a457d3cb2d9fefb8803e4059bd3a8",
+        "sourceSHA256": "46f8056b8457bcc7b8b2bcd76fb24b3c1f2cae84e4a9e37b6c534d0bd8fef752",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
-        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
+        "scope": "当前Bool返回后验的链接、anchor及唯一权威导航；保留原证据身份与未验边界。",
+        "limitations": "仅文档导航审计；运行范围由每条同身份证据决定，不证明全样本兼容、parity或性能。"
       }
     },
     {

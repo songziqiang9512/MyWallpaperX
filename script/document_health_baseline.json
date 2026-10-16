@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 173,
-      "bytes": 47400
+      "lines": 174,
+      "bytes": 48593
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 109554
+      "bytes": 109758
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -237,8 +237,8 @@
       "bytes": 12665
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 139,
-      "bytes": 27122
+      "lines": 140,
+      "bytes": 27669
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1196,20 +1196,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "039da9bfdf338fd489e0f35dffd8c1a17dece75d1ca3250090b6e42df50d187e",
-      "after": "f321d7f7b7c12866e0cc974887f5edfac502e7495d616fd224d3565a540c0703",
-      "owner": "scene-composition-local-perspective",
-      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+      "before": "f321d7f7b7c12866e0cc974887f5edfac502e7495d616fd224d3565a540c0703",
+      "after": "165cf8f93345e78c9625f6bac4dfb470259e4c7dfa37d9bd5d7a3bd0c447caea",
+      "owner": "scene-bool-property-return",
+      "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "4054d030d8565943e1dcf608b54891668c22fefd63a8fcd69f94bba9c616d9e9",
-      "after": "b21f84c0d7a75b8fcfa2ffddedf8d2a1e0bf0895b4a250560a6f535b3670190e",
-      "owner": "scene-composition-local-perspective",
-      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+      "before": "b21f84c0d7a75b8fcfa2ffddedf8d2a1e0bf0895b4a250560a6f535b3670190e",
+      "after": "75b3a0aa591882ec8934973708a8a18627796f9a7d7b85c92a285623344a591f",
+      "owner": "scene-bool-property-return",
+      "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
     },
     {
       "section": "bodies",
@@ -1228,6 +1228,15 @@
       "owner": "scene-composition-local-perspective",
       "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "f7778bd7f65fb84f53348580825bec9ebac15df76a473265f586607c05990bb3",
+      "after": "5ac63df5758f22114b426af73ab95342bbe766d46ee8a242e0764f9ea7b05066",
+      "owner": "scene-bool-property-return",
+      "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
     }
   ]
 }

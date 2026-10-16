@@ -742,7 +742,10 @@ static MWXSceneQuickJSResult call_primitive(
         }
         return discard_layer_mutations_after_failure(owner, failure);
     }
-    if (JS_IsUndefined(result)) {
+    if (JS_IsUndefined(result) || (boolean_value && !JS_IsBool(result))) {
+        // A Boolean property accepts a Boolean return only. Other normal
+        // returns leave its value unchanged while the callback's journal
+        // remains eligible to commit; they must not retry initialization.
         *output = input;
         JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_OK;
@@ -750,11 +753,7 @@ static MWXSceneQuickJSResult call_primitive(
     double value = 0;
     int conversion = -1;
     if (boolean_value) {
-        if (JS_IsBool(result) || JS_IsNumber(result)) {
-            // Author scripts return numbers from Boolean property updates;
-            // JS assignment semantics coerce them by truthiness (ToBoolean).
-            conversion = JS_ToBool(domain->context, result);
-        }
+        conversion = JS_ToBool(domain->context, result);
     } else {
         conversion = JS_ToFloat64(domain->context, &value, result);
     }
