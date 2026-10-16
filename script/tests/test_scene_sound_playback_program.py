@@ -123,7 +123,8 @@ enum Harness {
         spatialization: Bool? = nil,
         attenuation: Double? = nil,
         minimumDistance: Double? = nil,
-        startsSilent: Bool? = false
+        startsSilent: Bool? = false,
+        propertyKey: String? = nil
     ) -> SceneDocument.SceneSoundLayerDefinition {
         SceneDocument.SceneSoundLayerDefinition(
             paths: paths,
@@ -132,7 +133,7 @@ enum Harness {
             startsSilent: startsSilent,
             muteInEditor: false,
             volume: 0.5,
-            volumePropertyKey: nil,
+            volumePropertyKey: propertyKey,
             minimumTime: minimumTime,
             maximumTime: maximumTime,
             spatialization: spatialization,
@@ -153,6 +154,10 @@ enum Harness {
         let nonLoopLayerID = 303
         let explicitlyNonspatialLayerID = 404
         let spatialLayerID = 505
+        let invalidIntervals: [(Double?, Double?)] = [
+            (nil, 2), (1, nil), (nil, nil), (-0.5, 2), (2, 1),
+            (.nan, 2), (1, .infinity), (-.infinity, 2), (0, .nan), (0, -1),
+        ]
         let document = SceneDocument(objects: [
             .init(id: 606, sound: sound(paths: ["audio/caps.mp3"], mode: "loop", startsSilent: true)),
             .init(id: 607, sound: sound(paths: ["audio/caps.mp3"], mode: "loop", startsSilent: nil)),
@@ -245,7 +250,26 @@ enum Harness {
                     minimumDistance: 1
                 )
             ),
-        ])
+            .init(id: 701, sound: sound(paths: ["audio/first.wav", "audio/second.flac"],
+                mode: "random", minimumTime: 1, maximumTime: 2, startsSilent: true)),
+            .init(id: 702, sound: sound(paths: ["renamed/clip-B.FLAC", "alternate/clip-A.WAV"],
+                mode: "RaNdOm", minimumTime: 2.0, maximumTime: 2.0,
+                propertyKey: "renamedRandomGain")),
+            .init(id: 703, sound: sound(paths: ["audio/gone.wav", "audio/first.wav",
+                "../escape.flac", "audio/other.webm", "audio/second.flac", "audio/absent.mp3"],
+                mode: "random", minimumTime: 0, maximumTime: 4)),
+            .init(id: 704, sound: sound(paths: ["audio/gone.wav", "audio/other.m4a"],
+                mode: "random", minimumTime: 1, maximumTime: 2)),
+            .init(id: 705, sound: sound(paths: [], mode: "random", minimumTime: 1, maximumTime: 2)),
+            .init(id: 706, sound: sound(paths: ["audio/native.ogg", "audio/caps.mp3"],
+                mode: "random", minimumTime: 0, maximumTime: 0)),
+            .init(id: 707, sound: sound(paths: ["audio/first.wav"], mode: "random",
+                minimumTime: 1, maximumTime: 2, spatialization: true)),
+            .init(id: 708, sound: sound(paths: ["audio/first.wav", "../unused.flac"], mode: "single")),
+        ] + invalidIntervals.enumerated().map { index, interval -> SceneDocument.Object in
+            .init(id: 800 + index, sound: sound(paths: ["audio/first.wav"], mode: "random",
+                minimumTime: interval.0, maximumTime: interval.1))
+        })
         let resourceView = SceneResourceView(resourcesByReference: [
             "audio/timed-loop.mp3": URL(fileURLWithPath: "/fixture/timed-loop.mp3"),
             "audio/first.wav": URL(fileURLWithPath: "/fixture/first.wav"),
@@ -260,20 +284,50 @@ enum Harness {
             "audio/other.webm": URL(fileURLWithPath: "/fixture/other.webm"),
             "audio/other.m4a": URL(fileURLWithPath: "/fixture/other.m4a"),
             "renamed/second.OGG": URL(fileURLWithPath: "/fixture/second-renamed.ogg"),
+            "renamed/clip-B.FLAC": URL(fileURLWithPath: "/fixture/renamed-clip-B.flac"),
+            "alternate/clip-A.WAV": URL(fileURLWithPath: "/fixture/alternate-clip-A.wav"),
+            "../escape.flac": URL(fileURLWithPath: "/fixture/escape.flac"),
         ])
 
         let program = SceneSoundPlaybackProgram.compile(
             document: document,
             resourceView: resourceView
         )
+        let unavailableOnly = SceneSoundPlaybackProgram.compile(document: .init(
+            objects: document.objects.filter { $0.id == allSourcesUnavailableLayerID }),
+            resourceView: resourceView)
+        let volumeDefinitions = program.bindings.map {
+            SceneDynamicTargetDefinition(target: $0.volumeTarget, authoredValue: .scalar(0.5))
+        }
+        let consumers = program.sceneScriptVolumeConsumerTargets(for: volumeDefinitions,
+            namedPropertyKeys: [.layer(layerID: 702, field: .volume): "renamedRandomGain"],
+            resolvedPropertyVolumes: ["renamedRandomGain": 0.5])
         let payload: [String: Any] = [
             // This harness verifies preparation only; these resource carriers
             // do not pretend to contain encoded audio or prove playback.
             "platformOggPlayable": AVURLAsset.isPlayableExtendedMIMEType("audio/ogg"),
             "admittedLayerIDs": program.bindings.map(\.layerID),
             "bindings": program.bindings.map { binding in
-                ["layerID": binding.layerID, "source": binding.displayPath, "startsSilent": binding.startsSilent]
+                var result: [String: Any] = ["layerID": binding.layerID,
+                    "sources": binding.resources.map(\.displayPath),
+                    "resourceURLs": binding.resources.map { $0.url.path },
+                    "startsSilent": binding.startsSilent,
+                    "volumeConsumer": consumers.contains(binding.volumeTarget)]
+                switch binding.playbackMode {
+                case .loop: result["mode"] = "loop"
+                case .single: result["mode"] = "single"
+                case let .random(minimum, maximum):
+                    result["mode"] = "random"
+                    result["minimumTime"] = minimum; result["maximumTime"] = maximum
+                }
+                return result
             },
+            "invalidIntervalLayerIDs": invalidIntervals.indices.map { 800 + $0 },
+            "unavailableOnlySummary": ["admitted": unavailableOnly.bindings.count,
+                "rejected": unavailableOnly.layerRejectionCount,
+                "skipped": unavailableOnly.skippedSourceCount,
+                "diagnostics": unavailableOnly.diagnostics.count],
+            "reports": program.reportLines,
             "diagnostics": program.diagnostics.map { diagnostic in
                 [
                     "layerID": diagnostic.layerID,
@@ -291,358 +345,9 @@ enum Harness {
 }
 '''
 
-PLAYBACK_HARNESS_SOURCE = r'''
-import AVFoundation
-import Foundation
-
-@main
-enum PlaybackHarness {
-    final class SharedCounter {
-        private let lock = NSLock()
-        private var count = 0
-
-        var value: Int {
-            lock.lock()
-            defer { lock.unlock() }
-            return count
-        }
-
-        func increment() {
-            lock.lock()
-            count += 1
-            lock.unlock()
-        }
-
-        func reset() {
-            lock.lock()
-            count = 0
-            lock.unlock()
-        }
-    }
-
-    static func makeSound(mode: String, startsSilent: Bool = false,
-                          volume: Double = 0) -> SceneDocument.SceneSoundLayerDefinition {
-        SceneDocument.SceneSoundLayerDefinition(
-            paths: ["audio/tone.wav"],
-            authoredPathCount: 1,
-            playbackMode: mode,
-            startsSilent: startsSilent,
-            muteInEditor: false,
-            volume: volume,
-            volumePropertyKey: nil,
-            minimumTime: nil,
-            maximumTime: nil,
-            spatialization: nil,
-            attenuation: nil,
-            minimumDistance: nil
-        )
-    }
-
-    static func writeWav(to url: URL, seconds: Double) throws {
-        let sampleRate = 8000
-        let samples = Int(Double(sampleRate) * seconds)
-        var pcm = Data(capacity: samples * 2)
-        for index in 0..<samples {
-            let value = sin(2 * Double.pi * 440 * Double(index) / Double(sampleRate))
-            let sample = Int16(clamping: Int(value * 8000))
-            let little = sample.littleEndian
-            withUnsafeBytes(of: little) { pcm.append(contentsOf: $0) }
-        }
-        var data = Data()
-        func text(_ value: String) { data.append(contentsOf: value.utf8) }
-        func u32(_ value: UInt32) {
-            let v = value.littleEndian
-            withUnsafeBytes(of: v) { data.append(contentsOf: $0) }
-        }
-        func u16(_ value: UInt16) {
-            let v = value.littleEndian
-            withUnsafeBytes(of: v) { data.append(contentsOf: $0) }
-        }
-        text("RIFF"); u32(UInt32(36 + pcm.count)); text("WAVE")
-        text("fmt "); u32(16); u16(1); u16(1)
-        u32(UInt32(sampleRate)); u32(UInt32(sampleRate * 2)); u16(2); u16(16)
-        text("data"); u32(UInt32(pcm.count)); data.append(pcm)
-        try data.write(to: url)
-    }
-
-    static func pump(until deadline: Date, while condition: () -> Bool) {
-        while Date() < deadline && !condition() {
-            RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.05))
-        }
-    }
-
-    // Test-side reflection exposes the existing AVQueuePlayer for real clock
-    // assertions without adding a product testing accessor or another player.
-    static func player(_ registry: SceneSoundPlaybackRegistry, layer: Int) -> AVQueuePlayer {
-        let sources = Mirror(reflecting: registry).children.first { $0.label == "sources" }!.value
-        for child in Mirror(reflecting: sources).children {
-            let pair = Array(Mirror(reflecting: child.value).children)
-            if pair[0].value as? Int == layer {
-                return Mirror(reflecting: pair[1].value).children
-                    .first { $0.value is AVQueuePlayer }!.value as! AVQueuePlayer
-            }
-        }
-        fatalError("existing player missing for \(layer)")
-    }
-
-    static func send(_ registry: SceneSoundPlaybackRegistry,
-                     _ actions: [SceneScriptMediaPlaybackCommand.Action], layer: Int) throws {
-        try registry.apply(actions.map { .init(layerID: layer, action: $0, destination: .soundLayer) }).get()
-    }
-
-    static func hold(_ seconds: Double) {
-        pump(until: Date().addingTimeInterval(seconds), while: { false })
-    }
-
-    static func main() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mwx-scene-sound-playback-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let toneURL = directory.appendingPathComponent("tone.wav")
-        try writeWav(to: toneURL, seconds: 0.4)
-
-        let endCount = SharedCounter()
-        let observer = NotificationCenter.default.addObserver(
-            forName: AVPlayerItem.didPlayToEndTimeNotification, object: nil, queue: .main
-        ) { _ in endCount.increment() }
-
-        let resourceView = SceneResourceView(resourcesByReference: ["audio/tone.wav": toneURL])
-
-        // single: exactly one play-through; the owner must not restart it.
-        do {
-            let document = SceneDocument(objects: [
-                .init(id: 12, sound: makeSound(mode: "single"))
-            ])
-            let program = SceneSoundPlaybackProgram.compile(
-                document: document,
-                resourceView: resourceView
-            )
-            precondition(
-                program.bindings.count == 1,
-                "single binding missing: \(program.diagnostics)"
-            )
-            let registry = SceneSoundPlaybackRegistry(program: program, epoch: 7)
-            registry.start(paused: false, userValues: [:])
-            pump(until: Date().addingTimeInterval(10), while: { endCount.value >= 1 })
-            precondition(endCount.value == 1, "single never finished (ends=\(endCount.value))")
-            pump(until: Date().addingTimeInterval(1.5), while: { false })
-            precondition(
-                endCount.value == 1,
-                "single restarted after end (ends=\(endCount.value))"
-            )
-            precondition(registry.sceneScriptSnapshots()[12] == false)
-            let originalPlayer = player(registry, layer: 12)
-            registry.pause(); registry.resume(); hold(0.2)
-            precondition(endCount.value == 1, "host resume restarted natural end")
-            try send(registry, [.play], layer: 12)
-            precondition(player(registry, layer: 12) === originalPlayer)
-            pump(until: Date().addingTimeInterval(5), while: { endCount.value >= 2 })
-            precondition(endCount.value == 2, "single explicit replay never ended")
-            precondition(registry.sceneScriptSnapshots()[12] == false)
-            registry.stop()
-            print("single-replay-same-player-pass")
-            print("single-play-to-end-pass")
-        }
-        // loop: keeps restarting at the item boundary — unchanged semantics.
-        do {
-            endCount.reset()
-            let document = SceneDocument(objects: [
-                .init(id: 13, sound: makeSound(mode: "loop"))
-            ])
-            let program = SceneSoundPlaybackProgram.compile(
-                document: document,
-                resourceView: resourceView
-            )
-            precondition(
-                program.bindings.count == 1,
-                "loop binding missing: \(program.diagnostics)"
-            )
-            let registry = SceneSoundPlaybackRegistry(program: program, epoch: 8)
-            registry.start(paused: false, userValues: [:])
-            pump(until: Date().addingTimeInterval(10), while: { endCount.value >= 2 })
-            precondition(
-                endCount.value >= 2,
-                "loop never restarted (ends=\(endCount.value))"
-            )
-            registry.stop()
-            print("loop-restart-pass")
-        }
-
-        // Long, muted WAV gives position assertions enough headroom before completion.
-        try writeWav(to: toneURL, seconds: 3)
-        do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
-                .init(id: 31, sound: makeSound(mode: "single", startsSilent: true))
-            ]), resourceView: resourceView)
-            let registry = SceneSoundPlaybackRegistry(program: program, epoch: 9)
-            registry.start(paused: false, userValues: [:])
-            let actual = player(registry, layer: 31)
-            pump(until: Date().addingTimeInterval(5), while: { actual.currentItem?.status == .readyToPlay })
-            precondition(actual.currentItem?.status == .readyToPlay)
-            registry.pause(); registry.resume(); hold(0.15)
-            precondition(registry.sceneScriptSnapshots()[31] == false && actual.rate == 0)
-            precondition(CMTimeGetSeconds(actual.currentTime()) < 0.02)
-            print("startsilent-ready-host-resume-pass")
-
-            try registry.validate([.init(layerID: 31, action: .play, destination: .soundLayer)]).get()
-            precondition(actual.rate == 0, "validation mutated player")
-            try send(registry, [.play], layer: 31)
-            pump(until: Date().addingTimeInterval(5), while: { CMTimeGetSeconds(actual.currentTime()) > 0.4 })
-            precondition(registry.sceneScriptSnapshots()[31] == true)
-            let item = actual.currentItem, beforeRepeat = CMTimeGetSeconds(actual.currentTime())
-            try send(registry, [.play, .play], layer: 31)
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) < 0.1 })
-            precondition(actual.currentItem === item && CMTimeGetSeconds(actual.currentTime()) < 0.1)
-            pump(until: Date().addingTimeInterval(3), while: {
-                CMTimeGetSeconds(actual.currentTime()) > 0.08
-            })
-            let resumedTime = CMTimeGetSeconds(actual.currentTime())
-            precondition(resumedTime > 0.08 && resumedTime < beforeRepeat - 0.1,
-                "repeat time=\(resumedTime) before=\(beforeRepeat) rate=\(actual.rate) status=\(actual.timeControlStatus.rawValue)")
-            print("repeated-play-restarts-single-pass")
-
-            try send(registry, [.pause], layer: 31)
-            let pausedAt = CMTimeGetSeconds(actual.currentTime())
-            registry.pause(); registry.resume(); hold(0.2)
-            precondition(registry.sceneScriptSnapshots()[31] == false && actual.rate == 0)
-            precondition(abs(CMTimeGetSeconds(actual.currentTime()) - pausedAt) < 0.04)
-            registry.pause()
-            try send(registry, [.play], layer: 31); hold(0.1)
-            precondition(registry.sceneScriptSnapshots()[31] == false && actual.rate == 0)
-            precondition(abs(CMTimeGetSeconds(actual.currentTime()) - pausedAt) < 0.04)
-            registry.resume()
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) > pausedAt + 0.1 })
-            precondition(actual.currentItem === item && registry.sceneScriptSnapshots()[31] == true)
-            print("author-pause-and-host-pause-independent-pass")
-            registry.pause()
-            try send(registry, [.play], layer: 31)
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) < 0.02 })
-            precondition(CMTimeGetSeconds(actual.currentTime()) < 0.02 && actual.rate == 0)
-            precondition(registry.sceneScriptSnapshots()[31] == false)
-            registry.resume()
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) > 0.1 })
-            precondition(registry.sceneScriptSnapshots()[31] == true)
-            print("host-suspension-preserves-author-repeat-semantics-pass")
-
-            try send(registry, [.stop], layer: 31)
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) < 0.02 })
-            precondition(CMTimeGetSeconds(actual.currentTime()) < 0.02)
-            registry.pause(); registry.resume(); hold(0.15)
-            precondition(actual.rate == 0 && registry.sceneScriptSnapshots()[31] == false)
-            try send(registry, [.play], layer: 31)
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) > 0.1 })
-            precondition(registry.sceneScriptSnapshots()[31] == true)
-            print("stop-rewinds-and-replays-pass")
-
-            let stop = SceneScriptMediaPlaybackCommand(layerID: 31, action: .stop, destination: .soundLayer)
-            let invalid: [(SceneScriptMediaPlaybackCommand, SceneSoundPlaybackRegistry.CommandFailure)] = [
-                (.init(layerID: 31, action: .setCurrentTime(0), destination: .soundLayer), .invalidCommand(1)),
-                (.init(layerID: 31, action: .setRate(1), destination: .soundLayer), .invalidCommand(1)),
-                (.init(layerID: 31, action: .setLoop(true), destination: .soundLayer), .invalidCommand(1)),
-                (.init(layerID: 31, action: .play), .invalidCommand(1)),
-                (.init(layerID: 999, action: .play, destination: .soundLayer), .unavailableLayer(999))]
-            for (command, expected) in invalid {
-                guard case let .failure(failure) = registry.apply([stop, command]) else {
-                    fatalError("invalid batch accepted")
-                }
-                precondition(failure == expected && actual.rate == 1)
-            }
-            guard case .failure(.commandBudgetExceeded) = registry.apply(Array(repeating: stop, count: 65))
-            else { fatalError("budget accepted") }
-            precondition(actual.rate == 1)
-            let validAt = CMTimeGetSeconds(actual.currentTime())
-            try registry.validate([stop]).get(); hold(0.1)
-            precondition(actual.rate == 1 && CMTimeGetSeconds(actual.currentTime()) > validAt + 0.05)
-            print("atomic-command-rejection-pass")
-
-            try send(registry, [.play, .pause], layer: 31)
-            precondition(actual.rate == 0 && registry.sceneScriptSnapshots()[31] == false)
-            try send(registry, [.pause, .play], layer: 31)
-            precondition(registry.sceneScriptSnapshots()[31] == true)
-            try send(registry, [.play, .stop], layer: 31)
-            precondition(registry.sceneScriptSnapshots()[31] == false)
-            print("ordered-author-commands-pass")
-            registry.stop(); hold(0.2)
-            registry.resume(); registry.start(paused: false, userValues: [:])
-            precondition(registry.sceneScriptSnapshots().isEmpty && actual.rate == 0 && actual.items().isEmpty)
-            guard case .failure(.unavailableLayer(31)) = registry.apply([stop])
-            else { fatalError("retired registry accepted command") }
-            print("teardown-rejects-and-does-not-revive-pass")
-        }
-        do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
-                .init(id: 32, sound: makeSound(mode: "single"))
-            ]), resourceView: resourceView)
-            let registry = SceneSoundPlaybackRegistry(program: program, epoch: 10)
-            registry.start(paused: true, userValues: [:])
-            let actual = player(registry, layer: 32)
-            hold(0.2)
-            precondition(actual.rate == 0 && registry.sceneScriptSnapshots()[32] == false)
-            registry.resume()
-            pump(until: Date().addingTimeInterval(3), while: { CMTimeGetSeconds(actual.currentTime()) > 0.1 })
-            precondition(registry.sceneScriptSnapshots()[32] == true)
-            registry.stop()
-            print("initial-host-pause-retains-autoplay-intent-pass")
-        }
-        do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
-                .init(id: 33, sound: makeSound(mode: "loop", startsSilent: true, volume: 0.8))
-            ]), resourceView: resourceView)
-            let registry = SceneSoundPlaybackRegistry(program: program, epoch: 11)
-            registry.setMasterVolume(0.5); registry.setMuted(true)
-            registry.start(paused: false, userValues: [:])
-            let actual = player(registry, layer: 33)
-            precondition(actual.volume == 0)
-            registry.setMuted(false)
-            precondition(abs(actual.volume - 0.4) < 0.001 && actual.rate == 0)
-            registry.setMasterVolume(0.25)
-            precondition(abs(actual.volume - 0.2) < 0.001)
-            registry.setMuted(true); precondition(actual.volume == 0)
-            registry.stop()
-            print("gain-and-mute-contract-pass")
-        }
-        do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
-                .init(id: 34, sound: makeSound(mode: "loop")),
-                .init(id: 35, sound: makeSound(mode: "loop"))
-            ]), resourceView: resourceView)
-            let registry = SceneSoundPlaybackRegistry(program: program, epoch: 12)
-            registry.start(paused: false, userValues: [:])
-            let retired = player(registry, layer: 34), healthy = player(registry, layer: 35)
-            pump(until: Date().addingTimeInterval(5), while: {
-                CMTimeGetSeconds(retired.currentTime()) > 0.1
-                    && CMTimeGetSeconds(healthy.currentTime()) > 0.1
-            })
-            precondition(registry.sceneScriptSnapshots()[34] == true
-                && registry.sceneScriptSnapshots()[35] == true)
-            registry.retire(layerIDs: [34, 999])
-            registry.retire(layerIDs: [34])
-            precondition(retired.rate == 0 && retired.items().isEmpty)
-            precondition(registry.sceneScriptSnapshots()[34] == nil
-                && registry.sceneScriptSnapshots()[35] == true)
-            let healthyAt = CMTimeGetSeconds(healthy.currentTime())
-            registry.pause(); registry.resume()
-            pump(until: Date().addingTimeInterval(3), while: {
-                CMTimeGetSeconds(healthy.currentTime()) > healthyAt + 0.1
-            })
-            precondition(CMTimeGetSeconds(healthy.currentTime()) > healthyAt + 0.1
-                && healthy.rate == 1 && retired.rate == 0 && retired.items().isEmpty)
-            let retiredPlay = SceneScriptMediaPlaybackCommand(
-                layerID: 34, action: .play, destination: .soundLayer)
-            guard case .failure(.unavailableLayer(34)) = registry.validate([retiredPlay]),
-                  case .failure(.unavailableLayer(34)) = registry.apply([
-                    .init(layerID: 35, action: .pause, destination: .soundLayer), retiredPlay])
-            else { fatalError("retired Sound admitted") }
-            precondition(healthy.rate == 1 && registry.sceneScriptSnapshots()[35] == true)
-            registry.stop()
-            print("layer-retirement-stops-only-its-source-pass")
-        }
-        NotificationCenter.default.removeObserver(observer)
-        try? FileManager.default.removeItem(at: directory)
-    }
-}
-'''
+PLAYBACK_HARNESS_SOURCE = (
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneSoundPlaybackRegistryHarness.swift"
+).read_text(encoding="utf-8")
 
 
 def layer_diagnostics(payload, layer_id):
@@ -655,9 +360,10 @@ def layer_diagnostics(payload, layer_id):
 
 def layer_binding_sources(payload, layer_id):
     return [
-        entry["source"]
+        source
         for entry in payload["bindings"]
         if entry["layerID"] == layer_id
+        for source in entry["sources"]
     ]
 
 
@@ -758,6 +464,8 @@ class SceneSoundPlaybackProgramTests(unittest.TestCase):
                 ("resourceUnavailable", "audio/also-gone.mp3"),
             ],
         )
+        self.assertEqual(self.payload["unavailableOnlySummary"],
+                         {"admitted": 0, "rejected": 1, "skipped": 0, "diagnostics": 2})
 
     def test_path_escape_source_keeps_the_typed_path_reason(self) -> None:
         self.assertNotIn(210, self.payload["admittedLayerIDs"])
@@ -826,6 +534,62 @@ class SceneSoundPlaybackProgramTests(unittest.TestCase):
             [("playbackModeUnsupported", "once")],
         )
 
+    def test_random_prepares_both_resources_in_authored_order(self) -> None:
+        binding = next(entry for entry in self.payload["bindings"] if entry["layerID"] == 701)
+        self.assertEqual(binding["mode"], "random")
+        self.assertEqual(binding["sources"], ["/fixture/first.wav", "/fixture/second.flac"])
+        self.assertEqual(binding["resourceURLs"], binding["sources"])
+        self.assertEqual((binding["minimumTime"], binding["maximumTime"]), (1, 2))
+        self.assertTrue(binding["startsSilent"])
+        self.assertTrue(binding["volumeConsumer"])
+        self.assertEqual(layer_diagnostics(self.payload, 701), [])
+
+    def test_renamed_random_resources_equal_interval_and_volume_identity(self) -> None:
+        binding = next(entry for entry in self.payload["bindings"] if entry["layerID"] == 702)
+        self.assertEqual(binding["mode"], "random")
+        self.assertEqual(binding["sources"], ["/fixture/renamed-clip-B.flac", "/fixture/alternate-clip-A.wav"])
+        self.assertEqual((binding["minimumTime"], binding["maximumTime"]), (2, 2))
+        self.assertTrue(binding["volumeConsumer"])
+        self.assertEqual(layer_diagnostics(self.payload, 702), [])
+
+    def test_random_keeps_per_source_failures_before_and_after_usable_resources(self) -> None:
+        self.assertEqual(layer_binding_sources(self.payload, 703), ["/fixture/first.wav", "/fixture/second.flac"])
+        self.assertEqual(layer_diagnostics(self.payload, 703), [
+            ("resourceUnavailable", "audio/gone.wav"), ("malformedSourceList", "../escape.flac"),
+            ("audioFormatUnsupported", "webm"), ("resourceUnavailable", "audio/absent.mp3")])
+
+    def test_random_without_usable_resources_or_with_empty_list_is_rejected(self) -> None:
+        self.assertNotIn(704, self.payload["admittedLayerIDs"])
+        self.assertEqual(layer_diagnostics(self.payload, 704), [
+            ("resourceUnavailable", "audio/gone.wav"), ("audioFormatUnsupported", "m4a")])
+        self.assertNotIn(705, self.payload["admittedLayerIDs"])
+        self.assertEqual(layer_diagnostics(self.payload, 705), [("malformedSourceList", "count=0")])
+
+    def test_random_requires_explicit_finite_ordered_nonnegative_intervals(self) -> None:
+        for layer_id in self.payload["invalidIntervalLayerIDs"]:
+            with self.subTest(layer_id=layer_id):
+                self.assertNotIn(layer_id, self.payload["admittedLayerIDs"])
+                self.assertEqual([reason for reason, _ in layer_diagnostics(self.payload, layer_id)],
+                                 ["intervalInvalid"])
+
+    def test_zero_gap_random_keeps_the_platform_ogg_gate(self) -> None:
+        binding = next(entry for entry in self.payload["bindings"] if entry["layerID"] == 706)
+        supported = self.payload["platformOggPlayable"]
+        self.assertEqual(binding["sources"], (["/fixture/native.ogg"] if supported else []) + ["/fixture/caps.mp3"])
+        self.assertEqual((binding["minimumTime"], binding["maximumTime"]), (0, 0))
+        self.assertEqual(layer_diagnostics(self.payload, 706), [] if supported else [("audioFormatUnsupported", "ogg")])
+
+    def test_random_spatial_rejection_and_ordinary_tail_skipping_remain_local(self) -> None:
+        self.assertNotIn(707, self.payload["admittedLayerIDs"])
+        self.assertEqual(layer_diagnostics(self.payload, 707), [("spatialPlaybackUnsupported", "spatial-fields-present")])
+        self.assertEqual(layer_binding_sources(self.payload, 708), ["/fixture/first.wav"])
+        self.assertEqual(layer_diagnostics(self.payload, 708), [])
+        self.assertIn(202, self.payload["admittedLayerIDs"])
+
+    def test_binding_report_identifies_mode_and_prepared_candidate_count(self) -> None:
+        self.assertTrue(any("layer=701 mode=random candidates=2" in line for line in self.payload["reports"]))
+        self.assertTrue(any("layer=202 mode=loop candidates=1" in line for line in self.payload["reports"]))
+
     def test_enabled_spatial_playback_remains_typed_unsupported(self) -> None:
         self.assertNotIn(505, self.payload["admittedLayerIDs"])
         self.assertEqual(
@@ -841,19 +605,32 @@ class SceneSoundPlaybackRegistryPlaybackTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(
             prefix="mwx-scene-sound-playback-"
         )
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         root = Path(cls.temporary_directory.name)
         stub = root / "SceneSoundPlaybackRegistryStubs.swift"
         harness = root / "PlaybackHarness.swift"
         binary = root / "scene-sound-playback-registry"
-        stub.write_text(STUB_SOURCE, encoding="utf-8")
+        # The Registry lane uses the production typed snapshot and SceneClock.
+        # Keep the document/resource/media carriers, without redefining the
+        # dynamic types compiled from SceneDynamicSnapshot.swift below.
+        _, separator, carriers = STUB_SOURCE.partition("struct SceneScriptMediaPlaybackCommand")
+        if not separator:
+            raise RuntimeError("media carrier boundary missing from shared Sound stub")
+        stub.write_text("import Foundation\n\n" + separator + carriers, encoding="utf-8")
         harness.write_text(PLAYBACK_HARNESS_SOURCE, encoding="utf-8")
         compilation = subprocess.run(
             [
                 "swiftc",
                 str(PROGRAM_SOURCE),
                 str(REGISTRY_SOURCE),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift"),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFrameContext.swift"),
                 str(stub),
                 str(harness),
+                "-module-cache-path",
+                str(root / "module-cache"),
                 "-o",
                 str(binary),
             ],
@@ -872,10 +649,6 @@ class SceneSoundPlaybackRegistryPlaybackTests(unittest.TestCase):
             shell=False,
         )
         record_process("playback", cls.result)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
 
     def test_single_mode_plays_to_end_without_restart(self) -> None:
         self.assertEqual(self.result.returncode, 0, self.result.stderr)
@@ -932,6 +705,37 @@ class SceneSoundPlaybackRegistryPlaybackTests(unittest.TestCase):
     def test_layer_retirement_stops_only_its_source(self) -> None:
         self.assertEqual(self.result.returncode, 0, self.result.stderr)
         self.assertIn("layer-retirement-stops-only-its-source-pass", self.result.stdout)
+
+    def test_random_uses_actual_natural_end_then_scene_clock(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-natural-end-scene-clock-single-item-pass", self.result.stdout)
+
+    def test_random_keeps_admitted_urls_and_one_item_per_cadence(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-renamed-candidates-and-same-cadence-pass", self.result.stdout)
+
+    def test_random_host_pause_uses_production_clock_and_gain_preserves_wait(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-real-clock-host-pause-drops-gap-pass", self.result.stdout)
+        self.assertIn("random-gain-does-not-reset-pending-pass", self.result.stdout)
+
+    def test_random_author_resume_and_running_play_preserve_pending_deadline(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-author-gap-resume-and-running-play-pass", self.result.stdout)
+        self.assertIn("random-temporary-end-preserves-old-gap-pass", self.result.stdout)
+
+    def test_random_replaced_item_late_completion_cannot_rearm(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-replaced-item-late-end-is-ignored-pass", self.result.stdout)
+
+    def test_random_stop_retirement_and_epoch_do_not_revive(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-stop-replay-clears-wait-pass", self.result.stdout)
+        self.assertIn("random-retire-and-epoch-late-events-do-not-revive-pass", self.result.stdout)
+
+    def test_random_codec_failure_is_local_and_requires_explicit_retry(self) -> None:
+        self.assertEqual(self.result.returncode, 0, self.result.stderr)
+        self.assertIn("random-codec-failure-local-and-explicit-retry-pass", self.result.stdout)
 
 if __name__ == "__main__":
     unittest.main()

@@ -183,6 +183,7 @@ extension SceneDesktopWallpaperSession {
             )
         }
 #endif
+        soundPlaybackRegistry?.advance(sceneTime: timing.sceneTime)
         let definitionIndex = launchContext.dynamicDefinitionIndex
         let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()
         let audioSpectrum = audioSpectrumFrame.snapshot

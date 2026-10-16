@@ -11,11 +11,18 @@ HARNESS = r'''
 import AVFoundation
 // Prepared-plan fixture only; admission and real media selection have their own gate.
 struct SceneSoundPlaybackProgram {
+    struct Resource {
+        let url: URL
+        let displayPath: String
+    }
+    enum PlaybackMode: Equatable {
+        case loop, single
+        case random(minimumTime: Double, maximumTime: Double)
+    }
     struct Binding {
         let layerID: Int
-        let resourceURL: URL
-        let displayPath = "fixture.wav"
-        let loops = true
+        let resources: [Resource]
+        let playbackMode: PlaybackMode = .loop
         let startsSilent = true
         let authoredVolume = 0.0
         let volumePropertyKey: String? = nil
@@ -24,6 +31,7 @@ struct SceneSoundPlaybackProgram {
     let bindings: [Binding]
     let layerRejectionCount = 0
     let skippedSourceCount = 0
+    let scriptVolumeTargets: Set<SceneDynamicTarget> = []
 }
 @main enum Harness {
     static func main() throws {
@@ -35,7 +43,8 @@ struct SceneSoundPlaybackProgram {
                   originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: nil,
                   alpha: 1, effects: [])])
         let registry = SceneSoundPlaybackRegistry(program: .init(bindings: [
-            .init(layerID: 1, resourceURL: URL(fileURLWithPath: CommandLine.arguments[1]))]), epoch: 1)
+            .init(layerID: 1, resources: [.init(url: URL(fileURLWithPath: CommandLine.arguments[1]),
+                displayPath: "fixture.wav")])]), epoch: 1)
         registry.start(paused: false, userValues: [:]); defer { registry.stop() }
         let domain = try SceneScriptQuickJSDomain(); try domain.configureLayerCatalog(descriptor)
         func publish(_ sound: [Int: Bool], pending: Bool = false) throws {

@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 
 > **历史证据 — 非现役入口**。当前状态归[脚本覆盖表](../capabilities/scenescript-api-coverage.md)及[输入覆盖表](../capabilities/runtime-input-property-coverage.md)，剩余任务归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
-# Sound脚本控制、Vector热更与volume脚本（2026-10-12—16）
+# Sound脚本控制、Vector热更、volume与random（2026-10-12—16）
 
 ## 首断点与实现
 
@@ -80,3 +80,20 @@ snapshot writer只消费无direct property key的binding；旧即时property wri
 完整569MB原3662790108本次冷启动120秒仍在shader准备，未ready，owned watchdog终止且进程组退出；不当永久启动失败，也不认领原包三层声音/画面已恢复。资源级实际消费与完整样本结果分列；全codec、最低系统实机false分支、听感/官方parity及性能未证。静态独审检查唯一owner、源选择与失败反例；最终运行收据按限定范围补审。
 
 材料留`.artifacts/tmp/ogg-sound-qualification-20261016/`的hash、neutral结果、压缩日志与独立实图，已停止样本/HOME/cache/probe binary当轮清理；只沿用原一份DerivedData。不将原媒体加入Git；Windows按用户要求保持运行。后续按队列继续，未以格式开放关闭声音专项或性能目标。
+
+
+<a id="sound-random-playback"></a>
+
+## Random多源与播放事务后继（2026-10-16）
+
+**首断点与通用修复。** 3781757083的390/271.visibility初始化顺序stop三个Sound，第三个127/273为random，旧Program拒绝使整个owner媒体journal撤回并误落particle错误。沿[D4](../roadmap/batch2/script-component-api-design.md#sound-random-playback)给原Binding明确mode与候选资源；random解析全部可用合法引用、显式有限0≤min≤max秒，loop/single保首可用源，不提前解码全列表。每个Source仍唯一AVQueuePlayer及最多一item，标准库选源/间隔；自然结束进入等待，仅由Session在共享SceneClock之后、VM发布之前单点推进，不建第二timer/clock。初始锚取新epoch cadence，重复sceneTime不重复装源，丢帧不补播历史片段。逐源诊断保留；修正旧rejected按错误条数误计的问题，现按唯一层计，skip仅计已准入层的源失败。
+
+**有界官方资格。** 固定2.8.0.42/exe `daac1ea7…6bda07`。最初四random查询载体在首播放后始终true，未暴露false gap，按预设门停止且没有发gap命令。随后只读IAudioMeterInformation默认render endpoint标量：低增益R1正控未过，保失败；R2仅提高自有两秒MP3资产增益，quiet前后0、max0.0005878965，通过原0.0005门。一个random/min=max4检出四段约两秒数字活动和三段约四秒低值窗，query跨窗保持true；首次play附近即有活动。三个隔离gap控制及一个late-pause反例支持：running play不改原等待；stop→play立即重启新周期；pause→play立即活动且保旧等待。late恢复活动连续约3.07秒，不能仅以峰值判官方多声重叠还是替换。项目按唯一player/单item选择在旧等待到期替换item；不宣称PCM、相位、并发机制、分布或禁止重复parity。混合数字峰值不是声学输出，设备周期unknown，不写精确onset/听感结论。独审peak/gap结论分别绑定`3406dad4…89fbb`及`ac4b4fc2…f77d1`。
+
+**控制、失败与退出。** random查询表示运行计划，包括静音间隔。作者pause与host pause各自冻结剩余量，host resume不重选；作者gap恢复立即装源但保旧等待，已有pending时临时item自然结束不覆盖它。stop清等待并退item代次；显式play才可重新装源。坏decode终止本层计划，健康peer继续，不自动无限选坏源。end/status回执在主线程核Source生命周期、epoch、item代次与managedItem；替换、stop、retire及整Session退出撤旧观察。volume/direct与script writer、原media journal/64预算及整owner失败边界保持；普通帧不解析/建图，生产ready不再创建诊断clock timer，DEBUG证据前缀限量，未测性能收益。
+
+**真实原包与编辑。** 签名Debug exe `80723cf4…b097f`/dylib `dae56475…c4786`，29.427秒构建、4282输入无漂移，deep/strict通过。相同原project/pkg默认运行：六Sound准入，原两init异常→0；273雨声推进，127音乐按作者五秒延迟后`0→0.424635`/rate1。首轮每两秒切选在延迟前取消，不能算每首实际播放；后继仅用原属性`musicbacktime="0"`，music/yusheng `3→1→0→3`取得127/273→370/217→停止→127/273的实际时钟，三次accepted、同window48455/surface1，无重建。人物、天气、时钟画面已查看。独立3264246690原包人物/布条实图保持，loop443 `0→0.398891`；64条GPU完成、22条末合成消费，无VM异常。各次exit0、输入稳定、stop surface1→0/GPU drained；不关闭这些样本其他旧视觉/交互差异。
+
+**验证与边界。** 26项实际Program门、21项真实AVFoundation控制回归、VM命令/volume及相邻Bloom三门通过；产品输入无漂移，失败后只重验受影响的测试载体，不重建或重复真实样本。首轮旧single测试在DidEnd通知立刻读query，早于AVQueuePlayer离队；改为精确item的真实end及离队双条件后通过，不改产品迎合该时点。commands缺scriptVolumeTargets、volume重复SceneDocument及共享Camera缺bloom均为旧carrier漂移，已在各唯一fixture同步。额外抽查的frame-vm旧方法位置断言两项、paused-recovery旧Video carrier三处仍失败，相关owner源与HEAD一致；它们未列本片PASS，后继治理处理。old-item通知在observer移除后投递只证退休，不能声称已排队竞争条件进入generation guard；静态门保留。未验native面板、正常daemon、设备热插拔/多屏、最低平台、全部codec、长曲自然换曲或官方听感/全样本parity，没有CPU/GPU/RAM/能耗收益数字。
+
+**材料。** 最终日志、neutral资格、endpoint标量CSV、测试摘要与必要实图提取为`.artifacts/scene-evidence/runs/sound-random-playback-20261016/`，普通14天、临时总帽1280 MiB沿用户授权；官方原图只保`/private/tmp/mwx-sound-random-20261016/`及hash位置收据，不进仓库样本/产品。已停止样本/HOME/cache、探针binary与guest自有输入当轮清理，唯一连续DerivedData保原路径；原媒体只读、Windows/原receiver保持运行，不推送。

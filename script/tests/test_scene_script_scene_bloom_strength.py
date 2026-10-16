@@ -20,7 +20,7 @@ EXTRA_SOURCES = (
 # Only the existing lightweight descriptor carrier gains the production field;
 # the configuration and its resolver below are compiled from their full source.
 PREAMBLE = vm.SWIFT_PREAMBLE.replace(
-    "    struct Camera {\n", "    struct Camera {\n        var bloom = SceneBloomConfiguration.disabled\n", 1)
+    "        var bloom = Bloom()\n", "        var bloom = SceneBloomConfiguration.disabled\n", 1)
 
 HARNESS = r'''
 @main enum SceneBloomScriptChecks {

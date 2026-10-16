@@ -15,10 +15,18 @@ final class SceneSoundPlaybackRegistry {
         let binding: SceneSoundPlaybackProgram.Binding
         private let epoch: UInt64
         private let player = AVQueuePlayer()
-        private let looper: AVPlayerLooper?
+        private var looper: AVPlayerLooper?
         private var currentItemObservation: NSKeyValueObservation?
         private var itemStatusObservation: NSKeyValueObservation?
         private var timeControlObservation: NSKeyValueObservation?
+        private var endObservation: NSObjectProtocol?
+        private var managedItem: AVPlayerItem?
+        private var itemGeneration: UInt64 = 0
+        private var currentResource: SceneSoundPlaybackProgram.Resource
+        private var remainingGap: Double?
+        private var gapNeedsAnchor = false
+        private var lastSceneTime: Double?
+        private var randomFailed = false
         private var stopped = false
         private var wantsPlayback: Bool
         private var hostPaused = true
@@ -26,9 +34,10 @@ final class SceneSoundPlaybackRegistry {
         private var masterVolume = 1.0
         private var isMuted = false
 #if DEBUG
-        private static let capturesVolumeEvidence = ProcessInfo.processInfo.arguments
+        private static let capturesEvidence = ProcessInfo.processInfo.arguments
             .contains("--mwx-debug-scene-root")
         private var volumeEvidenceCount = 0
+        private var clockEvidenceCount = 0
 #endif
 
         init(binding: SceneSoundPlaybackProgram.Binding, epoch: UInt64) {
@@ -36,34 +45,35 @@ final class SceneSoundPlaybackRegistry {
             self.epoch = epoch
             wantsPlayback = !binding.startsSilent
             baseVolume = binding.authoredVolume
-            let item = AVPlayerItem(url: binding.resourceURL)
-            // The loop/restart boundary is the only mode branch: `loop`
-            // attaches a looper, `single` plays the queued item once to the
-            // end and the empty queue stops without any restart.
-            if binding.loops {
-                looper = AVPlayerLooper(player: player, templateItem: item)
-            } else {
-                looper = nil
-                player.insert(item, after: nil)
-            }
+            currentResource = binding.resources[0] // Program admits only nonempty resources.
             player.automaticallyWaitsToMinimizeStalling = false
             player.volume = Float(binding.authoredVolume)
-            currentItemObservation = player.observe(
-                \.currentItem,
-                options: [.initial, .new]
-            ) { [weak self] _, change in
-                self?.observeStatus(of: change.newValue ?? nil, epoch: epoch)
+            if binding.playbackMode == .loop {
+                let item = AVPlayerItem(url: currentResource.url)
+                looper = AVPlayerLooper(player: player, templateItem: item)
+                currentItemObservation = player.observe(\.currentItem, options: [.initial, .new]) {
+                    [weak self] _, change in
+                    let item = change.newValue ?? nil
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, !self.stopped, self.epoch == epoch,
+                              let item, self.player.currentItem === item else { return }
+                        self.observeStatus(of: item)
+                    }
+                }
+            } else {
+                replaceItem()
             }
-            timeControlObservation = player.observe(
-                \.timeControlStatus,
-                options: [.new]
-            ) { [weak self] _, change in
-                guard let self,
-                      change.newValue == .playing else { return }
-                NSLog(
-                    "MWX Scene sound: layer=%d epoch=%llu phase=playing source=%@ volume=%.6f",
-                    binding.layerID, epoch, binding.displayPath, self.player.volume
-                )
+            timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) {
+                [weak self] _, change in
+                guard change.newValue == .playing else { return }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, !self.stopped, self.epoch == epoch,
+                          self.player.timeControlStatus == .playing else { return }
+                    NSLog(
+                        "MWX Scene sound: layer=%d epoch=%llu phase=playing source=%@ volume=%.6f",
+                        binding.layerID, epoch, self.currentResource.displayPath, self.player.volume
+                    )
+                }
             }
         }
 
@@ -86,28 +96,31 @@ final class SceneSoundPlaybackRegistry {
         }
 
         var isPlaying: Bool {
-            !stopped && wantsPlayback && !hostPaused
-                && player.currentItem != nil && player.rate > 0
+            guard !stopped, wantsPlayback, !hostPaused else { return false }
+            if case .random = binding.playbackMode {
+                // Random's query describes the armed schedule, including its
+                // quiet interval; it is not an AVPlayer rate observation.
+                return !randomFailed && (player.currentItem != nil || remainingGap != nil)
+            }
+            return player.currentItem != nil && player.rate > 0
         }
 
         func play() {
             guard !stopped else { return }
-            // Repeating author play on an active single restarts it. Host
-            // suspension does not erase that author state; author pause does.
-            if !binding.loops, wantsPlayback, player.currentItem != nil {
+            if case .random = binding.playbackMode, wantsPlayback { return }
+            // Single repeats restart; author pause resumes. Host suspension
+            // does not erase that author state.
+            if binding.playbackMode == .single, wantsPlayback, player.currentItem != nil {
                 player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
             }
             wantsPlayback = true
-            // Natural single completion empties the queue. Only an explicit
-            // author play rebuilds its item; host resume never restarts it.
-            if !binding.loops, player.currentItem == nil {
-                player.insert(AVPlayerItem(url: binding.resourceURL), after: nil)
+            randomFailed = false
+            if binding.playbackMode != .loop, player.currentItem == nil {
+                replaceItem()
             }
             reconcilePlayback()
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-root") {
-                scheduleClockObservation(epoch: epoch)
-            }
+            scheduleClockObservation()
 #endif
         }
 
@@ -119,12 +132,84 @@ final class SceneSoundPlaybackRegistry {
 
         func stopPlayback() {
             pausePlayback()
-            guard !stopped, player.currentItem != nil else { return }
-            player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            remainingGap = nil
+            gapNeedsAnchor = false
+            guard !stopped else { return }
+            if case .random = binding.playbackMode {
+                // Retire this item as well as its pending wait. A completion
+                // already queued by AVFoundation cannot arm a stopped run or
+                // a later explicit play of the same layer.
+                itemGeneration &+= 1
+                itemStatusObservation?.invalidate()
+                if let endObservation { NotificationCenter.default.removeObserver(endObservation) }
+                endObservation = nil
+                managedItem = nil
+                player.removeAllItems()
+            } else if player.currentItem != nil {
+                player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            }
+        }
+
+        /// SceneClock is advanced once by the session. No media timer or
+        /// per-surface clock runs here, and a delayed frame never catches up
+        /// by decoding several missed sounds.
+        func advance(sceneTime: Double) {
+            guard !stopped, case .random = binding.playbackMode,
+                  sceneTime.isFinite else { return }
+            let previous = lastSceneTime
+            lastSceneTime = sceneTime
+            guard case .random = binding.playbackMode,
+                  wantsPlayback, !hostPaused, !randomFailed,
+                  let remaining = remainingGap else { return }
+            guard !gapNeedsAnchor, let previous, sceneTime >= previous else {
+                gapNeedsAnchor = false
+                return
+            }
+            guard sceneTime > previous else { return }
+            let next = remaining - (sceneTime - previous)
+            if next > 0 {
+                remainingGap = next
+            } else {
+                remainingGap = nil
+                replaceItem()
+                reconcilePlayback()
+            }
+        }
+
+        private func replaceItem() {
+            if case .random = binding.playbackMode {
+                currentResource = binding.resources.randomElement()!
+            }
+            itemStatusObservation?.invalidate()
+            if let endObservation { NotificationCenter.default.removeObserver(endObservation) }
+            endObservation = nil
+            player.pause()
+            player.removeAllItems()
+            let item = AVPlayerItem(url: currentResource.url)
+            observeStatus(of: item)
+            player.insert(item, after: nil)
+            if case .random = binding.playbackMode {
+                let generation = itemGeneration
+                let epoch = epoch
+                endObservation = NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+                ) { [weak self, weak item] _ in
+                    guard let self, let item, !self.stopped, self.epoch == epoch,
+                          self.itemGeneration == generation, self.managedItem === item,
+                          !self.randomFailed else { return }
+                    // A gap retained across author pause/play is independent
+                    // of the temporary resumed item. Do not overwrite it.
+                    if self.remainingGap == nil,
+                       case let .random(minimum, maximum) = self.binding.playbackMode {
+                        self.remainingGap = Double.random(in: minimum ... maximum)
+                        self.gapNeedsAnchor = true
+                    }
+                }
+            }
         }
 
         private func reconcilePlayback() {
-            if wantsPlayback, !hostPaused, player.currentItem != nil {
+            if wantsPlayback, !hostPaused, player.currentItem != nil, !randomFailed {
                 if player.rate != 1 { player.playImmediately(atRate: 1) }
             } else {
                 player.pause()
@@ -151,8 +236,7 @@ final class SceneSoundPlaybackRegistry {
             applyEffectiveVolume()
         }
 
-        /// 静音门作用于最终增益：muted → 0，否则回到基础音量
-        /// （作者音量或用户属性覆盖值）。
+        /// Master gain and mute never replace authored/user gain or intent.
         private func applyEffectiveVolume() {
             let effective = isMuted ? 0 : baseVolume * masterVolume
             let previous = player.volume
@@ -160,13 +244,11 @@ final class SceneSoundPlaybackRegistry {
             guard previous.bitPattern != next.bitPattern else { return }
             player.volume = next
 #if DEBUG
-            // Animated gain is ordinary frame work. Export only a bounded
-            // diagnostic prefix, with configuration resolved once per process.
-            guard Self.capturesVolumeEvidence, volumeEvidenceCount < 16 else { return }
+            guard Self.capturesEvidence, volumeEvidenceCount < 16 else { return }
             volumeEvidenceCount += 1
             NSLog(
                 "MWX Scene sound: layer=%d phase=volume source=%@ previous=%.6f current=%.6f muted=%@",
-                binding.layerID, binding.displayPath, previous, effective,
+                binding.layerID, currentResource.displayPath, previous, effective,
                 isMuted ? "true" : "false"
             )
 #endif
@@ -176,68 +258,86 @@ final class SceneSoundPlaybackRegistry {
             guard !stopped else { return }
             stopped = true
             wantsPlayback = false
+            remainingGap = nil
+            itemGeneration &+= 1
             itemStatusObservation?.invalidate()
             currentItemObservation?.invalidate()
             timeControlObservation?.invalidate()
+            if let endObservation { NotificationCenter.default.removeObserver(endObservation) }
+            endObservation = nil
+            managedItem = nil
             looper?.disableLooping()
             player.pause()
             player.removeAllItems()
-            NSLog(
-                "MWX Scene sound: layer=%d phase=stopped source=%@",
-                binding.layerID, binding.displayPath
-            )
+            NSLog("MWX Scene sound: layer=%d phase=stopped source=%@",
+                  binding.layerID, currentResource.displayPath)
         }
 
-        private func observeStatus(of item: AVPlayerItem?, epoch: UInt64) {
+        private func observeStatus(of item: AVPlayerItem) {
             itemStatusObservation?.invalidate()
-            guard let item else { return }
+            managedItem = item
+            itemGeneration &+= 1
+            let generation = itemGeneration
+            let epoch = epoch
             itemStatusObservation = item.observe(\.status, options: [.initial, .new]) {
                 [weak self] item, _ in
-                guard let self else { return }
-                switch item.status {
-                case .readyToPlay:
-                    if !self.stopped, self.wantsPlayback, !self.hostPaused {
-                        self.player.playImmediately(atRate: 1)
+                DispatchQueue.main.async { [weak self, weak item] in
+                    guard let self, let item, !self.stopped, self.epoch == epoch,
+                          self.itemGeneration == generation, self.managedItem === item else { return }
+                    switch item.status {
+                    case .readyToPlay:
+                        self.reconcilePlayback()
+                        NSLog(
+                            "MWX Scene sound: layer=%d epoch=%llu phase=ready source=%@ rate=%.3f",
+                            self.binding.layerID, epoch, self.currentResource.displayPath, self.player.rate
+                        )
+#if DEBUG
+                        self.scheduleClockObservation()
+#endif
+                    case .failed:
+                        if case .random = self.binding.playbackMode {
+                            self.randomFailed = true
+                            self.wantsPlayback = false
+                            self.remainingGap = nil
+                            self.player.pause()
+                            self.player.removeAllItems()
+                        }
+                        NSLog(
+                            "MWX Scene sound: layer=%d epoch=%llu phase=failed source=%@ reason=%@",
+                            self.binding.layerID, epoch, self.currentResource.displayPath,
+                            item.error?.localizedDescription ?? "unknown"
+                        )
+                    case .unknown: break
+                    @unknown default: break
                     }
-                    NSLog(
-                        "MWX Scene sound: layer=%d epoch=%llu phase=ready source=%@ rate=%.3f",
-                        binding.layerID, epoch, binding.displayPath, self.player.rate
-                    )
-                    self.scheduleClockObservation(epoch: epoch)
-                case .failed:
-                    NSLog(
-                        "MWX Scene sound: layer=%d epoch=%llu phase=failed source=%@ reason=%@",
-                        binding.layerID, epoch, binding.displayPath,
-                        item.error?.localizedDescription ?? "unknown"
-                    )
-                case .unknown:
-                    break
-                @unknown default:
-                    break
                 }
             }
         }
 
-        private func scheduleClockObservation(epoch: UInt64) {
+#if DEBUG
+        private func scheduleClockObservation() {
+            guard Self.capturesEvidence, clockEvidenceCount < 16 else { return }
+            clockEvidenceCount += 1
             let initialTime = CMTimeGetSeconds(player.currentTime())
+            let generation = itemGeneration
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                guard let self, !self.stopped else { return }
+                guard let self, !self.stopped, self.itemGeneration == generation else { return }
                 let currentTime = CMTimeGetSeconds(self.player.currentTime())
                 let advanced = initialTime.isFinite && currentTime.isFinite
                     && currentTime > initialTime + 0.1
                 NSLog(
                     "MWX Scene sound: layer=%d epoch=%llu phase=clock source=%@ initial=%.6f current=%.6f advanced=%@ rate=%.3f status=%d",
-                    self.binding.layerID, epoch, self.binding.displayPath,
+                    self.binding.layerID, self.epoch, self.currentResource.displayPath,
                     initialTime, currentTime, advanced ? "true" : "false",
                     self.player.rate, self.player.timeControlStatus.rawValue
                 )
             }
         }
+#endif
 
-        deinit {
-            stop()
-        }
+        deinit { stop() }
     }
+
 
     private let epoch: UInt64
     private let program: SceneSoundPlaybackProgram
@@ -311,6 +411,11 @@ final class SceneSoundPlaybackRegistry {
 
     func resume() {
         sources.values.forEach { $0.resume() }
+    }
+
+    /// The session calls this once before publishing all surfaces' VM input.
+    func advance(sceneTime: Double) {
+        sources.values.forEach { $0.advance(sceneTime: sceneTime) }
     }
 
     func sceneScriptSnapshots() -> [Int: Bool] {

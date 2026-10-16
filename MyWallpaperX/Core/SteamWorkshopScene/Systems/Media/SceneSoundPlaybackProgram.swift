@@ -6,11 +6,21 @@ import Foundation
 /// unsupported authored forms remain in `SceneDocument` and reject only their
 /// own Sound layer.
 struct SceneSoundPlaybackProgram {
+    struct Resource {
+        let url: URL
+        let displayPath: String
+    }
+
+    enum PlaybackMode: Equatable {
+        case loop
+        case single
+        case random(minimumTime: Double, maximumTime: Double)
+    }
+
     struct Binding {
         let layerID: Int
-        let resourceURL: URL
-        let displayPath: String
-        let loops: Bool
+        let resources: [Resource]
+        let playbackMode: PlaybackMode
         let startsSilent: Bool
         let authoredVolume: Double
         let volumePropertyKey: String?
@@ -24,6 +34,7 @@ struct SceneSoundPlaybackProgram {
         enum Reason: String {
             case malformedSourceList
             case playbackModeUnsupported
+            case intervalInvalid
             case startsSilentUnsupported
             case spatialPlaybackUnsupported
             case volumeInvalid
@@ -39,6 +50,11 @@ struct SceneSoundPlaybackProgram {
     let bindings: [Binding]
     let diagnostics: [Diagnostic]
     private(set) var scriptVolumeTargets: Set<SceneDynamicTarget> = []
+
+    private struct AdmissionFailure: Error {
+        let reason: Diagnostic.Reason
+        let detail: String
+    }
 
     /// Final owner construction transfers gain publication for these targets.
     /// The property key remains input identity, never a second player writer.
@@ -84,28 +100,39 @@ struct SceneSoundPlaybackProgram {
     /// Diagnostics for layers that admitted no binding at all.
     var layerRejectionCount: Int {
         let admittedLayerIDs = Set(bindings.map(\.layerID))
-        return diagnostics.filter { !admittedLayerIDs.contains($0.layerID) }.count
+        return Set(diagnostics.lazy.filter {
+            !admittedLayerIDs.contains($0.layerID)
+        }.map(\.layerID)).count
     }
 
     /// Diagnostics for sources skipped by layers that admitted another
     /// source - real facts, but they must not read as rejected layers in
     /// corpus tooling that counts reason lines.
     var skippedSourceCount: Int {
-        diagnostics.count - layerRejectionCount
+        let admittedLayerIDs = Set(bindings.map(\.layerID))
+        return diagnostics.filter { admittedLayerIDs.contains($0.layerID) }.count
     }
 
     var reportLines: [String] {
         var lines = [
-            "scene sound playback: schema=avqueueplayer-loop-v2"
+            "scene sound playback: schema=avqueueplayer-multi-source-v3"
                 + " admitted=\(bindings.count) rejected=\(layerRejectionCount)"
                 + " skipped=\(skippedSourceCount)"
                 + " route=generic-only failure=layer-local"
                 + " dynamicVolumeTargets=\(liveConsumerTargets.count)",
         ]
-        lines += bindings.map {
-            "scene sound binding: layer=\($0.layerID)"
-                + " source=\($0.displayPath) volume=\($0.authoredVolume)"
-                + " property=\($0.volumePropertyKey ?? "-")"
+        lines += bindings.map { binding in
+            let mode: String
+            switch binding.playbackMode {
+            case .loop: mode = "loop"
+            case .single: mode = "single"
+            case .random: mode = "random"
+            }
+            return "scene sound binding: layer=\(binding.layerID) mode=\(mode)"
+                + " candidates=\(binding.resources.count)"
+                + " sources=\(binding.resources.map(\.displayPath).joined(separator: ","))"
+                + " volume=\(binding.authoredVolume)"
+                + " property=\(binding.volumePropertyKey ?? "-")"
         }
         lines += diagnostics.map {
             "scene sound diagnostic: layer=\($0.layerID)"
@@ -122,8 +149,11 @@ struct SceneSoundPlaybackProgram {
         var diagnostics: [Diagnostic] = []
         for object in document.objects.sorted(by: { $0.id < $1.id }) {
             guard let sound = object.sound else { continue }
-            let rejection = admissionFailure(sound)
-            if let rejection {
+            let playbackMode: PlaybackMode
+            switch admission(sound) {
+            case let .success(mode):
+                playbackMode = mode
+            case let .failure(rejection):
                 diagnostics.append(.init(
                     layerID: object.id,
                     reason: rejection.reason,
@@ -131,13 +161,10 @@ struct SceneSoundPlaybackProgram {
                 ))
                 continue
             }
-            let loops = normalizedPlaybackMode(sound.playbackMode) == "loop"
             var skippedSources: [(reason: Diagnostic.Reason, detail: String)] = []
-            var binding: Binding?
-            // Sources are attempted in author order; the first usable source
-            // carries the binding and skipped sources keep their real
-            // per-source reason/detail through the existing diagnostic
-            // reasons (no new reason code, also when nothing is admitted).
+            var resources: [Resource] = []
+            // Ordinary playback keeps its first usable source. Random prepares
+            // every usable reference; decoding and selection belong to Registry.
             for path in sound.paths {
                 if let failure = sourceFailure(path) {
                     skippedSources.append(failure)
@@ -147,22 +174,24 @@ struct SceneSoundPlaybackProgram {
                     skippedSources.append((.resourceUnavailable, path))
                     continue
                 }
-                binding = Binding(
-                    layerID: object.id,
-                    resourceURL: resource.url,
-                    displayPath: resourceView.displayPath(for: resource.url),
-                    loops: loops,
-                    startsSilent: sound.startsSilent == true,
-                    authoredVolume: sound.volume ?? 1,
-                    volumePropertyKey: sound.volumePropertyKey
-                )
+                resources.append(Resource(
+                    url: resource.url,
+                    displayPath: resourceView.displayPath(for: resource.url)
+                ))
+                if case .random = playbackMode { continue }
                 break
             }
             diagnostics.append(contentsOf: skippedSources.map { skip in
                 .init(layerID: object.id, reason: skip.reason, detail: skip.detail)
             })
-            if let binding {
-                bindings.append(binding)
+            if !resources.isEmpty {
+                bindings.append(Binding(
+                    layerID: object.id, resources: resources,
+                    playbackMode: playbackMode,
+                    startsSilent: sound.startsSilent == true,
+                    authoredVolume: sound.volume ?? 1,
+                    volumePropertyKey: sound.volumePropertyKey
+                ))
             }
         }
         return SceneSoundPlaybackProgram(
@@ -171,18 +200,38 @@ struct SceneSoundPlaybackProgram {
         )
     }
 
-    private static func admissionFailure(
+    private static func admission(
         _ sound: SceneDocument.SceneSoundLayerDefinition
-    ) -> (reason: Diagnostic.Reason, detail: String)? {
+    ) -> Result<PlaybackMode, AdmissionFailure> {
         guard sound.authoredPathCount == sound.paths.count,
               !sound.paths.isEmpty else {
-            return (.malformedSourceList, "count=\(sound.authoredPathCount)")
+            return .failure(.init(
+                reason: .malformedSourceList, detail: "count=\(sound.authoredPathCount)"
+            ))
         }
-        guard normalizedPlaybackMode(sound.playbackMode) != nil else {
-            return (.playbackModeUnsupported, sound.playbackMode ?? "missing")
+        let playbackMode: PlaybackMode
+        switch sound.playbackMode?.localizedLowercase {
+        case "loop": playbackMode = .loop
+        case "single": playbackMode = .single
+        case "random":
+            guard let minimum = sound.minimumTime, let maximum = sound.maximumTime,
+                  minimum.isFinite, maximum.isFinite, minimum >= 0, minimum <= maximum else {
+                return .failure(.init(
+                    reason: .intervalInvalid,
+                    detail: "min=\(String(describing: sound.minimumTime))"
+                        + " max=\(String(describing: sound.maximumTime))"
+                ))
+            }
+            playbackMode = .random(minimumTime: minimum, maximumTime: maximum)
+        default:
+            return .failure(.init(
+                reason: .playbackModeUnsupported, detail: sound.playbackMode ?? "missing"
+            ))
         }
         guard sound.startsSilent != nil else {
-            return (.startsSilentUnsupported, String(describing: sound.startsSilent))
+            return .failure(.init(
+                reason: .startsSilentUnsupported, detail: String(describing: sound.startsSilent)
+            ))
         }
         // `mintime` / `maxtime` are retained in the loss-preserving document,
         // but they do not narrow the admitted `loop` contract. Workshop loop
@@ -196,28 +245,18 @@ struct SceneSoundPlaybackProgram {
         // ambiguous spatial tuning remains layer-local unsupported.
         guard sound.spatialization != true,
               sound.spatialization == false || !hasSpatialTuning else {
-            return (.spatialPlaybackUnsupported, "spatial-fields-present")
+            return .failure(.init(
+                reason: .spatialPlaybackUnsupported, detail: "spatial-fields-present"
+            ))
         }
         guard let volume = sound.volume,
               volume.isFinite,
               (0 ... 1).contains(volume) else {
-            return (.volumeInvalid, String(describing: sound.volume))
+            return .failure(.init(
+                reason: .volumeInvalid, detail: String(describing: sound.volume)
+            ))
         }
-        return nil
-    }
-
-    /// `loop` keeps its continuous playback contract verbatim; `single` plays
-    /// once to the end and stops. Every other authored spelling stays
-    /// layer-locally rejected.
-    private static func normalizedPlaybackMode(_ raw: String?) -> String? {
-        switch raw?.localizedLowercase {
-        case "loop":
-            "loop"
-        case "single":
-            "single"
-        default:
-            nil
-        }
+        return .success(playbackMode)
     }
 
     /// Platform format capability is stable preparation metadata, not proof
@@ -226,7 +265,7 @@ struct SceneSoundPlaybackProgram {
         AVURLAsset.isPlayableExtendedMIMEType("audio/ogg")
 
     /// Each attempted source checks path legality before format capability;
-    /// selection stops at the first available resource.
+    /// loop/single selection stops at the first available resource.
     private static func sourceFailure(
         _ path: String
     ) -> (reason: Diagnostic.Reason, detail: String)? {

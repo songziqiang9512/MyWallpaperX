@@ -391,17 +391,19 @@ Vector applyUserProperties原已执行，但live state仅登记Scalar/String导�
 
 <a id="sound-random-playback"></a>
 
-### Random Sound多源接续（2026-10-16，设计已记录，等待相位资格后实施）
+### Random Sound多源接续（2026-10-16，有界实施）
 
 **目标与取舍。** 恢复已准备random Sound的正常播放和控制，让默认可达的音乐选择脚本能完成整个媒体事务。相比仍缺当前归因的旧视觉观察、尚无新增可避免成本信号的性能微调，这条真实首断点可直接解锁播放；具体选序仍只由现役队列维护。官方开发者[2021说明](https://steamcommunity.com/app/431960/discussions/2/3110266679775510809/)支持列表内选一源、完整结束后再选下一源，以及两声之间的min/max间隔；这是公开方向证据，不是当前客户端全部行为的实测。[ISoundLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html)保留play/pause/stop/isPlaying表面。本片不研究随机分布、洗牌或禁止重复，不把random映射为single。
 
-**唯一准备与资源。** 原Sound Program的Binding用明确loop/single/random模式替换loops布尔；loop/single保持作者顺序首可用源策略。random保存经现路径/格式/ResourceView验证的候选URL与合法有限间隔，准备全列表只解析资源引用，不解码或创建全部AVPlayerItem。缺源保逐源诊断；全缺或非法间隔仅拒该Sound。显式空间化继续不支持；原volume、OGG平台能力、坏codec局部失败与资源生命周期合同保持。不得为通过控制查询返回假可用状态。
+**唯一准备与资源。** 原Sound Program的Binding用明确loop/single/random模式替换loops布尔；loop/single保持作者顺序首可用源策略。random保存经现路径/格式/ResourceView验证的候选URL及各自displayPath；只准入显式有限的0≤min≤max秒间隔，准备全列表只解析资源引用，不解码或创建全部AVPlayerItem。缺源保逐源诊断；全缺或非法间隔仅拒该Sound。显式空间化继续不支持；原volume、OGG平台能力、坏codec局部失败与资源生命周期合同保持。不得为通过控制查询返回假可用状态。
 
 **唯一播放与时间。** Registry中原Source继续独占一个AVQueuePlayer；random每次只装一个item，完整结束后记录等待状态，再按共享SceneClock的sceneTime推进下一源，所有surface只推进一次。不使用被截断的simulation delta，不另设墙钟timer/player/provider。Source的剩余等待是状态而非第二时钟；Registry在surface/clock重置前建立，初始时间锚必须来自新epoch首个权威timing。AVFoundation继续拥有媒体播放位置；宿主暂停冻结间隔并阻止解码播放，作者pause/stop意图独立，不被host resume、ready或自然结束回执改写。
 
+**控制状态。** random初次启动不等gap；wantsPlayback为真时play不重置item或等待。自然结束后抽一次间隔，等待时isPlaying仍表示运行计划；作者pause和host pause各自冻结剩余量。作者暂停gap后play立即选源，但保留原剩余间隔，原deadline到期按上节单item策略再选源；已有pending间隔时该临时item结束不再覆盖间隔。stop清等待并重置位置，随后play立即启动且按新结束重建gap；宿主resume只恢复已有意图，不主动选新曲。缺省/分布/不重复策略未证，不写额外shuffle规则；使用标准库随机选择及区间采样。只消费首个有限新SceneClock时间锚及后续非负sceneTime差，同时间/多surface不重复排程，不追赶历史漏播。解码失败终止本层计划并保健康peer，只有显式play可重试，不能自动无限重选。
+
 **事务、失败与退出。** 复用原media journal、64条预算、无副作用validate与整owner提交；C host仍只对真实prepared来源开放，未知层不no-op。natural end/status回调核source epoch和item代次，晚到回执不得改写已替换item、退休层或已停Session。stop、层退休及Session退出取消等待、撤观察者并清原队列；坏源不无限重试，不引入后台扫描或第二资源fallback权威。loop/single旧行为及volume writer移交保持。
 
-**先资格后落行为。** 首次play是否等待、等待期isPlaying及play/pause/stop对剩余间隔的规则尚未确定，不能借single行为填空。复用已资格的自有两秒MP3与文本载体：一个single健康对照、四个单源random且min=max=4；以实际首次true→false锚定gap，再分别比较不操作、pause→play、stop→play、gap内play。正控失败、未观察到首播放/gap或peer不在同一gap立即停止，不扩大无区分矩阵；查询时点不冒充可听PCM起点。10-16固定2.8.0.42自有首轮single在查询0.351秒启动、2.326秒结束，但四个random均未暴露首个false间隙，已按条件停止且未发gap命令；因此该载体不能裁定真实音频等待或控制规则。后继须改用有正控的音频活动观测或有界静态资格，禁止重复同查询矩阵；先在本节记录裁定及项目边界，再实施会受该规则影响的状态机。
+**行为资格与限制。** 固定官方2.8.0.42的自有两秒MP3以single前后quiet正控，再用一个random/min=max4及隔离gap控制观察默认render endpoint数字峰值。首次play附近即活动，后继约四秒低值窗且query持续true；running play不重排，stop→play新周期，pause→play保旧等待。唯一late反例支持等待到期可在恢复音源期间再触发，但峰值不能裁定官方替换/重叠；上述单player到期替换是本项目有界选择。不得以single行为填空，不宣称声学、精确onset/PCM、分布/不重复或完整parity。失败载体、低增益正控失败、最终结果及未验边界归[后验](../../history/sound-script-control-2026-10-12.md#sound-random-playback)。
 
 **最小验收与停止。** 自有双短源实际自然完成并接续、同层不重叠、合法间隔与已资格控制合同、宿主暂停/恢复及退役后不续播；同一原包音乐选项3→1→0→3的命令与真实player消费、独立未参与修法样本实图。相邻门保loop/single、单源random、资源/变量改名、缺/坏源、非法间隔、stale回执和健康peer。无法在唯一现有链路内闭合或关键相位仍unknown时停该实施，不用构建、player ready、错误消失或日志数量代替播放收益；不预支性能或完整官方parity。
 

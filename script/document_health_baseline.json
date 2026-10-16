@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 172367
+      "bytes": 172525
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -117,12 +117,12 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 174,
-      "bytes": 48593
+      "lines": 175,
+      "bytes": 49163
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 195191
+      "bytes": 195340
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 109758
+      "bytes": 109881
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 449,
-      "bytes": 116523
+      "lines": 451,
+      "bytes": 117241
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -237,8 +237,8 @@
       "bytes": 12665
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 140,
-      "bytes": 27669
+      "lines": 139,
+      "bytes": 27056
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1159,24 +1159,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "375ed7ea4610d0601b8edc811e535c6b1337a105a4f486cf9037a6b976cc6039",
-      "after": "f9eddf433a72b42d6dbf3d6a539308e1c3b89b7b6542c477a1b195f157213dc2",
-      "owner": "scene-general-bloom-script",
-      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "ade99852fe66ae4aebda6f6da144135a62c93c70fe52f03c79c0567630382b5a",
-      "after": "4a42f0322fa720449104715ae0b0e6481d3aa0796cca09102d09eec55e522875",
-      "owner": "scene-sound-random-design",
-      "reason": "已定位默认可达Sound random缺口，实施前在原D4补唯一Program/Registry/clock设计及query载体STOP；不创建平行计划，不预支播放与parity。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "8c861c91c67d180b74de2c458a97adcce184793b283f7a5ec68a11fe1801be38",
       "after": "916922105aa731a7900ce31f6d791e92d0d9acce159c0a27df4671d765b5cc94",
@@ -1192,24 +1174,6 @@
       "owner": "scene-unused-version-combo",
       "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
       "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f321d7f7b7c12866e0cc974887f5edfac502e7495d616fd224d3565a540c0703",
-      "after": "165cf8f93345e78c9625f6bac4dfb470259e4c7dfa37d9bd5d7a3bd0c447caea",
-      "owner": "scene-bool-property-return",
-      "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "b21f84c0d7a75b8fcfa2ffddedf8d2a1e0bf0895b4a250560a6f535b3670190e",
-      "after": "75b3a0aa591882ec8934973708a8a18627796f9a7d7b85c92a285623344a591f",
-      "owner": "scene-bool-property-return",
-      "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
     },
     {
       "section": "bodies",
@@ -1237,6 +1201,51 @@
       "owner": "scene-bool-property-return",
       "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "f9eddf433a72b42d6dbf3d6a539308e1c3b89b7b6542c477a1b195f157213dc2",
+      "after": "a6639b25a74b3537fe65837805dfe674fbe7df483db6e5e64c72e1917af2ce97",
+      "owner": "scene-sound-random-playback",
+      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "165cf8f93345e78c9625f6bac4dfb470259e4c7dfa37d9bd5d7a3bd0c447caea",
+      "after": "2d17c6f4e1ceb3d1be85e214f876807d523410ad38606ade6f731d9dd7fe0a97",
+      "owner": "scene-sound-random-playback",
+      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "b73a32d8ef8210522674d1fa5180856183ac29fe9811cde0a6c6997883832ee8",
+      "after": "0c42d0857cd7fcd0dcd1bd2f480d729379ccee940268fc058a1e2f6d38e79687",
+      "owner": "scene-sound-random-playback",
+      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "75b3a0aa591882ec8934973708a8a18627796f9a7d7b85c92a285623344a591f",
+      "after": "4a8c290d47a7cbecf35597c318d6aa7532bdde0d062bd56742ed046eed467417",
+      "owner": "scene-sound-random-playback",
+      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "4a42f0322fa720449104715ae0b0e6481d3aa0796cca09102d09eec55e522875",
+      "after": "8b97bb11844e7e8d7ea3a47aebd538e6f04c358fe0dd7509daa3f57241760815",
+      "owner": "scene-sound-random-playback",
+      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
     }
   ]
 }

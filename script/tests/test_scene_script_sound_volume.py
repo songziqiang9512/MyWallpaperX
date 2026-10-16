@@ -27,7 +27,15 @@ EXTRA_SOURCES = (
 def sound_preamble() -> str:
     # Reuse the existing external document/resource carriers. The VM, dynamic
     # snapshot, Sound Program, Registry, and AVQueuePlayer remain production code.
-    return vm.SWIFT_PREAMBLE + STUB_SOURCE[STUB_SOURCE.index("struct SceneDocument {"):]
+    carriers = STUB_SOURCE[STUB_SOURCE.index("struct SceneDocument {"):]
+    resource_start = carriers.index("struct SceneResource {")
+    # The shared VM carrier now owns the camera schema. Merge the Sound DTO
+    # members into that same document rather than declaring a second type.
+    document_body = carriers[:resource_start].split("{", 1)[1].rsplit("}", 1)[0]
+    preamble = vm.SWIFT_PREAMBLE.replace(
+        "struct SceneDocument {", "struct SceneDocument {" + document_body, 1
+    )
+    return preamble + carriers[resource_start:]
 
 
 HARNESS = r'''
@@ -50,19 +58,22 @@ import AVFoundation
 
     static func sound(resource: String, volume: Double = seed,
                       property: String? = nil, mode: String = "loop",
-                      spatial: Bool? = nil) -> SceneDocument.SceneSoundLayerDefinition {
+                      spatial: Bool? = nil, minimumTime: Double? = nil,
+                      maximumTime: Double? = nil) -> SceneDocument.SceneSoundLayerDefinition {
         .init(paths: [resource], authoredPathCount: 1, playbackMode: mode,
             startsSilent: true, muteInEditor: false, volume: volume,
-            volumePropertyKey: property, minimumTime: nil, maximumTime: nil,
+            volumePropertyKey: property, minimumTime: minimumTime, maximumTime: maximumTime,
             spatialization: spatial, attenuation: nil, minimumDistance: nil)
     }
 
     static func prepared(audio: URL, resource: String = "audio/own.wav",
                          volume: Double = seed, property: String? = nil,
                          mode: String = "loop", spatial: Bool? = nil,
-                         available: Bool = true) -> SceneSoundPlaybackProgram {
+                         available: Bool = true, minimumTime: Double? = nil,
+                         maximumTime: Double? = nil) -> SceneSoundPlaybackProgram {
         .compile(document: .init(objects: [.init(id: 16, sound: sound(resource: resource,
-            volume: volume, property: property, mode: mode, spatial: spatial))]),
+            volume: volume, property: property, mode: mode, spatial: spatial,
+            minimumTime: minimumTime, maximumTime: maximumTime))]),
             resourceView: .init(resourcesByReference: available ? [resource: audio] : [:]))
     }
 
@@ -551,12 +562,18 @@ import AVFoundation
             .init(target: .layer(layerID: 999, field: .volume), valueType: .scalar, authoredValue: .scalar(seed)),
             .init(target: .layer(layerID: 16, field: .alpha), valueType: .scalar, authoredValue: .scalar(seed)),
         ]).isEmpty
+        let random = prepared(audio: audio, mode: "random", minimumTime: 1, maximumTime: 2)
+        let randomCandidate = try candidate(scene, [valid], sound: random)
+        facts["random-prepared-volume-consumer"] = random.sceneScriptVolumeConsumerTargets(for: definitions) == [target]
+            && randomCandidate.constructionReport.instantiatedScalarTargets == [target]
+            && randomCandidate.scalarProgram.bindings.count == 1
         for (name, plan) in [
             ("missing-resource", prepared(audio: audio, available: false)),
             ("seed-conflict", prepared(audio: audio, volume: seed.nextUp)),
             ("direct-property-conflict", prepared(audio: audio, property: "gain")),
-            ("ogg", prepared(audio: audio, resource: "audio/unsupported.ogg")),
-            ("random-mode", prepared(audio: audio, mode: "random")),
+            ("unsupported-format", prepared(audio: audio, resource: "audio/unsupported.webm")),
+            ("random-interval", prepared(audio: audio, mode: "random")),
+            ("unknown-mode", prepared(audio: audio, mode: "once")),
             ("spatial", prepared(audio: audio, spatial: true)),
         ] {
             let excluded = exclusions(scene, [valid], sound: plan)

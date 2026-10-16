@@ -653,9 +653,9 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46f8056b8457bcc7b8b2bcd76fb24b3c1f2cae84e4a9e37b6c534d0bd8fef752",
+        "sourceSHA256": "20f94b51ef34749b1bf11a27705afa75de40d42d51a259df3c90f8c569e8ba80",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前Bool返回后验的链接、anchor及唯一权威导航；保留原证据身份与未验边界。",
+        "scope": "当前Random Sound后验与Bool后继的链接、anchor及唯一权威导航；保留运行身份、失败门与未验边界。",
         "limitations": "仅文档导航审计；运行范围由每条同身份证据决定，不证明全样本兼容、parity或性能。"
       }
     },
@@ -2854,7 +2854,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-16",
-      "uniqueValue": "Sound四播放方法、Vector热更、pure volume字段脚本及#sound-mixed-volume的named输入/冻结事务、writer移交、partial镜像和原生面板后验；保原包/派生/独立与冷启动超时分层、Looper测试修正及各自未验边界。#sound-ogg-native新增原生平台门、真实/自有资源级Registry消费、坏源终态与外部probe错误断言、whole366未ready的分列证据，不认领听感、性能或完整能力。"
+      "uniqueValue": "Sound四播放方法、Vector热更、pure volume字段脚本及#sound-mixed-volume的named输入/冻结事务、writer移交、partial镜像和原生面板后验；保原包/派生/独立与冷启动超时分层、Looper测试修正及各自未验边界。#sound-ogg-native新增原生平台门、真实/自有资源级Registry消费、坏源终态与外部probe错误断言、whole366未ready的分列证据，不认领听感、性能或完整能力。 #sound-random-playback保留数字峰值资格/失败正控、单item控制选择、真实延迟/热编辑、旧fixture漂移与未验race/听感边界。"
     },
     {
       "path": "docs/scene/history/source-material-entry-2026-10-08.md",
