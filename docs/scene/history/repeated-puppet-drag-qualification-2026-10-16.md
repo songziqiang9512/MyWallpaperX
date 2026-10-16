@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # U40 连续 Puppet 拖动：fresh 资格与候选 API 缺口
 
-> **历史证据 — 非现役入口**。截止：2026-10-16。保留fresh三轮故障与早期两次载体失败，并记录后继R3 setter正控、Q2视觉脉冲和Q3 query/render分道的有界观察。U40未闭合，没有交互修复、通用冲量合同或完整样本通过结论。
+> **历史证据 — 非现役入口**。截止：2026-10-17。保留fresh三轮故障、早期载体失败与后继官方有界观察。U40未闭合，没有通用冲量合同、重复交互修复或完整样本通过结论。
 
 当前状态与后继归[断点队列](../roadmap/scene-open-breakpoint-queue.md)，属性专项归[工作卡](../roadmap/properties-panel-card.md)，执行边界归[兼容路线](../roadmap/scene-compatibility-roadmap.md)。
 
@@ -44,7 +44,7 @@ native-attempt-2 的短down/up被同帧合并，没有首轮scriptWritten骨响�
 ## 候选依赖与待定合同
 
 最终中性AST报告与后继读源均确认两层各有独立4331B wrapper，回调形态含update/down/up/init；释放延时链首个缺失host方法为`applyBonePhysicsImpulse`，实际调用形态是两参`[Number,Vec3]`，后续才进入animation控制。不是getAnimation缺失；尚无动态PC因果证明，不能把静态首缺口写成已确证异常调用点。
-实际释放循环还可能触及未启用物理的有效bone0，不能由下面bone1的translation-only观察替代其处置合同。方向空间、单位/增益、广义angular缺省、重复累加/reset及更广solver仍未闭合；禁止no-op、猜default或削减异常fuse把后续callback恢复包装为物理修复。
+实际释放循环还可能触及启用字段省略的有效bone0，后继Q4观察与native reader的未启用判定分开。方向空间、单位/增益、广义angular缺省、重复累加/reset及更广solver仍未闭合；禁止猜default或削减异常fuse把后续callback恢复包装为物理修复。
 早期`handoff-review-receipt.json`的approved=true仅接受当轮交接与证据边界，implementationAuthorizedByThisReceipt=false仍保留；本文不引用作者算法正文。
 
 <a id="official-pose-query-observation"></a>
@@ -63,8 +63,26 @@ native-attempt-2 的短down/up被同帧合并，没有首轮scriptWritten骨响�
 
 Q3原ROI的E/M峰值为2556/2559个RGB变化像素，y=220局部左轮廓各移动10px，两个控制格31图均逐像素稳定；终态33行、24条采样及F60完整可读，绿色文字包围框`[16,404,404,784]`未侵入ROI。`Mat4.m`的Array16/全finite门通过，仅证明首帧和登记采样；不是未观测帧的承诺。窗口3998524关闭后remaining=0、guest stage删除、receiver5368身份不变，输入drift=[]。名义100ms和复制后UTC不提供精确显示延迟。
 
-现native的物理推进把结果写入`scriptBoneOverrides`，随后同一pose被发布给local/world getter；不能用这一投影直接满足Q3观察。后继须在已有唯一PlaybackState/typed pose职责内区分query与render姿态，并澄清实际作者释放链所需disabled骨及参数合同，不增加第二物理/clock owner。官方观察已停止扩展，不再追加方向/振幅矩阵，也不据接线方案已知推动未知语义实施。
+Q3时native物理推进把结果写入`scriptBoneOverrides`，随后同一pose被发布给local/world getter，不能满足上述观察。Q4/Q5只补足会改变公共状态设计的两个问题，不追加方向/振幅矩阵或据接线方案已知推动未知冲量实施。
+
+**Q4：有效骨、启用字段省略时的有界处置。** 原bone0有实际skin权重，`se/re/t`均缺席，不能由native reader的nil定义官方disabled默认。相同D200的显式角零及省略角两调用均正常返回undefined；31张原ROI逐RGB无变化，O/L/W登记值显示0。独立同骨setter+40 hold正控改变4409个像素、轮廓移动7–8px；O/L显示40、W显示10，后者受本载体layer scale影响。全部24查询/33行可读、原ROI无绿色诊断。结论仅为本配置正常返回而未观察到响应，不推广为所有disabled骨no-op、通用角缺省或单位合同。
+
+**Q5：一次setter后的局部寿命与物理续存。** 同一已启用平移物理bone1，C无调用、H持续+40、S仅age2写一次+40、I仅一次D200显式角零。S在同callback的O/L显示40，后续f1/2/3/6/12/30/60显示0；W从10继续衰减并反向，f60显示+0.001，不称精确归零。H始终O/L40、W10；I本地显示0而世界及网格运动。C的31个原ROI稳定；H/I实际轮廓分别移动8/9px，峰值2331/2455变化像素；S峰值2122，后续仍有可见余振。33行、24查询、finite门、identity及关闭/清理均通过独审。完整数表由正式包`q5/independent-review/query-observations.json`唯一保存，不将.25的载体scale倒推冲量单位。
+
+Q5首次CLI dispatch在0.15s返回255，未出现receiver或实验回执；只读预检确认原receiver不变、stage缺席和冻结runner可见后，以完全同argv/input完成一次实际实验。失败与预检保留，不计作第二次物理试验。上述结果只支持本平移profile的本地translation overlay按cadence退出、物理位置/速度续存；rotation/scale/其余matrix分量及非物理骨寿命未知。职责方案归[D4](../roadmap/batch2/script-component-api-design.md#puppet-query-render-pose)。
 U40仍须修后按原输入验证三轮持续响应、释放后继续更新、健康邻居与原生入口；不关闭N06、N08、其他Puppet profile、整样本视觉、物理多屏或性能专项。
+
+<a id="native-query-render-pose"></a>
+
+## 本地translation查询与render分域：有界实施
+
+按[D4先行设计](../roadmap/batch2/script-component-api-design.md#puppet-query-render-pose)，原PlaybackState保物理位置/速度与render override；已准入平移物理骨的query origin在新simulation cadence回动画基值，同callback setter仍覆盖。仅替换translation分量，rotation/scale/其余basis及非物理骨行为保持。原typed pose携query-local/render-local，C world以物理hierarchy重建；world setter用物理parent求局部值，未写骨的运动不被纯query矩阵抹掉。原rollback baseline同时撤回两镜像，GPU source-update FIFO/资源退休不变；新render镜像仅实际骨owner按count分配与复用。相同cadence不重复推进，不新增clock或solver。
+
+一次Debug build通过，4331输入drift=[]、签名验证成功；App executable SHA `7b9f5d8ab6dccb19246736fdf786d68358446d93007cb3538a9925bf8fd3b44a`、dylib SHA `8fde6f355f812a8828840ac0328b0372f4c82b703ccdf3db0a801a3c07e9812f`。真实QuickJS门4/4、Metal门16/16均一次通过；前者含改名/placement变体、父子与邻骨、local/world写、非法refresh与撤回，后者含非零动画base、同cadence保持、下一cadence query复位而world/attachment/真实顶点续存及原FIFO/coverage反例。强制OOM注入与更广matrix寿命未验，不将静态失败路径审查写成已测。
+
+同身份隔离App的四格self输入实际执行C控制、H持续setter、S一次setter及N非物理骨旧行为。S采样F0的O/L40、W10，F1的O/L0、W9.644，后续world反向而网格继续；数值轨迹仍属项目原近似，不声称官方solver一致。24张Metal截图中C固定ROI逐RGB不变，H/S轮廓最大移动21/12px，红色失败标记及绿色文字侵入均为0。Root查看ready、运动中及after原图，输入/App未漂移，VM6owner全quiescent、无callback拒绝，停止1→0/GPU drained。
+
+未参与修法的原3791967416沿同一App运行：608/962实际发布各58骨pose，六个Puppet draw进入合成；ready为作者Logo，after人物、眼部、花、手与背景呈现，17owner退出无失败、GPU drained。未验证完整闭眼周期/旧局部图案差异，不关闭其队列。3357627941另保普通image/video/graph邻例；其日志无Puppet资格，不能用旧matrix标题把它冒充Puppet回归。两个原包project/pkg均只读、复制及原件重核drift=[]。这些结果只闭合局部查询首门；impulse入口、原三轮释放交互及性能收益仍未验。
 
 ## 证据与保留
 
@@ -77,12 +95,15 @@ U40仍须修后按原输入验证三轮持续响应、释放后继续更新、�
 研究停止后已确认无打开句柄并清理同根样本副本及HOME共792文件/90,837,449B，收据为`environment-retirement-cleanup.json`；唯一DerivedData仍供后继批复用。
 早期受控轮的promotion预算拒绝与当时未重试记录保留，未知证据未删；官方Q1中性交接原路径为`.artifacts/tmp/u40-bone-impulse-blackbox-20261016/`。当轮窗口/guest/cache清理与VM保持running的记录不等于U40修复。
 
-后继正式包位于`.artifacts/scene-evidence/runs/`，均protected unresolved U40、无自动到期；本机授权的1280MiB总预算调用参数未修改仓库默认策略。各包内`actual-review.json`保存独立原像素复核与完整输入/回执hash，Q3封包后另逐entry对原bytes验证87/87一致。
+下列官方观察包位于`.artifacts/scene-evidence/runs/`，均protected unresolved U40、无自动到期；临时总预算调用参数未修改仓库默认策略。各包内`actual-review.json`保存独立原像素复核与完整输入/回执hash，Q3封包后另逐entry对原bytes验证87/87一致。
 
 | 阶段与正式ZIP | entry / bytes | ZIP SHA256 |
 |---|---:|---|
 | [R3 · setter正控](../../../.artifacts/scene-evidence/runs/u40-skin-consumer-qualification-20261016/final/samples/3749463715/runtime_evidence.zip) | 89 / 2,161,133 | `6a018609939d2422700cfd2cb7218adef61ec2f88ac5b930f9a6ae972aaf7ae8` |
 | [Q2 · 视觉脉冲，原joint gate UNKNOWN](../../../.artifacts/scene-evidence/runs/u40-translation-impulse-contract-20261016/final/samples/3749463715/runtime_evidence.zip) | 85 / 1,230,986 | `48bc4c10c602606f3803e52638e2e494f0dadcf049ddb8101899e27fc273ff44` |
 | [Q3 · query投影观察](../../../.artifacts/scene-evidence/runs/u40-physics-query-projection-20261016/final/samples/3749463715/runtime_evidence.zip) | 87 / 1,510,219 | `c595175f7b844b1e6492f3b761179c73cecf938c9fd1daf3327b4e4d5a6a4b04` |
+| [Q4/Q5 · 省略启用字段与setter寿命](../../../.artifacts/scene-evidence/runs/u40-pose-query-contract-20261017/final/samples/3749463715/runtime_evidence.zip) | 186 / 3,190,639 | `5a25fde480a0c945b2428eae17686caeafa598a521616e3f9eedc472ed6908b0` |
+
+已闭query/render片的[原生验收包](../../../.artifacts/scene-evidence/runs/u40-query-render-projection-20261017/final/samples/3749463715/runtime_evidence.zip)按普通14天保留：82 entries / 26,305,297B，SHA `cef4271ae6f2d91baee2e73b5681ecdafd96bee9d7ddc1f2d0631357a36852c2`。含24张self、335两张与379两张原图、原日志/输入身份、实际CPU/Metal命令和独审；81源逐字节匹配后清理重复执行环境。官方Q4/Q5另核185源一致再清临时副本，VM保持running。用户临时授权总预算1536MiB，单包32MiB及到期策略不变。
 
 真实用户媒体只读；U41既有提交`b132add7`不作为U40修复；提交、推送与发布状态由root另行汇报。

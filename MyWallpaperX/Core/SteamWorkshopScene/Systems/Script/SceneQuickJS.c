@@ -1848,6 +1848,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     mwx_scene_quickjs_release_text_source(owner);
     mwx_scene_quickjs_discard_jobs(owner);
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+    free(owner->puppet_bone_render_local);
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);
     mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);

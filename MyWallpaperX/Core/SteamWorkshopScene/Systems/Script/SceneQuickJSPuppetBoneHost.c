@@ -178,8 +178,11 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     if (owner->puppet_bone_mutation_count >= MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS)
         return JS_ThrowInternalError(context, "Puppet bone mutation buffer exceeded");
     double local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    double render_local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
     double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
     memcpy(local, owner->puppet_bone_local, sizeof(local));
+    memcpy(render_local, owner->puppet_bone_render_local,
+           owner->puppet_bone_count * sizeof(render_local[0]));
     if (magic == PUPPET_BONE_SET_WORLD) {
         int32_t parent = owner->puppet_bone_parent[bone];
         double inverse[16];
@@ -190,8 +193,11 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     } else {
         memcpy(local[bone], matrix, sizeof(matrix));
     }
+    // This callback's write replaces both views for its bone. Untouched bones
+    // retain their physical local pose when the render hierarchy is rebuilt.
+    memcpy(render_local[bone], local[bone], sizeof(matrix));
     if (!puppet_world_pose(owner->puppet_bone_count, owner->puppet_bone_parent,
-                          owner->puppet_layer_to_world, local, world))
+                          owner->puppet_layer_to_world, render_local, world))
         return JS_ThrowRangeError(context, "Puppet pose is out of range");
     MWXSceneQuickJSPuppetBoneMutation *mutation = &owner->puppet_bone_mutations[
         owner->puppet_bone_mutation_count++];
@@ -201,6 +207,8 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     // coordinate mislabeled as evaluator-local data.
     memcpy(mutation->matrix, local[bone], sizeof(matrix));
     memcpy(owner->puppet_bone_local, local, owner->puppet_bone_count * sizeof(local[0]));
+    memcpy(owner->puppet_bone_render_local, render_local,
+           owner->puppet_bone_count * sizeof(render_local[0]));
     memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));
     return JS_UNDEFINED;
 }
@@ -265,7 +273,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_bone_mutation_at(
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t bone_count,
-    const double *local_matrices, const int32_t *parents,
+    const double *local_matrices, const double *render_local_matrices,
+    const int32_t *parents,
     const double *layer_to_world,
     char *diagnostic, size_t diagnostic_capacity
 ) {
@@ -273,7 +282,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     if (owner == NULL || owner->domain == NULL || owner->domain->callback_active ||
         !owner->target_layer_configured || bone_count == 0 ||
         bone_count > MWX_SCENE_QUICKJS_MAX_PUPPET_BONES ||
-        local_matrices == NULL || parents == NULL || layer_to_world == NULL ||
+        local_matrices == NULL || render_local_matrices == NULL ||
+        parents == NULL || layer_to_world == NULL ||
         layer_id != owner->domain->layers[owner->target_layer_index].layer_id) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid Puppet bone catalog"
@@ -283,13 +293,43 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     // Derive and validate the complete pose before publishing any field. A
     // malformed refresh must leave the previous matrices and hierarchy intact.
     double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
-    if (!puppet_matrix_finite(layer_to_world) ||
+    bool local_finite = true;
+    for (uint32_t bone = 0; bone < bone_count; ++bone) {
+        if (!puppet_matrix_finite(local_matrices + bone * 16)) {
+            local_finite = false;
+            break;
+        }
+    }
+    if (!local_finite || !puppet_matrix_finite(layer_to_world) ||
         !puppet_world_pose(bone_count, parents, layer_to_world,
-                          (const double (*)[16])local_matrices, world)) {
+                          (const double (*)[16])render_local_matrices, world)) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid Puppet pose or hierarchy"
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    if (bone_count > owner->puppet_bone_render_capacity) {
+        double (*candidate)[16] = malloc(bone_count * 2 * sizeof(*candidate));
+        if (candidate == NULL) {
+            mwx_scene_quickjs_write_diagnostic(
+                diagnostic, diagnostic_capacity, "Puppet render pose allocation failed"
+            );
+            return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+        }
+        double (*baseline)[16] = candidate + bone_count;
+        memset(baseline, 0, bone_count * sizeof(*baseline));
+        if (owner->puppet_bone_render_capacity > 0) {
+            memcpy(baseline, owner->puppet_bone_render_local_baseline,
+                   owner->puppet_bone_render_capacity * sizeof(*baseline));
+        }
+        memcpy(candidate, render_local_matrices, bone_count * sizeof(*candidate));
+        free(owner->puppet_bone_render_local);
+        owner->puppet_bone_render_local = candidate;
+        owner->puppet_bone_render_local_baseline = baseline;
+        owner->puppet_bone_render_capacity = bone_count;
+    } else {
+        memcpy(owner->puppet_bone_render_local, render_local_matrices,
+               bone_count * sizeof(world[0]));
     }
     memcpy(owner->puppet_bone_local, local_matrices, bone_count * sizeof(world[0]));
     memcpy(owner->puppet_bone_world, world, bone_count * sizeof(world[0]));

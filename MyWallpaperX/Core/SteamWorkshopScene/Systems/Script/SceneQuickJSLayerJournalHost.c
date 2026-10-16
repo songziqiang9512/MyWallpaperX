@@ -574,6 +574,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
         memcpy(owner->puppet_bone_world[bone], owner->puppet_bone_world_baseline[bone], sizeof(double) * 16);
         memcpy(owner->puppet_bone_local[bone], owner->puppet_bone_local_baseline[bone], sizeof(double) * 16);
+        memcpy(owner->puppet_bone_render_local[bone], owner->puppet_bone_render_local_baseline[bone], sizeof(double) * 16);
     }
     owner->puppet_bone_mutation_count = 0;
     owner->puppet_bone_transaction_active = false;
@@ -621,6 +622,7 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
         memcpy(owner->puppet_bone_world_baseline[bone], owner->puppet_bone_world[bone], sizeof(double) * 16);
         memcpy(owner->puppet_bone_local_baseline[bone], owner->puppet_bone_local[bone], sizeof(double) * 16);
+        memcpy(owner->puppet_bone_render_local_baseline[bone], owner->puppet_bone_render_local[bone], sizeof(double) * 16);
     }
     owner->puppet_bone_transaction_active = true;
     owner->media_playback_command_count = 0;

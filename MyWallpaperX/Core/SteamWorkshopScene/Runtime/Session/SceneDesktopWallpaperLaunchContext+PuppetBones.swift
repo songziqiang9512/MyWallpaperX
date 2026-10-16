@@ -22,6 +22,7 @@ extension SceneDesktopWallpaperLaunchContext {
     func configurePuppetBones(
         layerID: Int,
         localMatrices: [Double],
+        renderLocalMatrices: [Double]? = nil,
         names: [String],
         parents: [Int32]? = nil,
         layerToWorld: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
@@ -34,7 +35,8 @@ extension SceneDesktopWallpaperLaunchContext {
         for owner in owners where owner.layerID == layerID {
             guard visited.insert(ObjectIdentifier(owner)).inserted else { continue }
             try owner.configurePuppetBones(
-                layerID: layerID, localMatrices: localMatrices, names: names,
+                layerID: layerID, localMatrices: localMatrices,
+                renderLocalMatrices: renderLocalMatrices, names: names,
                 parents: parents, layerToWorld: layerToWorld
             )
             configured = true

@@ -27,7 +27,8 @@ extension SceneMetalView {
         for (layerID, playback) in puppetPlaybackStates {
             guard let samples = puppetAnimationFrame[layerID] else { continue }
             playback.advanceBonePhysics(
-                animationFrame: samples, deltaTime: timing.simulationFrameTime
+                animationFrame: samples, deltaTime: timing.simulationFrameTime,
+                frameIndex: timing.frameIndex
             )
             guard let pose = playback.poseConfiguration(
                 animationFrame: samples
@@ -83,7 +84,8 @@ extension SceneMetalView {
                              meshToWorld.columns.2, meshToWorld.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
             let configured = try context.configurePuppetBones(
-                layerID: layerID, localMatrices: bones.localMatrices,
+                layerID: layerID, localMatrices: pose.queryLocalMatrices,
+                renderLocalMatrices: bones.localMatrices,
                 // Names were installed at launch; frame refresh never reallocates them.
                 names: [], parents: bones.parentIndices.map(Int32.init),
                 layerToWorld: transform)

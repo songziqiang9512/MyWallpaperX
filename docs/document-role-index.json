@@ -650,13 +650,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8181b2e69f928c8f9830904f7899767a1abc4b42f7c22edfda7f24aadd4b6334",
+        "sourceSHA256": "3c8ab42cecc512d43e409eea45c56f6fe9433501038c89121493902ae0aa629c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Project Bool入口、完整显式分支删除与原326口罩点击/自有同窗显隐/独立335后验的合同和证据导航。",
-        "limitations": "仅复核本片职责、来源及边界；实际App与最后合成kind反例构建分列，不代表完整样本/面板/性能重新验收。"
+        "scope": "Puppet translation query/render分域的D4、限定实现与原始观察/CPU/Metal/App证据导航，U40释放依赖仍开放。",
+        "limitations": "只复核本片职责、链接和证据界限；实际运行另归history，不代表其余API、整样本、物理solver或性能重新验收。"
       }
     },
     {
@@ -746,13 +746,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3414a8c38732722574a4c9c6e245e133ddf463112c96e5cebadcd9a8f2e17168",
+        "sourceSHA256": "5e56229d0228fc2e0f83f5dd21ea0b9a54fc4c82327ffce474c7767d2d021a0a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Project Bool入口、完整显式分支删除与原326口罩点击/自有同窗显隐/独立335后验的合同和证据导航。",
-        "limitations": "仅复核本片职责、来源及边界；实际App与最后合成kind反例构建分列，不代表完整样本/面板/性能重新验收。"
+        "scope": "Puppet translation query/render分域的D4、限定实现与原始观察/CPU/Metal/App证据导航，U40释放依赖仍开放。",
+        "limitations": "只复核本片职责、链接和证据界限；实际运行另归history，不代表其余API、整样本、物理solver或性能重新验收。"
       }
     },
     {
@@ -2252,8 +2252,8 @@
         "docs/scene/roadmap/properties-panel-card.md",
         "docs/scene/roadmap/scene-compatibility-roadmap.md"
       ],
-      "cutoffDate": "2026-10-16",
-      "uniqueValue": "U40 fresh重复拖动失败与候选API依赖；官方载体2/2资格失败且零impulse调用，停止unknown；交接仅净化/证据边界通过，不含numeric contract或实现授权。"
+      "cutoffDate": "2026-10-17",
+      "uniqueValue": "连续三轮拖动首门故障、R3/Q2/Q3及Q4/Q5官方局部/物理分道观察，translation查询修正与真实VM/Metal/App/独立Puppet回归；保留释放冲量及重复交互未闭。"
     },
     {
       "path": "docs/scene/history/rf01-shader-default-binding-implementation-2026-10-02.md",
@@ -3234,13 +3234,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "12323dc223436ed52525611322ef0a0e88f15200735ca0fa6739db912090db24",
+        "sourceSHA256": "029c3ecdb589f3f0eacae9940fb514e4313b6eb114868129154aa01bcafcc1c3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Project Bool入口、完整显式分支删除与原326口罩点击/自有同窗显隐/独立335后验的合同和证据导航。",
-        "limitations": "仅复核本片职责、来源及边界；实际App与最后合成kind反例构建分列，不代表完整样本/面板/性能重新验收。"
+        "scope": "Puppet translation query/render分域的D4、限定实现与原始观察/CPU/Metal/App证据导航，U40释放依赖仍开放。",
+        "limitations": "只复核本片职责、链接和证据界限；实际运行另归history，不代表其余API、整样本、物理solver或性能重新验收。"
       }
     },
     {
@@ -3338,13 +3338,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a022d02ea23365fcaf37b4b773dfe82d531ec0064cf3f4dbd95efeceec9133c",
+        "sourceSHA256": "d410b1af83ddc4efea31c1fbe8df3acfc04ab2b54823b35df252e24c9a30a2d0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Project Bool入口、完整显式分支删除与原326口罩点击/自有同窗显隐/独立335后验的合同和证据导航。",
-        "limitations": "仅复核本片职责、来源及边界；实际App与最后合成kind反例构建分列，不代表完整样本/面板/性能重新验收。"
+        "scope": "Puppet translation query/render分域的D4、限定实现与原始观察/CPU/Metal/App证据导航，U40释放依赖仍开放。",
+        "limitations": "只复核本片职责、链接和证据界限；实际运行另归history，不代表其余API、整样本、物理solver或性能重新验收。"
       }
     },
     {

@@ -318,6 +318,75 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
     }
 }
 
+func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
+                           pipeline: SceneImageLayerPipeline, atlas: MTLTexture) throws -> [String: Any] {
+    let base = fixture(poses: [pose(translationX: 0.1), pose(translationX: 0.1)], weight: 1)
+    let rig = SceneMdlPuppetRig(bones: [.init(parentIndex: -1,
+        bindLocalMatrixColumnMajor: columns(matrix_identity_float4x4),
+        translationPhysics: .init(spring: true, stiffness: 70, friction: 5,
+            inertia: 5, maxDistance: 50))], vertexWeights: base.1.vertexWeights)
+    let samples = ScenePuppetAnimationPlaybackRuntime.LayerFrame(samples: [.init(frameA: 0, frameB: 0)])
+    let physical = try makePlayback((base.0, rig, base.2), device: device, pipeline: pipeline, atlas: atlas)
+    var written = matrix_identity_float4x4
+    written.columns.0.x = 0.8; written.columns.1.y = 0.9; written.columns.3.x = 0.35
+    let mutation = SceneScriptPuppetBoneMutation(layerID: 42, boneIndex: 0,
+        matrix: columns(written).map(Double.init))
+    func configuration(_ state: ScenePuppetPlaybackState) -> [String: Any] {
+        let pose = state.poseConfiguration(animationFrame: samples)!
+        let basis = (0..<16).filter { !(12...14).contains($0) }
+        return ["queryX": pose.queryLocalMatrices[12], "renderX": pose.bones.localMatrices[12],
+            "worldX": pose.bones.worldMatrices[12],
+            "queryBasis": basis.map { pose.queryLocalMatrices[$0] },
+            "renderBasis": basis.map { pose.bones.localMatrices[$0] },
+            "attachmentX": pose.attachmentFrames["tip"]!.columns.3.x]
+    }
+    func positions() -> [[Float]] { Observation.evidence.last!.map { [$0.x, $0.y] } }
+    physical.state.advanceBonePhysics(animationFrame: samples, deltaTime: 1.0 / 30, frameIndex: 10)
+    physical.state.apply(scriptBoneMutations: [mutation])
+    let firstPose = configuration(physical.state)
+    let first = render(physical, sceneTime: 1, device: device, queue: queue, atlas: atlas,
+        animationFrame: samples)
+    let firstPositions = positions()
+    // A second surface/publication of this cadence cannot consume the overlay
+    // or integrate another physical step, even with a different requested dt.
+    physical.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.25, frameIndex: 10)
+    let samePose = configuration(physical.state)
+    let same = render(physical, sceneTime: 1, device: device, queue: queue, atlas: atlas,
+        animationFrame: samples)
+    let samePositions = positions()
+    physical.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.05, frameIndex: 11)
+    let nextPose = configuration(physical.state)
+    let next = render(physical, sceneTime: 1.1, device: device, queue: queue, atlas: atlas,
+        animationFrame: samples)
+    let nextPositions = positions()
+    physical.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.25, frameIndex: 11)
+    let nextAgainPose = configuration(physical.state)
+    for cadence in UInt64(12)...15 {
+        physical.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.05, frameIndex: cadence)
+    }
+    let laterPose = configuration(physical.state)
+    let later = render(physical, sceneTime: 1.5, device: device, queue: queue, atlas: atlas,
+        animationFrame: samples)
+    let laterPositions = positions()
+    let ordinary = try makePlayback(base, device: device, pipeline: pipeline, atlas: atlas)
+    ordinary.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.05, frameIndex: 10)
+    ordinary.state.apply(scriptBoneMutations: [mutation])
+    let ordinaryFirstPose = configuration(ordinary.state)
+    let ordinaryFirst = render(ordinary, sceneTime: 1, device: device, queue: queue, atlas: atlas,
+        animationFrame: samples)
+    ordinary.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.25, frameIndex: 11)
+    let ordinaryNextPose = configuration(ordinary.state)
+    let ordinaryNext = render(ordinary, sceneTime: 1.1, device: device, queue: queue, atlas: atlas,
+        animationFrame: samples)
+    return ["firstPose": firstPose, "samePose": samePose, "nextPose": nextPose,
+        "nextAgainPose": nextAgainPose, "laterPose": laterPose,
+        "first": first.report, "same": same.report, "next": next.report, "later": later.report,
+        "firstPositions": firstPositions, "samePositions": samePositions,
+        "nextPositions": nextPositions, "laterPositions": laterPositions,
+        "ordinaryFirstPose": ordinaryFirstPose, "ordinaryNextPose": ordinaryNextPose,
+        "ordinaryFirst": ordinaryFirst.report, "ordinaryNext": ordinaryNext.report]
+}
+
 @main enum Harness {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -494,7 +563,7 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
         let hiddenShared = render(surfaceA, sceneTime: 2, device: device, queue: queue,
             atlas: coloredAtlas, animationFrame: hiddenSamples, layerAlpha: 0.5)
         let resumeSamples = sharedFrame(4, 2.25, true)
-        surfaceA.state.advanceBonePhysics(animationFrame: resumeSamples, deltaTime: 0.25)
+        surfaceA.state.advanceBonePhysics(animationFrame: resumeSamples, deltaTime: 0.25, frameIndex: 4)
         let resumedPose = surfaceA.state.poseConfiguration(animationFrame: resumeSamples)!
         let resumedAttachments = surfaceA.state.prepareFrame(animationFrame: resumeSamples)
         let resumedA = render(surfaceA, sceneTime: 2.25, device: device, queue: queue,
@@ -533,7 +602,10 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
             dynamicValues: .init(frameIndex: 2, values: [:]))[42]!
         let dynamicFullBlend = render(controlled, sceneTime: 2, device: device,
             queue: queue, atlas: coloredAtlas, animationFrame: fullBlend, layerAlpha: 0.5)
+        let queryRenderTranslation = try translationPoseChecks(device: device, queue: queue,
+            pipeline: pipeline, atlas: atlas)
         let result: [String: Any] = [
+            "queryRenderTranslation": queryRenderTranslation,
             "metalDevice": device.name,
             "dynamicHalfBlend": dynamicHalfBlend.report,
             "dynamicFullBlend": dynamicFullBlend.report,
@@ -590,6 +662,51 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
 
 
 class PuppetBufferPublicationTests(unittest.TestCase):
+    def test_translation_query_overlay_expires_once_per_cadence_while_render_rebounds(self):
+        facts = self.result["queryRenderTranslation"]
+        first, next_pose, later = (facts[key] for key in ("firstPose", "nextPose", "laterPose"))
+        self.assertAlmostEqual(first["queryX"], 0.35, places=6)
+        self.assertAlmostEqual(first["renderX"], 0.35, places=6)
+        self.assertEqual(facts["samePose"], first)
+        self.assertEqual(facts["nextAgainPose"], next_pose)
+        self.assertEqual(facts["samePositions"], facts["firstPositions"])
+        self.assertEqual(facts["same"]["imageSHA256"], facts["first"]["imageSHA256"])
+        self.assertAlmostEqual(next_pose["queryX"], 0.1, places=6)
+        self.assertAlmostEqual(later["queryX"], 0.1, places=6)
+        self.assertGreater(next_pose["renderX"], next_pose["queryX"])
+        self.assertLess(next_pose["renderX"], first["renderX"])
+        self.assertNotEqual(later["renderX"], next_pose["renderX"])
+        for pose_name in ("firstPose", "nextPose", "laterPose"):
+            pose = facts[pose_name]
+            with self.subTest(pose=pose_name):
+                self.assertEqual(pose["queryBasis"], first["queryBasis"])
+                self.assertEqual(pose["renderBasis"], first["renderBasis"])
+                self.assertEqual(pose["queryBasis"], pose["renderBasis"])
+                self.assertAlmostEqual(pose["worldX"], pose["renderX"], places=6)
+                self.assertAlmostEqual(pose["attachmentX"], pose["renderX"], places=6)
+        self.assertNotEqual(facts["firstPositions"], facts["nextPositions"])
+        self.assertNotEqual(facts["nextPositions"], facts["laterPositions"])
+        # Every vertex moves by the physical root's displacement, while local
+        # query translation has already returned to the nonzero animation base.
+        delta = next_pose["renderX"] - first["renderX"]
+        for before, after in zip(facts["firstPositions"], facts["nextPositions"]):
+            self.assertAlmostEqual(after[0] - before[0], delta, places=6)
+            self.assertAlmostEqual(after[1], before[1], places=6)
+        self.assertNotEqual(facts["first"]["imageSHA256"], facts["later"]["imageSHA256"])
+        for name in ("first", "same", "next", "later"):
+            frame = facts[name]
+            with self.subTest(gpu_frame=name):
+                self.assertTrue(frame["readyAfter"] and frame["drew"])
+                self.assertEqual(frame["draws"], 1)
+                self.assertGreater(frame["litPixels"], 0)
+
+    def test_nonphysical_bone_keeps_prior_setter_translation_across_cadences(self):
+        facts = self.result["queryRenderTranslation"]
+        self.assertEqual(facts["ordinaryFirstPose"], facts["ordinaryNextPose"])
+        self.assertAlmostEqual(facts["ordinaryNextPose"]["queryX"], 0.35, places=6)
+        self.assertAlmostEqual(facts["ordinaryNextPose"]["renderX"], 0.35, places=6)
+        self.assertEqual(facts["ordinaryFirst"]["imageSHA256"], facts["ordinaryNext"]["imageSHA256"])
+
     def test_paused_control_blend_reaches_actual_gpu_coverage(self):
         self.assertTrue(self.result["dynamicBlendSamplesEqual"])
         half = self.result["dynamicHalfBlend"]

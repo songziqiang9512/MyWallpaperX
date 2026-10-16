@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 179,
-      "bytes": 51315
+      "bytes": 51283
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 109388
+      "bytes": 109587
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 495,
-      "bytes": 127167
+      "lines": 507,
+      "bytes": 130390
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -238,7 +238,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 138,
-      "bytes": 27008
+      "bytes": 27088
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1232,29 +1232,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "180e89af6c51c01af90dd2a3f79d0c22e01419c6eb145c31392e9708731515a3",
-      "after": "48d4015f16d6eede0f24fcc2d7b3c89e98d6acc87252ecdca9a38b99c5fdfe5d",
-      "owner": "scene-project-visibility-retirement",
-      "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
+      "before": "48d4015f16d6eede0f24fcc2d7b3c89e98d6acc87252ecdca9a38b99c5fdfe5d",
+      "after": "51e5640f18a6d27ea755c4382e2df99db33c6121419f5ba062a35825b2be012c",
+      "owner": "scene-puppet-query-render",
+      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4e9e22a07a7331ee86c6ad0f82965a84f62987b12803878c23f68a1054c4d137",
-      "after": "39938fb414868f1ae8fd369b2d6df4a9d8222381d77e26f91762c9fd14c8e90a",
-      "owner": "scene-project-visibility-retirement",
-      "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
+      "before": "39938fb414868f1ae8fd369b2d6df4a9d8222381d77e26f91762c9fd14c8e90a",
+      "after": "a2ce3d7fed52816e01dc3cbdb3171d677a24c5ca16654ebb389845e24937eb39",
+      "owner": "scene-puppet-query-render",
+      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f09ed3415b4fb7282c7a6a487539395c049db493465709f0c105d2ca9e404e40",
-      "after": "eb8099ba7e9d847c8c15ef136cb0ef0aaf33f4cef117a7638a3a3aa0da48bde7",
-      "owner": "scene-project-visibility-retirement",
-      "reason": "Project Bool入口与同owner完整显式分支删除沿原typed/退休链；最新真实点击、自有显隐和未验边界归原权威，替换过期self-only描述。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#project-utility-visibility"
+      "before": "eb8099ba7e9d847c8c15ef136cb0ef0aaf33f4cef117a7638a3a3aa0da48bde7",
+      "after": "559490778cc65b84197e6129b761b8afdfd40bc0577eda6f6c73e61695ac71e8",
+      "owner": "scene-puppet-query-render",
+      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
     },
     {
       "section": "bodies",
@@ -1264,6 +1264,15 @@
       "owner": "scene-composition-allocation",
       "reason": "Composition成功分配沿现唯一pool复核reset epoch及精确key generation/缺席，普通completion释放不再被全局revision误拒；预算/陈旧/OOM回收边界保持。",
       "decision": "docs/scene/history/d1-composition-source-implementation-2026-10-02.md#completion-safe-composition-allocation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "e250239c9d1bfd004b1f6e9730f9f6c64cb5bf0f07c988cdeb96519b802cd89e",
+      "after": "d55bf2067c3e4a4c2bf1fd5e3214815bb90054fd16fd49b48a4299233cc567eb",
+      "owner": "scene-puppet-query-render",
+      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
     }
   ]
 }
