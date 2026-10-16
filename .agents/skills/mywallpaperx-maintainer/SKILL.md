@@ -50,7 +50,7 @@ All references are one level from this file. Do not load a reference merely beca
 | Local/online video import, library, cache, playback, helper IPC, per-display sessions | [Video method](references/video-engine.md) |
 | Workshop Web model, WKWebView host, navigation, property/resource/media/input/audio lifecycle | [Web method](references/web-engine.md) |
 | Scene format, shader, graph, Metal, VM, particles, inputs, providers, visual evidence | [Scene method](references/scene-engine.md) |
-| Steam login/session, browsing, download, import and library publication | Repository map and `docs/scene/roadmap/scene-steamkit-migration-plan.md`; choose by acquisition/import responsibility, then load an engine reference when playback is affected |
+| Steam login/session, browsing, download, import and library publication | Repository map and `docs/architecture/steam-workshop-acquisition-contract.md`; the SteamKit migration plan is retired. Choose by acquisition/import responsibility, then load an engine reference when playback is affected |
 | AppKit Shell, menus, settings and product UI | Repository map and `docs/architecture/appkit-migration.md`, plus the applicable UI method in [Verification and macOS method](references/verification-and-handoff.md) |
 | Static-image library, desktop apply and dynamic-runtime teardown | Repository map's static-image apply chain; trace the library service and desktop consumer separately, then load affected runtime references |
 | Build, test triage, AppKit/window behavior, logs, signing, runtime evidence, Git handoff | [Verification and macOS method](references/verification-and-handoff.md) |

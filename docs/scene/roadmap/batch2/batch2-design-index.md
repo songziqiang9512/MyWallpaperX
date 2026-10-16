@@ -1,6 +1,6 @@
 # Batch 2 设计导航
 
-本目录保存 Batch 2 后续将实施的现役设计与派生卡。本文导航设计裁决，不定义新的实施顺序或维护运行能力计数。设计完成登记见 [设计门禁清单](../../../../script/design_gated_areas.json)，Scene 实施顺序仍由[兼容路线](../scene-compatibility-roadmap.md)决定。
+本目录保存仍有效的能力设计合同及必要派生证据；包含已实施和未覆盖profile，不是待实施清单。本文导航设计裁决，不定义新的实施顺序或维护运行能力计数。设计完成登记见 [设计门禁清单](../../../../script/design_gated_areas.json)，Scene 实施顺序仍由[兼容路线](../scene-compatibility-roadmap.md)决定。
 
 | 卡 | 设计与责任范围 |
 |---|---|
@@ -23,22 +23,16 @@
 
 文件纹理原位事务由[运行架构](../../architecture/runtime-architecture.md)接管；[实施记录](../../history/user-texture-live-update-implementation-2026-10-05.md)保存原设计与有界验证。
 
-播放器输入见[Scene真实媒体来源设计](system-media-input-design.md)：优先闭合已取得网易云metadata的统一系统实验入口，Music公开只读接口保留为显式补充；单producer与退出沿现有媒体收件箱，私有后端仍受D6限制；真实Scene验收边界以设计链接的[实施记录](../../history/scene-system-media-input-implementation-2026-10-05.md)与[平台供应/实时切歌验证](../../history/system-media-live-supply-verification-2026-10-06.md)为准。
+播放器输入的单producer、来源准入与退出合同见[媒体输入设计](system-media-input-design.md)。已有能力与未覆盖来源分别查[实施记录](../../history/scene-system-media-input-implementation-2026-10-05.md)和[平台供应/自然换曲验证](../../history/system-media-live-supply-verification-2026-10-06.md)，不重复建立统一入口；私有后端仍受D6限制，新的实际缺口由总路线选题。
 
 后续实施与59项参考证据的去向见[派生实施卡](reference-evidence-implementation-cards.md)，选序仍归上述兼容路线；原设计基线的“仅文档”描述不代表后续产品实施状态。
 
 终端细线的有界实现已完成，设计[归档](../../history/terminal-material-raster-design-2026-10-06.md)，现役职责由[运行架构](../../architecture/runtime-architecture.md#terminal-material-raster)接管；不再作为待实施卡。
 
-## 基线与合并边界
+## 设计与实施边界
 
-最初设计批次仅编写文档。原证据行号固定于独立工作树 `93b1b85a`；本批现已合入主开发分支 `codex/engine-refactor-program`；该分支有更晚产品改动，实施时须重核 owner 与现有实现，原基线观察不能当作最新能力结论。主分支的七项登记仅用于对齐 ID/模式/schema，不把其余产品改动复制到此工作树。
+设计登记的`approved`只表示限定方案可实施，不代表全部profile、官方parity或发布通过。当前owner/消费者须重核源码，原独立设计基线`93b1b85a`及历史行号不再定义实现状态。D1以现composition合同为准，不回退parent-only旧方案；D6私有backend默认不启用，D4/D11未确认API/reset继续遵守各卡准入，D9/D10沿既有policy/gate，不造第二时钟或重试链。
 
-本基线不存在交接中的缺口分析、六域逐条裁决和画质审查三份历史文件，Web 中继符号也未命中；D3 所引点光 ROI 条目未找到。各卡以当前源码与公开行为合同修正这些线索，没有把未复现样本或第三方观察升级为事实。官方静态取证页只读取角色/边界说明，未读取反编译表达；本批无新静态取证、无私有算法/地址/公式。
-
-`approved` 表示可按文档的限定范围进入实施，不表示全部 profile、官方 parity 或发布已通过。D1于2026-10-02因公开composition采集语义与旧parent-only方案冲突而重新进入设计裁决，不能沿旧方案实施。D6 默认产品 route 仍不启用私有 backend；D4/D11 未确认 API/reset 的分支仍禁用。D10 首先核实既有 gate 与短重试，不增设第二条时钟链。
-
-原独立基线没有设计检查器；合入主开发分支后使用其既有 `script/check_design_gate.py` 与严格登记 schema。本批 12 项按 ID 合并，保留主分支其他条目、policy 与 checker；五判据移入各设计正文，不扩张检查器字段。带触发模式的条目受现役机器门检查，无模式条目仍按 AGENTS.md 人工判定职责范围。结构预算不在本设计批次修改，实施时按实际家族计数审查、增减同批 ratchet。
-
-最初设计批次为每卡写入 owner、route、失败半径和正反实施门；该批次当时没有运行 GPU/VM/WebKit/Steam 实验，也未修改能力台账、运行证据或重构计划。后续实施与运行事实仍由相应现役台账和证据拥有，设计不能替代这些权威。
+本导航不保存已完成过程、合并指令、固定开发分支或测试清单。开放问题归[队列](../scene-open-breakpoint-queue.md)，设计的长期合同保留；无独有合同/证据的过程在触达时删除，完成记录按原history链接查询。新增能力沿AGENTS与现设计门，不能把旧卡中的“仅文档/将实施”当作当前缺能力事实。
 
 后继见[终端材质链](terminal-material-chain-design.md)；视频asset设计已[归档](../../history/material-video-assets-2026-10-12.md)，合同归[材质合同](../../capabilities/material-video-assets.md)。

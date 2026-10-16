@@ -2,7 +2,7 @@
 
 # Scene 性能收敛工作卡
 
-本卡与[属性卡](properties-panel-card.md)持续收敛CPU/GPU、内存、启动与交互成本；视觉问题归[队列](scene-open-breakpoint-queue.md)。
+本卡维护CPU/GPU、内存、启动与能耗专项。全局按[兼容路线](scene-compatibility-roadmap.md)先处理合成/正常播放问题，再选择有证成本；属性热更新接线归[属性卡](properties-panel-card.md)，开放问题归[队列](scene-open-breakpoint-queue.md)。
 
 **执行顺序。** 本卡独占性能专项选序与验收；研发主线归[兼容路线](scene-compatibility-roadmap.md)。性能由明确的大成本、用户回归或持续资源增长触发，不要求每批提出优化候选；无可行动证据时推进功能。旧E/AS不作前置，[顶层设计](engine-refactor-program.md)只规定边界。
 
@@ -11,28 +11,23 @@
 3. 首帧：以现有阶段计时区分解析、准备、编译、资源、首draw/呈现；缩小必须提前完成的范围，保持依赖、首帧完整与失败回退。
 4. 长时间使用：连续切换轻/重壁纸，观察cache增长是否有界及停止后transient资源是否回落；保留合理复用cache，不把清空cache当性能优化。
 
-**当前进度与下一轮。** [BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX](../history/tex-request-local-convergence-2026-10-13.md)、[区域复制](../history/color-blend-region-convergence-2026-10-13.md)已闭合各记录所列成本。[属性异常恢复](../history/property-callback-recovery-2026-10-14.md)三轮编辑窗App+daemon CPU下降69.535%；[resident查询](../history/graph-residency-query-convergence-2026-10-14.md)固定三配对优化诊断单surface整体CPU中位下降11.055%，保呈现异常、footprint上移及返回基线敏感性。两者均不扩为GPU/能耗。
+**当前可行动余项。** 不以数十次局部提交判断整个引擎到瓶颈；先确认普通优化配置仍有的可避免工作及唯一owner，再开实现。没有新可行动信号就回兼容队列，不重复旧消融。
 
-[属性候选](../history/property-candidate-evaluation-convergence-2026-10-13.md)、[条件准备](../history/property-condition-reachability-2026-10-13.md)、[窗口复用](../history/property-preparation-convergence-2026-10-13.md)、[原生列表](../history/native-property-list-convergence-2026-10-14.md)证局部/暖/面板CPU；[HDR attachment](../history/hdr-attachment-mapping-convergence-2026-10-14.md)仅证复制/驻留；[帧纹理快照](../history/frame-texture-snapshot-convergence-2026-10-14.md)、[材质/Encoder准备](../history/compiled-variant-frame-program-convergence-2026-10-13.md)局部下降未证App整体收益，不扩测。[RegExp](../history/native-regexp-capture-2026-10-13.md)、Vector后继及[换图反馈](../history/property-texture-feedback-2026-10-14.md)是正确性/交互修复，未计性能；其未覆盖运行边界留对应记录与属性卡。
+- **整体CPU/GPU**：[普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)仍显示材质图准备/粒子成本，尚未证明可省部分。普通image片元高成本保留，但[GPU短筛](../history/gpu-cost-screening-2026-10-14.md)的附件读取、modulation/sampler及exact-copy未通过继续门；源码归因受工具上限阻塞时不盲改shader。 [stage计时资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)与[TEX存储资格](../history/static-tex-storage-screen-2026-10-15.md)保原工具/格式边界，不据旧清单开新实现。新增优化必须给实际consumer和普通进程分母。
+- **内存/退场**：[轻重切换](../history/scene-switch-residency-qualification-2026-10-15.md)观察返回轻场景footprint上移、GPU/目标池回平台，已缩到purgeable分配，持有owner未定；先取得有效分配来源，不重复无caller的整轮切换。逐session drain/pin/总账、最终pin与长期cache增长边界保留，不能把allocator驻留写泄漏或优化收益。
+- **启动**：原366冷启动尚无可见结果；[类型名lookup](../history/shader-value-type-recognition-2026-10-16.md)只接受局部收益。首帧解析/准备/编译/资源/呈现继续分别计时，cold/warm分开，base-image/natural-size与分阶段依赖按当前实际入口验收；增timeout不算优化。
 
-已停止无收益候选：[C消融](../history/script-c-codegen-ablation-2026-10-14.md)、[working-view](../history/graph-residency-query-convergence-2026-10-14.md#后继working-view-查询短筛产品候选已撤回)、[粒子排序](../history/particle-world-depth-2026-10-11.md#后继粒子排序成本短筛2026-10-14)和[capture缓存](../history/gpu-cost-screening-2026-10-14.md#后继capture结果缓存短筛撤回)已撤回；[shader identity](../history/shader-identity-hash-screen-2026-10-14.md)与[属性JSON复用](../history/property-callback-recovery-2026-10-14.md#prepared-property-json)App短筛未达继续门。[GPU筛选](../history/gpu-cost-screening-2026-10-14.md)保普通image片元高成本事实，附件读取/modulation/sampler均未通过继续门，exact-copy资格33/33拒绝；不再盲筛shader或同类缓存。CPU尺寸对象缓存改变JS引用身份，未实施。
-
-**当前性能决策。** [普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)已取得当前-O/WMO renderer CPU及独立实际栈，材质图准备与粒子仍有成本，未证其中多少可省，不据此重启旧容器/排序/cache候选。[stage资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)、[TEX存储](../history/static-tex-storage-screen-2026-10-15.md)及root/graph/MDL/pin短筛保原结论；不重复局部优化campaign。主研发先补[功能断点](scene-open-breakpoint-queue.md)，仅在明确可避免工作及唯一owner后再开性能实现。
-
-
-**新增启动线索与局部修正。** [类型名识别记录](../history/shader-value-type-recognition-2026-10-16.md)合并366冷启动归因及原model内字典→switch：5s App栈不含晚出helper、未ready/看门狗退出，嵌套阶段不相加；三配对-O/WMO与Debug只接受lookup局部CPU收益，不外推启动或整进程。[单rewrite声明准备短筛](../history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen)虽证真实normalizer局部下降，App primary仅降6.002%、未达预锁10%继续门，NO-GO且产品已还原，不再重试或扩cache/五对；后继转功能断点，原366可见结果仍未取得。
+**已接受结果只作前驱。** [BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX](../history/tex-request-local-convergence-2026-10-13.md)、[区域复制](../history/color-blend-region-convergence-2026-10-13.md)、[属性异常恢复](../history/property-callback-recovery-2026-10-14.md)、[resident查询](../history/graph-residency-query-convergence-2026-10-14.md)、[完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)的实际收益和非目标回退按各自冻结记录，不扩成整体GPU/能耗或全专项完成。面板准备/列表成本归属性卡，正确性修复不计性能。
 
 <a id="sampler-seed-preparation"></a>
 
-**Sampler seed准备。** [实现与证据](../history/sampler-seed-preparation-convergence-2026-10-15.md)已窄接受Debug暖重返启动，保原256fallback/固定点/variant及逐node准入，无新cache；native304/独立324通过。原混钟secondary已撤回。两项独立内存后继差幅不一致，分类未定因，secondary未接受；不称整CPU/RAM/GPU收益，稳定边界并入长期轻重切换，不重跑startup五对。[变体分析补齐](../history/variant-analysis-cache-wire-correction-2026-10-15.md)暖返回单对仅降8.020%，未达预锁继续门，源纯扩展/回填/诊断已撤、不扩五对；仅保Set wire通用正确性修复，不计性能收益。[MDL双阶段短筛](../history/native-cpu-allocation-screen-2026-10-15.md#mdl-validation-screen)噪声超门，STOP、不进产品，缺实际启动分母时不重筛；旧ready-request-wave及其他NO-GO保持。
+[Sampler seed准备](../history/sampler-seed-preparation-convergence-2026-10-15.md)只窄接受Debug暖重返启动；内存后继类别未定，统一并入上述生命周期余项，不重跑五对。variant analysis Set wire只保正确性，短筛未达继续门。
 
-[完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)已实现97MiB权重子限/Flight共享，真实owner三轮压力footprint下降85.428740%，保暖重访与轻场景资源回落；App CPU/首帧波动、最终pin与长稳未验，不计整体收益。[ready-request波次](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)、[双层分段](../history/gpu-cost-screening-2026-10-14.md#ordered-pair-segmentation-screen)无收益已撤回；[源码归因资格](../history/gpu-cost-screening-2026-10-14.md#source-cost-qualification)遇原内容Xcode Lite上限，停止重抓/重编及盲改shader。帧内purpose检查各有职责，不凭低覆盖旧暖栈写cache原型。
-
-属性能力归[属性卡](properties-panel-card.md)。[轻重切换](../history/scene-switch-residency-qualification-2026-10-15.md)证返回轻场景footprint上移、GPU/目标池回平台，类别缩小到purgeable分配，持有owner未定，无内存收益。[world CPU资格](../history/native-cpu-allocation-screen-2026-10-15.md#world-resolver-cpu-qualification)因线程覆盖不全未接受，探针已退、不补跑或盲加cache。内存分配来源待有效owner证据；lite工具资格未取得caller，不空跑整轮切换。旧排序/容器NO-GO保持。逐session成功drain/pin/总账、base-image/natural-size、分阶段首帧及长期切换验收仍开放；其他E/AS边界依合同按热点启用，shader fallback保至合法回退审计。
+**已停止的方向。** [C codegen](../history/script-c-codegen-ablation-2026-10-14.md)、[working-view](../history/graph-residency-query-convergence-2026-10-14.md#后继working-view-查询短筛产品候选已撤回)、[粒子排序](../history/particle-world-depth-2026-10-11.md#后继粒子排序成本短筛2026-10-14)、[capture缓存/双层分段](../history/gpu-cost-screening-2026-10-14.md)、[shader identity/ready request](../history/shader-identity-hash-screen-2026-10-14.md)、[属性JSON复用](../history/property-callback-recovery-2026-10-14.md#prepared-property-json)、[声明准备](../history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen)、[variant分析](../history/variant-analysis-cache-wire-correction-2026-10-15.md)、[MDL/world CPU资格](../history/native-cpu-allocation-screen-2026-10-15.md)保原NO-GO/STOP，不重复旧容器/排序/cache/工具campaign；新输入或可避免工作证据才能重新立题。CPU尺寸对象缓存会改变JS引用identity，未实施。[HDR attachment](../history/hdr-attachment-mapping-convergence-2026-10-14.md)与[帧纹理快照](../history/frame-texture-snapshot-convergence-2026-10-14.md)只保原局部/驻留证据，不宣称整体CPU收益。
 
 <a id="prepared-material-frame-payload"></a>
 
-**材质帧载荷候选已撤回。** [完整局部与App短筛](../history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen)证局部准备下降，但App单对CPU仅降4.14%、GPU p95升7.87%；未达继续门，不扩测、不认领稳定收益。原型和失败证据保留，设计窄登记退役。
+[材质帧载荷](../history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen)未达App继续门，原型已撤，设计登记退役，不重新列为待实施。
 
 **工具边界。** 保唯一CLI、语义parser与验收入口、严格默认与未舍入ratio；[旧monolith已退役](../history/benchmark-responsibility-convergence-2026-10-13.md)，不另造wrapper/算法。
 

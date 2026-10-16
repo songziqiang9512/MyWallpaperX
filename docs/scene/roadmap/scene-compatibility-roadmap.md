@@ -4,7 +4,7 @@
 
 > 当前主线：**公共能力补齐与逻辑正确性**。以真实作者内容、共享首断点和实际播放对照推进，最终逐步让样本根中的每一个Scene正确运行。
 >
-> 执行顺序更新：2026-10-16。主力继续公共能力与逻辑正确性；[U41视频属性](../history/user-property-video-2026-10-16.md)已闭原生/可见与相邻metadata反例的有界验收，[U40连续拖动](../history/repeated-puppet-drag-qualification-2026-10-16.md)已fresh复现，候选impulse依赖动态归因未证；官方载体2/2资格失败后停止，参数/响应unknown，尚无修复。具体开放状态只归[断点队列](scene-open-breakpoint-queue.md)，不计整专项或整样本完成。性能按[工作卡](performance-convergence-card.md)有证触发；N08等未知合同保留，不扩无区分实验。纹理/合成→特效→频谱及P0关联方向不变。
+> 执行顺序更新：2026-10-16。全局优先级为 **影响画面正确合成与正常播放的问题 → 性能 → 属性调节项的热更新接线 → 其他**；安全与已有功能回归先处理。同档比较真实可达首断点、通用覆盖、风险与可验证性。具体开放项只归[断点队列](scene-open-breakpoint-queue.md)，静态可证缺口查[复核审计](scene-full-sample-static-audit.md)；已修项退出队列，不以完整官方golden未齐继续占用已关闭问题。
 >
 > 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](../capabilities/coverage-ledger.md)、专项表、[代码地图](../architecture/runtime-as-built-map.md)、[运行证据索引](../capabilities/runtime-evidence-current.md)、[样本调试台账](../capabilities/scene-sample-debug-ledger.md)和[样本验收台账](../capabilities/scene-sample-acceptance-ledger.md)拥有。本文中的新增字段和工具扩展是待实现交付要求，不表示工具已经支持。
 
@@ -46,9 +46,9 @@ sample、layer、path、hash、截图与 census family key 只能定位证据，
 
 ### 2.3 现成参考与最终真值
 
-用户确认目前只有现成截图或视频。P0 登记其来源、内容版本、分辨率、已知属性/时间与缺失控制变量：用于定位缺块、位置、层序和可观察动态差异；作者预览、压缩视频与 Mirage 输出不能代替固定官方同输入对照。不能对齐的条目保留 `reference-uncontrolled`；这是拟加入证据层的标签，不是现有人工 verdict 新枚举。
+已有用户截图/视频及固定官方2.8.0.42的限定自有黑盒、真实原包窗口对照；范围和身份查对应运行记录。登记来源、内容版本、内容区域分辨率、属性/时间及缺失控制变量；目录截图包含窗口边框或aspect不同不能直接逐像素比较。作者预览、压缩视频及Mirage输出不代固定官方同输入结果。不能对齐者保持未受控参考，不新增未经schema支持的人工verdict枚举。
 
-官方环境的取得/提供者、固定版本与可重复采集方式是 **P4 官方一致性关闭的外部依赖**。先完成公共修复和已有参考复核；缺官方环境时继续独立工作，但官方对照保持 `blocked/not-run`，不能宣称官方同款完成。未来可用受控 Windows 环境或由操作者按协议返回带身份的采集包，不预设远程工具已存在。
+P4仍逐scenario要求固定版本、同输入与可重复采集。已有官方环境不表示所有组合都有合法正控或golden；某个载体失败、控制变量缺失或窗口内容受遮挡时，按该项记录blocked/not-run/unknown并继续独立工作，不能把局部官方证据升级为全部一致。VM、客户端及用户数据沿研究工作流管理，不因场景失败强杀共享进程或关闭用户要求保留的VM。
 
 `platform-unsupported` / `unsupported-by-contract`、缺素材、未覆盖条件或无官方 golden 都是边界，不是本目标通过项。可以交付已完成子集，不能减少分母达成“全部样本正确”。只有用户另行接受范围缩减，才记录新范围与未完成全集；当前不默认缩减。有限 corpus 通过也不外推所有未知 Workshop 内容、未来版本或任意脚本均兼容。
 
@@ -67,49 +67,25 @@ sample、layer、path、hash、截图与 census family key 只能定位证据，
 
 这是工作依赖顺序，不要求修完全部静态内容才碰动态能力。P1 每批携带对应 P2/P3 场景与官方参考，P4 是统一复核；紧急可见回归可提前处理。优化边界遵循[顶层设计](engine-refactor-program.md)，执行顺序与验收归[性能卡](performance-convergence-card.md)和[属性卡](properties-panel-card.md)，性能测量从 P0/P1 开始，P5 不是首次测量时间。
 
-### 3.2 P0 的四个有界批次
+### 3.2 P0 的增量盘点与证据关联
 
-**P0.1 — 校准盘点，不重建另一份知识库。**
+复用[声明盘点](../capabilities/scene-corpus-capability-inventory.md)、census、debug archive与acceptance ledger，不重新建知识库。旧快照不代表当前样本全集；只有corpus/schema/解释变化或旧记录无法回答影响面时才刷新对应范围。先只读verify区分输入漂移与扫描器错误，生成写入须声明owned paths。
 
-复用[全样本盘点](../capabilities/scene-corpus-capability-inventory.md)与 `script/scene_capability_census.py`。先校验 corpus、generator/schema、stock 依赖及 fingerprint；变化时才刷新快照。完整读取所有 project、包索引、入口和引用定义，对 loose/外部依赖、重复包项、路径逃逸、解压字节/数量/深度预算、引用环分别记录；必要解包只写隔离目录，不把作者 payload 写入 Git。
+必须保留的关系如下；公共owner与语义只写一次，occurrence引用它们。
 
-先只读 `verify` 判定漂移；`generate` 会写快照和 Markdown，确认 owned paths 后才执行。先区分 corpus/schema 变化与扫描器错误，不用重新生成消掉失败。新增自有 fixture 检查重复项、slot hole、unknown、缺引用和守恒；PKG 与非标准入口均有代表。
-
-必达守恒：`discovered = parsed + failed`；物理项包含重复项；每个观察到的 JSON leaf/资源引用都有 typed 分类或 unknown；occurrence 无丢失和孤儿引用。JSON leaf 守恒不证明 shader/脚本内部执行完整。列出需人工定位的最小未知集合，不宣称 family 数就是能力总数。
-
-**P0.2 — 为现有表补齐执行关系。**
-
-以 `validation.occurrence_index.items` 为连接入口，用 domain/kind/语义 profile 去重。结构 family 可能过细，也可能混入不同颜色/状态语义；映射到稳定公共 `capability_id + contract_profile`，允许多对多且能反查声明。先按职责做全量粗映射，不能确定则记 unknown；进入修复/验收时才细化到首错函数，不手抄数万份相同调用链。
-
-| 关系 | 必须记录 | 唯一落点/待扩展 owner |
+| 关系 | 保留的事实 | 权威 |
 |---|---|---|
-| sample → occurrence/family/profile | fingerprint、物理/引用位置、作者顺序、可见/条件/动态入口、未知原因 | 既有 census snapshot 与生成 inventory；不存 shader/脚本正文 |
-| capability profile → 实现 | 官方合同，parser/prepare/update/execute/publish/composite/teardown 文件及符号、代码 revision、route、typed fallback、失效域、旧 owner/退役门 | 能力专项表保存语义状态，`runtime-as-built-map.md` 保存共享链；occurrence 只引用 |
-| sample + scenario + occurrence → evidence | 属性/事件/时间/输入、预期 consumer/ROI、执行 identity、first broken edge、completion/publication/next-frame、run/build/content identity、参考等级 | 扩展既有 debug archive/生成器；主动诊断数据不进入产品常驻路径 |
-| shared defect → impact/sentinels | 根因合同、前后依赖、静态可能受益集合、运行证实失败集合、已复测恢复集合、正反/组合回归门 | 既有 repair ledger，当前工作项投影到派生队列 |
-| sample → verdict | 观看者/时间、关联 run/scenario 集、截图/视频身份、剩余差异、官方对照状态 | 扩展既有 acceptance verdicts/生成器；保留历史裁决并显示时效 |
+| sample→声明 | project真实入口、PKG/loose引用、作者顺序、fingerprint、条件/动态入口、unknown | census与生成inventory |
+| 公共profile→实现 | 目标合同、parser/preparation/typed/encode/publication/compositor/teardown owner、route与失效边界 | 能力专项表与代码地图 |
+| scenario→证据 | 输入/属性/事件/时间/viewport、产品入口、代码/内容/App身份、首断点及实际completion/next-frame | debug archive与运行证据 |
+| 公共缺陷→影响 | 相同目标合同/首owner/失败机制、静态可能影响/实际失败/复测恢复三组、sentinel | repair ledger与现役队列 |
+| sample→结果 | 人工显示/播放/参数裁决、参考等级、未覆盖项与时效 | acceptance ledger |
 
-先写 schema/migration 和引用完整性门，再落工具。`repair_state` 是修复事件，S0–S5 是证据深度，人工 verdict 是用户结果，三者继续独立；不能从 `implemented/untriaged` 自动生成能力支持状态。旧 schema 可读，缺新字段则 unknown。
+守恒仍要求discovered=parsed+failed，物理重复项不丢，已观察的JSON leaf/资源引用有typed分类或unknown、occurrence无孤儿；JSON守恒不证明脚本/shader执行完整。路径逃逸、引用环与解压预算沿原reader，不为盘点跳过安全界限。schema缺字段保持unknown，修复事件、证据深度与人工结果不互相推导。
 
-输出统计：公共 profile 数、覆盖样本数（去重）、声明数、未关联数、各阶段 first-break 数、受阻下游、实际复测恢复数、待视觉复核数。“结构共享”不能算成“修一个已让全部受益”。
+实际采集先校准简单静态、多pass/history、脚本/动态provider代表，再复用普通App/client/daemon入口；DEBUG benchmark用于归因，performance-only不能承担能力闭环。首次或失效全集按资源分批串行GPU；日常只跑受影响、未完成或身份已失效成员。时长取决于循环/事件，不用统一短窗口跳过延迟行为。超时/崩溃/权限与失败退场分别登记，保唯一失败证据并精确清理执行环境。
 
-**P0.3 — 校准采集后建立 fresh 基线。**
-
-先用简单静态、多 pass/history、脚本/动态 provider 三类代表校准采集；成员写现有机器表，计划不固化样本。普通产品启动是验收入口，DEBUG benchmark 辅助定位；核对输入、route、viewport、时间/属性并标注启动路径。
-
-优先复用 UI/client/daemon 控制与截图接口，缺批量入口才扩展现有 benchmark/归档工具：验收仍经普通 client → daemon，不建第二 Host/renderer。没有产品路径捕获能力时先交付它，再批量回放。`performance-only` 缺完整 execution observation，不能承担能力闭环证据。
-
-tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有效行为合同、过期实现期待和诊断值；有效行为门迁移到定向回归表，不能随扩容丢弃。身份门不充当视觉 pass。Fast Suite 用真实正反结果选定并登记；不适用候选显式退役，不能把 `selection-required` 当运行门。
-
-首次全集顺序执行 GPU 任务，每波先取 10 个样本作为调度起点，按资源/时长调整。每样本保存身份、属性、首帧/稳定帧/动态关键帧及退出状态；超时、崩溃、缺权限明确登记，不阻塞下一样本。完整场景随后展开，不从一次默认运行外推完成。
-
-时长由启动、循环及事件合同决定，不能统一短窗口跳过延迟行为。波次结束归档紧凑事实、保留唯一失败现场，清理精确登记的可重建隔离产物；恢复时只运行未完成或失效成员。
-
-**P0.4 — 汇总公共依赖，形成首个修复批次。**
-
-依赖图表达公共职责和真实消费边，统计哪个失败阻断哪些下游；只作诊断，不增产品 graph。根因归并必须有相同目标合同、首错阶段/owner、失败机制与修法；reasonCode、effect 名或画面相似不足以合并。
-
-交付全量覆盖差距、公共候选短表、首批具体 owned paths、正反场景及回归集合，事实回写现有台账。以后增量盘点，只有 corpus/schema/family 解释变化或现有快照答不了影响面时才刷新全集。
+历史期待先区分行为合同、过期实现形状与诊断值；不以扩矩阵删除有效回归，也不以selection-required或identity-only代替真实执行。字段/批处理入口缺失时先在原schema/validator扩展，不编造工具选项；工具职责统一见[工作流](../development/development-workflow.md)。
 
 ### 3.3 P1/P2 的公共能力选序
 
@@ -120,30 +96,13 @@ tracked full matrix 扩为全集 identity-only 基线。历史期待先分成有
 3. 可独立闭合者中，优先实际受阻样本多、受阻下游广、官方合同明确、改动半径小的项；列受益集合与代价，不只按 occurrence 高频排序。
 4. 两次实验均未移动首断点或减少工作量时，重新定位 producer-to-consumer 边，不继续微调同一形状 matcher。
 
-参考证据的责任分解与59项去向见[实施卡](batch2/reference-evidence-implementation-cards.md)，各已验收批次的冻结事实只由其执行记录保存。当前D3已沿同一主链接通normal、PBR标量/贴图、自发光属性、默认环境反射和有界模型方向光阴影；[RF13](batch2/reference-evidence-implementation-cards.md#rf13-named-model-shadow)进一步闭合source-only named模型的当前纹理投影、mandatory原序和背景内容相位，[执行记录](../history/rf13-named-model-shadow-implementation-2026-10-02.md)限定验收范围。
-
-[RF14](batch2/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)、[RF15](batch2/reference-evidence-implementation-cards.md#rf15-model-point-shadow)与[RF16](batch2/reference-evidence-implementation-cards.md#rf16-visible-model-admission)的有界模型能力已按职责验收。RF02 A、atlas named 失败半径和 B 公开 companion 已沿现有主链实施；B 的官方尺寸/默认值/所采动画呈现已独审，产品最终冻结与验收状态见[B记录](../history/rf02-public-companion-implementation-2026-10-03.md)，稳定合同由[架构](../architecture/runtime-architecture.md#authored-texture-companion)接管。RF04已将默认F5和精确作者mip输入接入共享完成历史，有界结果见[工作卡](batch2/reference-evidence-implementation-cards.md#rf04--d12-已完成画面的共享-mip-输入)。RF08/D1普通composition已闭合parent分组、根作者位置与copybackground三态，23项实际App正反例及独立像素复核见[实施记录](../history/d1-composition-authored-order-implementation-2026-10-04.md)。RF05首帧override、hidden provider与live visibility/script fallback组合、多surface提交失败隔离，以及其它hidden/default target和D1未知passthrough/特殊变换的未闭合项，归入[公共断点队列](scene-open-breakpoint-queue.md)，不再固定占据下一批。原724有限采样没有屏内ROI，479的安全预算拒绝不构成直接抬预算理由；后继模型资源工作先证明成本与可见受益。参考项目与公开资料提供中性行为和职责，我们独立设计算法并做真实输出正反例；缺少私有公式不能冻结整项能力。
-
 <a id="batch-2-后继选序2026-10-02"></a>
 
-#### Batch 2 既有结果与未关闭边界
+#### Batch 2 设计与后继
 
-用户目标是把证据转成真实能力，不以完成设计文档或第三方条目数量收尾。十二项设计是候选责任边界，不是必须照单复制的功能清单。下表保留既有结果的导航；现役待修项统一进入[公共断点队列](scene-open-breakpoint-queue.md)，按纹理/最终合成、特效、频谱的用户顺序选题，安全与可见回归仍优先。每批先冻结 owned paths，执行反例→修复→真实消费/输出→独立终审，再按职责窄提交到 `codex/engine-refactor-program`，不推送；批记录必须给出下一批入口及未满足条件。不能把并行他人的改动整文件搭入提交。
+[设计导航](batch2/batch2-design-index.md)保存职责边界，[实施卡](batch2/reference-evidence-implementation-cards.md)只供既有证据追溯。设计编号、approved与历史已验收行不构成当前待办或串行前置；实现事实归能力/运行证据，开放组合只进断点队列。普通composition、模型材质/阴影、采样/companion、粒子播放及其他已完成切片不在本路线重复维护状态。
 
-| 顺序 | 批次与用户结果 | 开始/完成边界及下一方向 |
-|---|---|---|
-| 已验收、按职责提交 | RF03 连续排放播放控制 | 缺省/0 duration 系统能 pause/stop/play/query；反例、真实App与终审见实施卡执行记录。未闭合组合由公共断点队列选序。 |
-| 已验收、按职责提交 | RF05 named provider 准备与显示分离 | 三产品复用现役引用/准入/capture；冻结证据见实施卡。后继 optional 三候选局部失败片亦已验收。 |
-| 已验收、按职责提交 | [optional/named 未支持组合的失败半径](../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径) | 同一原失败输入已恢复首帧与next-frame，effect保留入口、邻层正常、exact-two仍执行；冻结证据见[执行记录](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-optional-failure)。不扩三候选支持。 |
-| 已验收、按职责提交 | D1 composition 实际采集与效果输出 | 普通 parent 分组、根作者位置与 copybackground 三态已闭合；冻结范围见[D1记录](../history/d1-composition-authored-order-implementation-2026-10-04.md)。未知 passthrough 与特殊变换不外推。 |
-| 未关闭，按公共缺口选序 | RF05 真实交互与合成 | [模型特效纹理](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-model-graph-albedo)接通； 接三体样本连续播放、文字及交互。 |
-| RF02/RF04 有界结果已验收 | 作者采样、公开 companion 与 mip 消费 | 实际范围及未覆盖条件见[工作卡](batch2/reference-evidence-implementation-cards.md)。不固定续排RF05；不重开已闭合的尺寸/动画或资源阶段探针。 |
-| 已验收、按职责提交 | D4/D11 显式 emitParticles | 真实出生、全surface事务、native预算和调用期输入已贯通；最终17项App门通过，范围及既有失败见[执行记录](../history/rf03-particle-playback-implementation-2026-10-02.md#rf03-explicit-emission)。未开放默认数量/children/reset。 |
-| 已验收、按职责提交 | D1 目标准入与prepared/encoded source 一致性 | 真实pool与错源像素反例已修复；终审发现的组内childless composition也已沿同一pass/执行序闭合。冻结App、资源寿命和测试边界见[执行记录](../history/d1-composition-source-implementation-2026-10-02.md)。未证成员/flag仍由D1合同约束。 |
-| normal/PBR/材料属性、reflection、三光型阴影及有界多材质已验收 | D3 材质与模型光照 | 实际准入与验收由[RF10及D3实施卡](batch2/reference-evidence-implementation-cards.md#rf10-pbr-direct)、[RF12](batch2/reference-evidence-implementation-cards.md#rf12-late-snapshot-capacity)、[RF13](batch2/reference-evidence-implementation-cards.md#rf13-named-model-shadow)、[RF14](batch2/reference-evidence-implementation-cards.md#rf14-model-spot-shadow)、[RF15](batch2/reference-evidence-implementation-cards.md#rf15-model-point-shadow)链接的执行记录固定。[RF16](batch2/reference-evidence-implementation-cards.md#rf16-visible-model-admission)的通用多材质可见片与原包准备恢复已移交；原包像素收益、较大模型资源成本仍按其证据上限保留，不按历史差额扩大准入。不把有界验收扩大为官方PBR/atlas兼容。 |
-| 有界实现、显示验收开放 | D2 HDR/SDR与可选EDR | 白点、五字段Bloom、可选EDR与运行中热切已验证，见[D2现役裁决](batch2/hdr-tonemap-edr-design.md)；余项:用户样本/物理亮度/移屏/SDR设备/暂停重绘，不重建输出owner。 |
-
-D8 的单点准入随 RF02/RF04 和 D1 的真实名字/用途需求收敛；D12 的已有 authored copy/link/postprocess 路径做版本与生命周期验收，仅缺失 mip profile另实施。D9 的 App 唯一 policy 与 D10 的 frame gate 已存在，按实际反例修复，不为追随第三方创建额外 throttle 状态、时钟或重试算法。D5 跨源回包、D7 下载失败可见性属于 Web/App 队列，保留设计并在 Scene 上述高收益能力后单独复核实施；D6 私有 MediaRemote 默认不启用，先产品分发/合规裁决，不能以“全部做完”为由绕过设计限制。
+Scene缺失能力按本页优先级选题；Web/App获取和UI问题由各自owner维护。私有媒体后端遵守原准入，不因旧D卡要求“全部完成”而启用。公开合同未知先做有区分力的自有黑盒；连续两次不移动首断点则停止该方法，重新选择真实可达缺口。没有屏内ROI、未证资源成本或作者关闭项，不构成放宽预算、强开内容或重做算法的理由。
 
 下表是依赖排查顺序，不是已确认缺失列表，也不要求一次实现整个大类：
 
@@ -204,33 +163,11 @@ evidence key 绑定内容 fingerprint、代码/App identity、合同/schema revi
 
 MirageWallpaper 有明确问题时才固定 revision，交叉核对职责/状态流并记 divergence；不是官方真值。私有 shader/算法/payload、取证原始输出及第三方实现表达不进入产品上下文。静态研究与 fresh implementation context 分离，只交接经审查中性合同、自有 fixture 和官方对照协议；完整继承研究对话不算隔离。
 
-### 5.2 复用工具与补齐顺序
+### 5.2 复用工具
 
-| 既有入口 | 用途与待补项 |
-|---|---|
-| `scene_capability_census.py` 及领域 census | 全量声明/结构/参数索引；补 profile/关系引用，不写运行支持判断 |
-| `scene_sample_snapshot.py` | 冻结隔离输入及 fingerprint；真实根只读 |
-| `scene_wallpaper_benchmark.py` | 已有 DEBUG 运行/截图/事件/资源观测；先补普通产品路径身份和采集，再批处理 |
-| `scene_sample_debug_archive.py` | 汇总 run/首断点；补 scenario/occurrence、全失败观察和时效 |
-| `scene_sample_acceptance_ledger.py` | 汇总人工 verdict；补参数/条件场景、官方对照完整性，不自动判视觉 pass |
-| `scene_capability_repair_ledger.json` | 公共根因、影响/复测集合、sentinel；新增字段先升级 schema/validator |
-| `verify_scene_change.py`、gates/Fast Suite | 按 owned paths/风险选门；候选先有真实正反结果，不只改 readiness 标签 |
+工具入口、现役参数与验证选择归[Scene工作流](../development/development-workflow.md)和[仓库工作流](../../development/repository-workflow.md#并行与验证)。声明查census，隔离输入查sample snapshot，运行观察查benchmark/debug archive，人工裁决查acceptance ledger；修复影响与sentinel沿原repair ledger，适用门由verify_scene_change显式预览后运行。
 
-第一批可先执行的只读命令（仓库根）：
-
-```bash
-git status --short --branch --untracked-files=all
-python3.12 -B script/scene_capability_census.py verify
-python3.12 -B script/scene_capability_census.py query --sample <sample-id>
-python3.12 -B script/scene_capability_census.py query --family <family-key>
-python3.12 -B script/scene_sample_snapshot.py --help
-python3.12 -B script/scene_wallpaper_benchmark.py --help
-python3.12 -B script/scene_sample_debug_archive.py --help
-python3.12 -B script/scene_sample_acceptance_ledger.py --help
-python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --path <owned-path>
-```
-
-尖括号需替换；census 默认路径先由 `--help`/源码确认本机存在，`query --live` 才重建私有细节。末条只查看选择，确认后加 `--run`。构建用 `/bin/bash script/run_checkpoint_build.sh`。尚无的 schema/批处理选项先实现验证，不编造命令。
+普通产品入口与DEBUG Host证据分列；快照/矩阵身份不代视觉结果。只在当前场景缺少所需事实时扩原schema/consumer及validator，不为重新排队预建一套采集平台、wrapper或第二renderer。可复用的有效构建与证据不重跑，改动只补受影响部分。
 
 ### 5.3 续跑、预算与阶段汇报
 

@@ -3,6 +3,7 @@
   "discovery": {
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
+      "docs/architecture/steam-workshop-acquisition-contract.md",
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/repository-workflow.md",
       "docs/release/release-signing.md",
@@ -36,7 +37,6 @@
       "docs/scene/roadmap/batch2/particle-playback-state-design.md",
       "docs/scene/roadmap/batch2/particle-remap-design.md",
       "docs/scene/roadmap/batch2/particle-vortex-design.md",
-      "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
       "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
       "docs/scene/roadmap/batch2/script-component-api-design.md",
       "docs/scene/roadmap/batch2/system-media-input-design.md",
@@ -46,7 +46,6 @@
       "docs/scene/roadmap/properties-panel-card.md",
       "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "docs/scene/roadmap/scene-steamkit-migration-plan.md",
       "docs/web/cold-descriptor-parse-offload-design.md",
       "docs/web/cross-origin-reply-delivery-design.md",
       "docs/web/css-animation-freeze-redesign.md",
@@ -119,20 +118,42 @@
       "path": "docs/architecture/repository-map.md",
       "role": "current-state",
       "entrypoint": "docs/README.md",
-      "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。"
+      "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "f961e3273ff154df56ef3757174636cd5e0d19f1d574d1b6032cb20a984e8898",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+      }
+    },
+    {
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/architecture/repository-map.md",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "6f844208456204c7a217f1737aa2e59c0f63d0cb5ed45d0fa383ed9a9dbd89f4",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+      }
     },
     {
       "path": "docs/architecture/technology-stack-boundaries.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/README.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "695563c8dc86f24c4869b659001ef93bcce87f17bdd35310cf2ab5d7ed0fa4e1",
+        "sourceSHA256": "264f469c2f77c356bcf6e58a689dfc601bf7ebff3e8569ecd7ac5dc2ed29dcd0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计与现役工作卡导航职责核对",
-        "limitations": "仅文档职责与导航，不证明运行能力或性能验收"
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
       }
     },
     {
@@ -229,6 +250,18 @@
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/README.md"
       ]
+    },
+    {
+      "path": "docs/history/cross-topic/steamkit-migration-completed-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/architecture/steam-workshop-acquisition-contract.md",
+        "docs/release/release-signing.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "SteamKit已完成迁移的工程结果、旧plan Git blob/身份与本机原证据路径失效边界；与未测账号、Release、长稳分列，不恢复SK工作卡。"
     },
     {
       "path": "docs/history/cross-topic/ui-code-review-2026-09-30.md",
@@ -1208,7 +1241,7 @@
     {
       "path": "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/script-component-api-design.md",
@@ -1285,7 +1318,7 @@
     {
       "path": "docs/scene/history/effect-texture-visible-screen-2026-10-15.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/properties-panel-card.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/properties-panel-card.md",
@@ -1337,7 +1370,7 @@
         "docs/scene/roadmap/performance-convergence-card.md",
         "docs/scene/roadmap/properties-panel-card.md",
         "docs/scene/roadmap/scene-compatibility-roadmap.md",
-        "docs/scene/roadmap/scene-steamkit-migration-plan.md"
+        "docs/architecture/steam-workshop-acquisition-contract.md"
       ]
     },
     {
@@ -1387,7 +1420,7 @@
     {
       "path": "docs/scene/history/gpu-stage-timestamp-qualification-2026-10-15.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/performance-convergence-card.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/performance-convergence-card.md",
@@ -2099,6 +2132,20 @@
       ]
     },
     {
+      "path": "docs/scene/history/reference-evidence-implementation-cards-through-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "保留RF重复过程队列退役前六域59项中性来源与有界实施事实、原Git身份及永久anchors；历史指令撤权，开放组合未记完成。"
+    },
+    {
       "path": "docs/scene/history/reference/client-binary-dependency-forensics.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -2165,7 +2212,7 @@
     {
       "path": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
@@ -2512,7 +2559,7 @@
     {
       "path": "docs/scene/history/scene-clear-color-property-2026-10-15.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/properties-panel-card.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/properties-panel-card.md",
@@ -2881,7 +2928,7 @@
     {
       "path": "docs/scene/history/static-tex-storage-screen-2026-10-15.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/performance-convergence-card.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/performance-convergence-card.md"
@@ -2969,7 +3016,7 @@
     {
       "path": "docs/scene/history/text-layer-pointsize-setter-2026-10-16.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/script-component-api-design.md",
@@ -3003,7 +3050,7 @@
     {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/architecture/scene-resource-admission.md",
@@ -3040,7 +3087,7 @@
     {
       "path": "docs/scene/history/vec3-mixed-dimension-arithmetic-2026-10-16.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/script-component-api-design.md",
@@ -3139,9 +3186,9 @@
     },
     {
       "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "retirementCondition": "各派生卡完成或明确退役，未完成能力由唯一 P 路线及其能力/证据 owner 接管，59 项去向无悬空项后归档；本文不保留完成日志。"
+      "role": "navigation",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "purpose": "已退役RF过程队列的永久锚点导航；59项中性来源与有界实施证据只在归档，当前余项归唯一队列。"
     },
     {
       "path": "docs/scene/roadmap/batch2/rt-prefix-admission-design.md",
@@ -3188,13 +3235,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "de816e36225417d5e3479a25cfbd7e84ca2349b801213be748c3327d42753633",
+        "sourceSHA256": "4b50909c7f010d7613297e1f0ab7022036b9357c3980cf513eb993d087f393ab",
         "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计与现役工作卡导航职责核对",
-        "limitations": "仅文档职责与导航，不证明运行能力或性能验收"
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
       }
     },
     {
@@ -3205,10 +3252,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f32fabc12e217969244f4f8aa16efd85d27eb3c691935cf77f2ae4d876d63fcd",
+        "sourceSHA256": "79637d01f8ffd41b665779ef72ab2589a2341862806285ca4bcbd9bfed3575e6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "类型识别局部已接受、声明事实准备App主阶段6.002%未过10%后撤回及后继转功能",
-        "limitations": "仅导航/实验边界复核，不认领整体CPU/GPU/内存/正式启动或能耗改善"
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
       }
     },
     {
@@ -3219,10 +3266,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5eb72edcadf5f7560061a14bc2d90304dd7aedc83ef27d1931e7f0b3b2d02964",
+        "sourceSHA256": "092cbf60a2ecf24afeb34c1a873211a327cf5018fb849df50f73fbc06e1a5ace",
         "method": "document_registry --audit + document_health --check",
-        "scope": "替换Sound mixed设计资格为本片原包/派生播放与暂停热改、真实面板保存/重开/reset的有界后验，后继保持真实缺口选序",
-        "limitations": "仅文档导航和来源边界复核；pure与mixed后验分列，不外推旧纯profile验收。deferred同key真实组合、故障整笔Session取消、多surface、native暂停、听感/官方parity及OGG/random/spatial/handle setter仍开放；不计性能收益、面板专项或完整能力完成。"
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
       }
     },
     {
@@ -3233,18 +3280,25 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "33405fa4fba63d2be4a45d09ac79f1c63af0a70b46287b9990bb0a8e9b546c3b",
+        "sourceSHA256": "ecdabcc976735a1f71f41f1f0773750999551e006f89f3bcaa2f0992ebf33681",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U40官方载体2/2资格失败后停止、零impulse调用；候选依赖未动态归因，angular/default/响应unknown，仅净化与证据边界交接获接受",
-        "limitations": "本次仅窄文档同步，联合audit由root统一；numeric contract未接受、implementationAuthorized=false，未修U40，非交互parity或性能验收"
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
       }
     },
     {
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "role": "reference",
+      "role": "current-state",
       "entrypoint": "docs/scene/README.md",
-      "purpose": "2026-10-09 全样本静态审计的缺口、错误执行与冗余链路清单及逐样本附录，作为后续待修批次的证据基线；不承载 current capability 结论。",
-      "commandPolicy": "reference-only"
+      "purpose": "对旧静态审计逐项复核后仍可定位的首owner缺口/状态反例；不维护旧样本评分，不代替实际运行故障或队列选序。",
+      "lastReviewed": "2026-10-16",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e0a199d828de829f3b750b88089c5c6839248a63ceba4448fdde58908f058a2e",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+      }
     },
     {
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
@@ -3254,17 +3308,17 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bd409f219999ba52dda9c61ab0d654df156cfb8adc30ce83e11dd78402698675",
+        "sourceSHA256": "5fff3ca874a2f9a58b21ced1b7247dca8ca7b3b37f0633d78b62e2f0db5d197d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "尺寸后继的生产投影/Anchor GPU边界、SDR暂停drawable changed通知与原HDR邻例、独立314；U43实际修复与169同aspect资格退出队列",
-        "limitations": "仅导航和本批边界；等比resize不证明跨比例App/Retina/多屏；anchor-camera官方零组无可见资格，停止且保unknown，无parity/性能收益结论。"
+        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
+        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
       }
     },
     {
       "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",
-      "role": "active-plan",
-      "entrypoint": "docs/README.md",
-      "retirementCondition": "作为工程路线 E2/E6/E8 的 Steam 获取专项细化，SK0–SK7 完成、SteamCMD 与自动社区登录/个人 HTML 获取产品路径撤除、主动密码/QR 登录和浏览/订阅/下载/UI/发布门通过，稳定合同与功能证据接管终态后转历史；不决定 Scene 兼容任务顺序。"
+      "role": "navigation",
+      "entrypoint": "docs/history/cross-topic/steamkit-migration-completed-2026-10-16.md",
+      "purpose": "已完成SteamKit迁移的退役导航；不再定义SK顺序，稳定获取合同与历史Git身份分别拥有职责和证据。"
     },
     {
       "path": "docs/web/README.md",
@@ -3441,7 +3495,10 @@
         "docs/scene/roadmap/performance-convergence-card.md",
         "docs/scene/roadmap/properties-panel-card.md",
         "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
-        "docs/scene/architecture/shader-metadata-failure-contract.md"
+        "docs/scene/architecture/shader-metadata-failure-contract.md",
+        "docs/scene/roadmap/scene-compatibility-roadmap.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/roadmap/scene-full-sample-static-audit.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"
@@ -3693,7 +3750,7 @@
         "工坊"
       ],
       "documents": [
-        "docs/scene/roadmap/scene-steamkit-migration-plan.md",
+        "docs/architecture/steam-workshop-acquisition-contract.md",
         "docs/architecture/repository-map.md"
       ],
       "sourcePaths": [
@@ -3702,7 +3759,7 @@
       ],
       "verification": "协议/离线门先行，账户切换、下载恢复与真实账号验收分别声明。",
       "owner": "SteamService",
-      "firstRead": "docs/scene/roadmap/scene-steamkit-migration-plan.md#2-现状重构落点与唯一职责",
+      "firstRead": "docs/architecture/steam-workshop-acquisition-contract.md",
       "nearestTestGroups": [
         "steam-helper-runtime",
         "steam-download-control"

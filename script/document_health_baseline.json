@@ -10,11 +10,15 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 30,
-      "bytes": 5769
+      "bytes": 5755
+    },
+    "docs/architecture/steam-workshop-acquisition-contract.md": {
+      "lines": 74,
+      "bytes": 14105
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 257,
-      "bytes": 25682
+      "bytes": 25725
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -67,6 +71,10 @@
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 137,
       "bytes": 11603
+    },
+    "docs/scene/architecture/shader-metadata-failure-contract.md": {
+      "lines": 16,
+      "bytes": 2468
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -192,10 +200,6 @@
       "lines": 48,
       "bytes": 7169
     },
-    "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md": {
-      "lines": 263,
-      "bytes": 51753
-    },
     "docs/scene/roadmap/batch2/rt-prefix-admission-design.md": {
       "lines": 54,
       "bytes": 5522
@@ -214,27 +218,27 @@
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
-      "bytes": 7353
+      "bytes": 7447
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 51,
-      "bytes": 11731
+      "lines": 46,
+      "bytes": 9408
     },
     "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 30,
-      "bytes": 10751
+      "lines": 38,
+      "bytes": 6655
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
-      "lines": 245,
-      "bytes": 33350
+      "lines": 182,
+      "bytes": 22598
+    },
+    "docs/scene/roadmap/scene-full-sample-static-audit.md": {
+      "lines": 51,
+      "bytes": 13773
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 250,
-      "bytes": 75154
-    },
-    "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
-      "lines": 578,
-      "bytes": 160845
+      "lines": 136,
+      "bytes": 27272
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -275,10 +279,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
-    },
-    "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 16,
-      "bytes": 2468
     }
   },
   "archives": [
@@ -1070,6 +1070,69 @@
       ],
       "originalLines": 442,
       "originalBytes": 136066
+    },
+    {
+      "source": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "archive": "docs/scene/history/reference-evidence-implementation-cards-through-2026-10-16.md",
+      "originalBodySHA256": "f82990e63405b49bb3abe057ff415e1b92dd1895e835a883133307463f50b142",
+      "preservedBodySHA256": "18bc475cd5ddfcaa9ea86659f3778f787c8566342db60590120193e93242846d",
+      "anchors": [
+        "参考证据实施卡",
+        "1-来源与准入边界",
+        "2-派生工作卡",
+        "rf00-d2d3-有界首片已移交证据",
+        "rf00--d2d3-有界首片已移交证据",
+        "rf01-现役-rt-default-消费首片已移交证据",
+        "rf01--现役-rt-default-消费首片已移交证据",
+        "rf02-companion",
+        "rf02-作者采样与公开-companion-的有界实现",
+        "rf02--作者采样与公开-companion-的有界实现",
+        "rf03-d4d11-限定播放与显式出生",
+        "rf03--d4d11-限定播放与显式出生",
+        "rf04--d12-已完成画面的共享-mip-输入",
+        "rf04-d12-已完成画面的共享-mip-输入",
+        "rf05-既有能力补真正跨层跨屏反例",
+        "rf05--既有能力补真正跨层跨屏反例",
+        "rf06-另域与明确隔离",
+        "rf06--另域与明确隔离",
+        "rf07-history--clearfalse-原始颜色历史已移交证据",
+        "rf07-history-clearfalse-原始颜色历史已移交证据",
+        "rf08-d1-普通-composition-已按有界合同完成",
+        "rf08--d1-普通-composition-已按有界合同完成",
+        "rf09-d3-作者-normal-输入与采样",
+        "rf09--d3-作者-normal-输入与采样",
+        "rf10-pbr-direct",
+        "rf10-d3-slot2-pbr-的首个直射材质响应normal-后继工作卡",
+        "rf10--d3-slot2-pbr-的首个直射材质响应normal-后继工作卡",
+        "rf11-frame-target-budget",
+        "rf11-真实复杂场景的首帧目标预算",
+        "rf11--真实复杂场景的首帧目标预算",
+        "rf12-late-snapshot-capacity",
+        "rf12-背景快照与方向光阴影共存已验收职责已移交",
+        "rf12--背景快照与方向光阴影共存已验收职责已移交",
+        "rf13-named-model-shadow",
+        "rf13-已准入-named-albedo-模型方向光投影已验收职责已移交",
+        "rf13--已准入-named-albedo-模型方向光投影已验收职责已移交",
+        "rf14-model-spot-shadow",
+        "rf14-真实模型聚光阴影已验收随职责提交",
+        "rf14--真实模型聚光阴影已验收随职责提交",
+        "rf15-model-point-shadow",
+        "rf15-真实模型点光全向阴影已验收职责已移交",
+        "rf15--真实模型点光全向阴影已验收职责已移交",
+        "rf16-visible-model-admission",
+        "rf16-通用有界多材质模型显示已验收职责已移交",
+        "rf16--通用有界多材质模型显示已验收职责已移交",
+        "3-全部59项去向",
+        "render10",
+        "particle10",
+        "clock9",
+        "property10",
+        "camera10",
+        "modules10",
+        "4-卡关闭与证据落点"
+      ],
+      "originalLines": 263,
+      "originalBytes": 51754
     }
   ],
   "snapshots": [
@@ -1087,147 +1150,75 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-startup-pipeline.md",
-      "before": "902b4dde20c19fce3a2a2968a1a796249a610275679d22c1bf8f5fed6ecd1c54",
-      "after": "0fc4236fa0334f671fbccf7c3ef4e76707ebad5c6353f1424dae649ec0f92e1b",
-      "owner": "Scene variant cache",
-      "reason": "源纯补齐未达App继续门已撤回；稳定合同收敛Set wire修复，现役卡仅保STOP与历史导航。",
-      "decision": "docs/scene/architecture/variant-analysis-cache-contract.md#variant-analysis-wire"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
-      "before": "43f876b33a4182564ed51c6b377efc8a35ddb1fec966f42d2c349effb53373b5",
-      "after": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
-      "owner": "Scene material admission",
-      "reason": "补充无作者override的typed default mask合同、当前证据与队列退出；不扩写过程状态。",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "977fbfddab8b41f31df806b095322eccab8f84b3c4bea7581c543b0ddbe41333",
-      "after": "375ed7ea4610d0601b8edc811e535c6b1337a105a4f486cf9037a6b976cc6039",
-      "owner": "Scene source-material preparation",
-      "reason": "源输出域设计替换过时入口问题与重复取舍，保600行上限；补有界实际输出、bootstrap边界及唯一现役队列，详细证据入历史。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#源输出域与采样输入分离"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ad8a765edbb0438304460af5fa1050135c50c285047af3fdb4db1aaa12548dce",
-      "after": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
-      "owner": "Scene shader preparation",
-      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "8c861c91c67d180b74de2c458a97adcce184793b283f7a5ec68a11fe1801be38",
-      "owner": "Scene shader preparation",
-      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
+      "after": "5bc108aba65691a058bda54c2d38da803b53f45024468e898cb39dc43d9ecff7",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/variant-analysis-cache-contract.md",
-      "before": "01083701767597876070f0be9e8dac3e58ff11fe34af266f549bd59712d7961e",
-      "after": "baa3dee7a291d7729340c03ae442dc7a81f27f2f2865339f49e64c8d915d475b",
-      "owner": "Scene shader preparation",
-      "reason": "新增独立坏COMBO记录的唯一专题合同；大架构只保导航，缓存退出与实际结果分别由原owner维护，详细证据归单份历史。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#malformed-combo-record"
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "e4d58b125f54c772924ca642fba00d381e5820a03c72de473b4e96907b4227e8",
+      "after": "ba100120dba89209bfe6e4b74b69947aa76819704ff4f69f4a040c47e37c77c5",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "93e7efc4b64753fcd60af9f7ea719b5b69a2b59a8186485f49c60efe91e5a601",
-      "after": "fd098f884ffed53b4cc3e2534363713419fbcbb0d77a45bf6d9e4c2e6d500f66",
-      "owner": "Scene user-property resources",
-      "reason": "U41原资源/视频事务新增有界能力；稳定职责归原资源合同，数值与输入身份集中单份history，其余权威短链并保未验边界，不计专项完成。",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#user-video-property"
+      "path": "docs/scene/roadmap/batch2/reference-evidence-implementation-cards.md",
+      "before": "2d18cfdd755132a8a6d7d33861f368d3c93b84c89b89e36c7e35ed988f340379",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
-      "before": "322432c972faf28036f3119887ac76f69b0d0918e613a4d0d5b58127255933fa",
-      "after": "3f2c4ff22e9d6f34f5cbbf1893bd8e12e8e4ca75c4fda3d672c0d407c59bbd81",
-      "owner": "Scene input and Puppet qualification",
-      "reason": "U40官方载体2/2资格失败后停止，保零impulse调用及语义unknown；交接仅净化/证据边界接受，未授权数值实现，不宣称功能修复。",
-      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#候选依赖与待定合同"
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "02f51174c787946d946b6a2f7b702d758ade64de4f903e14bef48ac3deab7343",
+      "after": "4e8b3e7db528ba48f274a9e2e8ee0ca2f46d2989005d88ff21e550ec98a0dc2c",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "0d70bc266ce104bc5c98834f098dcd4e83a0a270223f9513b56375676a04cf2d",
-      "after": "43e32088965100a8fbfb575648f5a73c599fefce12d399afc555f40bd12c5d1f",
-      "owner": "SceneScript text layer mutation/CoreText",
-      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "3ea05a610610f8ba7eaf4bd51343c869a82940e007b92700351174425239021d",
+      "after": "74e301806aa5df62ff08cf331ccc922bde6bbd132e185021c7ba82d0fb355cbd",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "b011de4a83169eecaa9ffda064827cc6243ecff8525e630d46cbf4f9375d22e3",
-      "after": "9ec33ff62bd45e0230fb5165ecdc18f009d512b1c0906eb7b4ebf03a4dd92f5b",
-      "owner": "Scene shader global scope",
-      "reason": "在现有596行内替换两处已修引用债并明确真实命中未验；详细冻结与像素过程进入历史。",
-      "decision": "docs/scene/history/shader-global-scope-2026-10-16.md#shader-global-scope"
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "b03228c27d3f4ef5d9d6a5776400c333f7d31e22bdd802f1897d5441e9ce9251",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0770928ecb110426ba683dedf9581e59ca65761aa6d145d4adc2590bd751b24b",
-      "after": "25367bbdcadb40e4e64487e5543b77c76d7f12c2020cc7ae3f8e1875ca3b6dbb",
-      "owner": "Scene declaration preparation screen",
-      "reason": "以本次完整normalizer/预锁App主指标NO-GO替换候选状态，明确产品撤回并停止微调，避免后继重复试验。",
-      "decision": "docs/scene/history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen"
+      "path": "docs/scene/roadmap/scene-steamkit-migration-plan.md",
+      "before": "3560d7aaf2c57772fa9dcc29e976ffbbc5f9233a399c3ed255cbfe7aa5df8f21",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ec95c0d21ff9c70a1a00c9c32bf8fb2ac559a057a05a85567729671efc864696",
-      "after": "3d7690ba0ff083c6071276305cdd43f16411f362155ddb5ca608ff6bd79f1a60",
-      "owner": "Scene static child Rope",
-      "reason": "新bounded变换与准入需写明唯一owner及预算；替换错误全child预算和已修拒绝，保精确视觉/官方与其他profile余项，过程进历史。",
-      "decision": "docs/scene/history/static-child-rope-2026-10-16.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "b9985a52dfda1cd658abad3f61d1276b4f65e5b9bbbe125db26c212302cc3b8a",
-      "after": "02297fa42cd7f90704aef56cb7d7b5f65660560b1af7c6c105c1ec1442291388",
-      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
-      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8252fb487079640eb1f2a14ab32616400bb00e9527a7b89d63b554adabc51e46",
-      "after": "e8e32837fb1e16a4a39b83a1c54a3e7286b861db5f326d51c1a94526d70829e0",
-      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
-      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "645ac821a26bdda8fb612ddf1f36e076507aaa9a548fd2668e3700fc310c108c",
-      "after": "a67cca35f31aa6122bc20cfeac2ff4fd486090b28f1afbab6517fa296a84f87d",
-      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
-      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "93f9068996d7200a17d5f2e5b6870fdf3e855ec6bf731e66c61b1ae8ad0885e6",
-      "after": "db01e366daaf9b6dc109211e426013c6ee40110a107b9233d0064e10125ac2ec",
-      "owner": "SceneMetalView drawable geometry / existing surface invalidator",
-      "reason": "尺寸后继实际修复普通SDR暂停resize漏通知，保原HDR映射路径；索引只增多比例/密度与实际验收指针，详情仍在同一历史，不保已修U43队列条目。",
-      "decision": "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
+      "section": "archives",
+      "path": "docs/scene/history/reference-evidence-implementation-cards-through-2026-10-16.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "8d8c524bd50f0a83721824479b719e553493676963ae363e9d1b686bfc9bffd9",
+      "owner": "Scene roadmap / Steam acquisition contract maintainers",
+      "reason": "按最新用户优先级复核主要现役文档；已修/误报与重复过程队列退出，长期合同、证据与旧anchors分责保留，收紧正文预算。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
     }
   ]
 }

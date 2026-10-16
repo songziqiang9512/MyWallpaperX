@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-16 | 跨专题/获取 | 完成退役 | [SteamKit迁移完成](cross-topic/steamkit-migration-completed-2026-10-16.md) | 唯一获取链、旧plan Git身份与证据路径边界；不等同账号、Release或长稳验收 | [获取合同](../architecture/steam-workshop-acquisition-contract.md)、[发布边界](../release/release-signing.md) |
 | 2026-10-03 | 仓库 | 完成记录 | [仓库改良实施与验收](cross-topic/repository-improvement-completion-2026-10-03.md) | 原提案18项、M1–M8、等价裁决与证据边界；固定最近100提交scope计数与未分类边界（同页分节保留） | [仓库工作流](../development/repository-workflow.md)、[仓库地图](../architecture/repository-map.md)、[README](../README.md) |
 | 2026-10-02 | 跨领域 | 改良提案 | [仓库改良方案研究](cross-topic/repo-improvement-program-2026-10-02.md) | 六视角现状侦察＋四主题业界调研收敛的 18 条 P0-P2 改良条目全档（P0 5/P1 7/P2 6，逐条含证据/验收门/退役条件与路线图；两轮三视角审查＋独立终审后修订版 3；研究工作流全程零写入，实施须另行立项） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |
 | 2026-10-02 | 全项目 | 审查记录 | [全项目 Bug 与优化机会审查](cross-topic/project-wide-review-2026-10-02.md) | 16 车道并行静态审查、逐条独立核实后的 50 条确认问题与 7 条驳回候选全档（bug: high 4/medium 9/low 11；optimization: high 0/medium 6/low 20；741 文件） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |

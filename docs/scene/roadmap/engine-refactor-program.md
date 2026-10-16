@@ -2,7 +2,7 @@
 
 <!-- document-role: stable-contract -->
 
-本设计规定优化方向、职责和退出条件，不维护批次顺序或完成状态。执行优先级、当前首断点和剩余验收只在[性能工作卡](performance-convergence-card.md)与[属性工作卡](properties-panel-card.md)维护；作者兼容与未修视觉问题归[兼容路线](scene-compatibility-roadmap.md)和[断点队列](scene-open-breakpoint-queue.md)，获取服务归[Steam 专项](scene-steamkit-migration-plan.md)。旧 E/AS 编号只用于历史追溯，不是串行前置门。
+本设计规定优化方向、职责和退出条件，不维护批次顺序或完成状态。全局优先级归[兼容路线](scene-compatibility-roadmap.md)：画面合成/正常播放、性能、属性热更新、其他；当前开放项归[断点队列](scene-open-breakpoint-queue.md)。[性能卡](performance-convergence-card.md)与[属性卡](properties-panel-card.md)只维护各自专项选序和验收；已完成的SteamKit迁移退役，获取服务按[稳定合同](../../architecture/steam-workshop-acquisition-contract.md)维护。旧 E/AS 编号只用于历史追溯，不是串行前置门。
 
 ## 目标与取舍
 
