@@ -1,26 +1,397 @@
 {
   "schemaVersion": 1,
   "purpose": "Hand-maintained human visual verdicts per authored Scene sample. Only a person who watched real playback may set pass/fail; runtime evidence never writes here.",
-  "allowedVerdicts": ["unreviewed", "pass", "fail", "platform-unsupported"],
+  "allowedVerdicts": [
+    "unreviewed",
+    "pass",
+    "fail",
+    "platform-unsupported"
+  ],
   "verdicts": {
-    "1315486372": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "水波位置不正确、光线贴图效果生硬"},
-    "2775915974": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "鼠标纵向与顶部边界已修，顶部极限仍露灰边；整样本未通过"},
-    "3238423642": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "头部错位已修，整体视觉与约 18.7 FPS 帧时间未验收"},
-    "3264246690": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "人物左肘缺块；构图未验收"},
-    "3287715210": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "音频条已恢复（PCM fixture），真实系统音频与整体未验收"},
-    "3437487219": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期时间恢复，cursor owner collision 未闭合"},
-    "3448845950": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "黑屏已解除，脚本效果与整体布局未通过"},
-    "3470948192": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "开场/文字错位部分修复，仍有 NaN、文字碎片与异常背景"},
-    "3477054430": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "画面显示不全；mask 已恢复，月亮/球体与文字布局仍开放"},
-    "3509243656": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "开场/模拟画面不正常，坐标文字异常"},
-    "3662790108": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "轨道/布局已恢复，球体与曲率画面、点击交互未验收；约 8.8 FPS"},
-    "3712499998": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期/时钟恢复，WEVector unsupported，重复文字未裁决"},
-    "3747492842": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过"},
-    "3750813609": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡"},
-    "3765760121": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "倒置已修，整样本未全面验收"},
-    "3766387484": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期/星期/时钟恢复，其余 effect 未验收"},
-    "3780119725": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "人物压缩已修；脸部黑线/缺块、动画层 unsupported、光照与闪烁未通过"},
-    "3787382101": {"verdict": "fail", "reviewedOn": "2026-09-06", "note": "Water Waves 扭曲人物全身，未限制在作者 mask 内"},
-    "3788734811": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "倒置已修，整体视觉等价未验收"}
+    "1315486372": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "水波位置不正确、光线贴图效果生硬"
+    },
+    "2775915974": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "鼠标纵向与顶部边界已修，顶部极限仍露灰边；整样本未通过"
+    },
+    "3238423642": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "头部错位已修，整体视觉与约 18.7 FPS 帧时间未验收"
+    },
+    "3264246690": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "人物左肘缺块；构图未验收"
+    },
+    "3287715210": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "音频条已恢复（PCM fixture），真实系统音频与整体未验收"
+    },
+    "3437487219": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "日期时间恢复，cursor owner collision 未闭合"
+    },
+    "3448845950": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "黑屏已解除，脚本效果与整体布局未通过"
+    },
+    "3470948192": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "开场/文字错位部分修复，仍有 NaN、文字碎片与异常背景"
+    },
+    "3477054430": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "画面显示不全；mask 已恢复，月亮/球体与文字布局仍开放"
+    },
+    "3509243656": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "开场/模拟画面不正常，坐标文字异常"
+    },
+    "3662790108": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "轨道/布局已恢复，球体与曲率画面、点击交互未验收；约 8.8 FPS"
+    },
+    "3712499998": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "日期/时钟恢复，WEVector unsupported，重复文字未裁决"
+    },
+    "3747492842": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过"
+    },
+    "3750813609": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡"
+    },
+    "3765760121": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "倒置已修，整样本未全面验收"
+    },
+    "3766387484": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "日期/星期/时钟恢复，其余 effect 未验收"
+    },
+    "3780119725": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "人物压缩已修；脸部黑线/缺块、动画层 unsupported、光照与闪烁未通过"
+    },
+    "3787382101": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-06",
+      "note": "Water Waves 扭曲人物全身，未限制在作者 mask 内"
+    },
+    "3788734811": {
+      "verdict": "fail",
+      "reviewedOn": "2026-09-08",
+      "note": "倒置已修，整体视觉等价未验收"
+    },
+    "3763323436": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "行政入库备注（2026-10-17）：当前同ID目录仅见shaders残留，缺project.json与scene.pkg，本轮未运行。保留旧archive的历史运行记录；该历史状态不证明当前残缺目录可启动，不归为新渲染缺陷。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "当前输入缺project/pkg；画面与官方差异未复验。",
+      "officialComparison": "unknown"
+    },
+    "3601801724": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3601801724-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3601801724-20261017/final/samples/3601801724/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "主体已呈现；边侧裁切较紧，尚未同viewport对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3597772384": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "山景、雨和时钟呈现；active鸟粒子部分控制点force未准入，非整个粒子层失败。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "山景、雨和时钟呈现；active鸟粒子部分控制点force未准入，非整个粒子层失败。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3690065713": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物、眼部背景和默认文本均呈现；边框、媒体与视窗差异待同状态对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3690065713-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3690065713-20261017/final/samples/3690065713/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物、眼部背景和默认文本均呈现；边框、媒体与视窗差异待同状态对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "2964778792": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "主体呈现；active世界空间粒子63的动态origin拒绝，74 cursor播放调用随后失败，属同一上游缺口。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/samples/2964778792/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "主体呈现；active世界空间粒子63的动态origin拒绝，74 cursor播放调用随后失败，属同一上游缺口。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3616389236": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "主体图形/时钟呈现，顶部图标成白块待同媒体资格；62.16s ready后被69s watchdog截断，完整播放/退出未知；隐藏15/effect0不计默认画面缺失。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/samples/3616389236/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "主体图形/时钟呈现，顶部图标成白块待同媒体资格；62.16s ready后被69s watchdog截断，完整播放/退出未知；隐藏15/effect0不计默认画面缺失。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3291326967": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物、雪粒子、日期与频谱呈现；未定位大面积主体缺失，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3291326967-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3291326967-20261017/final/samples/3291326967/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物、雪粒子、日期与频谱呈现；未定位大面积主体缺失，完整参数与同状态细节未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3627973226": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3627973226-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3627973226-20261017/final/samples/3627973226/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3022080536": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物呈现；相较官方奶油底及书法红印，当前灰底且装饰未见，待默认条件/颜色/资源资格。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/samples/3022080536/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物呈现；相较官方奶油底及书法红印，当前灰底且装饰未见，待默认条件/颜色/资源资格。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3662245960": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物与故障风格效果呈现；动态阶段及同状态精度未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3662245960-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3662245960-20261017/final/samples/3662245960/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物与故障风格效果呈现；动态阶段及同状态精度未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3632522893": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "富士山、文字、前景呈现；active Blur whole-stage被composition childless准入拒绝，836无hook/默认隐藏独立保留边界。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3632522893-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3632522893-20261017/final/samples/3632522893/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "富士山、文字、前景呈现；active Blur whole-stage被composition childless准入拒绝，836无hook/默认隐藏独立保留边界。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3586705329": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3586705329-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3586705329-20261017/final/samples/3586705329/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3577990983": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "官方中央Reze人物在native after缺失；烟火/栏杆可见，ready黑不能写持续全黑。layer31 Puppet clipping options先拒；其他局部effect/typed producer余项分列。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "官方中央Reze人物在native after缺失；烟火/栏杆可见，ready黑不能写持续全黑。layer31 Puppet clipping options先拒；其他局部effect/typed producer余项分列。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3486887298": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "彗星与时钟呈现；未定位大面积主体缺失，时相/布局细节及完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3486887298-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3486887298-20261017/final/samples/3486887298/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "彗星与时钟呈现；未定位大面积主体缺失，时相/布局细节及完整参数未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3754908581": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3754908581-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3754908581-20261017/final/samples/3754908581/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3719111841": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3719111841-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3719111841-20261017/final/samples/3719111841/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3820312181": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "VOID EDGE主体呈现；lightshafts layer17/effect1 slot1纹理绑定失败、局部回退，光束具体ROI待同相位对照。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/samples/3820312181/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "VOID EDGE主体呈现；lightshafts layer17/effect1 slot1纹理绑定失败、局部回退，光束具体ROI待同相位对照。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3599986633": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "官方九凤人物/彩色主幅在原native中被黑层遮住；独立只关闭177.visible消融恢复，702仍122次destroy拒绝，故不归因destroy；getEffect miss合同待官方资格。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/samples/3599986633/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "官方九凤人物/彩色主幅在原native中被黑层遮住；独立只关闭177.visible消融恢复，702仍122次destroy拒绝，故不归因destroy；getEffect miss合同待官方资格。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3605722997": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "默认5s after处于入场视频；仅animation=false即恢复完整人物/建筑、camera不变，巨大取景差异退出相机故障候选。另49脚本与196/205 animated Rope余项保留。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "默认5s after处于入场视频；仅animation=false即恢复完整人物/建筑、camera不变，巨大取景差异退出相机故障候选。另49脚本与196/205 animated Rope余项保留。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "3173418061": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "人物、城市和多段文字呈现；七个effect scale调用WEMath.mix非法参数，尚未证明host类型根因。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/samples/3173418061/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "人物、城市和多段文字呈现；七个effect scale调用WEMath.mix非法参数，尚未证明host类型根因。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    },
+    "1695673397": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "当前仅补登/同构建回归；主体、羽毛和雪呈现，顶部灰带沿用已锁同宽高比官方也有的边界，不重新排故障。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-1695673397-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-1695673397-20261017/final/samples/1695673397/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "当前仅补登/同构建回归；主体、羽毛和雪呈现，顶部灰带沿用已锁同宽高比官方也有的边界，不重新排故障。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared"
+    }
   }
 }

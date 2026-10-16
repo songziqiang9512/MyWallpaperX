@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 179,
-      "bytes": 51283
+      "bytes": 52249
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -137,8 +137,8 @@
       "bytes": 74762
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 303,
-      "bytes": 45288
+      "lines": 361,
+      "bytes": 59535
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -233,12 +233,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 49,
-      "bytes": 13116
+      "lines": 53,
+      "bytes": 15647
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 138,
-      "bytes": 27088
+      "lines": 144,
+      "bytes": 30384
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1223,11 +1223,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "3cd71e08b850d57fef09c3f498c22cdbbee4091db0fb8b16c68807d24cc4d795",
-      "after": "9217f0eb7c02f166d537e37cb826cf94af8e3262b27b6f6448ab4b56ecc21557",
-      "owner": "scene-puppet-query-observation",
-      "reason": "用已资格setter/视觉脉冲与query分道证据替换早期载体STOP概括；保留未闭合及研究停止边界。",
-      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation"
+      "before": "9217f0eb7c02f166d537e37cb826cf94af8e3262b27b6f6448ab4b56ecc21557",
+      "after": "26b68b0d3962795d969edb7af07c8c2f93110cae4b8f47ddc03fb8615f9f2576",
+      "owner": "scene-intake-basic-composition",
+      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
@@ -1241,20 +1241,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "39938fb414868f1ae8fd369b2d6df4a9d8222381d77e26f91762c9fd14c8e90a",
-      "after": "a2ce3d7fed52816e01dc3cbdb3171d677a24c5ca16654ebb389845e24937eb39",
-      "owner": "scene-puppet-query-render",
-      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+      "before": "a2ce3d7fed52816e01dc3cbdb3171d677a24c5ca16654ebb389845e24937eb39",
+      "after": "35c313983352bf7a0abc9b4e0dc062ede24f42ec3e03535421b52f23b52e1010",
+      "owner": "scene-intake-basic-composition",
+      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eb8099ba7e9d847c8c15ef136cb0ef0aaf33f4cef117a7638a3a3aa0da48bde7",
-      "after": "559490778cc65b84197e6129b761b8afdfd40bc0577eda6f6c73e61695ac71e8",
-      "owner": "scene-puppet-query-render",
-      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+      "before": "559490778cc65b84197e6129b761b8afdfd40bc0577eda6f6c73e61695ac71e8",
+      "after": "477748d1a2f6153d0e745328df57f1b1511d06bb4aec75fe104dcba101600116",
+      "owner": "scene-intake-basic-composition",
+      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",
@@ -1282,6 +1282,15 @@
       "owner": "steam-preview-ui",
       "reason": "在原AppKit权威记录共同预览状态、静态保留与旧实现退出；独审补齐本地版本、图片候选顺序、成功来源和缓存持有共享producer的消费者租约。",
       "decision": "docs/architecture/appkit-migration.md#steam-缩略图状态与资源寿命"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "bc7743a8000737cd98a9dee118aa90cc5ded59eea629bfcfdf5319f6ffa8fb54",
+      "after": "f89de1660dd645e2d560114a5fa860b9d00043336ff116eb659ebc08251887a8",
+      "owner": "scene-intake-basic-composition",
+      "reason": "20份增量默认运行与目录官方截屏基础对照进入原台账，保159历史关联/19旧裁决；队列只纳当前可达缺口，359遮挡与360入场phase单次资格分开，不冒全样本通过或性能基线。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
 }

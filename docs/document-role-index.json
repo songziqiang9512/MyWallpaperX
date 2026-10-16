@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3c8ab42cecc512d43e409eea45c56f6fe9433501038c89121493902ae0aa629c",
+        "sourceSHA256": "6fec3dddc2e96f92a181e6d0b31a779efbe6f7d7890bb9b051ac065b790972e2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet translation query/render分域的D4、限定实现与原始观察/CPU/Metal/App证据导航，U40释放依赖仍开放。",
-        "limitations": "只复核本片职责、链接和证据界限；实际运行另归history，不代表其余API、整样本、物理solver或性能重新验收。"
+        "scope": "20份增量的基础构图、可达首断点与ZIP成员身份导航；359遮挡/360入场消融独立，旧243静态快照与当前300目录分列。",
+        "limitations": "不代表旧279重新运行或全库视觉/全部参数/性能重新验收；旧裁决及未关联状态保留。"
       }
     },
     {
@@ -733,7 +733,15 @@
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-17",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "2b1591dcb8ac7f8435b1241045308e1a1f9495bc80abb233bbcf8a2d3d6a667c",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "20份增量的基础构图、可达首断点与ZIP成员身份导航；359遮挡/360入场消融独立，旧243静态快照与当前300目录分列。",
+        "limitations": "不代表旧279重新运行或全库视觉/全部参数/性能重新验收；旧裁决及未关联状态保留。"
+      }
     },
     {
       "path": "docs/scene/capabilities/scene-sample-debug-ledger.md",
@@ -3324,13 +3332,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "对旧静态审计逐项复核后仍可定位的首owner缺口/状态反例；不维护旧样本评分，不代替实际运行故障或队列选序。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46977c6c6c28996f2569baca91d416f0ada3c2b52b4f728bb1b20b5b5dde4507",
+        "sourceSHA256": "3334cbfb71dc09e5a4cce692e002592bba20efcbb5ed70ab7b1470b0ed4abf3f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
-        "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
+        "scope": "20份增量的基础构图、可达首断点与ZIP成员身份导航；359遮挡/360入场消融独立，旧243静态快照与当前300目录分列。",
+        "limitations": "不代表旧279重新运行或全库视觉/全部参数/性能重新验收；旧裁决及未关联状态保留。"
       }
     },
     {
@@ -3341,10 +3349,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d410b1af83ddc4efea31c1fbe8df3acfc04ab2b54823b35df252e24c9a30a2d0",
+        "sourceSHA256": "651c6bacbe6f57c20f2f1d80bc2698f877168f6b0b969d5c7343691c356684d2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet translation query/render分域的D4、限定实现与原始观察/CPU/Metal/App证据导航，U40释放依赖仍开放。",
-        "limitations": "只复核本片职责、链接和证据界限；实际运行另归history，不代表其余API、整样本、物理solver或性能重新验收。"
+        "scope": "20份增量的基础构图、可达首断点与ZIP成员身份导航；359遮挡/360入场消融独立，旧243静态快照与当前300目录分列。",
+        "limitations": "不代表旧279重新运行或全库视觉/全部参数/性能重新验收；旧裁决及未关联状态保留。"
       }
     },
     {
