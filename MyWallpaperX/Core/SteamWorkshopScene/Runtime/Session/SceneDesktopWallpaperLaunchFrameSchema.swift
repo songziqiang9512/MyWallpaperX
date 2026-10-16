@@ -7,6 +7,42 @@ import Foundation
 /// authored layer definitions use a small revisioned cache because script
 /// topology may publish a new target after a successful frame.
 nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Sendable {
+    /// One launch join publishes identical resource eligibility to C, Swift
+    /// topology and the material consumer. A texture alone is insufficient.
+    static func preparedResourceCatalog(
+        descriptor: SceneRenderDescriptor, baseImages: ScenePreparedBaseImageResources,
+        models: [SceneAssetCatalog.ModelAsset], sourceMaterialModelPaths: Set<String>
+    ) -> (templates: [String: SceneScriptPreparedResourceLayerTemplate],
+          lightingProfiles: [String: SceneBaseMaterialLightingProfile]) {
+        let autosizeByModel = Dictionary(uniqueKeysWithValues: models.map {
+            ($0.relativePath.lowercased(), $0.autosize ?? false)
+        })
+        var templates: [String: SceneScriptPreparedResourceLayerTemplate] = [:]
+        var profiles: [String: SceneBaseMaterialLightingProfile] = [:]
+        for (key, resource) in baseImages.dynamicImageResources {
+            let autosize = autosizeByModel[key] ?? false
+            guard !autosize || resource.naturalSizeWH != nil,
+                  resource.loaded.animation == nil,
+                  let candidate = resource.loaded.candidate,
+                  candidate.texture === resource.loaded.texture,
+                  resource.lightingProfile != nil || sourceMaterialModelPaths.contains(
+                    SceneModelResourceIdentity(resource.modelPath).value) else { continue }
+            templates[key] = .init(modelPath: resource.modelPath,
+                renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize,
+                puppetMeshPath: resource.puppetMeshPath)
+            profiles[resource.modelPath] = resource.lightingProfile
+        }
+        // Empty clones carry no source effects, members, scripts or final texture.
+        if (descriptor.camera.orthoHeight ?? 0) > 0 {
+            for layer in descriptor.layers where layer.utilityLayer?.kind == .composition {
+                guard let path = layer.imagePath else { continue }
+                templates[path.lowercased()] = .init(
+                    modelPath: path, renderSizeWH: [1, 1], kind: .composition)
+            }
+        }
+        return (templates, profiles)
+    }
+
     let dynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     private(set) var sceneScriptStatefulTargets: Set<SceneDynamicTarget>
     let mediaFrameCoordinator: SceneScriptMediaFrameCoordinator

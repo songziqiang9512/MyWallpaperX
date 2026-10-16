@@ -1,4 +1,7 @@
-struct FixtureProfiles {var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:]}
+struct FixtureProfiles {
+ var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:]
+ func lightingProfile(for layer:SceneRenderDescriptor.Layer)->SceneBaseMaterialLightingProfile? {lightingProfileByLayerID[layer.id]}
+}
 struct FixturePipelines {let litImageLayer:SceneLitImageLayerPipeline?}
 struct SceneSpriteAnimation {}
 struct SceneMediaThumbnailTextureStore {struct Snapshot {}}

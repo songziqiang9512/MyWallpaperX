@@ -63,12 +63,34 @@ struct SceneRenderDescriptor {
         var cullMode: String? = "nocull"
         var alphaWriting: String? = nil
     }
+    typealias MaterialPassDescriptor = MaterialPass
     var layers: [Layer]
     var modelMaterialLinks: [ModelMaterialLink] = [
         .init(modelPath: "models/shared.json", materialPath: "materials/shared.json")
     ]
     var materialPasses: [MaterialPass]
     var colorTargetFormat = TestColorFormat()
+}
+// Material-value compilation has its own production-source gate. This owner
+// gate controls only its result; no shader, light or pixel behavior is claimed.
+struct SceneBaseMaterialLightingProfile {
+    let lightingEnabled: Bool
+    var surfaceEnabled: Bool { lightingEnabled }
+}
+enum SceneBaseMaterialLightingProfileCompiler {
+    static func profile(layerID: Int, usesPuppet: Bool, materialInstance: Never?,
+        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
+        materialPropertyTargets: Set<Int>, builtinSurface: Bool) -> SceneBaseMaterialLightingProfile {
+        .init(lightingEnabled: materialPasses.first?.combos["LIGHTING"] == 1)
+    }
+}
+enum SceneMaterialPropertyBindingCompiler {
+    static func staticComponents(_ key: String, instance: Never?,
+        pass: SceneRenderDescriptor.MaterialPassDescriptor, count: Int,
+        fallback: [Double], requiresCompleteScalar: Bool) -> [Double]? {
+        guard let value = pass.constantShaderValues[key] else { return fallback }
+        return value.isFinite ? [Double(value)] : nil
+    }
 }
 struct TestColorFormat { let metalPixelFormat: MTLPixelFormat = .rgba16Float }
 struct SceneTextureDecodeCacheBudget { let maximumBytes: Int }
@@ -370,6 +392,8 @@ enum Checks {
                 "pending": layers.first.map { prepared.deferredStatus(for: $0.id) == .pending } ?? false,
                 "dynamicLoadOrdinal": resource?.loaded.loadOrdinal ?? 0,
                 "entryLoadOrdinal": first?.loadOrdinal ?? 0,
+                "hasMaterialRecipe": resource?.lightingProfile != nil,
+                "litRecipe": resource?.lightingProfile?.lightingEnabled ?? false,
             ]
         }
         let automatic = SceneAssetCatalog.ModelAsset(relativePath: "models/shared.json", autosize: true)
@@ -423,6 +447,22 @@ enum Checks {
         }
         try check("explicitWithEntry", layers: [ordinary], explicit: ["models/shared.json"])
         try check("explicitOnly", layers: [], explicit: ["models/shared.json"])
+        for (name, explicit) in [("litIndirect", Set<String>()),
+                                 ("litExplicit", Set(["models/shared.json"]))] {
+            try check(name, layers: [ordinary], explicit: explicit) {
+                $0.materialPasses[0].combos["LIGHTING"] = 1
+                $0.materialPasses[0].constantShaderValues = ["metallic": 0, "roughness": 0.7]
+            }
+        }
+        try check("litPuppet", layers: [.init(id: 1, puppetMeshPath: "models/puppet.mdl")]) {
+            $0.materialPasses[0].combos["LIGHTING"] = 1
+        }
+        try check("unknownBuiltinExplicit", layers: [ordinary], explicit: ["models/shared.json"]) {
+            $0.materialPasses[0].combos["UNKNOWN"] = 1
+        }
+        try check("sourceExplicit", layers: [ordinary], explicit: ["models/shared.json"]) {
+            $0.materialPasses[0].shaderPath = "shaders/custom"
+        }
         let deferredDescriptor = SceneRenderDescriptor(layers: [ordinary], materialPasses: [
             .init(materialPath: "materials/shared.json", texturePaths: ["materials/canonical.png"], textureSlots: ["materials/canonical.png"])
         ])

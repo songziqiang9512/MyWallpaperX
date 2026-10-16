@@ -375,7 +375,7 @@ extension SceneMetalRenderer {
                     }
                     if framePlans[layer.id] == nil, ["image", "solid", "text"].contains(layer.contentKind) {
                         let resolution: SceneLitCapturePayloadResolution
-                        if let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id], profile.surfaceEnabled {
+                        if let profile = baseMaterialProviderBindings.lightingProfile(for: layer), profile.surfaceEnabled {
                             let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
                                 renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
                                 textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,

@@ -54,8 +54,7 @@ extension SceneMetalRenderer {
         self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
         self.pipelineRepository = pipelineRepository
-        if baseMaterialProviderBindings.lightingProfileByLayerID.values
-            .contains(where: \.surfaceEnabled) {
+        if baseMaterialProviderBindings.hasLitImageConsumers {
             _ = pipelineRepository.prepareLitImageLayer()
         }
         self.imageCompositor = SceneImageLayerCompositor(

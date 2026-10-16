@@ -9,6 +9,8 @@ struct ScenePreparedDynamicImageResource {
     var naturalSizeWH: [Float]? = nil
     var puppetMeshPath: String? = nil
     var puppetPose: ScenePuppetLayerLoad.PreparedPose? = nil
+    /// A model-default built-in recipe, never an authored layer instance.
+    var lightingProfile: SceneBaseMaterialLightingProfile? = nil
 
     var renderSizeWH: [Float] {
         [Float(loaded.texture.width), Float(loaded.texture.height)]
@@ -206,11 +208,17 @@ final class ScenePreparedBaseImageResources {
             }
         }
         var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
+        let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
         let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
         for modelPath in requestedModels.sorted() {
             try cancellationCheck()
             // Puppet resources enter below through mesh + straight atlas, never a quad.
             if models[modelPath]?.puppetPath != nil { continue }
+            let modelIdentity = SceneModelResourceIdentity(modelPath).value
+            // Built-in literal and indirect requests require the same recipe.
+            // Non-built-in source Programs retain their existing preparation.
+            if imageMaterials.builtinModelPaths.contains(modelIdentity),
+               imageMaterials.profiles[modelIdentity] == nil { continue }
             guard let url = resolver.resolvePrimaryTexture(modelPath: modelPath),
                   let source = textureLoader.sourceKey(for: url) else {
                 failedCount += 1
@@ -233,7 +241,8 @@ final class ScenePreparedBaseImageResources {
                 dynamicImageResources[modelPath.lowercased()] = .init(
                     modelPath: modelPath, loaded: loaded,
                     naturalSizeWH: textureLoader.preparedNaturalImageSize(from: url, source: source)
-                        .map { [Float($0.width), Float($0.height)] }
+                        .map { [Float($0.width), Float($0.height)] },
+                    lightingProfile: imageMaterials.profiles[modelIdentity]
                 )
                 loadedCount += 1
             case .failed:
@@ -282,7 +291,8 @@ final class ScenePreparedBaseImageResources {
             try cancellationCheck()
             guard let modelPath = layer.imagePath,
                   dynamicImageResources[modelPath.lowercased()] == nil,
-                  supportsDynamicImageAlias(modelPath: modelPath, descriptor: descriptor),
+                  let profile = imageMaterials.profiles[SceneModelResourceIdentity(modelPath).value],
+                  layer.puppetMeshPath == nil || !profile.surfaceEnabled,
                   let entry = entries[layer.id],
                   let modelURL = resolver.resolvePrimaryTexture(modelPath: modelPath),
                   textureLoader.sourceKey(for: modelURL) == entry.source,
@@ -295,7 +305,8 @@ final class ScenePreparedBaseImageResources {
             dynamicImageResources[modelPath.lowercased()] = .init(
                 modelPath: modelPath, loaded: loaded,
                 naturalSizeWH: entry.naturalSizeWH,
-                puppetMeshPath: layer.puppetMeshPath, puppetPose: pose
+                puppetMeshPath: layer.puppetMeshPath, puppetPose: pose,
+                lightingProfile: profile
             )
         }
         // Every launch texture is GPU-published past this point: drop the
@@ -315,32 +326,6 @@ final class ScenePreparedBaseImageResources {
             loadedCount: loadedCount,
             failedCount: failedCount
         )
-    }
-
-    /// Texture readiness does not prove arbitrary model/material execution.
-    /// The existing dynamic quad consumes only a plain built-in slot-zero image.
-    private static func supportsDynamicImageAlias(
-        modelPath: String, descriptor: SceneRenderDescriptor
-    ) -> Bool {
-        let links = descriptor.modelMaterialLinks.filter { $0.modelPath == modelPath }
-        guard links.count == 1, let materialPath = links.first?.materialPath else { return false }
-        let passes = descriptor.materialPasses.filter { $0.materialPath == materialPath }
-        guard passes.count == 1, let pass = passes.first,
-              pass.passIndex == 0,
-              pass.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true,
-              pass.textureSlots.count == 1, let texturePath = pass.textureSlots.first ?? nil,
-              !texturePath.isEmpty, pass.texturePaths == [texturePath],
-              pass.userTextureInputs.allSatisfy({ $0 == nil }),
-              pass.constantShaderValues.isEmpty, pass.userShaderValues.isEmpty,
-              pass.combos.allSatisfy({ $0.key == "VERSION" && $0.value == 2 }),
-              let state = SceneMaterialRenderState.compile(
-                blending: pass.blending, depthTest: pass.depthTest,
-                depthWrite: pass.depthWrite, cullMode: pass.cullMode,
-                alphaWriting: pass.alphaWriting
-              ) else { return false }
-        return state.blending == .translucent && state.depthTest == .disabled
-            && state.depthWrite == .disabled && state.cullMode == .noCull
-            && state.alphaWriting == .unspecified
     }
 
     func outcome(

@@ -27,8 +27,6 @@ extension SceneMetalRenderer {
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
         performanceTelemetry?.beginStage("admit-preflight-targets")
         defer { performanceTelemetry?.endStage("admit-preflight-targets") }
-        let lightingProfileByLayerID =
-            baseMaterialProviderBindings.lightingProfileByLayerID
         let viewportSize = frameContext.screenSize
         guard let orderedLayers = utilityExecution == nil
                 ? (preparationLayers ?? resolvedMaterialPreparationLayers)
@@ -911,11 +909,12 @@ extension SceneMetalRenderer {
             case .capturedMainTargetTexture, .transparentDirectDraw:
                 sourceRouteCapturesTexture = false
             }
-            if lightingProfileByLayerID[layerID]?.surfaceEnabled == true,
+            let lightingProfile = baseMaterialProviderBindings.lightingProfile(for: layer)
+            if lightingProfile?.surfaceEnabled == true,
                sourceRouteCapturesTexture,
                sourceTexture != nil {
                 switch makeLitCapturePayload(
-                    profile: lightingProfileByLayerID[layerID],
+                    profile: lightingProfile,
                     snapshot: frameLightSnapshot,
                     dynamicValues: frameContext.dynamicValues,
                     layerModelMatrix: simd_inverse(cameraFrame.viewProjection(for: layer))

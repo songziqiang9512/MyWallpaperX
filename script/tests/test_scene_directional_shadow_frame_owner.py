@@ -54,6 +54,8 @@ struct SceneRenderDescriptor {
   var spotLight:SceneSpotLightDefinition? = nil;var directionalLight:SceneDirectionalLightDefinition? = nil
   var parentID:Int? = nil;var displayScriptOwnership:SceneLayerDisplayScriptOwnership? = nil
   var utilityLayer:Bool? = false;var usesPerspective:Bool? = false
+  // This shadow fixture has ordinary model/image receivers, no composition.
+  var hasPerspectiveGeometryConsumer:Bool {utilityLayer == nil}
   var alpha:Double? = 1;var contentKind:String = "model"
   var modelShadowCastIntent:SceneShadowCastIntent? = nil;var colorBlendMode:Int? = nil
   var anglesXYZ:[Float]? = nil
@@ -163,7 +165,10 @@ struct SceneEffectExecutionFrameTrace {
  }
 }
 struct FixtureLightingProfile { let surfaceEnabled:Bool }
-struct FixtureProviderBindings { let lightingProfileByLayerID:[Int:FixtureLightingProfile] }
+struct FixtureProviderBindings {
+ let lightingProfileByLayerID:[Int:FixtureLightingProfile]
+ func lightingProfile(for layer:SceneRenderDescriptor.Layer)->FixtureLightingProfile? {lightingProfileByLayerID[layer.id]}
+}
 struct FixtureGeometryProduct {}
 extension BindingObserver {
  func requiresDemandedGraphOutputCapture(for id:Int)->Bool { fatalError("unused RF13 ordered preparation shell") }

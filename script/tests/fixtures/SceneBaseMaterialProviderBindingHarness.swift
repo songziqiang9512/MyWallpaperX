@@ -10,6 +10,8 @@ enum SceneTextureLoadPurpose: Hashable {
 enum SceneTextureProviderIdentity: Hashable {
     case mediaThumbnailCurrent
     case mediaThumbnailPrevious
+    case videoUserProperty(property: SceneUserPropertyTextureIdentity,
+                           sourceIncarnation: UUID, lifecycleEpoch: UInt64)
 }
 enum SceneTextureResourceIdentity: Hashable {
     case file
@@ -137,13 +139,20 @@ struct SceneRenderDescriptor {
     }
     struct MaterialPassDescriptor {
         let materialPath: String
-        let passIndex = 0
+        var passIndex: Int = 0
         var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
         var shaderPath: String? = nil
         var combos: [String: Int] = [:]
         let textureSlots: [String?]
         let userTextureInputs: [SceneEffectTextureInput?]
         var constantShaderValues: [String: SceneDocument.ShaderValue] = [:]
+        var texturePaths: [String] = []
+        var userShaderValues: [String: String] = [:]
+        var blending: String? = nil
+        var depthTest: String? = nil
+        var depthWrite: String? = nil
+        var cullMode: String? = nil
+        var alphaWriting: String? = nil
     }
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -796,6 +805,7 @@ let scalarProfiles = [
     scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[2]),"roughness":.init(userBinding:nil,components:[-1])]),
 ]
 let result: [String: Any] = [
+    "preparedImageMaterials": preparedImageMaterialChecks(),
     "instanceFallback": instanceFallbackChecks(),
     "customAlpha": customMaterialAlphaChecks(),
     "customUserColor": customMaterialUserColorChecks(),

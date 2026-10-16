@@ -371,11 +371,23 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 
 实施及反例统一归[历史记录](../../history/named-timeline-interaction-2026-10-10.md)，当前范围由API台账维护，不以局部交互代替完整样本验收。
 
-## 已准备普通图片的动态复用（2026-10-12）
+<a id="prepared-dynamic-image-material"></a>
 
-作者通过初始配置取得 image model 路径后，createLayer 仍消费既有 dynamicImageResources、LaunchFrameSchema 模板和 DynamicImageTextureProvider；不扫描脚本表达式、不新增加载或 provider。ScenePreparedBaseImageResources 在原上传完成/失败回收之后，只将成功普通 image Entry 的 Loaded 引用投影到现动态资源表。model 默认纹理的 SourceKey 必须与该 Entry 相同，保留原 candidate、采样元数据及 texture 身份；layer slot0 override 不能污染 model 默认源，已有显式动态资源优先保留。新别名仅接受唯一 model/material/pass、既有 builtin image 身份、唯一 slot0、无常量/用户/provider 输入，combo 仅允许 VERSION=2，render state 为 translucent/disabled/disabled/nocull 且 alphawriting 未指定；未知、自定义和多pass材质不借纹理成功伪装为普通 quad。ColorModulationCompiler 负责源 shader Program 的语义 lowering，不是资源引用资格，本片不重复调用它准备 shader。
+## 已准备普通图片的动态复用（2026-10-12—16，默认材质有界实施）
+
+10-12首片让作者通过初始配置取得image model路径后，createLayer继续消费既有dynamicImageResources、LaunchFrameSchema模板和DynamicImageTextureProvider。原资源owner在上传完成/失败回收后投影成功Entry的Loaded；model默认SourceKey须与Entry相同，保candidate/采样/texture身份，layer slot0 override不污染model默认源，显式资源优先。首片只准唯一model/material/pass、builtin image、单slot0、无常量/用户/provider、VERSION=2及translucent/disabled/disabled/nocull/alpha未指定。该plain专用资格现已由下述统一材质catalog接管，不作为第二入口；未知/custom/多pass不借纹理成功伪装普通quad。ColorModulationCompiler仍独占source Program语义lowering，不是资源引用资格，不重复调用它准备shader。
 
 缺失、失败、延迟尚未准备的 Entry，以及 Puppet、composition、动画等特殊 provider 不借此开放。动态创建仍由原模板与拓扑事务检查，失败不返回假资源；资源随原 launch owner 保留，删除和 GPU completion 生命周期不新增权威。反例验证同 model 不同 layer override、没有原始成功 Entry、特殊来源和上传失败；正例验证共享实际引用且 load 次数不增加。初始配置的返回副本由 catalog/ABI/VM 合同负责，clone 的作者 size、perspective、text wrapper 和任意 model/material 语义不由该资源投影扩域；真实画面需另验，不把资源可用当成整样本通过。
+
+**10-16后继目标与取舍。** 三条间接创建请求原已到达同一GPU就绪图片，却因默认材质含LIGHTING和metallic/roughness被plain资格拒绝；显式literal入口没有相同证明，纹理成功也不能证明材质执行。相比继续猜测旧TypeError或另造动态shader，本片复用现LightingProfileCompiler及lit consumer，最小结果是单pass、slot0普通builtin图片的静态默认材质进入每个新实例，保实例自身变换和原始资源身份。以上10-12纯plain范围是既有实现，不是后继已验收声明。
+
+**唯一准备与消费。** 原BaseImageResources在launch按canonical model准备一次不可变默认材质fact；显式请求、初始配置间接请求及registerAsset共用builtin资格，不借源层的instance override、effects、脚本、property target或合成后纹理。仍由原LightingProfileCompiler产生profile，Resource只携带准备结果；GPU publication成功后与同一模板/catalog一起发布，再投影进唯一BaseMaterialProviderBindingProgram。现renderer集中查authored layerID，只有动态image才回落已准备model默认profile；lit pipeline预热含该表，光照仍消费同一frame snapshot与新实例自己的world/model矩阵。不增shader算法、provider、clock或普通帧解析。
+
+**边界与旧路径。** 首片只新增builtin单slot0的静态LIGHTING及有限metallic/roughness；继续唯一pass与既有translucent/depth disabled/write disabled/nocull条件，未知combo/常量、动态wrapper/provider、optional normal/PBR map、reflection/emission和多pass均不因纹理成功准入。已有完整source Program及已获准的compositor lowering均在原join提供实际证明，不能冒充builtin profile或退回plain。固定官方客户端的自有透明parent目标把alpha转成灰度，省略/default/enabled两次预定ROI均无像素差；据此仅genericimage2+LIGHTING1接受default，不改通用render-state，不扩plain/genericimage4/default或enabled准入。官方直接证据限SDR、正交、ambient白、metallic/roughness=0；其余有限scalar沿既有alpha表达式不变是项目有界选择，不称全部官方像素等价。
+
+**失败与退出。** canonical source不符、没有完整材质fact、上传失败或未完成时，原catalog不发布该资源，C与Swift都沿原局部拒绝；健康资源及当前画面继续。创建、晚拒绝、owner throw、destroy、旧generation与Session退出沿既有topology事务、GPU completion及launch资源退休，不缓存新layerID或给旧handle复活能力。移除原plain专用资格分支后由同一builtin材质准备入口接管；未证明的source Program范围不随本次迁移扩大。
+
+**必要验收与停止。** 自有同model静态/动态lit消费者验证光照、材质常量及各自变换，变量/资源改名、等价构造、literal/间接/register入口与plain、完整source Program邻例；覆盖override污染、未知状态/常量、坏上传、失败撤回和退役。真实原包默认输入证明三条null消失及实际旋转，shadow模块默认Off不能误判缺影；开启Static/Perspective只在隔离声明输入变体中验实际边缘ROI，另取未参与修法样本实图。若现owner不能闭合材质执行或关键状态仍unknown，停在资格而不删guard；没有同条件测量不报性能收益。
 
 ## Sound 播放控制接入（2026-10-12）
 

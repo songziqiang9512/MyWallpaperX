@@ -43,7 +43,7 @@ extension SceneMetalRenderer {
         preparedResolution: SceneLitCapturePayloadResolution? = nil) {
         let layer = request.layer
         guard request.resolvedMaterialFrameTargetPlan == nil,
-              let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
+              let profile = baseMaterialProviderBindings.lightingProfile(for: layer),
               profile.surfaceEnabled else { return }
         switch preparedResolution ?? makeLitCapturePayload(profile: profile, snapshot: snapshot,
             dynamicValues: request.dynamicValues, layerModelMatrix: model, layerWorldFrame: worldFrame,

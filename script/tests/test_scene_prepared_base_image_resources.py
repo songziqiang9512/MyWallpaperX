@@ -38,6 +38,8 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         compile_result = subprocess.run(
             ["xcrun", "swiftc", "-swift-version", "5", str(source), str(SOURCE_MATERIALS), str(RESOLVER),
              str(BUILTIN), str(RENDER_STATE), str(SCENE / "Format/SceneJSONValue.swift"),
+             str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
+             str(SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift"),
              str(FIXTURE), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
@@ -155,6 +157,20 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertEqual(self.facts[name]["loads"], 1)
                 self.assertTrue(self.facts[name]["hasOutcome"])
                 self.assertEqual(self.facts[name]["dynamicCount"], 0)
+
+    def test_builtin_literal_and_indirect_share_a_published_default_recipe(self) -> None:
+        for name in ("litIndirect", "litExplicit"):
+            with self.subTest(name=name):
+                self.assertEqual(self.facts[name]["dynamicCount"], 1)
+                self.assertTrue(self.facts[name]["hasMaterialRecipe"])
+                self.assertTrue(self.facts[name]["litRecipe"])
+        self.assertTrue(self.facts["shared"]["hasMaterialRecipe"])
+        self.assertFalse(self.facts["shared"]["litRecipe"])
+        self.assertEqual(self.facts["litPuppet"]["dynamicCount"], 0)
+        self.assertEqual(self.facts["unknownBuiltinExplicit"]["dynamicCount"], 0)
+        self.assertEqual(self.facts["unknownBuiltinExplicit"]["loads"], 1)
+        self.assertEqual(self.facts["sourceExplicit"]["dynamicCount"], 1)
+        self.assertFalse(self.facts["sourceExplicit"]["hasMaterialRecipe"])
 
     def test_complete_variants_without_sampler_zero_use_only_base_image_domain(self) -> None:
         for name in ("sourceInactive", "sourceInactiveNoCandidate", "sourceOtherSamplerOnly"):

@@ -54,13 +54,25 @@ enum SceneBaseMaterialLightingProfileCompiler {
         guard layer.isImageRenderable,
               materialInstance?.isMalformed != true,
               materialPasses.count <= 1 else { return .disabled }
+        return profile(layerID: layer.id, usesPuppet: layer.puppetMeshPath != nil,
+            materialInstance: materialInstance, materialPasses: materialPasses,
+            materialPropertyTargets: materialPropertyTargets,
+            builtinSurface: SceneMaterialPropertyBindingCompiler.supportsBuiltinImage(
+                layer: layer, instance: materialInstance, passes: materialPasses))
+    }
+
+    /// The prepared model-default caller proves its complete built-in shape
+    /// before entering this same compiler. No authored layer instance is borrowed.
+    static func profile(
+        layerID: Int, usesPuppet: Bool,
+        materialInstance: SceneDocument.SceneLayerMaterialInstance?,
+        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
+        materialPropertyTargets: Set<SceneDynamicTarget>, builtinSurface: Bool
+    ) -> SceneBaseMaterialLightingProfile {
         let pass = materialPasses.first
         let isBuiltin = pass?.shaderPath.map(SceneBuiltinShaderIdentity.isImage) ?? true
         let lightingEnabled = isBuiltin
             && (materialInstance?.combos["LIGHTING"] ?? pass?.combos["LIGHTING"]) == 1
-        let builtinSurface = SceneMaterialPropertyBindingCompiler.supportsBuiltinImage(
-            layer: layer, instance: materialInstance, passes: materialPasses
-        )
         let builtinLighting = builtinSurface && lightingEnabled
         // This slice owns only the declared default environment. Empty/null
         // instance slots inherit; they cannot erase an authored provider.
@@ -69,7 +81,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
             || [materialInstance?.userTextureInputs, pass?.userTextureInputs]
                 .compactMap { $0 }.contains { $0.indices.contains(3) && $0[3] != nil }
         var reflection: SIMD2<Float>?
-        if builtinSurface, layer.puppetMeshPath == nil, !hasExplicitEnvironment,
+        if builtinSurface, !usesPuppet, !hasExplicitEnvironment,
            (materialInstance?.combos["REFLECTION"] ?? pass?.combos["REFLECTION"]) == 1,
            let pass,
            let strength = SceneMaterialPropertyBindingCompiler.staticComponents(
@@ -131,7 +143,7 @@ enum SceneBaseMaterialLightingProfileCompiler {
             }
             if builtinLighting, let rgb = SceneMaterialPropertyBindingCompiler.emissionColor(instance: materialInstance, pass: pass) {
                 let target = SceneDynamicTarget.materialConstant(
-                    layerID: layer.id, passIndex: pass.passIndex,
+                    layerID: layerID, passIndex: pass.passIndex,
                     name: "emissivebrightness",
                     materialPath: pass.materialPath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
                 )

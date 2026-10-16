@@ -10,7 +10,7 @@
 
 ## 1. 当前证据快照
 
-新增证据：[Bool正常返回与时钟拖动](#e-2026-10-16-bool-return)。
+新增证据：[动态图片默认材质](#e-2026-10-16-dynamic-image-material)。
 
 先核对各包输入/App/code identity、执行层级与后继记录。
 
@@ -44,6 +44,7 @@
 | 图片brightness脚本 | [普通图片后继](../history/effectful-image-property-color-2026-10-14.md#image-brightness-script)：补Scalar与property输入首断点，真实热改、星空明暗、原生保存/重开/reset同session；独立effectful实图及其origin异常、原生看门狗退出分列，不计性能或整样本完成。 |
 | Sound volume字段脚本 | [pure后验](../history/sound-script-control-2026-10-12.md#sound-volume-script)与[mixed后验](../history/sound-script-control-2026-10-12.md#sound-mixed-volume)分列原包/派生App、暂停冻结刷新、真实增益及normal面板保存/重开/reset单session，独立原包实图保持；366冷启动超时、deferred实际组合/故障Session取消、多surface与听感保留，无性能结论。 |
 | Random Sound多源与控制 | <a id="e-2026-10-16-sound-random"></a>[有界后验](../history/sound-script-control-2026-10-12.md#sound-random-playback)：原包390/271异常退出、默认延迟后音乐/雨声实进、原属性零延迟`3→1→0→3`同窗口实际消费；独立原包画面/loop保持。自有自然结束/共享clock、暂停/stop/退休与坏源局部门分列，官方数字活动只支持有界时序，不认领并发/PCM、听感、全codec或性能收益。 |
+| 动态图片默认材质 | <a id="e-2026-10-16-dynamic-image-material"></a>[限定后验](../history/dynamic-image-default-material-2026-10-16.md)：原289三null退出、六图片owner完成，literal/间接/register实例与静态参考的三ROI像素相同，red override与unlit邻例保持；官方alpha-sensitive目标仅资格genericimage2 lit default，完整Program/lowering与builtin fact同join发布。独立326实图正常，hidden作者异常、1px放大质量、完整阴影/HDR/多屏与性能收益不据此关闭。 |
 | OGG Sound平台格式 | [资源级后验](../history/sound-script-control-2026-10-12.md#sound-ogg-native)：真实915音频与自有OGG经原Program/Registry ready、时钟、命令及退休，坏文件/WAV peer分验；完整366冷启动120秒未ready，原包声音/画面未证，独立314实图保持，无性能或听感/parity结论。 |
 | Vec3/Vec2混合算术 | [缺维保留后验](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)：固定官方24case、真实VM与原包1128非有限首错消失分列；两次属性热改同窗口，原包保owner-executed、位置motion未直接观测，独立314实图保持；保layer544作者异常及光束/封面余项，无性能或整样本结论。 |
 | 文字handle字号setter | [pointsize限定记录](../history/text-layer-pointsize-setter-2026-10-16.md)：213同媒体基线→候选首错消失，原字号/文字typed链与真实标题换词可见；两层为主要文字/阴影，artist仅输入，独立314实图保持。非面板新能力，不销右黑块或全部媒体/字体parity，无性能结论。 |

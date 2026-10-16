@@ -18,6 +18,9 @@ COMPILER_SOURCE = (
 LIGHTING_PROFILE_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift"
 )
+PREPARED_MATERIAL_SOURCE = (
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedImageMaterialCatalog.swift"
+)
 VISIBILITY_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneInitialMediaEffectVisibilityProjection.swift"
 )
@@ -41,9 +44,13 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                 [
                     "swiftc", *map(str, material.SOURCES), str(SOURCE), str(COMPILER_SOURCE),
                     str(LIGHTING_PROFILE_SOURCE),
+                    str(PREPARED_MATERIAL_SOURCE),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift"),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneModelResourceIdentity.swift"),
                     str(VISIBILITY_SOURCE),
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift"),
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift"),
+                    str(ROOT / "script/tests/fixtures/ScenePreparedImageMaterialChecks.swift"),
                     str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),
                 ],
                 check=True,
@@ -162,6 +169,24 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
             "",
         )
         self.assertTrue(result["lightingProfilesMatchDirectCompiler"])
+        prepared = result["preparedImageMaterials"]
+        for group in ("catalog", "rejected", "program"):
+            self.assertTrue(prepared[group])
+            for name, passed in prepared[group].items():
+                with self.subTest(prepared_material_group=group, case=name):
+                    self.assertTrue(passed)
+        expected_scalars = {
+            "plain": [], "lightingZero": [], "tierTwo": [.5, .5],
+            "tierFour": [0, .7], "explicit": [.24, .83],
+            "renamedWrapped": [.24, .83], "clampedFinite": [1, 0],
+        }
+        self.assertEqual(set(prepared["scalarValues"]), set(expected_scalars))
+        for name, wanted in expected_scalars.items():
+            with self.subTest(prepared_material_scalar=name):
+                actual = prepared["scalarValues"][name]
+                self.assertEqual(len(actual), len(wanted))
+                for a, b in zip(actual, wanted):
+                    self.assertAlmostEqual(a, b, places=6)
 
 
 

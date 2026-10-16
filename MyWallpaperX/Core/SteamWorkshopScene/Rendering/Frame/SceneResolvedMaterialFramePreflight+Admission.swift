@@ -156,7 +156,7 @@ extension SceneMetalRenderer {
         // The document preserves arbitrary authored integers. The compositor
         // rejects unsupported modes before both blend and lighting captures.
         guard SceneLayerColorBlendRenderer.supports(blendMode) else { return [] }
-        let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id]
+        let profile = baseMaterialProviderBindings.lightingProfile(for: layer)
         let lightingNeedsCapture: Bool
         switch lightingResolution {
         case .payload(_)?: lightingNeedsCapture = true
@@ -207,7 +207,7 @@ extension SceneMetalRenderer {
                 return true
             }
             guard imageTextures.geometryProducts[layer.id] == nil,
-                  let profile = baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
+                  let profile = baseMaterialProviderBindings.lightingProfile(for: layer),
                   profile.reflection != nil, let asset = profile.normalAsset,
                   case .ready = SceneBaseMaterialLitCapturePayload.TextureInput.resolve(
                     textureRegistry.lookup(.asset(asset))) else { return false }

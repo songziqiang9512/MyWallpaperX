@@ -139,6 +139,9 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     let assetDemands: Set<SceneAssetTextureIdentity>
     let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
+    /// Keys are the exact canonical template paths used by dynamic descriptors.
+    /// The launch join publishes only GPU-ready model-default recipes.
+    let dynamicLightingProfilesByModelPath: [String: SceneBaseMaterialLightingProfile]
     let sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha]
     let sourceMaterialAlphaByModel: [String: SourceMaterialAlpha]
     /// Immutable authored fallback; current script values live only in the frame snapshot.
@@ -152,7 +155,8 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         sourceMaterialAlphaByLayerID: [Int: SourceMaterialAlpha] = [:],
         authoredMaterialColors: [String: SIMD3<Float>] = [:],
         materialColorTargets: [String: SceneDynamicTarget] = [:],
-        sourceMaterialAlphaByModel: [String: SourceMaterialAlpha] = [:]
+        sourceMaterialAlphaByModel: [String: SourceMaterialAlpha] = [:],
+        dynamicLightingProfilesByModelPath: [String: SceneBaseMaterialLightingProfile] = [:]
     ) {
         self.authoredMaterialColors = authoredMaterialColors
         self.materialColorTargets = materialColorTargets
@@ -161,6 +165,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
         self.assetDemands = Set(baseMaterialBindings.values.compactMap(\.fallbackAsset))
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
         self.lightingProfileByLayerID = lightingProfileByLayerID
+        self.dynamicLightingProfilesByModelPath = dynamicLightingProfilesByModelPath
         self.sourceMaterialAlphaByLayerID = sourceMaterialAlphaByLayerID
         self.orderedSystemProviderDemands = Set(
             baseMaterialBindings.values.compactMap {
@@ -172,6 +177,29 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     static let empty = SceneBaseMaterialProviderBindingProgram(
         baseMaterialBindings: [:]
     )
+
+    func preparingDynamicImageMaterials(
+        _ profiles: [String: SceneBaseMaterialLightingProfile]
+    ) -> Self {
+        .init(baseMaterialBindings: baseMaterialBindings,
+            rejectedBaseMaterialReasons: rejectedBaseMaterialReasons,
+            lightingProfileByLayerID: lightingProfileByLayerID,
+            sourceMaterialAlphaByLayerID: sourceMaterialAlphaByLayerID,
+            authoredMaterialColors: authoredMaterialColors, materialColorTargets: materialColorTargets,
+            sourceMaterialAlphaByModel: sourceMaterialAlphaByModel,
+            dynamicLightingProfilesByModelPath: profiles)
+    }
+
+    func lightingProfile(for layer: SceneRenderDescriptor.Layer) -> SceneBaseMaterialLightingProfile? {
+        if let profile = lightingProfileByLayerID[layer.id] { return profile }
+        guard layer.id < 0, layer.contentKind == "image", let path = layer.imagePath else { return nil }
+        return dynamicLightingProfilesByModelPath[path]
+    }
+
+    var hasLitImageConsumers: Bool {
+        lightingProfileByLayerID.values.contains(where: \.surfaceEnabled)
+            || dynamicLightingProfilesByModelPath.values.contains(where: \.surfaceEnabled)
+    }
 
     var currentLayerIDs: Set<Int> {
         layerIDs(for: .current)

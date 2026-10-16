@@ -11,7 +11,12 @@ from script.tests import test_scene_alpha_display_builder_fixture as builder
 
 ROOT = Path(os.environ.get('MWX_MATERIAL_USER_REPOSITORY', str(Path(__file__).resolve().parents[2])))
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
-SUPPORT = builder.HARNESS_SOURCE.split('@main',1)[0] + r'''
+BUILDER_SUPPORT = builder.HARNESS_SOURCE.split('@main',1)[0]
+# The capture shell below supplies this same dependency, including the builder
+# predicate. Keep one carrier rather than redeclaring a second camera type.
+_camera_start = BUILDER_SUPPORT.index('enum SceneParticleCameraFrame {')
+_camera_end = BUILDER_SUPPORT.index('\n}', _camera_start) + 2
+SUPPORT = BUILDER_SUPPORT[:_camera_start] + BUILDER_SUPPORT[_camera_end:] + r'''
 import simd
 import Metal
 // Leaves outside the material/property consumer under test.
@@ -31,13 +36,20 @@ struct SceneImageLayerDrawRequest {
     let geometryProduct:SceneGeometryProduct?=nil
     var sourceLighting:SceneBaseMaterialLitCapturePayload?
 }
-struct ProviderBindings { var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:] }
+struct ProviderBindings {
+    var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:]
+    func lightingProfile(for layer:SceneRenderDescriptor.Layer)->SceneBaseMaterialLightingProfile? {lightingProfileByLayerID[layer.id]}
+}
 struct PackedLights { var ambient=SIMD3<Float>.zero; var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero }
 struct SceneLightSnapshot {
     struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var illuminatesStaticModels:Bool = true }
     let point:[Light]=[];let spot:[Light]=[];let ambient=SIMD3<Float>(0.25,0.5,0.75);let skylight=SIMD3<Float>(0.75,0.5,0.25)
 }
-struct SceneParticleCameraFrame { func materialView(usesPerspective:Bool)->Bool { false }; func viewProjection(for layer:SceneRenderDescriptor.Layer)->simd_float4x4 { matrix_identity_float4x4 } }
+struct SceneParticleCameraFrame {
+    static func acceptsNativePerspectiveProjection(camera:SceneRenderDescriptor.CameraDescriptor)->Bool {false}
+    func materialView(usesPerspective:Bool)->Bool {false}
+    func viewProjection(for layer:SceneRenderDescriptor.Layer)->simd_float4x4 {matrix_identity_float4x4}
+}
 enum SceneCameraProjection { static func imageCardYDirection(usesPerspective:Bool,sceneOrthoHeight:Float?)->Float { 1 } }
 struct SceneBaseMaterialLitCapturePayload {
     enum TextureInput { case disabled, unsupported, invalid, ready

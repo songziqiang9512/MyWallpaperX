@@ -541,7 +541,7 @@ extension SceneDesktopWallpaperHost {
             modelBuildMs,
             (resourcesStageStart - prepareEntry) * 1000
         )
-        let baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
+        var baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 materialInstancesByLayerID:
                     model.sceneDocument.materialInstancesByLayerID,
@@ -782,28 +782,6 @@ extension SceneDesktopWallpaperHost {
             }
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
-        let autosizeByModelPath = Dictionary(uniqueKeysWithValues: model.assetCatalog.models.map {
-            ($0.relativePath.lowercased(), $0.autosize ?? false)
-        })
-        var preparedResourceLayerTemplates = Dictionary(uniqueKeysWithValues:
-            preparedDeviceResources.baseImages.dynamicImageResources.compactMap {
-                key, resource -> (String, SceneScriptPreparedResourceLayerTemplate)? in
-                let autosize = autosizeByModelPath[key] ?? false
-                guard !autosize || resource.naturalSizeWH != nil else { return nil }
-                return (key, SceneScriptPreparedResourceLayerTemplate(modelPath: resource.modelPath,
-                    renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize,
-                    puppetMeshPath: resource.puppetMeshPath))
-            })
-        // Empty clones carry only the prepared utility kind; no source effects,
-        // members, scripts or final texture enter their creation template.
-        if (runtimeInput.renderDescriptor.camera.orthoHeight ?? 0) > 0 {
-            for layer in runtimeInput.renderDescriptor.layers where layer.utilityLayer?.kind == .composition {
-                guard let path = layer.imagePath else { continue }
-                preparedResourceLayerTemplates[path.lowercased()] = .init(
-                    modelPath: path, renderSizeWH: [1, 1], kind: .composition)
-            }
-        }
-        try propertyVectorScriptProgram.domain?.configurePreparedResourceLayerCatalog(preparedResourceLayerTemplates)
         let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands
             .union(baseMaterialProviderBindings.userPropertyDemands)
             .union(runtimeInput.renderDescriptor.texturePropertyKeys.compactMap {
@@ -847,6 +825,15 @@ extension SceneDesktopWallpaperHost {
                 }
             })
         let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(firstSurfaceRuntime)
+        let resourceCatalog = SceneDesktopWallpaperLaunchFrameSchema.preparedResourceCatalog(
+            descriptor: runtimeInput.renderDescriptor,
+            baseImages: preparedDeviceResources.baseImages, models: model.assetCatalog.models,
+            sourceMaterialModelPaths: Set(firstSurfaceRuntime.sourceMaterialPrototypeByModel.keys)
+                .union(loweredMaterialModelPaths))
+        let preparedResourceLayerTemplates = resourceCatalog.templates
+        baseMaterialProviderBindings = baseMaterialProviderBindings
+            .preparingDynamicImageMaterials(resourceCatalog.lightingProfiles)
+        try propertyVectorScriptProgram.domain?.configurePreparedResourceLayerCatalog(preparedResourceLayerTemplates)
         NSLog("MWX LAUNCH-STAGE: stage=first-surface-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: runtimeInput,

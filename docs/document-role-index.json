@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "20f94b51ef34749b1bf11a27705afa75de40d42d51a259df3c90f8c569e8ba80",
+        "sourceSHA256": "cd60cef7bfacf9a52ac7d30a26e2925d472584fd5ff2c9932af45bddd98c56b4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前Random Sound后验与Bool后继的链接、anchor及唯一权威导航；保留运行身份、失败门与未验边界。",
-        "limitations": "仅文档导航审计；运行范围由每条同身份证据决定，不证明全样本兼容、parity或性能。"
+        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
+        "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },
     {
@@ -749,10 +749,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0aa9bcdca7a37693f359f3316a8b44b510edbb4f5631c4879b45f9d2490a23a8",
+        "sourceSHA256": "3fe3489d377649d109d4f1db7f4f2a4e68a3c7916e18ac96c2232134ede50cce",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
-        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
+        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
+        "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },
     {
@@ -1281,6 +1281,19 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/dynamic-image-default-material-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "动态默认材质fact与C/Swift/renderer同join、lit实例自身worldframe、三入口静态/动态像素门；保存alpha-sensitive官方资格、失败几何载体与校正、原289三null及隐藏作者边界、独立326和未验性能/完整parity。"
     },
     {
       "path": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md",
@@ -3224,10 +3237,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4e55f773bfcc70c43481e93186e5567c66bd4bf18e203bf3c0fac9e3933d3def",
+        "sourceSHA256": "a603f666099eb42942a0e5de22548a382e944212d3140876b4b73a603b2f0008",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
-        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
+        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
+        "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },
     {
@@ -3314,10 +3327,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cc9c1d8afa297dd2d3b480aa112252f550e05caf92f485a84064b1e868f8dbd8",
+        "sourceSHA256": "46977c6c6c28996f2569baca91d416f0ada3c2b52b4f728bb1b20b5b5dde4507",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
-        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
+        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
+        "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },
     {
@@ -3328,10 +3341,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bcc4cf634d3a167045d4f4a06e4162d9dcc2fe08cbd5f84d9cd020f8d7ac9f31",
+        "sourceSHA256": "527ada9839c4c413a39c054f327c055fb6c8d2ad7348b9e216d137779e38443c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅本批空composition、childless透视回绘、真实288 controller与音频ROI STOP的合同/开放队列引用",
-        "limitations": "不重验其他历史范围；不计音频可见恢复、全样本/官方parity或性能收益"
+        "scope": "动态图片默认材质后继的owner/限定状态、三入口与原289/独立326后验导航；已修三null退出当前队列，其他旧项保原身份。",
+        "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },
     {

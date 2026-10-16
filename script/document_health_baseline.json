@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 175,
-      "bytes": 49163
+      "lines": 176,
+      "bytes": 49705
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 109881
+      "bytes": 110303
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 451,
-      "bytes": 117241
+      "lines": 463,
+      "bytes": 120495
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 49,
-      "bytes": 12665
+      "bytes": 12870
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 139,
-      "bytes": 27056
+      "bytes": 26939
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1186,36 +1186,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "96da5e046ed0075c8a17ba22884378a503ea939e70d6e219fc3f6c3803c69ffe",
-      "after": "c6a318c3205063f076e1479f232b75025fa08e63ce1358ef0807cff1af46710e",
-      "owner": "scene-composition-local-perspective",
-      "reason": "D1/D4设计后实施，替换过时composition拒绝状态、保存真实音频ROI STOP与一次验收后验；其他专题不扩。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f7778bd7f65fb84f53348580825bec9ebac15df76a473265f586607c05990bb3",
-      "after": "5ac63df5758f22114b426af73ab95342bbe766d46ee8a242e0764f9ea7b05066",
-      "owner": "scene-bool-property-return",
-      "reason": "固定官方正常返回矩阵更正旧Number truthiness，保存实际时钟拖动、异常边界与下一Sound首断点；局部修复只更新三个权威，无新流程文档。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-bool-return"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "f9eddf433a72b42d6dbf3d6a539308e1c3b89b7b6542c477a1b195f157213dc2",
       "after": "a6639b25a74b3537fe65837805dfe674fbe7df483db6e5e64c72e1917af2ce97",
-      "owner": "scene-sound-random-playback",
-      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "165cf8f93345e78c9625f6bac4dfb470259e4c7dfa37d9bd5d7a3bd0c447caea",
-      "after": "2d17c6f4e1ceb3d1be85e214f876807d523410ad38606ade6f731d9dd7fe0a97",
       "owner": "scene-sound-random-playback",
       "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
@@ -1231,21 +1204,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2d17c6f4e1ceb3d1be85e214f876807d523410ad38606ade6f731d9dd7fe0a97",
+      "after": "a349654b060dcd5f3322c8bdac46acf8bc4734baafd53e43f53702f43f54781e",
+      "owner": "scene-script-runtime",
+      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "75b3a0aa591882ec8934973708a8a18627796f9a7d7b85c92a285623344a591f",
-      "after": "4a8c290d47a7cbecf35597c318d6aa7532bdde0d062bd56742ed046eed467417",
-      "owner": "scene-sound-random-playback",
-      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
+      "before": "4a8c290d47a7cbecf35597c318d6aa7532bdde0d062bd56742ed046eed467417",
+      "after": "5fbb0a31d5d51c5f565ec0e0ba612f120f03499765be031fed0a55dec31f185e",
+      "owner": "scene-script-runtime",
+      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "4a42f0322fa720449104715ae0b0e6481d3aa0796cca09102d09eec55e522875",
-      "after": "8b97bb11844e7e8d7ea3a47aebd538e6f04c358fe0dd7509daa3f57241760815",
-      "owner": "scene-sound-random-playback",
-      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
+      "before": "8b97bb11844e7e8d7ea3a47aebd538e6f04c358fe0dd7509daa3f57241760815",
+      "after": "cad8bc615d1d0a7d1d8ce4b0a3ff532bca664658b95c505d351385bf75baf95d",
+      "owner": "scene-script-runtime",
+      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "c6a318c3205063f076e1479f232b75025fa08e63ce1358ef0807cff1af46710e",
+      "after": "3cd71e08b850d57fef09c3f498c22cdbbee4091db0fb8b16c68807d24cc4d795",
+      "owner": "scene-script-runtime",
+      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
     }
   ]
 }
