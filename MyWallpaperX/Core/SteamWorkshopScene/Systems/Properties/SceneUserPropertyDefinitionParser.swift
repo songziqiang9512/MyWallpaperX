@@ -81,7 +81,8 @@ nonisolated struct SceneUserPropertyDefinitionParser {
 
     private nonisolated static func integer(_ rawValue: Any?) -> Int? {
         guard let value = number(rawValue), value.isFinite else { return nil }
-        return Int(value)
+        // Preserve truncation toward zero without trapping outside Int's range.
+        return Int(exactly: value.rounded(.towardZero))
     }
 
     private nonisolated static func boolean(_ rawValue: Any?) -> Bool? {

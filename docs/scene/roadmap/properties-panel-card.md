@@ -19,6 +19,8 @@
 
 **当前范围。** 已完成切片从待办退出：条件/准备复用、原生列表、回调局部恢复、属性展示本地化、文字/颜色/brightness/背景色、资源选择/reset、FOV、JPEG方向/尺寸、视频入口、Sound mixed/named输入等的实际边界归[输入覆盖](../capabilities/runtime-input-property-coverage.md)、[SceneScript覆盖](../capabilities/scenescript-api-coverage.md)及其证据链接。不能从一次接线推导整个面板、全部离散选项或完整视觉已通过，也不重复这些批次的收尾。
 
+**整数元数据安全。** `order/index/precision`沿唯一定义parser向零截断并安全转换，超出Int范围走原字段fallback，不丢整份定义或影响健康邻项。自有越界JSON在旧parser触发SIGTRAP，修后边界/改名/相邻合法输入门3/3通过，签名Debug构建通过且输入无漂移；未证明真实包曾崩溃，也不计性能收益。最小证据：`.artifacts/tmp/property-integer-metadata-20261016/implementation-freeze.json`及同目录`debug-build.json`。
+
 **开放项与选择。** 本卡按全局第三档处理属性调节热更新；影响合成/播放的输入故障回[断点队列](scene-open-breakpoint-queue.md)，成本归[性能卡](performance-convergence-card.md)。只对真实可达且尚无正确consumer/更新职责的项实施，不因未验golden重复扩已支持profile。
 
 | 余项 | 已知边界与最小下一步 |

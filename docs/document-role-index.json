@@ -3266,10 +3266,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "092cbf60a2ecf24afeb34c1a873211a327cf5018fb849df50f73fbc06e1a5ace",
+        "sourceSHA256": "cc2f514fd7d0dcf127fd01c0879391b42837bf26750df41bf33ca669f2610f06",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "属性整数元数据安全转换的已证范围与最近门导航",
+        "limitations": "不证明真实包崩溃、面板总延迟或性能收益"
       }
     },
     {

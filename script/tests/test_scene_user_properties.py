@@ -40,6 +40,8 @@ enum Harness {
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
         case "script-property-input":
             try printJSON(scriptPropertyInputResult())
+        case "integer-metadata":
+            try printJSON(integerMetadataResult())
         default:
             throw HarnessError.unknownMode
         }
@@ -274,6 +276,46 @@ enum Harness {
         ]
     }
 
+    private static func integerMetadataResult() throws -> [String: Any] {
+        let upper = Double(Int.max)
+        let lower = Double(Int.min)
+        let cases: [(String, [String: Any])] = [
+            ("positiveHuge", ["order": 1e30, "index": 1e30, "precision": 1e30]),
+            ("negativeHuge", ["order": -1e30, "index": -1e30, "precision": -1e30]),
+            ("upperRounded", ["order": upper, "index": upper, "precision": upper]),
+            ("upperValid", ["order": upper.nextDown, "index": upper.nextDown, "precision": upper.nextDown]),
+            ("lowerValid", ["order": lower, "index": lower, "precision": lower]),
+            ("lowerOutside", ["order": lower.nextDown, "index": lower.nextDown, "precision": lower.nextDown]),
+            ("positiveFraction", ["order": 3.9, "index": 3.9, "precision": 3.9]),
+            ("negativeFraction", ["order": -3.9, "index": -3.9, "precision": -3.9]),
+            ("numericString", ["order": "12.9", "index": "12.9", "precision": "12.9"]),
+            ("nonFiniteString", ["order": "nan", "index": "inf", "precision": "-inf"]),
+            ("invalidOrderValidIndex", ["order": 1e30, "index": 7.9, "precision": 6.9]),
+            ("validOrderInvalidIndex", ["order": 4.9, "index": -1e30, "precision": 1e30]),
+        ]
+        var results: [String: Any] = [:]
+        for (name, metadata) in cases {
+            var candidate: [String: Any] = ["type": "slider", "value": 2.5]
+            candidate.merge(metadata) { _, new in new }
+            let input: [String: Any] = ["general": ["properties": [
+                "candidate": candidate,
+                "healthy": ["type": "textinput", "value": "kept", "order": 20],
+            ]]]
+            let decoded = try jsonObject(data: JSONSerialization.data(withJSONObject: input))
+            let catalog = SceneUserPropertyDefinitionParser().parse(projectRoot: decoded)
+            let definition = catalog.definitions.first { $0.key == "candidate" }!
+            results[name] = [
+                "order": definition.order,
+                "index": definition.index.map { $0 as Any } ?? NSNull(),
+                "precision": definition.fractionalPrecision.map { $0 as Any } ?? NSNull(),
+                "definitionCount": catalog.definitions.count,
+                "candidateDefault": definition.defaultValue!.foundationValue,
+                "healthyDefault": catalog.defaultValues["healthy"]!.foundationValue,
+            ]
+        }
+        return ["intBitWidth": Int.bitWidth, "cases": results]
+    }
+
     private static func scriptPropertyInputResult() -> [String: Any] {
         func encode(
             _ inputs: [String: SceneScriptPropertyInput],
@@ -402,11 +444,13 @@ enum Harness {
         case .layerVisibility: "layerVisibility"
         case .puppetAnimationVisibility: "puppetAnimationVisibility"
         case .layerAlpha: "layerAlpha"
+        case .layerBrightness: "layerBrightness"
         case .layerScale: "layerScale"
         case .layerColor: "layerColor"
         case .lightIntensity: "lightIntensity"
         case .effectVisibility: "effectVisibility"
         case .camera: "camera"
+        case .cameraPathZoom: "cameraPathZoom"
         case .text: "text"
         case .particle: "particle"
         case .scene: "scene"
@@ -481,7 +525,8 @@ class SceneUserPropertyTests(unittest.TestCase):
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-user-properties"
         compilation = subprocess.run(
-            [swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
+            [swiftc, "-module-cache-path", str(directory / "module-cache"),
+             *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
             capture_output=True,
             text=True,
         )
@@ -601,6 +646,34 @@ class SceneUserPropertyTests(unittest.TestCase):
                 "unsupportedTarget": 3,
             },
         )
+
+    def test_integer_metadata_range_preserves_truncation_and_field_fallbacks(self) -> None:
+        result = self.run_harness("integer-metadata")
+        self.assertEqual(result["intBitWidth"], 64)
+        upper_valid = 2**63 - 1024  # Last representable Double below the Int upper bound.
+        lower_valid = -(2**63)
+        expected = {
+            "positiveHuge": (0, None, None),
+            "negativeHuge": (0, None, None),
+            "upperRounded": (0, None, None),
+            "upperValid": (upper_valid, upper_valid, upper_valid),
+            "lowerValid": (lower_valid, lower_valid, lower_valid),
+            "lowerOutside": (0, None, None),
+            "positiveFraction": (3, 3, 3),
+            "negativeFraction": (-3, -3, -3),
+            "numericString": (12, 12, 12),
+            "nonFiniteString": (0, None, None),
+            "invalidOrderValidIndex": (7, 7, 6),
+            "validOrderInvalidIndex": (4, None, None),
+        }
+        self.assertEqual(set(result["cases"]), set(expected))
+        for name, (order, index, precision) in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(result["cases"][name], {
+                    "order": order, "index": index, "precision": precision,
+                    "definitionCount": 2, "candidateDefault": 2.5,
+                    "healthyDefault": "kept",
+                })
 
 if __name__ == "__main__":
     unittest.main()
