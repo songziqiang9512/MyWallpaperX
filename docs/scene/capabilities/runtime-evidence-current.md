@@ -16,6 +16,7 @@
 
 | 查询主题 | 本页证据入口 |
 |---|---|
+| Color输入与数值slot | [有界后验](../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)：官方自有String转交、native自有Scalar同窗编辑/拒绝恢复、原333首错与独立实图分别验；原包后继合法编辑拒绝及特殊composition仍开放，无性能收益声明。 |
 | 默认视频入场阶段 | <a id="e-2026-10-16-intro-phase"></a>3632513108原包隔离副本，签名Debug `202ff364…c528` / dylib `414aef35…56cb`（`1e3f5ba72`构建），默认属性/静音输入、ready后22秒。首图为天空近景花瓣，18秒后大人物、小人物与星期/日期/时钟实际呈现；287首束stop/seek0/play，约16.001秒后隐藏并提交stop，符合作者15秒等待+1秒退出，未逐帧数值验完整alpha曲线。245视频PTS推进至19.9667秒、自然结束被接受并重播；389由按钮init停止/归零，未点击保持隐藏是作者阶段。VM失败0、26条graph事件无失败，exit0、输入无漂移、surface1→0且GPU排空。N10旧天空观察退出，未改产品；全交互/属性、官方同相位、普通App及性能未验。限期证据：`.artifacts/scene-evidence/runs/scene-intro-phase-20261016/`。 |
 | 聚光锥逐动画播放 | [共享角度合同与验收](advanced-object-coverage.md#standalone-spot-playback)：旧App已复现typed pause而cone继续动；候选pause受控ROI零变化、peer继续，play/stop/恢复均响应。原包376四灯GPU/实际底部光束保持，云形/烟花及完整parity未闭，无性能收益声明。 |
 | 默认2D相机/画布适屏 | [相机输入与同宽高比后验](../history/default-2d-camera-inputs-2026-10-16.md)：304原包作者倍率与同窗热改实际可见，169灰带官方同aspect亦有；追加生产投影多比例/密度与Anchor GPU门、SDR暂停resize实修和原HDR邻例；AppKit Retina/跨屏、全景与性能结论分列。 |

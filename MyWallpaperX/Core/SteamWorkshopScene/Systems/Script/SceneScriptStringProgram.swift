@@ -292,10 +292,13 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
             ($0.element.target, $0.offset)
         })
         self.authoredOrdinals = authoredOrdinals
-        self.propertyInputsByTarget = propertyInputsByTarget
-        userPropertyKinds = Dictionary(
+        let propertyKinds = Dictionary(
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
         )
+        self.propertyInputsByTarget = propertyInputsByTarget.mapValues {
+            SceneScriptPropertyInputCodec.preparing($0, kinds: propertyKinds)
+        }
+        userPropertyKinds = propertyKinds
         let eventOwnerTargets = Set(
             bindings.compactMap { $0.handlesUserProperties ? $0.target : nil }
         )

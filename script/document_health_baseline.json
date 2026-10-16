@@ -117,12 +117,12 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 177,
-      "bytes": 50581
+      "lines": 178,
+      "bytes": 50906
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 195340
+      "bytes": 195545
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 463,
-      "bytes": 120495
+      "lines": 475,
+      "bytes": 122428
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -238,7 +238,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 138,
-      "bytes": 26756
+      "bytes": 26960
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1195,27 +1195,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "b73a32d8ef8210522674d1fa5180856183ac29fe9811cde0a6c6997883832ee8",
-      "after": "0c42d0857cd7fcd0dcd1bd2f480d729379ccee940268fc058a1e2f6d38e79687",
-      "owner": "scene-sound-random-playback",
-      "reason": "Random多源/控制资格在原D4及能力/运行权威同步；详细失败与有界后验只留原Sound历史，已闭首断点退出队列并收紧正文基线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-random-playback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "4a8c290d47a7cbecf35597c318d6aa7532bdde0d062bd56742ed046eed467417",
       "after": "5fbb0a31d5d51c5f565ec0e0ba612f120f03499765be031fed0a55dec31f185e",
-      "owner": "scene-script-runtime",
-      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "8b97bb11844e7e8d7ea3a47aebd538e6f04c358fe0dd7509daa3f57241760815",
-      "after": "cad8bc615d1d0a7d1d8ce4b0a3ff532bca664658b95c505d351385bf75baf95d",
       "owner": "scene-script-runtime",
       "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
@@ -1232,11 +1214,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a349654b060dcd5f3322c8bdac46acf8bc4734baafd53e43f53702f43f54781e",
-      "after": "dcd59f6da73a781dc076da42f2f3ff8faa4b8425228aab39a80fed00b5a5fa63",
-      "owner": "scene-current-breakpoint-qualification",
-      "reason": "默认入场fresh后期画面与退出已证，记录有界结果并退役N10旧观察；N03更新当前精确类型/资源首断点而非沿用旧分组计数。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#e-2026-10-16-intro-phase"
+      "before": "dcd59f6da73a781dc076da42f2f3ff8faa4b8425228aab39a80fed00b5a5fa63",
+      "after": "8a708532dd708574075c7d724658c509d02267d4da22d1678288178cbf2bb338",
+      "owner": "scene-script-property-input",
+      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "0c42d0857cd7fcd0dcd1bd2f480d729379ccee940268fc058a1e2f6d38e79687",
+      "after": "f5dd775de97e4618412fb509c4cbe56fe7f76bdcf56f8cadb5a64972b65705e1",
+      "owner": "scene-script-property-input",
+      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "cad8bc615d1d0a7d1d8ce4b0a3ff532bca664658b95c505d351385bf75baf95d",
+      "after": "b051e4ee663ba27a11ec1cd253d87f89731c225f967204d52ab45a7d63711cab",
+      "owner": "scene-script-property-input",
+      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "9c781916ba0a768df5ba9994ed56eef7b23cda6c2643d4db9a4f928d4a304c77",
+      "after": "d7216e122b7ccee57cc21b96b1322b282a7ae5f1fbd09dcaaebafff99492d904",
+      "owner": "scene-script-property-input",
+      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
     }
   ]
 }

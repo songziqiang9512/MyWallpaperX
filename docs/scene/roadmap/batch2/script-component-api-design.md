@@ -461,3 +461,15 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 **副作用与失败。** 暂停包络接纳Scalar结果及通过原Sound验证的命令；含material function、Timeline/layer mutation、texture/Puppet/particle操作或非Sound media命令的整owner拒绝，不静默丢副作用。原journal、localStorage依赖闭包与fixed-point统一决定admitted effects，再经共用commit提交Sound命令和typed snapshot。被拒owner丢弃未提交命令、恢复其事件账本，增益可消费原resolver接纳的下层fallback；整笔刷新取消则保持原LiveState、增益与意图，不以临时slider直写补偿。这里只保证typed/host事务，不承诺任意JS堆回滚。
 
 **验收与停止。** [有界后验](../../history/sound-script-control-2026-10-12.md#sound-mixed-volume)记录真实原包播放/暂停热改、派生脚本实际增益、原生保存/重开/reset单session及独立渲染；VM/player门覆盖改名、fallback、timer/media不额外推进与partial peer/rollback。未测性能；deferred visibility与Sound同key的实际组合、故障后整笔Session取消、多surface及听感/parity仍待验。若需全场景update、第二writer/输入缓存或扩大暂停包络，先另补合同及区分门。
+
+<a id="color-input-numeric-slot"></a>
+
+### Color输入与数值slot（2026-10-16，有界已实施）
+
+**目标与资格。** 3337494481的147/effect3 alpha在进入JS前因Number fallback绑定Color持续拒绝。固定官方2.8.0.42自有正控证明：Color送入数值`addSlider` slot仍为三分量String，callback可返回有限scalar；不应按fallback类型提前拒绝或强转Number/Vec3。它不证明原作者media/fade画面已修，详细资格只归本机`333-next-qualification-20261016/official-property-slot/`。
+
+**唯一链路。** 原ScriptProperty input在程序构造边按唯一property definition一次保存输入kind，Scalar/String/Vector及其借用cursor/media/lifecycle共用该值；普通帧不重新找定义。只对declared Color与有限Number fallback新增经原RGB parser验证的String转交。VM实际builder slot继续独占String/Vec解释，不扫描作者源码或按参数名分派。原property compiler使用已有Color/vector3输入指令；此输入checkpoint的seed来自作者Color定义的合法default，原script fallback仍为Number，二者属于不同输入域，不能广播Number伪造颜色或改变fallback。
+
+**失败与验收。** 缺失/重复定义、非法/非有限RGB、其他String类型和不健康owner保原拒绝与整键rollback；不新增通知/store/renderer。最近真实VM门覆盖改名/等价表达式、cold/hot/重复编辑、原Number fallback及相邻非法/非Color输入；原333实际Scalar回调与画面、独立健康样本及退出另验。若需要通用coercion、额外输入owner或改JS slot类型则停止本片，另取区分证据。此修复不认领CPU/GPU收益。
+
+[有界后验](../../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)记录原333首错退出、自有Scalar同窗编辑与独立画面；原包最后一次合法编辑仍被拒，特殊composition和完整交互不随此关闭。

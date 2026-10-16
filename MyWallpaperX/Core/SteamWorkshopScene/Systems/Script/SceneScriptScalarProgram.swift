@@ -171,7 +171,12 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             ($0.element.target, $0.offset)
         })
         self.generation = generation
-        self.propertyInputsByTarget = propertyInputsByTarget
+        let propertyKinds = Dictionary(
+            uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
+        )
+        self.propertyInputsByTarget = propertyInputsByTarget.mapValues {
+            SceneScriptPropertyInputCodec.preparing($0, kinds: propertyKinds)
+        }
         let eventOwnerTargets = Set(bindings.compactMap {
             $0.handlesUserProperties ? $0.target : nil
         })
@@ -185,9 +190,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         self.authoredOrdinals = authoredOrdinals
         self.valuePublishingTargets = valuePublishingTargets
         idleTimelinePublishingTargets = valuePublishingTargets.intersection(timelineTargets)
-        userPropertyKinds = Dictionary(
-            uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
-        )
+        userPropertyKinds = propertyKinds
         self.definitions = definitions
     }
 

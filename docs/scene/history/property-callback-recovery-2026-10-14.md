@@ -163,3 +163,15 @@ Client.applyPropertyValues沿原revision/record准入，将本次稀疏值同步
 实际Stop后列表/footer恢复“设为壁纸”，17/17 VM quiescent，failures/timers/jobs/mutations/dynamicLayers均0；CmdQ正常exit0。首试launcher错误suite缺Debug前缀，Scene前precondition exit−5，修配置后才进入有效轮次，三个critical App文件SHA不变；不算产品失败。有效退出后的CUA getAXState自动重开同App且未带隔离参数，新20809/20825明确排除，不算字体重建，随后仅CmdQ关闭；19919/20415/20424/20809/20825最终均不存在，未再调用CUA观察。
 
 证据归`.artifacts/tmp/property-font-qualification-20261015/`的qualification/input-identity及native/native-acceptance.json、原product.log与default1/choice2/choice3/reset1四原图（32,429,636B，约32.43MB）。原作者source_changes=[]，verify exit1仅副本discovery version marker预移差异，不记命令PASS。清已停止的本次私有样本/HOME/tmp共223,918,141逻辑B，不称运行RAM或物理释放；保C App与原共享cache/modulecache归原owner。仅验选项1/2/3和reset，其他字体/全部18项、精确font ROI、复杂多场景/multi-surface/HDR与官方parity仍未验；正常UI未导出独立GPU drain/final pin census。无产品改动、无性能收益声明。
+
+<a id="color-numeric-slot-input"></a>
+
+## Color输入绑定数值slot（2026-10-16）
+
+通用语义由[D4](../roadmap/batch2/script-component-api-design.md#color-input-numeric-slot)拥有：prepared输入保declared kind，Color/vector3 checkpoint以真实Color default为seed，VM原Number fallback保持；有限RGB仍按实际builder slot的String/Vec解释。固定官方2.8.0.42自有数值正控与Color→addSlider探针，两次捕获均为String类别、分量已传入且finite scalar成立，注册ROI与参照误差0。未据此开放任意String/coercion或所有slot。
+
+候选签名Debug executable `3199385c9187980a76e7a6faf9f48d344e77d0acf8c575bf4bfefa6353b1fedc` / dylib `abf6e34e616fe59ab66a52c0b024f3e670f942280403acfce464cd1487568084`，构建25.450秒、4331输入无漂移。原3337494481隔离原包、默认/静音12—13秒，147/effect3/pass0 alpha进入真实Scalar回调，原366次properties-unavailable→0；394条g_UserAlpha实际消费0，符合作者无media时分支，不能声称音频或整景恢复。两次合法Color改值获准、非法RGB拒绝，窗口/surface不换；随后合法改值仍拒，原因未定，保留复现，不记原包热更新完全闭合。
+
+同App自有探针8个Scalar实际执行，初始两行各四格与官方参照逐ROI误差0；编辑后String分类仍102/255、finite scalar仍153/255，值指纹由204变102，全部静态参照保持。合法→合法→非法→合法为true/true/false/true，同窗；非法输入未破坏恢复。独立3264246690原包人物/警戒带实际呈现、VM异常0；原锯齿/点击/布条差异不关闭。三次有效run exit0、输入无漂移、surface1→0且GPU排空。首次自有native仅缺PKG而未ready，按同字节scene重新打包后复验；不是产品修复或运行通过。
+
+最近真实VM门152/152事实、119输入无漂移，含改名/等价builder、原fallback、冷热/重复/no-op、非法RGB、非Color String及owner异常原子拒绝。首轮两条测试误要求Vector提供Scalar式failure字典，修为实际拒绝且不发布，未迎合测试改产品。独立静态审查覆盖late pass与PreparedText/cursor继承；其专门动态组合及完整原生面板/保存恢复、多surface/HDR、media/fade、CPU/GPU收益未验。普通输入与保留的最小未解决边界归`.artifacts/scene-evidence/runs/color-numeric-slot-20261016/`；官方原图在`/private/tmp/mwx-333-property-slot-20261016/`，VM保持运行。

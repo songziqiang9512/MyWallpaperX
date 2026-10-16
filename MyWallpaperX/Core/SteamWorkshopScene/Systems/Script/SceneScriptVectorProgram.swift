@@ -282,7 +282,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             bindings.append(.init(
                 authoredOrdinal: candidate.authoredOrdinal,
                 definition: candidate.definition,
-                properties: candidate.properties,
+                properties: SceneScriptPropertyInputCodec.preparing(
+                    candidate.properties, kinds: userPropertyKinds
+                ),
                 livePropertyInputTargets: candidate.livePropertyInputTargets
                     .union(owner.handlesUserProperties ? [target] : []),
                 hasCurrentAnimation: candidate.hasCurrentAnimation,

@@ -653,9 +653,9 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f231cb27b84351d8a7e632d837cb0a43c7d4ba5a7585ac0a7157e8e582ddbe66",
+        "sourceSHA256": "7b8a699b8b4f6cf11d4d1fa9099b83e8f1a1fe1d9a3a51199014d4c363293309",
         "method": "document_registry --audit + document_health --check",
-        "scope": "默认入场阶段fresh后期呈现与旧N10观察退役导航；N03当前精确断点更新，旧普查原身份与其他未验项保留。",
+        "scope": "Color数值slot有界后验与默认入场阶段的证据导航；原包未闭编辑/特殊composition及其他旧项保留当前边界。",
         "limitations": "只核本批链接、anchor及权威，不代表其余能力/整样本/性能重新验收。"
       }
     },

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Color input admission through the real parser, live state, and QuickJS owner."""
+"""Color input domain and actual VM slot assignment, including numeric seeds."""
 from __future__ import annotations
 
 import hashlib
@@ -59,6 +59,13 @@ class SceneColorScriptPropertyTests(unittest.TestCase):
             (directory / "runtime.log").write_text(run.stdout + run.stderr)
         self.assertEqual(before, after, "source input changed while focused gate ran")
         self.assertTrue(facts)
+        for name in ("number-slot", "number-slot-renamed"):
+            for behavior in ("parsed-authored-fallback", "prepared-authored-fallback-retained",
+                             "cold-vm-type-retained", "hot-vm-type-and-value-retained",
+                             "repeat-value-is-revision-noop", "rejected-update-keeps-vm-current",
+                             "disabled-owner-atomic"):
+                self.assertIn(f"{name}-{behavior}", facts)
+        self.assertIn("non-color-string-0-cannot-publish", facts)
         self.assertEqual([name for name, passed in facts.items() if passed is not True], [])
 
 

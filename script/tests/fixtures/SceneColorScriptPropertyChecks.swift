@@ -17,14 +17,26 @@ enum SceneColorScriptPropertyChecks {
             try positive(name: name, key: key, slot: slot, layerID: layerID,
                          host: host, builder: builder, body: body, tail: tail, facts: &facts)
         }
+        // Fixed official numeric-slot probe qualifies Color String assignment
+        // despite a Number fallback. The real shared input/VM route owns it.
+        try positive(name: "number-slot", key: "paletteForScalar", slot: "gain", layerID: 143,
+                     host: "origin", builder: "addSlider", body: stringBody, tail: 0.75,
+                     fallback: .number(0.8), seedLiteral: "0.8", facts: &facts)
+        try positive(name: "number-slot-renamed", key: "inkChoice", slot: "ceiling", layerID: 702,
+                     host: "origin", builder: "addSlider", body: equivalentStringBody, tail: 0.75,
+                     fallback: .number(0.8), seedLiteral: "8e-1", equivalentBuilder: true, facts: &facts)
+        try nonColorStringChecks(facts: &facts)
         for (name, fallback, defaultValue) in [
             ("two-components", "0.1 0.2" as Any, "1 1 1" as Any),
             ("extra-components", "0.1 0.2 0.3 0.4", "1 1 1"),
             ("nonfinite-fallback", "0.1 nan 0.3", "1 1 1"),
-            ("wrong-fallback-type", 1.0, "1 1 1"),
+            ("bool-fallback-color", false, "1 1 1"),
+            ("nonfinite-number-fallback", Double.infinity, "1 1 1"),
             ("invalid-default", "0.1 0.2 0.3", "red"),
             ("nonfinite-default", "0.1 0.2 0.3", "1 inf 1"),
-            ("wrong-default-type", "0.1 0.2 0.3", 1.0)
+            ("wrong-default-type", "0.1 0.2 0.3", 1.0),
+            ("number-fallback-invalid-default", 0.8, "red"),
+            ("number-fallback-nonfinite-default", 0.8, "1 inf 1")
         ] {
             let document = root(layerID: 70, host: "origin", slot: "tint",
                 input: ["user": "tone", "value": fallback], source: "export function update(v){return v;}")
@@ -56,14 +68,29 @@ enum SceneColorScriptPropertyChecks {
         if (!(c instanceof Vec2) || c instanceof Vec3 || 'z' in c) throw new Error('Vec2 type changed');
         const p = new Vec3(c.x, c.y, 7);
         """
+    static let equivalentStringBody = """
+        if (typeof c !== 'string') throw new Error('numeric slot must receive Color String');
+        const [red, green, blue] = c.trim().split(/\\s+/).map(component => +component);
+        const p = new Vec3(red, green, blue);
+        """
 
     static func positive(name: String, key: String, slot: String, layerID: Int,
                          host: String, builder: String, body: String, tail: Double,
+                         fallback: SceneUserPropertyValue = .string("0.1 0.2 0.3"),
+                         seedLiteral: String? = nil, equivalentBuilder: Bool = false,
                          facts: inout [String: Bool]) throws {
-        let seed = name == "text" ? "'builder text'" : name == "vec2" ? "new Vec2(0, 0)" : "new Vec3(0, 0, 0)"
-        let source = """
+        let seed = seedLiteral ?? (name == "text" ? "'builder text'" : name == "vec2" ? "new Vec2(0, 0)" : "new Vec3(0, 0, 0)")
+        let declaration = equivalentBuilder ? """
+            const definition = {name: '\(slot)', value: \(seed)};
+            const editor = createScriptProperties();
+            editor.\(builder)(definition);
+            export var scriptProperties = editor.finish();
+            """ : """
             export var scriptProperties = createScriptProperties()
                 ['\(builder)']({name: '\(slot)', value: \(seed)}).finish();
+            """
+        let source = """
+            \(declaration)
             export function update(value) {
                 const c = scriptProperties['\(slot)'];
                 \(body)
@@ -71,15 +98,15 @@ enum SceneColorScriptPropertyChecks {
                 \(host == "visible" ? "shared.currentTone = c; return p.x < 0.5;" : "return p;")
             }
             """
-        let input: [String: Any] = ["user": key, "value": "0.1 0.2 0.3"]
+        let input: [String: Any] = ["user": key, "value": fallback.foundationValue]
         let document = root(layerID: layerID, host: host, slot: slot, input: input, source: source)
         let catalog = catalog(key: key)
         let report = SceneUserPropertyBindingParser().parse(root: document)
         let compilation = ScenePropertyBindingCompiler().compile(report: report, catalog: catalog)
         let program = compilation.program
-        facts[name + "-parsed-color-string"] = report.bindings.count == 1
+        facts[name + "-parsed-authored-fallback"] = report.bindings.count == 1
             && report.bindings.first?.reference.key == key
-            && report.bindings.first?.fallbackValue == .string("0.1 0.2 0.3")
+            && report.bindings.first?.fallbackValue == fallback
         facts[name + "-native-color-domain"] = compilation.diagnostics.isEmpty
             && program.instructions.count == 1 && program.instructions.first?.valueType == .vector3
             && !program.rebuildRequiredPropertyKeys.contains(key)
@@ -95,6 +122,17 @@ enum SceneColorScriptPropertyChecks {
         facts[name + "-actual-prepared-owner"] = scripts.diagnostics.isEmpty
             && runtime.bindings.count == 1 && runtime.inputTargets.contains(output)
             && liveTargets.count == 1
+        let preparedInput = runtime.bindings.first?.properties[slot]
+        let hostFallback: SceneScriptHostValue
+        switch fallback {
+        case let .number(value): hostFallback = .number(value)
+        case let .string(value): hostFallback = .string(value)
+        case let .bool(value): hostFallback = .bool(value)
+        }
+        facts[name + "-prepared-authored-fallback-retained"] = scripts.bindings.first?.properties[slot]
+            == SceneJSONValue(jsonObject: input)
+            && preparedInput?.fallback == hostFallback
+            && preparedInput?.resolve(effectiveValues: [:]) == hostFallback
         var state = ScenePropertyLiveUpdateState(program: program,
             effectiveValues: catalog.defaultValues, activeConsumerTargets: liveTargets,
             propertyDefinitions: catalog.definitions)
@@ -110,15 +148,19 @@ enum SceneColorScriptPropertyChecks {
             effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
         let hotExpected: SceneDynamicValue = host == "visible" ? .bool(true) : .vector3(0.25, 0.5, tail)
         facts[name + "-hot-vm-type-and-value-retained"] = hot.failures.isEmpty && hot.values[output] == hotExpected
-        if let raw = SceneJSONValue(jsonObject: input),
-           let codec = SceneScriptPropertyInputCodec.propertyInput(raw),
+        if let preparedInput,
            let json = SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-               [slot: codec], effectiveValues: state.effectiveValues),
+               [slot: preparedInput], effectiveValues: state.effectiveValues),
            let data = json.data(using: .utf8),
            let values = try JSONSerialization.jsonObject(with: data) as? [String: String] {
             facts[name + "-wire-stays-string"] = values == [slot: edited]
         } else { facts[name + "-wire-stays-string"] = false }
         let before = state
+        facts[name + "-repeat-value-is-revision-noop"] = state.apply(.string(edited), forPropertyKey: key)
+            && unchanged(state, before)
+        let repeated = runtime.evaluate(inputs: [output: seedValue],
+            effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+        facts[name + "-repeat-vm-keeps-string-value"] = repeated.failures.isEmpty && repeated.values[output] == hotExpected
         for (invalidName, value) in [
             ("short", SceneUserPropertyValue.string("0.2 0.3")),
             ("long", .string("0.2 0.3 0.4 0.5")), ("nan", .string("nan 0 0")),
@@ -127,9 +169,17 @@ enum SceneColorScriptPropertyChecks {
         ] {
             facts[name + "-" + invalidName + "-atomic"] = !state.apply(value, forPropertyKey: key)
                 && unchanged(state, before)
+            if fallback.numberValue != nil, case .string = value {
+                facts[name + "-" + invalidName + "-shared-input-rejected"] = preparedInput?
+                    .resolve(effectiveValues: [key: value]) == nil
+            }
         }
         facts[name + "-missing-value-atomic"] = !state.apply(
             replacements: [:], changedPropertyKeys: [key]) && unchanged(state, before)
+        let afterRejected = runtime.evaluate(inputs: [output: seedValue],
+            effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+        facts[name + "-rejected-update-keeps-vm-current"] = afterRejected.failures.isEmpty
+            && afterRejected.values[output] == hotExpected && unchanged(state, before)
         let absentRuntime = SceneScriptVectorProgram.compile(domain: nil, descriptor: descriptor,
             scriptBindings: scripts.bindings, userPropertyDefinitions: catalog.definitions, generation: 2)
         var missing = ScenePropertyLiveUpdateState(program: program,
@@ -149,15 +199,55 @@ enum SceneColorScriptPropertyChecks {
                             unavailableConsumerTargets: unavailable) && unchanged(state, before)
     }
 
+    static func nonColorStringChecks(facts: inout [String: Bool]) throws {
+        for (index, value) in ["1 1 1", "ordinary text"].enumerated() {
+            let key = "textOnly", slot = "amount", layerID = 810 + index
+            let source = """
+                export var scriptProperties = createScriptProperties()
+                    .addSlider({name:'\(slot)', value:0.8}).finish();
+                export function update(value){ return new Vec3(1, 2, 3); }
+                """
+            let input: [String: Any] = ["user": key, "value": 0.8]
+            let document = root(layerID: layerID, host: "origin", slot: slot, input: input, source: source)
+            let catalog = catalog(key: key, value: value, kind: "textinput")
+            let compilation = ScenePropertyBindingCompiler().compile(
+                report: SceneUserPropertyBindingParser().parse(root: document), catalog: catalog)
+            let program = compilation.program
+            let runtime = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+                descriptor: descriptor(layerID: layerID),
+                scriptBindings: SceneScriptBindingIRParser.parse(document: document).bindings,
+                userPropertyDefinitions: catalog.definitions, generation: 1)
+            var state = ScenePropertyLiveUpdateState(program: program,
+                effectiveValues: catalog.defaultValues, activeConsumerTargets: runtime.activeLivePropertyInputTargets,
+                propertyDefinitions: catalog.definitions)
+            let before = state
+            let output = SceneDynamicTarget.layer(layerID: layerID, field: .origin)
+            let result = runtime.evaluate(inputs: [output: .vector3(0, 0, 0)],
+                effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+            facts["non-color-string-\(index)-native-rejected"] = program.instructions.isEmpty
+                && program.rebuildRequiredPropertyKeys.contains(key)
+                && !state.apply(.string(edited), forPropertyKey: key) && unchanged(state, before)
+            facts["non-color-string-\(index)-cannot-publish"] = result.values[output] == nil
+                && runtime.bindings.allSatisfy { binding in
+                    binding.properties[slot]?.resolve(effectiveValues: state.effectiveValues) == nil
+                }
+            if let raw = SceneJSONValue(jsonObject: input),
+               let untypedInput = SceneScriptPropertyInputCodec.propertyInput(raw) {
+                facts["non-color-string-\(index)-undeclared-codec-rejected"] = untypedInput
+                    .resolve(effectiveValues: [key: .string(value)]) == nil
+            } else { facts["non-color-string-\(index)-undeclared-codec-rejected"] = false }
+        }
+    }
+
     static func root(layerID: Int, host: String, slot: String, input: Any, source: String) -> [String: Any] {
         ["objects": [["id": layerID, host: ["script": source,
             "value": host == "visible" ? true as Any : "0 0 0" as Any,
             "scriptproperties": [slot: input]]]]]
     }
 
-    static func catalog(key: String, value: Any = "1 1 1") -> SceneUserPropertyCatalog {
+    static func catalog(key: String, value: Any = "1 1 1", kind: String = "color") -> SceneUserPropertyCatalog {
         SceneUserPropertyDefinitionParser().parse(properties: [
-            key: ["type": "color", "text": "Color", "value": value]])
+            key: ["type": kind, "text": "Color", "value": value]])
     }
 
     static func descriptor(layerID: Int) -> SceneRenderDescriptor {

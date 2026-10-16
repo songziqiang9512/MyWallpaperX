@@ -22,6 +22,16 @@ nonisolated struct SceneScriptPropertyInput: Equatable, Sendable {
     let fallback: SceneScriptHostValue
     let userPropertyKey: String?
     let condition: SceneUserPropertyValue?
+    /// The declared producer domain is independent of the VM builder's seed.
+    let userPropertyKind: SceneUserPropertyKind?
+
+    init(fallback: SceneScriptHostValue, userPropertyKey: String?,
+         condition: SceneUserPropertyValue?, userPropertyKind: SceneUserPropertyKind? = nil) {
+        self.fallback = fallback
+        self.userPropertyKey = userPropertyKey
+        self.condition = condition
+        self.userPropertyKind = userPropertyKind
+    }
 
     func resolve(
         effectiveValues: [String: SceneUserPropertyValue]
@@ -47,6 +57,11 @@ nonisolated struct SceneScriptPropertyInput: Equatable, Sendable {
             return .bool(value)
         case (.string, .string(let value)):
             return .string(value)
+        case (.number, .string(let value)) where userPropertyKind == .color:
+            guard SceneScriptPropertyInputCodec.vector3(value) != nil else { return nil }
+            // Color remains a String in a numeric builder slot. QuickJS owns
+            // the slot's assignment semantics; do not coerce or broadcast it.
+            return .string(value)
         default:
             return nil
         }
@@ -54,6 +69,17 @@ nonisolated struct SceneScriptPropertyInput: Equatable, Sendable {
 }
 
 nonisolated enum SceneScriptPropertyInputCodec {
+    static func preparing(
+        _ inputs: [String: SceneScriptPropertyInput],
+        kinds: [String: SceneUserPropertyKind]
+    ) -> [String: SceneScriptPropertyInput] {
+        inputs.mapValues { input in
+            .init(fallback: input.fallback, userPropertyKey: input.userPropertyKey,
+                  condition: input.condition,
+                  userPropertyKind: input.userPropertyKey.flatMap { kinds[$0] })
+        }
+    }
+
     static func inputs(
         _ properties: [String: SceneJSONValue]
     ) -> [String: SceneScriptPropertyInput]? {

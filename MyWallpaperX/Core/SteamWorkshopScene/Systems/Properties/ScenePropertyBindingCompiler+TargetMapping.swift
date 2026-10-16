@@ -189,6 +189,7 @@ extension ScenePropertyBindingCompiler {
         case (.slider, .number): (.scalar, .slider)
         case (.bool, .bool): (.bool, .bool)
         case (.color, .string): (.vector3, .color)
+        case let (.color, .number(value)) where value.isFinite: (.vector3, .color)
         case (.textInput, .string): (.string, .textInput)
         case (.text, .string): (.string, .text)
         case (.combo, .string): (.string, .combo)
