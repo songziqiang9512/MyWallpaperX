@@ -94,12 +94,13 @@ nonisolated extension SceneRenderDescriptor.Layer {
     static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
         guard mutation.isDynamic,
               mutation.kind == SceneScriptLayerMutation.Kind.upsert,
-              mutation.text.utf8.count <= 4_096 else { return nil }
+              mutation.text.utf8.count <= 4_096,
+              let pointSize = SceneTextDescriptor.renderedPointSize(mutation.pointSize) else { return nil }
         let color = [mutation.color.x, mutation.color.y, mutation.color.z].map {
             Float(max(0, min($0, 1)))
         }
         let style = SceneTextDescriptor.parse([
-            "font": mutation.font, "pointsize": mutation.pointSize, "color": color,
+            "font": mutation.font, "pointsize": pointSize, "color": color,
         ])
         guard let origin = Self.descriptorTransform(mutation.origin),
               let scale = Self.descriptorTransform(mutation.scale),

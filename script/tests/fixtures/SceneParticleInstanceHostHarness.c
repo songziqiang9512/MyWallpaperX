@@ -138,7 +138,7 @@ static void test_rollback(MWXSceneQuickJSDomain *domain) {
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(owner, 7, 42,
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA, zero, one, zero, 1, 1, 0,
-        "", 0, "", 0, .6, .33, one, 0, NULL, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "", 0, "", 0, .6, .33, 32, one, 0, NULL, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "cursor baseline accepted");
     check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == .33, "baseline projection");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);

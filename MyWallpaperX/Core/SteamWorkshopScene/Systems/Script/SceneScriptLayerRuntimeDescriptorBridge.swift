@@ -95,6 +95,13 @@ nonisolated extension SceneScriptQuickJSDomain {
                 authored: layer.textStyle?.colorRGB ?? layer.colorRGB,
                 fallback: [1, 1, 1], snapshot: snapshot
             )
+            let pointSize: Double
+            if case let .scalar(value)? = snapshot[.text(layerID: layer.id, field: .pointSize)]?.value,
+               value.isFinite {
+                pointSize = value
+            } else {
+                pointSize = Double(layer.textStyle?.pointSize ?? 32)
+            }
             let result = text.withCString { textPointer in
                 font.withCString { fontPointer in
                     scale.withUnsafeBufferPointer { scalePointer in
@@ -131,7 +138,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                                     }(),
                                     textPointer, text.utf8.count,
                                     fontPointer, font.utf8.count,
-                                    Double(layer.textStyle?.pointSize ?? 32),
+                                    pointSize,
                                     colorPointer.baseAddress,
                                     &diagnostic, diagnostic.count
                                 )

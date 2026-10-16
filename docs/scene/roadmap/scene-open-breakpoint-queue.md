@@ -146,7 +146,7 @@
 | U41 · 3357627941 | 本地视频入口有界已闭，更宽profile保留 | [实施记录](../history/user-property-video-2026-10-16.md)：复用原资源/视频事务；真实前景与最终身份已复验，非PMA/更宽媒体未扩，不关闭整样本 |
 | U42 · 跨样本属性面板 | ①打开后浏览/滚动严重卡顿；②疑似原中文属性显示成英文，用户询问官方是否有中英映射并提示参考研究 | [条件依赖](../history/property-condition-reachability-2026-10-13.md)与[准备复用](../history/property-preparation-convergence-2026-10-13.md)已闭局部/暖CPU；[原生列表](../history/native-property-list-convergence-2026-10-14.md)退出SwiftUI lazy AX职责，系统滚动首尾、实际Tab/格式热更与独立灯光开关已验；三轮同条件无播放含AX的操作CPU降64.237449%。[显示本地化](../history/property-callback-recovery-2026-10-14.md#property-display-localization)已落地作者优先及有限标准词汇回退，真实面板条件/持久化与独立样本已验；打开/编辑总延迟、完整系统键盘chrome、颜色callback/cohort、更多词汇/locale和长Combo完整显示仍开放 |
 
-新增独立运行观察（2134765860）：普通桌面房间、灯光与时钟有输出，有媒体的中间运行中206/457 text owner报`no setter for property`、右侧黑块未归因；最终无媒体状态下未复现异常且为灰色占位，条件不同不记修复；保留[本批实机记录](../history/property-condition-reachability-2026-10-13.md)，不把内部Host旧通过或本批局部面板修复记作整样本通过。
+新增独立运行观察（2134765860）：[共享pointsize setter](../history/text-layer-pointsize-setter-2026-10-16.md)已使同媒体条件下206/457的no-setter消失，字号/文字进入原typed链，标题同窗口换词真实可见；两层为主要文字/阴影，artist仅作输入，独立314实图保持。右侧旧黑块、全部媒体与字体parity未销账，不把旧无媒体灰占位或fallback合成当修复；[原观察](../history/property-condition-reachability-2026-10-13.md)保留，不记整样本通过。
 
 新增独立运行观察（2938612768）：优化基线与帧快照候选的fixed13报告同有文字/solid842、utility/graph census及边框期待失败；当前23层图执行/下一帧集合一致，两后期图右下时钟裁切均在。根因未定，保留[同输入对照](../history/frame-texture-snapshot-convergence-2026-10-14.md)，不改矩阵期待、不计本批修复或整样本通过。
 

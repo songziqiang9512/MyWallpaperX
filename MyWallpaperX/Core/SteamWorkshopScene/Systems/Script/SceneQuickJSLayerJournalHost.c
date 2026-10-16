@@ -117,6 +117,7 @@ bool mwx_scene_quickjs_layer_journal_dynamic_layer_value(
         .layer_index = layer_index,
         .dirty_fields = record->dirty_fields,
         .alpha = record->alpha,
+        .point_size = record->point_size,
         .visible = record->visible, .solid = record->solid,
         .perspective = record->perspective,
         .text = duplicate_optional_layer_string(record->text),
@@ -497,6 +498,7 @@ static void restore_dynamic_layer_journal(
         memcpy(record->angles, baseline->angles, sizeof(record->angles));
         memcpy(record->color, baseline->color, sizeof(record->color));
         record->alpha = baseline->alpha;
+        record->point_size = baseline->point_size;
         record->visible = baseline->visible;
         record->solid = baseline->solid;
         record->perspective = baseline->perspective;

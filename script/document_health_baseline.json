@@ -109,8 +109,8 @@
       "bytes": 346017
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 124,
-      "bytes": 38074
+      "lines": 125,
+      "bytes": 38440
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 413,
-      "bytes": 106145
+      "bytes": 106819
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 341,
-      "bytes": 89227
+      "lines": 355,
+      "bytes": 91893
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 250,
-      "bytes": 75074
+      "bytes": 75167
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1160,20 +1160,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "af807dfa9671a0528adffe580775ba94b6fe34900cf3b26d21a9a9fd4945abf0",
-      "after": "03f11854c8eeaa70a8e689ba38ef99be74ad974eaefbc403441a861d625b3de1",
-      "owner": "SceneScript Vec3 arithmetic",
-      "reason": "固定官方缺维数值经独立中性交接后已在唯一ValueHost实施；现役合同补通用语义并替换U13旧未执行首断点，S3与未证位置motion、官方parity及性能分列，过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#vector-mixed-dimension-arithmetic"
+      "before": "03f11854c8eeaa70a8e689ba38ef99be74ad974eaefbc403441a861d625b3de1",
+      "after": "5e72adb0434b1ddcd16ed238e53146c3e1e0e1e2945a8688a163325c1470a024",
+      "owner": "SceneScript text layer mutation/CoreText",
+      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "e0cbce71cf8f1a19f37d5c0a4de6db2415c2e3497fb4e9e6eff9b7abc6ec0b9e",
-      "after": "0d70bc266ce104bc5c98834f098dcd4e83a0a270223f9513b56375676a04cf2d",
-      "owner": "SceneScript Vec3 arithmetic",
-      "reason": "固定官方缺维数值经独立中性交接后已在唯一ValueHost实施；现役合同补通用语义并替换U13旧未执行首断点，S3与未证位置motion、官方parity及性能分列，过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#vector-mixed-dimension-arithmetic"
+      "before": "0d70bc266ce104bc5c98834f098dcd4e83a0a270223f9513b56375676a04cf2d",
+      "after": "43e32088965100a8fbfb575648f5a73c599fefce12d399afc555f40bd12c5d1f",
+      "owner": "SceneScript text layer mutation/CoreText",
+      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
     },
     {
       "section": "bodies",
@@ -1205,20 +1205,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "bbfe9e296278d1cf440f0f42255f27085a5bd2e9b79fab8a45ae7423603cb77d",
-      "after": "c6a8717f0ffdf4ca769b3f0da4c57bcf9d252681ef94cfb967641a7e180051bb",
-      "owner": "SceneScript Vec3 arithmetic",
-      "reason": "固定官方缺维数值经独立中性交接后已在唯一ValueHost实施；现役合同补通用语义并替换U13旧未执行首断点，S3与未证位置motion、官方parity及性能分列，过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#vector-mixed-dimension-arithmetic"
+      "before": "c6a8717f0ffdf4ca769b3f0da4c57bcf9d252681ef94cfb967641a7e180051bb",
+      "after": "b9985a52dfda1cd658abad3f61d1276b4f65e5b9bbbe125db26c212302cc3b8a",
+      "owner": "SceneScript text layer mutation/CoreText",
+      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fde534c5c25996321bbc5308cebbfefa0f8c362998b044eba55f651d16e9eef7",
-      "after": "9bc8216a8d1787761481966b31c45a9e5d3229887b3fbbc2a512c2645c7dad5f",
-      "owner": "SceneScript Vec3 arithmetic",
-      "reason": "固定官方缺维数值经独立中性交接后已在唯一ValueHost实施；现役合同补通用语义并替换U13旧未执行首断点，S3与未证位置motion、官方parity及性能分列，过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#vector-mixed-dimension-arithmetic"
+      "before": "9bc8216a8d1787761481966b31c45a9e5d3229887b3fbbc2a512c2645c7dad5f",
+      "after": "6e212ddb86473caef9314a04fc4db037e21f6321dd201949624e2fa99c5f0083",
+      "owner": "SceneScript text layer mutation/CoreText",
+      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
     },
     {
       "section": "bodies",

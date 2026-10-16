@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bfce2a0d5f04b9fa5d2583a07771fef84100d605be35183a63b4050555f6afdf",
+        "sourceSHA256": "fd15697e4c31f0d0840aa239fe6d53567e05102e4d47501da839e81aff447e7f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Vec3/Vec2固定官方24case、真实VM与原包1128首错消失的后验导航；同窗热改、独立314实图及未观测位置motion分列",
-        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
+        "scope": "213同媒体基线到候选的pointsize首错消失、首次字号发布与真实标题换词；主要文字/阴影、artist输入和独立314实图分列",
+        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
       }
     },
     {
@@ -708,10 +708,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "723b27efff627cc20d5361ff052dc781a864327526dc5cfd32344df24bc3c112",
+        "sourceSHA256": "6afdcebcf5ce4686a11e9705aaa1f80e7dd19cedf60f955f143cfff33b357fa6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Vec3/Vec2混合算术限定实现、四方法与scalar/显式Vec3/构造边界；官方24case、真实VM及原包首错消失各自来源导航",
-        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
+        "scope": "ITextLayer与exact-handle pointsize限定实现状态；真实C/Swift事务门、213标题S4可见与artist仅输入的来源导航，其他字段不随本片提升",
+        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
       }
     },
     {
@@ -2954,6 +2954,19 @@
       }
     },
     {
+      "path": "docs/scene/history/text-layer-pointsize-setter-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "pointsize共享setter的journal/ABI/typed/渲染分域与独立审查修正、fixture bootstrap归因及最近门；213同媒体基线/候选标题换词S4、artist仅输入、首次发布和独立314实图分列，保黑块/opacityMask与完整媒体/字体parity未知。"
+    },
+    {
       "path": "docs/scene/history/text-terminal-overflow-2026-10-12.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3131,10 +3144,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e7c27702a48f0dc1211e44cf93967f4f53c4489485a81f1fb8d6e5d23d53479d",
+        "sourceSHA256": "1a3dc66938af17006ddebad7a3893d818e6b4dcd1b3830465c4a7bbcad6855c8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Vec3四算术对实际Vec2的共享ValueHost职责、typed维度准入与保旧构造/显式Vec3/finite publication；固定官方数值合同和独立实施、运行证据分列",
-        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
+        "scope": "文字handle pointsize的原C journal/ABI→typed scalar→settled snapshot→唯一CoreText消费合同；raw有限Double与render clamp、create和setter分域及原生命周期边界",
+        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
       }
     },
     {
@@ -3228,10 +3241,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2fc82524e9277109455f057b76032fd04c78b668d3c0aacdd294bbdd965711af",
+        "sourceSHA256": "adea21876dc6d3c9d99bf91b36b2f9e0abb07ee84e1980c792901f4970185b18",
         "method": "document_registry --audit + document_health --check",
-        "scope": "U13的1128混合向量首断点由官方缺维规则未定替换为共享owner已接及S3后验；光束、封面/裁切、544作者异常与整样本余项继续开放",
-        "limitations": "仅本批文档导航与来源边界复核；官方黑盒限固定2.8.0.42与24个有限输入case，返回prototype/instanceof及右值不变不属该黑盒实证。原包仅S3 owner-executed，未直接采集目标位置或完整motion；独立314仅运行/实图回归。Vec4、mix、追加z的Vec2、duck object、其他维度及非有限/正负零官方规则未扩验，cache状态不同不作性能或官方画面parity结论；其他既有边界保持。"
+        "scope": "213旧no-setter观察替换为共享pointsize setter有界后验；标题可见、artist仅输入、右黑块及全部媒体/字体parity余项分列",
+        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
       }
     },
     {

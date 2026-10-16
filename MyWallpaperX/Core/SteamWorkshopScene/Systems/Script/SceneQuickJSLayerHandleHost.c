@@ -361,7 +361,7 @@ JSValue mwx_scene_quickjs_layer_make_layer_handle(
         {"size", LAYER_SIZE, false},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
         {"perspective", LAYER_PERSPECTIVE, true},
-        {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
+        {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, true},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
         {"name", LAYER_NAME, false},
     };
@@ -464,7 +464,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
         {"size", LAYER_SIZE, false},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
         {"perspective", LAYER_PERSPECTIVE, true},
-        {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
+        {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, true},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
     };
     for (size_t field = 0; field < sizeof(fields) / sizeof(fields[0]); ++field)

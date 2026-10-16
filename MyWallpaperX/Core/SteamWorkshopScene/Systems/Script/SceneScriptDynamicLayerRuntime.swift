@@ -332,6 +332,19 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         definitions: &candidateDefinitions
                     )
                 }
+                if mutation.fields.contains(.pointSize) {
+                    let target = SceneDynamicTarget.text(layerID: mutation.layerID, field: .pointSize)
+                    guard authoredLayer.contentKind == "text", authoredLayer.textStyle != nil,
+                          SceneScriptValueOwner.acceptsScalar(mutation.pointSize, for: target) else {
+                        return .failure(.invalidArgument("invalid authored text point size mutation"))
+                    }
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument("conflicting authored layer mutation target"))
+                    }
+                    candidateAuthoredValues[target] = .scalar(mutation.pointSize)
+                    Self.ensureDefinition(for: target, layer: authoredLayer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                }
                 if mutation.fields.contains(.font) {
                     guard authoredLayer.contentKind == "text",
                           authoredLayer.textStyle != nil,
@@ -360,9 +373,15 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 }
                 continue
             }
+            let pointSizeTarget = SceneDynamicTarget.text(layerID: mutation.layerID, field: .pointSize)
+            let hasPointSizeInput = mutation.assetPath == nil && (
+                mutation.fields.contains(.pointSize) || candidateDefinitions[pointSizeTarget] != nil
+            )
             guard mutation.orderIndex >= 0,
                   mutation.alpha.isFinite, (0...1).contains(mutation.alpha),
-                  mutation.pointSize.isFinite, (1...1024).contains(mutation.pointSize),
+                  mutation.pointSize.isFinite,
+                  hasPointSizeInput || (1...1024).contains(mutation.pointSize),
+                  !mutation.fields.contains(.pointSize) || mutation.assetPath == nil,
                   mutation.color.x.isFinite,
                   mutation.color.y.isFinite, mutation.color.z.isFinite,
                   SceneScriptLayerMutation.acceptsDynamicText(mutation.text),
@@ -436,6 +455,12 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                    candidateTextTemplates[mutation.layerID] != nil,
                    mutation.fields.contains(.text) {
                     candidateAuthoredValues[.text(layerID: mutation.layerID, field: .content)] = .string(mutation.text)
+                }
+                if mutation.fields.contains(.pointSize) {
+                    let target = SceneDynamicTarget.text(layerID: mutation.layerID, field: .pointSize)
+                    candidateAuthoredValues[target] = .scalar(mutation.pointSize)
+                    Self.ensureDefinition(for: target, layer: layer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                 }
                 candidateLayers[mutation.layerID] = layer
             }

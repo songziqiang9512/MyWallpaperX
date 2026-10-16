@@ -216,7 +216,12 @@ static JSValue layer_get(
                 : (record->text == NULL ? "" : record->text)
                   )
         );
-    case LAYER_POINT_SIZE: return JS_NewFloat64(context, record->point_size);
+    case LAYER_POINT_SIZE:
+        return JS_NewFloat64(context,
+            authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE)
+                ? authored_mutation->point_size
+                : authored_baseline != NULL && (authored_baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE)
+                    ? authored_baseline->point_size : record->point_size);
     case LAYER_FONT: {
         const char *font = !record->dynamic
             ? authored_font_value(authored_mutation, authored_baseline, record)
@@ -481,6 +486,31 @@ static JSValue layer_set(
         if (!mwx_scene_quickjs_layer_mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         memcpy(record->color, value, sizeof(value));
+        break;
+    }
+    case LAYER_POINT_SIZE: {
+        if ((!record->dynamic && !record->text_mutable) ||
+            (record->dynamic && record->asset_path != NULL && record->asset_path[0] != '\0'))
+            return JS_ThrowTypeError(context, "layer pointsize mutation target is not a text layer");
+        double value;
+        if (!JS_IsNumber(argv[0]) || JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value))
+            return JS_ThrowTypeError(context, "layer pointsize expects finite Number");
+        if (authored_target) {
+            MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+            if (mutation == NULL)
+                return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+            mutation->point_size = value;
+            mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE;
+            break;
+        }
+        if (value == record->point_size) break;
+        if (!mwx_scene_quickjs_layer_journal_dynamic_layer_value(owner, record_index))
+            return JS_ThrowInternalError(context, "dynamic layer rollback journal exceeded");
+        if (!mwx_scene_quickjs_layer_mark_dirty(owner, record))
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+        record->point_size = value;
+        record->dirty_fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE;
         break;
     }
     case LAYER_TEXT: {

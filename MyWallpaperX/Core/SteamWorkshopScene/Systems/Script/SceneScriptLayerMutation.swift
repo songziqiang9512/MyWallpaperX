@@ -32,6 +32,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let font = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT.rawValue
         ))
+        static let pointSize = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE.rawValue
+        ))
         static let effectVisibility = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY.rawValue))
 
         static let perspective = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE.rawValue))
@@ -39,7 +42,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let particleAlpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA.rawValue))
 
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .solid, .text, .font, .alpha, .color, .effectVisibility, .particleAlpha, .perspective,
+            .origin, .scale, .angles, .visibility, .solid, .text, .font, .pointSize, .alpha, .color, .effectVisibility, .particleAlpha, .perspective,
         ]
         static let alpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA.rawValue))
         static let color = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR.rawValue))
@@ -185,7 +188,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             scale: newer.fields.contains(.scale) ? newer.scale : scale,
             angles: newer.fields.contains(.angles) ? newer.angles : angles,
             color: newer.fields.contains(.color) ? newer.color : color,
-            pointSize: newer.pointSize,
+            pointSize: newer.fields.contains(.pointSize) ? newer.pointSize : pointSize,
             text: newer.fields.contains(.text) ? newer.text : text,
             font: newer.fields.contains(.font) ? newer.font : font,
             assetPath: newer.assetPath ?? assetPath,

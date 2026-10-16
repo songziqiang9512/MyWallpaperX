@@ -452,7 +452,6 @@ nonisolated enum SceneScriptLayerMutationBridge {
             }
             if raw.dynamic == 1 {
                 guard (0...1).contains(raw.alpha),
-                      (1...1024).contains(raw.point_size),
                       (0...1).contains(raw.color.0),
                       (0...1).contains(raw.color.1),
                       (0...1).contains(raw.color.2) else {
@@ -464,7 +463,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
             switch (kind, raw.dynamic, raw.fields) {
             case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):
                 break
-            case (.upsert, 1, _) where fields == [.text]:
+            case (.upsert, 1, _) where fields.isSubset(of: [.text, .pointSize]):
                 break
             case (.upsert, 0, 0):
                 // An order-only authored mutation: the script sorted this
@@ -492,7 +491,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
             let text = String(cString: textPointer)
             let font = String(cString: fontPointer)
             let assetPath = String(cString: assetPathPointer)
-            guard raw.dynamic == 0 || !fields.contains(.text) || assetPath.isEmpty else {
+            guard raw.dynamic == 0 || fields.intersection([.text, .pointSize]).isEmpty || assetPath.isEmpty else {
                 return .failure(.invalidArgument("dynamic text field requires a text layer"))
             }
             guard SceneScriptLayerMutation.acceptsDynamicText(text),

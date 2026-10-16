@@ -247,6 +247,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double angles[3];
     double alpha;
     double particle_alpha;
+    double point_size;
     double color[3];
     bool visible;
     bool solid;
@@ -317,6 +318,7 @@ typedef struct MWXSceneQuickJSDynamicLayerValueBaseline {
     double angles[3];
     double color[3];
     double alpha;
+    double point_size;
     char *text;
     char *font;
     bool visible;

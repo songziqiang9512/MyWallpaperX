@@ -50,6 +50,12 @@ struct SceneTextDescriptor: Codable {
             + max(4, shadow.size) * 2
     }
 
+    /// Raw script values remain Double; raster style is bounded before Float conversion.
+    nonisolated static func renderedPointSize(_ value: Double) -> Float? {
+        guard value.isFinite else { return nil }
+        return Float(max(1, min(value, 1_024)))
+    }
+
     nonisolated static func parse(_ root: [String: Any]) -> SceneTextDescriptor {
         SceneTextDescriptor(
             fontPath: normalizedPath(string(root["font"])),

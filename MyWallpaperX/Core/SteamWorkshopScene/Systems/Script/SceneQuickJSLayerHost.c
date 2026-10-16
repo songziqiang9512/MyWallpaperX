@@ -60,6 +60,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
         .perspective = record->perspective,
         .alpha = record->alpha,
         .particle_alpha = record->particle_alpha,
+        .point_size = record->point_size,
     };
     memcpy(mutation->color, record->color, sizeof(mutation->color));
     memcpy(mutation->origin, record->current_origin, sizeof(mutation->origin));
@@ -86,6 +87,8 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
             mutation->perspective = baseline->perspective;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0)
             mutation->particle_alpha = baseline->particle_alpha;
+        if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE) != 0)
+            mutation->point_size = baseline->point_size;
     } else if (owner->target_layer_configured &&
         layer_index == owner->target_layer_index &&
         owner->authored_layer_baseline_available) {
@@ -153,7 +156,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .perspective = staged->perspective,
             .alpha = staged->alpha,
             .particle_alpha = staged->particle_alpha,
-            .point_size = record->point_size,
+            .point_size = staged->point_size,
             .text = (staged->fields &
                      MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
                 ? staged->text
@@ -515,6 +518,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t font_length,
     double alpha,
     double particle_alpha,
+    double point_size,
     const double color[3],
     uint32_t effect_count, const uint8_t *effect_visible,
     char *diagnostic,
@@ -529,6 +533,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY |
@@ -540,6 +545,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
         font == NULL || color == NULL || !isfinite(alpha) || alpha < 0 || alpha > 1 ||
         !isfinite(particle_alpha) ||
+        ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE) != 0 && !isfinite(point_size)) ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
         font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
         memchr(text, '\0', text_length) != NULL ||
@@ -577,7 +583,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0 &&
          !owner->domain->layers[layer_index].particle_instance_available) ||
         ((fields & (MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
-                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT)) != 0 &&
+                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
+                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE)) != 0 &&
          !owner->domain->layers[layer_index].text_mutable)) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity,
@@ -637,6 +644,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         .visible = visible != 0, .solid = solid != 0, .perspective = perspective,
         .alpha = alpha,
         .particle_alpha = particle_alpha,
+        .point_size = point_size,
         .effect_visible = effect_copy,
         .text = text_copy,
         .font = font_copy,

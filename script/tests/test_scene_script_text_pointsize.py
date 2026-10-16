@@ -5,9 +5,17 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from .scene_vector_vm_test_support import ROOT, compile_vector_harness
 
 HARNESS = r'''
+// External JSON carrier only; the point-size render normalization is production.
+enum SceneDocumentLoader {
+    static func floatValue(_ value: Any?) -> Float? { (value as? NSNumber)?.floatValue }
+    static func floatVector(_ value: Any?) -> [Float]? {
+        (value as? [NSNumber])?.map(\.floatValue)
+    }
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -232,12 +240,184 @@ enum Harness {
                 invalidLightResult.failures[lightTarget]?.code ?? "",
             "invalidLightPublished": invalidLightResult.values[lightTarget] != nil,
             "nonLightIntensityRejected": nonLightIntensity.bindings.isEmpty,
+            "setterRoundTrips": try [setterRoundTrip(false), setterRoundTrip(true)],
+            "setterFiniteDomain": try setterFiniteDomain(),
+            "setterRejections": try setterRejections(),
+            "setterPartialMerge": try setterPartialMerge(),
+            "setterRestrictedOwners": try setterRestrictedOwners(),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
             options: [.sortedKeys]
         )
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func setterDescriptor() -> SceneRenderDescriptor {
+        var descriptor = Self.descriptor(pointSize: 48)
+        descriptor.layers.append(.init(id: 88, layerIndex: 1, name: "image-peer",
+            visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: 1,
+            effects: [], contentKind: "image"))
+        return descriptor
+    }
+
+    static func setterFrame(_ time: Double) -> SceneScriptFrameInput {
+        .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+            simulationFrameTime: 1.0 / 60, sceneTime: time))
+    }
+
+    static func setterOwner(_ domain: SceneScriptQuickJSDomain, _ source: String) throws
+        -> SceneScriptValueOwner {
+        try .init(domain: domain, source: source,
+            target: .text(layerID: 77, field: .content), valueType: .string,
+            effectNames: [], generation: 30, budget: .default)
+    }
+
+    static func setterEvaluate(_ owner: SceneScriptValueOwner)
+        -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
+        owner.evaluate(input: .string("12:00"), frame: setterFrame(1),
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}",
+            expectedGeneration: 30, interruptBudget: nil)
+    }
+
+    static func setterCode<T>(_ result: Result<T, SceneScriptScalarRuntimeFailure>) -> String {
+        switch result { case .success: return "ok"; case let .failure(error): return error.code }
+    }
+
+    static func setterRoundTrip(_ renamed: Bool) throws -> [String: Any] {
+        var descriptor = setterDescriptor()
+        var source = """
+        const face=engine.registerAsset('fonts/own.ttf');let last=48;
+        export function mediaPropertiesChanged(event){
+            const picked=thisScene.getLayerByID(77);
+            if(thisLayer.pointsize!==last||picked.pointsize!==last)throw Error('current size');
+            if(event.title==='partial'){
+                thisLayer.text='partial';thisLayer.font=face;thisLayer.origin=new Vec3(3,4,0);return;
+            }
+            const next=last+12;thisLayer.pointsize=next-4;
+            if(picked.pointsize!==next-4)throw Error('lookup read-your-writes');
+            picked.pointsize=next;
+            if(thisLayer.pointsize!==next)throw Error('owner read-your-writes');
+            thisLayer.text=event.title;last=next;
+        }
+        """
+        if renamed {
+            source = source.replacingOccurrences(of: "picked", with: "selected")
+                .replacingOccurrences(of: "last", with: "previousSize")
+                .replacingOccurrences(of: "next=previousSize+12", with: "next=previousSize+3*4")
+                .replacingOccurrences(of: "fonts/own.ttf", with: "fonts/renamed.ttf")
+        }
+        descriptor.layers[0].textScript = .init(source: source)
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerRuntimeFields(descriptor)
+        let ir = SceneScriptBindingIR(source: source,
+            owner: .init(kind: .object, objectIndex: 0, objectID: 77,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("text")], properties: [:],
+            authoredValue: .string("12:00"), valueType: .string, wrapperKeys: ["script", "value"])
+        let program = SceneScriptStringProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: [ir], generation: 30)
+        let layers = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [77])
+        let target = SceneDynamicTarget.text(layerID: 77, field: .pointSize)
+        var sizes: [Double] = [], texts: [String] = [], dirty: [Bool] = [], failures = 0
+        var sources: [String] = [], held: SceneDynamicSnapshot?
+        for (index, title) in ["one", "two", "partial"].enumerated() {
+            let result = program.evaluate(inputs: [.text(layerID: 77, field: .content): .string("12:00")],
+                frame: setterFrame(Double(index + 1)),
+                mediaPropertiesEvent: .init(title: title, artist: "Own Artist", generation: UInt64(index + 1)))
+            failures += result.failures.count
+            dirty.append(result.layerMutations.contains { $0.fields.contains(.pointSize) })
+            try layers.apply(result.layerMutations).get()
+            program.finalizeLayerMutations(committing: true)
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: UInt64(index + 1),
+                generation: UInt64(index + 1), definitions: layers.authoredLayerDefinitions,
+                userValues: [target: .scalar(80)], timelineValues: [target: .scalar(90)],
+                sceneScriptValues: layers.snapshot().authoredLayerValues).snapshot
+            sizes.append(scalar(snapshot[target]?.value)); sources.append(snapshot[target]?.source.rawValue ?? "missing")
+            if case let .string(value)? = snapshot[.text(layerID: 77, field: .content)]?.value { texts.append(value) }
+            if held == nil { held = snapshot }
+            try domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
+        }
+        return ["bindings": program.bindings.count, "sizes": sizes, "texts": texts,
+            "pointSizeDirty": dirty, "failures": failures, "sources": sources,
+            "heldSize": scalar(held?[target]?.value)]
+    }
+
+    static func setterFiniteDomain() throws -> [[String: Any]] {
+        try [0.0, 1025.0, Double.greatestFiniteMagnitude].map { value in
+            let descriptor = setterDescriptor(), domain = try SceneScriptQuickJSDomain()
+            try domain.configureLayerRuntimeFields(descriptor)
+            let owner = try setterOwner(domain,
+                "export function update(v){thisLayer.pointsize=\(value);return v;}")
+            let result = setterEvaluate(owner), evaluation = try result.get()
+            let layers = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [77])
+            try layers.apply(evaluation.layerMutations).get()
+            let target = SceneDynamicTarget.text(layerID: 77, field: .pointSize)
+            let raw = scalar(layers.snapshot().authoredLayerValues[target])
+            guard let rendered = SceneTextDescriptor.renderedPointSize(raw) else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument("finite point size did not normalize")
+            }
+            let style = SceneTextDescriptor.parse(["pointsize": rendered])
+            return ["raw": raw, "expectedRaw": value,
+                "dirty": evaluation.layerMutations.first?.fields.contains(.pointSize) == true,
+                "rendered": Double(style.pointSize), "renderFinite": style.pointSize.isFinite]
+        }
+    }
+
+    static func setterRejections() throws -> [String: Any] {
+        let attempts = ["thisLayer.pointsize=NaN;", "thisLayer.pointsize=Infinity;",
+            "thisLayer.pointsize='72';", "thisScene.getLayerByID(88).pointsize=72;",
+            "thisLayer.id=99;", "thisScene.createLayer({text:'bad',pointsize:1025});"]
+        var codes: [String] = [], noMutations: [Bool] = [], observers: [String] = []
+        for attempt in attempts {
+            let domain = try SceneScriptQuickJSDomain()
+            try domain.configureLayerRuntimeFields(setterDescriptor())
+            let owner = try setterOwner(domain,
+                "export function update(v){thisLayer.text='leak';thisLayer.pointsize=72;\(attempt)return v;}")
+            let result = setterEvaluate(owner)
+            codes.append(setterCode(result))
+            noMutations.append(mwx_scene_quickjs_owner_layer_mutation_count(owner.handle) == 0)
+            let observer = try setterOwner(domain,
+                "export function update(v){return thisLayer.pointsize+'|'+thisLayer.text;}")
+            if case let .string(value) = try setterEvaluate(observer).get().value { observers.append(value) }
+        }
+        return ["codes": codes, "noMutations": noMutations, "observed": observers]
+    }
+
+    static func setterPartialMerge() throws -> [String: Any] {
+        let descriptor = setterDescriptor(), domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerRuntimeFields(descriptor)
+        let first = try setterOwner(domain,
+            "export function update(v){thisLayer.pointsize=72;return v;}")
+        let later = try setterOwner(domain,
+            "const f=engine.registerAsset('fonts/partial.ttf');export function update(v){thisLayer.text='partial';thisLayer.font=f;thisLayer.origin=new Vec3(3,4,0);return v;}")
+        let a = try setterEvaluate(first).get().layerMutations
+        let b = try setterEvaluate(later).get().layerMutations
+        let merged = SceneScriptLayerMutation.coalescing(a + b)
+        let layers = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [77])
+        try layers.apply(merged).get()
+        let value = layers.snapshot().authoredLayerValues[.text(layerID: 77, field: .pointSize)]
+        return ["earlierRaw": a.first?.pointSize ?? -1, "laterUnwrittenRaw": b.first?.pointSize ?? -1,
+            "laterPointSizeDirty": b.first?.fields.contains(.pointSize) == true,
+            "mergedSize": merged.first?.pointSize ?? -1, "typedSize": scalar(value),
+            "mergedFields": merged.first?.fields == [.pointSize, .text, .font, .origin]]
+    }
+
+    static func setterRestrictedOwners() throws -> [String: Any] {
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerRuntimeFields(setterDescriptor())
+        let readonly = try SceneScriptValueOwner(domain: domain,
+            source: "export function update(v){thisLayer.pointsize=72;return v;}",
+            target: .layer(layerID: 77, field: .visibility), valueType: .bool,
+            effectNames: [], generation: 30, budget: .default)
+        let denied = readonly.evaluate(input: .bool(true), frame: setterFrame(1),
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 30, interruptBudget: nil)
+        let stale = try setterOwner(domain,
+            "export function update(v){thisLayer.pointsize=72;return v;}")
+        mwx_scene_quickjs_owner_invalidate(stale.handle)
+        return ["valueOnly": setterCode(denied), "stale": setterCode(setterEvaluate(stale)),
+            "valueOnlyMutations": mwx_scene_quickjs_owner_layer_mutation_count(readonly.handle),
+            "staleMutations": mwx_scene_quickjs_owner_layer_mutation_count(stale.handle)]
     }
 
     static func scalar(_ value: SceneDynamicValue?) -> Double {
@@ -398,17 +578,13 @@ class SceneScriptTextPointSizeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory(prefix="mwx-scene-text-size-")
         cls.addClassCleanup(cls.temp_dir.cleanup)
-        cls.binary = compile_vector_harness(Path(cls.temp_dir.name), HARNESS, "text-pointsize")
+        cls.binary = compile_vector_harness(Path(cls.temp_dir.name), HARNESS, "text-pointsize",
+            extra_swift_sources=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",))
+        cls.result = json.loads(subprocess.run([str(cls.binary)], check=True,
+            capture_output=True, text=True).stdout)
 
     def test_exact_pointsize_owner_publishes_and_failures_stay_local(self) -> None:
-        result = json.loads(
-            subprocess.run(
-                [str(self.binary)],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout
-        )
+        result = self.result
         self.assertEqual(result["bindings"], 1)
         self.assertEqual(result["value"], 56)
         self.assertEqual(result["failureCount"], 0)
@@ -446,6 +622,29 @@ class SceneScriptTextPointSizeTests(unittest.TestCase):
         self.assertEqual(result["invalidLightCode"], "bad-return")
         self.assertFalse(result["invalidLightPublished"])
         self.assertTrue(result["nonLightIntensityRejected"])
+
+    def test_layer_handle_pointsize_reaches_typed_snapshot_and_current(self) -> None:
+        for row in self.result["setterRoundTrips"]:
+            self.assertEqual(row, {"bindings": 1, "sizes": [60, 72, 72],
+                "texts": ["one", "two", "partial"], "pointSizeDirty": [True, True, False],
+                "failures": 0, "sources": ["sceneScript"] * 3, "heldSize": 60})
+        self.assertEqual(self.result["setterPartialMerge"], {"earlierRaw": 72,
+            "laterUnwrittenRaw": 48, "laterPointSizeDirty": False,
+            "mergedSize": 72, "typedSize": 72, "mergedFields": True})
+
+    def test_setter_finite_raw_values_use_the_production_render_normalization(self) -> None:
+        rows = self.result["setterFiniteDomain"]
+        self.assertEqual([row["rendered"] for row in rows], [1, 1024, 1024])
+        for row in rows:
+            self.assertEqual(row["raw"], row["expectedRaw"])
+            self.assertTrue(row["dirty"])
+            self.assertTrue(row["renderFinite"])
+
+    def test_invalid_setter_bundle_rolls_back_and_restricted_owners_stay_closed(self) -> None:
+        self.assertEqual(self.result["setterRejections"], {"codes": ["exception"] * 6,
+            "noMutations": [True] * 6, "observed": ["48|12:00"] * 6})
+        self.assertEqual(self.result["setterRestrictedOwners"], {"valueOnly": "exception",
+            "stale": "stale-owner", "valueOnlyMutations": 0, "staleMutations": 0})
 
 
 if __name__ == "__main__":

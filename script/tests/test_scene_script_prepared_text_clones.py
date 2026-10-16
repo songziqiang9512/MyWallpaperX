@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .scene_vector_vm_test_support import SWIFT_PREAMBLE, compile_vector_harness
+from .scene_vector_vm_test_support import ROOT, SWIFT_PREAMBLE, compile_vector_harness
 
 
 # The shared harness intentionally omits renderer descriptor projection. Supply
@@ -17,14 +17,15 @@ _TEXT_STUB = """    static func dynamicText(_ mutation: SceneScriptLayerMutation
         nil
     }"""
 _TEXT_METADATA = """    static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
-        guard mutation.isDynamic, mutation.kind == .upsert else { return nil }
+        guard mutation.isDynamic, mutation.kind == .upsert,
+              let pointSize = SceneTextDescriptor.renderedPointSize(mutation.pointSize) else { return nil }
         return .init(id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
             solid: mutation.solid, usesPerspective: mutation.perspective, visible: mutation.visible,
             originXYZ: [Float(mutation.origin.x), Float(mutation.origin.y), Float(mutation.origin.z)],
             scaleXYZ: [Float(mutation.scale.x), Float(mutation.scale.y), Float(mutation.scale.z)],
             anglesXYZ: [Float(mutation.angles.x), Float(mutation.angles.y), Float(mutation.angles.z)],
             alpha: mutation.alpha, effects: [], contentKind: "text", text: mutation.text,
-            textStyle: .init(fontPath: mutation.font, colorRGB: [1,1,1], pointSize: Float(mutation.pointSize)))
+            textStyle: .init(fontPath: mutation.font, colorRGB: [1,1,1], pointSize: pointSize))
     }"""
 assert SWIFT_PREAMBLE.count(_TEXT_STUB) == 1
 PREAMBLE = SWIFT_PREAMBLE.replace(_TEXT_STUB, _TEXT_METADATA, 1)
@@ -32,6 +33,11 @@ PREAMBLE = SWIFT_PREAMBLE.replace(_TEXT_STUB, _TEXT_METADATA, 1)
 
 HARNESS = r'''
 import Foundation
+
+enum SceneDocumentLoader {
+    static func floatValue(_ value: Any?) -> Float? { (value as? NSNumber)?.floatValue }
+    static func floatVector(_ value: Any?) -> [Float]? { (value as? [NSNumber])?.map(\.floatValue) }
+}
 
 @main enum Harness {
     static let clock = """
@@ -537,10 +543,10 @@ import Foundation
             "admittedPeers":accepted.admission.admittedEffects.count,"dynamic":layers.snapshot().dynamicLayers.count]
     }
     static func textSetters(_ mode:String) throws -> [String:Any] {
-        let source="export var scriptProperties={prefix:'fallback'};export function init(v){return v;}export function update(v){thisLayer.text='child-change';return v;}"
+        let source="export var scriptProperties={prefix:'fallback'};export function init(v){return v;}export function update(v){if(engine.runtime===2)thisLayer.pointsize=Number.MAX_VALUE;thisLayer.text='child-change';thisLayer.origin=new Vec3(engine.runtime,0,0);return v;}"
         let f=try fixture(clockSource:source),layers=runtime(f)
         let owner=try creator(f,"""
-            export function init(v){const a=thisScene.createLayer({text:thisScene.getInitialLayerConfig('clock').text});a.text='creator-change';return v;}
+            export function init(v){const a=thisScene.createLayer({text:thisScene.getInitialLayerConfig('clock').text});a.text='creator-change';a.pointsize=0;return v;}
             export function update(v){\(mode == "throw" ? "throw Error('setter parent rollback');":"return v;")}
             """)
         let created=run(owner,f)
@@ -555,7 +561,10 @@ import Foundation
         let adoption=f.program.adoptCommittedPreparedTextClones(frame:frame(1),
             liveTextTemplates:result.admission.layerPlan.textTemplateIdentitiesByLayerID)
         let creatorText=layers.snapshot().dynamicLayers.first{$0.text == "creator-change"}?.text ?? "absent"
+        let creatorSize=layers.snapshot().dynamicLayers.first{$0.text == "creator-change"}?.textStyle?.pointSize ?? -1
         var childText="absent",childFailures=0,textDirty=false
+        var childRawSize: Double = -1, childSize: Float = -1, retainedRawSize: Double = -1
+        var retainedSize: Float = -1, partialSizeDirty=false
         if let definition=adoption.definitions.first {
             let update=f.program.evaluate(inputs:[definition.target:.string("creator-change")],
                 effectivePropertyValues:f.values,propertyRevision:0,targetFilter:definition.target,
@@ -565,9 +574,22 @@ import Foundation
             childFailures=plan.rejectedOwners.count+update.failures.count
             layers.commit(plan.layerPlan);f.program.finalizeLayerMutations(committing:true)
             childText=layers.snapshot().dynamicLayers.first{$0.id == SceneScriptLayerMutationBridge.layerID(for:definition.target)}?.text ?? "absent"
+            childRawSize=update.layerMutations.first?.pointSize ?? -1
+            childSize=layers.snapshot().dynamicLayers.first{$0.id == SceneScriptLayerMutationBridge.layerID(for:definition.target)}?.textStyle?.pointSize ?? -1
+            let partial=f.program.evaluate(inputs:[definition.target:.string("child-change")],
+                effectivePropertyValues:f.values,propertyRevision:0,targetFilter:definition.target,
+                frame:frame(3),userPropertiesJSON:f.userJSON)
+            partialSizeDirty=partial.layerMutations.contains{$0.fields.contains(.pointSize)}
+            retainedRawSize=partial.layerMutations.first?.pointSize ?? -1
+            let partialPlan=layers.preflightOwnerEffects(partial.ownerEffects)
+            childFailures += partialPlan.rejectedOwners.count+partial.failures.count
+            layers.commit(partialPlan.layerPlan);f.program.finalizeLayerMutations(committing:true)
+            retainedSize=layers.snapshot().dynamicLayers.first{$0.id == SceneScriptLayerMutationBridge.layerID(for:definition.target)}?.textStyle?.pointSize ?? -1
         }
         return ["status":status(created),"adopted":adoption.definitions.count,
             "creatorText":creatorText,"childText":childText,"childFailures":childFailures,"textDirty":textDirty,
+            "creatorSize":creatorSize,"childRawSize":childRawSize,"childSize":childSize,
+            "retainedRawSize":retainedRawSize,"retainedSize":retainedSize,"partialSizeDirty":partialSizeDirty,
             "healthy":layers.snapshot().dynamicLayers.contains{$0.text == "healthy-peer"},
             "rejections":result.admission.rejectedOwners.count,"dynamic":layers.snapshot().dynamicLayers.count]
     }
@@ -738,7 +760,8 @@ class PreparedTextCloneTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.directory = tempfile.TemporaryDirectory(prefix="mwx-prepared-text-")
         cls.addClassCleanup(cls.directory.cleanup)
-        binary = compile_vector_harness(Path(cls.directory.name), HARNESS, "prepared-text", preamble=PREAMBLE)
+        binary = compile_vector_harness(Path(cls.directory.name), HARNESS, "prepared-text", preamble=PREAMBLE,
+            extra_swift_sources=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",))
         execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
         cls.result = json.loads(execution.stdout)
 
@@ -820,12 +843,17 @@ class PreparedTextCloneTests(unittest.TestCase):
     def test_explicit_dynamic_text_setters_commit_or_rollback_with_the_owner(self) -> None:
         self.assertEqual(self.result["textAccepted"], {"status": "ok", "adopted": 1,
             "creatorText": "creator-change", "childText": "child-change", "childFailures": 0,
-            "textDirty": True, "healthy": True, "rejections": 0, "dynamic": 2})
+            "textDirty": True, "healthy": True, "rejections": 0, "dynamic": 2,
+            "creatorSize": 1, "childRawSize": float.fromhex("0x1.fffffffffffffp+1023"), "childSize": 1024,
+            "retainedRawSize": float.fromhex("0x1.fffffffffffffp+1023"), "retainedSize": 1024,
+            "partialSizeDirty": False})
         for name, status in (("textParentThrow", "exception"), ("textLateDiscard", "ok")):
             with self.subTest(name=name):
                 self.assertEqual(self.result[name], {"status": status, "adopted": 0,
                     "creatorText": "absent", "childText": "absent", "childFailures": 0,
-                    "textDirty": False, "healthy": True, "rejections": 0, "dynamic": 1})
+                    "textDirty": False, "healthy": True, "rejections": 0, "dynamic": 1,
+                    "creatorSize": -1, "childRawSize": -1, "childSize": -1,
+                    "retainedRawSize": -1, "retainedSize": -1, "partialSizeDirty": False})
 
     def test_birth_removed_with_its_creator_is_not_adopted(self) -> None:
         self.assertEqual(self.result["sameFrameCreatorDeletion"], {"rejections": 0,

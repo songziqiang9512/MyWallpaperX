@@ -198,16 +198,16 @@ void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fix
         "layer.origin=new Vec3(7,8,9);"
         "layer.scale=new Vec3(2,4,6);"
         "layer.angles=new Vec3(10,20,30);"
-        "layer.visible=false;layer.text='~';layer.font=replacement;"
+        "layer.visible=false;layer.text='~';layer.font=replacement;layer.pointsize=99;"
         "if(layer.origin.x!==7||layer.origin.y!==8||layer.origin.z!==9||"
         "layer.scale.x!==2||layer.scale.y!==4||layer.scale.z!==6||"
         "layer.angles.x!==10||layer.angles.y!==20||layer.angles.z!==30||"
-        "layer.visible!==false||layer.text!=='~')"
+        "layer.visible!==false||layer.text!=='~'||layer.pointsize!==99)"
         "throw new Error('authored peer read-your-writes');"
-        "let forgedFontRejected=false,pointSizeRejected=false;"
+        "let forgedFontRejected=false,readonlySizeRejected=false;"
         "try{layer.font='replacement';}catch(error){forgedFontRejected=true;}"
-        "try{layer.pointsize=99;}catch(error){pointSizeRejected=true;}"
-        "if(!forgedFontRejected||!pointSizeRejected||"
+        "try{layer.size=new Vec2(1,2);}catch(error){readonlySizeRejected=true;}"
+        "if(!forgedFontRejected||!readonlySizeRejected||"
         "typeof layer.alpha!=='number'||typeof layer.solid!=='boolean')"
         "throw new Error('unsupported authored fields opened');"
         "return value;}";
@@ -233,7 +233,8 @@ void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fix
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT;
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE;
     fixture->failures += mwx_fixture_layer_mutation(
         fixture->authored_peer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
         0, authored_peer_fields, 17, 0, "~",
@@ -255,6 +256,7 @@ void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fix
             authored_peer_mutation.angles[1] == 20 &&
             authored_peer_mutation.angles[2] == 30 &&
             authored_peer_mutation.visible == 0 &&
+            authored_peer_mutation.point_size == 99 &&
             strcmp(authored_peer_mutation.font, "fonts/replacement.ttf") == 0,
         "authored peer staged values", fixture->diagnostic
     );
@@ -264,7 +266,7 @@ void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fix
         "return layer.origin.x===1&&layer.origin.y===2&&layer.origin.z===3&&"
         "layer.scale.x===1&&layer.scale.y===1&&layer.scale.z===1&&"
         "layer.angles.x===0&&layer.angles.y===0&&layer.angles.z===0&&"
-        "layer.visible===true&&layer.text===''?1:0;}";
+        "layer.visible===true&&layer.text===''&&layer.pointsize===32?1:0;}";
     fixture->authored_observer = mwx_scene_quickjs_owner_create(
         fixture->domain, authored_observer_source, strlen(authored_observer_source),
         57, fixture->diagnostic, sizeof(fixture->diagnostic)

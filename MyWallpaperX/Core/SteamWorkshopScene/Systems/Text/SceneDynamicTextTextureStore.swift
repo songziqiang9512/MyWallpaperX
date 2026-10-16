@@ -327,7 +327,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let pointSize = dynamicFields.contains(.pointSize)
             ? scalarValue(
                 snapshot?[.text(layerID: layer.id, field: .pointSize)]?.value
-            ).map { Float(max(1, min($0, 1_024))) } ?? authoredStyle.pointSize
+            ).flatMap(SceneTextDescriptor.renderedPointSize) ?? authoredStyle.pointSize
             : authoredStyle.pointSize
         let color = dynamicFields.contains(.color)
             ? colorValue(

@@ -16,6 +16,20 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+<a id="text-layer-pointsize-setter"></a>
+
+## Text layer pointsize setter（2026-10-16，有界已实施）
+
+目标是让文字层同一回调内的 `pointsize` 与 `text` 写入共同进入现有事务，使字号设置不再提前中止合法媒体文字回调。[公开 ITextLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ITextLayer.html)声明Number且未标readonly；真实中性投影只证明存在这些member写入，未读作者表达式，不推断其字号公式或完整视觉。
+
+原C layer/value owner给thisLayer与lookup handle同一可写表面：复用mutation的point_size载荷，新增明确字段位；authored staging/baseline和dynamic rollback journal都保留raw值，同回调read-your-writes、跨回调current及partial merge按字段位处理。Swift桥投影至原`.text(.pointSize)` scalar与dynamic definition，再沿settled snapshot→原CoreText/source publication→既有graph/唯一compositor消费；不只改raw style，不新增VM、文字store、cache、clock或生命周期owner。
+
+setter准入复用现scalar consumer的有限Double域，0/1025与有限极大值保raw，不能把create的1...1024 profile套到setter。动态descriptor与CoreText渲染值沿同一`SceneTextDescriptor`数值归一职责限制为1...1024后再转Float；原Store clamp迁入该owner复用，raw current与rendered style分域，不泄露Float.infinity。constructor原范围保持，以上是本项目既有安全消费规则，不宣称官方数值边界。
+
+非Number/非有限、非text、stale/value-only、未授权或冲突目标沿原最小owner包拒绝；字号与文字、peer mutation、storage/事件共同preflight、commit/discard，不能只保先写字号或吞后写异常。已有Scalar/property/Timeline及其他typed producer仍走原优先级与固定点，不以新的样式字段覆盖已settled结果；退休撤原schema/资源，失败保previous-current，暂停不增timer或媒体派发路径。
+
+C ABI按职责组织：HostTypes保存既有opaque handles、DTO、字段枚举与callback typedef，原SceneQuickJS.h保domain/owner函数声明并相对include；载荷与执行owner不变，不复制声明或仅为行数增加wrapper。最近真C→ABI→Swift验收覆盖thisLayer/lookup、同回调bundle、跨回调、partial/rollback、动态text clone、极端有限/非法类型、竞争producer及stale/退休；具体门与原包/独立输入结果只归[限定记录](../../history/text-layer-pointsize-setter-2026-10-16.md)，门与设计批准不代替实际输出。真实标题可见不外推artist文字、右黑块、全部媒体/字体parity或性能收益。
+
 <a id="vector-mixed-dimension-arithmetic"></a>
 
 ## Vec3 与 Vec2 混合算术（2026-10-16，限定实现已接）

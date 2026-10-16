@@ -75,6 +75,12 @@ extension SceneScriptDynamicLayerRuntime {
                 .string(mutation.font)
             ))
         }
+        if mutation.fields.contains(.pointSize) {
+            values.append((
+                .text(layerID: mutation.layerID, field: .pointSize),
+                .scalar(mutation.pointSize)
+            ))
+        }
         values += mutation.effectVisibilities.sorted { $0.key < $1.key }.map {
             (.effectVisibility(layerID: mutation.layerID, effectIndex: $0.key), .bool($0.value))
         }
@@ -85,7 +91,7 @@ extension SceneScriptDynamicLayerRuntime {
     /// not make them a new graph topology. Only identity/order or the
     /// structural resource lane or immutable creation size invalidates the renderer's prepared
     /// descriptor projection. Position, scale, angles, visibility, alpha,
-    /// color, text and font are applied to the cached projection per frame.
+    /// color, text, font and point size are applied to the cached projection per frame.
     static func dynamicTopologyChanged(
         currentOrder: [Int],
         currentLayers: [Int: SceneRenderDescriptor.Layer],
@@ -192,6 +198,13 @@ extension SceneScriptDynamicLayerRuntime {
         case let .text(layerID, .color) where layerID == layer.id && layer.contentKind == "text":
             .init(target: target, valueType: .vector3,
                   authoredValue: vector3(layer.textStyle?.colorRGB, fallback: [1, 1, 1]))
+        case let .text(layerID, .pointSize)
+            where layerID == layer.id && layer.contentKind == "text"
+                && layer.textStyle != nil:
+            .init(
+                target: target, valueType: .scalar,
+                authoredValue: .scalar(Double(layer.textStyle?.pointSize ?? 32))
+            )
         default:
             nil
         }

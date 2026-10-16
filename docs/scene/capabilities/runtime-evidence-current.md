@@ -40,6 +40,7 @@
 | Sound volume字段脚本 | [pure后验](../history/sound-script-control-2026-10-12.md#sound-volume-script)与[mixed后验](../history/sound-script-control-2026-10-12.md#sound-mixed-volume)分列原包/派生App、暂停冻结刷新、真实增益及normal面板保存/重开/reset单session，独立原包实图保持；366冷启动超时、deferred实际组合/故障Session取消、多surface与听感保留，无性能结论。 |
 | OGG Sound平台格式 | [资源级后验](../history/sound-script-control-2026-10-12.md#sound-ogg-native)：真实915音频与自有OGG经原Program/Registry ready、时钟、命令及退休，坏文件/WAV peer分验；完整366冷启动120秒未ready，原包声音/画面未证，独立314实图保持，无性能或听感/parity结论。 |
 | Vec3/Vec2混合算术 | [缺维保留后验](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)：固定官方24case、真实VM与原包1128非有限首错消失分列；两次属性热改同窗口，原包保owner-executed、位置motion未直接观测，独立314实图保持；保layer544作者异常及光束/封面余项，无性能或整样本结论。 |
+| 文字handle字号setter | [pointsize限定记录](../history/text-layer-pointsize-setter-2026-10-16.md)：213同媒体基线→候选首错消失，原字号/文字typed链与真实标题换词可见；两层为主要文字/阴影，artist仅输入，独立314实图保持。非面板新能力，不销右黑块或全部媒体/字体parity，无性能结论。 |
 | 连续Puppet拖动资格 | [U40 fresh记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)：首轮骨/GPU写入、释放异常及后两轮失效已对应；native尝试未资格，候选host依赖未动态归因，官方载体2/2资格失败后停止且未发出impulse，参数/响应unknown，没有交互修复或性能结论。 |
 | 视频用户纹理 | [U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
 | 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343原24目标中21执行、20层完整末effect合成；其余目标/3226末段保留，独立376实图及78节点通过。不计性能或整样本完成。 |
