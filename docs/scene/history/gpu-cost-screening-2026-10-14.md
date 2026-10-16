@@ -142,3 +142,15 @@ App exit0、无timeout、测量窗failedFrames0，停止后surface1→0且gpuDra
 公开导出得到84行counter定义，但derived metal-gpu-counter-profile为0行；这不能推出raw采集为空。为核raw counter与shader inventory的联合导出体量失控，root在1,089,261,997B时精确SIGINT；工具退出1并删除partial。已见loaded shader清单只说明pipeline加载，不代表执行；raw完整行数、值及counter/device/time/target关联均unavailable。最少schema不等于小结果，此后停止重导出/重录，不继续全量解析或以空派生表推断瓶颈。没有取得texture/filter、ALU、LLC/MMU/带宽限制资格，不据此写shader优化或认领GPU/能耗收益。
 
 模板SHA `bf207b62…`、原始run身份、完成的小型XML、GUI转录与资格/停止receipt归`.artifacts/tmp/native-gpu-counters-20261015/`。本轮trace正常关闭、不保存显示状态，owned Instruments正常退出；既有Xcode20658/Replay64627未操作。原recording压缩校验后按归属去掉展开包；唯一归档超promotion单包限额且现有cache已满，保任务目录、不扩预算或删除未知材料。状态仅`PARTIAL_TIMING_ONLY_STOP_NO_SECOND_RECORD`；普通image片元高成本与GPU专项仍开放，执行回现役卡。
+
+<a id="inactive-stage-copy-screen"></a>
+
+## 关闭stage的透传复制资格（2026-10-16）
+
+复用动态默认材质包289的短Debug Host窗口：113提交帧、7 copy/frame共791次，1027×2048 RGBA16F合13,309,657,088逻辑字节。生产GraphExecutor的activation-passthrough固定换pair成员，7个visibility-disabled单material stage逐项闭合；截图走texture→buffer且不计入这个census，但与计时窗相邻/相交，因此原GPU p50不能认作无诊断基线。5次source capture未证冗余。
+
+唯一候选是113的两个相邻inactive尾stage A→B→A；无FBO/history/compose/特殊引用且最终只消费尾输出。既有graph identity可重包同physical atom，但当前pairStep及准备守卫要求真实输入/输出成员一致；只删copy会发布未写B，不能实施。此项不重启旧capture cache，也未加入动态pair规划或另一member映射。
+
+一次独立短筛逐字冻结生产resource encoder/Census，M4上同queue、两个private RGBA16F target、同一非均匀前置写；A保两copy、B无copy，20对预热后3块各64对交替。192配对增量中位0.568375ms，三块0.56415/0.57667/0.56360ms，最大块中位漂移0.005417ms，满足预登记信号门。前后每次16,826,368字节读回差0且phase内容不同；384次生产copy、6,461,325,312字节精确，源无漂移，独立复算一致。
+
+测量块仅0.301秒、helper总0.65秒，VM进程仍存在；这是独立机制信号，不能从原App 12.445ms相减，既非普通App收益也非收益上界。未改产品、未做正式性能验收；若以后有足够覆盖收益，再沿[D12](../roadmap/batch2/copy-pass-unification-design.md)设计原owner内合法alias与publication/取消/下一帧门，当前不为两copy扩大架构。限期必要材料：`.artifacts/scene-evidence/runs/inactive-stage-copy-screen-20261016/`。

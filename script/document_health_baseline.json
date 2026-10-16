@@ -221,8 +221,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 47,
-      "bytes": 10031
+      "lines": 48,
+      "bytes": 10559
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -1246,6 +1246,15 @@
       "owner": "scene-script-property-input",
       "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "8227da82d504b4d0a69e36f6ee91b85bed5692764255c3cde19409496c4ca81f",
+      "after": "795bf85c1f7332a449769f3ece85ec76c942ccd2da47dfdb1ba48e89f52f4080",
+      "owner": "scene-performance-convergence",
+      "reason": "关闭stage的真实copy caller与一次独立GPU信号只作有界资格，记录无App收益及设计成本停止边界，不新增执行campaign。",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#inactive-stage-copy-screen"
     }
   ]
 }
