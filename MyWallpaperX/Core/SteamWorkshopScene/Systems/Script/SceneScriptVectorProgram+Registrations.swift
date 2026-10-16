@@ -57,7 +57,8 @@ extension SceneScriptVectorProgram {
             let layerID: Int
             switch binding.definition.target {
             case .camera(.origin):
-                layerID = binding.owner.layerID
+                guard let sourceLayerID = binding.owner.layerID else { return nil }
+                layerID = sourceLayerID
             case let .layer(value, _), let .text(value, _), let .particle(value, _),
                  let .effectConstant(value, _, _, _),
                  let .materialConstant(value, _, _, _),

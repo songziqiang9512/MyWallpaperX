@@ -280,23 +280,23 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         var valuePublishingTargets: Set<SceneDynamicTarget> = []
         var requiresDomainReconstruction = false
         for (binding, target, authored, properties) in candidates {
-            let layerID: Int
+            let effectNames: [String?]
             switch target {
+            case .scene(.bloomStrength):
+                effectNames = []
             case let .effectConstant(value, _, _, _), let .layer(value, _),
                  let .text(value, .pointSize), let .particle(value, _):
-                layerID = value
+                guard let layer = descriptor.layers.first(where: { $0.id == value }) else {
+                    if requestedTargets.contains(target) {
+                        failures[target] = .invalidArgument("SceneScript owner layer identity unavailable")
+                    }
+                    continue
+                }
+                effectNames = layer.effects.map(\.name)
             default:
                 continue
             }
-            guard requestedTargets.contains(target),
-                  let layer = descriptor.layers.first(where: { $0.id == layerID }) else {
-                if requestedTargets.contains(target) {
-                    failures[target] = .invalidArgument(
-                        "SceneScript owner layer identity unavailable"
-                    )
-                }
-                continue
-            }
+            guard requestedTargets.contains(target) else { continue }
             guard !binding.source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 failures[target] = .invalidSource
                 continue
@@ -317,7 +317,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                       source: binding.source,
                       target: target,
                       valueType: .scalar,
-                      effectNames: layer.effects.map(\.name),
+                      effectNames: effectNames,
                       hasCurrentAnimation: timelineTargets.contains(target),
                       generation: generation,
                       budget: budget,

@@ -553,13 +553,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8f4a4c7a9429934d34c5b78e80cff7fc1547373e286f5145d5a610687aa74fc6",
+        "sourceSHA256": "6477cb28c59679d0bb02f7ef110f7c8471e5e161dfc085239738f062a6849676",
         "method": "document_registry --audit + document_health --check",
-        "scope": "源输出域设计、已验范围、开放余项与唯一执行队列的导航同步",
-        "limitations": "文档职责与导航，不代表全样本、性能、HDR或官方parity验收"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3a413633299d8650e0e369fe11fe301597baf4d8f2a574ee41514cd8706b9c80",
+        "sourceSHA256": "68fc91a08d07c4ed792cf67b3c4e340e3a7369c5e908c33e658a2e45af603642",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
-        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {
@@ -749,10 +749,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f63039cad1488ea695d8846f3a70ba8a3f784307fc2b56487362538af7103ca0",
+        "sourceSHA256": "80af91941e41f134c801913070a51f6e5b6f53fab9e621ce7434ac946e469c18",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
-        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {
@@ -3212,10 +3212,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a40af8f146f76d134b8f8cd664d43aac458ec96b5daf235e4c9fce05a55d78fb",
+        "sourceSHA256": "2ca753663fe59be85efde7955692064d2c98e38043563bc94b05240848046e78",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
-        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {
@@ -3260,10 +3260,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "79637d01f8ffd41b665779ef72ab2589a2341862806285ca4bcbd9bfed3575e6",
+        "sourceSHA256": "647720483c01984d4865ef443f14cc8059c8f75ed5bf145d5adf1a01660c1ba5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {
@@ -3302,10 +3302,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3ff7052748d3674bfd428f96be8ded2b74b982f03a78a0f63ac6429c4a1da454",
+        "sourceSHA256": "4810a0f1256bc1ff2c93cbdc1b44a38b1cd7d54259104c50b7628e81b17901e3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "ordinary LDR general bloomstrength Timeline沿原IR/Program/Playback/事务/Bloom consumer有界实施；原始seed与启动current分域，G8退出静态缺口、scene Script G9保留，受控光晕/381与独立314证据分列",
-        "limitations": "仅复核本片合同与已有中性/执行收据；未读作者Script body，不作381同相A/B、官方数值/完整视觉parity、HDR Timeline或scene Script支持、音频与性能收益结论；静态审计其他项未fresh运行复验。"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {
@@ -3316,10 +3316,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d30dbda1149b53f01645dd5d944df6af922d34e70de5c98b4465358f0de1bbb6",
+        "sourceSHA256": "d8359b15db3108bb1220f1ff04f2f5936d122e011a0d70c6d179fe8002cef544",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步现代MDLA事件格式、原PlaybackRuntime到nested Bool派发及335事件接续的限定验收；旧335准备STOP退出，参考来源与当前能力分列。",
-        "limitations": "签名Debug与335/独立379实际运行仅覆盖记录身份；其他值族/Timeline/反向mirror-single/首末帧、多圈、任意sibling GPU、官方精确相位与性能未验。其他段未作fresh复验，既有具体视觉余项保持。"
+        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
+        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
       }
     },
     {

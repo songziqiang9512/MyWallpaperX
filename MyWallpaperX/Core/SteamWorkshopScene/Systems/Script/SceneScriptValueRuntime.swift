@@ -2,8 +2,8 @@ import Foundation
 
 nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
-    /// Authored source identity, resolved once; a camera target retains its layer owner.
-    let layerID: Int
+    /// Scene owners have no layer; layer and camera owners retain their real source identity.
+    let layerID: Int?
     let generation: UInt64
     let puppetAnimationIdentity: ScenePuppetAnimationIdentity?
     let hasAudioRegistration: Bool
@@ -67,7 +67,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     /// Swift lifetime. Adopting a child never mutates its VM namespace or state.
     init(
         domain: SceneScriptQuickJSDomain, handle: OpaquePointer,
-        target: SceneDynamicTarget, layerID: Int,
+        target: SceneDynamicTarget, layerID: Int?,
         valueType: SceneDynamicValueType, generation: UInt64,
         budget: SceneScriptScalarBudget,
         cameraOriginDepthRange: ClosedRange<Double>? = nil,
@@ -259,8 +259,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         }
         let evaluation = validatedEvaluation(
             value: publishedValue,
-            mutations: callbackMutations,
-            layerID: layerID
+            mutations: callbackMutations
         )
         // A route that ran this `init` ahead of the frame evaluation (cursor)
         // carries its value across, so the first `update` still receives it.
@@ -401,7 +400,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return validatedEvaluation(
             value: publishedValue,
             mutations: callbackMutations,
-            layerID: layerID,
             scalarValueFollowsInput: scalarValueFollowsInput
         )
     }
@@ -409,7 +407,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private func validatedEvaluation(
         value publishedValue: SceneDynamicValue,
         mutations: SceneScriptMediaEventMutations,
-        layerID: Int,
         scalarValueFollowsInput: Bool = false
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         guard Self.acceptsScalarValue(publishedValue, for: target) else {
@@ -689,7 +686,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             // event has no return value; its staged Bool is consumed by the
             // ordinary value evaluation before the shared frame commit.
             return validatedEvaluation(
-                value: .bool(false), mutations: mutations, layerID: event.layerID
+                value: .bool(false), mutations: mutations
             ).map { _ in mutations }
         }
     }
@@ -774,6 +771,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         if case .layer(_, .volume) = target {
             return (0 ... 1).contains(value)
         }
+        if target == .scene(.bloomStrength) { return Float(value).isFinite }
         if case .materialConstant = target {
             return Float(value).isFinite
         }

@@ -695,7 +695,8 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
             disabledTargets: &disabledTargets, retiredTargets: &retiredTargets
         )
         let removed = Set(bindings.compactMap { owner in
-            owner.layerID < 0 && retiredTargets.contains(owner.target) ? owner.target : nil
+            guard let layerID = owner.layerID else { return nil as SceneDynamicTarget? }
+            return layerID < 0 && retiredTargets.contains(owner.target) ? owner.target : nil
         })
         guard !removed.isEmpty else { return outcomes }
         bindings.removeAll { removed.contains($0.target) }

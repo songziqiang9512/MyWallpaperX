@@ -49,6 +49,7 @@
 | RopeTrail参数资格STOP | [固定客户端自有对照](../history/rope-trail-profile-qualification-2026-10-15.md)：20图有界观察；负值处理/world语义仍unknown，无产品变化、真实十层恢复或parity结论。 |
 | Puppet默认动态实例 | [prepared默认几何](../history/prepared-puppet-default-instances-2026-10-15.md)：原model/mesh与独立实例、真实shadow触发及退休反例；动画/effect配置、composition、完整视觉与性能未计完成。 |
 | Puppet角色组装 | <a id="e-2026-10-11-puppet-reference"></a>[独立reference补接](../history/puppet-reference-pose-2026-10-11.md)：三个原包主体恢复，旧无reference动态/静态反例保留；287 effect回退与288脚本/片区余项单列，不记整样本或官方数值parity。 |
+| Scene Bloom strength Script | [无layer的原VM到Bloom](#e-2026-10-16-general-bloom-strength-script)：自有零/正hold实证光晕，213原producer与非零音频缓冲已执行；原脚本后继非零数值、右黑块及性能未验。 |
 | Puppet、颜色与复审 | <a id="e-2026-10-07-puppet-animation-control"></a>[动画层脚本控制](../history/puppet-animation-control-2026-10-07.md)、<a id="e-2026-10-07-puppet-animation-visibility"></a>[隐藏恢复与共享位置](../history/puppet-animation-visibility-2026-10-07.md)、<a id="e-2026-10-07-signal-color"></a>[颜色与数据边界](../history/signal-color-classification-2026-10-07.md)、 <a id="e-2026-10-07-puppet-bone-alpha"></a>[骨骼alpha](../history/puppet-bone-alpha-2026-10-07.md)、 <a id="e-2026-10-07-puppet-static-weight"></a>[权重/失败发布](../history/puppet-static-weight-2026-10-07.md)、 [身体网格](../history/puppet-unused-vertices-2026-10-07.md)、[提交复审](../history/committed-range-review-repairs-2026-10-07.md)；<a id="e-2026-10-16-puppet-animation-layer-lookup"></a>同parent动画层[lookup限定验收](../roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup)：name/index与异目标有CPU门，GPU仅自有single-parent/self-index0的stop→timer play；335原包的资源事件与String-self接续已由[后继限定证据](#e-2026-10-16-puppet-animation-events)关闭旧准备STOP；任意sibling GPU、完整样本和性能仍未验。普通14天主包与长期最小aux失败分别在`.artifacts/scene-evidence/runs/puppet-animation-layer-lookup-20261016/`、`puppet-auxiliary-trailer-20261016/`。3708363772 layer221的fresh invalidSource仅作准备诊断参考：合法Bool consumer，但唯一Identifier/private导出没有受支持named callback绑定，无现可调度producer，与构造门一致；顶层/private副作用仍unknown，无已资格画面缺陷，移出待修但不称已修。 |
 | 自定义源材质 | <a id="e-2026-10-08-source-material"></a>[源Program与材质属性证据](../history/source-material-entry-2026-10-08.md)：833静态双纹理、3样本中性RGB、原/clone脚本颜色独立target、360/361的0–1 Alpha、366 mixed色及官方保Bool显隐错配修复均有有界运行；原366/307颜色热切同window。[非中性共享源后继](../history/source-material-entry-2026-10-08.md#动态共享源与颜色范围后继)恢复3601964477彩色频谱、64消费者及无重建Alpha热切，三卡有界官方对照；[无slot0采样源](../history/source-material-output-domain-2026-10-15.md)补输出域/输入分离，同输入Metal白转蓝，真实active未知用途仍拒绝；named等余项仍按实际消费者验证 |
 | 混合纹理输入ABI | [工件合同与实际合成](../history/mixed-provider-color-abi-2026-10-08.md)：半透明named颜色进入ordinary材质，原307 effect2恢复GPU/最终合成；旧graph门同30项失败保留，不计整样本正确率 |
@@ -82,6 +83,18 @@
 生产reader门31run=30 PASS/1既有资源skip，另实际原MDL解析通过；PlaybackRuntime27项通过，最后排序/预算修订仅补6事件门；真实C→Swift18项通过。最后分配异常guard另经真实C闭包编译和静态独审，附加standalone carrier异常、低heap未到达，不能称新增OOM行为PASS。暂不可用恢复、同/跨cadence拒绝重试、propertyRefresh不消费、ABA、普通owner及更大合法批次等边界保留测试；不承诺任意JS heap回滚。
 
 普通14天证据在 `.artifacts/scene-evidence/runs/puppet-animation-events-20261016/`，长期最小原MDL仍保在auxiliary-trailer包。原时间Float单位、官方精确相位、非Puppet/其他值族/Timeline事件、反向/mirror/single、首末帧和一次多圈未开放；完整样本、HDR/SDR全矩阵及性能收益未验。旧335资源STOP退出队列，不因此关闭其他Puppet能力或视觉余项。
+
+<a id="e-2026-10-16-general-bloom-strength-script"></a>
+
+### E-2026-10-16-GENERAL-BLOOM-STRENGTH-SCRIPT · Scene scalar到现有Bloom
+
+2026-10-16工作树、签名Debug executable `f747a9124e2129713adef8763cd9202353ac6d45b4660e4908c1479f336ac11b` / dylib `f16008510226b7a8650bf0783269af427ac2aa22e3335b4ce6409e5415788304`，构建27.821秒、4327输入无漂移。准入/无layer身份及完整owner bundle拒绝归[D4](../roadmap/batch2/script-component-api-design.md#general-bloom-strength-script)，不升级IScene setter或HDR。
+
+新focused门1method/53行为事实PASS、60.390秒、103输入无漂移，真实C→ScalarProgram→typed snapshot→生产BloomConfiguration.resolving；三组自有改名/等价音频输入输出1.2及后帧1.25。错误wrapper/path/HDR/Timeline/重复、Float越界/坏返回恢复、borrowed写与拓扑、init/media/propertyRefresh整包拒绝、peer/mirror/stale/退休均有反例；首轮测试载体properties串和lookup index错误保FAIL，产品未为过门调整。代码独审通过，实际声明另核原始日志与图。
+
+同App自有静态白块只改变strength Script，在engine.runtime4前后分别hold0与1.36：571536本体像素零变化，152812外部像素产生光晕，峰值63/255。root已查看正强度图，零强度图由像素门与独审核；这是不同simulation phase的静态内容hold对照，不是官方数值/同相位golden。原2134765860/default/mute12秒加现有native PCM fixture，scene callback首值0、generation2的非零AudioBuffers刷新及typed0发布已证；74条graph GPU完成，实图房间/时钟/柜顶频谱可见。作者后继非零结果未读回，不称精确audio/Bloom ROI、外部音源或右黑块修复。独立3147346398/default/mute12秒的4条graph完成，壁炉/反射/时钟/频谱与紫音符实图保留。三run均exit0、输入无漂移、进程组退出、surface1→0且gpuDrained。
+
+普通14天证据 `.artifacts/scene-evidence/runs/general-bloom-strength-script-20261016/` 保存日志、身份、像素对照、两原包after图及重点门；当前原包只读，运行副本/HOME/cache在归档核验后清。原G9的普通LDR producer缺口退出静态审计；HDR、其他general fields/竞争wrapper、全样本/多屏/官方parity和性能均未验，213旧具体视觉余项仍归队列。
 
 <a id="batch2-frozen-records"></a>
 

@@ -90,7 +90,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 172159
+      "bytes": 172367
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -117,8 +117,8 @@
       "bytes": 346017
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 141,
-      "bytes": 42616
+      "lines": 154,
+      "bytes": 45191
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -145,8 +145,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 415,
-      "bytes": 108346
+      "lines": 417,
+      "bytes": 109055
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 422,
-      "bytes": 108955
+      "lines": 435,
+      "bytes": 112779
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -221,8 +221,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 46,
-      "bytes": 9408
+      "lines": 47,
+      "bytes": 10109
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -233,12 +233,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 50,
-      "bytes": 12666
+      "lines": 49,
+      "bytes": 11811
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 138,
-      "bytes": 27700
+      "lines": 139,
+      "bytes": 27762
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1159,30 +1159,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "375ed7ea4610d0601b8edc811e535c6b1337a105a4f486cf9037a6b976cc6039",
+      "after": "f9eddf433a72b42d6dbf3d6a539308e1c3b89b7b6542c477a1b195f157213dc2",
+      "owner": "scene-general-bloom-script",
+      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f4936b858aa615d9d431f478037a836a4632e409972d09c375acea5042afb4c9",
-      "after": "320142a76d9967cd6ab57889903741607c761aa85244b242a1010a99016fdbd3",
-      "owner": "scene-puppet-animation-events",
-      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
+      "before": "320142a76d9967cd6ab57889903741607c761aa85244b242a1010a99016fdbd3",
+      "after": "6f13f149cfaee303bcb5907ff8370cf66cfac46a0e5719cebc2e47d55d7f9f7c",
+      "owner": "scene-general-bloom-script",
+      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "2e331814b00a1896ed81d6891878bbe67dcd8de019cb6d841bd2f6bd6fe120d5",
-      "after": "3c39c4d868e3cd02f3e0b06f25ed94699242d3fdf5c137696e17085fc7090b0a",
-      "owner": "scene-puppet-animation-events",
-      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
+      "before": "3c39c4d868e3cd02f3e0b06f25ed94699242d3fdf5c137696e17085fc7090b0a",
+      "after": "4054d030d8565943e1dcf608b54891668c22fefd63a8fcd69f94bba9c616d9e9",
+      "owner": "scene-general-bloom-script",
+      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "2e185b7b61eb07fdad0b3b4825b6479612bdbc46302aaf8963a10e13208c9eaa",
-      "after": "bbbef2ca8e9c9083d382ede1ffdef865a9f0af969128926bc5ee7356cbd2f90e",
-      "owner": "scene-puppet-animation-events",
-      "reason": "新MDLA事件资源及唯一播放/owner事务合同、原包接续与剩余边界落入现有专题；替换旧STOP而不复制过程日志。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-animation-events"
+      "before": "bbbef2ca8e9c9083d382ede1ffdef865a9f0af969128926bc5ee7356cbd2f90e",
+      "after": "ba07db134aaea1bb4d85a183b93f78748c3ad26835848fb539525565b98c0b46",
+      "owner": "scene-general-bloom-script",
+      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "bcc7db42b4708655b40d1b9153adb3b2224024a81af6c839d57baacb729a0760",
+      "after": "85d5c885b0f2ee2f725ea27f2647482b43d848df053297ed2cf8f28897fa02e1",
+      "owner": "scene-general-bloom-script",
+      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "16a590f9aaefb0aa659b44dff5836598e4c8c15b30d2726b9e713926c27f4f3c",
+      "after": "d527972bc9577c6a7bc39309150c6fc925b12369bdfef052a87737778da71d7e",
+      "owner": "scene-general-bloom-script",
+      "reason": "普通LDR scene scalar的无layer身份/整包拒绝合同及限定运行落入原专题；已闭缺口退出审计，类型与CPU资格只保必要后继边界。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#general-bloom-strength-script"
     }
   ]
 }

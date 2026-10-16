@@ -917,7 +917,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         userPropertiesJSON: String
     ) -> [SceneScriptOwnerTeardownOutcome] {
         guard bindings.contains(where: {
-            layerIDs.contains($0.owner.layerID) && !retiredTargets.contains($0.definition.target)
+            guard let layerID = $0.owner.layerID else { return false }
+            return layerIDs.contains(layerID) && !retiredTargets.contains($0.definition.target)
         }) else { return [] }
         return SceneScriptOwnerLifecycleBridge.retire(
             owners: bindings.map(\.owner), layerIDs: layerIDs, frame: frame,

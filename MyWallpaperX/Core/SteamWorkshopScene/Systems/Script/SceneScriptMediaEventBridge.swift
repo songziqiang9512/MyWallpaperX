@@ -415,7 +415,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         owner: OpaquePointer,
         namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
-        layerID: Int,
+        layerID: Int?,
         ownerGeneration: UInt64,
         changedPropertiesJSON: String,
         scriptPropertiesJSON: String,
@@ -520,7 +520,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         owner: OpaquePointer,
         namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
-        layerID: Int,
+        layerID: Int?,
         ownerGeneration: UInt64,
         event: SceneScriptMediaThumbnailEventInput,
         frame: SceneScriptFrameInput,
@@ -575,7 +575,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         owner: OpaquePointer,
         namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
-        layerID: Int,
+        layerID: Int?,
         ownerGeneration: UInt64,
         event: SceneScriptMediaPlaybackEventInput,
         frame: SceneScriptFrameInput,
@@ -611,7 +611,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         owner: OpaquePointer,
         namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
-        layerID: Int,
+        layerID: Int?,
         ownerGeneration: UInt64,
         event: SceneScriptMediaPropertiesEventInput,
         frame: SceneScriptFrameInput,
@@ -681,7 +681,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         owner: OpaquePointer,
         namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
-        layerID: Int,
+        layerID: Int?,
         ownerGeneration: UInt64,
         event: SceneScriptMediaTimelineEventInput,
         frame: SceneScriptFrameInput,
@@ -719,7 +719,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         owner: OpaquePointer,
         namedAnimationTargets: [SceneDynamicTarget] = [],
         target: SceneDynamicTarget,
-        layerID: Int
+        layerID: Int?
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         let materialFunctions: [SceneScriptMaterialFunctionMutation]
         switch SceneScriptEffectHandleBridge.mutations(
@@ -771,6 +771,19 @@ nonisolated enum SceneScriptMediaEventBridge {
         switch SceneScriptPuppetBoneMutationBridge.mutations(owner: owner) {
         case let .success(value): puppetBones = value
         case let .failure(failure): return .failure(failure)
+        }
+        // A scene return-only owner cannot publish any borrowed-handle or
+        // topology side effect, including effects staged by init/event lanes.
+        if layerID == nil {
+            guard target == .scene(.bloomStrength),
+                  materialFunctions.isEmpty, animations.isEmpty, layers.isEmpty,
+                  mediaPlaybackCommands.isEmpty, textureAnimationCommands.isEmpty,
+                  puppetBones.isEmpty, particlePlaybackCommands.isEmpty,
+                  puppetAnimationCommands.isEmpty,
+                  mwx_scene_quickjs_owner_puppet_animation_registration_count(owner) == 0,
+                  mwx_scene_quickjs_owner_pending_layer_topology_identity(owner) == 0 else {
+                return .failure(.invalidArgument("scene owner produced side effects"))
+            }
         }
         return .success(.init(
             materialFunctions: materialFunctions,

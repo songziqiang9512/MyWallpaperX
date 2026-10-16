@@ -45,10 +45,14 @@ nonisolated enum SceneScriptEffectHandleBridge {
 
     static func mutations(
         owner: OpaquePointer,
-        layerID: Int
+        layerID: Int?
     ) -> Result<[SceneScriptMaterialFunctionMutation], SceneScriptScalarRuntimeFailure> {
         var result: [SceneScriptMaterialFunctionMutation] = []
         let count = mwx_scene_quickjs_owner_material_function_count(owner)
+        guard count > 0 else { return .success([]) }
+        guard let layerID else {
+            return .failure(.invalidArgument("scene owner produced material mutations"))
+        }
         for index in 0..<count {
             var effectIndex: UInt32 = 0
             var name = [CChar](repeating: 0, count: 128)

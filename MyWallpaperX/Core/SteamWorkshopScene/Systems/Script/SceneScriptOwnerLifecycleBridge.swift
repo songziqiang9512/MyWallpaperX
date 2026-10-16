@@ -61,7 +61,8 @@ nonisolated enum SceneScriptOwnerLifecycleBridge {
         retiredTargets: inout Set<SceneDynamicTarget>
     ) -> [SceneScriptOwnerTeardownOutcome] {
         owners.compactMap { owner in
-            guard layerIDs.contains(owner.layerID), !retiredTargets.contains(owner.target) else { return nil }
+            guard let layerID = owner.layerID, layerIDs.contains(layerID),
+                  !retiredTargets.contains(owner.target) else { return nil }
             disabledTargets.insert(owner.target)
             let properties = propertiesByTarget[owner.target] ?? [:]
             let outcome = owner.teardown(

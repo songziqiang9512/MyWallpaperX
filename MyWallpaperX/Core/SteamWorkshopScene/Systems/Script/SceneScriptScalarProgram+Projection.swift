@@ -94,6 +94,22 @@ nonisolated extension SceneScriptScalarProgram {
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>
     ) -> SceneDynamicTarget? {
+        if binding.owner.kind == .scene {
+            let target = SceneDynamicTarget.scene(.bloomStrength)
+            guard binding.owner.objectIndex == nil, binding.owner.objectID == nil,
+                  binding.owner.effectIndex == nil, binding.owner.effectID == nil,
+                  binding.owner.passIndex == nil, binding.owner.passID == nil,
+                  binding.owner.animationLayerIndex == nil, binding.owner.animationLayerID == nil,
+                  binding.targetPath == [.key("general"), .key("bloomstrength")],
+                  binding.valueType == .number,
+                  let authored = binding.authoredValue?.numberValue,
+                  SceneScriptValueOwner.acceptsScalar(authored, for: target),
+                  binding.wrapperKeys == ["script", "value"],
+                  binding.properties.isEmpty, binding.userPropertyKey == nil,
+                  descriptor.camera.bloom.hdr == nil,
+                  !timelineTargets.contains(target) else { return nil }
+            return target
+        }
         guard binding.valueType == .number,
               let authored = binding.authoredValue?.numberValue,
               authored.isFinite,

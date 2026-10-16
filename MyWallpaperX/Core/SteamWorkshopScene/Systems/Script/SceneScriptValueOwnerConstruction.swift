@@ -66,10 +66,21 @@ extension SceneScriptValueOwner {
         if valueType == .scalar, case let .text(_, field) = target, field != .pointSize {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scalar text target")
         }
+        let isSceneOwner = target == .scene(.bloomStrength)
+        if isSceneOwner {
+            guard valueType == .scalar, sourceLayerID == nil,
+                  cameraOriginDepthRange == nil, effectNames.isEmpty,
+                  !hasCurrentAnimation, puppetAnimationIdentity == nil,
+                  dynamicImagePathsByAuthoredIdentity.isEmpty,
+                  !allowsStatefulLayerSideEffects else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scene owner scope")
+            }
+        }
         // Discovery must not grant layer-side-effect permission to a value-only
         // Bool/effect/Puppet owner. Other value families retain their VM contract.
         var imagePaths = dynamicImagePathsByAuthoredIdentity
         let acceptsImageRequests: Bool = {
+            if isSceneOwner { return false }
             if valueType != .bool { return true }
             guard puppetAnimationIdentity == nil, case .layer(_, .visibility) = target else { return false }
             return allowsStatefulLayerSideEffects || !imagePaths.isEmpty
@@ -120,59 +131,63 @@ extension SceneScriptValueOwner {
         guard let created else {
             throw Self.failure(creationResult, diagnostic)
         }
-        let layerID: Int
+        let layerID: Int?
         let exports: SceneScriptValueOwnerExports
         do {
-            guard sourceLayerID == nil || (target == .camera(.origin) && valueType == .vector3
-                    && cameraOriginDepthRange != nil),
-                  let targetLayerID = sourceLayerID ?? SceneScriptLayerMutationBridge.layerID(for: target) else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                    "SceneScript owner layer identity unavailable"
-                )
-            }
-            layerID = targetLayerID
-            let layerResult = mwx_scene_quickjs_owner_configure_layer_identity(
-                created,
-                Int64(layerID),
-                &diagnostic,
-                diagnostic.count
-            )
-            guard layerResult == MWX_SCENE_QUICKJS_OK else {
-                throw Self.failure(layerResult, diagnostic)
-            }
-            try SceneScriptLayerMutationBridge.configureDynamicImageAliases(
-                owner: created, paths: imagePaths)
-            let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
-                created,
-                (sourceLayerID != nil || SceneScriptLayerMutationBridge.propertyObjectIsLayer(target)) ? 1 : 0,
-                &diagnostic,
-                diagnostic.count
-            )
-            guard scopeResult == MWX_SCENE_QUICKJS_OK else {
-                throw Self.failure(scopeResult, diagnostic)
-            }
-            try SceneScriptLayerMutationBridge.configureEffectVisibilityTarget(
-                owner: created, target: target,
-                // The getter's read default is the binding's authored seed,
-                // not the definition's prepared snapshot seed.
-                seedVisible: effectVisibilityGetterSeed ?? true
-            )
-            try SceneScriptEffectHandleBridge.configure(
-                owner: created,
-                effectNames: effectNames
-            )
-            try SceneScriptAnimationHandleBridge.configure(
-                owner: created,
-                hasCurrentAnimation: hasCurrentAnimation
-            )
-            if let puppetAnimationIdentity {
-                guard valueType == .bool, allowsStatefulLayerSideEffects,
-                      !hasCurrentAnimation, puppetAnimationIdentity.layerID == layerID,
-                      let id = puppetAnimationIdentity.animationLayerID,
-                      target == ScenePuppetAnimationPropertyTarget.visibility(layerID: layerID, animationLayerID: id) else {
-                    throw SceneScriptScalarRuntimeFailure.invalidArgument("Puppet animation target identity mismatch")
+            if isSceneOwner {
+                layerID = nil
+            } else {
+                guard sourceLayerID == nil || (target == .camera(.origin) && valueType == .vector3
+                        && cameraOriginDepthRange != nil),
+                      let targetLayerID = sourceLayerID ?? SceneScriptLayerMutationBridge.layerID(for: target) else {
+                    throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                        "SceneScript owner layer identity unavailable"
+                    )
                 }
-                try SceneScriptPuppetAnimationBridge.configure(owner: created, identity: puppetAnimationIdentity)
+                layerID = targetLayerID
+                let layerResult = mwx_scene_quickjs_owner_configure_layer_identity(
+                    created,
+                    Int64(targetLayerID),
+                    &diagnostic,
+                    diagnostic.count
+                )
+                guard layerResult == MWX_SCENE_QUICKJS_OK else {
+                    throw Self.failure(layerResult, diagnostic)
+                }
+                try SceneScriptLayerMutationBridge.configureDynamicImageAliases(
+                    owner: created, paths: imagePaths)
+                let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
+                    created,
+                    (sourceLayerID != nil || SceneScriptLayerMutationBridge.propertyObjectIsLayer(target)) ? 1 : 0,
+                    &diagnostic,
+                    diagnostic.count
+                )
+                guard scopeResult == MWX_SCENE_QUICKJS_OK else {
+                    throw Self.failure(scopeResult, diagnostic)
+                }
+                try SceneScriptLayerMutationBridge.configureEffectVisibilityTarget(
+                    owner: created, target: target,
+                    // The getter's read default is the binding's authored seed,
+                    // not the definition's prepared snapshot seed.
+                    seedVisible: effectVisibilityGetterSeed ?? true
+                )
+                try SceneScriptEffectHandleBridge.configure(
+                    owner: created,
+                    effectNames: effectNames
+                )
+                try SceneScriptAnimationHandleBridge.configure(
+                    owner: created,
+                    hasCurrentAnimation: hasCurrentAnimation
+                )
+                if let puppetAnimationIdentity {
+                    guard valueType == .bool, allowsStatefulLayerSideEffects,
+                          !hasCurrentAnimation, puppetAnimationIdentity.layerID == targetLayerID,
+                          let id = puppetAnimationIdentity.animationLayerID,
+                          target == ScenePuppetAnimationPropertyTarget.visibility(layerID: targetLayerID, animationLayerID: id) else {
+                        throw SceneScriptScalarRuntimeFailure.invalidArgument("Puppet animation target identity mismatch")
+                    }
+                    try SceneScriptPuppetAnimationBridge.configure(owner: created, identity: puppetAnimationIdentity)
+                }
             }
             exports = try .read(owner: created)
             if valueType == .bool {

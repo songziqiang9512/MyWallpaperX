@@ -773,7 +773,7 @@ extension SceneDesktopWallpaperHost {
             verifiedXRayStageKeys: verifiedXRayStockIdentityKeys
         )
         let sceneScriptOwnerLayerIDs = Set(
-            propertyVectorScriptProgram.bindings.map { $0.owner.layerID }
+            propertyVectorScriptProgram.bindings.compactMap { $0.owner.layerID }
                 + (
                 sceneScriptScalarProgram.definitions
                     + sceneScriptStringProgram.definitions

@@ -322,7 +322,7 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 `SceneDocumentLoader` 从 sourceRoot 的原始 general 保留共享 `SceneTimelineAnimation`、作者 fallback（缺省1）、非 null Script 标记和诊断；effective general 仍生成启动当前配置。可选 general Timeline IR/diagnostics 位于 prepared descriptor 根层，不塞入 camera，也不把 saved/current user 值当作者 seed。compiler 以原始 seed 生成 `.scene(.bloomStrength)` binding，经现有 definition merge、PlaybackRuntime、SceneEvaluationTransaction/resolver 到 `SceneBloomConfiguration.resolving`；renderer 不读原 wrapper。
 
-准入以实际 Bloom consumer 选择为准：只有 `camera.bloom.hdr == nil` 接纳本片 Timeline，HDR 保留 IR/diagnostic而无该 producer。`user+animation` 沿原 property/Timeline 优先级，重复目标按原规则；任何非 null Script 竞争源保真并局部拒绝该 Timeline，不执行脚本、不借 object 身份、不撤其他合法来源。scene Script producer（G9）仍未实施。
+准入以实际 Bloom consumer 选择为准：只有 `camera.bloom.hdr == nil` 接纳本片 Timeline，HDR 保留 IR/diagnostic而无该 producer。`user+animation` 沿原 property/Timeline 优先级，重复目标按原规则；任何非 null Script 竞争源保真并局部拒绝该 Timeline，不执行脚本、不借 object 身份、不撤其他合法来源。scene Script producer（G9）现由[相邻后继](#general-bloom-strength-script)接入，Timeline与Script不争同一producer。
 
 relative、group、错 lane、非法 wrap与非有限/坏结构沿原 parser/compiler 拒绝；消费端不可表示值沿现 fallback。原数值与 Bézier controls 保留，不按样本或关键帧极值添加非负/0…1 clamp。失败只退出该 producer，静态/property fallback、健康 layer及 HDR 消费原路保留。共享 playback/事务继续独占 pause/play/stop、preview/commit、取消与 snapshot 恢复；普通帧无新增解析、编译或 last-value cache。
 
@@ -331,6 +331,19 @@ relative、group、错 lane、非法 wrap与非有限/坏结构沿原 parser/com
 受控静态白块只改变 strength Timeline：正值与zero hold图的571,536个本体像素无差，外部134,796个像素出现光晕，峰值50/255，主代理已查看。原3810943704候选22 image/43 effects实际 GPU completed、surface1→0、gpuDrained且无漂移，实图已查看；其原 Bézier保留，不称同相A/B、官方数值parity、全样本或性能收益。未参与修法的314完成12秒运行、exit0、无漂移、GPU completed与surface1→0/drained；独立代理实看壁炉/反光、时钟、频谱及音符光效，仅作回归，不推音频、Bloom因果或parity。
 
 正式本机证据归 `.artifacts/scene-evidence/runs/general-bloom-strength-timeline-20261016/`；17项原测试收据在 `.artifacts/tmp/general-bloom-timeline-20261016/tests/attempt-01.json`。更广 general hosts、scene Script、HDR strength Timeline与未知值合同仍开放；需额外 clock/视觉算法时停止，不以局部门或ready外推。
+
+<a id="general-bloom-strength-script"></a>
+### General Bloom strength Scene Script（2026-10-16，有界实施）
+
+**选择与最小结果。** 335事件接续已闭，307 speed的对象算术先作类型资格，不凭exception猜API。G9的213已证独立缺口：原IR保留普通LDR `general.bloomstrength` Number wrapper，首次Scalar projection错误地要求object身份，后续构造也强制layer；其init/update依赖既有audio16/average[0]/frametime，无新算法或媒体资源。先接一个返回值进入原typed Bloom消费者，优于重开未定Rope/world或无收益cache。公开事件和脚本参数合同沿原SceneScript；作者脚本只作输入与证据，不复制为测试实现。
+
+**职责与身份。** 原ScalarProgram接纳唯一scene/general/bloomstrength目标：有限且Float可表示的作者Number、exact script/value包装、无user/Timeline/额外字段竞争、有效LDR消费者。原ValueOwner明确保scene身份且没有layer ID；layer/camera仍保真实source layer，不借layer0/负数/任意descriptor或camera冒充。构造不配置current-layer/effect/Timeline/Puppet权限，不做动态图片发现；原domain/module、audio registration、init/update、frame与generation/budget/teardown不另建owner、VM、时钟或缓存。层身份改为可缺席时，所有生命周期/注册及事件提取调用明确处理scene，不用强制解包或隐藏trap维持旧签名。
+
+**事务与输出。** 原definition/Program publication经共同evaluation transaction/resolver到唯一BloomConfiguration；原通道优先级、作者seed与启动effective值分域保留。scene只准本次scalar返回，当前layer访问不得指向ID0；borrowed handle、任何material/layer/Timeline/media/texture/Puppet/particle命令或拓扑副作用都在现有完整owner bundle接纳处拒绝并撤回，不能只禁thisLayer而漏其他入口。静态peer与其他合法owner保留。坏返回、throw、陈旧代/取消沿原局部失败/回退；不新增长期last-value cache、不保证任意JS堆回滚，不静默吞已产生的非空effects。
+
+**验收与退出。** 用自有改名/等价数字及audio/delta刺激，经实际VM→typed scene snapshot→Bloom resolver证明动态输出；同编译门纳入错误path/type/wrapper、HDR、竞争源、有限Double超Float、NaN/Infinity、borrowed effects/拓扑与健康layer/Timeline反例。原audio demand、pause/refresh、generation和teardown复用现门，改动只补受影响部分。签名Debug后自有可见白块在同App固定phase对比动态/零强度光晕，原213执行真实general callback并进入消费者，独立未参与样本正常渲染/退出；若需新API/算法、第二owner或假layer、或无法证明真实消费者，停止扩大并重排。此项不推断右黑块根因、HDR Script/full general host、官方同相位或性能收益。
+
+**限定结果。** 一次focused门的53行为事实通过，覆盖真实Scalar/C/audio16→typed scene snapshot→生产Bloom resolver，三组自有改名/等价输入的1.2/1.25输出及相邻拒绝/恢复；首轮仅测试载体错误失败保留。最终签名Debug后，同App静态白块的零/正强度hold对照有571536本体像素零变化、152812外部像素出现光晕，峰值63/255。原213的scene callback已执行、首值0与非零AudioBuffers刷新均已证，作者后继非零结果未读回；不能据自有门称原包精确音频/Bloom ROI或右黑块恢复。独立314实图与正常退出保留；三run无输入漂移且surface1→0/GPU排空。具体身份、图与未覆盖归[限定运行证据](../../capabilities/runtime-evidence-current.md#e-2026-10-16-general-bloom-strength-script)，不计性能收益。
 
 ## fallback / route
 

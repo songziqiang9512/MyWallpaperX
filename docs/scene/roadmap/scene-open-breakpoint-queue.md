@@ -15,7 +15,6 @@
 | N06 · prepared composition创建及透视消费 | **能力缺口。** 2887542690的真实constructor带perspective override，其实际Bool未观测；authored utility286的显式true也使共同bundle拒绝。现capture的屏幕仿射策略不能消费该透视。空组原型没有原包收益，已撤回；黑遮挡、字体/偏移/片区布局与完整交互仍待当前复验 | 先证明实际请求配置与composition true的采集/回绘几何合同，再沿prepared catalog→journal/topology→原utility plan交付可见控制结果。不得继承source effects/成员/final texture，也不能用false镜像掩盖缺口。[STOP与边界](../history/prepared-empty-composition-2026-10-15.md) |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **10-16 fresh受控三轮复现。** 首轮598有21次scriptWritten GPU响应、21个geometry hash；释放后TypeError:not a function，后两轮不再callback/骨写，562仍正常。两参impulse是候选host依赖缺口，尚未动态归因 | 官方载体2/2资格失败且未发出impulse，angular缺省/响应仍unknown，本轮研究已停。先取得可见骨姿态正控与公开数值合同；禁止no-op、猜default或削fuse。修后须同输入三轮持续响应、释放后继续更新及健康邻居。[唯一证据](../history/repeated-puppet-drag-qualification-2026-10-16.md) |
-| 3078285611 · 三个speed脚本异常 | **10-16同签名App/default属性fresh复现。** layer60的effect6/22/24、pass0 speed均TypeError:toPrimitive，无completed callback/typed输出；图仍可fallback/GPU完成。实图人物/粉背景/底白条可见，不证明speed正确 | numeric门通过，公共读取未取得新缺失依赖；当前STOP、未改产品，不追加第二App或猜转换规则。后继需独立证明公共API/实际类型边界，不能把callback exception当BAD_RETURN或因无媒体直接判修复。中性证据：.artifacts/tmp/307-speed-qualification-20261016/neutral-runtime-facts.json |
 | 2134765860 · 右侧旧黑块 | **具体视觉余项保留。** 10-16 pointsize/text首错已修、真实标题两次换词可见；两层是主要文字/阴影，artist仅输入。右侧旧黑块未销。两条opacityMask slot1诊断没有owner/source身份，不能列为两个当前失败target；同基线/候选各37个frame0 effect CPU invocation均encoded-output，亦不证明视觉正确 | 同媒体/属性下定位实际source→effect/合成→最终ROI，保已恢复标题及健康peer。不据无归属诊断重开mask修法；资格收据`.artifacts/tmp/213-opacity-mask-followup-20261016/qualification-review.json`。不得把旧无媒体灰占位、artist输入或fallback算黑块修复；全部媒体/字体parity未知。[当前运行边界](../history/text-layer-pointsize-setter-2026-10-16.md) |
 | N03/N06 · 其余旧项待复验 | **最后关联为10-11等旧运行，不能当HEAD已复现。** 2890473419特殊资源/undefined.visible；3789316755独立BAD_RETURN；3337494481 callback invalid-argument及五条首帧source-not-ready中一条未恢复 | 同身份复验精确target，区分局部fallback、启动恢复与持续缺失，不按统一TypeError扩API；333的Rope缺口只归N08。[原普查](../history/new-scene-intake-2026-10-11.md)、[Sound边界](../history/sound-script-control-2026-10-12.md) |
 | N10 · 3632513108入场/激活待核 | **10-11只取得天空/花瓣图，无当前完整入场资格。** 未证明是缺图、作者阶段或属性状态 | 先固定默认属性、phase与实际激活链，再判是否有可见缺口。3374523158/3471294034的旧准备拒绝尚无默认可见资格，不能借此列作当前画面失败。[原普查](../history/new-scene-intake-2026-10-11.md) |
@@ -25,6 +24,8 @@
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
 3610154602于10-16同身份复验并读源资格后，不再按“缺getTextureAnimation API”排实现：435.alpha/origin首错依赖当前缺席的播放器控件，423只存在一层parent却读取祖父；公开missing lookup/null及无父undefined合同已执行。其余动态创建/导入是否应提供缺席控件仍unknown，不记作者错误或样本完成；取得合法producer证据后再开共享首断点。人物、城市、时钟与橙色频谱实际呈现，非完整parity。限期证据：`.artifacts/scene-evidence/runs/texture-animation-owner-qualification-20261016/`。
+
+3078285611的effect6/22/24 speed于10-16同身份读源资格后退出“缺API”修法：三者对整个scriptProperties容器做算术，健康effect5读取其中Number成员；现无原型容器不能primitive coercion，解释原toPrimitive首错。没有公开whole-container转Number特殊合同，改变原型或替换slider也未证明能产生合法速度；不认定作者错误、官方结果或样本已修。后继须取得能改变此类型判断的公共行为证据再开共享缺口，不重复numeric门。中性收据`.artifacts/tmp/307-speed-consumer-research-20261016/qualification.json`（SHA `ab21f208267dfc4ed8719cf87c338210c26e64196d1b657d4e0175e0cb158939`）。
 
 ## 2. 具体视觉差异：保留观察，待当前身份复验
 
