@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 49,
-      "bytes": 12870
+      "bytes": 13116
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 138,
-      "bytes": 26867
+      "bytes": 26743
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1195,15 +1195,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "c6a318c3205063f076e1479f232b75025fa08e63ce1358ef0807cff1af46710e",
-      "after": "3cd71e08b850d57fef09c3f498c22cdbbee4091db0fb8b16c68807d24cc4d795",
-      "owner": "scene-script-runtime",
-      "reason": "统一默认材质准备和限定alpha合同，记录真实实例配对与原289/独立326后验；删除已修队列项，不新增执行路线。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "8a708532dd708574075c7d724658c509d02267d4da22d1678288178cbf2bb338",
       "after": "f09ed3415b4fb7282c7a6a487539395c049db493465709f0c105d2ca9e404e40",
@@ -1231,15 +1222,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9c781916ba0a768df5ba9994ed56eef7b23cda6c2643d4db9a4f928d4a304c77",
-      "after": "d7216e122b7ccee57cc21b96b1322b282a7ae5f1fbd09dcaaebafff99492d904",
-      "owner": "scene-script-property-input",
-      "reason": "已证Color到数值slot的String输入，沿现typed链修正前置拒绝；限定职责与当前证据分归原权威，原包余项保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#color-input-numeric-slot"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "795bf85c1f7332a449769f3ece85ec76c942ccd2da47dfdb1ba48e89f52f4080",
       "after": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
@@ -1264,6 +1246,24 @@
       "owner": "scene-property-callback-lifecycle",
       "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "604f4dff731116694ab38f207ba92eb3318941aed58b69e967a31968fe54f5a7",
+      "after": "4e9e22a07a7331ee86c6ad0f82965a84f62987b12803878c23f68a1054c4d137",
+      "owner": "scene-puppet-query-observation",
+      "reason": "用已资格setter/视觉脉冲与query分道证据替换早期载体STOP概括；保留未闭合及研究停止边界。",
+      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "3cd71e08b850d57fef09c3f498c22cdbbee4091db0fb8b16c68807d24cc4d795",
+      "after": "9217f0eb7c02f166d537e37cb826cf94af8e3262b27b6f6448ab4b56ecc21557",
+      "owner": "scene-puppet-query-observation",
+      "reason": "用已资格setter/视觉脉冲与query分道证据替换早期载体STOP概括；保留未闭合及研究停止边界。",
+      "decision": "docs/scene/history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation"
     }
   ]
 }
