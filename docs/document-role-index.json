@@ -620,10 +620,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4e268b90b578fca3c0ce6d1ab75e7fd7ed8890115d1a60f389ddfa7fcde08793",
+        "sourceSHA256": "5117c5aebe694487778d8b4429cab303e796671ad901cc305a4a722dc1fcdd9e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "343原有效PID27688默认输入余项的既有证据重分类：407/3226属性关闭透传、529 authored隐藏，保21目标/20层恢复和激活后未知",
-        "limitations": "仅对保留的PID27688默认输入与中性receipt做文档复核；未新增当前HEAD App运行或验证。407/3226为visibility-disabled activation passthrough，529层authored visibility=false；未执行/rejectedNodes计数不能单独认定编译缺口。激活后的compiler/GPU/效果、具体公开控制与作者意图、全景及性能均未获本轮验收；原21/20恢复数和其他既有边界保持。"
+        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
+        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
       }
     },
     {
@@ -634,10 +634,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2bba91601b7a2dc7de77409a9b86b5c8e8ec1d2eed3994d0a697570b2cbfda9f",
+        "sourceSHA256": "a345fc1ff38b149bbc0680c1c098079827f2104ce73fc44711e7523400a98b27",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通Sound的OGG原生平台准入、作者首available源及资源级实际消费边界；不改变原输入/Scalar/Transaction合同",
-        "limitations": "仅文档导航与来源边界复核；OGG限当前host真实/自有资源级消费，whole366冷启动未ready，不认领原包声音或画面恢复。平台false实机、所有codec、听感/官方parity、decode失败后换源及性能未证；pure/mixed volume、面板及其他既有未验边界不因此扩验。"
+        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
+        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
       }
     },
     {
@@ -1204,6 +1204,19 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/sampler-alias-precedence.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-16",
+      "uniqueValue": "默认2D相机混合输入/字段退旧/source identity修正，真实VM与旧Combined门、304倍率同窗可见及169同aspect官方留底资格；保跨比例/暂停resize/整样本与性能边界。"
     },
     {
       "path": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md",
@@ -3144,10 +3157,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1a3dc66938af17006ddebad7a3893d818e6b4dcd1b3830465c4a7bbcad6855c8",
+        "sourceSHA256": "58ee2b08124bc247b2ae341702397aab0c702ed3ada6bfbeebc72ce93e917e74",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字handle pointsize的原C journal/ABI→typed scalar→settled snapshot→唯一CoreText消费合同；raw有限Double与render clamp、create和setter分域及原生命周期边界",
-        "limitations": "仅本批文档导航与证据边界复核；本项目setter接受有限Double并复用原1...1024渲染规则，不宣称官方数值边界。213两层为同源主要文字/阴影，实际可见正证仅标题换词，artist仅作输入，publication日志仅首次；旧右黑块及opacityMask失败保留。独立314只作运行/实图回归，真实系统媒体、完整文字/布局/字体、暂停/多surface、官方parity及性能未扩验，不记面板新能力或整样本完成；其他既有边界保持。"
+        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
+        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
       }
     },
     {
@@ -3241,10 +3254,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bd409f219999ba52dda9c61ab0d654df156cfb8adc30ce83e11dd78402698675",
+        "sourceSHA256": "b09e4393c1026512c8ca7a8b7109cf8731b63c36a1454389346471833f3444a2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "N03的343未执行余项由不明拒绝更正为同PID默认property-inactive/hidden边界；未证明新增compiler缺口，保公开激活输入及全景待验",
-        "limitations": "仅对保留的PID27688默认输入与中性receipt做文档复核；未新增当前HEAD App运行或验证。407/3226为visibility-disabled activation passthrough，529层authored visibility=false；未执行/rejectedNodes计数不能单独认定编译缺口。激活后的compiler/GPU/效果、具体公开控制与作者意图、全景及性能均未获本轮验收；原21/20恢复数和其他既有边界保持。"
+        "scope": "限定default 2D path静态/return origin与direct zoom共享typed camera；字段准入与原层退旧/source identity及原Combined合同，304真实倍率与169同aspect留底证据分列",
+        "limitations": "导航与本批来源边界复核；不是全相机API、camera origin handle setter、全部跨比例/Retina、多屏、整样本/官方像素parity或性能验收。普通SDR暂停resize静态缺口另片处理，screen anchor与camera平移仍待官方组合资格。"
       }
     },
     {

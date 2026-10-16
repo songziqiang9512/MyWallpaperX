@@ -72,6 +72,8 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     /// carries the load-prepared state); nil on every other candidate kind.
     var effectVisibilityGetterSeed: Bool? = nil
     var puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil
+    /// Authored owner identity when the canonical value target is camera-wide.
+    var sourceLayerID: Int? = nil
 
     var allowsDynamicLayerSideEffects: Bool {
         requiresStatefulOwner || !dynamicImageReferences.isEmpty

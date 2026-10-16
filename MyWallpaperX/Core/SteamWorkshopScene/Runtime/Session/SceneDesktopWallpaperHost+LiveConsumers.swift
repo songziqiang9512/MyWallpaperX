@@ -148,7 +148,10 @@ extension SceneDesktopWallpaperHost {
                 case .shakeEnabled, .shakeAmplitude, .shakeRoughness,
                      .shakeSpeed:
                     return hasOrthographicCamera ? instruction.target : nil
-                case .origin, .zoom:
+                case .zoom:
+                    return hasOrthographicCamera && descriptor.camera.default2DInputLayerID != nil
+                        ? instruction.target : nil
+                case .origin:
                     return nil
                 }
             }

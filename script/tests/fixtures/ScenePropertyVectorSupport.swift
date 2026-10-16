@@ -145,10 +145,27 @@ struct SceneUtilityLayer {
     let passthrough: Bool
 }
 
+struct SceneDocument {
+    struct Scene2DCameraPathDefinition {
+        let camera: String
+        var path: String = "paths/fixture.json"
+        var queueMode: String? = nil
+        var zoom: Double? = nil
+        let fov: Double?
+    }
+}
+
 struct SceneRenderDescriptor {
     enum SceneShaderUserValueKind { case null, string }
-    struct CameraPath { let camera: String; let fov: Double? }
-    struct Camera { var orthoHeight: Float? = nil }
+    typealias CameraPath = SceneDocument.Scene2DCameraPathDefinition
+    struct Camera {
+        var orthoWidth: Float? = nil
+        var orthoHeight: Float? = nil
+        var default2DInputLayerID: Int? = nil
+        var default2DOriginInputLayerID: Int? = nil
+        var nearZ: Float = 0.01
+        var farZ: Float = 10000
+    }
     var camera = Camera()
     struct TextStyle {
         let fontPath: String?

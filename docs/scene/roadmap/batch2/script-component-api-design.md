@@ -16,6 +16,18 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
+<a id="default-2d-camera-inputs"></a>
+
+## Default 2D camera 输入（2026-10-16，有界已实施）
+
+目标是让普通正交画布的作者默认相机 origin/zoom 经唯一 typed camera snapshot 到达现有投影。原无 Timeline 的 path 基值与 direct Slider zoom 漏接、origin Script 误作普通层位置，现与原 Combined Timeline 共享 `.camera(.origin/.zoom)`。混合来源按字段准入；运行和不同比例边界归[限定证据](../../history/default-2d-camera-inputs-2026-10-16.md)，不改作者画布或图层位置补偿。
+
+限定 profile 为具有合法正交画布、唯一合法 default camera path 的场景。准备期统一确定来源层及可消费字段，静态基值、direct Slider zoom、现 VM origin Script 和已准入 Combined Timeline 共享 `.camera(.origin/.zoom)` definition、优先级、resolver 与 clock。输入路径保留原作者层 identity，VM 的 thisLayer/property scope 仍属于该源层；只有 origin 真正准入时输出 target 才改为 camera，保源 owner identity且退出该字段旧层 writer；未准入的 origin 完整保留原层 owner、definition、getter/setter和world路由，zoom可独立准入。相机当前值只由 settled snapshot 消费，renderer 不再读 path 或加第二 fallback。
+
+direct user zoom 复用原 extractor、property Program、live 准入与事务；合法初值、连续改值、保存/reset 均更新同一相机 target。return 型 origin Script 沿既有 Vector owner 的 init/update、事件、失败撤回和退休，基值仅作原 resolver fallback。本片不开放 camera origin handle setter：其 mutation→schema/冲突尚属普通层合同，在原 preflight 拒绝相关 owner 整包，不能与 camera primary 形成双 writer；完整 setter 归后继统一别名准入，不能记作已支持。Combined Timeline 保原时钟与已准入 composition；未知动画、重复/非 default path、native 3D、冲突来源与非法有限域不顺带开放，拒绝只影响相关相机输入，健康内容保原路由。数值域复用已有 camera Timeline 验证，不在普通帧重找相机、解析、建图或编译。
+
+验收从自有改名输入的真实 parser/extractor→property/Vector C owner→definition 合并/resolver→cameraTransform/投影走通：init 产生区别于 seed 的 origin，direct zoom 默认与两次热改保留该 current origin；静态 path、原 Combined Timeline、坏返回/非法 zoom、同名非 camera、重复 path/native/冲突来源为相邻反例。Swift 产品做一次有效 Debug build，304 原包实图对照并核实际相机输入，未参与修法样本真实回归；169 只按其独立证据裁决。正确接线不自动等于完整官方画面、跨比例、全部相机 API 或性能收益。失败保原局部回退，保暂停、取消、同 generation 与资源释放。
+
 <a id="text-layer-pointsize-setter"></a>
 
 ## Text layer pointsize setter（2026-10-16，有界已实施）

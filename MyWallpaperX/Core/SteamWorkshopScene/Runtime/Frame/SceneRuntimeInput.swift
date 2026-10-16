@@ -10,6 +10,13 @@ struct SceneRuntimeInput: Codable {
     let effectivePropertyValues: [String: SceneUserPropertyValue]
     let shaderContracts: [SceneShaderContract]
 
+    func default2DCameraDefinitions(
+        timelineTargets: Set<SceneDynamicTarget>
+    ) -> [SceneDynamicTargetDefinition] {
+        SceneDefault2DCameraInputProfile.definitions(descriptor: renderDescriptor,
+            timelineTargets: timelineTargets)
+    }
+
     var scriptEffectVisibilityDefinitions: [SceneDynamicTargetDefinition] {
         renderDescriptor.layers.flatMap { layer in
             layer.effects.enumerated().compactMap { index, effect in

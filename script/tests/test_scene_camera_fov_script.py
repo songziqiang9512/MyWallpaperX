@@ -39,12 +39,19 @@ def camera_preamble() -> str:
     preamble = preamble[:start] + preamble[end:]
     old = """    struct Camera {
         var parallaxEnabled = false
+        var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        var default2DInputLayerID: Int? = nil
+        var default2DOriginInputLayerID: Int? = nil
+        var nearZ: Float = 0.01
+        var farZ: Float = 10000
     }"""
     new = """    struct Camera {
         var parallaxEnabled = false
         var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        var default2DInputLayerID: Int? = nil
+        var default2DOriginInputLayerID: Int? = nil
         var eye: [Float] = [0, 0, 10]
         var center: [Float] = [0, 0, 0]
         var up: [Float] = [0, 1, 0]

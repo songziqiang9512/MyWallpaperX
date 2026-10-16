@@ -8,7 +8,7 @@ import Foundation
 /// 3D camera paths remain fail closed because their queue/visibility lifecycle is a separate
 /// contract.
 nonisolated enum Scene2DCameraTimelineCompiler {
-    private static let maximumOriginMagnitude = 10_000_000.0
+    private static let maximumOriginMagnitude = SceneDefault2DCameraInputProfile.maximumOriginMagnitude
     private static let minimumZoom = 0.01
     private static let maximumZoom = 100.0
 

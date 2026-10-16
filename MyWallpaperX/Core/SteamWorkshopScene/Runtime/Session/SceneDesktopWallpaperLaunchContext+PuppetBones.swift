@@ -31,7 +31,7 @@ extension SceneDesktopWallpaperLaunchContext {
             + sceneScriptCursorProgram.bindings.map(\.owner)
         var visited: Set<ObjectIdentifier> = []
         var configured = false
-        for owner in owners where SceneScriptLayerMutationBridge.layerID(for: owner.target) == layerID {
+        for owner in owners where owner.layerID == layerID {
             guard visited.insert(ObjectIdentifier(owner)).inserted else { continue }
             try owner.configurePuppetBones(
                 layerID: layerID, localMatrices: localMatrices, names: names,

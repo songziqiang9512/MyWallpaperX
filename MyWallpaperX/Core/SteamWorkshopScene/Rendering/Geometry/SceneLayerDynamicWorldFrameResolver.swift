@@ -13,9 +13,15 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
     ) -> [Int: simd_float4x4] {
         var overrides: [Int: SceneLayerWorldFrameResolver.TransformOverride] = [:]
-        for layerID in snapshot.dynamicTransformLayerIDsForFrame {
+        var transformLayerIDs = snapshot.dynamicTransformLayerIDsForFrame
+        if let id = descriptor.camera.default2DOriginInputLayerID,
+           let origin = snapshot[.camera(.origin)], origin.source != .authored {
+            transformLayerIDs.insert(id)
+        }
+        for layerID in transformLayerIDs {
             guard let layer = byID[layerID] else { continue }
-            let origin = value(layerID: layer.id, field: .origin, snapshot: snapshot)
+            let origin = value(layerID: layer.id, field: .origin, snapshot: snapshot,
+                cameraOriginInputLayerID: descriptor.camera.default2DOriginInputLayerID)
             let scale = value(layerID: layer.id, field: .scale, snapshot: snapshot)
             let angles = value(layerID: layer.id, field: .angles, snapshot: snapshot)
             guard origin != nil || scale != nil || angles != nil else { continue }
@@ -65,9 +71,11 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
     private nonisolated static func value(
         layerID: Int,
         field: SceneDynamicLayerField,
-        snapshot: SceneDynamicSnapshot
+        snapshot: SceneDynamicSnapshot,
+        cameraOriginInputLayerID: Int? = nil
     ) -> SIMD3<Float>? {
-        let target = SceneDynamicTarget.layer(layerID: layerID, field: field)
+        let target: SceneDynamicTarget = field == .origin && layerID == cameraOriginInputLayerID
+            ? .camera(.origin) : .layer(layerID: layerID, field: field)
         guard let resolved = snapshot[target],
               resolved.source != .authored,
               case let .vector3(x, y, z) = resolved.value,

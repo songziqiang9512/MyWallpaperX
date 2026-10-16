@@ -236,7 +236,8 @@ struct SceneRuntimeModelBuilder {
                 bindings: sceneBindings.bindings + materialBindings,
                 diagnostics: sceneBindings.diagnostics
             ),
-            catalog: project.userProperties
+            catalog: project.userProperties,
+            cameraInputLayerID: renderDescriptor.camera.default2DInputLayerID
         )
         // Script-owned effect-visibility targets (the batch-B producer
         // channel): these effects are activation-gated executable stages.

@@ -381,7 +381,8 @@ nonisolated struct ScenePropertyBindingEvaluation: Equatable {
 nonisolated struct ScenePropertyBindingCompiler {
     nonisolated func compile(
         report: SceneUserPropertyBindingReport,
-        catalog: SceneUserPropertyCatalog
+        catalog: SceneUserPropertyCatalog,
+        cameraInputLayerID: Int? = nil
     ) -> ScenePropertyBindingCompilation {
         var diagnostics = report.diagnostics.compactMap(Self.inputDiagnostic)
         var rebuildRequiredKeys = Set(report.diagnostics.compactMap(\.propertyKey))
@@ -408,6 +409,7 @@ nonisolated struct ScenePropertyBindingCompiler {
         )
         var targetBindings: [SceneDynamicTarget: [SceneUserPropertyBinding]] = [:]
         for binding in sortedBindings {
+            if case let .cameraPathZoom(id) = binding.target, id != cameraInputLayerID { continue }
             let definitions = propertiesByKey[binding.reference.key] ?? []
             let propertyKind = definitions.count == 1 ? definitions[0].kind : nil
             guard let target = Self.map(
@@ -420,6 +422,12 @@ nonisolated struct ScenePropertyBindingCompiler {
         var instructions: [ScenePropertyBindingInstruction] = []
 
         for binding in sortedBindings {
+            if case let .cameraPathZoom(id) = binding.target, id != cameraInputLayerID {
+                rebuildRequiredKeys.insert(binding.reference.key)
+                diagnostics.append(Self.compileDiagnostic(code: .unsupportedTarget,
+                    binding: binding, target: nil, message: "缩放绑定没有唯一合法的默认二维相机。"))
+                continue
+            }
             let propertyDefinitions = propertiesByKey[binding.reference.key] ?? []
             let propertyKind = propertyDefinitions.count == 1
                 ? propertyDefinitions[0].kind
@@ -553,6 +561,19 @@ nonisolated struct ScenePropertyBindingCompiler {
             guard targetBindings[mapped.target]?.count == 1 else {
                 rebuildRequiredKeys.insert(binding.reference.key)
                 continue
+            }
+            if case .cameraPathZoom = binding.target {
+                guard let range = Self.userPropertyNumericRange(propertyDefinitions.first,
+                    propertyKind: mapped.propertyKind, valueType: mapped.valueType),
+                      range.lowerBound >= 0.01, range.upperBound <= 100,
+                      case let .scalar(zoom) = authoredValue,
+                      (0.01...100).contains(zoom) else {
+                    rebuildRequiredKeys.insert(binding.reference.key)
+                    diagnostics.append(Self.compileDiagnostic(code: .unsupportedTarget,
+                        binding: binding, target: mapped.target,
+                        message: "二维相机缩放需有限的 0.01…100 Slider 域及 authored fallback。"))
+                    continue
+                }
             }
             if case .text(_, .maxWidth) = mapped.target {
                 // Match the existing dynamic raster width contract. A zero

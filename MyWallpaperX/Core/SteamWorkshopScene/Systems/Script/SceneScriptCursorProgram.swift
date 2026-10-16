@@ -581,6 +581,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         let ownerEffects = bindings.compactMap { binding in
             let effects = SceneScriptOwnerEffects(
                 ownerTarget: binding.owner.target,
+                sourceLayerID: binding.owner.target == .camera(.origin) ? binding.owner.layerID : nil,
                 materialFunctionMutations: materialFunctions.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.mutation : nil
                 },

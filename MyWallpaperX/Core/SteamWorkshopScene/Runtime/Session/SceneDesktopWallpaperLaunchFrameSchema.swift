@@ -178,6 +178,8 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
                 + sceneScriptScalarProgram.definitions
                 + sceneScriptStringProgram.definitions
                 + runtimeInput.scriptEffectVisibilityDefinitions
+                + runtimeInput.default2DCameraDefinitions(
+                    timelineTargets: Set(timelineProgram.bindings.map(\.target)))
         )
         self.sceneScriptStatefulTargets = Set(
             propertyVectorScriptProgram.bindings.map(\.definition.target)

@@ -28,6 +28,10 @@ struct SceneRenderDescriptor: Codable {
         var bloom: SceneBloomConfiguration = .disabled
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
+        /// Prepared source identity for the bounded default 2D camera inputs.
+        var default2DInputLayerID: Int? = nil
+        /// Only an admitted origin field transfers the source layer's origin lane.
+        var default2DOriginInputLayerID: Int? = nil
         let nearZ: Float
         let farZ: Float
         let clearColor: [Float]   // [r, g, b]
@@ -374,7 +378,7 @@ struct SceneRenderDescriptorBuilder {
         let cam = document.camera
         let gen = document.general
         let clear: [Float] = gen.clearColor ?? [0.7, 0.7, 0.7]
-        return SceneRenderDescriptor.CameraDescriptor(
+        var camera = SceneRenderDescriptor.CameraDescriptor(
             eye: cam.eye,
             center: cam.center,
             up: cam.up,
@@ -417,6 +421,22 @@ struct SceneRenderDescriptorBuilder {
                 speed: gen.cameraShake.speed
             )
         )
+        camera.default2DInputLayerID = SceneDefault2DCameraInputProfile.sourceLayerID(
+            orthoWidth: gen.orthoWidth, orthoHeight: gen.orthoHeight,
+            paths: document.objects.map { (id: $0.id, path: $0.cameraPath) },
+            authoredConfigurations: Dictionary(uniqueKeysWithValues: document.objects.compactMap {
+                object in object.authoredValue.map { (object.id, $0) }
+            })
+        )
+        if let source = document.objects.first(where: { $0.id == camera.default2DInputLayerID }) {
+            camera.default2DOriginInputLayerID = SceneDefault2DCameraInputProfile.originSourceLayerID(
+                sourceLayerID: camera.default2DInputLayerID,
+                authoredConfiguration: source.authoredValue,
+                parsedOrigin: padVector(parseVector(source.origin), length: 3, fill: 0),
+                nearZ: Double(camera.nearZ), farZ: Double(camera.farZ)
+            )
+        }
+        return camera
     }
 
     nonisolated private func parseVector(_ raw: String?) -> [Float]? {

@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
-    /// Pure projection of the immutable target, resolved once at construction.
+    /// Authored source identity, resolved once; a camera target retains its layer owner.
     let layerID: Int
     let generation: UInt64
     let puppetAnimationIdentity: ScenePuppetAnimationIdentity?
@@ -17,6 +17,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
     private let valueType: SceneDynamicValueType
+    private let cameraOriginDepthRange: ClosedRange<Double>?
     private let dynamicImagePathsByAuthoredIdentity: [String: String]
     private let allowsStatefulLayerSideEffects: Bool
     private let handlesInit: Bool
@@ -68,6 +69,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         target: SceneDynamicTarget, layerID: Int,
         valueType: SceneDynamicValueType, generation: UInt64,
         budget: SceneScriptScalarBudget,
+        cameraOriginDepthRange: ClosedRange<Double>? = nil,
         puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil,
         dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
         allowsStatefulLayerSideEffects: Bool = false,
@@ -78,6 +80,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         self.target = target
         self.layerID = layerID
         self.valueType = valueType
+        self.cameraOriginDepthRange = cameraOriginDepthRange
         self.generation = generation
         self.budget = budget
         self.puppetAnimationIdentity = puppetAnimationIdentity
@@ -415,6 +418,15 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         guard Self.acceptsScalarValue(publishedValue, for: target) else {
             discardLayerMutations()
             return .failure(.badReturn("invalid scalar output"))
+        }
+        if target == .camera(.origin) {
+            guard case let .vector3(x, y, z) = publishedValue,
+                  let range = cameraOriginDepthRange,
+                  SceneDefault2DCameraInputProfile.acceptsOrigin([x, y, z],
+                    nearZ: range.lowerBound, farZ: range.upperBound) else {
+                discardLayerMutations()
+                return .failure(.badReturn("invalid default 2D camera origin"))
+            }
         }
         if puppetAnimationIdentity != nil,
            !mutations.mediaPlaybackCommands.isEmpty || !mutations.textureAnimationCommands.isEmpty

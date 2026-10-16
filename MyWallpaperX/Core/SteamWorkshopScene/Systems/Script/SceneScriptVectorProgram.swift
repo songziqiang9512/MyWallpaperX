@@ -227,7 +227,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         for candidate in candidates
         where !existingTargets.contains(candidate.definition.target) {
             let target = candidate.definition.target
-            guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target),
+            guard let layerID = candidate.sourceLayerID ?? SceneScriptLayerMutationBridge.layerID(for: target),
+                  candidate.sourceLayerID == nil
+                    || (target == .camera(.origin) && descriptor.camera.default2DOriginInputLayerID == layerID),
                   let layer = descriptor.layers.first(where: { $0.id == layerID }) else {
                 failures[target] = .invalidArgument(
                     "SceneScript owner layer identity unavailable"
@@ -238,6 +240,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 failures[target] = .invalidSource
                 continue
             }
+            if target == .camera(.origin) {
+                guard case let .vector3(x, y, z) = candidate.definition.authoredValue,
+                      SceneDefault2DCameraInputProfile.acceptsOrigin([x, y, z],
+                        nearZ: Double(descriptor.camera.nearZ),
+                        farZ: Double(descriptor.camera.farZ)) else {
+                    failures[target] = .invalidArgument("invalid default 2D camera origin seed")
+                    continue
+                }
+            }
             let owner: SceneScriptValueOwner
             do {
                 owner = try SceneScriptValueOwner(
@@ -245,6 +256,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       source: candidate.source,
                       target: target,
                       valueType: candidate.definition.valueType,
+                      sourceLayerID: candidate.sourceLayerID,
+                      cameraOriginDepthRange: target == .camera(.origin)
+                        ? Double(descriptor.camera.nearZ)...Double(descriptor.camera.farZ) : nil,
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: candidate.hasCurrentAnimation,
                       puppetAnimationIdentity: candidate.puppetAnimationIdentity,
@@ -751,6 +765,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 callbackPuppetAnimationCallbackRegistrations += evaluation.puppetAnimationCallbackRegistrations
                 let effects = SceneScriptOwnerEffects(
                     ownerTarget: target,
+                    sourceLayerID: target == .camera(.origin) ? binding.owner.layerID : nil,
                     materialFunctionMutations: callbackMaterialMutations,
                     animationMutations: callbackAnimationMutations,
                     layerMutations: callbackLayerMutations,

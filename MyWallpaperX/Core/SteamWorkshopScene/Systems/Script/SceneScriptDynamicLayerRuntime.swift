@@ -17,6 +17,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private(set) var particlePlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     private let authoredLayerIDs: Set<Int>
     private let authoredLayersByID: [Int: SceneRenderDescriptor.Layer]
+    private let cameraOriginInputLayerID: Int?
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
     private var authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
@@ -46,6 +47,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             -> Result<[Int]?, SceneScriptScalarRuntimeFailure>)? = nil
     ) {
         authoredLayerIDs = Set(descriptor.layers.map(\.id))
+        cameraOriginInputLayerID = descriptor.camera.default2DOriginInputLayerID
         authoredLayersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
@@ -63,7 +65,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             if let alpha = Self.definition(for: .particle(layerID: layer.id, field: .alpha), layer: layer) {
                 definitions.append(alpha)
             }
-            return definitions
+            guard let cameraLayerID = descriptor.camera.default2DOriginInputLayerID else { return definitions }
+            return definitions.filter { $0.target != .layer(layerID: cameraLayerID, field: .origin) }
         }
         authoredDefinitionOrder = initialDefinitions.map(\.target)
         authoredDefinitionsByTarget = Dictionary(
@@ -214,6 +217,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     return .failure(.invalidArgument(
                         "invalid authored layer mutation"
                     ))
+                }
+                // Camera-origin return values have one canonical camera target.
+                // The general ILayer setter is not a second publication lane.
+                if mutation.layerID == cameraOriginInputLayerID, mutation.fields.contains(.origin) {
+                    return .failure(.invalidArgument("default 2D camera origin setter unsupported"))
                 }
                 let values: [(
                     SceneScriptLayerMutation.Fields,

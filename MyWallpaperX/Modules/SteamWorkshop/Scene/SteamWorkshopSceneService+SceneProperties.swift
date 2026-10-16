@@ -453,6 +453,8 @@ extension SteamWorkshopService {
             }
         case let .layerScale(layerID):
             return renderDescriptor.layers.contains { $0.id == layerID }
+        case let .cameraPathZoom(layerID):
+            return renderDescriptor.camera.default2DInputLayerID == layerID
         case let .puppetAnimationVisibility(layerID, animationLayerID):
             return renderDescriptor.layers.contains { layer in
                 layer.id == layerID && layer.puppetAnimationLayers.contains {

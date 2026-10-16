@@ -379,7 +379,14 @@ nonisolated extension SceneScriptVectorProgram {
             switch binding.targetKey {
             case "origin":
                 descriptorValue = layer.originXYZ
-                target = .layer(layerID: layerID, field: .origin)
+                if descriptor.camera.default2DOriginInputLayerID == layerID {
+                    // The already admitted Combined Timeline keeps its sole clock/value.
+                    // Mixed script/animation camera ownership is not a new profile here.
+                    guard !timelineTargets.contains(.camera(.origin)) else { return nil }
+                    target = .camera(.origin)
+                } else {
+                    target = .layer(layerID: layerID, field: .origin)
+                }
             case "scale":
                 descriptorValue = layer.scaleXYZ
                 target = .layer(layerID: layerID, field: .scale)
@@ -432,7 +439,8 @@ nonisolated extension SceneScriptVectorProgram {
             evaluatesAfterSharedProviders:
                 properties.isEmpty
                     && sharedProviderProjectionSource(binding.source),
-            dynamicMaterialModelPath: nil
+            dynamicMaterialModelPath: nil,
+            sourceLayerID: target == .camera(.origin) ? layerID : nil
         )
     }
 

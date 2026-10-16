@@ -46,6 +46,8 @@ extension SceneScriptValueOwner {
         source: String,
         target: SceneDynamicTarget,
         valueType: SceneDynamicValueType = .vector3,
+        sourceLayerID: Int? = nil,
+        cameraOriginDepthRange: ClosedRange<Double>? = nil,
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
         puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil,
@@ -119,7 +121,9 @@ extension SceneScriptValueOwner {
         let layerID: Int
         let exports: SceneScriptValueOwnerExports
         do {
-            guard let targetLayerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            guard sourceLayerID == nil || (target == .camera(.origin) && valueType == .vector3
+                    && cameraOriginDepthRange != nil),
+                  let targetLayerID = sourceLayerID ?? SceneScriptLayerMutationBridge.layerID(for: target) else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     "SceneScript owner layer identity unavailable"
                 )
@@ -138,7 +142,7 @@ extension SceneScriptValueOwner {
                 owner: created, paths: imagePaths)
             let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
                 created,
-                SceneScriptLayerMutationBridge.propertyObjectIsLayer(target) ? 1 : 0,
+                (sourceLayerID != nil || SceneScriptLayerMutationBridge.propertyObjectIsLayer(target)) ? 1 : 0,
                 &diagnostic,
                 diagnostic.count
             )
@@ -211,6 +215,7 @@ extension SceneScriptValueOwner {
         self.init(
             domain: domain, handle: created, target: target, layerID: layerID,
             valueType: valueType, generation: generation, budget: budget,
+            cameraOriginDepthRange: cameraOriginDepthRange,
             puppetAnimationIdentity: puppetAnimationIdentity,
             dynamicImagePathsByAuthoredIdentity: imagePaths,
             allowsStatefulLayerSideEffects: allowsStatefulLayerSideEffects,

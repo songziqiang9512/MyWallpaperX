@@ -728,6 +728,7 @@
       },
       "Properties": {
         "file_globs": [
+          "SceneDefault2DCameraInputProfile.swift",
           "SceneDynamicDefinitionMerger.swift",
           "SceneDynamicLayerValues.swift",
           "SceneDynamicSnapshot+Camera.swift",

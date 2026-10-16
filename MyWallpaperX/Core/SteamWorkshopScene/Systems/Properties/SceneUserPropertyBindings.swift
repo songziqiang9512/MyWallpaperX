@@ -40,6 +40,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
     case scene(field: String)
     case camera(field: String)
+    case cameraPathZoom(layerID: Int)
     case text(layerID: Int, field: TextField)
     case particle(layerID: Int, field: ParticleField)
     case soundVolume(layerID: Int)
@@ -67,7 +68,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return field == "cameraparallax" || field == "camerashake"
         case let .scene(field):
             return field == "bloom"
-        case .layerAlpha, .layerBrightness, .layerScale, .layerColor, .lightIntensity, .text,
+        case .layerAlpha, .layerBrightness, .layerScale, .layerColor, .lightIntensity, .text, .cameraPathZoom,
              .particle, .soundVolume, .shaderValue, .materialShaderValue,
              .unsupported:
             return false
@@ -332,6 +333,12 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "scale" {
             return .layerScale(layerID: layerID)
+        }
+        if components.count == 3, Self.key(components[2]) == "zoom",
+           object["camera"] != nil, object["path"] != nil,
+           let wrapper = object["zoom"] as? [String: Any],
+           Set(wrapper.keys) == ["user", "value"] {
+            return .cameraPathZoom(layerID: layerID)
         }
         if components.count == 3,
            Self.key(components[2]) == "intensity",

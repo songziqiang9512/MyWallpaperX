@@ -94,6 +94,8 @@ nonisolated struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {
 
 nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     let ownerTarget: SceneDynamicTarget
+    /// Prepared source identity retained when a layer owner publishes camera origin.
+    let sourceLayerID: Int?
     var materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     var animationMutations: [SceneTimelinePlaybackMutation]
     var layerMutations: [SceneScriptLayerMutation]
@@ -108,6 +110,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
 
     init(
         ownerTarget: SceneDynamicTarget,
+        sourceLayerID: Int? = nil,
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
@@ -124,6 +127,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         self.puppetAnimationCommands = puppetAnimationCommands
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.ownerTarget = ownerTarget
+        self.sourceLayerID = sourceLayerID
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
@@ -380,7 +384,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
 
     static func mutations(
         owner: OpaquePointer,
-        ownerTarget: SceneDynamicTarget
+        ownerTarget: SceneDynamicTarget,
+        sourceLayerID: Int? = nil
     ) -> Result<[SceneScriptLayerMutation], SceneScriptScalarRuntimeFailure> {
         let count = mwx_scene_quickjs_owner_layer_mutation_count(owner)
         guard count <= sceneScriptMaximumOwnerLayerMutations else {
@@ -390,7 +395,9 @@ nonisolated enum SceneScriptLayerMutationBridge {
         // belongs to a non-layer API family. Validate the identity only when
         // a DTO is actually being attached to the owner effect package.
         if count > 0 {
-            guard let ownerLayerID = layerID(for: ownerTarget),
+            let ownerLayerID = ownerTarget == .camera(.origin)
+                ? sourceLayerID : layerID(for: ownerTarget)
+            guard let ownerLayerID,
                   Int64(ownerLayerID) >= -maximumLayerIdentity,
                   Int64(ownerLayerID) <= maximumLayerIdentity else {
                 return .failure(.invalidArgument(

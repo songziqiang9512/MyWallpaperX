@@ -745,7 +745,8 @@ nonisolated enum SceneScriptMediaEventBridge {
         }
         let layers: [SceneScriptLayerMutation]
         switch SceneScriptLayerMutationBridge.mutations(
-            owner: owner, ownerTarget: target
+            owner: owner, ownerTarget: target,
+            sourceLayerID: target == .camera(.origin) ? layerID : nil
         ) {
         case let .success(value): layers = value
         case let .failure(failure): return .failure(failure)

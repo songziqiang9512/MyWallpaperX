@@ -343,7 +343,11 @@ nonisolated extension SceneScriptQuickJSDomain {
         } else {
             try configureLayerCatalog(descriptor)
         }
-        let dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
+        var dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
+        if let id = descriptor.camera.default2DOriginInputLayerID,
+           let origin = snapshot[.camera(.origin)], origin.source != .authored {
+            dynamicTransformIDs.insert(id)
+        }
         try withLayerSnapshotPublication(snapshot,
             dynamicTransformIDs: dynamicTransformIDs,
             awaitingHostFrameOutcome: awaitingHostFrameOutcome) { diagnostic in
@@ -376,7 +380,9 @@ nonisolated extension SceneScriptQuickJSDomain {
                 diagnostic: &diagnostic
             )
             for (index, layer) in descriptor.layers.enumerated() {
-                guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
+                let target: SceneDynamicTarget = layer.id == descriptor.camera.default2DOriginInputLayerID
+                    ? .camera(.origin) : .layer(layerID: layer.id, field: .origin)
+                guard let resolved = snapshot[target],
                       case let .vector3(x, y, z) = resolved.value,
                       x.isFinite, y.isFinite, z.isFinite else { continue }
                 let origin = [x, y, z]

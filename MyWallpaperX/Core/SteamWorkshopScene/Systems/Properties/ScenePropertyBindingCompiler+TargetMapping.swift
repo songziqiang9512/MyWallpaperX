@@ -96,6 +96,8 @@ extension ScenePropertyBindingCompiler {
             (.layer(layerID: layerID, field: .brightness), .scalar, .slider)
         case let .layerScale(layerID):
             (.layer(layerID: layerID, field: .scale), .vector3, .slider)
+        case .cameraPathZoom:
+            (.camera(.zoom), .scalar, .slider)
         case let .puppetAnimationVisibility(layerID, animationLayerID):
             (
                 ScenePuppetAnimationPropertyTarget.visibility(

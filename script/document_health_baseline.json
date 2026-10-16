@@ -109,12 +109,12 @@
       "bytes": 346017
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 125,
-      "bytes": 38431
+      "lines": 126,
+      "bytes": 38696
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
-      "bytes": 194580
+      "bytes": 194913
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -201,8 +201,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 355,
-      "bytes": 91893
+      "lines": 367,
+      "bytes": 94761
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -229,8 +229,8 @@
       "bytes": 33350
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 250,
-      "bytes": 75154
+      "lines": 251,
+      "bytes": 75824
     },
     "docs/scene/roadmap/scene-steamkit-migration-plan.md": {
       "lines": 578,
@@ -1160,11 +1160,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "03f11854c8eeaa70a8e689ba38ef99be74ad974eaefbc403441a861d625b3de1",
-      "after": "5e72adb0434b1ddcd16ed238e53146c3e1e0e1e2945a8688a163325c1470a024",
-      "owner": "SceneScript text layer mutation/CoreText",
-      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
+      "before": "134e27f3437f8b471cad31b6968c52babcaaac0d0a6e468eedec9c8417d1c665",
+      "after": "93f9068996d7200a17d5f2e5b6870fdf3e855ec6bf731e66c61b1ae8ad0885e6",
+      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
+      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
     },
     {
       "section": "bodies",
@@ -1205,29 +1205,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "c6a8717f0ffdf4ca769b3f0da4c57bcf9d252681ef94cfb967641a7e180051bb",
-      "after": "b9985a52dfda1cd658abad3f61d1276b4f65e5b9bbbe125db26c212302cc3b8a",
-      "owner": "SceneScript text layer mutation/CoreText",
-      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
+      "before": "b9985a52dfda1cd658abad3f61d1276b4f65e5b9bbbe125db26c212302cc3b8a",
+      "after": "02297fa42cd7f90704aef56cb7d7b5f65660560b1af7c6c105c1ec1442291388",
+      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
+      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9bc8216a8d1787761481966b31c45a9e5d3229887b3fbbc2a512c2645c7dad5f",
-      "after": "6e212ddb86473caef9314a04fc4db037e21f6321dd201949624e2fa99c5f0083",
-      "owner": "SceneScript text layer mutation/CoreText",
-      "reason": "原handle缺失的pointsize setter已沿唯一journal/typed/CoreText链实施；现役合同补职责、有限raw与渲染分域并替换213旧首错，标题可见与artist输入、黑块及parity余项分列，详细过程集中单份历史。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter"
+      "before": "8252fb487079640eb1f2a14ab32616400bb00e9527a7b89d63b554adabc51e46",
+      "after": "e8e32837fb1e16a4a39b83a1c54a3e7286b861db5f326d51c1a94526d70829e0",
+      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
+      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "5cce291b8c6de615787336a375b265c772294a715a1ceff3810dc6c79702189d",
-      "after": "645ac821a26bdda8fb612ddf1f36e076507aaa9a548fd2668e3700fc310c108c",
-      "owner": "Sound Program/Registry native format admission",
-      "reason": "替换固定OGG拒绝为平台能力条件准入，现役合同只保唯一owner、逐源选择及失败边界；实际资源级消费与完整原包冷启动未ready分列，过程归既有历史，不扩格式矩阵、面板或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#sound-ogg-native"
+      "before": "645ac821a26bdda8fb612ddf1f36e076507aaa9a548fd2668e3700fc310c108c",
+      "after": "a67cca35f31aa6122bc20cfeac2ff4fd486090b28f1afbab6517fa296a84f87d",
+      "owner": "Default 2D camera prepared inputs / typed camera snapshot",
+      "reason": "原无Timeline mixed default camera输入漏接已沿现property/Vector/resolver修复；新增字段退旧/源身份与输入消费合同、实际倍率和官方同aspect边界，单份历史保存过程，保既有余项。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
     }
   ]
 }

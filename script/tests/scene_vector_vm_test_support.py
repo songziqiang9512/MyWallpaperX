@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     SCENE / "Systems/Properties/ScenePropertyBindingProgram.swift",
     SCENE / "Systems/Properties/ScenePropertyBindingProgramValidator.swift",
     SCENE / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPropertyInput.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationControl.swift",
@@ -246,11 +247,26 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
     let controlPointAngles: [Int: SceneParticleBoundValue]
 }
 
+struct SceneDocument {
+    struct Scene2DCameraPathDefinition {
+        let camera: String
+        var path: String = "paths/fixture.json"
+        var queueMode: String? = nil
+        var zoom: Double? = nil
+        let fov: Double?
+    }
+}
+
 struct SceneRenderDescriptor {
-    struct CameraPath { let camera: String; let fov: Double? }
+    typealias CameraPath = SceneDocument.Scene2DCameraPathDefinition
     struct Camera {
         var parallaxEnabled = false
+        var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        var default2DInputLayerID: Int? = nil
+        var default2DOriginInputLayerID: Int? = nil
+        var nearZ: Float = 0.01
+        var farZ: Float = 10000
     }
     var camera = Camera()
     struct ModelMaterialLink {

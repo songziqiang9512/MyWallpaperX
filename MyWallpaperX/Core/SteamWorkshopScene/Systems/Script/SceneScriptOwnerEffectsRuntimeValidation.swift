@@ -63,6 +63,7 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
         for owner in effects where !owner.puppetBoneMutations.isEmpty {
             let ownerLayerID: Int? = {
                 switch owner.ownerTarget {
+                case .camera(.origin): return owner.sourceLayerID
                 case let .layer(id, _), let .text(id, _), let .particle(id, _),
                      let .effectConstant(id, _, _, _), let .effectVisibility(id, _),
                      let .scriptInstanceProperty(id, _): return id
