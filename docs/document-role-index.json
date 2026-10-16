@@ -3285,10 +3285,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aac13b79b86d15cf3dc385d03b9284336b2d7e48a17fb8033ceef694003bdbc3",
+        "sourceSHA256": "29736637015da3a8abd0a5a95c99df4c433cbf1f5f2dabb7df82f728b7eed890",
         "method": "document_registry --audit + document_health --check",
-        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
-        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
+        "scope": "主pass空重开仅资格停止的实际命中/冷启动边界及既有性能入口复核",
+        "limitations": "只复核当前补充及引用；无产品改动或性能收益，其他历史结果未重新验收"
       }
     },
     {

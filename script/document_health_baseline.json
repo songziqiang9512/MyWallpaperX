@@ -221,8 +221,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 48,
-      "bytes": 10559
+      "lines": 49,
+      "bytes": 11086
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -1241,11 +1241,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "8227da82d504b4d0a69e36f6ee91b85bed5692764255c3cde19409496c4ca81f",
-      "after": "795bf85c1f7332a449769f3ece85ec76c942ccd2da47dfdb1ba48e89f52f4080",
-      "owner": "scene-performance-convergence",
-      "reason": "关闭stage的真实copy caller与一次独立GPU信号只作有界资格，记录无App收益及设计成本停止边界，不新增执行campaign。",
-      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#inactive-stage-copy-screen"
+      "before": "795bf85c1f7332a449769f3ece85ec76c942ccd2da47dfdb1ba48e89f52f4080",
+      "after": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
+      "owner": "scene-main-pass-qualification",
+      "reason": "实际289未命中、唯一group候选未ready，记录未实施和重开所需证据，防止下一轮把静态空pass机会重跑为无依据优化。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#优化边界"
     },
     {
       "section": "bodies",
