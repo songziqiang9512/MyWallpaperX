@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 49,
-      "bytes": 12144
+      "bytes": 12559
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 139,
-      "bytes": 27612
+      "bytes": 27386
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1204,21 +1204,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "de8d3506eb038eb577bc60554412f885734f609eb63ee1cdf8e6b7a917e9badd",
-      "after": "be8883885da6f8d345d40d5f3e234f516326e1ddcbb3a5a1fade2934ba96a424",
-      "owner": "scene-unused-version-combo",
-      "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "6f13f149cfaee303bcb5907ff8370cf66cfac46a0e5719cebc2e47d55d7f9f7c",
       "after": "039da9bfdf338fd489e0f35dffd8c1a17dece75d1ca3250090b6e42df50d187e",
       "owner": "scene-unused-version-combo",
       "reason": "有界材质像素收益留原证据库细节区，首读快照仅加精确指针；不扩大150行首读上限。",
       "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "be8883885da6f8d345d40d5f3e234f516326e1ddcbb3a5a1fade2934ba96a424",
+      "after": "96da5e046ed0075c8a17ba22884378a503ea939e70d6e219fc3f6c3803c69ffe",
+      "owner": "scene-consumer-qualification",
+      "reason": "纠正375与374粒子cap的错误身份关联，保真正未支持组件及STOP边界，引用正式限期静态证据包。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#qv-visual-repairs"
     }
   ]
 }

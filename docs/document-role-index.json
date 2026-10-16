@@ -3302,10 +3302,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6a917724b43df71aabd5003324b214147343ee5e33fff391d81e203e97b95bcd",
+        "sourceSHA256": "d5d318a087cd4f44245e13efa27b3945fe4ea067b6ab80b0deb27aa90fd616f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
-        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
+        "scope": "213夜景控制复验的观察边界与periodic cap实际样本身份纠正",
+        "limitations": "独立查看实图及原包静态身份；未证明旧黑块修复、雷电恢复、完整视觉或性能"
       }
     },
     {
@@ -3316,10 +3316,10 @@
       "lastReviewed": "2026-10-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "863e652863d72771f0ae7ef15f0e2e17712723ccdfdb6bd0abd7a49b0c8fa1fb",
+        "sourceSHA256": "0971ca7cd71343c06a5ab604642d97c9574febba79836ee76106fa6ff3e58b3c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "未消费版本字段合同与有界实机结果、CPU/font/impulse消费者资格的当前入口复核",
-        "limitations": "只复核本批修改职责与引用；不代表文档其余历史能力、全样本或性能重新验收"
+        "scope": "213夜景控制复验的观察边界与periodic cap实际样本身份纠正",
+        "limitations": "独立查看实图及原包静态身份；未证明旧黑块修复、雷电恢复、完整视觉或性能"
       }
     },
     {

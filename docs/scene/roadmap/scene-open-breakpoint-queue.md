@@ -15,7 +15,6 @@
 | N06 · prepared composition创建及透视消费 | **能力缺口。** 2887542690的真实constructor带perspective override，其实际Bool未观测；authored utility286的显式true也使共同bundle拒绝。现capture的屏幕仿射策略不能消费该透视。空组原型没有原包收益，已撤回；黑遮挡、字体/偏移/片区布局与完整交互仍待当前复验 | 先证明实际请求配置与composition true的采集/回绘几何合同，再沿prepared catalog→journal/topology→原utility plan交付可见控制结果。不得继承source effects/成员/final texture，也不能用false镜像掩盖缺口。[STOP与边界](../history/prepared-empty-composition-2026-10-15.md) |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **10-16 fresh受控三轮仍未闭合。** 首轮598可见骨写，释放后TypeError，后两轮callback停；562正常。同包静态跟进定位CursorUp延时链首个缺失host方法为`applyBonePhysicsImpulse`，实际形态为Number+Vec3两参；不是getAnimation缺失，尚无动态PC因果证明 | 官方载体2/2资格失败，angular缺省/空间/响应仍unknown；先取得可见骨姿态正控与数值合同，禁止no-op、猜default或削fuse。修后同输入三轮持续响应、释放后继续更新及健康邻居。[原动态证据](../history/repeated-puppet-drag-qualification-2026-10-16.md)；静态资格：`.artifacts/tmp/repeated-drag-consumer-qualification-20261016/qualification.json` |
-| 2134765860 · 右侧旧黑块 | **具体视觉余项保留。** 10-16 pointsize/text首错已修、真实标题两次换词可见；两层是主要文字/阴影，artist仅输入。右侧旧黑块未销。两条opacityMask slot1诊断没有owner/source身份，不能列为两个当前失败target；同基线/候选各37个frame0 effect CPU invocation均encoded-output，亦不证明视觉正确 | 同媒体/属性下定位实际source→effect/合成→最终ROI，保已恢复标题及健康peer。不据无归属诊断重开mask修法；资格收据`.artifacts/tmp/213-opacity-mask-followup-20261016/qualification-review.json`。不得把旧无媒体灰占位、artist输入或fallback算黑块修复；全部媒体/字体parity未知。[当前运行边界](../history/text-layer-pointsize-setter-2026-10-16.md) |
 | N03/N06 · 其余旧项待复验 | **最后关联为10-11等旧运行，不能当HEAD已复现。** 2890473419特殊资源/undefined.visible；3789316755独立BAD_RETURN；3337494481 callback invalid-argument及五条首帧source-not-ready中一条未恢复 | 同身份复验精确target，区分局部fallback、启动恢复与持续缺失，不按统一TypeError扩API；333的Rope缺口只归N08。[原普查](../history/new-scene-intake-2026-10-11.md)、[Sound边界](../history/sound-script-control-2026-10-12.md) |
 | N10 · 3632513108入场/激活待核 | **10-11只取得天空/花瓣图，无当前完整入场资格。** 未证明是缺图、作者阶段或属性状态 | 先固定默认属性、phase与实际激活链，再判是否有可见缺口。3374523158/3471294034的旧准备拒绝尚无默认可见资格，不能借此列作当前画面失败。[原普查](../history/new-scene-intake-2026-10-11.md) |
 | 普通unlit数值下溢 | **10-08自有GPU旧反例，未fresh复验、真实样本影响未证。** weighted输入source alpha=.5、vertex=.25、R8 clip=128/255仍把应约2.5098的RGB算成0；既有fast-math下溢未由溢出修复关闭 | 沿唯一颜色乘积/片元owner保有限结果及alpha，不全图压暗、加cap或换混合。先取得真实活跃消费者，分开数学反例与用户画面收益。[现有证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product) |
@@ -33,6 +32,7 @@
 
 | 样本 / 旧观察 | 当前边界与下一关闭门 |
 |---|---|
+| 2134765860 · 右侧旧黑块 | 10-16默认日景及作者Night(Lights On) String选项4实图未定位独立右黑矩形；亮吊灯、书柜和地板可见，灰白海报与软阴影仍在。旧精确ROI、媒体和墙钟/viewport phase未齐，不写已修；移出当前已确认缺陷，先取同状态可区分复现再追source/effect/compositor，不据两条无归属mask诊断实施。[夜景限期证据](../../../.artifacts/scene-evidence/runs/213-black-region-night-qualification-20261016/manifest.json)；标题修复不重开。 |
 | 3768903841 · 云形/烟花细节 | 旧Worley云形及烟花/色彩细节未取得同相位关闭。10-16 R40独立原包复验四束spot GPU成功、底部光束可见，实图仍有横向深色云片；只证明当前呈现，不据此判新根因或整样本通过。先同phase对齐实际source/Program与ROI，不因四束恢复关闭旧云形差异。[原边界](../history/runtime-evidence-index.md#e-spot-light) |
 | 3226487183 · 游离手臂、侧脸碎片 | 旧图的1028/934/876错位未闭。10-16中性资格只证无parent/attachment、center且origin含script，非center pivot静态反例不命中；seed不能当实际VM输出。沿实际origin→pose/bone→skinning对齐，并保composition成员效果。[闭包证据](../history/composition-member-closure-2026-10-07.md) |
 | 3809618616 · 布局/显示比例裁切、音频活动 | 旧柱/照片缺失已修；此处只保旧布局/裁切及音频活动复验，不再重开int compound/TEX照片入口。先确认仍有具体差异及当前状态。[最后整合身份](../history/committed-range-review-repairs-2026-10-07.md#整合验证) |
@@ -82,7 +82,7 @@
 | U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
 | U28 · 2684431262 | 与官方显示差异大；现描述不足以定算法，先取得当前构图/逐层首个不同ROI |
 | U29 · 3470948192 | 旧30秒越过intro仍黑水滴/缺发光，另旧人工记录有NaN、文字碎片、异常背景。未由模型emission首门关闭，均待当前真实输出/异常target复验 |
-| U30 · 3750813609 | ①闪电缺失；②时钟颜色/发光不符；③雨弱。clouds资产ready不关闭这些观察。405/412的maxtoemitperperiod=32仍是periodic profile未知合同，根加载不证明分支闪电；不猜数量上限/remainder。[现有边界](../capabilities/runtime-evidence-current.md#e-2026-09-28-periodic-instance-overrides) |
+| U30 · 3750813609 | 旧观察①闪电缺失；②时钟颜色/发光不符；③雨弱，均待同phase复验。10-16原包身份复核：雷电为121→lightning2，普通Sphere/rate1，无periodic cap；旧405/412+cap32关联错误已删，它们属3749463715，能力缺口只归[静态审计](scene-full-sample-static-audit.md)。未找到121 root静态准入拒绝，不推断其视觉原因。 |
 | U31 · 3264246690 | ①人物边缘锯齿；②点击换口罩缺失；③警戒带运动错误。解码/采样、hit/事件、时序分别复验；mesh/atlas首门已修不关闭本项 |
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |
 | U33 · 3769688830 | 玩偶应左右循环转而现单向转；核rotation/oscillation/Timeline的相位和方向，不专设摆动算法 |
