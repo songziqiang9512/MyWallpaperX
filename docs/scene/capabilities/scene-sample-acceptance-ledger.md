@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `11b052271b64b61eaf35b708419a7891edf45bb4aae1c60c7f17b72711e27b25`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `bc0b25a5409f1863c9e78542fe9ac56735d190189b1bc9cb63ecce3851e4cc6b`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `e9dcc4e9ed8e2254f2ee36c7c5a328b653a30aa8b1f9dbdbc69e133e293c0ff3`。
-- 本页生成于 2026-10-17T16:37:37.511354+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `444f3e89285a1e91728058c9e6c4b593e3d5e01ad8e87156736c48ca92c550a5`。
+- 本页生成于 2026-10-17T17:39:08.305830+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -41,16 +41,16 @@
 | `texture-load` | 基础图片纹理加载 | 6 |
 | `scenescript` | SceneScript 异常 | 13 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 145 |
-| `not-run` | 未关联本归档运行证据 | 117 |
+| `visual-review` | 结构链完整，待视觉验收 | 146 |
+| `not-run` | 未关联本归档运行证据 | 116 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
 | `degraded-runtime` | 39 |
-| `not-run` | 117 |
+| `not-run` | 116 |
 | `runtime-evidence-incomplete` | 1 |
-| `structural-chain-complete-visual-review` | 143 |
+| `structural-chain-complete-visual-review` | 144 |
 
 作者参数：223 个样本声明了 schemecolor 之外的用户参数，共 7291 项，其中 2547 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -204,7 +204,7 @@
 | `3585875739` | Miku Monitoring | 6(0) bool 5 color 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3586705329` | [甜蜜女友3]柳木诗梦 | 46(5) bool 9 color 8 combo 3 scenetexture 8 slider 13 text … | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | 人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；view… |
 | `3587571382` | 【凡人修仙传】宋玉  璀璨夺目 | 15(0) bool 5 color 3 slider 7 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3589454154` | 土星 \| Saturn - Sykm | 113(2) bool 29 color 1 group 7 scenetexture 17 slider 26 te… | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3589454154` | 土星 \| Saturn - Sykm | 113(2) bool 29 color 1 group 7 scenetexture 17 slider 26 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18新增精确ID限定记录：当前原包native nil-ortho独立运行，仅见作者intro阶段的星空/SYKM/下缘土星/右环/底部图标，… |
 | `3597772384` | Lost Landscape \| northway. | 138(116) bool 65 color 2 combo 3 group 4 scenetexture 24 sl… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 限定root正交CP world force与缺省距离已接通，自有正控成立；原包9秒/after5山景、雨和时钟保持，但270在current/committ… |
 | `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立de… |
 | `3601801724` | ash一爪布鲁托 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |

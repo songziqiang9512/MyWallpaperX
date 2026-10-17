@@ -527,23 +527,40 @@
     },
     "3351179520": {
       "verdict": "unreviewed",
-      "note": "2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同App/phase对照解释为像素或性能收益；后继独立消融未并入此记录。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。",
+      "note": "2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同App/phase对照解释为像素或性能收益；后继独立消融未并入此记录。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加UI组限定后验：关2391仍保留斜纹；关4785后组内斜纹/环形文字消失，98完整链保留。官方loaded raw1也有环形文字/斜盖/湿地面，raw0加载黑及原joint FAIL保留；只完成组归因，具体cause与画面余项仍OPEN，不认修复、音频因果或整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json"
       ],
       "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip"
-      ]
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "UI组相关画面差异仍OPEN；具体cause unknown；官方加载/控制联合资格有限，不把消融当修复。"
     },
     "3617056047": {
       "verdict": "unreviewed",
-      "note": "2026-10-18限定后验：仅记录A App当前基线，人物/模型offset实际余项仍OPEN；没有本批f844运行，不因关联347封包而称同App回归或已修复。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。",
+      "note": "2026-10-18限定后验：仅记录A App当前基线，人物/模型offset实际余项仍OPEN；没有本批f844运行，不因关联347封包而称同App回归或已修复。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加限定后验：canvas模型局部Y基修正后，根亲看原图与目录参考，罐体正立并位于虚线圈内、不再压住底栏，位置/倒置反馈仅此闭合。361画面是带同observer的8183/8123候选，最终无observer74a1/ea59只运行独立358；不混作同App/同phase对照，whole sample继续unreviewed。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json"
       ],
       "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip"
-      ]
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "位置/倒置反馈已闭；整样本播放、全部作者参数/交互及官方相位/光照/像素对照仍未完成。"
+    },
+    "3589454154": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18新增精确ID限定记录：当前原包native nil-ortho独立运行，仅见作者intro阶段的星空/SYKM/下缘土星/右环/底部图标，App0/VM0/无漂移/正常排空。只作有界运行，未确认整球取景或同phase保持；不猜旧Saturn别名、不关闭其历史视觉余项。正式report主样本为361，本ID只在包内关联中性上下文。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "仅intro阶段有界运行；整球取景/全部播放与参数、旧Saturn视觉余项未关闭，未建立别名关系。"
     }
   }
 }

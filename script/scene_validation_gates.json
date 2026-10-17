@@ -3386,6 +3386,19 @@
       "modules": [
         "test_scene_selected_provider_admission"
       ]
+    },
+    {
+      "id": "scene-static-model-vertex-basis",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+        "script/tests/test_scene_static_model_parts.py",
+        "script/tests/fixtures/SceneStaticModelVertexBasisChecks.swift",
+        "script/tests/test_scene_static_model_cull_integration.py",
+        "script/tests/test_scene_directional_shadow_integration.py"
+      ],
+      "modules": [
+        "test_scene_static_model_parts"
+      ]
     }
   ],
   "method_gates": {

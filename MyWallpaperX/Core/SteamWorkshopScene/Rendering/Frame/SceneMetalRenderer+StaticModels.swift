@@ -67,7 +67,13 @@ extension SceneMetalRenderer {
                          worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
                          requiresCompleteNamedInputs: Bool = false) -> [StaticModelDraw]? {
         guard let parts = staticModelResources[layer.id] else { return [] }
-        let world = worldFrames[layer.id] ?? SceneMatrix.identity()
+        var world = worldFrames[layer.id] ?? SceneMatrix.identity()
+        if let height = renderDescriptor.camera.orthoHeight, height > 0 {
+            // The canonical canvas frame is F * authoredWorld * F. Static
+            // model vertices remain authored Y-up, so consume them as F * v.
+            // Keep this complete matrix shared by color, normals and shadow.
+            world.columns.1 = -world.columns.1
+        }
         // Authored zero scale can leave planar geometry while the color draw
         // rejects its singular normal transform. Apply that same admission before
         // collecting depth leases, shadow bounds or casters for this layer.

@@ -97,6 +97,11 @@ def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
     if extra_valid_caster:
         scene['objects'].append({'id': 5, 'model': 'models/valid.mdl', 'origin': '0 96 0', 'perspective': False, 'castshadow': True})
         entries['models/valid.mdl'] = quad(30, 50, 38, 58, 20, 'materials/caster.json')
+    # Preserve these canonical-down ROI quads with an explicit authored
+    # reflection, including the singular caster's independent zero-Z scale.
+    for obj in scene['objects']:
+        if 'model' in obj:
+            obj['scale'] = '1 -1 0' if singular_caster and obj['id'] == 2 else '1 -1 1'
     entries['scene.json'] = json.dumps(scene).encode()
     if healthy_effect:
         scene['objects'].append({'id': 4, 'image': 'models/healthy.json', 'origin': '120 20 0',

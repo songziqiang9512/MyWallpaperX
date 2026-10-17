@@ -540,13 +540,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f89c16509aceecf0ef6fe0dc1a61952d71c7d203c9fd91894a8a87ea2fccd797",
+        "sourceSHA256": "fb5be708e6ee1b7770be7aba535829379e6210f040f46fbf479050e1d1f53ac6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "322 MDLA5 alpha and finite forward pose contract; bounded native outcomes and remaining authored execution gaps",
-        "limitations": "No whole-sample compatibility, official multi-clip alpha parity, live-provider or performance acceptance"
+        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
+        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
       }
     },
     {
@@ -563,10 +563,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b911d6eae94d251f5626ed0cfca02f08d0da94b1db57de50c0945ea2c0f72e51",
+        "sourceSHA256": "0e20f5887948413e072ee3cd5df210bee0d4a0b59fecf5e715683f9278b51453",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Existing sole-active-provider conservation applied across three prepared admission owners; four-method CPU variants, fixed signed Debug and native grid restoration; three reported samples individually reconciled.",
-        "limitations": "Only the reported347 grid is closed;335 floor and361 placement remain open. Historical user feedback is reconciled without whole-sample or current-HEAD pass claims. No performance/HDR/complete interaction acceptance."
+        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
+        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
       }
     },
     {
@@ -660,10 +660,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6d4562f4aa03c009f72b6f4a62ee74358ba705a4fcc9134d0d95d53d16f3b50f",
+        "sourceSHA256": "5e5756aecc85bdd124d70ab4472ea555e6a3307ec1c259652dc80835e5c53e22",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Existing sole-active-provider conservation applied across three prepared admission owners; four-method CPU variants, fixed signed Debug and native grid restoration; three reported samples individually reconciled.",
-        "limitations": "Only the reported347 grid is closed;335 floor and361 placement remain open. Historical user feedback is reconciled without whole-sample or current-HEAD pass claims. No performance/HDR/complete interaction acceptance."
+        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
+        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "625b6d7cb3abbf75068188b5837bad076780412e38c6ca38d7e8f2127a544472",
+        "sourceSHA256": "d4dc67fd51d5878ca49375f3ea92644f1c298925b607a531df1e7154345d4f93",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Existing sole-active-provider conservation applied across three prepared admission owners; four-method CPU variants, fixed signed Debug and native grid restoration; three reported samples individually reconciled.",
-        "limitations": "Only the reported347 grid is closed;335 floor and361 placement remain open. Historical user feedback is reconciled without whole-sample or current-HEAD pass claims. No performance/HDR/complete interaction acceptance."
+        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
+        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
       }
     },
     {
@@ -3356,10 +3356,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b72f5bf8d421da998f857df35dfbd3a58130affaffec9b76dad320409bdb0fb2",
+        "sourceSHA256": "48796623edf07ff58c2a8d000c2ca3f8eaee1d4789cd059de6d82811983bc083",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Existing sole-active-provider conservation applied across three prepared admission owners; four-method CPU variants, fixed signed Debug and native grid restoration; three reported samples individually reconciled.",
-        "limitations": "Only the reported347 grid is closed;335 floor and361 placement remain open. Historical user feedback is reconciled without whole-sample or current-HEAD pass claims. No performance/HDR/complete interaction acceptance."
+        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
+        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
       }
     },
     {

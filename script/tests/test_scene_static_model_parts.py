@@ -101,9 +101,37 @@ def native_fixture(count, *, bad=False, overlap=False):
     scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':128}},'objects':[
         {'id':1,'model':'models/peer.mdl','origin':'0 128 0','perspective':False},
         {'id':2,'model':'models/parts.mdl','origin':'0 128 0','perspective':False}]}
+    for obj in scene['objects']:
+        obj['scale']='1 -1 1'  # Legacy canonical-down quad carrier, not the basis oracle.
     entries['scene.json']=json.dumps(scene).encode()
     entries['project.json']=json.dumps({'type':'scene','file':'scene.json'}).encode()
     return entries, expected
+
+
+def vertex_basis_fixture(renamed=False):
+    """Y-up slanted one-sided geometry; no compensating author scale."""
+    model = 'models/alternate.mdl' if renamed else 'models/basis.mdl'
+    entries, parts = {}, []
+    for index, (name, rgba, reverse, nocull) in enumerate([
+            ('front', [240, 40, 20, 255], False, False),
+            ('back', [20, 220, 50, 255], True, False),
+            ('two-sided', [30, 60, 240, 255], True, True)]):
+        stem = f'materials/renamed-{index}' if renamed else f'materials/{name}'
+        x0, x1, y0, y1 = 2 + index * 13, 10 + index * 13, 4, 22
+        vertices = [((x, y, .4*y), (0., -0.3713906764, 0.9284766909),
+                     (1., 0., 0., 1.), uv) for x, y, uv in [
+            (x0, y0, (0., 0.)), (x1, y0, (1., 0.)),
+            (x1, y1, (1., 1.)), (x0, y1, (0., 1.))]]
+        indices = (0, 2, 1, 0, 3, 2) if reverse else (0, 1, 2, 0, 2, 3)
+        parts.append(reader.build_model(vertices=vertices, indices=indices,
+            bounds=(x0, y0, .4*y0, x1, y1, .4*y1), material=(stem+'.json').encode()))
+        entries[stem+'.rgba'] = bytes(rgba)
+        entries[stem+'.png'] = png(rgba)
+        entries[stem+'.json'] = json.dumps({'passes': [{'shader': 'genericimage',
+            'textures': [stem+'.png'], 'combos': {'LIGHTING': 1},
+            'cullmode': 'nocull' if nocull else 'back'}]}).encode()
+    entries[model] = join_parts(parts)
+    return entries, {'model': model}
 
 
 def blending_fixture():
@@ -341,13 +369,26 @@ def resource_support():
     s=s.replace('var colorBlendMode:Int? = nil','var colorBlendMode:Int? = nil;var staticModelPath:String?=nil')
     s=s.replace(' let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]',
                 ' let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]\n var materialPasses:[MaterialPassDescriptor]=[];let colorTargetFormat=ColorTargetFormat();var hdrEnabled:Bool=false')
+    # Pure transport additions; all matrices still come from production owners.
+    s=s.replace('var anglesXYZ:[Float]? = nil', 'var anglesXYZ:[Float]? = nil;'
+        'var originXYZ:[Float]?=nil;var scaleXYZ:[Float]?=nil;'
+        'var attachmentName:String?=nil;var parentAttachmentBindFrame:[Float]?=nil')
+    s=s.replace('let nearZ:Float;let farZ:Float',
+        'let nearZ:Float;let farZ:Float;var default2DOriginInputLayerID:Int?=nil')
+    s=s.replace('let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources',
+        'let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources;'
+        'var renderDescriptor=SceneRenderDescriptor(lighting:nil,layers:[],renderOrderLayerIDs:[])')
     return frame.pool_fixture.HARNESS.split('@main',1)[0]+s+frame.UNUSED_ORDERED_SUPPORT+RESOURCE_TRANSPORT
 
 
 NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,RESOURCE_SOURCE,
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
     SCENE/'Compilation/Material/SceneMaterialRenderState.swift',
-    SCENE/'Resources/Textures/SceneNamedTextureReference.swift']))
+    SCENE/'Resources/Textures/SceneNamedTextureReference.swift',
+    SCENE/'Rendering/Geometry/SceneLayerWorldFrameResolver.swift',
+    SCENE/'Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift',
+    SCENE/'Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift',
+    REPO/'script/tests/fixtures/SceneStaticModelVertexBasisChecks.swift']))
 
 NATIVE_MAIN=r'''
 @main enum PartsResourceProbe {
@@ -365,7 +406,8 @@ NATIVE_MAIN=r'''
    row["budgetBefore"]=before;row["budgetAfter"]=SceneResourceBudget.shared.snapshot.residentBytes
    rows.append(row)
   }
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows]),as:UTF8.self))
+  let basis=try SceneStaticModelVertexBasisChecks.run(root:root,device:device,queue:queue)
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"basis":basis]),as:UTF8.self))
  }
  static func run(_ mode:String,_ root:URL,_ device:MTLDevice,_ queue:MTLCommandQueue)throws->[String:Any] {
   let files=try FileManager.default.contentsOfDirectory(at:root.appendingPathComponent("materials"),includingPropertiesForKeys:nil).filter{$0.pathExtension=="json"}
@@ -389,7 +431,12 @@ NATIVE_MAIN=r'''
   }
   var layers=[SceneRenderDescriptor.Layer(id:1,staticModelPath:"models/peer.mdl"),.init(id:2,staticModelPath:"models/parts.mdl")]
   if mode=="blends-false" {layers[1].modelShadowCastIntent = .disabled}
-  let descriptor=SceneRenderDescriptor(lighting:nil,layers:layers,renderOrderLayerIDs:[1,2],materialPasses:passes)
+  // Older material/depth fixtures store canonical-down geometry. Their explicit
+  // author negative-Y scale preserves the old numeric oracle, not a basis rule.
+  for index in layers.indices {layers[index].originXYZ=[0,128,0];layers[index].scaleXYZ=[1,-1,1]}
+  var descriptor=SceneRenderDescriptor(lighting:nil,layers:layers,renderOrderLayerIDs:[1,2],materialPasses:passes)
+  descriptor.camera = .init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:160,
+      orthoHeight:128,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)
   let loader=try SceneTextureLoader(root:root,device:device)
   let meshCost=device.heapBufferSizeAndAlign(length:4*MemoryLayout<SceneMdlStaticModel.Vertex>.stride,options:.storageModeShared).size
        + device.heapBufferSizeAndAlign(length:6*MemoryLayout<UInt32>.stride,options:.storageModeShared).size
@@ -405,8 +452,10 @@ NATIVE_MAIN=r'''
   let rejected=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionBefore
   if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
   let renderer=SceneMetalRenderer(device:device,resources:resources)
+  renderer.renderDescriptor=descriptor
   let dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
-  let world=[1:matrix_identity_float4x4,2:matrix_identity_float4x4]
+  let world=SceneLayerWorldFrameResolver.compute(descriptor:descriptor,
+      byID:Dictionary(uniqueKeysWithValues:layers.map{($0.id,$0)}))
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:160,
       orthoHeight:128,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:160,height:128))
   let lighting=SceneLightSnapshot(ambient:.zero,skylight: .zero,directional:[],point:[],spot:[],overflowCount:0)
@@ -545,10 +594,29 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         cls.root=freeze_inputs('native',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
             'defaults':default_albedo_fixture(),'emission':emission_mask_fixture(),
-            'identities':identity_chunk_fixture(),'blends':blending_fixture()})
+            'identities':identity_chunk_fixture(),'blends':blending_fixture(),
+            'basis':vertex_basis_fixture(),'basis-renamed':vertex_basis_fixture(True)})
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
         cls.rows={r['mode']:r for r in cls.report['rows']}
+        cls.basis=cls.report['basis']
+
+    def test_authored_vertex_basis_reaches_color_normals_cull_and_all_shadow_types(self):
+        self.assertEqual(len(self.basis), 12)
+        for row in self.basis:
+            with self.subTest(variant=row['variant'], mode=row['mode']):
+                self.assertLess(row['worldError'], 0.0002)
+                self.assertLess(row['normalError'], 0.0002)
+                self.assertTrue(row['canonicalUnchanged'])
+                self.assertTrue(row['colorMatchesReference'], row)
+                self.assertTrue(row['colorCullAndMirror'], row)
+                self.assertTrue(row['encoded'] and row['completed'])
+                self.assertEqual(row['shadowKinds'], ['directional','spot','point'])
+                self.assertTrue(all(row['shadowMatchesReference']), row)
+                self.assertTrue(all(row['shadowHasGeometry']), row)
+                self.assertTrue(all(row['shadowCullMatchesGeometry']), row)
+        self.assertTrue(any(row['dynamic'] for row in self.basis))
+        self.assertTrue(any(row['native'] for row in self.basis))
 
     def test_actual_resource_owner_prepares_and_main_loop_consumes_all_5_8_64(self):
         for count in [5,8,64]:
@@ -682,6 +750,9 @@ def app_fixture(count, cast=True):
         assert all(not (c-3<=receiver_x<=c+3) for c in centers)
         oracle.append({'part':i,'receiver':[receiver_x,48,0],'hit':[hit_x,48,20],'positiveRayT':20,'hitPartIndices':hits})
     entries['materials/receiver.png']=png([180,180,180,255])
+    # These older material/shadow ROIs use canonical-down authored quads.
+    for obj in objects:
+        if 'model' in obj: obj['scale']='1 -1 1'
     entries['models/parts.mdl']=join_parts(caster_parts)
     entries['models/receivers.mdl']=join_parts(receiver_parts)
     rois['healthy']=[145,70]

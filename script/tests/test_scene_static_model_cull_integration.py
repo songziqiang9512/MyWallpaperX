@@ -85,6 +85,11 @@ def fixture_entries(*, cast=True, all_nocull=False):
              "color": "1 1 1", "intensity": 2, "castshadow": True},
             {"id": 4, "model": "models/healthy.mdl", "origin": "0 96 0",
              "perspective": False, "castshadow": False}]}
+    # This older ROI carrier writes canonical-down vertices. Make that author
+    # reflection explicit; the positive-Y-up basis gate uses separate geometry.
+    for obj in scene["objects"]:
+        if "model" in obj:
+            obj["scale"] = "1 -1 1"
     entries.update({"scene.json": encoded(scene), "models/cases.mdl": join_parts(parts),
         "models/receiver.mdl": quad(10, 150, 10, 86, 0, "materials/receiver.json"),
         "models/healthy.mdl": quad(141, 149, 76, 84, 25, "materials/healthy.json"),
