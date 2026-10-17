@@ -131,14 +131,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "山景、雨和时钟呈现；active鸟粒子部分控制点force未准入，非整个粒子层失败。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "限定root正交CP world force与缺省距离已接通，自有正控成立；原包9秒/after5山景、雨和时钟保持，但270在current/committed非空快照及逐层非空GPU统计均缺席，鸟群可见贡献仍UNKNOWN。音频发射抑制因果未证，operator10非零world origin仍未准入；before/after App、sidecar与cache不同，不作单变量像素或性能结论。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip"
       ],
-      "remainingDifferences": "山景、雨和时钟呈现；active鸟粒子部分控制点force未准入，非整个粒子层失败。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "Bird270当前窗口零nonempty、可见贡献UNKNOWN；音频抑制因果未证；operator10非零world origin未准入；完整视觉、播放、交互、作者参数及同状态官方对照未验收。",
       "officialComparison": "compared"
     },
     "3690065713": {
@@ -483,14 +485,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root",
-      "note": "独立原包短播保人物、手部、荷叶、鱼、水与root/child/refraction，正常退出/drain；目录官方仅作未控phase构图参考，不计全部动态、交互或完整同状态parity。",
-      "remainingDifferences": "独立原包短播保人物、手部、荷叶、鱼、水与root/child/refraction，正常退出/drain；目录官方仅作未控phase构图参考，不计全部动态、交互或完整同状态parity。",
+      "note": "本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据。目录官方只作未控phase构图参考，不认完整动态、交互或同状态parity。",
+      "remainingDifferences": "完整动态、交互、作者参数与同状态官方parity未验收；本批仅为独立短窗视觉及生命周期回归，继续unreviewed。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip"
       ]
     },
     "3221354414": {

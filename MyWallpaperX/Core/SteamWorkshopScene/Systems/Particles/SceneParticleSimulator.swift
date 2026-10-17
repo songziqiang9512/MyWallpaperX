@@ -46,6 +46,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// frame-varying inputs (audio, overrides, particle age/position) live in
     /// the execution helpers.
     private let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
+    let hasWorldControlPointForce: Bool
+    var controlPointForceFrame: SceneParticleControlPointForceFrame?
     private let maintainsVortexRadius: Bool
     /// Launch-stable control-point identity lookup. Dynamic pointer and
     /// SceneScript values still arrive through `dynamicControlPoints`; only
@@ -111,6 +113,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan? = nil,
+        controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable,
+        controlPointForceFrame: SceneParticleControlPointForceFrame? = nil,
         stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) {
@@ -135,9 +139,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorExecutionPlans = definition.operators.map {
             SceneParticleOperatorExecutionPlan(
                 $0,
-                definition: definition
+                definition: definition, controlPointForceEnvironment: controlPointForceEnvironment
             )
         }
+        hasWorldControlPointForce = operatorExecutionPlans.contains { $0.controlPointForce?.sourceSpace == .world }
+        self.controlPointForceFrame = controlPointForceFrame
         maintainsVortexRadius = operatorExecutionPlans.contains { $0.vortex?.maintainsRadius == true }
         var controlPointsByID: [Int: SceneParticleControlPoint] = [:]
         var controlPointIdentities: Set<Int> = []
@@ -177,7 +183,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
         diagnostics = SceneParticleSimulationMath.diagnostics(
-            definition, instanceOverride, eventColorContext: eventColorContext
+            definition, instanceOverride, eventColorContext: eventColorContext,
+            controlPointForceEnvironment: controlPointForceEnvironment
         )
         emitters = definition.emitters.indices.map {
             SceneParticleEmitterState(seed: seed, emitterIndex: $0)
@@ -225,6 +232,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
         audioInput: SceneParticleAudioInput = .silent,
         worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
+        controlPointForceFrame: SceneParticleControlPointForceFrame? = nil,
         allowsEmission: Bool = true
     ) {
         let intent = playback.intent
@@ -236,6 +244,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
         self.audioInput = audioInput
         activeWorldSpaceFrame = worldSpaceFrameOverride ?? worldSpaceFrame
+        self.controlPointForceFrame = controlPointForceFrame
         guard duration.isFinite, duration > 0 else { return }
         let birthEventStart = explicitBirthEventStart ?? birthEvents.count
         explicitBirthEventStart = nil
@@ -358,6 +367,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             simulationTime: simulationTime,
             activeInstanceOverride: activeInstanceOverride,
             activeWorldSpaceFrame: activeWorldSpaceFrame,
+            controlPointForceFrame: controlPointForceFrame,
             explicitBirthEventStart: explicitBirthEventStart,
             emitters: emitters,
             random: random,
@@ -385,6 +395,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         simulationTime = snapshot.simulationTime
         activeInstanceOverride = snapshot.activeInstanceOverride
         activeWorldSpaceFrame = snapshot.activeWorldSpaceFrame
+        controlPointForceFrame = snapshot.controlPointForceFrame
         explicitBirthEventStart = snapshot.explicitBirthEventStart
         emitters = snapshot.emitters
         random = snapshot.random

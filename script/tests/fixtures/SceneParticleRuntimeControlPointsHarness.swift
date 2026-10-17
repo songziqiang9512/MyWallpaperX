@@ -223,7 +223,97 @@ extension Harness {
             // would add child-local (10-15)/2.5 to CP1 and yield x=20.
             "rootPointerChildStaticPosition": rootPointerChildStaticPosition(),
             "pointerDemandLayerIDs": demandRuntime.pointerControlPointLayerIDs.sorted(),
+            "rootWorldForce": try rootWorldForceRuntimeFacts(directory: directory, device: device),
         ]
+    }
+
+
+    static func rootWorldForceRuntimeFacts(directory: URL, device: MTLDevice) throws -> [[String: Any]] {
+        var results: [[String: Any]] = []
+        for (id, name) in [(640, "world-lumen"), (1640, "renamed-force-spark")] {
+            let path = "particles/\(name).json"
+            func definition(flags: Int = 2, threshold: Double? = nil, warm: Bool = true, pointOffset: String = "0 0 0") -> [String: Any] {
+                var force: [String: Any] = ["name": "controlpointattract", "controlpoint": 1, "scale": 60]
+                if let threshold { force["threshold"] = threshold }
+                return ["material": "materials/shared.json", "maxcount": 1, "flags": 0,
+                    "starttime": warm ? 1.0 / 60 : 0,
+                    "emitter": [["name": "boxrandom", "rate": 0, "instantaneous": 1, "distancemax": 0]],
+                    "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+                    "operator": [["name": "movement", "gravity": "0 0 0"], force],
+                    "renderer": [["name": "sprite"]],
+                    "controlpoint": [["id": 1, "flags": flags, "offset": pointOffset]]]
+            }
+            try writeJSON(definition(), to: directory.appendingPathComponent(path))
+            var root = layer(id, path, controlPoint: .init(110, 220, 0))
+            root.originXYZ = [100, 200, 0]; root.originHasScript = true
+            var d = SceneRenderDescriptor(layers: [root], renderOrderLayerIDs: [id],
+                materialPasses: [.init(materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                                      texturePaths: ["shared.png"], blending: "additive")])
+            // A carrier stores the prepared camera fact; the separate CPU gate obtains it
+            // through the production JSON loader and DescriptorBuilder.
+            d.camera = .init(authoredOrthographicProjectionActive: true)
+            d.camera.orthoWidth = 1000; d.camera.orthoHeight = 800
+            let target = SceneDynamicTarget.layer(layerID: id, field: .origin)
+            func snapshot(_ origin: SIMD3<Double>) -> SceneDynamicSnapshot {
+                SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                    definitions: [.init(target: target, valueType: .vector3, authoredValue: .vector3(100, 200, 0))],
+                    sceneScriptValues: [target: .vector3(origin.x, origin.y, origin.z)]).snapshot
+            }
+            func frames(_ input: SceneDynamicSnapshot) -> [Int: simd_float4x4] {
+                let byID = Dictionary(uniqueKeysWithValues: d.layers.map { ($0.id, $0) })
+                return SceneLayerDynamicWorldFrameResolver.resolve(descriptor: d, byID: byID, snapshot: input,
+                    staticFrames: SceneLayerWorldFrameResolver.compute(descriptor: d, byID: byID))
+            }
+            func velocity(_ batches: [SceneParticleDrawBatch]) -> SIMD3<Float>? {
+                batches.first(where: { $0.layerID == id })?.instances.first.map {
+                    SIMD3($0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z)
+                }
+            }
+            let first = snapshot(.init(140, 260, 0)), next = snapshot(.init(80, 180, 0))
+            let runtime = SceneParticleRuntime(descriptor: d, cacheDirectory: directory, device: device,
+                                               initialDynamicValues: first)
+            let initial = velocity(runtime.advance(by: 0, dynamicValues: first, layerWorldFrames: frames(first)))
+            let updated = velocity(runtime.advance(by: 1.0 / 60, dynamicValues: next, layerWorldFrames: frames(next)))
+            let missing = velocity(runtime.advance(by: 1.0 / 60, dynamicValues: next))
+            let recovered = velocity(runtime.advance(by: 1.0 / 60, dynamicValues: next, layerWorldFrames: frames(next)))
+            func childForceIsInert(flags: Int) throws -> (acceptedBoundary: Bool, facts: [String: Any]) {
+                let childPath = "particles/\(name)-child-\(flags).json"
+                try writeJSON(definition(flags: flags, warm: false, pointOffset: "100 0 0"), to: directory.appendingPathComponent(childPath))
+                let parentPath = "particles/\(name)-parent-\(flags).json"
+                try writeParticle(parentPath, material: "materials/shared.json", lifetime: 10, rate: 0,
+                    instantaneous: 1, children: [["name": childPath, "type": "eventfollow", "maxcount": 1]], under: directory)
+                let parent = layer(id + 1, parentPath)
+                var childDescriptor = SceneRenderDescriptor(layers: [parent], renderOrderLayerIDs: [id + 1],
+                                                            materialPasses: d.materialPasses)
+                childDescriptor.camera = .init(authoredOrthographicProjectionActive: true)
+                childDescriptor.camera.orthoWidth = 1000; childDescriptor.camera.orthoHeight = 800
+                let childRuntime = SceneParticleRuntime(descriptor: childDescriptor, cacheDirectory: directory, device: device)
+                var batches: [SceneParticleDrawBatch] = []
+                for _ in 0..<2 { batches = childRuntime.advance(by: 1.0 / 60) }
+                let child = batches.filter { $0.particlePath == childPath }.flatMap(\.instances)
+                let systems = childRuntime.frameSnapshot().layers.compactMap(\.child).flatMap(\.systems)
+                let diagnostics = systems.flatMap { $0.simulator.diagnostics }.map { $0.kind.rawValue }
+                let inert = !child.isEmpty && child.allSatisfy {
+                    $0.velocityAndTrail.x == 0 && $0.velocityAndTrail.y == 0 && $0.velocityAndTrail.z == 0
+                }
+                let healthyParent = batches.contains { $0.particlePath == parentPath && !$0.instances.isEmpty }
+                return (inert && healthyParent && diagnostics.contains("controlPointForceUnsupported"),
+                    ["childCount": child.count, "healthyParent": healthyParent, "diagnostics": diagnostics,
+                     "velocities": child.map { [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z] }])
+            }
+            func components(_ value: SIMD3<Float>?) -> [Float] { value.map { [$0.x, $0.y, $0.z] } ?? [] }
+            let childWorld = try childForceIsInert(flags: 2), childDefault = try childForceIsInert(flags: 0)
+            results.append(["name": name, "initialVelocity": components(initial), "updatedVelocity": components(updated),
+                "missingVelocity": components(missing), "recoveredVelocity": components(recovered),
+                "prewarmUsesInitialTypedFrame": initial.map { $0.x < -0.3 && $0.y < -0.3 } ?? false,
+                "currentFrameChangesForce": initial.flatMap { a in updated.map { $0.x > a.x + 0.3 && $0.y > a.y + 0.3 } } ?? false,
+                "missingCurrentFrameSkipsForce": updated != nil && updated == missing,
+                "forceRecovers": missing.flatMap { a in recovered.map { $0.x > a.x + 0.3 && $0.y > a.y + 0.3 } } ?? false,
+                "childWorldNotAdmitted": childWorld.acceptedBoundary,
+                "childMissingDefaultNotInherited": childDefault.acceptedBoundary,
+                "childWorldFacts": childWorld.facts, "childDefaultFacts": childDefault.facts])
+        }
+        return results
     }
 
     static func syntheticDynamicControlPointAngle() throws -> [String: Any] {

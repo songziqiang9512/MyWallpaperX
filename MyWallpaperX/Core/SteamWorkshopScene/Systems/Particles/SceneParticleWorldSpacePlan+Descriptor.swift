@@ -2,6 +2,21 @@ import Foundation
 import simd
 
 extension SceneRenderDescriptor {
+    func particleControlPointForceEnvironment(
+        for layer: Layer, definition: SceneParticleDefinition
+    ) -> SceneParticleControlPointForceEnvironment {
+        let distance = camera.authoredOrthographicProjectionActive.map { $0 ? 512.0 : 5.0 }
+        let worldSource = camera.authoredOrthographicProjectionActive == true
+            && camera.orthoWidth.map({ $0.isFinite && $0 > 0 }) == true
+            && camera.orthoHeight.map({ $0.isFinite && $0 > 0 }) == true
+            && layer.parentID == nil && layer.attachmentName == nil
+            && layer.parentAttachmentBindFrame == nil && layer.childLayerIDs.isEmpty
+            && !layers.contains(where: { $0.parentID == layer.id })
+            && layer.usesPerspective != true && !definition.flags.isWorldSpace
+            && !definition.flags.usesPerspective && definition.children.isEmpty
+        return .init(defaultMaximumDistance: distance, allowsWorldSource: worldSource)
+    }
+
     /// Prepared reference and initial typed source, before simulator prewarm.
     func particleRootWorldTranslations(initialDynamicValues: SceneDynamicSnapshot)
         -> [Int: (plan: SceneParticleRootWorldTranslationPlan, frame: SceneParticleWorldSpaceFrame)] {

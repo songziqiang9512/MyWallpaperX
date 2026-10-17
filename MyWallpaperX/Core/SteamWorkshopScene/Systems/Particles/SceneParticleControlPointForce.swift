@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 nonisolated extension SceneParticleSimulationMath {
     static func supportsControlPointSource(
@@ -58,10 +59,51 @@ nonisolated enum SceneParticleControlPointForceAdmission {
 }
 
 nonisolated struct SceneParticleControlPointForcePlan {
+    enum SourceSpace: Sendable { case local, world }
     let controlPoint: Int
     let origin: SIMD3<Double>
     let acceleration: Double
     let maximumDistance: Double
+    var sourceSpace: SourceSpace = .local
+}
+
+/// Scene facts are supplied at preparation, never inferred from a render fallback.
+nonisolated struct SceneParticleControlPointForceEnvironment: Sendable {
+    var defaultMaximumDistance: Double? = nil
+    var allowsWorldSource: Bool = false
+    static let unavailable = Self()
+}
+
+/// Current point conversion for this layer/cadence; unrelated to General-world birth anchoring.
+nonisolated struct SceneParticleControlPointForceFrame: Equatable, Sendable {
+    private let worldToLocal: simd_double4x4
+    private let sceneOrthoHeight: Double
+
+    init?(worldFrame: simd_float4x4, sceneOrthoHeight: Float) {
+        guard sceneOrthoHeight.isFinite, sceneOrthoHeight > 0,
+              worldFrame.columns.0.w == 0, worldFrame.columns.1.w == 0,
+              worldFrame.columns.2.w == 0, worldFrame.columns.3.w == 1 else { return nil }
+        let source = simd_double4x4(columns: (
+            SIMD4(Double(worldFrame[0][0]), Double(worldFrame[0][1]), Double(worldFrame[0][2]), Double(worldFrame[0][3])),
+            SIMD4(Double(worldFrame[1][0]), Double(worldFrame[1][1]), Double(worldFrame[1][2]), Double(worldFrame[1][3])),
+            SIMD4(Double(worldFrame[2][0]), Double(worldFrame[2][1]), Double(worldFrame[2][2]), Double(worldFrame[2][3])),
+            SIMD4(Double(worldFrame[3][0]), Double(worldFrame[3][1]), Double(worldFrame[3][2]), Double(worldFrame[3][3]))
+        ))
+        let determinant = simd_determinant(source)
+        guard (0..<4).allSatisfy({ column in (0..<4).allSatisfy { source[column][$0].isFinite } }),
+              determinant.isFinite, determinant != 0 else { return nil }
+        let inverse = source.inverse
+        guard (0..<4).allSatisfy({ column in (0..<4).allSatisfy { inverse[column][$0].isFinite } })
+        else { return nil }
+        worldToLocal = inverse
+        self.sceneOrthoHeight = Double(sceneOrthoHeight)
+    }
+
+    func localPosition(worldPoint: SIMD3<Double>) -> SIMD3<Double>? {
+        let local = worldToLocal * SIMD4(worldPoint.x, sceneOrthoHeight - worldPoint.y, worldPoint.z, 1)
+        let result = SIMD3(local.x, -local.y, local.z)
+        return result.x.isFinite && result.y.isFinite && result.z.isFinite ? result : nil
+    }
 }
 
 nonisolated extension SceneParticleControlPoint {
@@ -78,6 +120,12 @@ nonisolated extension SceneParticleControlPoint {
         return value.x.isFinite && value.y.isFinite && value.z.isFinite
             && abs(value.x) <= 1_000_000 && abs(value.y) <= 1_000_000
             && abs(value.z) <= 1_000_000
+    }
+
+    func hasBoundedWorldForceInput(identity: Int) -> Bool {
+        guard (1 ... 7).contains(identity), id == identity, !hasMalformedFields, rawFlags == 2,
+              angles == nil, parentControlPoint == nil else { return false }
+        return Self.boundedVector(offset, fallback: .zero) != nil
     }
 
     func boundedEmitterAngle(identity: Int) -> SIMD3<Double>? {
@@ -135,6 +183,12 @@ private nonisolated extension SceneParticleBoundValue {
 
 nonisolated extension SceneParticleOperator {
     var controlPointForceAdmission: SceneParticleControlPointForceAdmission {
+        controlPointForceAdmission(defaultMaximumDistance: nil)
+    }
+
+    func controlPointForceAdmission(
+        defaultMaximumDistance: Double?
+    ) -> SceneParticleControlPointForceAdmission {
         guard kind == .controlPointAttract, rawFlags == 0,
               Self.validBlendPair(start: blendInStart, end: blendInEnd),
               Self.validBlendPair(
@@ -149,7 +203,8 @@ nonisolated extension SceneParticleOperator {
               !audioResponse.isEnabled,
               let acceleration = scale?.scalarValue, acceleration.isFinite,
               abs(acceleration) <= 1_000_000,
-              let maximumDistance = threshold, maximumDistance.isFinite,
+              !hasMalformedThreshold,
+              let maximumDistance = threshold ?? defaultMaximumDistance, maximumDistance.isFinite,
               (0 ... 1_000_000).contains(maximumDistance),
               let origin = Self.boundedVector(origin),
               (0 ... 7).contains(controlPoint ?? 0) else { return .unsupported }
@@ -281,22 +336,31 @@ nonisolated extension SceneParticleDefinition {
     }
 
     func supportsBoundedControlPointForce(
-        _ value: SceneParticleOperator
+        _ value: SceneParticleOperator,
+        environment: SceneParticleControlPointForceEnvironment = .unavailable
     ) -> Bool {
-        // The pointer value supplied for these identities is the layer-local
-        // unprojection through the layer's current model matrix, and the
-        // force composes target and particle positions entirely in local
-        // space — the same pairing every other control-point consumer uses —
-        // so world-space and perspective systems share the demand.
-        guard case let .supported(plan) = value.controlPointForceAdmission,
+        controlPointForcePlan(for: value, environment: environment) != nil
+    }
+
+    func controlPointForcePlan(
+        for value: SceneParticleOperator,
+        environment: SceneParticleControlPointForceEnvironment = .unavailable
+    ) -> SceneParticleControlPointForcePlan? {
+        guard case var .supported(plan) = value.controlPointForceAdmission(
+            defaultMaximumDistance: environment.defaultMaximumDistance),
               SceneParticleSimulationMath.supportsControlPointSource(
                   plan.controlPoint, in: self
-              ) else { return false }
+              ) else { return nil }
         guard let point = controlPoints.first(where: { $0.id == plan.controlPoint }) else {
-            return true
+            return plan
         }
-        return point.hasBoundedPointerInput
-            || point.hasBoundedStaticInput(identity: plan.controlPoint)
+        if point.hasBoundedPointerInput || point.hasBoundedStaticInput(identity: plan.controlPoint) {
+            return plan
+        }
+        guard environment.allowsWorldSource, plan.origin == .zero,
+              point.hasBoundedWorldForceInput(identity: plan.controlPoint) else { return nil }
+        plan.sourceSpace = .world
+        return plan
     }
 
     /// Returns the launch-stable control-point identities that can consume the
@@ -304,12 +368,17 @@ nonisolated extension SceneParticleDefinition {
     /// parse, so callers on the realtime path should compute this once and pass
     /// it back to `pointerControlPointValues` for each frame.
     var pointerControlPointIdentities: [Int] {
+        pointerControlPointIdentities(environment: .unavailable)
+    }
+
+    func pointerControlPointIdentities(
+        environment: SceneParticleControlPointForceEnvironment
+    ) -> [Int] {
         // Most particle definitions have no pointer-following control point.
         // Keep that common case off the operator/initializer scans entirely.
         guard controlPoints.contains(where: \.followsPointer) else { return [] }
         var identities = Set(operators.compactMap { value -> Int? in
-            guard supportsBoundedControlPointForce(value),
-                  case let .supported(plan) = value.controlPointForceAdmission,
+            guard let plan = controlPointForcePlan(for: value, environment: environment),
                   controlPoints.contains(where: {
                       $0.id == plan.controlPoint && $0.hasBoundedPointerInput
                   }) else { return nil }

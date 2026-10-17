@@ -2754,6 +2754,25 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "2e39ab56d414e66778072e79f163c840a462ec77",
+      "short_version": "2.10.0",
+      "bundle_version": "280",
+      "executable_sha256": "5a8132e3b5cc21e089227d90c01b0dc5f72fb93c9746dbc6168c921abf12c455",
+      "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app",
+      "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_retained": true,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true,
+      "debug_dylib_sha256": "9143d9c2e952775b28824f84ce2d7d909005a241818d1c453d8c5eabb56ec912",
+      "identityObservationKind": "manual-bounded-native-not-benchmark"
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
@@ -3982,6 +4001,23 @@
       ],
       "supplementOnlyIDs": [],
       "claimBoundary": "Default diagnostic only, no full-sample visual/audio/performance PASS."
+    },
+    {
+      "format": "file",
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json",
+      "bytes": 4835,
+      "sha256": "0dbe76d4b7735104dcc0c3a924c1e1629544a8b9b98e7638475bd40a956a42b6",
+      "status": "retained-byte-verified",
+      "kind": "manual-bounded-native-not-benchmark",
+      "importedAt": "2026-10-17T14:44:42.400379+00:00",
+      "sampleCount": 2,
+      "importedSampleIDs": [
+        "3597772384"
+      ],
+      "supplementOnlyIDs": [
+        "3770444459"
+      ],
+      "claimBoundary": "Bounded CP semantics/native lifecycle, Bird270 empty/visibleUNKNOWN; no whole-sample, official numericparity or performance PASS."
     }
   ],
   "samples": [
@@ -11736,87 +11772,255 @@
       },
       "evidence": {
         "report": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
-          "sha256": "c79a0415ddf660ea98028d47181e1359e33617631cf6c116ffe7305473bd2436",
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json",
+          "bytes": 4835,
+          "sha256": "0dbe76d4b7735104dcc0c3a924c1e1629544a8b9b98e7638475bd40a956a42b6",
+          "status": "retained-byte-verified",
+          "kind": "manual-bounded-native-not-benchmark",
+          "importedAt": "2026-10-17T14:44:42.400379+00:00",
           "sampleIndex": 1,
-          "kind": "manual-bounded-native-not-benchmark"
+          "jsonPointer": "/samples/1"
         },
         "sampleEvidencePaths": {
-          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
+          "runtime_evidence_zip": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "bytes": 16650993,
+            "sha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "status": "retained-byte-verified"
+          },
+          "execution": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/execution.json",
+            "bytes": 4785,
+            "sha256": "5195dc03755af24af8bcc2cce28d710ca3b6dedb2c3680e2e0a1013fde8db67a",
+            "crc32": "35026ceb",
+            "status": "retained-byte-verified"
+          },
+          "filtered_observations": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/observations.json",
+            "bytes": 11742,
+            "sha256": "5ec49abd740aa4590bcbe9370632e72874ed904a192c4bcdeb81b210fcfdb9e7",
+            "crc32": "7daa7f6b",
+            "status": "retained-byte-verified"
+          },
+          "after_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/evidence/scene-after-window.png",
+            "bytes": 8384478,
+            "sha256": "cd9148bbc44c1d837db0ab0ef0222aaa22754c53c17546c8447c306c395db9f9",
+            "crc32": "24aec1a7",
+            "status": "retained-byte-verified"
+          },
+          "source_app_identity": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/app-before.json",
+            "bytes": 1887,
+            "sha256": "f52075941654bef7269e48f33fe8066ef2a674162929420e8477bf2c97066960",
+            "crc32": "eed2e0b6",
+            "status": "retained-byte-verified"
+          },
+          "source_app_identity_after": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/app-after.json",
+            "bytes": 1887,
+            "sha256": "f52075941654bef7269e48f33fe8066ef2a674162929420e8477bf2c97066960",
+            "crc32": "eed2e0b6",
+            "status": "retained-byte-verified"
+          },
+          "input_identity_before": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/input-before.json",
+            "bytes": 469,
+            "sha256": "47e79189783890230d7f70b74a26e1b6a935c77a69edafd0107eceba750a165b",
+            "crc32": "3a23cd6d",
+            "status": "retained-byte-verified"
+          },
+          "input_identity_after": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/heldout/input-after.json",
+            "bytes": 400,
+            "sha256": "951b47bb3cbc1c2a4354e94379e733dc49aa54b2a8817e2215ec0672a7b4312f",
+            "crc32": "fd479ac0",
+            "status": "retained-byte-verified"
+          },
+          "root_actual_review": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "qualification/actual-review.json",
+            "bytes": 13568,
+            "sha256": "1a9d9f81ed6c3955927c2cb775179b68e02d6e006ce656d537f4162ec06f4079",
+            "crc32": "ed23715b",
+            "status": "retained-byte-verified"
+          }
         },
-        "members": {
-          "execution": "native/independentRope/execution.json",
-          "observations": "native/independentRope/observations.json",
-          "after_snapshot": "native/independentRope/raw/scene-after-window.png"
+        "unarchivedSourceIdentities": {
+          "app.log": {
+            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/heldout/evidence/app.log",
+            "bytes": 45153,
+            "sha256": "2178cffa513817f604a8811bc91b640a547006a0dea3aa4567e8008544f40988",
+            "disposition": "source identity only; full source-bearing body not archived",
+            "neutralRetainedEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+              "member": "native-after/heldout/observations.json",
+              "bytes": 11742,
+              "sha256": "5ec49abd740aa4590bcbe9370632e72874ed904a192c4bcdeb81b210fcfdb9e7",
+              "crc32": "7daa7f6b",
+              "status": "retained-byte-verified"
+            }
+          },
+          "scene-preview.log": {
+            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/heldout/evidence/scene-preview.log",
+            "bytes": 12734,
+            "sha256": "a2be4d4db13b26aad99ff639dbb590102f0c44907b0340c30940e8d60b1d39bf",
+            "disposition": "source identity only; full source-bearing body not archived",
+            "neutralRetainedEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+              "member": "native-after/heldout/observations.json",
+              "bytes": 11742,
+              "sha256": "5ec49abd740aa4590bcbe9370632e72874ed904a192c4bcdeb81b210fcfdb9e7",
+              "crc32": "7daa7f6b",
+              "status": "retained-byte-verified"
+            }
+          },
+          "scene-runtime-evidence.json": {
+            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/heldout/evidence/scene-runtime-evidence.json",
+            "bytes": 191763,
+            "sha256": "1bb454a19fc85bd94bf950103ed04d65a87a00ced4d615ffd3d0bc1e51beebf6",
+            "disposition": "source identity only; full source-bearing body not archived",
+            "neutralRetainedEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+              "member": "native-after/heldout/observations.json",
+              "bytes": 11742,
+              "sha256": "5ec49abd740aa4590bcbe9370632e72874ed904a192c4bcdeb81b210fcfdb9e7",
+              "crc32": "7daa7f6b",
+              "status": "retained-byte-verified"
+            }
+          }
         },
-        "priorEvidenceIsHistorical": true
+        "priorEvidenceIsHistorical": true,
+        "priorEvidence": [
+          {
+            "report": {
+              "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
+              "sha256": "c79a0415ddf660ea98028d47181e1359e33617631cf6c116ffe7305473bd2436",
+              "sampleIndex": 1,
+              "kind": "manual-bounded-native-not-benchmark"
+            },
+            "sampleEvidencePaths": {
+              "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
+            },
+            "members": {
+              "execution": "native/independentRope/execution.json",
+              "observations": "native/independentRope/observations.json",
+              "after_snapshot": "native/independentRope/raw/scene-after-window.png"
+            },
+            "priorEvidenceIsHistorical": true
+          }
+        ],
+        "sealStatus": "promoted-member-SHA-CRC-verified"
       },
       "id": "3770444459",
       "nextAction": "continue-full-phase-interaction-official-review",
       "runtime": {
-        "benchmarkResultIgnored": {
-          "failureCount": 0,
-          "passed": true,
-          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
-        },
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
         "evidenceSummary": {
           "surfaceCount": 1,
           "afterNonBlackObserved": true,
-          "readyNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "terminalCompositorObserved": true,
-          "claimBoundary": "manual bounded native visual/particle followup; no benchmark/full compatibility PASS",
+          "claimBoundary": "manual bounded native; no full visual verdict/benchmark/performance PASS",
           "AppExit": 0,
           "driverExit": 0,
+          "timedOut": false,
           "gpuDrained": true,
           "ownedProcessGroupGone": true,
+          "identityDrift": [],
+          "VMFailureLines": [],
+          "ready": {
+            "layers": 6,
+            "imageLayers": 1,
+            "effects": 3,
+            "surfaces": 1,
+            "startupMS": 2174.007
+          },
+          "stop": {
+            "surfacesBefore": 1,
+            "surfacesAfter": 0,
+            "gpuDrained": true
+          },
           "particleGPU": [
             {
-              "line": 132,
+              "line": 130,
               "layer": 48,
               "submittedFrames": 48,
               "completedFrames": 48,
               "failedFrames": 0,
               "encodedBatches": 192,
               "completedBatches": 192,
-              "encodedInstances": 13020,
-              "completedInstances": 13020
+              "encodedInstances": 13068,
+              "completedInstances": 13068
             },
             {
-              "line": 133,
+              "line": 131,
               "layer": 239,
               "submittedFrames": 48,
               "completedFrames": 48,
               "failedFrames": 0,
-              "encodedBatches": 92,
-              "completedBatches": 92,
-              "encodedInstances": 210,
-              "completedInstances": 210
+              "encodedBatches": 91,
+              "completedBatches": 91,
+              "encodedInstances": 208,
+              "completedInstances": 208
             },
             {
-              "line": 134,
+              "line": 132,
               "layer": 245,
               "submittedFrames": 48,
               "completedFrames": 48,
               "failedFrames": 0,
               "encodedBatches": 81,
               "completedBatches": 81,
-              "encodedInstances": 223,
-              "completedInstances": 223
+              "encodedInstances": 222,
+              "completedInstances": 222
             },
             {
-              "line": 135,
+              "line": 133,
               "layer": 248,
               "submittedFrames": 48,
               "completedFrames": 48,
               "failedFrames": 0,
-              "encodedBatches": 92,
-              "completedBatches": 92,
-              "encodedInstances": 195,
-              "completedInstances": 195
+              "encodedBatches": 91,
+              "completedBatches": 91,
+              "encodedInstances": 193,
+              "completedInstances": 193
             },
             {
-              "line": 136,
+              "line": 134,
               "layer": 285,
               "submittedFrames": 48,
               "completedFrames": 48,
@@ -11826,11 +12030,112 @@
               "encodedInstances": 212,
               "completedInstances": 212
             }
-          ]
+          ],
+          "graphSummary": {
+            "count": 8,
+            "compositorConsumedGPUCompleted": 2
+          }
         },
-        "firstBreakpoint": null,
-        "secondaryEvents": [],
-        "status": "structural-chain-complete-visual-review"
+        "appIdentity": {
+          "bundle_identifier": "com.songziqiang.MyWallpaperX",
+          "team_identifier": "H9QWU9XN8R",
+          "cdhash": "2e39ab56d414e66778072e79f163c840a462ec77",
+          "short_version": "2.10.0",
+          "bundle_version": "280",
+          "executable_sha256": "5a8132e3b5cc21e089227d90c01b0dc5f72fb93c9746dbc6168c921abf12c455",
+          "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000",
+          "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+          "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app",
+          "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_retained": true,
+          "source_signature_verified": true,
+          "verified_before": true,
+          "verified_after": true,
+          "debug_dylib_sha256": "9143d9c2e952775b28824f84ce2d7d909005a241818d1c453d8c5eabb56ec912",
+          "identityObservationKind": "manual-bounded-native-not-benchmark"
+        },
+        "historicalRuntimeObservations": [
+          {
+            "benchmarkResultIgnored": {
+              "failureCount": 0,
+              "passed": true,
+              "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+            },
+            "evidenceSummary": {
+              "surfaceCount": 1,
+              "afterNonBlackObserved": true,
+              "readyNonBlackObserved": true,
+              "graphEvidenceObserved": true,
+              "terminalCompositorObserved": true,
+              "claimBoundary": "manual bounded native visual/particle followup; no benchmark/full compatibility PASS",
+              "AppExit": 0,
+              "driverExit": 0,
+              "gpuDrained": true,
+              "ownedProcessGroupGone": true,
+              "particleGPU": [
+                {
+                  "line": 132,
+                  "layer": 48,
+                  "submittedFrames": 48,
+                  "completedFrames": 48,
+                  "failedFrames": 0,
+                  "encodedBatches": 192,
+                  "completedBatches": 192,
+                  "encodedInstances": 13020,
+                  "completedInstances": 13020
+                },
+                {
+                  "line": 133,
+                  "layer": 239,
+                  "submittedFrames": 48,
+                  "completedFrames": 48,
+                  "failedFrames": 0,
+                  "encodedBatches": 92,
+                  "completedBatches": 92,
+                  "encodedInstances": 210,
+                  "completedInstances": 210
+                },
+                {
+                  "line": 134,
+                  "layer": 245,
+                  "submittedFrames": 48,
+                  "completedFrames": 48,
+                  "failedFrames": 0,
+                  "encodedBatches": 81,
+                  "completedBatches": 81,
+                  "encodedInstances": 223,
+                  "completedInstances": 223
+                },
+                {
+                  "line": 135,
+                  "layer": 248,
+                  "submittedFrames": 48,
+                  "completedFrames": 48,
+                  "failedFrames": 0,
+                  "encodedBatches": 92,
+                  "completedBatches": 92,
+                  "encodedInstances": 195,
+                  "completedInstances": 195
+                },
+                {
+                  "line": 136,
+                  "layer": 285,
+                  "submittedFrames": 48,
+                  "completedFrames": 48,
+                  "failedFrames": 0,
+                  "encodedBatches": 48,
+                  "completedBatches": 48,
+                  "encodedInstances": 212,
+                  "completedInstances": 212
+                }
+              ]
+            },
+            "firstBreakpoint": null,
+            "secondaryEvents": [],
+            "status": "structural-chain-complete-visual-review"
+          }
+        ]
       },
       "title": "三国杀【节气 夏至 2026】8K"
     },
@@ -16238,174 +16543,469 @@
         "secondaryEvents": [],
         "evidenceSummary": {
           "surfaceCount": 1,
-          "readyNonBlackObserved": true,
           "afterNonBlackObserved": true,
-          "readyFlatBorderRatio": 0.19139470856835886,
-          "afterFlatBorderRatio": 0.19469345957561107,
-          "previewSpatialColorSimilarityAdvisory": 0.9789,
           "graphEvidenceObserved": true,
-          "acceptedGraphLayerCount": 44,
-          "terminalCompositorLayerCount": 13,
-          "nextFrameLayerCount": 13
+          "terminalCompositorObserved": true,
+          "claimBoundary": "manual bounded native; no full visual verdict/benchmark/performance PASS",
+          "AppExit": 0,
+          "driverExit": 0,
+          "timedOut": false,
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "identityDrift": [],
+          "VMFailureLines": [],
+          "ready": {
+            "layers": 63,
+            "imageLayers": 38,
+            "effects": 74,
+            "surfaces": 1,
+            "startupMS": 37982.145
+          },
+          "stop": {
+            "surfacesBefore": 1,
+            "surfacesAfter": 0,
+            "gpuDrained": true
+          },
+          "particleGPU": [
+            {
+              "line": 857,
+              "layer": 163,
+              "submittedFrames": 79,
+              "completedFrames": 79,
+              "failedFrames": 0,
+              "encodedBatches": 79,
+              "completedBatches": 79,
+              "encodedInstances": 15271,
+              "completedInstances": 15271
+            },
+            {
+              "line": 858,
+              "layer": 181,
+              "submittedFrames": 79,
+              "completedFrames": 79,
+              "failedFrames": 0,
+              "encodedBatches": 79,
+              "completedBatches": 79,
+              "encodedInstances": 15271,
+              "completedInstances": 15271
+            },
+            {
+              "line": 859,
+              "layer": 185,
+              "submittedFrames": 79,
+              "completedFrames": 79,
+              "failedFrames": 0,
+              "encodedBatches": 79,
+              "completedBatches": 79,
+              "encodedInstances": 15271,
+              "completedInstances": 15271
+            },
+            {
+              "line": 860,
+              "layer": 231,
+              "submittedFrames": 79,
+              "completedFrames": 79,
+              "failedFrames": 0,
+              "encodedBatches": 158,
+              "completedBatches": 158,
+              "encodedInstances": 6478,
+              "completedInstances": 6478
+            },
+            {
+              "line": 861,
+              "layer": 239,
+              "submittedFrames": 79,
+              "completedFrames": 79,
+              "failedFrames": 0,
+              "encodedBatches": 158,
+              "completedBatches": 158,
+              "encodedInstances": 6478,
+              "completedInstances": 6478
+            },
+            {
+              "line": 862,
+              "layer": 497,
+              "submittedFrames": 79,
+              "completedFrames": 79,
+              "failedFrames": 0,
+              "encodedBatches": 316,
+              "completedBatches": 316,
+              "encodedInstances": 26259,
+              "completedInstances": 26259
+            }
+          ],
+          "graphSummary": {
+            "count": 38,
+            "compositorConsumedGPUCompleted": 28
+          },
+          "layer270NonemptyObserved": false,
+          "BirdVisualContribution": "UNKNOWN",
+          "audioSuppressionCause": "UNPROVEN",
+          "operator10": "Nonzero world operatororigin remains unsupported; operators11/12 are eligible, not proof of executed visual contribution.",
+          "comparisonBoundary": "Before/after use same authored project/pkg and9s/after5 default window, but are not a single-variable benchmark: before8b+Rope/App7005 uses all46 directoryfiles/no explicit genericcache; after6d74+CP includes separately committed SystemMedia changes and project/pkg only/shared warmcache. Sidecars excluded after are screenshot/preview/version/DXS; no startup/performance/causal pixel gain inferred. Ambient audio/random/time and one remaining nonzero world-origin force preclude full Bird closure."
         },
-        "benchmarkResultIgnored": {
-          "passed": true,
-          "failureCount": 0,
-          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
-        }
+        "appIdentity": {
+          "bundle_identifier": "com.songziqiang.MyWallpaperX",
+          "team_identifier": "H9QWU9XN8R",
+          "cdhash": "2e39ab56d414e66778072e79f163c840a462ec77",
+          "short_version": "2.10.0",
+          "bundle_version": "280",
+          "executable_sha256": "5a8132e3b5cc21e089227d90c01b0dc5f72fb93c9746dbc6168c921abf12c455",
+          "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000",
+          "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+          "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app",
+          "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_retained": true,
+          "source_signature_verified": true,
+          "verified_before": true,
+          "verified_after": true,
+          "debug_dylib_sha256": "9143d9c2e952775b28824f84ce2d7d909005a241818d1c453d8c5eabb56ec912",
+          "identityObservationKind": "manual-bounded-native-not-benchmark"
+        },
+        "historicalRuntimeObservations": [
+          {
+            "status": "structural-chain-complete-visual-review",
+            "firstBreakpoint": null,
+            "secondaryEvents": [],
+            "evidenceSummary": {
+              "surfaceCount": 1,
+              "readyNonBlackObserved": true,
+              "afterNonBlackObserved": true,
+              "readyFlatBorderRatio": 0.19139470856835886,
+              "afterFlatBorderRatio": 0.19469345957561107,
+              "previewSpatialColorSimilarityAdvisory": 0.9789,
+              "graphEvidenceObserved": true,
+              "acceptedGraphLayerCount": 44,
+              "terminalCompositorLayerCount": 13,
+              "nextFrameLayerCount": 13
+            },
+            "benchmarkResultIgnored": {
+              "passed": true,
+              "failureCount": 0,
+              "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+            }
+          }
+        ]
       },
       "evidence": {
         "report": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-          "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-          "member": "original-group-01/report.json",
-          "bytes": 1423883,
-          "sha256": "06c3a86d909cddbe224d96e8708a3e4be5ad2036d335da7b51d309c940144e66",
-          "crc32": "7579b6a0",
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json",
+          "bytes": 4835,
+          "sha256": "0dbe76d4b7735104dcc0c3a924c1e1629544a8b9b98e7638475bd40a956a42b6",
           "status": "retained-byte-verified",
-          "sampleIndex": 1,
-          "jsonPointer": "/samples/1",
-          "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/report.json"
+          "kind": "manual-bounded-native-not-benchmark",
+          "importedAt": "2026-10-17T14:44:42.400379+00:00",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
         },
         "sampleEvidencePaths": {
           "runtime_evidence_zip": {
             "format": "file",
-            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-            "bytes": 3701059,
-            "sha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "bytes": 16650993,
+            "sha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
             "status": "retained-byte-verified"
           },
-          "app_log": {
+          "execution": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-            "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-            "member": "case/app.log",
-            "bytes": 353615,
-            "sha256": "6b7c56ed287a970ed291eaed95b812d043ea777cc6c86991748831597da015e0",
-            "crc32": "a542112b",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/execution.json",
+            "bytes": 4806,
+            "sha256": "63876e271ea095b81ff7910bddbbf6f545f7805c773dce3b22c0073990a1a62f",
+            "crc32": "698796c2",
             "status": "retained-byte-verified"
           },
-          "preview_log": {
+          "filtered_observations": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-            "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-            "member": "case/scene-preview.log",
-            "bytes": 78829,
-            "sha256": "7bb6e48cb1c2aea77a8ded63a484eb48a5fee37b2acee78a10da74f6064b9afd",
-            "crc32": "400107bd",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/observations.json",
+            "bytes": 14741,
+            "sha256": "c120e5b7b126ace25a877232fcefaad90c807cfd62874ded7fcd0f4fdd3a5e24",
+            "crc32": "0ed92943",
             "status": "retained-byte-verified"
           },
           "after_snapshot": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-            "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-            "member": "case/scene-after-window.png",
-            "bytes": 3567274,
-            "sha256": "7c8ff588c6b4df10b9a6ffc2c7452bcfd7aa06703711b120263441c1ee9516de",
-            "crc32": "4380174a",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/evidence/scene-after-window.png",
+            "bytes": 3567697,
+            "sha256": "6e6c67a24e8c33ebfe9b64b020a1e7a9b10a78de40f7a30319a31906a384e719",
+            "crc32": "b5031221",
+            "status": "retained-byte-verified"
+          },
+          "source_app_identity": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/app-before.json",
+            "bytes": 1887,
+            "sha256": "f52075941654bef7269e48f33fe8066ef2a674162929420e8477bf2c97066960",
+            "crc32": "eed2e0b6",
+            "status": "retained-byte-verified"
+          },
+          "source_app_identity_after": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/app-after.json",
+            "bytes": 1887,
+            "sha256": "f52075941654bef7269e48f33fe8066ef2a674162929420e8477bf2c97066960",
+            "crc32": "eed2e0b6",
+            "status": "retained-byte-verified"
+          },
+          "input_identity_before": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/input-before.json",
+            "bytes": 469,
+            "sha256": "2123df921446bb640258a679a9228c52d8887693931bd190f5d044002aaa0148",
+            "crc32": "26a6c75e",
+            "status": "retained-byte-verified"
+          },
+          "input_identity_after": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "native-after/after-bird/input-after.json",
+            "bytes": 400,
+            "sha256": "e49cd4c5b87aa23dd5d57d4a1464dbeae2e50e4a14f9715517620dd1b322db95",
+            "crc32": "5bd52759",
+            "status": "retained-byte-verified"
+          },
+          "root_actual_review": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "qualification/actual-review.json",
+            "bytes": 13568,
+            "sha256": "1a9d9f81ed6c3955927c2cb775179b68e02d6e006ce656d537f4162ec06f4079",
+            "crc32": "ed23715b",
+            "status": "retained-byte-verified"
+          },
+          "bird_window_qualification": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+            "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+            "member": "qualification/bird-window-qualification.json",
+            "bytes": 5744,
+            "sha256": "494834bc80b7f69a0ec08cf420832691bff1af2ff5230ee7340252deb96dee08",
+            "crc32": "1b5ae806",
             "status": "retained-byte-verified"
           }
         },
-        "historicalSourceEvidencePaths": {
-          "app_log": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/app.log",
-            "sourceExistsAtMapping": true,
-            "bytes": 353615,
-            "sha256": "6b7c56ed287a970ed291eaed95b812d043ea777cc6c86991748831597da015e0",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
+        "unarchivedSourceIdentities": {
+          "app.log": {
+            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/after-bird/evidence/app.log",
+            "bytes": 331867,
+            "sha256": "d37a9e01ee1f3992cd15db228d26efbcee221f3d3c3165bb5b4e4e68541d3920",
+            "disposition": "source identity only; full source-bearing body not archived",
+            "neutralRetainedEvidence": {
               "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-              "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-              "member": "case/app.log",
-              "bytes": 353615,
-              "sha256": "6b7c56ed287a970ed291eaed95b812d043ea777cc6c86991748831597da015e0",
-              "crc32": "a542112b",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+              "member": "native-after/after-bird/observations.json",
+              "bytes": 14741,
+              "sha256": "c120e5b7b126ace25a877232fcefaad90c807cfd62874ded7fcd0f4fdd3a5e24",
+              "crc32": "0ed92943",
               "status": "retained-byte-verified"
             }
           },
-          "preview_log": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-preview.log",
-            "sourceExistsAtMapping": true,
-            "bytes": 78829,
-            "sha256": "7bb6e48cb1c2aea77a8ded63a484eb48a5fee37b2acee78a10da74f6064b9afd",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
+          "scene-preview.log": {
+            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/after-bird/evidence/scene-preview.log",
+            "bytes": 84883,
+            "sha256": "b03e0cf2ff98d842ddb4b9234d3143902e1fbe9d3e61f189d50c76721ef00fc0",
+            "disposition": "source identity only; full source-bearing body not archived",
+            "neutralRetainedEvidence": {
               "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-              "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-              "member": "case/scene-preview.log",
-              "bytes": 78829,
-              "sha256": "7bb6e48cb1c2aea77a8ded63a484eb48a5fee37b2acee78a10da74f6064b9afd",
-              "crc32": "400107bd",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+              "member": "native-after/after-bird/observations.json",
+              "bytes": 14741,
+              "sha256": "c120e5b7b126ace25a877232fcefaad90c807cfd62874ded7fcd0f4fdd3a5e24",
+              "crc32": "0ed92943",
               "status": "retained-byte-verified"
             }
           },
-          "runtime_evidence": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-runtime-evidence.json",
-            "sourceExistsAtMapping": true,
-            "bytes": 1989464,
-            "sha256": "273f8a72e49d9d4d7a588dc6240cddba0f213b379968c4571f543dbd95196b48",
-            "disposition": "historical-not-retained",
-            "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
-          },
-          "ready_snapshot": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-ready-window.png",
-            "sourceExistsAtMapping": true,
-            "bytes": 3671436,
-            "sha256": "8f7673de2f7c0c0a0641e29c5c107a0da16e4c0b8742962483ffc8230611a44e",
-            "disposition": "historical-not-retained",
-            "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
-          },
-          "after_snapshot": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-after-window.png",
-            "sourceExistsAtMapping": true,
-            "bytes": 3567274,
-            "sha256": "7c8ff588c6b4df10b9a6ffc2c7452bcfd7aa06703711b120263441c1ee9516de",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
+          "scene-runtime-evidence.json": {
+            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/after-bird/evidence/scene-runtime-evidence.json",
+            "bytes": 1990887,
+            "sha256": "b47630509161d28a80057f4b6c4e008a3c29dd90b8b1b2ed04101cf4bfa4b30b",
+            "disposition": "source identity only; full source-bearing body not archived",
+            "neutralRetainedEvidence": {
               "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-              "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-              "member": "case/scene-after-window.png",
-              "bytes": 3567274,
-              "sha256": "7c8ff588c6b4df10b9a6ffc2c7452bcfd7aa06703711b120263441c1ee9516de",
-              "crc32": "4380174a",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "c3cb418ec403a641a68cdd565fa8d50eb26bae5e599e98cc88927db017c76695",
+              "member": "native-after/after-bird/observations.json",
+              "bytes": 14741,
+              "sha256": "c120e5b7b126ace25a877232fcefaad90c807cfd62874ded7fcd0f4fdd3a5e24",
+              "crc32": "0ed92943",
               "status": "retained-byte-verified"
             }
           }
         },
-        "identity": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-          "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-          "member": "sample-identity-summary.json",
-          "bytes": 4092,
-          "sha256": "c03ccac11a61271ae422fa21e10fd23b317a8deb256fa2be5d5ca928ce45395c",
-          "crc32": "5a2e5c45",
-          "status": "retained-byte-verified"
-        },
-        "sampleIndexEvidence": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
-          "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
-          "member": "sample-index.json",
-          "bytes": 373,
-          "sha256": "fb5dad11251d4ab509c22904c33cdf8767eab2ea4dd5dbf10b625fb7de4f1b90",
-          "crc32": "85631aee",
-          "status": "retained-byte-verified"
-        },
-        "archivalProjection": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/report.json",
-          "bytes": 2915,
-          "sha256": "2b94b3f0dbaa22f40de47eca931958ee63148bd7ea7a698cff56b8d0f93fe4f1",
-          "role": "single-sample archival projection; not the original benchmark report"
-        },
-        "separateVariantQualifications": [],
+        "priorEvidenceIsHistorical": true,
+        "priorEvidence": [
+          {
+            "report": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+              "member": "original-group-01/report.json",
+              "bytes": 1423883,
+              "sha256": "06c3a86d909cddbe224d96e8708a3e4be5ad2036d335da7b51d309c940144e66",
+              "crc32": "7579b6a0",
+              "status": "retained-byte-verified",
+              "sampleIndex": 1,
+              "jsonPointer": "/samples/1",
+              "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/report.json"
+            },
+            "sampleEvidencePaths": {
+              "runtime_evidence_zip": {
+                "format": "file",
+                "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                "bytes": 3701059,
+                "sha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                "status": "retained-byte-verified"
+              },
+              "app_log": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                "member": "case/app.log",
+                "bytes": 353615,
+                "sha256": "6b7c56ed287a970ed291eaed95b812d043ea777cc6c86991748831597da015e0",
+                "crc32": "a542112b",
+                "status": "retained-byte-verified"
+              },
+              "preview_log": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                "member": "case/scene-preview.log",
+                "bytes": 78829,
+                "sha256": "7bb6e48cb1c2aea77a8ded63a484eb48a5fee37b2acee78a10da74f6064b9afd",
+                "crc32": "400107bd",
+                "status": "retained-byte-verified"
+              },
+              "after_snapshot": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                "member": "case/scene-after-window.png",
+                "bytes": 3567274,
+                "sha256": "7c8ff588c6b4df10b9a6ffc2c7452bcfd7aa06703711b120263441c1ee9516de",
+                "crc32": "4380174a",
+                "status": "retained-byte-verified"
+              }
+            },
+            "historicalSourceEvidencePaths": {
+              "app_log": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/app.log",
+                "sourceExistsAtMapping": true,
+                "bytes": 353615,
+                "sha256": "6b7c56ed287a970ed291eaed95b812d043ea777cc6c86991748831597da015e0",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                  "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                  "member": "case/app.log",
+                  "bytes": 353615,
+                  "sha256": "6b7c56ed287a970ed291eaed95b812d043ea777cc6c86991748831597da015e0",
+                  "crc32": "a542112b",
+                  "status": "retained-byte-verified"
+                }
+              },
+              "preview_log": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-preview.log",
+                "sourceExistsAtMapping": true,
+                "bytes": 78829,
+                "sha256": "7bb6e48cb1c2aea77a8ded63a484eb48a5fee37b2acee78a10da74f6064b9afd",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                  "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                  "member": "case/scene-preview.log",
+                  "bytes": 78829,
+                  "sha256": "7bb6e48cb1c2aea77a8ded63a484eb48a5fee37b2acee78a10da74f6064b9afd",
+                  "crc32": "400107bd",
+                  "status": "retained-byte-verified"
+                }
+              },
+              "runtime_evidence": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-runtime-evidence.json",
+                "sourceExistsAtMapping": true,
+                "bytes": 1989464,
+                "sha256": "273f8a72e49d9d4d7a588dc6240cddba0f213b379968c4571f543dbd95196b48",
+                "disposition": "historical-not-retained",
+                "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
+              },
+              "ready_snapshot": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-ready-window.png",
+                "sourceExistsAtMapping": true,
+                "bytes": 3671436,
+                "sha256": "8f7673de2f7c0c0a0641e29c5c107a0da16e4c0b8742962483ffc8230611a44e",
+                "disposition": "historical-not-retained",
+                "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
+              },
+              "after_snapshot": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-01/results/3597772384/scene-after-window.png",
+                "sourceExistsAtMapping": true,
+                "bytes": 3567274,
+                "sha256": "7c8ff588c6b4df10b9a6ffc2c7452bcfd7aa06703711b120263441c1ee9516de",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+                  "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+                  "member": "case/scene-after-window.png",
+                  "bytes": 3567274,
+                  "sha256": "7c8ff588c6b4df10b9a6ffc2c7452bcfd7aa06703711b120263441c1ee9516de",
+                  "crc32": "4380174a",
+                  "status": "retained-byte-verified"
+                }
+              }
+            },
+            "identity": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+              "member": "sample-identity-summary.json",
+              "bytes": 4092,
+              "sha256": "c03ccac11a61271ae422fa21e10fd23b317a8deb256fa2be5d5ca928ce45395c",
+              "crc32": "5a2e5c45",
+              "status": "retained-byte-verified"
+            },
+            "sampleIndexEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
+              "containerSha256": "f80a596e58c170d61462c34de0d3e95cb78dbd87165c5e80c1865f9ebb29908f",
+              "member": "sample-index.json",
+              "bytes": 373,
+              "sha256": "fb5dad11251d4ab509c22904c33cdf8767eab2ea4dd5dbf10b625fb7de4f1b90",
+              "crc32": "85631aee",
+              "status": "retained-byte-verified"
+            },
+            "archivalProjection": {
+              "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/report.json",
+              "bytes": 2915,
+              "sha256": "2b94b3f0dbaa22f40de47eca931958ee63148bd7ea7a698cff56b8d0f93fe4f1",
+              "role": "single-sample archival projection; not the original benchmark report"
+            },
+            "separateVariantQualifications": [],
+            "sealStatus": "promoted-member-SHA-CRC-verified"
+          }
+        ],
         "sealStatus": "promoted-member-SHA-CRC-verified"
       },
-      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
+      "nextAction": "retain-Bird-visible-UNKNOWN; qualify-audio-emission-and-nonempty-consumer-before-visual-closure"
     },
     {
       "id": "3599986633",

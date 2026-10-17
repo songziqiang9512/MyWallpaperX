@@ -8,9 +8,17 @@ nonisolated extension SceneParticleSimulator {
         blend: SceneParticleOperatorBlendPlan
     ) {
         guard let plan,
-              let target = controlPointPosition(plan.controlPoint, offset: plan.origin),
+              let source = controlPointPosition(plan.controlPoint, offset: plan.origin),
               normalizedLives.count == particles.count
         else { return }
+        let target: SIMD3<Double>
+        switch plan.sourceSpace {
+        case .local: target = source
+        case .world:
+            guard let local = controlPointForceFrame?.localPosition(worldPoint: source)
+            else { return }
+            target = local
+        }
         for index in particles.indices {
             let delta = target - particles[index].position
             let distance = SceneParticleSimulationMath.length(delta)

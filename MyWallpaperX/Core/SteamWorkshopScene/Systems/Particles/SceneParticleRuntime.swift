@@ -243,6 +243,14 @@ final class SceneParticleRuntime {
             materialPasses: materialPasses,
             cacheDirectory: cacheDirectory
         )
+        // Prewarm consumes the initial typed transform, before the first advance.
+        let initialPointFrames = graph.assetsByPath.values.contains(where: {
+            $0.definition.controlPoints.contains { $0.rawFlags == 2 }
+        }) ? SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: descriptor, byID: visibilityLayersByID,
+            snapshot: initialDynamicValues,
+            staticFrames: SceneLayerWorldFrameResolver.compute(
+                descriptor: descriptor, byID: visibilityLayersByID)) : [:]
         let layersByPath = Dictionary(
             grouping: particleLayers,
             by: { SceneParticleAssetGraphLoader.normalizedPath($0.particlePath ?? "") }
@@ -386,6 +394,7 @@ final class SceneParticleRuntime {
                     layerImageMap: layerImageMap,
                     worldSpaceFrame: worldSpaceFrame,
                     rootWorldTranslation: translation?.plan,
+                    initialWorldFrame: initialPointFrames[layer.id],
                     initialDynamicValues: initialDynamicValues,
                     initialPlayback: initialPlayback[layer.id] ?? .init(),
                     textureLoader: textureLoader,
@@ -546,7 +555,13 @@ final class SceneParticleRuntime {
                     dynamicControlPointAngles: controlPointAngles,
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput,
-                    worldSpaceFrameOverride: worldSpaceFrameOverride
+                    worldSpaceFrameOverride: worldSpaceFrameOverride,
+                    controlPointForceFrame: root.simulator.hasWorldControlPointForce
+                        ? layerWorldFrames[layerID].flatMap { frame in
+                            descriptor.camera.orthoHeight.flatMap {
+                                SceneParticleControlPointForceFrame(worldFrame: frame, sceneOrthoHeight: $0)
+                            }
+                        } : nil
                 )
                 pendingAudioEvaluationObservations.append(contentsOf:
                     root.simulator.consumeAudioEvaluationObservations().map {
@@ -827,6 +842,7 @@ final class SceneParticleRuntime {
         layerImageMap: SceneParticleLayerImageEmissionMap?,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
+        initialWorldFrame: simd_float4x4?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
         textureLoader: SceneTextureLoader,
@@ -897,6 +913,13 @@ final class SceneParticleRuntime {
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
             dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
+        let forceEnvironment = descriptor.particleControlPointForceEnvironment(
+            for: layer, definition: asset.definition)
+        let forceFrame = forceEnvironment.allowsWorldSource ? initialWorldFrame.flatMap { frame in
+            descriptor.camera.orthoHeight.flatMap {
+                SceneParticleControlPointForceFrame(worldFrame: frame, sceneOrthoHeight: $0)
+            }
+        } : nil
         let simulator = SceneParticleSimulator(
             definition: asset.definition,
             instanceOverride: layer.particleInstanceOverride,
@@ -907,11 +930,13 @@ final class SceneParticleRuntime {
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
             rootWorldTranslation: rootWorldTranslation,
+            controlPointForceEnvironment: forceEnvironment,
+            controlPointForceFrame: forceFrame,
             stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
         )
         return SceneParticleRootRenderRuntime(
             definition: asset.definition,
-            pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
+            pointerControlPointIdentities: asset.definition.pointerControlPointIdentities(environment: forceEnvironment),
             trail: render.trail,
             rope: render.rope,
             texture: texture,

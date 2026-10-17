@@ -21,6 +21,7 @@ extension SceneParticleSimulator {
         /// Includes the current root birth offset; rollback never recomputes
         /// an emission from the callback's later transform prefix.
         let activeWorldSpaceFrame: SceneParticleWorldSpaceFrame?
+        let controlPointForceFrame: SceneParticleControlPointForceFrame?
         var explicitBirthEventStart: Int?
         let emitters: [SceneParticleEmitterState]
         let random: SceneParticleRandomGenerator

@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `46c32e7430d32966b68a586da1793a3f0ceba3309d7f6dbff15114ac7ded5677`（生成于 2026-10-17T03:20:28.462529+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `e95dd8e26c49b3454fb4a3c4b74eb575136ff5461a6c5695041eec8456e9f4d3`。
-- 本页生成于 2026-10-17T13:31:16.246280+00:00。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `26939952612559349f6ada68e2ab06dfcdf4ef653f0e6d1adf0ec281aa9045b0`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `aae0820fc22db3d97363e81a215406b2df254613923cfc6de22cde7e85c49f01`。
+- 本页生成于 2026-10-17T14:44:42.555412+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -205,7 +205,7 @@
 | `3586705329` | [甜蜜女友3]柳木诗梦 | 46(5) bool 9 color 8 combo 3 scenetexture 8 slider 13 text … | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | 人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；view… |
 | `3587571382` | 【凡人修仙传】宋玉  璀璨夺目 | 15(0) bool 5 color 3 slider 7 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3589454154` | 土星 \| Saturn - Sykm | 113(2) bool 29 color 1 group 7 scenetexture 17 slider 26 te… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3597772384` | Lost Landscape \| northway. | 138(116) bool 65 color 2 combo 3 group 4 scenetexture 24 sl… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 山景、雨和时钟呈现；active鸟粒子部分控制点force未准入，非整个粒子层失败。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚… |
+| `3597772384` | Lost Landscape \| northway. | 138(116) bool 65 color 2 combo 3 group 4 scenetexture 24 sl… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 限定root正交CP world force与缺省距离已接通，自有正控成立；原包9秒/after5山景、雨和时钟保持，但270在current/committ… |
 | `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立de… |
 | `3601801724` | ash一爪布鲁托 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3601964477` | 千咲 \|\| 鸣潮  \|\| 枫 \|\| 4K | 44(19) bool 19 color 5 group 3 slider 7 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
@@ -280,7 +280,7 @@
 | `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 6(0) bool 5 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3769688830` | Spirit Blossom Springs Ahri (Adjustable… | 21(0) bool 13 color 3 group 3 scenetexture 1 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3769761761` | Yoru and Mitaka asa | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 独立原包短播保人物、手部、荷叶、鱼、水与root/child/refraction，正常退出/drain；目录官方仅作未控phase构图参考，不计全部动态、交… |
+| `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据… |
 | `3770462923` | gt3rs@d4rk | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |

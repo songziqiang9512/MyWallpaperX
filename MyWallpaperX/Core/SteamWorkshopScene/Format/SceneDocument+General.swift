@@ -45,6 +45,8 @@ extension SceneDocument {
 
         let orthoWidth: Float?     // general.orthogonalprojection.width
         let orthoHeight: Float?    // general.orthogonalprojection.height
+        /// Source mode, independent of any renderer fallback projection.
+        var authoredOrthographicProjectionActive: Bool? = nil
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         var ambientColorRGB: [Float]? = nil
@@ -121,10 +123,17 @@ extension SceneDocumentLoader {
         let ortho = root?["orthogonalprojection"] as? [String: Any]
         let width = ortho?["width"].flatMap(Self.floatValue)
         let height = ortho?["height"].flatMap(Self.floatValue)
+        let authoredOrtho = (authoredRoot ?? root)?["orthogonalprojection"] as? [String: Any]
+        let authoredWidth = authoredOrtho?["width"].flatMap(Self.floatValue)
+        let authoredHeight = authoredOrtho?["height"].flatMap(Self.floatValue)
+        let activeOrtho = visibleValue(authoredOrtho?["auto"]) == true
+            || (authoredWidth.map { $0.isFinite && $0 > 0 } == true
+                && authoredHeight.map { $0.isFinite && $0 > 0 } == true)
         let timelines = generalTimelines(authoredRoot ?? root)
         return SceneDocument.GeneralDescriptor(
             orthoWidth: width,
             orthoHeight: height,
+            authoredOrthographicProjectionActive: activeOrtho,
             fovDegrees: root?["fov"].flatMap(Self.floatValue),
             perspectiveOverrideFOVDegrees: root?["perspectiveoverridefov"]
                 .flatMap(Self.floatValue),

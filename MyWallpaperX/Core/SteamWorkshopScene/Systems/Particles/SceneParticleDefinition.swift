@@ -246,6 +246,7 @@ nonisolated struct SceneParticleOperator: Equatable, Sendable {
     let scale: SceneParticleNumericValue?
     let timeScale: Double?
     let threshold: Double?
+    var hasMalformedThreshold: Bool = false
     let speedMinimum: Double?
     let speedMaximum: Double?
     let audioResponse: SceneParticleAudioResponse

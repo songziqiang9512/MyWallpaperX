@@ -155,7 +155,8 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
 
     nonisolated init(
         _ value: SceneParticleOperator,
-        definition: SceneParticleDefinition
+        definition: SceneParticleDefinition,
+        controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
     ) {
         blend = SceneParticleOperatorBlendPlan(value)
         switch value.kind {
@@ -231,13 +232,8 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         } else {
             collisionPlane = nil
         }
-        if value.kind == .controlPointAttract,
-           definition.supportsBoundedControlPointForce(value),
-           case let .supported(plan) = value.controlPointForceAdmission {
-            controlPointForce = plan
-        } else {
-            controlPointForce = nil
-        }
+        controlPointForce = definition.controlPointForcePlan(
+            for: value, environment: controlPointForceEnvironment)
         if case .reduceMovement = value.kind,
            definition.supportsBoundedReduceMovement(value),
            let plan = value.reduceMovementPlan {

@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 173233
+      "bytes": 173382
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -105,8 +105,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 437,
-      "bytes": 148788
+      "lines": 448,
+      "bytes": 151911
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 190,
-      "bytes": 72338
+      "lines": 191,
+      "bytes": 73658
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 61075
+      "bytes": 61083
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15544
+      "bytes": 15718
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 160,
-      "bytes": 34703
+      "bytes": 34961
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1298,24 +1298,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "4355f8704dd431aa09a0580c3efb57374a890cd889959f500becae9287941eaf",
-      "after": "26f781bad5cc6fff20f7b415441a61df9247b29ce158994bc83313b6428adf6a",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "c355315c2d5bf2b7f6e824c0a137eb700c1da6a4ae54beb49525833c79e1252b",
-      "after": "c559261c24aa5c0765314b8f631cfd8f951e97d20739cb00a2a4af3f5abdc919",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "a6126ee119ed1b4082d0330925c5d8f05f1912e5528dfdeaf0cc3e2eb184ea5b",
       "after": "c9f1e340fdd158190d432e0bee4f06bf55f326b37306ceb4ba7f26b737bd4f61",
@@ -1325,39 +1307,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "e560ec99c55b52af7ce93251090cd6c908868c6c8bef5c32333377c8bee02230",
-      "after": "104eefd3b28a18c205634167cb15cf82e3382ebb508c9b180291c2bcad689f6a",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "26f781bad5cc6fff20f7b415441a61df9247b29ce158994bc83313b6428adf6a",
+      "after": "e369bcb757db6dee61060295ee6f1ba26973efeaace28e167659282cea762853",
+      "owner": "scene-cp-force-source-space",
+      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "c559261c24aa5c0765314b8f631cfd8f951e97d20739cb00a2a4af3f5abdc919",
+      "after": "a8d9061f2acea08460970338c893a7e44fb014758fc85c8d73812fb702b68936",
+      "owner": "scene-cp-force-source-space",
+      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7acad0c0da8ad45c525d0ffaccd681655a4bd0dc3ded109562df70317ace7c8b",
-      "after": "035f1f65857e2c86c70d2823cabaa3226e48d2474b41094f0ae7bd65efa42d67",
-      "owner": "scene-new-sample-diagnosis",
-      "reason": "Record actual bounded playback and retire not-run association for one newly added sample; preserve unreviewed verdict and all other runtime identities.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-3221354414-20261017"
+      "before": "035f1f65857e2c86c70d2823cabaa3226e48d2474b41094f0ae7bd65efa42d67",
+      "after": "a5fb5edbc29cf0756b45971d53eccd3c29fe642d873316744868b9d49eb7bfe3",
+      "owner": "scene-cp-force-source-space",
+      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "f1e6939bdc38425dcd2e3bcdb0d25d73ea00b8db557e1d048d4f72c7a8267722",
-      "after": "13644c05a2d15b82008f03fdca3a3ec04648022baeb1c0dbca0a912ec61d75a1",
-      "owner": "scene-new-sample-diagnosis",
-      "reason": "Record actual bounded playback and retire not-run association for one newly added sample; preserve unreviewed verdict and all other runtime identities.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-3221354414-20261017"
+      "before": "13644c05a2d15b82008f03fdca3a3ec04648022baeb1c0dbca0a912ec61d75a1",
+      "after": "aed9bc32a83541f06383372e84ac3ae1e0750a4c279c9d998ed407855c631990",
+      "owner": "scene-cp-force-source-space",
+      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "104eefd3b28a18c205634167cb15cf82e3382ebb508c9b180291c2bcad689f6a",
+      "after": "88bacc7829cdcc0681fd8c506061523c3a149cff820eaba385ac4a766d4c43b1",
+      "owner": "scene-cp-force-source-space",
+      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ad38fa7fdb56b60fa6f32d3bb2cacf03e026776858ded1ebdf8d41c4bcaa37a1",
-      "after": "1e336bed69fe522550c9989218cba7e370bca462c1cf4810e4ac8b2b5a09957b",
-      "owner": "scene-new-sample-diagnosis",
-      "reason": "Record actual bounded playback and retire not-run association for one newly added sample; preserve unreviewed verdict and all other runtime identities.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-3221354414-20261017"
+      "before": "1e336bed69fe522550c9989218cba7e370bca462c1cf4810e4ac8b2b5a09957b",
+      "after": "8b9a6dc6b270c78b145f8b6ab6e54cd7e93bf0ccd4bb9bb2c250b8a7eee6d9a2",
+      "owner": "scene-cp-force-source-space",
+      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
     }
   ]
 }

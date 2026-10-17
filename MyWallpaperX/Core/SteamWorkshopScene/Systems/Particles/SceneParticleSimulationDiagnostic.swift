@@ -83,7 +83,8 @@ extension SceneParticleSimulationMath {
     nonisolated static func diagnostics(
         _ definition: SceneParticleDefinition,
         _ instanceOverride: SceneParticleInstanceOverride?,
-        eventColorContext: SceneParticleEventColorContext = .unavailable
+        eventColorContext: SceneParticleEventColorContext = .unavailable,
+        controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
     ) -> [SceneParticleSimulationDiagnostic] {
         var result = audioDiagnostics(definition)
         func add(_ kind: SceneParticleSimulationDiagnosticKind, _ name: String? = nil) {
@@ -193,7 +194,8 @@ extension SceneParticleSimulationMath {
         for value in definition.operators {
             switch value.kind {
             case .controlPointAttract:
-                add(definition.supportsBoundedControlPointForce(value) ? .controlPointForceBounded : .controlPointForceUnsupported, "controlpointattract")
+                add(definition.supportsBoundedControlPointForce(value, environment: controlPointForceEnvironment)
+                    ? .controlPointForceBounded : .controlPointForceUnsupported, "controlpointattract")
             case .turbulence:
                 break
             case .boids:
@@ -247,8 +249,8 @@ extension SceneParticleSimulationMath {
             let positionAroundIdentities = definition.positionAroundPointerControlPointIdentities
             let emitterIdentities = definition.emitterPointerControlPointIdentities
             let forceIdentities = Set(definition.operators.compactMap { value -> Int? in
-                guard definition.supportsBoundedControlPointForce(value),
-                      case let .supported(plan) = value.controlPointForceAdmission
+                guard let plan = definition.controlPointForcePlan(
+                    for: value, environment: controlPointForceEnvironment)
                 else { return nil }
                 return plan.controlPoint
             })

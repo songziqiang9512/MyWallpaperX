@@ -60,6 +60,8 @@ extension SceneParticleDefinitionParser {
             origin: Self.numericValue(root["origin"]), scale: Self.numericValue(root["scale"]),
             timeScale: Self.number(root["timescale"]),
             threshold: Self.number(root["threshold"]),
+            hasMalformedThreshold: root["threshold"] != nil
+                && Self.number(root["threshold"]).map({ $0.isFinite }) != true,
             speedMinimum: Self.number(root["speedmin"]),
             speedMaximum: Self.number(root["speedmax"]),
             audioResponse: Self.audioResponse(root)

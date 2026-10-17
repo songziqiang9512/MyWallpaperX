@@ -490,6 +490,12 @@ class SceneParticleRuntimeTests(
         self.assertAlmostEqual(result["emitterRecovered"][0][2], 0, places=5)
         self.assertEqual(result["rootPointerChildStaticPosition"], [25, 0, 0])
         self.assertEqual(result["pointerDemandLayerIDs"], [18])
+        for row in result["rootWorldForce"]:
+            with self.subTest(name=row["name"]):
+                for fact in ("prewarmUsesInitialTypedFrame", "currentFrameChangesForce",
+                             "missingCurrentFrameSkipsForce", "forceRecovers",
+                             "childWorldNotAdmitted", "childMissingDefaultNotInherited"):
+                    self.assertTrue(row[fact], fact)
 
     def test_dynamic_control_point_angles_reach_root_and_child_emitters(self) -> None:
         result = self.run_harness("dynamic-control-point-angle-synthetic")

@@ -25,6 +25,8 @@ struct SceneRenderDescriptor: Codable {
         let up: [Float]
         let orthoWidth: Float?
         let orthoHeight: Float?
+        /// Nil for descriptors predating preservation of the authored mode.
+        var authoredOrthographicProjectionActive: Bool? = nil
         var bloom: SceneBloomConfiguration = .disabled
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
@@ -400,6 +402,7 @@ struct SceneRenderDescriptorBuilder {
             up: cam.up,
             orthoWidth: gen.orthoWidth,
             orthoHeight: gen.orthoHeight,
+            authoredOrthographicProjectionActive: gen.authoredOrthographicProjectionActive,
             bloom: SceneBloomConfiguration(
                 enabled: gen.bloomEnabled,
                 strength: gen.bloomStrength,

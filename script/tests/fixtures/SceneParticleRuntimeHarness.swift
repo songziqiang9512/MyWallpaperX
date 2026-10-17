@@ -105,6 +105,10 @@ struct SceneRenderDescriptor: Codable {
         var up: [Float] = [0, 1, 0]
         var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        let authoredOrthographicProjectionActive: Bool?
+        init(authoredOrthographicProjectionActive: Bool? = nil) {
+            self.authoredOrthographicProjectionActive = authoredOrthographicProjectionActive
+        }
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         var nearZ: Float = 0.01
