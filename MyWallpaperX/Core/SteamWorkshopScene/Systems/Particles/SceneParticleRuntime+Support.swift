@@ -176,11 +176,12 @@ extension SceneParticleRuntime {
         rope: SceneParticleRopePlan?,
         ropeTrail: SceneParticleRopeTrailPlan?,
         animation: SceneSpriteAnimation?,
+        wholeSourceRope: Bool = false,
         layerID: Int,
         path: String
     ) -> Bool {
         guard animation != nil else { return true }
-        if rope != nil {
+        if rope != nil && !wholeSourceRope {
             addDiagnostic(
                 kind: .ropeRendererUnsupported,
                 layerID: layerID,

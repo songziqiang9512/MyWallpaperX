@@ -839,6 +839,7 @@ final class SceneParticleRuntime {
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
+        let wholeSourceRope: Bool
         if let declaration = asset.refraction {
             guard let loaded = SceneParticleRefractionTextureLoader.load(
                 colorSource: textureSource,
@@ -860,12 +861,15 @@ final class SceneParticleRuntime {
             colorUVScale = loaded.colorUVScale
             colorSampling = loaded.colorSampling
             refraction = loaded.binding
+            wholeSourceRope = false
         } else {
             guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
                 textureSource,
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
-                device: device
+                device: device,
+                rope: render.rope,
+                definition: asset.definition
             ) else {
                 addDiagnostic(
                     kind: .textureLoadFailed, layerID: layer.id, path: path,
@@ -879,11 +883,13 @@ final class SceneParticleRuntime {
             colorSampling = loaded.sampling
             colorUVScale = loaded.uvScale
             refraction = nil
+            wholeSourceRope = loaded.wholeSourceRope
         }
         guard supportsPathRendererTexture(
             rope: render.rope,
             ropeTrail: render.ropeTrail,
             animation: spriteAnimation,
+            wholeSourceRope: wholeSourceRope,
             layerID: layer.id,
             path: path
         ) else { return nil }

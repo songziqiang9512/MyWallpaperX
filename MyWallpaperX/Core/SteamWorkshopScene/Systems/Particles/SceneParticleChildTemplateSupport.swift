@@ -228,18 +228,38 @@ enum SceneParticleChildTemplateSupport {
         _ source: SceneParticleTextureSource,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
-        device: MTLDevice
+        device: MTLDevice,
+        rope: SceneParticleRopePlan? = nil,
+        definition: SceneParticleDefinition
     ) -> (
         texture: MTLTexture,
         animation: SceneSpriteAnimation?,
         sampling: SceneParticleTextureSampling,
         uvScale: SIMD2<Float>,
-        staticAspect: Float
+        staticAspect: Float,
+        wholeSourceRope: Bool
     )? {
         switch source {
         case let .file(url):
             guard let sourceIdentity = textureLoader.sourceKey(for: url) else { return nil }
             let container = textureLoader.texContainer(from: url)
+            let wholeSourceRope: Bool
+            if let rope, let container {
+                // Rope consumes the uploaded image, not an age-selected cell.
+                // Check actual metadata even if SpriteAnimation would be nil.
+                guard container.imageCount == 1,
+                      container.spriteFrames.allSatisfy({ $0.imageIndex == 0 }) else { return nil }
+                wholeSourceRope = !container.spriteFrames.isEmpty
+                if wholeSourceRope {
+                    guard definition.flags.rawValue == 0,
+                          definition.renderers.first?.rawFlags == 0,
+                          definition.animationMode == nil || definition.animationMode == "sequence",
+                          definition.sequenceMultiplier ?? 1 == 1,
+                          rope.uvScale == 1, !rope.smoothsUV, !rope.scrollsUV else { return nil }
+                }
+            } else {
+                wholeSourceRope = false
+            }
             let animation = container.flatMap {
                 SceneSpriteAnimation(container: $0, sourceURL: url)
             }
@@ -278,12 +298,12 @@ enum SceneParticleChildTemplateSupport {
                 colorTexture, animation,
                 container.map { SceneParticleTextureSampling(texFlags: $0.flags) }
                     ?? .directImageFallback,
-                uvScale, staticAspect
+                uvScale, staticAspect, wholeSourceRope
             )
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
             return (texture, nil, .directImageFallback, SIMD2(repeating: 1),
-                    Float(texture.width) / Float(texture.height))
+                    Float(texture.width) / Float(texture.height), false)
         }
     }
 }

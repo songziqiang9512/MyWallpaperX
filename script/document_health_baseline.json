@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 173096
+      "bytes": 173233
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -105,8 +105,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 426,
-      "bytes": 146019
+      "lines": 437,
+      "bytes": 148788
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 188,
-      "bytes": 70250
+      "lines": 189,
+      "bytes": 71650
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -141,8 +141,8 @@
       "bytes": 74762
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 363,
-      "bytes": 60464
+      "lines": 364,
+      "bytes": 60832
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11975
+      "bytes": 12279
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15530
+      "bytes": 15544
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 158,
-      "bytes": 34105
+      "bytes": 34416
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1226,15 +1226,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "79fa12ee6016276c08d8673d5492b3fb4fb67eb9a0186e88eefe6bab9da5ff41",
-      "after": "a6126ee119ed1b4082d0330925c5d8f05f1912e5528dfdeaf0cc3e2eb184ea5b",
-      "owner": "scene-shader-frontend",
-      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
-      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
@@ -1271,60 +1262,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "be92d9cad9150683d8462b2b11bf5824767983940fce8114649d43380ed9cd41",
-      "after": "4355f8704dd431aa09a0580c3efb57374a890cd889959f500becae9287941eaf",
-      "owner": "scene-particle-root-world-translation",
-      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "3d7690ba0ff083c6071276305cdd43f16411f362155ddb5ca608ff6bd79f1a60",
-      "after": "c355315c2d5bf2b7f6e824c0a137eb700c1da6a4ae54beb49525833c79e1252b",
-      "owner": "scene-particle-root-world-translation",
-      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "af8faa5887ac21c3570cda0406b0c6cf571c29df67bd6b714bd36be6aba1a778",
-      "after": "f00959ed9551477a3667f92f78365c3a94ff951a88d46137434a319a156bdf35",
-      "owner": "scene-particle-root-world-translation",
-      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "aabe363c41e157fef13abcadbf0af20e8ed0656b8213527206c9856403f56b64",
-      "after": "b24698eccb0355ca8c12526b7e6e3dbdecd6471db9830a35a1951183bbbad7bf",
-      "owner": "scene-particle-root-world-translation",
-      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "0e57eba13ba60be02c219354d5d314f1566919cc6abd2b104cab24a0dcb2c4eb",
-      "after": "e560ec99c55b52af7ce93251090cd6c908868c6c8bef5c32333377c8bee02230",
-      "owner": "scene-particle-root-world-translation",
-      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "58443e3b87a9a82a373d13f6b6f05cff355ecde15bfdb2eb605ecfe0a97b8ec5",
-      "after": "b28a14d0675045d08b462ce0df7ffae1cfe5df38e0a06e5f1600e6b1d6b962fe",
-      "owner": "scene-particle-root-world-translation",
-      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
       "after": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
@@ -1358,6 +1295,69 @@
       "owner": "shared-system-media",
       "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
       "decision": "docs/web/mediaremote-nowplaying-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "4355f8704dd431aa09a0580c3efb57374a890cd889959f500becae9287941eaf",
+      "after": "26f781bad5cc6fff20f7b415441a61df9247b29ce158994bc83313b6428adf6a",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "c355315c2d5bf2b7f6e824c0a137eb700c1da6a4ae54beb49525833c79e1252b",
+      "after": "c559261c24aa5c0765314b8f631cfd8f951e97d20739cb00a2a4af3f5abdc919",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f00959ed9551477a3667f92f78365c3a94ff951a88d46137434a319a156bdf35",
+      "after": "7acad0c0da8ad45c525d0ffaccd681655a4bd0dc3ded109562df70317ace7c8b",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "b24698eccb0355ca8c12526b7e6e3dbdecd6471db9830a35a1951183bbbad7bf",
+      "after": "f1e6939bdc38425dcd2e3bcdb0d25d73ea00b8db557e1d048d4f72c7a8267722",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "a6126ee119ed1b4082d0330925c5d8f05f1912e5528dfdeaf0cc3e2eb184ea5b",
+      "after": "c9f1e340fdd158190d432e0bee4f06bf55f326b37306ceb4ba7f26b737bd4f61",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "e560ec99c55b52af7ce93251090cd6c908868c6c8bef5c32333377c8bee02230",
+      "after": "104eefd3b28a18c205634167cb15cf82e3382ebb508c9b180291c2bcad689f6a",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b28a14d0675045d08b462ce0df7ffae1cfe5df38e0a06e5f1600e6b1d6b962fe",
+      "after": "ad38fa7fdb56b60fa6f32d3bb2cacf03e026776858ded1ebdf8d41c4bcaa37a1",
+      "owner": "scene-rope-whole-source",
+      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
     }
   ]
 }

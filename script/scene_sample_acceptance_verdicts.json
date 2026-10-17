@@ -368,15 +368,17 @@
     "3605722997": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
-      "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "默认5s after处于入场视频；仅animation=false即恢复完整人物/建筑、camera不变，巨大取景差异退出相机故障候选。另49脚本与196/205 animated Rope余项保留。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "reviewer": "Codex root",
+      "note": "默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍在，driver1原失败保留。strings独立像素ROI、官方padding/曲线、同phase/viewport及全部属性交互未验，不计全样本通过。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
       ],
-      "remainingDifferences": "默认5s after处于入场视频；仅animation=false即恢复完整人物/建筑、camera不变，巨大取景差异退出相机故障候选。另49脚本与196/205 animated Rope余项保留。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍在，driver1原失败保留。strings独立像素ROI、官方padding/曲线、同phase/viewport及全部属性交互未验，不计全样本通过。",
       "officialComparison": "compared"
     },
     "3173418061": {
@@ -475,6 +477,20 @@
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/samples/2964778792/runtime_evidence.zip"
+      ]
+    },
+    "3770444459": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root",
+      "note": "独立原包短播保人物、手部、荷叶、鱼、水与root/child/refraction，正常退出/drain；目录官方仅作未控phase构图参考，不计全部动态、交互或完整同状态parity。",
+      "remainingDifferences": "独立原包短播保人物、手部、荷叶、鱼、水与root/child/refraction，正常退出/drain；目录官方仅作未控phase构图参考，不计全部动态、交互或完整同状态parity。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
       ]
     }
   }

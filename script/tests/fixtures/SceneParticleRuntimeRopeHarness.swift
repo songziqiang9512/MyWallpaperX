@@ -1,4 +1,6 @@
 import CoreGraphics
+import CryptoKit
+import Dispatch
 import Foundation
 import ImageIO
 import Metal
@@ -320,6 +322,7 @@ extension Harness {
             batches = runtime.advance(by: 1.0 / 60.0)
         }
         let batch = batches.first { $0.layerID == 41 }
+        let twoFrameBatch = batches.first { $0.layerID == 42 }
         let subdivisionBatch = batches.first { $0.layerID == 45 }
         let scrollingBatch = batches.first { $0.layerID == 46 }
         let childBatch = batches.first { $0.particlePath == "particles/rope-child.json" }
@@ -330,6 +333,11 @@ extension Harness {
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": instances.count,
+            "twoFrameWholeSource": twoFrameBatch.map {
+                $0.colorUVScale == SIMD2(repeating: 1) && !$0.instances.isEmpty
+                    && $0.instances.allSatisfy { $0.frame0B.x == 1 && $0.frame0B.y == 0 }
+            } ?? false,
+            "atlasProfile": try animatedRopeAtlasContract(device: device),
             "bufferMatches": batch.map { $0.instanceBuffer.update(device: device, instances: $0.instances) && $0.instanceBuffer.count == instances.count } ?? false,
             "orientationScreen": batch?.orientation == .screen,
             "usesPerspective": batch?.usesPerspective ?? true,
@@ -593,6 +601,174 @@ extension Harness {
                 $0.rotationAndAlpha.w,
             ]
         } ?? []
+    }
+
+    // Hand-authored TEX and particles: no Workshop payload or sample dispatch.
+    static func animatedRopeAtlasContract(device: MTLDevice) throws -> [[String: Any]] {
+        guard let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue() else { throw HarnessError.noMetal }
+        var results: [[String: Any]] = []
+        for (variant, stem) in ["prism", "renamed-ribbon"].enumerated() {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("mwx-atlas-rope-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let atlas = "materials/\(stem).tex", multi = "materials/\(stem)-multi.tex"
+            try writeRopeAtlas(directory.appendingPathComponent(atlas))
+            try writeRopeAtlas(directory.appendingPathComponent(multi), images: 2)
+            let material = "materials/\(stem).json", multiple = "materials/\(stem)-multi.json"
+            let baseID = 501 + variant * 100
+            func definition(_ renderer: String, _ material: String, flags: Int = 0) -> [String: Any] {
+                var render: [String: Any] = ["name": renderer, "orientation": "screen", "flags": 0]
+                if renderer == "rope" { render["subdivision"] = 0 }
+                if renderer == "spritetrail" || renderer == "ropetrail" { render["length"] = 1 }
+                if renderer == "ropetrail" { render["segments"] = 4; render["subdivision"] = 0 }
+                return ["id": variant + 19, "material": material, "maxcount": 8,
+                    "flags": flags, "animationmode": variant == 0 ? "sequence" : "Sequence",
+                    "sequencemultiplier": 1, "emitter": [["name": "sphererandom", "rate": 4,
+                        "distancemin": 0, "distancemax": 0]],
+                    "initializer": [["name": "lifetimerandom", "min": renderer == "sprite" ? 2 : 8,
+                        "max": renderer == "sprite" ? 2 : 8],
+                        ["name": "sizerandom", "min": 32, "max": 32],
+                        ["name": "velocityrandom", "min": [32,0,0], "max": [32,0,0]]],
+                    "operator": [["name": "movement"]], "renderer": [render]]
+            }
+            var layers: [SceneRenderDescriptor.Layer] = []
+            for (offset, renderer, source) in [(0,"rope",material), (1,"sprite",material),
+                (2,"rope",multiple), (3,"ropetrail",material), (4,"spritetrail",material)] {
+                let path = "particles/\(stem)-\(offset).json"
+                try writeJSON(definition(renderer, source, flags: renderer == "sprite" ? 2 : 0),
+                    to: directory.appendingPathComponent(path))
+                layers.append(layer(baseID + offset, path))
+            }
+            let child = "particles/\(stem)-child.json", parent = "particles/\(stem)-parent.json"
+            try writeJSON(definition("rope", material), to: directory.appendingPathComponent(child))
+            var parentDefinition = definition("sprite", material, flags: 2)
+            parentDefinition["children"] = [["name": child, "origin": [0,0,0]]]
+            try writeJSON(parentDefinition, to: directory.appendingPathComponent(parent))
+            layers.append(layer(baseID + 5, parent))
+            let systemNeighbors: [(String, String, Any)] = [
+                ("flags", "flags", 2), ("mode", "animationmode", "randomframe"),
+                ("multiplier", "sequencemultiplier", 2)]
+            let renderNeighbors: [(String, String, Any)] = [
+                ("world", "flags", 1), ("uvscale", "uvscale", 2),
+                ("scroll", "uvscrolling", true), ("smooth", "uvsmoothing", true)]
+            for (offset, item) in (systemNeighbors + renderNeighbors).enumerated() {
+                var bad = definition("rope", material)
+                if offset < systemNeighbors.count { bad[item.1] = item.2 }
+                else {
+                    var renderer = (bad["renderer"] as! [[String: Any]])[0]
+                    renderer[item.1] = item.2; bad["renderer"] = [renderer]
+                }
+                let path = "particles/\(stem)-unsupported-\(item.0).json"
+                try writeJSON(bad, to: directory.appendingPathComponent(path))
+                layers.append(layer(baseID + 6 + offset, path))
+            }
+            let refracted = "materials/\(stem)-refraction.json"
+            let refractedPath = "particles/\(stem)-refraction.json"
+            try writeJSON(definition("rope", refracted), to: directory.appendingPathComponent(refractedPath))
+            layers.append(layer(baseID + 13, refractedPath))
+            let descriptor = SceneRenderDescriptor(layers: layers,
+                renderOrderLayerIDs: layers.map(\.id), materialPasses: [
+                    .init(materialPath: material, shaderPath: "genericparticle",
+                        texturePaths: ["\(stem).tex"], blending: "translucent"),
+                    .init(materialPath: multiple, shaderPath: "genericparticle",
+                        texturePaths: ["\(stem)-multi.tex"], blending: "translucent"),
+                    .init(materialPath: refracted, shaderPath: "genericparticle",
+                        texturePaths: ["\(stem).tex"], blending: "translucent", combos: ["REFRACT": 1])])
+            let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+            var phases: [[String: Any]] = []
+            for steps in [45, 30] {
+                var batches: [SceneParticleDrawBatch] = []
+                for _ in 0..<steps { batches = runtime.advance(by: 1.0 / 60.0) }
+                let rope = batches.first { $0.layerID == baseID }
+                let sprite = batches.first { $0.layerID == baseID + 1 }
+                let trail = batches.first { $0.layerID == baseID + 4 }
+                let childBatch = batches.first { $0.particlePath == child }
+                func spans(_ batch: SceneParticleDrawBatch?) -> [[Float]] {
+                    (batch?.instances ?? []).map { [$0.frame0A.z,$0.frame0A.w,$0.frame0B.x,$0.frame0B.y] }
+                }
+                phases.append(["ropeCount": rope?.instances.count ?? 0,
+                    "ropeFrames": spans(rope), "childFrames": spans(childBatch),
+                    "spriteFrames": spans(sprite), "trailFrames": spans(trail),
+                    "spriteOrigins": sprite?.instances.map { $0.frame0A.x } ?? [],
+                    "ropeTextureSize": rope.map { [$0.texture.width, $0.texture.height] } ?? [],
+                    "ropeUVScale": rope.map { [$0.colorUVScale.x,$0.colorUVScale.y] } ?? [],
+                    "ropePixels": try rope.map { try ropeAtlasPixels($0, device: device, pipeline: pipeline, queue: queue) } ?? [],
+                    "spritePixels": try sprite.map { try ropeAtlasPixels($0, device: device, pipeline: pipeline, queue: queue, firstOnly: true) } ?? []])
+            }
+            let identities = try FileManager.default.subpathsOfDirectory(atPath: directory.path)
+                .filter { !$0.hasSuffix("/") }.sorted().compactMap { name -> [String: Any]? in
+                    let url = directory.appendingPathComponent(name)
+                    guard let data = try? Data(contentsOf: url) else { return nil }
+                    return ["path": name, "bytes": data.count,
+                        "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()]
+                }
+            results.append(["variant": stem, "baseID": baseID,
+                "activeLayerIDs": runtime.activeLayerIDs,
+                "diagnostics": runtime.diagnostics.map { "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")" },
+                "phases": phases, "inputIdentities": identities])
+        }
+        return results
+    }
+
+    static func writeRopeAtlas(_ url: URL, images: Int = 1) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        // Four square cells in one 16x4 RGBA source. Multi-image is a negative.
+        for word: UInt32 in [0,4,16,4,16,4,0] { appendUInt32(word, to: &data) }
+        data.append(Data("TEXB0002\0".utf8)); appendUInt32(UInt32(images), to: &data)
+        let colors: [[UInt8]] = [[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,0,255]]
+        for _ in 0..<images {
+            for word: UInt32 in [1,16,4,0,0,256] { appendUInt32(word, to: &data) }
+            for _ in 0..<4 { for x in 0..<16 { data.append(contentsOf: colors[x/4]) } }
+        }
+        data.append(Data("TEXS0002\0".utf8)); appendUInt32(4, to: &data)
+        for index in 0..<4 {
+            appendUInt32(UInt32(images == 1 ? 0 : index % images), to: &data)
+            appendFloat32(0.25, to: &data)
+            for value: Float in [Float(index*4),0,4,0,0,4] { appendFloat32(value, to: &data) }
+        }
+        try data.write(to: url)
+    }
+
+    static func ropeAtlasPixels(_ batch: SceneParticleDrawBatch, device: MTLDevice,
+                                pipeline: SceneParticleMetalPipeline, queue: MTLCommandQueue,
+                                firstOnly: Bool = false) throws -> [[Int]] {
+        guard let first = batch.instances.first,
+              let command = queue.makeCommandBuffer() else { return [] }
+        let td = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+            width: 128, height: 64, mipmapped: false)
+        td.usage = .renderTarget; td.storageMode = .shared
+        guard let output = device.makeTexture(descriptor: td) else { return [] }
+        let buffer = SceneParticleMetalInstanceBuffer()
+        guard buffer.update(device: device, instances: firstOnly ? [first] : batch.instances) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0,0,0,0)
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        let uniforms = SceneParticleLayerUniforms(
+            viewProjection: SceneMatrix.ortho(left: -8,right: 56,bottom: -32,top: 32,near: -1,far: 1),
+            layerModel: SceneMatrix.identity(), basis: .init(right: SIMD3(1,0,0), up: SIMD3(0,1,0)),
+            viewportSize: SIMD2(128,64))
+        let drawn = pipeline.draw(texture: batch.texture, instances: buffer, uniforms: uniforms,
+            renderState: batch.renderState, colorUVScale: batch.colorUVScale,
+            colorSampling: batch.colorSampling, encoder: encoder)
+        encoder.endEncoding(); guard drawn else { return [] }
+        buffer.markSubmitted(on: command)
+        let done = DispatchSemaphore(value: 0)
+        command.addCompletedHandler { _ in done.signal() }; command.commit()
+        guard done.wait(timeout: .now()+5) == .success, command.status == .completed else { return [] }
+        let x = Int((first.positionAndSize.x + 8) * 2)
+        // The existing Sprite upload halves authored size32 to width16, so
+        // sample strictly inside Y±8; Rope retains its own endpoint width.
+        return (firstOnly ? [26,30,34,38] : [20,28,36,44]).map { y in
+            var bgra = [UInt8](repeating: 0,count: 4)
+            output.getBytes(&bgra, bytesPerRow: 4,
+                from: MTLRegionMake2D(x,y,1,1), mipmapLevel: 0)
+            return [Int(bgra[2]),Int(bgra[1]),Int(bgra[0]),Int(bgra[3])]
+        }
     }
 
 }

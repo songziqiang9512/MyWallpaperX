@@ -2737,6 +2737,23 @@
       "verified_before": true,
       "verified_after": true,
       "identityObservationKind": "manual-bounded-native-not-benchmark"
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "0a919f0b1e6f400f1853ec907480e7c3e8c4b866",
+      "short_version": "2.10.0",
+      "bundle_version": "280",
+      "executable_sha256": "7005b078553d7e97d48c0244d49f3b740186619535e5ff8ac3d1dc7a5ef4385f",
+      "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/animated-rope-runtime-20261017/native/runtime-app-30333-1792241963463566000",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/animated-rope-runtime-20261017/native/runtime-app-30333-1792241963463566000/MyWallpaperX.app",
+      "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/animated-rope-runtime-20261017/native/runtime-app-30333-1792241963463566000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_retained": true,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
@@ -3933,6 +3950,22 @@
         "3616389236"
       ],
       "claimBoundary": "Direct native observations, not benchmark PASS/full chain acceptance."
+    },
+    {
+      "format": "file",
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
+      "sha256": "c79a0415ddf660ea98028d47181e1359e33617631cf6c116ffe7305473bd2436",
+      "bytes": 4787,
+      "kind": "manual-bounded-native-not-benchmark",
+      "status": "retained-byte-verified",
+      "sampleCount": 2,
+      "importedSampleIDs": [
+        "3605722997"
+      ],
+      "supplementOnlyIDs": [
+        "3770444459"
+      ],
+      "claimBoundary": "Bounded Rope load/GPU/native picture, existing49 exception retained; no visual verdict or performance PASS."
     }
   ],
   "samples": [
@@ -11687,20 +11720,23 @@
       },
       "evidence": {
         "report": {
-          "path": "/private/tmp/mwx-fullset-baseline/run-3770444459/report.json",
-          "sampleIndex": 0,
-          "sha256": "f1dad1aca5e8530015a7657acfe415fab888a66b9965bb347827b6e6fa51e46a"
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
+          "sha256": "c79a0415ddf660ea98028d47181e1359e33617631cf6c116ffe7305473bd2436",
+          "sampleIndex": 1,
+          "kind": "manual-bounded-native-not-benchmark"
         },
         "sampleEvidencePaths": {
-          "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3770444459/results/3770444459/scene-after-window.png",
-          "app_log": "/private/tmp/mwx-fullset-baseline/run-3770444459/results/3770444459/app.log",
-          "preview_log": "/private/tmp/mwx-fullset-baseline/run-3770444459/results/3770444459/scene-preview.log",
-          "ready_snapshot": "/private/tmp/mwx-fullset-baseline/run-3770444459/results/3770444459/scene-ready-window.png",
-          "runtime_evidence": "/tmp/mwx-fullset-baseline/run-3770444459/results/3770444459/scene-runtime-evidence.json"
-        }
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
+        },
+        "members": {
+          "execution": "native/independentRope/execution.json",
+          "observations": "native/independentRope/observations.json",
+          "after_snapshot": "native/independentRope/raw/scene-after-window.png"
+        },
+        "priorEvidenceIsHistorical": true
       },
       "id": "3770444459",
-      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "nextAction": "continue-full-phase-interaction-official-review",
       "runtime": {
         "benchmarkResultIgnored": {
           "failureCount": 0,
@@ -11708,16 +11744,73 @@
           "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
         },
         "evidenceSummary": {
-          "acceptedGraphLayerCount": 1,
-          "afterFlatBorderRatio": 0.015394171367177007,
-          "afterNonBlackObserved": true,
-          "graphEvidenceObserved": true,
-          "nextFrameLayerCount": 1,
-          "previewSpatialColorSimilarityAdvisory": 0.9065,
-          "readyFlatBorderRatio": 0.015394171367177007,
-          "readyNonBlackObserved": true,
           "surfaceCount": 1,
-          "terminalCompositorLayerCount": 1
+          "afterNonBlackObserved": true,
+          "readyNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "terminalCompositorObserved": true,
+          "claimBoundary": "manual bounded native visual/particle followup; no benchmark/full compatibility PASS",
+          "AppExit": 0,
+          "driverExit": 0,
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "particleGPU": [
+            {
+              "line": 132,
+              "layer": 48,
+              "submittedFrames": 48,
+              "completedFrames": 48,
+              "failedFrames": 0,
+              "encodedBatches": 192,
+              "completedBatches": 192,
+              "encodedInstances": 13020,
+              "completedInstances": 13020
+            },
+            {
+              "line": 133,
+              "layer": 239,
+              "submittedFrames": 48,
+              "completedFrames": 48,
+              "failedFrames": 0,
+              "encodedBatches": 92,
+              "completedBatches": 92,
+              "encodedInstances": 210,
+              "completedInstances": 210
+            },
+            {
+              "line": 134,
+              "layer": 245,
+              "submittedFrames": 48,
+              "completedFrames": 48,
+              "failedFrames": 0,
+              "encodedBatches": 81,
+              "completedBatches": 81,
+              "encodedInstances": 223,
+              "completedInstances": 223
+            },
+            {
+              "line": 135,
+              "layer": 248,
+              "submittedFrames": 48,
+              "completedFrames": 48,
+              "failedFrames": 0,
+              "encodedBatches": 92,
+              "completedBatches": 92,
+              "encodedInstances": 195,
+              "completedInstances": 195
+            },
+            {
+              "line": 136,
+              "layer": 285,
+              "submittedFrames": 48,
+              "completedFrames": 48,
+              "failedFrames": 0,
+              "encodedBatches": 48,
+              "completedBatches": 48,
+              "encodedInstances": 212,
+              "completedInstances": 212
+            }
+          ]
         },
         "firstBreakpoint": null,
         "secondaryEvents": [],
@@ -16716,19 +16809,95 @@
       "runtime": {
         "status": "degraded-runtime",
         "firstBreakpoint": {
-          "stage": "resource-load",
-          "owner": "ParticleRuntime",
-          "reasonCode": "particle-layer-load-incomplete",
-          "capabilityProfileOrAuthoredShape": "particle-layer",
-          "failureRadius": "scene",
+          "stage": "script-execution",
+          "owner": "SceneScriptVM",
+          "reasonCode": "scene-script-exception-type-error",
+          "capabilityProfileOrAuthoredShape": "target:layer:visibility",
+          "failureRadius": "script",
           "severity": "degraded",
           "unit": {
-            "kind": "scene"
+            "kind": "script",
+            "layerId": 49
           },
-          "fallbackPreservedTerminalCompositor": null,
-          "evidenceBasis": "runtime.loaded_particle_layers/particle_candidates"
+          "fallbackPreservedTerminalCompositor": true,
+          "evidenceBasis": "native/original360/observations.json filtered exact49.visibility exception; App0/driver1 retained"
         },
-        "secondaryEvents": [
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "afterNonBlackObserved": true,
+          "readyNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "terminalCompositorObserved": true,
+          "claimBoundary": "manual bounded native visual/particle followup; no benchmark/full compatibility PASS",
+          "AppExit": 0,
+          "driverExit": 1,
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "particleGPU": [
+            {
+              "line": 3412,
+              "layer": 185,
+              "submittedFrames": 585,
+              "completedFrames": 585,
+              "failedFrames": 0,
+              "encodedBatches": 585,
+              "completedBatches": 585,
+              "encodedInstances": 2292,
+              "completedInstances": 2292
+            },
+            {
+              "line": 3413,
+              "layer": 196,
+              "submittedFrames": 583,
+              "completedFrames": 583,
+              "failedFrames": 0,
+              "encodedBatches": 583,
+              "completedBatches": 583,
+              "encodedInstances": 17805,
+              "completedInstances": 17805
+            },
+            {
+              "line": 3414,
+              "layer": 200,
+              "submittedFrames": 547,
+              "completedFrames": 547,
+              "failedFrames": 0,
+              "encodedBatches": 547,
+              "completedBatches": 547,
+              "encodedInstances": 989,
+              "completedInstances": 989
+            },
+            {
+              "line": 3415,
+              "layer": 205,
+              "submittedFrames": 585,
+              "completedFrames": 585,
+              "failedFrames": 0,
+              "encodedBatches": 585,
+              "completedBatches": 585,
+              "encodedInstances": 31872,
+              "completedInstances": 31872
+            },
+            {
+              "line": 3416,
+              "layer": 236,
+              "submittedFrames": 585,
+              "completedFrames": 585,
+              "failedFrames": 0,
+              "encodedBatches": 585,
+              "completedBatches": 585,
+              "encodedInstances": 18880,
+              "completedInstances": 18880
+            }
+          ]
+        },
+        "benchmarkResultIgnored": {
+          "passed": false,
+          "failureCount": 1,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "priorUnrevalidatedEvents": [
           {
             "stage": "resource-load",
             "owner": "SceneSolidTextureLoader",
@@ -16741,20 +16910,6 @@
             },
             "fallbackPreservedTerminalCompositor": null,
             "evidenceBasis": "runtime.loaded_solid_layers/solid_candidates"
-          },
-          {
-            "stage": "script-execution",
-            "owner": "SceneScriptVM",
-            "reasonCode": "scene-script-exception-type-error",
-            "capabilityProfileOrAuthoredShape": "target:layer:visibility",
-            "failureRadius": "script",
-            "severity": "degraded",
-            "unit": {
-              "kind": "script",
-              "layerId": 49
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "evidence.app_log typed SceneScript failure"
           },
           {
             "stage": "graph-execution",
@@ -16771,198 +16926,33 @@
             "evidenceBasis": "runtime.resolved_material_graph_execution.executor.local_fallbacks"
           }
         ],
-        "evidenceSummary": {
-          "surfaceCount": 1,
-          "readyNonBlackObserved": true,
-          "afterNonBlackObserved": true,
-          "readyFlatBorderRatio": 0.08293882621541768,
-          "afterFlatBorderRatio": 0.057631614289551436,
-          "previewSpatialColorSimilarityAdvisory": 0.6894,
-          "graphEvidenceObserved": true,
-          "acceptedGraphLayerCount": 7,
-          "terminalCompositorLayerCount": 4,
-          "nextFrameLayerCount": 4
-        },
-        "benchmarkResultIgnored": {
-          "passed": false,
-          "failureCount": 1,
-          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        "retiredBreakpoint": {
+          "reasonCode": "particle-layer-load-incomplete",
+          "scope": "196/205 whole-source single atlas loaded and GPU nonempty; no full sample verdict",
+          "evidence": {
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
+            "sha256": "c79a0415ddf660ea98028d47181e1359e33617631cf6c116ffe7305473bd2436"
+          }
         }
       },
       "evidence": {
         "report": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-          "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-          "member": "original-group-04/report.json",
-          "bytes": 2873454,
-          "sha256": "0ba67a35571a0ebd8d0f6753b030a0cb3fb4289ed0f462d8e5adc3bc07b5e981",
-          "crc32": "c0b59174",
-          "status": "retained-byte-verified",
-          "sampleIndex": 2,
-          "jsonPointer": "/samples/2",
-          "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-04/report.json"
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
+          "sha256": "c79a0415ddf660ea98028d47181e1359e33617631cf6c116ffe7305473bd2436",
+          "sampleIndex": 0,
+          "kind": "manual-bounded-native-not-benchmark"
         },
         "sampleEvidencePaths": {
-          "runtime_evidence_zip": {
-            "format": "file",
-            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-            "bytes": 12987193,
-            "sha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-            "status": "retained-byte-verified"
-          },
-          "app_log": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-            "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-            "member": "case/app.log",
-            "bytes": 739386,
-            "sha256": "9ca2efc99bad89f5fe12ae4ec8f566d9b3e69c4cb38806ae29390ee935f11a39",
-            "crc32": "633fdcad",
-            "status": "retained-byte-verified"
-          },
-          "preview_log": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-            "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-            "member": "case/scene-preview.log",
-            "bytes": 21659,
-            "sha256": "a02d2fb4145047caaf28896ab52514c81518ea60c3d63f6f6f701193cf92aefc",
-            "crc32": "9b65905c",
-            "status": "retained-byte-verified"
-          },
-          "after_snapshot": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-            "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-            "member": "case/scene-after-window.png",
-            "bytes": 4205109,
-            "sha256": "dbbe44c836fba2c932503854546b199a9af3de0fb84f33a28702c26ffa1c76ba",
-            "crc32": "d20b405f",
-            "status": "retained-byte-verified"
-          }
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
         },
-        "historicalSourceEvidencePaths": {
-          "app_log": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-04/results/3605722997/app.log",
-            "sourceExistsAtMapping": true,
-            "bytes": 739386,
-            "sha256": "9ca2efc99bad89f5fe12ae4ec8f566d9b3e69c4cb38806ae29390ee935f11a39",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-              "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-              "member": "case/app.log",
-              "bytes": 739386,
-              "sha256": "9ca2efc99bad89f5fe12ae4ec8f566d9b3e69c4cb38806ae29390ee935f11a39",
-              "crc32": "633fdcad",
-              "status": "retained-byte-verified"
-            }
-          },
-          "preview_log": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-04/results/3605722997/scene-preview.log",
-            "sourceExistsAtMapping": true,
-            "bytes": 21659,
-            "sha256": "a02d2fb4145047caaf28896ab52514c81518ea60c3d63f6f6f701193cf92aefc",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-              "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-              "member": "case/scene-preview.log",
-              "bytes": 21659,
-              "sha256": "a02d2fb4145047caaf28896ab52514c81518ea60c3d63f6f6f701193cf92aefc",
-              "crc32": "9b65905c",
-              "status": "retained-byte-verified"
-            }
-          },
-          "runtime_evidence": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-04/results/3605722997/scene-runtime-evidence.json",
-            "sourceExistsAtMapping": true,
-            "bytes": 660558,
-            "sha256": "8b45d0eb14d302e637e975dfc5420a1a46d6666ce7a42395d1b9bed1107863b3",
-            "disposition": "historical-not-retained",
-            "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
-          },
-          "ready_snapshot": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-04/results/3605722997/scene-ready-window.png",
-            "sourceExistsAtMapping": true,
-            "bytes": 4614857,
-            "sha256": "2afd9f2f605b4fc849836569e8a06d0035666dc7662b34c687f01066f1389f72",
-            "disposition": "historical-not-retained",
-            "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
-          },
-          "after_snapshot": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-04/results/3605722997/scene-after-window.png",
-            "sourceExistsAtMapping": true,
-            "bytes": 4205109,
-            "sha256": "dbbe44c836fba2c932503854546b199a9af3de0fb84f33a28702c26ffa1c76ba",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-              "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-              "member": "case/scene-after-window.png",
-              "bytes": 4205109,
-              "sha256": "dbbe44c836fba2c932503854546b199a9af3de0fb84f33a28702c26ffa1c76ba",
-              "crc32": "d20b405f",
-              "status": "retained-byte-verified"
-            }
-          }
+        "members": {
+          "execution": "native/original360/execution.json",
+          "observations": "native/original360/observations.json",
+          "after_snapshot": "native/original360/raw/scene-after-window.png"
         },
-        "identity": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-          "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-          "member": "sample-identity-summary.json",
-          "bytes": 5312,
-          "sha256": "a6e4ad208cdabfd537ae5dd4ca52f7b088ed943b2969dd3b90a74fe96b16e6f6",
-          "crc32": "7d8fc775",
-          "status": "retained-byte-verified"
-        },
-        "sampleIndexEvidence": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
-          "containerSha256": "f26d9e54e08527244828f1763bcc1ccbc0aaf7789a1711f98e91a73ae6aa2727",
-          "member": "sample-index.json",
-          "bytes": 373,
-          "sha256": "aaf2d6709c3ffe1b4cefa2242a81cd4d5c3525147418498679f28d44324f1572",
-          "crc32": "13d6dfb2",
-          "status": "retained-byte-verified"
-        },
-        "archivalProjection": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/report.json",
-          "bytes": 4062,
-          "sha256": "bfbbc58844fc11cbbe3180e2aa982de1db0b958b33261765a086053ed2444d7c",
-          "role": "single-sample archival projection; not the original benchmark report"
-        },
-        "separateVariantQualifications": [
-          {
-            "name": "animation-false",
-            "prefix": "variants/animation-false",
-            "resultMember": "variants/animation-false/result.json",
-            "resultSHA256": "f8045f1aec35d38e5def0fe4968858ed91b48f77c8bacbc964f6bdc6c43da874",
-            "reportMember": "variants/animation-false/run/report.json",
-            "afterMember": "variants/animation-false/run/results/3605722997/scene-after-window.png",
-            "inputFreezeMember": "variants/animation-false/input-freeze.json",
-            "actualCandidateInputHashPair": {
-              "project_sha256": "bc1dbeae7d31daa931aa096a435695bbe9890ba45634096d7aa88e11d55904fe",
-              "package_sha256": "f5f8d0023d6d0e2615226c46a1c7c0fb9d1dba984d4cce4bbca6a0243aa9254a"
-            },
-            "candidatePropertyOverrides": {
-              "animation": false
-            },
-            "baselineInputHashPair": {
-              "project_sha256": "bc1dbeae7d31daa931aa096a435695bbe9890ba45634096d7aa88e11d55904fe",
-              "package_sha256": "f5f8d0023d6d0e2615226c46a1c7c0fb9d1dba984d4cce4bbca6a0243aa9254a"
-            },
-            "scope": "Existing separately qualified follow-up, not an original group benchmark sample or baseline replacement. No candidate pkg/media copied."
-          }
-        ],
-        "sealStatus": "promoted-member-SHA-CRC-verified"
+        "priorEvidenceIsHistorical": true
       },
-      "nextAction": "inspect-fallback-and-authored-visual-ROI"
+      "nextAction": "qualify-49-visibility-real-public-consumer"
     },
     {
       "id": "3616389236",
@@ -18963,12 +18953,12 @@
       "graph-execution:layer-source-not-ready": 5,
       "process:process-timeout": 1,
       "resource-load:base-image-texture-load-incomplete": 5,
-      "resource-load:particle-layer-load-incomplete": 11,
+      "resource-load:particle-layer-load-incomplete": 10,
       "resource-load:solid-texture-load-incomplete": 1,
       "script-execution:scene-script-bad-return": 2,
       "script-execution:scene-script-exception-range-error": 1,
       "script-execution:scene-script-exception-reference-error": 1,
-      "script-execution:scene-script-exception-type-error": 8
+      "script-execution:scene-script-exception-type-error": 9
     },
     "normalizedDiagnosticClaim": "runtime-and-output-diagnostics-only-not-visual-correctness"
   }

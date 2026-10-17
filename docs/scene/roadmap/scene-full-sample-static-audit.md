@@ -43,7 +43,7 @@
 
 下列事项继续由原权威持有，本页不重复标成已证错误：
 
-- 样本姿态/布局/光束/输入观感、精确光照与粒子 color/colorn 数值、Rope world/负细分及 Vec 字符串 edge：归[断点队列](scene-open-breakpoint-queue.md)和对应 capability；旧声明、旧截图、近似代码或尚未完成官方对照不能证明当前错误。
+- 样本姿态/布局/光束/输入观感、精确光照与粒子 color/colorn 数值、Rope未准入atlas/world/负细分及 Vec 字符串 edge：归[断点队列](scene-open-breakpoint-queue.md)和对应 capability；旧声明、旧截图、近似代码或尚未完成官方对照不能证明当前错误。
 - texture-animation wrapper 的保真与[未授权 executor](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift)不独立证明播放缺陷；实际字段、返回值合同和可达 producer 尚须资格，普通 TEX 自动播放与 handle 控制另有现役链。Puppet [optional vec3 suffix](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift)仅被校验/跳过，其含义仍未知，不据此认定 painted depth/extrusion 首错；公开能力的研究边界归[高级对象](../capabilities/advanced-object-coverage.md#op-puppet-perspective)。
 - 原多 renderer/child RopeTrail 聚合项退出当前缺陷表：selector 只选一项不能独立证明应同时执行多个 authored renderer，本轮也未取得真实 child RopeTrail 请求。具体未准入组件归[粒子专项](../capabilities/particle-component-coverage.md)，须先取得精确输入和输出合同，不能靠 unsupported 数量升级；[depth-one static child Rope](../history/static-child-rope-2026-10-16.md)的正 XY 等比、独立正 Z、无 nested/world-space movement 缩放已支持，不能继续整族误报。
 - [SceneScriptValueRuntime.initialize](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift)仍有依赖 `invalid Vec3`文本的 angles兼容分支（原 M6）；当前存在性可证，但不能单凭分支存在认定其兼容语义错误。任何收敛须核[SceneScript合同](../capabilities/scenescript-runtime-implementation-contract.md)、当前有效作者模式与失败事务反例，不删除必要路径消除审计条目。

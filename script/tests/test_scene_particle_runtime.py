@@ -625,7 +625,8 @@ class SceneParticleRuntimeTests(
         # Layer 44 carries the renderer world flag (bit0): admitted since the
         # pointer-trail family batch — the spline is affine-invariant, so the
         # local construction renders identically through the layer matrix.
-        self.assertEqual(result["activeLayerIDs"], [41, 44, 45, 46, 48])
+        self.assertEqual(result["activeLayerIDs"], [41, 42, 44, 45, 46, 48])
+        self.assertTrue(result["twoFrameWholeSource"])
         self.assertGreaterEqual(result["instanceCount"], 2)
         self.assertTrue(result["bufferMatches"])
         self.assertTrue(result["orientationScreen"])
@@ -642,10 +643,8 @@ class SceneParticleRuntimeTests(
         self.assertTrue(result["childRopeUsesSubdivision"])
         self.assertTrue(result["childRopeTranslated"])
         self.assertTrue(result["childRopeUVStartsWithPhase"])
-        self.assertIn(
-            "ropeRendererUnsupported:42:rope:animatedTexture",
-            result["diagnosticDetails"],
-        )
+        self.assertFalse(any("ropeRendererUnsupported:42:" in detail
+                             for detail in result["diagnosticDetails"]))
         self.assertIn(
             "ropeRendererUnsupported:43:rope:unsupportedProfile",
             result["diagnosticDetails"],
@@ -665,6 +664,38 @@ class SceneParticleRuntimeTests(
             "unusedParentControlPointMappings:mappings=2",
             result["diagnosticDetails"],
         )
+        palette = sorted([[255, 0, 0, 255], [0, 255, 0, 255],
+                          [0, 0, 255, 255], [255, 255, 0, 255]])
+        self.assertEqual(len(result["atlasProfile"]), 2)
+        for variant in result["atlasProfile"]:
+            base = variant["baseID"]
+            with self.subTest(atlas=variant["variant"]):
+                self.assertEqual(variant["activeLayerIDs"], [base, base+1, base+4, base+5])
+                self.assertTrue(variant["inputIdentities"])
+                self.assertTrue(all(len(i["sha256"]) == 64 for i in variant["inputIdentities"]))
+                self.assertEqual(len(variant["phases"]), 2)
+                for phase in variant["phases"]:
+                    self.assertGreater(phase["ropeCount"], 0)
+                    self.assertEqual(phase["ropeTextureSize"], [16, 4])
+                    self.assertEqual(phase["ropeUVScale"], [1, 1])
+                    # Source X covers the entire atlas across the Rope width,
+                    # including prepared child draws, rather than one .25 cell.
+                    for name in ["ropeFrames", "childFrames"]:
+                        self.assertTrue(phase[name], name)
+                        self.assertTrue(all(f[0] == 0 and f[2:] == [1, 0] for f in phase[name]))
+                    for name in ["spriteFrames", "trailFrames"]:
+                        self.assertTrue(phase[name], name)
+                    self.assertTrue(all(f == [.25, 0, 0, 1] for f in phase["spriteFrames"]))
+                    self.assertTrue(all(f[2:] == [.25, 0] for f in phase["trailFrames"]))
+                    # Independent color oracle: four known source plateaus coexist
+                    # in one actual draw; the Sprite control samples one cell.
+                    self.assertEqual(sorted(phase["ropePixels"]), palette)
+                    sprite_pixels = phase["spritePixels"]
+                    self.assertEqual(len(sprite_pixels), 4)
+                    self.assertTrue(all(p == sprite_pixels[0] for p in sprite_pixels))
+                    self.assertIn(sprite_pixels[0], palette)
+                self.assertNotEqual(variant["phases"][0]["spriteOrigins"][0],
+                                    variant["phases"][1]["spriteOrigins"][0])
 
     def test_static_child_rope_scale_and_launch_expansion_budget(self) -> None:
         result = self.run_harness("static-scaled-rope-synthetic")

@@ -11,7 +11,7 @@
 3. 首帧：以现有阶段计时区分解析、准备、编译、资源、首draw/呈现；缩小必须提前完成的范围，保持依赖、首帧完整与失败回退。
 4. 长时间使用：连续切换轻/重壁纸，观察cache增长是否有界及停止后transient资源是否回落；保留合理复用cache，不把清空cache当性能优化。
 
-**当前可行动余项。** 不以数十次局部提交判断整个引擎到瓶颈；先确认普通优化配置仍有的可避免工作及唯一owner，再开实现。没有新可行动信号就回兼容队列，不重复旧消融。
+**当前可行动余项。** 不以数十次局部提交判断整个引擎到瓶颈；先确认普通优化配置仍有的可避免工作及唯一owner，再开实现。没有新可行动信号就回兼容队列，不重复旧消融。10-17原296的646次play已被现emit分支挡在完整population事务外；剩余轻量校验/查找没有CPU成本测量，不据调用数新增缓存或抹掉finished emitter rearm语义。限定资格随[Rope批证据](../capabilities/runtime-evidence-current.md#rope-whole-source-20261017)保存。
 
 - **整体CPU/GPU**：[普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)仍显示材质图准备/粒子成本，尚未证明可省部分。普通image片元高成本保留，但[GPU短筛](../history/gpu-cost-screening-2026-10-14.md)的附件读取、modulation/sampler及exact-copy未通过继续门；源码归因受工具上限阻塞时不盲改shader。 [stage计时资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)与[TEX存储资格](../history/static-tex-storage-screen-2026-10-15.md)保原工具/格式边界，不据旧清单开新实现。新增优化必须给实际consumer和普通进程分母。
 - **关闭stage的透传复制**：[10-16资格](../history/gpu-cost-screening-2026-10-14.md#inactive-stage-copy-screen)已将289短Debug窗的7 copy/frame闭合到真实activation caller；最窄连续两尾段的独立GPU增量为0.568375ms，尚无App收益。直接删命令会伪造中间publication，先评估原executor内真实alias/member/完成语义的改动半径；不为两copy微优化新增owner或盲目重排pair，五次source capture未证冗余。当前先推进画面能力，不重跑旧capture cache。 10-17补一个限定候选：357:210的launch永久visual-failure阶段实际执行secondary→primary全extent blit，零authored copy计数不代表零搬运。先由原prepared pair/依赖owner证明整链永久identity、无outgoing/history/clear副作用，再做capture-only与现路径的最近GPU像素/receipt/pin差分；不得裸删copy、伪造member或继承289的计时收益。现无210成本归因/App收益，未实施；[原收据及限定研究](../capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017)保独立身份。

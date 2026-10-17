@@ -279,6 +279,7 @@ enum SceneParticleChildGraphExpansion {
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
+        let wholeSourceRope: Bool
         if let declaration = asset.refraction {
             guard let loaded = SceneParticleRefractionTextureLoader.load(
                 colorSource: source,
@@ -294,12 +295,15 @@ enum SceneParticleChildGraphExpansion {
             colorUVScale = loaded.colorUVScale
             colorSampling = loaded.colorSampling
             refraction = loaded.binding
+            wholeSourceRope = false
         } else {
             guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
                 source,
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
-                device: device
+                device: device,
+                rope: render.rope,
+                definition: asset.definition
             ) else {
                 return .rejected("\(path):textureLoadFailed")
             }
@@ -309,6 +313,7 @@ enum SceneParticleChildGraphExpansion {
             colorSampling = loaded.sampling
             colorUVScale = loaded.uvScale
             refraction = nil
+            wholeSourceRope = loaded.wholeSourceRope
         }
         let maximum = child.maximumCount ?? 512
         guard maximum > 0, maximum <= 512 else {
@@ -316,7 +321,7 @@ enum SceneParticleChildGraphExpansion {
         }
         let authoredMaximum = min(max(asset.definition.maximumCount ?? 1, 0), 20000)
         let particleBudget = authoredMaximum
-        if animation != nil, render.rope != nil {
+        if animation != nil, render.rope != nil, !wholeSourceRope {
             return .rejected("\(path):ropeAnimatedTextureUnsupported")
         }
         let systemBudget = trigger == .staticChild ? 1 : maximum
