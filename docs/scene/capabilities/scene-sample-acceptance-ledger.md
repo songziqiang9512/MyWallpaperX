@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `276bbb74e16db4ad693acdc678878e236673ddc930ead41791cce4c3ceb7f9a8`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `11b052271b64b61eaf35b708419a7891edf45bb4aae1c60c7f17b72711e27b25`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `6d6724c3dd3cd0873ae27ab0d699004a48d9926249f4fa0cfb3b6a1bf1e7c007`。
-- 本页生成于 2026-10-17T16:06:42.590367+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `e9dcc4e9ed8e2254f2ee36c7c5a328b653a30aa8b1f9dbdbc69e133e293c0ff3`。
+- 本页生成于 2026-10-17T16:37:37.511354+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -41,16 +41,16 @@
 | `texture-load` | 基础图片纹理加载 | 6 |
 | `scenescript` | SceneScript 异常 | 13 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 142 |
-| `not-run` | 未关联本归档运行证据 | 120 |
+| `visual-review` | 结构链完整，待视觉验收 | 145 |
+| `not-run` | 未关联本归档运行证据 | 117 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
 | `degraded-runtime` | 39 |
-| `not-run` | 120 |
+| `not-run` | 117 |
 | `runtime-evidence-incomplete` | 1 |
-| `structural-chain-complete-visual-review` | 140 |
+| `structural-chain-complete-visual-review` | 143 |
 
 作者参数：223 个样本声明了 schemecolor 之外的用户参数，共 7291 项，其中 2547 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -170,7 +170,7 @@
 | `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:1… | 82(59) bool 17 color 20 combo 6 scenetexture 1 slider 9 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3341111071` | 麻匪 初音未来 MIKU 海边 32:9 21:9 16:9 16:10 | 32(8) bool 7 color 4 slider 2 text 18 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 187(154) bool 31 color 26 combo 22 scenetexture 4 slider 86… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:1… | 74(46) bool 13 color 9 combo 5 scenetexture 1 slider 12 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:1… | 74(46) bool 13 color 9 combo 5 scenetexture 1 slider 12 tex… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同Ap… |
 | `3357627941` | 麻匪 开门见喜 鼠标交互 自定义本地文件 Windows door 16:9 … | 30(1) bool 4 color 2 combo 1 scenetexture 2 slider 1 text 20 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Ni… | 97(39) bool 28 color 15 combo 4 group 6 slider 33 text 8 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3374523158` | 麻匪 极光音频响应式 交互壁纸 Aurora audio-responsive… | 87(54) bool 7 color 25 combo 5 slider 25 text 23 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -185,7 +185,7 @@
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 开场/文字错位部分修复，仍有 NaN、文字碎片与异常背景 |
-| `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 86(44) bool 10 color 21 combo 4 slider 7 text 37 textinput 7 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 86(44) bool 10 color 21 combo 4 slider 7 text 37 textinput 7 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。sh… |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3476868923` | 麻匪 索泰ZOTAC 天启姬 (角色双动画 点击互动) 120项自定义 | 131(49) bool 15 color 36 combo 3 slider 19 text 54 textinpu… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3477054430` | Cat with headphones on the roof | 25(0) bool 4 color 6 group 6 slider 9 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 画面显示不全；mask 已恢复，月亮/球体与文字布局仍开放 |
@@ -218,7 +218,7 @@
 | `3612199597` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 咖啡厅天台 \|\… | 40(17) bool 19 color 4 group 3 slider 5 text 9 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
 | `3612795410` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 喷泉广场 \|\|… | 35(15) bool 16 color 4 group 2 slider 3 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
 | `3616389236` | Aesthetic Media Visualizer (Shortcut) \… | 179(165) bool 74 color 13 combo 7 scenetexture 26 slider 26… | `blocked` | `process / DebugScenePlaybackRunner / process-timeout / scene-process` | `visual-review` | `unreviewed` 2026-10-17 | 10-17同公共shortcut底图修复的实际受益验收：默认8个顶部白块恢复透明链环，主幅/时钟/装饰保持；复用既有签名App单次direct运行64.200… |
-| `3617056047` | 麻匪 模型音频互动 Model - audio interaction | 49(14) bool 4 color 6 combo 2 scenetexture 1 slider 7 text … | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3617056047` | 麻匪 模型音频互动 Model - audio interaction | 49(14) bool 4 color 6 combo 2 scenetexture 1 slider 7 text … | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：仅记录A App当前基线，人物/模型offset实际余项仍OPEN；没有本批f844运行，不因关联347封包而称同App回归或已… |
 | `3627973226` | [Sakiko Togawa]snowy night - It's MyGO!… | 18(0) bool 17 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3629927359` | 奶牛大鸭鸭 2 | 2(0) color 1 combo 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` |  |
 | `3632513108` | 千咲 不散的春之花——夜莺Night《鸣潮 Wuthering Waves》 | 242(150) bool 74 color 44 combo 10 group 9 scenetexture 24 … | `not-run` | - | `not-run` | `unreviewed` |  |

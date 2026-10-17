@@ -514,6 +514,36 @@
     "3723344874": {
       "verdict": "unreviewed",
       "note": "2026-10-17有界后验：source-proven numeric初始化与RGBA辅助carrier首帧前提已接通，effect3经GPU发布、末合成及后续帧；App0/VM0/stop1→0且GPU排空。根已对照old before/final after/目录官方图，仍未确认可归因烟雾或液体涡动恢复；U05保持OPEN，Dye非零内容UNKNOWN，不认整样本/官方parity或性能收益。正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-20261017/final/report.json；before/after、首失败和中性图链：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-20261017/final/samples/3723344874/runtime_evidence.zip。"
+    },
+    "3471294034": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。shared selected-provider准入与GPU末合成/下一帧证据成立。仅此反馈CLOSED，不等于整样本/全部属性或交互/官方同phase验收；before为CP旧App，after为A+3source的f844，不是单变量性能或像素对照。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip"
+      ]
+    },
+    "3351179520": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同App/phase对照解释为像素或性能收益；后继独立消融未并入此记录。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip"
+      ]
+    },
+    "3617056047": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18限定后验：仅记录A App当前基线，人物/模型offset实际余项仍OPEN；没有本批f844运行，不因关联347封包而称同App回归或已修复。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip"
+      ]
     }
   }
 }

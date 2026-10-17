@@ -87,9 +87,8 @@
 
 | 样本 | 用户观察 / 下一关闭门 |
 |---|---|
-| 3351179520 | 10-18固定App `4d87c1b9…`默认播放已复现：人物/手/红眼呈现，下半地面与反射被斜三角/带状区域切开，官方为连续湿地面，不仅32:9/16:9裁切。地面image98经refraction159→waterflow184→perspective2391实际GPU/末合成；沿输入捕获、目标/UV与projective插值查首错，不先归native3D或补矩阵。 |
+| 3351179520 | 10-18固定App `4d87c1b9…`默认播放已复现：人物/手/红眼呈现，下半地面与反射被斜三角/带状区域切开，官方为连续湿地面，不仅32:9/16:9裁切。地面image98经refraction159→waterflow184→perspective2391实际GPU/末合成；沿输入捕获、目标/UV与projective插值查首错，不先归native3D或补矩阵。 10-18新App `f844674a…`独立运行仍见相同异常；仅关闭2391的单变量原包派生实测material=0/visibility-disabled后异常仍在，排除“只关末级透视即可恢复”，不据此判透视或上游正确。 |
 | 3617056047 | 10-18同固定App默认播放已复现：model70罐体落到虚线圆下方并压住底字，官方在圆内；模型实际GPU呈现。原parent107/自身angles脚本及camera93 zoom=.8须沿typed→world→MVP核对；当前world/MVP未序列化，不以descriptor seed冒actual或直接改坐标。 |
-| 3471294034 | 10-17稳定签名App基线已复现背景菱形网格全缺；人物/文字等呈现。368实际active，159/163资产已ready，但active仅159、原声明含inactive163时仍被raw数量准入拒，371/373未进入GPU。复用既有active/inactive完整保全证明修三个准入职责，再验当前原包网格与provider切换；隐藏源不直接改可见。 |
 
 <a id="qv-cccea6c-user-report"></a>
 
@@ -137,6 +136,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 3471294034 · 缺网格反馈已闭 | 10-18原包默认实机恢复背景菱形网格，人物/文字/花瓣及频谱保持；368沿原链只选159，371/373实际GPU及末合成成立。双候选切换/变体和相邻拒绝已验；仅关闭报告的缺网格现象，不记整样本/全部属性通过。[有界后验](../capabilities/runtime-evidence-current.md#selected-provider-admission-20261018) |
 | 833227004 · 原反馈已闭 | 原流动缺失已有多帧source输出与留白消失的[实际后验](../history/source-material-entry-2026-10-08.md)；未称官方同时间parity。 |
 | 2797913147 /3748311238 /2932631210 /2813231542 · 原反馈已闭 | 原主体人物消失分别由[旧版mesh](../capabilities/runtime-evidence-current.md#e-2026-09-14-puppet-mdlv0014)、[精确atlas](../capabilities/runtime-evidence-current.md#e-2026-09-14-puppet-exact-atlas-effect-extent)与[三样本原图刷新](../capabilities/runtime-evidence-current.md#e-2026-09-14-missing-subject-refresh)关闭。3788467391同期主体恢复，但其漩涡余项仍在上表，保持partial。 |
 | 3113287126 · 原反馈已闭 | 原红粒子从腿部移回琴/持弓手，人物动画后仍锚定该区域；[同输入前后实图](../capabilities/runtime-evidence-current.md#e-2026-09-27-puppet-legacy-attachments)不外推密度、视差或长稳。 |

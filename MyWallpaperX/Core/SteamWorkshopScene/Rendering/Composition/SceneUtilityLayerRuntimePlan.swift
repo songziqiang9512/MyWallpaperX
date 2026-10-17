@@ -195,10 +195,11 @@ enum SceneUtilityLayerRuntimePlanner {
             by: \.consumerLayerID
         )
         return Set(descriptor.layers.compactMap { layer in
+            let references = referencesByConsumer[layer.id] ?? []
             let multiProvider = SceneDependencyRenderPlan
                 .isMultiProviderUtilityCandidate(
                     layer: layer,
-                    references: referencesByConsumer[layer.id] ?? []
+                    references: references
                 )
             // Preparation retains future-visible consumers. The frame's
             // visibility closure still decides whether they execute.
@@ -206,7 +207,11 @@ enum SceneUtilityLayerRuntimePlanner {
                   layer.utilityLayer?.kind == .composition,
                   layer.contentKind == "composition",
                   layer.childLayerIDs.isEmpty,
-                  (layer.dependencyLayerIDs.count == 1 || multiProvider),
+                  (layer.dependencyLayerIDs.count == 1
+                    || SceneDependencyRenderPlan.activeDependencyProviderLayerIDs(
+                        layer: layer, references: references
+                    )?.count == 1
+                    || multiProvider),
                   layer.effects.contains(where: { $0.visible != false }) else {
                 return nil
             }

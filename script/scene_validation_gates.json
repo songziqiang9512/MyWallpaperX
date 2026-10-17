@@ -3373,6 +3373,19 @@
         "test_scene_independent_signal_carrier",
         "test_scene_shader_fragment_output"
       ]
+    },
+    {
+      "id": "selected-provider-admission",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+        "script/tests/test_scene_selected_provider_admission.py",
+        "script/tests/fixtures/SceneSelectedProviderAdmissionChecks.swift"
+      ],
+      "modules": [
+        "test_scene_selected_provider_admission"
+      ]
     }
   ],
   "method_gates": {

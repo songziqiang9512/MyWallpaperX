@@ -507,7 +507,11 @@ extension SceneDependencyRenderPlan {
         }
         let reference = contract.reference
         if case .some = layer.utilityLayer,
-           layer.dependencyLayerIDs != [reference.providerLayerID] {
+           (layer.dependencyLayerIDs.contains(layer.id)
+            || layer.dependencyLayerIDs.count != Set(layer.dependencyLayerIDs).count
+            || activeDependencyProviderLayerIDs(
+                layer: layer, references: references
+            ) != [reference.providerLayerID]) {
             issues.append(Issue(
                 kind: .dependencyMismatch,
                 layerID: layer.id,

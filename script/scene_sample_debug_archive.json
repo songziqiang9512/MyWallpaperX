@@ -19920,6 +19920,726 @@
         ]
       },
       "nextAction": "U05-OPEN; qualify-actual-dye-nonzero-and-visible-fluid-outcome-without-gain-or-whitelist-shortcut"
+    },
+    {
+      "id": "3471294034",
+      "title": "麻匪 巳 UnclePanda [3大UI布局切换]",
+      "authored": {
+        "projectSha256": "71257d32263eab40434747607e81d40852918adfeb3777599614484b3e9b21e7",
+        "packageSha256": "2cd8279e5782a9af8dd5fae0bc58573f2557e2dd52ce5d8ad61da9c3a2dab1a1",
+        "parseState": "not-censused; frozen project/pkg identities and project metadata only",
+        "objectCount": null,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": null,
+        "particleLayerCount": null,
+        "dynamicFeatureCounts": {},
+        "identitySource": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "neutral/runtime-context.json",
+          "bytes": 77541,
+          "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+          "crc32": "47b41a46",
+          "status": "retained-byte-verified",
+          "jsonPointer": "/runs/after347/inputBefore"
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "afterNonBlackObserved": true,
+          "AppExit": 0,
+          "timedOut": false,
+          "ready": {
+            "layers": 100,
+            "imageLayers": 34,
+            "effects": 49,
+            "surfaces": 1,
+            "startupMS": 27825.418
+          },
+          "stop": {
+            "surfacesBefore": 1,
+            "surfacesAfter": 0,
+            "gpuDrained": true
+          },
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "identityDrift": [],
+          "VMFailureLines": [],
+          "claimBoundary": "manual bounded native; no full sample, benchmark or performance PASS",
+          "runRole": "after347",
+          "reportedGridFeedback": "CLOSED",
+          "graphEvidenceObserved": true,
+          "terminalCompositorObserved": true,
+          "nextFrameObserved": true,
+          "visibleResult": "Background diamond lines and square nodes restored; person/text/petals/frequency bar remain visible.",
+          "comparisonBoundary": "Before used earlier CP App; after uses A six-source prerequisite plus3 current files. Not a single-variable pixel/performance comparison."
+        },
+        "appIdentity": {
+          "bundle_identifier": "com.songziqiang.MyWallpaperX",
+          "team_identifier": "H9QWU9XN8R",
+          "cdhash": "69d543504ac5c40e2d6724a515a1b280d5b17bd8",
+          "short_version": "2.10.0",
+          "bundle_version": "280",
+          "executable_sha256": "f844674afa147535fa54380cf4cbe9467ac42a5057cb659a6bd09a9512046b82",
+          "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/347-selected-provider-admission-20261017/native-after/runtime-app-79569-1792253869402280000",
+          "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+          "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/347-selected-provider-admission-20261017/native-after/runtime-app-79569-1792253869402280000/MyWallpaperX.app",
+          "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/347-selected-provider-admission-20261017/native-after/runtime-app-79569-1792253869402280000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_retained": true,
+          "source_signature_verified": true,
+          "verified_before": true,
+          "verified_after": true,
+          "debug_dylib_sha256": "8d287b426b0065cbac42290ab54d6a1fd65921edd5701dbf6a135efbdc6a7a37",
+          "identityObservationKind": "manual-bounded-native-not-benchmark"
+        },
+        "executionEvidence": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "native/after347/execution.json",
+          "bytes": 4817,
+          "sha256": "23cc14ad5d2fb9b3e1957eeee0297dae7925f7a21bb90662e8fa376675ef993d",
+          "crc32": "47b46199",
+          "status": "retained-byte-verified"
+        },
+        "historicalRuntimeObservations": [
+          {
+            "status": "structural-chain-complete-visual-review",
+            "firstBreakpoint": null,
+            "secondaryEvents": [],
+            "evidenceSummary": {
+              "surfaceCount": 1,
+              "afterNonBlackObserved": true,
+              "AppExit": 0,
+              "timedOut": false,
+              "ready": {
+                "layers": 100,
+                "imageLayers": 34,
+                "effects": 49,
+                "surfaces": 1,
+                "startupMS": 64774.939
+              },
+              "stop": {
+                "surfacesBefore": 1,
+                "surfacesAfter": 0,
+                "gpuDrained": true
+              },
+              "gpuDrained": true,
+              "ownedProcessGroupGone": true,
+              "identityDrift": [],
+              "VMFailureLines": [],
+              "claimBoundary": "manual bounded native; no full sample, benchmark or performance PASS",
+              "runRole": "before347"
+            },
+            "appIdentity": {
+              "bundle_identifier": "com.songziqiang.MyWallpaperX",
+              "team_identifier": "H9QWU9XN8R",
+              "cdhash": "2e39ab56d414e66778072e79f163c840a462ec77",
+              "short_version": "2.10.0",
+              "bundle_version": "280",
+              "executable_sha256": "5a8132e3b5cc21e089227d90c01b0dc5f72fb93c9746dbc6168c921abf12c455",
+              "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000",
+              "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+              "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+              "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app",
+              "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/particle-control-point-force-20261017/native-after/runtime-app-48868-1792246798575195000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+              "runtime_retained": true,
+              "source_signature_verified": true,
+              "verified_before": true,
+              "verified_after": true,
+              "debug_dylib_sha256": "9143d9c2e952775b28824f84ce2d7d909005a241818d1c453d8c5eabb56ec912",
+              "identityObservationKind": "manual-bounded-native-not-benchmark"
+            },
+            "executionEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+              "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+              "member": "native/before347/execution.json",
+              "bytes": 4845,
+              "sha256": "872315d869b22c049c86eed41f79b88767cdce3fb571c9b792bdd8517558d7cc",
+              "crc32": "9dd1c59c",
+              "status": "retained-byte-verified"
+            }
+          }
+        ]
+      },
+      "evidence": {
+        "report": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
+          "bytes": 3181,
+          "sha256": "093c405d1cab1f75f56808859bbcdef7422ebf4387918006a78674609c4ee851",
+          "status": "retained-byte-verified",
+          "kind": "manual-bounded-native archival envelope",
+          "importedAt": "2026-10-17T16:37:37.354347+00:00",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
+        },
+        "manifest": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/manifest.json",
+          "bytes": 869,
+          "sha256": "eb7952445917efd2859aeaf562a1e44fbfd3c079851f0f4958ab61440691b052",
+          "status": "retained-byte-verified"
+        },
+        "sampleEvidencePaths": {
+          "runtime_evidence_zip": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "bytes": 18100645,
+            "sha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "status": "retained-byte-verified"
+          },
+          "execution": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "native/after347/execution.json",
+            "bytes": 4817,
+            "sha256": "23cc14ad5d2fb9b3e1957eeee0297dae7925f7a21bb90662e8fa376675ef993d",
+            "crc32": "47b46199",
+            "status": "retained-byte-verified"
+          },
+          "input_and_app_identity": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "neutral/runtime-context.json",
+            "bytes": 77541,
+            "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+            "crc32": "47b41a46",
+            "status": "retained-byte-verified",
+            "jsonPointer": "/runs/after347"
+          },
+          "sample_context": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "neutral/runtime-context.json",
+            "bytes": 77541,
+            "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+            "crc32": "47b41a46",
+            "status": "retained-byte-verified",
+            "jsonPointer": "/samples/3471294034"
+          },
+          "after_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "raw/after347/scene-after-window.png",
+            "bytes": 2905939,
+            "sha256": "098452ecabe9aefe05cac9e0b9f47322ebb5c1c13b600b33c48400637776e886",
+            "crc32": "f94116f4",
+            "status": "retained-byte-verified"
+          },
+          "filtered_observations": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "native-after/3471294034/graph-observation.json",
+            "bytes": 7563,
+            "sha256": "a2af56ef2fee0b33a5768f27566e61426ef80b76655f86e25dedbab153047e37",
+            "crc32": "61ecb7a5",
+            "status": "retained-byte-verified"
+          },
+          "before_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "raw/before347/scene-after-window.png",
+            "bytes": 2802453,
+            "sha256": "38374c1f2b142207bad120ebe6d748b9825acaae1f628b0d2d0953356dfff06b",
+            "crc32": "b5e14266",
+            "status": "retained-byte-verified"
+          }
+        },
+        "sourceBearingEvidenceDisposition": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "neutral/unarchived-identities.json",
+          "bytes": 6182,
+          "sha256": "e87ff8a7bdd42faecb8b061037ca7af052c6f649e8c8fda37562f2a91d106f83",
+          "crc32": "5c61aaf7",
+          "status": "retained-byte-verified"
+        },
+        "sealStatus": "promoted-member-SHA-CRC-verified",
+        "historicalRuntimeEvidence": [
+          {
+            "role": "before347",
+            "execution": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+              "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+              "member": "native/before347/execution.json",
+              "bytes": 4845,
+              "sha256": "872315d869b22c049c86eed41f79b88767cdce3fb571c9b792bdd8517558d7cc",
+              "crc32": "9dd1c59c",
+              "status": "retained-byte-verified"
+            },
+            "input_and_app_identity": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+              "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+              "member": "neutral/runtime-context.json",
+              "bytes": 77541,
+              "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+              "crc32": "47b41a46",
+              "status": "retained-byte-verified",
+              "jsonPointer": "/runs/before347"
+            }
+          }
+        ]
+      },
+      "nextAction": "Reported grid omission CLOSED only; whole sample remains unreviewed"
+    },
+    {
+      "id": "3351179520",
+      "title": "麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:10 21:9 32:9",
+      "authored": {
+        "projectSha256": "53586160fa39c99ab08460ac79cfe0d1f6bbd79b84fc540f229f1f0aa73b4bbf",
+        "packageSha256": "1bebdaac90e3721761eecfc5209ab844993259602e4586f7fe3b7538bd890e99",
+        "parseState": "not-censused; frozen project/pkg identities and project metadata only",
+        "objectCount": null,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": null,
+        "particleLayerCount": null,
+        "dynamicFeatureCounts": {},
+        "identitySource": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "neutral/runtime-context.json",
+          "bytes": 77541,
+          "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+          "crc32": "47b41a46",
+          "status": "retained-byte-verified",
+          "jsonPointer": "/runs/after335/inputBefore"
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "afterNonBlackObserved": true,
+          "AppExit": 0,
+          "timedOut": false,
+          "ready": {
+            "layers": 55,
+            "imageLayers": 23,
+            "effects": 49,
+            "surfaces": 1,
+            "startupMS": 12163.206
+          },
+          "stop": {
+            "surfacesBefore": 1,
+            "surfacesAfter": 0,
+            "gpuDrained": true
+          },
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "identityDrift": [],
+          "VMFailureLines": [],
+          "claimBoundary": "manual bounded native; no full sample, benchmark or performance PASS",
+          "runRole": "after335",
+          "knownFloor": "OPEN",
+          "visibleResult": "Person/red eye/hand/paper present; known warped floor persists.",
+          "comparisonBoundary": "before335 AppA and after335 Appf844 are separately identified; no same-App pixel or performance claim."
+        },
+        "appIdentity": {
+          "bundle_identifier": "com.songziqiang.MyWallpaperX",
+          "team_identifier": "H9QWU9XN8R",
+          "cdhash": "69d543504ac5c40e2d6724a515a1b280d5b17bd8",
+          "short_version": "2.10.0",
+          "bundle_version": "280",
+          "executable_sha256": "f844674afa147535fa54380cf4cbe9467ac42a5057cb659a6bd09a9512046b82",
+          "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/347-selected-provider-admission-20261017/native-after/runtime-app-79569-1792253869402280000",
+          "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+          "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/347-selected-provider-admission-20261017/native-after/runtime-app-79569-1792253869402280000/MyWallpaperX.app",
+          "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/347-selected-provider-admission-20261017/native-after/runtime-app-79569-1792253869402280000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_retained": true,
+          "source_signature_verified": true,
+          "verified_before": true,
+          "verified_after": true,
+          "debug_dylib_sha256": "8d287b426b0065cbac42290ab54d6a1fd65921edd5701dbf6a135efbdc6a7a37",
+          "identityObservationKind": "manual-bounded-native-not-benchmark"
+        },
+        "executionEvidence": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "native/after335/execution.json",
+          "bytes": 4823,
+          "sha256": "58331e94a9c2d88a04756708c59e82c392ccf5e27f9b6f98a7c466601c65cac4",
+          "crc32": "bbaa29c1",
+          "status": "retained-byte-verified"
+        },
+        "historicalRuntimeObservations": [
+          {
+            "status": "structural-chain-complete-visual-review",
+            "firstBreakpoint": null,
+            "secondaryEvents": [],
+            "evidenceSummary": {
+              "surfaceCount": 1,
+              "afterNonBlackObserved": true,
+              "AppExit": 0,
+              "timedOut": false,
+              "ready": {
+                "layers": 55,
+                "imageLayers": 23,
+                "effects": 49,
+                "surfaces": 1,
+                "startupMS": 56672.255
+              },
+              "stop": {
+                "surfacesBefore": 1,
+                "surfacesAfter": 0,
+                "gpuDrained": true
+              },
+              "gpuDrained": true,
+              "ownedProcessGroupGone": true,
+              "identityDrift": [],
+              "VMFailureLines": [],
+              "claimBoundary": "manual bounded native; no full sample, benchmark or performance PASS",
+              "runRole": "before335",
+              "knownFloor": "OPEN",
+              "visibleResult": "Person/red eye/hand/paper present; known warped floor persists.",
+              "comparisonBoundary": "before335 AppA and after335 Appf844 are separately identified; no same-App pixel or performance claim."
+            },
+            "appIdentity": {
+              "bundle_identifier": "com.songziqiang.MyWallpaperX",
+              "team_identifier": "H9QWU9XN8R",
+              "cdhash": "85c3f73a8399246e17056fa6d143b419049ef0e3",
+              "short_version": "2.10.0",
+              "bundle_version": "280",
+              "executable_sha256": "4d87c1b991d71106c71d97bf7d188315d7987057e282a6ffdc056a5e0401e051",
+              "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u05-fluid-current-qualification-20261017/native-final/runtime-app-69932-1792251695311748000",
+              "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+              "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+              "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u05-fluid-current-qualification-20261017/native-final/runtime-app-69932-1792251695311748000/MyWallpaperX.app",
+              "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u05-fluid-current-qualification-20261017/native-final/runtime-app-69932-1792251695311748000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+              "runtime_retained": true,
+              "source_signature_verified": true,
+              "verified_before": true,
+              "verified_after": true,
+              "debug_dylib_sha256": "291e3645e69687de42a29aa8c13b1b7b898cf456b7b76c7eb0dadb9acabfe135",
+              "identityObservationKind": "manual-bounded-native-not-benchmark"
+            },
+            "executionEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+              "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+              "member": "native/before335/execution.json",
+              "bytes": 4831,
+              "sha256": "ae2ac0276bb28735cc3001961690a2175a5a8e8deab10d33058ac35865f649b5",
+              "crc32": "a762d8ce",
+              "status": "retained-byte-verified"
+            }
+          }
+        ]
+      },
+      "evidence": {
+        "report": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
+          "bytes": 3181,
+          "sha256": "093c405d1cab1f75f56808859bbcdef7422ebf4387918006a78674609c4ee851",
+          "status": "retained-byte-verified",
+          "kind": "manual-bounded-native archival envelope",
+          "importedAt": "2026-10-17T16:37:37.354347+00:00",
+          "role": "Associated context only; formal report.samples/0 is3471294034, not this sample",
+          "contextMember": "neutral/runtime-context.json",
+          "contextJsonPointer": "/samples/3351179520"
+        },
+        "manifest": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/manifest.json",
+          "bytes": 869,
+          "sha256": "eb7952445917efd2859aeaf562a1e44fbfd3c079851f0f4958ab61440691b052",
+          "status": "retained-byte-verified"
+        },
+        "sampleEvidencePaths": {
+          "runtime_evidence_zip": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "bytes": 18100645,
+            "sha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "status": "retained-byte-verified"
+          },
+          "execution": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "native/after335/execution.json",
+            "bytes": 4823,
+            "sha256": "58331e94a9c2d88a04756708c59e82c392ccf5e27f9b6f98a7c466601c65cac4",
+            "crc32": "bbaa29c1",
+            "status": "retained-byte-verified"
+          },
+          "input_and_app_identity": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "neutral/runtime-context.json",
+            "bytes": 77541,
+            "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+            "crc32": "47b41a46",
+            "status": "retained-byte-verified",
+            "jsonPointer": "/runs/after335"
+          },
+          "sample_context": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "neutral/runtime-context.json",
+            "bytes": 77541,
+            "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+            "crc32": "47b41a46",
+            "status": "retained-byte-verified",
+            "jsonPointer": "/samples/3351179520"
+          },
+          "after_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "raw/after335-control/scene-after-window.png",
+            "bytes": 5981071,
+            "sha256": "dcf2bee2b3fa1d63a421804a31a2411990b0e947d5ebd7afa60a176b7486b9f6",
+            "crc32": "5815297e",
+            "status": "retained-byte-verified"
+          },
+          "before_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "raw/before335-control/scene-after-window.png",
+            "bytes": 5981643,
+            "sha256": "447a453b48544f867053dd4b4ca40f1b1f02c4357e373f3f8494c2ec28d4084a",
+            "crc32": "391cf186",
+            "status": "retained-byte-verified"
+          }
+        },
+        "sourceBearingEvidenceDisposition": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "neutral/unarchived-identities.json",
+          "bytes": 6182,
+          "sha256": "e87ff8a7bdd42faecb8b061037ca7af052c6f649e8c8fda37562f2a91d106f83",
+          "crc32": "5c61aaf7",
+          "status": "retained-byte-verified"
+        },
+        "sealStatus": "promoted-member-SHA-CRC-verified",
+        "historicalRuntimeEvidence": [
+          {
+            "role": "before335",
+            "execution": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+              "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+              "member": "native/before335/execution.json",
+              "bytes": 4831,
+              "sha256": "ae2ac0276bb28735cc3001961690a2175a5a8e8deab10d33058ac35865f649b5",
+              "crc32": "a762d8ce",
+              "status": "retained-byte-verified"
+            },
+            "input_and_app_identity": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+              "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+              "member": "neutral/runtime-context.json",
+              "bytes": 77541,
+              "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+              "crc32": "47b41a46",
+              "status": "retained-byte-verified",
+              "jsonPointer": "/runs/before335"
+            }
+          }
+        ]
+      },
+      "nextAction": "Qualify known perspective-floor ROI; remains OPEN, no gain/texture workaround"
+    },
+    {
+      "id": "3617056047",
+      "title": "麻匪 模型音频互动 Model - audio interaction",
+      "authored": {
+        "projectSha256": "c1739219cf6fc0b88f264177a360cc51818b6a80460566f0bc6df1310d77a3f0",
+        "packageSha256": "eec1affac3c02b9934cb734f586d999336a7c3d1060a826b10c2a4ee871622ea",
+        "parseState": "not-censused; frozen project/pkg identities and project metadata only",
+        "objectCount": null,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": null,
+        "particleLayerCount": null,
+        "dynamicFeatureCounts": {},
+        "identitySource": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "neutral/runtime-context.json",
+          "bytes": 77541,
+          "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+          "crc32": "47b41a46",
+          "status": "retained-byte-verified",
+          "jsonPointer": "/runs/baseline361/inputBefore"
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "afterNonBlackObserved": true,
+          "AppExit": 0,
+          "timedOut": false,
+          "ready": {
+            "layers": 13,
+            "imageLayers": 2,
+            "effects": 4,
+            "surfaces": 1,
+            "startupMS": 11935.288
+          },
+          "stop": {
+            "surfacesBefore": 1,
+            "surfacesAfter": 0,
+            "gpuDrained": true
+          },
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "identityDrift": [],
+          "VMFailureLines": [],
+          "claimBoundary": "manual bounded native; no full sample, benchmark or performance PASS",
+          "runRole": "baseline361",
+          "modelOffset": "OPEN",
+          "comparisonBoundary": "Only AppA baseline; no f844 or347-candidate run is claimed for this sample."
+        },
+        "appIdentity": {
+          "bundle_identifier": "com.songziqiang.MyWallpaperX",
+          "team_identifier": "H9QWU9XN8R",
+          "cdhash": "85c3f73a8399246e17056fa6d143b419049ef0e3",
+          "short_version": "2.10.0",
+          "bundle_version": "280",
+          "executable_sha256": "4d87c1b991d71106c71d97bf7d188315d7987057e282a6ffdc056a5e0401e051",
+          "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u05-fluid-current-qualification-20261017/native-final/runtime-app-69932-1792251695311748000",
+          "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+          "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u05-fluid-current-qualification-20261017/native-final/runtime-app-69932-1792251695311748000/MyWallpaperX.app",
+          "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u05-fluid-current-qualification-20261017/native-final/runtime-app-69932-1792251695311748000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+          "runtime_retained": true,
+          "source_signature_verified": true,
+          "verified_before": true,
+          "verified_after": true,
+          "debug_dylib_sha256": "291e3645e69687de42a29aa8c13b1b7b898cf456b7b76c7eb0dadb9acabfe135",
+          "identityObservationKind": "manual-bounded-native-not-benchmark"
+        },
+        "executionEvidence": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "native/baseline361/execution.json",
+          "bytes": 4828,
+          "sha256": "08d05f3fbbcf33cc6ed20ea8aee97d146f88ccab6cd7b74f6eada98eac0f6761",
+          "crc32": "4e8f91fb",
+          "status": "retained-byte-verified"
+        }
+      },
+      "evidence": {
+        "report": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
+          "bytes": 3181,
+          "sha256": "093c405d1cab1f75f56808859bbcdef7422ebf4387918006a78674609c4ee851",
+          "status": "retained-byte-verified",
+          "kind": "manual-bounded-native archival envelope",
+          "importedAt": "2026-10-17T16:37:37.354347+00:00",
+          "role": "Associated context only; formal report.samples/0 is3471294034, not this sample",
+          "contextMember": "neutral/runtime-context.json",
+          "contextJsonPointer": "/samples/3617056047"
+        },
+        "manifest": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/manifest.json",
+          "bytes": 869,
+          "sha256": "eb7952445917efd2859aeaf562a1e44fbfd3c079851f0f4958ab61440691b052",
+          "status": "retained-byte-verified"
+        },
+        "sampleEvidencePaths": {
+          "runtime_evidence_zip": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "bytes": 18100645,
+            "sha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "status": "retained-byte-verified"
+          },
+          "execution": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "native/baseline361/execution.json",
+            "bytes": 4828,
+            "sha256": "08d05f3fbbcf33cc6ed20ea8aee97d146f88ccab6cd7b74f6eada98eac0f6761",
+            "crc32": "4e8f91fb",
+            "status": "retained-byte-verified"
+          },
+          "input_and_app_identity": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "neutral/runtime-context.json",
+            "bytes": 77541,
+            "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+            "crc32": "47b41a46",
+            "status": "retained-byte-verified",
+            "jsonPointer": "/runs/baseline361"
+          },
+          "sample_context": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "neutral/runtime-context.json",
+            "bytes": 77541,
+            "sha256": "f633e41ffc525c90c92ad3324d60d9cb59af8e00be0d78b222c24c60f50ce5b9",
+            "crc32": "47b41a46",
+            "status": "retained-byte-verified",
+            "jsonPointer": "/samples/3617056047"
+          },
+          "after_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+            "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+            "member": "raw/baseline361/scene-after-window.png",
+            "bytes": 295493,
+            "sha256": "9eb88a63afabf46543889657ccf0f18d19083038bd25e4fcfbf392d486bbc933",
+            "crc32": "49b3d379",
+            "status": "retained-byte-verified"
+          }
+        },
+        "sourceBearingEvidenceDisposition": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+          "containerSha256": "e8e89de54c68283982ade0d529aa46a5c512b70d906f6eb09f683f1dc110d5f4",
+          "member": "neutral/unarchived-identities.json",
+          "bytes": 6182,
+          "sha256": "e87ff8a7bdd42faecb8b061037ca7af052c6f649e8c8fda37562f2a91d106f83",
+          "crc32": "5c61aaf7",
+          "status": "retained-byte-verified"
+        },
+        "sealStatus": "promoted-member-SHA-CRC-verified",
+        "historicalRuntimeEvidence": []
+      },
+      "nextAction": "Qualify reproduced model offset from AppA baseline; remains OPEN; no f844 run claimed"
     }
   ],
   "schemaVersion": 1,

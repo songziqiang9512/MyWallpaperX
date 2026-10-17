@@ -80,19 +80,25 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
     static func structuralUtilityConsumerLayerIDs(
         in descriptor: SceneRenderDescriptor
     ) -> Set<Int> {
-        Set(descriptor.layers.compactMap { layer in
+        let referencesByConsumer = Dictionary(
+            grouping: SceneDependencyGraphAnalysis.references(in: descriptor.layers),
+            by: \.consumerLayerID
+        )
+        return Set(descriptor.layers.compactMap { layer in
+            let references = referencesByConsumer[layer.id] ?? []
             guard layer.contentKind == "composition",
                   layer.utilityLayer?.kind == .composition,
                   layer.childLayerIDs.isEmpty,
                   !layer.dependencyLayerIDs.isEmpty,
                   layer.authoredDependencies.isEmpty,
                   (layer.dependencyLayerIDs.count == 1
+                    || SceneDependencyRenderPlan.activeDependencyProviderLayerIDs(
+                        layer: layer, references: references
+                    )?.count == 1
                     || SceneDependencyRenderPlan
                         .isMultiProviderUtilityCandidate(
                             layer: layer,
-                            references: SceneDependencyGraphAnalysis.references(
-                                in: descriptor.layers
-                            ).filter { $0.consumerLayerID == layer.id }
+                            references: references
                         )) else { return nil }
             return layer.id
         })
