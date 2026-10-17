@@ -425,14 +425,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "10-17同身份原包实际origin已核；动画准备失败保留独立合法reference后，934/876左右侧脸由散片恢复为完整侧脸，原2/3请求不变且aux1412/1212仍拒绝。中央颈部粉色矩形仍在，手部与未支持动画不记完成。",
+      "note": "10-17两批原包组装修复：动画失败保留合法reference恢复两侧完整侧脸；MDLV19命名挂点接通840→1095后，中央粉色颈矩形消失、脸颈重新接合，右侧面具位置恢复。原请求/变换不改，aux1412/1212和840多clip-alpha拒绝仍保留。",
       "runs": [
-        ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/samples/3226487183/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/samples/3226487183/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/samples/3226487183/runtime_evidence.zip"
       ],
-      "remainingDifferences": "中央颈部块/手部及auxiliary动画余项仍开放；840→1095挂点准入为待验证候选，未证颈块因果。完整同viewport/phase、播放交互和属性未验，不记整样本PASS。",
+      "remainingDifferences": "auxiliary及840多clip-alpha动画仍拒绝；原1028手部观察未获关闭。完整同viewport/phase、播放交互和属性未验，不记整样本PASS。",
       "officialComparison": "compared"
     }
   }

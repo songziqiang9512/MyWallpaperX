@@ -11,7 +11,8 @@
 
 | 查询主题 | 本页证据入口 |
 |---|---|
-| 动画失败后的角色组装 | <a id="puppet-reference-fallback-20261017"></a>沿唯一LayerLoad保留独立合法reference，原动画错误随Outcome发布；不跳track、不重读、不增加时钟/变形器。旧App原322散片基线与只清两层请求的对照定位分叉；最终签名Debug App `27fd9fda…b09f`/dylib `63119a57…bdc6`保留原934/876的2/3请求，两侧完整侧脸实际恢复，aux1412/1212仍拒绝。两层frame0/1的11/10段均GPU完成并末合成消费、publication推进；独立原379人物/花朵/背景和成功动画保持。两次唯一run exit0、无timeout/输入漂移/VM失败、stop1→0且GPU排空；ready93.211/34.718秒仅运行身份，不是性能对照。真实CPU准备10门及一次Debug通过、独审有界通过；4273构建输入中Scene稳定，4个无关UI文件在构建完成后改变，不声称全树匹配。必要证据`.artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/`。中央颈块/手部、unsupported动画、完整phase/viewport及官方parity仍未闭，无性能收益声明。 |
+| MDLV0019命名挂点与人物接合 | <a id="puppet-attachment-mdlv19-20261017"></a>19/MDLS0002接原AttachmentReader，不放宽结构/骨/矩阵验证；无新hierarchy或输出owner。真实CPU跨Rig/Attachment/PoseProjection/World矩阵差0，最近门38 PASS/1既有缺资产skip；一次Debug32.976秒、4273输入无漂移、签名0，App `465d805e…bada0`/dylib `b71cd61d…c44d`。原322请求不改，840→1095从attachment unavailable变bind，typed矩阵直接含translation(287.06982,672.00073,0)；父子frame0/1的7/13段均GPU完成及末合成消费，中央粉色颈矩形实际消失、脸颈接合、右面具恢复位置，两侧脸保持。独立原379人物/花饰/背景及成功动画保持，实采frame0/4。两次唯一run exit0、无timeout/漂移/VM失败，stop1→0/GPU drained。前图只复用上一正式包，不重跑；ready75.756/30.765秒不是性能基线。完整逐帧world/MVP未序列化，不由center补造；aux1412/1212与840多clip-alpha拒绝保留，手部、全景/同phase官方parity及性能未闭。必要证据`.artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/`。 |
+| 动画失败后的角色组装 | <a id="puppet-reference-fallback-20261017"></a>沿唯一LayerLoad保留独立合法reference，原动画错误随Outcome发布；不跳track、不重读、不增加时钟/变形器。旧App原322散片基线与只清两层请求的对照定位分叉；最终签名Debug App `27fd9fda…b09f`/dylib `63119a57…bdc6`保留原934/876的2/3请求，两侧完整侧脸实际恢复，aux1412/1212仍拒绝。两层frame0/1的11/10段均GPU完成并末合成消费、publication推进；独立原379人物/花朵/背景和成功动画保持。两次唯一run exit0、无timeout/输入漂移/VM失败、stop1→0且GPU排空；ready93.211/34.718秒仅运行身份，不是性能对照。真实CPU准备10门及一次Debug通过、独审有界通过；4273构建输入中Scene稳定，4个无关UI文件在构建完成后改变，不声称全树匹配。必要证据`.artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/`。本片未处理的中央颈块由[挂点后继](#puppet-attachment-mdlv19-20261017)关闭；手部、unsupported动画及完整phase/viewport/官方parity仍开放，无性能收益声明。 |
 | Sampler presence与缺光恢复 | <a id="sampler-presence-requirements-20261017"></a>固定官方2.8.0.42自有六臂一次：无纹理红，其余含缺省0/1及显式冲突条件均绿，90色patch/60跨帧比较误差0，必需蓝带、witness、标签/LIVE合格；只证明普通presence不受这些require筛选，format未证。现唯一Schema分类与三个旧raw条件入口同步，51/25/8退出旧缓存。presence两门及cache4门通过；最终Debug/签名0、4273 tracked inputs无漂移，App `18edc0ab…7ab7f`/dylib `3e6d7e6a…67717`。原382默认无combo改写，17/effect1从局部回退变为真实Program，frame0/1均GPU完成并末合成消费，右上双光束恢复；bundled util/noise真实加载，不认领合成噪声替代。独立原376人物、暖色背景与星期文字保持，MASK absent邻例仍不造presence；两包exit0、无timeout/drift且stop1→0/GPU drained。首carrier误判零计数与后继正则转义失效均保原收据、由既存log重分类，无App重跑。必要证据`.artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/`；不计完整画面/全部属性、格式官方语义或性能收益。357中性morph资格只校正顶点ordinal及旧reader偏移，未实现动画。 |
 | Project点击与显式分支 | [唯一后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)记录project Bool入口、完整显式删除、原口罩点击、自有同窗显隐及独立画面；实际App与最后合成kind反例构建分列，不计完整样本或性能。 |
 | Color输入与回调退场 | [数值slot后验](../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)保原String与类型边界；[永久删除callback后继](../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)解除原333末次合法编辑误拒，自有离场/调值及独立实图已验。特殊composition仍开放，无性能收益声明。 |
@@ -81,32 +82,6 @@
 | 透明RGB与共享shader | <a id="e-2026-10-08-transparent-color-continuity"></a>[跨effect连续性与静态源](../history/authored-color-continuity-2026-10-09.md#静态源上传与采集后继)恢复头冠亮色，动态PMA隐藏RGB未验；[片元位置](../history/shared-shader-type-compatibility-2026-10-09.md#片元位置后继)恢复U23光效，[源尺寸](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)消除强网点，普通光柱官方对照max1/255；[U21音频索引](../history/shared-shader-type-compatibility-2026-10-09.md#u21音频索引后继)恢复两环、去除灰层/额外过曝。其他混合、外部音源及完整交互未验。 |
 | Puppet 部件裁剪 | <a id="e-2026-10-08-puppet-clipping"></a>[裁剪与非回退证据](../history/puppet-clipping-2026-10-08.md)：受控0/105、opaque重叠、reader修正及跨样本App边界；独立慢启动失败保留，nested官方parity、source非一alpha与完整视觉仍未证 |
 
-<a id="e-2026-10-16-puppet-animation-events"></a>
-
-### E-2026-10-16-PUPPET-ANIMATION-EVENTS · 现代MDLA与原包接续
-
-2026-10-16工作树，签名Debug executable `c832121a0464d177ba8de41481d574579f39acb4ea3a48c31fccfba4878b85dd` / dylib `603f2d6cbe806699405e7d839674abc69722d8427e0ebf40c2ba01734f5b7f54`；构建51.306秒、4327输入无漂移。格式由[MDLA合同](scene-format-and-render-graph.md#11-二进制资产合同tex-bc-与-puppet-mdl)拥有，派发/事务和预算归[D4](../roadmap/batch2/script-component-api-design.md#puppet-animation-events)。
-
-原3351179520只读隔离副本、default属性/mute、ready后12秒：layer524的index1/id751在frame0提交stop，frame3事件提交play；目标clip510快照42.445→262.283→loop后6.831→52.419，131条5805顶点骨输出均GPU completed、131个不同geometry hash，maxBindDisplacement为12.796845…95.019989。原资源20骨/two clips事件1/0，事件来自1356内部frame7；作者回调只有init停止与匹配事件播放，无update/timer替代producer。root实看人物、纸片、雨与倒影；这证明该原包String-self接续，不能仅凭组合mesh变化外推任意clip/全部sibling。
-
-独立3791967416同App/default/mute12秒完成310条graph GPU记录，root实看角色/花朵/局部图案；完整眼部周期和旧合成差异未关闭。两run ready约49.899/31.727秒，exit0、输入无漂移、进程组退出，surface1→0且gpuDrained。旧335的零命令/零524骨输出基线复用lookup包manifest `316af321772e57833d64aeda1f5656acf44ba7eebc715f9f56851ba0233ea44d`，不重跑旧App；本次启动时长不构成性能对照。
-
-生产reader门31run=30 PASS/1既有资源skip，另实际原MDL解析通过；PlaybackRuntime27项通过，最后排序/预算修订仅补6事件门；真实C→Swift18项通过。最后分配异常guard另经真实C闭包编译和静态独审，附加standalone carrier异常、低heap未到达，不能称新增OOM行为PASS。暂不可用恢复、同/跨cadence拒绝重试、propertyRefresh不消费、ABA、普通owner及更大合法批次等边界保留测试；不承诺任意JS heap回滚。
-
-普通14天证据在 `.artifacts/scene-evidence/runs/puppet-animation-events-20261016/`，长期最小原MDL仍保在auxiliary-trailer包。原时间Float单位、官方精确相位、非Puppet/其他值族/Timeline事件、反向/mirror/single、首末帧和一次多圈未开放；完整样本、HDR/SDR全矩阵及性能收益未验。旧335资源STOP退出队列，不因此关闭其他Puppet能力或视觉余项。
-
-<a id="e-2026-10-16-general-bloom-strength-script"></a>
-
-### E-2026-10-16-GENERAL-BLOOM-STRENGTH-SCRIPT · Scene scalar到现有Bloom
-
-2026-10-16工作树、签名Debug executable `f747a9124e2129713adef8763cd9202353ac6d45b4660e4908c1479f336ac11b` / dylib `f16008510226b7a8650bf0783269af427ac2aa22e3335b4ce6409e5415788304`，构建27.821秒、4327输入无漂移。准入/无layer身份及完整owner bundle拒绝归[D4](../roadmap/batch2/script-component-api-design.md#general-bloom-strength-script)，不升级IScene setter或HDR。
-
-新focused门1method/53行为事实PASS、60.390秒、103输入无漂移，真实C→ScalarProgram→typed snapshot→生产BloomConfiguration.resolving；三组自有改名/等价音频输入输出1.2及后帧1.25。错误wrapper/path/HDR/Timeline/重复、Float越界/坏返回恢复、borrowed写与拓扑、init/media/propertyRefresh整包拒绝、peer/mirror/stale/退休均有反例；首轮测试载体properties串和lookup index错误保FAIL，产品未为过门调整。代码独审通过，实际声明另核原始日志与图。
-
-同App自有静态白块只改变strength Script，在engine.runtime4前后分别hold0与1.36：571536本体像素零变化，152812外部像素产生光晕，峰值63/255。root已查看正强度图，零强度图由像素门与独审核；这是不同simulation phase的静态内容hold对照，不是官方数值/同相位golden。原2134765860/default/mute12秒加现有native PCM fixture，scene callback首值0、generation2的非零AudioBuffers刷新及typed0发布已证；74条graph GPU完成，实图房间/时钟/柜顶频谱可见。作者后继非零结果未读回，不称精确audio/Bloom ROI、外部音源或右黑块修复。独立3147346398/default/mute12秒的4条graph完成，壁炉/反射/时钟/频谱与紫音符实图保留。三run均exit0、输入无漂移、进程组退出、surface1→0且gpuDrained。
-
-普通14天证据 `.artifacts/scene-evidence/runs/general-bloom-strength-script-20261016/` 保存日志、身份、像素对照、两原包after图及重点门；当前原包只读，运行副本/HOME/cache在归档核验后清。原G9的普通LDR producer缺口退出静态审计；HDR、其他general fields/竞争wrapper、全样本/多屏/官方parity和性能均未验，213旧具体视觉余项仍归队列。
-
 <a id="batch2-frozen-records"></a>
 
 ### Batch2 冻结执行记录
@@ -158,6 +133,32 @@
 <a id="evidence-packages"></a>
 
 ## 3. 证据包
+
+<a id="e-2026-10-16-puppet-animation-events"></a>
+
+### E-2026-10-16-PUPPET-ANIMATION-EVENTS · 现代MDLA与原包接续
+
+2026-10-16工作树，签名Debug executable `c832121a0464d177ba8de41481d574579f39acb4ea3a48c31fccfba4878b85dd` / dylib `603f2d6cbe806699405e7d839674abc69722d8427e0ebf40c2ba01734f5b7f54`；构建51.306秒、4327输入无漂移。格式由[MDLA合同](scene-format-and-render-graph.md#11-二进制资产合同tex-bc-与-puppet-mdl)拥有，派发/事务和预算归[D4](../roadmap/batch2/script-component-api-design.md#puppet-animation-events)。
+
+原3351179520只读隔离副本、default属性/mute、ready后12秒：layer524的index1/id751在frame0提交stop，frame3事件提交play；目标clip510快照42.445→262.283→loop后6.831→52.419，131条5805顶点骨输出均GPU completed、131个不同geometry hash，maxBindDisplacement为12.796845…95.019989。原资源20骨/two clips事件1/0，事件来自1356内部frame7；作者回调只有init停止与匹配事件播放，无update/timer替代producer。root实看人物、纸片、雨与倒影；这证明该原包String-self接续，不能仅凭组合mesh变化外推任意clip/全部sibling。
+
+独立3791967416同App/default/mute12秒完成310条graph GPU记录，root实看角色/花朵/局部图案；完整眼部周期和旧合成差异未关闭。两run ready约49.899/31.727秒，exit0、输入无漂移、进程组退出，surface1→0且gpuDrained。旧335的零命令/零524骨输出基线复用lookup包manifest `316af321772e57833d64aeda1f5656acf44ba7eebc715f9f56851ba0233ea44d`，不重跑旧App；本次启动时长不构成性能对照。
+
+生产reader门31run=30 PASS/1既有资源skip，另实际原MDL解析通过；PlaybackRuntime27项通过，最后排序/预算修订仅补6事件门；真实C→Swift18项通过。最后分配异常guard另经真实C闭包编译和静态独审，附加standalone carrier异常、低heap未到达，不能称新增OOM行为PASS。暂不可用恢复、同/跨cadence拒绝重试、propertyRefresh不消费、ABA、普通owner及更大合法批次等边界保留测试；不承诺任意JS heap回滚。
+
+普通14天证据在 `.artifacts/scene-evidence/runs/puppet-animation-events-20261016/`，长期最小原MDL仍保在auxiliary-trailer包。原时间Float单位、官方精确相位、非Puppet/其他值族/Timeline事件、反向/mirror/single、首末帧和一次多圈未开放；完整样本、HDR/SDR全矩阵及性能收益未验。旧335资源STOP退出队列，不因此关闭其他Puppet能力或视觉余项。
+
+<a id="e-2026-10-16-general-bloom-strength-script"></a>
+
+### E-2026-10-16-GENERAL-BLOOM-STRENGTH-SCRIPT · Scene scalar到现有Bloom
+
+2026-10-16工作树、签名Debug executable `f747a9124e2129713adef8763cd9202353ac6d45b4660e4908c1479f336ac11b` / dylib `f16008510226b7a8650bf0783269af427ac2aa22e3335b4ce6409e5415788304`，构建27.821秒、4327输入无漂移。准入/无layer身份及完整owner bundle拒绝归[D4](../roadmap/batch2/script-component-api-design.md#general-bloom-strength-script)，不升级IScene setter或HDR。
+
+新focused门1method/53行为事实PASS、60.390秒、103输入无漂移，真实C→ScalarProgram→typed snapshot→生产BloomConfiguration.resolving；三组自有改名/等价音频输入输出1.2及后帧1.25。错误wrapper/path/HDR/Timeline/重复、Float越界/坏返回恢复、borrowed写与拓扑、init/media/propertyRefresh整包拒绝、peer/mirror/stale/退休均有反例；首轮测试载体properties串和lookup index错误保FAIL，产品未为过门调整。代码独审通过，实际声明另核原始日志与图。
+
+同App自有静态白块只改变strength Script，在engine.runtime4前后分别hold0与1.36：571536本体像素零变化，152812外部像素产生光晕，峰值63/255。root已查看正强度图，零强度图由像素门与独审核；这是不同simulation phase的静态内容hold对照，不是官方数值/同相位golden。原2134765860/default/mute12秒加现有native PCM fixture，scene callback首值0、generation2的非零AudioBuffers刷新及typed0发布已证；74条graph GPU完成，实图房间/时钟/柜顶频谱可见。作者后继非零结果未读回，不称精确audio/Bloom ROI、外部音源或右黑块修复。独立3147346398/default/mute12秒的4条graph完成，壁炉/反射/时钟/频谱与紫音符实图保留。三run均exit0、输入无漂移、进程组退出、surface1→0且gpuDrained。
+
+普通14天证据 `.artifacts/scene-evidence/runs/general-bloom-strength-script-20261016/` 保存日志、身份、像素对照、两原包after图及重点门；当前原包只读，运行副本/HOME/cache在归档核验后清。原G9的普通LDR producer缺口退出静态审计；HDR、其他general fields/竞争wrapper、全样本/多屏/官方parity和性能均未验，213旧具体视觉余项仍归队列。
 
 <a id="e-2026-10-16-composition-local-perspective"></a>
 
