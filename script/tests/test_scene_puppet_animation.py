@@ -135,6 +135,8 @@ def animation_record(
     alpha_track_state: int = 0,
     alpha_track_bytes_delta: int = 0,
     alpha_presence: int | None = None,
+    alpha_reserved: int = 0,
+    mdla5_trailer: bool = False,
     legacy_trailer: bool = False,
     legacy_trailer34: bool = False,
     events: list[bytes] | None = None,
@@ -169,7 +171,7 @@ def animation_record(
     if legacy_trailer34:
         body += b"\0" * 34
         return bytes(body)
-    body += b"\0" * 4
+    body += struct.pack("<I", alpha_reserved)
     if per_bone_auxiliary_trailer and auxiliary and alpha_by_bone is None:
         values = [index / frame_count for index in range(sample_count)]
         alpha_by_bone = [values] * bone_count
@@ -184,6 +186,9 @@ def animation_record(
                     byte_count -= 4
             body += struct.pack("<II", alpha_track_state, byte_count)
             body += struct.pack(f"<{len(values)}f", *values)
+    if mdla5_trailer:
+        body += b"\0" * 29
+        return bytes(body)
     if per_bone_auxiliary_trailer:
         body += b"\0" * 4
         return bytes(body)
@@ -482,6 +487,72 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 animation_record(401, "Bone Alpha", 2, 2,
                                  alpha_by_bone=[[1.0, value, 0.0], bone_alpha[1]])
             ])
+        mdla5 = dict(magic=b"MDLV0019", skeleton_marker=b"MDLS0002\0",
+                     animation_marker=b"MDLA0005\0")
+        cls.mdla5_alpha = [[0, 0.25, 0.5, 0.75, 1],
+                           [1, 1, 0, 1, 1], [0.125, 0.25, 0.375, 0.5, 0.625]]
+        first = animation_record(781, "Night coverage Ω", 4, 3,
+                                 alpha_by_bone=cls.mdla5_alpha, mdla5_trailer=True)
+        second = animation_record(902, "Renamed settle", 1, 3, fps=60, mode="mirror",
+                                  alpha_by_bone=[[1, 1], [0.75, 0.25], [0, 1]],
+                                  mdla5_trailer=True)
+        cls.fixtures["renamed-mdla5-alpha-pair.mdl"] = build_mdl(
+            [first, second], bone_count=3, include_attachment_boundary=True, **mdla5
+        )
+        cls.fixtures["single-bone-other-resource-mdla5.mdl"] = build_mdl([
+            animation_record(1207, "另名轨道", 3, 1, fps=24, mode="single",
+                             alpha_by_bone=[[0, 0.125, 1, 1 + 2 ** -16]],
+                             mdla5_trailer=True)
+        ], bone_count=1, **mdla5)
+        cls.fixtures["mdla5-absent-then-present.mdl"] = build_mdl([
+            animation_record(2011, "No coverage", 1, 2, mdla5_trailer=True),
+            animation_record(2012, "Coverage follows", 2, 2,
+                             alpha_by_bone=bone_alpha, mdla5_trailer=True)
+        ], **mdla5)
+        cls.fixtures["mdla5-absent-equivalent.mdl"] = build_mdl([
+            animation_record(65, "Animation 1", 2, 2, mdla5_trailer=True)
+        ], **mdla5)
+        malformed = {
+            "reserved": dict(alpha_reserved=1),
+            "presence": dict(alpha_presence=2),
+            "track-state": dict(alpha_track_state=1),
+            "short-track": dict(alpha_track_bytes_delta=-4),
+            "long-track": dict(alpha_track_bytes_delta=4),
+            "missing-bone-track": dict(alpha_by_bone=cls.mdla5_alpha[:2]),
+        }
+        for label, overrides in malformed.items():
+            options = dict(alpha_by_bone=cls.mdla5_alpha, mdla5_trailer=True)
+            options.update(overrides)
+            cls.fixtures[f"bad-mdla5-{label}.mdl"] = build_mdl([
+                animation_record(781, "Malformed coverage", 4, 3, **options)
+            ], bone_count=3, **mdla5)
+        for label, value in (("negative", -0.001), ("above-domain", 1.0002),
+                             ("nan", math.nan), ("inf", math.inf), ("ninf", -math.inf)):
+            cls.fixtures[f"bad-mdla5-domain-{label}.mdl"] = build_mdl([
+                animation_record(1207, "Illegal coverage", 1, 1,
+                                 alpha_by_bone=[[1, value]], mdla5_trailer=True)
+            ], bone_count=1, **mdla5)
+        for label, record in {
+            "truncated-sample": first[:-32],
+            "short-tail": first[:-1],
+            "nonzero-tail": first[:-1] + b"\1",
+            "extra-tail": first + b"\0",
+        }.items():
+            cls.fixtures[f"bad-mdla5-{label}.mdl"] = build_mdl(
+                [record], bone_count=3, **mdla5
+            )
+        cls.fixtures["bad-mdla5-two-clip-gap.mdl"] = build_mdl(
+            [first + b"\0", second], bone_count=3, **mdla5
+        )
+        for label, overrides in {
+            "wrong-version": dict(magic=b"MDLV0017"),
+            "wrong-skeleton": dict(skeleton_marker=b"MDLS0003\0"),
+            "wrong-animation": dict(animation_marker=b"MDLA0006\0"),
+        }.items():
+            profile = {**mdla5, **overrides}
+            cls.fixtures[f"bad-mdla5-{label}.mdl"] = build_mdl(
+                [first], bone_count=3, **profile
+            )
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
 
@@ -659,6 +730,74 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         self.assertEqual(entry["boneCount"], 2)
         self.assertEqual(entry["animations"][0]["id"], 65)
         self.assertEqual(entry["animations"][0]["sampleCounts"], [3, 3])
+
+    def test_mdla5_alpha_preserves_every_bone_sample_and_next_clip(self):
+        entry = self.results["renamed-mdla5-alpha-pair.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["boneCount"], 3)
+        first, second = entry["animations"]
+        self.assertEqual((first["id"], first["name"], first["mode"], first["fps"]),
+                         (781, "Night coverage Ω", "loop", 30))
+        self.assertEqual(first["sampleCounts"], [5, 5, 5])
+        self.assertEqual(first["alphaByBone"], self.mdla5_alpha)
+        self.assertEqual(first["lastTransform"][:3], [0, 8, 0])
+        self.assertEqual((second["id"], second["name"], second["mode"], second["fps"]),
+                         (902, "Renamed settle", "mirror", 60))
+        self.assertEqual(second["sampleCounts"], [2, 2, 2])
+        self.assertEqual(second["alphaByBone"], [[1, 1], [0.75, 0.25], [0, 1]])
+        self.assertEqual(second["lastTransform"][:3], [0, 2, 0])
+        self.assertEqual([first["events"], second["events"]], [[], []])
+
+    def test_mdla5_renamed_resource_and_dimensions_do_not_round_alpha(self):
+        entry = self.results["single-bone-other-resource-mdla5.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        clip = entry["animations"][0]
+        self.assertEqual((entry["boneCount"], clip["id"], clip["name"], clip["fps"]),
+                         (1, 1207, "另名轨道", 24))
+        self.assertEqual((clip["mode"], clip["sampleCounts"]), ("single", [4]))
+        self.assertEqual(clip["alphaByBone"], [[0, 0.125, 1, 1 + 2 ** -16]])
+
+    def test_mdla5_absent_alpha_keeps_old_wire_and_following_present_track(self):
+        self.assertEqual(self.fixtures["mdla5-absent-equivalent.mdl"],
+                         self.fixtures["valid-mdlv0019.mdl"])
+        self.assertEqual(self.results["mdla5-absent-equivalent.mdl"]["animations"],
+                         self.results["valid-mdlv0019.mdl"]["animations"])
+        entry = self.results["mdla5-absent-then-present.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        first, second = entry["animations"]
+        self.assertEqual([first["id"], second["id"]], [2011, 2012])
+        self.assertIsNone(first["alphaByBone"])
+        self.assertEqual(second["alphaByBone"], [[1, 0.5, 0], [0, 0.25, 1]])
+
+    def test_mdla5_bad_alpha_headers_lengths_and_samples_fail_closed(self):
+        labels = ("reserved", "presence", "track-state", "short-track", "long-track",
+                  "missing-bone-track", "truncated-sample")
+        for label in labels:
+            with self.subTest(label=label):
+                entry = self.results[f"bad-mdla5-{label}.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid verified auxiliary track", entry["error"])
+        for label in ("negative", "above-domain", "nan", "inf", "ninf"):
+            with self.subTest(domain=label):
+                entry = self.results[f"bad-mdla5-domain-{label}.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid verified auxiliary track", entry["error"])
+
+    def test_mdla5_tail_is_exact_and_cannot_consume_a_following_clip(self):
+        for label in ("short-tail", "nonzero-tail", "extra-tail", "two-clip-gap"):
+            with self.subTest(label=label):
+                entry = self.results[f"bad-mdla5-{label}.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn("invalid", entry["error"])
+
+    def test_mdla5_alpha_does_not_expand_version_pairs(self):
+        for label in ("wrong-version", "wrong-skeleton", "wrong-animation"):
+            with self.subTest(label=label):
+                entry = self.results[f"bad-mdla5-{label}.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                expected = ("version-matched preceding MDLS block" if label == "wrong-skeleton"
+                            else "unsupported animation mdl magic")
+                self.assertIn(expected, entry["error"])
 
     def test_mdlv0019_rejects_an_unverified_trailer(self):
         self.assertIn(

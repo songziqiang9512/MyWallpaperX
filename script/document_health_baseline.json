@@ -81,8 +81,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 352,
-      "bytes": 71420
+      "lines": 361,
+      "bytes": 73670
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -117,8 +117,8 @@
       "bytes": 346710
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 182,
-      "bytes": 62475
+      "lines": 183,
+      "bytes": 63404
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 363,
-      "bytes": 60123
+      "bytes": 60117
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -233,12 +233,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 52,
-      "bytes": 15477
+      "lines": 53,
+      "bytes": 15816
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 153,
-      "bytes": 32953
+      "lines": 156,
+      "bytes": 33776
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1258,48 +1258,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "a0a388f16530b42ea9d0faf9ddd1c820809bf7c9bedc03ed4621d8cea0e493e4",
-      "after": "24b80402c5f25297e4213568a01765b16ea4b11fe67ea2f65021283f887643bc",
-      "owner": "scene-puppet-runtime",
-      "reason": "原设计原位补齐合法reference降级及已证侧脸恢复，运行权威保存有界后验；队列/静态审计保留aux动画和中央颈块/手部，台账只增原322中性记录，不改旧人工verdict。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-reference-fallback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "115ee415b9fe9da295b0b4a53ea721efb9a67d016c7faaef628cfae30b9fee40",
-      "after": "53936b8eeeac691931ae7562abf257024a9e1b7c69270bbf023982307a29f4b1",
+      "before": "53936b8eeeac691931ae7562abf257024a9e1b7c69270bbf023982307a29f4b1",
+      "after": "e5434d43985df096ccabedde2aaec8bd392109d88d218eee73c8c01d5c4dfd21",
       "owner": "scene-puppet-runtime",
-      "reason": "原位补接MDLV19命名挂点设计与实际脸颈组装恢复；高级对象合同保版本/运行唯一权威，格式参考修正旧限制，入口详证原文移至包区；队列仅保动画/手部。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachment-mdlv19"
+      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6d6cc637335513f70ddb3125b2b727fdd456777ee78347419fb9dfa23511282f",
-      "after": "48b9751bdd88bd1e767088a6e946e020e6b629108690f8ed7830e8fefc719b1a",
+      "before": "48b9751bdd88bd1e767088a6e946e020e6b629108690f8ed7830e8fefc719b1a",
+      "after": "d80f0e7bd01a715a7526d3d52bdb4e0a94ca14cc3b4faa243ad3a70e8c8df0fc",
       "owner": "scene-puppet-runtime",
-      "reason": "原位补接MDLV19命名挂点设计与实际脸颈组装恢复；高级对象合同保版本/运行唯一权威，格式参考修正旧限制，入口详证原文移至包区；队列仅保动画/手部。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachment-mdlv19"
+      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "1b3052fd3f013711098a4a20e69e58de9ffb6f4d8dad3a487f921bef16ba6eb7",
-      "after": "9ad1078c8bc318725e6eac7b95d84f9146213e773885b4e9b813997ee0e20530",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "24b80402c5f25297e4213568a01765b16ea4b11fe67ea2f65021283f887643bc",
+      "after": "db4993dfd611ddb244dae5a31729e2880b4b2c6cb567034c22cd174cb504fb46",
       "owner": "scene-puppet-runtime",
-      "reason": "原位补接MDLV19命名挂点设计与实际脸颈组装恢复；高级对象合同保版本/运行唯一权威，格式参考修正旧限制，入口详证原文移至包区；队列仅保动画/手部。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachment-mdlv19"
+      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "844b4c536cfdf8e020e514833e14e974b08f89cb3805f1e1cff2f5d918468e75",
-      "after": "1f7d294f3423c3228a35771db3d613bbda74dbb1938486f8e765753c2ae38e9e",
+      "before": "1f7d294f3423c3228a35771db3d613bbda74dbb1938486f8e765753c2ae38e9e",
+      "after": "287334440695f34a895635c72b08fc9698a133a77036d37d9086e36b3f3e8d1d",
       "owner": "scene-puppet-runtime",
-      "reason": "原位补接MDLV19命名挂点设计与实际脸颈组装恢复；高级对象合同保版本/运行唯一权威，格式参考修正旧限制，入口详证原文移至包区；队列仅保动画/手部。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachment-mdlv19"
+      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
     }
   ]
 }

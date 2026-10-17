@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（301 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `41f778a837d307291a408edeb1a472a4fd933913ce47fb722073b7093d23e26f`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `a1f1ddeed3143da7cdb409660af75b0dd03e8dad695a63c3deb95032b0aafd72`。
-- 本页生成于 2026-10-17T05:38:50.633235+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `4961820756f357629455aeb47547237b3ea60d6e6de78a280d2824ddf428ca3d`。
+- 本页生成于 2026-10-17T07:05:32.751568+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -155,7 +155,7 @@
 | `3173418061` | Persona 5/女神异闻录5 音乐播放器 | 2(0) color 1 slider 1 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `unreviewed` 2026-10-17 | 已修mix首错：7条effect scale恢复；56标题按下/释放反馈可见，hover保持。主体与文字正常，其他播放/交互及官方同phase未验。 |
 | `3211615441` | 捆绑悬挂 \| Bind & Suspend [ 可交互/interactiv… | 26(12) bool 7 color 1 combo 5 group 4 slider 4 text 4 texti… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3219398263` | Acheron Black Hole (StarchaserArt) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3226487183` | 麻匪 花火 五角色自定义 崩坏星穹铁道 Sparkle Honkai: Sta… | 55(9) bool 14 color 8 combo 1 slider 5 text 27 | `not-run` | - | `not-run` | `unreviewed` 2026-10-17 | 10-17两批原包组装修复：动画失败保留合法reference恢复两侧完整侧脸；MDLV19命名挂点接通840→1095后，中央粉色颈矩形消失、脸颈重新接合，… |
+| `3226487183` | 麻匪 花火 五角色自定义 崩坏星穹铁道 Sparkle Honkai: Sta… | 55(9) bool 14 color 8 combo 1 slider 5 text 27 | `not-run` | - | `not-run` | `unreviewed` 2026-10-17 | 10-17原包三批恢复：合法reference保留侧脸主体组装，MDLV19命名挂点使中央脸颈接合及右面具归位；本批严格读取MDLA5逐骨alpha，单贡献轨… |
 | `3232289987` | 【4k 高度自定义】流萤&萨姆  丝袜可更改——夜莺Night【崩坏星穹铁道】 | 116(60) bool 34 color 18 combo 4 scenetexture 2 slider 41 t… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura fa… | 67(0) bool 18 color 7 combo 3 group 1 scenetexture 1 slider… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3238423642` | Katana Girl with Hologram (Adjustable; … | 90(0) bool 35 color 25 combo 9 group 12 slider 8 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 头部错位已修，整体视觉与约 18.7 FPS 帧时间未验收 |

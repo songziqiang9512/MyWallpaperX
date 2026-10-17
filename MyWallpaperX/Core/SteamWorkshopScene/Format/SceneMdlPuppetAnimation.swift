@@ -21,6 +21,8 @@ struct SceneMdlPuppetAnimation {
     /// Exported per-bone alpha samples use the same frame schedule as TRS.
     /// Absence means opaque; exported values are consumed directly.
     let alphaByBone: [[Float]]?
+    /// Immutable classification; the evaluator still validates track shape and values.
+    let hasAlphaContribution: Bool
     let events: [Event]
 
     init(
@@ -40,6 +42,7 @@ struct SceneMdlPuppetAnimation {
         self.frameCount = frameCount
         self.transformsByBone = transformsByBone
         self.alphaByBone = alphaByBone
+        self.hasAlphaContribution = alphaByBone?.contains { $0.contains { $0 != 1 } } == true
         self.events = events
     }
 

@@ -154,17 +154,24 @@ func weightedFixture(alpha: [Float], weights: SIMD4<Float>)
     return (base.0, rig, .init(clips: [.init(layer: base.2.clips[0].layer,
                                            animation: animation)], composition: .layered))
 }
-func pairedSelection(alpha: [Float]?, bothTracks: Bool)
-    -> Result<ScenePuppetAnimationSelection?, ScenePuppetAnimationSelectionFailure> {
-    let first = fixture(poses: [pose(), pose()], weight: 1, alpha: alpha).2.clips[0]
-    let second = SceneMdlPuppetAnimation(id: 2, name: "second", mode: "single",
-        framesPerSecond: 1, frameCount: 1, transformsByBone: first.animation.transformsByBone,
-        alphaByBone: bothTracks ? first.animation.alphaByBone : nil)
-    let secondLayer = ScenePuppetAnimationLayer(id: 2, animationID: 2, name: "second",
-        additive: true, blend: 1, blendIn: false, blendOut: false,
-        blendTime: 0, rate: 1, visible: true, visibilityBinding: nil)
-    return ScenePuppetAnimationSelector.select(layers: [first.layer, secondLayer],
-        animationSet: .init(boneCount: 1, animations: [first.animation, second]))
+func pairedClips(alpha: [Float]?, peer: [Float]?, additive: [Bool] = [true, true],
+                 optionalPeer: Bool = false, boundPeer: Bool = false,
+                 renamed: Bool = false, peerShift: Float = 0)
+    -> [ScenePuppetAnimationSelection.Clip] {
+    [alpha, peer].enumerated().map { index, track in
+        let id = (renamed ? 91 : 1) + index
+        let sample = pose(translationX: index == 1 ? peerShift : 0)
+        let name = "\(renamed ? "renamed" : "coverage")-\(id)"
+        let animation = SceneMdlPuppetAnimation(id: id, name: name, mode: "single",
+            framesPerSecond: 1, frameCount: 1, transformsByBone: [[sample, sample]],
+            alphaByBone: track.map { [$0] })
+        let layer = ScenePuppetAnimationLayer(id: id, animationID: id, name: name,
+            additive: additive[index], blend: 1, blendIn: false, blendOut: false,
+            blendTime: 0, rate: 1, visible: index == 0 || !optionalPeer,
+            visibilityBinding: index == 1 && boundPeer ? "peer" : nil,
+            hasVisibilityScript: index == 1 && optionalPeer ? true : nil)
+        return .init(layer: layer, animation: animation)
+    }
 }
 func selectionReport(_ result: Result<ScenePuppetAnimationSelection?, ScenePuppetAnimationSelectionFailure>)
     -> [String: Any] {
@@ -318,6 +325,64 @@ func render(_ output: ScenePuppetPlaybackState.Output? = nil, sceneTime: Double,
     }
 }
 
+func multiAlphaChecks(device: MTLDevice, queue: MTLCommandQueue,
+                      pipeline: SceneImageLayerPipeline, atlas: MTLTexture) throws -> [String: Any] {
+    let base = fixture(poses: [pose(), pose()], weight: 1)
+    func select(_ clips: [ScenePuppetAnimationSelection.Clip])
+        -> Result<ScenePuppetAnimationSelection?, ScenePuppetAnimationSelectionFailure> {
+        ScenePuppetAnimationSelector.select(layers: clips.map(\.layer),
+            animationSet: .init(boneCount: 1, animations: clips.map(\.animation)))
+    }
+    func record(_ clips: [ScenePuppetAnimationSelection.Clip]) throws -> [String: Any] {
+        let result = select(clips)
+        var row: [String: Any] = ["selection": selectionReport(result),
+            "authoredOrder": clips.map { $0.animation.id }]
+        if case let .success(selection?) = result {
+            row["clipOrder"] = selection.clips.map { $0.animation.id }
+            let output = try makePlayback((base.0, base.1, selection), device: device,
+                pipeline: pipeline, atlas: atlas)
+            let frame = render(output, sceneTime: 0.5, device: device, queue: queue,
+                atlas: atlas, layerAlpha: 0.5)
+            row["frame"] = frame.report
+            row["attachmentX"] = frame.attachments["tip"]!.columns.3.x
+        }
+        return row
+    }
+    var allowed: [[String: Any]] = []
+    // Equal coverage for opaque/additive variants uses identity contributor TRS;
+    // the neutral peer's independent translation must still reach the attachment.
+    let cases: [([Float]?, [Bool])] = [(nil, [true, true]), ([1, 1], [false, false]),
+        (nil, [false, true]), ([1, 1], [true, false])]
+    for (peer, flags) in cases {
+        for reverse in [false, true] {
+            let clips = pairedClips(alpha: [1, 0.5], peer: peer, additive: flags,
+                renamed: reverse, peerShift: 0.125)
+            allowed.append(try record(reverse ? Array(clips.reversed()) : clips))
+        }
+    }
+    let opaque = try [record(pairedClips(alpha: [1, 1], peer: nil)),
+                      record(pairedClips(alpha: [1, 1], peer: [1, 1]))]
+    let optional = try record(pairedClips(alpha: [1, 0.5], peer: [0.5, 0.5], optionalPeer: true))
+    let bound = select(pairedClips(alpha: [1, 0.5], peer: [0.5, 0.5], optionalPeer: true, boundPeer: true))
+    let near = select(pairedClips(alpha: [1, 0.5], peer: [1, Float(1).nextDown]))
+    let conflicting = pairedClips(alpha: [1, 0.5], peer: [0.5, 0.5])
+    let manual = try makePlayback((base.0, base.1, .init(clips: conflicting, composition: .layered)),
+        device: device, pipeline: pipeline, atlas: atlas)
+    let manualFrame = render(manual, sceneTime: 0.5, device: device, queue: queue, atlas: atlas)
+    let clips = pairedClips(alpha: [1, 0.5], peer: [1, 1])
+    let output = try makePlayback((base.0, base.1, try select(clips).get()!),
+        device: device, pipeline: pipeline, atlas: atlas)
+    let sample = ScenePuppetAnimationEvaluator.FrameSample(frameA: 0, frameB: 1, fraction: 0.5)
+    let hidden = render(output, sceneTime: 0.5, device: device, queue: queue, atlas: atlas,
+        animationFrame: .init(samples: [nil, sample]), layerAlpha: 0.5)
+    let restored = render(output, sceneTime: 0.5, device: device, queue: queue, atlas: atlas,
+        animationFrame: .init(samples: [sample, sample]), layerAlpha: 0.5)
+    return ["allowed": allowed, "opaque": opaque, "optional": optional,
+        "bound": selectionReport(bound), "nearOne": selectionReport(near),
+        "twoContributors": selectionReport(select(conflicting)), "manual": manualFrame.report,
+        "hidden": hidden.report, "restored": restored.report]
+}
+
 func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
                            pipeline: SceneImageLayerPipeline, atlas: MTLTexture) throws -> [String: Any] {
     let base = fixture(poses: [pose(translationX: 0.1), pose(translationX: 0.1)], weight: 1)
@@ -399,14 +464,17 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
             atlas.replace(region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0,
                           withBytes: $0.baseAddress!, bytesPerRow: 2 * 4)
         }
-        let singularFixture = fixture(poses: [pose(), pose(scale: 0.5)], weight: 2)
-        let singular = try makePlayback(singularFixture, device: device,
+        let validityFixture = fixture(poses: [pose(), pose(scale: 0)], weight: 1, alpha: [1, 0])
+        let validity = try makePlayback(validityFixture, device: device,
                                         pipeline: pipeline, atlas: atlas)
         let initialBuffers = bufferBytes(Observation.buffers)
-        let firstFailure = render(singular, sceneTime: 1, device: device, queue: queue, atlas: atlas)
+        let firstFailure = render(validity, sceneTime: 1, device: device, queue: queue, atlas: atlas,
+            animationFrame: .init(samples: [.init(frameA: 2, frameB: 2)]))
         let rejectedEvidence = Observation.evidence.isEmpty
         let rejectedBuffers = bufferBytes(Observation.buffers) == initialBuffers
-        let firstRecovery = render(singular, sceneTime: 0, device: device, queue: queue, atlas: atlas)
+        let firstRecovery = render(validity, sceneTime: 0, device: device, queue: queue, atlas: atlas)
+        let collapsed = render(validity, sceneTime: 1, device: device, queue: queue, atlas: atlas)
+        let collapseRecovery = render(validity, sceneTime: 0, device: device, queue: queue, atlas: atlas)
 
         // Large but finite scale leaves the first vertex finite and overflows
         // the second. Verify the fixture reaches a genuinely partial write.
@@ -528,16 +596,8 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
                 device: device, queue: queue, atlas: coloredAtlas, clipVisible: true,
                 colorBlendState: colorBlend, colorBlendMode: 2).report
         }
-        let oneOpaqueTrack = pairedSelection(alpha: [1, 1], bothTracks: false)
-        let bothOpaqueTracks = pairedSelection(alpha: [1, 1], bothTracks: true)
-        var opaqueMultiClipFrame: [String: Any] = [:]
-        if case let .success(selection?) = bothOpaqueTracks {
-            let base = fixture(poses: [pose(), pose()], weight: 1)
-            let output = try makePlayback((base.0, base.1, selection),
-                device: device, pipeline: pipeline, atlas: coloredAtlas)
-            opaqueMultiClipFrame = render(output, sceneTime: 0.5, device: device,
-                queue: queue, atlas: coloredAtlas, layerAlpha: 0.5).report
-        }
+        let multiAlpha = try multiAlphaChecks(device: device, queue: queue,
+            pipeline: pipeline, atlas: coloredAtlas)
 
         let sharedFixture = fixture(poses: [pose(), pose(translationX: 0.25)],
             weight: 1, alpha: [1, 0], visibilityBinding: "enabled")
@@ -577,7 +637,9 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
             atlas: coloredAtlas, animationFrame: duplicateSamples, layerAlpha: 0.5)
         // Pause keeps identical sample indices; blend must still invalidate the
         // prepared geometry and update alpha in the actual Metal draw.
-        let controlledFixture = fixture(poses: [pose(), pose()], weight: 1, alpha: [0.5, 0.5])
+        let controlledBase = fixture(poses: [pose(), pose()], weight: 1)
+        let controlledFixture = (controlledBase.0, controlledBase.1,
+            ScenePuppetAnimationSelection(clips: pairedClips(alpha: [0.5, 0.5], peer: [1, 1]), composition: .layered))
         let controlled = try makePlayback(controlledFixture, device: device,
             pipeline: pipeline, atlas: coloredAtlas)
         let controls = ScenePuppetAnimationPlaybackRuntime()
@@ -596,12 +658,14 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
             dynamicValues: .init(frameIndex: 1, values: [:]))[42]!
         let dynamicHalfBlend = render(controlled, sceneTime: 1, device: device,
             queue: queue, atlas: coloredAtlas, animationFrame: halfBlend, layerAlpha: 0.5)
+        let dynamicHalfBuffers = bufferBytes(Observation.buffers)
         try controls.apply([.init(identity: identity, action: .setBlend(1),
             callbackEpoch: 2, ordinal: 0)], frameIndex: 1).get()
         let fullBlend = controls.advance(frameIndex: 2, sceneTime: 2,
             dynamicValues: .init(frameIndex: 2, values: [:]))[42]!
         let dynamicFullBlend = render(controlled, sceneTime: 2, device: device,
             queue: queue, atlas: coloredAtlas, animationFrame: fullBlend, layerAlpha: 0.5)
+        let dynamicBlendBuffersChanged = dynamicHalfBuffers != bufferBytes(Observation.buffers)
         let queryRenderTranslation = try translationPoseChecks(device: device, queue: queue,
             pipeline: pipeline, atlas: atlas)
         let result: [String: Any] = [
@@ -610,7 +674,9 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
             "dynamicHalfBlend": dynamicHalfBlend.report,
             "dynamicFullBlend": dynamicFullBlend.report,
             "dynamicBlendSamplesEqual": halfBlend.samples == fullBlend.samples,
+            "dynamicBlendBuffersChanged": dynamicBlendBuffersChanged,
             "firstFailure": firstFailure.report, "firstRecovery": firstRecovery.report,
+            "collapsed": collapsed.report, "collapseRecovery": collapseRecovery.report,
             "firstFailureBuffersUntouched": rejectedBuffers,
             "firstFailureHasNoEvidence": rejectedEvidence,
             "verifiedPartialWrite": verifiedPartialWrite,
@@ -642,11 +708,7 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
             "ordinaryColorBlend": ordinaryColorBlend.report,
             "colorBlendFrames": colorBlendFrames,
             "colorBlendMultiplyFrames": colorBlendMultiplyFrames,
-            "oneOpaqueAlphaTrackSelection": selectionReport(oneOpaqueTrack),
-            "bothOpaqueAlphaTracksSelection": selectionReport(bothOpaqueTracks),
-            "opaqueMultiClipFrame": opaqueMultiClipFrame,
-            "contributingAlphaMultiClipSelection": selectionReport(
-                pairedSelection(alpha: [1, 0.5], bothTracks: false)),
+            "multiAlpha": multiAlpha,
             "sharedHidden": hiddenShared.report, "sharedResumedA": resumedA.report,
             "sharedResumedB": resumedB.report,
             "sharedResumedPoseX": resumedPose.bones.localMatrices[12],
@@ -709,6 +771,7 @@ class PuppetBufferPublicationTests(unittest.TestCase):
 
     def test_paused_control_blend_reaches_actual_gpu_coverage(self):
         self.assertTrue(self.result["dynamicBlendSamplesEqual"])
+        self.assertTrue(self.result["dynamicBlendBuffersChanged"])
         half = self.result["dynamicHalfBlend"]
         full = self.result["dynamicFullBlend"]
         self.assertTrue(half["drew"] and full["drew"])
@@ -781,6 +844,15 @@ class PuppetBufferPublicationTests(unittest.TestCase):
         self.assertTrue(recovery["readyAfter"])
         self.assertTrue(recovery["drew"])
         self.assertGreater(recovery["litPixels"], 0)
+
+    def test_finite_collapsed_pose_is_published_and_restores_opaque_geometry(self):
+        for name in ("collapsed", "collapseRecovery"):
+            frame = self.result[name]
+            self.assertTrue(frame["readyAfter"] and frame["drew"])
+            self.assertEqual(frame["draws"], 1)
+        self.assertEqual(self.result["collapsed"]["litPixels"], 0)
+        self.assertEqual(self.result["collapseRecovery"]["imageSHA256"],
+                         self.result["firstRecovery"]["imageSHA256"])
 
     def test_later_partial_evaluation_retains_last_complete_pose(self) -> None:
         self.assertTrue(self.result["verifiedPartialWrite"])
@@ -885,13 +957,29 @@ class PuppetBufferPublicationTests(unittest.TestCase):
             with self.subTest(multiply_frame=name):
                 self.assert_center_bgra(self.result["colorBlendMultiplyFrames"][name], expected)
 
-    def test_multi_clip_alpha_rejects_contribution_but_accepts_opaque_tracks(self) -> None:
-        for name in ("oneOpaqueAlphaTrackSelection", "bothOpaqueAlphaTracksSelection"):
-            with self.subTest(selection=name):
-                self.assertEqual(self.result[name], {"state": "allowed", "clips": 2})
-        self.assert_center_bgra(self.result["opaqueMultiClipFrame"], [16, 32, 48, 64])
-        self.assertEqual(self.result["contributingAlphaMultiClipSelection"],
-                         {"state": "unsupported"})
+    def test_one_alpha_contributor_preserves_neutral_peers_and_actual_gpu_coverage(self):
+        facts = self.result["multiAlpha"]
+        for family, expected in (("allowed", [12, 24, 36, 48]), ("opaque", [16, 32, 48, 64])):
+            for row in facts[family]:
+                with self.subTest(family=family, order=row["authoredOrder"]):
+                    self.assertEqual(row["selection"], {"state": "allowed", "clips": 2})
+                    self.assertEqual(row["clipOrder"], row["authoredOrder"])
+                    self.assert_center_bgra(row["frame"], expected)
+        for row in facts["allowed"]:
+            self.assertAlmostEqual(row["attachmentX"], 0.125, places=6)
+        self.assertEqual(facts["optional"]["selection"], {"state": "allowed", "clips": 1})
+        self.assert_center_bgra(facts["optional"]["frame"], [12, 24, 36, 48])
+        self.assert_center_bgra(facts["hidden"], [16, 32, 48, 64])
+        self.assert_center_bgra(facts["restored"], [12, 24, 36, 48])
+
+    def test_two_alpha_contributors_and_near_one_peer_remain_rejected(self):
+        facts = self.result["multiAlpha"]
+        for name in ("twoContributors", "nearOne", "bound"):
+            self.assertEqual(facts[name], {"state": "unsupported"})
+        self.assertFalse(facts["manual"]["readyAfter"])
+        self.assertFalse(facts["manual"]["drew"])
+        self.assertEqual(facts["manual"]["draws"], 0)
+        self.assertEqual(facts["manual"]["litPixels"], 0)
 
     def test_shared_hidden_resume_keeps_pose_alpha_and_two_surfaces_on_one_sample(self) -> None:
         self.assert_center_bgra(self.result["sharedHidden"], [16, 32, 48, 64])

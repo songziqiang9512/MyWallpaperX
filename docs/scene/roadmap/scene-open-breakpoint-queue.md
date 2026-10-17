@@ -14,6 +14,7 @@
 |---|---|---|
 | Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，但1678的时值被误认固定tag；实际关联MDMP shape与非零scalar曲线，另有多clip alpha依赖，仍沿安全bind-pose。旧335资格不能覆盖新输入；后继资格已证stride84 position.w携带19个非邻接morph ordinal，旧参考reader误多读4B；shape437是记录身份，第二blob的19个32767不是全局顶点index。packed位移、通道/曲线及混合仍unknown，不能只放reader门 | 先完成morph/scalar消费者与混合顺序顶层设计，固定MDLA/auxiliary实际边界和作者请求；复用现AnimationReader/evaluator/pose，不跳track或吞错。原包姿态需随时钟推进，保健康Puppet/旧几何失败回退。 |
 | active effect输入/来源准入缺口 · 358/357/363增量 | **10-17真实局部回退。** 358七个slot1用途proof拒；读源已证其RGB颜色+A权重、slot2才是红mask，不可当mask放行，且未有可归因的明显缺图ROI，暂作候选；357的320另拒slot1、210 framebuilder缺insideAlpha Vec2 producer、233 Combined Timeline被parent/children门拒；363的765 Blur被whole-stage childless门拒。不是同一算法，也未将每条标签认成可见缺图 | 沿各prepared Program的首个错误身份依次裁用途/typed producer/cohort，复用原graph与compositor；不能把RGBA改当红mask、扩大capture或为效果名加旁路。先修有最大明确ROI收益者；参数/来源已满足却仍拒才扩相应通用准入。 |
+| compound sampler坐标类型 · 322的2522/effect0色散未执行 | **10-17基线真实CPU stage-link失败后passthrough。** 作者局部vec4纹理值进入vec2采样坐标复合运算，现通用窄化尚不覆盖此表达式；没有把最终copy/compositor成功算作者效果成功。该effect另有起始Alpha0，实际可见影响尚未取得非零相位见证，与左眼不是同因。 | 先固定非零Alpha phase/最小类型反例，再沿唯一shader frontend的类型/采样职责修正；保变量遮蔽与反例，不按effect名称补写shader或仅凭编译标签认缺图。 |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **释放链仍未闭合。** 已准入平移物理骨的本地translation查询与持续物理姿态已分域；非物理骨、其余matrix分量保旧。原三轮故障、官方Q4/Q5及有界native验收统一归[记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)，不再重修该查询首门 | 沿唯一pose/motion owner澄清并接通实际释放的translation impulse输入、顺序和一次提交；有效但启用字段省略的骨处置只复用Q4限定观察，不推广默认。保未知方向/单位、angular/reset边界及异常fuse；最终仍须原输入三轮持续响应、释放后更新及健康邻居，不扩无区分参数矩阵。 |
 | N03 · 3337494481特殊composition | **10-16原包fresh。** 70/202/228/229/591均为native-world `composelayer_depthtest.json`，visible却无source，前有18个写深度模型；旧“1条未恢复”实为一条含五层的诊断。147属性类型首错及永久删除callback后误拒合法编辑均已退出，不再列作待修。Rope只归N08 | native采集正控资格STOP，后继门归[D1](batch2/composition-render-target-design.md)，不放普通composition别名、不忽略深度或绕main-source准入。229首effect另有局部Program fallback，不随source缺口关闭；[已闭编辑边界](../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)。 |
@@ -21,6 +22,7 @@
 
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
+
 
 382右上缺光已退出：sampler presence不再被editor `require`阻断；原包默认参数实际恢复两束蓝白光，Program/GPU/末合成及下一帧执行，独立376人物/背景与旧mask链保持。format条件未扩、完整同phase/viewport仍未验，无性能收益声明；见[有界后验](../capabilities/runtime-evidence-current.md#sampler-presence-requirements-20261017)。
 
@@ -49,7 +51,7 @@
 | 2887542690 · 音频ROI、黑遮挡/字体与片区布局 | 10-16 composition创建、286控制及限定透视回绘已接通，原visible-of-null退出；只证旧外悬蓝条同位置消失。固定pointer显隐消融未找到音频条的可重复正证，资格STOP，不能称图框内音频恢复；其他旧具体视觉与完整交互仍待当前可区分证据。[本批边界](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 右侧旧黑块 | 10-16默认日景及作者Night(Lights On) String选项4实图未定位独立右黑矩形；亮吊灯、书柜和地板可见，灰白海报与软阴影仍在。旧精确ROI、媒体和墙钟/viewport phase未齐，不写已修；移出当前已确认缺陷，先取同状态可区分复现再追source/effect/compositor，不据两条无归属mask诊断实施。[夜景限期证据](../../../.artifacts/scene-evidence/runs/213-black-region-night-qualification-20261016/manifest.json)；标题修复不重开。 |
 | 3768903841 · 云形/烟花细节 | 旧Worley云形及烟花/色彩细节未取得同相位关闭。10-16 R40独立原包复验四束spot GPU成功、底部光束可见，实图仍有横向深色云片；只证明当前呈现，不据此判新根因或整样本通过。先同phase对齐实际source/Program与ROI，不因四束恢复关闭旧云形差异。[原边界](../history/runtime-evidence-index.md#e-spot-light) |
-| 3226487183 · 手部观察及动画余项 | 侧脸碎片与中央颈块均已退出：合法reference保留恢复934/876，后继MDLV19挂点接通840→1095，原包实际脸颈接合、右侧面具位置恢复，typed挂点及GPU/末合成均消费。aux1412/1212和840的多clip-alpha仍拒，不能只放selector；原1028手部观察未取得关闭，已证实际origin/reference/效果链正常，不按外观改坐标。下一门先区分唯一非一alpha轨与全一/TRS peers的公共identity合同；完整冲突混合仍unknown。[reference后验](../capabilities/runtime-evidence-current.md#puppet-reference-fallback-20261017)、[挂点后验](../capabilities/runtime-evidence-current.md#puppet-attachment-mdlv19-20261017)。 |
+| 3226487183 · 手部余项 | 原1028手部观察未取得关闭，已证实际origin/reference/效果链正常，不按外观改坐标。缺眼/默认动画首门已[修复](../capabilities/runtime-evidence-current.md#puppet-mdla5-alpha-20261017)，本行只保手部；完整同phase/viewport、全部交互未验不算新的具体故障。 |
 | 3809618616 · 布局/显示比例裁切、音频活动 | 旧柱/照片缺失已修；此处只保旧布局/裁切及音频活动复验，不再重开int compound/TEX照片入口。先确认仍有具体差异及当前状态。[最后整合身份](../history/committed-range-review-repairs-2026-10-07.md#整合验证) |
 | 3791967416 · 眼部完整周期、局部图案/合成 | 最终eye105闭眼无虹膜已有有界证据；旧局部图案/整体合成差异未取得同phase关闭。复验完整周期和对应ROI，不重修已闭barcode/seek/bone alpha。[边界](../history/puppet-clipping-2026-10-08.md#跨样本app与最终冻结) |
 | 3789316755 /3211615441 · 频谱形状/幅度/全柱活跃度 | 旧容量与连续PCM首门已修；需要同声源App A/B与静音/噪声反例，不能用峰值策略充当官方算法。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-audio-band-peaks) |
@@ -127,6 +129,7 @@
 | 项目 | 当前边界 / 最小下一门 |
 |---|---|
 | U42 · 面板打开/编辑、长Combo与显示语言余项 | 原生列表/AX滚动及有限本地化已有有界验收；旧“浏览严重卡顿/中文都变英文”不能无条件沿用。打开/编辑总延迟、完整系统键盘chrome、长Combo完整显示及更多locale仍待当前实际资格；未审词汇不直接算错译。先单个可达控件和用户动作/成本，沿原Intent→store→consumer验证 |
+| fullscreen visible合法脚本被过滤 · 322的38 | **静态首断点与实际未发布一致。** 原visible有公开update/applyUserProperties，descriptor保script；现VectorCandidateCatalog的contentKind/utility白名单明确拒fullscreen，未进入VM owner。25脚本叶仅24 VM targets，38仍awaiting publication并取authored visible，不是默认未触发或private helper。 | 复用现Bool owner/Program→typed visibility/journal，不新建更新链；先真实默认与属性编辑验证fullscreen显隐、非法类型/局部失败和健康image/composition邻例，完整媒体条件另验。 |
 | font String公共合同候选 · 3448845950 | 实际默认font consumer是否被String拒绝尚未证；102隐藏且存在registerAsset生产者，不能用38次词法写归因旧TypeError。精确资格、下一门与停止条件只归[静态缺口表](scene-full-sample-static-audit.md)，不直接开放任意路径。 |
 
 显隐slider/缺定义、条件-only Combo、maxwidth script等旧声明/候选不等于缺热更新：先有同身份instruction/callback/rebuild及可见consumer资格。314 fireplacesound属Sound mixed，已修；304 clock_lang已有真实text模块applyUserProperties consumer，亦非condition-only；不另造condition evaluator或value-only旁路。

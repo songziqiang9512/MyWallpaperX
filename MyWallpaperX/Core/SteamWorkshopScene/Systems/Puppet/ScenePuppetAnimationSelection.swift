@@ -81,21 +81,18 @@ enum ScenePuppetAnimationSelector {
             }
             clips.append(.init(layer: layer, animation: animation))
         }
-        // Consequential multi-clip alpha is outside the established profile.
+        // More than one alpha contributor is outside the bounded profile.
         // Extra preparation for hidden scripts must not break a previously
         // valid visible selection. Drop only those optional resources first.
-        if clips.count > 1, clips.contains(where: {
-            $0.animation.alphaByBone?.contains { $0.contains { $0 != 1 } } == true
-        }) {
+        if clips.reduce(0, { $0 + ($1.animation.hasAlphaContribution ? 1 : 0) }) > 1 {
             clips.removeAll { $0.layer.visible == false
                 && $0.layer.visibilityBinding == nil && $0.layer.hasVisibilityScript == true }
         }
         guard clips.isEmpty == false else { return .success(nil) }
-        if clips.count > 1, let alphaClip = clips.first(where: {
-            $0.animation.alphaByBone?.contains { $0.contains { $0 != 1 } } == true
-        }) {
-            // Multi-clip alpha conflict order is not yet established. Do not
-            // silently discard an authored coverage track while animating TRS.
+        let alphaClips = clips.filter { $0.animation.hasAlphaContribution }
+        if alphaClips.count > 1, let alphaClip = alphaClips.first {
+            // Neutral peers preserve the single contributor's coverage. Two
+            // contributors still require an independently established rule.
             return .failure(.unsupportedLayer(alphaClip.layer.id))
         }
         if clips.count == 1, clips[0].layer.additive == false {

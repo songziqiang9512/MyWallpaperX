@@ -28,6 +28,7 @@ struct ScenePuppetAnimationEvaluator {
         let authoredBones: Set<Int>
         let alphaVaries: Bool
         let hasAlphaContribution: Bool
+        let alphaByBone: [[Float]]?
     }
 
     /// Vertex data that is invariant for the lifetime of a playback state.
@@ -196,12 +197,22 @@ struct ScenePuppetAnimationEvaluator {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
         for bone in boneScratch.indices { boneScratch[bone] = 1 }
-        if let clipIndex = selection.clips.indices.first(where: {
-            hasAlphaContribution(animationID: selection.clips[$0].animation.id) && frameSamples[$0] != nil
-        }), let frame = frameSamples[clipIndex],
-           let tracks = selection.clips[clipIndex].animation.alphaByBone {
-            // The selector admits a single clip when consequential alpha is present.
-            guard selection.clips.count == 1, tracks.count == boneCount,
+        var contributor: (index: Int, tracks: [[Float]])?
+        for (index, clip) in selection.clips.enumerated() {
+            guard let prepared = preparedAnimationsByID[clip.animation.id] else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
+            }
+            if prepared.hasAlphaContribution, let tracks = prepared.alphaByBone {
+                // Count all prepared resources, including a currently hidden
+                // clip. A changing visibility cannot admit a conflicting pair.
+                guard contributor == nil else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
+                }
+                contributor = (index, tracks)
+            }
+        }
+        if let (clipIndex, tracks) = contributor, let frame = frameSamples[clipIndex] {
+            guard tracks.count == boneCount,
                   frame.fraction.isFinite, (0...1).contains(frame.fraction) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frame.frameA)
             }
@@ -406,10 +417,6 @@ struct ScenePuppetAnimationEvaluator {
                 ? worlds[bone.parentIndex] * local : local
             guard Self.isFinite(worlds[index]) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
-            }
-            let determinant = simd_determinant(worlds[index])
-            guard determinant.isFinite, abs(determinant) > 0.000001 else {
-                throw ScenePuppetAnimationEvaluationFailure.singularBindMatrix(index)
             }
         }
     }
@@ -627,7 +634,6 @@ struct ScenePuppetAnimationEvaluator {
             posesByBone.append(unwrapped)
         }
         var alphaVaries = false
-        var hasAlphaContribution = false
         if let tracks = animation.alphaByBone {
             guard tracks.count == boneCount,
                   tracks.allSatisfy({ track in
@@ -636,7 +642,6 @@ struct ScenePuppetAnimationEvaluator {
                   }) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
             }
-            hasAlphaContribution = tracks.contains { $0.contains { $0 != 1 } }
             alphaVaries = tracks.contains { track in
                 track.dropFirst().contains { $0 != track[0] }
             }
@@ -646,7 +651,8 @@ struct ScenePuppetAnimationEvaluator {
             drivenBones: drivenBones,
             authoredBones: authoredBones,
             alphaVaries: alphaVaries,
-            hasAlphaContribution: hasAlphaContribution
+            hasAlphaContribution: animation.hasAlphaContribution,
+            alphaByBone: animation.alphaByBone
         )
     }
 

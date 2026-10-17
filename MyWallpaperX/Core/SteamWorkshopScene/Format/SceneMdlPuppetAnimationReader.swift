@@ -55,7 +55,8 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
 }
 
 /// Restricted version-matched MDLA reader. MDLV0016/MDLS0002/MDLA0003,
-/// MDLV0017/MDLS0002/MDLA0004, MDLV0021/MDLS0003/MDLA0006 and
+/// MDLV0017/MDLS0002/MDLA0004, MDLV0019/MDLS0002/MDLA0005,
+/// MDLV0021/MDLS0003/MDLA0006 and
 /// MDLV0023/MDLS0004/MDLA0006 share the same
 /// bounded full-transform track records; their distinct trailer shapes remain
 /// part of the version contract.
@@ -67,7 +68,7 @@ enum SceneMdlPuppetAnimationReader {
     private enum TrailerContract {
         case perBoneAuxiliary
         case legacyZeros10
-        case legacyZeros34
+        case perBoneAlphaZeros29
         case modernAuxiliary
     }
 
@@ -91,7 +92,7 @@ enum SceneMdlPuppetAnimationReader {
         "MDLV0019": VersionContract(
             skeletonMarker: Data("MDLS0002\0".utf8),
             animationMarker: Data("MDLA0005\0".utf8),
-            trailer: .legacyZeros34
+            trailer: .perBoneAlphaZeros29
         ),
         "MDLV0021": VersionContract(
             skeletonMarker: Data("MDLS0003\0".utf8),
@@ -383,12 +384,6 @@ enum SceneMdlPuppetAnimationReader {
             }
             return (nil, [])
         }
-        if contract == .legacyZeros34 {
-            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 34) else {
-                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
-            }
-            return (nil, [])
-        }
         let alphaByBone = try readPerBoneAlphaTracks(
             data: data,
             cursor: &cursor,
@@ -399,6 +394,12 @@ enum SceneMdlPuppetAnimationReader {
         )
         if contract == .perBoneAuxiliary {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            return (alphaByBone, [])
+        }
+        if contract == .perBoneAlphaZeros29 {
+            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
             return (alphaByBone, [])

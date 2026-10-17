@@ -21,9 +21,10 @@ func layer(_ weight: Double, additive: Bool = true, id: Int = 1) -> ScenePuppetA
           blendIn: false, blendOut: false, blendTime: 0, rate: 1, visible: true,
           visibilityBinding: nil)
 }
-func pose(_ x: Float, rotation: SIMD3<Float> = .zero, scale: Float = 1)
+func pose(_ x: Float, rotation: SIMD3<Float> = .zero, scale: Float = 1,
+          scaleXYZ: SIMD3<Float>? = nil)
     -> SceneMdlPuppetAnimation.Transform {
-    .init(translation: SIMD3(x, 0, 0), rotation: rotation, scale: SIMD3(scale, 1, 1))
+    .init(translation: SIMD3(x, 0, 0), rotation: rotation, scale: scaleXYZ ?? SIMD3(scale, 1, 1))
 }
 func clip(_ id: Int = 1, reference: SceneMdlPuppetAnimation.Transform = pose(20),
           held: SceneMdlPuppetAnimation.Transform = pose(30, rotation: SIMD3(0,0,.pi/6), scale: 1.2))
@@ -34,13 +35,14 @@ func clip(_ id: Int = 1, reference: SceneMdlPuppetAnimation.Transform = pose(20)
 func columns(_ m: simd_float4x4) -> [Float] {
     (0..<4).flatMap { i in (0..<4).map { j in m[i][j] } }
 }
-func fixture(bindRotation: SIMD3<Float> = .zero, vertexX: Float = 2)
+func fixture(bindRotation: SIMD3<Float> = .zero, vertexX: Float = 2, bindScale: Float = 1)
     throws -> (SceneMdlPuppetMesh, SceneMdlPuppetRig) {
     let mesh = SceneMdlPuppetMesh(version: "MDLV0023", vertexStride: 80,
         meshBlockOffset: 9, vertices: [.init(x: vertexX,y: 1,z: 0,u: 0,v: 0)], indices: [0,0,0])
     let rig = SceneMdlPuppetRig(bones: [
         .init(parentIndex: -1, bindLocalMatrixColumnMajor:
-            columns(SceneMatrix.translation(SIMD3(4,0,0)) * SceneMatrix.eulerXYZ(bindRotation))),
+            columns(SceneMatrix.translation(SIMD3(4,0,0)) * SceneMatrix.eulerXYZ(bindRotation)
+                * SceneMatrix.scale(SIMD3(bindScale,1,1)))),
         .init(parentIndex: 0, bindLocalMatrixColumnMajor: columns(SceneMatrix.translation(SIMD3(2,0,0))))
     ], vertexWeights: [.init(boneIndices: SIMD4(1,0,0,0), boneWeights: SIMD4(1,0,0,0))])
     return (mesh, rig)
@@ -128,7 +130,23 @@ func referenceEvaluation(mesh: SceneMdlPuppetMesh, rig: SceneMdlPuppetRig,
         }
         result["invalidEvaluation"] = [-1.0,Double.nan,Double.infinity,Double.greatestFiniteMagnitude,
             Double(Float.greatestFiniteMagnitude)].map { w in rejected { try evaluate(w) } }
-        result["singular"] = rejected { try evaluate(2,animation: clip(held: pose(30,scale: 0.5))) }
+        result["collapsedWeight2"] = try evaluate(2, animation: clip(held: pose(30, scale: 0.5)))
+        for (name, scale) in [("zeroX", SIMD3<Float>(0,1,1)), ("zeroY", SIMD3(1,0,1)),
+            ("zeroZ", SIMD3(1,1,0)), ("zeroAll", SIMD3(0,0,0)),
+            ("near", SIMD3(repeating: Float(1.0 / 1024))), ("negativeX", SIMD3(-1,1,1)),
+            ("negativeYZ", SIMD3(1,-2,-3))] {
+            for additive in [false, true] {
+                result["forward-\(name)-\(additive)"] = try evaluate(1, additive: additive,
+                    animation: clip(held: pose(30, scaleXYZ: scale)))
+            }
+        }
+        let (singularMesh, singularRig) = try fixture(bindScale: 0)
+        do {
+            _ = try ScenePuppetAnimationEvaluator(mesh: singularMesh, rig: singularRig)
+            result["singularBindRejected"] = false
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            result["singularBindRejected"] = failure == .singularBindMatrix(0)
+        }
         let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
         let referenceMesh = try SceneMdlPuppetMeshReader.read(data: data)
         let referenceRig = try SceneMdlPuppetRigReader.read(data: data, mesh: referenceMesh)
@@ -247,8 +265,29 @@ class PuppetWeightTests(unittest.TestCase):
 
     def test_invalid_numeric_pose_and_final_vertex_are_not_publishable(self):
         self.assertEqual(self.result["invalidEvaluation"],[True] * 5)
-        self.assertTrue(self.result["singular"])
+        self.assertTrue(self.result["singularBindRejected"])
         self.assertTrue(self.result["vertexOverflow"])
+
+    def test_finite_collapsed_near_zero_and_negative_forward_transforms_are_valid(self):
+        for name, scale in (("zeroX", (0, 1, 1)), ("zeroY", (1, 0, 1)),
+                            ("zeroZ", (1, 1, 0)), ("zeroAll", (0, 0, 0)),
+                            ("near", (1 / 1024, 1 / 1024, 1 / 1024)),
+                            ("negativeX", (-1, 1, 1)), ("negativeYZ", (1, -2, -3))):
+            for additive in (False, True):
+                with self.subTest(shape=name, additive=additive):
+                    data = self.result[f"forward-{name}-{str(additive).lower()}"]
+                    expected = [scale[0], 0, 0, 0, 0, scale[1], 0, 0, 0, 0, scale[2], 0, 30, 0, 0, 1]
+                    for actual, wanted in zip(data["local"], expected):
+                        self.assertAlmostEqual(actual, wanted, delta=1e-6)
+                    self.assertTrue(all(map(math.isfinite, data["childWorld"] + data["point"])))
+                    self.assertAlmostEqual(data["childWorld"][12], 30 + 2 * scale[0], places=5)
+                    self.assertAlmostEqual(data["point"][0], 30 - 2 * scale[0], places=5)
+                    self.assertAlmostEqual(data["point"][1], scale[1], places=5)
+                    self.assertEqual(data["point"], data["written"])
+        collapsed = self.result["collapsedWeight2"]
+        self.assertEqual(collapsed["local"][0], 0)
+        self.assertEqual(collapsed["point"], [56, 1])
+        self.assertEqual(collapsed["point"], collapsed["written"])
 
     def assert_reference_pose(self, key, root, child):
         data = self.result[key]

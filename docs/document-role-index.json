@@ -536,10 +536,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9182fa5ad66043aa1bfbb9260bb1024ac62b013a00070869cf4d238867718359",
+        "sourceSHA256": "f89c16509aceecf0ef6fe0dc1a61952d71c7d203c9fd91894a8a87ea2fccd797",
         "method": "document_registry --audit + document_health --check",
-        "scope": "MDLV19挂点复用现reader/pose/world链，原322脸颈接合/面具恢复及379保持；高级对象合同独占版本/运行权威，格式参考纠正旧限制，详细证据移出入口保留原文/锚点。",
-        "limitations": "只核本批输入/产品/运行和导航；完整world/MVP未序列化，不作全景同phase/viewport、全部交互或性能结论，不审他会话改动。"
+        "scope": "322 MDLA5 alpha and finite forward pose contract; bounded native outcomes and remaining authored execution gaps",
+        "limitations": "No whole-sample compatibility, official multi-clip alpha parity, live-provider or performance acceptance"
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "889628d670b853c10238884f7f55a4e37ca76f43c588cd1799b93c7bee59db00",
+        "sourceSHA256": "6c09f146a023d82928a2f09a452f37bcab67397e36a96100a21ca0884fc0b6e9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "MDLV19挂点复用现reader/pose/world链，原322脸颈接合/面具恢复及379保持；高级对象合同独占版本/运行权威，格式参考纠正旧限制，详细证据移出入口保留原文/锚点。",
-        "limitations": "只核本批输入/产品/运行和导航；完整world/MVP未序列化，不作全景同phase/viewport、全部交互或性能结论，不审他会话改动。"
+        "scope": "322 MDLA5 alpha and finite forward pose contract; bounded native outcomes and remaining authored execution gaps",
+        "limitations": "No whole-sample compatibility, official multi-clip alpha parity, live-provider or performance acceptance"
       }
     },
     {
@@ -737,10 +737,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a1324b22bac8776b4305ede791580f2ce7f3fd302db4644187bdb81e36b2bec9",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "MDLV19挂点复用现reader/pose/world链，原322脸颈接合/面具恢复及379保持；高级对象合同独占版本/运行权威，格式参考纠正旧限制，详细证据移出入口保留原文/锚点。",
-        "limitations": "只核本批输入/产品/运行和导航；完整world/MVP未序列化，不作全景同phase/viewport、全部交互或性能结论，不审他会话改动。"
+        "sourceSHA256": "b525c0f567563b69a697baed002c6946e6c39ecd17000b3451de48f6dfafe61d",
+        "method": "scene_sample_acceptance_ledger + document_registry --audit",
+        "scope": "Generated301-sample inventory and validated final322 bounded evidence links; unreviewed retained",
+        "limitations": "Generated inventory is not whole-sample visual or official acceptance"
       }
     },
     {
@@ -3335,10 +3335,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eb074a916d692cb5621a2f454bf4bb2feed01ee243586100d18d412548e69829",
+        "sourceSHA256": "28cd6d5b8be81015e0e66eebe5a767b145ea6c563cfa11ff536f200754bcdc27",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对独立合法reference降级、原322侧脸恢复/auxiliary仍拒与379实际消费；只退出侧脸首错，中央颈块/手部及挂点候选保留。",
-        "limitations": "仅本批职责和导航；4无关UI文件构建后变化已分列，不计完整全景/官方同phase/viewport或性能验收。"
+        "scope": "322 MDLA5 alpha and finite forward pose contract; bounded native outcomes and remaining authored execution gaps",
+        "limitations": "No whole-sample compatibility, official multi-clip alpha parity, live-provider or performance acceptance"
       }
     },
     {
@@ -3349,10 +3349,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a849541b3d75439e3aab07bd1af58de153c5320e9d4069ad9b9c735bf432eb16",
+        "sourceSHA256": "b44ac1af43e6acb0b4a340a799e240637fb49c57884e91805f944c798ff8ea06",
         "method": "document_registry --audit + document_health --check",
-        "scope": "MDLV19挂点复用现reader/pose/world链，原322脸颈接合/面具恢复及379保持；高级对象合同独占版本/运行权威，格式参考纠正旧限制，详细证据移出入口保留原文/锚点。",
-        "limitations": "只核本批输入/产品/运行和导航；完整world/MVP未序列化，不作全景同phase/viewport、全部交互或性能结论，不审他会话改动。"
+        "scope": "322 MDLA5 alpha and finite forward pose contract; bounded native outcomes and remaining authored execution gaps",
+        "limitations": "No whole-sample compatibility, official multi-clip alpha parity, live-provider or performance acceptance"
       }
     },
     {

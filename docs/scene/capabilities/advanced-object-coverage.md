@@ -115,7 +115,7 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 **MDLA 动画（`f1ee79b` 严格单 clip；2026-09-06 layered 组合与 loop/mirror/single interval 采样）**
 
 - v25 保存 animation layer 的 id/clip/additive/blend/blend-in/out/time/rate/static-or-bound visibility；缺失或畸形可选数值返回 `nil`，不会递归崩溃。
-- loader 对已验证且无MDLA/MDAT的MDLV0014/MDLS0002建立immutable bind-pose vertex/index buffer；动画只对MDLV0016/MDLS0002/MDLA0003、MDLV0017/MDLS0002/MDLA0004、MDLV0019/MDLS0002/MDLA0005、MDLV0021/MDLS0003/MDLA0006 或 MDLV0023/MDLS0004/MDLA0006 version pair 建立三份 persistent dynamic vertex buffer。每帧 CPU 求 source-FPS LBS，把变形后的原始 mesh 像素位置写入下一 vertex buffer，再由正常 frame command buffer 直接绘制，没有 per-frame `waitUntilCompleted` 或变形后整层RGBA重组；裁剪的R8辅助纹理见第3.4节。MDLA0005 的 trailer 是 34 字节全零（无 auxiliary track），其他形状失败关闭。
+- loader 对已验证且无MDLA/MDAT的MDLV0014/MDLS0002建立immutable bind-pose vertex/index buffer；动画只对MDLV0016/MDLS0002/MDLA0003、MDLV0017/MDLS0002/MDLA0004、MDLV0019/MDLS0002/MDLA0005、MDLV0021/MDLS0003/MDLA0006 或 MDLV0023/MDLS0004/MDLA0006 version pair 建立三份 persistent dynamic vertex buffer。每帧 CPU 求 source-FPS LBS，把变形后的原始 mesh 像素位置写入下一 vertex buffer，再由正常 frame command buffer 直接绘制，没有 per-frame `waitUntilCompleted` 或变形后整层RGBA重组；裁剪的R8辅助纹理见第3.4节。MDLA0005复用逐骨alpha读取并严格保留29零尾；原34零对应alpha缺省，非零未知尾仍失败关闭，见第3.3节。
 - compositor 只计算一次 `cameraVP × parallax × authored world(origin/scale/hierarchy) × Y orientation × pivot`，直接作用于原始/变形 mesh 位置；不再计算 `size∪bind-pose` coverage或把 mesh 归一到 quad；裁剪辅助ROI独立按当前pose/consumer准备。无 effect 时 mesh 采样原 atlas；有 effect 时普通 graph 先在 atlas mapped extent 内执行，mesh 再采样 graph-final 纹理。atlas/graph-final 不是已组合 layer source，Puppet 跨层命名 provider 在依赖计划编译阶段拒绝。
 - selector 保留作者顺序与有限正 rate；重复 animation id、越界 frame 或非法 transform 失败关闭。loop/mirror/single 均进入 IR；相邻 authored pose 的 interval 携带 fraction 插值，mirror 保留末端 pose 与方向，single 停在末端。静态权重与组合见第 3.2 节；blend-in/out 仍未支持。
 - `animationlayers[].visible` 的 property binding 编译为稳定 `(layerID, animationLayerID)` typed bool target；缺失或类型错误不激活。播放位置由 LaunchContext 唯一 owner 按现 SceneClock 推进，隐藏冻结、恢复仅加入当前 cadence 增量；pre-script physics/getter、最终 TRS/alpha/attachment/skinning 共用一个 sample snapshot，surface/GPU 失败不重放。同代重建复注册不归零，暂停重建中新准备成功的层补入冻结 snapshot 而不推进旧层。自然 single/loop/mirror 数学保持；[验证与边界](../history/puppet-animation-visibility-2026-10-07.md)。本层 `animationlayers[].visible` SceneScript 已接入真正 IAnimationLayer：prepared metadata、play/pause/stop/setFrame、rate/blend/visible 经同 owner 有序事务进入共享播放状态，下一 cadence 的骨骼、alpha、挂点和 GPU 同步消费；raw seek getter保留越界值，采样仅钳位首尾。自然 loop 单圈 ended 在普通update前调用；roots/控制可回滚、事件消费水位不倒退。同parent prepared nested-owner的name/index lookup已通过CPU验证，自有single-parent/self-index0另有受控GPU验收；335原包String-self事件接续另有后继GPU验收，任意name/sibling GPU仍未验，准入、镜像与限定证据归[D4](../roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup)；跨 parent/任意 layer handle、create/destroy、sibling visible/ended 注册、mirror/single ended及一次跨多圈不在已支持profile内。可选隐藏脚本clip资源失败不撤销健康父层。[控制验证与边界](../history/puppet-animation-control-2026-10-07.md)。
@@ -127,7 +127,7 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 
 - 接受能表示为有限 Float 的非负静态 blend，0 不贡献姿态。逐 bone 首个 opaque 相对 rig reference 加权，各 additive 统一相对该 reference 叠加 T/S 差与局部旋转 delta；无显式 reference 时沿原 bind（独立角色 reference 见3.2.1）；不再用动画第 0 帧作为权重基准。旋转权重使用最短半球归一化线性混合，时间插值仍沿现有 sampler；额外 opaque 顺序、动态 blend/seek API、非共轴多轨官方 parity 不由本批承诺。
 - 无显式角色 reference 的固定官方 2.8.0.42 黑盒暂停帧控制证明 0/.5/1/1.3/2 的 base/extra/单 opaque T/S 外推，并排除球面旋转外推。非 bind 的 frame0 控制区分了参考基准；项目 nlerp 与控制的预设旋转容差为 0.002 rad，不声称恢复官方内部公式。完整输入与身份见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-static-weight)。更广权重是本实现安全范围，不等于官方全域 parity。
-- 非有限加权 pose、奇异 world 或最终 skinned vertex 失败时不上传部分几何。PlaybackState 首次未取得完整顶点时 named publication 与直接 draw 都拒绝；后续失败保留上一完整 vertex/attachment，DEBUG 只报告成功顶点。现有 VM getter 仅验证完整有限骨骼矩阵，最终顶点溢出的帧仍可能给脚本提供新骨骼 snapshot；本合同不宣称 VM/geometry 全链原子回滚。
+- 非有限加权 pose 或最终 skinned vertex 失败时不上传部分几何。bind inverse必须合法；animated forward world允许有限的零/近零缩放，求逆只由实际需要它的world setter/cursor等consumer局部检查，不能把合法收拢骨骼拒成整帧失败。PlaybackState 首次未取得完整顶点时 named publication 与直接 draw 都拒绝；后续失败保留上一完整 vertex/attachment，DEBUG 只报告成功顶点。现有 VM getter 仅验证完整有限骨骼矩阵，最终顶点溢出的帧仍可能给脚本提供新骨骼 snapshot；本合同不宣称 VM/geometry 全链原子回滚。
 - 最近门是 `test_scene_puppet_weights`、真实 Metal 的 `test_scene_puppet_buffer_publication`及原播放/骨骼发布门；覆盖非 bind reference、零/外推权重、非共轴 unit-weight 恒等、最短半球、scale、非法数值与首次失败/旧几何保留/恢复。alpha与动画层控制分别见第3.3/3.1节；最终合成差异归现役断点队列。
 
 
@@ -142,20 +142,29 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 
 <a id="puppet-reference-fallback"></a>
 
-2026-10-17 已实施：动画请求准备失败保留独立已验证的角色组装基准。旧非空请求遇未准备/缺省 MDLA、完整读取或 selector 拒绝，会绕过 reference 返回散件 raw bind；322 的同 App 仅清两层请求对照定位该分叉，最终原包保留全部请求也恢复完整侧脸。此举不忽略 auxiliary，不把降级算作动画可播；[限定后验](runtime-evidence-current.md#puppet-reference-fallback-20261017)拥有实际输入、画面和退出证据。
+2026-10-17 已实施：动画请求准备失败保留独立已验证的角色组装基准。旧非空请求遇未准备/缺省 MDLA、完整读取或 selector 拒绝，会绕过 reference 返回散件 raw bind；322 的同 App 仅清两层请求对照定位该分叉，最终原包保留全部请求也恢复侧脸主体组装。此举不忽略 auxiliary，不把降级算作动画可播；[限定后验](runtime-evidence-current.md#puppet-reference-fallback-20261017)拥有实际输入、画面和退出证据。
 
 沿唯一 `ScenePuppetLayerLoad` 的现 PreparedAsset/PreparedPose，将上述失败与几何资格分开：成功动画保持原路；失败后只在 rig 与显式 reference 独立合法时，使用原 empty-selection evaluator/PlaybackState，骨骼 getter、attachment、skinning 和输出仍同一 pose。原动画失败原因随 evaluated pose 保留至 Outcome，不把降级记为动画成功。未准备动画不补读文件、不新增解析、时钟或资源 owner。无 reference、非法 rig/reference 保留既有 raw bind/拒绝；已选动画的 evaluator 拒绝及 GPU 分配/提交失败不增加 reference 重试，缺 mesh 及 atlas 回退安全边界保持。空配置仍不继承源动画/脚本；旧“非空请求失败必回 raw bind”的路径退出。
 
-真实准备门10项通过，含坏/缺省/未准备/选择拒绝、改名与骨索引等价重排、不同 reference、无 reference 与非法 rig/reference 反例、有效动画/default/reuse；原322默认侧脸恢复且仍报告 aux1412/1212 拒绝，独立379成功动画与实际画面、两包安全退出保持。若 reference 不合法、错误诊断丢失或成功动画/生命周期退化即撤回。剩余手部/中央颈块及完整动画、官方逐值/全景与性能另列，不扩大本片结论。
+真实准备门10项通过，含坏/缺省/未准备/选择拒绝、改名与骨索引等价重排、不同 reference、无 reference 与非法 rig/reference 反例、有效动画/default/reuse；原322默认侧脸主体组装恢复且仍报告 aux1412/1212 拒绝，独立379成功动画与实际画面、两包安全退出保持。若 reference 不合法、错误诊断丢失或成功动画/生命周期退化即撤回。中央颈块由同日[挂点后继](#puppet-attachment)修复；缺眼、手部、完整动画及官方逐值/全景与性能另列，不扩大本片结论。
 
 ### 3.3 骨骼透明度动画
 
 目标是让含逐骨骼 alpha 轨道的 Puppet 动画进入真实合成，修复新版 MDLA reader 将 present flag 当全零字段的问题。官方 2.2 更新日志公开了 bone alpha animation；固定 2.8.0.42 客户端同帧原始/全零/全一控制的骨骼矩阵相同，全零隐藏、全一显示，全骨骼 0.5 显示半透明，排除运行时重复累乘 parent alpha。先行设计已实施；固定输入、官方观察与产品验证见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-bone-alpha)。
 
 - reader 按版本边界读取并保留 `boneCount × (frameCount+1)` alpha，缺省为 1；保留 exact length、有限范围和 block end 验证。现代逐骨骼块与后续 keyed auxiliary 分开，不按样本或字段值猜块边界。
-- 沿现有 FrameSample 与 prepared clip 采样 alpha；静态判断包含 alpha 变化。先闭合单 clip，按 `1+(sampleAlpha-1)*blend` 加权并限于合法 coverage，再用已准备的四骨骼归一化权重求顶点覆盖率，不再乘 parent。全一轨道无贡献，多 clip 非一 alpha 冲突在未有区分证据前明确拒绝该组合，不吞掉 consequential data。
+- 沿现有 FrameSample 与 prepared clip 采样 alpha；静态判断包含 alpha 变化。按 `1+(sampleAlpha-1)*blend` 加权并限于合法 coverage，再用已准备的四骨骼归一化权重求顶点覆盖率，不再乘 parent。全一轨道无贡献；至多一个非一contributor配缺省/exact1同伴按下述项目有界合同执行，两条非一轨的冲突仍明确拒绝，不吞掉consequential data。
 - PlaybackState 在成功姿态与 alpha 都完成后发布同一顶点帧；首帧失败不绘制、后续失败保留旧完整几何。共享 image vertex 增加默认 1 的 coverage，所有同 ABI 消费者同步；普通和颜色混合两条既有 compositor 路径均对 premultiplied RGBA 同乘 coverage，不改变 effect graph、clock、layer alpha 或输出 owner。
 - 验收包括现代/旧版格式、截断/畸形反例、纯 alpha 动画、混合骨骼权重、隐藏/恢复和真实 Metal RGBA；Debug build 与原始聚光灯隔离运行确认动画进入实际绘制。眼睛挂点重叠、遮罩和脚本 seek 独立核验，不将 parser 成功算作整样本正确。
+
+<a id="puppet-mdla5-alpha"></a>
+
+2026-10-17 已实施：MDLA5逐骨alpha与单一贡献轨接入同一播放/覆盖率链，原322左侧大虹膜恢复，两侧与身体的默认动画请求实际推进。精确帧的合法眼睑收拢也进入普通forward pose，未以非整数截图代替精确帧资格；输入、实际图像、首帧与未覆盖边界归[有界后验](runtime-evidence-current.md#puppet-mdla5-alpha-20261017)。
+
+- MDLV0019/MDLS0002/MDLA0005复用原`readPerBoneAlphaTracks`与精确29零尾；旧无轨34零等价为四零、absent flag与29零。每骨state/长度/有限值与声明终点严格闭合，不跳记录；未知非零尾、事件及额外曲线不随本片开放。
+- 单一contributor与缺省/exact1同伴是本项目有界扩展：同伴在coverage合同中为中性，唯一轨沿原单clip公式采样；保所有peer的TRS、作者顺序、clock和动态可见/权重。近1仍有贡献，两contributor按全部prepared资源计数并拒绝，不能用当前隐藏状态绕过；可选隐藏script资源仍只在组合不支持时沿原局部剔除规则退出。官方自建MDLA载体阳性失败，不能裁顺序；本片不声称官方多clip/opaque覆盖parity。
+- immutable animation构造贡献标记；evaluator验证后保留同一组alpha数组，普通帧只查prepared标记并采唯一轨当前FrameSample/blend，不重扫完整轨或新增cache/时钟/输出owner。隐藏时coverage1，恢复与blend沿原signature更新，失败保原完整vertex/attachment。
+- 前向变形允许有限零/近零/负缩放；旧`applyOverrides`将animated world误套bind inverse的门退出。bind inverse、实际world setter的parent inverse与cursor inverse-MVP原检查保持；普通forward skin、attachment乘法不要求posed world可逆。不按alpha0、骨ID或样本豁免，非有限/非法帧/最终顶点溢出仍局部拒绝并保旧完整发布。
 
 ### 3.4 Puppet 部件裁剪
 
