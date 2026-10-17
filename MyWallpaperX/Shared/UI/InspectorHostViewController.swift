@@ -6,6 +6,8 @@
 import AppKit
 
 final class InspectorHostViewController: NSViewController {
+    /// Total vertical space around the detail card within its host's safe area.
+    static let cardVerticalInset: CGFloat = 36
     private let store: InspectorHostStore
     private let cardView = InspectorHostCardView()
     private var cardWidthConstraint: NSLayoutConstraint?
@@ -41,7 +43,7 @@ final class InspectorHostViewController: NSViewController {
         )
         cardWidthConstraint = widthConstraint
         let safeArea = view.safeAreaLayoutGuide
-        let heightConstraint = cardView.heightAnchor.constraint(equalTo: safeArea.heightAnchor, constant: -36)
+        let heightConstraint = cardView.heightAnchor.constraint(equalTo: safeArea.heightAnchor, constant: -Self.cardVerticalInset)
         heightConstraint.priority = .defaultHigh
         cardHeightConstraint = heightConstraint
 
@@ -69,7 +71,7 @@ final class InspectorHostViewController: NSViewController {
         }
 
         cardWidthConstraint?.constant = request.preferredWidth
-        cardHeightConstraint?.constant = -36
+        cardHeightConstraint?.constant = -Self.cardVerticalInset
         cardView.isHidden = false
         cardView.configure(request: request, hostedContentView: store.hostedContentView)
     }

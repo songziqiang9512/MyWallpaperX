@@ -7,6 +7,7 @@ import AppKit
 import QuickLookUI
 
 final class MainWindowController: NSWindowController, NSWindowDelegate {
+    static let defaultContentSize = NSSize(width: 1180, height: 760)
     private let wallpaperManager: WallpaperManager
     let toolbarController: VideoLibraryToolbarController
     private var hasShownWindow = false
@@ -34,7 +35,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.titlebarAppearsTransparent = false
         window.titlebarSeparatorStyle = .shadow
         window.toolbarStyle = .unified
-        window.setContentSize(NSSize(width: 1180, height: 760))
+        window.setContentSize(Self.defaultContentSize)
         window.minSize = NSSize(width: 900, height: 650)
         window.isReleasedWhenClosed = true
         window.isRestorable = false

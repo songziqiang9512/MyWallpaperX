@@ -72,7 +72,8 @@ nonisolated enum SceneMusicPlayerSource {
         authorization(pid: pid, askUserIfNeeded: false)
     }
 
-    /// Only call in response to the user's explicit authorization action.
+    /// Only call for media demand after the user opts into wallpaper song info.
+    /// Ordinary reads remain silent; the producer owns the permission preflight.
     static func requestAuthorization(pid: pid_t) -> AuthorizationStatus {
         authorization(pid: pid, askUserIfNeeded: true)
     }

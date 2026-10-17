@@ -10,7 +10,7 @@ import Combine
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
-    private let targetWindowSize = NSSize(width: 500, height: 560)
+    private static let windowWidth: CGFloat = 500
     private let contentController = SettingsContentViewController()
     private var hasShownWindow = false
 
@@ -25,9 +25,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.toolbarStyle = .unified
         window.isOpaque = true
         window.backgroundColor = .windowBackgroundColor
-        window.setContentSize(targetWindowSize)
-        window.minSize = targetWindowSize
-        window.maxSize = targetWindowSize
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.collectionBehavior.remove(.fullScreenAuxiliary)
@@ -42,6 +39,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         shouldCascadeWindows = false
         self.window?.delegate = self
+        updateWindowSize()
     }
 
     @available(*, unavailable)
@@ -51,6 +49,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     func showWindow() {
         contentController.refresh()
+        updateWindowSize()
         NSApp.activate(ignoringOtherApps: true)
         guard let window else { return }
         if !hasShownWindow {
@@ -58,6 +57,29 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             hasShownWindow = true
         }
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private func updateWindowSize() {
+        guard let window else { return }
+        let mainWindow = MainWindowCoordinator.mainWindow()
+        // Detail height follows the main window's safe content area, rather than
+        // a fixed ratio. Scale that shape to Settings' existing 500-point width.
+        let hostHeight = mainWindow?.contentLayoutRect.height ?? MainWindowController.defaultContentSize.height
+        let detailHeight = hostHeight - InspectorHostViewController.cardVerticalInset
+        let preferredHeight = (Self.windowWidth * detailHeight / InspectorHostRequest.defaultPreferredWidth).rounded()
+        let preferredScreen = hasShownWindow ? window.screen : mainWindow?.screen
+        let screen = preferredScreen ?? mainWindow?.screen ?? window.screen ?? NSScreen.main
+        let fittedHeight = min(preferredHeight, screen.map { $0.visibleFrame.height - 32 } ?? preferredHeight)
+        let height = (fittedHeight * 0.92).rounded()
+        let size = NSSize(width: Self.windowWidth, height: height)
+        var frame = NSRect(x: window.frame.minX, y: window.frame.maxY - height, width: size.width, height: size.height)
+        if let visibleFrame = screen?.visibleFrame {
+            frame.origin.x = max(visibleFrame.minX, min(frame.minX, visibleFrame.maxX - frame.width))
+            frame.origin.y = max(visibleFrame.minY, min(frame.minY, visibleFrame.maxY - frame.height))
+        }
+        window.minSize = size
+        window.maxSize = size
+        window.setFrame(frame, display: window.isVisible)
     }
 }
 

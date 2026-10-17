@@ -13,8 +13,8 @@
 
 ## 来源与职责
 
-- 设置以单一开关表达曲目信息意图，默认关闭。需求期间持续观察系统；snapshot/noSession决定会话，拒绝Music旧曲接管。仅missingResource允许完整Music fallback；pending、helperUnavailable及transport故障不猜选Music。系统选中com.apple.Music时，公开适配器只补albumArtist及其已知music媒体类型：非空title及artist/album与系统值逐项精确相同才接纳；系统仍唯一提供歌曲、状态/进度及封面。两个API的opaque曲目ID不可直接比较，字段匹配不冒充身份等价，不据此换封面。来源/曲目改变推进选择generation并拒收旧补充回包（含A→B→A）；transport epoch继续只管观察器寿命，每次系统发布重算补充，避免字段交替清空。公开读取失败只撤补充，不清有效系统会话；暂停继续显示系统选中的同来源曲目。系统观察库随 Developer ID Release 分发，须先签嵌套库再签 App（[渠道裁决 D6](../../../web/mediaremote-nowplaying-design.md)）；Mac App Store 不得包含该 backend。授权只由用户发起，不启动播放器。
-- 偏好只拥有选择意图。Scene 进程内一个媒体 producer 拥有需求集合、请求 epoch、串行后台读取及唯一发布权；多个显示器和切换候选不各自轮询。
+- 需求期间持续观察系统；snapshot/noSession决定会话，拒绝Music旧曲接管。仅missingResource允许完整Music fallback；pending、helperUnavailable及transport故障不猜选Music。系统选中com.apple.Music时，公开适配器只补albumArtist及其已知music媒体类型：非空title及artist/album与系统值逐项精确相同才接纳；系统仍唯一提供歌曲、状态/进度及封面。两个API的opaque曲目ID不可直接比较，字段匹配不冒充身份等价，不据此换封面。来源/曲目改变推进选择generation并拒收旧补充回包（含A→B→A）；transport epoch继续只管观察器寿命，每次系统发布重算补充，避免字段交替清空。公开读取失败只撤补充，不清有效系统会话；暂停继续显示系统选中的同来源曲目。系统观察库随 Developer ID Release 分发，须先签嵌套库再签 App（[渠道裁决 D6](../../../web/mediaremote-nowplaying-design.md)）；Mac App Store 不得包含该 backend。
+- 开关默认关闭；Music 需求预检为 `consentRequired` 才请求授权，不启动播放器。拒绝不重复；Music运行时重开复查并引导自动化设置，允许后重开清缓存。单一 producer 管理需求、epoch、串行后台读取与发布，多屏与候选共用。
 - 已准备的媒体消费者产生需求；最后需求退出停止计时器并清空已发布会话。Debug 的受控输入默认不启动真实 producer，独立真实来源验收显式启用。
 - Music公开适配器只读取当前运行的目标PID；系统实验来源核对系统选中来源与曲目identity。查询不发送播放、切歌、音量或库写入命令。权限检查、短事件超时及整体查询预算均在非帧队列执行；一时只有一个请求在途，普通帧只读现有快照。
 - Music公开`track.album artist`（`pAlA`）进入既有`albumArtist`字段；空或平台明确不支持该可选属性时发布空，沿用作者自己的`artist`回退。权限、超时、畸形值及换曲仍按原事务失败处理，不伪造系统来源缺失的专辑歌手。

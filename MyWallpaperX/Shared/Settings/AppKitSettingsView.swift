@@ -91,7 +91,7 @@ final class AppKitSettingsContainerView: NSView {
     let volumeValueLabel = NSTextField(labelWithString: "50%")
     let muteSwitch = NSSwitch()
 
-    let playbackRateSlider = NSSlider(value: 1.0, minValue: 0.0, maxValue: 2.0, target: nil, action: nil)
+    let playbackRateSlider = NSSlider(value: 1.0, minValue: 0.25, maxValue: 2.0, target: nil, action: nil)
     let playbackRateValueLabel = NSTextField(labelWithString: "1.0x")
     let playbackRateSwitch = NSSwitch()
     var playbackRateRowView: NSView?
@@ -101,7 +101,7 @@ final class AppKitSettingsContainerView: NSView {
     let syncSystemWallpaperSwitch = NSSwitch()
     let sceneHDRDisplaySwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
-    let sceneMediaAuthorizationButton = NSButton(title: "授权读取", target: nil, action: nil)
+    private var sceneMediaAuthorizationCheckID = UUID()
     let systemAudioSpectrumSwitch = NSSwitch()
     let systemAudioSpectrumStylePopup = NSPopUpButton()
     let systemAudioSpectrumSensitivityPopup = NSPopUpButton()
@@ -190,7 +190,6 @@ final class AppKitSettingsContainerView: NSView {
 
         sceneHDRDisplaySwitch.state = SceneHDRDisplayPreference.isEnabled ? .on : .off
         sceneMediaInfoSwitch.state = SceneMediaSourcePreference.isEnabled ? .on : .off
-        sceneMediaAuthorizationButton.isEnabled = SceneMediaSourcePreference.isEnabled
         let settings = dependency.settings
         let visibilityBefore = layoutVisibilitySignature()
 
@@ -418,8 +417,6 @@ final class AppKitSettingsContainerView: NSView {
         sceneHDRDisplaySwitch.action = #selector(handleSceneHDRDisplayChange)
         sceneMediaInfoSwitch.target = self
         sceneMediaInfoSwitch.action = #selector(handleSceneMediaInfoToggle)
-        sceneMediaAuthorizationButton.target = self
-        sceneMediaAuthorizationButton.action = #selector(handleSceneMediaAuthorization)
         systemAudioSpectrumSwitch.target = self
         systemAudioSpectrumSwitch.action = #selector(handleSystemAudioSpectrumToggle)
         systemAudioSpectrumStylePopup.target = self
@@ -601,7 +598,7 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc private func handlePlaybackRateChange() {
         guard !isUpdatingUI else { return }
-        // 以 1x 为中点，步长 0.05，限制在 0.25x 到 2.0x。
+        // 与滑杆范围一致，步长 0.05，限制在 0.25x 到 2.0x。
         let snapped = (playbackRateSlider.doubleValue * 20).rounded() / 20
         let clamped = max(0.25, min(2.0, snapped))
         playbackRateValueLabel.stringValue = String(format: "%.2gx", clamped)
@@ -629,39 +626,28 @@ final class AppKitSettingsContainerView: NSView {
         guard !isUpdatingUI else { return }
         let enabled = sceneMediaInfoSwitch.state == .on
         SceneMediaSourcePreference.setEnabled(enabled)
-        sceneMediaAuthorizationButton.isEnabled = enabled
-    }
-
-    @objc private func handleSceneMediaAuthorization() {
-        guard SceneMediaSourcePreference.isEnabled else { return }
-        guard let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music")
-            .first(where: { !$0.isTerminated })?.processIdentifier else {
-            showSceneMediaNotice("请先打开 Apple Music，再点击授权读取。")
-            return
-        }
-        sceneMediaAuthorizationButton.isEnabled = false
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = SceneMusicPlayerSource.requestAuthorization(pid: pid)
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.sceneMediaAuthorizationButton.isEnabled = SceneMediaSourcePreference.isEnabled
-                SceneMediaSourcePreference.notifyChange()
-                switch result {
-                case .authorized: break
-                case .denied, .consentRequired:
-                    self.showSceneMediaNotice("未获读取许可。可在系统设置的「隐私与安全性 → 自动化」中允许 MyWallpaperX 访问音乐。")
-                case .unavailable:
-                    self.showSceneMediaNotice("暂时无法读取播放器，请确认 Apple Music 正在运行后重试。")
+        let checkID = UUID()
+        sceneMediaAuthorizationCheckID = checkID
+        guard enabled, let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music")
+            .first(where: { !$0.isTerminated })?.processIdentifier else { return }
+        // The producer owns first-time consent. This user action only checks
+        // whether a previous refusal needs a System Settings recovery path.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard case .denied = SceneMusicPlayerSource.silentAuthorization(pid: pid) else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.sceneMediaAuthorizationCheckID == checkID,
+                      SceneMediaSourcePreference.isEnabled, let window = self.window, window.isVisible else { return }
+                let alert = NSAlert()
+                alert.messageText = "允许读取 Apple Music"
+                alert.informativeText = "尚未获准读取 Apple Music。请在系统设置的「隐私与安全性 → 自动化」中允许 MyWallpaperX 访问音乐，然后重新开启「壁纸歌曲信息」。"
+                alert.addButton(withTitle: "打开系统设置")
+                alert.addButton(withTitle: "稍后")
+                alert.beginSheetModal(for: window) { response in
+                    guard response == .alertFirstButtonReturn else { return }
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
                 }
             }
         }
-    }
-
-    private func showSceneMediaNotice(_ message: String) {
-        let alert = NSAlert()
-        alert.messageText = "歌曲信息读取"
-        alert.informativeText = message
-        if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
     }
 
     @objc private func handleStartOnBootToggle() {

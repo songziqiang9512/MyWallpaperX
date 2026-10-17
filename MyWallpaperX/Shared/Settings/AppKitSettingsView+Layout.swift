@@ -95,7 +95,7 @@ extension AppKitSettingsContainerView {
         }
 
         volumeSlider.translatesAutoresizingMaskIntoConstraints = false
-        volumeSlider.widthAnchor.constraint(equalToConstant: 250).isActive = true
+        volumeSlider.widthAnchor.constraint(equalToConstant: 230).isActive = true
         volumeValueLabel.alignment = .right
         volumeValueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         volumeValueLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -105,12 +105,12 @@ extension AppKitSettingsContainerView {
         volumeControls.orientation = .horizontal
         volumeControls.alignment = .centerY
         volumeControls.spacing = 8
-        audioSection.addRow(makeSettingRow(title: "静音", iconSystemName: "speaker.slash", trailing: volumeControls))
+        audioSection.addRow(makeSettingRow(title: "音量/静音", iconSystemName: "speaker.slash", trailing: volumeControls))
 
-        // 播放速率行：开关控制滑块显隐，1x 保持在滑杆中点。
+        // 播放速率行：开关控制滑块显隐，滑杆覆盖 0.25x 到 2x。
         playbackRateSwitch.toolTip = "启用后可调整播放速率"
         playbackRateSlider.translatesAutoresizingMaskIntoConstraints = false
-        playbackRateSlider.widthAnchor.constraint(equalToConstant: 250).isActive = true
+        playbackRateSlider.widthAnchor.constraint(equalToConstant: 230).isActive = true
         playbackRateSlider.numberOfTickMarks = 0
         playbackRateSlider.allowsTickMarkValuesOnly = false
         playbackRateValueLabel.alignment = .right
@@ -132,26 +132,23 @@ extension AppKitSettingsContainerView {
         startOnBootSwitch.toolTip = "开机时自动启动应用"
         restorePlaybackOnLaunchSwitch.toolTip = "启动时恢复上次播放的壁纸（视频/Web/Scene）；关闭后启动不播放任何壁纸。静态图片壁纸由系统自身保留，不受此开关影响"
         syncSystemWallpaperSwitch.toolTip = "切换壁纸时同步更新系统壁纸：视频用静帧，Web/Scene 在启动过渡结束后截取一帧（静态图壁纸始终直接设置）"
-        systemAudioSpectrumSwitch.toolTip = "实验功能：采集系统音频并在桌面底部显示频谱条"
+        systemAudioSpectrumSwitch.toolTip = "采集系统音频并在桌面底部显示频谱条"
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
-        systemSection.addRow(makeSettingRow(title: "Scene HDR 显示", iconSystemName: "sun.max",
+        systemSection.addRow(makeSettingRow(title: "场景壁纸HDR", iconSystemName: "sun.max",
             subtitle: "在支持的屏幕上呈现更亮的高光；关闭后使用普通亮度", trailing: sceneHDRDisplaySwitch))
 
-        sceneMediaInfoSwitch.toolTip = "开启后场景壁纸显示正在播放的歌曲与封面；读取 Apple Music 需先点击「授权读取」"
-        sceneMediaAuthorizationButton.toolTip = "允许读取 Apple Music 的歌曲信息（系统自动化授权）"
-        let mediaControls = NSStackView(views: [sceneMediaInfoSwitch, sceneMediaAuthorizationButton])
-        mediaControls.spacing = 8
+        sceneMediaInfoSwitch.toolTip = "开启后场景壁纸显示正在播放的歌曲与封面；首次需要读取 Apple Music 时请求系统授权。若曾拒绝，可在系统设置的「隐私与安全性 → 自动化」中允许后重新开启。"
         systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
-            subtitle: "开启后场景壁纸读取正在播放的歌曲和封面", trailing: mediaControls))
+            subtitle: "开启后场景壁纸读取正在播放的歌曲和封面", trailing: sceneMediaInfoSwitch))
 
         systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
         systemSection.addRow(makeSettingRow(title: "启动恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
         systemSection.addRow(makeSettingRow(title: "同步系统壁纸", iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))
         let systemAudioSpectrumRow = makeSettingRow(
-            title: "系统音频频谱",
+            title: "音频频谱效果",
             iconSystemName: "chart.bar.xaxis",
-            subtitle: "仅对视频壁纸生效",
+            subtitle: "仅对视频类型壁纸生效",
             trailing: systemAudioSpectrumSwitch
         )
         systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
@@ -362,6 +359,8 @@ extension AppKitSettingsContainerView {
             startOnBootSwitch,
             restorePlaybackOnLaunchSwitch,
             syncSystemWallpaperSwitch,
+            sceneHDRDisplaySwitch,
+            sceneMediaInfoSwitch,
             systemAudioSpectrumSwitch,
             systemHotkeysSwitch,
             pauseOtherAppFocusedSwitch,

@@ -42,8 +42,24 @@ nonisolated enum SceneMusicPlayerSource {
     enum ReadResult: Sendable { case snapshot(Snapshot), noSession, failure(String) }
     static let control = Control()
     static func silentAuthorization(pid: pid_t) -> AuthorizationStatus {
-        control.lock.lock(); defer { control.lock.unlock() }
-        control.authorizations += 1; return control.authorization
+        control.lock.lock()
+        control.authorizations += 1
+        let result = control.authorization, blocker = control.preflightBlocker
+        control.lock.unlock()
+        if let blocker { precondition(blocker.wait(timeout: .now() + 5) == .success) }
+        return result
+    }
+    static func requestAuthorization(pid: pid_t) -> AuthorizationStatus {
+        control.lock.lock()
+        control.requests += 1
+        let result = control.requestResult, blocker = control.requestBlocker
+        control.lock.unlock()
+        if let blocker { precondition(blocker.wait(timeout: .now() + 5) == .success) }
+        switch result {
+        case .unavailable: break // A failed request leaves the system grant unchanged.
+        default: control.update { $0.authorization = result }
+        }
+        return result
     }
     static func read(pid: pid_t, cachedArtworkIdentity: String?, cachedArtworkData: Data?,
                      cachedArtworkPalette: SceneMediaArtworkPalette?) -> ReadResult {
@@ -57,13 +73,16 @@ nonisolated enum SceneMusicPlayerSource {
     }
     final class Control: @unchecked Sendable {
         let lock = NSLock()
-        var reads = 0, authorizations = 0
+        var reads = 0, authorizations = 0, requests = 0
         var authorization = AuthorizationStatus.authorized
+        var requestResult = AuthorizationStatus.authorized
+        var preflightBlocker: DispatchSemaphore?
+        var requestBlocker: DispatchSemaphore?
         var result = ReadResult.snapshot(.init(identity: "A", title: "Track A"))
         var blocker: DispatchSemaphore?
         var entered = false
         func update(_ body: (Control) -> Void) { lock.lock(); defer { lock.unlock() }; body(self) }
-        func counts() -> (Int, Int, Bool) { lock.lock(); defer { lock.unlock() }; return (reads, authorizations, entered) }
+        func counts() -> (Int, Int, Bool, Int) { lock.lock(); defer { lock.unlock() }; return (reads, authorizations, entered, requests) }
     }
 }
 @MainActor final class SceneSystemMediaSource {
@@ -156,16 +175,114 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
             provider.acquire(first)
             wait { control.counts().1 == 1 }
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))
-            precondition(control.counts().0 == 0 && control.counts().1 == 1)
+            precondition(control.counts().0 == 0 && control.counts().1 == 1 && control.counts().3 == 0)
             precondition(SceneSystemMediaSource.starts == 1,
                          "denied latch must not respawn the system transport per poll")
-            provider.release(first)
+            SceneMediaSourcePreference.isEnabled = false
+            DistributedNotificationCenter.default().postNotificationName(SceneMediaSourcePreference.changed,
+                object: nil, userInfo: nil, deliverImmediately: true)
+            wait { SceneSystemMediaSource.latest?.callback == nil }
             control.update { $0.authorization = .authorized }
-            provider.acquire(second)
+            SceneMediaSourcePreference.isEnabled = true
+            DistributedNotificationCenter.default().postNotificationName(SceneMediaSourcePreference.changed,
+                object: nil, userInfo: nil, deliverImmediately: true)
             wait { inbox.latest().properties?.title == "Track A" }
             NSRunningApplication.pid = nil
             wait { inbox.latest().properties?.title == "" }
-            provider.release(second)
+            provider.release(first)
+        case "consent", "consent-denied", "consent-unresolved", "consent-unavailable", "consent-deferred", "consent-stale", "consent-disabled", "consent-disable-pending":
+            control.update {
+                $0.authorization = .consentRequired
+                if name == "consent-denied" { $0.requestResult = .denied }
+                if name == "consent-unresolved" { $0.requestResult = .consentRequired }
+                if name == "consent-unavailable" { $0.requestResult = .unavailable(.helperUnavailable) }
+            }
+            if name == "consent-disabled" {
+                SceneMediaSourcePreference.isEnabled = false
+                provider.acquire(first)
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+                precondition(control.counts().1 == 0 && control.counts().3 == 0)
+                precondition(SceneSystemMediaSource.starts == 0)
+                provider.release(first)
+                break
+            }
+            let held = DispatchSemaphore(value: 0)
+            if name == "consent-stale" || name == "consent-disable-pending" {
+                control.update { $0.requestBlocker = held }
+            }
+            if name == "consent-deferred" { NSRunningApplication.pid = nil }
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                artworkChanged: true, artworkData: Data([9]))))
+            if name == "consent-deferred" {
+                precondition(control.counts().1 == 0 && control.counts().3 == 0,
+                             "not-running Music must not incur a probe or prompt")
+                NSRunningApplication.pid = 42
+            }
+            wait { control.counts().3 == 1 }
+            if name == "consent-stale" || name == "consent-disable-pending" {
+                // Consent completes after demand is retired: do not even start
+                // a read with the newly granted permission, or publish its data.
+                if name == "consent-disable-pending" {
+                    SceneMediaSourcePreference.isEnabled = false
+                    DistributedNotificationCenter.default().postNotificationName(SceneMediaSourcePreference.changed,
+                        object: nil, userInfo: nil, deliverImmediately: true)
+                    wait { source.callback == nil }
+                } else { provider.release(first) }
+                held.signal()
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+                precondition(control.counts().0 == 0)
+                precondition(inbox.latest().properties?.title == "" && inbox.latest().current == nil)
+                provider.release(first)
+                break
+            }
+            if name == "consent" || name == "consent-deferred" {
+                wait { inbox.latest().properties?.albumArtist == "Album Artist" }
+            }
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 2.2))
+            precondition(control.counts().3 == 1, "one demand repeatedly prompted for consent")
+            if name == "consent-denied" || name == "consent-unresolved" || name == "consent-unavailable" {
+                precondition(control.counts().0 == 0, "ungranted consent allowed public reads")
+                precondition(control.counts().1 == 1, "failed consent kept probing every tick")
+                precondition(inbox.latest().properties?.title == "Track A" && inbox.latest().current == Data([9]),
+                             "permission failure cleared the independently valid system session")
+            }
+            provider.release(first)
+        case "preflight-retire", "preflight-disable", "preflight-disable-before-notification", "preflight-selection",
+             "authorized-preflight-retire", "authorized-preflight-disable", "authorized-preflight-selection":
+            let held = DispatchSemaphore(value: 0)
+            control.update {
+                $0.authorization = name.hasPrefix("authorized-") ? .authorized : .consentRequired
+                $0.preflightBlocker = held
+            }
+            provider.acquire(first)
+            let source = SceneSystemMediaSource.latest!
+            source.deliver(.snapshot(.init(source: "com.apple.Music", identity: "system-A", title: "Track A",
+                artworkChanged: true, artworkData: Data([9]))))
+            wait { control.counts().1 == 1 }
+            let operation = name.replacingOccurrences(of: "authorized-", with: "")
+            switch operation {
+            case "preflight-retire": provider.release(first)
+            case "preflight-disable", "preflight-disable-before-notification":
+                SceneMediaSourcePreference.isEnabled = false
+                if operation == "preflight-disable" {
+                    DistributedNotificationCenter.default().postNotificationName(SceneMediaSourcePreference.changed,
+                        object: nil, userInfo: nil, deliverImmediately: true)
+                    wait { source.callback == nil }
+                }
+            default:
+                source.deliver(.snapshot(.init(source: "other.player", identity: "B", title: "Selected B",
+                    artworkChanged: true, artworkData: Data([8]))))
+            }
+            held.signal()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+            precondition(control.counts().3 == 0, "retired preflight still requested consent")
+            precondition(control.counts().0 == 0, "retired preflight started a read")
+            if operation == "preflight-selection" {
+                precondition(inbox.latest().properties?.title == "Selected B" && inbox.latest().current == Data([8]))
+            }
+            provider.release(first)
         case "system":
             // The system observer owns selection even when Music is running.
             NSRunningApplication.pid = nil
@@ -217,7 +334,7 @@ nonisolated func testPalette(_ red: Double) -> SceneMediaArtworkPalette {
                 precondition(inbox.latest() == selected, "Music stole selected player")
                 precondition(source.callback != nil, "source selection observation stopped")
             }
-            precondition(control.counts().0 == 0 && control.counts().1 == 0,
+            precondition(control.counts().0 == 0 && control.counts().1 == 0 && control.counts().3 == 0,
                          "unselected player must not incur public reads or authorization probes")
             provider.release(first)
         case "unknown-selection":
@@ -399,8 +516,53 @@ class SceneSystemMediaProviderTests(unittest.TestCase):
     def test_retired_inflight_response_cannot_publish_into_new_demand(self):
         self.check_case('stale')
 
-    def test_denied_permission_is_latched_and_player_exit_clears(self):
+    def test_denied_permission_recovers_after_system_grant_and_switch_cycle(self):
         self.check_case('permission')
+
+    def test_first_selected_music_demand_requests_consent_once_then_reads(self):
+        self.check_case('consent')
+
+    def test_new_denial_stops_public_reads_without_reprompting(self):
+        self.check_case('consent-denied')
+
+    def test_unresolved_consent_is_latched_without_reprompting(self):
+        self.check_case('consent-unresolved')
+
+    def test_failed_consent_attempt_waits_for_explicit_retry(self):
+        self.check_case('consent-unavailable')
+
+    def test_opted_in_demand_waits_for_music_to_run_before_requesting_consent(self):
+        self.check_case('consent-deferred')
+
+    def test_retired_demand_cannot_read_after_late_consent(self):
+        self.check_case('consent-stale')
+
+    def test_disabled_demand_cannot_read_after_late_consent(self):
+        self.check_case('consent-disable-pending')
+
+    def test_retired_demand_cannot_prompt_after_late_preflight(self):
+        self.check_case('preflight-retire')
+
+    def test_disabled_demand_cannot_prompt_after_late_preflight(self):
+        self.check_case('preflight-disable')
+
+    def test_disabled_preference_blocks_prompt_before_notification_delivery(self):
+        self.check_case('preflight-disable-before-notification')
+
+    def test_new_selected_player_cannot_inherit_a_music_consent_prompt(self):
+        self.check_case('preflight-selection')
+
+    def test_retired_demand_cannot_read_after_authorized_preflight(self):
+        self.check_case('authorized-preflight-retire')
+
+    def test_disabled_demand_cannot_read_after_authorized_preflight(self):
+        self.check_case('authorized-preflight-disable')
+
+    def test_new_selected_player_cannot_inherit_an_authorized_music_read(self):
+        self.check_case('authorized-preflight-selection')
+
+    def test_disabled_song_info_cannot_probe_or_request_consent(self):
+        self.check_case('consent-disabled')
 
     def test_pending_empty_and_temporarily_unavailable_selection_do_not_guess_music(self):
         self.check_case('unknown-selection')

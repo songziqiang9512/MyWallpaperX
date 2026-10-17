@@ -147,41 +147,70 @@ final class SceneSystemMediaProvider {
         let requestSelectionGeneration = selectionGeneration
         let requestEpoch = epoch
         inFlight = true
-        queue.async { [weak self] in
-            let authorization = SceneMusicPlayerSource.silentAuthorization(pid: pid)
-            let result: SceneMusicPlayerSource.ReadResult?
-            if case .authorized = authorization {
-                result = SceneMusicPlayerSource.read(
-                    pid: pid, cachedArtworkIdentity: cached?.artworkData == nil ? nil : cached?.identity,
-                    cachedArtworkData: cached?.artworkData, cachedArtworkPalette: cached?.artworkPalette
-                )
-            } else {
-                result = nil
-            }
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.inFlight = false
-                guard self.epoch == requestEpoch, !self.consumers.isEmpty,
-                      self.targetPID == pid, Self.runningMusicPID() == pid,
-                      self.musicSelection == selection,
-                      self.selectionGeneration == requestSelectionGeneration else { return }
-                switch authorization {
-                case .authorized:
-                    self.authorizationChecked = true
-                    self.authorized = true
-                case .denied, .consentRequired:
+        let isCurrent: @MainActor @Sendable () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return self.epoch == requestEpoch && !self.consumers.isEmpty
+                && SceneMediaSourcePreference.isEnabled && self.targetPID == pid
+                && Self.runningMusicPID() == pid && self.musicSelection == selection
+                && self.selectionGeneration == requestSelectionGeneration
+        }
+        let finish: @MainActor @Sendable (
+            SceneMusicPlayerSource.AuthorizationStatus, SceneMusicPlayerSource.ReadResult?, Bool
+        ) -> Void = { [weak self] authorization, result, requestedConsent in
+            guard let self else { return }
+            self.inFlight = false
+            guard isCurrent() else { return }
+            switch authorization {
+            case .authorized:
+                self.authorizationChecked = true
+                self.authorized = true
+            case .denied, .consentRequired:
+                self.authorizationChecked = true
+                self.authorized = false
+                self.clearMusicSupplement()
+                self.report("authorization-\(authorization)")
+                return
+            case .unavailable:
+                // A failed consent attempt must not reopen a system prompt
+                // on every timer tick. A preference/PID change can retry.
+                if requestedConsent {
                     self.authorizationChecked = true
                     self.authorized = false
-                    self.clearMusicSupplement()
-                    self.report("authorization-\(authorization)")
-                    return
-                case .unavailable:
-                    self.clearMusicSupplement()
-                    self.report("authorization-\(authorization)")
+                }
+                self.clearMusicSupplement()
+                self.report("authorization-\(authorization)")
+                return
+            }
+            // A system prompt can outlive the scene or user preference.
+            // Re-enter through current-demand guards before starting a read.
+            guard let result else { self.poll(); return }
+            self.consume(result)
+        }
+        queue.async { [weak self] in
+            let authorization = SceneMusicPlayerSource.silentAuthorization(pid: pid)
+            DispatchQueue.main.async {
+                // Preflight can block while demand, player or selection changes.
+                // Admit both consent and reads on the current request only.
+                guard let self, isCurrent() else {
+                    finish(authorization, nil, false)
                     return
                 }
-                guard let result else { return }
-                self.consume(result)
+                switch authorization {
+                case .consentRequired:
+                    self.queue.async {
+                        let consent = SceneMusicPlayerSource.requestAuthorization(pid: pid)
+                        DispatchQueue.main.async { finish(consent, nil, true) }
+                    }
+                case .authorized:
+                    self.queue.async {
+                        let result = SceneMusicPlayerSource.read(
+                            pid: pid, cachedArtworkIdentity: cached?.artworkData == nil ? nil : cached?.identity,
+                            cachedArtworkData: cached?.artworkData, cachedArtworkPalette: cached?.artworkPalette
+                        )
+                        DispatchQueue.main.async { finish(authorization, result, false) }
+                    }
+                default: finish(authorization, nil, false)
+                }
             }
         }
     }
