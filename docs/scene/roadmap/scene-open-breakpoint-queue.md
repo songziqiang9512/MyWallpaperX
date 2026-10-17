@@ -8,6 +8,8 @@
 
 样本与旧人工verdict归[台账](../capabilities/scene-sample-acceptance-ledger.md)及[声明统计](../capabilities/scene-corpus-capability-inventory.md)；N组身份见[10-11普查](../history/new-scene-intake-2026-10-11.md)，10-17增量归[运行证据](../capabilities/runtime-evidence-current.md#intake-20261017)。该次20份全部ready、19正常退出，仅做短播放/目录截屏基础构图对照，不计兼容通过；旧361 watchdog与新381的独立短播归[后继](../capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017)。静态快照、运行关联和目录各有分母，只从台账读取；not-run不等于从未运行，376仅shaders不算启动失败，旧人工裁决不自动刷新。
 
+新增3221354414已完成原包默认首诊，人物/背景与效果输出呈现，暂无已证首阻断；保持unreviewed，不因缺官方对照或未验完整属性/播放新增假缺陷，见[限定证据](../capabilities/runtime-evidence-current.md#intake-3221354414-20261017)。
+
 ## 1. 画面合成与正常播放：可定位的开放项
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |

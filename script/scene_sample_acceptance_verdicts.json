@@ -492,6 +492,20 @@
       "evidence": [
         ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
       ]
+    },
+    "3221354414": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root",
+      "note": "原包默认短播银白发侧脸、蓝眼/蓝饰与橙红背景呈现，亮波带/细斜纹亦见作者预览，不据此报缺陷；11effects两帧22GPU完成，仅2终级末合成，dust/rain非空、77默认隐藏，正常退出/drain。无目录官方图，不计整样本通过。",
+      "remainingDifferences": "slider/color热更新、完整动态/音频切歌、HDR/多屏及相同状态官方对照未验；暂无已证首阻断。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip"
+      ]
     }
   }
 }

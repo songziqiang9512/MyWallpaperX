@@ -3966,6 +3966,22 @@
         "3770444459"
       ],
       "claimBoundary": "Bounded Rope load/GPU/native picture, existing49 exception retained; no visual verdict or performance PASS."
+    },
+    {
+      "format": "file",
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/report.json",
+      "bytes": 3853,
+      "sha256": "28c5feca70badfd91edd53754232f7f7240017fe4476c3518aa314b560180cb2",
+      "status": "retained-byte-verified",
+      "kind": "manual-bounded-first-native-diagnosis",
+      "sampleCount": 1,
+      "sampleIndex": 0,
+      "jsonPointer": "/samples/0",
+      "importedSampleIDs": [
+        "3221354414"
+      ],
+      "supplementOnlyIDs": [],
+      "claimBoundary": "Default diagnostic only, no full-sample visual/audio/performance PASS."
     }
   ],
   "samples": [
@@ -18813,15 +18829,144 @@
         }
       },
       "nextAction": "same-state-official-visual-and-property-review-when-reference-available"
+    },
+    {
+      "id": "3221354414",
+      "title": "dynamic Ginka 神轿银花 [GINKA OST: 祭神纸偶与愿望 梦浮桥（Instrumental）][8K HDR ]",
+      "authored": {
+        "projectSha256": "7325b6dcb168ad034b41a97999d4030103feeafe629ec2e8d5c06e09e5ab371c",
+        "packageSha256": "dcba709aff9916a654806b2bc698d7852d2bd87d4d3cef31946bfd59fed95122",
+        "parseState": "targeted original project/scene metadata; no corpus census refresh",
+        "objectCount": 7,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": 11,
+        "particleLayerCount": 5,
+        "dynamicFeatureCounts": {},
+        "claimBoundary": "Exact new sample source metadata; zero author scripts/Timeline/MDL/video, not a refreshed historical static census."
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "afterNonBlackObserved": true,
+          "readyNonBlackObserved": null,
+          "readyMS": 15634.43,
+          "exitCode": 0,
+          "timedOut": false,
+          "surfacesAfterStop": 0,
+          "gpuDrained": true,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 1,
+          "terminalCompositorLayerCount": 1,
+          "nextFrameLayerCount": 1,
+          "effectStageCount": 11,
+          "succeededGPUCompletedRecords": 22,
+          "terminalCompositorConsumedRecords": 2,
+          "runKind": "manual-bounded-first-native-diagnosis",
+          "limitations": "Default short diagnosis only; no directory official screenshot, complete visual/property/audio/HDR/performance acceptance."
+        },
+        "appIdentity": {
+          "executableSha256": "7005b078553d7e97d48c0244d49f3b740186619535e5ff8ac3d1dc7a5ef4385f",
+          "dylibSha256": "63ac6af3dae45d456a3de3c0648f4a4a2a04ce97e26cc852fc2abdbd2f0f0a1b",
+          "cdhash": "0a919f0b1e6f400f1853ec907480e7c3e8c4b866"
+        },
+        "benchmarkResultIgnored": {
+          "passed": null,
+          "failureCount": null,
+          "reason": "No benchmark invocation or visual PASS; manual first native diagnosis."
+        }
+      },
+      "evidence": {
+        "report": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/report.json",
+          "bytes": 3853,
+          "sha256": "28c5feca70badfd91edd53754232f7f7240017fe4476c3518aa314b560180cb2",
+          "status": "retained-byte-verified",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0",
+          "kind": "manual-bounded-first-native-diagnosis"
+        },
+        "sampleEvidencePaths": {
+          "actual_review": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip",
+            "containerSha256": "ad2b5d0c9639639f680d06fe494e20e0c4ce47d125e10d9fc7a230ac923d12dc",
+            "member": "actual-review.json",
+            "bytes": 48437,
+            "sha256": "a46affa2a2a89c8d0a6aa5a8369abb2cd488a4110bc6a5dab53c60c7777a6089",
+            "crc32": "fe87960c",
+            "status": "retained-byte-verified"
+          },
+          "execution": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip",
+            "containerSha256": "ad2b5d0c9639639f680d06fe494e20e0c4ce47d125e10d9fc7a230ac923d12dc",
+            "member": "native/original/execution.json",
+            "bytes": 4693,
+            "sha256": "6e076eaa0ef0a667158d7103b1901a8255bacae90398512fa31bfdaa378fd9b4",
+            "crc32": "5d7ebf2c",
+            "status": "retained-byte-verified"
+          },
+          "after_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip",
+            "containerSha256": "ad2b5d0c9639639f680d06fe494e20e0c4ce47d125e10d9fc7a230ac923d12dc",
+            "member": "native/original/evidence/scene-after-window.png",
+            "bytes": 25163770,
+            "sha256": "68eb8d226f8e21e2404382b95b637b9953ecce3409f5086f8c231bb2ec8a6848",
+            "crc32": "04cdcd10",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence_zip": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip",
+            "bytes": 25236641,
+            "sha256": "ad2b5d0c9639639f680d06fe494e20e0c4ce47d125e10d9fc7a230ac923d12dc",
+            "status": "retained-byte-verified"
+          }
+        },
+        "authoredIdentitySource": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip",
+          "containerSha256": "ad2b5d0c9639639f680d06fe494e20e0c4ce47d125e10d9fc7a230ac923d12dc",
+          "member": "qualification/preparation.json",
+          "bytes": 4793,
+          "sha256": "f3da7a8a8c67f35e7789210abd4fcd92811f3c5af0d7620cb5d271e20009cdd0",
+          "crc32": "0b5337aa",
+          "status": "retained-byte-verified"
+        },
+        "archiveScope": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip",
+          "containerSha256": "ad2b5d0c9639639f680d06fe494e20e0c4ce47d125e10d9fc7a230ac923d12dc",
+          "member": "archive-scope.json",
+          "bytes": 3789,
+          "sha256": "9cf07d36d5a5ead8aefd5b4a03739b2de2bfed37303b303e3b0327c4b5a6d6ed",
+          "crc32": "3546af1f",
+          "status": "retained-byte-verified"
+        },
+        "manifest": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/manifest.json",
+          "bytes": 869,
+          "sha256": "a595a29b98710a1f98edeb25d5ca8f5a9ca7d53c8050f37f49feb8144f5f10a5",
+          "status": "retained-byte-verified"
+        }
+      },
+      "nextAction": "same-state-visual-and-authored-property-review-when-reference-available"
     }
   ],
   "schemaVersion": 1,
   "source": {
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene",
-    "sampleCount": 180,
-    "sampleIdManifestSha256": "268699b3df5967f06fb39d18c4912fecf96aeb052df20917c99da2e257d2e997",
-    "currentDirectoryCount": 301,
-    "completeSceneInputPairCount": 300,
+    "sampleCount": 181,
+    "sampleIdManifestSha256": "2fba7f2b3000c9403ae8943172489f38f56f2d4d2d7b19218952b650b3452e9d",
+    "currentDirectoryCount": 302,
+    "completeSceneInputPairCount": 301,
     "historicalCensusOnly": {
       "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_capability_census_snapshot.json",
       "sampleCount": 159,
@@ -18936,16 +19081,35 @@
       ],
       "method": "Append1manual observation; preserve179historical objects/order. Current361 sequel belongs runtime evidence/verdict; no old FAIL rewrite.",
       "historicalStaticCensusNotRefreshed": true
-    }
+    },
+    "additionalNativeIntakes": [
+      {
+        "importedAtUtc": "2026-10-17T13:29:56.246353+00:00",
+        "sampleIDs": [
+          "3221354414"
+        ],
+        "report": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/report.json",
+          "bytes": 3853,
+          "sha256": "28c5feca70badfd91edd53754232f7f7240017fe4476c3518aa314b560180cb2",
+          "status": "retained-byte-verified",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0",
+          "kind": "manual-bounded-first-native-diagnosis"
+        },
+        "method": "Append exact1 bounded native diagnosis; preserve all180 historical sample objects and original archive generation timestamp. Directory302/complete301 includes this new project+pkg, not a package census."
+      }
+    ]
   },
   "summary": {
-    "sampleCount": 180,
-    "reportedSampleCount": 180,
+    "sampleCount": 181,
+    "reportedSampleCount": 181,
     "statusCounts": {
       "blocked": 2,
       "degraded-runtime": 39,
       "runtime-evidence-incomplete": 1,
-      "structural-chain-complete-visual-review": 138
+      "structural-chain-complete-visual-review": 139
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 4,

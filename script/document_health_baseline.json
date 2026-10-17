@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 189,
-      "bytes": 71650
+      "lines": 190,
+      "bytes": 72338
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 60832
+      "bytes": 61075
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 15544
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 158,
-      "bytes": 34416
+      "lines": 160,
+      "bytes": 34703
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1316,24 +1316,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f00959ed9551477a3667f92f78365c3a94ff951a88d46137434a319a156bdf35",
-      "after": "7acad0c0da8ad45c525d0ffaccd681655a4bd0dc3ded109562df70317ace7c8b",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "b24698eccb0355ca8c12526b7e6e3dbdecd6471db9830a35a1951183bbbad7bf",
-      "after": "f1e6939bdc38425dcd2e3bcdb0d25d73ea00b8db557e1d048d4f72c7a8267722",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "a6126ee119ed1b4082d0330925c5d8f05f1912e5528dfdeaf0cc3e2eb184ea5b",
       "after": "c9f1e340fdd158190d432e0bee4f06bf55f326b37306ceb4ba7f26b737bd4f61",
@@ -1352,12 +1334,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7acad0c0da8ad45c525d0ffaccd681655a4bd0dc3ded109562df70317ace7c8b",
+      "after": "035f1f65857e2c86c70d2823cabaa3226e48d2474b41094f0ae7bd65efa42d67",
+      "owner": "scene-new-sample-diagnosis",
+      "reason": "Record actual bounded playback and retire not-run association for one newly added sample; preserve unreviewed verdict and all other runtime identities.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-3221354414-20261017"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "f1e6939bdc38425dcd2e3bcdb0d25d73ea00b8db557e1d048d4f72c7a8267722",
+      "after": "13644c05a2d15b82008f03fdca3a3ec04648022baeb1c0dbca0a912ec61d75a1",
+      "owner": "scene-new-sample-diagnosis",
+      "reason": "Record actual bounded playback and retire not-run association for one newly added sample; preserve unreviewed verdict and all other runtime identities.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-3221354414-20261017"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b28a14d0675045d08b462ce0df7ffae1cfe5df38e0a06e5f1600e6b1d6b962fe",
-      "after": "ad38fa7fdb56b60fa6f32d3bb2cacf03e026776858ded1ebdf8d41c4bcaa37a1",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
+      "before": "ad38fa7fdb56b60fa6f32d3bb2cacf03e026776858ded1ebdf8d41c4bcaa37a1",
+      "after": "1e336bed69fe522550c9989218cba7e370bca462c1cf4810e4ac8b2b5a09957b",
+      "owner": "scene-new-sample-diagnosis",
+      "reason": "Record actual bounded playback and retire not-run association for one newly added sample; preserve unreviewed verdict and all other runtime identities.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-3221354414-20261017"
     }
   ]
 }
