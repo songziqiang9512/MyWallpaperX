@@ -12,8 +12,8 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，但1678的时值被误认固定tag；实际关联MDMP shape与非零scalar曲线，另有多clip alpha依赖，仍沿安全bind-pose。旧335资格不能覆盖新输入；shape437不匹配part/bone，19个MDMP尾值32767不可能直接作全局顶点index，scalar三条非零也未证明是alpha，不能靠改常量/跳track关闭播放缺口 | 先完成morph/scalar消费者与混合顺序顶层设计，固定MDLA/auxiliary实际边界和作者请求；复用现AnimationReader/evaluator/pose，不跳track或吞错。原包姿态需随时钟推进，保健康Puppet/旧几何失败回退。 |
-| active effect输入/来源准入缺口 · 358/357/363/382增量 | **10-17真实局部回退。** 358七个slot1用途proof拒；读源已证其RGB颜色+A权重、slot2才是红mask，不可当mask放行，且未有可归因的明显缺图ROI，暂作候选；357的320另拒slot1、210 framebuilder缺insideAlpha Vec2 producer、233 Combined Timeline被parent/children门拒；363的765 Blur被whole-stage childless门拒；382的17/effect1 lightshafts slot1绑定失败。不是同一算法，也未将每条标签认成可见缺图 | 沿各prepared Program的首个错误身份依次裁用途/typed producer/cohort，复用原graph与compositor；不能把RGBA改当红mask、扩大capture或为效果名加旁路。先修有最大明确ROI收益者；参数/来源已满足却仍拒才扩相应通用准入。 |
+| Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，但1678的时值被误认固定tag；实际关联MDMP shape与非零scalar曲线，另有多clip alpha依赖，仍沿安全bind-pose。旧335资格不能覆盖新输入；后继资格已证stride84 position.w携带19个非邻接morph ordinal，旧参考reader误多读4B；shape437是记录身份，第二blob的19个32767不是全局顶点index。packed位移、通道/曲线及混合仍unknown，不能只放reader门 | 先完成morph/scalar消费者与混合顺序顶层设计，固定MDLA/auxiliary实际边界和作者请求；复用现AnimationReader/evaluator/pose，不跳track或吞错。原包姿态需随时钟推进，保健康Puppet/旧几何失败回退。 |
+| active effect输入/来源准入缺口 · 358/357/363增量 | **10-17真实局部回退。** 358七个slot1用途proof拒；读源已证其RGB颜色+A权重、slot2才是红mask，不可当mask放行，且未有可归因的明显缺图ROI，暂作候选；357的320另拒slot1、210 framebuilder缺insideAlpha Vec2 producer、233 Combined Timeline被parent/children门拒；363的765 Blur被whole-stage childless门拒。不是同一算法，也未将每条标签认成可见缺图 | 沿各prepared Program的首个错误身份依次裁用途/typed producer/cohort，复用原graph与compositor；不能把RGBA改当红mask、扩大capture或为效果名加旁路。先修有最大明确ROI收益者；参数/来源已满足却仍拒才扩相应通用准入。 |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **释放链仍未闭合。** 已准入平移物理骨的本地translation查询与持续物理姿态已分域；非物理骨、其余matrix分量保旧。原三轮故障、官方Q4/Q5及有界native验收统一归[记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)，不再重修该查询首门 | 沿唯一pose/motion owner澄清并接通实际释放的translation impulse输入、顺序和一次提交；有效但启用字段省略的骨处置只复用Q4限定观察，不推广默认。保未知方向/单位、angular/reset边界及异常fuse；最终仍须原输入三轮持续响应、释放后更新及健康邻居，不扩无区分参数矩阵。 |
 | N03 · 3337494481特殊composition | **10-16原包fresh。** 70/202/228/229/591均为native-world `composelayer_depthtest.json`，visible却无source，前有18个写深度模型；旧“1条未恢复”实为一条含五层的诊断。147属性类型首错及永久删除callback后误拒合法编辑均已退出，不再列作待修。Rope只归N08 | native采集正控资格STOP，后继门归[D1](batch2/composition-render-target-design.md)，不放普通composition别名、不忽略深度或绕main-source准入。229首effect另有局部Program fallback，不随source缺口关闭；[已闭编辑边界](../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)。 |
@@ -21,6 +21,8 @@
 
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
+
+382右上缺光已退出：sampler presence不再被editor `require`阻断；原包默认参数实际恢复两束蓝白光，Program/GPU/末合成及下一帧执行，独立376人物/背景与旧mask链保持。format条件未扩、完整同phase/viewport仍未验，无性能收益声明；见[有界后验](../capabilities/runtime-evidence-current.md#sampler-presence-requirements-20261017)。
 
 357底栏16白块已退出：精确typed usershortcut在当前无本机icon producer的普通solid源投影中保留作者底图；最终原包16个透明花叶图案实际恢复，中央人物/烟火/栏杆保持并正常stop/GPU排空。后继361的8个透明链环也已真实恢复并安全退出；只修有效底图，不扩系统赋值/点击、effect/pass或unknown回退；首候选Optional误拒、一次截断与整样本工具原FAIL保留，独立339按明确候选身份复用。见[有界后验](../capabilities/runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)。
 

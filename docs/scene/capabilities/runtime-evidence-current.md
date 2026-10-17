@@ -9,10 +9,10 @@
 
 ## 1. 当前证据快照
 
-新增证据：[VM插值与float2反馈](#wemath-mix-value-boundary-20261017)、[快捷方式底图及受益](#user-shortcut-authored-fallback-20261017)。使用前核对各包输入/App/code identity、执行层级与后继记录。
 
 | 查询主题 | 本页证据入口 |
 |---|---|
+| Sampler presence与缺光恢复 | <a id="sampler-presence-requirements-20261017"></a>固定官方2.8.0.42自有六臂一次：无纹理红，其余含缺省0/1及显式冲突条件均绿，90色patch/60跨帧比较误差0，必需蓝带、witness、标签/LIVE合格；只证明普通presence不受这些require筛选，format未证。现唯一Schema分类与三个旧raw条件入口同步，51/25/8退出旧缓存。presence两门及cache4门通过；最终Debug/签名0、4273 tracked inputs无漂移，App `18edc0ab…7ab7f`/dylib `3e6d7e6a…67717`。原382默认无combo改写，17/effect1从局部回退变为真实Program，frame0/1均GPU完成并末合成消费，右上双光束恢复；bundled util/noise真实加载，不认领合成噪声替代。独立原376人物、暖色背景与星期文字保持，MASK absent邻例仍不造presence；两包exit0、无timeout/drift且stop1→0/GPU drained。首carrier误判零计数与后继正则转义失效均保原收据、由既存log重分类，无App重跑。必要证据`.artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/`；不计完整画面/全部属性、格式官方语义或性能收益。357中性morph资格只校正顶点ordinal及旧reader偏移，未实现动画。 |
 | Project点击与显式分支 | [唯一后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)记录project Bool入口、完整显式删除、原口罩点击、自有同窗显隐及独立画面；实际App与最后合成kind反例构建分列，不计完整样本或性能。 |
 | Color输入与回调退场 | [数值slot后验](../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)保原String与类型边界；[永久删除callback后继](../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)解除原333末次合法编辑误拒，自有离场/调值及独立实图已验。特殊composition仍开放，无性能收益声明。 |
 | 默认视频入场阶段 | <a id="e-2026-10-16-intro-phase"></a>3632513108原包隔离副本，签名Debug `202ff364…c528` / dylib `414aef35…56cb`（`1e3f5ba72`构建），默认属性/静音输入、ready后22秒。首图为天空近景花瓣，18秒后大人物、小人物与星期/日期/时钟实际呈现；287首束stop/seek0/play，约16.001秒后隐藏并提交stop，符合作者15秒等待+1秒退出，未逐帧数值验完整alpha曲线。245视频PTS推进至19.9667秒、自然结束被接受并重播；389由按钮init停止/归零，未点击保持隐藏是作者阶段。VM失败0、26条graph事件无失败，exit0、输入无漂移、surface1→0且GPU排空。N10旧天空观察退出，未改产品；全交互/属性、官方同相位、普通App及性能未验。限期证据：`.artifacts/scene-evidence/runs/scene-intro-phase-20261016/`。 |

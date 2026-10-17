@@ -344,8 +344,6 @@ nonisolated enum SceneShaderVariantResolver {
         }
         return authored.count == 1
             && authored[0].defaultValue == 0
-            && authored[0].requirements.isEmpty
-            && !authored[0].requireAny
             && definition == .defined(.integer(0))
             && provenance == .annotationDefault
     }

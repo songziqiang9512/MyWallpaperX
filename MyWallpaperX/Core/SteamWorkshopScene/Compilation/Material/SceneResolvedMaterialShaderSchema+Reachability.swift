@@ -178,10 +178,8 @@ extension SceneResolvedMaterialShaderSchema {
         let sharedPresenceMasks = Dictionary(
             grouping: schemas.filter { $0.samplerSlot != nil }, by: \.combo
         ).values.compactMap { group -> UInt8? in
-            // Only schemas in the coactive seed with no runtime requirements
-            // can constrain each other. Conditional/requirement alternatives
-            // keep their independent availability hypotheses.
-            guard group.allSatisfy({ $0.requirements.isEmpty }) else { return nil }
+            // Only coactive presence facts can constrain each other. Editor
+            // requirements do not make these slots runtime alternatives.
             let slots = Set(group.compactMap(\.samplerSlot))
             guard slots.count > 1 else { return nil }
             var mask: UInt8 = 0

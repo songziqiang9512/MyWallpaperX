@@ -32,6 +32,8 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+# Explicit invalidation expectation; never derive this from the product under test.
+CURRENT_VARIANT_SCHEMA_VERSION = 25
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
@@ -348,7 +350,7 @@ private func runGenericProbe() throws -> ProbeOutput {
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
-    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v23")
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v25")
     let key = "probe-variant-key"
     try expect(
         into: &output,
@@ -480,7 +482,7 @@ private func runDemandProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "demand")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneMaterialDemandAnalysis-v6"
+        root: root, name: "SceneMaterialDemandAnalysis-v8"
     )
     let key = SceneMaterialDemandAnalysisPersistentCache
         .ResourceDemandAnalysisKey(
@@ -613,7 +615,7 @@ private func runPreparationProbe(rejected: Bool) throws -> ProbeOutput {
     var output = ProbeOutput(
         tier: rejected ? "preparation-rejected" : "preparation-accepted"
     )
-    try expect(into: &output, SceneShaderVariantEnvironment.frontendSchemaVersion == 49,
+    try expect(into: &output, SceneShaderVariantEnvironment.frontendSchemaVersion == 51,
         "current-frontend-schema")
     if rejected {
         let result = SceneAuthoredShaderPreparation.prepareShaderStages(
@@ -910,22 +912,28 @@ class SceneVariantAnalysisCacheWireTests(unittest.TestCase):
         self.assertEqual([name for name, passed in facts.items() if passed is not True], [], facts)
         return facts
 
-    def install_v22_fixture(self, root: Path, *, rewrap_as_v23: bool = False) -> None:
+    def install_v22_fixture(self, root: Path, *, rewrap_as_current: bool = False) -> None:
         root.mkdir()
-        destination = root / ("SceneVariantAnalysis-v23" if rewrap_as_v23 else "SceneVariantAnalysis-v22")
+        version = CURRENT_VARIANT_SCHEMA_VERSION if rewrap_as_current else 22
+        destination = root / f"SceneVariantAnalysis-v{version}"
         shutil.copytree(self.legacy, destination)
-        if rewrap_as_v23:
+        if rewrap_as_current:
             for path in destination.glob("*.json"):
                 envelope = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(envelope["schemaVersion"], 22)
+                original_payload = envelope["payload"]
+                original_digest = envelope["recordSHA256"]
                 # Test-input adaptation only: the record digest covers payload,
                 # not schemaVersion. Preserve payload and recordSHA256 exactly.
-                envelope["schemaVersion"] = 23
+                envelope["schemaVersion"] = CURRENT_VARIANT_SCHEMA_VERSION
                 path.write_text(json.dumps(envelope, separators=(",", ":")) + "\n", encoding="utf-8")
+                rewrapped = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(rewrapped["payload"], original_payload)
+                self.assertEqual(rewrapped["recordSHA256"], original_digest)
 
     def test_rewrapped_v22_set_wire_and_current_store_survive_fresh_readers(self) -> None:
         root = self.work / "rewrapped-v22-wire"
-        self.install_v22_fixture(root, rewrap_as_v23=True)
+        self.install_v22_fixture(root, rewrap_as_current=True)
         self.mode("rewrapped-v22-wire", root)
         cold = self.work / "cold"
         self.mode("cold-write", cold)

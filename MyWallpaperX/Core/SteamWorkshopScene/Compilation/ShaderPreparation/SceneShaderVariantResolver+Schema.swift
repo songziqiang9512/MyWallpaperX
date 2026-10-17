@@ -58,14 +58,12 @@ extension SceneShaderVariantResolver {
 
         var isDisabledCombo: Bool { origin == .disabledCombo }
 
-        /// `[COMBO]` requirements are not consumed by the verified player
-        /// compile-map path. Preserve them as authoring/editor relationship
-        /// metadata while every declared combo receives its annotation default.
-        /// Sampler/format requirements remain runtime resource-selection facts.
+        /// Player presence follows the slot fact, not editor `require` gates.
+        /// Format conditions retain their separately bounded resource policy.
         var hasRuntimeRequirements: Bool {
             switch origin {
-            case .authoredCombo, .disabledCombo: false
-            case .textureReadiness, .textureFormat: true
+            case .authoredCombo, .disabledCombo, .textureReadiness: false
+            case .textureFormat: true
             }
         }
     }

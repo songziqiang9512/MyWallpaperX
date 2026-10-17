@@ -335,14 +335,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "VOID EDGE主体呈现；lightshafts layer17/effect1 slot1纹理绑定失败、局部回退，光束具体ROI待同相位对照。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "10-17原包默认参数的右上缺光已恢复：sampler presence误用editor条件的首错退出，17/effect1真实Program/GPU/末合成及下一帧执行，双束光与VOID EDGE主体呈现。仅基础构图对照，viewport/phase、全部属性与交互未全验。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/samples/3820312181/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/samples/3820312181/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/final/samples/3820312181/runtime_evidence.zip"
       ],
-      "remainingDifferences": "VOID EDGE主体呈现；lightshafts layer17/effect1 slot1纹理绑定失败、局部回退，光束具体ROI待同相位对照。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "旧slot1绑定/缺光首错已退出；完整同viewport/phase的光束形态、播放交互与全部属性未验，不记整样本PASS。",
       "officialComparison": "compared"
     },
     "3599986633": {

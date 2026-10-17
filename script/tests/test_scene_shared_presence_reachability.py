@@ -207,6 +207,12 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
             .replacingOccurrences(of: "uniform sampler2D g_Texture1;",
                 with: "#if PRESENT\nuniform sampler2D g_Texture1;")
             .replacingOccurrences(of: "void main()", with: "#endif\nvoid main()"))
+        let selfGatedRequirements = contract("self-gated-editor", fragment(combo: "PAIR_READY", material: "paint")
+            .replacingOccurrences(of: #""combo":"PAIR_READY""#,
+                with: #""combo":"PAIR_READY","require":{"MissingEditorGate":1},"requireany":true"#)
+            .replacingOccurrences(of: "uniform sampler2D g_Texture1;",
+                with: "#if 1 == PAIR_READY\nuniform sampler2D g_Texture1;")
+            .replacingOccurrences(of: "void main()", with: "#endif\nvoid main()"))
         let renamed = contract("other-owner", fragment(combo: "READY_PAIR", material: "paint",
             reversed: true, expression: "defined(READY_PAIR) && (READY_PAIR == 1)")
             .replacingOccurrences(of: "uv", with: "coordinate"), varyingName: "coordinate")
@@ -223,12 +229,12 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
         #endif
         void main() { gl_FragColor = vec4(1.0); }
         """)
-        let required = contract("requirements", """
-        // [COMBO] {"combo":"CHOOSE","default":1}
-        uniform sampler2D g_Texture1; // {"combo":"PRESENT","require":{"CHOOSE":1},"mode":"rgbmask"}
-        uniform sampler2D g_Texture2; // {"combo":"PRESENT","require":{"CHOOSE":0},"mode":"rgbmask"}
-        void main() { gl_FragColor = vec4(1.0); }
-        """)
+        let required = contract("requirements", fragment(combo: "PRESENT", material: "input",
+            extra: #"// [COMBO] {"combo":"CHOOSE","default":1}"#)
+            .replacingOccurrences(of: #""material":"inputA""#,
+                with: #""material":"inputA","require":{"CHOOSE":1}"#)
+            .replacingOccurrences(of: #""material":"inputB""#,
+                with: #""material":"inputB","require":{"CHOOSE":0},"requireany":true"#))
         var renamedReferences = references
         renamedReferences[1] = .asset(SceneVFSAssetPath("renamed/source-red")!)
         renamedReferences[2] = .asset(SceneVFSAssetPath("renamed/source-blue")!)
@@ -238,6 +244,8 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
             "consensus": facts(template(shader, references: references)),
             "actualAssetMixed": facts(template(shader, references: references), absentSlots: [2]),
             "selfGated": facts(template(selfGated, references: references)),
+            "selfGatedRequirements": facts(template(selfGatedRequirements, references: references)),
+            "requirements": facts(template(required, references: references)),
             "renamed": facts(template(renamed, references: renamedReferences)),
             "unguarded": facts(template(contract("unguarded",
                 fragment(combo: "PRESENT", material: "input", guarded: false)), references: references)),
@@ -322,7 +330,8 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_consensus_hypotheses_preserve_resource_demand_and_launch(self) -> None:
-        for name in ("consensus", "renamed", "unguarded", "selfGated"):
+        for name in ("consensus", "renamed", "unguarded", "selfGated",
+                     "selfGatedRequirements", "requirements"):
             with self.subTest(name=name):
                 facts = self.result[name]
                 self.assertEqual(facts["masks"], [0, 6], facts)
@@ -345,6 +354,7 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
 
     def test_same_template_seed_preserves_complete_availability_projection(self) -> None:
         for name in ("emptySeed", "consensus", "renamed", "unguarded", "selfGated",
+                     "selfGatedRequirements", "requirements",
                      "actualAssetMixed", "defaultConflict", "explicitConflict"):
             with self.subTest(name=name):
                 facts = self.result[name]
@@ -354,16 +364,18 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
         self.assertEqual(self.result["emptySeed"]["seededMasks"], [0])
 
     def test_independent_inactive_and_unproven_source_slots_are_not_constrained(self) -> None:
-        for name in ("independentMasks", "conditionalMasks", "requirementMasks", "providerMasks",
+        for name in ("independentMasks", "conditionalMasks", "providerMasks",
                      "graphMasks", "aliasMasks", "graphBindingMasks"):
             self.assertEqual(self.result[name], [0, 2, 4, 6], name)
         self.assertEqual(self.result["missingCandidateMasks"], [0, 2])
         self.assertEqual(self.result["propertyMasks"], [0, 6])
         self.assertEqual(self.result["conditionalMixed"], "accepted")
-        self.assertEqual(self.result["requirementMixed"], "accepted")
+        self.assertEqual(self.result["requirementMasks"], [0, 6])
+        self.assertEqual(self.result["requirementMixed"], "conflicting-texture-readiness:PRESENT")
 
     def test_self_authored_ready_variant_executes_both_resource_slots_on_gpu(self) -> None:
-        for name in ("consensus", "renamed", "unguarded", "selfGated"):
+        for name in ("consensus", "renamed", "unguarded", "selfGated",
+                     "selfGatedRequirements", "requirements"):
             facts = self.result[name]
             if "gpuPixels" not in facts and "gpuFailure" not in facts and facts["launch"] == "accepted":
                 self.skipTest("Metal is unavailable")

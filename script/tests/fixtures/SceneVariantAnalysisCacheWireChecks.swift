@@ -8,7 +8,7 @@ import CryptoKit
 // v22 owner b4306295…256f, binary99c7a1ae…fe93, from self-authored comment
 // shader strings. They contain no Workshop sources or media.
 // Their record wire is unchanged, but v22 preparation facts are obsolete. Only
-// test-input re-enveloping as v23 permits the wire check; no runtime migration.
+// test-input re-enveloping as current v25 permits the wire check; no runtime migration.
 enum SceneGenericShaderProgramArtifact {
     static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -73,6 +73,7 @@ enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
 enum SceneShaderTextureFormat: String { case fixture }
 
 private typealias Cache = SceneResolvedMaterialVariantAnalysisCache
+private let currentSchemaVersion = 25
 private var checks: [String: Bool] = [:]
 
 private func record() -> Cache.Record {
@@ -93,7 +94,7 @@ private func record() -> Cache.Record {
         previousBlurredCompositeFact: nil)
 }
 
-private func file(_ root: URL, _ key: String, version: Int = 23) -> URL {
+private func file(_ root: URL, _ key: String, version: Int = currentSchemaVersion) -> URL {
     root.appendingPathComponent("SceneVariantAnalysis-v\(version)").appendingPathComponent(key + ".json")
 }
 private func object(_ bytes: Data) throws -> [String: Any] {
@@ -123,7 +124,7 @@ private func readOnlyLoad(_ root: URL, _ key: String) throws -> Cache.Record? {
 private func rewrappedV22Wire(_ root: URL) throws {
     for (key, slots) in [("control-singleton", Set([1])), ("multi-seven", Set(1...7))] {
         let envelope = try object(Data(contentsOf: file(root, key)))
-        checks[key + "-explicit-v23-envelope"] = envelope["schemaVersion"] as? Int == 23
+        checks[key + "-explicit-current-envelope"] = envelope["schemaVersion"] as? Int == currentSchemaVersion
         let value = try readOnlyLoad(root, key)
         checks[key + "-rewrapped-v22-wire-loaded"] = value?.sourceCarriedRGBA?.auxiliaryDataSlots == slots
     }
@@ -135,7 +136,7 @@ private func obsoleteV22Tier(_ root: URL) throws {
         let url = file(root, key, version: 22), before = try Snapshot(file(root, key, version: 22))
         checks[key + "-v22-safe-miss"] = Cache.load(keySHA256: key) == nil
         checks[key + "-v22-load-no-write"] = try Snapshot(url) == before
-        checks[key + "-no-v23-directory"] = !FileManager.default.fileExists(atPath: currentDirectory.path)
+        checks[key + "-no-current-directory"] = !FileManager.default.fileExists(atPath: currentDirectory.path)
     }
 }
 

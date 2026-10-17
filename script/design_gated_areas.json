@@ -656,6 +656,21 @@
       "contentPatterns": [
         "userShortcut"
       ]
+    },
+    {
+      "id": "scene-sampler-presence-metadata",
+      "title": "Sampler presence 与编辑器条件分域",
+      "owner": "scene-shader-preparation",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "design_notes": "2026-10-17 #sampler-presence-editor-requirements：固定官方自有六臂区分presence与编辑器require；现Schema origin统一Resolver/自门控seed/共享presence/zero-default消费，保slot事实与所有资源安全。format条件未证不扩，原fixed point保留；frontend51/variant25/demand8退出旧tier。原包及独立样本实际验收另记，approved不是能力完成。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderVariantResolver*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift"
+      ],
+      "contentPatterns": [
+        "hasRuntimeRequirements"
+      ]
     }
   ]
 }

@@ -73,12 +73,12 @@
       "bytes": 11603
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 26,
-      "bytes": 4317
+      "lines": 36,
+      "bytes": 6401
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
-      "bytes": 2333
+      "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 336,
@@ -114,11 +114,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 346601
+      "bytes": 346710
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 181,
-      "bytes": 59146
+      "bytes": 60174
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 363,
-      "bytes": 59932
+      "bytes": 59926
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15145
+      "bytes": 15333
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 151,
-      "bytes": 32165
+      "lines": 153,
+      "bytes": 32584
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1150,24 +1150,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "8c861c91c67d180b74de2c458a97adcce184793b283f7a5ec68a11fe1801be38",
-      "after": "916922105aa731a7900ce31f6d791e92d0d9acce159c0a27df4671d765b5cc94",
-      "owner": "scene-unused-version-combo",
-      "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "9ec33ff62bd45e0230fb5165ecdc18f009d512b1c0906eb7b4ebf03a4dd92f5b",
-      "after": "e70ba3dc5fcf31eb1bc50c96783714913d994ad39772f96222d8c63380551402",
-      "owner": "scene-unused-version-combo",
-      "reason": "未消费版本字段的独立实现合同与实机像素收益落原权威；三项只读消费者资格防止按无实际命中或未知语义推进，已闭早拒退出。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#unused-client-version-combo"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "f9eddf433a72b42d6dbf3d6a539308e1c3b89b7b6542c477a1b195f157213dc2",
       "after": "a6639b25a74b3537fe65837805dfe674fbe7df483db6e5e64c72e1917af2ce97",
@@ -1258,33 +1240,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "cd5abb2b63e9a224ca4c2ca2dcc5c806a05e417be983283210d6e299f8cc4f70",
-      "after": "ae078dce493887184efe2dd01e8bd91aca470fcf31fb579a5ae3fd5084970f12",
-      "owner": "scene-user-shortcut-authored-fallback",
-      "reason": "有效作者底图沿唯一prepared源链保留，收敛实施前设计并移除已修白块；官方/失败/候选身份与同profile待验分列，新增381仅记not-run，不扩整景或性能裁决。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#user-shortcut-authored-fallback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "730908db00089426659d7f925f9461dcd346ee0633301b3903d6fd20368fd443",
-      "after": "3984476f3d37d271f789cfef483bad6d92f10828b72657929c7660986281034e",
-      "owner": "scene-shortcut-beneficiary-intake",
-      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8b16e33469c247adb73b5a9f9be012d187668341c4f4e9e62be6ca8c304c3b93",
-      "after": "b3b7426c82f54e25d58df94c7aff632654e815eb74b1985c1e8f19858dcb2e42",
-      "owner": "scene-shortcut-beneficiary-intake",
-      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
       "after": "79fa12ee6016276c08d8673d5492b3fb4fb67eb9a0186e88eefe6bab9da5ff41",
@@ -1300,6 +1255,51 @@
       "owner": "scene-shortcut-beneficiary-intake",
       "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "916922105aa731a7900ce31f6d791e92d0d9acce159c0a27df4671d765b5cc94",
+      "after": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
+      "owner": "scene-sampler-presence",
+      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "e70ba3dc5fcf31eb1bc50c96783714913d994ad39772f96222d8c63380551402",
+      "after": "592ba093013027051f54ed04010485e388243878567c6e039cf4a3d74a5c4cbf",
+      "owner": "scene-sampler-presence",
+      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "8b77c678482669a23935d9ecdc5b1677b71ef7f7450fd2ec3ba513f73bc7b565",
+      "after": "ea06f6dfb0e1b845c8f88e2635271c6c11f3f253badc42c7915eea6328a5015f",
+      "owner": "scene-sampler-presence",
+      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "6c030626c069e708b82f69c35deffea01b57b189dcc775702beb0f38a8c3caea",
+      "after": "a0a388f16530b42ea9d0faf9ddd1c820809bf7c9bedc03ed4621d8cea0e493e4",
+      "owner": "scene-sampler-presence",
+      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "02b8acc0e88710d78c8aa549638350f6e0aebd1671471c667cfc522d25f3e21f",
+      "after": "f4ad3d337a33273228b07bd55d94c64dc546388c7f4d27f5c130ca34f2f81431",
+      "owner": "scene-sampler-presence",
+      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
     }
   ]
 }

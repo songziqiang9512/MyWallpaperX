@@ -822,40 +822,48 @@ private func runReadinessFixtures() throws -> [String] {
         "Conflicting slots selected one readiness value by iteration order."
     )
 
-    let authoredZeroPresence = makeStage(
-        """
-        // [COMBO] {"combo":"MASK","default":0}
-        uniform sampler2D g_Texture1; // {"combo":"MASK"}
-        """
-    )
-    let authoredZeroReady = try resolved(variant(
-        authoredZeroPresence,
-        readiness: [1: true]
-    ))
-    let authoredZeroReadyResolution = try resolution(authoredZeroReady, "MASK")
-    let authoredZeroMissing = try resolved(variant(
-        authoredZeroPresence,
-        readiness: [1: false]
-    ))
-    let authoredZeroMissingResolution = try resolution(authoredZeroMissing, "MASK")
-    try expect(
-        authoredZeroReadyResolution.binding.definition == .defined(.integer(1))
-            && authoredZeroReadyResolution.provenance == .textureReadiness
-            && authoredZeroReadyResolution.validatedTextureSlots == [1]
-            && authoredZeroMissingResolution.binding.definition == .undefined
-            && authoredZeroMissingResolution.provenance == .textureReadiness
-            && authoredZeroMissingResolution.validatedTextureSlots == [1],
-        "An exact authored zero fallback overrode the sampler presence fact."
-    )
-    let authoredZeroExplicitConflict = try failure(variant(
-        authoredZeroPresence,
-        explicit: ["MASK": 0],
-        readiness: [1: true]
-    ))
-    try expect(
-        authoredZeroExplicitConflict.code == .explicitTextureReadinessConflict,
-        "An explicit authored value was silently replaced by sampler presence."
-    )
+    for metadata in ["", #","require":{"UNDECLARED_ZERO":1},"requireany":true"#] {
+        let authoredZeroSource = """
+            // [COMBO] {"combo":"MASK","default":0\(metadata)}
+            uniform sampler2D g_Texture1; // {"combo":"MASK"\(metadata)}
+            """
+        let authoredZeroPresence = makeStage(authoredZeroSource)
+        let authoredZeroReady = try resolved(variant(
+            authoredZeroPresence,
+            readiness: [1: true]
+        ))
+        let authoredZeroReadyResolution = try resolution(authoredZeroReady, "MASK")
+        let authoredZeroMissing = try resolved(variant(
+            authoredZeroPresence,
+            readiness: [1: false]
+        ))
+        let authoredZeroMissingResolution = try resolution(authoredZeroMissing, "MASK")
+        try expect(
+            authoredZeroReadyResolution.binding.definition == .defined(.integer(1))
+                && authoredZeroReadyResolution.provenance == .textureReadiness
+                && authoredZeroReadyResolution.validatedTextureSlots == [1]
+                && authoredZeroMissingResolution.binding.definition == .undefined
+                && authoredZeroMissingResolution.provenance == .textureReadiness
+                && authoredZeroMissingResolution.validatedTextureSlots == [1],
+            "An exact authored zero fallback overrode the sampler presence fact."
+        )
+        let authoredZeroExplicitConflict = try failure(variant(
+            authoredZeroPresence,
+            explicit: ["MASK": 0],
+            readiness: [1: true]
+        ))
+        try expect(
+            authoredZeroExplicitConflict.code == .explicitTextureReadinessConflict,
+            "An explicit authored value was silently replaced by sampler presence."
+        )
+        let duplicateZero = try failure(variant(makeStage(
+            authoredZeroSource + "\n// [COMBO] {\"combo\":\"MASK\",\"default\":0}"
+        ), readiness: [1: true]))
+        try expect(
+            duplicateZero.code == .conflictingTextureReadiness,
+            "Multiple authored defaults acquired the single-default presence exception."
+        )
+    }
     let authoredNonzeroPresence = makeStage(
         """
         // [COMBO] {"combo":"MASK","default":1}
@@ -1189,6 +1197,48 @@ private func runRequirementProviderFixtures() throws -> [String] {
         },
         "Sampler readiness and formatcombo metadata did not remain independent."
     )
+    let conditionalFormat = makeStage(
+        """
+        // [COMBO] {"combo":"SELECT_FORMAT","default":0}
+        uniform sampler2D g_Texture2; // {"combo":"FORMAT_PRESENT","formatcombo":true,"require":{"SELECT_FORMAT":1},"requireany":true}
+        """
+    )
+    let inactiveFormat = try resolved(variant(conditionalFormat, readiness: [2: true]))
+    let retainedPresence = try resolution(inactiveFormat, "FORMAT_PRESENT")
+    let skippedFormat = try resolution(inactiveFormat, "TEX2FORMAT")
+    try expect(
+        retainedPresence.binding.definition == .defined(.integer(1))
+            && retainedPresence.validatedTextureSlots == [2]
+            && skippedFormat.binding.definition == .undefined
+            && skippedFormat.provenance == .requirementInactive
+            && skippedFormat.validatedTextureSlots.isEmpty,
+        "Ignoring presence editor metadata also removed the format condition."
+    )
+    let missingConditionalFormat = try failure(variant(
+        conditionalFormat, explicit: ["SELECT_FORMAT": 1], readiness: [2: true]
+    ))
+    let selectedFormat = try resolved(variant(
+        conditionalFormat, explicit: ["SELECT_FORMAT": 1],
+        readiness: [2: true], formats: [2: .rg88]
+    ))
+    let selectedFormatResolution = try resolution(selectedFormat, "TEX2FORMAT")
+    try expect(
+        missingConditionalFormat.code == .textureFormatUnavailable
+            && selectedFormatResolution.binding.definition == .defined(.integer(8))
+            && selectedFormatResolution.provenance == .textureFormat
+            && selectedFormatResolution.validatedTextureSlots == [2],
+        "An active format condition lost its exact provider requirement."
+    )
+    for name in ["UNDECLARED_FORMAT_GATE", "VERSION"] {
+        let guardedFormat = makeStage(
+            "uniform sampler2D g_Texture2; // {\"formatcombo\":true,\"require\":{\"\(name)\":0}}"
+        )
+        let rejected = try failure(variant(guardedFormat, formats: [2: .r8]))
+        try expect(
+            rejected.code == (name == "VERSION" ? .invalidEnvironment : .unresolvedRequirement),
+            "Presence metadata semantics escaped into format requirement admission."
+        )
+    }
 
     let unmarked = makeStage(
         """
@@ -1236,27 +1286,67 @@ private func runRequirementProviderFixtures() throws -> [String] {
         "Multiple editor-only requirements changed the player compile map."
     )
 
-    let samplerHostRequirement = makeStage(
-        "uniform sampler2D g_Texture2; // {\"combo\":\"MASK\",\"require\":{\"VERSION\":0}}"
-    )
-    let samplerHostFailure = try failure(variant(
-        samplerHostRequirement,
-        readiness: [2: true]
-    ))
-    try expect(
-        samplerHostFailure.code == .invalidEnvironment,
-        "Unverified host requirement entered runtime sampler selection."
-    )
+    let presenceCases: [(String, Int, String, String, String)] = [
+        ("HAS_RESOURCE", 2, #""require":{"NO_GATE":0}"#, "", "HAS_RESOURCE"),
+        ("PAINT_READY", 3, #""require":{"RenamedGate":1},"requireany":true"#,
+            "", "defined(PAINT_READY) && (1 == PAINT_READY)"),
+        ("MASK", 2, #""require":{"ENABLE":0}"#,
+            #"// [COMBO] {"combo":"ENABLE","default":1}"#, "MASK"),
+        ("OTHER_MASK", 1, #""require":{"ENABLE":1},"requireany":false"#,
+            #"// [COMBO] {"combo":"ENABLE","default":0}"#, "OTHER_MASK"),
+        ("HOST_METADATA", 2, #""require":{"VERSION":0,"UNDECLARED":1},"requireany":true"#,
+            "", "HOST_METADATA"),
+    ]
+    for (presence, slot, metadata, prefix, condition) in presenceCases {
+        let source = """
+        \(prefix)
+        uniform sampler2D g_Texture\(slot); // {"combo":"\(presence)",\(metadata)}
+        #if \(condition)
+        float presentBranch = 1.0;
+        #else
+        float absentBranch = 0.0;
+        #endif
+        #ifdef \(presence)
+        float macroDefined = 1.0;
+        #else
+        float macroUndefined = 0.0;
+        #endif
+        """
+        let stage = makeStage(source)
+        for isReady in [false, true] {
+            let environment = try resolved(variant(stage, readiness: [slot: isReady]))
+            let selected = try resolution(environment, presence)
+            try expect(
+                selected.binding.definition == (isReady ? .defined(.integer(1)) : .undefined)
+                    && selected.provenance == .textureReadiness
+                    && selected.validatedTextureSlots == [slot],
+                "Editor requirements changed the slot fact for \(presence)."
+            )
+            let prepared = try preprocess(source, environment: environment).get()
+            try expect(
+                prepared.source.contains("presentBranch") == isReady
+                    && prepared.source.contains("absentBranch") != isReady
+                    && prepared.source.contains("macroDefined") == isReady
+                    && prepared.source.contains("macroUndefined") != isReady,
+                "Presence value and definedness selected the wrong source branch."
+            )
+            try expectFailure(
+                "#if VERSION\nUNSAFE_HOST_USE\n#endif",
+                environment: environment, code: .unresolvedEnvironmentDefine
+            )
+        }
+        let unknown = try failure(variant(stage))
+        let conflict = try failure(variant(
+            stage, explicit: [presence: 0], readiness: [slot: true]
+        ))
+        try expect(
+            unknown.code == .textureReadinessUnavailable
+                && conflict.code == .explicitTextureReadinessConflict,
+            "Editor metadata invented missing readiness or hid an explicit conflict."
+        )
+    }
     let samplerMissingRequirement = makeStage(
         "uniform sampler2D g_Texture2; // {\"combo\":\"MASK\",\"require\":{\"MISSING\":1}}"
-    )
-    let samplerMissingFailure = try failure(variant(
-        samplerMissingRequirement,
-        readiness: [2: true]
-    ))
-    try expect(
-        samplerMissingFailure.code == .unresolvedRequirement,
-        "Missing runtime sampler requirement did not fail closed."
     )
     let siblingInactiveEnvironment = try resolved(variant(
         samplerMissingRequirement,
@@ -1274,9 +1364,10 @@ private func runRequirementProviderFixtures() throws -> [String] {
     try expect(
         siblingInactiveProvider.binding.definition == .undefined
             && siblingInactiveProvider.provenance == .authoredEffectInactive
-            && siblingInactiveSampler.binding.definition == .undefined
-            && siblingInactiveSampler.provenance == .requirementInactive,
-        "A sibling-authored inactive combo did not close the sampler gate as undefined."
+            && siblingInactiveSampler.binding.definition == .defined(.integer(1))
+            && siblingInactiveSampler.provenance == .textureReadiness
+            && siblingInactiveSampler.validatedTextureSlots == [2],
+        "A sibling-authored inactive combo suppressed a ready sampler."
     )
 
     let declaredUndefined = makeStage(
@@ -1318,7 +1409,7 @@ private func runRequirementProviderFixtures() throws -> [String] {
     try expect(
         explicitResolution.binding.definition == .defined(.integer(1))
             && explicitResolution.provenance == .textureReadiness,
-        "Resolved material combo was not available to a runtime resource requirement."
+        "An explicit editor dependency changed sampler presence."
     )
 
     let mutuallyExclusiveOptions = makeStage(
@@ -1362,15 +1453,17 @@ private func runRequirementProviderFixtures() throws -> [String] {
         uniform sampler2D g_Texture2; // {"combo":"MASKED","require":{"MASK":1}}
         """
     )
-    let readinessEnvironment = try resolved(variant(
-        readinessProvider,
-        readiness: [1: true, 2: true]
-    ))
-    let readinessResolution = try resolution(readinessEnvironment, "MASKED")
-    try expect(
-        readinessResolution.binding.definition == .defined(.integer(1)),
-        "Texture readiness did not participate in the bounded requirement fixed point."
-    )
+    for upstreamReady in [false, true] {
+        let readinessEnvironment = try resolved(variant(
+            readinessProvider, readiness: [1: upstreamReady, 2: true]
+        ))
+        let readinessResolution = try resolution(readinessEnvironment, "MASKED")
+        try expect(
+            readinessResolution.binding.definition == .defined(.integer(1))
+                && readinessResolution.validatedTextureSlots == [2],
+            "An editor dependency coupled independent sampler readiness facts."
+        )
+    }
 
     let negativeDependency = makeStage(
         """
@@ -1405,10 +1498,10 @@ private func runRequirementProviderFixtures() throws -> [String] {
         "MASK"
     )
     try expect(
-        staleReadinessResolution.binding.definition == .undefined
-            && staleReadinessResolution.provenance == .requirementInactive
-            && staleReadinessResolution.validatedTextureSlots.isEmpty,
-        "An inactive readiness branch retained stale provenance or texture slots."
+        staleReadinessResolution.binding.definition == .defined(.integer(1))
+            && staleReadinessResolution.provenance == .textureReadiness
+            && staleReadinessResolution.validatedTextureSlots == [3],
+        "Mismatched editor requirements discarded actual readiness provenance."
     )
 
     let cyclicRequirements = makeStage(
@@ -1450,13 +1543,13 @@ private func runRequirementProviderFixtures() throws -> [String] {
     return [
         "editor_requirements_ignored", "typed_requirement", "ordinary_requirement",
         "typed_texture_format", "unknown_texture_format_fail_closed",
-        "combined_readiness_format",
-        "runtime_requirement_fail_closed",
+        "combined_readiness_format", "format_requirement_boundary",
+        "presence_editor_requirements_ignored",
         "authored_effect_inactive_requirement",
         "missing_default_fail_closed", "explicit_without_default",
         "explicit_requirement_provider", "conflicting_default_with_explicit",
         "duplicate_missing_default", "readiness_requirement_provider",
-        "negative_requirement_default_fill", "stale_readiness_pruning",
+        "negative_requirement_default_fill", "presence_requirement_mismatch",
         "cyclic_editor_requirement_default_fill", "requireany_type",
     ]
 }
@@ -1639,7 +1732,8 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "typed_texture_format",
                 "unknown_texture_format_fail_closed",
                 "combined_readiness_format",
-                "runtime_requirement_fail_closed",
+                "format_requirement_boundary",
+                "presence_editor_requirements_ignored",
                 "authored_effect_inactive_requirement",
                 "missing_default_fail_closed",
                 "explicit_without_default",
@@ -1648,7 +1742,7 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "duplicate_missing_default",
                 "readiness_requirement_provider",
                 "negative_requirement_default_fill",
-                "stale_readiness_pruning",
+                "presence_requirement_mismatch",
                 "cyclic_editor_requirement_default_fill",
                 "requireany_type",
                 "active_include_diagnostic",

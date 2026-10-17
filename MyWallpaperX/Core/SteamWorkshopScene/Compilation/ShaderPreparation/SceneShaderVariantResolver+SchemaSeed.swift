@@ -281,8 +281,6 @@ nonisolated enum SceneShaderVariantSchemaSeed {
                 guard let schemas = try? SceneShaderVariantResolver.schemas(in: candidate),
                       schemas.count == 1, let schema = schemas.first,
                       schema.combo == gate,
-                      schema.requirements.isEmpty,
-                      !schema.requireAny,
                       case .textureReadiness = schema.origin else { return nil }
                 return annotation
             }

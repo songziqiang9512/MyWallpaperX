@@ -24,3 +24,13 @@
 沿原 VariantEnvironment 保留 authored resolution 与 variant identity，但不把未验证 client-version 记录发布到 selected definitions、initial macro table 或下游 integer facts。复用现有 Preprocessor 的有效分支读取检查：普通代码、展开后的别名、条件与 active include 真正读取版本名仍局部拒绝；inactive 分支不消费，注释与字符串不属于宏读取。source define/undef、runtime requirement 对版本的声明也不能制造可信 provider。后端语言、平台、纹理格式及 authored environmentDefines 的现有准入不扩大，不新增扫描器、宏算法、材质例外或 renderer。
 
 该变化只退役客户端版本记录的提前拒绝；错误值、冲突、shader/include 身份、预算、sampler、color/render state 和资源生命周期仍由原 owner 验证。frontend50、variant analysis24 与 demand analysis7 的语义版本共同退出旧 cache tier；prepared source 中未使用记录不影响文本，身份仍区分作者输入。验收以原有 source→Program→GPU→唯一合成为终点，包含名称/数值/include 变体、实际消费的邻例与未参与修法样本；若下游仍拒绝，只报告已推进的首断点，不把整层或整样本记完成。没有同条件性能测量就不报性能收益。
+
+<a id="sampler-presence-editor-requirements"></a>
+
+### Sampler presence 与编辑器条件分域（2026-10-17 决策）
+
+目标是避免合法材质因 sampler 的 `require` 缺省键或条件不符，在资源需求发现前失去整个 pass。固定官方客户端 2.8.0.42 的自有六臂普通材质对照中，缺省键要求 0/1、已赋值键与要求冲突及改名均不关闭已绑定纹理的 presence combo；无纹理正反控制、独立必需纹理和持续更新同时成立。该证据区分了编辑器条件与运行 readiness，不给缺省键猜补值，也不证明所有 metadata 或格式行为。
+
+沿现有 VariantResolver 的 Schema origin 区分：普通 sampler presence 与 authored COMBO 的 `require/requireany` 只保留为已解析编辑器关系，运行 presence 只由确切 slot readiness 决定；实际源码 `#if`、include 与活跃 sampler 仍由原预处理器及资源闭包决定。SchemaSeed 的自门控 presence、共享 presence 的可达假设及单个 authored zero default 让位于 readiness 统一消费该分类，退出三个直接用 raw 条件判断运行资格的旧入口，不增解析器、cache、资源或 compositor owner。原 bounded fixed point 继续服务未单独验证的 texture-format 条件；它是项目现有有界策略，不冒充官方合同。
+
+错误 metadata 类型、缺 readiness、显式 presence 冲突、共享 slot 冲突、format provider、实际读取 host/version 宏、资源用途/路径/代际与局部失败边界保持。缓存 wire 不变，frontend51、VariantAnalysis25、DemandAnalysis8 退出旧语义 tier。验收为改名/等价输入、presence 有无与冲突反例、自门控和共享 presence、format 邻例；原包 Program→GPU→唯一合成→下一帧及未参与修法样本实际画面另验，失败时保留局部 previous-current，完整性错误仍拒绝。未取得原包可见收益、控制不成立或存在安全回退即撤回；不据少跑准备或单轮启动时间宣称性能收益。实际结果只归运行证据，选序只归现役队列。
