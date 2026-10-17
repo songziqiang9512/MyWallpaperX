@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 124157
+      "bytes": 124879
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 174372
+      "bytes": 174651
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 195,
-      "bytes": 78976
+      "lines": 196,
+      "bytes": 80418
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -169,8 +169,8 @@
       "bytes": 110178
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 56,
-      "bytes": 10857
+      "lines": 66,
+      "bytes": 13828
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -241,8 +241,8 @@
       "bytes": 15718
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 199,
-      "bytes": 45157
+      "lines": 200,
+      "bytes": 45691
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1154,30 +1154,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "e6588e8c9f9893823eaabe934aade9ef2b54cebb2897c0de39c568cf357b1b8c",
-      "after": "1fcefeab6c9ad1b09702b90a662b4956d9397c5bc1f2a9631eb8a6c26cc488b5",
-      "owner": "scene-composition-native-qualification",
-      "reason": "D1记录两轮缺正控后的STOP与重开门；不开放native/depth能力，不新增实现路线。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "6fee82ee343499173fe21ed3a48804737a3b50bf87b130d6150573b86ab90386",
       "after": "1a2e1721b08a2514b5d899ddc174cc4c260c4c20d345c2e810cf8ad909bba747",
       "owner": "scene-property-callback-lifecycle",
       "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
-      "after": "0c823dd674c6593fc7975ec96c3eb691d4ecc718674d87100026551df0dd8da4",
-      "owner": "scene-composition-allocation",
-      "reason": "Composition成功分配沿现唯一pool复核reset epoch及精确key generation/缺席，普通completion释放不再被全局revision误拒；预算/陈旧/OOM回收边界保持。",
-      "decision": "docs/scene/history/d1-composition-source-implementation-2026-10-02.md#completion-safe-composition-allocation"
     },
     {
       "section": "bodies",
@@ -1334,39 +1316,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "0c823dd674c6593fc7975ec96c3eb691d4ecc718674d87100026551df0dd8da4",
+      "after": "c794585a393b484111b0460b691bba01134a4e245b7fafce409b5c6309f629c4",
+      "owner": "scene-composition-source-geometry",
+      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "613974541862af10efdaae43faa31d0e121b6661f80b8de6c78daf14da18d76d",
-      "after": "3b518eb6c02f52bdfc0bf81db688dfa336ea0072fd710f22a3293245058f4e94",
-      "owner": "scene-static-model-vertex-basis",
-      "reason": "Record the shared local vertex-basis contract, bounded361 native closure, open335 UI attribution and exact unreviewed runtime joins; preserve other feedback.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-vertex-basis"
+      "before": "3b518eb6c02f52bdfc0bf81db688dfa336ea0072fd710f22a3293245058f4e94",
+      "after": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
+      "owner": "scene-composition-source-geometry",
+      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "399d982a7603d4f50f0d162519c29eef384b160bb0242f2622b7ca8303db5671",
-      "after": "15902ffd60f69f5a10fdab1d096322fbe492aec3c4fb90185ada11401f4fa63d",
-      "owner": "scene-static-model-vertex-basis",
-      "reason": "Record the shared local vertex-basis contract, bounded361 native closure, open335 UI attribution and exact unreviewed runtime joins; preserve other feedback.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-vertex-basis"
+      "before": "15902ffd60f69f5a10fdab1d096322fbe492aec3c4fb90185ada11401f4fa63d",
+      "after": "664cd69982efcc4c1f18faeb36ac11631a838eba087dd7df3ac9a7efe61fdebf",
+      "owner": "scene-composition-source-geometry",
+      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "416b23223f89854979f11779a64add4091c89bb96fa9a6e9c69887a2362297fa",
-      "after": "02ddbc8a991b6dac2549b2002a47d1266743e25af01f8d402ef3bc220c235116",
-      "owner": "scene-static-model-vertex-basis",
-      "reason": "Record the shared local vertex-basis contract, bounded361 native closure, open335 UI attribution and exact unreviewed runtime joins; preserve other feedback.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-vertex-basis"
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "1fcefeab6c9ad1b09702b90a662b4956d9397c5bc1f2a9631eb8a6c26cc488b5",
+      "after": "ae980de0785c5fa9d3ee73ddf23280368caa1ee3f85658a0a87633764665cd6d",
+      "owner": "scene-composition-source-geometry",
+      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e1d3717436a7c370d1916b914d08f22e91ca6992fb3e096e2bf8031c4bc35b59",
-      "after": "cc3bccb94395b171782cee843d7c46b603cefb23dd19075263c2b0615e524169",
-      "owner": "scene-static-model-vertex-basis",
-      "reason": "Record the shared local vertex-basis contract, bounded361 native closure, open335 UI attribution and exact unreviewed runtime joins; preserve other feedback.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-vertex-basis"
+      "before": "cc3bccb94395b171782cee843d7c46b603cefb23dd19075263c2b0615e524169",
+      "after": "f2d1ebefe69a0a31c0650ecccca3222e088b3addb3650912cebd28a9d2b182c9",
+      "owner": "scene-composition-source-geometry",
+      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     }
   ]
 }

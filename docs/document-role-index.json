@@ -423,13 +423,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8bcd1c7f06491b7321a8e8f153bf1db3f1a0542978cdeb48f3f989ade6901f25",
+        "sourceSHA256": "ec83ee099fdbb5efa2106c884c207b9013626439478ef7a9bd1bb4ea08a6edde",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Composition单目标成功分配的epoch/key复验与既有pool/reclaim合同、有界反例及原326后验导航。",
-        "limitations": "仅此资源owner合同/来源边界；不代表其他能力、完整样本或性能重新验收。"
+        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
+        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
       }
     },
     {
@@ -563,10 +563,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0e20f5887948413e072ee3cd5df210bee0d4a0b59fecf5e715683f9278b51453",
+        "sourceSHA256": "1959fe671002612b2f67dadfaed60bf93cfb149418d15299030e169d2aaeef70",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
-        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
+        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
+        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
       }
     },
     {
@@ -660,10 +660,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5e5756aecc85bdd124d70ab4472ea555e6a3307ec1c259652dc80835e5c53e22",
+        "sourceSHA256": "cfd91bbabfc463ae9684260b4ef75a7a9467441cdfbdc60c99dfb888a3a3cc68",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
-        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
+        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
+        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d4dc67fd51d5878ca49375f3ea92644f1c298925b607a531df1e7154345d4f93",
+        "sourceSHA256": "1440f9ee3268e1fd4ebc4642f6f24d895a10823c9c3b993ddd88f939850ae526",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
-        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
+        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
+        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
       }
     },
     {
@@ -3178,7 +3178,15 @@
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。"
+      "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。",
+      "lastReviewed": "2026-10-18",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "07ab14369a698e523c53e96b89eb0df9458e52dd5402df00c9855c5743e1ffee",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
+        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
+      }
     },
     {
       "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
@@ -3356,10 +3364,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "48796623edf07ff58c2a8d000c2ca3f8eaee1d4789cd059de6d82811983bc083",
+        "sourceSHA256": "3b8072883e02e9297a7d8895b835a12e928600ebe5f3d6257443a3e77a100090",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Static-model authored Y-up basis adapted once at existing prepared draw owner; nine native Metal methods, final isolated signed Debug, reported361 placement restored and bounded heldout native scene.335 remains open at media UI group.",
-        "limitations": "Reported361 placement/inversion and347 grid only are closed.335 giant fragments remain unresolved.92 feedback IDs reconciled against source/evidence, not92 fresh renders.Whole-sample parity, all interactions, HDR and performance unaccepted."
+        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
+        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
       }
     },
     {

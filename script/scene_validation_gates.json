@@ -3399,6 +3399,30 @@
       "modules": [
         "test_scene_static_model_parts"
       ]
+    },
+    {
+      "id": "scene-empty-composition-source-geometry",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ClearColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift",
+        "script/tests/test_scene_utility_layers.py",
+        "script/tests/test_scene_composition_source_identity.py",
+        "script/tests/test_scene_capture_geometry.py",
+        "script/tests/test_scene_dynamic_layer_values.py",
+        "script/tests/fixtures/ScenePersistentColorOutputHarness.swift"
+      ],
+      "modules": [
+        "test_scene_utility_layers",
+        "test_scene_composition_source_identity",
+        "test_scene_capture_geometry",
+        "test_scene_dynamic_layer_values"
+      ]
     }
   ],
   "method_gates": {

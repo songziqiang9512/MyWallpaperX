@@ -389,9 +389,14 @@ final class SceneCompositionGroupFrameRuntime {
 
     /// Reserve selected sources before graph preparation; immutable empty
     /// inputs are cleared before forward providers can read them.
-    func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>) {
+    func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>,
+                        requiredExecutionLayerIDs: Set<Int> = []) {
         for rootID in orderedRootIDs {
-            if visibleLayerIDs.contains(rootID) {
+            // A hidden graph provider can consume an immutable transparent
+            // input without rendering hidden members or copying a background.
+            let demandedEmptySource = requiredExecutionLayerIDs.contains(rootID)
+                && isEmptySource(rootID)
+            if visibleLayerIDs.contains(rootID) || demandedEmptySource {
                 _ = reservePass(forRootID: rootID)
             } else {
                 degradedRootIDs.insert(rootID)
@@ -564,13 +569,17 @@ final class SceneCompositionGroupFrameRuntime {
         return pass
     }
 
+    private func isEmptySource(_ rootID: Int) -> Bool {
+        membersByRootID[rootID]?.isEmpty == true
+            && !copyBackgroundRootIDs.contains(rootID)
+    }
+
     private func reservePass(forRootID rootID: Int) -> SceneMainPassEncoder? {
         if degradedRootIDs.contains(rootID) { return nil }
         if let pass = passesByRootID[rootID] { return pass }
         // Empty transparent groups never write members or copy background.
         // Only their input may alias; authored graph outputs remain independent.
-        let emptySource = membersByRootID[rootID]?.isEmpty == true
-            && !copyBackgroundRootIDs.contains(rootID)
+        let emptySource = isEmptySource(rootID)
         if emptySource, let sourceRootID = emptySourceRootID,
            let pass = passesByRootID[sourceRootID], let texture = texturesByRootID[sourceRootID] {
             passesByRootID[rootID] = pass

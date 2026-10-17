@@ -48,6 +48,11 @@ extension SceneMetalRenderer {
         )
         let activeExecutionLayerIDs = demand.activeExecutionLayerIDs
         let unavailableAggregateConsumers = demand.unavailableLayerIDs
+        compositionGroupRuntime?.reserveSources(
+            orderedRootIDs: utilityExecution.orderedRootIDs,
+            visibleLayerIDs: frameVisibleLayerIDs,
+            requiredExecutionLayerIDs: activeExecutionLayerIDs
+        )
         var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
         var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
         var preparationRequests: [
@@ -368,40 +373,20 @@ extension SceneMetalRenderer {
                         reasonCode: "utility-source-shape-invalid"
                     )
                 }
-                if utilityExecution.membersByRootID[layer.id] != nil {
-                    // The group owns its initialized source target, including
-                    // transparent content. The
-                    // effect chain reads the whole viewport-sized group
-                    // surface 1:1; the extent is the parent composite space.
-                    guard viewportSize.width.isFinite,
-                          viewportSize.width > 0,
-                          viewportSize.height.isFinite,
-                          viewportSize.height > 0 else {
-                        return .rejected(
-                            reasonCode: "utility-offscreen-size-unavailable"
-                        )
-                    }
-                    utilityCaptureGeometry = SceneCaptureGeometry(
-                        sourceUV: .identity,
-                        outputMVP: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                        pixelSize: viewportSize
-                    )
-                    desiredSize = viewportSize
-                } else {
-                    let model = imageModel(layer, nil)
-                    guard let geometry = SceneCaptureGeometryResolver.resolve(
-                        kind: utility.kind,
-                        layerMVP: cameraFrame.viewProjection(for: layer) * model,
-                        viewportSize: viewportSize,
-                        captureMVP: cameraFrame.captureViewProjection(for: layer) * model
-                    ) else {
-                        return .rejected(
-                            reasonCode: "utility-offscreen-size-unavailable"
-                        )
-                    }
-                    utilityCaptureGeometry = geometry
-                    desiredSize = geometry.pixelSize
+                let model = imageModel(layer, nil)
+                guard let geometry = SceneCaptureGeometryResolver.resolve(
+                    kind: utility.kind,
+                    layerMVP: cameraFrame.viewProjection(for: layer) * model,
+                    viewportSize: viewportSize,
+                    captureMVP: cameraFrame.captureViewProjection(for: layer) * model,
+                    compositionSourceMemberLayerIDs:
+                        utilityExecution.membersByRootID[layer.id],
+                    authoredRenderSizeWH: layer.renderSizeWH
+                ) else {
+                    return .rejected(reasonCode: "utility-offscreen-size-unavailable")
                 }
+                utilityCaptureGeometry = geometry
+                desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       case .authoredCanvasDirectDraw =

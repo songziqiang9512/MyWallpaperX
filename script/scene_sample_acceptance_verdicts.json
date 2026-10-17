@@ -517,26 +517,31 @@
     },
     "3471294034": {
       "verdict": "unreviewed",
-      "note": "2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。shared selected-provider准入与GPU末合成/下一帧证据成立。仅此反馈CLOSED，不等于整样本/全部属性或交互/官方同phase验收；before为CP旧App，after为A+3source的f844，不是单变量性能或像素对照。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。",
-      "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json"
-      ],
-      "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip"
-      ]
-    },
-    "3351179520": {
-      "verdict": "unreviewed",
-      "note": "2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同App/phase对照解释为像素或性能收益；后继独立消融未并入此记录。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加UI组限定后验：关2391仍保留斜纹；关4785后组内斜纹/环形文字消失，98完整链保留。官方loaded raw1也有环形文字/斜盖/湿地面，raw0加载黑及原joint FAIL保留；只完成组归因，具体cause与画面余项仍OPEN，不认修复、音频因果或整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip。",
+      "note": "2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。shared selected-provider准入与GPU末合成/下一帧证据成立。仅此反馈CLOSED，不等于整样本/全部属性或交互/官方同phase验收；before为CP旧App，after为A+3source的f844，不是单变量性能或像素对照。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加同a67独立原包后验：背景菱形网格保持，人物、文字、花瓣与底部频谱可见；仅保既有网格反馈闭合及本次邻居未退化观察，全部属性/交互/播放和官方同phase仍未验，不记整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
       ],
-      "remainingDifferences": "UI组相关画面差异仍OPEN；具体cause unknown；官方加载/控制联合资格有限，不把消融当修复。"
+      "remainingDifferences": "网格缺失反馈已闭且a67邻居观察保持；整样本播放、全部作者属性/交互和官方同phase仍未验。"
+    },
+    "3351179520": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同App/phase对照解释为像素或性能收益；后继独立消融未并入此记录。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加UI组限定后验：关2391仍保留斜纹；关4785后组内斜纹/环形文字消失，98完整链保留。官方loaded raw1也有环形文字/斜盖/湿地面，raw0加载黑及原joint FAIL保留；只完成组归因，具体cause与画面余项仍OPEN，不认修复、音频因果或整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip。 2026-10-18追加a67原包限定后验：巨大两侧裂片与白环偏离有界恢复；393实际输入2000×2000，旧projected-bbox偏心条件已消除，after及较晚series画面改善。但用户文字环反馈仅partial：精确位置、尺度、完整旋转周期和官方同phase仍未验，不记整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "巨大裂片/白环有界恢复；文字环partial，精确位置尺度、完整旋转周期、官方同phase及整样本验收仍未完成。"
     },
     "3617056047": {
       "verdict": "unreviewed",

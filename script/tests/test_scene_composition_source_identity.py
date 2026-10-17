@@ -143,16 +143,21 @@ enum CompositionSourceProbe {
         if CommandLine.arguments.contains("--gpu") {
             let gpuPool = SceneOffscreenTexturePool(device: device, maxDimension: 64,
                 residentByteBudget: 512)
-            func frame(_ command: MTLCommandBuffer) -> SceneCompositionGroupFrameRuntime {
+            let hiddenEmpty = CommandLine.arguments.contains("--hidden-empty")
+            func frame(_ command: MTLCommandBuffer,
+                       pool: SceneOffscreenTexturePool? = nil) -> SceneCompositionGroupFrameRuntime {
                 let main = device.makeTexture(descriptor: .texture2DDescriptor(
                     pixelFormat: .bgra8Unorm, width: 16, height: 8, mipmapped: false))!
                 let parent = SceneMainPassEncoder(commandBuffer: command, target: main,
                     clearColor: MTLClearColor(), clearEnabled: true)
                 let runtime = SceneCompositionGroupFrameRuntime(parentPass: parent,
-                    commandBuffer: command, offscreenTexturePool: gpuPool,
-                    memberRootsByLayerID: [2: 1], membersByRootID: [1: [2]],
+                    commandBuffer: command, offscreenTexturePool: pool ?? gpuPool,
+                    memberRootsByLayerID: hiddenEmpty ? [:] : [2: 1],
+                    membersByRootID: hiddenEmpty ? [1: []] : [1: [2]],
                     viewportSize: CGSize(width: 16, height: 8))
-                runtime.reserveSources(orderedRootIDs: [1], visibleLayerIDs: [1])
+                runtime.reserveSources(orderedRootIDs: [1],
+                    visibleLayerIDs: hiddenEmpty ? [] : [1],
+                    requiredExecutionLayerIDs: hiddenEmpty ? [1] : [])
                 return runtime
             }
             let command = queue.makeCommandBuffer()!
@@ -200,12 +205,27 @@ enum CompositionSourceProbe {
             let transparent = (0..<8).allSatisfy { y in
                 (0..<64).allSatisfy { x in bytes[y * 256 + x] == 0 }
             }
-            print(String(decoding: try JSONSerialization.data(withJSONObject: [
+            var result = [
                 "reusedOldRedSource": reused, "emptySourceTransparent": transparent,
                 "heldUntilCompletion": heldUntilCompletion,
                 "releasedAfterCompletion": gpuPool.residentByteCost == 0,
                 "completed": command.status == .completed && second.status == .completed,
-            ], options: [.sortedKeys]), as: UTF8.self))
+            ]
+            if hiddenEmpty {
+                let cancelledPool = SceneOffscreenTexturePool(device: device, maxDimension: 64,
+                    residentByteBudget: 512)
+                let cancelled = frame(queue.makeCommandBuffer()!, pool: cancelledPool)
+                let reserved = cancelled.sourceIsAvailable(forLayerID: 1)
+                    && cancelledPool.residentByteCost == 512
+                cancelled.closeAllGroupEncoders()
+                cancelledPool.reset()
+                result["cancelledSourceHeldBeforeRelease"] = reserved
+                    && cancelledPool.residentByteCost == 512
+                cancelled.cancel()
+                result["cancelledSourceReleased"] = cancelledPool.residentByteCost == 0
+            }
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result,
+                options: [.sortedKeys]), as: UTF8.self))
             return
         }
         if CommandLine.arguments.contains("--empty-groups") {
@@ -225,22 +245,37 @@ enum CompositionSourceProbe {
                 clearColor: MTLClearColor(red: 1, green: 0, blue: 0, alpha: 1), clearEnabled: true)
             let runtime = SceneCompositionGroupFrameRuntime(parentPass: parent,
                 commandBuffer: command, offscreenTexturePool: pool,
-                memberRootsByLayerID: [40: 4], membersByRootID: [1: [], 2: [], 3: [], 4: [40]],
-                viewportSize: CGSize(width: 16, height: 8), copyBackgroundRootIDs: [3])
-            runtime.reserveSources(orderedRootIDs: [1, 2, 3, 4], visibleLayerIDs: [1, 2, 3, 4])
+                memberRootsByLayerID: [40: 4, 70: 7],
+                membersByRootID: [1: [], 2: [], 3: [], 4: [40], 5: [], 6: [], 7: [70], 8: []],
+                viewportSize: CGSize(width: 16, height: 8), copyBackgroundRootIDs: [3, 8])
+            func hiddenRejectedWithoutAllocation(_ root: Int, demanded: Bool) -> Bool {
+                let before = pool.residentByteCost
+                runtime.reserveSources(orderedRootIDs: [root], visibleLayerIDs: [],
+                    requiredExecutionLayerIDs: demanded ? [root] : [])
+                return !runtime.sourceIsAvailable(forLayerID: root)
+                    && runtime.preparedSource(forLayerID: root, mainTarget: main) == nil
+                    && pool.residentByteCost == before
+            }
+            let hiddenUndemanded = hiddenRejectedWithoutAllocation(6, demanded: false)
+            let hiddenPopulated = hiddenRejectedWithoutAllocation(7, demanded: true)
+            let hiddenBackground = hiddenRejectedWithoutAllocation(8, demanded: true)
+            runtime.reserveSources(orderedRootIDs: [1, 2, 3, 4, 5],
+                visibleLayerIDs: [1, 2, 3, 4], requiredExecutionLayerIDs: [5])
             // Forward preparation reads before either empty root is visited.
             let first = runtime.preparedSource(forLayerID: 1, mainTarget: main)!
             let second = runtime.preparedSource(forLayerID: 2, mainTarget: main)!
+            let hidden = runtime.preparedSource(forLayerID: 5, mainTarget: main)!
             precondition(first === seed.texture)
             let background = runtime.groupTexture(forRootID: 3)!
             let populated = runtime.preparedSource(forLayerID: 40, mainTarget: main)!
             precondition(first === second && first !== background && first !== populated)
+            precondition(hidden === first)
             precondition(background !== populated && pool.residentByteCost == 3 * 512)
-            let pixels = device.makeBuffer(length: 3 * 256 * 8, options: .storageModeShared)!
+            let pixels = device.makeBuffer(length: 4 * 256 * 8, options: .storageModeShared)!
             runtime.closeAllGroupEncoders()
             parent.closeForOffscreen()
             let blit = command.makeBlitCommandEncoder()!
-            for (index, texture) in [first, background].enumerated() {
+            for (index, texture) in [first, background, hidden].enumerated() {
                 blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
                     sourceSize: MTLSize(width: 16, height: 8, depth: 1), to: pixels,
                     destinationOffset: index * 256 * 8, destinationBytesPerRow: 256,
@@ -259,7 +294,7 @@ enum CompositionSourceProbe {
                 destinationSlice: 0, destinationLevel: 0, destinationOrigin: MTLOrigin())
             terminal.copy(from: scratch, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
                 sourceSize: MTLSize(width: 16, height: 8, depth: 1), to: pixels,
-                destinationOffset: 2 * 256 * 8, destinationBytesPerRow: 256,
+                destinationOffset: 3 * 256 * 8, destinationBytesPerRow: 256,
                 destinationBytesPerImage: 256 * 8)
             terminal.endEncoding()
             let done = DispatchSemaphore(value: 0)
@@ -268,21 +303,28 @@ enum CompositionSourceProbe {
             command.addCompletedHandler { _ in done.signal() }
             command.commit()
             precondition(done.wait(timeout: .now() + 5) == .success && command.status == .completed)
-            let bytes = pixels.contents().bindMemory(to: UInt8.self, capacity: 3 * 256 * 8)
+            let bytes = pixels.contents().bindMemory(to: UInt8.self, capacity: 4 * 256 * 8)
             let transparent = (0..<8).allSatisfy { y in (0..<64).allSatisfy { bytes[y * 256 + $0] == 0 } }
             let red = (0..<8).allSatisfy { y in (0..<16).allSatisfy { x in
                 let offset = 256 * 8 + y * 256 + x * 4
                 return bytes[offset] == 0 && bytes[offset+1] == 0 && bytes[offset+2] == 255 && bytes[offset+3] == 255
             } }
             let terminalRed = (0..<8).allSatisfy { y in (0..<16).allSatisfy { x in
-                let offset = 2 * 256 * 8 + y * 256 + x * 4
+                let offset = 3 * 256 * 8 + y * 256 + x * 4
                 return bytes[offset] == 0 && bytes[offset+1] == 0 && bytes[offset+2] == 255 && bytes[offset+3] == 255
             } }
+            let hiddenTransparent = (0..<8).allSatisfy { y in
+                (0..<64).allSatisfy { bytes[2 * 256 * 8 + y * 256 + $0] == 0 }
+            }
             pool.reset()
             print(String(decoding: try JSONSerialization.data(withJSONObject: [
                 "terminalReusesCompletedInput": terminalRed,
                 "transparentSharedInput": transparent, "backgroundRemainsIndependent": red,
                 "completedAndReleased": pool.residentByteCost == 0,
+                "hiddenDemandedSourceTransparent": hiddenTransparent,
+                "hiddenUndemandedAllocatesNothing": hiddenUndemanded,
+                "hiddenPopulatedRemainsUnavailable": hiddenPopulated,
+                "hiddenBackgroundRemainsUnavailable": hiddenBackground,
             ], options: [.sortedKeys]), as: UTF8.self))
             return
         }
@@ -433,6 +475,18 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
         self.assertEqual(json.loads(completed.stdout), {
             "transparentSharedInput": True, "backgroundRemainsIndependent": True,
             "terminalReusesCompletedInput": True, "completedAndReleased": True,
+            "hiddenDemandedSourceTransparent": True, "hiddenUndemandedAllocatesNothing": True,
+            "hiddenPopulatedRemainsUnavailable": True, "hiddenBackgroundRemainsUnavailable": True,
+        })
+
+    def test_hidden_demanded_empty_source_clears_and_releases_its_pins(self) -> None:
+        completed = subprocess.run([str(self.binary), "--gpu", "--hidden-empty"],
+                                   capture_output=True, text=True, timeout=20)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(json.loads(completed.stdout), {
+            "reusedOldRedSource": True, "emptySourceTransparent": True,
+            "heldUntilCompletion": True, "releasedAfterCompletion": True, "completed": True,
+            "cancelledSourceHeldBeforeRelease": True, "cancelledSourceReleased": True,
         })
 
     def test_unrelated_pin_release_preserves_legal_source_allocation(self) -> None:

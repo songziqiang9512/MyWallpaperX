@@ -107,10 +107,10 @@ enum SceneUtilityPlanFrameRenderer {
                 } else {
                     compositePass = mainPass
                 }
-                let isolatedGroupSource: (texture: MTLTexture, pixelSize: CGSize)?
+                let isolatedGroupSource: MTLTexture?
                 if plan.usesIsolatedGroupTarget {
                     isolatedGroupSource = compositionGroupRuntime?
-                        .groupTexture(forRootID: plan.layerID).map { ($0, viewportSize) }
+                        .groupTexture(forRootID: plan.layerID)
                 } else {
                     isolatedGroupSource = nil
                 }
@@ -146,9 +146,7 @@ enum SceneUtilityPlanFrameRenderer {
                     mainPass: compositePass,
                     resolvedMaterialFrameTargetPlan:
                         resolvedMaterialFrameTargetPlans[layer.id],
-                    isolatedGroupSource: isolatedGroupSource.map {
-                        (texture: $0.texture, pixelSize: $0.pixelSize)
-                    },
+                    isolatedGroupSource: isolatedGroupSource,
                     captureMVP: cameraFrame.captureViewProjection(for: layer) * model,
                     executionTrace: effectExecutionTrace
                 )

@@ -595,7 +595,7 @@ import Metal
             let start = renderer.encodeSceneColorStart(pool: nil, target: source,
                 frameIndex: 1, clearEnabled: true, commandBuffer: cb)
             let (pass, _) = renderer.makeScenePass(target: source, clearEnabled: true,
-                dynamicValues: snapshot, pool: nil, visibleLayerIDs: [],
+                dynamicValues: snapshot, pool: nil,
                 viewportSize: CGSize(width: 4, height: 4), commandBuffer: cb,
                 utilityExecution: .init(memberRootsByLayerID: [:], membersByRootID: [:],
                     orderedRootIDs: [], copyBackgroundRootIDs: []))

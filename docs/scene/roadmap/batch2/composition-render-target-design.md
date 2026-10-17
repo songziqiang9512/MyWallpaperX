@@ -43,6 +43,16 @@
 
 **native-world 后继资格（2026-10-16）。** childless `composelayer_depthtest` 尚未开放。两轮官方自有 native-camera 载体均缺背景网格与独立 world 四角正控，不能裁定采集或深度语义；到此停止载体重试，不增加矩阵或产品别名。现有仿射 sourceUV 不能直接外推 native 透视；后继须先建立可见源与独立几何，再区分采集和最终遮挡。深度仍应由原 StaticModelFrame 管共享 lease/首次 clear，source/graph 保色彩路径，最终 quad 才只读 scene depth；真实首 pass 依赖主源，保留 captured-main consumer 准入，不转无源绘制。未改变产品能力，资格及失败输入见[限量证据](../../../../.artifacts/scene-evidence/runs/native-world-capture-qualification-20261016/manifest.json)。
 
+## 无子层透明源与 named 输入的职责修正（2026-10-18）
+
+`copybackground=false` 的无子层 composition 使用透明源；另一个 sampler 的 named provider 不构成复制 enclosing 背景的请求。现 SourceRoute 因声明依赖而改走 readable-main，真实393随后把背景与文字一起变形。修正只在原 SourceRoute 分离这两种输入职责；named 解析、准入、预留、publication 与 epoch 仍归现有 dependency/graph owner。有子层且带外部依赖的未知形态不借此开放，唯一身份、父子索引和无环检查保持。
+
+透明源不等于整屏输出：无成员 composition 的 effect extent、source UV 与最终 quad 必须沿原 CaptureGeometry 使用 layer/parent 的 authored model；只有已绘成员的 viewport source 才按 1:1 回绘，避免二次变换。原 resolver 统一接收静态成员事实，preflight 与 utility encode 共用，不以隔离纹理存在与否选择几何。空透明纹理可复用原 viewport 分配，但有合法 authored size 时 procedural effect 的语义 extent 取该本地尺寸，不取屏幕投影包围盒；缺尺寸保既有投影回退、明确非法尺寸局部拒绝。否则正方形输入会因父倾角或非方窗口变成非方 effect 源，后续圆心/旋转可偏心。named sampler 的独立坐标保持；不新增相机、重采样算法或逐帧成员分析。局部/父级变换、非方窗口、带成员反例及真实环/碟连续帧是验收边界。
+
+隐藏 composition 仍可作为可见 consumer 的已准入 graph provider，不能只按最终显隐决定其输入是否存在。组源预留从 `makeScenePass` 移至原 frame preflight，在既有 dependency demand 得出后、graph preparation 前执行一次；原 GroupRuntime 仅对被 demand 的**无成员、不复制背景的不可变透明源**补预留，其他隐藏组保原降级。显隐仍只决定 authored 最终合成，不新增 demand/资源/输出 owner，不使隐藏 provider 出现在主画面。pin、清空、取消与 GPU completion 沿原生命周期。
+
+验收包含改名后的透明源与 named sampler 共存、true/缺省与 passthrough 的主源反例、畸形成员拒绝、可见 consumer→隐藏透明 composition→named provider 的完整供图，以及未被 demand 的隐藏源不分配。真实335须保圆形文字/封面并恢复连续地面，独立347的缺省背景复制及网格保持。未取得这些结果前不记反馈关闭；不改四角、相机、作者位置或隐藏内容补画面。已取得源/几何修正的有界结果，实际图、分阶段门及仍开放文字精确对齐归[后验](../../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。两自有完整hidden App夹具未通过前置资格，保原失败、不算该链通过；已有demand/清空/pin门成立。该修正不是性能验收，也不扩有成员隐藏 provider、passthrough 或全部 composition parity。
+
 ## 现有资源合同与历史依据
 
 资源/source 窄片已经独立实施：compositionGroup key/分配一致，exact extent，source 在 graph preparation 前预留并 pin，准备、写入、采样是同一有效 generation 的纹理。GPU completion/cancel 释放、resize 在飞占用、无历史的透明初始化和同帧保留由[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)接管。本次改变输入内容与顺序，不重建资源系统。旧反例、首次错源与实际 App 修复见[执行记录](../../history/d1-composition-source-implementation-2026-10-02.md)。

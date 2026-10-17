@@ -25,12 +25,11 @@ nonisolated enum SceneUtilityLayerSourceRoute {
               layer.contentKind == utility.kind.rawValue else {
             return .failure(.utilityShape)
         }
-        // A childless background capture retains the existing readable-pass
-        // route. Explicit false needs a transparent source even without children.
+        // Background capture is an authored source choice. Named sampler
+        // dependencies do not request a copy of the enclosing main target.
         if layer.childLayerIDs.isEmpty,
            utility.kind != .composition || utility.copyBackground
-                || utility.passthrough || !layer.dependencyLayerIDs.isEmpty
-                || !layer.authoredDependencies.isEmpty {
+                || utility.passthrough {
             return .success(.init(
                 triggerLayerID: layer.id,
                 capturesCompositionSubtree: false,
@@ -39,8 +38,9 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         }
         guard utility.kind == .composition,
               !utility.passthrough,
-              layer.dependencyLayerIDs.isEmpty,
-              layer.authoredDependencies.isEmpty else {
+              layer.childLayerIDs.isEmpty
+                || (layer.dependencyLayerIDs.isEmpty
+                    && layer.authoredDependencies.isEmpty) else {
             return .failure(.compositionSubtreeShape)
         }
         let groupedLayers = Dictionary(grouping: descriptor.layers, by: \.id)

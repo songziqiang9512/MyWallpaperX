@@ -43,7 +43,8 @@ enum Harness {
             kind: .composition, layerMVP: localMVP, viewportSize: viewport
         )!
         let fullscreen = SceneCaptureGeometryResolver.resolve(
-            kind: .fullscreen, layerMVP: localMVP, viewportSize: viewport
+            kind: .fullscreen, layerMVP: localMVP, viewportSize: viewport,
+            compositionSourceMemberLayerIDs: [], authoredRenderSizeWH: [2000, 2000]
         )!
         let singularLayerMVP = SceneMatrix.scale(SIMD3<Float>(0, 0, 1))
         let fullscreenFromSingularLayer = SceneCaptureGeometryResolver.resolve(
@@ -59,6 +60,48 @@ enum Harness {
         let project = SceneCaptureGeometryResolver.resolve(
             kind: .project, layerMVP: localMVP, viewportSize: viewport
         )!
+        let memberGroup = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: localMVP, viewportSize: viewport,
+            compositionSourceMemberLayerIDs: [777]
+        )!
+        let projectWithMemberFlag = SceneCaptureGeometryResolver.resolve(
+            kind: .project, layerMVP: localMVP, viewportSize: viewport,
+            compositionSourceMemberLayerIDs: [777], authoredRenderSizeWH: [2000, 2000]
+        )!
+        // Exact quarter-turn matrix avoids a ceil-boundary oracle depending
+        // on trigonometric rounding; scales/translation remain binary-exact.
+        let turn = simd_float4x4(SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
+                                SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1))
+        let parent = SceneMatrix.translation(SIMD3<Float>(0.25, -0.125, 0))
+            * turn * SceneMatrix.scale(SIMD3<Float>(1.5, 0.5, 1))
+        let child = SceneMatrix.translation(SIMD3<Float>(0.125, 0.25, 0))
+            * SceneMatrix.scale(SIMD3<Float>(0.5, 0.25, 1))
+        let parentMVP = parent * child
+        let nonSquare = CGSize(width: 640, height: 360)
+        let parentEmpty = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: parentMVP, viewportSize: nonSquare,
+            compositionSourceMemberLayerIDs: []
+        )!
+        let parentMembers = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: parentMVP, viewportSize: nonSquare,
+            compositionSourceMemberLayerIDs: [777], authoredRenderSizeWH: [2000, 2000]
+        )!
+        let authoredParent = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: parentMVP, viewportSize: nonSquare,
+            compositionSourceMemberLayerIDs: [], authoredRenderSizeWH: [2000, 2000]
+        )!
+        let nilSourceWithAuthoredSize = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: parentMVP, viewportSize: nonSquare,
+            compositionSourceMemberLayerIDs: nil, authoredRenderSizeWH: [2000, 2000]
+        )!
+        let invalidTransparentSizes: [String: [Float]] = [
+            "zero": [0, 2000], "negative": [2000, -1], "nan": [.nan, 2000],
+            "infinity": [2000, .infinity], "empty": [], "oneAxis": [2000],
+            "threeAxes": [2000, 2000, 1],
+            "finiteIntOverflow": [1e20, 2000],
+            "greatestFinite": [2000, .greatestFiniteMagnitude],
+            "roundedIntOverflow": [Float(Int.max), 2000],
+        ]
         let invalid = SceneCaptureGeometryResolver.resolve(
             kind: .composition,
             layerMVP: localMVP,
@@ -73,6 +116,11 @@ enum Harness {
         let replay = SceneCaptureGeometryResolver.resolve(
             kind: .composition, layerMVP: outputMVP,
             viewportSize: viewport, captureMVP: localMVP
+        )!
+        let authoredSquare = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+            captureMVP: localMVP, compositionSourceMemberLayerIDs: [],
+            authoredRenderSizeWH: [2000, 2000]
         )!
         let localPoints: [SIMD2<Float>] = [SIMD2(-0.3, 0.2), .zero, SIMD2(0.4, -0.1)]
         let cursorPoints = localPoints.map { point -> [Float] in
@@ -156,6 +204,19 @@ enum Harness {
             "localYAxis": vector(local.sourceUV.yAxis),
             "localSize": [local.pixelSize.width, local.pixelSize.height],
             "localOutput": matrix(local.outputMVP),
+            "memberGroup": geometry(memberGroup),
+            "projectWithMemberFlag": geometry(projectWithMemberFlag),
+            "parentEmpty": geometry(parentEmpty),
+            "parentMembers": geometry(parentMembers),
+            "authoredParent": geometry(authoredParent),
+            "authoredSquare": geometry(authoredSquare),
+            "nilSourceWithAuthoredSize": geometry(nilSourceWithAuthoredSize),
+            "invalidTransparentSizesRejected": invalidTransparentSizes.mapValues {
+                SceneCaptureGeometryResolver.resolve(
+                    kind: .composition, layerMVP: parentMVP, viewportSize: nonSquare,
+                    compositionSourceMemberLayerIDs: [], authoredRenderSizeWH: $0
+                ) == nil
+            },
             "replaySource": [vector(replay.sourceUV.origin),
                              vector(replay.sourceUV.xAxis), vector(replay.sourceUV.yAxis)],
             "replaySize": [replay.pixelSize.width, replay.pixelSize.height],
@@ -214,6 +275,13 @@ enum Harness {
     }
 
     static func vector(_ value: SIMD2<Float>) -> [Float] { [value.x, value.y] }
+
+    static func geometry(_ value: SceneCaptureGeometry) -> [String: Any] {
+        ["sourceUV": [vector(value.sourceUV.origin), vector(value.sourceUV.xAxis),
+                      vector(value.sourceUV.yAxis)],
+         "outputMVP": matrix(value.outputMVP),
+         "pixelSize": [value.pixelSize.width, value.pixelSize.height]]
+    }
 
     static func matrix(_ value: simd_float4x4) -> [Float] {
         [value.columns.0, value.columns.1, value.columns.2, value.columns.3]
@@ -286,6 +354,45 @@ class SceneCaptureGeometryTests(unittest.TestCase):
             self.result["localOutput"],
             [1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 0, 0.5, -0.25, 0, 1],
         )
+
+    def test_only_composition_member_source_uses_viewport_geometry(self) -> None:
+        full = [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        self.assertEqual(self.result["memberGroup"], {
+            "sourceUV": [[0, 0], [1, 0], [0, 1]],
+            "outputMVP": full, "pixelSize": [1000, 800]})
+        self.assertEqual(self.result["projectWithMemberFlag"], {
+            "sourceUV": [[0.5, 0.5], [0.5, 0], [0, 0.25]],
+            "outputMVP": self.result["localOutput"], "pixelSize": [500, 200]})
+
+    def test_empty_composition_keeps_parent_transform_on_non_square_viewport(self) -> None:
+        self.assertEqual(self.result["parentEmpty"], {
+            "sourceUV": [[0.53125, 0.65625], [0, -0.375], [0.0625, 0]],
+            "outputMVP": [0, 0.75, 0, 0, -0.125, 0, 0, 0,
+                          0, 0, 1, 0, 0.125, 0.0625, 0, 1],
+            "pixelSize": [40, 135]})
+        self.assertEqual(self.result["parentMembers"], {
+            "sourceUV": [[0, 0], [1, 0], [0, 1]],
+            "outputMVP": [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            "pixelSize": [640, 360]})
+
+    def test_empty_transparent_source_uses_authored_extent_without_changing_projection(self) -> None:
+        parent = self.result["parentEmpty"]
+        self.assertEqual(self.result["authoredParent"], dict(parent, pixelSize=[2000, 2000]))
+        # nil is the readable/copy-background route; it must not take an
+        # empty transparent source's authored-size privilege.
+        self.assertEqual(self.result["nilSourceWithAuthoredSize"], parent)
+        tilted = self.result["authoredSquare"]
+        self.assertEqual(tilted["pixelSize"], [2000, 2000])
+        self.assertEqual(tilted["sourceUV"], self.result["replaySource"])
+        expected = [1, 0, 0, 0.6, 0, 1, 0, 0, 0, 0, 1, 0, 0.1, -0.2, 0.4, 1]
+        for actual, wanted in zip(tilted["outputMVP"], expected, strict=True):
+            self.assertAlmostEqual(actual, wanted, places=6)
+
+    def test_invalid_explicit_transparent_extent_is_not_replaced_by_projected_size(self) -> None:
+        self.assertEqual(self.result["invalidTransparentSizesRejected"],
+                         dict.fromkeys(["zero", "negative", "nan", "infinity",
+                                        "empty", "oneAxis", "threeAxes", "finiteIntOverflow",
+                                        "greatestFinite", "roundedIntOverflow"], True))
 
     def test_perspective_replay_preserves_flat_source_and_extent(self) -> None:
         self.assertEqual(self.result["replaySource"], [[0.5, 0.5], [0.5, 0], [0, 0.25]])

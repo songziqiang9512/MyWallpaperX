@@ -77,13 +77,19 @@ struct SceneRenderDescriptor {
         let id: Int
         var visible: Bool? = true
         var parentID: Int? = nil
+        var childLayerIDs: [Int] = []
+        var dependencyLayerIDs: [Int] = []
         var contentKind = "image"
+        var utilityLayer: SceneUtilityLayer? = nil
+        var authoredDependencies: [SceneObjectDependency] = []
         var colorBlendMode: Int? = nil
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
     }
     struct MaterialPass { let combos: [String: Int] }
     let layers: [Layer]
     var materialPasses: [MaterialPass] = []
+    var renderOrderOverride: [Int]? = nil
+    var renderOrderLayerIDs: [Int] { renderOrderOverride ?? layers.map(\.id) }
 }
 struct SceneDependencyRenderPlan {
     var requiredProviderLayerIDs: Set<Int> = []
@@ -91,6 +97,94 @@ struct SceneDependencyRenderPlan {
 
 @main
 enum Harness {
+    static func sourceRoutes() -> [String: [String: Any]] {
+        func utility(_ path: String = "models/util/composelayer.json",
+                     copy: Bool = false, passthrough: Bool = false) -> SceneUtilityLayer {
+            SceneUtilityLayer.parse(imagePath: path,
+                object: ["copybackground": copy, "config": ["passthrough": passthrough]])!
+        }
+        func route(_ root: SceneRenderDescriptor.Layer,
+                   peers: [SceneRenderDescriptor.Layer] = [],
+                   order: [Int]? = nil) -> [String: Any] {
+            let descriptor = SceneRenderDescriptor(layers: [root] + peers,
+                renderOrderOverride: order)
+            switch SceneUtilityLayerSourceRoute.resolve(layer: root, descriptor: descriptor) {
+            case let .failure(failure): return ["failure": failure.rawValue]
+            case let .success(value): return [
+                "trigger": value.triggerLayerID,
+                "isolated": value.usesIsolatedGroupTarget,
+                "capturesSubtree": value.capturesCompositionSubtree,
+                "members": value.orderedCompositionSubtreeLayerIDs,
+            ]
+            }
+        }
+        let plain = SceneRenderDescriptor.Layer(id: 20, contentKind: "composition",
+                                                utilityLayer: utility())
+        let provider = SceneRenderDescriptor.Layer(id: 30, visible: false, contentKind: "text")
+        var flat = plain; flat.dependencyLayerIDs = [provider.id]
+        var authored = plain
+        authored.authoredDependencies = SceneObjectDependencies(rawValue: [
+            ["id": provider.id, "type": "texture", "index": 1],
+        ]).authored
+        var both = flat; both.authoredDependencies = authored.authoredDependencies
+        var result = ["empty": route(plain), "flat": route(flat, peers: [provider]),
+                      "authored": route(authored, peers: [provider]),
+                      "both": route(both, peers: [provider])]
+        var hidden = both; hidden.visible = false
+        let consumer = SceneRenderDescriptor.Layer(id: 40, dependencyLayerIDs: [hidden.id],
+            contentKind: "composition", utilityLayer: utility())
+        result["hidden-provider"] = route(hidden, peers: [provider, consumer])
+        // Resource spelling is parsed by the real named-reference owner;
+        // SourceRoute receives identities, never sampler-path heuristics.
+        for (ownerID, providerID, suffix) in [(901, 709, "_a"), (73, 218, "_b")] {
+            let reference = SceneNamedTextureReference.parse(
+                "_rt_imageLayerComposite_\(providerID)\(suffix)")!
+            var renamed = SceneRenderDescriptor.Layer(id: ownerID,
+                dependencyLayerIDs: [reference.providerLayerID], contentKind: "composition",
+                utilityLayer: utility())
+            renamed.authoredDependencies = [.init(layerID: providerID, index: 1, type: "texture")]
+            result["renamed-\(ownerID)"] = route(renamed,
+                peers: [.init(id: providerID, visible: false, contentKind: "image")],
+                order: [providerID, ownerID])
+        }
+        var background = both; background.utilityLayer = utility(copy: true)
+        var passthrough = both; passthrough.utilityLayer = utility(passthrough: true)
+        result["background"] = route(background, peers: [provider])
+        result["passthrough"] = route(passthrough, peers: [provider])
+        for kind in ["project", "fullscreen"] {
+            var other = both; other.contentKind = kind
+            other.utilityLayer = utility("models/util/\(kind)layer.json")
+            result[kind] = route(other, peers: [provider])
+        }
+        let child = SceneRenderDescriptor.Layer(id: 21, parentID: plain.id, contentKind: "solid")
+        var group = plain; group.childLayerIDs = [child.id]
+        result["children"] = route(group, peers: [child, provider], order: [30, 21, 20])
+        for (name, flatIDs, authoredValues) in [
+            ("child-flat", [provider.id], [SceneObjectDependency]()),
+            ("child-authored", [], authored.authoredDependencies),
+            ("child-both", [provider.id], authored.authoredDependencies),
+        ] {
+            var external = group; external.dependencyLayerIDs = flatIDs
+            external.authoredDependencies = authoredValues
+            result[name] = route(external, peers: [child, provider])
+        }
+        result["duplicate-id"] = route(both, peers: [provider, provider])
+        result["duplicate-order"] = route(both, peers: [provider], order: [20, 20])
+        result["unlisted-child"] = route(both, peers: [child, provider])
+        var missing = plain; missing.childLayerIDs = [99]
+        result["missing-child"] = route(missing)
+        var repeated = group; repeated.childLayerIDs = [child.id, child.id]
+        result["duplicate-child"] = route(repeated, peers: [child])
+        var wrongParent = child; wrongParent.parentID = provider.id
+        result["wrong-parent"] = route(group, peers: [wrongParent, provider])
+        var cycle = group; cycle.parentID = child.id
+        var back = child; back.childLayerIDs = [group.id]
+        result["cycle"] = route(cycle, peers: [back])
+        var mismatch = plain; mismatch.contentKind = "project"
+        result["utility-kind"] = route(mismatch)
+        return result
+    }
+
     static func main() throws {
         let fixtures: [(String?, [String: Any])] = [
             ("models/util/composelayer.json", ["config": ["passthrough": true]]),
@@ -114,6 +208,7 @@ enum Harness {
                 .init(id: 1, visible: false, contentKind: kind, colorBlendMode: 1)])
         }
         let result: [String: Any] = [
+            "sourceRoutes": sourceRoutes(),
             "kinds": parsed.map { $0?.kind.rawValue ?? "none" },
             "copyBackground": parsed.map { $0?.copyBackground ?? false },
             "passthrough": parsed.map { $0?.passthrough ?? false },
@@ -153,6 +248,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
         cls.binary = directory / "scene-utility-layers"
         subprocess.run(
             ["xcrun", "--sdk", "macosx", "swiftc", str(SOURCE),
+             str(SOURCE_ROUTE_SOURCE),
+             str(SOURCE_ROOT / "Format/SceneObjectDependency.swift"),
+             str(SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift"),
              str(SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift"),
              str(SOURCE_ROOT / "Rendering/Geometry/SceneLayerVisibility.swift"),
              str(SOURCE_ROOT / "Rendering/Composition/SceneBlendModeShaderSource.swift"),
@@ -179,6 +277,32 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_composition_background_default_and_explicit_flags(self) -> None:
         self.assertEqual(self.result["copyBackground"], [True, True, False, False, False, False, True])
         self.assertEqual(self.result["passthrough"], [True, False, False, False, False, False, False])
+
+    def test_named_sampler_dependencies_do_not_become_composition_main_source(self) -> None:
+        routes = self.result["sourceRoutes"]
+        for name, owner in (("empty", 20), ("flat", 20), ("authored", 20), ("both", 20),
+                            ("hidden-provider", 20),
+                            ("renamed-901", 901), ("renamed-73", 73)):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {"trigger": owner, "isolated": True,
+                                                "capturesSubtree": False, "members": []})
+
+    def test_background_passthrough_and_other_utilities_keep_readable_source(self) -> None:
+        for name in ("background", "passthrough", "project", "fullscreen"):
+            with self.subTest(route=name):
+                self.assertEqual(self.result["sourceRoutes"][name], {
+                    "trigger": 20, "isolated": False, "capturesSubtree": False, "members": []})
+
+    def test_isolated_source_keeps_group_membership_and_external_dependency_guards(self) -> None:
+        routes = self.result["sourceRoutes"]
+        self.assertEqual(routes["children"], {"trigger": 20, "isolated": True,
+                                               "capturesSubtree": True, "members": [21]})
+        for name in ("child-flat", "child-authored", "child-both", "duplicate-id",
+                     "duplicate-order", "unlisted-child", "missing-child",
+                     "duplicate-child", "wrong-parent", "cycle"):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
+        self.assertEqual(routes["utility-kind"], {"failure": "utility-shape"})
 
     def test_hidden_advanced_blend_reserves_readable_drawable_usage(self) -> None:
         self.assertEqual(self.result["hiddenAdvancedBlend"],

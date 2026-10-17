@@ -88,7 +88,7 @@ extension SceneMetalRenderer {
     /// source payloads; optional reflection resolves completed history separately.
     func makeScenePass(target: MTLTexture, clearEnabled: Bool,
                        dynamicValues: SceneDynamicSnapshot,
-                       pool: SceneOffscreenTexturePool?, visibleLayerIDs: Set<Int>,
+                       pool: SceneOffscreenTexturePool?,
                        viewportSize: CGSize, commandBuffer: MTLCommandBuffer,
                        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution)
         -> (SceneMainPassEncoder, SceneCompositionGroupFrameRuntime?) {
@@ -102,7 +102,6 @@ extension SceneMetalRenderer {
                 membersByRootID: utilityExecution.membersByRootID, viewportSize: viewportSize,
                 copyBackgroundRootIDs: utilityExecution.copyBackgroundRootIDs)
         }
-        groups?.reserveSources(orderedRootIDs: utilityExecution.orderedRootIDs, visibleLayerIDs: visibleLayerIDs)
         return (mainPass, groups)
     }
 

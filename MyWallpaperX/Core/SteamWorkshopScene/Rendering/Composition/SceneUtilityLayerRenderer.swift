@@ -23,7 +23,7 @@ enum SceneUtilityLayerRenderer {
         offscreenTexturePool: SceneOffscreenTexturePool,
         mainPass: SceneMainPassEncoder,
         resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil,
-        isolatedGroupSource: (texture: MTLTexture, pixelSize: CGSize)? = nil,
+        isolatedGroupSource: MTLTexture? = nil,
         captureMVP: simd_float4x4? = nil,
         executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bool {
@@ -36,27 +36,26 @@ enum SceneUtilityLayerRenderer {
         case .project: executionOrigin = .utilityProject
         case .fullscreen: executionOrigin = .utilityFullscreen
         }
-        // The group's initialized target is the
-        // effect-chain source. Members already encoded their content there
-        // in authored relative order; the composite is a single 1:1 draw of
-        // that target through the root effect chain into the enclosing pass,
-        // so no main-target capture and no source copy apply.
+        guard let geometry = SceneCaptureGeometryResolver.resolve(
+            kind: plan.kind,
+            layerMVP: layerMVP,
+            viewportSize: viewportSize,
+            captureMVP: captureMVP,
+            compositionSourceMemberLayerIDs: plan.isolatedGroupMembers,
+            authoredRenderSizeWH: layer.renderSizeWH
+        ) else { return false }
+        // Only an already drawn member source uses viewport coordinates.
+        // Empty transparent sources retain local effect and output geometry.
         if let isolatedGroupSource {
-            guard isolatedGroupSource.pixelSize.width.isFinite,
-                  isolatedGroupSource.pixelSize.width > 0,
-                  isolatedGroupSource.pixelSize.height.isFinite,
-                  isolatedGroupSource.pixelSize.height > 0,
-                  let effectSourceExtent = SceneLayerEffectSourceExtent(
-                      pixelSize: isolatedGroupSource.pixelSize
-                  ) else {
-                return false
-            }
+            guard let effectSourceExtent = SceneLayerEffectSourceExtent(
+                pixelSize: geometry.pixelSize
+            ) else { return false }
             let request = SceneImageLayerDrawRequest(
                 layer: layer,
-                texture: isolatedGroupSource.texture,
+                texture: isolatedGroupSource,
                 masks: masks,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                textureFrame: geometry.sourceUV,
+                mvp: geometry.outputMVP,
                 uniforms: SceneImageLayerUniformValues(
                     time: time,
                     alpha: 1,
@@ -81,14 +80,6 @@ enum SceneUtilityLayerRenderer {
                 executionTrace: executionTrace,
                 executionOrigin: executionOrigin
             )
-        }
-        guard let geometry = SceneCaptureGeometryResolver.resolve(
-                  kind: plan.kind,
-                  layerMVP: layerMVP,
-                  viewportSize: viewportSize,
-                  captureMVP: captureMVP
-              ) else {
-            return false
         }
         return mainPass.withReadableTarget { sourceTexture, _ in
             var request = SceneImageLayerDrawRequest(

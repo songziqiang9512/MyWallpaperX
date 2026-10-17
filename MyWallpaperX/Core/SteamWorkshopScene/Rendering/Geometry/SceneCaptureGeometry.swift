@@ -101,13 +101,18 @@ enum SceneCaptureGeometryResolver {
         kind: SceneUtilityLayer.Kind,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
-        captureMVP: simd_float4x4? = nil
+        captureMVP: simd_float4x4? = nil,
+        compositionSourceMemberLayerIDs: [Int]? = nil,
+        authoredRenderSizeWH: [Float]? = nil
     ) -> SceneCaptureGeometry? {
         guard viewportSize.width.isFinite, viewportSize.height.isFinite,
               viewportSize.width > 0, viewportSize.height > 0 else {
             return nil
         }
-        if kind == .fullscreen {
+        // Members already occupy enclosing viewport coordinates. Empty
+        // transparent inputs instead retain the utility's authored local quad.
+        if kind == .fullscreen || (kind == .composition
+            && compositionSourceMemberLayerIDs?.isEmpty == false) {
             return SceneCaptureGeometry(
                 sourceUV: .identity,
                 outputMVP: fullTargetMVP,
@@ -121,10 +126,23 @@ enum SceneCaptureGeometryResolver {
               let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: sourceMVP) else {
             return nil
         }
-        guard let pixelSize = projectedPixelSize(
-            layerMVP: sourceMVP,
-            viewportSize: viewportSize
-        ) else { return nil }
+        let pixelSize: CGSize
+        if kind == .composition, compositionSourceMemberLayerIDs?.isEmpty == true,
+           let authoredRenderSizeWH {
+            // Transparent procedural input has authored local pixels, not
+            // the aspect of its projected screen footprint.
+            guard let extent = SceneLayerEffectSourceExtent.resolve(
+                publishedRenderSizeWH: nil, authoredRenderSizeWH: authoredRenderSizeWH,
+                candidateMappedSize: nil
+            ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
+               Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
+            pixelSize = extent.pixelSize
+        } else {
+            guard let projected = projectedPixelSize(
+                layerMVP: sourceMVP, viewportSize: viewportSize
+            ) else { return nil }
+            pixelSize = projected
+        }
 
         return SceneCaptureGeometry(
             sourceUV: SceneTextureUVTransform(

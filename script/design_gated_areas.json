@@ -97,7 +97,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "design_notes": "2026-10-04 固定官方自有黑盒批准普通 composition parent 组、根位置合成、copybackground 缺省/true 纳入 enclosing 背景及 false 透明源；按现有 pool/graph/compositor 实施。passthrough、特殊变换/裁切和完整 parity 未批准；approved 不是已实现。 2026-10-16 D1追加无parent/成员/依赖、copybackground=true且非passthrough的composition：flat采集与perspective回绘分离，共用现camera/world/pool/compositor，cursor用输出矩阵；group及其他utility不扩，官方正控制不预支原包验收。",
+      "design_notes": "2026-10-04 固定官方自有黑盒批准普通 composition parent 组、根位置合成、copybackground 缺省/true 纳入 enclosing 背景及 false 透明源；按现有 pool/graph/compositor 实施。passthrough、特殊变换/裁切和完整 parity 未批准；approved 不是已实现。 2026-10-16 D1追加无parent/成员/依赖、copybackground=true且非passthrough的composition：flat采集与perspective回绘分离，共用现camera/world/pool/compositor，cursor用输出矩阵；group及其他utility不扩，官方正控制不预支原包验收。 2026-10-18 D1修正空透明composition：named输入不请求复制背景；nil/空/非空prepared membership分别保背景采集、本地author extent/输出、成员viewport 1:1。source预留在现dependency demand后执行一次，只有被demand的无成员透明输入可补预留，既有资源/graph/compositor owner不变；坏尺寸与整数溢出局部拒绝。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
       ],
