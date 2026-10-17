@@ -103,8 +103,6 @@ final class AppKitSettingsContainerView: NSView {
     let sceneMediaInfoSwitch = NSSwitch()
     private var sceneMediaAuthorizationCheckID = UUID()
     let systemAudioSpectrumSwitch = NSSwitch()
-    let systemAudioSpectrumStylePopup = NSPopUpButton()
-    let systemAudioSpectrumSensitivityPopup = NSPopUpButton()
     let systemAudioSpectrumBarCountPopup = NSPopUpButton()
     let systemAudioSpectrumColorWell = NSColorWell()
     let systemAudioSpectrumOffsetXSlider = NSSlider(value: 0, minValue: -30, maxValue: 30, target: nil, action: nil)
@@ -243,15 +241,11 @@ final class AppKitSettingsContainerView: NSView {
         syncSystemWallpaperSwitch.state = settings.syncSystemWallpaper ? .on : .off
         systemAudioSpectrumSwitch.state = settings.systemAudioSpectrumEnabled ? .on : .off
         systemAudioSpectrumOptionsContainer?.isHidden = !settings.systemAudioSpectrumEnabled
-        systemAudioSpectrumStylePopup.isEnabled = settings.systemAudioSpectrumEnabled
-        systemAudioSpectrumSensitivityPopup.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumBarCountPopup.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumColorWell.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumOffsetXSlider.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumOffsetYSlider.isEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumPeakCapsSwitch.isEnabled = settings.systemAudioSpectrumEnabled
-        selectSystemAudioSpectrumStyle(settings.systemAudioSpectrumStyle)
-        selectSystemAudioSpectrumSensitivity(settings.systemAudioSpectrumSensitivity)
         selectSystemAudioSpectrumBarCount(settings.systemAudioSpectrumBarCount)
         systemAudioSpectrumColorWell.color = color(fromHex: settings.systemAudioSpectrumColorHex) ?? .white
         systemAudioSpectrumOffsetXSlider.doubleValue = settings.systemAudioSpectrumOffsetX * 100
@@ -419,10 +413,6 @@ final class AppKitSettingsContainerView: NSView {
         sceneMediaInfoSwitch.action = #selector(handleSceneMediaInfoToggle)
         systemAudioSpectrumSwitch.target = self
         systemAudioSpectrumSwitch.action = #selector(handleSystemAudioSpectrumToggle)
-        systemAudioSpectrumStylePopup.target = self
-        systemAudioSpectrumStylePopup.action = #selector(handleSystemAudioSpectrumStyleChange)
-        systemAudioSpectrumSensitivityPopup.target = self
-        systemAudioSpectrumSensitivityPopup.action = #selector(handleSystemAudioSpectrumSensitivityChange)
         systemAudioSpectrumBarCountPopup.target = self
         systemAudioSpectrumBarCountPopup.action = #selector(handleSystemAudioSpectrumBarCountChange)
         systemAudioSpectrumColorWell.target = self
@@ -633,7 +623,7 @@ final class AppKitSettingsContainerView: NSView {
         // The producer owns first-time consent. This user action only checks
         // whether a previous refusal needs a System Settings recovery path.
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard case .denied = SceneMusicPlayerSource.silentAuthorization(pid: pid) else { return }
+            guard case .denied = SystemMusicPlayerSource.silentAuthorization(pid: pid) else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.sceneMediaAuthorizationCheckID == checkID,
                       SceneMediaSourcePreference.isEnabled, let window = self.window, window.isVisible else { return }
@@ -673,18 +663,6 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.systemAudioSpectrumEnabled = (systemAudioSpectrumSwitch.state == .on)
     }
 
-    @objc private func handleSystemAudioSpectrumStyleChange() {
-        guard !isUpdatingUI else { return }
-        guard let style = systemAudioSpectrumStylePopup.selectedItem?.representedObject as? SystemAudioSpectrumStyle else { return }
-        dependency.settings.systemAudioSpectrumStyle = style
-    }
-
-    @objc private func handleSystemAudioSpectrumSensitivityChange() {
-        guard !isUpdatingUI else { return }
-        guard let sensitivity = systemAudioSpectrumSensitivityPopup.selectedItem?.representedObject as? SystemAudioSpectrumSensitivity else { return }
-        dependency.settings.systemAudioSpectrumSensitivity = sensitivity
-    }
-
     @objc private func handleSystemAudioSpectrumBarCountChange() {
         guard !isUpdatingUI else { return }
         guard let barCount = systemAudioSpectrumBarCountPopup.selectedItem?.representedObject as? Int else { return }
@@ -712,18 +690,6 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleSystemHotkeysToggle() {
         guard !isUpdatingUI else { return }
         dependency.settings.systemHotkeysEnabled = (systemHotkeysSwitch.state == .on)
-    }
-
-    private func selectSystemAudioSpectrumStyle(_ style: SystemAudioSpectrumStyle) {
-        if let item = systemAudioSpectrumStylePopup.itemArray.first(where: { ($0.representedObject as? SystemAudioSpectrumStyle) == style }) {
-            systemAudioSpectrumStylePopup.select(item)
-        }
-    }
-
-    private func selectSystemAudioSpectrumSensitivity(_ sensitivity: SystemAudioSpectrumSensitivity) {
-        if let item = systemAudioSpectrumSensitivityPopup.itemArray.first(where: { ($0.representedObject as? SystemAudioSpectrumSensitivity) == sensitivity }) {
-            systemAudioSpectrumSensitivityPopup.select(item)
-        }
     }
 
     private func selectSystemAudioSpectrumBarCount(_ barCount: Int) {

@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift"
+SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaArtworkPalette.swift"
 
 HARNESS = r'''
 import CoreGraphics
@@ -89,8 +89,8 @@ nonisolated enum PaletteCases {
         return (max(a, b) + 0.05) / (min(a, b) + 0.05)
     }
 
-    static func extract(_ data: Data) -> SceneMediaArtworkPalette {
-        guard let palette = SceneMediaArtworkPalette.extract(from: data) else {
+    static func extract(_ data: Data) -> SystemMediaArtworkPalette {
+        guard let palette = SystemMediaArtworkPalette.extract(from: data) else {
             preconditionFailure("owned valid PNG rejected")
         }
         let colors = [palette.primaryColor, palette.secondaryColor, palette.tertiaryColor,
@@ -181,22 +181,22 @@ nonisolated enum PaletteCases {
             // as already encoded sRGB bytes.
             close(palette.primaryColor, SIMD3<Double>(0.538, 0.737, 0.882))
         case "bounds":
-            precondition(SceneMediaArtworkPalette.extract(from: Data()) == nil)
-            precondition(SceneMediaArtworkPalette.extract(from: Data("not an image".utf8)) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: Data()) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: Data("not an image".utf8)) == nil)
             let small = Fixtures.regions([(Fixtures.red, 1)])
-            precondition(SceneMediaArtworkPalette.extract(from: small.prefix(16)) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: small.prefix(16)) == nil)
             let maximumBytes = 16 * 1_024 * 1_024
             var boundary = small
             boundary.append(Data(count: maximumBytes - boundary.count))
             close(extract(boundary).primaryColor, red)
             boundary.append(0)
-            precondition(SceneMediaArtworkPalette.extract(from: boundary) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: boundary) == nil)
             _ = extract(Fixtures.grayPNG(width: 8_192, height: 1))
             _ = extract(Fixtures.grayPNG(width: 1, height: 8_192))
-            precondition(SceneMediaArtworkPalette.extract(from: Fixtures.grayPNG(width: 8_193, height: 1)) == nil)
-            precondition(SceneMediaArtworkPalette.extract(from: Fixtures.grayPNG(width: 1, height: 8_193)) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: Fixtures.grayPNG(width: 8_193, height: 1)) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: Fixtures.grayPNG(width: 1, height: 8_193)) == nil)
             _ = extract(Fixtures.grayPNG(width: 4_096, height: 4_096))
-            precondition(SceneMediaArtworkPalette.extract(from: Fixtures.grayPNG(width: 4_096, height: 4_097)) == nil)
+            precondition(SystemMediaArtworkPalette.extract(from: Fixtures.grayPNG(width: 4_096, height: 4_097)) == nil)
         default:
             preconditionFailure("unknown palette fixture")
         }
@@ -217,7 +217,7 @@ struct PaletteHarness {
 '''
 
 
-class SceneMediaArtworkPaletteTests(unittest.TestCase):
+class SystemMediaArtworkPaletteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if shutil.which("swiftc") is None or shutil.which("xcrun") is None:

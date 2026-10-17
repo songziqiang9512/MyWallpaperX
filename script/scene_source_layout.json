@@ -586,8 +586,11 @@
         "file_globs": [
           "SceneDaemonClient+DisplayConfiguration.swift",
           "SceneDaemonClient+Events.swift",
+          "SceneDaemonClient+SystemMedia.swift",
           "SceneDaemonClient+UserTextures.swift",
           "SceneDaemonClient.swift",
+          "SceneDaemonMediaProtocol.swift",
+          "SceneDaemonMediaReceiver.swift",
           "SceneDaemonProtocol.swift",
           "SceneDaemonRuntime.swift"
         ],
@@ -647,14 +650,10 @@
       "Media": {
         "file_globs": [
           "SceneAudioSpectrum.swift",
-          "SceneMediaArtworkPalette.swift",
           "SceneMediaThumbnailCoordinator.swift",
           "SceneMediaThumbnailInbox.swift",
-          "SceneMusicPlayerSource.swift",
           "SceneSoundPlaybackProgram.swift",
-          "SceneSoundPlaybackRegistry.swift",
-          "SceneSystemMediaProvider.swift",
-          "SceneSystemMediaSource.swift"
+          "SceneSoundPlaybackRegistry.swift"
         ],
         "responsibility": "Media: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
       },

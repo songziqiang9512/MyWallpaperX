@@ -12,8 +12,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaSource.swift"
-PALETTE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift"
+SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSource.swift"
+PALETTE = ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaArtworkPalette.swift"
 FRAMING = ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift"
 
 FIXTURE = r'''
@@ -52,7 +52,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-typealias Endpoint = SceneSystemMediaSource
+typealias Endpoint = SystemMediaSource
 typealias Failure = Endpoint.Failure
 
 @main
@@ -114,8 +114,8 @@ struct SystemMediaHarness {
         var fresh = Endpoint.Decoder()
         reject(.inheritedArtworkWithoutMatchingTrack) { _ = try fresh.decode(json(inherited)) }
         let redPNG = ownedPNG([255, 0, 0]), bluePNG = ownedPNG([0, 0, 255])
-        let redPalette = SceneMediaArtworkPalette.extract(from: redPNG)!
-        let bluePalette = SceneMediaArtworkPalette.extract(from: bluePNG)!
+        let redPalette = SystemMediaArtworkPalette.extract(from: redPNG)!
+        let bluePalette = SystemMediaArtworkPalette.extract(from: bluePNG)!
         var imageWire = good; imageWire["artworkData"] = redPNG.base64EncodedString()
         if case .snapshot(let value) = try decoder.decode(json(imageWire)) {
             check(value.artworkData == redPNG && value.artworkPalette == redPalette)
@@ -277,7 +277,7 @@ struct SystemMediaHarness {
 '''
 
 
-class SceneSystemMediaSourceTests(unittest.TestCase):
+class SystemMediaSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if shutil.which("swiftc") is None or shutil.which("xcrun") is None:

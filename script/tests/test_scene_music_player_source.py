@@ -12,8 +12,8 @@ import unittest
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMusicPlayerSource.swift"
-PALETTE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift"
+SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMusicPlayerSource.swift"
+PALETTE = ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaArtworkPalette.swift"
 SDEF = Path("/System/Applications/Music.app/Contents/Resources/com.apple.Music.sdef")
 
 HARNESS = r'''
@@ -22,7 +22,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-typealias Failure = SceneMusicPlayerSource.Failure
+typealias Failure = SystemMusicPlayerSource.Failure
 
 @main
 nonisolated struct MusicSourceHarness {
@@ -68,9 +68,9 @@ nonisolated struct MusicSourceHarness {
             catch let error as Failure { check(error == expected) }
             catch { preconditionFailure("unexpected failure: \(error)") }
         }
-        let codec = SceneMusicPlayerSource.Codec.self
-        check(SceneMusicPlayerSource.silentAuthorization(pid: 0) == .unavailable(.invalidPID))
-        if case .failure(.invalidPID) = SceneMusicPlayerSource.read(pid: 0) { check(true) }
+        let codec = SystemMusicPlayerSource.Codec.self
+        check(SystemMusicPlayerSource.silentAuthorization(pid: 0) == .unavailable(.invalidPID))
+        if case .failure(.invalidPID) = SystemMusicPlayerSource.read(pid: 0) { check(true) }
         else { preconditionFailure("invalid PID must fail without a native query") }
         let track = try codec.property(codec.currentTrack)
         let title = try codec.property(codec.title, container: track)
@@ -86,9 +86,9 @@ nonisolated struct MusicSourceHarness {
         let request = codec.request(title, target: NSAppleEventDescriptor(processIdentifier: 123))
         check(request.eventClass == kAECoreSuite && request.eventID == kAEGetData)
         check(request.paramDescriptor(forKeyword: keyDirectObject)?.descriptorType == typeObjectSpecifier)
-        check((SceneMusicPlayerSource.sendOptions.rawValue & UInt(kAEDoNotPromptForUserConsent)) != 0)
-        check((SceneMusicPlayerSource.sendOptions.rawValue & UInt(kAENeverInteract)) != 0)
-        check((SceneMusicPlayerSource.sendOptions.rawValue & UInt(kAECanSwitchLayer)) == 0)
+        check((SystemMusicPlayerSource.sendOptions.rawValue & UInt(kAEDoNotPromptForUserConsent)) != 0)
+        check((SystemMusicPlayerSource.sendOptions.rawValue & UInt(kAENeverInteract)) != 0)
+        check((SystemMusicPlayerSource.sendOptions.rawValue & UInt(kAECanSwitchLayer)) == 0)
         check(codec.isMissing(.null()))
         check(codec.isMissing(NSAppleEventDescriptor(typeCode: codec.code("msng"))))
         check(!codec.isMissing(NSAppleEventDescriptor(string: "")))
@@ -137,7 +137,7 @@ nonisolated struct MusicSourceHarness {
             "artwork": .null(), "currentTrack.after": track, "persistentID.after": NSAppleEventDescriptor(string: "AA11"),
         ]
         var order: [String] = []
-        let result = try SceneMusicPlayerSource.Transaction.read(pid: 123) { object, phase in
+        let result = try SystemMusicPlayerSource.Transaction.read(pid: 123) { object, phase in
             check(object.descriptorType == typeObjectSpecifier)
             if phase == "albumArtist" {
                 check(object.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue == codec.albumArtist)
@@ -157,7 +157,7 @@ nonisolated struct MusicSourceHarness {
         check(order[5] == "albumArtist")
         for missing in [NSAppleEventDescriptor(string: ""), .null(),
                         NSAppleEventDescriptor(typeCode: codec.code("msng"))] {
-            let optional = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            let optional = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "albumArtist" ? missing : good[phase]!
             }
             if case .snapshot(let value) = optional {
@@ -166,7 +166,7 @@ nonisolated struct MusicSourceHarness {
         }
         for status in [Int32(errAENoSuchObject), Int32(errAEEventNotHandled)] {
             var finalIdentityChecked = false
-            let unsupported = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            let unsupported = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 if phase == "albumArtist" { throw Failure.appleEvent(status: status, phase: phase) }
                 if phase == "persistentID.after" { finalIdentityChecked = true }
                 return good[phase]!
@@ -179,7 +179,7 @@ nonisolated struct MusicSourceHarness {
                         NSAppleEventDescriptor(string: "bad\nartist"),
                         NSAppleEventDescriptor(string: String(repeating: "a", count: 4097))] {
             reject(.malformed(phase: "albumArtist")) {
-                _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                     phase == "albumArtist" ? invalid : good[phase]!
                 }
             }
@@ -194,7 +194,7 @@ nonisolated struct MusicSourceHarness {
         ]
         for failure in optionalFailures {
             reject(failure) {
-                _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                     if phase == "albumArtist" { throw failure }
                     return good[phase]!
                 }
@@ -203,7 +203,7 @@ nonisolated struct MusicSourceHarness {
         for optionalMissing in [false, true] {
             var changedDuringOptionalRead = false
             reject(.changedTrack) {
-                _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                     if phase == "albumArtist" {
                         changedDuringOptionalRead = true
                         if optionalMissing { throw Failure.appleEvent(status: Int32(errAENoSuchObject), phase: phase) }
@@ -215,39 +215,39 @@ nonisolated struct MusicSourceHarness {
             check(changedDuringOptionalRead)
         }
         reject(.changedTrack) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "persistentID.after" ? NSAppleEventDescriptor(string: "BB22") : good[phase]!
             }
         }
-        let noArt = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+        let noArt = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
             if phase == "artwork" { throw Failure.appleEvent(status: Int32(errAENoSuchObject), phase: phase) }
             return good[phase]!
         }
         if case .snapshot(let value) = noArt { check(value.artworkData == nil) }
         else { preconditionFailure("expected track without artwork") }
         reject(.permissionBlocked(status: Int32(errAEEventNotPermitted), phase: "artwork")) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 if phase == "artwork" { throw Failure.permissionBlocked(status: Int32(errAEEventNotPermitted), phase: phase) }
                 return good[phase]!
             }
         }
-        let empty = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+        let empty = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
             phase == "playerState" ? NSAppleEventDescriptor(enumCode: codec.code("kPSS")) : .null()
         }
         if case .noSession = empty { check(true) }
         else { preconditionFailure("expected explicit no session") }
         reject(.changedTrack) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 if phase == "currentTrack.after" { return track }
                 return phase == "playerState" ? NSAppleEventDescriptor(enumCode: codec.code("kPSS")) : .null()
             }
         }
         reject(.appleEvent(status: Int32(errAENoSuchObject), phase: "currentTrack.before")) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 throw Failure.appleEvent(status: Int32(errAENoSuchObject), phase: phase)
             }
         }
-        for (state, value) in [(SceneMusicPlayerSource.PlaybackState.stopped, 0),
+        for (state, value) in [(SystemMusicPlayerSource.PlaybackState.stopped, 0),
                                (.playing, 1), (.paused, 2), (.fastForwarding, 1), (.rewinding, 1)] {
             check(state.inboxValue == value)
         }
@@ -264,9 +264,9 @@ nonisolated struct MusicSourceHarness {
         reject(.malformed(phase: "title.errorNumber")) { _ = try codec.replyValue(invalidReply, phase: "title") }
         var artCalls = 0
         let redPNG = ownedPNG([255, 0, 0]), bluePNG = ownedPNG([0, 0, 255])
-        let redPalette = SceneMediaArtworkPalette.extract(from: redPNG)!
-        let bluePalette = SceneMediaArtworkPalette.extract(from: bluePNG)!
-        func checkFiveColors(_ palette: SceneMediaArtworkPalette) {
+        let redPalette = SystemMediaArtworkPalette.extract(from: redPNG)!
+        let bluePalette = SystemMediaArtworkPalette.extract(from: bluePNG)!
+        func checkFiveColors(_ palette: SystemMediaArtworkPalette) {
             for color in [palette.primaryColor, palette.secondaryColor, palette.tertiaryColor,
                           palette.textColor, palette.highContrastColor] {
                 check((0..<3).allSatisfy { color[$0].isFinite && (0...1).contains(color[$0]) })
@@ -279,7 +279,7 @@ nonisolated struct MusicSourceHarness {
         check(bluePalette.primaryColor == SIMD3<Double>(0, 0, 1))
         check(bluePalette.textColor == SIMD3<Double>(repeating: 1)
             && bluePalette.highContrastColor == SIMD3<Double>(repeating: 1))
-        let freshPNG = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+        let freshPNG = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
             phase == "artwork" ? NSAppleEventDescriptor(descriptorType: typeData, data: redPNG)! : good[phase]!
         }
         if case .snapshot(let value) = freshPNG {
@@ -289,7 +289,7 @@ nonisolated struct MusicSourceHarness {
         // Deliberately pass a differently colored cached palette. Returning it
         // proves a same-track cache hit does not extract from the bytes again.
         var albumArtistReads = 0
-        let cachedPNG = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+        let cachedPNG = try SystemMusicPlayerSource.Transaction.read(pid: 123,
             cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: redPNG,
             cachedArtworkPalette: bluePalette) { _, phase in
             if phase == "artwork" { artCalls += 1 }
@@ -303,7 +303,7 @@ nonisolated struct MusicSourceHarness {
         } else { preconditionFailure("expected cached image palette") }
         for identity in ["com.apple.Music:999:AA11", "com.apple.Music:123:BB22"] {
             artCalls = 0
-            let newTrack = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+            let newTrack = try SystemMusicPlayerSource.Transaction.read(pid: 123,
                 cachedArtworkIdentity: identity, cachedArtworkData: redPNG,
                 cachedArtworkPalette: redPalette) { _, phase in
                 if phase == "artwork" { artCalls += 1; return NSAppleEventDescriptor(descriptorType: typeData, data: bluePNG)! }
@@ -316,7 +316,7 @@ nonisolated struct MusicSourceHarness {
         }
         artCalls = 0
         let cacheBytes = Data([7, 8, 9])
-        let cacheHit = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+        let cacheHit = try SystemMusicPlayerSource.Transaction.read(pid: 123,
             cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: cacheBytes) { _, phase in
             if phase == "artwork" { artCalls += 1 }
             return good[phase]!
@@ -330,7 +330,7 @@ nonisolated struct MusicSourceHarness {
                                   ("com.apple.Music:123:AA11", nil),
                                   ("com.apple.Music:123:AA11", Optional(Data()))] {
             artCalls = 0
-            let result = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+            let result = try SystemMusicPlayerSource.Transaction.read(pid: 123,
                 cachedArtworkIdentity: identity, cachedArtworkData: bytes) { _, phase in
                 if phase == "artwork" { artCalls += 1 }
                 return good[phase]!
@@ -339,7 +339,7 @@ nonisolated struct MusicSourceHarness {
             else { preconditionFailure("expected fresh art read") }
         }
         reject(.changedTrack) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123,
                 cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: cacheBytes) { _, phase in
                 phase == "persistentID.after" ? NSAppleEventDescriptor(string: "BB22") : good[phase]!
             }
@@ -348,7 +348,7 @@ nonisolated struct MusicSourceHarness {
             data: Data(count: codec.maximumArtworkBytes + 1))!
         for (art, issue) in [(oversize, Failure.malformed(phase: "artwork.byteBudget")),
                              (NSAppleEventDescriptor.record(), Failure.malformed(phase: "artwork"))] {
-            let result = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            let result = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "artwork" ? art : good[phase]!
             }
             if case .snapshot(let value) = result {
@@ -356,7 +356,7 @@ nonisolated struct MusicSourceHarness {
                 check(value.artworkPalette == nil)
             } else { preconditionFailure("art failure must stay local") }
         }
-        let badImage = try SceneMusicPlayerSource.Transaction.read(pid: 123,
+        let badImage = try SystemMusicPlayerSource.Transaction.read(pid: 123,
             cachedArtworkIdentity: "com.apple.Music:123:BB22", cachedArtworkData: redPNG,
             cachedArtworkPalette: redPalette) { _, phase in
             phase == "artwork" ? NSAppleEventDescriptor(descriptorType: typeData, data: cacheBytes)! : good[phase]!
@@ -366,18 +366,18 @@ nonisolated struct MusicSourceHarness {
             check(value.artworkData == cacheBytes && value.artworkPalette == nil)
         } else { preconditionFailure("bad image must not discard metadata or inherit old colors") }
         reject(.malformed(phase: "title")) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "title" ? NSAppleEventDescriptor(string: String(repeating: "x", count: 4097)) : good[phase]!
             }
         }
         reject(.timeout(phase: "duration")) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 if phase == "duration" { throw Failure.timeout(phase: phase) }
                 return good[phase]!
             }
         }
         reject(.changedTrack) {
-            _ = try SceneMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
                 phase == "currentTrack.after" ? .null() : good[phase]!
             }
         }
@@ -386,14 +386,14 @@ nonisolated struct MusicSourceHarness {
             "duration": codec.duration, "playerState": codec.playerState,
             "position": codec.position, "rawData": codec.rawData, "artworkClass": codec.artworkClass]
         printJSON(["result": "PASS", "checks": checks, "nativeQueries": 0, "workerThread": !Thread.isMainThread,
-                   "perEventTimeout": SceneMusicPlayerSource.perEventTimeout,
-                   "overallTimeout": SceneMusicPlayerSource.overallTimeout, "selectors": selectors])
+                   "perEventTimeout": SystemMusicPlayerSource.perEventTimeout,
+                   "overallTimeout": SystemMusicPlayerSource.overallTimeout, "selectors": selectors])
     }
 }
 '''
 
 
-class SceneMusicPlayerSourceTests(unittest.TestCase):
+class SystemMusicPlayerSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if shutil.which("swiftc") is None:

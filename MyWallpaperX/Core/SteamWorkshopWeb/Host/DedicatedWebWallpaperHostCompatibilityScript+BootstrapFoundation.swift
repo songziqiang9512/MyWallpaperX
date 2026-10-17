@@ -62,9 +62,8 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       throw error;
     });
   };
-  // 官方语义：media status 的 enabled 表示"用户是否启用媒体集成选项"（宿主
-  // 设置），与页面是否存在媒体节点无关；宿主当前没有该开关，缺省恒 true。
-  const wallpaperMediaIntegrationEnabled = () => window.__myWallpaperMediaIntegrationEnabled !== false;
+  // 系统歌曲状态只由宿主快照发布。首份快照之前关闭，不能把页面背景音冒充系统歌曲。
+  const wallpaperMediaIntegrationEnabled = () => window.__myWallpaperMediaIntegrationEnabled === true;
   // 本脚本按 frame 注入（见 Host+Surface 的注入面），只有顶层 frame 具有
   // 屏幕级语义：就绪信号与自动交互区域登记都只由顶层 frame 发出。
   const wallpaperIsTopFrame = (() => {
@@ -129,6 +128,12 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     if (window.__myWallpaperHostFrameEndpointToken !== expectedToken) {
       throw new Error('endpoint-token-mismatch');
     }
+    // A legacy author can retain the original listener object and mutate/delete
+    // callbacks later without touching window again. The existing host lease
+    // heartbeat closes that observation gap; no page polling timer is added.
+    if (typeof window.__myWallpaperReportMediaDemand === 'function') {
+      window.__myWallpaperReportMediaDemand(false);
+    }
     return true;
   };
   // 宿主回包可达性（D5 活判据）：主 frame 走宿主默认求值面，恒可达；子 frame
@@ -183,11 +188,6 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     timeline: { position: 0, duration: 0 },
     playback: { state: mediaPlaybackConstants.PLAYBACK_STOPPED }
   };
-  const wallpaperHasMediaThumbnail = (payload) => (
-    payload &&
-    typeof payload.thumbnail === 'string' &&
-    payload.thumbnail.trim().length > 0
-  );
   window.__myWallpaperDirectoryState = window.__myWallpaperDirectoryState || {};
   window.__myWallpaperLastUserProperties = window.__myWallpaperInitialUserProperties || window.__myWallpaperLastUserProperties || {};
   window.__myWallpaperLastGeneralProperties = window.__myWallpaperInitialGeneralProperties || window.__myWallpaperLastGeneralProperties || {};
@@ -336,9 +336,125 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       volumeListeners.push(listener);
     }
   };
+  let wallpaperLastMediaDemand = '';
+  const wallpaperLegacyMediaChannels = {
+    updateMediaStatus: 'status', updateMediaProperties: 'properties',
+    updateMediaThumbnail: 'thumbnail', updateMediaTimeline: 'timeline', updateMediaPlayback: 'playback'
+  };
+  const wallpaperLegacyMediaHooks = new WeakMap();
+  const wallpaperLastLegacyMediaCallbacks = new Map();
+  let wallpaperLastLegacyMediaObject = null;
+  const wallpaperObserveLegacyMediaObject = (legacy) => {
+    if (!legacy || typeof legacy !== 'object') return;
+    let hooks = wallpaperLegacyMediaHooks.get(legacy);
+    if (!hooks) { hooks = new Map(); wallpaperLegacyMediaHooks.set(legacy, hooks); }
+    for (const name of Object.keys(wallpaperLegacyMediaChannels)) {
+      try {
+        const descriptor = Object.getOwnPropertyDescriptor(legacy, name);
+        const installed = hooks.get(name);
+        if (descriptor && installed && descriptor.get === installed.get && descriptor.set === installed.set) continue;
+        if (descriptor && descriptor.configurable === false) continue;
+        // Keep inherited accessors/properties untouched; the lease challenge
+        // handles changes which cannot be intercepted on this object safely.
+        if (!descriptor && name in legacy) continue;
+        const isAccessor = descriptor && ('get' in descriptor || 'set' in descriptor);
+        let storedValue = descriptor ? descriptor.value : undefined;
+        const get = isAccessor ? descriptor.get : function() { return storedValue; };
+        let set;
+        if (isAccessor ? descriptor.set : (!descriptor || descriptor.writable !== false)) {
+          set = function(value) {
+            if (isAccessor) descriptor.set.call(this, value);
+            else storedValue = value;
+            if (!descriptor) {
+              // A formerly absent callback becomes enumerable on its first
+              // assignment, as an ordinary author-created property would.
+              Object.defineProperty(legacy, name, { configurable: true, enumerable: true, get, set });
+            }
+            wallpaperRefreshMediaDemand();
+          };
+        }
+        Object.defineProperty(legacy, name, {
+          configurable: true, enumerable: descriptor ? descriptor.enumerable : false, get, set
+        });
+        hooks.set(name, { get, set });
+      } catch (_) {}
+    }
+  };
+  const wallpaperRefreshMediaDemand = (force) => {
+    const legacy = wallpaperPropertyListenerValue || {};
+    wallpaperObserveLegacyMediaObject(legacy);
+    const callbacks = new Map(Object.keys(wallpaperLegacyMediaChannels).map((name) => {
+      try { return [name, typeof legacy[name] === 'function' ? legacy[name] : null]; }
+      catch (_) { return [name, null]; }
+    }));
+    const needsMedia = mediaPropertiesListeners.length > 0 || mediaThumbnailListeners.length > 0
+      || mediaTimelineListeners.length > 0 || mediaPlaybackListeners.length > 0
+      || Array.from(callbacks).some(([name, callback]) => name !== 'updateMediaStatus' && callback);
+    const active = needsMedia || mediaStatusListeners.length > 0 || !!callbacks.get('updateMediaStatus');
+    const newlyRegistered = [];
+    for (const [name, callback] of callbacks) {
+      if (callback && (wallpaperLastLegacyMediaObject !== legacy || wallpaperLastLegacyMediaCallbacks.get(name) !== callback)) {
+        newlyRegistered.push([name, callback]);
+      }
+      wallpaperLastLegacyMediaCallbacks.set(name, callback);
+    }
+    wallpaperLastLegacyMediaObject = legacy;
+    const token = window.__myWallpaperHostFrameEndpointToken;
+    if (token) {
+      const signature = token + ':' + active + ':' + needsMedia;
+      if (force || signature !== wallpaperLastMediaDemand) {
+        try {
+          window.webkit.messageHandlers.wallpaperHostFrameEndpoint.postMessage({
+            type: 'mediaDemand', nonce: window.__myWallpaperHostFrameDocumentNonce,
+            token, active, needsMedia
+          });
+          wallpaperLastMediaDemand = signature;
+        } catch (_) {}
+      }
+    }
+    // A late legacy callback needs the current value even when the provider's
+    // track/generation has not changed. Commit identities/demand before invoking
+    // author code: a callback can synchronously remove or replace its own object.
+    for (const [name, callback] of newlyRegistered) {
+      try { callback.call(legacy, window.__myWallpaperMediaState[wallpaperLegacyMediaChannels[name]]); } catch (_) {}
+    }
+  };
+  let wallpaperMediaDemandRefreshQueued = false;
+  const wallpaperScheduleMediaDemandRefresh = () => {
+    if (wallpaperMediaDemandRefreshQueued) return;
+    wallpaperMediaDemandRefreshQueued = true;
+    Promise.resolve().then(() => {
+      wallpaperMediaDemandRefreshQueued = false;
+      wallpaperRefreshMediaDemand();
+    });
+  };
+  window.__myWallpaperReportMediaDemand = (force = true) => wallpaperRefreshMediaDemand(force);
+  wallpaperObserveLegacyMediaObject(wallpaperPropertyListenerValue);
+  window.addEventListener('pagehide', () => {
+    try {
+      window.webkit.messageHandlers.wallpaperHostFrameEndpoint.postMessage({
+        type: 'goodbye', nonce: window.__myWallpaperHostFrameDocumentNonce,
+        token: window.__myWallpaperHostFrameEndpointToken
+      });
+    } catch (_) {}
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    // Back/forward-cache documents keep their JS state but their old host lease
+    // was revoked on pagehide. Re-register before reporting listener demand.
+    wallpaperLastMediaDemand = '';
+    window.__myWallpaperHostFrameEndpointAck = false;
+    window.__myWallpaperHostFrameEndpointToken = null;
+    try {
+      window.webkit.messageHandlers.wallpaperHostFrameEndpoint.postMessage({
+        type: 'hello', nonce: window.__myWallpaperHostFrameDocumentNonce
+      });
+    } catch (_) {}
+  });
   window.wallpaperRegisterMediaStatusListener = function(listener) {
     if (typeof listener === 'function') {
       mediaStatusListeners.push(listener);
+      wallpaperRefreshMediaDemand();
       try {
         listener(window.__myWallpaperMediaState.status);
       } catch (_) {}
@@ -347,26 +463,28 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   window.wallpaperRegisterMediaPropertiesListener = function(listener) {
     if (typeof listener === 'function') {
       mediaPropertiesListeners.push(listener);
+      wallpaperRefreshMediaDemand();
       try { listener(window.__myWallpaperMediaState.properties); } catch (_) {}
     }
   };
   window.wallpaperRegisterMediaThumbnailListener = function(listener) {
     if (typeof listener === 'function') {
       mediaThumbnailListeners.push(listener);
+      wallpaperRefreshMediaDemand();
       const thumbnail = window.__myWallpaperMediaState.thumbnail;
-      if (wallpaperHasMediaThumbnail(thumbnail)) {
-        try { listener(thumbnail); } catch (_) {}
-      }
+      try { listener(thumbnail); } catch (_) {}
     }
   };
   window.wallpaperRegisterMediaTimelineListener = function(listener) {
     if (typeof listener === 'function') {
       mediaTimelineListeners.push(listener);
+      wallpaperRefreshMediaDemand();
       try { listener(window.__myWallpaperMediaState.timeline); } catch (_) {}
     }
   };
   const replayWallpaperPropertyListenerState = function(options) {
     const replayOptions = options || {};
+    wallpaperRefreshMediaDemand();
     try {
       // user 属性应用门是 DOMContentLoaded（interactive），不是 window.load：
       // 官方文档明确属性事件在壁纸加载时触发、且要求页面不要用 window.onload
@@ -433,7 +551,6 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     try {
       const thumbnail = window.__myWallpaperMediaState.thumbnail;
       if (
-        wallpaperHasMediaThumbnail(thumbnail) &&
         typeof window.wallpaperPropertyListener.updateMediaThumbnail === 'function'
       ) {
         window.wallpaperPropertyListener.updateMediaThumbnail(thumbnail);
@@ -479,11 +596,15 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       configurable: true,
       enumerable: true,
       get() {
+        // Legacy pages may assign/delete a callback on the existing listener
+        // object instead of replacing it. Observe after that synchronous write.
+        wallpaperScheduleMediaDemandRefresh();
         return wallpaperPropertyListenerValue;
       },
       set(value) {
         if (!value || typeof value !== 'object') return;
         wallpaperPropertyListenerValue = value;
+        wallpaperRefreshMediaDemand();
         scheduleWallpaperPropertyListenerReplay();
       }
     });
@@ -507,6 +628,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   window.wallpaperRegisterMediaPlaybackListener = function(listener) {
     if (typeof listener === 'function') {
       mediaPlaybackListeners.push(listener);
+      wallpaperRefreshMediaDemand();
       try { listener(window.__myWallpaperMediaState.playback); } catch (_) {}
     }
   };

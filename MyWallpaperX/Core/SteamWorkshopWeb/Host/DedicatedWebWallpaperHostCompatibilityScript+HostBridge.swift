@@ -709,7 +709,9 @@ let webCompatibilityScriptHostBridge = #"""
         hostLogger.post('media.control.error', error && error.message ? error.message : error);
       }
     }
-    wallpaperDispatchMediaPlayback(wallpaperPreferredMediaNode(), paused);
+    if (!paused && typeof window.__myWallpaperFlushSystemMedia === 'function') {
+      window.__myWallpaperFlushSystemMedia();
+    }
   };
   window.__myWallpaperApplyInitialPausedState = function(isPaused) {
     window.__myWallpaperSetPaused(!!isPaused, { initialReplay: true });

@@ -89,6 +89,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         for endpoint in frameEndpointRegistry.endpoints(in: webView) {
             guard endpoint.isLeaseValid(now: now) else {
                 frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                refreshSystemMediaSubscription()
                 continue
             }
             webView.evaluateJavaScript(
@@ -119,6 +120,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         for endpoint in frameEndpointRegistry.endpoints(in: webView) {
             guard endpoint.isLeaseValid(now: now) else {
                 frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                refreshSystemMediaSubscription()
                 continue
             }
             deliverAudioSpectrum(levels, to: endpoint, webView: webView)
@@ -176,6 +178,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     private func renewFrameEndpointLeases() {
         guard frameEndpointRegistry.hasAnyEndpoints else {
             stopFrameEndpointLeaseRenewalTimer()
+            refreshSystemMediaSubscription()
             return
         }
         forEachWebView { webView in
@@ -183,6 +186,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             for endpoint in self.frameEndpointRegistry.endpoints(in: webView) {
                 guard endpoint.isLeaseValid(now: now) else {
                     self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                    self.refreshSystemMediaSubscription()
                     continue
                 }
                 let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
@@ -200,6 +204,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                             self.frameEndpointRegistry.renewLease(token: endpoint.token, in: webView)
                         case .failure:
                             self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                            self.refreshSystemMediaSubscription()
                         }
                     }
                 }

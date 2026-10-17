@@ -2945,7 +2945,12 @@
         "script/tests/test_scene_system_media_source.py",
         "script/tests/test_scene_media_observer.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift",
-        "script/tests/test_scene_media_artwork_palette.py"
+        "script/tests/test_scene_media_artwork_palette.py",
+        "MyWallpaperX/Core/Playback/SystemMedia/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*Media*.swift",
+        "MyWallpaperX/App/Debug/DebugSystemMediaRunner.swift",
+        "script/tests/test_scene_system_media_ipc.py",
+        "script/tests/test_web_system_media.py"
       ],
       "modules": [
         "test_scene_music_player_source",
@@ -2953,7 +2958,9 @@
         "test_scene_media_thumbnail_provider",
         "test_scene_system_media_source",
         "test_scene_media_observer",
-        "test_scene_media_artwork_palette"
+        "test_scene_media_artwork_palette",
+        "test_scene_system_media_ipc",
+        "test_web_system_media"
       ]
     },
     {
@@ -3201,7 +3208,9 @@
         "MyWallpaperX/Shell/AppKitMainSplitView.swift",
         "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
       ],
-      "modules": ["test_library_toolbar_behaviors"]
+      "modules": [
+        "test_library_toolbar_behaviors"
+      ]
     },
     {
       "id": "steam-download-sort-statistics",
@@ -3216,7 +3225,11 @@
         "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
         "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
       ],
-      "modules": ["test_steam_download_sorting", "test_steam_download_execution", "test_library_toolbar_behaviors"]
+      "modules": [
+        "test_steam_download_sorting",
+        "test_steam_download_execution",
+        "test_library_toolbar_behaviors"
+      ]
     },
     {
       "id": "ui-library-projection-efficiency",

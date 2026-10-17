@@ -20,7 +20,7 @@ extension Notification.Name {
 /// main-thread-owned, so only the immutable callback crosses to Metal's
 /// presentation completion thread.
 final class SceneFirstFramePresentationRegistration {
-    private let requestID: UUID
+    let requestID: UUID
     private let recordID: String?
     private var isArmed = false
 

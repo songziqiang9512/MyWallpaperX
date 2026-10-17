@@ -162,6 +162,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // D5：主导航开始即撤销该 webView 全部 endpoint——旧文档的 endpoint 不
         // 得接收新文档的推送；新文档由注入脚本重新 hello 登记。
         frameEndpointRegistry.revokeAll(in: webView)
+        refreshSystemMediaSubscription()
         setAudioSpectrumDemand(false, for: screenID)
     }
 
@@ -181,6 +182,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // D5：进程终止即撤销 endpoint（终止后所有 frame 身份失效；恢复重载的
         // 新文档经注入脚本重新 hello）。
         frameEndpointRegistry.revokeAll(in: webView)
+        refreshSystemMediaSubscription()
         handleWebContentTermination(for: webView)
     }
 

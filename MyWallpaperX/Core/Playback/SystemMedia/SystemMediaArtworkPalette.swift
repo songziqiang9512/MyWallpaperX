@@ -4,7 +4,7 @@ import ImageIO
 
 /// A bounded, stateless artwork calculation. Sources own when to extract and
 /// cache this value; the palette has no media session or publication authority.
-nonisolated struct SceneMediaArtworkPalette: Equatable, Sendable {
+nonisolated struct SystemMediaArtworkPalette: Equatable, Sendable {
     let primaryColor: SIMD3<Double>
     let secondaryColor: SIMD3<Double>
     let tertiaryColor: SIMD3<Double>

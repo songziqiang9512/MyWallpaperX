@@ -2,9 +2,9 @@ import Darwin
 import Foundation
 
 /// Owns one experimental system-media transport. Selection and publication
-/// remain with SceneSystemMediaProvider; this endpoint never touches the inbox.
+/// remain with SystemMediaService; this endpoint never touches the inbox.
 @MainActor
-final class SceneSystemMediaSource {
+final class SystemMediaSource {
     nonisolated static let maximumLineByteCount = 24 * 1_024 * 1_024
     nonisolated static let maximumArtworkByteCount = 16 * 1_024 * 1_024
     nonisolated static let heartbeatTimeout: TimeInterval = 12
@@ -22,7 +22,7 @@ final class SceneSystemMediaSource {
         let artworkChanged: Bool
         let artworkData: Data?
         let artworkFailure: Failure?
-        let artworkPalette: SceneMediaArtworkPalette?
+        let artworkPalette: SystemMediaArtworkPalette?
     }
 
     nonisolated enum Result: Sendable {
@@ -130,7 +130,7 @@ final class SceneSystemMediaSource {
                 position: wire.position, duration: wire.duration,
                 artworkIdentifier: wire.artworkIdentifier, artworkChanged: changed,
                 artworkData: artwork, artworkFailure: artworkFailure,
-                artworkPalette: artwork.flatMap { SceneMediaArtworkPalette.extract(from: $0) }
+                artworkPalette: artwork.flatMap { SystemMediaArtworkPalette.extract(from: $0) }
             ))
         }
     }

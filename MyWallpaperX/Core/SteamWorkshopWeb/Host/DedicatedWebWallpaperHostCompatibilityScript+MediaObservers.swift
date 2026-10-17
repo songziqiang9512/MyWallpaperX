@@ -25,7 +25,6 @@ let webCompatibilityScriptMediaObservers = #"""
             window.__mwxInstallWallpaperShadowObserver(shadowRoot);
           }
         } catch (_) {}
-        try { wallpaperRefreshMediaState(); } catch (_) {}
         return shadowRoot;
       };
       window.Element.prototype.__mwxAttachShadowWrapped = true;
@@ -188,35 +187,27 @@ let webCompatibilityScriptMediaObservers = #"""
         const error = node.error;
         const details = error ? `code=${error.code}` : 'unknown';
         hostLogger.post('media.error', `${mediaStateSummary(node)} ${details}`.trim());
-        wallpaperRefreshMediaState(node, true);
       });
       node.addEventListener('stalled', () => {
         postMediaState('media.stalled', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('suspend', () => {
         postMediaState('media.suspend', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('waiting', () => {
         postMediaState('media.waiting', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('playing', () => {
         postMediaState('media.playing', node);
-        wallpaperRefreshMediaState(node, false);
       });
       node.addEventListener('pause', () => {
         postMediaState('media.pause', node);
-        wallpaperRefreshMediaState(node, true);
       });
       node.addEventListener('loadedmetadata', () => {
         postMediaState('media.loadedmetadata', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('loadeddata', () => {
         postMediaState('media.loadeddata', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('canplay', () => {
         if (!loggedFirstVideoCanPlay && String(node.tagName || '').toLowerCase() === 'video') {
@@ -224,39 +215,16 @@ let webCompatibilityScriptMediaObservers = #"""
           hostLogger.post('first-video-canplay', mediaStateSummary(node));
         }
         postMediaState('media.canplay', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('canplaythrough', () => {
         postMediaState('media.canplaythrough', node);
-        wallpaperRefreshMediaState(node);
       });
       node.addEventListener('ended', () => {
         postMediaState('media.ended', node);
-        wallpaperRefreshMediaState(node, true);
       });
       node.addEventListener('emptied', () => {
         postMediaState('media.emptied', node);
-        wallpaperRefreshMediaState(node, true);
       });
-      node.addEventListener('durationchange', () => wallpaperRefreshMediaState(node));
-      node.addEventListener('timeupdate', () => wallpaperDispatchMediaTimeline(node));
-      node.addEventListener('play', () => {
-        wallpaperMarkPreferredMediaNode(node);
-        wallpaperDispatchMediaPlayback(node, false);
-      });
-      node.addEventListener('playing', () => {
-        wallpaperMarkPreferredMediaNode(node);
-        wallpaperDispatchMediaPlayback(node, false);
-      });
-      node.addEventListener('pause', () => wallpaperDispatchMediaPlayback(node, true));
-      node.addEventListener('ended', () => wallpaperDispatchMediaPlayback(node, true));
-      node.addEventListener('emptied', () => wallpaperRefreshMediaState(node, true));
-      node.addEventListener('volumechange', () => wallpaperRefreshMediaState(node));
-      node.addEventListener('ratechange', () => wallpaperRefreshMediaState(node));
-      node.addEventListener('seeking', () => wallpaperRefreshMediaState(node));
-      node.addEventListener('seeked', () => wallpaperRefreshMediaState(node));
-      node.addEventListener('progress', () => wallpaperRefreshMediaState(node));
-      node.addEventListener('loadstart', () => wallpaperRefreshMediaState(node));
     };
     const attachWallpaperMediaNodesFromRoot = (rootNode) => {
       if (!rootNode) return;

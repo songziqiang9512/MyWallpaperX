@@ -54,6 +54,7 @@ import Foundation
     struct Backoff { func reset() {} }
     func failPendingFrameCaptures() {}
     func revokeAudioSpectrumDemand(generation: UInt64) {}
+    func revokeSystemMediaDemand(generation: UInt64) {}
     func finishShutdownIfPossible() {}
     func scheduleRestart(reason: String) { restartReasons.append(reason) }
     func ensureSession() -> Bool { true }

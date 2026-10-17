@@ -28,6 +28,18 @@ PNG = base64.b64decode(
 )
 HARNESS = r'''
 import Foundation
+@MainActor struct SceneSystemMediaDemand { let requiresMedia: Bool }
+@MainActor final class SceneSystemMediaDemandRegistry {
+    static let shared = SceneSystemMediaDemandRegistry()
+    var demand = SceneSystemMediaDemand(requiresMedia: false)
+    var didChange: ((SceneSystemMediaDemand) -> Void)?
+}
+@MainActor final class SystemMediaService {
+    static let shared = SystemMediaService()
+    struct Snapshot { let media: SystemMediaSnapshotStore.Snapshot }
+    func subscribe(_ id: UUID, receive: (Snapshot) -> Void) {}
+    func unsubscribe(_ id: UUID) {}
+}
 
 @MainActor
 enum DebugScenePlaybackRunner {
@@ -93,7 +105,7 @@ class SceneDebugMediaSequenceTests(unittest.TestCase):
         environment["CLANG_MODULE_CACHE_PATH"] = str(cls.directory / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(cls.directory / "swift-cache")
         compiled = subprocess.run(
-            ["swiftc", "-D", "DEBUG", str(INBOX_SOURCE), str(DEBUG_SOURCE),
+            ["swiftc", "-D", "DEBUG", str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift"), str(INBOX_SOURCE), str(DEBUG_SOURCE),
              str(harness), "-o", str(cls.binary)],
             cwd=ROOT, env=environment, capture_output=True, text=True,
         )

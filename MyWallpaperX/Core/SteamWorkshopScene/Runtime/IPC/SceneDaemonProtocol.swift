@@ -28,6 +28,9 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     /// 回传路径；主 App 侧无需屏幕录制权限）。
     case captureFrame(requestID: String)
     case publishAudioSpectrum(SceneDaemonAudioSpectrumFrame)
+    case publishSystemMedia(SceneDaemonMediaSnapshotFrame)
+    case publishSystemMediaArtwork(SceneDaemonMediaArtworkChunk)
+    case controlSystemMedia(SceneDaemonMediaControl)
     case pause
     case resume
     case shutdown
@@ -237,6 +240,26 @@ nonisolated enum SceneDaemonProtocol {
                     includesCurrentProcessOutput: includesDaemonProcessOutput
                 )
             )))
+        case "publishSystemMedia":
+            guard let frame = SceneDaemonMediaWire.decode(
+                SceneDaemonMediaSnapshotFrame.self, payload: payload,
+                maximumBytes: SceneDaemonMediaWire.maximumMetadataBytes
+            ) else { return .failure(.invalidPayload(action)) }
+            return .success(.publishSystemMedia(frame))
+        case "publishSystemMediaArtwork":
+            guard let chunk = SceneDaemonMediaWire.decode(
+                SceneDaemonMediaArtworkChunk.self, payload: payload,
+                maximumBytes: SceneDaemonMediaWire.maximumChunkBytes * 2
+            ), !chunk.bytes.isEmpty,
+               chunk.bytes.count <= SceneDaemonMediaWire.maximumChunkBytes,
+               chunk.index >= 0 else { return .failure(.invalidPayload(action)) }
+            return .success(.publishSystemMediaArtwork(chunk))
+        case "controlSystemMedia":
+            guard let control = SceneDaemonMediaWire.decode(
+                SceneDaemonMediaControl.self, payload: payload,
+                maximumBytes: SceneDaemonMediaWire.maximumMetadataBytes
+            ) else { return .failure(.invalidPayload(action)) }
+            return .success(.controlSystemMedia(control))
         case "pause": return .success(.pause)
         case "resume": return .success(.resume)
         case "shutdown": return .success(.shutdown)

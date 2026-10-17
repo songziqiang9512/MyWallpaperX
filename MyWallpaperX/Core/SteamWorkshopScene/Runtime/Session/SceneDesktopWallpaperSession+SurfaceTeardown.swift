@@ -48,7 +48,7 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
         if clearContext {
-            SceneSystemMediaProvider.shared.release(lifecycleID)
+            SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
             if let launchContext {
                 teardownSceneScriptOwners(launchContext, reason: reason)
                 launchContext.preparedDeviceResources.baseImages

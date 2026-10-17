@@ -153,6 +153,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         navigationOwnershipByScreen.removeAll()
         frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
+        refreshSystemMediaSubscription()
         stopFrameEndpointLeaseRenewalTimer()
         clearAudioSpectrumDemand()
         for server in loopbackServers.values {
@@ -192,6 +193,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         readyScreenIDs.remove(screenID)
         // D5：surface 拆除即撤销该 webView 全部 endpoint 与未完成投递状态。
         frameEndpointRegistry.revokeAll(in: surface.webView)
+        refreshSystemMediaSubscription()
         surface.webView.navigationDelegate = nil
         surface.webView.stopLoading()
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostLog")

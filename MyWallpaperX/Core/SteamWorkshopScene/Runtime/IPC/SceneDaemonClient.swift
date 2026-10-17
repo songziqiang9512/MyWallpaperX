@@ -76,6 +76,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeRecordID: String?
     var audioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
     var audioSpectrumDemandGeneration: UInt64?
+    let systemMedia = SceneDaemonMediaClientState()
     /// 自截帧请求的在途回调（requestID → 主线程回调）。daemon 停止/重启
     /// 时统一以 nil 结清，避免同步系统壁纸的等待方悬挂。
     var pendingFrameCaptureCompletions: [String: (URL?) -> Void] = [:]
@@ -366,6 +367,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         endpointReady = false
         failPendingFrameCaptures()
         revokeAudioSpectrumDemand(generation: sessionGeneration)
+        revokeSystemMediaDemand(generation: sessionGeneration)
         latestFrameStats = nil
         restartBackoff.reset()
         if postsLaunchState, let stoppedRequestID {

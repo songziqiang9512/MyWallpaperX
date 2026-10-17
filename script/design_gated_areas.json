@@ -108,13 +108,22 @@
     },
     {
       "id": "web-mediaremote-nowplaying",
-      "title": "媒体集成第二步：MediaRemote 系统 now-playing 数据源",
-      "owner": "web-route",
+      "title": "Scene/Web 共享系统歌曲信息与唯一媒体状态",
+      "owner": "Core/Playback shared media service; Scene IPC and Web host adapters",
       "status": "approved",
       "designDoc": "docs/web/mediaremote-nowplaying-design.md",
-      "design_notes": "私有框架合规 + owner 关系设计（系统会话优先、无会话回退页面媒体，避免 __myWallpaperMediaState 双 writer）+ 签名/App Store 约束评估。 设计裁决、限定准入、owner 与退役条件见 designDoc；approved 不表示运行能力或发布验收。",
-      "matchPatterns": [],
+      "design_notes": "2026-10-17 已实施 main-App唯一 SystemMediaService、Scene typed IPC原图分片/ACK/lease恢复、Web D5媒体需求与唯一reducer，daemon旧采集撤销；渠道/选源/授权保持，真实音乐验收见Web现役状态。冻结独审关闭legacy异步注册与IPC永久旧状态反例；未覆盖播放器和发布范围不预支。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/Playback/SystemMedia*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaProvider.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+MediaState.swift",
+        "MyWallpaperX/Core/Playback/SystemMedia/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*Media*.swift"
+      ],
       "contentPatterns": [
+        "publishSystemMedia",
+        "systemMediaDemandChanged",
+        "__myWallpaperPushSystemMediaSnapshot",
         "MRMediaRemoteGetNowPlayingInfo",
         "MediaRemote.framework"
       ]

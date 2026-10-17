@@ -25,7 +25,7 @@
 - 当前 path groups 并未给每个产品文件映射 focused test；build-only 不是行为覆盖。每次从验证预览检查实际选中模块；缺映射时补现有最近行为门，缺行为门时先建立输入/输出反例。
 - 文件体量与结构预算是风险信号，不是架构完成度。按生命周期、数据流和消费者拆分，保留 defer/事务/释放边界；仅移动代码不能证明减少耦合、成本或缺陷。
 
-共享系统音频的分析与可视响应见[频谱设计](system-audio-spectrum-design.md)；三类型保留各自绘制owner。
+共享系统音频的分析与可视响应见[频谱设计](system-audio-spectrum-design.md)；三类型保留各自绘制owner。歌曲信息由 [共享媒体服务](../../MyWallpaperX/Core/Playback/SystemMedia/SystemMediaService.swift) 在主 App 唯一采集，Web/Scene 分发与退出见 [D6](../web/mediaremote-nowplaying-design.md)。
 
 ## 工程材料放置
 

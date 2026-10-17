@@ -10,7 +10,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 32,
-      "bytes": 5887
+      "bytes": 6098
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 74,
@@ -214,7 +214,7 @@
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
-      "bytes": 9690
+      "bytes": 9910
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
       "lines": 34,
@@ -258,11 +258,11 @@
     },
     "docs/web/current-state.md": {
       "lines": 122,
-      "bytes": 46905
+      "bytes": 47339
     },
     "docs/web/mediaremote-nowplaying-design.md": {
-      "lines": 58,
-      "bytes": 6187
+      "lines": 68,
+      "bytes": 10537
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -1235,6 +1235,15 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
+      "owner": "shared-playback-audio",
+      "reason": "Retire peak-adaptive response after user visual rejection; document one fixed-decibel final-height chain, real-music comparison and motion acceptance; tighten this design body budget.",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "73768b2a8119795012e8727af7a4811dc4c506bc3ba7c3ce711c7d95bfdd8f40",
       "after": "8e6cca93929eae815010cb31e462387064624001f7a94cf5b77717c3738e708e",
@@ -1259,24 +1268,6 @@
       "owner": "scene-combined-timeline-playback",
       "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "dff73acc7a010cb8b904de6e963d531e12a79a2817035d76f15b8e9b1994087d",
-      "after": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
-      "owner": "shared-playback-audio",
-      "reason": "Replace superseded spectrum prototypes with the bounded shared response, controlled official observations and scope limits; retain one design/navigation owner.",
-      "decision": "docs/architecture/system-audio-spectrum-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
-      "owner": "shared-playback-audio",
-      "reason": "Retire peak-adaptive response after user visual rejection; document one fixed-decibel final-height chain, real-music comparison and motion acceptance; tighten this design body budget.",
-      "decision": "docs/architecture/system-audio-spectrum-design.md"
     },
     {
       "section": "bodies",
@@ -1331,6 +1322,42 @@
       "owner": "scene-particle-root-world-translation",
       "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
+      "after": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
+      "owner": "shared-system-media",
+      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
+      "decision": "docs/web/mediaremote-nowplaying-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "f31845c3fb7cdf1b543f1473342017703a544593109902f6b97c9bcf1dcb4d7a",
+      "after": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
+      "owner": "shared-system-media",
+      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
+      "decision": "docs/web/mediaremote-nowplaying-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "13555099683fe6d2336f49c33e7922fd2b680ff85ce02bf9ca6f3094c006a722",
+      "after": "08cf28e0d080e8da34be5ee4605b25eeb2cad7a031ddf33caa31067be3d632c9",
+      "owner": "shared-system-media",
+      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
+      "decision": "docs/web/mediaremote-nowplaying-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "before": "065ba0929c0325aa2136cb2237d5af114ef95ca0a06ec701e7367811c1c5304f",
+      "after": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
+      "owner": "shared-system-media",
+      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
+      "decision": "docs/web/mediaremote-nowplaying-design.md"
     }
   ]
 }

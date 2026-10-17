@@ -140,7 +140,7 @@ extension AppKitSettingsContainerView {
 
         sceneMediaInfoSwitch.toolTip = "开启后场景壁纸显示正在播放的歌曲与封面；首次需要读取 Apple Music 时请求系统授权。若曾拒绝，可在系统设置的「隐私与安全性 → 自动化」中允许后重新开启。"
         systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
-            subtitle: "开启后场景壁纸读取正在播放的歌曲和封面", trailing: sceneMediaInfoSwitch))
+            subtitle: "让支持的场景和网页壁纸显示当前歌曲与封面", trailing: sceneMediaInfoSwitch))
 
         systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
         systemSection.addRow(makeSettingRow(title: "启动恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
@@ -154,14 +154,6 @@ extension AppKitSettingsContainerView {
         systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
         systemAudioSpectrumRowView = systemAudioSpectrumRow
         systemSection.addRow(systemAudioSpectrumRow)
-        for style in SystemAudioSpectrumStyle.allCases {
-            systemAudioSpectrumStylePopup.addItem(withTitle: style.displayName)
-            systemAudioSpectrumStylePopup.lastItem?.representedObject = style
-        }
-        for sensitivity in SystemAudioSpectrumSensitivity.allCases {
-            systemAudioSpectrumSensitivityPopup.addItem(withTitle: sensitivity.displayName)
-            systemAudioSpectrumSensitivityPopup.lastItem?.representedObject = sensitivity
-        }
         for barCount in [16, 20, 28, 36, 48] {
             systemAudioSpectrumBarCountPopup.addItem(withTitle: "\(barCount) 根")
             systemAudioSpectrumBarCountPopup.lastItem?.representedObject = barCount
@@ -179,16 +171,6 @@ extension AppKitSettingsContainerView {
             label.widthAnchor.constraint(equalToConstant: 36).isActive = true
         }
 
-        let spectrumStyleRow = makeSettingRow(
-            title: "-  动态风格",
-            iconSystemName: "waveform.path.ecg",
-            trailing: systemAudioSpectrumStylePopup
-        )
-        let spectrumSensitivityRow = makeSettingRow(
-            title: "-  灵敏度",
-            iconSystemName: "slider.horizontal.3",
-            trailing: systemAudioSpectrumSensitivityPopup
-        )
         let spectrumBarCountRow = makeSettingRow(
             title: "-  频柱数量",
             iconSystemName: "square.split.2x1",
@@ -223,10 +205,6 @@ extension AppKitSettingsContainerView {
             trailing: systemAudioSpectrumPeakCapsSwitch
         )
         let spectrumOptionsStack = NSStackView(views: [
-            spectrumStyleRow,
-            makeInlineSeparator(horizontalInset: 14),
-            spectrumSensitivityRow,
-            makeInlineSeparator(horizontalInset: 14),
             spectrumBarCountRow,
             makeInlineSeparator(horizontalInset: 14),
             spectrumColorRow,
@@ -373,7 +351,7 @@ extension AppKitSettingsContainerView {
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
         let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup] + hotkeyPopups.values
-            + [systemAudioSpectrumStylePopup, systemAudioSpectrumSensitivityPopup, systemAudioSpectrumBarCountPopup]
+            + [systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 
         intervalField.controlSize = .small

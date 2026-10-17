@@ -4,7 +4,7 @@ import Foundation
 
 /// Read-only Music adapter. The caller owns source selection, queue, epoch,
 /// polling, and publication. Contracts come from Music's installed public SDEF.
-nonisolated enum SceneMusicPlayerSource {
+nonisolated enum SystemMusicPlayerSource {
     nonisolated enum PlaybackState: String, Sendable {
         case stopped, playing, paused, fastForwarding, rewinding
         var inboxValue: Int {
@@ -27,7 +27,7 @@ nonisolated enum SceneMusicPlayerSource {
         let duration: Double
         let artworkData: Data?
         let artworkFailure: Failure?
-        let artworkPalette: SceneMediaArtworkPalette?
+        let artworkPalette: SystemMediaArtworkPalette?
     }
 
     nonisolated enum ReadResult: Sendable {
@@ -116,7 +116,7 @@ nonisolated enum SceneMusicPlayerSource {
         pid: pid_t,
         cachedArtworkIdentity: String? = nil,
         cachedArtworkData: Data? = nil,
-        cachedArtworkPalette: SceneMediaArtworkPalette? = nil
+        cachedArtworkPalette: SystemMediaArtworkPalette? = nil
     ) -> ReadResult {
         do {
             let deadline = ProcessInfo.processInfo.systemUptime + overallTimeout
@@ -328,7 +328,7 @@ nonisolated enum SceneMusicPlayerSource {
             pid: pid_t,
             cachedArtworkIdentity: String? = nil,
             cachedArtworkData: Data? = nil,
-            cachedArtworkPalette: SceneMediaArtworkPalette? = nil,
+            cachedArtworkPalette: SystemMediaArtworkPalette? = nil,
             get: (NSAppleEventDescriptor, String) throws -> NSAppleEventDescriptor
         ) throws -> ReadResult {
             let initial = try get(Codec.property(Codec.currentTrack), "currentTrack.before")
@@ -400,7 +400,7 @@ nonisolated enum SceneMusicPlayerSource {
                 state: state, position: position, duration: duration,
                 artworkData: art, artworkFailure: artworkFailure,
                 artworkPalette: reusesArtwork ? cachedArtworkPalette
-                    : art.flatMap { SceneMediaArtworkPalette.extract(from: $0) }
+                    : art.flatMap { SystemMediaArtworkPalette.extract(from: $0) }
             ))
         }
     }

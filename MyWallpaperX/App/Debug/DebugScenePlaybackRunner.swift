@@ -219,6 +219,7 @@ enum DebugScenePlaybackRunner {
             }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
+            configureRequestedSystemMedia()
             publishRequestedMediaThumbnail(rootURL: rootURL)
             let startsPaused = ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-start-paused")
             if startsPaused { runtimeHost.setPlaybackPaused(true) }

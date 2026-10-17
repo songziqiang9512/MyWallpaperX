@@ -320,7 +320,7 @@ let webCompatibilityScriptDOMLifecycleScaffold = #"""
           installShadowObserversFromDocument();
           wallpaperEnsureHostScaffold.install(document);
           wallpaperEnsureOptionalSliderControls.install(document);
-          wallpaperRefreshMediaState();
+          wallpaperRefreshMediaDemand();
           wallpaperScheduleInteractiveRegionRefresh();
         };
         if (typeof window.requestIdleCallback === 'function') {

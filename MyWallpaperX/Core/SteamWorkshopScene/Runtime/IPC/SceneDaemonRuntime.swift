@@ -154,9 +154,12 @@ final class SceneDaemonRuntime {
     private var isShuttingDown = false
     private var audioDemand = SceneAudioSpectrumCaptureDemand.none
     private var didReportNonSilentAudioPublication = false
+    private var systemMediaReceiver = SceneDaemonMediaReceiver()
+    private var systemMediaLease: DispatchWorkItem?
 
     deinit {
         statsTimer?.cancel()
+        systemMediaLease?.cancel()
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
@@ -167,6 +170,7 @@ final class SceneDaemonRuntime {
             "role": "scene-daemon"
         ])
         installAudioSpectrumDemandBridge()
+        installSystemMediaDemandBridge()
         installObservers()
         installStatsTimer()
         startCommandLoop()
@@ -343,6 +347,24 @@ final class SceneDaemonRuntime {
                     "peak": peak
                 ])
             }
+        case let .publishSystemMedia(frame):
+            acknowledgeSystemMedia(systemMediaReceiver.receive(frame))
+        case let .publishSystemMediaArtwork(chunk):
+            acknowledgeSystemMedia(systemMediaReceiver.receive(chunk))
+        case let .controlSystemMedia(control):
+            guard systemMediaReceiver.control(control) else {
+                if systemMediaReceiver.requiresReplay(after: control) {
+                    emitSystemMediaEvent("systemMediaReplayRequested", frame: control.scope)
+                }
+                return
+            }
+            if control.operation == .clear {
+                systemMediaLease?.cancel()
+                systemMediaLease = nil
+                SceneMediaThumbnailInbox.shared.clearMediaSession()
+            } else {
+                renewSystemMediaLease()
+            }
         case .pause:
             shouldPausePlayback = true
             host.setPlaybackPaused(true)
@@ -351,6 +373,54 @@ final class SceneDaemonRuntime {
             host.setPlaybackPaused(false)
         case .shutdown:
             shutdown(exitCode: 0)
+        }
+    }
+
+    private func installSystemMediaDemandBridge() {
+        SceneSystemMediaDemandRegistry.shared.didChange = { [weak self] demand in
+            guard let self, !self.isShuttingDown else { return }
+            self.systemMediaReceiver.setDemand(demand)
+            self.systemMediaLease?.cancel()
+            self.systemMediaLease = nil
+            if demand.requiresMedia { self.renewSystemMediaLease() }
+            self.emitSystemMediaEvent("systemMediaDemandChanged", frame: demand)
+        }
+        let demand = SceneSystemMediaDemandRegistry.shared.demand
+        systemMediaReceiver.setDemand(demand)
+        emitSystemMediaEvent("systemMediaDemandChanged", frame: demand)
+    }
+
+    private func acknowledgeSystemMedia(_ result: SceneDaemonMediaReceiver.Result) {
+        var ack = result.acknowledgement
+        if let publication = result.publication,
+           !SceneMediaThumbnailInbox.shared.replaceSystemSnapshot(publication) {
+            ack = .init(scope: ack.scope, kind: ack.kind, epoch: ack.epoch,
+                revision: ack.revision, transferID: ack.transferID, index: ack.index,
+                accepted: false)
+        }
+        emitSystemMediaEvent("systemMediaAcknowledged", frame: ack)
+        if ack.accepted { renewSystemMediaLease() }
+    }
+
+    private func renewSystemMediaLease() {
+        systemMediaLease?.cancel()
+        let lease = DispatchWorkItem { [weak self] in
+            guard let self, !self.isShuttingDown else { return }
+            self.systemMediaLease = nil
+            self.systemMediaReceiver.expireLease()
+            SceneMediaThumbnailInbox.shared.clearMediaSession()
+        }
+        systemMediaLease = lease
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: lease)
+    }
+
+    private func emitSystemMediaEvent<T: Encodable>(_ event: String, frame: T) {
+        do {
+            let data = try JSONEncoder().encode(frame)
+            let object = try JSONSerialization.jsonObject(with: data)
+            emit(["v": SceneDaemonProtocol.version, "event": event, "frame": object])
+        } catch {
+            emitError(code: "system-media-event-encoding", message: String(describing: error))
         }
     }
 
@@ -493,6 +563,9 @@ final class SceneDaemonRuntime {
         guard !isShuttingDown else { return }
         isShuttingDown = true
         SceneAudioSpectrumInbox.shared.setDemandObserver(nil)
+        SceneSystemMediaDemandRegistry.shared.didChange = nil
+        systemMediaLease?.cancel()
+        systemMediaLease = nil
         commands.clear()
         statsTimer?.cancel()
         statsTimer = nil

@@ -412,7 +412,21 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   let webView = self.webView(for: userContentController) else {
                 return
             }
-            handleFrameEndpointHello(nonce: nonce, frameInfo: message.frameInfo, webView: webView)
+            switch body["type"] as? String {
+            case "mediaDemand":
+                handleSystemMediaDemand(body, nonce: nonce, webView: webView)
+            case "goodbye":
+                guard let token = body["token"] as? String,
+                      let endpoint = frameEndpointRegistry.endpoints(in: webView).first(where: {
+                          $0.token == token && $0.documentNonce == nonce
+                      }) else { return }
+                frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                refreshSystemMediaSubscription()
+            case "hello", nil:
+                handleFrameEndpointHello(nonce: nonce, frameInfo: message.frameInfo, webView: webView)
+            default:
+                return
+            }
         default:
             return
         }
@@ -439,11 +453,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         ensureFrameEndpointLeaseRenewalTimer()
         let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
+        let nonceLiteral = WebWallpaperHostSupport.javaScriptQuotedString(nonce)
         webView.evaluateJavaScript(
             """
             (() => {
+              if (window.__myWallpaperHostFrameDocumentNonce !== \(nonceLiteral)) throw new Error('stale-frame-hello');
               window.__myWallpaperHostFrameEndpointToken = \(tokenLiteral);
               window.__myWallpaperHostFrameEndpointAck = true;
+              if (typeof window.__myWallpaperReportMediaDemand === 'function') window.__myWallpaperReportMediaDemand();
             })();
             """,
             in: frameInfo,
@@ -454,6 +471,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 if case .failure = result {
                     // ack 都到不了的 frame 不会产生有效 endpoint。
                     self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                    self.refreshSystemMediaSubscription()
+                } else if self.isSystemMediaEndpointCurrent(endpoint, in: webView),
+                          let snapshot = self.currentSystemMediaSnapshot {
+                    self.deliverSystemMedia(snapshot, to: endpoint, webView: webView)
                 }
             }
         }

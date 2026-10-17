@@ -1,58 +1,68 @@
 <!-- document-role: active-plan -->
-<!-- retirementCondition: 唯一媒体仲裁落地并完成相应分发渠道验收，私有实验被公开能力替换或明确撤销后归档。 -->
+<!-- retirementCondition: Scene/Web 共用唯一媒体采集与授权 owner，真实播放器和生命周期验收通过，稳定合同接管后归档。 -->
 
-# D6 — Web 系统 now-playing 数据源与单一媒体状态
+# D6 — Scene / Web 共享歌曲信息接入设计
 
-> 复核基线：2026-10-01，独立工作树 `93b1b85a`。本文是设计裁决，不是当前能力或运行验收；已合入 `codex/engine-refactor-program`；实施时按其最新代码重新核对所列 owner，以下行号仍指向原设计基线。`approved` 仅表示本设计完成，阶段性 unknown 仍受本文准入门约束。
+> 2026-10-17 按现役代码复核。本页的共享采集、Scene IPC 与 Web 五监听接线已实施；实际运行与未覆盖范围见 Web 现役状态。修订原 D6，不增加平行计划；`approved` 仅表示职责与实施边界已明确。
 
-## 目标合同与设计判据
+## 目标与改造前断点
 
-媒体元数据与频谱采集是不同通路。系统存在有效 now-playing session 时优先系统；确实无 session 时回退页面媒体；页面作者收到一个自洽状态快照。跨系统 producer、Web bridge、页面状态且依赖私有平台接口，必须先定产品与发布边界。
+开启“壁纸歌曲信息”后，支持媒体监听接口的 Web 壁纸与 Scene 一样收到用户当前播放器的标题、歌手、封面、播放状态及可选进度。作者原有布局与样式不变。歌曲信息与 PCM/频谱是两条独立通路；不分析音频猜歌、不扫描用户音乐库、不修改作者文件、不新增授权按钮。
 
-五判据：横切多个 owner 或主链节点=是；触碰唯一权威合同=是；用户可见且难逆的 API/数据/发布合同=是；触碰机器冻结结构家族=否；依赖官方或平台外部证据=是。
+改造前 Scene 的 `SceneSystemMediaProvider` 汇合系统会话和 Music Apple Events 补充，提交 `SceneMediaThumbnailInbox`。它由 `SceneDesktopWallpaperSession` 按 prepared 需求 acquire/release，实际运行在 Scene daemon，singleton 仅在该进程唯一。Web 的 `DedicatedWebWallpaperHostPlaceholderAdapter` 与 WKWebView 在主 App；五个媒体监听入口已经存在，但 `+MediaState.swift` 从页面 `<audio>/<video>`、页面 `navigator.mediaSession` 与页面标题生成数据，尚未收到系统歌曲。`SceneMediaSourcePreference` 的产品开关也未投影到 Web，Web 的 enabled 仍缺省 true。频谱接通不能证明歌曲信息已接通。
 
-## 当前事实与证据
+## 选择与数据流
 
-- `MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+MediaState.swift:195` 从页面 media node 派发完整媒体状态；`:124`、`:138`、`:154`、`:169`、`:183` 分别写 `__myWallpaperMediaState` 字段。
-- 同目录 `DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift:421` 是频谱推送，不是系统曲目 provider。不能从已有频谱推断系统 now-playing 可用。
-- 交接的官方音频静态结构只作为“频谱与媒体两路”的研究线索，不证明 macOS MediaRemote 能力或 entitlement。
-- [Apple App Review 2.5.1](https://developer.apple.com/cn/app-store/review/guidelines/) 要求公共 API（2026-10-01 复核）；`MediaRemote.framework` / `MRMediaRemoteGetNowPlayingInfo` 没有本批核实的公共 SDK 合同。Developer ID 签名成功也不证明接口稳定或发布可接受。
+采用**复用现有采集实现，迁移到主 App 的单一共享服务，再向两个引擎分发**。拒绝在每个 WebView 另建观察器，也不直接在 Web 引用进程局部的 `SceneSystemMediaProvider.shared`：后者会让 App 与 daemon 各启动一份 helper、Music 轮询及授权。让 Web 依赖 Scene daemon 则把独立 Web 播放绑在另一个引擎的存活上。
 
-## owner
+```text
+设置开关 + Scene/Web 活跃媒体需求
+                 ↓
+主 App：共享系统媒体服务（source 选择、授权、epoch、曲目身份、后台采集、封面缓存）
+                 ↓ 统一不可变 snapshot
+        ┌────────┴─────────┐
+Web 宿主适配器          SceneDaemonClient
+        ↓                  ↓ 现有 transport，新增 typed media 命令
+D5 frame 定向推送      SceneMediaThumbnailInbox
+        ↓                  ↓
+唯一 JS media reducer   原作者事件 / 纹理 / Metal 合成链
+```
 
-系统会话 producer 放在现有宿主媒体输入边界，不能由每个 WKWebView 独立观察系统。RuntimeBridge 的单一 arbiter owns selected source、session epoch 与 event sequence；页面 `__myWallpaperMediaState` 只有一个 reducer writer。页面媒体观察器改为 candidate producer，不与系统回包竞写。
+共享采集与 snapshot 类型归 `Core/Playback`，沿当前音频共享服务的主 App 装配边界接入；平台 source 与取色实现按职责迁出 `Systems/Media`，Scene Inbox、VM 事件和纹理仍归 Scene。服务不持有 WKWebView 或 Scene renderer。主 App 的权限交互保留现有设置入口；读取、解码、PNG 转换和取色在 utility 队列串行执行，一次至多一个 Music 请求，多屏复用一份结果。共享 snapshot 含 enabled、provider 状态、source/session identity、epoch/sequence、曲目 generation、可选属性/状态/进度、artwork identity/字节和颜色；通道变更标记避免每次进度更新重传封面。
 
-## 方案设计与选型
+原 Scene IPC 只有 `publishAudioSpectrum` 等命令，没有媒体元数据通道。实施须新增媒体需求事件与 typed snapshot/clear 命令，按 transport generation、request/session 需求身份接纳，冷启动/重启后重放最新快照；不拿频谱包夹带歌曲信息。Scene 保留现有受限原图字节与质量，不套用 Web 缩图。最大 16MiB 封面通过有 artwork generation 的有界分片（单片至多 256KiB）传输，一个在途曲目、一个最新待发快照，控制消息优先；完整校验后才提交 Inbox，换曲/clear/退出立即撤销旧分片及缓存。ACK 故障先 clear，daemon 12 秒本地租约防永久残留、主 App 4 秒续租；最多一次自动重建，耗尽后仍可关开恢复。同一曲目跨 Scene 需求仅复用身份完全一致的已完成原图。不提高现有 8MiB 控制队列预算，也不把整幅 base64 原图塞入控制队列。只在 artwork identity 改变或首次重放时发送图片，metadata 增量保留图片身份。接收方先验证来源/曲目/sequence，封面失败只清封面，不能阻塞控制消息。主 App 与 daemon 来自同一 App 包；不支持该新命令的旧 transport 如实报告元数据不可用，不启动第二采集 owner。
 
-选择**先交付可测试的仲裁，私有 backend 仅限明确的实验配置**。保持纯页面媒体不能满足系统来源目标；静默把私有框架加入默认发行包会把未经验证的平台依赖固化。公开 MPNowPlayingInfoCenter 的自应用发布用途不能冒充任意应用的系统读取。
+## 作者接口与投递
 
-| producer 结果 | 仲裁动作 |
-|---|---|
-| 有效系统 session（包括 paused） | 选择系统；paused 不等于无 session |
-| 明确 no-session | 同事务撤销旧 artwork/metadata，选页面 candidate |
-| 系统 provider 不可用/权限拒绝/超时 | 发布 unavailable；按项目降级策略切页面并标记来源，不伪称系统无曲目 |
-| 相同 epoch 的字段更新 | 组装一致 snapshot，顺序派发 status/properties/thumbnail/timeline/playback |
-| 旧 session artwork 或迟到 callback | 丢弃，不混入新曲目 |
+沿用[官方 Web Media Integration](https://docs.wallpaperengine.io/en/web/audio/media.html)的五类注册接口；这些接口需要壁纸作者主动消费，普通页面不会自动长出歌曲 UI。
 
-snapshot 至少含 source、provider generation、session identity、sequence、playback state、可选 title/artist/album、duration/position 及 artwork identity。缺字段明确置空，禁止沿用前曲。系统异步入口统一序列化；页面 candidate 只由主 frame 汇总，子 frame 消费通过 [D5](cross-origin-reply-delivery-design.md) 的定向投递。
+| 监听入口 | 适配内容 |
+| --- | --- |
+| `wallpaperRegisterMediaStatusListener` | enabled 为设置开关的布尔值，与有没有歌曲分开 |
+| `wallpaperRegisterMediaPropertiesListener` | title、artist、subTitle、albumTitle、albumArtist、genres、contentType；不支持的可选字段为空 |
+| `wallpaperRegisterMediaThumbnailListener` | 可直接作为 img.src 的 PNG data URL（`data:image/png;base64,…`），加五个 CSS 颜色字符串；不暴露本地路径 |
+| `wallpaperRegisterMediaPlaybackListener` | 显式映射 STOPPED/PLAYING/PAUSED，维持现有作者常量兼容，不靠真假值判断数字枚举 |
+| `wallpaperRegisterMediaTimelineListener` | 已确认的 position/duration 秒数；来源不支持时保持缺失，不假造进度 |
 
-系统 backend 使用运行时 capability 探测，缺符号、调用失败或 OS 变化可整路关闭，不能影响 Web 播放。观察注册按宿主需求引用计数，最后消费者退出即注销；artwork 有尺寸/字节预算和取消身份，远程 artwork 不绕过既有网络约束。timeline 在同一 monotonic clock 内外推，paused 停止推进，不能建立第二套播放时钟。
+官方正文称封面为 base64 PNG，示例直接赋给 img.src，因此采用完整 PNG data URL；不能误传裸 base64、file URL 或 JPEG。共享服务在后台另按 artwork identity 缓存 Web PNG（最长边至多 512px、编码至多 1MiB），不重复转码或降低 Scene 原图质量；颜色复用现有 `SceneMediaArtworkPalette`，Web 只转换 CSS 表示，不再重复用 canvas 抓系统封面。调色板具体数值不声称与官方一致。
 
-产品裁决：本设计批准仲裁及实验接口边界；**默认产品保持公开/页面 route**，Mac App Store 构建不得包含私有 backend。Developer ID 实验启用必须先完成目标 OS、sandbox/entitlement、hardened runtime 与签名/notarization 实测并由发布负责人明确接受该渠道风险；本批不猜 entitlement、不要求解除安全策略、不批准自动发布。若无法建立可靠权限与生命周期，删除私有候选，保留不可用结果。
+宿主通过既有 D5 endpoint/token、定向 evaluateJavaScript 和 push sequence 投递，主 frame、同源及跨源子 frame 都按各自有效文档消费。监听注册上报独立 media 需求，不能借用频谱需求；只有 status 监听时仅订阅开关，无需启动歌曲采集；legacy `updateMedia*` 兼容回调也通过同一 reducer 分发。初始化、晚注册、导航后的 hello snapshot 都包含开关和最新媒体状态；endpoint 注销、导航、WebContent 退出与 teardown 同步撤需求。每 endpoint 只保留一个在途投递和最新待发 snapshot，合并时保留最新完整状态，不能丢掉清空或封面变更。最后一个 Scene/Web 需求退出即停止共享观察和轮询，开关关闭时仅保留轻量设置状态同步。
 
-2026-10-07 渠道修订：Scene 系统观察辅助库（`SceneMediaObserver.dylib`，经公共 Perl XS 入口装载）由发布负责人实测验收后决定随 Developer ID Release 分发，构建脚本不再限 Debug；Mac App Store 构建仍不得包含该私有 backend，notarization 与分发前检查按[发布流程](../release/release-signing.md)执行。
+先一次替换 JS 中的完整会话，再差分派发各事件，保证回调读取其他字段时属于同一曲目。迟到图片、旧导航投递与 A→B→A 曲目回包按 epoch/曲目 generation 拒收。壁纸暂停不等于播放器暂停：页面冻结期间合并更新，恢复先重放最新 snapshot，不制造曲目时间。timeline 复用来源的更新节奏，不为每根柱、每个 frame 或每块屏幕另建计时器。
 
-## fallback / route
+## 来源、授权与失败
 
-provider 故障仅降级媒体元数据到页面，不改变系统音频采集或壁纸暂停策略。切换来源原子清空不再适用字段，先撤旧 epoch 后发布新快照；错误不能让两个 writer 同时生效。迁移 route 从仅观察 candidate 到 arbiter 唯一发布，旧 JS direct writers 随后全部收敛到 reducer。
+沿用 [Scene 来源合同](../scene/roadmap/batch2/system-media-input-design.md)：有效系统 session（包括 paused）唯一决定选中来源；Music 公开只读接口仅补同一曲目允许的字段。只有观察资源 missingResource 才允许完整 Music fallback；noSession、临时未知、超时和权限拒绝分别处理，不用 Music 的旧曲填空。迁移不扩展既有 Developer ID / Mac App Store backend 渠道范围，发布与签名仍按[发布流程](../release/release-signing.md)；共享服务换到主 App 后必须重新核验真实授权归属。
 
-## 纠正门
+本修订撤销旧 D6 的“无系统会话回退页面媒体”建议。官方歌曲监听通道以系统歌曲为准，没歌曲就清空，不能显示壁纸自己的背景音。页面 media 观察继续服务音量、播放门和节点诊断，与官方系统媒体状态分离；原 `__myWallpaperMediaState` 的页面 direct writers 必须退出，禁止后台页面事件覆盖系统 snapshot。关闭开关发布 enabled=false 并清空曲目/封面/进度、STOPPED；开启但无 session 发布 enabled=true 和同样空内容。封面缺失只影响封面，系统服务失败不影响壁纸、频谱或其他列表。
 
-- 可控 producer：系统播放→系统暂停→无 session→页面播放→系统恢复；精确验证 source、字段清空、事件序号，系统暂停不能意外回退页面。
-- artwork 迟到、权限拒绝、OS capability 缺失、provider timeout、导航/退出；任何旧 epoch 写入必须拒绝，页面仍可播放。
-- 真实系统会话至少用两个应用交替、退出与锁屏；记录 OS/构建/接口可用性。模拟 producer 通过不证明 MediaRemote 可部署。
-- 分发门分别验证 App Store 不含私有依赖、实验构建签名/权限行为；未完成者保持 backend disabled，design approved 不覆盖发布决策。
+保持持久化 key `sceneMediaInfoEnabled` 及旧值迁移兼容，内部可更名为共享偏好。首次按需申请 Music 自动化授权；拒绝后不因刷新/多屏/换曲重复弹窗。用户重开开关复查，已允许则恢复，仍拒绝时保留当前系统设置引导。不开启 Music、不调用 MusicKit、不增加逐壁纸授权。主 App 一处负责提示，daemon 和 WebContent 不各自触发。
 
-## 退役条件
+## 实施顺序、退出与验收
 
-数据源仲裁稳定合同接管，渠道边界实证明确且私有候选有替换或退出结论后归档；不得把“实验可用”写成系统媒体全面支持。
+1. 先提取共享 snapshot、source/provider 与需求生命周期，并把 Scene 改为 IPC consumer；在同一迁移点撤掉 daemon 内 producer acquire/release。受控 Debug 的媒体注入继续留在原 Inbox，不暗启真实采集。Scene 真实歌曲、封面及无需求停止回归后再接 Web。
+2. 新增 Web 宿主媒体需求/推送，补 hello replay 和唯一 JS reducer，撤页面对官方歌曲状态的直接写入；随后把设置说明改为 Scene/Web 均适用。开关默认值和已有授权交互保持。
+3. 验收：Music 真实播放、换曲、暂停/恢复、退出；拒绝→系统允许→重开；缺封面/坏图/越界图、无 session/临时未知、迟到 ABA；断言字段清空、授权无重复、最后需求退出无轮询。曲目与封面缺口逐项记录，不以频谱跳动代替。
+4. Web 用自有五监听探针及未参与实现的作者样本，覆盖 custom scheme / loopback、晚注册、多屏、同源/跨源 iframe、导航与 WebContent 重启；实际可见核对标题/封面/颜色/进度和开关清空。Scene 经真实 client→daemon→作者事件/封面合成回归，检查两端同时需求仍只有一个采集 helper。
+
+普通帧只消费已发布快照；Debug build、协议/身份反例和真实 UI/渲染分别验收。失败时整体回退本次媒体入口迁移，不保留两套并行生产者；用户关闭功能即可停止采集，其他壁纸功能继续。该链已进入唯一主 App producer 路由，daemon 内旧 producer 已撤销；不宣称所有播放器或官方像素等价。

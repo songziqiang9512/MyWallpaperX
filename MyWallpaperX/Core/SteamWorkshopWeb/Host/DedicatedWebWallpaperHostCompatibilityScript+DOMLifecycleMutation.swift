@@ -25,7 +25,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
               }
             }
             if (shouldRefresh) {
-              wallpaperRefreshMediaState();
+              wallpaperRefreshMediaDemand();
             }
           });
           observer.observe(root, {
@@ -45,7 +45,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
     const mediaNodes = wallpaperImmediateMediaNodes();
     wallpaperEnsureHostScaffold.install(document);
     mediaNodes.forEach(attachWallpaperMediaNode);
-    wallpaperRefreshMediaState();
+    wallpaperRefreshMediaDemand();
     wallpaperScheduleDeferredDOMBootstrap();
     const wallpaperScheduleLifecycleRefresh = (() => {
       let scheduled = false;
@@ -54,7 +54,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
         scheduled = true;
         const flush = () => {
           scheduled = false;
-          wallpaperRefreshMediaState();
+          wallpaperRefreshMediaDemand();
         };
         if (typeof window.requestAnimationFrame === 'function') {
           window.requestAnimationFrame(flush);

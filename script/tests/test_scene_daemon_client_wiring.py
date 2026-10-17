@@ -88,7 +88,8 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
 
     def test_scene_events_are_request_filtered_before_ui_projection(self) -> None:
         client = client_source()
-        self.assertIn("guard pendingRequestID == requestID else { return }", client)
+        self.assertIn("guard pendingRequestID == requestID,", client)
+        self.assertIn("pendingIntent.recordID == recordID", client)
         self.assertIn("requestID == activeRequestID", client)
         self.assertIn("restartBackoff.reset()", client)
         self.assertIn("maximumRestartAttempts", client)

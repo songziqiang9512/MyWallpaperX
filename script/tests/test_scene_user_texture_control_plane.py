@@ -42,6 +42,10 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
                 ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
                 SCENE / "Runtime/Frame/SceneScreenTopology.swift",
                 SCENE / "Systems/Media/SceneAudioSpectrum.swift",
+                ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift",
+                ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift",
+                SCENE / "Systems/Media/SceneMediaThumbnailInbox.swift",
+                SCENE / "Runtime/IPC/SceneDaemonMediaProtocol.swift",
                 SCENE / "Runtime/IPC/SceneDaemonProtocol.swift", TEXTURES, probe,
             ]
             result = subprocess.run(["swiftc", *map(str, sources), "-enable-upcoming-feature", "MemberImportVisibility", "-module-cache-path", str(work / "cache"),

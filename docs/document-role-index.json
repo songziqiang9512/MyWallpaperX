@@ -3401,8 +3401,8 @@
     {
       "path": "docs/web/mediaremote-nowplaying-design.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "唯一媒体仲裁落地并完成相应分发渠道验收，私有实验被公开能力替换或明确撤销后归档。"
+      "entrypoint": "docs/web/README.md",
+      "retirementCondition": "Scene/Web 共用唯一媒体采集与授权 owner，真实播放器和生命周期验收通过，稳定合同接管后归档。"
     },
     {
       "path": "docs/web/steam-downloads-failed-items-visibility-design.md",

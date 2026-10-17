@@ -31,6 +31,12 @@ extension SceneDaemonClient {
             case "frameStats": handleFrameStats(payload)
             case "propertyUpdateResult": handlePropertyUpdateResult(payload)
             case "textureUpdateResult": handleTextureUpdateResult(payload)
+            case "systemMediaDemandChanged":
+                handleSystemMediaDemand(payload, generation: generation)
+            case "systemMediaAcknowledged":
+                handleSystemMediaAcknowledgement(payload, generation: generation)
+            case "systemMediaReplayRequested":
+                handleSystemMediaReplayRequest(payload, generation: generation)
             case "audioSpectrumDemandChanged":
                 handleAudioSpectrumDemand(payload, generation: generation)
             case "audioSpectrumPublished":
@@ -292,6 +298,7 @@ extension SceneDaemonClient {
         }
         if expectedTerminationGenerations.remove(generation) != nil {
             revokeAudioSpectrumDemand(generation: generation)
+            revokeSystemMediaDemand(generation: generation)
             finishShutdownIfPossible()
             return
         }
@@ -307,6 +314,7 @@ extension SceneDaemonClient {
         failPendingFrameCaptures()
         finishPendingTextureUpdates(.failed("Scene daemon disconnected"))
         revokeAudioSpectrumDemand(generation: generation)
+        revokeSystemMediaDemand(generation: generation)
 
         let recoveryUsesPendingIntent = pendingIntent != nil
         let recoveryIntent = pendingIntent ?? activeIntent

@@ -205,7 +205,9 @@ final class SceneDesktopWallpaperSession {
             usesSystemMedia = false
         }
 #endif
-        if usesSystemMedia { SceneSystemMediaProvider.shared.acquire(lifecycleID) }
+        if usesSystemMedia, let requestID = firstPresentation?.requestID {
+            SceneSystemMediaDemandRegistry.shared.acquire(lifecycleID, requestID: requestID)
+        }
         firstFramePresentationRegistration = firstPresentation
         for surface in surfaces.values {
             surface.metalView.registerFirstPresentation { [weak firstPresentation] drawable in

@@ -168,6 +168,22 @@ final class WebWallpaperFrameEndpointRegistry {
         /// 频谱每 endpoint 同时至多一个在途定向调用；期间只保留最新一份。
         private(set) var isSpectrumDeliveryInFlight = false
         var pendingSpectrumLevels: [Float]?
+        var mediaDemandActive = false
+        var mediaDemandNeedsContent = false
+        var isMediaDeliveryInFlight = false
+        var pendingMediaSnapshot: SystemMediaSnapshot?
+        var deliveredMediaEpoch: UInt64?
+        var deliveredMediaRevision: UInt64?
+        struct MediaArtworkKey: Equatable {
+            let epoch: UInt64
+            let sourceID: String?
+            let sessionID: String?
+            let sessionGeneration: UInt64
+            let generation: UInt64
+            let hasThumbnail: Bool
+            let needsContent: Bool
+        }
+        var deliveredMediaArtworkKey: MediaArtworkKey?
 
         init(token: String, documentNonce: String, frameInfo: WKFrameInfo, now: TimeInterval) {
             self.token = token
@@ -381,6 +397,9 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     /// 租约续约心跳（宿主调度）：首 endpoint 注册时启动，teardown 停止。
     var frameEndpointLeaseRenewalTimer: DispatchSourceTimer?
+    let systemMediaConsumerID = UUID()
+    var systemMediaSubscriptionNeedsContent: Bool?
+    var currentSystemMediaSnapshot: SystemMediaSnapshot?
     /// 网络桥授权阶段（DNS 解析等，无应用层超时）在飞的 requestID：授权
     /// 看门狗据此在窗口到期时释放配额并回包；授权完成方与看门狗先到先得，
     /// 迟到方整体退役（防止双重 release/双重回包）。只在主线程访问。

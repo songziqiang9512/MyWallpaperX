@@ -220,7 +220,42 @@ import Foundation
                 == 1_024 * 1_024 * 1_024
             && PlaybackPerformanceProfile.efficient.sceneTextureDecodeCacheByteBudget
                 == 512 * 1_024 * 1_024
+        let mediaDemand = SceneSystemMediaDemand(token: UUID(), requests: [UUID()])
+        let mediaScope = SceneDaemonMediaScope(demand: mediaDemand, transportGeneration: 3)
+        var emptyMedia = SystemMediaSnapshot.empty
+        emptyMedia.epoch = 1; emptyMedia.revision = 1
+        let mediaFrame = SceneDaemonMediaSnapshotFrame(scope: mediaScope, snapshot: emptyMedia, artwork: nil)
+        let mediaData = try SceneDaemonMediaWire.encode("publishSystemMedia", mediaFrame)
+        let mediaCommandValid: Bool
+        if case let .success(.publishSystemMedia(decoded)) = SceneDaemonProtocol.decodeCommand(mediaData) {
+            mediaCommandValid = decoded == mediaFrame
+        } else { mediaCommandValid = false }
+        let mediaChunk = SceneDaemonMediaArtworkChunk(scope: mediaScope, transferID: UUID(), index: 0, bytes: Data([1, 2]))
+        let mediaChunkValid: Bool
+        if case let .success(.publishSystemMediaArtwork(decoded)) = SceneDaemonProtocol.decodeCommand(
+            try SceneDaemonMediaWire.encode("publishSystemMediaArtwork", mediaChunk)
+        ) { mediaChunkValid = decoded == mediaChunk } else { mediaChunkValid = false }
+        let largeMediaChunk = SceneDaemonMediaArtworkChunk(scope: mediaScope, transferID: UUID(), index: 0,
+            bytes: Data(repeating: 1, count: SceneDaemonMediaWire.maximumChunkBytes + 1))
+        let oversizeMediaChunkRejected: Bool
+        if case .failure(.invalidPayload("publishSystemMediaArtwork")) = SceneDaemonProtocol.decodeCommand(
+            try SceneDaemonMediaWire.encode("publishSystemMediaArtwork", largeMediaChunk)
+        ) { oversizeMediaChunkRejected = true } else { oversizeMediaChunkRejected = false }
+        let negativeMediaChunk = SceneDaemonMediaArtworkChunk(scope: mediaScope, transferID: UUID(), index: -1, bytes: Data([1]))
+        let negativeMediaIndexRejected: Bool
+        if case .failure(.invalidPayload("publishSystemMediaArtwork")) = SceneDaemonProtocol.decodeCommand(
+            try SceneDaemonMediaWire.encode("publishSystemMediaArtwork", negativeMediaChunk)
+        ) { negativeMediaIndexRejected = true } else { negativeMediaIndexRejected = false }
+        let mediaWrongTypeRejected: Bool
+        if case .failure(.invalidPayload("publishSystemMedia")) = decode([
+            "v": 1, "cmd": "publishSystemMedia", "frame": ["scope": true]
+        ]) { mediaWrongTypeRejected = true } else { mediaWrongTypeRejected = false }
         let payload = [
+            "mediaCommandValid": mediaCommandValid,
+            "mediaChunkValid": mediaChunkValid,
+            "oversizeMediaChunkRejected": oversizeMediaChunkRejected,
+            "negativeMediaIndexRejected": negativeMediaIndexRejected,
+            "mediaWrongTypeRejected": mediaWrongTypeRejected,
             "loadValid": loadValid,
             "explicitRequestValid": explicitRequestValid,
             "invalidRequestRejected": invalidRequestRejected,
@@ -262,6 +297,10 @@ class SceneDaemonProtocolTests(unittest.TestCase):
                 [
                     "xcrun", "swiftc", "-parse-as-library",
                     str(PROPERTY), str(COMMAND), str(PROFILE), str(SCREEN), str(AUDIO),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift"),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift"),
+                    str(SCENE / "Systems/Media/SceneMediaThumbnailInbox.swift"),
+                    str(SCENE / "Runtime/IPC/SceneDaemonMediaProtocol.swift"),
                     str(PROTOCOL),
                     str(harness),
                     "-o", str(binary),

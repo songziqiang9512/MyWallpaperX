@@ -2,6 +2,25 @@
 import Foundation
 
 extension DebugScenePlaybackRunner {
+    /// Direct-host evidence opts into the same main-App producer as the product
+    /// IPC route. Controlled media fixtures continue to use only the Inbox.
+    static func configureRequestedSystemMedia() {
+        guard ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SYSTEM_MEDIA"] == "1" else { return }
+        let consumer = UUID()
+        let registry = SceneSystemMediaDemandRegistry.shared
+        let update: (SceneSystemMediaDemand) -> Void = { demand in
+            if demand.requiresMedia {
+                SystemMediaService.shared.subscribe(consumer) { snapshot in
+                    SceneMediaThumbnailInbox.shared.replaceSystemSnapshot(snapshot.media)
+                }
+            } else {
+                SystemMediaService.shared.unsubscribe(consumer)
+            }
+        }
+        registry.didChange = update
+        update(registry.demand)
+    }
+
     static func publishRequestedMediaThumbnail(rootURL: URL) {
         publishRequestedMediaProperties()
         publishRequestedMediaTimeline()

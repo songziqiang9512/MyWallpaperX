@@ -93,6 +93,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationDidFinishLaunching(_ notification: Notification) {
 #if DEBUG
+ if DebugSystemMediaRunner.isRequested {
+ DebugSystemMediaRunner.scheduleIfRequested()
+ return
+ }
  if DebugSceneDaemonClientRunner.isRequested {
  if DebugSceneDaemonClientRunner.requiresProductCoordinator {
  MainMenuBuilder.installMainMenu()

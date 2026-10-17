@@ -1,11 +1,11 @@
 import AppKit
 import Foundation
 
-/// One process-local publisher shared by prepared Scene sessions and displays.
+/// The main App is the single system-song producer for Scene and Web.
 /// Platform reads never run on the frame queue or launch another application.
 @MainActor
-final class SceneSystemMediaProvider {
-    static let shared = SceneSystemMediaProvider()
+final class SystemMediaService {
+    static let shared = SystemMediaService()
 
     private enum ActiveSource { case none, appleMusic, system }
     private enum MusicSelection: Equatable {
@@ -13,9 +13,21 @@ final class SceneSystemMediaProvider {
         case selected(String)
     }
 
-    private let inbox: SceneMediaThumbnailInbox
+    private let inbox: SystemMediaSnapshotStore
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene-player-media", qos: .utility)
-    private var consumers = Set<UUID>()
+    private struct Subscription {
+        let lease = UUID()
+        let needsMedia: Bool
+        let receive: (SystemMediaSnapshot) -> Void
+    }
+    private var subscriptions: [UUID: Subscription] = [:]
+    private var consumers: Set<UUID> {
+        Set(subscriptions.compactMap { $0.value.needsMedia ? $0.key : nil })
+    }
+    private(set) var currentSnapshot: SystemMediaSnapshot
+    private var webThumbnail: String?
+    private var preparedArtworkGeneration: UInt64?
+    private var sessionGeneration: UInt64 = 0
     private var timer: Timer?
     private var preferenceObserver: NSObjectProtocol?
     private var activeSource = ActiveSource.none
@@ -25,13 +37,13 @@ final class SceneSystemMediaProvider {
     private var targetPID: pid_t?
     private var authorizationChecked = false
     private var authorized = false
-    private var musicSnapshot: SceneMusicPlayerSource.Snapshot?
+    private var musicSnapshot: SystemMusicPlayerSource.Snapshot?
     private var lastStatus: String?
     private var hasPublished = false
-    private let systemSource = SceneSystemMediaSource()
-    private var systemSession: SceneSystemMediaSource.Snapshot?
+    private let systemSource = SystemMediaSource()
+    private var systemSession: SystemMediaSource.Snapshot?
     private var systemArtworkData: Data?
-    private var systemArtworkPalette: SceneMediaArtworkPalette?
+    private var systemArtworkPalette: SystemMediaArtworkPalette?
     private var usesMusicFallback = false
     private var systemRetryDelay: TimeInterval = 2
     private var systemRestartDeadline: Date?
@@ -42,29 +54,42 @@ final class SceneSystemMediaProvider {
         return .selected(systemSession.identity)
     }
 
-    init(inbox: SceneMediaThumbnailInbox = .shared) {
+    init(inbox: SystemMediaSnapshotStore = SystemMediaSnapshotStore()) {
         self.inbox = inbox
+        currentSnapshot = .empty
+        currentSnapshot.enabled = SceneMediaSourcePreference.isEnabled
+        currentSnapshot.media = inbox.latest()
     }
 
-    func acquire(_ consumer: UUID) {
-        guard consumers.insert(consumer).inserted, consumers.count == 1 else { return }
-        preferenceObserver = DistributedNotificationCenter.default().addObserver(
-            forName: SceneMediaSourcePreference.changed, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reloadSource() }
+    func subscribe(_ consumer: UUID, needsMedia: Bool = true,
+                   receive: @escaping (SystemMediaSnapshot) -> Void) {
+        let hadDemand = !consumers.isEmpty
+        let firstSubscription = subscriptions.isEmpty
+        subscriptions[consumer] = Subscription(needsMedia: needsMedia, receive: receive)
+        if preferenceObserver == nil {
+            preferenceObserver = DistributedNotificationCenter.default().addObserver(
+                forName: SceneMediaSourcePreference.changed, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.reloadSource() }
+            }
         }
-        reloadSource()
+        if firstSubscription || hadDemand != !consumers.isEmpty {
+            reloadSource()
+        } else {
+            // Status-only and late listeners do not restart a live provider.
+            receive(currentSnapshot)
+        }
     }
 
-    func release(_ consumer: UUID) {
-        guard consumers.remove(consumer) != nil, consumers.isEmpty else { return }
-        timer?.invalidate()
-        timer = nil
+    func unsubscribe(_ consumer: UUID) {
+        let hadDemand = !consumers.isEmpty
+        guard subscriptions.removeValue(forKey: consumer) != nil else { return }
+        if hadDemand != !consumers.isEmpty { reloadSource() }
+        guard subscriptions.isEmpty else { return }
         if let preferenceObserver {
             DistributedNotificationCenter.default().removeObserver(preferenceObserver)
         }
         preferenceObserver = nil
-        invalidateSource()
     }
 
     private func reloadSource() {
@@ -72,6 +97,7 @@ final class SceneSystemMediaProvider {
         invalidateSource()
         timer?.invalidate()
         timer = nil
+        publishSnapshot(force: true)
         guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
@@ -92,6 +118,8 @@ final class SceneSystemMediaProvider {
         systemArtworkData = nil
         systemArtworkPalette = nil
         usesMusicFallback = false
+        preparedArtworkGeneration = nil
+        webThumbnail = nil
         systemRetryDelay = 2
         systemRestartDeadline = nil
         clearPublishedSession()
@@ -107,7 +135,7 @@ final class SceneSystemMediaProvider {
         }
     }
 
-    private func scheduleSystemRestart(after failure: SceneSystemMediaSource.Failure) {
+    private func scheduleSystemRestart(after failure: SystemMediaSource.Failure) {
         // helperUnavailable is a live observer's temporary unknown selection;
         // missingResource cannot recover mid-run. Only retired transports retry.
         guard failure != .helperUnavailable, failure != .missingResource else { return }
@@ -117,7 +145,10 @@ final class SceneSystemMediaProvider {
 
     private func clearPublishedSession() {
         guard hasPublished else { return }
-        if inbox.clearMediaSession() { hasPublished = false }
+        if inbox.clearMediaSession() {
+            hasPublished = false
+            publishSnapshot()
+        }
     }
 
     private static func runningMusicPID() -> pid_t? {
@@ -155,7 +186,7 @@ final class SceneSystemMediaProvider {
                 && self.selectionGeneration == requestSelectionGeneration
         }
         let finish: @MainActor @Sendable (
-            SceneMusicPlayerSource.AuthorizationStatus, SceneMusicPlayerSource.ReadResult?, Bool
+            SystemMusicPlayerSource.AuthorizationStatus, SystemMusicPlayerSource.ReadResult?, Bool
         ) -> Void = { [weak self] authorization, result, requestedConsent in
             guard let self else { return }
             self.inFlight = false
@@ -187,7 +218,7 @@ final class SceneSystemMediaProvider {
             self.consume(result)
         }
         queue.async { [weak self] in
-            let authorization = SceneMusicPlayerSource.silentAuthorization(pid: pid)
+            let authorization = SystemMusicPlayerSource.silentAuthorization(pid: pid)
             DispatchQueue.main.async {
                 // Preflight can block while demand, player or selection changes.
                 // Admit both consent and reads on the current request only.
@@ -198,12 +229,12 @@ final class SceneSystemMediaProvider {
                 switch authorization {
                 case .consentRequired:
                     self.queue.async {
-                        let consent = SceneMusicPlayerSource.requestAuthorization(pid: pid)
+                        let consent = SystemMusicPlayerSource.requestAuthorization(pid: pid)
                         DispatchQueue.main.async { finish(consent, nil, true) }
                     }
                 case .authorized:
                     self.queue.async {
-                        let result = SceneMusicPlayerSource.read(
+                        let result = SystemMusicPlayerSource.read(
                             pid: pid, cachedArtworkIdentity: cached?.artworkData == nil ? nil : cached?.identity,
                             cachedArtworkData: cached?.artworkData, cachedArtworkPalette: cached?.artworkPalette
                         )
@@ -221,7 +252,7 @@ final class SceneSystemMediaProvider {
         else { clearPublishedSession() }
     }
 
-    private func consume(_ result: SceneMusicPlayerSource.ReadResult) {
+    private func consume(_ result: SystemMusicPlayerSource.ReadResult) {
         switch result {
         case let .snapshot(value):
             musicSnapshot = value
@@ -242,6 +273,7 @@ final class SceneSystemMediaProvider {
             if accepted {
                 activeSource = .appleMusic
                 hasPublished = true
+                publishSnapshot()
                 report("published")
             } else {
                 clearMusicSupplement()
@@ -265,10 +297,10 @@ final class SceneSystemMediaProvider {
         case .system: source = "system"
         case .none: source = "none"
         }
-        NSLog("MWX Scene media source: source=%@ status=%@", source, status)
+        NSLog("MWX shared media source: source=%@ status=%@", source, status)
     }
 
-    private func publishSystemSession(_ value: SceneSystemMediaSource.Snapshot) {
+    private func publishSystemSession(_ value: SystemMediaSource.Snapshot) {
         // The two APIs have unrelated opaque track IDs. Supplement metadata only
         // when its nonempty title, artist and album agree; never substitute the
         // system's track, transport state or cover using this comparison.
@@ -290,6 +322,7 @@ final class SceneSystemMediaProvider {
         activeSource = .system
         if accepted {
             hasPublished = true
+            publishSnapshot()
             report(value.artworkFailure == nil ? "published" : "published-without-artwork")
         } else {
             clearPublishedSession()
@@ -297,7 +330,7 @@ final class SceneSystemMediaProvider {
         }
     }
 
-    private func consumeSystem(_ result: SceneSystemMediaSource.Result) {
+    private func consumeSystem(_ result: SystemMediaSource.Result) {
         let oldSelection = musicSelection
         switch result {
         case let .snapshot(value):
@@ -332,6 +365,57 @@ final class SceneSystemMediaProvider {
         if musicSelection != oldSelection {
             selectionGeneration &+= 1
             poll()
+        }
+    }
+
+    private func publishSnapshot(force: Bool = false) {
+        let media = inbox.latest()
+        let sourceID: String?
+        let sessionID: String?
+        if hasPublished, activeSource == .system {
+            sourceID = systemSession?.source
+            sessionID = systemSession?.identity
+        } else if hasPublished, activeSource == .appleMusic {
+            sourceID = "com.apple.Music"
+            sessionID = musicSnapshot?.identity
+        } else {
+            sourceID = nil
+            sessionID = nil
+        }
+        if currentSnapshot.sourceID != sourceID || currentSnapshot.sessionID != sessionID {
+            sessionGeneration &+= 1
+        }
+        if preparedArtworkGeneration != media.generation {
+            preparedArtworkGeneration = media.generation
+            webThumbnail = nil
+            if let artwork = media.current {
+                let requestEpoch = epoch
+                let generation = media.generation
+                queue.async { [weak self] in
+                    let thumbnail = SystemMediaWebArtwork.dataURL(from: artwork)
+                    DispatchQueue.main.async {
+                        guard let self, self.epoch == requestEpoch,
+                              self.inbox.latest().generation == generation,
+                              !self.consumers.isEmpty else { return }
+                        self.webThumbnail = thumbnail
+                        self.publishSnapshot()
+                    }
+                }
+            }
+        }
+        var next = SystemMediaSnapshot(
+            enabled: SceneMediaSourcePreference.isEnabled, epoch: epoch,
+            revision: currentSnapshot.revision, sourceID: sourceID,
+            sessionID: sessionID, sessionGeneration: sessionGeneration,
+            media: media, webThumbnail: webThumbnail
+        )
+        guard force || next != currentSnapshot else { return }
+        next.revision &+= 1
+        currentSnapshot = next
+        // A callback may retire or replace another subscription synchronously.
+        for (id, subscription) in Array(subscriptions) {
+            guard subscriptions[id]?.lease == subscription.lease else { continue }
+            subscription.receive(next)
         }
     }
 }
