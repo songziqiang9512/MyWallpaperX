@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 181,
-      "bytes": 57799
+      "lines": 182,
+      "bytes": 59191
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -137,8 +137,8 @@
       "bytes": 74762
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 362,
-      "bytes": 59673
+      "lines": 363,
+      "bytes": 59946
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -222,7 +222,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11086
+      "bytes": 11651
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -237,8 +237,8 @@
       "bytes": 15154
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 152,
-      "bytes": 32560
+      "lines": 151,
+      "bytes": 32326
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1177,15 +1177,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "795bf85c1f7332a449769f3ece85ec76c942ccd2da47dfdb1ba48e89f52f4080",
-      "after": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
-      "owner": "scene-main-pass-qualification",
-      "reason": "实际289未命中、唯一group候选未ready，记录未实施和重开所需证据，防止下一轮把静态空pass机会重跑为无依据优化。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#优化边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "e6588e8c9f9893823eaabe934aade9ef2b54cebb2897c0de39c568cf357b1b8c",
       "after": "1fcefeab6c9ad1b09702b90a662b4956d9397c5bc1f2a9631eb8a6c26cc488b5",
@@ -1267,24 +1258,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7cc7c59d4bb407af762c22643c0da0add9fdbbaa577706dc1ce04afbea46963e",
-      "after": "730908db00089426659d7f925f9461dcd346ee0633301b3903d6fd20368fd443",
-      "owner": "scene-user-shortcut-authored-fallback",
-      "reason": "有效作者底图沿唯一prepared源链保留，收敛实施前设计并移除已修白块；官方/失败/候选身份与同profile待验分列，新增381仅记not-run，不扩整景或性能裁决。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#user-shortcut-authored-fallback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cd90873d8fb7f2bf13031e0d7aa463e4197a28bb12822ffdb79549a4871aa3f1",
-      "after": "8b16e33469c247adb73b5a9f9be012d187668341c4f4e9e62be6ca8c304c3b93",
-      "owner": "scene-user-shortcut-authored-fallback",
-      "reason": "有效作者底图沿唯一prepared源链保留，收敛实施前设计并移除已修白块；官方/失败/候选身份与同profile待验分列，新增381仅记not-run，不扩整景或性能裁决。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#user-shortcut-authored-fallback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "cd5abb2b63e9a224ca4c2ca2dcc5c806a05e417be983283210d6e299f8cc4f70",
       "after": "ae078dce493887184efe2dd01e8bd91aca470fcf31fb579a5ae3fd5084970f12",
@@ -1294,12 +1267,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "730908db00089426659d7f925f9461dcd346ee0633301b3903d6fd20368fd443",
+      "after": "3984476f3d37d271f789cfef483bad6d92f10828b72657929c7660986281034e",
+      "owner": "scene-shortcut-beneficiary-intake",
+      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "8b16e33469c247adb73b5a9f9be012d187668341c4f4e9e62be6ca8c304c3b93",
+      "after": "b3b7426c82f54e25d58df94c7aff632654e815eb74b1985c1e8f19858dcb2e42",
+      "owner": "scene-shortcut-beneficiary-intake",
+      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
+      "after": "79fa12ee6016276c08d8673d5492b3fb4fb67eb9a0186e88eefe6bab9da5ff41",
+      "owner": "scene-shortcut-beneficiary-intake",
+      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "8657bb8d9c1f9ee0d180b2078aa161e29ffd50663291c206203c1ba4d2f3ee97",
-      "after": "6e684fa454604e6abe0369689fecfc3c7730e29fe90465324d54157c8a314753",
-      "owner": "scene-user-shortcut-authored-fallback",
-      "reason": "有效作者底图沿唯一prepared源链保留，收敛实施前设计并移除已修白块；官方/失败/候选身份与同profile待验分列，新增381仅记not-run，不扩整景或性能裁决。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#user-shortcut-authored-fallback"
+      "before": "6e684fa454604e6abe0369689fecfc3c7730e29fe90465324d54157c8a314753",
+      "after": "ef88ac8520a0b64278bddf2da8f124f03e34f34ec7b46603aa0d1b2dc3cec3f9",
+      "owner": "scene-shortcut-beneficiary-intake",
+      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
     }
   ]
 }

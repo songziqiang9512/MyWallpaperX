@@ -6,14 +6,13 @@
 
 当前状态以源码与同身份执行证据为准。**运行已复现**、**静态反例**、**能力缺口**和**待当前复验**分开；旧日志、声明数量、默认隐藏/属性关闭、首帧暂未ready不直接算当前可见失败。根因unknown保留unknown，不能据同类样本、图层名或截图补算法。
 
-样本/人工历史归[验收台账](../capabilities/scene-sample-acceptance-ledger.md)及[统计](../capabilities/scene-corpus-capability-inventory.md)；N组身份见[10-11普查](../history/new-scene-intake-2026-10-11.md)，10-17增量归[当前运行证据](../capabilities/runtime-evidence-current.md#intake-20261017)。243静态快照、279成员基准、该次增量时300目录/299完整Scene及混合App归档各有分母。20份增量全部ready、19正常退出，只做默认短播放/目录“截屏”基础构图对照，不等于20份兼容通过；169为已知输入补登，376仅shaders残留不算引擎启动失败。后继台账新发现3818943255（完整Scene、无目录“截屏”），当前301目录/300完整输入、122未关联；该项只登记not-run并待短播放诊断，不混入上述20份运行。旧人工verdict不刷新。
+样本/人工历史归[验收台账](../capabilities/scene-sample-acceptance-ledger.md)及[统计](../capabilities/scene-corpus-capability-inventory.md)；N组身份见[10-11普查](../history/new-scene-intake-2026-10-11.md)，10-17增量归[当前运行证据](../capabilities/runtime-evidence-current.md#intake-20261017)。243静态快照、279成员基准、该次增量时300目录/299完整Scene及混合App归档各有分母。20份增量全部ready、19正常退出，只做默认短播放/目录“截屏”基础构图对照，不等于20份兼容通过；169为已知输入补登，376仅shaders残留不算引擎启动失败。后继台账新发现3818943255（完整Scene、无目录“截屏”），当前301目录/300完整输入；该项后继已完成一次默认direct短播放和正常退出，见[后验](../capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017)，不混入上述20份运行；机器归档保原179对象、追加1条有界观察，未关联为121。旧人工verdict不刷新。
 
 ## 1. 画面合成与正常播放：可定位的开放项
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| 快捷方式底图同profile候选 · 361顶部8白块 | 10-17原生旧图与官方实图分别为白quad/透明链环；24实例具合法透明slot0和精确usershortcut，8默认effective；alpha1后缀不是填白来源。357公共修复已匹配其静态形态，尚未用当前候选运行361；原62.16s ready后的watchdog失败保留 | 复用现候选做一次隔离实际画面/正常退出，确认链环及相邻effect source；不新增样本分支/重复VM。不因静态匹配写已修；当前结果归[底图合同](../capabilities/runtime-input-property-coverage.md#user-shortcut-authored-fallback)。 |
-| Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，但1678的时值被误认固定tag；实际关联MDMP shape与非零scalar曲线，另有多clip alpha依赖，仍沿安全bind-pose。旧335资格不能覆盖新输入，不能靠改常量/跳track关闭正常播放缺口 | 先完成morph/scalar消费者与混合顺序顶层设计，固定MDLA/auxiliary实际边界和作者请求；复用现AnimationReader/evaluator/pose，不跳track或吞错。原包姿态需随时钟推进，保健康Puppet/旧几何失败回退。 |
+| Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，但1678的时值被误认固定tag；实际关联MDMP shape与非零scalar曲线，另有多clip alpha依赖，仍沿安全bind-pose。旧335资格不能覆盖新输入；shape437不匹配part/bone，19个MDMP尾值32767不可能直接作全局顶点index，scalar三条非零也未证明是alpha，不能靠改常量/跳track关闭播放缺口 | 先完成morph/scalar消费者与混合顺序顶层设计，固定MDLA/auxiliary实际边界和作者请求；复用现AnimationReader/evaluator/pose，不跳track或吞错。原包姿态需随时钟推进，保健康Puppet/旧几何失败回退。 |
 | active effect输入/来源准入缺口 · 358/357/363/382增量 | **10-17真实局部回退。** 358七个slot1用途proof拒；读源已证其RGB颜色+A权重、slot2才是红mask，不可当mask放行，且未有可归因的明显缺图ROI，暂作候选；357的320另拒slot1、210 framebuilder缺insideAlpha Vec2 producer、233 Combined Timeline被parent/children门拒；363的765 Blur被whole-stage childless门拒；382的17/effect1 lightshafts slot1绑定失败。不是同一算法，也未将每条标签认成可见缺图 | 沿各prepared Program的首个错误身份依次裁用途/typed producer/cohort，复用原graph与compositor；不能把RGBA改当红mask、扩大capture或为效果名加旁路。先修有最大明确ROI收益者；参数/来源已满足却仍拒才扩相应通用准入。 |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **释放链仍未闭合。** 已准入平移物理骨的本地translation查询与持续物理姿态已分域；非物理骨、其余matrix分量保旧。原三轮故障、官方Q4/Q5及有界native验收统一归[记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)，不再重修该查询首门 | 沿唯一pose/motion owner澄清并接通实际释放的translation impulse输入、顺序和一次提交；有效但启用字段省略的骨处置只复用Q4限定观察，不推广默认。保未知方向/单位、angular/reset边界及异常fuse；最终仍须原输入三轮持续响应、释放后更新及健康邻居，不扩无区分参数矩阵。 |
@@ -23,7 +22,7 @@
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
-357底栏16白块已退出：精确typed usershortcut在当前无本机icon producer的普通solid源投影中保留作者底图；最终原包16个透明花叶图案实际恢复，中央人物/烟火/栏杆保持并正常stop/GPU排空。只修有效底图，不扩系统赋值/点击、effect/pass或unknown回退；首候选Optional误拒、一次截断与整样本工具原FAIL保留，独立339按明确候选身份复用。见[有界后验](../capabilities/runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)。
+357底栏16白块已退出：精确typed usershortcut在当前无本机icon producer的普通solid源投影中保留作者底图；最终原包16个透明花叶图案实际恢复，中央人物/烟火/栏杆保持并正常stop/GPU排空。后继361的8个透明链环也已真实恢复并安全退出；只修有效底图，不扩系统赋值/点击、effect/pass或unknown回退；首候选Optional误拒、一次截断与整样本工具原FAIL保留，独立339按明确候选身份复用。见[有界后验](../capabilities/runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)。
 
 3022080536背景缺失已退出：旧52B全文件选择/拒绝优先后，format9/20B静态mesh沿原bind/UV/world链准入；原包奶油纸底、书法和双红印实际恢复，主体18动画保持，独立WLOP legacy16/52画面保持。完整属性、互动及相同viewport/phase仍未验，不当作整样本PASS；见[有界后验](../capabilities/runtime-evidence-current.md#mdl-static-position-uv20-20261017)。
 
@@ -33,7 +32,7 @@
 
 3610154602于10-16同身份复验并读源资格后，不再按“缺getTextureAnimation API”排实现：435.alpha/origin首错依赖当前缺席的播放器控件，423只存在一层parent却读取祖父；公开missing lookup/null及无父undefined合同已执行。其余动态创建/导入是否应提供缺席控件仍unknown，不记作者错误或样本完成；取得合法producer证据后再开共享首断点。人物、城市、时钟与橙色频谱实际呈现，非完整parity。限期证据：`.artifacts/scene-evidence/runs/texture-animation-owner-qualification-20261016/`。
 
-3605722997的“只见裙摆脚部”已通过单次animation=false对照归为入场视频phase：默认after约在5.29s，作者18s后才淡出；关闭入场即恢复人物/建筑，camera descriptor逐值相同。该巨大取景观察退出相机故障排期，不关闭原入场时序或其余粒子/脚本缺口。169顶部灰带沿用已证同宽高比官方亦有的边界。302背景已按上文恢复；357底栏已实际恢复；3616389236顶部8白块已核为相同底图profile候选，仍待当前可见验收；不能从不同viewport/声源或未完整播放直接改颜色/相机。
+3605722997的“只见裙摆脚部”已通过单次animation=false对照归为入场视频phase：默认after约在5.29s，作者18s后才淡出；关闭入场即恢复人物/建筑，camera descriptor逐值相同。该巨大取景观察退出相机故障排期，不关闭原入场时序或其余粒子/脚本缺口。169顶部灰带沿用已证同宽高比官方亦有的边界。302背景已按上文恢复；357底栏已实际恢复；同公共修复的3616389236顶部8白块经后继实际运行恢复透明链环并正常退出，已退出队列；不能从不同viewport/声源或未完整播放直接改颜色/相机。
 
 3078285611的effect6/22/24 speed于10-16同身份读源资格后退出“缺API”修法：三者对整个scriptProperties容器做算术，健康effect5读取其中Number成员；现无原型容器不能primitive coercion，解释原toPrimitive首错。没有公开whole-container转Number特殊合同，改变原型或替换slider也未证明能产生合法速度；不认定作者错误、官方结果或样本已修。后继须取得能改变此类型判断的公共行为证据再开共享缺口，不重复numeric门。中性收据`.artifacts/tmp/307-speed-consumer-research-20261016/qualification.json`（SHA `ab21f208267dfc4ed8719cf87c338210c26e64196d1b657d4e0175e0cb158939`）。
 

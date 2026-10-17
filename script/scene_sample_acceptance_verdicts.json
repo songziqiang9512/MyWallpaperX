@@ -173,14 +173,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "主体图形/时钟呈现，顶部图标成白块待同媒体资格；62.16s ready后被69s watchdog截断，完整播放/退出未知；隐藏15/effect0不计默认画面缺失。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "10-17同公共shortcut底图修复的实际受益验收：默认8个顶部白块恢复透明链环，主幅/时钟/装饰保持；复用既有签名App单次direct运行64.200s ready、正常exit0/GPU排空。旧62.16s ready后watchdog失败原值保留；延长诊断watchdog不算启动优化，无系统快捷方式赋值/点击或全景验收。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/samples/3616389236/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/samples/3616389236/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/samples/3616389236/runtime_evidence.zip"
       ],
-      "remainingDifferences": "主体图形/时钟呈现，顶部图标成白块待同媒体资格；62.16s ready后被69s watchdog截断，完整播放/退出未知；隐藏15/effect0不计默认画面缺失。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "顶部8白块已退出。当前未资格化其他明确可见故障；完整画面、播放、媒体/系统快捷方式和全部参数未验收，不因此新增无归属缺陷。",
       "officialComparison": "compared"
     },
     "3291326967": {
@@ -400,6 +402,20 @@
       ],
       "remainingDifferences": "当前仅补登/同构建回归；主体、羽毛和雪呈现，顶部灰带沿用已锁同宽高比官方也有的边界，不重新排故障。；完整视觉、播放、交互及作者参数未验收。",
       "officialComparison": "compared"
+    },
+    "3818943255": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / dynamic_image_material_tests_sol",
+      "note": "新发现后复用同签名App单次默认direct短播放：1image/0effects、0.971s ready，实际图像呈现、exit0/stop1→0/GPU排空。没有目录官方截屏，只记基础显示/退出；3项属性未完整验收，source material shader-contract→authored-layer-color诊断未证可见故障。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/samples/3616389236/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "无官方截屏，未判相同viewport/phase合成parity；完整属性/播放未验。源颜色合同回退只保具体诊断，不能由标签认定画面或热更新失效。",
+      "officialComparison": "unknown"
     }
   }
 }

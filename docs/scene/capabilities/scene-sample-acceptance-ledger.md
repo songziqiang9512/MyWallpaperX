@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（301 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `2071a298df74d91206f0b026b6b241b5df5c25836c7ab7d145e16e27eaa66d61`（生成于 2026-10-16T17:53:30.857012+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `870471922cf4995fcd835b83d740d3e71aed5c05540a8a26046cb79f2b0126d2`。
-- 本页生成于 2026-10-17T02:49:28.344696+00:00。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `41f778a837d307291a408edeb1a472a4fd933913ce47fb722073b7093d23e26f`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `cc68885dfce9111f4efad5719648a47cababe3cd687208d3d13d2c7c7d856d49`。
+- 本页生成于 2026-10-17T03:22:31.312437+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -41,14 +41,15 @@
 | `texture-load` | 基础图片纹理加载 | 6 |
 | `scenescript` | SceneScript 异常 | 12 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 139 |
-| `not-run` | 未关联本归档运行证据 | 122 |
+| `visual-review` | 结构链完整，待视觉验收 | 140 |
+| `not-run` | 未关联本归档运行证据 | 121 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
 | `degraded-runtime` | 39 |
-| `not-run` | 122 |
+| `not-run` | 121 |
+| `runtime-evidence-incomplete` | 1 |
 | `structural-chain-complete-visual-review` | 138 |
 
 作者参数：222 个样本声明了 schemecolor 之外的用户参数，共 7289 项，其中 2547 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
@@ -215,7 +216,7 @@
 | `3612058080` | 吞噬星空-星幻王 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3612199597` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 咖啡厅天台 \|\… | 40(17) bool 19 color 4 group 3 slider 5 text 9 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
 | `3612795410` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 喷泉广场 \|\|… | 35(15) bool 16 color 4 group 2 slider 3 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
-| `3616389236` | Aesthetic Media Visualizer (Shortcut) \… | 179(165) bool 74 color 13 combo 7 scenetexture 26 slider 26… | `blocked` | `process / DebugScenePlaybackRunner / process-timeout / scene-process` | `visual-review` | `unreviewed` 2026-10-17 | 主体图形/时钟呈现，顶部图标成白块待同媒体资格；62.16s ready后被69s watchdog截断，完整播放/退出未知；隐藏15/effect0不计默认… |
+| `3616389236` | Aesthetic Media Visualizer (Shortcut) \… | 179(165) bool 74 color 13 combo 7 scenetexture 26 slider 26… | `blocked` | `process / DebugScenePlaybackRunner / process-timeout / scene-process` | `visual-review` | `unreviewed` 2026-10-17 | 10-17同公共shortcut底图修复的实际受益验收：默认8个顶部白块恢复透明链环，主幅/时钟/装饰保持；复用既有签名App单次direct运行64.200… |
 | `3617056047` | 麻匪 模型音频互动 Model - audio interaction | 49(14) bool 4 color 6 combo 2 scenetexture 1 slider 7 text … | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3627973226` | [Sakiko Togawa]snowy night - It's MyGO!… | 18(0) bool 17 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3629927359` | 奶牛大鸭鸭 2 | 2(0) color 1 combo 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` |  |
@@ -357,6 +358,6 @@
 | `3812473896` | 原神芙宁娜-水畔芙谣[Furina's Ballad by the Water… | 52(0) bool 3 color 7 group 6 scenetexture 1 slider 35 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3814040466` | Nikke - Privaty - Sharp Lesson | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3815761795` | 明日方舟・夕｜画桥（4K） | 13(0) bool 7 color 3 combo 1 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3818943255` | 美女肚兜 | 3(0) color 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3818943255` | 美女肚兜 | 3(0) color 1 slider 2 | `runtime-evidence-incomplete` | - | `visual-review` | `unreviewed` 2026-10-17 | 新发现后复用同签名App单次默认direct短播放：1image/0effects、0.971s ready，实际图像呈现、exit0/stop1→0/GPU… |
 | `3820312181` | Void Edge Theme R6S [High Resolution] | 4(0) bool 2 color 1 slider 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | VOID EDGE主体呈现；lightshafts layer17/effect1 slot1纹理绑定失败、局部回退，光束具体ROI待同相位对照。 与目录官方… |
 | `833227004` | 星云变换t001 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |

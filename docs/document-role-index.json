@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50b691cacd9ddf91bb3c5a0756fd26d9626fdc3e6ec57cfbbb414b8bbeb587d8",
+        "sourceSHA256": "82029e5e14412aca6437fc3d7e0bf6e1226c6f25727aaeaa6842c0da43367f06",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
-        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
+        "scope": "复用签名App的361透明图标实际受益/381基础显示与退出；旧179归档不改、新增1manual incomplete；永久identity复制及morph消费者资格只作候选。",
+        "limitations": "无新产品构建/性能A/B或benchmarkPASS；未验系统shortcut/全景/全部属性，研究未变成实施GO。"
       }
     },
     {
@@ -737,10 +737,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5679e185923550a1e3ad0d14b9b0527b303cdbdd399158821e630bb2e75ad17e",
+        "sourceSHA256": "47bc3b0dd73e57707b21aa39cd08ae2a7958a47905e53912daa221d9cf6a42d7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
-        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
+        "scope": "复用签名App的361透明图标实际受益/381基础显示与退出；旧179归档不改、新增1manual incomplete；永久identity复制及morph消费者资格只作候选。",
+        "limitations": "无新产品构建/性能A/B或benchmarkPASS；未验系统shortcut/全景/全部属性，研究未变成实施GO。"
       }
     },
     {
@@ -3290,13 +3290,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29736637015da3a8abd0a5a95c99df4c433cbf1f5f2dabb7df82f728b7eed890",
+        "sourceSHA256": "bc599ec4a4b6f013fd263e64808d6a7bbd8e7838435bbc4f491714ea1c78064d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "主pass空重开仅资格停止的实际命中/冷启动边界及既有性能入口复核",
-        "limitations": "只复核当前补充及引用；无产品改动或性能收益，其他历史结果未重新验收"
+        "scope": "复用签名App的361透明图标实际受益/381基础显示与退出；旧179归档不改、新增1manual incomplete；永久identity复制及morph消费者资格只作候选。",
+        "limitations": "无新产品构建/性能A/B或benchmarkPASS；未验系统shortcut/全景/全部属性，研究未变成实施GO。"
       }
     },
     {
@@ -3349,10 +3349,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "79d53a93991e5f075a787e4fbf635d6a266671c8334bbae4b7bd27d61dd2db7c",
+        "sourceSHA256": "e48f1e96e4bce5f7f72e174d3e887c602d62047a67e22d4a2b80398519a1bac0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
-        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
+        "scope": "复用签名App的361透明图标实际受益/381基础显示与退出；旧179归档不改、新增1manual incomplete；永久identity复制及morph消费者资格只作候选。",
+        "limitations": "无新产品构建/性能A/B或benchmarkPASS；未验系统shortcut/全景/全部属性，研究未变成实施GO。"
       }
     },
     {
