@@ -588,7 +588,7 @@ extension SceneDesktopWallpaperSession {
             -> Result<[SceneDynamicTarget: SceneDynamicValue], SceneTimelinePlaybackFailure> {
             let eligible = admitted.filter { !rejected.contains($0.ownerTarget) }
             return launchContext.timelinePlaybackRuntime.preview(
-                eligible.flatMap(\.animationMutations), sceneTime: timing.sceneTime
+                SceneScriptAnimationHandleBridge.orderedMutations(in: eligible), sceneTime: timing.sceneTime
             ).map { timeline in
                 settledTimelineValues = timeline
                 return timeline
@@ -729,9 +729,7 @@ extension SceneDesktopWallpaperSession {
                 failure.reason
             )
         }
-        let animationMutations = admittedOwnerEffects.flatMap(
-            \.animationMutations
-        )
+        let animationMutations = SceneScriptAnimationHandleBridge.orderedMutations(in: admittedOwnerEffects)
         let puppetBoneMutations = SceneScriptPuppetBoneMutationBridge.orderedMutations(in: admittedOwnerEffects)
         let mediaPlaybackCommands = admittedOwnerEffects.flatMap(\.mediaPlaybackCommands)
         let textureAnimationCommands = admittedOwnerEffects.flatMap(

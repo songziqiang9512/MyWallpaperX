@@ -91,8 +91,9 @@ static void update(MWXSceneQuickJSOwner *o, double input, double runtime,
 static void command(MWXSceneQuickJSOwner *o, size_t index,
                     MWXSceneQuickJSAnimationCommand expected, uint32_t target) {
     MWXSceneQuickJSAnimationCommand actual = 0; uint32_t actual_target = 0;
+    uint64_t epoch = 0; uint32_t ordinal = 0;
     check(mwx_scene_quickjs_owner_animation_command_at(o, index, &actual, &actual_target,
-        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
+        &epoch, &ordinal, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
         actual == expected && actual_target == target, "ordered typed animation command");
 }
 
@@ -341,8 +342,9 @@ static void readonly_and_budget(void) {
         "for(let i=0;i<17;i++){try{a.play();}catch(e){}}return v;}", 0);
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     MWXSceneQuickJSAnimationCommand actual = 0; uint32_t actual_target = 0;
+    uint64_t epoch = 0; uint32_t ordinal = 0;
     check(mwx_scene_quickjs_owner_animation_command_at(o, 0, &actual, &actual_target,
-        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_MUTATION_OVERFLOW,
+        &epoch, &ordinal, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_MUTATION_OVERFLOW,
         "caught overflow cannot expose a partial command prefix");
     mwx_scene_quickjs_owner_discard_layer_mutations(o);
     mwx_scene_quickjs_owner_destroy(o);

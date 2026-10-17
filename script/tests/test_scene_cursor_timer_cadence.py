@@ -50,8 +50,14 @@ HARNESS = r'''
                          _ time:Double,_ step:Double,_ overflow:Bool=false) -> SceneScriptCursorFrameResult {
         p.dispatch(batch:.init(samples:samples,overflowed:overflow),frame:frame(time,step),userPropertiesJSON:"{}")
     }
+    static func command(_ mutations:[SceneTimelinePlaybackMutation],
+                        _ expected:SceneTimelinePlaybackCommand) -> Bool {
+        mutations.count==1 && mutations[0].target==animationTarget
+            && mutations[0].command==expected && mutations[0].callbackEpoch>0
+            && mutations[0].ordinal==0
+    }
     static func pause(_ result:SceneScriptCursorFrameResult) -> Bool {
-        result.animationMutations == [.init(target:animationTarget,command:.pause)]
+        command(result.animationMutations,.pause)
             && result.ownerEffects.count==1
             && result.ownerEffects[0].ownerTarget==ownerTarget()
     }
@@ -75,7 +81,7 @@ HARNESS = r'''
         out["idleDoesNotRunVM"] = dispatch(p,[],0,0).ownerEffects.isEmpty
             && !mwx_scene_quickjs_owner_is_initialized(owner.handle)
         p.finalizeLayerMutations(committing:true)
-        out["clickUsesNamedTarget"] = arm(p).animationMutations == [.init(target:animationTarget,command:.play)]
+        out["clickUsesNamedTarget"] = command(arm(p).animationMutations,.play)
         let due=dispatch(p,[],1.6,1.5)
         out["noPointerBatchAdvancesTimer"] = pause(due) && due.failures.isEmpty
             && due.layerMutations.first?.alpha==0.5
@@ -149,7 +155,7 @@ HARNESS = r'''
             && mwx_scene_quickjs_owner_active_timer_count(borrowedOwner.handle)==1
         let borrowedValue=try borrowedOwner.evaluate(input:.vector3(0,0,0),frame:frame(1.5,1.5),
             scriptPropertiesJSON:"",userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
-        out["borrowedValueProgramTicksOnce"] = borrowedValue.animationMutations == [.init(target:animationTarget,command:.pause)]
+        out["borrowedValueProgramTicksOnce"] = command(borrowedValue.animationMutations,.pause)
             && mwx_scene_quickjs_owner_active_timer_count(borrowedOwner.handle)==0
         borrowed.finalizeLayerMutations(committing:true);borrowedOwner.commitLayerMutations()
         out["borrowedTimerDoesNotRepeat"] = dispatch(borrowed,[],1.6,0.1).ownerEffects.isEmpty

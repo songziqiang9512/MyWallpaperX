@@ -228,7 +228,7 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 |---|---|---|---|
 | existing-animation membership | `L3 bounded` | 同层平坦、reciprocal的relative origin/angles/scale组，以及既有default-camera origin/zoom，共用完整root target与唯一播放State。准备期先归一root的mode/fps/length/start-paused/wrap，再按各target原数值/shape门验证；有序成员索引只准备一次。旧独立binding缺owner时仍以自身为owner | 嵌套/跨host、绝对transform、混合scalar/property及新host未扩；普通新组非空有效smoothing/stiffness拒绝，camera旧保真边界不变 |
 | authored lane order | `L3 bounded` | lane及binding顺序保留；缺/坏/重复引用、自引用、循环、多parent/root与duplicateTarget拒绝整个相关组，健康独立项保留。camera第三成员引用也进入同一闭包；不按dictionary顺序猜冲突 | 官方未定义最终target冲突优先级，维持局部fail closed |
-| atomic multi-target commit | `L3 bounded / S4 self-owned visible` | 成员控制按原journal顺序作用同一owner，preview纯投影全部成员，接受后一次apply；成员求值失败不留组内残值，全部Timeline仍经原typed事务提交。自有实图已证共同运动、暂停稳定及stop复位，见[限定后验](runtime-evidence-current.md#combined-timeline-playback-20261017) | Runtime观察snapshot/restore仅有测试API，host未调用；next-frame日志不证明surface提交，不新增GPU失败后的播放回滚。seek、更多生命周期及Windows同phase仍未验 |
+| atomic multi-target commit | `L3 bounded / S4 self-owned visible` | 成员控制归唯一播放owner；跨脚本分包先筛选已准入owner，再沿现domain callback epoch/ordinal恢复实际命令顺序，preview及最终apply共用原Bridge。preview纯投影组内全部成员，成员求值失败不留残值，接受后经原typed事务一次apply。自有实图已证共同运动、暂停/复位及交错stop/play/pause后保持原位，见[组合后验](runtime-evidence-current.md#combined-timeline-playback-20261017)与[命令保序后验](runtime-evidence-current.md#timeline-command-owner-order-20261018) | 不新增clock/owner或跨pass准入；Runtime观察snapshot/restore仅有测试API，host未调用。next-frame日志不证明surface提交，不新增GPU失败后的播放回滚；seek、更多生命周期及Windows同phase未验 |
 
 <a id="op-timeline-modes"></a>
 ### 4.3 [Playback](https://docs.wallpaperengine.io/en/scene/timeline/modes.html) 与 Bézier modes

@@ -121,12 +121,12 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 198,
-      "bytes": 82911
+      "lines": 200,
+      "bytes": 85156
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 197938
+      "bytes": 198194
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 544,
-      "bytes": 140155
+      "lines": 546,
+      "bytes": 140903
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15696
+      "bytes": 15848
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 200,
-      "bytes": 46558
+      "bytes": 46688
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1308,38 +1308,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "f28450da545a68b6f357cea391e7ce377457121141474914e183688f33ae4ddf",
-      "after": "1777916f9b92c2d4fd3e86ca6f9e8e6307abea872958af90a332f09692471911",
-      "owner": "scene-puppet-bone-matrix-order",
-      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+      "before": "1777916f9b92c2d4fd3e86ca6f9e8e6307abea872958af90a332f09692471911",
+      "after": "933e99de136bebe0a349a8a84cfb428b3ed649026023f8012a8a7223d78a0969",
+      "owner": "scene-timeline-command-order",
+      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "465bba128730d86b18563aa48f4ca8abf8736c1d779270fce4c0e6c8e2524d11",
-      "after": "858f08041adaf069fcee59be43bbd193633c7d5d21ceb9164154067f20008acd",
-      "owner": "scene-shader-vec2-authored-fallback",
-      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+      "before": "858f08041adaf069fcee59be43bbd193633c7d5d21ceb9164154067f20008acd",
+      "after": "1ae3ab95642501e1c7e88ace3d3fda24359e28984cd75af3c2ecd42c66710afd",
+      "owner": "scene-timeline-command-order",
+      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "8e6cca93929eae815010cb31e462387064624001f7a94cf5b77717c3738e708e",
-      "after": "8fe63041b147901f7971d2005e472551048c86aaad7fe17daf6faef837a5c41e",
-      "owner": "scene-shader-vec2-authored-fallback",
-      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+      "before": "8fe63041b147901f7971d2005e472551048c86aaad7fe17daf6faef837a5c41e",
+      "after": "99bde1ec5d70efb665ed22cb8428c41b110c900519d26969672ed91f95f2c7f1",
+      "owner": "scene-timeline-command-order",
+      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "78818a0d0eea7b268a691b91946e3ad1a54421d7627bacc27f1d4811ee1c12bc",
-      "after": "7dd295143d6f52d387e6c236775e7c5567abb874a12d5a375814a3e0218e4c92",
-      "owner": "scene-shader-vec2-authored-fallback",
-      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+      "before": "7dd295143d6f52d387e6c236775e7c5567abb874a12d5a375814a3e0218e4c92",
+      "after": "145cf27f5df07917fded416db5c11892cffcff250693d454635fc3fafa7dccb7",
+      "owner": "scene-timeline-command-order",
+      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
@@ -1349,6 +1349,15 @@
       "owner": "scene-shader-vec2-authored-fallback",
       "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "275c107b125c1d0c7281339c3f11b217dfcc3ab62de27a5f348425d302dadcee",
+      "after": "ec47eb4832a128b4e52f48bc91da21fe1c672bae22a33331a1ccf96d6ec66447",
+      "owner": "scene-timeline-command-order",
+      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     }
   ]
 }

@@ -30,6 +30,15 @@ def playback_preamble():
 
 HARNESS = r'''
 @main enum Harness {
+    // Legacy checks concern command semantics; order metadata is asserted
+    // explicitly by the real multi-owner Cursor scenario below.
+    static func sameCommands(_ a:[SceneTimelinePlaybackMutation],
+                             _ b:[SceneTimelinePlaybackMutation]) -> Bool {
+        a.count == b.count && zip(a,b).allSatisfy {
+            $0.target == $1.target && $0.command == $1.command
+        }
+    }
+
     static func scenePlayback(layerName:String, resourceName:String,
                               animationName:String, equivalent:Bool) throws -> [Double] {
         let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
@@ -108,7 +117,7 @@ HARNESS = r'''
         for index in times.indices {
             let evaluation = try evaluate(controller,times[index]).get()
             let commands = evaluation.animationMutations
-            guard commands == (index == 0
+            guard sameCommands(commands, index == 0
                 ? [.init(target:layerTarget,command:.pause),.init(target:effect,command:.play)]
                 : [.init(target:effect,command:expected[index])]) else {
                 throw NSError(domain:"full target identity or named ordinal",code:2)
@@ -227,6 +236,147 @@ HARNESS = r'''
             "throwDiscardNoApply":failed && unchanged && discardedCommands.count == 1]]
     }
 
+    static func commandOwnerOrder(renamed: Bool = false, reverseOwners: Bool = false,
+                                  burst: Bool = false, throwB: Bool = false) throws -> [String:Any] {
+        let root = SceneDynamicTarget.layer(layerID:2,field:.origin)
+        let child = SceneDynamicTarget.layer(layerID:2,field:.angles)
+        let independent = SceneDynamicTarget.layer(layerID:3,field:.alpha)
+        let name = renamed ? "renamed shared motion" : "shared motion"
+        let members = [root,child].enumerated().map { index,target in
+            SceneTimelineBinding(definition:.init(target:target,valueType:.vector3,
+                authoredValue:.vector3(0,0,0)),animation:.init(lanes:(0..<3).map { lane in [
+                    .init(frame:0,value:0,back:nil,front:nil,locksAngle:nil,locksLength:nil),
+                    .init(frame:20,value:lane == 0 ? Double((index+1)*20) : 0,
+                        back:nil,front:nil,locksAngle:nil,locksLength:nil)] },
+                options:.init(fps:10,length:20,mode:.single,startsPaused:true,wrapsLoop:false,
+                    smoothing:nil,stiffness:nil,parent:nil,children:[],name:index == 0 ? name : nil),
+                isRelative:true,previewValue:nil),composition:.additive,playbackOwner:root)
+        }
+        let peer = SceneTimelineBinding(definition:.init(target:independent,valueType:.scalar,
+            authoredValue:.scalar(0)),animation:.init(lanes:[[
+                .init(frame:0,value:0,back:nil,front:nil,locksAngle:nil,locksLength:nil),
+                .init(frame:20,value:0.8,back:nil,front:nil,locksAngle:nil,locksLength:nil)]],
+            options:.init(fps:10,length:20,mode:.single,startsPaused:false,wrapsLoop:false,
+                smoothing:nil,stiffness:nil,parent:nil,children:[],name:"independent"),
+            isRelative:false,previewValue:nil),composition:.absolute)
+        let program = SceneTimelineProgram(bindings:members+[peer],diagnostics:[])
+        func values(_ runtime:SceneTimelinePlaybackRuntime,_ time:Double) throws -> [Double] {
+            let result = SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,
+                definitions:program.bindings.map(\.definition),timelineValues:runtime.values(sceneTime:time))
+            guard result.diagnostics.isEmpty,
+                  case let .vector3(x,_,_)? = result.snapshot[root]?.value,
+                  case let .vector3(y,_,_)? = result.snapshot[child]?.value,
+                  case let .scalar(z)? = result.snapshot[independent]?.value else {
+                throw NSError(domain:"ordered Timeline typed projection",code:1)
+            }
+            return [x,y,z]
+        }
+        let qualification = SceneTimelinePlaybackRuntime(program:program)
+        try qualification.apply([.init(target:child,command:.play)],sceneTime:1).get()
+        let qualified = try values(qualification,2)
+        let descriptor = SceneRenderDescriptor(layers:(2...3).enumerated().map { index,id in
+            .init(id:id,layerIndex:index,name:renamed ? "renamed\(id)" : "card\(id)",
+                visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])
+        })
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureNamedAnimations([(target:root,name:name),(target:independent,name:"independent")])
+        try domain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(
+            frameIndex:0,generation:1,definitions:[]).snapshot,descriptor:descriptor)
+        let variable = renamed ? "renamedCount" : "count"
+        let a = """
+        let \(variable)=0;
+        export function cursorDown(e){
+          if(\(variable)++===0){shared.order=(shared.order||'')+'1';thisObject.getAnimation().stop();
+            \(burst ? "thisObject.getAnimation().play();" : "")}
+          else {thisObject.getAnimation().play();}}
+        export function cursorUp(e){shared.order+='3';thisScene.getAnimation(\(String(reflecting:name))).pause();
+          thisLayer.scale=new Vec3(Number(shared.order),1,1);}
+        """
+        let b = """
+        let used=false;
+        export function cursorDown(e){if(used)return;used=true;shared.order=(shared.order||'')+'2';
+          thisObject.getAnimation().play();\(throwB ? "throw new Error('reject B');" : "")}
+        """
+        var registrations = [(root,a),(child,b)]
+        if reverseOwners { registrations.reverse() }
+        var owners:[SceneScriptValueOwner] = []
+        var bindings:[SceneScriptCursorBinding] = []
+        for (index,item) in registrations.enumerated() {
+            let owner = try SceneScriptValueOwner(domain:domain,source:item.1,target:item.0,
+                effectNames:[],hasCurrentAnimation:true,allowsStatefulLayerSideEffects:true,
+                generation:1,budget:.default)
+            owners.append(owner)
+            bindings.append(.init(layerID:2,authoredOrdinal:index,owner:owner,
+                events:owner.exportedCursorEvents,ownsOwner:false,scriptProperties:[:],ownerSeedValue:.vector3(0,0,0)))
+        }
+        let cursor = SceneScriptCursorProgram(bindings:bindings,generation:1)
+        func sample(_ down:Bool) -> SceneScriptCursorFrameSample {
+            let hit = SceneScriptCursorHit(layerID:2,worldPosition:.zero,localPosition:.zero)
+            return .init(hits:[2:hit],ownerProjections:[2:hit],pointerPosition:.zero,primaryButtonIsDown:down,
+                surface:.init(canvasSize:.init(100,100),screenSize:.init(100,100),
+                    cursorWorldPosition:.init(0,0,-9000),cursorScreenPosition:.zero,cursorLeftDown:down))
+        }
+        func dispatch(_ samples:[SceneScriptCursorFrameSample],_ time:Double) -> SceneScriptCursorFrameResult {
+            cursor.dispatch(batch:.init(samples:samples,overflowed:false),frame:.init(timing:.init(
+                wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:time)),userPropertiesJSON:"{}")
+        }
+        let result = dispatch([sample(false),sample(true),sample(false)],1)
+        let ordered = SceneScriptAnimationHandleBridge.orderedMutations(in:result.ownerEffects)
+        let flat = result.ownerEffects.flatMap(\.animationMutations)
+        let shuffled = SceneScriptAnimationHandleBridge.orderedMutations(in:Array(result.ownerEffects.reversed()))
+        let manual = result.ownerEffects.map { effect in
+            var copy = effect
+            copy.animationMutations = effect.animationMutations.map {
+                .init(target:$0.target,command:$0.command)
+            }
+            return copy
+        }
+        let manualFlat = manual.flatMap(\.animationMutations)
+        let manualZeroTieOrder = manualFlat.allSatisfy { $0.callbackEpoch == 0 && $0.ordinal == 0 }
+            && SceneScriptAnimationHandleBridge.orderedMutations(in:manual) == manualFlat
+        // Explicit final-owner exclusion only; this is not the native fixed-point coordinator.
+        let filtered = SceneScriptAnimationHandleBridge.orderedMutations(in:result.ownerEffects.filter { $0.ownerTarget != child })
+        let playback = SceneTimelinePlaybackRuntime(program:program)
+        let before = try values(playback,2)
+        let preview = try playback.preview(ordered,sceneTime:1).get()
+        let previewDidNotCommit = try values(playback,2) == before
+        try playback.apply(ordered,sceneTime:1).get()
+        let actual = try values(playback,2)
+        let excluded = SceneTimelinePlaybackRuntime(program:program)
+        try excluded.apply(filtered,sceneTime:1).get()
+        let excludedValues = try values(excluded,2)
+        var burstValues:[Double] = []
+        var reversedBurstValues:[Double] = []
+        if burst {
+            let sameCallback = Array(ordered.prefix(2))
+            let first = SceneTimelinePlaybackRuntime(program:program)
+            let second = SceneTimelinePlaybackRuntime(program:program)
+            try first.apply(sameCallback,sceneTime:1).get()
+            try second.apply(Array(sameCallback.reversed()),sceneTime:1).get()
+            burstValues = try values(first,2)
+            reversedBurstValues = try values(second,2)
+        }
+        cursor.finalizeLayerMutations(committing:true)
+        let next = dispatch([sample(true)],3)
+        let healthy = SceneScriptAnimationHandleBridge.orderedMutations(in:next.ownerEffects)
+        try playback.apply(healthy,sceneTime:3).get()
+        let healthyValues = try values(playback,4)
+        cursor.finalizeLayerMutations(committing:true)
+        _ = owners
+        return ["qualifiedSharedMemberClock":qualified,"failures":result.failures.count,
+            "commands":ordered.map { $0.command.rawValue },"targetIsRoot":ordered.map { $0.target == root },
+            "flatCommands":flat.map { $0.command.rawValue },"epochs":ordered.map(\.callbackEpoch),
+            "ordinals":ordered.map(\.ordinal),"shuffledBundleOrderSame":ordered == shuffled,
+            "manualZeroMetadataInputOrder":manualZeroTieOrder,
+            "actualAt2":actual,"filteredCommands":filtered.map { $0.command.rawValue },
+            "filteredEpochs":filtered.map(\.callbackEpoch),"filteredAt2":excludedValues,
+            "previewAllMembers":Set(preview.keys) == [root,child],"previewDoesNotCommit":previewDidNotCommit,
+            "sameCallbackAt2":burstValues,"reversedSameCallbackAt2":reversedBurstValues,
+            "healthyCommands":healthy.map { $0.command.rawValue },"healthyAt4":healthyValues,
+            "healthyEpochs":healthy.map(\.callbackEpoch),"healthyFailures":next.failures.count]
+    }
+
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
             .init(id:id,layerIndex:id-1,name:"layer\(id)",visible:true,
@@ -290,18 +440,22 @@ HARNESS = r'''
             timerCommands += result.animationMutations
         }
         let out:[String:Any] = [
+            "commandOwnerOrder":try commandOwnerOrder(),
+            "renamedOwnerOrder":try commandOwnerOrder(renamed:true,reverseOwners:true),
+            "burstOwnerOrder":try commandOwnerOrder(burst:true),
+            "throwOwnerOrder":try commandOwnerOrder(throwB:true),
             "combined":try combinedPlayback(renamed:false),
             "renamedCombined":try combinedPlayback(renamed:true),
-            "statefulBoolTimer":boolClick.animations == [.init(target:a,command:.play)]
-                && timerCommands == [.init(target:a,command:.pause)],
+            "statefulBoolTimer":sameCommands(boolClick.animations,[.init(target:a,command:.play)])
+                && sameCommands(timerCommands,[.init(target:a,command:.pause)]),
             "overflowRejected":overflowRejected,
-            "cursorTarget":clicked.animations == [.init(target:a,command:.play)],
+            "cursorTarget":sameCommands(clicked.animations,[.init(target:a,command:.play)]),
             "firstTargets":first.map(\.target) == [a,b,current],
             "firstCommands":first.map(\.command) == [.play,.pause,.stop],
             "retainedTargets":second.map(\.target) == [a,b],
             "retainedCommands":second.map(\.command) == [.pause,.play],
             "rollback":failure,
-            "peerContinues":third == [.init(target:b,command:.stop)],
+            "peerContinues":sameCommands(third,[.init(target:b,command:.stop)]),
             "sceneSamples":try scenePlayback(layerName:"portrait",resourceName:"panel-a",
                 animationName:"pulse",equivalent:false),
             "renamedSceneSamples":try scenePlayback(layerName:"renamed card",resourceName:"different-art",
@@ -318,6 +472,49 @@ class NamedTimelineTests(unittest.TestCase):
                 extra_swift_sources=TIMELINE_SOURCES,preamble=playback_preamble())
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
             actual = json.loads(run.stdout.strip().splitlines()[-1])
+            for key in ["commandOwnerOrder", "renamedOwnerOrder", "burstOwnerOrder", "throwOwnerOrder"]:
+                result = actual.pop(key)
+                burst = key == "burstOwnerOrder"
+                reverse = key == "renamedOwnerOrder"
+                thrown = key == "throwOwnerOrder"
+                self.assertEqual(result["qualifiedSharedMemberClock"], [10, 20, 0.8])
+                self.assertEqual(result["failures"], int(thrown))
+                expected = (["stop", "pause"] if thrown else
+                            ["play", "stop", "pause"] if reverse else
+                            ["stop", "play", "play", "pause"] if burst else
+                            ["stop", "play", "pause"])
+                self.assertEqual(result["commands"], expected)
+                self.assertEqual(result["targetIsRoot"],
+                                 [True, True] if thrown else [False, True, True] if reverse else
+                                 [True, True, False, True] if burst else [True, False, True])
+                self.assertEqual(result["flatCommands"],
+                                 ["stop", "pause"] if thrown else ["play", "stop", "pause"] if reverse else
+                                 ["stop", "play", "pause", "play"] if burst else ["stop", "pause", "play"])
+                self.assertTrue(result["shuffledBundleOrderSame"])
+                self.assertTrue(result["manualZeroMetadataInputOrder"])
+                self.assertTrue(result["previewAllMembers"])
+                self.assertTrue(result["previewDoesNotCommit"])
+                self.assertEqual(result["actualAt2"], [0, 0, 0.8])
+                self.assertEqual(result["filteredCommands"],
+                                 ["stop", "play", "pause"] if burst else ["stop", "pause"])
+                self.assertEqual(result["filteredAt2"], [0, 0, 0.8])
+                epochs, ordinals = result["epochs"], result["ordinals"]
+                self.assertEqual(result["filteredEpochs"],
+                                 [epoch for epoch, is_root in zip(epochs, result["targetIsRoot"]) if is_root])
+                self.assertTrue(all(x > 0 for x in epochs))
+                self.assertTrue(all(a <= b for a, b in zip(epochs, epochs[1:])))
+                self.assertEqual(ordinals, [0, 1, 0, 0] if burst else [0] * len(expected))
+                if burst:
+                    self.assertEqual(epochs[0], epochs[1])
+                    self.assertTrue(epochs[1] < epochs[2] < epochs[3])
+                    self.assertEqual(result["sameCallbackAt2"], [10, 20, 0.8])
+                    self.assertEqual(result["reversedSameCallbackAt2"], [0, 0, 0.8])
+                else:
+                    self.assertTrue(all(a < b for a, b in zip(epochs, epochs[1:])))
+                self.assertEqual(result["healthyCommands"], ["play"])
+                self.assertEqual(result["healthyAt4"], [10, 20, 0.8])
+                self.assertEqual(result["healthyFailures"], 0)
+                self.assertTrue(all(x > epochs[-1] for x in result["healthyEpochs"]))
             base = [[10,20,30], [1,2,3], [1,2,3]]
             middle = [[11,22,33], [3,5,7], [1.25,2.5,3.75]]
             end = [[12,24,36], [5,8,11], [1.5,3,4.5]]

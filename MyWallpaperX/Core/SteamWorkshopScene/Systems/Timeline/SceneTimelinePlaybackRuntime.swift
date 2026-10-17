@@ -9,6 +9,16 @@ nonisolated enum SceneTimelinePlaybackCommand: String, Equatable, Sendable {
 nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {
     let target: SceneDynamicTarget
     let command: SceneTimelinePlaybackCommand
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+
+    init(target: SceneDynamicTarget, command: SceneTimelinePlaybackCommand,
+         callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0) {
+        self.target = target
+        self.command = command
+        self.callbackEpoch = callbackEpoch
+        self.ordinal = ordinal
+    }
 }
 
 nonisolated enum SceneTimelinePlaybackFailure: Error, Equatable, Sendable {

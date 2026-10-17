@@ -59,6 +59,8 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
 typedef struct MWXSceneQuickJSAnimationCommandRecord {
     MWXSceneQuickJSAnimationCommand command;
     uint32_t target_index;
+    uint64_t callback_epoch;
+    uint32_t ordinal;
 } MWXSceneQuickJSAnimationCommandRecord;
 
 typedef struct MWXSceneQuickJSNamedAnimationRecord {

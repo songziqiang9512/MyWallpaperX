@@ -13,11 +13,13 @@ int mwx_fixture_animation_command(
     char diagnostic[512] = {0};
     MWXSceneQuickJSAnimationCommand command = 0;
     uint32_t target_index = 0;
+    uint64_t epoch = 0;
+    uint32_t ordinal = 0;
     MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_animation_command_at(
-        owner, index, &command, &target_index, diagnostic, sizeof(diagnostic)
+        owner, index, &command, &target_index, &epoch, &ordinal, diagnostic, sizeof(diagnostic)
     );
     return mwx_fixture_check(
-        result == MWX_SCENE_QUICKJS_OK && command == expected && target_index == UINT32_MAX,
+        result == MWX_SCENE_QUICKJS_OK && command == expected && target_index == UINT32_MAX && epoch > 0,
         label,
         diagnostic
     );

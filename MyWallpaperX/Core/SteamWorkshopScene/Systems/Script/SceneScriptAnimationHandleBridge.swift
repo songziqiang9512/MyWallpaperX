@@ -4,6 +4,15 @@ import Foundation
 /// for existing authored Timeline targets. Named handles carry only an index into
 /// the compiled Program; playback remains owned by SceneTimelinePlaybackRuntime.
 nonisolated enum SceneScriptAnimationHandleBridge {
+    /// Owner admission is settled before restoring the shared domain's actual
+    /// callback order; preview and commit must consume the same command sequence.
+    static func orderedMutations(in effects: [SceneScriptOwnerEffects]) -> [SceneTimelinePlaybackMutation] {
+        effects.flatMap(\.animationMutations).sorted {
+            if $0.callbackEpoch != $1.callbackEpoch { return $0.callbackEpoch < $1.callbackEpoch }
+            return $0.ordinal < $1.ordinal
+        }
+    }
+
     static func configure(owner: OpaquePointer, hasCurrentAnimation: Bool) throws {
         guard hasCurrentAnimation else { return }
         var diagnostic = [CChar](repeating: 0, count: 256)
@@ -28,12 +37,16 @@ nonisolated enum SceneScriptAnimationHandleBridge {
         for index in 0..<count {
             var command = MWX_SCENE_QUICKJS_ANIMATION_PLAY
             var targetIndex = UInt32.max
+            var callbackEpoch: UInt64 = 0
+            var ordinal: UInt32 = 0
             var diagnostic = [CChar](repeating: 0, count: 256)
             let raw = mwx_scene_quickjs_owner_animation_command_at(
                 owner,
                 index,
                 &command,
                 &targetIndex,
+                &callbackEpoch,
+                &ordinal,
                 &diagnostic,
                 diagnostic.count
             )
@@ -57,7 +70,8 @@ nonisolated enum SceneScriptAnimationHandleBridge {
                 }
                 resolvedTarget = namedTargets[Int(targetIndex)]
             }
-            result.append(.init(target: resolvedTarget, command: typed))
+            result.append(.init(target: resolvedTarget, command: typed,
+                callbackEpoch: callbackEpoch, ordinal: ordinal))
         }
         return .success(result)
     }

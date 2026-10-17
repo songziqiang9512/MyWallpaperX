@@ -99,9 +99,16 @@ static JSValue mutate_animation(
         owner->animation_command_overflow = true;
         return JS_ThrowInternalError(context, "animation command buffer exceeded");
     }
-    owner->animation_commands[owner->animation_command_count] =
-        (MWXSceneQuickJSAnimationCommandRecord){handle->command, handle->target_index};
-    owner->animation_command_count += 1;
+    const size_t index = owner->animation_command_count;
+    const uint64_t epoch = owner->domain->callback_epoch;
+    owner->animation_commands[index] = (MWXSceneQuickJSAnimationCommandRecord){
+        .command = handle->command,
+        .target_index = handle->target_index,
+        .callback_epoch = epoch,
+        .ordinal = index > 0 && owner->animation_commands[index - 1].callback_epoch == epoch
+            ? owner->animation_commands[index - 1].ordinal + 1 : 0,
+    };
+    owner->animation_command_count = index + 1;
     return JS_UNDEFINED;
 }
 
@@ -458,6 +465,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
     size_t index,
     MWXSceneQuickJSAnimationCommand *command,
     uint32_t *target_index,
+    uint64_t *callback_epoch,
+    uint32_t *ordinal,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
@@ -471,6 +480,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
         return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
     }
     if (owner == NULL || command == NULL || target_index == NULL ||
+        callback_epoch == NULL || ordinal == NULL ||
         index >= owner->animation_command_count) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid animation command mutation"
@@ -479,5 +489,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
     }
     *command = owner->animation_commands[index].command;
     *target_index = owner->animation_commands[index].target_index;
+    *callback_epoch = owner->animation_commands[index].callback_epoch;
+    *ordinal = owner->animation_commands[index].ordinal;
     return MWX_SCENE_QUICKJS_OK;
 }
