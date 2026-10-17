@@ -35,6 +35,7 @@ nonisolated struct SceneAuthoredShaderSyntaxUnit {
     let boundedLoopUniformReferences: [SceneAuthoredShaderToken: Int]
     let constantParameterArraysByFunctionIndex: [Int: Set<String>]
     let exactRuntimeLoopUniformArrays: Set<String>
+    var bindingFacts: SceneAuthoredShaderGlobalReferenceAnalyzer.BindingFacts? = nil
 }
 
 nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
@@ -253,23 +254,22 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         if let loopResult, !loopResult.diagnostics.isEmpty {
             return Output(unit: nil, diagnostics: loopResult.diagnostics)
         }
-        return Output(
-            unit: .init(
-                source: lexerOutput.source,
-                stage: stage,
-                tokens: tokens,
-                defines: lexerOutput.defines,
-                declarations: declarations,
-                functions: functions,
-                staticLoopWork: max(1, loopResult?.work ?? 1),
-                boundedLoopUniformReferences: loopResult?.boundedUniformReferences ?? [:],
-                constantParameterArraysByFunctionIndex:
-                    loopResult?.constantParameterArraysByFunctionIndex ?? [:],
-                exactRuntimeLoopUniformArrays:
-                    loopResult?.exactRuntimeLoopUniformArrays ?? []
-            ),
-            diagnostics: []
+        var unit = SceneAuthoredShaderSyntaxUnit(
+            source: lexerOutput.source,
+            stage: stage,
+            tokens: tokens,
+            defines: lexerOutput.defines,
+            declarations: declarations,
+            functions: functions,
+            staticLoopWork: max(1, loopResult?.work ?? 1),
+            boundedLoopUniformReferences: loopResult?.boundedUniformReferences ?? [:],
+            constantParameterArraysByFunctionIndex:
+                loopResult?.constantParameterArraysByFunctionIndex ?? [:],
+            exactRuntimeLoopUniformArrays:
+                loopResult?.exactRuntimeLoopUniformArrays ?? []
         )
+        unit.bindingFacts = SceneAuthoredShaderGlobalReferenceAnalyzer.analyzeBindings(in: unit)
+        return Output(unit: unit, diagnostics: [])
     }
 
     static func declaration(

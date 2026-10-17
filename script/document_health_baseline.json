@@ -114,11 +114,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 346710
+      "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 185,
-      "bytes": 65958
+      "lines": 186,
+      "bytes": 67635
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 363,
-      "bytes": 60117
+      "bytes": 60109
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 111639
+      "bytes": 111757
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -222,7 +222,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11651
+      "bytes": 11975
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -233,12 +233,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 53,
-      "bytes": 15987
+      "lines": 52,
+      "bytes": 15398
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 155,
-      "bytes": 33408
+      "lines": 156,
+      "bytes": 33120
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1213,27 +1213,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
-      "after": "79fa12ee6016276c08d8673d5492b3fb4fb67eb9a0186e88eefe6bab9da5ff41",
-      "owner": "scene-shortcut-beneficiary-intake",
-      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "916922105aa731a7900ce31f6d791e92d0d9acce159c0a27df4671d765b5cc94",
       "after": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
-      "owner": "scene-sampler-presence",
-      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "e70ba3dc5fcf31eb1bc50c96783714913d994ad39772f96222d8c63380551402",
-      "after": "592ba093013027051f54ed04010485e388243878567c6e039cf4a3d74a5c4cbf",
       "owner": "scene-sampler-presence",
       "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
       "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
@@ -1249,30 +1231,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b9bc97d95ce019113db17af4933bfc633815dea1d0fb261d6b2763c61d8f9eba",
-      "after": "546202275c6d65cf1ca384f0b76379f477c62b5886d0837257e0d38175a777e6",
-      "owner": "scene-script-runtime",
-      "reason": "Replace missing scene named-animation entry with implemented unique catalog scope and bounded cursor/Timeline/GPU evidence; preserve remaining shader and whole-sample limits while keeping one authority per fact.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "085e79bdb2a60ff990dba7e05b4629dc03491b8d764e5e4d958c57721be04ef3",
-      "after": "191780ac052f57b6010a4e80459857db07daaa7fe54a3860bae7109bfbc90e1b",
-      "owner": "scene-script-runtime",
-      "reason": "Replace missing scene named-animation entry with implemented unique catalog scope and bounded cursor/Timeline/GPU evidence; preserve remaining shader and whole-sample limits while keeping one authority per fact.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "bb7fa5bea21b25cf598300e8432f413967a81f48715331345baca6f1d208ac5d",
       "after": "7c915535960a79607f5860ffcf8e54ffa212baeb79342b05a64f646722723f36",
       "owner": "scene-script-runtime",
       "reason": "Replace missing scene named-animation entry with implemented unique catalog scope and bounded cursor/Timeline/GPU evidence; preserve remaining shader and whole-sample limits while keeping one authority per fact.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "592ba093013027051f54ed04010485e388243878567c6e039cf4a3d74a5c4cbf",
+      "after": "07424c74f4ca4d49a866618540c187d56ce9060b4249c4e784785ccece26f6d3",
+      "owner": "scene-shader-frontend",
+      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "546202275c6d65cf1ca384f0b76379f477c62b5886d0837257e0d38175a777e6",
+      "after": "e6a07c4998c160e78e950ac580af0a0c6f552b43b31a3d93867fb83d40162321",
+      "owner": "scene-shader-frontend",
+      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "3d50dec79033896c187f88490496e4be4abc4ffc98e459077ec43529d0e1f078",
+      "after": "9539ea90e2fd05d2e1c8a519bbac7f33123922efdd592d01ec1e8cc1737add11",
+      "owner": "scene-shader-frontend",
+      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "79fa12ee6016276c08d8673d5492b3fb4fb67eb9a0186e88eefe6bab9da5ff41",
+      "after": "a6126ee119ed1b4082d0330925c5d8f05f1912e5528dfdeaf0cc3e2eb184ea5b",
+      "owner": "scene-shader-frontend",
+      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "191780ac052f57b6010a4e80459857db07daaa7fe54a3860bae7109bfbc90e1b",
+      "after": "23c97ba4156c12d79ccecb8cc553c09c697a64813aa04c6302ac16d0c03e6574",
+      "owner": "scene-shader-frontend",
+      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
     }
   ]
 }

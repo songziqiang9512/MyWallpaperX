@@ -445,11 +445,13 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit,
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
-        permitsScalarVectorAddition: Bool = false
+        permitsScalarVectorAddition: Bool = false,
+        permitsVectorTruncation: Bool = false
     ) -> Expression? {
         guard !range.isEmpty else { return nil }
         return additiveExpression(range, tokens: tokens, unit: unit,
-            valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
+            valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+            permitsVectorTruncation: permitsVectorTruncation)
     }
 
     private static func additiveExpression(
@@ -457,16 +459,19 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit,
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
-        permitsScalarVectorAddition: Bool = false
+        permitsScalarVectorAddition: Bool = false,
+        permitsVectorTruncation: Bool = false
     ) -> Expression? {
         guard let ranges = split(range, operators: ["+", "-"], tokens: tokens),
               let first = ranges.first,
               let firstExpression = multiplicativeExpression(first, tokens: tokens, unit: unit,
-                  valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
+                  valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+                  permitsVectorTruncation: permitsVectorTruncation)
         else { return nil }
         let expressions = [firstExpression] + ranges.dropFirst().compactMap {
             multiplicativeExpression($0, tokens: tokens, unit: unit,
-                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
+                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+                permitsVectorTruncation: permitsVectorTruncation)
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
@@ -479,6 +484,18 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             )
         }
         let types = Set(expressions.map(\.type))
+        if permitsVectorTruncation,
+           expressions.allSatisfy({ $0.type == .float || floatVectorWidth($0.type) != nil }),
+           let width = expressions.compactMap({ floatVectorWidth($0.type) }).min(),
+           width == 2 || Set(expressions.compactMap({ floatVectorWidth($0.type) })).count == 1 {
+            let conversions = expressions.flatMap(\.conversions) + expressions.compactMap { value -> Conversion? in
+                guard let source = floatVectorWidth(value.type), source > width,
+                      let suffix = narrowingSuffix(from: source, to: width) else { return nil }
+                return Conversion(range: value.range, suffix: suffix)
+            }
+            return .init(range: range, type: vectorType(width: width), conversions: conversions,
+                compound: true, directlyNarrowable: false)
+        }
         // Native floating vector +/- scalar arithmetic is needed to prove a
         // smoothstep input. Existing mix/pow width proofs keep their original
         // boundary; unlike multiplication this path never narrows a vector.
@@ -505,16 +522,19 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit,
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
-        permitsScalarVectorAddition: Bool = false
+        permitsScalarVectorAddition: Bool = false,
+        permitsVectorTruncation: Bool = false
     ) -> Expression? {
         guard let ranges = split(range, operators: ["*", "/", "%"], tokens: tokens),
               let first = ranges.first,
               let firstExpression = primaryExpression(first, tokens: tokens, unit: unit,
-                  valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
+                  valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+                  permitsVectorTruncation: permitsVectorTruncation)
         else { return nil }
         let expressions = [firstExpression] + ranges.dropFirst().compactMap {
             primaryExpression($0, tokens: tokens, unit: unit,
-                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
+                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+                permitsVectorTruncation: permitsVectorTruncation)
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
@@ -539,6 +559,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
               expressions.allSatisfy({ expression in
                   guard let sourceWidth = floatVectorWidth(expression.type) else { return true }
                   return sourceWidth <= width || expression.directlyNarrowable
+                      || (permitsVectorTruncation && width == 2)
               }) else { return nil }
         let type = vectorType(width: width)
         let conversions = expressions.flatMap(\.conversions) + expressions.compactMap {
@@ -569,7 +590,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit,
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
-        permitsScalarVectorAddition: Bool = false
+        permitsScalarVectorAddition: Bool = false,
+        permitsVectorTruncation: Bool = false
     ) -> Expression? {
         var range = sourceRange
         while range.count > 1, ["+", "-"].contains(tokens[range.lowerBound].text) {
@@ -583,7 +605,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                tokens: tokens,
                unit: unit,
                valueTypes: valueTypes,
-               permitsScalarVectorAddition: permitsScalarVectorAddition
+               permitsScalarVectorAddition: permitsScalarVectorAddition,
+               permitsVectorTruncation: permitsVectorTruncation
            ) {
             return .init(
                 range: sourceRange,
@@ -596,13 +619,20 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         if range.count == 1, tokens[range.lowerBound].kind == .number {
             return .init(
                 range: sourceRange,
-                type: numericLiteralType(tokens[range.lowerBound].text),
+                type: permitsVectorTruncation
+                    && numericLiteralType(tokens[range.lowerBound].text) == .int
+                    ? .float : numericLiteralType(tokens[range.lowerBound].text),
                 conversions: [],
                 compound: false,
                 directlyNarrowable: false
             )
         }
-        if let builtIn = floatBuiltInExpression(
+        if permitsVectorTruncation,
+           let constructor = floatingConstructor(range, tokens: tokens, unit: unit) {
+            return .init(range: sourceRange, type: constructor.type,
+                conversions: constructor.conversions, compound: false, directlyNarrowable: true)
+        }
+        if !permitsVectorTruncation, let builtIn = floatBuiltInExpression(
             sourceRange,
             tokens: tokens,
             unit: unit,
@@ -617,12 +647,9 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         if let valueTypes {
             declared = valueTypes[name]
         } else {
-            declared = declaredType(
-                  name,
-                  before: range.lowerBound,
-                  tokens: tokens,
-                  unit: unit
-            )
+            declared = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: range.lowerBound, tokens: tokens, in: unit
+                )
         }
         guard let declared else { return nil }
         if range.count == 1 {
@@ -649,6 +676,41 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         )
     }
 
+    private static func floatingConstructor(
+        _ range: Range<Int>, tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Expression? {
+        guard range.count >= 4, tokens[range.lowerBound + 1].text == "(",
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: range.lowerBound + 1) == range.upperBound - 1,
+              !unit.functions.contains(where: { $0.name == tokens[range.lowerBound].text }),
+              let arguments = argumentRanges(opening: range.lowerBound + 1, closing: range.upperBound - 1, tokens: tokens),
+              !arguments.isEmpty else { return nil }
+        let name = tokens[range.lowerBound].text
+        let type: SceneAuthoredShaderValueType?
+        switch name {
+        case "CAST2": type = .float2
+        case "CAST3": type = .float3
+        case "CAST4": type = .float4
+        default: type = SceneAuthoredShaderValueType(authoredName: name)
+        }
+        guard let type, type == .float || floatVectorWidth(type) != nil else { return nil }
+        // The explicit constructor fixes its result type. Preserve proven
+        // child conversions, while the compiler validates other arguments.
+        let values = arguments.compactMap {
+            componentExpression($0, tokens: tokens, unit: unit, permitsVectorTruncation: true)
+        }
+        var conversions = values.flatMap(\.conversions)
+        if arguments.count == 1, let value = values.first,
+           let sourceWidth = floatVectorWidth(value.type),
+           let targetWidth = floatVectorWidth(type), sourceWidth > targetWidth,
+           let suffix = narrowingSuffix(from: sourceWidth, to: targetWidth) {
+            // Complete the argument at its own width before the constructor
+            // consumes its leading components.
+            conversions.append(.init(range: arguments[0], suffix: suffix))
+        }
+        return .init(range: range, type: type, conversions: conversions,
+            compound: false, directlyNarrowable: true)
+    }
+
     /// Prove floating built-in result types from their operands, excluding
     /// authored overloads. Unary calls preserve shape; multi-argument calls
     /// here are scalar, with integer literals promoted by floating operands.
@@ -657,7 +719,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit,
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
-        permitsScalarVectorAddition: Bool = false
+        permitsScalarVectorAddition: Bool = false,
+        permitsVectorTruncation: Bool = false
     ) -> Expression? {
         guard range.count >= 4,
               tokens[range.lowerBound].kind == .identifier else { return nil }
@@ -682,7 +745,8 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
               ), ranges.count == expectedCount else { return nil }
         let arguments = ranges.compactMap {
             componentExpression($0, tokens: tokens, unit: unit,
-                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition)
+                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+                permitsVectorTruncation: permitsVectorTruncation)
         }
         if expectedCount == 1, arguments.count == 1,
            let argument = arguments.first,
@@ -759,12 +823,9 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             return numericLiteralType(tokens[range.lowerBound].text)
         }
         guard tokens[range.lowerBound].kind == .identifier,
-              let declared = declaredType(
-                  tokens[range.lowerBound].text,
-                  before: limit,
-                  tokens: tokens,
-                  unit: unit
-              ) else { return nil }
+              let declared = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: range.lowerBound, tokens: tokens, in: unit
+                ) else { return nil }
         if range.count == 1 { return declared }
         guard range.count == 3,
               tokens[range.lowerBound + 1].text == ".",
@@ -773,26 +834,6 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             tokens[range.lowerBound + 2].text,
             base: declared
         )
-    }
-
-    private static func declaredType(
-        _ name: String,
-        before limit: Int,
-        tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
-    ) -> SceneAuthoredShaderValueType? {
-        var types = Set(unit.declarations.compactMap {
-            $0.name == name
-                ? SceneAuthoredShaderValueType(authoredName: $0.typeName) : nil
-        })
-        for index in 0..<limit where index + 1 < tokens.count {
-            guard tokens[index + 1].text == name,
-                  let type = SceneAuthoredShaderValueType(
-                      authoredName: tokens[index].text
-                  ) else { continue }
-            types.insert(type)
-        }
-        return types.count == 1 ? types.first : nil
     }
 
     static func argumentRanges(

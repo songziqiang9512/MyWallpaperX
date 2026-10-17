@@ -21,7 +21,7 @@ import Foundation
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     // v25 separates sampler presence from editor-only requirements.
-    private static let schemaVersion = 25
+    private static let schemaVersion = 27
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

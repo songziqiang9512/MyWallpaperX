@@ -278,12 +278,13 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         insertsContextIntoCalls: Bool,
         constantArrayParameterNames: Set<String> = [],
         mutableParameterNames: Set<String> = [],
-        programScope: Bool = false
+        programScope: Bool = false,
+        textureCoordinate: Bool = false
     ) -> TokenEmission {
         var output: [String] = []
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
         let narrowingBoundaries = SceneAuthoredShaderVectorConversion.assignmentBoundaries(
-            in: tokens, unit: context.unit)
+            in: tokens, unit: context.unit, textureCoordinate: textureCoordinate)
         var index = 0
         while index < tokens.count {
             let token = tokens[index]
@@ -426,6 +427,9 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 index += 1
             }
         }
+        if let suffixes = narrowingBoundaries.ends[tokens.count] {
+            output.append(suffixes.map { ").\($0)" }.joined())
+        }
         return TokenEmission(source: output.joined(separator: " "), diagnostics: diagnostics)
     }
 
@@ -459,7 +463,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         }
         let coordinate = emitTokens(
             Array(tokens[arguments[1]]), context: context, textures: textures,
-            insertsContextIntoCalls: true
+            insertsContextIntoCalls: true, textureCoordinate: true
         )
         guard coordinate.diagnostics.isEmpty else {
             return .init(source: nil, nextIndex: nil, diagnostic: coordinate.diagnostics.first)
@@ -479,17 +483,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             levelSource = level.source
         }
         let level = levelSource.map { ", level(\($0))" } ?? ""
-        let coordinateSuffix = SceneAuthoredShaderVectorConversion
-            .suffixForTextureCoordinate(
-                tokens: tokens,
-                range: arguments[1],
-                unit: context.unit
-            )
-        let coordinateSource = coordinateSuffix.map {
-            "(\(coordinate.source)).\($0)"
-        } ?? coordinate.source
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
-            + "\(coordinateSource)\(level))"
+            + "\(coordinate.source)\(level))"
         let sampledSource: String
         if let boundary = context.colorBoundary {
             sampledSource = boundary.colorInputSlots.contains(texture.slot)

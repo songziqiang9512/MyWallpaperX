@@ -324,6 +324,19 @@ blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无
 
 `g_TextureNResolution.xy` 是物理纹理尺寸，`.zw` 是 mapped size；压缩纹理或补齐到 2 的幂时两者可能不同。mask、flow、normal 和 effect-local UV 不能只用 drawable 尺寸推导。
 
+<a id="shader-float2-consumer-width"></a>
+### 8.2 共享词法绑定与浮点坐标转换（2026-10-17，已实施）
+
+目标是合法浮点复合坐标经现prepared source→同一Program/GraphExecutor实际执行。322的2522在真实点击与非零Alpha已可达后仍stage-link拒绝：局部宽向量参与vec2算术，且与不同类型global同名；原全源name→type-set及重叠名称正则不能决定该use的绑定，现由共享typed conversion和词法绑定事实取代；不替换完整编译器或按样本准入。
+
+[WE语法](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)公开HLSL转换、CAST及2D sampler的vec2坐标；[HLSL算术转换](https://microsoft.github.io/hlsl-specs/specs/5-Expr.html)和[向量截断](https://microsoft.github.io/hlsl-specs/specs/4-Conv.html)规定混宽向量取较短公共宽度并保留前置分量。因此已证明的浮点vec2与vec3/4逐分量算术在原运算边界显式取xy；scalar仍广播，括号/求值次序及显式swizzle保持，不把截断跨越normalize/dot等跨分量操作。Microsoft文档是working draft、不能冒固定WE/FXC像素实测；本机官方四卡正控失败仍为UNKNOWN，不据其红场推语义。
+
+唯一职责：复用现Lexer/Syntax及声明/作用域分析，按use位置解析global、参数和局部绑定，让GlobalReferenceAnalyzer与VectorConversion共享绑定事实；不复制第二类型表/词法walker。原typed conversion只产token span上的有界转换，generic GLSL与MSL消费同一结果；已被完整typed表达式证明接管的赋值不再叠加旧目标宽度平铺fallback，构造器内外各保真实运算边界，不靠候选集合顺序决定语义。source/raw身份保持，语义缓存沿现版本失效。普通帧不解析或新增Program/资源/clock/renderer。接管后删除重叠旧vector2/coordinate名称正则；旧已支持用例须由共享链保留，不能借重构回退。
+
+首片只纳入能完整证明的float scalar/vec2/3/4、显式构造/swizzle及分量加减乘除，按运算树保优先级；必须存在已证vec2与宽向量的公共算术宽度边界，不借sampler的vec2签名开放任意wide compound或函数实参截断；旧direct identifier采样转换保留并归同owner。显式浮点构造器的名称和完整调用边界提供名义结果类型，参数是否合法继续由真实编译器裁决；参数纯度证明不作为已知结果宽度的前提，已有可证内部转换仍保留。单参数构造消费已知宽向量时，在参数完整计算之后取所需前置分量；不把构造目标宽度平铺进内部运算，不改内部调用及求值次数。调用参数内独立成立的纯算术边界由同一argument-range消费，保留旧`normalize(wide-vec2(...))`能力；只改已证运算，不推断外层未知调用结果或跨调用截断。未知/冲突/读前声明/未解析shadow、整数/矩阵、数组动态索引、裸用户调用返回、未解析副作用及跨分量运算不猜测，非2D采样不借签名授予转换。证明失败保原源码和既有局部视觉降级，不加广域clamp或吞错，不降低原安全/graph/资源门。
+
+验收先用原normalizer+真实glslang/Metal自有输入对显式前缀控制，覆盖变量/资源改名、等价括号/表达式、global/local/参数及相邻块shadow、左右操作数和优先级；旧规则正例、未知/副作用反例与双backend结果必须保持。再一次最终Debug、原包实际非零phase中的Program/GPU/末合成与画面、独立未参与样本及独审；不把显式改写的诊断副本当原包修复。若还需新效果算法、重建普通帧或其他未资格语言面，停在新首断点重排；设计批准不是色散/完整样本或性能完成。
+
 ## 9. Camera Parallax、Depth Parallax 和局部动画
 
 | 能力 | 启用来源 | 空间 | 输入 | 正确行为 |

@@ -58,8 +58,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     )
 
     /// Product callers supply shared BackendCanonicalizer compiler sources.
-    /// Scalar broadcast/truncation belongs there; this pass retains the later
-    /// interface-vector adaptation after declaration and stage-link lowering.
+    /// Scalar broadcast and floating-vector common-width conversions share
+    /// the same token facts before interface and stage-link lowering.
     static func normalize(
         vertexSource: String,
         fragmentSource: String,
@@ -284,19 +284,6 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             // The authored fragment builtin observes raster position, while
             // the vertex builtin remains the clip-space output.
             fragment.body = replaceWord("gl_Position", with: "gl_FragCoord", in: fragment.body)
-            vertex.body = rewriteTextureCoordinates(
-                vertex.body,
-                shapes: attributes.merging(varyings) { current, _ in current }
-                    .merging(uniforms) { current, _ in current }
-            )
-            fragment.body = rewriteTextureCoordinates(
-                fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
-            )
-            fragment.body = rewriteVector2ArithmeticOperands(
-                fragment.body,
-                shapes: varyings.merging(uniforms) { current, _ in current }
-            )
             fragment.body = SceneGenericShaderTextureSamplingNormalizer
                 .rewrite(fragment.body)
             fragment.body = rewriteScalarVectorAssignments(

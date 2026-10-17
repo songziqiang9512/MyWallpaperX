@@ -23,14 +23,21 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                   index > 0,
                   tokens[index - 1].kind == .identifier,
                   let end = statementEnd(after: index, in: tokens),
-                  let target = declaredType(
-                      of: tokens[index - 1].text,
-                      before: index,
-                      tokens: tokens,
-                      unit: unit
-                  ),
+                  let target = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: index - 1, tokens: tokens, in: unit
+                ),
                   let targetWidth = assignmentWidth(target) else {
                 return []
+            }
+            if targetWidth == 2,
+               let expression = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
+                   (index + 1)..<end, tokens: tokens, unit: unit,
+                   permitsVectorTruncation: true
+               ), expression.type == .float2 {
+                // A complete typed proof owns this assignment, including a
+                // proof that needs no conversion. Do not flatten its children
+                // to the assignment width through the legacy fallback.
+                return expression.conversions.map { .init(range: $0.range, suffix: $0.suffix) }
             }
             if targetWidth > 1,
                let conversion = directConstructorConversion(
@@ -162,12 +169,9 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 index += 1
                 continue
             }
-            guard let source = declaredType(
-                of: token.text,
-                before: limit,
-                tokens: tokens,
-                unit: unit
-            ) else { return nil }
+            guard let source = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: index, tokens: tokens, in: unit
+                ) else { return nil }
             if index + 2 < expression.upperBound,
                tokens[index + 1].text == ".",
                tokens[index + 2].kind == .identifier {
@@ -239,12 +243,9 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 index += 1
                 continue
             }
-            guard let source = declaredType(
-                of: token.text,
-                before: limit,
-                tokens: tokens,
-                unit: unit
-            ) else { return nil }
+            guard let source = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: index, tokens: tokens, in: unit
+                ) else { return nil }
             var width = floatVectorWidth(source)
             if index + 2 < expression.upperBound,
                tokens[index + 1].text == ".",
@@ -268,10 +269,12 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
 
     static func assignmentBoundaries(
         in tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
+        unit: SceneAuthoredShaderSyntaxUnit,
+        textureCoordinate: Bool = false
     ) -> (starts: [Int: Int], ends: [Int: [String]]) {
-        let values = conversions(in: tokens, unit: unit)
+        let values = Set(conversions(in: tokens, unit: unit)
             + returnConversions(in: tokens, unit: unit)
+            + componentConversions(in: tokens, unit: unit, textureCoordinate: textureCoordinate))
         var starts = Dictionary(grouping: values, by: { $0.range.lowerBound })
             .mapValues(\.count)
         var ends = Dictionary(grouping: values, by: { $0.range.upperBound })
@@ -280,6 +283,56 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             starts: &starts, ends: &ends, tokens: tokens, unit: unit
         )
         return (starts, ends)
+    }
+
+    /// Every conversion is attached to its original operation span, so a
+    /// compound operand is evaluated once and precedence is unchanged.
+    private static func componentConversions(
+        in tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit,
+        textureCoordinate: Bool
+    ) -> [Conversion] {
+        var result: [Conversion] = []
+        func arithmetic(_ range: Range<Int>) {
+            guard let expression = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
+                range, tokens: tokens, unit: unit, permitsVectorTruncation: true
+            ), expression.type == .float2 else { return }
+            result += expression.conversions.map { Conversion(range: $0.range, suffix: $0.suffix) }
+        }
+        func coordinate(_ range: Range<Int>) {
+            arithmetic(range)
+            // Preserve the old direct sampler-value rule. A wider compound
+            // with no float2 common-type boundary remains compiler-owned.
+            if let suffix = suffixForTextureCoordinate(tokens: tokens, range: range, unit: unit) {
+                result.append(Conversion(range: range, suffix: suffix))
+            }
+        }
+        if textureCoordinate { coordinate(tokens.startIndex..<tokens.endIndex) }
+        else { arithmetic(tokens.startIndex..<tokens.endIndex) }
+        for index in tokens.indices {
+            if ["=", "+=", "-=", "*=", "/=", "return"].contains(tokens[index].text),
+               let end = statementEnd(after: index, in: tokens) {
+                arithmetic((index + 1)..<end)
+            }
+            guard tokens[index].kind == .identifier,
+                  index + 1 < tokens.count, tokens[index + 1].text == "(",
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: index + 1),
+                  let arguments = SceneAuthoredShaderBuiltInVectorConversion.argumentRanges(
+                    opening: index + 1, closing: closing, tokens: tokens
+                  ) else { continue }
+            // Prove arithmetic inside each argument independently, without
+            // inferring the enclosing call's result or moving a conversion
+            // across that call.
+            for argument in arguments { arithmetic(argument) }
+            guard ["texSample2D", "texture2D"].contains(tokens[index].text),
+                  !unit.functions.contains(where: { $0.name == tokens[index].text }),
+                  arguments.count == 2, arguments[0].count == 1 else { continue }
+            let sampler = tokens[arguments[0].lowerBound]
+            guard unit.declarations.contains(where: { $0.name == sampler.text && $0.typeName == "sampler2D" }),
+                  let uses = SceneAuthoredShaderGlobalReferenceAnalyzer.exactReferenceIndices(sampler.text, in: unit),
+                  uses.contains(where: { unit.tokens[$0] == sampler }) else { continue }
+            coordinate(arguments[1])
+        }
+        return result
     }
 
     /// A vec3 function may return the leading lanes of one proven vec4 value.
@@ -301,16 +354,13 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                   index + 1 < end else { return nil }
             let expression = (index + 1)..<end
             let first = tokens[expression.lowerBound]
-            let declarations = SceneAuthoredShaderFunctionSemantics
-                .uniqueRootScopeValueDeclarations(for: function, in: unit)
             let isWideValue: Bool
             if expression.count == 1 {
                 isWideValue = first.kind == .identifier
                     && !unit.tokens.contains(where: { $0.text == "struct" })
-                    && declarations[first.text].map {
-                        $0.index < originalIndex
-                            && SceneAuthoredShaderValueType(authoredName: $0.type) == .float4
-                    } == true
+                    && SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: expression.lowerBound, tokens: tokens, in: unit
+                ) == .float4
             } else if expression.count >= 3,
                       tokens[expression.lowerBound + 1].text == "(",
                       SceneAuthoredShaderTokenScanner.matchingParenthesis(
@@ -400,19 +450,16 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         return narrowingSuffix(from: .float4, to: target)
     }
 
-    static func suffixForTextureCoordinate(
+    private static func suffixForTextureCoordinate(
         tokens: [SceneAuthoredShaderToken],
         range: Range<Int>,
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> String? {
         guard range.count == 1,
               tokens[range.lowerBound].kind == .identifier,
-              let source = declaredType(
-                  of: tokens[range.lowerBound].text,
-                  before: range.lowerBound,
-                  tokens: tokens,
-                  unit: unit
-              ) else { return nil }
+              let source = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: range.lowerBound, tokens: tokens, in: unit
+                ) else { return nil }
         return narrowingSuffix(from: source, to: .float2)
     }
 
@@ -448,12 +495,9 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                     index += 1
                     continue
                 }
-                guard let declared = declaredType(
-                          of: token.text,
-                          before: limit,
-                          tokens: allTokens,
-                          unit: unit
-                      ) else { return nil }
+                guard let declared = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: index, tokens: allTokens, in: unit
+                ) else { return nil }
                 var valueType = declared
                 let start = index
                 if index + 2 < expression.endIndex,
@@ -516,12 +560,9 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         }
         guard !argument.isEmpty,
               allTokens[argument.lowerBound].kind == .identifier,
-              let declared = declaredType(
-                  of: allTokens[argument.lowerBound].text,
-                  before: limit,
-                  tokens: allTokens,
-                  unit: unit
-              ) else { return nil }
+              let declared = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: argument.lowerBound, tokens: allTokens, in: unit
+                ) else { return nil }
         let type: SceneAuthoredShaderValueType
         if argument.count == 1 {
             type = declared
@@ -599,12 +640,9 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 index += 1
                 continue
             }
-            guard let source = declaredType(
-                of: token.text,
-                before: limit,
-                tokens: tokens,
-                unit: unit
-            ) else { return nil }
+            guard let source = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                    at: index, tokens: tokens, in: unit
+                ) else { return nil }
             if index + 2 < expression.upperBound,
                tokens[index + 1].text == ".",
                tokens[index + 2].kind == .identifier {
@@ -629,30 +667,6 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         }
         guard depth == 0, !result.isEmpty else { return nil }
         return result
-    }
-
-    private static func declaredType(
-        of name: String,
-        before limit: Int,
-        tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
-    ) -> SceneAuthoredShaderValueType? {
-        var types = Set(unit.declarations.compactMap { declaration in
-            declaration.name == name
-                ? SceneAuthoredShaderValueType(authoredName: declaration.typeName)
-                : nil
-        })
-        if limit > 0 {
-            for index in 0..<limit where index + 1 < tokens.count {
-                guard tokens[index + 1].text == name,
-                      let type = SceneAuthoredShaderValueType(
-                          authoredName: tokens[index].text
-                      ) else { continue }
-                types.insert(type)
-            }
-        }
-        guard types.count == 1 else { return nil }
-        return types.first
     }
 
     private static func swizzleType(_ text: String) -> SceneAuthoredShaderValueType? {

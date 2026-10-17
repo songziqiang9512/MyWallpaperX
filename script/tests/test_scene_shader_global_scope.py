@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -40,6 +41,9 @@ SCOPE_FACTS = r'''
         result["globalReferences"] = references
         result["globalIsReferenced"] = referenced
         result["globalReferenceTokenSites"] = referenceTokenSites
+        result["canonicalFragment"] = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+            vertex: vertex, fragment: fragment
+        ).fragment
 '''
 HARNESS = backend.HARNESS.replace(
     "        switch SceneGenericShaderSourceNormalizer.normalize(",
@@ -47,6 +51,40 @@ HARNESS = backend.HARNESS.replace(
 ).replace(
     "var uniforms = [Float(width), Float(height), Float(0), Float(0)]",
     "var uniforms = [Float(0.125), Float(0.375), Float(width), Float(height)]",
+)
+# Reuse the existing submission/readback carrier. The authored arithmetic cases
+# sample an asymmetric UV ramp, so dropped/swapped components change pixels.
+HARNESS = HARNESS.replace(
+    "        let queue = device.makeCommandQueue()!",
+    r'''
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba32Float, width: 8, height: 8, mipmapped: false)
+        inputDescriptor.storageMode = .shared
+        inputDescriptor.usage = [.shaderRead]
+        let input = device.makeTexture(descriptor: inputDescriptor)!
+        var inputPixels: [Float] = []
+        for y in 0..<8 {
+            for x in 0..<8 {
+                inputPixels += [Float(x)/7, Float(y)/7, Float(x+2*y)/21, 1]
+            }
+        }
+        inputPixels.withUnsafeBytes {
+            input.replace(region: MTLRegionMake2D(0, 0, 8, 8), mipmapLevel: 0,
+                withBytes: $0.baseAddress!, bytesPerRow: 8*16)
+        }
+        let samplerDescriptor = MTLSamplerDescriptor()
+        samplerDescriptor.minFilter = .linear
+        samplerDescriptor.magFilter = .linear
+        samplerDescriptor.sAddressMode = .clampToEdge
+        samplerDescriptor.tAddressMode = .clampToEdge
+        let sampler = device.makeSamplerState(descriptor: samplerDescriptor)!
+        let queue = device.makeCommandQueue()!
+''',
+).replace(
+    "            encoder.setRenderPipelineState(pipeline)",
+    "            encoder.setRenderPipelineState(pipeline)\n"
+    "            encoder.setFragmentTexture(input, index: 0)\n"
+    "            encoder.setFragmentSamplerState(sampler, index: 0)",
 )
 
 
@@ -243,6 +281,140 @@ void main() {
     return result
 
 
+def float2_arithmetic_cases() -> list[dict]:
+    # HLSL Expr.conv / Conv.vtrunc use the shorter vector's prefix at an
+    # arithmetic boundary. No semantic evidence comes from the failed official
+    # four-card carrier; these controls follow the public working-draft rule.
+    result = []
+
+    def add(name, source, control, names=("wide", "v_TexCoord"), vertex=backend.VERTEX,
+            expected_uv=(1.0, -0.1625, 1.0, -0.1125), normalize_uv=False):
+        names = ("g_Texture0", *names)
+        fragment, references = marked_fragment(source.replace("texture2D(g_Texture0,", "texture2D(@g_Texture0,"), names)
+        reference, _ = marked_fragment(control.replace("texture2D(g_Texture0,", "texture2D(@g_Texture0,"), names)
+        result.append({"name": name, "fragment": fragment, "control": reference,
+            "references": references, "vertex": vertex, "expectedUV": expected_uv,
+            "normalizeUV": normalize_uv})
+
+    for name, expression, control in [
+        ("subtract", "uv - (gain * wide + 0.0625)",
+         "uv - (gain * wide.xy + 0.0625)"),
+        ("reverse", "(gain * wide + 0.625) - uv * 0.25",
+         "(gain * wide.xy + 0.625) - uv * 0.25"),
+        ("grouped", "((uv) - (((gain) * (wide)) + (0.0625)))",
+         "((uv) - (((gain) * (wide.xy)) + (0.0625)))"),
+        ("divide", "uv / (wide * gain + 0.75)",
+         "uv / (wide.xy * gain + 0.75)"),
+        ("precedence", "uv - gain * wide + 0.125",
+         "uv - gain * wide.xy + 0.125"),
+    ]:
+        variants = [("panel", "wide")]
+        if name == "subtract":
+            variants.append(("renamed-art", "shiftedCarrier"))
+        for resource, binding in variants:
+            def body(value):
+                return f"""uniform sampler2D g_Texture0;
+uniform vec3 {binding};
+varying vec2 v_TexCoord;
+void main() {{
+    vec2 uv = @v_TexCoord;
+    float gain = 0.125;
+    vec4 {binding} = vec4(0.8, 0.4, 16.0, 32.0);
+    vec2 coord = {value.replace('wide', binding)};
+    gl_FragColor = texture2D(g_Texture0, coord);
+}}"""
+            expected_uv = {"reverse": (-0.25, 0.725, -0.25, 0.675),
+                "divide": (1/0.85, 0.0, 1/0.8, 0.0),
+                "precedence": (1.0, 0.025, 1.0, 0.075)}.get(name, (1.0, -0.1625, 1.0, -0.1125))
+            add(resource + "-" + name, body(expression), body(control), (binding, "v_TexCoord"),
+                expected_uv=expected_uv)
+
+    parameter = """uniform sampler2D g_Texture0;
+uniform vec3 wide;
+varying vec2 v_TexCoord;
+float peer(vec2 wide) { return wide.x; }
+vec2 shifted(vec4 wide, vec2 uv) {
+    vec2 coord = uv - (0.125 * WIDE + 0.0625);
+    return coord;
+}
+void main() {
+    gl_FragColor = texture2D(g_Texture0, shifted(vec4(0.8, 0.4, 16.0, 32.0), @v_TexCoord));
+}"""
+    add("parameter-and-peer-function", parameter.replace("WIDE", "wide"),
+        parameter.replace("WIDE", "wide.xy"))
+    for name, statements in [
+        ("before-declaration", "vec2 uv = @wide;\n"
+         "vec4 wide = vec4(0.8, 0.4, 16.0, 32.0);\n"
+         "vec2 coord = uv - (0.125 * WIDE + 0.0625);"),
+        ("declaration-initializer", "vec4 wide = vec4(@wide, 16.0, 32.0);\n"
+         "vec2 coord = vec2(0.8, 0.7) - (0.125 * WIDE + 0.0625);"),
+        ("nested-scope-exits", "vec2 coord = @wide;\n"
+         "{ vec4 wide = vec4(0.8, 0.4, 16.0, 32.0);\n"
+         "coord = coord - (0.125 * WIDE + 0.0625); }\n"
+         "coord = coord + @wide * 0.125;"),
+    ]:
+        source = "uniform sampler2D g_Texture0;\nvarying vec2 wide;\nvoid main() {\n" \
+            + statements + "\ngl_FragColor = texture2D(g_Texture0, coord);\n}"
+        add(name, source.replace("WIDE", "wide"), source.replace("WIDE", "wide.xy"),
+            ("wide",), backend.VERTEX.replace("v_TexCoord", "wide"),
+            expected_uv={"declaration-initializer": (-0.125, 0.7375, -0.125, 0.6375),
+                "nested-scope-exits": (1.125, -0.1625, 1.125, -0.1125)}
+                .get(name, (1.0, -0.1625, 1.0, -0.1125)))
+    direct = """uniform sampler2D g_Texture0;
+uniform vec3 wide;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 wide = vec4(@v_TexCoord, 16.0, 32.0);
+    gl_FragColor = texture2D(g_Texture0, COORD);
+}"""
+    add("legacy-direct-identifier", direct.replace("COORD", "wide"),
+        direct.replace("COORD", "wide.xy"), expected_uv=(1, 0, 1, 0))
+    direct_function = direct.replace("void main()", "vec2 echoCoord(vec2 value) { return value; }\nvoid main()")
+    add("legacy-direct-function-argument", direct_function.replace("COORD", "echoCoord(wide)"),
+        direct_function.replace("COORD", "echoCoord(wide.xy)"), expected_uv=(1, 0, 1, 0))
+    direct_vec2 = "uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\n" \
+        "void main() { gl_FragColor = texture2D(g_Texture0, @v_TexCoordCOORD); }"
+    add("legacy-vec2-coordinate", direct_vec2.replace("COORD", ""),
+        direct_vec2.replace("COORD", ".xy"), ("v_TexCoord",), expected_uv=(1, 0, 1, 0))
+    nested_call = """uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+vec2 echoCoord(vec2 value) { return value; }
+void main() {
+    vec2 uv = @v_TexCoord;
+    vec4 wide = vec4(0.8, 0.4, 16.0, 32.0);
+    vec2 coord = WRAPPER(uv - (0.125 * WIDE + 0.0625));
+    gl_FragColor = texture2D(g_Texture0, coord);
+}"""
+    for function in ["normalize", "echoCoord"]:
+        source = nested_call.replace("WRAPPER", function)
+        add("legacy-inner-float2-" + function, source.replace("WIDE", "wide"),
+            source.replace("WIDE", "wide.xy"), ("v_TexCoord",), normalize_uv=function == "normalize")
+
+    opaque_constructor = """uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 wide = vec4(@v_TexCoord + vec2(0.4, 0.25), 16.0, 32.0);
+    vec2 coord = normalize(WIDE - vec2(sin(0.1)));
+    gl_FragColor = texture2D(g_Texture0, coord);
+}"""
+    add("constructor-around-builtin-call", opaque_constructor.replace("WIDE", "wide"),
+        opaque_constructor.replace("WIDE", "wide.xy"), ("v_TexCoord",),
+        expected_uv=(1, 0.4-math.sin(0.1), 1, 0.25-math.sin(0.1)), normalize_uv=True)
+    opaque_user = nested_call.replace("vec2 echoCoord",
+        "float scalarShade(float phase) { return phase * 0.5 + 0.0625; }\nvec2 echoCoord")
+    opaque_user = opaque_user.replace("WRAPPER", "echoCoord").replace(
+        "0.125 * WIDE + 0.0625", "0.125 * WIDE + CAST2(scalarShade(0.25))")
+    add("renamed-resource-constructor-around-user-call", opaque_user.replace("WIDE", "wide"),
+        opaque_user.replace("WIDE", "wide.xy"), ("v_TexCoord",),
+        expected_uv=(1, -0.2875, 1, -0.2375))
+    internal_width = nested_call.replace("vec2 coord = WRAPPER(uv - (0.125 * WIDE + 0.0625));",
+        "vec3 value3 = vec3(0.125, 0.25, 0.5);\n    vec2 coord = uv - vec2(WIDE * value3);")
+    add("constructor-keeps-inner-xyz-conversion", internal_width.replace("WIDE", "wide"),
+        internal_width.replace("WIDE", "wide.xyz"), ("v_TexCoord",),
+        expected_uv=(1, -0.1, 1, -0.1))
+    return result
+
+
 class SceneShaderGlobalScopeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -310,6 +482,125 @@ class SceneShaderGlobalScopeTests(unittest.TestCase):
                     for actual, wanted in zip(pixel, [*expected, 0.25, 1], strict=True):
                         self.assertAlmostEqual(actual, wanted, delta=2e-6,
                             msg=f"{case} {name} frame={frame_index} pixel={x},{y}")
+
+    def test_float2_arithmetic_uses_lexical_types_and_matches_explicit_xy_pixels(self) -> None:
+        if os.environ.get("MWX_RUN_SHADER_GLOBAL_SCOPE_GPU") != "1":
+            self.skipTest("set MWX_RUN_SHADER_GLOBAL_SCOPE_GPU=1 for actual Metal readback")
+        for case in float2_arithmetic_cases():
+            with self.subTest(case=case["name"]):
+                paired = []
+                for label, fragment in [("implicit", case["fragment"]), ("explicit", case["control"])]:
+                    result, directory = self.probe.compile(fragment, case["vertex"], case["name"] + "-" + label)
+                    self.assertEqual(result["syntaxDiagnostics"], [])
+                    self.assertEqual(result["globalReferences"], case["references"])
+                    self.assertEqual(result["globalReferenceTokenSites"], case["references"])
+                    self.assertTrue(result["ok"], result)
+                    self.assertTrue(result["boundedHasProgram"], result["boundedDiagnostics"])
+                    paired.append(self.probe.pixels(result, directory))
+                differences = {}
+                for backend_name, actual in paired[0]["backends"].items():
+                    expected = paired[1]["backends"][backend_name]
+                    self.assertEqual(actual["completion"], "completed")
+                    self.assertEqual(actual["submissions"], 2)
+                    self.assertEqual(actual["frames"], [actual["frames"][0]] * 2)
+                    self.assertNotEqual(expected["frames"][0][0][:2], expected["frames"][0][-1][:2])
+                    # Independent carrier oracle: normalized UVs address an
+                    # 8x8 linear-filtered ramp whose texels are (x/7,y/7,(x+2y)/21,1).
+                    # Both frames deliberately have identical inputs and must
+                    # reproduce these known spatial colors before comparison.
+                    ax, bx, ay, by = case["expectedUV"]
+                    for frame in expected["frames"]:
+                        for pixel, (x, y) in zip(frame, paired[1]["locations"], strict=True):
+                            u = ax * (x+0.5)/paired[1]["width"] + bx
+                            v = ay * (y+0.5)/paired[1]["height"] + by
+                            if case["normalizeUV"]:
+                                length = (u*u + v*v)**0.5
+                                u, v = u/length, v/length
+                            red = min(1.0, max(0.0, (8*u-0.5)/7))
+                            green = min(1.0, max(0.0, (8*v-0.5)/7))
+                            for component, wanted in zip(pixel, [red, green, (red+2*green)/3, 1], strict=True):
+                                # Permit bounded sampling precision relative
+                                # to the ideal continuous ramp, independently
+                                # of the stricter implicit/explicit comparison.
+                                self.assertAlmostEqual(component, wanted, delta=1/1024,
+                                    msg=f"independent explicit-ramp oracle {case['name']} {backend_name} {x},{y}")
+                    self.assertNotEqual(actual["frames"][0][0][:2], actual["frames"][0][-1][:2],
+                        "UV-ramp control must distinguish sampled coordinates")
+                    delta = max(abs(a-b) for frame, control in zip(actual["frames"], expected["frames"], strict=True)
+                        for pixel, reference in zip(frame, control, strict=True)
+                        for a, b in zip(pixel, reference, strict=True))
+                    self.assertLessEqual(delta, 2e-6)
+                    differences[backend_name] = delta
+                self.probe.results.append({"case": case["name"], "implicit": paired[0],
+                    "explicit": paired[1], "maxDifference": differences,
+                    "globalReferences": case["references"], "expectedUV": case["expectedUV"],
+                    "normalizeUV": case["normalizeUV"]})
+                if case["name"] == "panel-subtract":
+                    wrong, directory = self.probe.compile(case["control"].replace("wide.xy", "wide.xx"),
+                        case["vertex"], "wrong-prefix-control")
+                    wrong_pixels = self.probe.pixels(wrong, directory)
+                    for name, output in wrong_pixels["backends"].items():
+                        correct = paired[1]["backends"][name]
+                        delta = max(abs(a-b) for frame, reference in zip(output["frames"], correct["frames"], strict=True)
+                            for pixel, expected in zip(frame, reference, strict=True)
+                            for a, b in zip(pixel, expected, strict=True))
+                        self.assertGreater(delta, 0.025, "xx must be distinguishable from xy")
+                    self.probe.results.append({"case": "wrong-prefix-control", "pixels": wrong_pixels,
+                        "distinguishableFromXY": True})
+
+    def test_float2_arithmetic_does_not_cross_unproven_expression_boundaries(self) -> None:
+        for name, expression, declarations, sample in [
+            ("wide-only", "wide + vec4(0.1)", "", "texture2D"),
+            ("unknown", "uv - missing", "", "texture2D"),
+            ("future-local", "uv - future", "", "texture2D"),
+            ("side-effect", "uv - (wide++)", "", "texture2D"),
+            ("user-call", "uv - coordinates(wide)",
+             "vec4 coordinates(vec4 value) { return value; }", "texture2D"),
+            ("wide-only-user-call", "coordinates(wide + wide)",
+             "vec2 coordinates(vec2 value) { return value; }", "texture2D"),
+            ("normalize", "uv - normalize(wide)", "", "texture2D"),
+            ("wide-only-normalize", "normalize(wide)", "", "texture2D"),
+            ("dot-scalar-coordinate", "dot(wide, wide)", "", "texture2D"),
+            ("integer", "uv - ivec4(1)", "", "texture2D"),
+            ("matrix", "uv - mat2(1.0)", "", "texture2D"),
+            ("dynamic-array", "uv - values[int(uv.x * 2.0)]", "vec4 values[2];", "texture2D"),
+            ("non-2d", "wide", "", "texture3D"),
+        ]:
+            with self.subTest(case=name):
+                sampler = "sampler2D" if sample == "texture2D" else "sampler3D"
+                tail = "vec4 future = vec4(0.25);" if name == "future-local" else ""
+                fragment = f"""uniform {sampler} g_Texture0;
+varying vec2 v_TexCoord;
+{declarations}
+void main() {{
+    vec2 uv = v_TexCoord;
+    vec4 wide = vec4(0.8, 0.4, 0.6, 0.2);
+    gl_FragColor = {sample}(g_Texture0, {expression});
+    {tail}
+}}"""
+                result, directory = self.probe.compile(fragment, resource="unproven-" + name)
+                # None of these authored inputs has an explicit .xy. A sampler
+                # consumer alone cannot authorize truncating an unknown tree.
+                self.assertNotIn(".xy", result["canonicalFragment"])
+                if result["ok"]:
+                    self.probe.generic_metal(directory, accepted=False)
+                self.probe.results.append({"case": name, "boundedHasProgram": result["boundedHasProgram"],
+                    "genericNormalized": result["ok"], "unprovenCoordinateNotRewritten": True})
+
+        # A constructor's nominal result type does not make invalid arguments
+        # legal. The real compiler must still reject three scalar vec2 inputs.
+        fragment = """uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 wide = vec4(v_TexCoord + vec2(0.4, 0.25), 16.0, 32.0);
+    gl_FragColor = texture2D(g_Texture0,
+        normalize(wide - vec2(sin(0.1), sin(0.2), sin(0.3))));
+}"""
+        result, directory = self.probe.compile(fragment, resource="invalid-constructor-arity")
+        self.assertTrue(result["ok"], result)
+        self.probe.generic_metal(directory, accepted=False)
+        self.probe.results.append({"case": "invalid-constructor-arity", "genericNormalized": True,
+            "realCompilerRejected": True})
 
     def test_deep_legal_scopes_retain_exact_global_tokens_and_lowering(self) -> None:
         for kind in ("block", "if"):

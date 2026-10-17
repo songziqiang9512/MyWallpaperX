@@ -33,7 +33,7 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 # Explicit invalidation expectation; never derive this from the product under test.
-CURRENT_VARIANT_SCHEMA_VERSION = 25
+CURRENT_VARIANT_SCHEMA_VERSION = 27
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
@@ -350,7 +350,7 @@ private func runGenericProbe() throws -> ProbeOutput {
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
-    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v25")
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v27")
     let key = "probe-variant-key"
     try expect(
         into: &output,
@@ -482,7 +482,7 @@ private func runDemandProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "demand")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneMaterialDemandAnalysis-v8"
+        root: root, name: "SceneMaterialDemandAnalysis-v10"
     )
     let key = SceneMaterialDemandAnalysisPersistentCache
         .ResourceDemandAnalysisKey(
@@ -615,7 +615,7 @@ private func runPreparationProbe(rejected: Bool) throws -> ProbeOutput {
     var output = ProbeOutput(
         tier: rejected ? "preparation-rejected" : "preparation-accepted"
     )
-    try expect(into: &output, SceneShaderVariantEnvironment.frontendSchemaVersion == 51,
+    try expect(into: &output, SceneShaderVariantEnvironment.frontendSchemaVersion == 53,
         "current-frontend-schema")
     if rejected {
         let result = SceneAuthoredShaderPreparation.prepareShaderStages(
