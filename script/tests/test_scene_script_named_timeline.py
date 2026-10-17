@@ -4,10 +4,131 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from .scene_vector_vm_test_support import SCENE, SWIFT_PREAMBLE, compile_vector_harness
+
+TIMELINE_SOURCES = [SCENE / path for path in [
+    "Format/SceneTimelineAnimation.swift",
+    "Systems/Timeline/SceneTimelineEvaluator.swift",
+    "Systems/Timeline/SceneTimelineRuntime.swift",
+    "Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+]]
+TIMELINE_DECLARATIONS = SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift"
+
+
+def playback_preamble():
+    # The shared value-owner carrier has placeholder command DTOs. Compile the
+    # actual playback owner instead, plus the production Binding/Program DTOs;
+    # TargetCompiler's unrelated descriptor admission is outside this gate.
+    start = SWIFT_PREAMBLE.index("enum SceneTimelinePlaybackCommand:")
+    end = SWIFT_PREAMBLE.index("enum SceneParticleNumericValue:", start)
+    declarations, separator, _ = TIMELINE_DECLARATIONS.read_text().partition(
+        "nonisolated enum SceneTimelineTargetCompiler"
+    )
+    if not separator:
+        raise AssertionError("production Timeline declarations unavailable")
+    return SWIFT_PREAMBLE[:start] + SWIFT_PREAMBLE[end:] + declarations
 
 HARNESS = r'''
 @main enum Harness {
+    static func scenePlayback(layerName:String, resourceName:String,
+                              animationName:String, equivalent:Bool) throws -> [Double] {
+        let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
+            var layer = SceneRenderDescriptor.Layer(id:id,layerIndex:id-1,
+                name:id == 2 ? layerName : "peer\(id)",visible:true,
+                originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])
+            layer.imagePath = "models/\(resourceName).json"
+            return layer
+        })
+        let layerTarget = SceneDynamicTarget.layer(layerID:2,field:.alpha)
+        let sharedEffect = SceneDynamicTarget.effectConstant(
+            layerID:2,effectIndex:3,passIndex:2,name:"Opacity")
+        let effect = SceneDynamicTarget.effectConstant(
+            layerID:3,effectIndex:4,passIndex:5,name:"g_Amount")
+        // These are the supplied *named bindings*, not unnamed Program ordinals.
+        // The unsupported first entry leaves a real ABI target-index gap.
+        let named:[(target:SceneDynamicTarget,name:String)] = [
+            (.scene(.bloomStrength),"unexported"),
+            (layerTarget,"shared-name"),(sharedEffect,"shared-name"),(effect,animationName)]
+        let bindings = named.dropFirst().map { target, name in
+            SceneTimelineBinding(definition:.init(target:target,valueType:.scalar,
+                authoredValue:.scalar(0)),animation:.init(lanes:[[
+                    .init(frame:0,value:0,back:nil,front:nil,locksAngle:nil,locksLength:nil),
+                    .init(frame:12,value:1.5,back:nil,front:nil,locksAngle:nil,locksLength:nil)]],
+                options:.init(fps:12,length:12,mode:.single,startsPaused:true,wrapsLoop:false,
+                    smoothing:nil,stiffness:nil,parent:nil,children:[],name:name),
+                isRelative:false,previewValue:nil),composition:.absolute)
+        }
+        let program = SceneTimelineProgram(bindings:bindings,diagnostics:[])
+        let playback = SceneTimelinePlaybackRuntime(program:program)
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureNamedAnimations(named)
+        try domain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(
+            frameIndex:0,generation:1,definitions:[]).snapshot,descriptor:descriptor)
+        let literal = String(reflecting:animationName)
+        let selector = equivalent ? "\(literal).split('').join('')" : literal
+        let source = """
+        let handle,local,n=0;
+        export function init(v){let rejected=0;
+          try{thisScene.getAnimation('shared-name');}catch(e){if(e instanceof RangeError)rejected++;}
+          try{thisScene.getLayer('peer3').getAnimation(\(selector));}
+            catch(e){if(e instanceof RangeError)rejected++;}
+          if(rejected!==2)throw new Error('scope');
+          local=thisScene.getLayer(\(String(reflecting:layerName))).getAnimation('shared-name');
+          handle=thisScene.getAnimation(\(selector));return v;}
+        export function update(v){switch(n++){case 0:local.pause();handle.play();break;
+          case 1:handle.pause();break;case 2:handle.play();break;default:handle.stop();}return v;}
+        """
+        func owner(_ source:String) throws -> SceneScriptValueOwner {
+            try .init(domain:domain,source:source,target:.layer(layerID:1,field:.alpha),
+                valueType:.scalar,effectNames:[],generation:1,budget:.default)
+        }
+        func evaluate(_ owner:SceneScriptValueOwner,_ time:Double)
+            -> Result<SceneScriptValueEvaluation,SceneScriptScalarRuntimeFailure> {
+            owner.evaluate(input:.scalar(1),frame:.init(timing:.init(wallDate:Date(),
+                simulationFrameTime:0.016,sceneTime:time)),scriptPropertiesJSON:"",
+                userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil)
+        }
+        let controller = try owner(source)
+        var frame:UInt64 = 0
+        func sample(_ time:Double) throws -> Double {
+            frame += 1
+            let resolution = SceneDynamicSnapshotResolver().resolve(frameIndex:frame,generation:1,
+                definitions:bindings.map(\.definition),timelineValues:playback.values(sceneTime:time))
+            guard resolution.diagnostics.isEmpty, let value = resolution.snapshot[effect],
+                  value.source == .timeline, case let .scalar(number) = value.value else {
+                throw NSError(domain:"typed Timeline publication",code:1)
+            }
+            return number
+        }
+        var samples = [try sample(0)]
+        let times = [0.0,0.25,1.0,1.25]
+        let observations = [0.25,1.0,1.25,2.0]
+        let expected:[SceneTimelinePlaybackCommand] = [.play,.pause,.play,.stop]
+        for index in times.indices {
+            let evaluation = try evaluate(controller,times[index]).get()
+            let commands = evaluation.animationMutations
+            guard commands == (index == 0
+                ? [.init(target:layerTarget,command:.pause),.init(target:effect,command:.play)]
+                : [.init(target:effect,command:expected[index])]) else {
+                throw NSError(domain:"full target identity or named ordinal",code:2)
+            }
+            try playback.apply(commands,sceneTime:times[index]).get()
+            controller.commitLayerMutations()
+            samples.append(try sample(observations[index]))
+        }
+        let failed = try owner("export function update(v){thisScene.getAnimation(\(selector)).play();throw new Error('rollback');}")
+        guard case .failure = evaluate(failed,2),
+              try sample(2.25) == 0 else {
+            throw NSError(domain:"scene command rollback",code:3)
+        }
+        let peer = try owner("export function update(v){thisScene.getAnimation(\(selector)).play();return v;}")
+        try playback.apply(try evaluate(peer,2.25).get().animationMutations,sceneTime:2.25).get()
+        peer.commitLayerMutations()
+        samples.append(try sample(2.5))
+        return samples
+    }
+
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
             .init(id:id,layerIndex:id-1,name:"layer\(id)",visible:true,
@@ -80,7 +201,11 @@ HARNESS = r'''
             "retainedTargets":second.map(\.target) == [a,b],
             "retainedCommands":second.map(\.command) == [.pause,.play],
             "rollback":failure,
-            "peerContinues":third == [.init(target:b,command:.stop)]]
+            "peerContinues":third == [.init(target:b,command:.stop)],
+            "sceneSamples":try scenePlayback(layerName:"portrait",resourceName:"panel-a",
+                animationName:"pulse",equivalent:false),
+            "renamedSceneSamples":try scenePlayback(layerName:"renamed card",resourceName:"different-art",
+                animationName:"surface-flash",equivalent:true)]
         print(String(data:try JSONSerialization.data(withJSONObject:out,options:[.sortedKeys]),encoding:.utf8)!)
     }
 }
@@ -89,9 +214,12 @@ HARNESS = r'''
 class NamedTimelineTests(unittest.TestCase):
     def test_named_commands_use_existing_typed_journal(self):
         with tempfile.TemporaryDirectory(prefix="mwx-named-timeline-") as temporary:
-            binary = compile_vector_harness(Path(temporary), HARNESS, "named-timeline")
+            binary = compile_vector_harness(Path(temporary), HARNESS, "named-timeline",
+                extra_swift_sources=TIMELINE_SOURCES,preamble=playback_preamble())
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
             actual = json.loads(run.stdout.strip().splitlines()[-1])
+            for key in ["sceneSamples", "renamedSceneSamples"]:
+                self.assertEqual(actual.pop(key), [0, 0.375, 0.375, 0.75, 0, 0.375])
             self.assertEqual(actual, dict.fromkeys([
                 "firstTargets", "firstCommands", "retainedTargets", "retainedCommands",
                 "rollback", "peerContinues", "cursorTarget", "overflowRejected", "statefulBoolTimer"], True))

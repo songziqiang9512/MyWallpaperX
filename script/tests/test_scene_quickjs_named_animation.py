@@ -48,11 +48,13 @@ static void catalog(MWXSceneQuickJSDomain *d) {
         {7, 17, retained_name, 4}, {11, 42, "same", 4},
         {12, 17, "ambiguous", 9}, {13, 17, "ambiguous", 9},
         {14, 17, boundary, sizeof(boundary)}, {15, 42, "精确名", strlen("精确名")},
+        {19, 17, "isolated", 8, 0}, {23, 17, "isolated", 8, 1},
+        {29, 42, "surface-alpha", 13, 1},
     };
-    check(mwx_scene_quickjs_domain_configure_named_animations(d, entries, 6,
+    check(mwx_scene_quickjs_domain_configure_named_animations(d, entries, 9,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "named catalog accepts");
     memset(retained_name, 'x', 4);
-    check(mwx_scene_quickjs_domain_configure_named_animations(d, entries, 6,
+    check(mwx_scene_quickjs_domain_configure_named_animations(d, entries, 9,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
         "named catalog immutable");
 }
@@ -100,6 +102,7 @@ static void invalid_catalogs(void) {
     MWXSceneQuickJSNamedAnimation bad[] = {
         {UINT32_MAX, 17, "same", 4}, {8, 999, "same", 4},
         {9, 17, "", 0}, {10, 17, "a\0b", 3}, {11, 17, NULL, 4},
+        {16, 17, "flag", 4, 2},
     };
     for (size_t i = 0; i < sizeof(bad)/sizeof(bad[0]); ++i) {
         MWXSceneQuickJSNamedAnimation partial[] = {valid, bad[i]};
@@ -205,7 +208,7 @@ static void rejection_and_deletion(void) {
     command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 15);
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     MWXSceneQuickJSOwner *pending = owner(d,
-        "export function update(v){const a=thisScene.getLayer('B').getAnimation('same');"
+        "export function update(v){const a=thisScene.getAnimation('surface-alpha');"
         "thisScene.destroyLayer('B');a.play();return v;}", 0);
     update(pending, 1, 0, MWX_SCENE_QUICKJS_EXCEPTION);
     check(mwx_scene_quickjs_owner_animation_command_count(pending) == 0,
@@ -215,6 +218,11 @@ static void rejection_and_deletion(void) {
         "export function update(v){if(v===2)a.play();return v;}", 0);
     update(retained, 1, 0, MWX_SCENE_QUICKJS_OK);
     mwx_scene_quickjs_owner_commit_layer_mutations(retained);
+    MWXSceneQuickJSOwner *scene_retained = owner(d,
+        "let a;export function init(v){a=thisScene.getAnimation('surface-alpha');return v;}"
+        "export function update(v){if(v===2)a.play();return v;}", 0);
+    update(scene_retained, 1, 0, MWX_SCENE_QUICKJS_OK);
+    mwx_scene_quickjs_owner_commit_layer_mutations(scene_retained);
     MWXSceneQuickJSOwner *deleter = owner(d,
         "export function update(v){thisScene.destroyLayer('B');return v;}", 0);
     update(deleter, 1, 0, MWX_SCENE_QUICKJS_OK);
@@ -233,6 +241,17 @@ static void rejection_and_deletion(void) {
         == MWX_SCENE_QUICKJS_OK, "deletion snapshot publishes");
     update(retained, 2, 0.1, MWX_SCENE_QUICKJS_EXCEPTION);
     update(retained, 1, 0.2, MWX_SCENE_QUICKJS_DISABLED);
+    update(scene_retained, 2, 0.1, MWX_SCENE_QUICKJS_EXCEPTION);
+    check(mwx_scene_quickjs_owner_animation_command_count(scene_retained) == 0,
+        "scene retained target cannot survive deletion");
+    MWXSceneQuickJSOwner *live = owner(d,
+        "export function update(v){let rejected=false;"
+        "try{thisScene.getAnimation('surface-alpha');}catch(e){rejected=e instanceof RangeError;}"
+        "if(!rejected)throw new Error('deleted scene target');"
+        "thisLayer.getAnimation('isolated').play();return v;}", 0);
+    update(live, 1, 0.2, MWX_SCENE_QUICKJS_OK);
+    command(live, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 19);
+    mwx_scene_quickjs_owner_commit_layer_mutations(live);
     MWXSceneQuickJSOwner *clone = owner(d,
         "export function update(v){const layer=thisScene.createLayer({name:'B',text:'clone'});"
         "if(!layer)throw new Error('clone unavailable');let rejected=false;"
@@ -242,6 +261,8 @@ static void rejection_and_deletion(void) {
     check(mwx_scene_quickjs_owner_animation_command_count(clone) == 0,
         "dynamic clone inherits no prepared Timeline");
     mwx_scene_quickjs_owner_destroy(clone);
+    mwx_scene_quickjs_owner_destroy(live);
+    mwx_scene_quickjs_owner_destroy(scene_retained);
     mwx_scene_quickjs_owner_destroy(deleter);
     mwx_scene_quickjs_owner_destroy(retained);
     mwx_scene_quickjs_owner_destroy(pending);
@@ -249,11 +270,62 @@ static void rejection_and_deletion(void) {
     mwx_scene_quickjs_domain_destroy(d);
 }
 
+static void scene_scopes(void) {
+    MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return; catalog(d);
+    MWXSceneQuickJSOwner *o = owner(d,
+        "let handle;export function init(v){let rejected=0;"
+        "for(const f of [()=>thisScene.getAnimation(),()=>thisScene.getAnimation(1),"
+        "()=>thisScene.getAnimation(undefined),()=>thisScene.getAnimation('absent'),"
+        "()=>thisScene.getAnimation('same'),()=>thisScene.getAnimation('isolated'),"
+        "()=>thisScene.getAnimation(''),()=>thisScene.getAnimation('a\\0b'),"
+        "()=>thisScene.getAnimation('z'.repeat(257)),"
+        "()=>thisScene.getLayer('B').getAnimation('surface-alpha')]){"
+        "try{f();}catch(e){if(e instanceof TypeError||e instanceof RangeError)rejected++;}}"
+        "if(rejected!==10)throw new Error('scene scope rejection');"
+        "thisLayer.getAnimation('isolated').pause();"
+        "handle=thisScene.getAnimation(['surface','alpha'].join('-'));"
+        "shared.sceneAnimation=handle;shared.sceneGetter=thisScene.getAnimation;return v;}"
+        "export function update(v){if(v===0)return v;"
+        "if(v===3){handle.stop();throw new Error('rollback');}"
+        "if(v===1)handle.play();else handle.pause();return v;}", 0);
+    update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o) == 2,
+        "scene and legacy layer share one ordered journal");
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 19);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 29);
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    update(o, 2, 0.1, MWX_SCENE_QUICKJS_OK);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 29);
+    mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    update(o, 0, 0.15, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o) == 0,
+        "discarded command is not replayed in the next callback");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    MWXSceneQuickJSOwner *peer = owner(d,
+        "export function update(v){let rejected=0;"
+        "for(const f of [()=>shared.sceneAnimation.play(),"
+        "()=>shared.sceneGetter('surface-alpha').play()]){"
+        "try{f();}catch(e){if(e instanceof TypeError)rejected++;}}"
+        "if(rejected!==2)throw new Error('foreign scene handle');"
+        "thisLayer.getAnimation('isolated').stop();return v;}", 0);
+    update(peer, 1, 0.1, MWX_SCENE_QUICKJS_OK);
+    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 19);
+    mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+    update(o, 3, 0.2, MWX_SCENE_QUICKJS_EXCEPTION);
+    update(o, 1, 0.3, MWX_SCENE_QUICKJS_DISABLED);
+    mwx_scene_quickjs_owner_destroy(o);
+    update(peer, 1, 0.3, MWX_SCENE_QUICKJS_OK);
+    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 19);
+    mwx_scene_quickjs_owner_destroy(peer);
+    mwx_scene_quickjs_domain_destroy(d);
+}
+
 static void readonly_and_budget(void) {
     MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return; catalog(d);
-    const char *source = "export function update(v){let rejected=false;"
-        "try{thisScene.getLayer('A').getAnimation('same').play();}"
-        "catch(e){rejected=e instanceof TypeError;}return rejected&&v;}";
+    const char *source = "export function update(v){let rejected=0;"
+        "for(const f of [()=>thisScene.getLayer('A').getAnimation('same').play(),"
+        "()=>thisScene.getAnimation('surface-alpha').play()]){"
+        "try{f();}catch(e){if(e instanceof TypeError)rejected++;}}return rejected===2&&v;}";
     MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
     MWXSceneQuickJSOwner *o = mwx_scene_quickjs_owner_create_value_only_with_budget(d,
         source, strlen(source), 91, 100000, &result, diagnostic, sizeof(diagnostic));
@@ -265,7 +337,7 @@ static void readonly_and_budget(void) {
         "Boolean owner retains read-only authority");
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 0, "read-only stages no command");
     mwx_scene_quickjs_owner_destroy(o);
-    o = owner(d, "export function update(v){const a=thisLayer.getAnimation('same');"
+    o = owner(d, "export function update(v){const a=thisScene.getAnimation('surface-alpha');"
         "for(let i=0;i<17;i++){try{a.play();}catch(e){}}return v;}", 0);
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     MWXSceneQuickJSAnimationCommand actual = 0; uint32_t actual_target = 0;
@@ -285,7 +357,8 @@ static void readonly_and_budget(void) {
 }
 
 int main(void) {
-    invalid_catalogs(); retained_and_scopes(); rejection_and_deletion(); readonly_and_budget();
+    invalid_catalogs(); retained_and_scopes(); rejection_and_deletion();
+    scene_scopes(); readonly_and_budget();
     return failures == 0 ? 0 : 1;
 }
 '''

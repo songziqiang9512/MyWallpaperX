@@ -385,6 +385,14 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 
 实施及反例统一归[历史记录](../../history/named-timeline-interaction-2026-10-10.md)，当前范围由API台账维护，不以局部交互代替完整样本验收。
 
+<a id="scene-named-animation-lookup"></a>
+
+2026-10-17 scene scope后继（已实施，有界验收）：固定v2.8声明的IScene.getAnimation(name)按名查询任意layer动画；322的合法点击先查询“切换滤镜”，现缺scene accessor且已有effectConstant编译结果被导出白名单过滤。最小片为显式String、存活catalog内exact唯一名称的scene lookup，加effectConstant的完整typed target导出。继续使用既有Program索引、retained handle、animation journal、owner effects及唯一Timeline runtime/SceneClock，不解析作者文档或增加播放状态。
+
+同一不可变catalog加显式scene_only元数据：原layer/text为0，effectConstant为1，ABI只准0/1；scene查询看全部，原layer查询跳过scene_only，避免新nested同名把旧合法layer lookup变歧义。lookup handle单独标记scene scope，禁止复用UINT32_MAX（现代表current owner layer）；targetIndex仍指原bindings下标，不重排或从opaque index猜kind。catalog/target的domain、owner identity/generation、存活及退休校验不变；缺失、歧义、非法String/无参scene查询拒绝，原current-property无参入口保持。未证同名取首个、批播/Combined、动态clone新Timeline或新增控制字段不开放。
+
+验收：原C/Swift门覆盖scene唯一与歧义、同parent同名layer/effect的旧layer隔离、仅effect名称scene可查而layer仍拒、改名/资源改名/等价表达式、坏scene_only/target索引、retained/cross-owner/stale/删除/16命令与throw整owner撤回；既有PlaybackRuntime实际消费play/pause/stop并使effect typed snapshot数值推进。一次最终Debug、自有同窗实际effect及原322点击控制与非零Timeline phase、独立原包/GPU排空和独审后才计入口恢复；2522 shader仍拒绝时只保其后继首断点，不把passthrough算作者滤镜。若需跨scope隐式猜名、重建图或第二时钟即停止重排。 实施沿本设计收敛；最近真实VM/typed门、自有特效像素与原322实际点击/非零phase归[限定运行证据](../../capabilities/runtime-evidence-current.md#scene-named-animation-scope-20261017)，不升级剩余目标或shader语义。
+
 <a id="prepared-dynamic-image-material"></a>
 
 ## 已准备普通图片的动态复用（2026-10-12—16，默认材质有界实施）

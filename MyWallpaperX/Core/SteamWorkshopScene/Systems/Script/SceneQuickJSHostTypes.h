@@ -15,6 +15,7 @@ typedef struct MWXSceneQuickJSNamedAnimation {
     int64_t layer_id;
     const char *name;
     size_t name_length;
+    uint32_t scene_only; // 0: layer and scene lookup; 1: scene lookup only.
 } MWXSceneQuickJSNamedAnimation;
 typedef struct MWXSceneQuickJSTimerFrameSnapshot
     MWXSceneQuickJSTimerFrameSnapshot;

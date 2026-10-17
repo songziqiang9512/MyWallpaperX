@@ -15,6 +15,7 @@ typedef struct MWXSceneQuickJSAnimationHandle {
     int64_t layer_id;
     bool named_lookup;
     bool current_property;
+    bool scene_lookup;
 } MWXSceneQuickJSAnimationHandle;
 
 // The JS closure belongs to this domain, but can outlive its original owner.
@@ -144,29 +145,31 @@ static JSValue get_animation(
     target.catalog_index = UINT32_MAX;
     if (argc == 0) {
         if (!handle->current_property) {
-            return JS_ThrowTypeError(context, "layer getAnimation expects one name");
+            return JS_ThrowTypeError(context, "getAnimation expects one name");
         }
         if (!owner->current_animation_available) {
             return JS_ThrowRangeError(context, "current property animation does not exist");
         }
     } else {
         if (argc != 1 || !handle->named_lookup || !JS_IsString(argv[0])) {
-            return JS_ThrowTypeError(context, "named animation lookup expects one layer name");
+            return JS_ThrowTypeError(context, "named animation lookup expects one String name");
         }
         MWXSceneQuickJSDomain *domain = owner->domain;
         uint32_t layer_index = handle->layer_index;
-        if (layer_index == UINT32_MAX) {
-            if (!owner->target_layer_configured) {
-                return JS_ThrowTypeError(context, "animation layer is unavailable");
+        if (!handle->scene_lookup) {
+            if (layer_index == UINT32_MAX) {
+                if (!owner->target_layer_configured) {
+                    return JS_ThrowTypeError(context, "animation layer is unavailable");
+                }
+                layer_index = owner->target_layer_index;
             }
-            layer_index = owner->target_layer_index;
-        }
-        if (layer_index >= domain->authored_layer_count ||
-            !domain->layers[layer_index].configured ||
-            domain->layers[layer_index].destroyed || domain->layers[layer_index].dynamic ||
-            (handle->layer_index != UINT32_MAX &&
-             domain->layers[layer_index].layer_id != handle->layer_id)) {
-            return JS_ThrowTypeError(context, "animation layer is stale");
+            if (layer_index >= domain->authored_layer_count ||
+                !domain->layers[layer_index].configured ||
+                domain->layers[layer_index].destroyed || domain->layers[layer_index].dynamic ||
+                (handle->layer_index != UINT32_MAX &&
+                 domain->layers[layer_index].layer_id != handle->layer_id)) {
+                return JS_ThrowTypeError(context, "animation layer is stale");
+            }
         }
         size_t length = 0;
         const char *name = JS_ToCStringLen(context, &length, argv[0]);
@@ -179,7 +182,9 @@ static JSValue get_animation(
         size_t matches = 0;
         for (size_t i = 0; i < domain->named_animation_count; ++i) {
             const MWXSceneQuickJSNamedAnimationRecord *candidate = &domain->named_animations[i];
-            if (candidate->layer_index == layer_index && candidate->name_length == length &&
+            const bool scope_matches = handle->scene_lookup ||
+                (!candidate->scene_only && candidate->layer_index == layer_index);
+            if (scope_matches && candidate->name_length == length &&
                 memcmp(candidate->name, name, length) == 0 &&
                 named_animation_layer_alive(owner, candidate)) {
                 target.target_index = candidate->target_index;
@@ -263,6 +268,22 @@ bool mwx_scene_quickjs_define_layer_animation_accessor(
     if (JS_IsException(animation)) return false;
     return JS_DefinePropertyValueStr(
         context, layer, "getAnimation", animation, JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE
+    ) >= 0;
+}
+
+bool mwx_scene_quickjs_define_scene_animation_accessor(
+    MWXSceneQuickJSOwner *owner, JSValue scene
+) {
+    if (owner == NULL || owner->domain == NULL || !JS_IsObject(scene)) return false;
+    const MWXSceneQuickJSAnimationHandle target = {
+        .named_lookup = true,
+        .scene_lookup = true,
+    };
+    JSValue animation = animation_closure(owner, get_animation, "getAnimation", 0, &target);
+    if (JS_IsException(animation)) return false;
+    return JS_DefinePropertyValueStr(
+        owner->domain->context, scene, "getAnimation", animation,
+        JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE
     ) >= 0;
 }
 
@@ -392,6 +413,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_named_animations(
     for (size_t i = 0; i < count; ++i) {
         const MWXSceneQuickJSNamedAnimation *input = &animations[i];
         if (input->target_index == UINT32_MAX || input->name == NULL ||
+            input->scene_only > 1 ||
             input->name_length == 0 || input->name_length > MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME ||
             memchr(input->name, '\0', input->name_length) != NULL) goto invalid;
         for (size_t j = 0; j < i; ++j)
@@ -410,6 +432,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_named_animations(
         catalog[i].layer_index = layer_index;
         catalog[i].layer_id = input->layer_id;
         catalog[i].name_length = input->name_length;
+        catalog[i].scene_only = input->scene_only;
         memcpy(catalog[i].name, input->name, input->name_length);
     }
     domain->named_animations = catalog;

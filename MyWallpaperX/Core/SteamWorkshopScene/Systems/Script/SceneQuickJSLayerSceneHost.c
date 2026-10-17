@@ -804,6 +804,10 @@ bool mwx_scene_quickjs_install_scene_layer_handle(MWXSceneQuickJSOwner *owner) {
                 context, scene, functions[index].name, function, JS_PROP_ENUMERABLE
             ) < 0) { JS_FreeValue(context, scene); return false; }
     }
+    if (!mwx_scene_quickjs_define_scene_animation_accessor(owner, scene)) {
+        JS_FreeValue(context, scene);
+        return false;
+    }
     owner->scene_handle = scene;
     return true;
 }

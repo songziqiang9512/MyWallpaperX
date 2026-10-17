@@ -90,8 +90,14 @@ nonisolated extension SceneScriptQuickJSDomain {
         var records: [MWXSceneQuickJSNamedAnimation] = []
         for (index, binding) in bindings.enumerated() {
             let layerID: Int
+            let sceneOnly: UInt32
             switch binding.target {
-            case let .layer(id, _), let .text(id, _): layerID = id
+            case let .layer(id, _), let .text(id, _):
+                layerID = id
+                sceneOnly = 0
+            case let .effectConstant(id, _, _, _):
+                layerID = id
+                sceneOnly = 1
             default: continue
             }
             let name = binding.name
@@ -102,7 +108,8 @@ nonisolated extension SceneScriptQuickJSDomain {
             }
             names.append(copied)
             records.append(.init(target_index: targetIndex, layer_id: Int64(layerID),
-                name: UnsafePointer(copied), name_length: name.utf8.count))
+                name: UnsafePointer(copied), name_length: name.utf8.count,
+                scene_only: sceneOnly))
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = records.withUnsafeBufferPointer {

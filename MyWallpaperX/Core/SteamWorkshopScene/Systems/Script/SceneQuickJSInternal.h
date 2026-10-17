@@ -67,6 +67,7 @@ typedef struct MWXSceneQuickJSNamedAnimationRecord {
     int64_t layer_id;
     size_t name_length;
     char name[MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME + 1];
+    uint32_t scene_only;
 } MWXSceneQuickJSNamedAnimationRecord;
 
 enum LayerProperty {
@@ -685,6 +686,9 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_define_layer_animation_accessor(
     MWXSceneQuickJSOwner *owner, JSValue layer, uint32_t layer_index,
     bool current_property
+);
+bool mwx_scene_quickjs_define_scene_animation_accessor(
+    MWXSceneQuickJSOwner *owner, JSValue scene
 );
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);

@@ -117,8 +117,8 @@
       "bytes": 346710
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 184,
-      "bytes": 64600
+      "lines": 185,
+      "bytes": 65958
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -145,8 +145,8 @@
       "bytes": 127870
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 417,
-      "bytes": 110766
+      "lines": 418,
+      "bytes": 111639
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 519,
-      "bytes": 133081
+      "lines": 527,
+      "bytes": 135285
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 53,
-      "bytes": 15993
+      "bytes": 15987
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 156,
-      "bytes": 33856
+      "lines": 155,
+      "bytes": 33408
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1250,47 +1250,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d80f0e7bd01a715a7526d3d52bdb4e0a94ca14cc3b4faa243ad3a70e8c8df0fc",
-      "after": "b9bc97d95ce019113db17af4933bfc633815dea1d0fb261d6b2763c61d8f9eba",
+      "before": "b9bc97d95ce019113db17af4933bfc633815dea1d0fb261d6b2763c61d8f9eba",
+      "after": "546202275c6d65cf1ca384f0b76379f477c62b5886d0837257e0d38175a777e6",
       "owner": "scene-script-runtime",
-      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
+      "reason": "Replace missing scene named-animation entry with implemented unique catalog scope and bounded cursor/Timeline/GPU evidence; preserve remaining shader and whole-sample limits while keeping one authority per fact.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "8314a0cc51c189e0ffff1fb6995305815eafc45a41b510a07ce612da264229e4",
-      "after": "085e79bdb2a60ff990dba7e05b4629dc03491b8d764e5e4d958c57721be04ef3",
+      "before": "085e79bdb2a60ff990dba7e05b4629dc03491b8d764e5e4d958c57721be04ef3",
+      "after": "191780ac052f57b6010a4e80459857db07daaa7fe54a3860bae7109bfbc90e1b",
       "owner": "scene-script-runtime",
-      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
+      "reason": "Replace missing scene named-animation entry with implemented unique catalog scope and bounded cursor/Timeline/GPU evidence; preserve remaining shader and whole-sample limits while keeping one authority per fact.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "51e5640f18a6d27ea755c4382e2df99db33c6121419f5ba062a35825b2be012c",
-      "after": "bb7fa5bea21b25cf598300e8432f413967a81f48715331345baca6f1d208ac5d",
+      "before": "bb7fa5bea21b25cf598300e8432f413967a81f48715331345baca6f1d208ac5d",
+      "after": "7c915535960a79607f5860ffcf8e54ffa212baeb79342b05a64f646722723f36",
       "owner": "scene-script-runtime",
-      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "db4993dfd611ddb244dae5a31729e2880b4b2c6cb567034c22cd174cb504fb46",
-      "after": "f4b115282a4c6ecc9d1d79f7e2bddf071fe00f3f3bb773776b5abf403422065f",
-      "owner": "scene-script-runtime",
-      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "287334440695f34a895635c72b08fc9698a133a77036d37d9086e36b3f3e8d1d",
-      "after": "0661118df0855ad1c81d899de3faf0a7f1666b76bb48c1e537480e4280cbea32",
-      "owner": "scene-script-runtime",
-      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
+      "reason": "Replace missing scene named-animation entry with implemented unique catalog scope and bounded cursor/Timeline/GPU evidence; preserve remaining shader and whole-sample limits while keeping one authority per fact.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup"
     }
   ]
 }
