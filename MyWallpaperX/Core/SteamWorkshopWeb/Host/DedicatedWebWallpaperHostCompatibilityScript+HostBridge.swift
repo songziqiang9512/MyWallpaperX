@@ -528,7 +528,7 @@ let webCompatibilityScriptHostBridge = #"""
     const safeLevels = Array.isArray(levels)
       ? levels.map((value) => {
           const numeric = Number(value);
-          return Number.isFinite(numeric) ? Math.max(0, Math.min(1, numeric)) : 0;
+          return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
         })
       : [];
     if (!hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {

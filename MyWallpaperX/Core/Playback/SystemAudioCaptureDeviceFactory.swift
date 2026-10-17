@@ -64,7 +64,7 @@ enum SystemAudioCaptureDeviceFactory {
         return deviceID
     }
 
-    static func configureCaptureBufferFrameSize(for deviceID: AudioObjectID) {
+    static func configureCaptureBufferFrameSize(for deviceID: AudioObjectID, sampleRate: Double) {
         var rangeAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyBufferFrameSizeRange,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -83,13 +83,14 @@ enum SystemAudioCaptureDeviceFactory {
             return
         }
 
-        var frameCount = UInt32(max(range.mMinimum, min(4096, range.mMaximum)))
+        guard let requestedFrames = captureBufferFrameCount(sampleRate: sampleRate, range: range) else { return }
+        var frameCount = requestedFrames
         var frameSizeAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyBufferFrameSize,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        AudioObjectSetPropertyData(
+        let status = AudioObjectSetPropertyData(
             deviceID,
             &frameSizeAddress,
             0,
@@ -97,6 +98,25 @@ enum SystemAudioCaptureDeviceFactory {
             UInt32(MemoryLayout<UInt32>.size),
             &frameCount
         )
+        var actualFrames: UInt32 = 0
+        var actualSize = UInt32(MemoryLayout<UInt32>.size)
+        let readStatus = AudioObjectGetPropertyData(deviceID, &frameSizeAddress, 0, nil, &actualSize, &actualFrames)
+        NSLog("MWX AUDIO CAPTURE: buffer requested=%u actual=%u setStatus=%d readStatus=%d",
+              frameCount, actualFrames, status, readStatus)
+    }
+
+    /// Only configures our private tap aggregate. About 10 ms of PCM keeps the
+    /// analysis cadence responsive without requesting a tiny hardware quantum.
+    static func captureBufferFrameCount(sampleRate: Double, range: AudioValueRange) -> UInt32? {
+        guard sampleRate.isFinite, sampleRate > 0,
+              range.mMinimum.isFinite, range.mMaximum.isFinite,
+              range.mMinimum >= 1, range.mMaximum >= range.mMinimum,
+              range.mMinimum.rounded(.up) <= range.mMaximum.rounded(.down),
+              range.mMaximum <= Double(UInt32.max) else { return nil }
+        var frames = 128.0
+        let target = min(2048, max(128, sampleRate * 0.01))
+        while frames < target { frames *= 2 }
+        return UInt32(max(range.mMinimum.rounded(.up), min(frames, range.mMaximum.rounded(.down))))
     }
 
     static func fetchTapUID(for tapID: AudioObjectID) throws -> CFString {

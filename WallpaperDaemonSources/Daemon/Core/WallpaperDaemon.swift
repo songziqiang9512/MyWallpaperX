@@ -53,6 +53,7 @@ final class WallpaperDaemon: NSObject {
     var spectrumEnabled = false
     var spectrumLevels: [Float] = Array(repeating: 0, count: 28)
     var spectrumPeakLevels: [CGFloat] = Array(repeating: 0, count: 28)
+    var lastSpectrumPresentationAt: CFTimeInterval = 0
     var lastRenderedBarHeights: [CGFloat] = Array(repeating: -1, count: 28)
     var lastRenderedBarOpacities: [Float] = Array(repeating: -1, count: 28)
     var lastRenderedPeakY: [CGFloat] = Array(repeating: -1, count: 28)

@@ -9,12 +9,16 @@
       "bytes": 14567
     },
     "docs/architecture/repository-map.md": {
-      "lines": 30,
-      "bytes": 5755
+      "lines": 32,
+      "bytes": 5887
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 74,
       "bytes": 14104
+    },
+    "docs/architecture/system-audio-spectrum-design.md": {
+      "lines": 32,
+      "bytes": 3679
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 257,
@@ -1300,6 +1304,24 @@
       "owner": "scene-combined-timeline-playback",
       "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "dff73acc7a010cb8b904de6e963d531e12a79a2817035d76f15b8e9b1994087d",
+      "after": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
+      "owner": "shared-playback-audio",
+      "reason": "Replace superseded spectrum prototypes with the bounded shared response, controlled official observations and scope limits; retain one design/navigation owner.",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
+      "owner": "shared-playback-audio",
+      "reason": "Retire peak-adaptive response after user visual rejection; document one fixed-decibel final-height chain, real-music comparison and motion acceptance; tighten this design body budget.",
+      "decision": "docs/architecture/system-audio-spectrum-design.md"
     }
   ]
 }

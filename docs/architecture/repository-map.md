@@ -25,6 +25,8 @@
 - 当前 path groups 并未给每个产品文件映射 focused test；build-only 不是行为覆盖。每次从验证预览检查实际选中模块；缺映射时补现有最近行为门，缺行为门时先建立输入/输出反例。
 - 文件体量与结构预算是风险信号，不是架构完成度。按生命周期、数据流和消费者拆分，保留 defer/事务/释放边界；仅移动代码不能证明减少耦合、成本或缺陷。
 
+共享系统音频的分析与可视响应见[频谱设计](system-audio-spectrum-design.md)；三类型保留各自绘制owner。
+
 ## 工程材料放置
 
 产品代码在现役产品目录；正式工具在 `script/`，行为测试在 `script/tests/`，稳定知识在 `docs/` 的角色索引中。临时实验放 `/private/tmp`，本机证据遵守已有 ignored evidence 目录规则。历史仍按[历史索引](../history/README.md)保存；新增导航只链接 owner，不复制批次结果。

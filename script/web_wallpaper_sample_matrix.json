@@ -19,76 +19,120 @@
     {
       "id": "923576681",
       "title": "Simplistic Audio Visualizer",
-      "capabilities": ["file-property", "html-media", "audio-spectrum", "canvas"],
-      "property_overrides": {
-        "backgroundimagef": {
-          "value": "{sample_root}/preview.jpg"
-        }
-      },
+      "capabilities": [
+        "html-media",
+        "audio-spectrum",
+        "canvas",
+        "animation"
+      ],
       "minimum_grade": "A",
       "minimum_coverage": 90
     },
     {
       "id": "1509243786",
       "title": "CWAV Engine",
-      "capabilities": ["property-dense", "file-directory", "media-integration", "audio-spectrum"],
+      "capabilities": [
+        "property-dense",
+        "file-directory",
+        "media-integration",
+        "audio-spectrum"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 85
     },
     {
       "id": "2675660496",
       "title": "True code of MATRIX",
-      "capabilities": ["dependency-shell", "color-string", "audio-spectrum"],
-      "dependencies": ["1103493745"],
+      "capabilities": [
+        "dependency-shell",
+        "color-string",
+        "audio-spectrum"
+      ],
+      "dependencies": [
+        "1103493745"
+      ],
       "minimum_grade": "A",
       "minimum_coverage": 88
     },
     {
       "id": "2997985023",
       "title": "SDVX Live2D wallpaper",
-      "capabilities": ["live2d", "webgl", "startup-input", "html-media"],
+      "capabilities": [
+        "live2d",
+        "webgl",
+        "startup-input",
+        "html-media"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 88
     },
     {
       "id": "3700131876",
       "title": "Raindrops - MIKU",
-      "capabilities": ["textured-webgl", "loopback-origin", "property-recovery", "animation"],
+      "capabilities": [
+        "textured-webgl",
+        "loopback-origin",
+        "property-recovery",
+        "animation"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 90
     },
     {
       "id": "3726135866",
       "title": "ASCII Digital Image",
-      "capabilities": ["wasm", "webgl", "persistent-storage", "file-property"],
+      "capabilities": [
+        "wasm",
+        "webgl",
+        "persistent-storage",
+        "file-property"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 85
     },
     {
       "id": "3740867386",
       "title": "Nothing OS Dashboard",
-      "capabilities": ["persistent-storage", "media-integration", "audio-spectrum"],
+      "capabilities": [
+        "persistent-storage",
+        "media-integration",
+        "audio-spectrum"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 85
     },
     {
       "id": "3752541815",
       "title": "3DGS Depth Wallpaper",
-      "capabilities": ["wasm", "iframe", "directory-property", "persistent-storage"],
+      "capabilities": [
+        "wasm",
+        "iframe",
+        "directory-property",
+        "persistent-storage"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 85
     },
     {
       "id": "3757331413",
       "title": "NIKKE Cinderella",
-      "capabilities": ["webgl", "file-property", "color-string", "pointer-input"],
+      "capabilities": [
+        "webgl",
+        "file-property",
+        "color-string",
+        "pointer-input"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 85
     },
     {
       "id": "3762337744",
       "title": "Gargantua ASCII",
-      "capabilities": ["webgl", "pointer-input", "canvas"],
+      "capabilities": [
+        "webgl",
+        "pointer-input",
+        "canvas"
+      ],
       "minimum_grade": "B",
       "minimum_coverage": 85
     }

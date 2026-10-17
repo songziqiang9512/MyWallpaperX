@@ -265,9 +265,7 @@ final class DaemonProcessTransport: @unchecked Sendable {
             inputStateLock.unlock()
 
             if let payload {
-                do {
-                    try inputPipe.fileHandleForWriting.write(contentsOf: payload)
-                } catch {
+                if !writeInput(payload) {
                     terminate()
                     return
                 }
@@ -277,6 +275,46 @@ final class DaemonProcessTransport: @unchecked Sendable {
                 try? inputPipe.fileHandleForWriting.close()
             }
             return
+        }
+    }
+
+    private func writeInput(_ payload: Data) -> Bool {
+        // closeIO may run on another queue. Retain this write's pipe identity
+        // under the same state lock, without keeping the lock across blocking
+        // I/O. FileHandle.write can raise an Objective-C exception when its
+        // handle is concurrently closed; Swift catch cannot recover from it.
+        inputStateLock.lock()
+        guard !inputClosed else {
+            inputStateLock.unlock()
+            return false
+        }
+        let descriptor = fcntl(
+            inputPipe.fileHandleForWriting.fileDescriptor,
+            F_DUPFD_CLOEXEC,
+            0
+        )
+        inputStateLock.unlock()
+        guard descriptor >= 0 else { return false }
+        defer { _ = Darwin.close(descriptor) }
+        guard fcntl(descriptor, F_SETNOSIGPIPE, 1) == 0 else { return false }
+
+        return payload.withUnsafeBytes { bytes in
+            var offset = 0
+            while offset < bytes.count {
+                let written = Darwin.write(
+                    descriptor,
+                    bytes.baseAddress!.advanced(by: offset),
+                    bytes.count - offset
+                )
+                if written > 0 {
+                    offset += written
+                } else if written < 0 && errno == EINTR {
+                    continue
+                } else {
+                    return false
+                }
+            }
+            return true
         }
     }
 

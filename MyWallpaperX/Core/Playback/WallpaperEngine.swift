@@ -90,8 +90,6 @@ public final class WallpaperEngine: NSObject {
     var currentSystemAudioSpectrumPeakCapsEnabled = true
     var currentWebAudioSpectrumRequested = false
     var currentSpectrumLevels: [Float]
-    var lastSpectrumPushAt: CFTimeInterval = 0
-    var lastWebSpectrumPushAt: CFTimeInterval = 0
     var lastWebSpectrumLevels: [Float] = []
     var systemAudioSpectrumService: SystemAudioSpectrumService
     var sceneDaemonAudioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
@@ -108,8 +106,6 @@ public final class WallpaperEngine: NSObject {
     var lastEndedVideoPath: String?
     var lastEndedAt: TimeInterval = 0
     static let defaultSpectrumBarCount = 28
-    let spectrumPushMinInterval: CFTimeInterval = 1.0 / 30.0
-    let webSpectrumPushMinInterval: CFTimeInterval = 1.0 / 30.0
 
     override init() {
         currentSpectrumLevels = Array(repeating: 0, count: WallpaperEngine.defaultSpectrumBarCount)

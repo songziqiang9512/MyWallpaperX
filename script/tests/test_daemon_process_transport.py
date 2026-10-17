@@ -119,6 +119,30 @@ import Foundation
                 before: stalledTerminationDeadline
             ) {}
         precondition(stalledDidTerminate)
+
+        // Exercise both a queued writer and a write blocked in the pipe while
+        // another queue closes the transport. A closed Foundation FileHandle
+        // used by the writer can raise an uncaught Objective-C exception.
+        for iteration in 0..<48 {
+            let racing = DaemonProcessTransport(
+                executableURL: URL(fileURLWithPath: "/bin/sleep"),
+                arguments: ["3"]
+            )
+            try racing.start()
+            precondition(racing.send(Data(repeating: 0x63, count: 1_048_576)))
+            if iteration % 3 != 0 {
+                Thread.sleep(forTimeInterval: iteration % 3 == 1 ? 0.0001 : 0.001)
+            }
+            let closeFinished = DispatchSemaphore(value: 0)
+            DispatchQueue.global().async {
+                racing.terminate()
+                closeFinished.signal()
+            }
+            precondition(closeFinished.wait(timeout: .now() + 1) == .success)
+            racing.process.waitUntilExit()
+            precondition(!racing.isRunning)
+            precondition(!racing.sendLatest(droppableFrame))
+        }
         print("daemon-process-transport-pass")
     }
 }

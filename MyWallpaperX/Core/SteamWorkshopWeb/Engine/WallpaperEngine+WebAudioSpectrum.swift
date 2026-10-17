@@ -26,7 +26,6 @@ extension WallpaperEngine {
                 // Input rejection is reported with false, but an active Web
                 // consumer still needs an immediate typed silence publication
                 // so a prior non-zero frame cannot remain frozen on screen.
-                lastWebSpectrumPushAt = CACurrentMediaTime()
                 dispatchWebRuntimeCommand(
                     .pushAudioSpectrum(clearedWebSpectrumLevels())
                 )
@@ -38,29 +37,16 @@ extension WallpaperEngine {
             return false
         }
 
-        let now = CACurrentMediaTime()
         // The shared producer already performed the only nonlinear visual
         // response and fast-attack/slow-release envelope. Web dispatch is a
         // typed handoff, so it must not compress or smooth the same snapshot a
         // second time and turn sharp transients into a long tail.
         let outputLevels = levels.map { level -> Float in
-            return min(max(level, 0), 1)
+            return max(level, 0)
         }
-        // Keep the latest valid snapshot in the same slot while throttled. The
-        // published command is intentionally separate in time, but readers must
-        // still observe the newest pending value rather than an older command.
+        // Service is the sole cadence owner. Forward every complete snapshot,
+        // including silence, so callback quantization cannot halve Web updates.
         lastWebSpectrumLevels = outputLevels
-        // Silence is a revocation boundary: clear a running Web animation
-        // immediately instead of allowing the throttle window to hold it.
-        if outputLevels.allSatisfy({ $0 == 0 }) {
-            lastWebSpectrumPushAt = now
-            dispatchWebRuntimeCommand(.pushAudioSpectrum(outputLevels))
-            return true
-        }
-        guard now - lastWebSpectrumPushAt >= webSpectrumPushMinInterval else {
-            return true
-        }
-        lastWebSpectrumPushAt = now
         dispatchWebRuntimeCommand(.pushAudioSpectrum(outputLevels))
         return true
     }

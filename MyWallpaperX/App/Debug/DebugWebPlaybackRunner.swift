@@ -352,6 +352,9 @@ enum DebugWebPlaybackRunner {
             service.libraryRootURL.path
         )
         WallpaperEngine.shared.setSystemAudioSpectrumEnabled(false)
+        if arguments.contains("--mwx-debug-web-audio-spectrum-fixture") {
+            WallpaperEngine.shared.systemAudioSpectrumService.debugEnableRecoveryTesting()
+        }
         WallpaperEngine.shared.setWebWallpaper(
             entryURL: playbackContext.effectiveEntryURL,
             rootURL: playbackContext.effectiveRootURL,
@@ -399,14 +402,11 @@ enum DebugWebPlaybackRunner {
 
     private static func scheduleWebAudioSpectrumIfRequested() {
         guard arguments.contains("--mwx-debug-web-audio-spectrum-fixture") else { return }
-        for frame in 0..<80 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 + Double(frame) * 0.1) {
-                let phase = Float(frame % 20) / 20
-                let monoLevels = (0..<64).map { index -> Float in
-                    let position = Float(index) / 63
-                    return 0.12 + 0.72 * abs(sin((position + phase) * .pi * 4))
-                }
-                _ = WallpaperEngine.shared.dispatchWebAudioSpectrumIfNeeded(monoLevels + monoLevels)
+        let service = WallpaperEngine.shared.systemAudioSpectrumService
+        let queue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.debug-web-audio-pcm")
+        for frame in 0..<300 {
+            queue.asyncAfter(deadline: .now() + 1 + Double(frame) / 30) {
+                DebugAudioSpectrumPCMFixture.feed(service, frame: frame)
             }
         }
     }

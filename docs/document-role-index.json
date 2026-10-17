@@ -4,6 +4,7 @@
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
       "docs/architecture/steam-workshop-acquisition-contract.md",
+      "docs/architecture/system-audio-spectrum-design.md",
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/repository-workflow.md",
       "docs/release/release-signing.md",
@@ -141,6 +142,12 @@
         "scope": "复核下载排序的首次本地入库时间、metadata 发布/刷新保留与后台目录原始字节统计；其余获取职责合同沿用。",
         "limitations": "本次为有界源码和文档导航复核；离线回归与隔离构建另记，不代表真实 Steam 下载、历史首次时间重建、全交互或 Release 验收。"
       }
+    },
+    {
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/architecture/repository-map.md",
+      "retirementCondition": "共享频谱响应与三类型视觉验收完成，长期约束进入现役合同后归档。"
     },
     {
       "path": "docs/architecture/technology-stack-boundaries.md",

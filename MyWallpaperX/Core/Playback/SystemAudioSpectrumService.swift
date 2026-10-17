@@ -22,8 +22,8 @@ final class SystemAudioSpectrumService: NSObject {
     private static let captureResourceRetirementDelay: TimeInterval = 1.0
     private static let captureResourceTeardownRetryDelay: TimeInterval = 0.25
     let processingGate = DispatchSemaphore(value: 1)
-    private let captureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
-    private let continuousCaptureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
+    private let captureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: SystemAudioSceneSpectrumAnalyzer.maximumFrameCount)
+    private let continuousCaptureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: SystemAudioSceneSpectrumAnalyzer.maximumFrameCount)
     private var overlayAnalyzer: SystemAudioOverlaySpectrumAnalyzer
     private let webAnalyzer = SystemAudioWebSpectrumAnalyzer()
     private let sceneAnalyzer = SystemAudioSceneSpectrumAnalyzer()
@@ -41,6 +41,7 @@ final class SystemAudioSpectrumService: NSObject {
     var processScope = ProcessScope.excludesCurrentProcess
     var sceneCaptureScopeEpoch: UInt64 = 0
     private var lastProcessedAt: TimeInterval = 0
+    private var pendingCaptureTimestamp: TimeInterval = 0
     var captureRetryAttempt = 0
     var captureRetryWorkItem: DispatchWorkItem?
     private var captureRetrySequence = 0
@@ -255,7 +256,7 @@ final class SystemAudioSpectrumService: NSObject {
 
             let aggregateID = try SystemAudioCaptureDeviceFactory.createAggregateDevice(tapUID: tapUID)
             aggregateDeviceID = aggregateID
-            SystemAudioCaptureDeviceFactory.configureCaptureBufferFrameSize(for: aggregateID)
+            SystemAudioCaptureDeviceFactory.configureCaptureBufferFrameSize(for: aggregateID, sampleRate: tapStreamFormat.mSampleRate)
             captureResourceGeneration += 1
             let resourceGeneration = captureResourceGeneration
             let captureProcessScope = processScope
@@ -653,7 +654,15 @@ final class SystemAudioSpectrumService: NSObject {
             processingGate.signal()
             return
         }
-        lastProcessedAt = now
+        // Carry the 30 Hz phase across callback quanta. Resetting to `now`
+        // rounds every interval up (512-frame callbacks would yield only 23 Hz).
+        // Skip missed intervals instead of building a backlog when the worker is busy.
+        if lastProcessedAt == 0 {
+            lastProcessedAt = now
+        } else {
+            lastProcessedAt += floor((now - lastProcessedAt) / processingMinInterval) * processingMinInterval
+        }
+        pendingCaptureTimestamp = now
         pendingCaptureResourceGeneration = resourceGeneration
         pendingSceneCaptureToken = token
         processingSource.add(data: 1)
@@ -687,12 +696,12 @@ final class SystemAudioSpectrumService: NSObject {
             if sceneEnabled { clearSceneLevels(resetAnalyzer: true) }
             return
         }
-        let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate)
+        let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate, timestamp: pendingCaptureTimestamp)
         if overlayEnabled {
             onLevels?(
                 overlayAnalyzer.analyze(
-                    leftLevels: bands.left64,
-                    rightLevels: bands.right64
+                    left: bands.left64,
+                    right: bands.right64
                 )
             )
         }

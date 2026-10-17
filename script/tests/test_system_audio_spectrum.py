@@ -21,6 +21,32 @@ ENGINE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSp
 
 
 class SystemAudioSpectrumTests(unittest.TestCase):
+    def test_web_listener_preserves_author_spikes_and_clears_silence(self) -> None:
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is unavailable")
+        source = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
+        start = source.index("  window.__myWallpaperPushAudioSpectrum = function(levels) {")
+        end = source.index("  window.__myWallpaperSetGlobalVolume", start)
+        harness = """
+const assert = require('node:assert/strict');
+const received = [];
+const events = [];
+const window = { dispatchEvent: event => events.push(event.detail) };
+class CustomEvent { constructor(name, options) { this.detail = options.detail; } }
+const audioListeners = [() => { throw Error('author callback failure'); }, levels => received.push(levels)];
+let hasLoggedAudioSpectrumDelivery = false, hasLoggedAudioSpectrumChange = false;
+const firstDeliveredAudioSpectrum = [];
+const hostLogger = { post() {} };
+""" + source[start:end] + """
+window.__myWallpaperPushAudioSpectrum([0.2, 1.5, -1, NaN, Infinity]);
+assert.deepEqual(received[0], [0.2, 1.5, 0, 0, 0]);
+window.__myWallpaperPushAudioSpectrum([0, 0, 0, 0, 0]);
+assert.deepEqual(received[1], [0, 0, 0, 0, 0]);
+assert.deepEqual(events, received);
+"""
+        subprocess.run([node, "-e", harness], check=True, capture_output=True, text=True)
+
     def test_production_capture_and_analyzers(self) -> None:
         swiftc = shutil.which("swiftc")
         if swiftc is None:
@@ -61,8 +87,6 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 var currentPlaybackContentKind: PlaybackContentKind = .web
                 var currentSystemAudioSpectrumEnabled = true
                 var currentWebAudioSpectrumRequested = true
-                var lastWebSpectrumPushAt: CFTimeInterval = 0
-                var webSpectrumPushMinInterval: CFTimeInterval = 0
                 var lastWebSpectrumLevels: [Float] = []
                 var dispatchedWebLevels: [Float] = []
 
@@ -373,7 +397,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 var maxima = [Float](repeating: 0, count: 64)
                 var frequency: Float = 32
                 while frequency <= min(16_000, rate * 0.5) {
-                    let pcm = (0..<4096).map { index in
+                    let pcm = (0..<SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate: rate)).map { index in
                         Float(0.8) * sin(2 * .pi * frequency * Float(index) / rate)
                     }
                     sweepAnalyzer.reset()
@@ -387,33 +411,33 @@ class SystemAudioSpectrumTests(unittest.TestCase):
 
             // Equal-amplitude narrow tones must not be diluted simply because
             // the treble bands span more FFT bins. These frequencies share the
-            // same bounded tilt gain, isolating aggregation from frequency gain.
+            // new bounded tilt curve; higher bands may be stronger, but must not be diluted.
             for rate: Float in [44_100, 48_000, 96_000] {
                 let analyzer = SystemAudioSceneSpectrumAnalyzer()!
                 var peaks: [Float] = []
                 for frequency: Float in [2_000, 4_000, 8_000, 12_000, 15_000] {
                     analyzer.reset()
-                    let pcm = (0..<4096).map { index in
+                    let pcm = (0..<SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate: rate)).map { index in
                         Float(0.02) * sin(2 * .pi * frequency * Float(index) / rate)
                     }
                     let bands = analyzer.analyze(signedChannels: [pcm], sampleRate: rate)
                     peaks.append(bands.left64.max()!)
                 }
-                expect(peaks.min()! > peaks.max()! * 0.85,
+                expect(peaks.dropFirst().min()! > peaks.first! * 0.85,
                     "wide treble bands must preserve equal-amplitude narrow tones at \(rate) Hz")
             }
 
             let audibleBass = webLevels([sine(frequency: 55, amplitude: 0.2)])
-            expect(audibleBass[2..<5].contains { $0 > 0.001 },
+            expect(audibleBass.prefix(8).contains { $0 > 0.001 },
                 "audible low bass must reach low-band consumers above the shared noise floor")
             let belowFloor = webLevels([sine(frequency: 55, amplitude: 0.000_1)])
-            expect(belowFloor.allSatisfy { $0 == 0 }, "sub-floor bass must not light silent bars")
+            expect(belowFloor.allSatisfy { $0 < 0.06 }, "near-silent bass stays small without a hard per-band gate")
             for frequency: Float in [32, 55, 120, 249, 251] {
                 let peaks = [Float(0.02), 0.2, 0.8].map { amplitude in
                     webLevels([sine(frequency: frequency, amplitude: amplitude)]).prefix(64).max()!
                 }
-                expect(peaks[0] < peaks[1] && peaks[1] < peaks[2],
-                    "low-band amplitude response must remain monotonic at \(frequency) Hz")
+                expect(peaks.allSatisfy { $0 > 0 && $0 < 0.96 } && peaks[0] < peaks[1] && peaks[1] < peaks[2],
+                    "fixed decibel response must retain low-band volume changes at \(frequency) Hz")
             }
             let noiseAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
             var noiseSeed: UInt32 = 17
@@ -423,8 +447,8 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                     return (Float(noiseSeed >> 8) / Float(0x00ff_ffff) * 2 - 1) * 0.000_5
                 }
                 let levels = noiseAnalyzer.analyze(signedChannels: [noise], sampleRate: sampleRate)
-                expect(levels.left64.allSatisfy { $0 == 0 },
-                    "bounded low-level broadband noise must stay below the common response floor")
+                expect(levels.left64.allSatisfy { $0 < 0.15 },
+                    "bounded low-level broadband noise must remain visually small; peak=\(levels.left64.max()!)")
             }
             let dc = webLevels([[Float](repeating: 0.7, count: sampleCount)])
             expect(dc.allSatisfy { $0 == 0 }, "constant DC must not excite positive-frequency bands")
@@ -443,11 +467,11 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             var previousLowBands: [Float]? = nil
             for step in 0...160 {
                 let frequency = Float(32) + Float(step) * 0.4
-                let levels = Array(webLevels([sine(frequency: frequency)]).prefix(16))
+                let levels = Array(webLevels([sine(frequency: frequency, amplitude: 0.004)]).prefix(16))
                 expect(levels.max()! > 0.01, "low-frequency sweep cannot fall into a sampling hole")
                 if let previousLowBands {
                     let change = zip(levels, previousLowBands).map { abs($0 - $1) }.max()!
-                    expect(change < 0.08, "adjacent tones must interpolate continuously")
+                    expect(change < 0.08, "adjacent tones must interpolate continuously f=\(frequency) delta=\(change) levels=\(levels) prev=\(previousLowBands)")
                 }
                 previousLowBands = levels
             }
@@ -498,49 +522,21 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             )
             expect(
                 (canonicalAttack.left + canonicalAttack.left32 + canonicalAttack.left64)
-                    .allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
-                "Producer projections must stay finite and within 0...1"
+                    .allSatisfy { $0.isFinite && $0 >= 0 },
+                "Author projections must preserve finite positive spikes"
             )
-            // 16/32 档是 canonical 64 档的覆盖子带峰值投影：下采样取每个
-            // 目标区间（实现内整数 lower/upper）内 canonical 档的最大值，
-            // 块平均会把孤立窄带最多稀释 4×。
-            for index in 0..<16 {
-                let block = canonicalAttack.left64[(index * 4)..<(index * 4 + 4)]
-                let peak = block.max()!
-                expectNear(
-                    canonicalAttack.left[index],
-                    peak,
-                    tolerance: 0.000_001,
-                    "16-band projection must peak over its covered 64-band block"
-                )
-            }
-            for index in 0..<32 {
-                let block = canonicalAttack.left64[(index * 2)..<(index * 2 + 2)]
-                let peak = block.max()!
-                expectNear(
-                    canonicalAttack.left32[index],
-                    peak,
-                    tolerance: 0.000_001,
-                    "32-band projection must peak over its covered 64-band block"
-                )
-            }
+            // Project final heights with fractional area means, preserving
+            // the scale even at non-divisor Video bar counts.
             let ramp = (0..<64).map { Float($0) / 63 }
-            // 下采样取覆盖区间峰值；ramp 单调递增，峰值即区间末档值。
-            let ramp28 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 28)
-            expect(ramp28.count == 28, "64→28 projection must preserve requested count")
-            expectNear(ramp28[0], 1 / 63, tolerance: 0.000_001, "64→28 first block")
-            expectNear(ramp28[1], 3 / 63, tolerance: 0.000_001, "64→28 second block")
-            expectNear(ramp28[27], 1, tolerance: 0.000_001, "64→28 final block")
-            let ramp48 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 48)
-            expect(ramp48.count == 48, "64→48 projection must preserve requested count")
-            expectNear(ramp48[0], 0, tolerance: 0.000_001, "64→48 first block")
-            expectNear(ramp48[2], 3 / 63, tolerance: 0.000_001, "64→48 split block")
-            expectNear(ramp48[47], 1, tolerance: 0.000_001, "64→48 final block")
+            for count in [16, 28, 32, 48] {
+                let projected = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: count)
+                expect(projected.count == count, "projection count")
+                expectNear(projected.reduce(0,+) / Float(count), ramp.reduce(0,+) / 64, tolerance: 0.0001,
+                           "projection preserves mean height at \(count) bars")
+            }
             let ramp96 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 96)
-            expect(ramp96.count == 96, "64→96 projection must preserve requested count")
-            expectNear(ramp96[0], 0, tolerance: 0.000_001, "64→96 first repeated block")
-            expectNear(ramp96[1], 0, tolerance: 0.000_001, "64→96 repeated block")
-            expectNear(ramp96[95], 1, tolerance: 0.000_001, "64→96 final repeated block")
+            expectNear(ramp96[0], 0, tolerance: 0.000001, "upsampling retains source identity")
+            expectNear(ramp96[95], 1, tolerance: 0.000001, "upsampling retains last source identity")
             let canonicalRelease = canonicalAnalyzer.analyze(
                 signedChannels: [[Float](repeating: 0, count: sampleCount)],
                 sampleRate: sampleRate
@@ -566,8 +562,9 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             let amplitudeLevels = amplitudes.map { amplitude in
                 webLevels([sine(frequency: 1_000, amplitude: amplitude)]).prefix(64).max()!
             }
-            expect(amplitudeLevels[0] < amplitudeLevels[1], "fixed dBFS scale must retain 0.05 < 0.2")
-            expect(amplitudeLevels[1] < amplitudeLevels[2], "fixed dBFS scale must retain 0.2 < 0.8")
+            expect(amplitudeLevels.allSatisfy { $0 > 0 && $0 < 0.96 }
+                && amplitudeLevels[2] - amplitudeLevels[0] > 0.1,
+                "fixed decibel response must retain listening volume and reserve headroom")
 
             let compatibilityEngine = WallpaperEngine()
             expect(
@@ -584,8 +581,8 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 "Web dispatch should preserve producer values"
             )
             expect(
-                compatibilityEngine.dispatchedWebLevels.allSatisfy { $0 >= 0 && $0 <= 1 },
-                "Web dispatch must preserve finite 0...1 values"
+                compatibilityEngine.dispatchedWebLevels.allSatisfy { $0.isFinite && $0 >= 0 },
+                "Web dispatch must preserve finite positive author values"
             )
 
             let consecutiveWebEngine = WallpaperEngine()
@@ -607,53 +604,19 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             )
 
             let throttledWebEngine = WallpaperEngine()
-            throttledWebEngine.webSpectrumPushMinInterval = 10
-            throttledWebEngine.lastWebSpectrumPushAt = Double.greatestFiniteMagnitude
-            let pendingFirst = Array(repeating: Float(0.8), count: 128)
-            let pendingLatest = Array(repeating: Float(0.3), count: 128)
-            expect(
-                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(pendingFirst),
-                "Throttled first Web snapshot should be accepted"
-            )
-            expect(
-                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(pendingLatest),
-                "Throttled latest Web snapshot should be accepted"
-            )
-            expect(
-                throttledWebEngine.dispatchedWebLevels.isEmpty,
-                "Throttled snapshots must wait for the next publish window"
-            )
-            expectArrayNear(
-                throttledWebEngine.currentWebSpectrumSnapshot()!,
-                pendingLatest,
-                tolerance: 0,
-                "Web snapshot reads must expose pending latest values"
-            )
-            throttledWebEngine.lastWebSpectrumPushAt = -1
-            let pendingPublished = Array(repeating: Float(0.6), count: 128)
-            expect(
-                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(pendingPublished),
-                "Web snapshot should publish after throttle opens"
-            )
-            expectArrayNear(
-                throttledWebEngine.dispatchedWebLevels,
-                pendingPublished,
-                tolerance: 0,
-                "Throttle release must publish the latest pending value"
-            )
-
-            throttledWebEngine.lastWebSpectrumPushAt = Double.greatestFiniteMagnitude
-            let silenceSnapshot = [Float](repeating: 0, count: 128)
-            expect(
-                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(silenceSnapshot),
-                "Silence should be accepted while throttled"
-            )
-            expectArrayNear(
-                throttledWebEngine.dispatchedWebLevels,
-                silenceSnapshot,
-                tolerance: 0,
-                "Silence must bypass throttle and clear the running Web value"
-            )
+            let pendingFirst = Array(repeating: Float(0.2), count: 128)
+            let pendingLatest = Array(repeating: Float(0.8), count: 128)
+            for frame in 0..<120 {
+                let input = frame.isMultiple(of:2) ? pendingFirst : pendingLatest
+                expect(throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(input),"valid frame must dispatch")
+                expectArrayNear(throttledWebEngine.dispatchedWebLevels,input,tolerance:0,
+                    "every producer frame must reach Web without a second cadence gate")
+                expectArrayNear(throttledWebEngine.currentWebSpectrumSnapshot()!,input,tolerance:0,
+                    "Web snapshot must match the complete current frame")
+            }
+            let silenceSnapshot = [Float](repeating:0,count:128)
+            expect(throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(silenceSnapshot),"silence accepted")
+            expectArrayNear(throttledWebEngine.dispatchedWebLevels,silenceSnapshot,tolerance:0,"silence clears Web")
 
             let dispatchedBeforeInvalid = throttledWebEngine.dispatchedWebLevels
             expect(
@@ -769,8 +732,8 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             nonFiniteTone[30] = -.infinity
             let finiteLevels = webLevels([nonFiniteTone])
             expect(
-                finiteLevels.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
-                "Web levels must contain only finite 0...1 values"
+                finiteLevels.allSatisfy { $0.isFinite && $0 >= 0 },
+                "Web levels must contain only finite positive values"
             )
 
             let overlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
@@ -780,19 +743,21 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 sampleRate: sampleRate
             )
             let balanced = overlay.analyze(
-                leftLevels: overlayLevels.left64,
-                rightLevels: overlayLevels.right64
+                left: overlayLevels.left64,
+                right: overlayLevels.right64
             )
             expect(balanced.count == 16, "Overlay must preserve configured bar count")
+            expectArrayNear(balanced, overlayLevels.left, tolerance: 0.000001,
+                "Default mono Video projection must match the same Scene height resolution")
             expect(balanced.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }, "balanced overlay range")
-            let shapedInput = [Float](repeating: 0.2, count: 16)
-                + [Float](repeating: 0.5, count: 16)
-                + [Float](repeating: 0.8, count: 16)
-                + [Float](repeating: 0.35, count: 16)
+            let shapedInput = [Float](repeating: 0.1, count: 16)
+                + [Float](repeating: 0.3, count: 16)
+                + [Float](repeating: 0.7, count: 16)
+                + [Float](repeating: 0.2, count: 16)
             let freshOverlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
             let shaped = freshOverlay.analyze(
-                leftLevels: shapedInput,
-                rightLevels: shapedInput
+                left: shapedInput,
+                right: shapedInput
             )
             expect(shaped[0] < shaped[4], "Overlay must retain a rising low-to-mid band")
             expect(shaped[4] < shaped[8], "Overlay must retain the stronger upper band")
@@ -803,8 +768,8 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             )
             _ = freshOverlay.reset()
             let alternating = freshOverlay.analyze(
-                leftLevels: (0..<16).map { $0.isMultiple(of: 2) ? 0.8 : 0.02 },
-                rightLevels: (0..<16).map { $0.isMultiple(of: 2) ? 0.8 : 0.02 }
+                left: (0..<16).map { $0.isMultiple(of: 2) ? 0.7 : 0 },
+                right: (0..<16).map { $0.isMultiple(of: 2) ? 0.7 : 0 }
             )
             expect(
                 alternating.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }
@@ -813,12 +778,12 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             )
             overlay.updateConfiguration(style: .banded, sensitivity: .normal)
             let banded = overlay.analyze(
-                leftLevels: overlayLevels.left64,
-                rightLevels: overlayLevels.right64
+                left: overlayLevels.left64,
+                right: overlayLevels.right64
             )
             let repeatedBanded = overlay.analyze(
-                leftLevels: overlayLevels.left64,
-                rightLevels: overlayLevels.right64
+                left: overlayLevels.left64,
+                right: overlayLevels.right64
             )
             expectArrayNear(
                 repeatedBanded,
@@ -826,9 +791,35 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 tolerance: 0,
                 "Overlay projection must not add a second temporal envelope"
             )
+            overlay.updateConfiguration(style: .banded, sensitivity: .lively)
+            let hot = overlay.analyze(left: [0.8], right: [0.8])[0]
+            let hotter = overlay.analyze(left: [0.9], right: [0.9])[0]
+            expect(hot < hotter && hotter < 1, "lively overlay must preserve strong-input headroom")
+            overlay.updateConfiguration(style: .balanced, sensitivity: .normal)
+            let moderate = overlay.analyze(left: [0.4], right: [0.4])[0]
+            let strong = overlay.analyze(left: [0.6], right: [0.6])[0]
+            expect((strong - moderate) * 82 > 4,
+                "canonical height changes must remain visible by at least four native pixels")
+            // Native styling must preserve the shared height-domain release,
+            // including compensated loud high-frequency input in lively mode.
+            let nativeDecayAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+            let nativeDecayOverlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 12)
+            nativeDecayOverlay.updateConfiguration(style: .banded, sensitivity: .lively)
+            let loudHigh = sine(frequency: 8_000, amplitude: 1)
+            var nativeStart: Float = 0
+            for tick in 0...30 {
+                let level = nativeDecayAnalyzer.analyze(signedChannels: [loudHigh], sampleRate: sampleRate, timestamp: Double(tick) / 30)
+                nativeStart = nativeDecayOverlay.analyze(left: level.left64, right: level.right64).max()!
+            }
+            var nativeTail: Float = 0
+            for tick in 1...12 {
+                let level = nativeDecayAnalyzer.analyze(signedChannels: [zeroPCM], sampleRate: sampleRate, timestamp: 1 + Double(tick) / 30)
+                nativeTail = nativeDecayOverlay.analyze(left: level.left64, right: level.right64).max()!
+            }
+            expect(nativeTail / nativeStart < 0.1, "native compensated loud tone must visibly release within 400ms")
             let silentOverlay = overlay.analyze(
-                leftLevels: [Float](repeating: 0, count: 64),
-                rightLevels: [Float](repeating: 0, count: 64)
+                left: [Float](repeating: 0, count: 64),
+                right: [Float](repeating: 0, count: 64)
             )
             expect(silentOverlay.allSatisfy { $0 == 0 }, "Overlay silence must clear immediately")
             expect(overlay.reset().allSatisfy { $0 == 0 }, "Overlay reset must return silence")

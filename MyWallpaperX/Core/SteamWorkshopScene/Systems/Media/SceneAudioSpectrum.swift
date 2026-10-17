@@ -20,17 +20,17 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let mediumBandCount = 32
     static let extendedBandCount = 64
 
-    /// 左声道频段能量，索引 0 为最低频。
+    /// 左声道频段可视响应值，索引 0 为最低频。
     let left: [Float]
-    /// 右声道频段能量，索引 0 为最低频。
+    /// 右声道频段可视响应值，索引 0 为最低频。
     let right: [Float]
-    /// Workshop shader 的 32 档左声道频段能量。
+    /// Workshop shader 的 32 档左声道频段可视响应值。
     let left32: [Float]
-    /// Workshop shader 的 32 档右声道频段能量。
+    /// Workshop shader 的 32 档右声道频段可视响应值。
     let right32: [Float]
-    /// Workshop shader 与 SceneScript AudioBuffers 的 64 档左声道能量。
+    /// Workshop shader 与 SceneScript AudioBuffers 的 64 档左声道可视响应值。
     let left64: [Float]
-    /// Workshop shader 与受限 native property-script plan 的 64 档右声道能量。
+    /// Workshop shader 与受限 native property-script plan 的 64 档右声道可视响应值。
     let right64: [Float]
     /// 每次发布递增；相同内容也会递增，用于区分「同一帧重复读取」与「新采样」。
     let generation: UInt64

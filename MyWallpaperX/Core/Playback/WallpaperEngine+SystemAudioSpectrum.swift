@@ -111,7 +111,6 @@ extension WallpaperEngine {
             repeating: 0,
             count: currentSystemAudioSpectrumBarCount
         )
-        lastSpectrumPushAt = 0
         refreshSystemAudioSpectrumCapture()
 
         if currentPlaybackContentKind == .web {
@@ -147,7 +146,6 @@ extension WallpaperEngine {
         currentSystemAudioSpectrumBarCount = normalizedBarCount
         currentSystemAudioSpectrumPeakCapsEnabled = peakCapsEnabled
         currentSpectrumLevels = Array(repeating: 0, count: normalizedBarCount)
-        lastSpectrumPushAt = 0
 
         systemAudioSpectrumService.updateConfiguration(
             style: style,
@@ -192,7 +190,6 @@ extension WallpaperEngine {
     func setWebAudioSpectrumRequested(_ requested: Bool) {
         guard currentWebAudioSpectrumRequested != requested else { return }
         currentWebAudioSpectrumRequested = requested
-        lastWebSpectrumPushAt = 0
         lastWebSpectrumLevels = []
 
         if currentPlaybackContentKind == .web {
@@ -310,10 +307,8 @@ extension WallpaperEngine {
     public func updateSystemAudioSpectrumLevels(_ levels: [Float]) {
         guard currentSystemAudioSpectrumEnabled else { return }
 
-        let now = CACurrentMediaTime()
-        guard now - lastSpectrumPushAt >= spectrumPushMinInterval else { return }
-        lastSpectrumPushAt = now
-
+        // Service owns the 30 Hz publication cadence. A second interval gate
+        // would discard valid 32 ms frames from 512-frame capture callbacks.
         let resizedLevels = resizedSpectrumLevels(levels, count: currentSystemAudioSpectrumBarCount)
         currentSpectrumLevels = resizedLevels
         for session in displaySessions.values where session.process.isRunning {

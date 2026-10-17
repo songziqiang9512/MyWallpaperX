@@ -13,14 +13,6 @@ final class SystemAudioWebSpectrumAnalyzer {
     static let outputLevelCount = channelBandCount * 2
 
     func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] {
-        let left = SystemAudioSceneSpectrumAnalyzer.resample(
-            levels.left64,
-            count: Self.channelBandCount
-        )
-        let right = SystemAudioSceneSpectrumAnalyzer.resample(
-            levels.right64,
-            count: Self.channelBandCount
-        )
-        return left + right
+        return levels.left64 + levels.right64
     }
 }

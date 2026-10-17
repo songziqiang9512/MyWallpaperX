@@ -53,7 +53,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     style: SystemAudioSpectrumStyle,
                     sensitivity: SystemAudioSpectrumSensitivity
                 ) {}
-                func analyze(leftLevels: [Float], rightLevels: [Float]) -> [Float] { [] }
+                func analyze(left: [Float], right: [Float]) -> [Float] { [] }
             }
 
             final class SystemAudioWebSpectrumAnalyzer {
@@ -90,7 +90,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 static func createAggregateDevice(tapUID: String) throws -> AudioObjectID {
                     fatalError("DEBUG start suppression must prevent CoreAudio access")
                 }
-                static func configureCaptureBufferFrameSize(for deviceID: AudioObjectID) {}
+                static func configureCaptureBufferFrameSize(for deviceID: AudioObjectID, sampleRate: Double) {}
             }
 
             func expect(
@@ -124,7 +124,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 stream.onSceneLevels = { _,_,_,_,left,right,_ in published.append(left + right) }
                 let reference = SystemAudioSceneSpectrumAnalyzer()!
                 let rate: Float = 48_000
-                let windowCount = Int(rate / 44_100 * 1920)
+                let windowCount = SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate:rate)
                 let total = chunkSize * (chunkSize == 8192 ? 40 : 600)
                 var maxError: Float = 0
                 var lateError: Float = 0
@@ -148,7 +148,8 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                         expect(start+chunkSize >= windowCount,"partial windows must not be published")
                         expect((start/chunkSize)%5 != 3,"busy worker must not receive a snapshot")
                         let latest = Array(pcm[(start+chunkSize-windowCount)..<(start+chunkSize)])
-                        let expected = reference.analyze(signedChannels:[latest],sampleRate:rate)
+                        let expected = reference.analyze(signedChannels:[latest],sampleRate:rate,
+                            timestamp:1+Double(start+chunkSize)/Double(rate))
                         let error = zip(published.last!,expected.left64+expected.right64).map { abs($0-$1) }.max()!
                         maxError = max(maxError,error)
                         if published.count > 12 { lateError = max(lateError,error) }
@@ -158,6 +159,31 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 expect(published.count > 12,"stream must publish several complete windows")
                 expect(maxError < 0.00001,"callback \(chunkSize) must preserve contiguous PCM spectrum; error=\(maxError), settled=\(lateError)")
             }
+
+            // The actual callback gate must preserve average 30 Hz on the
+            // native 512-frame grid, rather than rounding every frame to 42 ms.
+            let cadence = SystemAudioSpectrumService(barCount:16)
+            cadence.debugEnableRecoveryTesting()
+            cadence.setConsumers(overlayEnabled:false,webEnabled:false,sceneEnabled:true)
+            _ = cadence.debugRecoverySnapshot()
+            var ticks: [Double] = []
+            var tickTime: Double = 0
+            cadence.onSceneLevels = { _,_,_,_,_,_,_ in ticks.append(tickTime) }
+            let cadenceFormat = AudioStreamBasicDescription(mSampleRate:48000,
+                mFormatID:kAudioFormatLinearPCM,mFormatFlags:kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+                mBytesPerPacket:4,mFramesPerPacket:1,mBytesPerFrame:4,mChannelsPerFrame:1,mBitsPerChannel:32,mReserved:0)
+            var cadenceBlock = Array(repeating:Float(0.1),count:512)
+            for i in 0..<600 {
+                tickTime = 1 + Double((i+1)*512)/48000
+                cadenceBlock.withUnsafeMutableBufferPointer { pointer in
+                    var list = AudioBufferList(mNumberBuffers:1,mBuffers:AudioBuffer(
+                        mNumberChannels:1,mDataByteSize:2048,mData:pointer.baseAddress))
+                    cadence.debugProcessPCMForTesting(&list,format:cadenceFormat,now:tickTime)
+                }
+            }
+            expect(ticks.count > 180 && ticks.count < 195,"512-frame callbacks must sustain about 30 Hz")
+            let tickGaps = zip(ticks,ticks.dropFirst()).map { $1-$0 }
+            expect(tickGaps.allSatisfy { $0 > 0.02 && $0 < 0.044 },"no backlog bursts or long cadence gaps")
 
             let service = SystemAudioSpectrumService(barCount: 16)
             service.debugEnableRecoveryTesting()

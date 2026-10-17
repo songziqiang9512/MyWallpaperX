@@ -147,36 +147,8 @@ extension DebugScenePlaybackRunner {
             deadline: DispatchTime(uptimeNanoseconds: targetUptime)
         ) {
             let state = DebugSceneAudioSpectrumFixtureState.self
-            let left = fixturePCM(frame: frame, channelPhase: 0, toneFrequency: toneFrequency)
-            let right = fixturePCM(frame: frame, channelPhase: 0.19, toneFrequency: toneFrequency)
-            let format = AudioStreamBasicDescription(
-                mSampleRate: Double(state.sampleRate), mFormatID: kAudioFormatLinearPCM,
-                mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
-                    | kAudioFormatFlagIsNonInterleaved,
-                mBytesPerPacket: 4, mFramesPerPacket: 1, mBytesPerFrame: 4,
-                mChannelsPerFrame: 2, mBitsPerChannel: 32, mReserved: 0
-            )
-            let buffers = AudioBufferList.allocate(maximumBuffers: 2)
-            defer { buffers.unsafeMutablePointer.deallocate() }
-            buffers.count = 2
-            left.withUnsafeBufferPointer { l in
-                right.withUnsafeBufferPointer { r in
-                    for offset in stride(from: 0, to: left.count, by: 128) {
-                        let count = min(128, left.count - offset)
-                        buffers[0] = AudioBuffer(mNumberChannels: 1,
-                            mDataByteSize: UInt32(count * 4),
-                            mData: UnsafeMutableRawPointer(mutating: l.baseAddress! + offset))
-                        buffers[1] = AudioBuffer(mNumberChannels: 1,
-                            mDataByteSize: UInt32(count * 4),
-                            mData: UnsafeMutableRawPointer(mutating: r.baseAddress! + offset))
-                        state.captureService.debugProcessPCMForTesting(
-                            buffers.unsafePointer, format: format,
-                            now: 1 + Double(frame * state.samplesPerFrame + offset + count)
-                                / Double(state.sampleRate)
-                        )
-                    }
-                }
-            }
+            DebugAudioSpectrumPCMFixture.feed(state.captureService, frame: frame,
+                                               toneFrequency: toneFrequency, silence: state.isSilence)
             let levels = SceneAudioSpectrumInbox.shared.latest()
             if frame.isMultiple(of: 30) {
                 let upperHalfStart = levels.left.count / 2
@@ -236,62 +208,6 @@ extension DebugScenePlaybackRunner {
     /// shared inbox 交给作者 shader。两个宽频能量团以不同连续相位缓慢穿过频段，
     /// 让验证能区分“真实形态变化”和“冻结频谱只被 Scroll 平移”；所有变化仍来自
     /// PCM，零输入模式保持严格静止。
-    private nonisolated static func fixturePCM(
-        frame: Int,
-        channelPhase: Float,
-        toneFrequency: Float?
-    ) -> [Float] {
-        let state = DebugSceneAudioSpectrumFixtureState.self
-        if state.isSilence { return Array(repeating: 0, count: state.samplesPerFrame) }
-        let startSample = frame * state.samplesPerFrame
-        if let toneFrequency {
-            // The diagnostic tone still enters the shared PCM/FFT path. It
-            // never constructs bins or changes the author's frequency range.
-            return (0 ..< state.samplesPerFrame).map { localSample in
-                let time = Double(startSample + localSample) / Double(state.sampleRate)
-                return Float(0.5 * sin(2 * .pi * (Double(toneFrequency) * time
-                    + Double(channelPhase))))
-            }
-        }
-        let elapsed = Float(frame) / state.publicationRate
-        let overallEnvelope = 0.68
-            + 0.12 * sin((elapsed * 0.27 + channelPhase * 0.07) * 2 * .pi)
-            + 0.06 * sin((elapsed * 0.61 + channelPhase * 0.13) * 2 * .pi)
-        let toneCount = 24
-        return (0 ..< state.samplesPerFrame).map { localSample in
-            let sample = startSample + localSample
-            let time = Float(sample) / state.sampleRate
-            var mixed: Float = 0
-            for index in 0 ..< toneCount {
-                let position = (Float(index) + 0.5) / Float(toneCount)
-                // 对数分布让固定输入覆盖整个低频到高频横轴；这里只
-                // 生成测试 PCM，不参与产品频带映射。
-                let frequency = 55 * pow(14_500 / 55, position)
-                let firstCenter = 0.23
-                    + 0.14 * sin((elapsed * 0.19 + channelPhase * 0.09) * 2 * .pi)
-                let secondCenter = 0.71
-                    + 0.18 * sin((elapsed * 0.13 + 0.31
-                        - channelPhase * 0.06) * 2 * .pi)
-                let firstDistance = (position - firstCenter) / 0.14
-                let secondDistance = (position - secondCenter) / 0.18
-                let firstCluster = exp(-firstDistance * firstDistance)
-                let secondCluster = exp(-secondDistance * secondDistance)
-                let firstPulse = 0.5 + 0.5 * sin(
-                    (elapsed * 0.43 + position * 0.72 + channelPhase * 0.16) * 2 * .pi
-                )
-                let secondPulse = 0.5 + 0.5 * sin(
-                    (elapsed * 0.31 - position * 0.54 + 0.27
-                        + channelPhase * 0.21) * 2 * .pi
-                )
-                let spectralEnvelope = min(0.95, max(0.002,
-                    firstCluster * (0.12 + 0.78 * firstPulse * firstPulse)
-                        + secondCluster * (0.09 + 0.64 * secondPulse * secondPulse)
-                ))
-                let phase = Float(index) * 0.371 + channelPhase * 2 * .pi
-                mixed += sin(2 * .pi * frequency * time + phase) * spectralEnvelope
-            }
-            return max(-0.95, min(0.95, mixed * overallEnvelope * 0.062))
-        }
-    }
+
 }
 #endif

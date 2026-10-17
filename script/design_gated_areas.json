@@ -683,6 +683,24 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "shared-audio-spectrum-response",
+      "title": "共享音频频段、标定、响应与Video叠层",
+      "owner": "shared-playback-audio",
+      "status": "approved",
+      "designDoc": "docs/architecture/system-audio-spectrum-design.md",
+      "design_notes": "2026-10-17真实音乐同源参考对照修订：唯一采集/30Hz发布；Hann/频段幅度均值/固定均衡/固定分贝窗口/最终高度包络；Video/Web/Scene投影同一响应，退出峰值跟随参考、可听度乘数和二次显示曲线。保留作者样式，不主张逐柱频轴、Windows私有公式或全样本一致。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/Playback/SystemAudio*Spectrum*.swift",
+        "WallpaperDaemonSources/Daemon/Spectrum/*.swift",
+        "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioCaptureDeviceFactory.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebAudioSpectrum.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }
