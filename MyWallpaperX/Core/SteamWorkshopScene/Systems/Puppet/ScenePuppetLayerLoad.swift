@@ -60,7 +60,7 @@ enum ScenePuppetLayerLoad {
             case unavailable(allowsMissingMeshTextureProduct: Bool, message: String)
             case bind(PreparedAsset, fallbackMessage: String?)
             case evaluated(PreparedAsset, ScenePuppetAnimationSelection,
-                           ScenePuppetAnimationEvaluator, PlaybackKind)
+                           ScenePuppetAnimationEvaluator, PlaybackKind, fallbackMessage: String?)
         }
 
         fileprivate let geometry: Geometry
@@ -204,34 +204,47 @@ enum ScenePuppetLayerLoad {
         }
         var fallbackMessage: String?
         var needsReferenceOnlyPlayback = false
+        let hasPreparedReference: Bool
+        if case let .success(rig) = asset.rig,
+           rig.referenceLocalMatricesColumnMajor != nil,
+           case .success? = asset.referenceEvaluator {
+            hasPreparedReference = true
+        } else {
+            hasPreparedReference = false
+        }
         if !animationLayers.isEmpty {
             do {
                 _ = try asset.rig.get()
-                guard let preparedAnimationSet = asset.animationSet else {
-                    return .init(geometry: .bind(asset,
-                        fallbackMessage: "animation unavailable: data was not prepared"))
-                }
-                guard let animationSet = try preparedAnimationSet.get() else {
-                    return .init(geometry: .bind(asset,
-                        fallbackMessage: "animation rejected: version-matched MDLA is absent"))
-                }
-                switch ScenePuppetAnimationSelector.select(
-                    layers: animationLayers, animationSet: animationSet
-                ) {
-                case let .success(selection?):
-                    return evaluatedPose(asset: asset, selection: selection, kind: .animation)
-                case .success(nil):
-                    fallbackMessage = "animation inactive: no visible layer"
-                    if case let .success(rig) = asset.rig {
-                        needsReferenceOnlyPlayback = rig.referenceLocalMatricesColumnMajor != nil
+                switch asset.animationSet {
+                case .none:
+                    fallbackMessage = "animation unavailable: data was not prepared"
+                    needsReferenceOnlyPlayback = hasPreparedReference
+                case .some(.success(nil)):
+                    fallbackMessage = "animation rejected: version-matched MDLA is absent"
+                    needsReferenceOnlyPlayback = hasPreparedReference
+                case let .some(.failure(failure)):
+                    throw failure
+                case let .some(.success(animationSet?)):
+                    switch ScenePuppetAnimationSelector.select(
+                        layers: animationLayers, animationSet: animationSet
+                    ) {
+                    case let .success(selection?):
+                        return evaluatedPose(asset: asset, selection: selection, kind: .animation)
+                    case .success(nil):
+                        fallbackMessage = "animation inactive: no visible layer"
+                        if case let .success(rig) = asset.rig {
+                            needsReferenceOnlyPlayback = rig.referenceLocalMatricesColumnMajor != nil
+                        }
+                    case let .failure(failure):
+                        fallbackMessage = "animation rejected: \(failure.description)"
+                        needsReferenceOnlyPlayback = hasPreparedReference
                     }
-                case let .failure(failure):
-                    fallbackMessage = "animation rejected: \(failure.description)"
                 }
             } catch let failure as SceneMdlPuppetRigReadError {
                 fallbackMessage = "animation rig rejected: \(failure.description)"
             } catch let failure as SceneMdlPuppetAnimationReadError {
                 fallbackMessage = "animation data rejected: \(failure.description)"
+                needsReferenceOnlyPlayback = hasPreparedReference
             } catch {
                 fallbackMessage = "animation rejected: unknown parse failure"
             }
@@ -243,7 +256,8 @@ enum ScenePuppetLayerLoad {
            hasInlineScript || rig.referenceLocalMatricesColumnMajor != nil {
             return evaluatedPose(asset: asset,
                 selection: .init(clips: [], composition: .layered),
-                kind: rig.referenceLocalMatricesColumnMajor != nil ? .reference : .script)
+                kind: rig.referenceLocalMatricesColumnMajor != nil ? .reference : .script,
+                fallbackMessage: fallbackMessage)
         }
         return .init(geometry: .bind(asset, fallbackMessage: fallbackMessage))
     }
@@ -251,7 +265,8 @@ enum ScenePuppetLayerLoad {
     private static func evaluatedPose(
         asset: PreparedAsset,
         selection: ScenePuppetAnimationSelection,
-        kind: PreparedPose.PlaybackKind
+        kind: PreparedPose.PlaybackKind,
+        fallbackMessage: String? = nil
     ) -> PreparedPose {
         do {
             let evaluator: ScenePuppetAnimationEvaluator
@@ -261,13 +276,16 @@ enum ScenePuppetLayerLoad {
                 evaluator = try ScenePuppetAnimationEvaluator(mesh: asset.mesh,
                     rig: asset.rig.get(), additiveAnimations: selection.clips.map(\.animation))
             }
-            return .init(geometry: .evaluated(asset, selection, evaluator, kind))
+            return .init(geometry: .evaluated(asset, selection, evaluator, kind,
+                fallbackMessage: fallbackMessage))
         } catch let failure as ScenePuppetAnimationEvaluationFailure {
             return .init(geometry: .bind(asset,
-                fallbackMessage: "\(kind.failurePrefix): \(failure.description)"))
+                fallbackMessage: (fallbackMessage.map { $0 + "; " } ?? "")
+                    + "\(kind.failurePrefix): \(failure.description)"))
         } catch {
             return .init(geometry: .bind(asset, fallbackMessage:
-                "\(kind.failurePrefix): \(ScenePuppetPlaybackState.Failure.resourceAllocationFailed.description)"))
+                (fallbackMessage.map { $0 + "; " } ?? "")
+                    + "\(kind.failurePrefix): \(ScenePuppetPlaybackState.Failure.resourceAllocationFailed.description)"))
         }
     }
 
@@ -294,9 +312,10 @@ enum ScenePuppetLayerLoad {
             asset = value
             evaluated = nil
             animationFallbackMessage = fallbackMessage
-        case let .evaluated(value, selection, evaluator, kind):
+        case let .evaluated(value, selection, evaluator, kind, fallbackMessage):
             asset = value
             evaluated = (selection, evaluator, kind)
+            animationFallbackMessage = fallbackMessage
         }
         let mesh = asset.mesh
         let clipping: ScenePuppetClipping?
@@ -341,9 +360,11 @@ enum ScenePuppetLayerLoad {
                     message = "puppet script world geometry prepared"
                 }
                 return Outcome(geometryProduct: output.product, playback: output.state,
-                    allowsMissingMeshTextureProduct: false, message: message)
+                    allowsMissingMeshTextureProduct: false,
+                    message: message + (animationFallbackMessage.map { "; " + $0 } ?? ""))
             case let .failure(failure):
-                animationFallbackMessage = "\(kind.failurePrefix): \(failure.description)"
+                animationFallbackMessage = (animationFallbackMessage.map { $0 + "; " } ?? "")
+                    + "\(kind.failurePrefix): \(failure.description)"
             }
         }
         return staticOutcome(

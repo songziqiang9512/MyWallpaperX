@@ -69,13 +69,16 @@ def fixture_mdl(
     animation: bool = True,
     bad_animation: bool = False,
     bad_parent: bool = False,
+    bone_names: tuple[str, str] = ("root", "child"),
+    bone_order: tuple[int, int] = (0, 1),
+    independent_roots: bool = False,
 ) -> bytes:
     """Write a small owned MDLV0017/MDLS0002/MDLA0004 fixture, not a parser."""
     vertices = bytearray()
     for x, y, u, v in ((-10, -20, 0, 1), (10, -20, 1, 1), (0, 20, 0.5, 0)):
         record = bytearray(80)
         struct.pack_into("<3f", record, 0, x, y, 0)
-        struct.pack_into("<4I", record, 40, 0, 0, 0, 0)
+        struct.pack_into("<4I", record, 40, bone_order.index(0), 0, 0, 0)
         struct.pack_into("<4f", record, 56, 1, 0, 0, 0)
         struct.pack_into("<2f", record, 72, u, v)
         vertices += record
@@ -84,18 +87,22 @@ def fixture_mdl(
     body += struct.pack("<II", 0, len(vertices)) + vertices
     body += struct.pack("<I", len(indices)) + indices
     skeleton = bytearray(b"MDLS0002\0" + b"\0" * 4 + struct.pack("<I", 2))
-    for index, bind in enumerate((root_bind or matrix(4), matrix(2))):
-        skeleton += (b"root" if index == 0 else b"child") + b"\0"
-        parent = -1 if index == 0 else (1 if bad_parent else 0)
+    bind_matrices = (root_bind or matrix(4), matrix(2))
+    for index in bone_order:
+        bind = bind_matrices[index]
+        skeleton += bone_names[index].encode("utf-8") + b"\0"
+        source_parent = -1 if index == 0 or independent_roots else (1 if bad_parent else 0)
+        parent = -1 if source_parent < 0 else bone_order.index(source_parent)
         skeleton += struct.pack("<IiI16f", 1, parent, 64, *bind) + b"{}\0"
     if reference is not None:
-        skeleton += b"\0\0\1" + struct.pack("<32f", *reference[0], *reference[1])
+        skeleton += b"\0\0\1" + struct.pack("<32f",
+            *(value for index in bone_order for value in reference[index]))
     struct.pack_into("<I", skeleton, 9, len(body) + len(skeleton))
     if not animation:
         return bytes(body + skeleton + b"\0")
     record = bytearray(struct.pack("<II", 101, 0) + b"owned-motion\0loop\0")
     record += struct.pack("<fIII", 1, 1, 0, 2)
-    for bone in range(2):
+    for bone in bone_order:
         record += struct.pack("<II", 0, 72)
         for frame in range(2):
             translation = (4 + frame * 26) if bone == 0 else 2
@@ -145,6 +152,21 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             "bad-rig.mdl": fixture_mdl(bad_parent=True),
             "bad-animation.mdl": fixture_mdl(bad_animation=True),
             "absent-animation.mdl": fixture_mdl(animation=False),
+            "reference-bad-animation.mdl": fixture_mdl(reference=reference, bad_animation=True),
+            "reference-absent-animation.mdl": fixture_mdl(reference=reference, animation=False),
+            "renamed-reference-failure.mdl": fixture_mdl(
+                reference=[matrix(90, 60), matrix(3, 8)], bad_animation=True,
+                bone_names=("pivot-renamed", "tip-renamed")),
+            "independent-reference-failure.mdl": fixture_mdl(reference=reference,
+                bad_animation=True, independent_roots=True),
+            "reordered-reference-failure.mdl": fixture_mdl(reference=reference,
+                bad_animation=True, independent_roots=True, bone_order=(1, 0),
+                bone_names=("anchor-equivalent", "free-equivalent")),
+            "reference-bad-rig.mdl": fixture_mdl(reference=reference,
+                bad_parent=True, bad_animation=True),
+            "invalid-reference-failure.mdl": fixture_mdl(
+                reference=[shear, matrix(7, 9)], bad_animation=True),
+            "selected-evaluator-failure.mdl": fixture_mdl(reference=reference, root_bind=small),
             "bad-mesh.mdl": b"owned-invalid-mesh",
             "static-uv20.mdl": build_mdl(magic=b"MDLV0016", stride=20,
                 vertex_format=9, include_mdls=False, suffix=b"\0"),
@@ -170,6 +192,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertEqual(row["assetCount"], 1, row)
             self.assertEqual(row["source"]["animationIDs"], [101], row)
             self.assertEqual(row["source"]["sampledRootX"], 30, row)
+            self.assertEqual(row["source"]["kind"], "animation", row)
+            self.assertEqual(row["source"]["fallback"], "", row)
             self.assertEqual(row["default"]["animationIDs"], [], row)
             self.assertEqual(row["default"]["neutralRootX"], 20, row)
 
@@ -178,6 +202,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(row["kind"], "reference", row)
         self.assertEqual(row["animationIDs"], [], row)
         self.assertEqual(row["neutralRootX"], 20, row)
+        self.assertEqual(row["fallback"], "", row)
         plain = self.result["default-bind"]
         self.assertEqual(plain["kind"], "bind", plain)
         self.assertEqual(plain["fallback"], "", plain)
@@ -217,9 +242,77 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertFalse(rows[key]["allowsTexture"], rows[key])
             self.assertIn(text, rows[key]["message"], rows[key])
         for key, text in (("rig", "animation rig rejected"), ("animation", "animation data rejected"),
-                          ("absent-animation", "MDLA is absent"), ("unprepared-animation", "not prepared")):
+                          ("absent-animation", "MDLA is absent"), ("unprepared-animation", "not prepared"),
+                          ("selector", "animation id 909 is absent"),
+                          ("unsupported-selector", "outside the bounded playback profile"),
+                          ("no-reference-script", "animation data rejected")):
             self.assertEqual(rows[key]["kind"], "bind", rows[key])
             self.assertIn(text, rows[key]["fallback"], rows[key])
+
+    def test_failed_animation_requests_keep_independent_reference_and_original_diagnostic(self) -> None:
+        rows = self.result["reference-fallbacks"]
+        original_failures = {"bad": "animation", "absent": "absent-animation",
+            "unprepared": "unprepared-animation", "unknown": "selector",
+            "unsupported": "unsupported-selector"}
+        for key, text in (("bad", "animation data rejected"),
+                          ("absent", "MDLA is absent"), ("unprepared", "not prepared"),
+                          ("unknown", "animation id 909 is absent"),
+                          ("unsupported", "outside the bounded playback profile")):
+            row = rows[key]
+            pose = row["pose"]
+            self.assertEqual(pose["kind"], "reference", row)
+            self.assertEqual(pose["animationIDs"], [], row)
+            self.assertIn(text, pose["fallback"], row)
+            self.assertEqual(pose["fallback"],
+                self.result["failures"][original_failures[key]]["fallback"], row)
+            self.assertEqual(pose["points"], [[6, 10], [26, 10], [16, 50]], row)
+            self.assertEqual(pose["localTranslations"], [[20, 30, 0], [7, 9, 0]], row)
+            self.assertEqual(pose["worldTranslations"], [[20, 30, 0], [27, 39, 0]], row)
+            self.assertEqual(row["bones"]["local"][12:15], [20, 30, 0], row)
+            self.assertEqual(row["bones"]["world"][28:31], [27, 39, 0], row)
+            # A default configuration uses this asset's independent reference,
+            # without inheriting the source request, script or failure reason.
+            self.assertEqual(row["default"]["kind"], "reference", row)
+            self.assertEqual(row["default"]["animationIDs"], [], row)
+            self.assertEqual(row["default"]["fallback"], "", row)
+            self.assertEqual(row["default"]["points"], pose["points"], row)
+
+    def test_reference_fallback_tracks_resource_names_and_remapped_bone_indices(self) -> None:
+        rows = self.result["reference-fallbacks"]
+        renamed = rows["renamed"]
+        self.assertEqual(renamed["pose"]["kind"], "reference", renamed)
+        self.assertIn("animation data rejected", renamed["pose"]["fallback"], renamed)
+        self.assertEqual(renamed["bones"]["names"], ["pivot-renamed", "tip-renamed"], renamed)
+        self.assertEqual(renamed["pose"]["points"], [[76, 40], [96, 40], [86, 80]], renamed)
+        self.assertEqual(renamed["pose"]["worldTranslations"], [[90, 60, 0], [93, 68, 0]], renamed)
+        ordinary, reordered = rows["independent"], rows["reordered"]
+        for row in (ordinary, reordered):
+            self.assertEqual(row["pose"]["kind"], "reference", row)
+            self.assertEqual(row["pose"]["animationIDs"], [], row)
+            self.assertIn("animation data rejected", row["pose"]["fallback"], row)
+            self.assertEqual(row["bones"]["parents"], [-1, -1], row)
+        self.assertEqual(reordered["bones"]["names"], ["free-equivalent", "anchor-equivalent"], reordered)
+        self.assertEqual(ordinary["pose"]["localTranslations"], [[20, 30, 0], [7, 9, 0]], ordinary)
+        self.assertEqual(reordered["pose"]["localTranslations"], [[7, 9, 0], [20, 30, 0]], reordered)
+        self.assertEqual(ordinary["pose"]["points"], [[6, 10], [26, 10], [16, 50]], ordinary)
+        self.assertEqual(ordinary["pose"]["points"], reordered["pose"]["points"], rows)
+
+    def test_reference_and_selected_animation_safety_failures_keep_bind(self) -> None:
+        rows = self.result["reference-safety"]
+        for key, text in (("rig", "animation rig rejected"),
+                          ("reference", "animation data rejected"),
+                          ("selected-evaluator", "animation geometry rejected")):
+            row = rows[key]
+            self.assertEqual(row["pose"]["kind"], "bind", row)
+            self.assertEqual(row["pose"]["animationIDs"], [], row)
+            self.assertIn(text, row["pose"]["fallback"], row)
+        # An invalid cached reference cannot turn an MDLA rejection into a
+        # second evaluation attempt. The ordinary empty-reference rejection
+        # remains covered by bad-reference above.
+        self.assertNotIn("script pose rejected", rows["reference"]["pose"]["fallback"], rows)
+        self.assertFalse(rows["rig"]["bones"]["available"], rows)
+        self.assertFalse(rows["reference"]["bones"]["available"], rows)
+        self.assertFalse(rows["selected-evaluator"]["bones"]["available"], rows)
 
     def test_static_uv20_prepares_bind_without_bones_or_animation_and_survives_input_removal(self) -> None:
         row = self.result["static-uv20"]

@@ -132,6 +132,14 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 - 单/多 clip、零权重、隐藏与无 clip 共用同一参考基准；reference-only 复用原 empty-selection PlaybackState，getter、物理、attachment、顶点仍消费同一 pose。无 reference 的静态 mesh 与精确 init getter 保留，不新增变形器、时钟或输出 owner。
 - 最近门 `test_scene_puppet_rig` / `test_scene_puppet_weights` 覆盖分离 bind/reference/frame0 的 native 输入、父子层级、零/外推、隐藏/恢复、无 clip、截断与非法矩阵、旧精确 init getter。原始动态/静态健康样本分别复验；完整交互、现代 profile、非共轴混合和官方逐像素仍不由本片升级。
 
+<a id="puppet-reference-fallback"></a>
+
+2026-10-17 已实施：动画请求准备失败保留独立已验证的角色组装基准。旧非空请求遇未准备/缺省 MDLA、完整读取或 selector 拒绝，会绕过 reference 返回散件 raw bind；322 的同 App 仅清两层请求对照定位该分叉，最终原包保留全部请求也恢复完整侧脸。此举不忽略 auxiliary，不把降级算作动画可播；[限定后验](runtime-evidence-current.md#puppet-reference-fallback-20261017)拥有实际输入、画面和退出证据。
+
+沿唯一 `ScenePuppetLayerLoad` 的现 PreparedAsset/PreparedPose，将上述失败与几何资格分开：成功动画保持原路；失败后只在 rig 与显式 reference 独立合法时，使用原 empty-selection evaluator/PlaybackState，骨骼 getter、attachment、skinning 和输出仍同一 pose。原动画失败原因随 evaluated pose 保留至 Outcome，不把降级记为动画成功。未准备动画不补读文件、不新增解析、时钟或资源 owner。无 reference、非法 rig/reference 保留既有 raw bind/拒绝；已选动画的 evaluator 拒绝及 GPU 分配/提交失败不增加 reference 重试，缺 mesh 及 atlas 回退安全边界保持。空配置仍不继承源动画/脚本；旧“非空请求失败必回 raw bind”的路径退出。
+
+真实准备门10项通过，含坏/缺省/未准备/选择拒绝、改名与骨索引等价重排、不同 reference、无 reference 与非法 rig/reference 反例、有效动画/default/reuse；原322默认侧脸恢复且仍报告 aux1412/1212 拒绝，独立379成功动画与实际画面、两包安全退出保持。若 reference 不合法、错误诊断丢失或成功动画/生命周期退化即撤回。剩余手部/中央颈块及完整动画、官方逐值/全景与性能另列，不扩大本片结论。
+
 ### 3.3 骨骼透明度动画
 
 目标是让含逐骨骼 alpha 轨道的 Puppet 动画进入真实合成，修复新版 MDLA reader 将 present flag 当全零字段的问题。官方 2.2 更新日志公开了 bone alpha animation；固定 2.8.0.42 客户端同帧原始/全零/全一控制的骨骼矩阵相同，全零隐藏、全一显示，全骨骼 0.5 显示半透明，排除运行时重复累乘 parent alpha。先行设计已实施；固定输入、官方观察与产品验证见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-bone-alpha)。

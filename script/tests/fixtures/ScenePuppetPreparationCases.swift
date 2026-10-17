@@ -30,10 +30,11 @@ struct SceneScriptPuppetBoneMutation {
 }
 
 private func sourceLayer(_ id: Int, mesh: String, animated: Bool = false,
-                         script: Bool = false) -> SceneRenderDescriptor.Layer {
-    let clip = ScenePuppetAnimationLayer(id: 7, animationID: 101, name: "owned",
+                         script: Bool = false, animationID: Int = 101,
+                         clipRate: Double = 1) -> SceneRenderDescriptor.Layer {
+    let clip = ScenePuppetAnimationLayer(id: 7, animationID: animationID, name: "owned",
         additive: false, blend: 1, blendIn: false, blendOut: false,
-        blendTime: 0, rate: 1, visible: true, visibilityBinding: nil)
+        blendTime: 0, rate: clipRate, visible: true, visibilityBinding: nil)
     return .init(id: id, puppetMeshPath: mesh,
         puppetAnimationLayers: animated ? [clip] : [], hasInlineScript: script)
 }
@@ -45,7 +46,7 @@ private func describe(_ pose: ScenePuppetLayerLoad.PreparedPose?) throws -> [Str
         return ["kind": "unavailable", "allowsTexture": allowsTexture, "message": message]
     case let .bind(_, fallback):
         return ["kind": "bind", "fallback": fallback ?? "", "animationIDs": []]
-    case let .evaluated(_, selection, evaluator, kind):
+    case let .evaluated(_, selection, evaluator, kind, fallback):
         let kindName: String
         switch kind {
         case .animation: kindName = "animation"
@@ -60,8 +61,13 @@ private func describe(_ pose: ScenePuppetLayerLoad.PreparedPose?) throws -> [Str
         let sampled = try evaluator.boneTransforms(selection: selection, frameSamples: samples)
         let points = try evaluator.deformedPositions(selection: selection, frameSamples: samples)
         return ["kind": kindName, "animationIDs": selection.clips.map { $0.animation.id },
+            "fallback": fallback ?? "",
             "neutralRootX": neutral.local[0].columns.3.x,
             "sampledRootX": sampled.local[0].columns.3.x,
+            "localTranslations": sampled.local.map {
+                [$0.columns.3.x, $0.columns.3.y, $0.columns.3.z] },
+            "worldTranslations": sampled.world.map {
+                [$0.columns.3.x, $0.columns.3.y, $0.columns.3.z] },
             "points": points.map { [$0.x, $0.y] }]
     }
 }
@@ -166,12 +172,52 @@ private enum ScenePuppetPreparationCases {
         for (label, path, requested) in [("rig", "bad-rig.mdl", true),
                                          ("animation", "bad-animation.mdl", true),
                                          ("absent-animation", "absent-animation.mdl", true),
-                                         ("unprepared-animation", "shared.mdl", false)] {
+                                         ("unprepared-animation", "bind.mdl", false)] {
             failures[label] = try describe(ScenePuppetLayerLoad.preparePose(
                 for: sourceLayer(8, mesh: path, animated: true),
                 asset: asset(path, animations: requested)))
         }
+        failures["selector"] = try describe(ScenePuppetLayerLoad.preparePose(
+            for: sourceLayer(9, mesh: "bind.mdl", animated: true, animationID: 909),
+            asset: asset("bind.mdl")))
+        failures["unsupported-selector"] = try describe(ScenePuppetLayerLoad.preparePose(
+            for: sourceLayer(9, mesh: "bind.mdl", animated: true, clipRate: 0),
+            asset: asset("bind.mdl")))
+        failures["no-reference-script"] = try describe(ScenePuppetLayerLoad.preparePose(
+            for: sourceLayer(10, mesh: "bad-animation.mdl", animated: true, script: true),
+            asset: asset("bad-animation.mdl")))
         output["failures"] = failures
+
+        var referenceFallbacks: [String: Any] = [:]
+        for (label, path, requested, animationID, rate) in [
+            ("bad", "reference-bad-animation.mdl", true, 101, 1.0),
+            ("absent", "reference-absent-animation.mdl", true, 101, 1.0),
+            ("unprepared", "shared.mdl", false, 101, 1.0),
+            ("unknown", "shared.mdl", true, 909, 1.0),
+            ("unsupported", "shared.mdl", true, 101, 0.0),
+            ("renamed", "renamed-reference-failure.mdl", true, 101, 1.0),
+            ("independent", "independent-reference-failure.mdl", true, 101, 1.0),
+            ("reordered", "reordered-reference-failure.mdl", true, 101, 1.0)
+        ] {
+            let prepared = asset(path, animations: requested)
+            let layer = sourceLayer(41, mesh: path, animated: true,
+                animationID: animationID, clipRate: rate)
+            referenceFallbacks[label] = ["bones": bones(prepared),
+                "pose": try describe(ScenePuppetLayerLoad.preparePose(for: layer, asset: prepared)),
+                "default": try describe(ScenePuppetLayerLoad.preparePose(
+                    for: layer, asset: prepared, usesDefaultConfiguration: true))]
+        }
+        output["reference-fallbacks"] = referenceFallbacks
+        var referenceSafety: [String: Any] = [:]
+        for (label, path) in [("rig", "reference-bad-rig.mdl"),
+                               ("reference", "invalid-reference-failure.mdl"),
+                               ("selected-evaluator", "selected-evaluator-failure.mdl")] {
+            let prepared = asset(path)
+            referenceSafety[label] = ["bones": bones(prepared),
+                "pose": try describe(ScenePuppetLayerLoad.preparePose(
+                    for: sourceLayer(42, mesh: path, animated: true), asset: prepared))]
+        }
+        output["reference-safety"] = referenceSafety
 
         let first = sourceLayer(21, mesh: "shared.mdl")
         let second = sourceLayer(22, mesh: "other.mdl")

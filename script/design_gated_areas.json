@@ -671,6 +671,18 @@
       "contentPatterns": [
         "hasRuntimeRequirements"
       ]
+    },
+    {
+      "id": "scene-puppet-reference-fallback",
+      "title": "动画准备失败时保留已验证角色reference",
+      "owner": "scene-puppet-runtime",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
+      "design_notes": "2026-10-17 #puppet-reference-fallback：同App请求清空消融及现evaluator CPU正门证明独立reference可组装。原LayerLoad只对动画请求准备失败使用原empty-selection reference并保失败诊断；成功动画、无/非法reference及GPU失败边界保持，不跳track或增重试。实际原包、独立样本与生命周期另验，approved非动画能力完成。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

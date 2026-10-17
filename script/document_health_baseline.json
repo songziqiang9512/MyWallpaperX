@@ -81,8 +81,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 336,
-      "bytes": 68206
+      "lines": 344,
+      "bytes": 70053
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 181,
-      "bytes": 60174
+      "bytes": 61253
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 363,
-      "bytes": 59926
+      "bytes": 60109
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15333
+      "bytes": 15477
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 153,
-      "bytes": 32584
+      "bytes": 32819
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1222,15 +1222,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "7477743f2a33b6075448fc2453896f2c7b24f13baf96c535f66467ff148354dc",
-      "after": "e3fe11cf4c90d7399f1312a004f51a95262609be5699c67da40873d663728a16",
-      "owner": "scene-static-position-uv",
-      "reason": "记录有界20B静态布局及旧选择/拒绝优先，移除已复验背景故障；同步有界真实后验与新资格待办，不扩大视觉裁决。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-static-position-uv"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "921dfcae54aa56c852925ca5e317d01d27db9a8339e8430e7b3fc1df729f87ee",
       "after": "73768b2a8119795012e8727af7a4811dc4c506bc3ba7c3ce711c7d95bfdd8f40",
@@ -1243,15 +1234,6 @@
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "8774f973a9e56edd6ed65f2e61b3d9bb9cd3bbe763faa060d4708c94d65ff8f5",
       "after": "79fa12ee6016276c08d8673d5492b3fb4fb67eb9a0186e88eefe6bab9da5ff41",
-      "owner": "scene-shortcut-beneficiary-intake",
-      "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "6e684fa454604e6abe0369689fecfc3c7730e29fe90465324d54157c8a314753",
-      "after": "ef88ac8520a0b64278bddf2da8f124f03e34f34ec7b46603aa0d1b2dc3cec3f9",
       "owner": "scene-shortcut-beneficiary-intake",
       "reason": "退出已实际恢复的361白块，登记381首次默认显示/正常退出的manual有界观察；性能与动画研究只写新证据/停止边界，不认领兼容或收益通过。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#shortcut-beneficiary-intake-20261017"
@@ -1276,30 +1258,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8b77c678482669a23935d9ecdc5b1677b71ef7f7450fd2ec3ba513f73bc7b565",
-      "after": "ea06f6dfb0e1b845c8f88e2635271c6c11f3f253badc42c7915eea6328a5015f",
-      "owner": "scene-sampler-presence",
-      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "6c030626c069e708b82f69c35deffea01b57b189dcc775702beb0f38a8c3caea",
-      "after": "a0a388f16530b42ea9d0faf9ddd1c820809bf7c9bedc03ed4621d8cea0e493e4",
-      "owner": "scene-sampler-presence",
-      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "e3fe11cf4c90d7399f1312a004f51a95262609be5699c67da40873d663728a16",
+      "after": "115ee415b9fe9da295b0b4a53ea721efb9a67d016c7faaef628cfae30b9fee40",
+      "owner": "scene-puppet-runtime",
+      "reason": "原设计原位补齐合法reference降级及已证侧脸恢复，运行权威保存有界后验；队列/静态审计保留aux动画和中央颈块/手部，台账只增原322中性记录，不改旧人工verdict。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-reference-fallback"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "02b8acc0e88710d78c8aa549638350f6e0aebd1671471c667cfc522d25f3e21f",
-      "after": "f4ad3d337a33273228b07bd55d94c64dc546388c7f4d27f5c130ca34f2f81431",
-      "owner": "scene-sampler-presence",
-      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
+      "before": "f4ad3d337a33273228b07bd55d94c64dc546388c7f4d27f5c130ca34f2f81431",
+      "after": "6d6cc637335513f70ddb3125b2b727fdd456777ee78347419fb9dfa23511282f",
+      "owner": "scene-puppet-runtime",
+      "reason": "原设计原位补齐合法reference降级及已证侧脸恢复，运行权威保存有界后验；队列/静态审计保留aux动画和中央颈块/手部，台账只增原322中性记录，不改旧人工verdict。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-reference-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "7366716de742b125654ece8a0f4beded5fbe015bbb3a82666439ceb04a8a1160",
+      "after": "1b3052fd3f013711098a4a20e69e58de9ffb6f4d8dad3a487f921bef16ba6eb7",
+      "owner": "scene-puppet-runtime",
+      "reason": "原设计原位补齐合法reference降级及已证侧脸恢复，运行权威保存有界后验；队列/静态审计保留aux动画和中央颈块/手部，台账只增原322中性记录，不改旧人工verdict。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-reference-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "a0a388f16530b42ea9d0faf9ddd1c820809bf7c9bedc03ed4621d8cea0e493e4",
+      "after": "24b80402c5f25297e4213568a01765b16ea4b11fe67ea2f65021283f887643bc",
+      "owner": "scene-puppet-runtime",
+      "reason": "原设计原位补齐合法reference降级及已证侧脸恢复，运行权威保存有界后验；队列/静态审计保留aux动画和中央颈块/手部，台账只增原322中性记录，不改旧人工verdict。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-reference-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "ea06f6dfb0e1b845c8f88e2635271c6c11f3f253badc42c7915eea6328a5015f",
+      "after": "844b4c536cfdf8e020e514833e14e974b08f89cb3805f1e1cff2f5d918468e75",
+      "owner": "scene-puppet-runtime",
+      "reason": "原设计原位补齐合法reference降级及已证侧脸恢复，运行权威保存有界后验；队列/静态审计保留aux动画和中央颈块/手部，台账只增原322中性记录，不改旧人工verdict。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-reference-fallback"
     }
   ]
 }

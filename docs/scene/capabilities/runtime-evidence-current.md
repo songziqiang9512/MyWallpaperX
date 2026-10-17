@@ -9,9 +9,9 @@
 
 ## 1. 当前证据快照
 
-
 | 查询主题 | 本页证据入口 |
 |---|---|
+| 动画失败后的角色组装 | <a id="puppet-reference-fallback-20261017"></a>沿唯一LayerLoad保留独立合法reference，原动画错误随Outcome发布；不跳track、不重读、不增加时钟/变形器。旧App原322散片基线与只清两层请求的对照定位分叉；最终签名Debug App `27fd9fda…b09f`/dylib `63119a57…bdc6`保留原934/876的2/3请求，两侧完整侧脸实际恢复，aux1412/1212仍拒绝。两层frame0/1的11/10段均GPU完成并末合成消费、publication推进；独立原379人物/花朵/背景和成功动画保持。两次唯一run exit0、无timeout/输入漂移/VM失败、stop1→0且GPU排空；ready93.211/34.718秒仅运行身份，不是性能对照。真实CPU准备10门及一次Debug通过、独审有界通过；4273构建输入中Scene稳定，4个无关UI文件在构建完成后改变，不声称全树匹配。必要证据`.artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/`。中央颈块/手部、unsupported动画、完整phase/viewport及官方parity仍未闭，无性能收益声明。 |
 | Sampler presence与缺光恢复 | <a id="sampler-presence-requirements-20261017"></a>固定官方2.8.0.42自有六臂一次：无纹理红，其余含缺省0/1及显式冲突条件均绿，90色patch/60跨帧比较误差0，必需蓝带、witness、标签/LIVE合格；只证明普通presence不受这些require筛选，format未证。现唯一Schema分类与三个旧raw条件入口同步，51/25/8退出旧缓存。presence两门及cache4门通过；最终Debug/签名0、4273 tracked inputs无漂移，App `18edc0ab…7ab7f`/dylib `3e6d7e6a…67717`。原382默认无combo改写，17/effect1从局部回退变为真实Program，frame0/1均GPU完成并末合成消费，右上双光束恢复；bundled util/noise真实加载，不认领合成噪声替代。独立原376人物、暖色背景与星期文字保持，MASK absent邻例仍不造presence；两包exit0、无timeout/drift且stop1→0/GPU drained。首carrier误判零计数与后继正则转义失效均保原收据、由既存log重分类，无App重跑。必要证据`.artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/`；不计完整画面/全部属性、格式官方语义或性能收益。357中性morph资格只校正顶点ordinal及旧reader偏移，未实现动画。 |
 | Project点击与显式分支 | [唯一后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)记录project Bool入口、完整显式删除、原口罩点击、自有同窗显隐及独立画面；实际App与最后合成kind反例构建分列，不计完整样本或性能。 |
 | Color输入与回调退场 | [数值slot后验](../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)保原String与类型边界；[永久删除callback后继](../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)解除原333末次合法编辑误拒，自有离场/调值及独立实图已验。特殊composition仍开放，无性能收益声明。 |

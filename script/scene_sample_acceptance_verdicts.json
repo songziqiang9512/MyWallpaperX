@@ -420,6 +420,20 @@
       ],
       "remainingDifferences": "无官方截屏，未判相同viewport/phase合成parity；完整属性/播放未验。源颜色合同回退只保具体诊断，不能由标签认定画面或热更新失效。",
       "officialComparison": "unknown"
+    },
+    "3226487183": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "10-17同身份原包实际origin已核；动画准备失败保留独立合法reference后，934/876左右侧脸由散片恢复为完整侧脸，原2/3请求不变且aux1412/1212仍拒绝。中央颈部粉色矩形仍在，手部与未支持动画不记完成。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/samples/3226487183/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "中央颈部块/手部及auxiliary动画余项仍开放；840→1095挂点准入为待验证候选，未证颈块因果。完整同viewport/phase、播放交互和属性未验，不记整样本PASS。",
+      "officialComparison": "compared"
     }
   }
 }
