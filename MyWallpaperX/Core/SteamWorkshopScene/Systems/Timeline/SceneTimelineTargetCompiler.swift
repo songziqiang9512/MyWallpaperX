@@ -57,6 +57,8 @@ nonisolated enum SceneTimelineTargetCompiler {
         case relativeUnsupported
         /// Only complete flat transform groups and the bounded camera pair are admitted.
         case combinedAnimationUnsupported
+        /// The admitted Single group plays its authored curves without response filtering.
+        case responseOptionsUnmodeled
         /// lane 数与 target 的值类型不符（例如 3 lane 写 scalar）。
         case componentMismatch
         /// instance override 缺少可用、无冲突的三分量作者基值。
@@ -155,6 +157,15 @@ nonisolated enum SceneTimelineTargetCompiler {
             }
             bindings.append(candidate.binding)
         }
+        for binding in bindings {
+            if binding.playbackOwner == binding.target,
+               case let .layer(layerID, field) = binding.target,
+               binding.animation.options.smoothing != nil || binding.animation.options.stiffness != nil {
+                diagnostics.append(
+                    "layer \(layerID) \(field.rawValue): \(Diagnostic.responseOptionsUnmodeled.rawValue)"
+                )
+            }
+        }
         return SceneTimelineProgram(bindings: bindings, diagnostics: diagnostics.sorted())
     }
 
@@ -214,8 +225,7 @@ nonisolated enum SceneTimelineTargetCompiler {
             let childKeys = members.filter { $0 != rootIndex }.map { timelines[$0].host.rawValue }
             guard !children.isEmpty, Set(children).count == children.count,
                   Set(children) == Set(childKeys),
-                  root.animation.options.smoothing == nil,
-                  root.animation.options.stiffness == nil,
+                  supportsRootResponseOptions(root.animation.options),
                   members.allSatisfy({ member in
                       let timeline = timelines[member]
                       let transform = timeline.host == .origin || timeline.host == .angles
@@ -248,6 +258,20 @@ nonisolated enum SceneTimelineTargetCompiler {
             }
         }
         candidates.append(contentsOf: indices.compactMap { prepared[$0] })
+    }
+
+    /// Keep response metadata on the original bindings; the shared evaluator
+    /// supplies a declared basic-curve approximation, never a guessed spring.
+    /// Numeric options outside the observed editor input domain remain
+    /// unsupported; nonfinite prepared values must not enter Codable bindings.
+    private nonisolated static func supportsRootResponseOptions(_ options: SceneTimelineOptions) -> Bool {
+        guard options.smoothing != nil || options.stiffness != nil else { return true }
+        guard options.mode == .single else { return false }
+        if let smoothing = options.smoothing,
+           !smoothing.isFinite || !(0 ... 0.9).contains(smoothing) { return false }
+        if let stiffness = options.stiffness,
+           !stiffness.isFinite || !(1 ... 200).contains(stiffness) { return false }
+        return true
     }
 
     private nonisolated static func rejectLayerGroup(

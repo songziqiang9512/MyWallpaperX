@@ -17,7 +17,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .fixtures.scene_timeline_combined_cases import combined_scene, rejected_combined_scenes
+from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, combined_scene, rejected_combined_scenes
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -564,11 +564,13 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
     def targets(self):
         return {b["target"] for b in self.result["bindings"]}
 
-    def compile_fixture(self, fixture, name, *, duplicate_timeline=False):
+    def compile_fixture(self, fixture, name, *, duplicate_timeline=False, duplicate_group=False, typed_response=None):
         scene = Path(self.temporary_directory.name) / f"{name}.json"
         scene.write_text(json.dumps(fixture), encoding="utf-8")
         completed = subprocess.run(
-            [str(self.binary), str(scene)] + (["duplicate-timeline"] if duplicate_timeline else []),
+            [str(self.binary), str(scene)] + (["typed-response:" + ":".join(typed_response)] if typed_response else
+                                            ["duplicate-group-layer"] if duplicate_group else
+                                            ["duplicate-timeline"] if duplicate_timeline else []),
             check=True, capture_output=True, text=True
         )
         return json.loads(completed.stdout)
@@ -717,12 +719,15 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         )
 
     def test_relative_combined_transforms_inherit_only_the_root_settings(self) -> None:
-        for renamed in (False, True):
-            with self.subTest(renamed=renamed):
-                result = self.compile_fixture(combined_scene(renamed=renamed), f"paired-{renamed}")
-                layer_id = 301 if renamed else 201
+        for label, (fixture, response) in accepted_combined_scenes().items():
+            with self.subTest(variant=label):
+                result = self.compile_fixture(fixture, "paired-" + label)
+                layer_id = fixture["objects"][0]["id"]
+                renamed = layer_id == 301
                 group = [b for b in result["bindings"] if b["target"].startswith(f"layer:{layer_id}:")]
-                self.assertEqual(result["diagnostics"], [])
+                root_key = "angles" if renamed else "origin"
+                self.assertEqual(result["diagnostics"], [] if response == [None, None]
+                                 else [f"layer {layer_id} {root_key}: responseOptionsUnmodeled"])
                 self.assertEqual([b["target"].split(":")[-1] for b in group], ["origin", "angles", "scale"])
                 self.assertEqual([b["targetIndex"] for b in group], [0, 1, 2])
                 root = f"layer:{layer_id}:" + ("angles" if renamed else "origin")
@@ -743,9 +748,22 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 result = self.compile_fixture(fixture, "bad-pair-" + label)
                 self.assertEqual([b["target"] for b in result["bindings"]], ["layer:202:alpha"], result)
                 self.assertTrue(result["diagnostics"], result)
+        # Inject true IEEE values only after Loader/Builder via typed descriptor decoding.
+        for field in ("smoothing", "stiffness"):
+            for value in ("NaN", "Infinity", "-Infinity"):
+                result = self.compile_fixture(combined_scene(response=(0.4, 87)), f"typed-{field}-{value}",
+                                              typed_response=(field, value))
+                self.assertEqual([b["target"] for b in result["bindings"]], ["layer:202:alpha"], result)
+                self.assertTrue(any("combinedAnimationUnsupported" in line for line in result["diagnostics"]), result)
+                self.assertFalse(any("responseOptionsUnmodeled" in line for line in result["diagnostics"]), result)
         duplicate = self.compile_fixture(combined_scene(), "duplicate-target", duplicate_timeline=True)
         self.assertEqual([b["target"] for b in duplicate["bindings"]], ["layer:202:alpha"], duplicate)
         self.assertTrue(duplicate["diagnostics"], duplicate)
+        duplicate = self.compile_fixture(combined_scene(response=(0.4, 87)), "duplicate-response-group",
+                                         duplicate_group=True)
+        self.assertEqual([b["target"] for b in duplicate["bindings"]], ["layer:202:alpha"], duplicate)
+        self.assertTrue(any("duplicateTarget" in line for line in duplicate["diagnostics"]), duplicate)
+        self.assertFalse(any("responseOptionsUnmodeled" in line for line in duplicate["diagnostics"]), duplicate)
 
     def test_camera_group_rejects_incoming_peer_but_preserves_unlinked_timelines(self) -> None:
         original = next(item for item in SCENE_FIXTURE["objects"] if item["id"] == 66)

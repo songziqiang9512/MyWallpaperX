@@ -62,7 +62,8 @@ nonisolated struct SceneTimelineOptions: Codable, Equatable {
     let mode: SceneTimelineMode
     let startsPaused: Bool
     let wrapsLoop: Bool
-    /// 随包 16 处声明但全为 null，语义未知，只做无损保留。
+    /// 作者响应选项按原值保留；普通 Single 组的基础曲线近似由 compiler 明确诊断，
+    /// evaluator 尚不解释这些字段的响应数学。
     let smoothing: Double?
     let stiffness: Double?
     /// Combined Animation 分组。持有方在 `children` 列出成员，成员用 `parent` 指回。

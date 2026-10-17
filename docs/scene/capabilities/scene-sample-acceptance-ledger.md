@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `8d1899d1b75b8d8d90679ba9efd99fa7c11b94ad382fde4ff03b9259db7d038e`。
-- 本页生成于 2026-10-17T20:20:24.022712+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `cea94298401d81dfe332bdfccecf65a1bd4118f0ef55164930b9afd0863307e0`。
+- 本页生成于 2026-10-17T23:15:43.247319+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -184,7 +184,7 @@
 | `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 10-18默认35s仍黑水滴/缺亮边拖尾；115.scale首个非有限返回保留。公式NaN已由早前向量链修复，不重列；反射原型无可认收益已撤回，见[现役队列](../roadmap/scene-open-breakpoint-queue.md)。旧人工fail日期不冒充当前官方复核 |
+| `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 仍黑水滴/缺亮边拖尾；旧NaN已修，反射原型已撤回；115.scale首个非有限返回仍在。 |
 | `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 86(44) bool 10 color 21 combo 4 slider 7 text 37 textinput 7 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。sh… |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3476868923` | 麻匪 索泰ZOTAC 天启姬 (角色双动画 点击互动) 120项自定义 | 131(49) bool 15 color 36 combo 3 slider 19 text 54 textinpu… | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -193,7 +193,7 @@
 | `3487629864` | 云曦老婆 (18+) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3507496797` | 麻匪 龙吟锦鲤赋 32:9 | 46(4) bool 10 color 4 combo 1 slider 1 text 30 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 233(2) bool 27 color 20 combo 3 group 21 scenetexture 1 sli… | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 开场/模拟画面不正常，坐标文字异常 |
-| `3549827466` | 【完美世界 火灵儿】盛典妆容 | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3549827466` | 【完美世界 火灵儿】盛典妆容 | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` | U02光束反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。 |
 | `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 35(16) bool 15 color 4 combo 1 group 5 slider 7 untyped 3 | `degraded-runtime` | `effect-admission / EffectStageAdmission / unified-capability-unavailable / backend:effect-family:blend` | `effect-chain` | `unreviewed` |  |
 | `3562021804` | 【完美世界】石昊 以身为种 | 3(0) bool 1 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3563038726` | 【凡人修仙传】梅凝  乖巧可怜 | 7(0) bool 4 color 2 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -263,7 +263,7 @@
 | `3762312138` | Elf x Goth | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3763323436` | 3763323436 | `missing-project` | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 行政入库备注（2026-10-17）：当前同ID目录仅见shaders残留，缺project.json与scene.pkg，本轮未运行。保留旧archive的… |
 | `3763428294` | 秧秧·玄翎1\|\|穗穗\|\|舟行画中，心随风远\|\|鸣潮 | 48(22) bool 16 color 7 group 4 slider 9 text 10 textinput 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3764725758` | Lumine_HuuOliv | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3764725758` | Lumine_HuuOliv | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` | U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。 |
 | `3765760121` | 【4K】三色堇与她 | 9(5) bool 5 color 1 combo 1 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 倒置已修，整样本未全面验收；2026-10-17后验：同签名final App、作者选项newproperty=2单次9s/after5，reader/灯/蓝… |
 | `3765904723` | 调月莉音 | 8(0) bool 5 color 1 slider 1 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3766310551` | 【完美世界】柳神 九劫焚天 | 6(1) bool 4 color 1 combo 1 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -320,7 +320,7 @@
 | `3793978239` | 埃吉尔掰穴 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3793998447` | 枕中梦 | 8(0) color 2 slider 6 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3796588443` | ZZZ 薇薇安 法厄同 Vivian Belle 鼠标互动揉胸 | 15(0) bool 11 color 2 group 2 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3797217144` | 迪迦奥特曼 出场动画 镜头视差【Ultraman Tiga】dy柊明 | 10(0) bool 5 color 2 group 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3797217144` | 迪迦奥特曼 出场动画 镜头视差【Ultraman Tiga】dy柊明 | 10(0) bool 5 color 2 group 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` | U09整组冻结首反馈已闭：原响应选项保留，基本放大/转正入场恢复；平滑、时相和整样本未验。 |
 | `3800075350` | 三角洲三小只-RX | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3800356808` | Warmth Valley Misty \| northway. | 15(0) bool 9 color 1 combo 1 slider 3 text 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3800572533` | [4K \| Day/Night] Neuro and Evil (by Ar… | 9(6) bool 2 color 1 combo 1 slider 5 | `not-run` | - | `not-run` | `unreviewed` |  |

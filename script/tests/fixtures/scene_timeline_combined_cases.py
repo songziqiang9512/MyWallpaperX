@@ -1,7 +1,7 @@
 """Authored Combined Timeline inputs shared by compiler and playback gates."""
 
 
-def combined_scene(*, renamed=False):
+def combined_scene(*, renamed=False, response=(None, None)):
     def key(frame, value):
         return {"frame": frame, "value": value}
 
@@ -25,6 +25,7 @@ def combined_scene(*, renamed=False):
         members.reverse()
         group = dict(reversed(list(group.items())))
         group[root_key]["animation"]["options"]["name"] = "renamed cohort"
+    group[root_key]["animation"]["options"].update(smoothing=response[0], stiffness=response[1])
     group[root_key]["animation"]["options"]["children"] = [{"key": key} for key in members]
     for child in members:
         group[child]["animation"]["options"]["parent"] = {"key": root_key}
@@ -34,11 +35,28 @@ def combined_scene(*, renamed=False):
     return {"version": 3, "objects": [group, independent]}
 
 
+def accepted_combined_scenes():
+    responses = {"nil-default": (None, None), "minimum": (0, 1),
+                 "middle": (0.4, 87), "maximum": (0.9, 200),
+                 "smoothing-only": (0.4, None), "stiffness-only": (None, 87)}
+    cases = {f"{label}-renamed-{renamed}": (combined_scene(renamed=renamed, response=response), list(response))
+             for renamed in (False, True) for label, response in responses.items()}
+    # String wire values have always parsed as nil; they are not typed nonfinite IR.
+    for renamed in (False, True):
+        for field in (0, 1):
+            for value in ("NaN", "Infinity"):
+                response = [None, None]
+                response[field] = value
+                cases[f"wire-string-{field}-{value}-{renamed}"] = (
+                    combined_scene(renamed=renamed, response=response), [None, None])
+    return cases
+
+
 def rejected_combined_scenes():
     cases = {}
     for label in ("missing-member", "missing-parent", "self", "cycle", "double-parent",
                   "duplicate-child", "unsupported-host", "absolute", "components",
-                  "root-smoothing", "wrap-range", "nonfinite-lane", "bad-base"):
+                  "loop-response", "wrap-range", "nonfinite-lane", "bad-base"):
         scene = combined_scene()
         group = scene["objects"][0]
         options = {key: group[key]["animation"]["options"] for key in ("origin", "angles", "scale")}
@@ -62,8 +80,8 @@ def rejected_combined_scenes():
             group["angles"]["animation"]["relative"] = False
         elif label == "components":
             del group["scale"]["animation"]["c2"]
-        elif label == "root-smoothing":
-            options["origin"]["smoothing"] = 0.4
+        elif label == "loop-response":
+            options["origin"].update(mode="loop", wraploop=False, smoothing=0.4, stiffness=87)
         elif label == "wrap-range":
             options["origin"].update(mode="loop", wraploop=True)
         elif label == "nonfinite-lane":
@@ -71,4 +89,9 @@ def rejected_combined_scenes():
         elif label == "bad-base":
             group["origin"]["value"] = "NaN 0 0"
         cases[label] = scene
+    for field, value in (("smoothing", -0.001), ("smoothing", 0.900001),
+                         ("stiffness", 0), ("stiffness", 201)):
+        scene = combined_scene()
+        scene["objects"][0]["origin"]["animation"]["options"][field] = value
+        cases[f"invalid-{field}-{value}"] = scene
     return cases

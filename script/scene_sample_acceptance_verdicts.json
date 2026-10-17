@@ -46,7 +46,7 @@
     "3470948192": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "开场/文字错位部分修复，仍有 NaN、文字碎片与异常背景"
+      "note": "仍黑水滴/缺亮边拖尾；旧NaN已修，反射原型已撤回；115.scale首个非有限返回仍在。"
     },
     "3477054430": {
       "verdict": "fail",
@@ -566,6 +566,42 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
       ],
       "remainingDifferences": "仅intro阶段有界运行；整球取景/全部播放与参数、旧Saturn视觉余项未关闭，未建立别名关系。"
+    },
+    "3797217144": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "U09整组冻结首反馈已闭：原响应选项保留，基本放大/转正入场恢复；平滑、时相和整样本未验。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "3764725758": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "3549827466": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "U02光束反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
     }
   }
 }

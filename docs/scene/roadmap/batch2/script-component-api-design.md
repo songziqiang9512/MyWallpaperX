@@ -533,7 +533,11 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 
 目标是让同层合法组合属性在同一作者时间、控制与typed事务中播放。实施前U17原包20s已证脸/龙Puppet推进；头发origin↔angles关系保留却命中普通组的静态拒绝条件，未导出其逐帧typed值，不把视觉差异先归单因。[官方Combined合同](https://docs.wallpaperengine.io/en/scene/timeline/combined.html)要求新property复用已有animation的设置；旧camera只复制设置、Runtime逐target持State，不能作为通用组合控制实现。现扩展原Program/PlaybackRuntime，替换逐成员状态；不新建clock、动画注册表或输出链。
 
-准备职责：首片为同一作者层内平坦、双向引用的origin/angles/scale组，所有成员仍须通过原typed target、relative/base、component、finite及wrap准入；不借Combined开放原未支持host或绝对变换。完整root target决定组identity，成员按原binding顺序保留；root的fps/length/mode/start-paused/wrap设置在统一验证前归一到各自lanes，不缩放keyframe帧、不跨运算改变relative基值。普通新组归一化后的有效root smoothing/stiffness非空、跨容器、嵌套/循环、缺引用、自引用、重复/多parent或最终target冲突拒绝相关组，不能留下独立可执行残员；其他健康组/普通Timeline继续。
+准备职责：首片为同一作者层内平坦、双向引用的origin/angles/scale组，所有成员仍须通过原typed target、relative/base、component、finite及wrap准入；不借Combined开放原未支持host或绝对变换。完整root target决定组identity，成员按原binding顺序保留；root的fps/length/mode/start-paused/wrap设置在统一验证前归一到各自lanes，不缩放keyframe帧、不跨运算改变relative基值。有效root响应选项按下述基础Single曲线后继准入；跨容器、嵌套/循环、缺引用、自引用、重复/多parent或最终target冲突仍拒绝相关组，不能留下独立可执行残员；其他健康组/普通Timeline继续。
+
+**基础Single曲线后继（2026-10-18，实施前决策）。** U09的58 angles→scale带非空smoothing=.9/stiffness=87，旧整组拒绝使原包人物一直横倒；同HEAD测试副本只移除这两个选项后，健康背景保持，人物从零XY尺寸恢复并转正。固定官方2.8.0.42原输入的后两张实图也为完整、转正人物；这证明已知曲线不应整组冻结，未证明两选项只是编辑元数据或没有过渡响应。选择复用唯一Evaluator/PlaybackRuntime执行基础关键帧近似，不引入未知spring算法或第二clock。范围仅限上述合法同层relative变换组、root mode=single；有效响应值须在已见编辑选项域内（smoothing 0…0.9，stiffness 1…200，分别可省略）。其他模式或域外/非有限值保持组级未准入，不按样本选择。
+
+Program保留作者响应值及原owner关系，在准备期为实际接纳的组发布一次`responseOptionsUnmodeled`降级诊断；曲线、相对基值、root时长/暂停/名称、命令顺序与typed事务全部沿现链执行。该诊断表示平滑、迟滞或过冲未实现，不等于完整原动画精度；child被root替换的选项不另建状态。验收须保原输入完成基础姿态变化、零尺寸阶段局部退化后恢复及健康背景，覆盖改名/换成员顺序、合法选项变体、nil旧路径、暂停/重启、非法拓扑与非有限反例，并以未参与修法的真实Timeline样本检查回退。官方无同engine-phase marker的截图只支持基本姿态，不裁精确entry时相、lag或数值平滑。后继获得响应合同后在同一owner替换近似并撤销该诊断，不保留并行播放算法；若原输入基础姿态不获恢复则撤回本候选。
 
 原binding/Program保存不可变的完整播放owner关系，旧独立输入默认自身owner；准备期形成target→owner状态索引和owner→有序成员，普通帧只消费已准备索引。原PlaybackRuntime每组只有一个State，所有成员在同一elapsedFrames求各自值；命令按原journal顺序作用owner，preview投影该组全部成员，原validate/apply和typed事务共同接纳或撤回。未知target/throw/溢预算/提交前取消保持原owner包失败；Runtime的next-frame observation快照/恢复API保留并覆盖组成员；当前host没有该API调用者，本片不宣称无surface提交时host已恢复观察，也不以该诊断日志证明呈现。preview不消费、拒绝命令不apply，已接受播放状态不因后续GPU失败新增回滚协议。
 

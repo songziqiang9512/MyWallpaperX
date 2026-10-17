@@ -107,6 +107,42 @@ enum Harness {
             descriptor = try JSONDecoder().decode(SceneRenderDescriptor.self,
                 from: JSONSerialization.data(withJSONObject: object))
         }
+        if CommandLine.arguments.last == "duplicate-group-layer" {
+            // Prepared duplicate target: the full Compiler owns final group rejection.
+            var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(descriptor)) as! [String: Any]
+            var layers = object["layers"] as! [[String: Any]]
+            layers.append(layers[0])
+            object["layers"] = layers
+            descriptor = try JSONDecoder().decode(SceneRenderDescriptor.self,
+                from: JSONSerialization.data(withJSONObject: object))
+        }
+        if let mode = CommandLine.arguments.last, mode.hasPrefix("typed-response:") {
+            // Wire strings parse as nil. This separate IR boundary explicitly decodes IEEE values.
+            let parts = mode.split(separator: ":").map(String.init)
+            guard parts.count == 3, ["smoothing", "stiffness"].contains(parts[1]) else {
+                throw HarnessError.missingFixture
+            }
+            var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(descriptor)) as! [String: Any]
+            var layers = object["layers"] as! [[String: Any]]
+            var timelines = layers[0]["timelines"] as! [[String: Any]]
+            let root = timelines.firstIndex { timeline in
+                let animation = timeline["animation"] as? [String: Any]
+                let options = animation?["options"] as? [String: Any]
+                return !(options?["children"] as? [[String: Any]] ?? []).isEmpty
+            }!
+            var animation = timelines[root]["animation"] as! [String: Any]
+            var options = animation["options"] as! [String: Any]
+            options[parts[1]] = parts[2]
+            animation["options"] = options
+            timelines[root]["animation"] = animation
+            layers[0]["timelines"] = timelines
+            object["layers"] = layers
+            let decoder = JSONDecoder()
+            decoder.nonConformingFloatDecodingStrategy = .convertFromString(
+                positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+            descriptor = try decoder.decode(SceneRenderDescriptor.self,
+                from: JSONSerialization.data(withJSONObject: object))
+        }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
         let vectorTarget = SceneDynamicTarget.effectConstant(
             layerID: 30,

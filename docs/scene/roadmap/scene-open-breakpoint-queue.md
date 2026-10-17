@@ -99,11 +99,10 @@
 
 | 编号 / 样本 | 仍开放的具体观察 / 下一关闭门 |
 |---|---|
-| U01 · 3764725758 | ①左侧向右下光束缺失；②人物眼睛错误飘动。分别定位实际来源/激活/合成与pose/挂点，不先假定同因 |
-| U02 · 3549827466、3585542943、3581882134、3603711180 | 四样本光束缺失，各取实际particle/shader occurrence、准入、geometry/coverage与最终ROI；不能合并为一个未证算法 |
+| U01 · 3764725758 | ①左侧斜光；②眼睛飘动仍保留。10-18当前HEAD复验已证830/1706实际Program、GPU、末合成及next-frame，未见准入首拒；窗口与官方比例不同，未确定可归因光束ROI，不改增益/点位。眼部未作完整周期复验。[有界复验](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
+| U02 · 3549827466、3585542943、3581882134、3603711180 | 354于10-18当前HEAD复验：1226实际完成143批/672实例、无失败，主体/背景保持；尚无同viewport可归因缺光ROI，不按族名补算法。其余三包未随本次复验，仍分别核来源、geometry/coverage与最终ROI。[边界](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U05 · 3723344874 | 人物背后烟雾/涡动仍开放。10-17初始化numeric自读与typed RGBA辅助carrier首门已退出，原包effect3实际17material/2swap、0rejected/GPU完成，经suffix末合成/下一帧；node19证明与node22metadata不再拒。根对照前后/官方原图仍未证明显烟雾恢复，Dye内容非零UNKNOWN；下一门应取可归因输入/内容，不再以准入、完成计数或盲加时/增益销账。[后验](../capabilities/runtime-evidence-current.md#u05-source-proven-signal-20261017) |
 | U08 · 3802005866 | 音频条/蓝背景疑似越出限定矩形；先确认作者限定区域，再核变换/clip/extent |
-| U09 · 3797217144 | 旋转并由小放大的出场缺失；核intro/Timeline/脚本启动与完整入场时序 |
 | U10 · 3793998447 | 音频光圈和部分属性疑似缺失；先列具体active属性与typed消费者，不能从面板有声明推全部失效 |
 | U11 · 3792249095 | 音频发光缺失、整体样式差异；先同声源定位驱动→effect/颜色/合成与具体构图ROI |
 | U13 · 3042492564 | 尺寸/显示比例、光束形状、封面右裁切/blur、布局及媒体交互分别保留待当前条件复验。10-16原包默认倍率0.73→1→0.73同窗可见，星芒/海平线/塔底恢复，官方同aspect主体尺度接近；这关闭旧倍率输入首门，不代替最新尺寸观察或其他ROI。1128非有限origin也已修；544作者ReferenceError:event不列host缺口。[camera边界](../history/default-2d-camera-inputs-2026-10-16.md)、[Vec证据](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md) |
@@ -116,14 +115,14 @@
 | U26 · 2849382252 | 三条白色图形分辨率过低；核原资产、采样/target extent与几何，不先判压缩或任意加分辨率 |
 | U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
 | U28 · 2684431262 | 与官方显示差异大，旧维护者另报异常紫色块；现描述不足以定算法，先取得当前构图、紫块对应source及逐层首个不同ROI |
-| U29 · 3470948192 | 默认35s已越过intro仍黑水滴、缺亮边/拖尾；115.scale首个非有限返回仍在。公式NaN已有早前向量链修复，不再列开放。10-18 F5模型近似原型虽实际完成named graph与环境copy，未获可认画面收益，已撤回全部产品扩权；先以官方自有模型锁反射空间/能量目标，不继续改缺省距离或亮度追图。[停止依据与后继边界](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018) |
+| U29 · 3470948192 | 默认35s已越过intro仍黑水滴、缺亮边/拖尾；115.scale非有限返回仍在，旧公式NaN不再开放。F5原型无可认收益已撤回；后继固定官方模型载体两OFF均未通过环境/健康正控，入口机械纠正也未闭合，反射空间/能量保持UNKNOWN，不重跑未资格载体或调距离/亮度追图。[原型停止](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018)、[后继资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U30 · 3750813609 | 旧观察①闪电缺失；②时钟颜色/发光不符；③雨弱，均待同phase复验。10-16原包身份复核：雷电为121→lightning2，普通Sphere/rate1，无periodic cap；旧405/412+cap32关联错误已删，它们属3749463715，能力缺口只归[静态审计](scene-full-sample-static-audit.md)。未找到121 root静态准入拒绝，不推断其视觉原因。 |
 | U31 · 3264246690 | ①人物边缘锯齿；②警戒带运动仍待当前画面对照。旧头部出画/左肘缺块已有[稳定帧完整肢体后验](../capabilities/runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)，不再列待修。点击口罩已有before戴口罩→click露嘴及effect切换的[实际后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)；pool误拒另修，不据这些关闭AA/运动或整样本。 |
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |
 | U33 · 3769688830 | 玩偶应左右循环转而现单向转；核rotation/oscillation/Timeline的相位和方向，不专设摆动算法 |
 | U35 · 2974757317 | 卡片下多出独立矩形频谱；先证作者是否本有该层，再核named/previous、层序/变换/clip，不直接隐藏 |
 | U36 · 3780119725 | 中层固定而整景应随鼠标视差；另旧人工记录有脸部黑线/缺块、动画、光照/闪烁差异。沿camera/depth/parent→MVP与effect输入复验；默认camera后继不能代替该包当前验收 |
-| U37 · 3769364482 | 发光突现，缺渐显渐隐呼吸；核opacity/Timeline/effect→typed→合成完整周期 |
+| U37 · 3769364482 | 发光突现/缺呼吸的旧视觉反馈待当前完整周期复验。10-18定义复核无layer alpha Timeline；Blink实际控制59/effect173/pass1的rayintensity循环，Breathing控制三条Shake，不按“缺opacity动画”修。尚无当前标量Timeline拒绝证据，先区分这两实际消费者及可归因ROI。[资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U38 · 3750342273 | 缺pointer镜头视差；复验输入、相机配置与各层变换，不全图后移补偿 |
 | U39 · 3219398263 | 漩涡方向疑似相反；固定时间/角度/UV/空间后裁决，不凭单帧改符号 |
 
@@ -135,6 +134,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 3797217144 · 基础入场/横倒首反馈已闭 | 10-18原输入的Single angles→scale不再因响应选项而整组冻结：先保蓝环背景，再恢复完整转正人物。作者选项保留，未实现响应明确为基础曲线近似；固定官方原包及删键变体均见正向人物。精确平滑/phase与整样本未验，不另造已证视觉缺陷。[有界后验](../capabilities/runtime-evidence-current.md#single-timeline-response-fallback-20261018) |
 | 3617056047 · 位置/倒置反馈已闭 | 10-18原包罐体恢复正向并回虚线圆内，不再压底字；作者origin/scale与camera保持，原准备入口完成静态mesh顶点基适配。真实单面/背剔除、父级/负scale/native及三shadow通过，独立native原包有界呈现；不记全样本、精确亮度/同phase或全部互动通过。[后验](../capabilities/runtime-evidence-current.md#static-model-canvas-basis-20261018) |
 | 3471294034 · 缺网格反馈已闭 | 10-18原包默认实机恢复背景菱形网格，人物/文字/花瓣及频谱保持；368沿原链只选159，371/373实际GPU及末合成成立。双候选切换/变体和相邻拒绝已验；仅关闭报告的缺网格现象，不记整样本/全部属性通过。[有界后验](../capabilities/runtime-evidence-current.md#selected-provider-admission-20261018) |
 | 833227004 · 原反馈已闭 | 原流动缺失已有多帧source输出与留白消失的[实际后验](../history/source-material-entry-2026-10-08.md)；未称官方同时间parity。 |

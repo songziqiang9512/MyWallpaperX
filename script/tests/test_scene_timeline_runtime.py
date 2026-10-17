@@ -18,7 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .fixtures.scene_timeline_combined_cases import combined_scene
+from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -465,7 +465,13 @@ enum Harness {
         }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
         if CommandLine.arguments.last == "combined" {
-            let result = try SceneTimelineCombinedPlaybackChecks.run(program)
+            var result = try SceneTimelineCombinedPlaybackChecks.run(program)
+            result["responseOptions"] = program.bindings.filter { $0.playbackOwner != nil }.map {
+                binding -> [Any] in
+                [binding.animation.options.smoothing.map { $0 as Any } ?? NSNull(),
+                 binding.animation.options.stiffness.map { $0 as Any } ?? NSNull()]
+            }
+            result["diagnostics"] = program.diagnostics
             print(String(decoding: try JSONSerialization.data(withJSONObject: result,
                 options: [.sortedKeys]), as: UTF8.self))
             return
@@ -716,12 +722,15 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         )
         cls.result = json.loads(completed.stdout)
         cls.combined_results = []
-        for renamed in (False, True):
-            entry = directory / f"combined-{renamed}.json"
-            entry.write_text(json.dumps(combined_scene(renamed=renamed)), encoding="utf-8")
+        for label, (fixture, response) in accepted_combined_scenes().items():
+            entry = directory / f"combined-{label}.json"
+            entry.write_text(json.dumps(fixture), encoding="utf-8")
             result = subprocess.run([str(binary), str(entry), "combined"],
                                     check=True, capture_output=True, text=True)
-            cls.combined_results.append(json.loads(result.stdout))
+            group = fixture["objects"][0]
+            root = next(key for key in ("origin", "angles")
+                        if group[key]["animation"]["options"].get("children"))
+            cls.combined_results.append((label, group["id"], root, response, json.loads(result.stdout)))
         cls.general_results = {}
         for label, fixture in general_bloom_fixtures().items():
             case = directory / label
@@ -779,12 +788,16 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         base = [[10, 20, 30], [1, 2, 3], [1, 2, 3]]
         middle = [[11, 22, 33], [3, 5, 7], [1.25, 2.5, 3.75]]
         end = [[12, 24, 36], [5, 8, 11], [1.5, 3, 4.5]]
-        for result in self.combined_results:
-            self.assertEqual(result["samples"], [base, middle, middle, end, base, middle, base])
-            self.assertEqual(result["preview"], base)
-            self.assertEqual(result["ordered"], middle)
-            self.assertEqual(result["reversed"], base)
-            self.assertTrue(all(result["facts"].values()), result["facts"])
+        for label, layer_id, root, response, result in self.combined_results:
+            with self.subTest(variant=label):
+                self.assertEqual(result["samples"], [base, middle, middle, end, base, middle, base])
+                self.assertEqual(result["preview"], base)
+                self.assertEqual(result["ordered"], middle)
+                self.assertEqual(result["reversed"], base)
+                self.assertTrue(all(result["facts"].values()), result["facts"])
+                self.assertEqual(result["responseOptions"], [response] * 3)
+                self.assertEqual(result["diagnostics"], [] if response == [None, None]
+                                 else [f"layer {layer_id} {root}: responseOptionsUnmodeled"])
 
     def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
         for label in ("t0", "half", "closing", "late"):
