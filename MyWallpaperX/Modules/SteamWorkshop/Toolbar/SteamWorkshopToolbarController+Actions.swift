@@ -236,6 +236,9 @@ extension SteamWorkshopToolbarController {
                     kind: .check,
                     isChecked: service.downloadsSortMode == mode,
                     handler: {
+                        if service.downloadsSortMode != mode {
+                            service.downloadsSortAscending = mode == .title
+                        }
                         service.downloadsSortMode = mode
                         self?.configureDownloadsSortItem()
                     }
@@ -243,20 +246,11 @@ extension SteamWorkshopToolbarController {
             }
             rows.append(.separator())
             rows.append(ToolbarMenuPopoverPresenter.Row(
-                title: "升序",
+                title: service.downloadsSortAscending ? "升序" : "降序",
                 kind: .check,
-                isChecked: service.downloadsSortAscending,
+                isChecked: true,
                 handler: {
-                    service.downloadsSortAscending = true
-                    self?.configureDownloadsSortItem()
-                }
-            ))
-            rows.append(ToolbarMenuPopoverPresenter.Row(
-                title: "降序",
-                kind: .check,
-                isChecked: !service.downloadsSortAscending,
-                handler: {
-                    service.downloadsSortAscending = false
+                    service.downloadsSortAscending.toggle()
                     self?.configureDownloadsSortItem()
                 }
             ))

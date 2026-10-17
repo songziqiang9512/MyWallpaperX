@@ -17,6 +17,8 @@ struct SteamWorkshopDownloadRecord: Equatable {
     var status = Status.ready
     var contentType = ContentType.video
     var updatedAt = Date(timeIntervalSince1970: 1)
+    var createdAt: Date? = nil
+    var sizeBytes: Int64? = nil
     var sizeText = "10"
 }
 @MainActor final class SteamWorkshopService {
@@ -24,7 +26,7 @@ struct SteamWorkshopDownloadRecord: Equatable {
     var downloads: [SteamWorkshopDownloadRecord] = []
     var displayedDownloads: [SteamWorkshopDownloadRecord] = []
     var downloadsDisplayMode = SteamWorkshopDownloadsDisplayMode.all
-    var downloadsSortMode = SteamWorkshopDownloadsSortMode.updatedAt
+    var downloadsSortMode = SteamWorkshopDownloadsSortMode.createdAt
     var downloadsSortAscending = false
     var downloadsQuery = ""
     var isDownloadsMultiSelectMode = false
@@ -242,6 +244,45 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         service.downloadsShowsAdultContent = true
         checks["reenablingRestoresWholeExistingProjection"] = service.displayedDownloads.count == 8
 
+        let previousDownloads = service.downloads
+        func sortable(_ id: String, _ title: String, _ date: TimeInterval, _ bytes: Int64) -> SteamWorkshopDownloadRecord {
+            var record = SteamWorkshopDownloadRecord(id: id, title: title)
+            record.createdAt = Date(timeIntervalSince1970: date)
+            record.sizeBytes = bytes; record.sizeText = "same rounded size"
+            return record
+        }
+        let a = sortable("a", "Alpha", 20, 1_000_002)
+        var z = sortable("z", "zebra", 10, 1_000_001)
+        var folded = sortable("b", "álpha", 20, 1_000_002)
+        folded.updatedAt = Date(timeIntervalSince1970: 9000)
+        let unknown = SteamWorkshopDownloadRecord(id: "unknown", title: "zz unknown", sizeText: "9999GB")
+        service.downloads = [z, unknown, folded, a]
+        service.downloadsSortMode = .createdAt; service.downloadsSortAscending = false
+        let beforeModification = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
+        z.updatedAt = Date(timeIntervalSince1970: 99999)
+        service.downloads[0] = z
+        checks["creationSortDoesNotUseModificationDate"] = beforeModification == ["b", "a", "z", "unknown"]
+            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == beforeModification
+        service.downloadsSortMode = .title; service.downloadsSortAscending = true
+        let alphabetical = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
+        service.downloadsSortAscending = false
+        checks["titleSortIsAZWithExactReverse"] = alphabetical == ["a", "b", "z", "unknown"]
+            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == alphabetical.reversed()
+        service.downloadsSortMode = .size; service.downloadsSortAscending = true
+        let sizeAscending = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
+        service.downloadsSortAscending = false
+        checks["sizeSortUsesExactBytesInsteadOfFormattedText"] = sizeAscending == ["z", "a", "b", "unknown"]
+            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == ["b", "a", "z", "unknown"]
+        service.downloads = [sortable("3", "Work 10", 1, 1), sortable("2", "work 2", 1, 1),
+            sortable("01", "Same", 1, 1), sortable("1", "same", 1, 1)]
+        service.downloadsSortMode = .title; service.downloadsSortAscending = true
+        let numericOrder = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
+        service.downloadsSortAscending = false
+        checks["numericTitlesAndEqualTitlesHaveDeterministicReverse"] = numericOrder == ["01", "1", "2", "3"]
+            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == numericOrder.reversed()
+        service.downloads = previousDownloads
+        service.downloadsSortMode = .createdAt; service.downloadsSortAscending = false
+
         let window = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 640, height: 400),
             styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -292,9 +333,36 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             .compactMap(\.contentView).flatMap(allButtons)
         let adult = buttons.first { $0.title == "成人内容" }
         checks["adultOptionIsLastSortMenuRow"] = adult != nil && buttons.last === adult
+        checks["sortMenuUsesRequestedLabelsAndOneCurrentDirection"] = buttons.map(\.title) == ["创建时间", "作品名称", "文件大小", "降序", "成人内容"]
         adult?.performClick(nil)
         checks["adultMenuCheckboxRunsLiveProjectionAndStaysOpen"] = !service.downloadsShowsAdultContent
             && service.displayedDownloads.count == 3 && toolbar.menuPopover.isShown
+        func menuButtons() -> [NSButton] {
+            NSApp.windows.filter { $0 !== window && $0.isVisible }.compactMap(\.contentView).flatMap(allButtons)
+        }
+        menuButtons().first { $0.title == "作品名称" }?.performClick(nil)
+        checks["selectingTitleStartsWithAZ"] = service.downloadsSortMode == .title && service.downloadsSortAscending
+            && menuButtons().filter { $0.title == "升序" || $0.title == "降序" }.map(\.title) == ["升序"]
+        menuButtons().first { $0.title == "升序" }?.performClick(nil)
+        checks["oneDirectionRowTogglesAndDisplaysCurrentOrder"] = !service.downloadsSortAscending
+            && menuButtons().filter { $0.title == "升序" || $0.title == "降序" }.map(\.title) == ["降序"]
+        menuButtons().first { $0.title == "作品名称" }?.performClick(nil)
+        checks["selectingCurrentModeKeepsDirection"] = !service.downloadsSortAscending
+        menuButtons().first { $0.title == "文件大小" }?.performClick(nil)
+        checks["selectingSizeDefaultsToLargestFirst"] = service.downloadsSortMode == .size && !service.downloadsSortAscending
+        menuButtons().first { $0.title == "降序" }?.performClick(nil)
+        menuButtons().first { $0.title == "创建时间" }?.performClick(nil)
+        checks["selectingCreationDefaultsToNewestFirst"] = service.downloadsSortMode == .createdAt && !service.downloadsSortAscending
+        if let directory = ProcessInfo.processInfo.environment["MWX_LIBRARY_TOOLBAR_PROOF_DIR"],
+           let panel = menuButtons().first?.window?.contentView {
+            panel.layoutSubtreeIfNeeded()
+            if let bitmap = panel.bitmapImageRepForCachingDisplay(in: panel.bounds) {
+                panel.cacheDisplay(in: panel.bounds, to: bitmap)
+                let url = URL(fileURLWithPath: directory, isDirectory: true)
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                try bitmap.representation(using: .png, properties: [:])?.write(to: url.appendingPathComponent("download-sort-menu.png"))
+            }
+        }
         toolbar.menuPopover.close()
         window.close()
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)

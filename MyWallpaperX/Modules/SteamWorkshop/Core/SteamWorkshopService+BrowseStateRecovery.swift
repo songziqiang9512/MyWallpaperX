@@ -51,7 +51,7 @@ extension SteamWorkshopService {
         activeDownloadItemIDs.removeAll()
         downloads = []
         downloadsQuery = ""
-        downloadsSortMode = .updatedAt
+        downloadsSortMode = .createdAt
         downloadsSortAscending = false
         isDownloadsMultiSelectMode = false
         selectedDownloadID = nil

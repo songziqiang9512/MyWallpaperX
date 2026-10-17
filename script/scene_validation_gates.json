@@ -3202,6 +3202,21 @@
         "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
       ],
       "modules": ["test_library_toolbar_behaviors"]
+    },
+    {
+      "id": "steam-download-sort-statistics",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAPIModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadFiltering.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Actions.swift",
+        "script/tests/fixtures/SteamDownloadSortingHarness.swift",
+        "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
+        "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
+      ],
+      "modules": ["test_steam_download_sorting", "test_steam_download_execution", "test_library_toolbar_behaviors"]
     }
   ],
   "method_gates": {

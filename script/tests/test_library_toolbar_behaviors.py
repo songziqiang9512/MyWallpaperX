@@ -28,7 +28,7 @@ class LibraryToolbarBehaviorTests(unittest.TestCase):
         steam_methods += '\n' + method(service, '    @Published var downloadsShowsAdultContent')
         steam_methods += '\n' + '\n'.join(method(filtering, signature) for signature in [
             '    func filteredAndSortedDownloads(', '    private func sortedDownloadRecords(',
-            '    private func downloadRecordStableTieBreak(', '    func sanitizeDownloadSelectionAgainstDisplayedDownloads('])
+            '    private func downloadRecordStableComparison(', '    func sanitizeDownloadSelectionAgainstDisplayedDownloads('])
         online = (ROOT / 'MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift').read_text()
         online_methods = '\n'.join(method(online, signature) for signature in [
             '    func deleteSelected(', '    func toggleMultiSelect(',

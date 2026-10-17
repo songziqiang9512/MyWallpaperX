@@ -125,6 +125,12 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     /// existing playback owner may still reference.
     var legacyRemoved: Bool? = nil
     var commit: SteamWorkshopLibraryCommit? = nil
+    var firstDownloadedAt: Date? = nil
+
+    func resolvedFirstDownloadDate(fallbackCreationDate: Date? = nil) -> Date? {
+        firstDownloadedAt ?? commit?.committedAt ?? fallbackCreationDate
+            ?? (fetchedAt > .distantPast ? fetchedAt : nil)
+    }
 }
 
 struct SteamWorkshopDiscoveryBrowseSnapshot {

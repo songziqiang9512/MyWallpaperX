@@ -177,66 +177,44 @@ extension SteamWorkshopService {
                 || $0.browserItem?.author.localizedLowercase.contains(normalized) == true
             }
         }
-        // Size ordering parses each record's size text exactly once instead of
-        // twice per comparison inside the sort closure (O(N log N) parses for
-        // an O(N log N) sort).
-        let sorted: [SteamWorkshopDownloadRecord]
-        if downloadsSortMode == .size {
-            let sized = searched.map { record -> (record: SteamWorkshopDownloadRecord, bytes: Int64?) in
-                (record, Self.parseByteCount(from: record.sizeText))
-            }
-            sorted = sized.sorted { lhs, rhs in
-                switch (lhs.bytes, rhs.bytes) {
-                case let (lhsBytes?, rhsBytes?):
-                    if lhsBytes != rhsBytes {
-                        return downloadsSortAscending ? (lhsBytes < rhsBytes) : (lhsBytes > rhsBytes)
-                    }
-                case (.some, nil):
-                    // 已知大小恒在未知大小之前（与排序方向无关）：失败意图的未知
-                    // 大小不当作零大小完成包。
-                    return true
-                case (nil, .some):
-                    return false
-                case (nil, nil):
-                    break
+        // Filesystem statistics are prepared by the background library scan.
+        // Never sort by rounded display strings or mutable modification dates.
+        return searched.sorted { lhs, rhs in
+            let comparison: ComparisonResult
+            switch downloadsSortMode {
+            case .createdAt:
+                switch (lhs.createdAt, rhs.createdAt) {
+                case let (a?, b?) where a != b: comparison = a < b ? .orderedAscending : .orderedDescending
+                case (.some, nil): return true
+                case (nil, .some): return false
+                default: comparison = downloadRecordStableComparison(lhs, rhs)
                 }
-                return downloadRecordStableTieBreak(lhs.record, rhs.record)
-            }.map(\.record)
-        } else {
-            sorted = searched.sorted { lhs, rhs in
-                switch downloadsSortMode {
-                case .updatedAt:
-                    if lhs.updatedAt != rhs.updatedAt {
-                        return downloadsSortAscending ? (lhs.updatedAt < rhs.updatedAt) : (lhs.updatedAt > rhs.updatedAt)
-                    }
-                case .title:
-                    let comparison = lhs.title.localizedStandardCompare(rhs.title)
-                    if comparison != .orderedSame {
-                        return downloadsSortAscending ? (comparison == .orderedAscending) : (comparison == .orderedDescending)
-                    }
-                    if lhs.updatedAt != rhs.updatedAt {
-                        return downloadsSortAscending ? (lhs.updatedAt < rhs.updatedAt) : (lhs.updatedAt > rhs.updatedAt)
-                    }
-                case .size:
-                    // Handled by the decorate-sort path above.
-                    break
+            case .title:
+                comparison = downloadRecordStableComparison(lhs, rhs)
+            case .size:
+                switch (lhs.sizeBytes, rhs.sizeBytes) {
+                case let (a?, b?) where a != b: comparison = a < b ? .orderedAscending : .orderedDescending
+                case (.some, nil): return true
+                case (nil, .some): return false
+                default: comparison = downloadRecordStableComparison(lhs, rhs)
                 }
-                return downloadRecordStableTieBreak(lhs, rhs)
             }
+            return comparison == (downloadsSortAscending ? .orderedAscending : .orderedDescending)
         }
-        return sorted
     }
 
-    /// 用户选项并列时的最终稳定 tie-break：workshop item ID。
-    private func downloadRecordStableTieBreak(
+    /// Fixed alphabetic collation and a stable identity make direction changes
+    /// exact inverses for known values, including equal titles/sizes/dates.
+    private func downloadRecordStableComparison(
         _ lhs: SteamWorkshopDownloadRecord,
         _ rhs: SteamWorkshopDownloadRecord
-    ) -> Bool {
-        let comparison = lhs.title.localizedStandardCompare(rhs.title)
-        if comparison != .orderedSame {
-            return comparison == .orderedAscending
-        }
-        return lhs.id < rhs.id
+    ) -> ComparisonResult {
+        let locale = Locale(identifier: "en_US_POSIX")
+        let lhsTitle = lhs.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
+        let rhsTitle = rhs.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
+        let comparison = lhsTitle.compare(rhsTitle, options: [.numeric], locale: locale)
+        if comparison != .orderedSame { return comparison }
+        return lhs.id.compare(rhs.id, options: [.literal])
     }
 
     func sanitizeDownloadSelectionAgainstDisplayedDownloads() {

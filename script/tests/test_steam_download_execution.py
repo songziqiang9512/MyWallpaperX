@@ -39,6 +39,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             'loadLegacyVideoDownloadSnapshot',
         ):
             methods.append(extract_function(source, '    func ' + name + '('))
+        methods.append(extract_function(source, '    nonisolated static func scanLoadDownloadMetadataEntry('))
         methods.append(extract_function(
             source, '    func downloadMetadataFileURL(forVideoURL videoURL:'
         ))
@@ -53,13 +54,17 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         ):
             method = extract_function(selection, signature)
             methods.append(method.replace('    private func ', '    func ', 1))
+        records = (CORE / 'SteamWorkshopService+LibraryRecords.swift').read_text()
+        methods.append(extract_function(records, '    nonisolated static func localCreationDate('))
+        metadata = (CORE / 'SteamWorkshopAPIModels.swift').read_text()
+        date_resolution = extract_function(metadata, '    func resolvedFirstDownloadDate(')
         publisher = folder / 'Publisher.swift'
         publisher.write_text(
             'import AppKit\nextension SteamWorkshopService {\n'
             'func downloadMetadataIndexDirectoryURL() -> URL { '
             'steamDownloadLibraryRootURL.appendingPathComponent('
             '".mywallpaperx-steam-metadata", isDirectory: true) }\n'
-            + '\n'.join(methods) + '\n}'
+            + '\n'.join(methods) + '\n}\nextension SteamWorkshopDownloadMetadataSnapshot {\n' + date_resolution + '\n}'
         )
         cls.binary = folder / 'execution'
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES),
@@ -110,6 +115,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
                 commit = snapshot['commit']
                 expected_type = json.loads(files['project.json'])['type'].strip().lower()
                 type_directory = {'video': 'Video', 'web': 'Web', 'scene': 'Scene'}[expected_type]
+                self.assertEqual(snapshot['firstDownloadedAt'], commit['committedAt'])
                 self.assertEqual(commit['version'], 3)
                 self.assertEqual(commit['contentType'], expected_type)
                 self.assertEqual(commit['directoryName'], '123456')
@@ -129,6 +135,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         for files in fixtures:
             with self.subTest(project=files['project.json']):
                 self.run_case('success', files=files)
+
+    def test_repeat_download_retains_existing_first_download_date(self):
+        for mode in ('preserve-managed-date', 'preserve-id-legacy-date', 'preserve-legacy-video-date',
+                     'preserve-legacy-video-cold', 'preserve-local-video-date', 'preserve-local-video-symlink'):
+            with self.subTest(mode=mode):
+                self.run_case(mode)
 
     def test_staging_identity_is_persisted_before_helper_acknowledgement(self):
         self.run_case('staging-ack')

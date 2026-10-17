@@ -133,13 +133,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f844208456204c7a217f1737aa2e59c0f63d0cb5ed45d0fa383ed9a9dbd89f4",
+        "sourceSHA256": "02d87882d78b0cefcb640c7a6729c234b1ba7a4049fa07e135f540096392292f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "复核下载排序的首次本地入库时间、metadata 发布/刷新保留与后台目录原始字节统计；其余获取职责合同沿用。",
+        "limitations": "本次为有界源码和文档导航复核；离线回归与隔离构建另记，不代表真实 Steam 下载、历史首次时间重建、全交互或 Release 验收。"
       }
     },
     {

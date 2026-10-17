@@ -189,6 +189,7 @@ extension SteamWorkshopService {
         let title = browserItem?.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallbackTitle = videoURL.deletingPathExtension().lastPathComponent
         let updatedAt = (try? videoURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
+        let statistics = Self.localDownloadStatistics(metadata: metadata, sampleDirectory: nil, standaloneFile: videoURL)
         return SteamWorkshopDownloadRecord(
             id: identifier,
             title: title?.isEmpty == false ? title! : fallbackTitle,
@@ -205,20 +206,15 @@ extension SteamWorkshopService {
             sourceVideoURL: nil,
             exportedVideoURL: videoURL,
             updatedAt: updatedAt,
-            sizeText: fileSizeTextForURL(videoURL) ?? "未知大小",
+            sizeText: statistics.sizeText,
             status: .ready,
             browserItem: browserItem,
             contentType: .video,
             dependencyItemID: nil,
-            dependencyStatus: .none
+            dependencyStatus: .none,
+            createdAt: statistics.createdAt,
+            sizeBytes: statistics.bytes
         )
-    }
-
-    nonisolated static private func fileSizeTextForURL(_ url: URL) -> String? {
-        guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int64 else {
-            return nil
-        }
-        return Self.fileSizeText(forBytes: size)
     }
 
     func publishDownloadedVersion(_ request: SteamWorkshopPendingDownloadRequest,
@@ -228,6 +224,22 @@ extension SteamWorkshopService {
         }
         let commit = try SteamWorkshopLibraryTransaction.canonicalCommit(prepared)
         let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot)
+        let physicalRoot = try SteamWorkshopLibraryTransaction.configuredRoot(libraryRoot)
+        let localRecord = latestDownloadRecord(for: request.id).flatMap { record -> SteamWorkshopDownloadRecord? in
+            guard let folder = try? SteamWorkshopLibraryTransaction.configuredRoot(record.folderURL),
+                  folder.path.hasPrefix(physicalRoot.path + "/") else { return nil }
+            return record
+        }
+        let previous = (try? loadManagedDownloadSnapshots(requireComplete: false,
+            matchingItemID: request.id, includeLegacy: true, libraryRoot: physicalRoot))?[request.id]
+            ?? Self.scanLoadDownloadMetadataEntry(forItemID: request.id,
+                metadataIndexDirectory: physicalRoot.appendingPathComponent(SteamWorkshopLibraryTransaction.metadataName))
+                .flatMap { $0.snapshot.commit == nil ? $0.snapshot : nil }
+        let localCreationDate = localRecord?.createdAt
+            ?? Self.localCreationDate(at: previous?.exportedVideoURL ?? previous?.legacyFolderURL ?? content)
+            ?? localRecord.flatMap { Self.localCreationDate(at: $0.exportedVideoURL ?? $0.sourceVideoURL ?? $0.folderURL) }
+        let firstDownloadedAt = previous?.resolvedFirstDownloadDate(fallbackCreationDate: localCreationDate)
+            ?? localCreationDate ?? commit.committedAt
         let previousIdentity = SteamWorkshopLibraryTransaction.storageIdentity(containing: content, libraryRoot: libraryRoot)
         if let previousIdentity {
             guard !referencedLibraryStorageIdentities().contains(previousIdentity),
@@ -265,6 +277,7 @@ extension SteamWorkshopService {
             exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
             legacyFolderURL: content)
         snapshot.commit = commit
+        snapshot.firstDownloadedAt = firstDownloadedAt
         do {
             try SteamWorkshopLibraryTransaction.publishCanonical(prepared,
                 metadata: JSONEncoder().encode(snapshot), libraryRoot: libraryRoot)
@@ -294,10 +307,12 @@ extension SteamWorkshopService {
     func loadManagedDownloadSnapshots(
         requireComplete: Bool,
         matchingItemID: String? = nil,
-        includeLegacy: Bool = false
+        includeLegacy: Bool = false,
+        libraryRoot: URL? = nil
     ) throws -> [String: SteamWorkshopDownloadMetadataSnapshot] {
+        let libraryRoot = libraryRoot ?? steamDownloadLibraryRootURL
         let entries = try SteamWorkshopLibraryTransaction.publishedMetadata(
-            libraryRoot: steamDownloadLibraryRootURL,
+            libraryRoot: libraryRoot,
             requireComplete: requireComplete,
             matchingItemID: matchingItemID
         )
@@ -319,7 +334,7 @@ extension SteamWorkshopService {
             }
             guard commit.workshopId == snapshot.item.id,
                   itemID == commit.workshopId,
-                  let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: steamDownloadLibraryRootURL),
+                  let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot),
                   snapshot.legacyFolderURL == content else {
                 if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。") }
                 continue
@@ -497,6 +512,7 @@ extension SteamWorkshopService {
                 sourceVideoRelativePath: current.sourceVideoRelativePath, previewRelativePath: current.previewRelativePath,
                 exportedVideoURL: current.exportedVideoURL, legacyFolderURL: current.legacyFolderURL)
             updated.commit = commit
+            updated.firstDownloadedAt = current.resolvedFirstDownloadDate()
             do {
                 try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(updated),
                     itemID: id, libraryRoot: steamDownloadLibraryRootURL)
@@ -514,7 +530,7 @@ extension SteamWorkshopService {
 
     private func persistVideoDownloadMetadata(item: SteamWorkshopBrowserItem, videoURL: URL) {
         try? FileManager.default.createDirectory(at: downloadMetadataIndexDirectoryURL(), withIntermediateDirectories: true)
-        let snapshot = SteamWorkshopDownloadMetadataSnapshot(
+        var snapshot = SteamWorkshopDownloadMetadataSnapshot(
             fetchedAt: Date(),
             item: item,
             sourceVideoRelativePath: nil,
@@ -522,6 +538,7 @@ extension SteamWorkshopService {
             exportedVideoURL: videoURL,
             legacyFolderURL: nil
         )
+        snapshot.firstDownloadedAt = Self.localCreationDate(at: videoURL) ?? snapshot.fetchedAt
         writeDownloadMetadataSnapshot(snapshot, to: downloadMetadataFileURL(forVideoURL: videoURL))
     }
 
@@ -539,7 +556,7 @@ extension SteamWorkshopService {
             }
             return url.lastPathComponent
         }
-        let snapshot = SteamWorkshopDownloadMetadataSnapshot(
+        var snapshot = SteamWorkshopDownloadMetadataSnapshot(
             fetchedAt: Date(),
             item: item,
             sourceVideoRelativePath: sourceVideoRelativePath,
@@ -547,10 +564,17 @@ extension SteamWorkshopService {
             exportedVideoURL: nil,
             legacyFolderURL: targetURL
         )
+        snapshot.firstDownloadedAt = Self.localCreationDate(at: targetURL) ?? snapshot.fetchedAt
         writeDownloadMetadataSnapshot(snapshot, to: downloadMetadataFileURL(for: id))
     }
 
     private func writeDownloadMetadataSnapshot(_ snapshot: SteamWorkshopDownloadMetadataSnapshot, to url: URL) {
+        var snapshot = snapshot
+        if let data = try? Data(contentsOf: url),
+           let previous = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data),
+           previous.item.id == snapshot.item.id {
+            snapshot.firstDownloadedAt = previous.resolvedFirstDownloadDate(fallbackCreationDate: snapshot.firstDownloadedAt)
+        }
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: Data.WritingOptions.atomic)
     }

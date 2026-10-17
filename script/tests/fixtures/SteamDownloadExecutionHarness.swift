@@ -11,12 +11,14 @@ struct SteamWorkshopDownloadRecord {
     enum Status: Equatable { case queued, downloading, ready, failed(String) }
     let id: String; let title: String; let sizeText: String; let dependencyStatus = Dependency.none
     let status: Status
+    var createdAt: Date? = nil
 }
 // Data-only stand-ins isolate the real executor/publication methods from unrelated AppKit rendering.
 struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     let fetchedAt: Date; let item: SteamWorkshopBrowserItem; let sourceVideoRelativePath: String?
     let previewRelativePath: String?; let exportedVideoURL: URL?; let legacyFolderURL: URL?; var legacyRemoved: Bool? = nil
     var commit: SteamWorkshopLibraryCommit? = nil
+    var firstDownloadedAt: Date? = nil
 }
 @MainActor final class Auth { var steamId: String? = "76561198000000000"; var isOnline: Bool { steamId != nil } }
 final class Transport: SteamServiceTransporting {
@@ -472,6 +474,56 @@ final class Transport: SteamServiceTransporting {
             print("EXECUTION PASS: \(mode)")
             return
         }
+        var expectedFirstDownload: Date?
+        if mode.hasPrefix("preserve-") {
+            let first = Date(timeIntervalSince1970: 100)
+            let legacyVideo = mode.contains("legacy-video") || mode.contains("local-video")
+            let oldContent = service.steamDownloadLibraryRootURL.appendingPathComponent(legacyVideo ? "Video/renamed-wallpaper.mp4" : "Web/123456", isDirectory: !legacyVideo)
+            try FileManager.default.createDirectory(at: legacyVideo ? oldContent.deletingLastPathComponent() : oldContent,
+                withIntermediateDirectories: true)
+            if legacyVideo {
+                try Data([1, 2, 3]).write(to: oldContent)
+                SteamReadyUpdateDeletionFixtureState.contentType = .video
+                SteamReadyUpdateDeletionFixtureState.videoURL = oldContent
+                SteamReadyUpdateDeletionFixtureState.legacyFolderURL = oldContent.deletingLastPathComponent()
+                if mode.contains("symlink") {
+                    let aliasRoot = base.appendingPathComponent("library-alias", isDirectory: true)
+                    try FileManager.default.createSymbolicLink(at: aliasRoot, withDestinationURL: service.steamDownloadLibraryRootURL)
+                    SteamReadyUpdateDeletionFixtureState.legacyFolderURL = aliasRoot.appendingPathComponent("Video")
+                    SteamReadyUpdateDeletionFixtureState.videoURL = aliasRoot.appendingPathComponent("Video/renamed-wallpaper.mp4")
+                }
+                if !mode.contains("cold") {
+                    service.downloads = [.init(id: "123456", title: "old", sizeText: "3 B", status: .ready)]
+                }
+            }
+            var old = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: Date(), item: .init(id: "123456", title: "old"),
+                sourceVideoRelativePath: nil, previewRelativePath: nil,
+                exportedVideoURL: legacyVideo ? oldContent : nil, legacyFolderURL: legacyVideo ? nil : oldContent)
+            old.firstDownloadedAt = first
+            if mode == "preserve-managed-date" {
+                for name in ["project.json", "index.html"] {
+                    try Data(contentsOf: URL(fileURLWithPath: transport.receipt["stagingPath"] as! String).appendingPathComponent(name))
+                        .write(to: oldContent.appendingPathComponent(name))
+                }
+                let oldCommit = SteamWorkshopLibraryCommit(version: 3, workshopId: "123456", jobId: "old-ready",
+                    attempt: 1, directoryName: "123456", manifestId: "123", contentDigest: transport.receipt["contentDigest"] as! String,
+                    contentType: "web", entryPath: "index.html", committedAt: first, generation: "11111111-1111-4111-8111-111111111111")
+                old.commit = oldCommit; old.firstDownloadedAt = nil
+                try JSONEncoder().encode(oldCommit).write(to: oldContent.appendingPathComponent(SteamWorkshopLibraryTransaction.ownershipMarkerName))
+            }
+            if mode.contains("local-video") {
+                expectedFirstDownload = SteamWorkshopService.localCreationDate(at: oldContent)
+            } else {
+                let oldMetadata = legacyVideo ? service.downloadMetadataFileURL(forVideoURL: oldContent) : base.appendingPathComponent("library/.mywallpaperx-steam-metadata/123456.json")
+                try JSONEncoder().encode(old).write(to: oldMetadata)
+                expectedFirstDownload = first
+            }
+            if mode == "preserve-managed-date" {
+                let loaded = try service.loadManagedDownloadSnapshots(requireComplete: true)["123456"]
+                precondition(loaded?.commit == old.commit && loaded?.commit?.version == 3,
+                    "the regression must start from a valid published managed v3 version")
+            }
+        }
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
         if mode == "corrupt-current-jobstore" {
             let preservedJobStoreLink = try FileManager.default.destinationOfSymbolicLink(atPath: transport.jobStoreURL!.path)
@@ -630,10 +682,13 @@ final class Transport: SteamServiceTransporting {
             precondition(service.downloadJobStore.jobs.allSatisfy { $0.state == .completed })
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String))
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["secondStagingPath"] as! String))
-        } else if mode == "success" || mode == "staging-ack" {
+        } else if mode == "success" || mode == "staging-ack" || mode.hasPrefix("preserve-") {
             precondition(service.downloadError == nil, service.downloadError ?? service.statusMessage)
             let result = try JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: Data(contentsOf: marker))
             precondition(result.commit?.jobId == key && result.commit?.attempt == 1)
+            if let expectedFirstDownload {
+                precondition(result.firstDownloadedAt == expectedFirstDownload, "updating must retain the existing first-download date: expected \(expectedFirstDownload), got \(String(describing: result.firstDownloadedAt))")
+            }
             precondition(service.downloadJobStore.jobs.last?.state == .completed && service.reloads == 1)
             precondition(transport.commands.filter { $0["command"] as? String == "startDownload" }.count == 1)
             if mode == "staging-ack" {

@@ -121,7 +121,7 @@ final class SteamWorkshopService: ObservableObject {
     @Published var downloadsDisplayMode: SteamWorkshopDownloadsDisplayMode = .all {
         didSet { refreshDisplayedDownloads() }
     }
-    @Published var downloadsSortMode: SteamWorkshopDownloadsSortMode = .updatedAt {
+    @Published var downloadsSortMode: SteamWorkshopDownloadsSortMode = .createdAt {
         didSet { refreshDisplayedDownloads() }
     }
     @Published var downloadsSortAscending: Bool = false {

@@ -1,16 +1,16 @@
 import Foundation
 
 enum SteamWorkshopDownloadsSortMode: String, CaseIterable, Equatable {
-    case updatedAt
+    case createdAt
     case title
     case size
 
     var displayName: String {
         switch self {
-        case .updatedAt:
-            return "修改时间"
+        case .createdAt:
+            return "创建时间"
         case .title:
-            return "名称"
+            return "作品名称"
         case .size:
             return "文件大小"
         }
@@ -162,6 +162,10 @@ struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
     let contentType: SteamWorkshopDownloadContentType
     let dependencyItemID: String?
     let dependencyStatus: SteamWorkshopWebDependencyStatus
+    /// First local publication, independent of mutable file modification dates.
+    var createdAt: Date? = nil
+    /// Exact local sample bytes; sizeText is only the formatted presentation.
+    var sizeBytes: Int64? = nil
 
     var videoURL: URL? {
         if let exportedVideoURL,

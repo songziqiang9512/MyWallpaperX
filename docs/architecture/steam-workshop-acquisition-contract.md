@@ -57,7 +57,7 @@ CDN 候选与 token 只属于当前账号 lease 的单个作业。manifest/chunk
 
 helper 仅产出 staged 内容与 typed receipt，不决定 ready。receipt v2 核对 job/account/epoch/Workshop/manifest、完成状态、非空 project.json、相等且有界的 verified/total bytes 及独占 lease。App 复制时重算完整摘要：NFC UTF-8 路径排序，逐文件编码 UInt32-LE 路径长度、路径、UInt64-LE 文件长度及文件 SHA-256，再对串联求 SHA-256；路径格式校验不替代消费端身份及内容重验。
 
-现役公开布局为 `Video|Web|Scene/<WorkshopID>` 的 v3 commit，generation 保存在 commit/ownership marker，不把旧 v2 `<WorkshopID>-<UUID>` 目录继续描述为新发布格式。内容先在受管 incoming 验证、准备，持久化 publication intent 后通过原 rename/exchange 路径安装，最后原子发布 `.mywallpaperx-steam-metadata/<WorkshopID>.json`；**metadata 是唯一 ready 点**，目录存在、marker 或 stagedComplete 均不能单独产生 ready。索引失败按同一 journal 回滚/恢复，不能覆盖未知用户目录；复制/摘要在后台执行，最后账号/attempt 复核至发布之间不挂起。
+v3 使用 `Video|Web|Scene/<WorkshopID>`；generation 在 commit/ownership marker，兼容 v2 UUID 目录。incoming 校验后保存 publication intent，经 rename/exchange 安装并原子发布 `.mywallpaperx-steam-metadata/<WorkshopID>.json`。**metadata 是唯一 ready 点**；目录、marker、stagedComplete 不代表 ready。失败经同一 journal 回滚/恢复，未知目录勿覆盖；复制/摘要在后台，账号/attempt 复核至发布不挂起。`firstDownloadedAt` 保存首次入库时间，刷新和版本替换不重置；旧记录沿用 commit/本地创建时间。排序与详情共用后台目录统计的原始字节数。
 
 任务沿 `running → staged → committing → completed` 持久化推进，receipt/commit 先落盘再推进。失败、取消、空间不足或重复 terminal 不破坏旧 ready；成功后的 staging 清理失败不回滚已发布 ready，未释放清理责任保留并有界重试。
 
