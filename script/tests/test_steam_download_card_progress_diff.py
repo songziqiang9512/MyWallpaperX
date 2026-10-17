@@ -64,7 +64,8 @@ final class SteamWorkshopService {
     func failedDownloadIntentMessage(for id: String) -> String? { nil }
     func isDownloaded(itemID: String) -> Bool { false }
     func isRecordCurrentlyPlaying(_ record: SteamWorkshopDownloadRecord) -> Bool { false }
-    func isLaunchPending(_ id: String) -> Bool { false }
+    var launchPendingID: String?
+    func isLaunchPending(_ id: String) -> Bool { launchPendingID == id }
 }
 
 final class SteamAuthProbe {
@@ -240,6 +241,40 @@ import Foundation
         precondition(card.overlayBar.activeIndeterminateAnimation == nil,
                      "a determinate card must not run the indeterminate sweep")
 
+        store.clear(itemID: item.id, jobKey: "job-1")
+        let ready = SteamWorkshopDownloadRecord(id: item.id, title: item.title, description: "", tags: [],
+            folderURL: URL(fileURLWithPath: "/fixture"), projectFileURL: nil, ownEntryHTMLURL: nil,
+            dependencyHostEntryHTMLURL: nil, dependencyHostFolderURL: nil, entryHTMLURL: nil,
+            resolvedWebRootURL: nil, previewURL: nil, sourceVideoURL: nil, exportedVideoURL: nil,
+            updatedAt: Date(), sizeText: "100 MB", status: .ready, browserItem: item,
+            contentType: .scene, dependencyItemID: nil, dependencyStatus: .none)
+        let service = SteamWorkshopService.shared
+        func launchCard(playing: Bool = false, multiSelect: Bool = false) {
+            card.configure(displayContext: .downloads, isPlaying: playing, item: item,
+                downloadRecord: ready, downloadProgressStore: store, isDownloading: false, isDownloaded: true,
+                isMultiSelectMode: multiSelect, isKeyboardFocused: false,
+                onOpen: {}, onDownload: {}, onSetAsWallpaper: { service.launchPendingID = item.id }, onCancelDownload: {})
+            card.isHovering = false
+            card.applyHoverStyle(animated: false)
+        }
+        launchCard()
+        precondition(!card.currentBarVisibility, "an idle ready download keeps its hover-only bar")
+        card.statusBadgeButton.performClick(nil)
+        precondition(service.launchPendingID == item.id, "the play button must enter the pending launch")
+        launchCard()
+        precondition(card.currentBarVisibility, "pending launch must pin the bar before playback starts")
+        precondition(card.statusBadgeButton.accessibilityLabel()?.contains("正在切换") == true,
+                     "pending keeps the launch badge; stop styling still waits for playback")
+        launchCard(multiSelect: true)
+        precondition(!card.currentBarVisibility, "multi-select still suppresses the bar")
+        service.launchPendingID = "another-record"
+        launchCard()
+        precondition(!card.currentBarVisibility, "another card's launch must not pin this bar")
+        service.launchPendingID = nil
+        launchCard(playing: true)
+        precondition(card.currentBarVisibility, "successful playback must keep the existing persistent bar")
+        launchCard()
+        precondition(!card.currentBarVisibility, "failed/cancelled launch returns to the original idle behavior")
         print("Steam download card progress diffing PASS")
     }
 }

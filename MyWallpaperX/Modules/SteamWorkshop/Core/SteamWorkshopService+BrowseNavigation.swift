@@ -60,7 +60,12 @@ extension SteamWorkshopService {
 
     func updateDisplayedBrowserItems() {
         guard browseContext.isAuthorWorkshop else {
-            displayedBrowserItems = browserItems
+            if source == .mySubscriptions {
+                steamSubscriptions.synchronizeAccount()
+                displayedBrowserItems = browserItems.filter { steamSubscriptions.states[$0.id] != .known(false) }
+            } else {
+                displayedBrowserItems = browserItems
+            }
             return
         }
 
@@ -88,6 +93,38 @@ extension SteamWorkshopService {
         }
     }
 
+    /// A confirmed removal changes one membership, not the user's loaded feed.
+    /// Retire older pages and replay the overlapping remote page on continuation
+    /// because offset pagination shifts when an earlier subscription is removed.
+    func reconcileSubscriptionWrite(itemID: String, isSubscribed: Bool) {
+        guard source == .mySubscriptions, shouldUseSteamKitPersonal else { return }
+        if isSubscribed {
+            if !browserItems.contains(where: { $0.id == itemID }) {
+                fetchBrowserItems(forceRefresh: true)
+            } else {
+                updateDisplayedBrowserItems()
+            }
+            return
+        }
+        guard steamKitBrowseStore.removeSubscribedItem(itemID) else {
+            updateDisplayedBrowserItems()
+            return
+        }
+        browserFetchTask?.cancel()
+        browserFetchTask = nil
+        isLoadingMoreBrowserItems = false
+        isRefreshingBrowserFeed = false
+        browserLoadMoreFailureMessage = nil
+        browserLoadMoreRetryAfter = .distantPast
+        consecutiveEmptyLoadMorePages = 0
+        browserItems.removeAll { $0.id == itemID }
+        if browserState == .loading {
+            fetchBrowserItems(forceRefresh: true)
+            return
+        }
+        statusMessage = "已加载 \(browserItems.count) 项。排序和筛选仅作用于已加载项目。"
+    }
+
     func makeDiscoveryBrowseSnapshot() -> SteamWorkshopDiscoveryBrowseSnapshot {
         SteamWorkshopDiscoveryBrowseSnapshot(
             browserContentMode: browserContentMode,
@@ -109,7 +146,15 @@ extension SteamWorkshopService {
         _ snapshot: SteamWorkshopDiscoveryBrowseSnapshot,
         restoredQuery: String
     ) {
-        guard snapshot.browserContentMode == browserContentMode else {
+        let savedKey = snapshot.steamKitBrowseSnapshot.key
+        let personalSnapshotIsCurrent = !source.isPersonal || (
+            steamAuth.isOnline && savedKey == steamKitBrowseStore.makePersonalKey(
+                source: source, accountSteamID: steamAuth.steamId, contentMode: browserContentMode,
+                filters: facetFilters, search: restoredQuery.trimmingCharacters(in: .whitespacesAndNewlines),
+                window: trendingWindow, personalSort: personalSort))
+        // A detail lookup has no personal key; reload it through the normal
+        // route rather than restoring account-unscoped cached personal content.
+        guard snapshot.browserContentMode == browserContentMode, personalSnapshotIsCurrent else {
             setBrowserQuery(restoredQuery)
             navigateToBrowse()
             return
@@ -117,10 +162,18 @@ extension SteamWorkshopService {
         setBrowserQuery(restoredQuery)
         selectedBrowserItemError = nil
         isRefreshingSelectedBrowserItem = false
-        browserItems = snapshot.browserItems
+        steamKitBrowseStore.restore(snapshot.steamKitBrowseSnapshot)
+        steamSubscriptions.synchronizeAccount()
+        let cachedIDs = snapshot.steamKitBrowseSnapshot.rawItems.map(\.publishedFileId)
+            + snapshot.steamKitBrowseSnapshot.partialErrors.map(\.publishedFileId)
+            + snapshot.browserItems.map(\.id)
+        let removedIDs = Set(cachedIDs.filter {
+            source == .mySubscriptions && steamSubscriptions.states[$0] == .known(false)
+        })
+        for id in removedIDs { steamKitBrowseStore.removeSubscribedItem(id) }
+        browserItems = snapshot.browserItems.filter { !removedIDs.contains($0.id) }
         browserState = snapshot.browserState
         hasMoreBrowserItems = snapshot.hasMoreBrowserItems
-        steamKitBrowseStore.restore(snapshot.steamKitBrowseSnapshot)
         isLoadingMoreBrowserItems = false
         browserLoadMoreFailureMessage = snapshot.browserLoadMoreFailureMessage
         statusMessage = snapshot.statusMessage

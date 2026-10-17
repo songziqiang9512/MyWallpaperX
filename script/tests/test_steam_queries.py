@@ -21,15 +21,73 @@ class SteamQueryTests(unittest.TestCase):
         browse = (CORE / 'SteamWorkshopService+SteamKitBrowse.swift').read_text()
         store = browse[browse.index('@MainActor\nfinal class SteamKitBrowseStore'):]
         projection = browse[browse.index('    private func steamKitStructuredPostProcess'):browse.index('\n}\n\n/// 查询条目')]
+        navigation = (CORE / 'SteamWorkshopService+BrowseNavigation.swift').read_text()
+        from script.tests.test_steam_library_interactions import method
+        reconcile = method(navigation, '    func reconcileSubscriptionWrite(')
+        display = method(navigation, '    func updateDisplayedBrowserItems(')
+        restoration = '\n'.join(method(navigation, signature) for signature in [
+            '    func makeDiscoveryBrowseSnapshot(', '    func restoreDiscoveryBrowseSnapshot('])
+        models = (CORE / 'SteamWorkshopAPIModels.swift').read_text()
+        snapshot = models[models.index('struct SteamWorkshopDiscoveryBrowseSnapshot {'):models.index('nonisolated struct SteamWorkshopDetailCacheSnapshot')]
+
+        service = (CORE / 'SteamWorkshopService.swift').read_text()
+        start = service.index('        store.didReconcileWrite =')
+        hook = service[start:service.index('        return store', start)]
         fixture = '''import Foundation
 @MainActor final class Projection {
  let steamKitBrowseStore: SteamKitBrowseStore
  var personalSort = SteamWorkshopPersonalSort.fileSize
+ var remoteMembership = false
+ lazy var steamSubscriptions: SteamWorkshopSubscriptionStore = {
+  let store = SteamWorkshopSubscriptionStore(identity: { 1 }, read: { [unowned self] _ in self.remoteMembership },
+   write: { [unowned self] _, subscribed in self.remoteMembership = subscribed })
+  // MEMBERSHIP_HOOK
+  return store
+ }()
+ struct MembershipItem {
+  let id: String
+  var title = "", author = "", summary = "", descriptionText = ""
+  var tags: [String] = []
+ }
+ struct BrowseContext { var isAuthorWorkshop = false }
+ var browseContext = BrowseContext()
+ struct Auth { var isOnline = true; var steamId: String? = "a" }
+ var steamAuth = Auth()
+ var browserContentMode = SteamWorkshopBrowserContentMode.all
+ var facetFilters = SteamWorkshopBrowseFacetFilters.none
+ var browserState = SteamWorkshopBrowserLoadState.loaded
+ var selectedBrowserItemError: String?
+ var isRefreshingSelectedBrowserItem = false
+ var currentPageTitle = ""
+ var currentWorkshopItemID: String?
+ var selectedBrowserItem: MembershipItem?
+ var currentBrowserScrollOffsetY: CGFloat = 500
+ var pendingBrowserScrollRestoreOffset: CGFloat?
+ var navigations = 0
+ func setBrowserQuery(_ value: String) { browserQuery = value }
+ func navigateToBrowse() { navigations += 1 }
+ var browserQuery = ""
+ var hasMoreBrowserItems = false
+ var displayedBrowserItems: [MembershipItem] = []
+ var browserItems: [MembershipItem] = [] { didSet { updateDisplayedBrowserItems() } }
+ var shouldUseSteamKitPersonal = true
+ var browserFetchTask: Task<Void, Never>?
+ var isLoadingMoreBrowserItems = false
+ var isRefreshingBrowserFeed = false
+ var browserLoadMoreFailureMessage: String?
+ var browserLoadMoreRetryAfter = Date.distantPast
+ var consecutiveEmptyLoadMorePages = 0
+ var statusMessage = ""
+ var refreshes = 0
+ static func workshopItemIDSearchID(from query: String) -> String? { nil }
+ func loadMoreBrowserItemsIfNeeded() {}
+ func fetchBrowserItems(forceRefresh: Bool) { refreshes += 1 }
  var source = SteamWorkshopSource.mySubscriptions
  var trendingWindow = SteamWorkshopTrendingWindow.allTime
  init(_ store: SteamKitBrowseStore) { steamKitBrowseStore = store }
 ''' + projection.replace('private func steamKitStructuredPostProcess', 'func steamKitStructuredPostProcess')\
-    .replace('private func steamKitPersonalPostProcess', 'func steamKitPersonalPostProcess') + '\n}\n' + store
+    .replace('private func steamKitPersonalPostProcess', 'func steamKitPersonalPostProcess') + '\n' + reconcile + '\n' + display + '\n' + restoration + '\n}\n' + snapshot + '\ntypealias SteamWorkshopBrowserItem = Projection.MembershipItem\n' + store
+        fixture = fixture.replace('// MEMBERSHIP_HOOK', hook)
         with tempfile.TemporaryDirectory(prefix='mwx-steam-queries-') as folder:
             folder = pathlib.Path(folder)
             extracted = folder / 'ActualBrowseStore.swift'

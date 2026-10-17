@@ -140,9 +140,17 @@ extension SteamWorkshopService {
         selectedIDs: Set<String>,
         deferPublishing: Bool
     ) {
+        downloadSelectionPublicationVersion += 1
+        let publicationVersion = downloadSelectionPublicationVersion
         if deferPublishing {
+            let previousPrimaryID = selectedDownloadID
+            let previousSelectedIDs = selectedDownloadIDs
+            let previousMultiSelectMode = isDownloadsMultiSelectMode
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.downloadSelectionPublicationVersion == publicationVersion,
+                      self.selectedDownloadID == previousPrimaryID,
+                      self.selectedDownloadIDs == previousSelectedIDs,
+                      self.isDownloadsMultiSelectMode == previousMultiSelectMode else { return }
                 guard self.selectedDownloadID != primaryID || self.selectedDownloadIDs != selectedIDs else {
                     return
                 }
@@ -204,13 +212,12 @@ extension SteamWorkshopService {
         } else {
             resolvedPrimaryID = firstDisplayedDownloadID(in: normalizedSelectedIDs)
         }
-        guard selectedDownloadID != resolvedPrimaryID || selectedDownloadIDs != normalizedSelectedIDs else {
-            return
-        }
+        // Explicit commands publish their intent immediately. A later library
+        // sanitization must see this target, not derive a clear from an old one.
         publishDownloadSelectionState(
             primaryID: resolvedPrimaryID,
             selectedIDs: normalizedSelectedIDs,
-            deferPublishing: true
+            deferPublishing: false
         )
     }
 

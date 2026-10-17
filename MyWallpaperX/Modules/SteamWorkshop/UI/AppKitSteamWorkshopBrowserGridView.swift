@@ -25,14 +25,14 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var currentColumnCount = 1
     private var footerState: SteamWorkshopBrowserFooterSupport.State = .hidden
     private var isApplyingSnapshot = false
-    private var pendingFooterSnapshotRefresh = false
+    private var isItemsApplyScheduled = false
     private var moduleActivationObserver: NSObjectProtocol?
     private var lastPrioritizedVisibleIDs: [String] = []
     private var pendingLayoutInvalidation = false
     private var pendingLayoutItemSizeUpdate = false
     private var lastNonZeroLayoutWidth: CGFloat = 0
     private var hasResolvedInitialItemSize = false
-    private var pendingItemsUntilInitialLayout: [SteamWorkshopBrowserItem]?
+    private var pendingItems: [SteamWorkshopBrowserItem]?
 
     private let scrollView: NSScrollView = {
         let scrollView = NSScrollView()
@@ -288,16 +288,33 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     #endif
 
     private func applyItems(_ items: [SteamWorkshopBrowserItem]) {
-        guard hasResolvedInitialItemSize || updateLayoutItemSize(invalidateImmediately: true) else {
-            pendingItemsUntilInitialLayout = items
-            return
+        pendingItems = items
+        guard !isItemsApplyScheduled else { return }
+        isItemsApplyScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isItemsApplyScheduled = false
+            self.applyPendingItemsIfReady()
         }
-        pendingItemsUntilInitialLayout = nil
+    }
+
+    private func applyPendingItemsIfReady() {
+        guard !isItemsApplyScheduled, !isApplyingSnapshot,
+              hasResolvedInitialItemSize || updateLayoutItemSize(invalidateImmediately: true),
+              let items = pendingItems else { return }
+        pendingItems = nil
+        commitItems(items)
+    }
+
+    private func commitItems(_ items: [SteamWorkshopBrowserItem]) {
         let previousItemsByID = itemsByID
         let previousOrderedIDs = orderedIDs
-        let previousFooterState = footerState
+        let previousFocusIndex = keyboardFocusedID.flatMap { previousOrderedIDs.firstIndex(of: $0) }
         itemsByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         orderedIDs = items.map(\.id)
+        if let previousFocusIndex, let focusedID = keyboardFocusedID, !orderedIDs.contains(focusedID) {
+            keyboardFocusedID = orderedIDs.isEmpty ? nil : orderedIDs[min(previousFocusIndex, orderedIDs.count - 1)]
+        }
         footerState = SteamWorkshopBrowserFooterSupport.resolvedState(
             failureMessage: service.browserLoadMoreFailureMessage,
             isLoadingMore: service.isLoadingMoreBrowserItems,
@@ -308,7 +325,8 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             guard let previous = previousItemsByID[id], let current = itemsByID[id] else { return false }
             return previous != current
         }
-        let structureUnchanged = previousOrderedIDs == orderedIDs && previousFooterState == footerState
+        let footerWasVisible = dataSource.snapshot().itemIdentifiers.contains(SteamWorkshopBrowserFooterSupport.itemID)
+        let structureUnchanged = previousOrderedIDs == orderedIDs && footerWasVisible == (footerState != .hidden)
         if structureUnchanged {
             if !changedIDs.isEmpty {
                 reloadVisibleMetadata(for: Set(changedIDs))
@@ -319,6 +337,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             prioritizeVisibleItemsForHydration()
             checkLoadMore()
             ensureKeyboardFocus()
+            restorePendingScrollOffsetIfReady()
             return
         }
 
@@ -330,7 +349,10 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             snapshot.appendItems([SteamWorkshopBrowserFooterSupport.itemID], toSection: .status)
         }
         isApplyingSnapshot = true
-        dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
+        let animate = SteamWorkshopGridLayoutSupport.shouldAnimateChange(
+            from: previousOrderedIDs, to: orderedIDs, visibleCount: collectionView.indexPathsForVisibleItems().count,
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        dataSource.apply(snapshot, animatingDifferences: animate) { [weak self] in
             guard let self else { return }
             self.isApplyingSnapshot = false
             if !changedIDs.isEmpty {
@@ -341,16 +363,9 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self.prioritizeVisibleItemsForHydration()
             self.checkLoadMore()
             self.ensureKeyboardFocus()
+            self.applyPendingItemsIfReady()
+            self.restorePendingScrollOffsetIfReady()
         }
-    }
-
-    private func applyPendingItemsIfInitialLayoutIsReady() {
-        guard hasResolvedInitialItemSize,
-              let pendingItems = pendingItemsUntilInitialLayout else {
-            return
-        }
-        pendingItemsUntilInitialLayout = nil
-        applyItems(pendingItems)
     }
 
     private func reloadVisibleMetadata(for changedIDs: Set<String>) {
@@ -591,7 +606,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             guard let self else { return }
             self.pendingLayoutItemSizeUpdate = false
             self.updateLayoutItemSize()
-            self.applyPendingItemsIfInitialLayoutIsReady()
+            self.applyPendingItemsIfReady()
         }
     }
 
@@ -622,6 +637,11 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         }
     }
 
+    private func restorePendingScrollOffsetIfReady() {
+        guard let offsetY = service.pendingBrowserScrollRestoreOffset else { return }
+        restoreScrollOffset(offsetY)
+    }
+
     private func restoreScrollOffset(_ offsetY: CGFloat) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
@@ -629,10 +649,11 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             }
             return
         }
-        guard let documentView = scrollView.documentView else {
-            service.consumePendingBrowserScrollRestoreOffset()
-            return
-        }
+        // The items publisher queues its snapshot before the offset publisher.
+        // Keep the service token until that snapshot and its layout are ready.
+        guard !isItemsApplyScheduled, !isApplyingSnapshot, pendingItems == nil,
+              let documentView = scrollView.documentView else { return }
+        collectionView.layoutSubtreeIfNeeded()
         let maxOffsetY = max(0, documentView.bounds.height - scrollView.contentView.bounds.height)
         let clampedOffsetY = min(max(0, offsetY), maxOffsetY)
         scrollView.contentView.setBoundsOrigin(NSPoint(x: 0, y: clampedOffsetY))
@@ -670,7 +691,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         guard stateChanged || forceReload else { return }
         let visibilityChanged = previousState == .hidden || newState == .hidden
         if stateChanged && visibilityChanged {
-            scheduleFooterSnapshotRefresh()
+            applyItems(service.displayedBrowserItems)
             return
         }
         configureVisibleFooterIfNeeded()
@@ -685,19 +706,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private func configureFooter(_ item: AppKitSteamWorkshopBrowserFooterItem) {
         SteamWorkshopBrowserFooterSupport.configure(item, state: footerState) { [weak self] in
             self?.service.retryLoadingMoreBrowserItems()
-        }
-    }
-
-    private func scheduleFooterSnapshotRefresh() {
-        pendingFooterSnapshotRefresh = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            guard self.pendingFooterSnapshotRefresh else { return }
-            guard !self.isApplyingSnapshot else {
-                return
-            }
-            self.pendingFooterSnapshotRefresh = false
-            self.applyItems(self.service.displayedBrowserItems)
         }
     }
 

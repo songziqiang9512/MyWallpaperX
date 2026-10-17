@@ -10,6 +10,9 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
     @Published private(set) var states: [String: State] = [:]
     private var epoch: Int?
     private var tasks: [String: Task<Void, Never>] = [:]
+    struct MembershipObservation { let epoch: Int?; let revision: Int }
+    private var membershipRevision = 0
+    private var knownRevisions: [String: Int] = [:]
     var didReconcileWrite: ((String, Bool) -> Void)?
     private let identity: () -> Int?
     private let read: (String) async throws -> Bool
@@ -28,6 +31,8 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
         tasks.values.forEach { $0.cancel() }
         tasks.removeAll()
         states.removeAll()
+        membershipRevision = 0
+        knownRevisions.removeAll()
         epoch = current
     }
 
@@ -41,13 +46,25 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
     /// Newly proven IDs are merged into a copy and published once: a loop of
     /// per-ID writes fans one page load into N full-store broadcasts, and every
     /// broadcast re-runs every live card's heart chrome.
-    func observeSubscribedIDs(_ ids: [String]) {
+    func beginMembershipObservation() -> MembershipObservation {
+        synchronizeAccount()
+        return MembershipObservation(epoch: epoch, revision: membershipRevision)
+    }
+
+    func observeSubscribedIDs(_ ids: [String], observation: MembershipObservation? = nil) {
         synchronizeAccount()
         guard epoch != nil else { return }
+        if let observation, observation.epoch != epoch { return }
         var merged = states
         var changed = false
-        for id in ids where tasks[id] == nil && states[id] == nil {
+        for id in ids where tasks[id] == nil {
+            let canUpdateNegative = states[id] == .known(false) && observation.map {
+                $0.revision >= knownRevisions[id, default: 0]
+            } == true
+            guard states[id] == nil || canUpdateNegative else { continue }
             merged[id] = .known(true)
+            membershipRevision += 1
+            knownRevisions[id] = membershipRevision
             changed = true
         }
         if changed {
@@ -64,6 +81,8 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
             do {
                 let value = try await self.read(id)
                 guard self.isCurrent(epoch) else { return }
+                self.membershipRevision += 1
+                self.knownRevisions[id] = self.membershipRevision
                 self.states[id] = .known(value)
             } catch {
                 guard self.isCurrent(epoch) else { return }
@@ -88,6 +107,8 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
             do {
                 let actual = try await self.read(id)
                 guard self.isCurrent(epoch) else { return }
+                self.membershipRevision += 1
+                self.knownRevisions[id] = self.membershipRevision
                 self.states[id] = .known(actual)
                 self.didReconcileWrite?(id, actual)
             } catch {

@@ -172,9 +172,8 @@ final class SteamWorkshopService: ObservableObject {
             }
         )
 
-        store.didReconcileWrite = { [weak self] _, _ in
-            guard let self, self.source == .mySubscriptions, self.shouldUseSteamKitPersonal else { return }
-            self.fetchBrowserItems(forceRefresh: true)
+        store.didReconcileWrite = { [weak self] id, subscribed in
+            self?.reconcileSubscriptionWrite(itemID: id, isSubscribed: subscribed)
         }
         return store
     }()
@@ -288,6 +287,7 @@ final class SteamWorkshopService: ObservableObject {
     @Published var isDownloadsMultiSelectMode = false
     @Published var selectedDownloadID: String?
     @Published var selectedDownloadIDs: Set<String> = []
+    var downloadSelectionPublicationVersion = 0
     /// F15 残留修复：失败提示以代数而非文本区分——并发同根因的两条同文
     /// 失败也会各自推进 revision，弹窗完成回调按 revision 判定续播/清空，
     /// 不再依赖「文本不同 = 新失败」。

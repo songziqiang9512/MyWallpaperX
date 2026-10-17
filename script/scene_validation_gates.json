@@ -3161,6 +3161,28 @@
       "modules": [
         "test_thumbnail_cache_leases"
       ]
+    },
+    {
+      "id": "steam-grid-membership-updates",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadSelection.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseNavigation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+SteamKitBrowse.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopSubscriptionStore.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopGridLayoutSupport.swift",
+        "script/tests/fixtures/SteamQueryHarness.swift",
+        "script/tests/fixtures/SteamGridUpdateHarness.swift"
+      ],
+      "modules": [
+        "test_steam_queries",
+        "test_steam_grid_updates",
+        "test_steam_download_card_progress_diff",
+        "test_steam_browse_failure_footer"
+      ]
     }
   ],
   "method_gates": {

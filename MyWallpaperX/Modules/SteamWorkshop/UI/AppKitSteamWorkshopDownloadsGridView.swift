@@ -25,6 +25,9 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     private var moduleActivationObserver: NSObjectProtocol?
     private var isApplyingSelectionSnapshot = false
     private var pendingLayoutInvalidation = false
+    private var pendingRecords: [SteamWorkshopDownloadRecord]?
+    private var isRecordsApplyScheduled = false
+    private var isApplyingRecords = false
 
     private let scrollView: NSScrollView = {
         let s = NSScrollView()
@@ -235,16 +238,44 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     private func applyRecords(_ records: [SteamWorkshopDownloadRecord]) {
+        pendingRecords = records
+        guard !isRecordsApplyScheduled else { return }
+        isRecordsApplyScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isRecordsApplyScheduled = false
+            self.applyPendingRecords()
+        }
+    }
+
+    private func applyPendingRecords() {
+        guard !isRecordsApplyScheduled, !isApplyingRecords, let records = pendingRecords else { return }
+        pendingRecords = nil
+        commitRecords(records)
+    }
+
+    private func commitRecords(_ records: [SteamWorkshopDownloadRecord]) {
         let previousRecordsByID = recordsByID
+        let previousFocusIndex = keyboardFocusedID.flatMap { orderedIDs.firstIndex(of: $0) }
         recordsByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
         orderedIDs = records.map(\.id)
+        var didRehomeSelection = false
+        if let previousFocusIndex, let focusedID = keyboardFocusedID, !orderedIDs.contains(focusedID) {
+            keyboardFocusedID = orderedIDs.isEmpty ? nil : orderedIDs[min(previousFocusIndex, orderedIDs.count - 1)]
+            if !service.isDownloadsMultiSelectMode {
+                let survivingSelection = service.selectedDownloadID.flatMap { orderedIDs.contains($0) ? $0 : nil }
+                keyboardFocusedID = survivingSelection ?? keyboardFocusedID
+                service.selectDownload(itemID: keyboardFocusedID)
+                didRehomeSelection = true
+            }
+        }
         let changedIDs = Set(orderedIDs.filter { id in
             guard let previous = previousRecordsByID[id] else { return false }
             return previous != recordsByID[id]
         })
 
         if let selectedID = service.selectedDownloadID,
-           orderedIDs.contains(selectedID) == false {
+           orderedIDs.contains(selectedID) == false, !didRehomeSelection {
             service.selectDownload(itemID: nil)
         }
 
@@ -265,19 +296,25 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             ensureKeyboardFocus()
             return
         }
+        let animate = SteamWorkshopGridLayoutSupport.shouldAnimateChange(
+            from: previousOrderedIDs, to: orderedIDs, visibleCount: collectionView.indexPathsForVisibleItems().count,
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
         previousOrderedIDs = orderedIDs
 
         var snapshot = NSDiffableDataSourceSnapshot<Section, String>()
         snapshot.appendSections([.main])
         snapshot.appendItems(orderedIDs, toSection: .main)
-        dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
+        isApplyingRecords = true
+        dataSource.apply(snapshot, animatingDifferences: animate) { [weak self] in
             // 结构变化 + 内容变化同拍到达时（如一个下载完成的同时另一个
             // 入队），幸存 cell 的 diffable apply 不重配内容——对齐浏览
             // 网格先例，apply 完成后补一次定向重配。
-            guard let self, !changedIDs.isEmpty else { return }
-            self.refreshVisibleDownloadItems(for: changedIDs)
+            guard let self else { return }
+            self.isApplyingRecords = false
+            if !changedIDs.isEmpty { self.refreshVisibleDownloadItems(for: changedIDs) }
+            self.ensureKeyboardFocus()
+            self.applyPendingRecords()
         }
-        ensureKeyboardFocus()
     }
 
     private func configureDownloadItem(_ item: AppKitSteamWorkshopBrowserItem, for record: SteamWorkshopDownloadRecord) {

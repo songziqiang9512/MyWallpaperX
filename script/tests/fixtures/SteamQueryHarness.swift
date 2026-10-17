@@ -262,6 +262,144 @@ final class QueryTransport: SteamServiceTransporting {
         precondition(browse.currentKey == key && browse.nextPage == 3 && browse.hasMore)
         precondition(browse.rawItems.map(\.publishedFileId) == ["1", "2"])
 
+        // A removal edits the loaded feed in place. Offset pages overlap on the
+        // next continuation; even replaying page one must keep later survivors.
+        let membership = SteamKitBrowseStore(queryClient: query)
+        membership.resetFor(key: key)
+        wire.respond = { _ in payload }
+        payload = page(1, [item("101", 10), item("102", 10)])
+        _ = try await membership.fetchPersonal(page: 1, generation: membership.bumpGeneration(), replacingLoadedItems: true)
+        payload = page(2, [item("103", 10), item("104", 10)])
+        _ = try await membership.fetchPersonal(page: 2, generation: membership.bumpGeneration())
+        let membershipProjection = Projection(membership)
+        membershipProjection.browserItems = membership.rawItems.map { .init(id: $0.publishedFileId) }
+        let beforeRemoval = membership.generation
+        membershipProjection.reconcileSubscriptionWrite(itemID: "102", isSubscribed: false)
+        precondition(membershipProjection.browserItems.map(\.id) == ["101", "103", "104"])
+        precondition(membership.rawItems.map(\.publishedFileId) == ["101", "103", "104"])
+        precondition(membershipProjection.refreshes == 0 && membership.nextPage == 2)
+        payload = page(3, [item("102", 10), item("999", 10)])
+        _ = try await membership.fetchPersonal(page: 3, generation: beforeRemoval)
+        precondition(membership.rawItems.map(\.publishedFileId) == ["101", "103", "104"], "old page cannot resurrect removed membership")
+        payload = page(2, [item("104", 10), item("105", 10)])
+        _ = try await membership.fetchPersonal(page: membership.nextPage, generation: membership.bumpGeneration())
+        precondition(membership.rawItems.map(\.publishedFileId) == ["101", "103", "104", "105"], "overlap includes the remote page boundary item")
+        membershipProjection.reconcileSubscriptionWrite(itemID: "101", isSubscribed: false)
+        precondition(membership.nextPage == 2)
+        membershipProjection.reconcileSubscriptionWrite(itemID: "103", isSubscribed: false)
+        precondition(membership.nextPage == 1)
+        payload = page(1, [item("104", 10), item("106", 10)])
+        _ = try await membership.fetchPersonal(page: 1, generation: membership.bumpGeneration())
+        precondition(membership.rawItems.map(\.publishedFileId) == ["104", "105", "106"], "page-one continuation preserves later loaded survivors")
+        let oldPageObservation = membershipProjection.steamSubscriptions.beginMembershipObservation()
+        membershipProjection.steamSubscriptions.refresh("104")
+        for _ in 0..<1000 {
+            if membershipProjection.steamSubscriptions.state(for: "104") == .known(false) { break }
+            await Task.yield()
+        }
+        precondition(membershipProjection.steamKitPersonalPostProcess(membership.rawItems).map(\.publishedFileId) == ["105", "106"], "confirmed negatives stay out of future and restored personal projections")
+        membershipProjection.browserItems = membership.rawItems.map { .init(id: $0.publishedFileId) }
+        precondition(membershipProjection.displayedBrowserItems.map(\.id) == ["105", "106"], "restored browser snapshots honor current membership")
+        membershipProjection.browseContext.isAuthorWorkshop = true
+        membershipProjection.updateDisplayedBrowserItems()
+        precondition(membershipProjection.displayedBrowserItems.map(\.id) == ["104", "105", "106"], "an author's page is independent of subscription membership")
+        membershipProjection.browseContext.isAuthorWorkshop = false
+        membershipProjection.steamSubscriptions.observeSubscribedIDs(["104"], observation: oldPageObservation)
+        precondition(membershipProjection.steamSubscriptions.state(for: "104") == .known(false), "a page started before readback cannot resurrect a removed subscription")
+        let newPageObservation = membershipProjection.steamSubscriptions.beginMembershipObservation()
+        membershipProjection.steamSubscriptions.observeSubscribedIDs(["104"], observation: newPageObservation)
+        precondition(membershipProjection.steamSubscriptions.state(for: "104") == .known(true), "a fresh page can discover a subscription restored externally")
+        membershipProjection.reconcileSubscriptionWrite(itemID: "104", isSubscribed: true)
+        precondition(membershipProjection.refreshes == 0, "a rejected unsubscribe leaves existing membership alone")
+        membershipProjection.source = .myFavorites
+        membershipProjection.updateDisplayedBrowserItems()
+        precondition(membershipProjection.displayedBrowserItems.map(\.id) == ["104", "105", "106"], "favorite membership is independent of subscription membership")
+        membershipProjection.reconcileSubscriptionWrite(itemID: "104", isSubscribed: false)
+        precondition(membership.rawItems.map(\.publishedFileId) == ["104", "105", "106"], "subscription actions cannot remove favorite cards")
+        membershipProjection.source = .mySubscriptions
+        membershipProjection.shouldUseSteamKitPersonal = false
+        membershipProjection.reconcileSubscriptionWrite(itemID: "104", isSubscribed: false)
+        precondition(membership.rawItems.count == 3, "an author view keeps the author's work")
+
+        // The actual write/readback hook must re-project a details-route card
+        // whose cached content survived an unsubscribe.
+        let detailStore = SteamKitBrowseStore(queryClient: query)
+        detailStore.resetFor(key: detailStore.makeDetailsKey(itemID: "401"))
+        let detailProjection = Projection(detailStore)
+        detailProjection.browserItems = [.init(id: "401")]
+        detailProjection.steamSubscriptions.refresh("401")
+        for _ in 0..<1000 {
+            if detailProjection.steamSubscriptions.state(for: "401") == .known(false) { break }
+            await Task.yield()
+        }
+        detailProjection.reconcileSubscriptionWrite(itemID: "401", isSubscribed: false)
+        precondition(detailProjection.displayedBrowserItems.isEmpty)
+        detailProjection.steamSubscriptions.toggle("401")
+        for _ in 0..<1000 {
+            if detailProjection.steamSubscriptions.state(for: "401") == .known(true) { break }
+            await Task.yield()
+        }
+        precondition(detailProjection.displayedBrowserItems.map(\.id) == ["401"], "subscribe hook restores the hidden cached card")
+
+        let restoredStore = SteamKitBrowseStore(queryClient: query)
+        restoredStore.resetFor(key: key)
+        payload = page(1, [item("501", 10), item("502", 10)])
+        _ = try await restoredStore.fetchPersonal(page: 1, generation: restoredStore.bumpGeneration(), replacingLoadedItems: true)
+        let restored = Projection(restoredStore)
+        restored.browserItems = restoredStore.rawItems.map { .init(id: $0.publishedFileId) }
+        let saved = restored.makeDiscoveryBrowseSnapshot()
+        restoredStore.resetFor(key: authorKey)
+        restored.browseContext.isAuthorWorkshop = true
+        restored.shouldUseSteamKitPersonal = false
+        restored.steamSubscriptions.observeSubscribedIDs(["501"])
+        restored.steamSubscriptions.toggle("501")
+        for _ in 0..<1000 {
+            if restored.steamSubscriptions.state(for: "501") == .known(false) { break }
+            await Task.yield()
+        }
+        restored.browseContext.isAuthorWorkshop = false
+        restored.shouldUseSteamKitPersonal = true
+        restored.restoreDiscoveryBrowseSnapshot(saved, restoredQuery: "")
+        precondition(restored.navigations == 0 && restoredStore.nextPage == 1,
+            "author-page unsubscribe rewinds the saved personal page boundary")
+        precondition(restored.browserItems.map(\.id) == ["502"])
+        let observation = restored.steamSubscriptions.beginMembershipObservation()
+        payload = page(1, [item("502", 10), item("503", 10)])
+        let replay = try await restoredStore.fetchPersonal(page: restoredStore.nextPage, generation: restoredStore.bumpGeneration())
+        restored.steamSubscriptions.observeSubscribedIDs(replay.observedSubscribedIDs, observation: observation)
+        precondition(restored.steamKitPersonalPostProcess(replay.items).map(\.publishedFileId) == ["502", "503"],
+            "overlap fills the boundary without resurrecting the canceled card")
+        // An old cached ID is not new evidence even when it survived in raw.
+        restoredStore.restore(saved.steamKitBrowseSnapshot)
+        payload = page(2, [item("504", 10)])
+        let freshObservation = restored.steamSubscriptions.beginMembershipObservation()
+        let merged = try await restoredStore.fetchPersonal(page: 2, generation: restoredStore.bumpGeneration())
+        restored.steamSubscriptions.observeSubscribedIDs(merged.observedSubscribedIDs, observation: freshObservation)
+        precondition(merged.items.contains { $0.publishedFileId == "501" }
+            && restored.steamSubscriptions.state(for: "501") == .known(false),
+            "merged cache cannot supply fresh positive membership evidence")
+        restored.steamAuth.steamId = "b"
+        restored.restoreDiscoveryBrowseSnapshot(saved, restoredQuery: "")
+        precondition(restored.navigations == 1, "account B cannot restore account A's personal feed")
+        restored.steamAuth.steamId = "a"; restored.steamAuth.isOnline = false
+        restored.restoreDiscoveryBrowseSnapshot(saved, restoredQuery: "")
+        precondition(restored.navigations == 2, "logged-out personal restoration navigates to login guidance")
+
+        // The detail inspector can remove membership while a new initial page
+        // is in flight, even though that key has no raw items yet.
+        let emptyStore = SteamKitBrowseStore(queryClient: query)
+        emptyStore.resetFor(key: key)
+        let initialGeneration = emptyStore.bumpGeneration()
+        let loading = Projection(emptyStore)
+        loading.browserState = .loading
+        loading.reconcileSubscriptionWrite(itemID: "601", isSubscribed: false)
+        precondition(loading.refreshes == 1 && emptyStore.generation > initialGeneration,
+            "remove miss retires and restarts an initial personal page")
+        payload = page(1, [item("601", 10), item("602", 10)])
+        _ = try await emptyStore.fetchPersonal(page: 1, generation: initialGeneration)
+        precondition(emptyStore.nextPage == 1 && emptyStore.rawItems.isEmpty,
+            "stale initial page cannot advance the cursor after remove miss")
+
         var epoch: Int? = 1
         var writes = 0
         var reads = 0
@@ -287,6 +425,7 @@ final class QueryTransport: SteamServiceTransporting {
             }
             fatalError("store did not settle")
         }
+        let firstAccountObservation = subscriptions.beginMembershipObservation()
         subscriptions.observeSubscribedIDs(["2"])
         precondition(subscriptions.state(for: "2") == .known(true), "current subscription page seeds membership")
         subscriptions.toggle("1")
@@ -308,6 +447,8 @@ final class QueryTransport: SteamServiceTransporting {
         for _ in 0..<20 { await Task.yield() }
         precondition(subscriptions.state(for: "1") == .unknown, "old account read cannot publish")
         precondition(subscriptions.state(for: "2") == .unknown, "page membership cannot cross accounts")
+        subscriptions.observeSubscribedIDs(["2"], observation: firstAccountObservation)
+        precondition(subscriptions.state(for: "2") == .unknown, "a prior account page cannot reseed membership")
         epoch = nil; subscriptions.refresh("1"); subscriptions.toggle("1")
         precondition(writes == 2 && subscriptions.state(for: "1") == .unknown)
         await client.stop(shutdownTimeout: 0)

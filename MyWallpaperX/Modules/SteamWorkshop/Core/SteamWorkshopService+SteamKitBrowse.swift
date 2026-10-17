@@ -271,7 +271,8 @@ extension SteamWorkshopService {
         browserFetchTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             do {
-                let result = try await self.steamKitBrowseStore.fetchPersonal(page: 1, generation: generation)
+                let membershipObservation = self.steamSubscriptions.beginMembershipObservation()
+                let result = try await self.steamKitBrowseStore.fetchPersonal(page: 1, generation: generation, replacingLoadedItems: true)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
@@ -279,7 +280,7 @@ extension SteamWorkshopService {
                           self.shouldUseSteamKitPersonal else { return }
                     self.browserFetchTask = nil
                     if self.source == .mySubscriptions {
-                        self.steamSubscriptions.observeSubscribedIDs(result.items.map(\.publishedFileId))
+                        self.steamSubscriptions.observeSubscribedIDs(result.observedSubscribedIDs, observation: membershipObservation)
                     }
                     let processed = self.steamKitPersonalPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
@@ -329,6 +330,7 @@ extension SteamWorkshopService {
         Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             do {
+                let membershipObservation = self.steamSubscriptions.beginMembershipObservation()
                 let result = try await self.steamKitBrowseStore.fetchPersonal(page: page, generation: generation)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
@@ -336,7 +338,7 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation,
                           self.shouldUseSteamKitPersonal else { return }
                     if self.source == .mySubscriptions {
-                        self.steamSubscriptions.observeSubscribedIDs(result.items.map(\.publishedFileId))
+                        self.steamSubscriptions.observeSubscribedIDs(result.observedSubscribedIDs, observation: membershipObservation)
                     }
                     let processed = self.steamKitPersonalPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
@@ -457,6 +459,10 @@ extension SteamWorkshopService {
     ) -> [SteamWorkshopQueryItem] {
         var result = items
         let key = steamKitBrowseStore.currentKey
+        if key?.source == .mySubscriptions {
+            steamSubscriptions.synchronizeAccount()
+            result.removeAll { steamSubscriptions.states[$0.publishedFileId] == .known(false) }
+        }
         if let key {
             result = steamKitApplyKeyTagFilters(result, key: key)
         }
@@ -802,9 +808,9 @@ final class SteamKitBrowseStore {
         partialErrors = []
     }
 
-    private func merge(_ items: [SteamWorkshopQueryItem], page: Int,
+    private func merge(_ items: [SteamWorkshopQueryItem], replacing: Bool,
                        errors: [SteamWorkshopQueryPage.SteamWorkshopPartialError] = []) -> [SteamWorkshopQueryItem] {
-        if page == 1 { rawItems = []; partialErrors = [] }
+        if replacing { rawItems = []; partialErrors = [] }
         var index = Dictionary(uniqueKeysWithValues: rawItems.enumerated().map { ($0.element.publishedFileId, $0.offset) })
         for item in items {
             if let offset = index[item.publishedFileId] { rawItems[offset] = item }
@@ -858,7 +864,7 @@ final class SteamKitBrowseStore {
         }
         nextPage = page + 1
         hasMore = result.hasMore
-        return (merge(result.items, page: page, errors: result.partialErrors), result.total, result.hasMore)
+        return (merge(result.items, replacing: page == 1, errors: result.partialErrors), result.total, result.hasMore)
     }
 
     /// SK3.3：个人来源取页。已订阅直接结构化分页；收藏为 ID 分页 +
@@ -866,8 +872,9 @@ final class SteamKitBrowseStore {
     /// 与 fetch 相同：非当前代际的迟到回包不提交分页状态。
     func fetchPersonal(
         page: Int,
-        generation: Int
-    ) async throws -> (items: [SteamWorkshopQueryItem], total: Int, hasMore: Bool) {
+        generation: Int,
+        replacingLoadedItems: Bool = false
+    ) async throws -> (items: [SteamWorkshopQueryItem], total: Int, hasMore: Bool, observedSubscribedIDs: [String]) {
         guard let key = currentKey, key.route == .personal, let source = key.source else {
             throw SteamServiceClient.RequestError.notReady
         }
@@ -879,10 +886,13 @@ final class SteamKitBrowseStore {
         case .mySubscriptions:
             let result = try await queryClient.subscriptions(page: page)
             guard generation == self.generation, key == currentKey else {
-                return (result.items, result.total, result.hasMore)
+                return (result.items, result.total, result.hasMore, [])
             }
             commit(hasMore: result.hasMore)
-            return (merge(result.items, page: page, errors: result.partialErrors), result.total, result.hasMore)
+            // Only this response proves membership. Merged/restored pages are
+            // cached content and must never turn a newer negative back positive.
+            return (merge(result.items, replacing: replacingLoadedItems, errors: result.partialErrors),
+                    result.total, result.hasMore, result.items.map(\.publishedFileId))
         case .myFavorites:
             let (ids, total, hasMore) = try await queryClient.favoriteIds(page: page)
             var items: [SteamWorkshopQueryItem] = []
@@ -895,14 +905,24 @@ final class SteamKitBrowseStore {
                 errors.append(contentsOf: details.partialErrors)
             }
             guard generation == self.generation, key == currentKey else {
-                return (items, total, hasMore)
+                return (items, total, hasMore, [])
             }
             commit(hasMore: hasMore)
-            return (merge(items, page: page, errors: errors), total, hasMore)
+            return (merge(items, replacing: replacingLoadedItems, errors: errors), total, hasMore, [])
         default:
             throw SteamServiceClient.RequestError.helperError(
                 code: "unsupportedQuery", message: "unsupported personal source")
         }
+    }
+
+    @discardableResult
+    func removeSubscribedItem(_ id: String) -> Bool {
+        guard currentKey?.route == .personal, currentKey?.source == .mySubscriptions else { return false }
+        generation += 1
+        rawItems.removeAll { $0.publishedFileId == id }
+        partialErrors.removeAll { $0.publishedFileId == id }
+        nextPage = max(1, nextPage - 1)
+        return true
     }
 
     /// 来源 → 统一排序键（SK0.1 实测可用的四个排序）。

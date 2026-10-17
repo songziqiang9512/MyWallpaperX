@@ -559,6 +559,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         isLaunchPendingBadge = downloadRecord.map {
             SteamWorkshopService.shared.isLaunchPending($0.id)
         } ?? false
+        if isLaunchPendingBadge {
+            shouldPersistBarVisibility = true
+        }
         applyStatusBadgeAppearance(
             actionKind: currentActionKind,
             itemTitle: item.title,
