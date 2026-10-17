@@ -642,6 +642,20 @@
       "contentPatterns": [
         "maximumStaticRopeExpansionSegments"
       ]
+    },
+    {
+      "id": "scene-user-shortcut-authored-fallback",
+      "title": "未绑定快捷方式的普通solid底图回退",
+      "owner": "Scene material source preparation",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "design_notes": "实施前设计见 #user-shortcut-authored-fallback。独立typed shortcut保声明；当前无本机ready producer，仅普通solid单一slot0有效底图在原descriptor/loader/source/compositor回退。unknown/既有provider/effect/Puppet/3D不扩；未来绑定须在同一选择边界接ready/absent并退役静态资格。本片批准不等于系统shortcut、面板、原样本或全局parity验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift"
+      ],
+      "contentPatterns": [
+        "userShortcut"
+      ]
     }
   ]
 }

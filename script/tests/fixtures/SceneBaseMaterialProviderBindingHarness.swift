@@ -673,6 +673,33 @@ let program = SceneBaseMaterialProviderBindingCompiler.compile(
     ],
     scriptBindings: [directBinding, timedBinding, unsupportedBinding]
 , materialPropertyTargets: [])
+func shortcutProviderCollisionChecks() -> [String: Bool] {
+    var checks: [String: Bool] = [:]
+    for (label, name) in [("system-name", "$mediaThumbnail"), ("property-name", "customCover")] {
+        let input = SceneEffectTextureInput.parse(["type": "usershortcut", "name": name])!
+        for useInstance in [false, true] {
+            let layer = SceneRenderDescriptor.Layer(id: 801, contentKind: "solid",
+                imagePath: "models/collision.json", effects: [])
+            let instance = SceneDocument.SceneLayerMaterialInstance(id: nil,
+                textureSlots: ["authored/fallback"], userTextureInputs: [input],
+                hasUserTextureOverride: true, combos: [:], unknownKeys: [], isMalformed: false)
+            let descriptor = SceneRenderDescriptor(layers: [layer], modelMaterialLinks: [
+                .init(modelPath: "models/collision.json", materialPath: "materials/collision.json")],
+                materialPasses: [.init(materialPath: "materials/collision.json",
+                    textureSlots: ["authored/fallback"], userTextureInputs: useInstance ? [] : [input])],
+                texturePropertyKeys: ["customCover"])
+            let result = SceneBaseMaterialProviderBindingCompiler.compile(descriptor: descriptor,
+                materialInstancesByLayerID: useInstance ? [801: instance] : [:],
+                scriptBindings: [], materialPropertyTargets: [])
+            checks[label + (useInstance ? "-instance" : "-material")] = input.kind == .userShortcut
+                && result.baseMaterialBindings.isEmpty && result.rejectedBaseMaterialReasons.isEmpty
+                && result.systemProviderDemands.isEmpty && result.userPropertyDemands.isEmpty
+                && result.assetDemands.isEmpty
+        }
+    }
+    return checks
+}
+
 func instanceFallbackChecks() -> [String: Bool] {
     func compile(_ path: String, slots: [String?]? = nil,
         combos: [String:Int] = ["version":2]) -> SceneBaseMaterialProviderBindingProgram {
@@ -805,6 +832,7 @@ let scalarProfiles = [
     scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[2]),"roughness":.init(userBinding:nil,components:[-1])]),
 ]
 let result: [String: Any] = [
+    "shortcutCollisions": shortcutProviderCollisionChecks(),
     "preparedImageMaterials": preparedImageMaterialChecks(),
     "instanceFallback": instanceFallbackChecks(),
     "customAlpha": customMaterialAlphaChecks(),

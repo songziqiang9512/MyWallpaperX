@@ -242,7 +242,8 @@ enum SceneBaseMaterialProviderBindingCompiler {
         texturePropertyKeys: Set<String>
     ) -> [SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding.Provider] {
         inputs.compactMap { input in
-            switch input?.value {
+            guard input?.kind != .userShortcut else { return nil }
+            return switch input?.value {
             case SceneBaseMaterialProviderBindingProgram.currentIdentity:
                 .current
             case SceneBaseMaterialProviderBindingProgram.previousIdentity:

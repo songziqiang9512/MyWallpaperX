@@ -343,11 +343,12 @@ enum Harness {
             nodeTarget: .effectOutput,
             bindings: [.init(slot: 1, texture: .layerSource)]
         )
-        var unknownSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
-        unknownSlots[0] = .init(index: 0, candidates: [.init(
-            source: .userTexture(.init(kind: .unknown, value: "mystery")),
-            provenance: .userTexture
-        )])
+        let unknownFailsClosed = [SceneEffectTextureInput.Kind.unknown, .userShortcut].allSatisfy { kind in
+            var slots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
+            slots[0] = .init(index: 0, candidates: [
+                .init(source: .userTexture(.init(kind: kind, value: "mystery")), provenance: .userTexture)])
+            return failure(compile(material(slots: slots)))?.code == .userTextureUnknown
+        }
         var emptyCandidateSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
         emptyCandidateSlots[5] = .init(index: 5, candidates: [])
         var wrongIndexSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
@@ -801,8 +802,7 @@ enum Harness {
                 .map(\.name) == ["A_COMBO", "Z_COMBO"],
             "stateParsedOnly": template(compile(material(blending: "additive")))?
                 .renderState.blending == .additive,
-            "unknownFailsClosed": failure(compile(material(slots: unknownSlots)))?.code
-                == .userTextureUnknown,
+            "unknownFailsClosed": unknownFailsClosed,
             "slotShapeFailsClosed": failure(compile(material(slots: emptyCandidateSlots)))?.code
                 == .textureSlotsInvalid
                 && failure(compile(material(slots: wrongIndexSlots)))?.code

@@ -30,8 +30,6 @@
 
 > 2026-09-05 的 Scene clear contract wiring：`general.clearenabled` 已从 `SceneDocument`/`SceneRenderDescriptor` 传入唯一 `SceneMainPassEncoder`；首个 color attachment 使用 `.clear` 或 `.load`，同一帧后续 offscreen/main-pass reopen 始终使用 `.load`。该批没有伪造 `clearenabled=false` 真实 corpus 输入，只以结构门和 checkpoint build 证明 descriptor → encoder 主链，透明/未覆盖 surface 的首帧内容与跨平台 golden 仍未验证，见 [E-V4-SCENE-CLEAR-ENABLED](../history/runtime-evidence-index.md#e-v4-scene-clear-enabled)。
 
-> 状态：现役专项表；基线核对：2026-09-07，后继各按记录范围。
->
 > 本页维护当前能力与缺口；精确运行身份见 [运行证据索引](runtime-evidence-current.md)，唯一实现顺序见 [Scene 兼容执行路线](../roadmap/scene-compatibility-roadmap.md)。旧 R/B 批次只作证据 provenance。
 
 > 2026-09-05 的 handoff 证据窗进一步确认 admission 后的 render 链：真实 `3792817546` frame 1/2 均有 `descriptor=63`、`visible=63`、`sourcePublications=63`、`encoded=63`、`passthrough=0`，各自同一 Metal command buffer `status=4/error=none`。这证明 package-literal dynamic image 已进入统一 texture publication、image compositor 与 GPU completion；topology-cache miss→hit 由后继证据单独闭合，没有逐层 ROI 或更宽 SceneScript 语义，见 [E-V4-SCENESCRIPT-DYNAMIC-LAYER-RENDER](../history/runtime-evidence-index.md#e-v4-scenescript-dynamic-layer-render) 与 [E-V4-SCENESCRIPT-DYNAMIC-TOPOLOGY-CACHE-RUNTIME](../history/runtime-evidence-index.md#e-v4-scenescript-dynamic-topology-cache-runtime)。
@@ -410,9 +408,12 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 |---|---|---|---|
 | `usershortcut` definition/persistence | `L0` | parser 归入 unsupported | macOS 类型/授权、逐机存储、preset 排除和安全 UI |
 | cursor-triggered open | callback `L3 bounded`；shortcut API `L0` | generic QuickJS cursorDown/up/click与captured owner已执行，但没有`openUserShortcut` host API或本机授权/绑定存储 | ordered单事件单命令、click propagation、invalid key与权限门 |
-| shortcut icon provider | `L0` | 无 shortcut provider | bound/unbound generation、square icon fallback 和取消 |
+| shortcut icon provider / authored fallback | ready icon `L0`；底图`L3 bounded` | 无系统icon producer；限定未绑定solid保有效作者底图，见下方合同 | 本机赋值的ready/absent generation、取消与更宽consumer |
 | `isbound` / `file` change payload | `L0` | 无 `applyUserProperties` event | first/full 与 change-only payload、隐私与屏保策略 |
 
+<a id="user-shortcut-authored-fallback"></a>
+
+**未绑定底图合同（实施前设计于2026-10-17落库）。** 精确`{type:"usershortcut",name:非空字符串}`保独立typed类型，不改写path/property；当前macOS无本机绑定/ready icon producer，仅普通solid、无Puppet、合法instance单一slot0底图与快捷方式（空尾user slots允许）保留原VFS/TextureLoader→source publication→compositor。unknown/额外键/畸形、多纹理、effect/pass、3D及已认领system/sceneTexture沿原准入，不扩为任意未知provider回退。无有效资源保既有局部失败/solid降级，不新建状态或资源owner。未来本机绑定须在同一选择边界以ready/absent和generation替代静态资格，保取消/陈旧publication，不并行两套输出；底图、输入改名、kind/key碰撞及三态model目录反例见[有界官方/真实后验](runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)。该后验只证有效底图与透明形状，不代替系统赋值、点击、payload/面板、全样本或性能验收。
 下表沿用 21 样本 target census 快照：424 definitions、952 bindings、195 条 conditional bindings。它只用于解释既有 target 分布，数字不是当前 corpus fingerprint、产品支持率或开发顺序；当前能力以每行代码/运行证据和[总台账](coverage-ledger.md)为准。
 
 ## 6. User Property target 矩阵

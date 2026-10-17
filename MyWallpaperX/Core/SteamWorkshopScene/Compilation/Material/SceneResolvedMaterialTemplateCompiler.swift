@@ -306,7 +306,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 return .asset(path)
             case .property: return .userProperty(.init(key: value))
             case .system: return .provider(.system(value))
-            case .unknown: throw textureFailure(.userTextureUnknown, slot, candidate.provenance)
+            case .userShortcut, .unknown:
+                throw textureFailure(.userTextureUnknown, slot, candidate.provenance)
             }
         case let .graph(identity):
             guard let context, context.textureUniverse.contains(identity),

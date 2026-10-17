@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2d01d0487d4cd0e1a5d7ffa4bf11a42f4d315df55150c14efcac16c8e76d9e52",
+        "sourceSHA256": "50b691cacd9ddf91bb3c5a0756fd26d9626fdc3e6ec57cfbbb414b8bbeb587d8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态20B唯一格式合同/旧52选择优先、背景真实恢复、剩余shortcut/morph资格与台账引用。",
-        "limitations": "导航/合同同步；不宣称全样本、相同viewport/phase parity或性能验收。"
+        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
+        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
       }
     },
     {
@@ -664,13 +664,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "effc3e2c164c2442a5a39c03b0e3898838731e5b5d05031938f9b21ad65d2ca8",
+        "sourceSHA256": "37e8c22fc94888d4123b5a4dc3ea3b9631eff0fe0609de38ea290950d23569a7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "永久删除callback的D4限定合同、原包/自有编辑与独立画面后验导航；只退出已证误拒，native composition及其余旧项保留。",
-        "limitations": "只核本批变更、链接、anchor及权威，不代表完整面板/保存恢复、其余能力/整样本/性能重新验收。"
+        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
+        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
       }
     },
     {
@@ -737,10 +737,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "15bd668b016bd9538255c17d5053723f2c6a95fe0dd298a85dfea27b6802e0f9",
+        "sourceSHA256": "5679e185923550a1e3ad0d14b9b0527b303cdbdd399158821e630bb2e75ad17e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态20B唯一格式合同/旧52选择优先、背景真实恢复、剩余shortcut/morph资格与台账引用。",
-        "limitations": "导航/合同同步；不宣称全样本、相同viewport/phase parity或性能验收。"
+        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
+        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
       }
     },
     {
@@ -3335,10 +3335,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d88b593017e9e0011b3b76abb538e0470e575167ff260464d9bc5f7b4276a487",
+        "sourceSHA256": "b20cb3539744d6179032f855f07b0fbebb1baf86ccd3a982e6d14050826c7586",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态20B唯一格式合同/旧52选择优先、背景真实恢复、剩余shortcut/morph资格与台账引用。",
-        "limitations": "导航/合同同步；不宣称全样本、相同viewport/phase parity或性能验收。"
+        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
+        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
       }
     },
     {
@@ -3349,10 +3349,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5bed42ceae0cf3a0e976d6dbda11350e7e0d04a896423e47b4a8982ec4e93306",
+        "sourceSHA256": "79d53a93991e5f075a787e4fbf635d6a266671c8334bbae4b7bd27d61dd2db7c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对静态20B唯一格式合同/旧52选择优先、背景真实恢复、剩余shortcut/morph资格与台账引用。",
-        "limitations": "导航/合同同步；不宣称全样本、相同viewport/phase parity或性能验收。"
+        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
+        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
       }
     },
     {

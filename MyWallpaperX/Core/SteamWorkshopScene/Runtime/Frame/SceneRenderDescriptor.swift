@@ -138,6 +138,7 @@ struct SceneRenderDescriptorBuilder {
             generalTimelineDiagnostics: sceneDocument.general.timelineDiagnostics,
             layers: sceneDocument.objects.enumerated().map { index, object in
                 let contentKind = contentKind(for: object, solidModelPaths: solidModelPaths)
+                let puppetMeshPath = object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil
                 return SceneRenderDescriptor.Layer(
                     id: object.id,
                     layerIndex: index,
@@ -147,8 +148,19 @@ struct SceneRenderDescriptorBuilder {
                     contentKind: contentKind,
                     imagePath: object.imagePath,
                     staticBaseTexturePath: object.materialInstance.flatMap { instance in
-                        guard !instance.isMalformed,
-                              instance.userTextureInputs.allSatisfy({ $0 == nil }) else { return nil }
+                        guard !instance.isMalformed else { return nil }
+                        if !instance.userTextureInputs.allSatisfy({ $0 == nil }) {
+                            // No macOS shortcut icon producer is registered. An
+                            // unbound ordinary solid keeps its authored albedo.
+                            // Other providers and material shapes retain admission.
+                            guard contentKind == "solid",
+                                  puppetMeshPath == nil,
+                                  instance.unknownKeys.isEmpty,
+                                  instance.textureSlots.count == 1,
+                                  instance.userTextureInputs.first??.kind == .userShortcut,
+                                  instance.userTextureInputs.dropFirst().allSatisfy({ $0 == nil })
+                            else { return nil }
+                        }
                         return instance.textureSlots.first ?? nil
                     },
                     staticModelPath: object.staticModelPath,
@@ -204,7 +216,7 @@ struct SceneRenderDescriptorBuilder {
                     particleTimelines: object.particleTimelines,
                     particleTimelineDiagnostics: object.particleTimelineDiagnostics,
                     modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
-                    puppetMeshPath: object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil,
+                    puppetMeshPath: puppetMeshPath,
                     text: object.text,
                     textStyle: object.textStyle,
                     textScript: object.textScript,

@@ -273,16 +273,18 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "10-17多target裁剪数组修正后，原包默认中央Reze、手臂/身体已恢复，烟火/栏杆保持；不再列中央人物缺失。仍bind-pose：animation1678 auxiliary拒绝；底栏白块与局部effect/typed producer余项分列。与目录官方截屏仅作基础构图对照，viewport、phase、媒体/全部属性未同状态验收。",
+      "note": "10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出/GPU排空。animation1678 auxiliary仍bind-pose，210/233/320局部effect/typed producer余项保留。目录官方仅作基础构图对照，viewport、phase、媒体/全部属性未同状态验收。",
       "runs": [
         ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/report.json",
-        ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/usershortcut-authored-fallback-20261017/final/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/samples/3577990983/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/samples/3577990983/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/usershortcut-authored-fallback-20261017/final/samples/3577990983/runtime_evidence.zip"
       ],
-      "remainingDifferences": "animation1678 auxiliary拒绝使人物动画沿bind-pose；底栏白块对官方雪花及210/233/320局部effect余项待闭。ready黑而after主幅已恢复，原benchmark FAIL保留；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "animation1678 auxiliary拒绝使人物动画沿bind-pose；210/233/320局部effect余项仍开放。16底栏白块已退出；ready黑及effect回退使原benchmark FAIL保留，首final watchdog失败也保留；完整视觉、播放、交互及作者参数未验收。",
       "officialComparison": "compared"
     },
     "3486887298": {

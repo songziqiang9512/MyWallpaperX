@@ -5,6 +5,7 @@ nonisolated struct SceneEffectTextureInput: Codable, Hashable {
         case path
         case system
         case property
+        case userShortcut
         case unknown
     }
 
@@ -24,6 +25,12 @@ nonisolated struct SceneEffectTextureInput: Codable, Hashable {
         }
         let type = (dictionary["type"] as? String)?.localizedLowercase
         let name = (dictionary["name"] as? String).map(normalized) ?? ""
+        if type == "usershortcut" {
+            guard !name.isEmpty, Set(dictionary.keys) == Set(["type", "name"]) else {
+                return SceneEffectTextureInput(kind: .unknown, value: name)
+            }
+            return SceneEffectTextureInput(kind: .userShortcut, value: name)
+        }
         if type == "system", !name.isEmpty {
             guard Set(dictionary.keys) == Set(["type", "name"]) else {
                 return SceneEffectTextureInput(kind: .unknown, value: name)

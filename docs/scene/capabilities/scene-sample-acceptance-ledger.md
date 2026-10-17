@@ -8,11 +8,11 @@
 
 ## 1. 来源
 
-- 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（300 个 sample 目录）。
+- 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（301 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `2071a298df74d91206f0b026b6b241b5df5c25836c7ab7d145e16e27eaa66d61`（生成于 2026-10-16T17:53:30.857012+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `c03975eb0ea9872e5af242b6e0fa52449bc58e2c03f67b617106b3807cad6613`。
-- 本页生成于 2026-10-17T02:10:45.552901+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `870471922cf4995fcd835b83d740d3e71aed5c05540a8a26046cb79f2b0126d2`。
+- 本页生成于 2026-10-17T02:49:28.344696+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -20,14 +20,14 @@
 
 | 原人工裁决 | 样本数 |
 |---|---:|
-| `unreviewed` | 281 |
+| `unreviewed` | 282 |
 | `pass` | 0 |
 | `fail` | 19 |
 | `platform-unsupported` | 0 |
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 280 |
+| `unknown` | 281 |
 | `not-run` | 0 |
 | `blocked` | 0 |
 | `compared` | 20 |
@@ -42,16 +42,16 @@
 | `scenescript` | SceneScript 异常 | 12 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
 | `visual-review` | 结构链完整，待视觉验收 | 139 |
-| `not-run` | 未关联本归档运行证据 | 121 |
+| `not-run` | 未关联本归档运行证据 | 122 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
 | `degraded-runtime` | 39 |
-| `not-run` | 121 |
+| `not-run` | 122 |
 | `structural-chain-complete-visual-review` | 138 |
 
-作者参数：221 个样本声明了 schemecolor 之外的用户参数，共 7286 项，其中 2547 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
+作者参数：222 个样本声明了 schemecolor 之外的用户参数，共 7289 项，其中 2547 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
 ## 3. 逐样本
 
@@ -196,7 +196,7 @@
 | `3562021804` | 【完美世界】石昊 以身为种 | 3(0) bool 1 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3563038726` | 【凡人修仙传】梅凝  乖巧可怜 | 7(0) bool 4 color 2 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3566880847` | 【凡人修仙传】紫灵 白色限定 | 7(0) bool 1 color 3 combo 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 48(33) bool 12 color 3 combo 1 group 4 slider 9 untyped 3 u… | `blocked` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 10-17多target裁剪数组修正后，原包默认中央Reze、手臂/身体已恢复，烟火/栏杆保持；不再列中央人物缺失。仍bind-pose：animation1… |
+| `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 48(33) bool 12 color 3 combo 1 group 4 slider 9 untyped 3 u… | `blocked` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出… |
 | `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 21(0) bool 8 color 4 slider 9 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 13(0) bool 6 color 4 slider 3 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3585875739` | Miku Monitoring | 6(0) bool 5 color 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
@@ -357,5 +357,6 @@
 | `3812473896` | 原神芙宁娜-水畔芙谣[Furina's Ballad by the Water… | 52(0) bool 3 color 7 group 6 scenetexture 1 slider 35 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3814040466` | Nikke - Privaty - Sharp Lesson | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3815761795` | 明日方舟・夕｜画桥（4K） | 13(0) bool 7 color 3 combo 1 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3818943255` | 美女肚兜 | 3(0) color 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3820312181` | Void Edge Theme R6S [High Resolution] | 4(0) bool 2 color 1 slider 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | VOID EDGE主体呈现；lightshafts layer17/effect1 slot1纹理绑定失败、局部回退，光束具体ROI待同相位对照。 与目录官方… |
 | `833227004` | 星云变换t001 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |

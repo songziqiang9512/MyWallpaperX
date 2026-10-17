@@ -15,6 +15,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserShortcutFallbackChecks.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
@@ -23,6 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
@@ -586,6 +588,7 @@ enum Harness {
             return (String(id), result)
         })
         let result: [String: Any] = [
+            "shortcutFallback": try sceneUserShortcutFallbackChecks(project: project),
             "soundKind": layers[901]?.contentKind ?? "",
             "soundRenderable": layers[901]?.isImageRenderable ?? true,
             "bloomProfiles": bloomProfiles,
@@ -946,6 +949,39 @@ class SceneSolidLayerTests(unittest.TestCase):
     def test_procedural_solid_fallback_reuses_white_texture(self) -> None:
         self.assertEqual(self.result["textureSize"], [1, 1])
         self.assertEqual(self.result["texturePixel"], [255, 255, 255, 255])
+
+    def test_unbound_shortcut_keeps_only_qualified_authored_solid_albedo(self) -> None:
+        rows = self.result["shortcutFallback"]
+        self.assertEqual(len(rows), 34)
+        accepted = {"plain", "null", "shortcut", "registered-solid", "renamed", "type-case", "empty-tail", "allnil-unknown-key"}
+        for name, row in rows.items():
+            with self.subTest(name=name):
+                path = "renamed/icons/brush" if name == "renamed" else "custom/carrier"
+                expected = path if name in accepted else "custom/missing" if name == "missing-asset" else ""
+                self.assertEqual(row["staticPath"], expected, row)
+                filename = "brush.tex" if name == "renamed" else "carrier.tex"
+                self.assertEqual(row["resolvedFile"], filename if name in accepted else "", row)
+                self.assertEqual(row["size"], [90, 60], row)
+                self.assertAlmostEqual(row["alpha"], 0.35, places=6)
+                self.assertEqual(len(row["color"]), 3, row)
+                for value, wanted in zip(row["color"], [0.2, 0.4, 0.6]):
+                    self.assertAlmostEqual(value, wanted, places=6)
+        for name in ("shortcut", "registered-solid", "renamed", "type-case", "empty-tail"):
+            self.assertEqual(rows[name]["userKinds"][0], "userShortcut")
+        self.assertEqual(rows["renamed"]["userValues"], ["renamedKey"])
+        for name in ("unknown-type", "extra-key", "extra-user", "missing-name", "empty-name", "nonstring-name", "nonstring-type"):
+            self.assertEqual(rows[name]["userKinds"], ["unknown"])
+        for name in ("malformed-users", "malformed-textures", "malformed-instance"):
+            self.assertTrue(rows[name]["malformed"])
+        self.assertEqual(rows["known-system"]["userKinds"], ["system"])
+        self.assertEqual(rows["known-property"]["userKinds"], ["property"])
+        self.assertEqual(rows["unknown-instance-key"]["unknownKeys"], ["futureFlag"])
+        self.assertTrue(rows["puppet-solid"]["puppet"])
+        self.assertTrue(rows["registered-solid"]["catalogHasModel"])
+        self.assertFalse(rows["registered-solid"]["puppet"])
+        self.assertFalse(rows["shortcut"]["catalogHasModel"])
+        self.assertEqual(rows["ordinary-image"]["contentKind"], "image")
+        self.assertEqual(rows["model"]["contentKind"], "model")
 
 
 if __name__ == "__main__":
