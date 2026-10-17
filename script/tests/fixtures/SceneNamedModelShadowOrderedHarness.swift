@@ -80,9 +80,10 @@ final class SceneMetalRenderer {
  static func run(_ mode:String,_ d:MTLDevice,_ q:MTLCommandQueue)throws->[String:Any] {
   let pipeline=SceneStaticModelPipeline(device:d)!,image=SceneImageLayerPipeline(device:d)!
   let white=texture(d,1,[255,255,255,255])
+  // Author Y-up mesh; production local F restores this legacy screen-space ROI.
   func quad(_ x:Float)->SceneStaticModelMesh {
    let vertices=[SIMD3(x,4,0),SIMD3(x+20,4,0),SIMD3(x+20,24,0),SIMD3(x,24,0)].map {
-    SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))
+    SceneMdlStaticModel.Vertex(position:SIMD3($0.x,-$0.y,$0.z),normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))
    }
    return pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
   }

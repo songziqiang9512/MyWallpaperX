@@ -704,9 +704,9 @@ final class SceneImageLayerCompositor {
 
 def mixed_main():
     from script.tests import test_scene_snapshot_capacity as previous
-    s=previous.FRAME_MAIN
-    # Reuse the established original encoders and output oracle. Only replace
-    # the batch preparation call with the actual ordered owner under test.
+    s=previous.FRAME_MAIN.replace('SceneMdlStaticModel.Vertex(position:$0,','SceneMdlStaticModel.Vertex(position:SIMD3($0.x,-$0.y,$0.z),')
+    # Author Y-up model vertices meet production local F; no image/particle change.
+    # Preserve the established original encoders and exact output oracle.
     s=s.replace('let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))',
       'let descriptor=SceneRenderDescriptor(layers:[])\n  let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]),descriptor:descriptor)')
     s=s.replace('let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility ? [7:.init()]:[6:.init()]',r'''

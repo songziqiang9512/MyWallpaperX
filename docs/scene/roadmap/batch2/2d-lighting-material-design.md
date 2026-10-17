@@ -433,6 +433,18 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 成功后稳定资源与数值策略移交架构，实际身份/反例/未测上限归历史，删除本窄gate；退役的是reflection-only无producer/consumer及环境生命周期空缺，不退役未知官方时序/公式、Puppet/planar、动态材质能力或完整RT词汇。本有界实现已获产品独立终审ACCEPT，稳定职责移交现架构；实际运行与未测边界只由执行记录说明。后继为有合法caster/depth输入的阴影及显式环境输入等独立切片，不把本片扩大成完整D3或官方parity。
 
 
+<a id="static-model-scene-reflection"></a>
+### 静态模型 Scene 反射：原型停止与重开条件（2026-10-18）
+
+**裁决：未接纳产品扩权。** 将 F5 投影近似直接接到 stock `generic4` mesh 的原型虽通过自有数值/资源门，真实 U29 在完成 named graph、历史复制后仍近黑，未取得可认亮边和拖尾收益。产品、ABI 与新增功能测试已按冻结 patch 撤回，不能由设计批准或局部门通过推定已实现；原始输入、失败、原型及实际画面归[限定证据](../../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018)。
+
+**公共断点。** 当前 fixed-model material binding 只接既有通道，不执行作者 shader；现 Program 顶点输入/encoder 仍是四角，缺 mesh 属性、索引和对应执行合同。F5 的项目缺省 4 world units 没有模型作者单位依据，在近尺度 native camera 下有穿过相机的风险；亮度、材质 base-color 与完整反射能量的关系也未锁定。不得改成 0、相机比例或另补亮度倍数来追单图，不照译 stock 公式。
+
+**后继设计边界。** 若补 Program mesh consumer，沿现 compiler、prepared Program、typed frame、原 geometry/depth/pool 与唯一 compositor 扩展，明确固定材质路径何时退出；不建立另一 renderer、资源/history owner 或近似公式。若保有界项目材质策略，须先有适用的空间、能量及失败合同。命名输入仍须保护原作者顺序的必需 capture/depth/plain/framebuffer/terminal 前缀，可选环境不能提前抢后缀容量；Graph 冻结后不补写输入，不伪造 albedo 或 speculative depth。
+
+**重开门。** 先用官方自有健康模型、稳定 camera 和非对称环境锁定 Reflection OFF/ON、亮度及遮罩正反控制，未声明距离继续缺省。只有区分性行为证据足够，才选择最小公共材质切片，并以变体、相邻反例、真实原包视觉收益和未参与修法样本关闭；无收益则停止，不继续扩大诊断或平台。当前任务顺序仍归[断点队列](../scene-open-breakpoint-queue.md)。
+
+
 <a id="f6-model-directional-shadow"></a>
 ## F6 — 静态模型单方向光阴影（有界实现已验收）
 

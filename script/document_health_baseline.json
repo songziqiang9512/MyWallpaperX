@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 200,
-      "bytes": 85156
+      "lines": 201,
+      "bytes": 86174
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 62244
+      "bytes": 62453
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -165,8 +165,8 @@
       "bytes": 17214
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 499,
-      "bytes": 110178
+      "lines": 511,
+      "bytes": 112318
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 66,
@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 11991
+      "bytes": 12309
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 200,
-      "bytes": 46688
+      "bytes": 46994
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1316,15 +1316,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "858f08041adaf069fcee59be43bbd193633c7d5d21ceb9164154067f20008acd",
-      "after": "1ae3ab95642501e1c7e88ace3d3fda24359e28984cd75af3c2ecd42c66710afd",
-      "owner": "scene-timeline-command-order",
-      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "8fe63041b147901f7971d2005e472551048c86aaad7fe17daf6faef837a5c41e",
       "after": "99bde1ec5d70efb665ed22cb8428c41b110c900519d26969672ed91f95f2c7f1",
@@ -1334,30 +1325,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7dd295143d6f52d387e6c236775e7c5567abb874a12d5a375814a3e0218e4c92",
-      "after": "145cf27f5df07917fded416db5c11892cffcff250693d454635fc3fafa7dccb7",
-      "owner": "scene-timeline-command-order",
-      "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "02ddbc8a991b6dac2549b2002a47d1266743e25af01f8d402ef3bc220c235116",
-      "after": "d2ff69d633167673c5a8735b501890ed9134f5fb940eb8d03d37f17cc6703d42",
-      "owner": "scene-shader-vec2-authored-fallback",
-      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "275c107b125c1d0c7281339c3f11b217dfcc3ab62de27a5f348425d302dadcee",
       "after": "ec47eb4832a128b4e52f48bc91da21fe1c672bae22a33331a1ccf96d6ec66447",
       "owner": "scene-timeline-command-order",
       "reason": "Specify admitted callback order in the existing owner, retain actual native before/after and known failures, and stop unsupported cross-pass conclusions; no second execution route.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "3c040b968e69266aac093b348611ffcd1a89efbe3f58edee17fe690e59c48be0",
+      "after": "581a278063990d2b9aba9786e9b679cba0685fb027351eea9f1611053e40ced1",
+      "owner": "scene-model-reflection-qualification",
+      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "145cf27f5df07917fded416db5c11892cffcff250693d454635fc3fafa7dccb7",
+      "after": "88c060bf851ff4a17a792d7abca8559a4ac66cf59157fede2dde933551f3aecf",
+      "owner": "scene-model-reflection-qualification",
+      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "d2ff69d633167673c5a8735b501890ed9134f5fb940eb8d03d37f17cc6703d42",
+      "after": "bb7eaa409a447aff3dfc3397ce75ec17952b87e3b0aac9814a1affa0c62e3fc9",
+      "owner": "scene-model-reflection-qualification",
+      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "b0c5c3de6f81ea80dfef1719c860372fb44fe3419b58929909d26c532915d636",
+      "after": "535b056c54090714a82a1b1164a01d714c58f9b6f2bbb490a274c696bde8942b",
+      "owner": "scene-model-reflection-qualification",
+      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "1ae3ab95642501e1c7e88ace3d3fda24359e28984cd75af3c2ecd42c66710afd",
+      "after": "a52a5d15ea1ea13f1ada4708121f741dbd014deaf3d9d85e57196604cb0bd805",
+      "owner": "scene-model-reflection-qualification",
+      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
     }
   ]
 }

@@ -116,7 +116,7 @@
 | U26 · 2849382252 | 三条白色图形分辨率过低；核原资产、采样/target extent与几何，不先判压缩或任意加分辨率 |
 | U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
 | U28 · 2684431262 | 与官方显示差异大，旧维护者另报异常紫色块；现描述不足以定算法，先取得当前构图、紫块对应source及逐层首个不同ROI |
-| U29 · 3470948192 | 旧30秒越过intro仍黑水滴/缺发光，另旧人工记录有NaN、文字碎片、异常背景。未由模型emission首门关闭，均待当前真实输出/异常target复验 |
+| U29 · 3470948192 | 默认35s已越过intro仍黑水滴、缺亮边/拖尾；115.scale首个非有限返回仍在。公式NaN已有早前向量链修复，不再列开放。10-18 F5模型近似原型虽实际完成named graph与环境copy，未获可认画面收益，已撤回全部产品扩权；先以官方自有模型锁反射空间/能量目标，不继续改缺省距离或亮度追图。[停止依据与后继边界](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018) |
 | U30 · 3750813609 | 旧观察①闪电缺失；②时钟颜色/发光不符；③雨弱，均待同phase复验。10-16原包身份复核：雷电为121→lightning2，普通Sphere/rate1，无periodic cap；旧405/412+cap32关联错误已删，它们属3749463715，能力缺口只归[静态审计](scene-full-sample-static-audit.md)。未找到121 root静态准入拒绝，不推断其视觉原因。 |
 | U31 · 3264246690 | ①人物边缘锯齿；②警戒带运动仍待当前画面对照。旧头部出画/左肘缺块已有[稳定帧完整肢体后验](../capabilities/runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)，不再列待修。点击口罩已有before戴口罩→click露嘴及effect切换的[实际后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)；pool误拒另修，不据这些关闭AA/运动或整样本。 |
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |

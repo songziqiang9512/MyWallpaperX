@@ -12,6 +12,9 @@ from script.tests.fixtures import scene_reflection_oracle as reflection_oracle
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
+# Pure DTO parity with production; absent brightness keeps the existing fallback.
+TEXTURE_SUPPORT = texture_fixture.HARNESS.split('@main',1)[0].replace(
+    'struct SceneImageLayerUniformValues {', 'struct SceneImageLayerUniformValues {\n    var brightness: Float? = nil')
 
 def reflection_vectors():
     vectors = reflection_oracle.freeze()
@@ -278,7 +281,7 @@ class SceneLitImageLayerTests(unittest.TestCase):
             subprocess.run(['xcrun','-sdk','macosx','metallib',*air,'-o',str(library)],check=True,capture_output=True,text=True)
             sources=['Rendering/Metal/SceneMetalPipeline.swift','Rendering/Metal/SceneLitImageLayerPipeline.swift',
                      'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift','Diagnostics/ScenePerformanceCounterHub.swift','Diagnostics/SceneGPUCensus.swift','Rendering/Graph/SceneGraphResourcePassEncoder.swift']
-            (work/'Support.swift').write_text(texture_fixture.HARNESS.split('@main',1)[0]+'struct SceneGraphRenderTargetPlan { struct ClearColor { let red:Double; let green:Double; let blue:Double; let alpha:Double } }\nimport simd\nenum SceneMatrix { static func scale(_ v:SIMD3<Float>)->simd_float4x4 { simd_float4x4(diagonal:SIMD4(v,1)) } }\n')
+            (work/'Support.swift').write_text(TEXTURE_SUPPORT+'struct SceneGraphRenderTargetPlan { struct ClearColor { let red:Double; let green:Double; let blue:Double; let alpha:Double } }\nimport simd\nenum SceneMatrix { static func scale(_ v:SIMD3<Float>)->simd_float4x4 { simd_float4x4(diagonal:SIMD4(v,1)) } }\n')
             (work/'ReflectionHarness.swift').write_text(REFLECTION_HARNESS);binary=work/'fixture'
             compiled=subprocess.run(['xcrun','swiftc','-D','SCENE_AUTHORED_NORMAL','-parse-as-library',
                 *map(str,dict.fromkeys(texture_fixture.SWIFT_SOURCES+[SCENE/s for s in sources])),str(work/'Support.swift'),
@@ -341,7 +344,7 @@ class SceneLitImageLayerTests(unittest.TestCase):
                 'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',
                 'Diagnostics/ScenePerformanceCounterHub.swift','Diagnostics/SceneGPUCensus.swift']
             support = work / 'Support.swift'
-            support.write_text(texture_fixture.HARNESS.split('@main', 1)[0] + 'import simd\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n')
+            support.write_text(TEXTURE_SUPPORT + 'import simd\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n')
             binary = work / 'fixture'
             compiled = subprocess.run(['xcrun','swiftc','-parse-as-library',*[str(p) for p in dict.fromkeys(texture_fixture.SWIFT_SOURCES + [SCENE / s for s in sources])],str(support),str(ROOT/'script/tests/fixtures/SceneLitImageLayerHarness.swift'),'-module-cache-path',str(work/'module-cache'),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compiled.returncode,0,compiled.stderr)
