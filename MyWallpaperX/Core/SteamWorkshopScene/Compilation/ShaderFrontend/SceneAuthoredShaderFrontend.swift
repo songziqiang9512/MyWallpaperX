@@ -75,8 +75,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             colorBoundary: SceneShaderColorBoundary?,
             boundTextureSlots: Set<Int>
         ) {
-            // v20 resolves globals after initializers and at lexical scope boundaries.
-            cacheSchemaVersion = 20
+            // v22 retires source-classified programs before typed RGBA signal auxiliaries.
+            cacheSchemaVersion = 22
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds

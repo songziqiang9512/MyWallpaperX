@@ -5,12 +5,15 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
+import plistlib
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -339,9 +342,137 @@ private func artifactChecks(authored: String) -> [String: Bool] {
     ]
 }
 
+// Self-authored generic carrier/data fixtures, independent of the real shader.
+private func rgbaDataFixture(
+    update: String = "min(gl_FragColor + vec4(field.rgb, 1.0) * field.a, vec4(1.0))",
+    metadata: String = #" // {"mode":"rgbmask"}"#,
+    helpers: String = "", before: String = "", after: String = ""
+) -> String {
+    """
+    uniform sampler2D g_Texture1;
+    uniform sampler2D g_Texture4;\(metadata)
+    varying vec2 v_TexCoord;
+    \(helpers)
+    void main() {
+        vec4 state = texSample2D(g_Texture1, v_TexCoord);
+        vec4 field = texSample2D(g_Texture4, v_TexCoord);
+        \(before)
+        gl_FragColor = state;
+        gl_FragColor = \(update);
+        \(after)
+    }
+    """
+}
+
+private func rgbaDataFacts(_ source: String) -> [String: Any] {
+    let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+        lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: .fragment), stage: .fragment)
+    let slot = syntax.unit.flatMap { SceneAuthoredShaderIndependentSignalCarrierAnalyzer.analyze($0) }
+    return ["syntaxDiagnostics": syntax.diagnostics.count,
+            "carrierSlot": slot.map { $0 as Any } ?? NSNull(), "transfer": transfer(source)]
+}
+
+private func rgbaDataCPUOutput() -> [String: Any] {
+    let base = rgbaDataFixture()
+    let helper = "vec4 AddField(vec4 current, vec4 value) { return min(current + vec4(value.rgb, 1.0) * value.a, vec4(1.0)); }"
+    let sources: [String: String] = [
+        "inline": base,
+        "renamed": base.replacingOccurrences(of: "state", with: "historyValue").replacingOccurrences(of: "field", with: "paintValue"),
+        "renamedSlots": base.replacingOccurrences(of: "g_Texture1", with: "g_Texture3").replacingOccurrences(of: "g_Texture4", with: "g_Texture6"),
+        "sumSwap": rgbaDataFixture(update: "min(vec4(field.rgb, 1.0) * field.a + gl_FragColor, vec4(1.0))"),
+        "minSwap": rgbaDataFixture(update: "min(vec4(1.0), gl_FragColor + vec4(field.rgb, 1.0) * field.a)"),
+        "parentheses": rgbaDataFixture(update: "min((gl_FragColor + vec4((field.rgb), 1.0) * (field.a)), vec4(1.0))"),
+        "helper": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: helper),
+        "cast4Helper": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: helper.replacingOccurrences(of: "vec4(1.0)", with: "CAST4(1.0)")),
+        "cast4Renamed": base.replacingOccurrences(of: "vec4(1.0)", with: "CAST4(1.0)").replacingOccurrences(of: "state", with: "previousValue").replacingOccurrences(of: "field", with: "sourceValue"),
+        "cast4Shadow": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: "vec4 CAST4(float value) { return vec4(value); } " + helper.replacingOccurrences(of: "vec4(1.0)", with: "CAST4(1.0)")),
+        "cast4UnknownArgument": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, 1.0) * field.a, CAST4(Unknown()))"),
+        "sampleAlias": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, alias.a), vec4(1.0))", before: "vec4 alias = field;"),
+        "missingMetadata": rgbaDataFixture(metadata: ""),
+        "wrongMetadata": rgbaDataFixture(metadata: #" // {"mode":"opacitymask"}"#),
+        "movedMetadata": base.replacingOccurrences(of: #"g_Texture4; // {"mode":"rgbmask"}"#, with: #"g_Texture4;"# + "\n" + #"// {"mode":"rgbmask"}"#),
+        "wrongDeclarationMetadata": base.replacingOccurrences(of: #"g_Texture4; // {"mode":"rgbmask"}"#, with: #"g_Texture4;"#).replacingOccurrences(of: "g_Texture1;", with: #"g_Texture1; // {"mode":"rgbmask"}"#),
+        "duplicateSampler": base.replacingOccurrences(of: "varying vec2", with: "uniform sampler2D g_Texture4;\nvarying vec2"),
+        "unrelatedColor": rgbaDataFixture(helpers: "uniform sampler2D g_Texture2;", before: "vec4 extra = texSample2D(g_Texture2, v_TexCoord);"),
+        "missingAlpha": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, 1.0), vec4(1.0))"),
+        "missingRGB": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.a), vec4(1.0))"),
+        "wrongAlphaChannel": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, 1.0) * field.r, vec4(1.0))"),
+        "wrongAuxiliaryAlpha": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, 1.0) * other.a, vec4(1.0))", helpers: #"uniform sampler2D g_Texture6; // {"mode":"rgbmask"}"#, before: "vec4 other = texSample2D(g_Texture6, v_TexCoord);"),
+        "sameSamplerDifferentValue": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, other.a), vec4(1.0))", before: "vec4 other = texSample2D(g_Texture4, v_TexCoord + vec2(0.1));"),
+        "unboundedAdd": rgbaDataFixture(update: "gl_FragColor + vec4(field.rgb, 1.0) * field.a"),
+        "wrongLimit": rgbaDataFixture(update: "min(gl_FragColor + vec4(field.rgb, 1.0) * field.a, vec4(0.5))"),
+        "duplicateCarrier": rgbaDataFixture(update: "min(gl_FragColor + gl_FragColor * field.a, vec4(1.0))"),
+        "unknownUpdate": rgbaDataFixture(update: "Unknown(gl_FragColor, field)"),
+        "helperEscape": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: helper.replacingOccurrences(of: "return min", with: "Unknown(value); return min")),
+        "zeroArgumentEscape": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: helper.replacingOccurrences(of: "return min", with: "float weight = saturate(Unknown()); return min").replacingOccurrences(of: "* value.a", with: "* value.a * weight")),
+        "nestedUnknownArgument": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: "vec4 NextField(vec4 current, vec4 value, float factor) { return min(current + vec4(value.rgb, 1.0) * value.a * factor, vec4(1.0)); } vec4 AddField(vec4 current, vec4 value) { return NextField(current, value, saturate(Unknown())); }"),
+        "outParameter": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: helper.replacingOccurrences(of: "vec4 current", with: "out vec4 current")),
+        "inoutParameter": rgbaDataFixture(update: "AddField(gl_FragColor, field)", helpers: helper.replacingOccurrences(of: "vec4 current", with: "inout vec4 current")),
+        "conditionalFirstWrite": base.replacingOccurrences(of: "gl_FragColor = state;", with: "if (v_TexCoord.x > 0.5) { gl_FragColor = state; }"),
+        "initializerRead": base.replacingOccurrences(of: "gl_FragColor = state;", with: "gl_FragColor = gl_FragColor + state;"),
+        "partialCarrierWrite": rgbaDataFixture(after: "gl_FragColor.a *= 0.5;"),
+    ]
+    return ["cases": sources.mapValues(rgbaDataFacts), "oldCarrier": transfer(fixture())]
+}
+
+private struct ActualCarrierInput: Decodable {
+    let contract: SceneShaderContract
+    let combos: [String: Int]
+}
+
+private func actualCarrierFacts(_ path: String) throws -> [String: Any] {
+    let input = try JSONDecoder().decode(ActualCarrierInput.self,
+        from: Data(contentsOf: URL(fileURLWithPath: path)))
+    guard let graph = input.contract.sourceGraph,
+          let stage = input.contract.stages.first(where: { $0.kind == .fragment }) else {
+        throw NSError(domain: "missing-actual-contract", code: 1)
+    }
+    let environment = try SceneShaderVariantResolver.resolve(
+        stage: .fragment, stages: input.contract.stages, compatibilityTarget: .windowsDX11ShaderModel4,
+        explicitCombos: input.combos, textureReadiness: [0: true, 1: true, 2: true, 3: false, 4: true]).get()
+    let prepared = try SceneShaderPreprocessor().preprocess(
+        rootRelativePath: stage.relativePath, graph: graph, environment: environment).get()
+    return ["facts": rgbaDataFacts(prepared.source),
+            "preparedSourceSHA256": SceneShaderStableDigest.hash(Data(prepared.source.utf8)),
+            "preparedSHA256": prepared.preparedSHA256,
+            "environment": try JSONSerialization.jsonObject(with: JSONEncoder().encode(environment))]
+}
+
+private func rgbaCacheOutput() throws -> [String: Any] {
+    var programs: [String: Any] = [:]
+    for (name, source) in [("old", fixture()), ("rgba", rgbaDataFixture())] {
+        let first = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: source)
+        let second = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: source)
+        guard let a = first.program, let b = second.program else {
+            throw NSError(domain: "cache-no-program", code: 1)
+        }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let bytes = try encoder.encode(a)
+        guard bytes == (try encoder.encode(b)) else { throw NSError(domain: "memory-cache-drift", code: 1) }
+        programs[name] = try JSONSerialization.jsonObject(with: bytes)
+    }
+    return programs
+}
+
 @main
 private enum Harness {
     static func main() throws {
+        let home = ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] ?? ""
+        let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        guard !home.isEmpty, Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
+              cache.standardizedFileURL.path.hasPrefix(home + "/") else {
+            throw NSError(domain: "private-cache-unavailable", code: 1)
+        }
+        if CommandLine.arguments.dropFirst().first == "--rgba-data-cpu" {
+            var output = rgbaDataCPUOutput()
+            if CommandLine.arguments.count > 2 { output["actual"] = try actualCarrierFacts(CommandLine.arguments[2]) }
+            FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]))
+            return
+        }
+        if CommandLine.arguments.dropFirst().first == "--rgba-data-cache" {
+            FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: rgbaCacheOutput(), options: [.sortedKeys]))
+            return
+        }
         let prepared = try preparedSource(
             stockRoot: URL(fileURLWithPath: CommandLine.arguments[1]),
             looseRoot: URL(fileURLWithPath: CommandLine.arguments[2])
@@ -638,38 +769,132 @@ class SceneIndependentSignalCarrierTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         cls.loose = temporary / "loose"
         cls.loose.mkdir()
-        cls.binary = temporary / "independent-signal-carrier"
+        cls.binary = temporary / "Probe.app/Contents/MacOS/independent-signal-carrier"
+        cls.binary.parent.mkdir(parents=True)
+        (cls.binary.parent.parent / "Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleIdentifier": "com.songziqiang.MyWallpaperX", "CFBundleExecutable": cls.binary.name,
+            "CFBundlePackageType": "APPL"}))
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(temporary / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(temporary / "swift-cache")
-        compilation = subprocess.run(
-            [
+        cls.home = temporary / "private-home"; cls.home.mkdir()
+        environment.update(HOME=str(cls.home), CFFIXED_USER_HOME=str(cls.home))
+        cls.environment = environment
+        cls.proof = Path(os.environ["MWX_INDEPENDENT_SIGNAL_PROOF"]) if os.environ.get("MWX_INDEPENDENT_SIGNAL_PROOF") else None
+        cls.inputs = [*SWIFT_SOURCES, harness, Path(__file__), REPOSITORY_ROOT / "script/scene_swift_source_sets.py"]
+        cls.before = cls.input_identities()
+        cls.record("inputs-before.json", cls.before)
+        started = time.monotonic()
+        command = [
                 swiftc,
                 "-parse-as-library",
                 *(str(source) for source in SWIFT_SOURCES),
                 str(harness),
                 "-o", str(cls.binary),
-            ],
+            ]
+        cls.record("compile-command.json", command)
+        compilation = subprocess.run(
+            command,
             cwd=REPOSITORY_ROOT,
             env=environment,
             capture_output=True,
             text=True,
         )
+        cls.record("compile-result.json", {"exit": compilation.returncode, "seconds": time.monotonic() - started})
+        cls.record("compile.stdout", compilation.stdout.encode()); cls.record("compile.stderr", compilation.stderr.encode())
         if compilation.returncode != 0:
+            cls.temporary_directory.cleanup()
             raise RuntimeError(compilation.stderr)
-        completed = subprocess.run(
-            [str(cls.binary), str(STOCK_ROOT), str(cls.loose)],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        cls.output = json.loads(completed.stdout)
+        cls._legacy_output = None
+
+    @property
+    def output(self) -> dict:
+        # A focused source-proof method must not initialize a Metal device.
+        # Existing rendering methods still share their original real GPU run.
+        if self.__class__._legacy_output is None:
+            completed = subprocess.run(
+                [str(self.binary), str(STOCK_ROOT), str(self.loose)],
+                cwd=REPOSITORY_ROOT,
+                env=self.environment,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.__class__._legacy_output = json.loads(completed.stdout)
+        return self.__class__._legacy_output
 
     @classmethod
     def tearDownClass(cls) -> None:
+        after = cls.input_identities(); cls.record("inputs-after.json", after)
+        drift = [a["path"] for a, b in zip(cls.before, after) if a != b]
+        cls.record("source-drift.json", drift)
         cls.temporary_directory.cleanup()
+        cls.record("retirement.json", {"temporaryRemoved": not cls.binary.exists(),
+                                      "legacyGPUProbeExecuted": cls._legacy_output is not None})
+        if drift: raise AssertionError(f"input drift: {drift}")
+
+    @classmethod
+    def input_identities(cls) -> list[dict]:
+        return [{"path": str(p), "bytes": p.stat().st_size,
+                 "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in cls.inputs]
+
+    @classmethod
+    def record(cls, name: str, value) -> None:
+        if cls.proof:
+            cls.proof.mkdir(parents=True, exist_ok=True)
+            (cls.proof / name).write_bytes(value if isinstance(value, bytes) else (json.dumps(value, indent=2) + "\n").encode())
+
+    def test_typed_rgba_auxiliary_carrier_proof_cpu(self) -> None:
+        cpu_home = self.home.parent / "cpu-home"; cpu_home.mkdir()
+        cpu_environment = {**self.environment, "HOME": str(cpu_home), "CFFIXED_USER_HOME": str(cpu_home)}
+        command = [str(self.binary), "--rgba-data-cpu"]
+        if os.environ.get("MWX_INDEPENDENT_SIGNAL_ACTUAL_INPUT"): command.append(os.environ["MWX_INDEPENDENT_SIGNAL_ACTUAL_INPUT"])
+        self.record("run-command.json", command)
+        completed = subprocess.run(command,
+                                   cwd=REPOSITORY_ROOT, env=cpu_environment,
+                                   capture_output=True, text=True, timeout=30)
+        self.record("run-result.json", {"exit": completed.returncode})
+        self.record("observations.json", completed.stdout.encode()); self.record("run.stderr", completed.stderr.encode())
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        output = json.loads(completed.stdout)
+        positive = {"inline", "renamed", "renamedSlots", "sumSwap", "minSwap", "parentheses", "helper", "cast4Helper", "cast4Renamed", "sampleAlias"}
+        self.assertEqual(output["oldCarrier"], "signal-preserving:1")
+        self.assertEqual(len(output["cases"]), 35)
+        for name, facts in output["cases"].items():
+            with self.subTest(case=name):
+                if name == "duplicateSampler": self.assertGreater(facts["syntaxDiagnostics"], 0, facts)
+                else: self.assertEqual(facts["syntaxDiagnostics"], 0, facts)
+                expected = 3 if name == "renamedSlots" else 1
+                if name in positive:
+                    self.assertEqual(facts["carrierSlot"], expected, facts)
+                    self.assertEqual(facts["transfer"], f"signal-preserving:{expected}", facts)
+                else:
+                    self.assertIsNone(facts["carrierSlot"], facts)
+                    self.assertNotIn("signal-", facts["transfer"], facts)
+        if "actual" in output:
+            self.assertEqual(output["actual"]["facts"]["carrierSlot"], 1, output["actual"])
+            self.assertEqual(output["actual"]["facts"]["transfer"], "signal-preserving:1", output["actual"])
+        cache_home = self.home.parent / "cache-home"; cache_home.mkdir()
+        cache_environment = {**self.environment, "HOME": str(cache_home), "CFFIXED_USER_HOME": str(cache_home)}
+        self.assertEqual(list(cache_home.rglob("*.json")), [])
+        snapshots = []
+        for phase in ("cold", "warm"):
+            run = subprocess.run([str(self.binary), "--rgba-data-cache"], cwd=REPOSITORY_ROOT,
+                                 env=cache_environment, capture_output=True, text=True, timeout=30)
+            self.record(f"cache-{phase}.json", run.stdout.encode()); self.record(f"cache-{phase}.stderr", run.stderr.encode())
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            snapshots.append(json.loads(run.stdout))
+            files = sorted(cache_home.rglob("*.json"))
+            self.assertEqual(len(files), 2)
+            current = {str(p): (p.read_bytes(), p.stat().st_mtime_ns) for p in files}
+            self.record(f"cache-{phase}-files.json", [{"path": path, "bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(), "mtimeNS": modified}
+                for path, (raw, modified) in current.items()])
+            if phase == "cold": published = current
+            else: self.assertEqual(current, published)
+        self.assertEqual(snapshots[0], snapshots[1])
+        for program in snapshots[0].values():
+            self.assertEqual(program["colorTransfer"], {"independentAlphaSignalPreserving": {"textureSlot": 1}})
 
     def test_bundled_active_source_compiles_as_raw_independent_signal(self) -> None:
         self.assertEqual(self.output["preparedTransfer"], "signal-preserving:1")

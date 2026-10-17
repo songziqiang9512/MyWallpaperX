@@ -560,13 +560,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "40bfebe2c55eb38075518a5c337bb2bfbb9176a9fae7fcdafa92e9ba431cb15a",
+        "sourceSHA256": "458bb1aa9a4c1dcbc67fc3a440f35f2c82ff5b49e8dda712e1b4b183c5d022b8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CP force source/default contract, final CPU and Runtime counterexamples, fixed official controls, native owned eight-card and actual Bird/heldout followup; retire only qualified default/world guard.",
-        "limitations": "Bird remains visually UNKNOWN with no nonempty270 in this window; nonzero world origin and5 blackbox parity remain open. Before/after not single-variable, no full sample or performance gain. Other topics not revalidated."
+        "scope": "Bounded initialized-output and typed RGBA auxiliary carrier contract, final six-source CPU/build/native evidence, exact two-sample runtime join and all explicit user-feedback reconciliation; current three sample diagnosis retained as open.",
+        "limitations": "U05 visible smoke and dye nonzero remain UNKNOWN; historical bounded closures are not current HEAD or whole-sample acceptance. Next347 implementation is not included in this evidence. Other topics not revalidated."
       }
     },
     {
@@ -657,13 +657,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c151b7ff29c9412f0e18999b9c4e149d1d02030ad0652c822cc8549ec2829a1",
+        "sourceSHA256": "12e7668129f5932a3ac58bf0cbac958397b2c361ef7ace2e12bef3a92e889658",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CP force source/default contract, final CPU and Runtime counterexamples, fixed official controls, native owned eight-card and actual Bird/heldout followup; retire only qualified default/world guard.",
-        "limitations": "Bird remains visually UNKNOWN with no nonempty270 in this window; nonzero world origin and5 blackbox parity remain open. Before/after not single-variable, no full sample or performance gain. Other topics not revalidated."
+        "scope": "Bounded initialized-output and typed RGBA auxiliary carrier contract, final six-source CPU/build/native evidence, exact two-sample runtime join and all explicit user-feedback reconciliation; current three sample diagnosis retained as open.",
+        "limitations": "U05 visible smoke and dye nonzero remain UNKNOWN; historical bounded closures are not current HEAD or whole-sample acceptance. Next347 implementation is not included in this evidence. Other topics not revalidated."
       }
     },
     {
@@ -727,13 +727,13 @@
       "entrypoint": "docs/scene/development/source-index.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
       "commandPolicy": "reference-only",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "457c61b2c3edcfefc970e073aa2cf5183a1a72ebdde48775ef34ebc27e5aad15",
+        "sourceSHA256": "dbfe071ed9bf0b065a848b0a7b6c74629085e0b3edd44ab79c4792ef0a72f312",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
-        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
+        "scope": "Bounded initialized-output and typed RGBA auxiliary carrier contract, final six-source CPU/build/native evidence, exact two-sample runtime join and all explicit user-feedback reconciliation; current three sample diagnosis retained as open.",
+        "limitations": "U05 visible smoke and dye nonzero remain UNKNOWN; historical bounded closures are not current HEAD or whole-sample acceptance. Next347 implementation is not included in this evidence. Other topics not revalidated."
       }
     },
     {
@@ -741,13 +741,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aba19e8e8fd4dbae4d4f578f63cb0834fd149ec557d1cd302c8c812e9b803310",
+        "sourceSHA256": "5cb43dd4a72118b16ee8e19d5b4f89420517ee2f486182f81a4219e4f8db8c92",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CP force source/default contract, final CPU and Runtime counterexamples, fixed official controls, native owned eight-card and actual Bird/heldout followup; retire only qualified default/world guard.",
-        "limitations": "Bird remains visually UNKNOWN with no nonempty270 in this window; nonzero world origin and5 blackbox parity remain open. Before/after not single-variable, no full sample or performance gain. Other topics not revalidated."
+        "scope": "Bounded initialized-output and typed RGBA auxiliary carrier contract, final six-source CPU/build/native evidence, exact two-sample runtime join and all explicit user-feedback reconciliation; current three sample diagnosis retained as open.",
+        "limitations": "U05 visible smoke and dye nonzero remain UNKNOWN; historical bounded closures are not current HEAD or whole-sample acceptance. Next347 implementation is not included in this evidence. Other topics not revalidated."
       }
     },
     {
@@ -3353,13 +3353,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d1fba6253098425ab28a44ec575df5925de4b98f176ba7facbb758d820a9b83e",
+        "sourceSHA256": "746fe6a2721dfcd5e83efea0c8f88120d751ca9894022338911f7e7f19ab89b9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CP force source/default contract, final CPU and Runtime counterexamples, fixed official controls, native owned eight-card and actual Bird/heldout followup; retire only qualified default/world guard.",
-        "limitations": "Bird remains visually UNKNOWN with no nonempty270 in this window; nonzero world origin and5 blackbox parity remain open. Before/after not single-variable, no full sample or performance gain. Other topics not revalidated."
+        "scope": "Bounded initialized-output and typed RGBA auxiliary carrier contract, final six-source CPU/build/native evidence, exact two-sample runtime join and all explicit user-feedback reconciliation; current three sample diagnosis retained as open.",
+        "limitations": "U05 visible smoke and dye nonzero remain UNKNOWN; historical bounded closures are not current HEAD or whole-sample acceptance. Next347 implementation is not included in this evidence. Other topics not revalidated."
       }
     },
     {

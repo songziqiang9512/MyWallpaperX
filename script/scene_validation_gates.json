@@ -147,6 +147,20 @@
       "cost": "low",
       "serialized": false,
       "retirement": "Replace only with equivalent compiler-backed directory and conditional-scope enforcement."
+    },
+    "shader-rgba-auxiliary-carrier-cpu": {
+      "risk": "Typed RGBA auxiliary carrier evidence or complete cache projection regresses.",
+      "trigger": "Carrier/frontend source changes select the CPU-only carrier proof from inner phase.",
+      "cost": "one Swift class compile and CPU proof/cache probes",
+      "serialized": false,
+      "retirement": "Retire when this proof is replaced by an equivalent bounded CPU gate preserving positive, negative and full cache facts."
+    },
+    "shader-independent-carrier-gpu": {
+      "risk": "The existing independent carrier real rendering and artifact contract regresses.",
+      "trigger": "Carrier/frontend source changes select the existing five rendering methods at checkpoint or later.",
+      "cost": "one Swift class compile and the existing shared GPU probe",
+      "serialized": true,
+      "retirement": "Retire only when the existing rendering coverage is replaced; inner CPU selection does not claim GPU coverage."
     }
   },
   "path_groups": [
@@ -3327,6 +3341,38 @@
         "test_steam_detail_layout",
         "test_steam_browse_failure_footer"
       ]
+    },
+    {
+      "id": "shader-fragment-output",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFragmentOutputAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+        "script/tests/test_scene_shader_fragment_output.py",
+        "script/tests/fixtures/SceneShaderFragmentOutputHarness.swift"
+      ],
+      "modules": [
+        "test_scene_shader_fragment_output"
+      ]
+    },
+    {
+      "id": "shader-rgba-auxiliary-carrier",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFragmentOutputAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
+        "script/tests/test_scene_independent_signal_carrier.py",
+        "script/tests/test_scene_shader_fragment_output.py",
+        "script/tests/fixtures/SceneShaderFragmentOutputHarness.swift"
+      ],
+      "modules": [
+        "test_scene_independent_signal_carrier",
+        "test_scene_shader_fragment_output"
+      ]
     }
   ],
   "method_gates": {
@@ -3395,6 +3441,44 @@
       ],
       "groups": [
         "validation-governance"
+      ]
+    },
+    "shader-rgba-auxiliary-carrier-cpu": {
+      "module": "test_scene_independent_signal_carrier",
+      "class": "SceneIndependentSignalCarrierTests",
+      "minimum_phase": "inner",
+      "groups": [
+        "shader-rgba-auxiliary-carrier",
+        "material-program",
+        "shader-preparation",
+        "shader-frontend"
+      ],
+      "patterns": [
+        "script/tests/test_scene_independent_signal_carrier.py"
+      ],
+      "methods": [
+        "test_typed_rgba_auxiliary_carrier_proof_cpu"
+      ]
+    },
+    "shader-independent-carrier-gpu": {
+      "module": "test_scene_independent_signal_carrier",
+      "class": "SceneIndependentSignalCarrierTests",
+      "minimum_phase": "checkpoint",
+      "groups": [
+        "shader-rgba-auxiliary-carrier",
+        "material-program",
+        "shader-preparation",
+        "shader-frontend"
+      ],
+      "patterns": [
+        "script/tests/test_scene_independent_signal_carrier.py"
+      ],
+      "methods": [
+        "test_bundled_active_source_compiles_as_raw_independent_signal",
+        "test_bundled_combine_source_uses_signal_over_color_contract",
+        "test_identity_independent_positive_and_unseen_combinations",
+        "test_unsafe_or_ambiguous_shapes_fail_closed",
+        "test_generic_artifact_preserves_exact_signal_contract"
       ]
     }
   }

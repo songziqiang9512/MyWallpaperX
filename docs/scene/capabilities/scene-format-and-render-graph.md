@@ -337,6 +337,30 @@ blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无
 
 验收先用原normalizer+真实glslang/Metal自有输入对显式前缀控制，覆盖变量/资源改名、等价括号/表达式、global/local/参数及相邻块shadow、左右操作数和优先级；旧规则正例、未知/副作用反例与双backend结果必须保持。再一次最终Debug、原包实际非零phase中的Program/GPU/末合成与画面、独立未参与样本及独审；不把显式改写的诊断副本当原包修复。若还需新效果算法、重建普通帧或其他未资格语言面，停在新首断点重排；设计批准不是色散/完整样本或性能完成。
 
+<a id="shader-initialized-output-channel-read"></a>
+### 8.3 已初始化 numeric output 的组件值读取
+
+目标是在现有 preserved numeric-data 输出合同内证明安全的 output 使用，不新增效果算法或完整语言分析器。唯一 owner 仍为 `SceneAuthoredShaderFragmentOutputAnalyzer`，bounded frontend 与 generic artifact 共用同一结果；保持唯一 unconditional whole-output 初始化，只扩其**完整 RHS 与分号已结束后**的直接 RG 组件 mutation RHS 上的值读取。仅按 token 位置晚于 `=` 不足以证明初始化，不能因此接受 initializer 自读。条件内的后续 mutation 可以保留已初始化状态，但不能替代 dominating first write。
+
+复用现 SyntaxUnit、assignment/member-expression ranges、TokenScanner 的只读值/argument-range 事实及共享调用证明，不加名称 regex、第二词法 walker 或普通帧分析。首片新增 output RHS 读取仅准已有纯 builtin/constructor；已知或未知 authored helper、覆盖 builtin 的作者声明都暂拒，因为现 helper closure 未闭合传递未知调用的纯度。共享调用证明的 authored-helper 与未展开 `ApplyBlending` 两项权限默认保留旧 color 行为，新 numeric consumer 显式关闭，原 caller 无需迁移；后继若要开放作者 helper，须先证明完整只读调用闭包。preinit/conditional-only first write、discard/early exit、nested write/increment、未知或歧义 channel/lvalue、`out/inout`、未知调用与 output escape 仍 unproven；原来没有新增 output RHS 读取的能力不借本片收窄。
+
+`redDefined` 仍只提供 stored-channel 定义事实，不授予普通 RGBA color transfer。launch/final Program 的输出门、exact attachment storage/write mask、candidate purpose/provenance、graph history/publication 与唯一 compositor 生命周期不变；不得删除 guard、改名为 mask 或让后继 color consumer 继承未证明的颜色合同。证明失败继续局部视觉降级。
+
+语义缓存仅退出现有直接保存此事实的 Frontend ProgramCacheKey v20 与 generic request key v33；后者不含 analyzer 语义，源码不变也不能复用旧 artifact/失败。transport envelope、variant/demand cache 不因编号邻近而机械升级；若实现改变其实际缓存输入再另核责任，不新增 cache。
+
+验收先闭合实际拒绝 variant 的 prepared source，再用自有 whole-init→组件算术自读/条件 mutation、变量资源改名及等价表达式验证 bounded/generic 同事实；preinit/self-init/conditional-only/discard/unknown/out-inout 反例保拒，cold/warm cache 与 typed RG GPU 输入→消费闭合。最后用原包与独立 numeric-data 样本验证可见结果；后继 dye/color/resource/history 首断点、完整流体及官方数值 parity 不随本片关闭。精确输入、变体与实际执行后验见[运行证据](runtime-evidence-current.md#u05-source-proven-signal-20261017)；该证明不关闭后继纹理内容或可见烟雾差异。
+
+<a id="shader-independent-signal-auxiliary-rgba"></a>
+### 8.4 独立 RGBA signal carrier 的 typed 辅助输入
+
+目标是让同一 prepared producer、存储 publication 与 signal consumer 使用一致的 RGBA 语义。首选扩展现 `SceneAuthoredShaderIndependentSignalCarrierAnalyzer`：唯一完整 carrier 从一次整向量采样无条件初始化，沿现有 ordered scalar/statement/helper proof 保留全部 RGB/A；额外整向量采样只有 active sampler 元数据明确为 `rgbmask`、唯一声明且用途为 preserved channels 时才可成为辅助数据。辅助数据的 RGB 与 A 必须来自同一具体采样 occurrence（现 `Sample.index`，同 slot 不等于同值），完整输出更新保留原 carrier 一次并受逐分量上界约束；inline 与已有纯 helper 形式共用同一 bounded update 证明。不得用材质、路径、名称、固定 slot 或 consumer 期待反推 producer 标签。
+
+复用现 AST、声明、采样/只读调用与顺序事实，不增加 walker、效果算法或普通帧分析；采样身份使用现 token sample occurrence，不能只比较 sampler slot，同一 sampler 不同取样值的 RGB/A 不得混成同一值。新辅助路径的 prefix、inline/terminal 表达式与已知 nested helper 实参均交现共享纯调用 owner 闭合；仅 nested callee 自身由既有递归 return proof 验证，不能让外层 builtin 洗白未知零实参调用。条件首写、丢弃 carrier 的 RGB/A、辅助通道来源关联不明、混入普通 color 采样、未知/递归或 `out/inout` helper、重写/逃逸均保拒。证明产物仍是现 independent-signal transfer，交同一 Program/backend lowering、graph initialization/history/publication 与 Finalizer 消费；不放宽 Resolver 的 purpose、sampling、完整性或 ColorDerivation 的 signal 输入门，不将 straight/PMA publication 重标为 signal。
+
+备选是新增 source-proven raw R/A consumer 角色，但它还需完整证明原始通道存储与采样，不能靠 PMA 采样后 unpremultiply 恢复；首片不实施该新合同。若 producer 需要广域类型系统或无法独立闭合上述流关系，停在该缺项，不抬 metadata gate。验收用精确 prepared variant、变量/资源/slot 改名、等价 inline/helper 形式及邻近拒绝反例；再经既有 Program→typed publication→graph/history→实际画面，不能以 Reader/Program admission 或非黑当完整流体成功。
+
+缓存只退出实际持旧事实的 Frontend ProgramCacheKey v21（直接 caller 的 proven transfer 可为 nil，先命缓存后才分析 source）与 VariantAnalysis v27（持久化 sourceColorTransfer），分别升至22/28。GenericRequest v34 已包含 transfer/boundary，分类改变自然产生新 key；Demand 与 transport envelope 不持该新证明，不机械升级。 新辅助路径的前缀/终端及递归已知 helper 的实参都经共享纯调用 owner；既有固定 `CAST4` 构造别名与 `vec4` 一致，作者同名函数仍走拒绝分支。实际执行与未闭边界见[后验](runtime-evidence-current.md#u05-source-proven-signal-20261017)。
+
 ## 9. Camera Parallax、Depth Parallax 和局部动画
 
 | 能力 | 启用来源 | 空间 | 输入 | 正确行为 |

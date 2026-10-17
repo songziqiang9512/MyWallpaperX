@@ -2,8 +2,8 @@ import Foundation
 
 /// Proves only that the fragment stage definitely initializes the stored red
 /// component through one dominating whole-output write. Bounded direct
-/// component mutations may follow because they cannot make the initialized
-/// channel undefined. Attachment storage decides whether this fact has scalar
+/// component mutations and their read-only RG values may follow because they
+/// cannot make the initialized channel undefined. Attachment storage decides whether this fact has scalar
 /// meaning; it never grants a color contract.
 nonisolated enum SceneAuthoredShaderFragmentOutputAnalyzer {
     static func analyze(
@@ -49,31 +49,51 @@ nonisolated enum SceneAuthoredShaderFragmentOutputAnalyzer {
                   tokens: tokens,
                   body: main.bodyRange
               ),
-              SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
+              let initializer = SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
                   after: assignment,
                   in: tokens,
                   body: main.bodyRange
-              ) != nil,
-              outputUses.allSatisfy({ use in
-                  use == assignment
-                      || directComponentMutation(
-                          at: use,
-                          after: assignment,
-                          in: tokens,
-                          body: main.bodyRange
-                      )
-              }) else {
+              ) else {
             return .unproven
+        }
+        let mutations = Dictionary(uniqueKeysWithValues: outputUses.compactMap { use in
+            componentMutationExpression(
+                at: use, after: initializer.endIndex,
+                in: tokens, body: main.bodyRange
+            ).map { (use, $0) }
+        })
+        var provenReadExpressions: Set<Range<Int>> = []
+        for use in outputUses where use != assignment && mutations[use] == nil {
+            guard use > initializer.endIndex, use + 2 < main.bodyRange.upperBound,
+                  tokens[use + 1].text == ".",
+                  isRedGreenSwizzle(tokens[use + 2].text, requiresUnique: false),
+                  SceneAuthoredShaderTokenScanner.isReadOnlyValueUse(
+                      start: use, end: use + 3, tokens: tokens, body: main.bodyRange
+                  ) else { return .unproven }
+            let containing = mutations.values.filter { $0.contains(use) }
+            guard containing.count == 1, let expression = containing.first else {
+                return .unproven
+            }
+            if provenReadExpressions.insert(expression).inserted {
+                guard !tokens[expression].contains(where: {
+                    ["=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=",
+                     "<<=", ">>=", "++", "--"].contains($0.text)
+                }), SceneAuthoredShaderColorTransferAnalyzer.helperCallsArePureAndUnsampled(
+                    fragment: fragment, expressionRanges: [expression],
+                    permitsUnexpandedBlendingHelper: false,
+                    permitsAuthoredHelpers: false
+                ) else { return .unproven }
+            }
         }
         return .redDefined
     }
 
-    private static func directComponentMutation(
+    private static func componentMutationExpression(
         at outputUse: Int,
         after initialization: Int,
         in tokens: [SceneAuthoredShaderToken],
         body: Range<Int>
-    ) -> Bool {
+    ) -> Range<Int>? {
         guard outputUse > initialization,
               body.contains(outputUse),
               outputUse + 3 < body.upperBound,
@@ -81,48 +101,18 @@ nonisolated enum SceneAuthoredShaderFragmentOutputAnalyzer {
               isRedGreenSwizzle(tokens[outputUse + 2].text),
               ["=", "+=", "-=", "*=", "/="].contains(
                   tokens[outputUse + 3].text
-              ),
-              hasBalancedExpression(
-                  after: outputUse + 3,
-                  in: tokens,
-                  body: body
-              ) else {
-            return false
-        }
-        return true
+              ), let expression = SceneAuthoredShaderColorTransferAnalyzer.memberAssignmentExpression(
+                  after: outputUse + 3, tokens: tokens, body: body, boundary: body.upperBound
+              ) else { return nil }
+        return expression.startIndex..<expression.endIndex
     }
 
-    private static func hasBalancedExpression(
-        after operation: Int,
-        in tokens: [SceneAuthoredShaderToken],
-        body: Range<Int>
-    ) -> Bool {
-        let start = operation + 1
-        guard body.contains(start) else { return false }
-        var stack: [String] = []
-        let closing: [String: String] = [")": "(", "]": "["]
-        for index in start..<body.upperBound {
-            let text = tokens[index].text
-            if ["(", "["].contains(text) {
-                stack.append(text)
-            } else if let expected = closing[text] {
-                guard stack.last == expected else { return false }
-                stack.removeLast()
-            } else if text == ";", stack.isEmpty {
-                return index > start
-            } else if ["{", "}"].contains(text), stack.isEmpty {
-                return false
-            }
-        }
-        return false
-    }
-
-    private static func isRedGreenSwizzle(_ value: String) -> Bool {
+    private static func isRedGreenSwizzle(_ value: String, requiresUnique: Bool = true) -> Bool {
         guard (1 ... 2).contains(value.count) else { return false }
         let coordinate = Set("xy")
         let color = Set("rg")
         let characters = Set(value)
-        return characters.count == value.count
+        return (!requiresUnique || characters.count == value.count)
             && (characters.isSubset(of: coordinate)
                 || characters.isSubset(of: color))
     }

@@ -38,9 +38,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            // v33 retires artifacts that erased a live varying because an
-            // unrelated local or parameter shared its authored name.
-            "mwx-generic-shader-request-v33",
+            // v34 retires artifacts/failures with the old numeric output-use proof.
+            "mwx-generic-shader-request-v34",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

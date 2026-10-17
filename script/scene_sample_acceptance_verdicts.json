@@ -81,7 +81,7 @@
     "3765760121": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "倒置已修，整样本未全面验收"
+      "note": "倒置已修，整样本未全面验收；2026-10-17后验：同签名final App、作者选项newproperty=2单次9s/after5，reader/灯/蓝色星窗/时钟日期/地面可辨，App0/VM0/stop1→0且GPU排空。仅此选项有界观察，不改既有fail或整样本/默认/HDR验收。正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-r8-20261017/final/report.json；原图及运行身份：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-r8-20261017/final/samples/3765760121/runtime_evidence.zip。"
     },
     "3766387484": {
       "verdict": "fail",
@@ -510,6 +510,10 @@
       "evidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip"
       ]
+    },
+    "3723344874": {
+      "verdict": "unreviewed",
+      "note": "2026-10-17有界后验：source-proven numeric初始化与RGBA辅助carrier首帧前提已接通，effect3经GPU发布、末合成及后续帧；App0/VM0/stop1→0且GPU排空。根已对照old before/final after/目录官方图，仍未确认可归因烟雾或液体涡动恢复；U05保持OPEN，Dye非零内容UNKNOWN，不认整样本/官方parity或性能收益。正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-20261017/final/report.json；before/after、首失败和中性图链：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-20261017/final/samples/3723344874/runtime_evidence.zip。"
     }
   }
 }

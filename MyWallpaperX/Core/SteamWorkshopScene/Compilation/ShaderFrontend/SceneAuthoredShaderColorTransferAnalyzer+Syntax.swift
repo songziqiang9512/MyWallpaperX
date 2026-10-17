@@ -315,7 +315,9 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
     static func helperCallsArePureAndUnsampled(
         fragment: SceneAuthoredShaderSyntaxUnit,
         expressionRanges: [Range<Int>],
-        discardingExpression: Bool = false
+        discardingExpression: Bool = false,
+        permitsUnexpandedBlendingHelper: Bool = true,
+        permitsAuthoredHelpers: Bool = true
     ) -> Bool {
         let tokens = fragment.tokens
         let builtins: Set<String> = [
@@ -324,7 +326,7 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
             "normalize", "pow", "round", "sin", "smoothstep", "sqrt",
             "step", "tan", "saturate", "sign", "vec2", "vec3", "vec4",
             "float2", "float3", "float4", "int2", "int3", "int4",
-            "uint2", "uint3", "uint4", "fast", "CAST3",
+            "uint2", "uint3", "uint4", "fast", "CAST3", "CAST4",
         ]
         var names: Set<String> = []
         for range in expressionRanges {
@@ -358,7 +360,8 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
                        && (!discardingExpression || !["fast", "CAST3"].contains(name)))
                     || (discardingExpression
                         && SceneAuthoredShaderValueType(authoredName: name) != nil)
-                    || (!discardingExpression && name == "ApplyBlending") else {
+                    || (!discardingExpression && permitsUnexpandedBlendingHelper
+                        && name == "ApplyBlending") else {
                     return false
                 }
                 continue
@@ -368,7 +371,7 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
             // read-only helper closure instead of trusting the built-in name.
             // The color proof permits read-only helper closures; deletion is
             // narrower and never grants an authored helper that authority.
-            guard !discardingExpression, function.name != "main",
+            guard permitsAuthoredHelpers, !discardingExpression, function.name != "main",
                   !tokens[function.parameterRange].contains(where: {
                       ["out", "inout"].contains($0.text)
                   }), let closure = SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer

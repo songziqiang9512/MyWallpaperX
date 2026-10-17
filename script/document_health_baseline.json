@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 173382
+      "bytes": 173865
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 191,
-      "bytes": 73658
+      "lines": 192,
+      "bytes": 75241
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 61083
+      "bytes": 61360
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 15718
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 160,
-      "bytes": 34961
+      "lines": 199,
+      "bytes": 44791
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1307,36 +1307,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "26f781bad5cc6fff20f7b415441a61df9247b29ce158994bc83313b6428adf6a",
-      "after": "e369bcb757db6dee61060295ee6f1ba26973efeaace28e167659282cea762853",
-      "owner": "scene-cp-force-source-space",
-      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "c559261c24aa5c0765314b8f631cfd8f951e97d20739cb00a2a4af3f5abdc919",
       "after": "a8d9061f2acea08460970338c893a7e44fb014758fc85c8d73812fb702b68936",
-      "owner": "scene-cp-force-source-space",
-      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "035f1f65857e2c86c70d2823cabaa3226e48d2474b41094f0ae7bd65efa42d67",
-      "after": "a5fb5edbc29cf0756b45971d53eccd3c29fe642d873316744868b9d49eb7bfe3",
-      "owner": "scene-cp-force-source-space",
-      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "13644c05a2d15b82008f03fdca3a3ec04648022baeb1c0dbca0a912ec61d75a1",
-      "after": "aed9bc32a83541f06383372e84ac3ae1e0750a4c279c9d998ed407855c631990",
       "owner": "scene-cp-force-source-space",
       "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
@@ -1352,21 +1325,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1e336bed69fe522550c9989218cba7e370bca462c1cf4810e4ac8b2b5a09957b",
-      "after": "8b9a6dc6b270c78b145f8b6ab6e54cd7e93bf0ccd4bb9bb2c250b8a7eee6d9a2",
-      "owner": "scene-cp-force-source-space",
-      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "7a21727815c2fe21e39b4cb43fde470960c380b4a52c7dc37b0dca2125e3b0f2",
       "after": "2b68a0e04a6a0ccf2d11c0efa8f49a3d2c82ddd8e92652d6ceef3e1634a29941",
       "owner": "steam-workshop-details",
       "reason": "统一按ID详情、旧摘要补齐、作者页面无隐藏筛选及重复导航/返回合同，与用户可见修复一致。",
       "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "e369bcb757db6dee61060295ee6f1ba26973efeaace28e167659282cea762853",
+      "after": "3e6cd4946d494c7313f96239ac3146af1647563a29ec9132481e95080d20fbd6",
+      "owner": "scene-source-signal-user-feedback",
+      "reason": "One shared initialized-output/signal contract and bounded outcome; explicit user request to preserve all reported phenomena with corrected partial/closed evidence and latest reproduced cases. No broader sample or performance completion.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-independent-signal-auxiliary-rgba"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a5fb5edbc29cf0756b45971d53eccd3c29fe642d873316744868b9d49eb7bfe3",
+      "after": "8aa33fdc0c68968c331aed30f89b7db48b46a2f94b56c1d0605ab71b213c158f",
+      "owner": "scene-source-signal-user-feedback",
+      "reason": "One shared initialized-output/signal contract and bounded outcome; explicit user request to preserve all reported phenomena with corrected partial/closed evidence and latest reproduced cases. No broader sample or performance completion.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-independent-signal-auxiliary-rgba"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "aed9bc32a83541f06383372e84ac3ae1e0750a4c279c9d998ed407855c631990",
+      "after": "186cdd56091fbff00e5771bc5d65a74b9a0c69cfd5967a5218cb5939394e5cca",
+      "owner": "scene-source-signal-user-feedback",
+      "reason": "One shared initialized-output/signal contract and bounded outcome; explicit user request to preserve all reported phenomena with corrected partial/closed evidence and latest reproduced cases. No broader sample or performance completion.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-independent-signal-auxiliary-rgba"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "8b9a6dc6b270c78b145f8b6ab6e54cd7e93bf0ccd4bb9bb2c250b8a7eee6d9a2",
+      "after": "1f79573245a58c351098d1ca2054f4561f23ecfe40c03471a07f51480d6836b7",
+      "owner": "scene-source-signal-user-feedback",
+      "reason": "One shared initialized-output/signal contract and bounded outcome; explicit user request to preserve all reported phenomena with corrected partial/closed evidence and latest reproduced cases. No broader sample or performance completion.",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-independent-signal-auxiliary-rgba"
     }
   ]
 }
