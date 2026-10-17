@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 182,
-      "bytes": 59191
+      "lines": 181,
+      "bytes": 59146
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 363,
-      "bytes": 59946
+      "bytes": 59932
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15154
+      "bytes": 15145
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 151,
-      "bytes": 32326
+      "bytes": 32165
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,

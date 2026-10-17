@@ -339,9 +339,130 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
         fixture->invalid_wemath_mix != NULL, "invalid WEMath.mix compile", fixture->diagnostic
     );
     fixture->failures += mwx_fixture_update(
-        fixture->invalid_wemath_mix, 29, 2, MWX_SCENE_QUICKJS_EXCEPTION, 2,
-        "WEMath.mix rejects non-finite input"
+        fixture->invalid_wemath_mix, 29, 2, MWX_SCENE_QUICKJS_BAD_RETURN, 2,
+        "WEMath.mix Infinity cannot publish as a typed scalar"
     );
+
+    // VM numeric values may remain nonfinite until a typed consumer reads them.
+    // These cases preserve argument conversion failures and unbounded mixing.
+    static const struct {
+        const char *body;
+        MWXSceneQuickJSResult status;
+        double output;
+        const char *label;
+    } mix_cases[] = {
+        {"return blend(seed,10,1.5);", MWX_SCENE_QUICKJS_OK, 14,
+         "WEMath.mix extrapolates above one"},
+        {"return blend(seed,10,-0.5);", MWX_SCENE_QUICKJS_OK, -2,
+         "WEMath.mix extrapolates below zero"},
+        {"const raw=blend(undefined,undefined,0.1);"
+         "return Number.isNaN(raw)?seed+7:-1;", MWX_SCENE_QUICKJS_OK, 9,
+         "WEMath.mix undefined NaN can be handled inside JavaScript"},
+        {"const raw=blend(seed,Infinity,0.5);"
+         "return raw===Infinity?seed+7:-1;", MWX_SCENE_QUICKJS_OK, 9,
+         "WEMath.mix Infinity can be handled inside JavaScript"},
+        {"const raw=blend(1e308,-1e308,0.5);"
+         "return raw===-Infinity?seed+7:-1;", MWX_SCENE_QUICKJS_OK, 9,
+         "WEMath.mix finite-input overflow stays a VM numeric value"},
+        {"return blend(seed,10);", MWX_SCENE_QUICKJS_EXCEPTION, 0,
+         "WEMath.mix missing argument still throws"},
+        {"return blend(seed,10,0.5,0);", MWX_SCENE_QUICKJS_EXCEPTION, 0,
+         "WEMath.mix extra argument still throws"},
+        {"return blend(Symbol('unconvertible'),10,0.5);",
+         MWX_SCENE_QUICKJS_EXCEPTION, 0,
+         "WEMath.mix nonconvertible input still throws"},
+    };
+    for (size_t index = 0; index < sizeof(mix_cases) / sizeof(mix_cases[0]); ++index) {
+        char source[512];
+        snprintf(source, sizeof(source),
+            "import {mix as blend} from 'WEMath';"
+            "export function update(seed){%s}", mix_cases[index].body);
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 281,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL,
+            mix_cases[index].label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        fixture->failures += mwx_fixture_update(owner, 281, 2,
+            mix_cases[index].status, mix_cases[index].output, mix_cases[index].label);
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
+    // Existing native Vec2 consumption reads only its finite x/y prefix. The
+    // Vec3 constructor must not turn an unused NaN z into a callback exception.
+    const char *mix_prefix_source =
+        "import {mix as blend} from 'WEMath';"
+        "export function init(pair){"
+        "if(!(pair instanceof Vec2)||pair.z!==undefined)throw Error('init shape');"
+        "return new Vec3(pair.x,pair.y,blend(pair.z,pair.z,0.1));}"
+        "export function update(pair){"
+        "if(!(pair instanceof Vec2)||pair.z!==undefined)throw Error('update shape');"
+        "const unused=blend(pair.z,pair.z,0.1);"
+        "if(!Number.isNaN(unused))throw Error('missing lane');"
+        "return new Vec3(pair.x===9?unused:pair.x+1,"
+        "pair.y===9?unused:pair.y+2,unused);}";
+    MWXSceneQuickJSOwner *mix_prefix = mwx_scene_quickjs_owner_create(
+        fixture->domain, mix_prefix_source, strlen(mix_prefix_source), 282,
+        fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(mix_prefix != NULL,
+        "WEMath.mix Vec2 consumed prefix compile", fixture->diagnostic);
+    MWXSceneQuickJSFrameInput mix_frame = {
+        .time_of_day = 0.25, .frame_time = 1.0 / 60.0, .runtime = 2.0,
+    };
+    if (mix_prefix != NULL) {
+        const double initial_pair[2] = {2, 3};
+        struct { double before, xy[2], after; } guarded = {101, {0, 0}, 303};
+        uint32_t initialized = 0;
+        MWXSceneQuickJSResult status = mwx_scene_quickjs_owner_initialize_vector(
+            mix_prefix, 282, initial_pair, 2, &mix_frame, "", 0, "{}", 2,
+            guarded.xy, &initialized, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(status == MWX_SCENE_QUICKJS_OK &&
+            initialized == 1 && guarded.xy[0] == 2 && guarded.xy[1] == 3 &&
+            guarded.before == 101 && guarded.after == 303,
+            "Vec2 init accepts finite Vec3 prefix and preserves output bounds",
+            fixture->diagnostic);
+        if (status == MWX_SCENE_QUICKJS_OK)
+            mwx_scene_quickjs_owner_commit_layer_mutations(mix_prefix);
+        static const struct {
+            double xy[2];
+            MWXSceneQuickJSResult status;
+            const char *label;
+        } prefix_cases[] = {
+            {{2, 3}, MWX_SCENE_QUICKJS_OK, "Vec2 update ignores unused NaN z"},
+            {{9, 3}, MWX_SCENE_QUICKJS_BAD_RETURN, "Vec2 consumed NaN x rejects"},
+            {{2, 3}, MWX_SCENE_QUICKJS_OK, "same Vec2 owner recovers after NaN x"},
+            {{2, 9}, MWX_SCENE_QUICKJS_BAD_RETURN, "Vec2 consumed NaN y rejects"},
+            {{2, 3}, MWX_SCENE_QUICKJS_OK, "same Vec2 owner recovers after NaN y"},
+        };
+        for (size_t index = 0; index < sizeof(prefix_cases) / sizeof(prefix_cases[0]); ++index) {
+            guarded.xy[0] = guarded.xy[1] = -1;
+            status = mwx_scene_quickjs_owner_update_vector(mix_prefix, 282,
+                prefix_cases[index].xy, 2, &mix_frame, "", 0, "{}", 2,
+                guarded.xy, fixture->diagnostic, sizeof(fixture->diagnostic));
+            fixture->failures += mwx_fixture_check(status == prefix_cases[index].status &&
+                guarded.before == 101 && guarded.after == 303 &&
+                (status != MWX_SCENE_QUICKJS_OK ||
+                    (guarded.xy[0] == 3 && guarded.xy[1] == 5)),
+                prefix_cases[index].label, fixture->diagnostic);
+        }
+        mwx_scene_quickjs_owner_destroy(mix_prefix);
+    }
+    const char *mix_vec3_source =
+        "import {mix as blend} from 'WEMath';"
+        "export function update(v){return new Vec3(v.x+1,v.y+2,"
+        "blend(undefined,undefined,0.1));}";
+    MWXSceneQuickJSOwner *mix_vec3 = mwx_scene_quickjs_owner_create(
+        fixture->domain, mix_vec3_source, strlen(mix_vec3_source), 283,
+        fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(mix_vec3 != NULL,
+        "WEMath.mix Vec3 consumed z compile", fixture->diagnostic);
+    if (mix_vec3 != NULL) {
+        const double input[3] = {2, 3, 0};
+        fixture->failures += mwx_fixture_update_vec3(mix_vec3, 283, input, "", "{}",
+            MWX_SCENE_QUICKJS_BAD_RETURN, NULL,
+            "same finite xy and NaN z cannot publish as typed Vec3");
+        mwx_scene_quickjs_owner_destroy(mix_vec3);
+    }
 
     fixture->wemath_angles = mwx_scene_quickjs_owner_create(
         fixture->domain,

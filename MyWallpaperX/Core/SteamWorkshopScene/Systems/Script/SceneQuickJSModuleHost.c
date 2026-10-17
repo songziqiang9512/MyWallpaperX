@@ -47,14 +47,12 @@ static JSValue wemath_mix(
     double amount = 0;
     if (JS_ToFloat64(context, &start, argv[0]) < 0 ||
         JS_ToFloat64(context, &end, argv[1]) < 0 ||
-        JS_ToFloat64(context, &amount, argv[2]) < 0 ||
-        !isfinite(start) || !isfinite(end) || !isfinite(amount)) {
+        JS_ToFloat64(context, &amount, argv[2]) < 0) {
         return JS_ThrowTypeError(context, "WEMath.mix arguments are invalid");
     }
+    // Arithmetic values belong to the VM, including NaN in an unused vector
+    // component. Typed return/mutation boundaries validate consumed components.
     const double result = start + ((end - start) * amount);
-    if (!isfinite(result)) {
-        return JS_ThrowRangeError(context, "WEMath.mix result is not finite");
-    }
     return JS_NewFloat64(context, result);
 }
 

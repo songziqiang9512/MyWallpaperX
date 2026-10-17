@@ -379,14 +379,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "人物、城市和多段文字呈现；七个effect scale调用WEMath.mix非法参数，尚未证明host类型根因。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "已修mix首错：7条effect scale恢复；56标题按下/释放反馈可见，hover保持。主体与文字正常，其他播放/交互及官方同phase未验。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/wemath-mix-value-boundary-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/samples/3173418061/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/samples/3173418061/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/wemath-mix-value-boundary-20261017/final/samples/3173418061/runtime_evidence.zip"
       ],
-      "remainingDifferences": "人物、城市和多段文字呈现；七个effect scale调用WEMath.mix非法参数，尚未证明host类型根因。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "粒子131及完整音乐/各标题点击、作者参数和全图parity未验；不再把已修mix非法参数列作现役故障。",
       "officialComparison": "compared"
     },
     "1695673397": {
