@@ -322,12 +322,18 @@ final class SILService: ObservableObject {
     // MARK: - 计算属性
 
     var sortedWallpapers: [SILWallpaper] {
+        sortedWallpapers(forSILTag: nil)
+    }
+
+    /// Filter the active tag before sorting; untagged callers keep the same projection.
+    func sortedWallpapers(forSILTag tag: String?) -> [SILWallpaper] {
         let query = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
+        let tagged = tag.map { tag in wallpapers.filter { $0.tags.contains(tag) } } ?? wallpapers
         let filtered: [SILWallpaper]
         if query.isEmpty {
-            filtered = wallpapers
+            filtered = tagged
         } else {
-            filtered = wallpapers.filter {
+            filtered = tagged.filter {
                 $0.title.lowercased().contains(query) ||
                 $0.path.lowercased().contains(query)
             }

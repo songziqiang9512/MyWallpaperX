@@ -179,6 +179,8 @@ extension SteamWorkshopService {
         }
         // Filesystem statistics are prepared by the background library scan.
         // Never sort by rounded display strings or mutable modification dates.
+        let locale = Locale(identifier: "en_US_POSIX")
+        var foldedTitles: [String: String] = [:]
         return searched.sorted { lhs, rhs in
             let comparison: ComparisonResult
             switch downloadsSortMode {
@@ -187,16 +189,16 @@ extension SteamWorkshopService {
                 case let (a?, b?) where a != b: comparison = a < b ? .orderedAscending : .orderedDescending
                 case (.some, nil): return true
                 case (nil, .some): return false
-                default: comparison = downloadRecordStableComparison(lhs, rhs)
+                default: comparison = downloadRecordStableComparison(lhs, rhs, foldedTitles: &foldedTitles, locale: locale)
                 }
             case .title:
-                comparison = downloadRecordStableComparison(lhs, rhs)
+                comparison = downloadRecordStableComparison(lhs, rhs, foldedTitles: &foldedTitles, locale: locale)
             case .size:
                 switch (lhs.sizeBytes, rhs.sizeBytes) {
                 case let (a?, b?) where a != b: comparison = a < b ? .orderedAscending : .orderedDescending
                 case (.some, nil): return true
                 case (nil, .some): return false
-                default: comparison = downloadRecordStableComparison(lhs, rhs)
+                default: comparison = downloadRecordStableComparison(lhs, rhs, foldedTitles: &foldedTitles, locale: locale)
                 }
             }
             return comparison == (downloadsSortAscending ? .orderedAscending : .orderedDescending)
@@ -207,11 +209,19 @@ extension SteamWorkshopService {
     /// exact inverses for known values, including equal titles/sizes/dates.
     private func downloadRecordStableComparison(
         _ lhs: SteamWorkshopDownloadRecord,
-        _ rhs: SteamWorkshopDownloadRecord
+        _ rhs: SteamWorkshopDownloadRecord,
+        foldedTitles: inout [String: String],
+        locale: Locale
     ) -> ComparisonResult {
-        let locale = Locale(identifier: "en_US_POSIX")
-        let lhsTitle = lhs.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
-        let rhsTitle = rhs.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
+        // Per-sort, demand-driven keys: unique date/size comparisons need no folding.
+        func folded(_ title: String) -> String {
+            if let cached = foldedTitles[title] { return cached }
+            let value = title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
+            foldedTitles[title] = value
+            return value
+        }
+        let lhsTitle = folded(lhs.title)
+        let rhsTitle = folded(rhs.title)
         let comparison = lhsTitle.compare(rhsTitle, options: [.numeric], locale: locale)
         if comparison != .orderedSame { return comparison }
         return lhs.id.compare(rhs.id, options: [.literal])

@@ -190,15 +190,37 @@ extension WallpaperManager {
     }
 
     private func applyImportedAssetMetadataUpdates(_ updates: [ImportedAssetMetadataUpdate]) {
+        guard !updates.isEmpty else { return }
+        // 按需解析尚未扫描的主库前缀：小批次首项命中不必扫整库，整批最多扫描一次。
+        // 同路径只登记首项，保留旧 firstIndex 的匹配语义。
+        var indexByPath: [String: Int] = [:]
+        indexByPath.reserveCapacity(min(wallpapers.count, updates.count))
+        var nextUnindexedIndex = 0
+
+        var updatedWallpapers = wallpapers
+        var matchedPaths: [String] = []
+        matchedPaths.reserveCapacity(updates.count)
         for update in updates {
             let normalized = normalizedPath(update.path)
-            if let index = wallpapers.firstIndex(where: { normalizedPath($0.path) == normalized }) {
-                wallpapers[index].fileSize = update.size
-                wallpapers[index].duration = update.duration
-                wallpapers[index].resolution = update.resolution
-                // 复用现有可见卡片刷新通道，确保导入后元数据能及时显示。
-                notifyThumbnailReady(forPath: update.path)
+            while indexByPath[normalized] == nil, nextUnindexedIndex < wallpapers.count {
+                let index = nextUnindexedIndex
+                nextUnindexedIndex += 1
+                let candidate = normalizedPath(wallpapers[index].path)
+                if indexByPath[candidate] == nil { indexByPath[candidate] = index }
             }
+            guard let index = indexByPath[normalized] else { continue }
+            updatedWallpapers[index].fileSize = update.size
+            updatedWallpapers[index].duration = update.duration
+            updatedWallpapers[index].resolution = update.resolution
+            matchedPaths.append(update.path)
+        }
+        // 完整状态一次提交；重复更新最终没有变化时也不发布整库。
+        if updatedWallpapers != wallpapers {
+            wallpapers = updatedWallpapers
+        }
+        // 保留每条匹配更新的通知及顺序，包括字段未变化的匹配项。
+        for path in matchedPaths {
+            notifyThumbnailReady(forPath: path)
         }
     }
 

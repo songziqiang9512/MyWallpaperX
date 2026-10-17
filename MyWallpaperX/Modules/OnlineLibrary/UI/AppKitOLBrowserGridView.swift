@@ -64,6 +64,8 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
     private var cancellables = Set<AnyCancellable>()
     private var orderedIDs: [Int] = []
     private var itemsByID:  [Int: OnlineLibraryVideoItem] = [:]
+    private var lastConsumedProgress: [Int: Double] = [:]
+    private var lastPrioritizedVisibleIDs: [Int]?
 
     private let scrollView: NSScrollView = {
         let s = NSScrollView()
@@ -174,7 +176,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         service.$downloadProgressByID
             .receive(on: DispatchQueue.main)
             .throttle(for: .milliseconds(200), scheduler: DispatchQueue.main, latest: true)
-            .sink { [weak self] _ in self?.reloadVisibleItems() }
+            .sink { [weak self] progress in self?.refreshDownloadProgress(progress) }
             .store(in: &cancellables)
 
         // 订阅 zoomOffset
@@ -216,6 +218,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
     // MARK: - 数据
 
     private func applyItems(_ items: [OnlineLibraryVideoItem]) {
+        lastPrioritizedVisibleIDs = nil
         var byID: [Int: OnlineLibraryVideoItem] = [:]
         byID.reserveCapacity(items.count)
         for item in items { byID[item.id] = item }
@@ -231,16 +234,25 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         updateVisibleThumbnailPriorities()
     }
 
-    private func reloadVisibleItems() {
+    private func refreshDownloadProgress(_ progress: [Int: Double]) {
+        let changedIDs = Set(lastConsumedProgress.keys).union(progress.keys).filter {
+            lastConsumedProgress[$0] != progress[$0]
+        }
+        lastConsumedProgress = progress
+        guard !changedIDs.isEmpty else { return }
+        reloadVisibleItems(forIDs: changedIDs)
+    }
+
+    private func reloadVisibleItems(forIDs ids: Set<Int>? = nil) {
         let visible = collectionView.indexPathsForVisibleItems()
         guard !visible.isEmpty else { return }
         // 轻量刷新：直接重新 configure 可见 cell
         for ip in visible {
-            guard ip.item < orderedIDs.count,
-                  let cell = collectionView.item(at: ip) as? AppKitOLBrowserItem
-            else { continue }
+            guard ip.item < orderedIDs.count else { continue }
             let id = orderedIDs[ip.item]
-            guard let item = itemsByID[id] else { continue }
+            guard ids?.contains(id) != false,
+                  let cell = collectionView.item(at: ip) as? AppKitOLBrowserItem,
+                  let item = itemsByID[id] else { continue }
             cell.configure(
                 item: item,
                 isDownloading: self.service.downloadingIDs.contains(id),
@@ -286,6 +298,8 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
                 guard indexPath.item < orderedIDs.count else { return nil }
                 return orderedIDs[indexPath.item]
             }
+        guard lastPrioritizedVisibleIDs != visibleIDs else { return }
+        lastPrioritizedVisibleIDs = visibleIDs
         service.prioritizeVisibleItemIDs(visibleIDs)
     }
 

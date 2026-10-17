@@ -17,6 +17,8 @@ final class AppKitDetailHostViewController: NSViewController {
     private var lastSILInspectorCardID: String?
     private var lastOnlineDownloadsInspectorCardID: String?
     private var cancellables = Set<AnyCancellable>()
+    private var pendingVideoGridUpdate = false
+    private var pendingSILGridUpdate = false
 
     init(wallpaperManager: WallpaperManager) {
         self.wallpaperManager = wallpaperManager
@@ -51,22 +53,22 @@ final class AppKitDetailHostViewController: NSViewController {
     private func observeVideoLibraryState() {
         wallpaperManager.$wallpapers
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentVideoGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: true) }
             .store(in: &cancellables)
 
         wallpaperManager.$recentlyUsedWallpapers
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentVideoGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: true) }
             .store(in: &cancellables)
 
         wallpaperManager.$searchQuery
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentVideoGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: true) }
             .store(in: &cancellables)
 
         wallpaperManager.$perSelectionSortStates
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentVideoGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: true) }
             .store(in: &cancellables)
 
         wallpaperManager.$inspectedWallpaperID
@@ -86,7 +88,7 @@ final class AppKitDetailHostViewController: NSViewController {
 
         SILService.shared.$wallpapers
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentSILGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: false) }
             .store(in: &cancellables)
 
         SILService.shared.$selectedID
@@ -114,12 +116,12 @@ final class AppKitDetailHostViewController: NSViewController {
 
         SILService.shared.$sortState
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentSILGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: false) }
             .store(in: &cancellables)
 
         SILService.shared.$searchQuery
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateCurrentSILGridIfNeeded() }
+            .sink { [weak self] _ in self?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: false) }
             .store(in: &cancellables)
 
         SILService.shared.$inspectedWallpaperID
@@ -190,6 +192,25 @@ final class AppKitDetailHostViewController: NSViewController {
         container.currentSILTag = silTag
         updateSILGrid(container, silTag: silTag)
         return container
+    }
+
+    /// Publishers can deliver many field updates in the same main-queue turn.
+    /// Derive once from current state; initial page construction stays synchronous.
+    private func scheduleCurrentLibraryGridUpdate(forVideoLibrary: Bool) {
+        guard forVideoLibrary ? currentSelectedItem?.isInVideoLibraryContext == true
+            : currentSelectedItem?.isInStaticImageLibraryContext == true else { return }
+        let alreadyScheduled = pendingVideoGridUpdate || pendingSILGridUpdate
+        if forVideoLibrary { pendingVideoGridUpdate = true }
+        else { pendingSILGridUpdate = true }
+        guard !alreadyScheduled else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let video = self.pendingVideoGridUpdate, images = self.pendingSILGridUpdate
+            self.pendingVideoGridUpdate = false
+            self.pendingSILGridUpdate = false
+            if video { self.updateCurrentVideoGridIfNeeded() }
+            if images { self.updateCurrentSILGridIfNeeded() }
+        }
     }
 
     private func updateCurrentVideoGridIfNeeded() {
@@ -285,9 +306,7 @@ final class AppKitDetailHostViewController: NSViewController {
 
     private func updateSILGrid(_ gridView: SILGridContainerView, silTag: String?) {
         gridView.currentSILTag = silTag
-        let wallpapers = silTag.map { tag in
-            SILService.shared.sortedWallpapers.filter { $0.tags.contains(tag) }
-        } ?? SILService.shared.sortedWallpapers
+        let wallpapers = SILService.shared.sortedWallpapers(forSILTag: silTag)
         gridView.update(wallpapers: wallpapers)
         gridView.invalidateLayout()
         gridView.scheduleSelectionVisualUpdate()

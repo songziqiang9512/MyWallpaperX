@@ -266,9 +266,14 @@ final class AppKitSidebarContainerView: NSView {
         let recentCount = wallpaperManager.recentlyUsedWallpapers.count
         let silTagsList = SILService.shared.silTags
         var silTagCounts: [String: Int] = [:]
-        for tag in silTagsList {
-            silTagCounts[tag] = SILService.shared.wallpapers(forSILTag: tag).count
+        let visibleTags = Set(silTagsList)
+        for wallpaper in SILService.shared.wallpapers {
+            // contains(tag) counted each image once even for duplicate stored tags.
+            for tag in Set(wallpaper.tags) where visibleTags.contains(tag) {
+                silTagCounts[tag, default: 0] += 1
+            }
         }
+        for tag in silTagsList where silTagCounts[tag] == nil { silTagCounts[tag] = 0 }
         return SidebarSnapshotSignature(
             wallpaperCount: wallpapersCount,
             favoriteCount: stats.favoriteCount,
@@ -335,13 +340,13 @@ final class AppKitSidebarContainerView: NSView {
         }
 
         // 图片壁纸分区：主入口 + 图片专属标签（共享同一分区，与视频库完全独立）
-        let silTags = SILService.shared.silTags
+        let silTags = signature.silTags
         let silTagChildren = silTags.map { tag in
             SidebarNode(
                 kind: .silTag(tag),
                 title: tag,
                 symbolName: "tag",
-                count: SILService.shared.wallpapers(forSILTag: tag).count
+                count: signature.silTagCounts[tag, default: 0]
             )
         }
         var imagesChildren: [SidebarNode] = [
@@ -349,7 +354,7 @@ final class AppKitSidebarContainerView: NSView {
                 kind: .staticImageLibrary,
                 title: "我的图片",
                 symbolName: "photo.on.rectangle.angled",
-                count: SILService.shared.wallpapers.count
+                count: signature.silWallpapersCount
             )
         ]
         imagesChildren.append(contentsOf: silTagChildren)
@@ -375,7 +380,7 @@ final class AppKitSidebarContainerView: NSView {
                     kind: .onlineDownloads,
                     title: "已下载",
                     symbolName: "arrow.down.circle",
-                    count: OnlineLibraryService.shared.downloadedIDs.count
+                    count: signature.onlineDownloadsCount
                 )
             ]
         )

@@ -28,9 +28,9 @@ enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatable {
         case .video:
             return "视频壁纸"
         case .web:
-            return "WEB壁纸"
+            return "Web壁纸"
         case .scene:
-            return "Scene壁纸"
+            return "场景壁纸"
         case .unknown:
             return "未知类型"
         }

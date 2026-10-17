@@ -11,6 +11,7 @@ actor SteamWorkshopDetailRequestScheduler {
     private let maxConcurrentBackgroundRequests = 2
     private let maxConcurrentRequestsWhileUserActive = 2
 
+    // Includes permits handed to resumed waiters that have not run yet.
     private var activeUserRequests = 0
     private var activeBackgroundRequests = 0
     private var waitingUserRequests: [CheckedContinuation<Void, Never>] = []
@@ -26,17 +27,22 @@ actor SteamWorkshopDetailRequestScheduler {
     }
 
     private func acquire(priority: SteamWorkshopDetailRequestPriority) async {
-        while !canAcquire(priority: priority) {
-            await withCheckedContinuation { continuation in
-                switch priority {
-                case .userInitiated:
-                    waitingUserRequests.append(continuation)
-                case .background:
-                    waitingBackgroundRequests.append(continuation)
-                }
+        if canAcquire(priority: priority) {
+            reserve(priority: priority)
+            return
+        }
+        await withCheckedContinuation { continuation in
+            switch priority {
+            case .userInitiated:
+                waitingUserRequests.append(continuation)
+            case .background:
+                waitingBackgroundRequests.append(continuation)
             }
         }
+        // release transfers an already reserved permit to this waiter.
+    }
 
+    private func reserve(priority: SteamWorkshopDetailRequestPriority) {
         switch priority {
         case .userInitiated:
             activeUserRequests += 1
@@ -70,12 +76,16 @@ actor SteamWorkshopDetailRequestScheduler {
     private func resumeNextIfPossible() {
         if canAcquire(priority: .userInitiated), let continuation = waitingUserRequests.first {
             waitingUserRequests.removeFirst()
+            // Count the handoff before resuming so background work cannot
+            // consume the user's permit while its task is waiting to run.
+            reserve(priority: .userInitiated)
             continuation.resume()
         }
 
         while canAcquire(priority: .background),
               let continuation = waitingBackgroundRequests.first {
             waitingBackgroundRequests.removeFirst()
+            reserve(priority: .background)
             continuation.resume()
         }
     }

@@ -35,6 +35,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private var isSelectionVisualUpdateScheduled = false
     private var isVisibleItemStateRefreshScheduled = false
     private var missingPathProbeTimer: DispatchSourceTimer?
+    private var isMissingPathProbeInFlight = false
     private var visibleMissingWallpaperIDs = Set<String>()
     private var lastAppliedQuery: String = ""
     private var pendingVisibleColumnCount: Int?
@@ -888,37 +889,53 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     }
 
     private func probeVisibleMissingWallpapers() {
-        // 这里不修复数据，只负责发现“可见项缺失/恢复”并触发局部刷新。
+        guard !isMissingPathProbeInFlight else { return }
         let visibleIndexPaths = collectionView.indexPathsForVisibleItems()
-        guard !visibleIndexPaths.isEmpty else {
+        let targets = visibleIndexPaths.compactMap { indexPath -> (id: String, path: String)? in
+            guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return nil }
+            let id = orderedIDs[indexPath.item]
+            guard let wallpaper = wallpapersByID[id] else { return nil }
+            return (id, wallpaper.path)
+        }
+        guard !targets.isEmpty else {
             visibleMissingWallpaperIDs.removeAll()
             return
         }
-
-        var currentMissingIDs = Set<String>()
-        var recoveredIDs = Set<String>()
-
-        for indexPath in visibleIndexPaths {
-            guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { continue }
-            let id = orderedIDs[indexPath.item]
-            guard let wallpaper = wallpapersByID[id] else { continue }
-            let fileExists = wallpaperManager.normalizedSourcePathExists(wallpaper.path)
-            if !fileExists {
-                currentMissingIDs.insert(id)
-                continue
+        isMissingPathProbeInFlight = true
+        let manager = wallpaperManager
+        // 只有纯源路径探测离开主线程；慢速卷上未完成的一轮不叠加后续 timer 工作。
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let results = targets.map { target in
+                (id: target.id, path: target.path, exists: manager.normalizedSourcePathExists(target.path))
             }
-
-            if visibleMissingWallpaperIDs.contains(id) {
-                recoveredIDs.insert(id)
-            }
-
-            if wallpaperManager.resolvedThumbnailPath(for: wallpaper) == nil {
-                wallpaperManager.ensurePreviewAssetsForWallpaper(wallpaper)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.isMissingPathProbeInFlight = false
+                let visibleIDs = Set(self.collectionView.indexPathsForVisibleItems().compactMap { indexPath -> String? in
+                    guard indexPath.item >= 0, indexPath.item < self.orderedIDs.count else { return nil }
+                    return self.orderedIDs[indexPath.item]
+                })
+                var currentMissingIDs = Set<String>()
+                var recoveredIDs = Set<String>()
+                for result in results {
+                    // 排序可变化；只按仍可见的 ID 和同一原始路径接纳，旧资源不能借用新身份。
+                    guard visibleIDs.contains(result.id), let wallpaper = self.wallpapersByID[result.id],
+                          wallpaper.path == result.path else { continue }
+                    if !result.exists {
+                        currentMissingIDs.insert(result.id)
+                        continue
+                    }
+                    if self.visibleMissingWallpaperIDs.contains(result.id) {
+                        recoveredIDs.insert(result.id)
+                    }
+                    if manager.resolvedThumbnailPath(for: wallpaper) == nil {
+                        manager.ensurePreviewAssetsForWallpaper(wallpaper)
+                    }
+                }
+                self.visibleMissingWallpaperIDs = currentMissingIDs
+                self.reloadVisibleItems(forIDs: recoveredIDs)
             }
         }
-
-        visibleMissingWallpaperIDs = currentMissingIDs
-        reloadVisibleItems(forIDs: recoveredIDs)
     }
 
 

@@ -3217,6 +3217,55 @@
         "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
       ],
       "modules": ["test_steam_download_sorting", "test_steam_download_execution", "test_library_toolbar_behaviors"]
+    },
+    {
+      "id": "ui-library-projection-efficiency",
+      "patterns": [
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift",
+        "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
+        "MyWallpaperX/Shell/SidebarViews.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "script/tests/test_ui_projection_efficiency.py",
+        "script/tests/fixtures/UIProjectionEfficiencyHarness.swift"
+      ],
+      "modules": [
+        "test_ui_projection_efficiency"
+      ]
+    },
+    {
+      "id": "ui-library-metadata-layout",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILWaterfallLayout.swift",
+        "script/tests/test_ui_library_algorithms.py",
+        "script/tests/fixtures/UILibraryAlgorithmsHarness.swift"
+      ],
+      "modules": [
+        "test_ui_library_algorithms"
+      ]
+    },
+    {
+      "id": "ui-request-schedulers",
+      "patterns": [
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopNetworkScheduler.swift",
+        "script/tests/test_ui_request_schedulers.py",
+        "script/tests/fixtures/UIRequestSchedulerHarness.swift"
+      ],
+      "modules": [
+        "test_ui_request_schedulers"
+      ]
+    },
+    {
+      "id": "ui-visible-path-probe",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
+        "script/tests/test_ui_visible_path_probe.py",
+        "script/tests/fixtures/UIVisiblePathProbeHarness.swift"
+      ],
+      "modules": [
+        "test_ui_visible_path_probe"
+      ]
     }
   ],
   "method_gates": {

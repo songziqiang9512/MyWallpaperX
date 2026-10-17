@@ -89,6 +89,7 @@ actor OLThumbnailRequestCoordinator {
 }
 
 actor OLThumbnailRequestScheduler {
+    // Includes permits handed to resumed waiters that have not run yet.
     private var activeVisibleRequests = 0
     private var activePrefetchRequests = 0
     private var waitingVisibleRequests: [CheckedContinuation<Void, Never>] = []
@@ -104,17 +105,22 @@ actor OLThumbnailRequestScheduler {
     }
 
     private func acquire(priority: OLThumbnailRequestPriority) async {
-        while !canAcquire(priority: priority) {
-            await withCheckedContinuation { continuation in
-                switch priority {
-                case .visible:
-                    waitingVisibleRequests.append(continuation)
-                case .prefetch:
-                    waitingPrefetchRequests.append(continuation)
-                }
+        if canAcquire(priority: priority) {
+            reserve(priority: priority)
+            return
+        }
+        await withCheckedContinuation { continuation in
+            switch priority {
+            case .visible:
+                waitingVisibleRequests.append(continuation)
+            case .prefetch:
+                waitingPrefetchRequests.append(continuation)
             }
         }
+        // release transfers an already reserved permit to this waiter.
+    }
 
+    private func reserve(priority: OLThumbnailRequestPriority) {
         switch priority {
         case .visible:
             activeVisibleRequests += 1
@@ -147,11 +153,15 @@ actor OLThumbnailRequestScheduler {
     private func resumeNextIfPossible() {
         while canAcquire(priority: .visible), !waitingVisibleRequests.isEmpty {
             let continuation = waitingVisibleRequests.removeFirst()
+            // Reserve before resuming: the actor cannot run the waiter until
+            // this turn ends, and otherwise every queued waiter looks runnable.
+            reserve(priority: .visible)
             continuation.resume()
         }
 
         if canAcquire(priority: .prefetch), let continuation = waitingPrefetchRequests.first {
             waitingPrefetchRequests.removeFirst()
+            reserve(priority: .prefetch)
             continuation.resume()
         }
     }

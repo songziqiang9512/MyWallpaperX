@@ -36,6 +36,9 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
     // MARK: - 内部状态
 
     private var cache: [NSCollectionViewLayoutAttributes] = []
+    /// cache 按 item 顺序存储；最短列的起点 Y 单调不减，前缀最大底边覆盖较早的高卡片。
+    private var prefixMaxY: [CGFloat] = []
+    private var canUseRectIndex = true
     private var contentHeight: CGFloat = 0
     private var contentWidth: CGFloat {
         guard let cv = collectionView else { return 0 }
@@ -48,6 +51,8 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
         super.prepare()
         guard let cv = collectionView else { return }
         cache.removeAll(keepingCapacity: true)
+        prefixMaxY.removeAll(keepingCapacity: true)
+        canUseRectIndex = true
 
         // 还没有 section 时直接返回，避免 numberOfItems(inSection:0) 崩溃
         guard cv.numberOfSections > 0 else {
@@ -83,7 +88,13 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
 
             let attrs = NSCollectionViewLayoutAttributes(forItemWith: ip)
             attrs.frame = CGRect(x: x, y: y, width: colWidth, height: cardH)
+            // 非有限比例或外部异常配置仍保留旧 frame/查询语义，不让二分扩大其影响。
+            if !attrs.frame.minY.isFinite || !attrs.frame.maxY.isFinite
+                || (cache.last.map { $0.frame.minY > attrs.frame.minY } ?? false) {
+                canUseRectIndex = false
+            }
             cache.append(attrs)
+            prefixMaxY.append(max(prefixMaxY.last ?? attrs.frame.maxY, attrs.frame.maxY))
 
             colHeights[shortestCol] += cardH + effectiveRowSpacing
         }
@@ -98,11 +109,31 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
     }
 
     override func layoutAttributesForElements(in rect: NSRect) -> [NSCollectionViewLayoutAttributes] {
-        cache.filter { $0.frame.intersects(rect) }
+        guard canUseRectIndex, !rect.minY.isNaN, !rect.maxY.isNaN else {
+            return cache.filter { $0.frame.intersects(rect) }
+        }
+        // 二分只缩小候选区间，最终仍用原 intersects 判断并保持 cache 的 item 顺序。
+        // 不能只按起点查下界，否则会漏掉视口上方起始、仍跨入视口的竖图。
+        var lower = 0
+        var upper = cache.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if prefixMaxY[middle] < rect.minY { lower = middle + 1 }
+            else { upper = middle }
+        }
+        let start = lower
+        upper = cache.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if cache[middle].frame.minY <= rect.maxY { lower = middle + 1 }
+            else { upper = middle }
+        }
+        return cache[start..<lower].filter { $0.frame.intersects(rect) }
     }
 
     override func layoutAttributesForItem(at indexPath: IndexPath) -> NSCollectionViewLayoutAttributes? {
-        cache.first { $0.indexPath == indexPath }
+        guard indexPath.count == 2, indexPath.section == 0, cache.indices.contains(indexPath.item) else { return nil }
+        return cache[indexPath.item]
     }
 
     override func shouldInvalidateLayout(forBoundsChange newBounds: NSRect) -> Bool {
