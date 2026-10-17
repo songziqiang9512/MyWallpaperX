@@ -732,9 +732,7 @@ extension SceneDesktopWallpaperSession {
         let animationMutations = admittedOwnerEffects.flatMap(
             \.animationMutations
         )
-        let puppetBoneMutations = admittedOwnerEffects.flatMap(
-            \.puppetBoneMutations
-        )
+        let puppetBoneMutations = SceneScriptPuppetBoneMutationBridge.orderedMutations(in: admittedOwnerEffects)
         let mediaPlaybackCommands = admittedOwnerEffects.flatMap(\.mediaPlaybackCommands)
         let textureAnimationCommands = admittedOwnerEffects.flatMap(
             \.textureAnimationCommands

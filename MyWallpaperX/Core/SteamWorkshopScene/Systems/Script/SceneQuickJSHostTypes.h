@@ -166,6 +166,8 @@ typedef struct MWXSceneQuickJSLayerMutation {
 typedef struct MWXSceneQuickJSPuppetBoneMutation {
     int64_t layer_id;
     int32_t bone_index; /* dense zero-based index */
+    uint32_t ordinal; /* order within the existing domain callback epoch */
+    uint64_t callback_epoch;
     double matrix[16];
 } MWXSceneQuickJSPuppetBoneMutation;
 // text/font/asset_path are borrowed from the owner/domain. Callers must copy

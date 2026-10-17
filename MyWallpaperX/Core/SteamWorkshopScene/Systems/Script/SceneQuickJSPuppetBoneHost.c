@@ -199,10 +199,14 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     if (!puppet_world_pose(owner->puppet_bone_count, owner->puppet_bone_parent,
                           owner->puppet_layer_to_world, render_local, world))
         return JS_ThrowRangeError(context, "Puppet pose is out of range");
-    MWXSceneQuickJSPuppetBoneMutation *mutation = &owner->puppet_bone_mutations[
-        owner->puppet_bone_mutation_count++];
+    uint32_t mutation_index = owner->puppet_bone_mutation_count++;
+    MWXSceneQuickJSPuppetBoneMutation *mutation = &owner->puppet_bone_mutations[mutation_index];
     mutation->layer_id = owner->puppet_bone_layer_id;
     mutation->bone_index = bone_index;
+    mutation->callback_epoch = owner->domain->callback_epoch;
+    mutation->ordinal = mutation_index > 0
+        && owner->puppet_bone_mutations[mutation_index - 1].callback_epoch == mutation->callback_epoch
+        ? owner->puppet_bone_mutations[mutation_index - 1].ordinal + 1 : 0;
     // Publish the resolved parent-relative transform, never a surface-world
     // coordinate mislabeled as evaluator-local data.
     memcpy(mutation->matrix, local[bone], sizeof(matrix));

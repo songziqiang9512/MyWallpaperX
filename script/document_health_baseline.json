@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 196,
-      "bytes": 80418
+      "lines": 197,
+      "bytes": 81568
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 111923
+      "bytes": 112241
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 542,
-      "bytes": 139348
+      "lines": 544,
+      "bytes": 140155
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 200,
-      "bytes": 45691
+      "bytes": 46027
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1217,24 +1217,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "23c97ba4156c12d79ccecb8cc553c09c697a64813aa04c6302ac16d0c03e6574",
-      "after": "295b2e2e5c8f53a2443baadd5866eb55aa51ba8913dde2e0890e5a2971713b96",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "7c915535960a79607f5860ffcf8e54ffa212baeb79342b05a64f646722723f36",
-      "after": "f28450da545a68b6f357cea391e7ce377457121141474914e183688f33ae4ddf",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
       "after": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
@@ -1334,15 +1316,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "15902ffd60f69f5a10fdab1d096322fbe492aec3c4fb90185ada11401f4fa63d",
-      "after": "664cd69982efcc4c1f18faeb36ac11631a838eba087dd7df3ac9a7efe61fdebf",
-      "owner": "scene-composition-source-geometry",
-      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "1fcefeab6c9ad1b09702b90a662b4956d9397c5bc1f2a9631eb8a6c26cc488b5",
       "after": "ae980de0785c5fa9d3ee73ddf23280368caa1ee3f85658a0a87633764665cd6d",
@@ -1352,12 +1325,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "664cd69982efcc4c1f18faeb36ac11631a838eba087dd7df3ac9a7efe61fdebf",
+      "after": "465bba128730d86b18563aa48f4ca8abf8736c1d779270fce4c0e6c8e2524d11",
+      "owner": "scene-puppet-bone-matrix-order",
+      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "295b2e2e5c8f53a2443baadd5866eb55aa51ba8913dde2e0890e5a2971713b96",
+      "after": "2c8caea58f630b5411a6106f232a4c9908bbddcb04f6bbc96dd17f90b307c0cd",
+      "owner": "scene-puppet-bone-matrix-order",
+      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "f28450da545a68b6f357cea391e7ce377457121141474914e183688f33ae4ddf",
+      "after": "1777916f9b92c2d4fd3e86ca6f9e8e6307abea872958af90a332f09692471911",
+      "owner": "scene-puppet-bone-matrix-order",
+      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cc3bccb94395b171782cee843d7c46b603cefb23dd19075263c2b0615e524169",
-      "after": "f2d1ebefe69a0a31c0650ecccca3222e088b3addb3650912cebd28a9d2b182c9",
-      "owner": "scene-composition-source-geometry",
-      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+      "before": "f2d1ebefe69a0a31c0650ecccca3222e088b3addb3650912cebd28a9d2b182c9",
+      "after": "78818a0d0eea7b268a691b91946e3ad1a54421d7627bacc27f1d4811ee1c12bc",
+      "owner": "scene-puppet-bone-matrix-order",
+      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
     }
   ]
 }

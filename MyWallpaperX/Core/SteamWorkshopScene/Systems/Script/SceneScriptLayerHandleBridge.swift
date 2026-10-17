@@ -51,9 +51,29 @@ nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {
     let layerID: Int
     let boneIndex: Int
     let matrix: [Double]
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+
+    init(layerID: Int, boneIndex: Int, matrix: [Double],
+         callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0) {
+        self.layerID = layerID
+        self.boneIndex = boneIndex
+        self.matrix = matrix
+        self.callbackEpoch = callbackEpoch
+        self.ordinal = ordinal
+    }
 }
 
 nonisolated enum SceneScriptPuppetBoneMutationBridge {
+    /// Restore execution order after the shared domain's owner bundles have
+    /// been admitted. Grouping callbacks by owner must not reorder bone writes.
+    static func orderedMutations(in effects: [SceneScriptOwnerEffects]) -> [SceneScriptPuppetBoneMutation] {
+        effects.flatMap(\.puppetBoneMutations).sorted {
+            if $0.callbackEpoch != $1.callbackEpoch { return $0.callbackEpoch < $1.callbackEpoch }
+            return $0.ordinal < $1.ordinal
+        }
+    }
+
     static func mutations(owner: OpaquePointer) -> Result<[SceneScriptPuppetBoneMutation], SceneScriptScalarRuntimeFailure> {
         let count = mwx_scene_quickjs_owner_puppet_bone_mutation_count(owner)
         guard count <= 256 else { return .failure(.mutationOverflow("Puppet bone mutation buffer exceeded")) }
@@ -74,7 +94,8 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
             guard matrix.count == 16, matrix.allSatisfy(\.isFinite) else {
                 return .failure(.invalidArgument("invalid Puppet bone matrix"))
             }
-            output.append(.init(layerID: Int(raw.layer_id), boneIndex: Int(raw.bone_index), matrix: matrix))
+            output.append(.init(layerID: Int(raw.layer_id), boneIndex: Int(raw.bone_index),
+                matrix: matrix, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
         }
         return .success(output)
     }

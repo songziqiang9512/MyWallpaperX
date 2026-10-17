@@ -660,10 +660,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cfd91bbabfc463ae9684260b4ef75a7a9467441cdfbdc60c99dfb888a3a3cc68",
+        "sourceSHA256": "325aba3c7d7a3a9262d77faa648c13f16c25cc7ef67bfcedd523ca2224f6e4e1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
-        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
+        "scope": "Existing Puppet matrix-command order and bounded heldout335 evidence; release unknowns stay with the U40 history and next Vec2 fallback stays open.",
+        "limitations": "No original U40 repeated release, exact335 text alignment, complete cycle or performance claim; foreign documentation findings remain outside this batch."
       }
     },
     {

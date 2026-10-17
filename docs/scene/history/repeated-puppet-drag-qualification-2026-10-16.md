@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # U40 连续 Puppet 拖动：fresh 资格与候选 API 缺口
 
-> **历史证据 — 非现役入口**。截止：2026-10-17。保留fresh三轮故障、早期载体失败与后继官方有界观察。U40未闭合，没有通用冲量合同、重复交互修复或完整样本通过结论。
+> **历史证据 — 非现役入口**。截止：2026-10-18。保留fresh三轮故障、早期载体失败与后继官方有界观察。U40未闭合，没有通用冲量合同、重复交互修复或完整样本通过结论。
 
 当前状态与后继归[断点队列](../roadmap/scene-open-breakpoint-queue.md)，属性专项归[工作卡](../roadmap/properties-panel-card.md)，执行边界归[兼容路线](../roadmap/scene-compatibility-roadmap.md)。
 
@@ -83,6 +83,20 @@ U40仍须修后按原输入验证三轮持续响应、释放后继续更新、�
 同身份隔离App的四格self输入实际执行C控制、H持续setter、S一次setter及N非物理骨旧行为。S采样F0的O/L40、W10，F1的O/L0、W9.644，后续world反向而网格继续；数值轨迹仍属项目原近似，不声称官方solver一致。24张Metal截图中C固定ROI逐RGB不变，H/S轮廓最大移动21/12px，红色失败标记及绿色文字侵入均为0。Root查看ready、运动中及after原图，输入/App未漂移，VM6owner全quiescent、无callback拒绝，停止1→0/GPU drained。
 
 未参与修法的原3791967416沿同一App运行：608/962实际发布各58骨pose，六个Puppet draw进入合成；ready为作者Logo，after人物、眼部、花、手与背景呈现，17owner退出无失败、GPU drained。未验证完整闭眼周期/旧局部图案差异，不关闭其队列。3357627941另保普通image/video/graph邻例；其日志无Puppet资格，不能用旧matrix标题把它冒充Puppet回归。两个原包project/pkg均只读、复制及原件重核drift=[]。这些结果只闭合局部查询首门；impulse入口、原三轮释放交互及性能收益仍未验。
+
+<a id="impulse-direction-20261018"></a>
+
+## 冲量方向与实现边界（2026-10-18）
+
+固定官方2.8.0.42的32位客户端（4,303,856B，SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`）沿已资格的三root rig，比较无调用、原尺度、加载时90°旋转和半尺度四臂。三个调用臂均仅一次bone1、direction `(200,0,0)`、显式angular零；记录完整O/L/W、真实时间与8个相对callback。首轮在首callback改rotation导致基线不稳，`PREBASE_MOVING / normal0/3`，没有发出冲量；该失败保留，不作方向证据。后继仅将90°设为加载值，其他输入和阈值保持，取得稳定基线、正常返回3/3与完整24/24观察。
+
+后继31张原图中control像素不变，原尺度/旋转/半尺度最大轮廓位移8/8/5px。首次后继观察中原尺度与旋转的world X均8.291，其他world分量零，独立复核确认90°实际basis；仅支持**静态root、该XY输入的world-fixed方向响应**。两者反变换局部位移33.164，未触预登记40的判断界限；半尺度已到局部50的上限，故缩放、增益和单位仍UNKNOWN，不能用其比值拟合。完整动态挂点、非均匀缩放、角冲量及官方数值parity均未验。
+
+限时静态研究仅查看同身份客户端的三个函数体，补充入口将原direction逐分量累加到每骨持久向量、入口未作矩阵/质量/dt/额外gain转换且不立即改local matrix的事实。后继积分消费者未裁定，不能将该向量命名为velocity或pending force；local-origin setter后的通知也未展开，不能推断它清速度。达到三函数预算即停止，无额外参数矩阵或猜测公式进入产品。原始静态材料留仓库外，仅中性事实、身份及限制进入本记录。
+
+原562/598各有三root，但都依附动态parent attachment且有XY缩放动画；当前先全体局部物理、再解world的调度不足以直接承接world耦合。后继设计应复用canonical parent-first/cache顺序和同一个PlaybackState/Motion，先父pose/attachment、再子carrier与一次推进；不得新增树/solver/clock或用静态bind冒当前姿态。具体惯性和单位合同仍未选定，本次没有实现冲量API或关闭原三轮释放故障。现有matrix命令跨owner顺序另在D4修复，不与这些未知混记。
+
+本轮原图、冻结输入、失败回执与独审统一保存于 `.artifacts/scene-evidence/runs/u40-impulse-direction-20261018/`：213 entries、62张原PNG，ZIP 2,667,866B，SHA `7569e28f536bfb1997ddebafdca84a59020f0c402e24c79800b1ed02583fe3b0`；`passed=null`，因释放语义未解protected。A1原prefix与A2共同suffix可逐字节还原原输入，已核原包SHA；一次逐entry原字节审核通过。静态原件63.3MB留仓库外，不进入该包。不计样本通过或性能收益。
 
 ## 证据与保留
 

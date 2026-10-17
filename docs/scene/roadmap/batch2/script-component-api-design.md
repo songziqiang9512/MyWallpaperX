@@ -261,15 +261,17 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 <a id="puppet-query-render-pose"></a>
 
-## Puppet 本地查询与物理姿态分域（2026-10-17，先行设计）
+## Puppet 本地查询与物理姿态分域（2026-10-17，有界已实施）
 
-**目标与范围。** 固定官方客户端的[同输入观察](../../history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation)已区分本地查询与物理世界姿态：平移物理骨的一次 origin setter 在同 callback 可读，下一 callback 的 origin/local matrix 回到动画基值，世界矩阵与网格仍回弹。当前 physics 和 setter 共写持久 override，污染后续本地查询。本片只修正已准入平移物理骨的局部 translation 投影与寿命；rotation/scale/其余 matrix 分量及没有该物理配置的骨保留原 setter 行为，其更广寿命未证。冲量入口、方向空间/单位、角物理及其他 profile 仍是后继，不为通过本片猜测实现。
+**目标与范围。** 固定官方客户端的[同输入观察](../../history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation)已区分本地查询与物理世界姿态：平移物理骨的一次 origin setter 在同 callback 可读，下一 callback 的 origin/local matrix 回到动画基值，世界矩阵与网格仍回弹。实施前 physics 和 setter 共写持久 override，污染后续本地查询。本片只修正已准入平移物理骨的局部 translation 投影与寿命；rotation/scale/其余 matrix 分量及没有该物理配置的骨保留原 setter 行为，其更广寿命未证。冲量入口、方向空间/单位、角物理及其他 profile 仍是后继，不为通过本片猜测实现。
 
 **唯一职责与旧链退出。** 原每实例 PlaybackState 继续独占 evaluator、物理位置/速度和 script overlay；物理推进只写 render pose，退出覆盖 query pose 的旧写入。明确 query-local 与 render-local/world 两种 typed 投影：本地 getter 的 translation 使用动画及当前 cadence 的脚本覆盖，其他 matrix 分量保留原投影；世界 getter、attachments、cursor 与 skinning 使用同一物理姿态。物理骨的局部 translation overlay 在新的 simulation cadence 退出，物理位置和速度续存；回弹目标仍由动画给出，不能改为 last setter。复用原 simulation frame identity 防止同 cadence 重绘/重试重复推进，不另建时钟、solver、资源或状态 owner；原 motion 算法仍是项目近似，不宣称官方数值一致。
 
 **VM、失败与生命周期。** 沿现 pose publication 和 configure ABI 同时安装 query-local/render-local，parent/name 与 layer-to-world 保持唯一来源；C 只保存已发布镜像、同 callback overlay 和原 rollback baseline。新增 render-local 镜像及 baseline 仅为实际配置骨骼的 owner 按骨数分配、稳定布局复用并由原 owner destroy 释放；不能把固定最大骨数的新增数组摊到所有普通脚本 owner。local setter 更新该骨的两个镜像，world setter 通过物理 parent 求局部矩阵；重算 world 时保留未写骨的物理局部姿态，不能从纯 query-local 重建而抹掉其他骨的运动。完整候选验证后才发布；坏矩阵、父层不可逆、throw 和 Swift 晚拒绝沿原整 owner 撤回。GPU source-update FIFO、几何 publication/退休与多屏准入不扩域，不附带 pose/skinning cache 重构。
 
 **验收与退出。** 真实 QuickJS 门覆盖不同 query/render 的父子与 layer transform、本地/世界 setter 同 callback 读回、未写物理邻骨、rename/等价表达式和失败撤回。原 PlaybackState/Metal 门覆盖一次 setter 后本地复位而世界/网格继续、同 cadence 不二次推进及下一 cadence 正常回弹；隔离 App 验证实际 setter 画面及未参与修法样本。该片不关闭 U40：实际释放链仍须有序 impulse/matrix journal、一次 simulation commit、原输入三轮持续拖动及释放后更新；不得将 getter 修正或原包 ready 记成重复交互恢复。
+
+**既有矩阵命令顺序后继（2026-10-18）。** 同层不同属性 owner 可写同一骨；cursor 按输入事件执行后按 owner 打包，帧驱动直接展开会将 A₁→B₁→A₂ 重排为 A₁→A₂→B₁。保留唯一 owner bundle 接纳/撤回，在原 matrix journal 记录现 domain 的 callback epoch 与 callback 内 ordinal；所有 owner 完成固定点接纳后，仅在原提交边恢复顺序，再交原 PlaybackState。没有新 counter、物理状态或跨 domain 排序，不合并同骨写入；失败 owner 退出不重放健康 peer。真实 VM 证明交错写入、同 callback 多写及拒绝后的保序，原生姿态和独立 Puppet 作实际回归。本片不新增 impulse/reset 或改变 setter/getter/物理公式，不以命令顺序修复关闭 U40。
 
 ## Puppet 动画层后继（2026-10-07）
 
