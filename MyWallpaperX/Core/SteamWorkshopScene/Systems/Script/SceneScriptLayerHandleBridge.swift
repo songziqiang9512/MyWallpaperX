@@ -458,8 +458,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 return .failure(.invalidArgument("unknown layer mutation fields"))
             }
             if raw.dynamic == 1 {
-                guard (0...1).contains(raw.alpha),
-                      (0...1).contains(raw.color.0),
+                guard (0...1).contains(raw.color.0),
                       (0...1).contains(raw.color.1),
                       (0...1).contains(raw.color.2) else {
                     return .failure(.invalidArgument(

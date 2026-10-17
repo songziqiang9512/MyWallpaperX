@@ -129,7 +129,7 @@
 | 项目 | 当前边界 / 最小下一门 |
 |---|---|
 | U42 · 面板打开/编辑、长Combo与显示语言余项 | 原生列表/AX滚动及有限本地化已有有界验收；旧“浏览严重卡顿/中文都变英文”不能无条件沿用。打开/编辑总延迟、完整系统键盘chrome、长Combo完整显示及更多locale仍待当前实际资格；未审词汇不直接算错译。先单个可达控件和用户动作/成本，沿原Intent→store→consumer验证 |
-| fullscreen visible合法脚本被过滤 · 322的38 | **静态首断点与实际未发布一致。** 原visible有公开update/applyUserProperties，descriptor保script；现VectorCandidateCatalog的contentKind/utility白名单明确拒fullscreen，未进入VM owner。25脚本叶仅24 VM targets，38仍awaiting publication并取authored visible，不是默认未触发或private helper。 | 复用现Bool owner/Program→typed visibility/journal，不新建更新链；先真实默认与属性编辑验证fullscreen显隐、非法类型/局部失败和健康image/composition邻例，完整媒体条件另验。 |
+| 命名effect/pass Timeline的脚本查询 · 322“切换滤镜” | **固定SDK与只读定义/代码资格。** v2.8 IScene明确声明按名从任意layer查询动画；4907.cursorClick首条查询唯一命名动画并play；目标是2522/effect0/pass0/Alpha，30fps/9帧、startpaused、0→frame5的1.5。现C scene handle未安装getAnimation，Swift AnimationHandleBridge也只导出layer/text target、未发effectConstant；尚未把实际点击或非零Alpha画面算通过。沿已编译Program的typed identity、原handle/journal/Timeline时钟补最小通用入口，先核重名/缺名/回滚及真实点击；shader stage-link仍是后继独立门，不造第二动画时钟。 |
 | font String公共合同候选 · 3448845950 | 实际默认font consumer是否被String拒绝尚未证；102隐藏且存在registerAsset生产者，不能用38次词法写归因旧TypeError。精确资格、下一门与停止条件只归[静态缺口表](scene-full-sample-static-audit.md)，不直接开放任意路径。 |
 
 显隐slider/缺定义、条件-only Combo、maxwidth script等旧声明/候选不等于缺热更新：先有同身份instruction/callback/rebuild及可见consumer资格。314 fireplacesound属Sound mixed，已修；304 clock_lang已有真实text模块applyUserProperties consumer，亦非condition-only；不另造condition evaluator或value-only旁路。

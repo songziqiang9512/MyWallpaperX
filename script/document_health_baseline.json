@@ -117,8 +117,8 @@
       "bytes": 346710
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 183,
-      "bytes": 63404
+      "lines": 184,
+      "bytes": 64600
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 417,
-      "bytes": 110039
+      "bytes": 110766
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -205,8 +205,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 507,
-      "bytes": 130390
+      "lines": 519,
+      "bytes": 133081
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 53,
-      "bytes": 15816
+      "bytes": 15993
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 156,
-      "bytes": 33776
+      "bytes": 33856
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1177,30 +1177,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "48d4015f16d6eede0f24fcc2d7b3c89e98d6acc87252ecdca9a38b99c5fdfe5d",
-      "after": "51e5640f18a6d27ea755c4382e2df99db33c6121419f5ba062a35825b2be012c",
-      "owner": "scene-puppet-query-render",
-      "reason": "以官方Q4/Q5有界观察区分local translation与物理姿态；D4先行分域和原事务/按骨数镜像生命周期设计，能力/队列只关闭query首门，未知冲量与三轮交互保留。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "10708f80f01bcf6283bc4e8e873f848a6bc70858e21556c68246444ef9385313",
       "after": "0c823dd674c6593fc7975ec96c3eb691d4ecc718674d87100026551df0dd8da4",
       "owner": "scene-composition-allocation",
       "reason": "Composition成功分配沿现唯一pool复核reset epoch及精确key generation/缺席，普通completion释放不再被全局revision误拒；预算/陈旧/OOM回收边界保持。",
       "decision": "docs/scene/history/d1-composition-source-implementation-2026-10-02.md#completion-safe-composition-allocation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "d55bf2067c3e4a4c2bf1fd5e3214815bb90054fd16fd49b48a4299233cc567eb",
-      "after": "8314a0cc51c189e0ffff1fb6995305815eafc45a41b510a07ce612da264229e4",
-      "owner": "scene-empty-effect-lookup",
-      "reason": "空effect集合沿原两handle入口返回null，官方/真实VM/原359主幅与独立335已有界验收；完成首断点退出静态表和队列，非空selector及更广交互不扩。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#empty-effect-lookup-20261017"
     },
     {
       "section": "bodies",
@@ -1268,29 +1250,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "48b9751bdd88bd1e767088a6e946e020e6b629108690f8ed7830e8fefc719b1a",
-      "after": "d80f0e7bd01a715a7526d3d52bdb4e0a94ca14cc3b4faa243ad3a70e8c8df0fc",
-      "owner": "scene-puppet-runtime",
-      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
+      "before": "d80f0e7bd01a715a7526d3d52bdb4e0a94ca14cc3b4faa243ad3a70e8c8df0fc",
+      "after": "b9bc97d95ce019113db17af4933bfc633815dea1d0fb261d6b2763c61d8f9eba",
+      "owner": "scene-script-runtime",
+      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "8314a0cc51c189e0ffff1fb6995305815eafc45a41b510a07ce612da264229e4",
+      "after": "085e79bdb2a60ff990dba7e05b4629dc03491b8d764e5e4d958c57721be04ef3",
+      "owner": "scene-script-runtime",
+      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "51e5640f18a6d27ea755c4382e2df99db33c6121419f5ba062a35825b2be012c",
+      "after": "bb7fa5bea21b25cf598300e8432f413967a81f48715331345baca6f1d208ac5d",
+      "owner": "scene-script-runtime",
+      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "24b80402c5f25297e4213568a01765b16ea4b11fe67ea2f65021283f887643bc",
-      "after": "db4993dfd611ddb244dae5a31729e2880b4b2c6cb567034c22cd174cb504fb46",
-      "owner": "scene-puppet-runtime",
-      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
+      "before": "db4993dfd611ddb244dae5a31729e2880b4b2c6cb567034c22cd174cb504fb46",
+      "after": "f4b115282a4c6ecc9d1d79f7e2bddf071fe00f3f3bb773776b5abf403422065f",
+      "owner": "scene-script-runtime",
+      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1f7d294f3423c3228a35771db3d613bbda74dbb1938486f8e765753c2ae38e9e",
-      "after": "287334440695f34a895635c72b08fc9698a133a77036d37d9086e36b3f3e8d1d",
-      "owner": "scene-puppet-runtime",
-      "reason": "Replace obsolete MDLA5 rejection and alpha-selection state with implemented shared contract; preserve only remaining 322 execution gaps and bounded native evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdla5-alpha"
+      "before": "287334440695f34a895635c72b08fc9698a133a77036d37d9086e36b3f3e8d1d",
+      "after": "0661118df0855ad1c81d899de3faf0a7f1666b76bb48c1e537480e4280cbea32",
+      "owner": "scene-script-runtime",
+      "reason": "Replace obsolete fullscreen exclusion and alpha-range rejection with implemented single-owner contract and bounded actual322 evidence; retain remaining named animation/shader gaps without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-alpha-raw-setter"
     }
   ]
 }

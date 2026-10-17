@@ -4,18 +4,19 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from .scene_vector_vm_test_support import SCENE, compile_vector_harness
 
 HARNESS = r'''
 @main enum Harness {
     static let target = SceneDynamicTarget.layer(layerID: 1, field: .origin)
     static let effect = SceneDynamicTarget.effectVisibility(layerID: 2, effectIndex: 0)
     static let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970: 0), simulationFrameTime: 0.016, sceneTime: 1))
-    static func catalog(renamed: Bool = false) -> SceneRenderDescriptor { .init(layers: [
+    static func catalog(renamed: Bool = false, centralName: String = "card",
+                        outgoingName: String? = nil) -> SceneRenderDescriptor { .init(layers: [
         .init(id: 1, layerIndex: 0, name: "controller", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1, effects: []),
-        .init(id: 2, layerIndex: 1, name: "card", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1,
+        .init(id: 2, layerIndex: 1, name: centralName, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1,
               effects: [.init(name: "beam", visible: false), .init(name: "beam", visible: true)], contentKind: "text", text: "card", textStyle: .init(fontPath: "fonts/original.ttf", colorRGB: nil, pointSize: 20)),
-        .init(id: 3, layerIndex: 2, name: renamed ? "clear-source" : "blank", visible: true,
+        .init(id: 3, layerIndex: 2, name: outgoingName ?? (renamed ? "clear-source" : "blank"), visible: true,
               originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: 1, effects: [], contentKind: "image", sizeWH: [100,100])
     ]) }
     static let descriptor = catalog()
@@ -143,6 +144,254 @@ HARNESS = r'''
         return first.failures.isEmpty && !stale.failures.isEmpty && stale.layerMutations.isEmpty
             && (try? suffix.get().value) == .vector3(0,1,9)
     }
+    static func alphaFrame(_ delta: Double, _ time: Double) -> SceneScriptFrameInput {
+        .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+            simulationFrameTime: delta, sceneTime: time))
+    }
+    static func visibilityBinding(_ id: Int, _ index: Int, _ source: String) -> SceneScriptBindingIR {
+        .init(source: source, owner: .init(kind: .object, objectIndex: index,
+            objectID: id, effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(index), .key("visible")],
+            properties: [:], authoredValue: .bool(true), valueType: .boolean,
+            wrapperKeys: ["script", "value"])
+    }
+    static func finiteAlphaTransition(renamed: Bool) throws -> [String: Any] {
+        let central = renamed ? "foreground-panel" : "central-card"
+        let outgoing = renamed ? "retiring-panel" : "outgoing-card"
+        var descriptor = catalog(renamed: renamed, centralName: central, outgoingName: outgoing)
+        descriptor.layers[1].textStyle = .init(fontPath: renamed ? "fonts/other.ttf" : "fonts/fade.ttf",
+            colorRGB: nil, pointSize: 20)
+        descriptor.layers[2].imagePath = renamed ? "models/alternate/panel.json" : "models/fade/card.json"
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureLayerRuntimeFields(descriptor)
+        let target = SceneDynamicTarget.layer(layerID: 1, field: .visibility)
+        let decrement = renamed ? "0 - step" : "-step"
+        let overshoot = renamed ? "step + 1" : "1 + step"
+        let source = """
+        let amount=0;
+        export function update(incoming) {
+            const central=thisScene.getLayer('\(central)');
+            const outgoing=thisScene.getLayer('\(outgoing)');
+            const baseline=central.alpha;
+            const step=engine.frametime*5;
+            amount+=step;
+            central.alpha=amount;
+            outgoing.alpha=\(decrement);
+            const low=outgoing.alpha;
+            outgoing.alpha=0;
+            thisLayer.alpha=\(overshoot);
+            const high=thisLayer.alpha;
+            thisLayer.alpha=1;
+            thisLayer.origin=new Vec3(low,high,baseline);
+            return incoming;
+        }
+        """
+        let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: [visibilityBinding(1, 0, source)],
+            userPropertyDefinitions: [], generation: 80)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+            authoredMutationLayerIDs: [1,2,3])
+        var outcomes: [Bool] = [], readbacks: [[Double]] = [], preflightReadOnly = true
+        func advance(delta: Double, time: Double, commit: Bool) throws {
+            let result = program.evaluate(inputs: [target: .bool(true)], effectivePropertyValues: [:],
+                frame: alphaFrame(delta, time))
+            let previous = runtime.snapshot().authoredLayerValues
+            let plan = runtime.preflightOwnerEffects(result.ownerEffects)
+            preflightReadOnly = preflightReadOnly && runtime.snapshot().authoredLayerValues == previous
+            outcomes.append(result.failures.isEmpty && result.values[target] == .bool(true)
+                && result.ownerEffects.count == 1 && plan.rejectedOwners.isEmpty)
+            if let origin = result.layerMutations.first(where: { $0.layerID == 1 })?.origin {
+                readbacks.append([origin.x, origin.y, origin.z])
+            } else { readbacks.append([]) }
+            if commit { runtime.commit(plan.layerPlan) }
+            program.finalizeLayerMutations(committing: commit)
+            if commit {
+                let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: UInt64(time*100)+1,
+                    generation: 80, definitions: runtime.authoredLayerDefinitions,
+                    sceneScriptValues: runtime.snapshot().authoredLayerValues).snapshot
+                try domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
+            }
+        }
+        func alpha(_ id: Int) -> Double? {
+            guard case let .scalar(value)? = runtime.snapshot().authoredLayerValues[
+                .layer(layerID: id, field: .alpha)] else { return nil }
+            return value
+        }
+        try advance(delta: 0, time: 0, commit: true)
+        let initial = alpha(1) == 1 && alpha(2) == 0 && alpha(3) == 0
+        try advance(delta: 0.01, time: 0.01, commit: true)
+        let continued = alpha(1) == 1 && alpha(2) == 0.05 && alpha(3) == 0
+        let accepted = runtime.snapshot().authoredLayerValues
+        try advance(delta: 0.01, time: 0.02, commit: false)
+        let discarded = runtime.snapshot().authoredLayerValues == accepted
+        // The VM heap keeps amount=.1 after discard. The typed layer baseline
+        // remains the previous committed .05; do not require heap rollback.
+        try advance(delta: 0, time: 0.03, commit: true)
+        return ["definitions": program.definitions.count, "outcomes": outcomes,
+            "initialCommit": initial, "finiteContinuation": continued,
+            "preflightReadOnly": preflightReadOnly, "discardPreservesPublished": discarded,
+            "postDiscardCommit": alpha(2) == 0.1 && alpha(3) == 0,
+            "readbacks": readbacks, "disabled": program.disabledTargets.contains(target)]
+    }
+    static func dynamicAlphaTransition(renamed: Bool) throws -> [String: Any] {
+        let domain = try SceneScriptQuickJSDomain()
+        let descriptor = catalog(renamed: renamed)
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureLayerRuntimeFields(descriptor)
+        let label = renamed ? "renamed-overlay" : "fade-overlay"
+        let owner = try SceneScriptValueOwner(domain: domain, source: """
+            let overlay;
+            export function init(value) {
+                overlay=thisScene.createLayer({text:'\(label)', color:'0 0 0',alpha:0,
+                    pointsize:thisLayer.pointsize,font:thisLayer.font});
+                return value;
+            }
+            export function update(value) {
+                const baseline=overlay.alpha;
+                overlay.alpha=\(renamed ? "0-.05" : "-.05");
+                const low=overlay.alpha;
+                overlay.alpha=0;
+                overlay.alpha=\(renamed ? "1+.05" : "1.05");
+                const high=overlay.alpha;
+                overlay.alpha=1;
+                return new Vec3(low,high,baseline);
+            }
+            """, target: .layer(layerID: 2, field: .origin), effectNames: ["beam","beam"],
+            allowsStatefulLayerSideEffects: true, generation: 81, budget: .default)
+        var completed: [Bool] = [], readbacks: [[Double]] = [], ids: [Int] = []
+        for (index, commit) in [true,false,true].enumerated() {
+            let result = owner.evaluate(input: .vector3(0,0,0), frame: alphaFrame(0.01, Double(index)),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 81,
+                interruptBudget: nil)
+            if case let .success(value) = result,
+               case let .vector3(low, high, baseline) = value.value,
+               let mutation = value.layerMutations.first(where: { $0.isDynamic }) {
+                completed.append(mutation.alpha == 1 && mutation.assetPath == nil)
+                readbacks.append([low,high,baseline]); ids.append(mutation.layerID)
+            } else { completed.append(false); readbacks.append([]) }
+            if commit { owner.commitLayerMutations() } else { owner.discardLayerMutations() }
+        }
+        // This covers the existing C text constructor and alpha journal only;
+        // the harness's prepared text/geometry stubs are not a render proof.
+        return ["completed": completed, "readbacks": readbacks,
+            "sameDynamicIdentity": ids.count == 3 && Set(ids).count == 1]
+    }
+    static func rawAlphaCadence(renamed: Bool) throws -> [String: Any] {
+        let highName = renamed ? "bright-panel" : "raw-high"
+        let lowName = renamed ? "dark-panel" : "raw-low"
+        var descriptor = catalog(renamed: renamed, centralName: highName, outgoingName: lowName)
+        descriptor.layers[2].imagePath = renamed ? "models/other/raw.json" : "models/raw/card.json"
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureLayerRuntimeFields(descriptor)
+        let target = SceneDynamicTarget.layer(layerID: 1, field: .visibility)
+        let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: [visibilityBinding(1, 0, """
+                let stage=0;
+                export function update(incoming) {
+                    const high=thisScene.getLayer('\(highName)');
+                    const low=thisScene.getLayer('\(lowName)');
+                    // Each check reads C-backed handles before this callback's
+                    // first write, after the host published the typed snapshot.
+                    if (stage===1 || stage===2) {
+                        if(high.alpha!==1.05 || low.alpha!==-.05) throw Error('lost raw baseline');
+                    } else if(stage===3) {
+                        if(high.alpha!==1e300 || low.alpha!==-1e300) throw Error('lost finite extreme');
+                    }
+                    if(stage===0) {high.alpha=1.05;low.alpha=-.05;}
+                    else if(stage===1) {high.alpha=.7;low.alpha=.25;}
+                    else if(stage===2) {high.alpha=1e300;low.alpha=-1e300;}
+                    else {high.alpha=1;low.alpha=0;}
+                    thisLayer.origin=new Vec3(++stage,0,0);
+                    return incoming;
+                }
+                """)], userPropertyDefinitions: [], generation: 83)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+            authoredMutationLayerIDs: [1,2,3])
+        var outcomes: [Bool] = []
+        func advance(_ index: Int, commit: Bool) throws {
+            let result = program.evaluate(inputs: [target: .bool(true)], effectivePropertyValues: [:],
+                frame: alphaFrame(0.01, Double(index)))
+            let plan = runtime.preflightOwnerEffects(result.ownerEffects)
+            outcomes.append(result.failures.isEmpty && result.values[target] == .bool(true)
+                && result.ownerEffects.count == 1 && plan.rejectedOwners.isEmpty)
+            if commit { runtime.commit(plan.layerPlan) }
+            program.finalizeLayerMutations(committing: commit)
+            if commit {
+                let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: UInt64(index)+1,
+                    generation: 83, definitions: runtime.authoredLayerDefinitions,
+                    sceneScriptValues: runtime.snapshot().authoredLayerValues).snapshot
+                try domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
+            }
+        }
+        func raw(_ id: Int) -> Double? {
+            guard case let .scalar(value)? = runtime.snapshot().authoredLayerValues[
+                .layer(layerID: id, field: .alpha)] else { return nil }
+            return value
+        }
+        try advance(0, commit: true)
+        let rawStored = raw(2) == 1.05 && raw(3) == -0.05
+        let previous = runtime.snapshot().authoredLayerValues
+        try advance(1, commit: false)
+        let discardRestoredRaw = runtime.snapshot().authoredLayerValues == previous
+        try advance(2, commit: true)
+        let extremeStored = raw(2) == 1e300 && raw(3) == -1e300
+        let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 3, generation: 83,
+            definitions: runtime.authoredLayerDefinitions,
+            sceneScriptValues: runtime.snapshot().authoredLayerValues).snapshot
+        let displayHigh = SceneDynamicLayerValues.alpha(layerID: 2, authoredValue: 0.5, snapshot: snapshot)
+        let displayLow = SceneDynamicLayerValues.alpha(layerID: 3, authoredValue: 0.5, snapshot: snapshot)
+        let extremeSnapshotRetainsRaw = snapshot[.layer(layerID: 2, field: .alpha)]?.value == .scalar(1e300)
+            && snapshot[.layer(layerID: 3, field: .alpha)]?.value == .scalar(-1e300)
+        try advance(3, commit: true)
+        return ["definitions": program.definitions.count, "outcomes": outcomes,
+            "rawStored": rawStored, "discardRestoredRaw": discardRestoredRaw,
+            "extremeStored": extremeStored, "extremeSnapshotRetainsRaw": extremeSnapshotRetainsRaw,
+            "display": [Double(displayHigh),Double(displayLow)],
+            "displayFinite": displayHigh.isFinite && displayLow.isFinite,
+            "endpointsStored": raw(2) == 1 && raw(3) == 0,
+            "disabled": program.disabledTargets.contains(target)]
+    }
+    static func alphaFailureIsolation(_ expression: String) throws -> Bool {
+        let descriptor = catalog()
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureLayerRuntimeFields(descriptor)
+        let bad = SceneDynamicTarget.layer(layerID: 1, field: .visibility)
+        let healthy = SceneDynamicTarget.layer(layerID: 3, field: .visibility)
+        let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: [visibilityBinding(1, 0, """
+                export function update(value) {
+                    thisLayer.origin=new Vec3(9,8,7);
+                    thisScene.getLayer('card').alpha=.25;
+                    \(expression)
+                    return value;
+                }
+                """), visibilityBinding(3, 2, """
+                export function update(value) {
+                    thisLayer.alpha=.7; thisLayer.origin=new Vec3(4,5,6);
+                    return value;
+                }
+                """)], userPropertyDefinitions: [], generation: 82)
+        let result = program.evaluate(inputs: [bad: .bool(true), healthy: .bool(true)],
+            effectivePropertyValues: [:], frame: alphaFrame(0.01, 1))
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+            authoredMutationLayerIDs: [1,2,3])
+        let admission = runtime.preflightOwnerEffects(result.ownerEffects)
+        runtime.commit(admission.layerPlan)
+        program.finalizeLayerMutations(committing: true)
+        let values = runtime.snapshot().authoredLayerValues
+        return program.definitions.count == 2 && result.failures.count == 1
+            && result.failures[bad] != nil && result.values[healthy] == .bool(true)
+            && result.layerMutations.allSatisfy { $0.layerID == 3 }
+            && result.ownerEffects.count == 1 && result.ownerEffects.first?.ownerTarget == healthy
+            && admission.rejectedOwners.isEmpty
+            && values[.layer(layerID: 3, field: .alpha)] == .scalar(0.7)
+            && values[.layer(layerID: 3, field: .origin)] == .vector3(4,5,6)
+            && values[.layer(layerID: 1, field: .origin)] == nil
+            && values[.layer(layerID: 2, field: .alpha)] == nil
+    }
     static func main() throws {
         var out: [String: Any] = [:]
         let source = """
@@ -226,6 +475,15 @@ HARNESS = r'''
         out["nonemptyOwn"] = try nonemptyLookup(own: true)
         out["nonemptyCross"] = try nonemptyLookup(own: false)
         out["staleEmptyAndHealthyPeer"] = try staleEmptyLookup()
+        for renamed in [false,true] {
+            out["finiteAlpha-\(renamed)"] = try finiteAlphaTransition(renamed: renamed)
+            out["dynamicAlpha-\(renamed)"] = try dynamicAlphaTransition(renamed: renamed)
+            out["rawAlpha-\(renamed)"] = try rawAlphaCadence(renamed: renamed)
+        }
+        out["alphaFailureIsolation"] = try [
+            "thisLayer.alpha=NaN;", "thisLayer.alpha=Infinity;",
+            "thisLayer.alpha=-Infinity;", "throw Error('actual failure after valid writes');"
+        ].map(alphaFailureIsolation)
         print(String(data: try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
@@ -235,7 +493,8 @@ class CrossLayerEffectVisibilityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix='mwx-cross-effect-test-') as tmp:
-            binary = compile_vector_harness(Path(tmp), HARNESS, 'cross-effects')
+            binary = compile_vector_harness(Path(tmp), HARNESS, 'cross-effects',
+                extra_swift_sources=(SCENE / 'Systems/Properties/SceneDynamicLayerValues.swift',))
             result = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
             cls.result = json.loads(result.stdout.strip().splitlines()[-1])
 
@@ -277,3 +536,44 @@ class CrossLayerEffectVisibilityTests(unittest.TestCase):
         self.assertTrue(self.result['nonemptyOwn'])
         self.assertTrue(self.result['nonemptyCross'])
         self.assertTrue(self.result['staleEmptyAndHealthyPeer'])
+
+    def test_finite_alpha_fade_continues_through_typed_commit_and_discard(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                row = self.result[f'finiteAlpha-{str(renamed).lower()}']
+                self.assertEqual(row['definitions'], 1)
+                self.assertEqual(row['outcomes'], [True] * 4)
+                self.assertFalse(row['disabled'])
+                for fact in ('initialCommit', 'finiteContinuation', 'preflightReadOnly',
+                             'discardPreservesPublished', 'postDiscardCommit'):
+                    self.assertTrue(row[fact], fact)
+                self.assertEqual(row['readbacks'][0], [0, 1, 1])
+                for reading in row['readbacks'][1:3]:
+                    self.assertEqual(reading[:2], [-.05, 1.05])
+                self.assertAlmostEqual(row['readbacks'][3][2], .05)
+                self.assertEqual(row['readbacks'][3][:2], [0, 1])
+
+    def test_dynamic_text_uses_the_same_finite_alpha_setter_and_journal(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                row = self.result[f'dynamicAlpha-{str(renamed).lower()}']
+                self.assertEqual(row['completed'], [True] * 3)
+                self.assertTrue(row['sameDynamicIdentity'])
+                self.assertEqual([r[2] for r in row['readbacks']], [0, 1, 1])
+                for reading in row['readbacks']:
+                    self.assertEqual(reading[:2], [-.05, 1.05])
+
+    def test_raw_alpha_survives_typed_publication_and_normalizes_before_float(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                row = self.result[f'rawAlpha-{str(renamed).lower()}']
+                self.assertEqual(row['definitions'], 1)
+                self.assertEqual(row['outcomes'], [True] * 4)
+                self.assertFalse(row['disabled'])
+                for fact in ('rawStored', 'discardRestoredRaw', 'extremeStored',
+                             'extremeSnapshotRetainsRaw', 'displayFinite', 'endpointsStored'):
+                    self.assertTrue(row[fact], fact)
+                self.assertEqual(row['display'], [1, 0])
+
+    def test_nonfinite_alpha_and_real_exception_keep_owner_failure_local(self):
+        self.assertEqual(self.result['alphaFailureIsolation'], [True] * 4)

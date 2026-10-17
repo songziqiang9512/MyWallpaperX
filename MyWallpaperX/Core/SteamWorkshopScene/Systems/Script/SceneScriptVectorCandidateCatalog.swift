@@ -682,7 +682,7 @@ nonisolated extension SceneScriptVectorProgram {
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              ["image", "solid", "text", "container", "composition", "project", "particle",
+              ["image", "solid", "text", "container", "composition", "project", "fullscreen", "particle",
                "pointLight", "spotLight", "directionalLight"].contains(
                   layer.contentKind
               ),
@@ -724,7 +724,7 @@ nonisolated extension SceneScriptVectorProgram {
         )
     }
 
-    /// Fixed composition groups and standalone project captures consume the
+    /// Fixed composition groups and standalone project/fullscreen captures consume the
     /// committed visibility snapshot. Other utility shapes still lack the
     /// preparation contract needed to reveal them after launch.
     private static func admitsUtilityLayerVisibility(
@@ -732,19 +732,17 @@ nonisolated extension SceneScriptVectorProgram {
         descriptor: SceneRenderDescriptor
     ) -> Bool {
         guard let utilityLayer = layer.utilityLayer else {
-            return layer.contentKind != "project"
+            return layer.contentKind != "project" && layer.contentKind != "fullscreen"
         }
         guard layer.dependencyLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty else { return false }
         switch utilityLayer.kind {
         case .composition:
-            return layer.contentKind != "project"
-        case .project:
+            return layer.contentKind != "project" && layer.contentKind != "fullscreen"
+        case .project, .fullscreen:
             return layer.contentKind == utilityLayer.kind.rawValue
                 && layer.parentID == nil && layer.childLayerIDs.isEmpty
                 && !descriptor.layers.contains { $0.parentID == layer.id }
-        case .fullscreen:
-            return false
         }
     }
 

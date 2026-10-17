@@ -502,6 +502,18 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 
 **目标与首断点。** 已资格的真实点击能进入原cursor owner，但共享状态的消费者挂在project层visible上，被候选contentKind和utility限制提前丢弃，未创建VM owner。选择补齐此普通Bool入口，优于猜事件API或绕过作者脚本。仅接无parent/children、无dependency及authoredDependency的project capture；其既有source route、Program和graph仍须独立通过准备。同束删除仍按上文完整显式分支合同，不跨peer借未提交tombstone。不为脚本副作用单建调度器，也不按源码形状决定准入。
 
-**唯一链路与失败。** 原Bool Program持有init/update/属性事件及typed owner effects；返回值进入现layer.visibility，effect setter沿现bundle共同提交/撤回。现动态visibility admission保留固定root准备需求，utility planner保留初始隐藏的capture能力；当帧snapshot和原active execution demand决定是否实际编码，不逐帧重建计划。无effect仍是无像素的合法值owner，资源或Program不可用不伪造捕获。composition保持现支持范围；parent/child、依赖project和错误kind继续拒绝，fullscreen脚本及project effect的初始隐藏激活不随片扩展。
+**唯一链路与失败。** 原Bool Program持有init/update/属性事件及typed owner effects；返回值进入现layer.visibility，effect setter沿现bundle共同提交/撤回。现动态visibility admission保留固定root准备需求，utility planner保留初始隐藏的capture能力；当帧snapshot和原active execution demand决定是否实际编码，不逐帧重建计划。无effect仍是无像素的合法值owner，资源或Program不可用不伪造捕获。composition保持现支持范围；parent/child、依赖project和错误kind继续拒绝，project effect的初始隐藏激活不随片扩展。2026-10-17 fullscreen后继批准：真实322的38.visible有合法公开update/applyUserProperties，但候选kind及utility门提前丢弃；现有准备、动态visibility admission和utility消费者已支持独立root fullscreen。只将exact fullscreen kind、无parent、声明及实际children均空、两类依赖均空的Bool脚本接入同一Program/typed snapshot，不改VM、帧驱动、图或compositor；缺失utility及kind不匹配仍拒绝。验证真实Bool init/update/属性事件、错误返回与owner事务、合法改名/等价表达式、相邻image/composition/project及独立样本；真实38若在更晚host/API失败则保留该新断点，不以owner数量替代播放结果。
 
 **验收与停止。** 自有VM输入验证Bool返回与跨effect副作用、改名/等价表达式、原子失败及邻近不准入形态；隔离App以相同窗口证明脚本持续更新和实际effect像素切换，另验project自身false→true→false及未参与修法内容。原包口罩变化须同时有owner、typed effect/graph执行和实际ROI，点击命中或非黑不足。不能承接动态capture或出现更早owner缺失时停下重排；多surface/HDR、完整样本及性能另验。
+
+<a id="layer-alpha-raw-setter"></a>
+
+### Layer alpha 的 raw setter 与显示边界（2026-10-17）
+
+**目标与资格。** fullscreen owner接通后，322的4907渐变先写有限负alpha再归零，现宿主范围拒绝使callback永久停用、中央组不能继续淡入。独立普通2D官方四卡证明0/1正控及1.01/−.01均不抛错，同callback与下一callback保持raw数值；黑底白源分别得到白/黑端点。此证据只说明属性/显示分域，不定位官方内部clamp相位，不推广非有限值、HDR、color或particle instance。
+
+**唯一链路。** 沿现ILayer.alpha setter→C staged/baseline journal→Swift typed preflight/commit/snapshot→下一cadence C镜像保留有限Double；撤下这些环节的[0,1]属性范围门和镜像clamp，不新增raw状态表或更新owner。authored与已准入dynamic handle复用同setter/事务；既有constructor配置、资源准入、color、particle instance及权限范围不扩。显示仍由现SceneDynamicLayerValues.alpha归一后转Float；已证唯一显式providerAlpha调用点也传此归一结果，既有graph-source fallback未随片扩展，普通帧不重建或重新准备。
+
+**失败与退出。** 非有限输入、坏ABI、失效identity及现owner effects冲突继续局部拒绝/撤回，不放宽跨owner提交或JS heap回滚承诺。raw Double不可直接窄化成GPU Float；若发现现消费者绕过既有显示归一，先在该唯一消费者接回现owner，不能按值/样本另建clamp链。
+
+**验收。** 真实VM的dt0→正dt负值/上界暂态后修正、同/下一callback raw读回、commit/discard与健康peer，含改名/等价表达式、finite极值、NaN/Infinity及真实异常；复用现显示归一门证明GPU输入有限。一次最终Debug，原322的38/4907实际控制及中央/两侧人物、同条件独立样本实图和GPU排空、独审通过后才关闭该首错。保留接线中间失败，不因候选数或App正常退出认整样本通过。

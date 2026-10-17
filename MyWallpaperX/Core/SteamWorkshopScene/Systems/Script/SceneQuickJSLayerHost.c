@@ -543,7 +543,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         owner->domain->callback_active || owner->generation != expected_generation ||
         fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 || solid > 1 || perspective > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
-        font == NULL || color == NULL || !isfinite(alpha) || alpha < 0 || alpha > 1 ||
+        font == NULL || color == NULL || !isfinite(alpha) ||
         !isfinite(particle_alpha) ||
         ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE) != 0 && !isfinite(point_size)) ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||

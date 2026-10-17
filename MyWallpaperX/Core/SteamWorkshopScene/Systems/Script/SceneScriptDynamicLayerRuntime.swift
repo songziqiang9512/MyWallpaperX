@@ -273,7 +273,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     )
                 }
                 if mutation.fields.contains(.alpha) {
-                    guard mutation.alpha.isFinite, (0...1).contains(mutation.alpha) else {
+                    guard mutation.alpha.isFinite else {
                         return .failure(.invalidArgument("invalid authored layer alpha"))
                     }
                     let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .alpha)
@@ -405,7 +405,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 mutation.fields.contains(.pointSize) || candidateDefinitions[pointSizeTarget] != nil
             )
             guard mutation.orderIndex >= 0,
-                  mutation.alpha.isFinite, (0...1).contains(mutation.alpha),
+                  mutation.alpha.isFinite,
                   mutation.pointSize.isFinite,
                   hasPointSizeInput || (1...1024).contains(mutation.pointSize),
                   !mutation.fields.contains(.pointSize) || mutation.assetPath == nil,

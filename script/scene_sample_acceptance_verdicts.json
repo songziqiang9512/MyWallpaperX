@@ -425,18 +425,20 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol / sound_peak_probe_sol",
-      "note": "10-17原包三批恢复：合法reference保留侧脸主体组装，MDLV19命名挂点使中央脸颈接合及右面具归位；本批严格读取MDLA5逐骨alpha，单贡献轨配中性同伴保留原2/3/2默认请求，左侧大虹膜恢复，934/876/840各120实际GPU输出及120唯一几何摘要。合法零缩放眼睑进入普通forward pose，真正求逆门仍保留。",
+      "note": "10-17原包三批恢复：合法reference保留侧脸主体组装，MDLV19命名挂点使中央脸颈接合及右面具归位；本批严格读取MDLA5逐骨alpha，单贡献轨配中性同伴保留原2/3/2默认请求，左侧大虹膜恢复，934/876/840各120实际GPU输出及120唯一几何摘要。合法零缩放眼睑进入普通forward pose，真正求逆门仍保留。 同日后继将独立fullscreen控制器接原Bool链，并保layer alpha有限raw穿过事务/typed snapshot/下一cadence；4907渐变不再因暂态越界停用，原包中央人物、脸颈/身体及两侧眼/面具实图保持，38/4907观察完成，三puppet各131唯一GPU几何。",
       "runs": [
         ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/report.json",
-        ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/fullscreen-layer-alpha-20261017/final/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/samples/3226487183/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/samples/3226487183/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/samples/3226487183/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/fullscreen-layer-alpha-20261017/final/samples/3226487183/runtime_evidence.zip"
       ],
-      "remainingDifferences": "38 fullscreen合法visible脚本仍在VM前被过滤；2522色散CPU stage-link拒绝后passthrough，非零Alpha相位可见影响未证；原1028手部观察未取得关闭。两条有意义alpha轨组合仍拒绝，自建官方正控失格不证明官方混合parity。live媒体、完整同viewport/phase官方对照、全部交互及属性分支未验，仍unreviewed，不记整样本PASS。",
+      "remainingDifferences": "thisScene.getAnimation合法跨layer命名入口未安装、effectConstant Timeline未导出；322点击“切换滤镜”尚未验，2522色散CPU stage-link仍拒绝后passthrough，非零Alpha相位可见影响未证。原1028手部观察未关闭；两条有意义Puppet alpha轨组合仍拒绝，官方混合parity未证。live媒体、完整同viewport/phase官方对照、全部交互及属性分支未验，仍unreviewed，不记整样本PASS。",
       "officialComparison": "compared"
     }
   }

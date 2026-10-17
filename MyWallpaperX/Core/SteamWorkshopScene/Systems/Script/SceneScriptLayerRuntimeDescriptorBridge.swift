@@ -132,7 +132,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                                     {
                                         if let resolved = snapshot[.layer(layerID: layer.id, field: .alpha)],
                                            case let .scalar(value) = resolved.value, value.isFinite {
-                                            return min(max(value, 0), 1)
+                                            return value
                                         }
                                         return layer.alpha ?? 1
                                     }(),

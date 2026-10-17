@@ -67,6 +67,8 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
                 self.assertTrue(accepted)
 
     def test_childless_project_owner_evaluates_and_preserves_its_boundaries(self) -> None:
+        # Both root utility kinds use the real Catalog -> QuickJS -> typed
+        # visibility/journal path; unrelated image/composition owners stay live.
         self.assertTrue(self.value["projectVisibility"])
         for fact, accepted in self.value["projectVisibility"].items():
             with self.subTest(fact=fact):

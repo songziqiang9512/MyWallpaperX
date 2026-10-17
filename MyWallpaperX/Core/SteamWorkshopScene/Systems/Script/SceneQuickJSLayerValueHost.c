@@ -440,11 +440,11 @@ static JSValue layer_set(
         break;
     }
     case LAYER_ALPHA: {
+        // The property retains its raw value; display opacity is normalized downstream.
         double value = 0;
-        if (JS_ToFloat64(context, &value, argv[0]) < 0 ||
-            !isfinite(value) || value < 0 || value > 1)
+        if (JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value))
             return JS_ThrowRangeError(
-                context, "dynamic layer alpha expects a value from 0 to 1"
+                context, "layer alpha expects a finite number"
             );
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
