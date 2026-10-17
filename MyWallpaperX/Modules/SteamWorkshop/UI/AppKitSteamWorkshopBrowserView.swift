@@ -181,10 +181,10 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         if service.isBrowsingAuthorWorkshop,
            !trimmedQuery.isEmpty,
            !service.browserItems.isEmpty {
-            return "当前搜索没有匹配到作者作品"
+            return "已加载的作者作品中没有匹配项"
         }
         return service.isBrowsingAuthorWorkshop
-            ? "\(service.activeAuthorWorkshopName ?? "该作者") 当前没有抓取到\(service.browserContentMode.displayName)项目"
+            ? "\(service.activeAuthorWorkshopName ?? "该作者") 当前没有可访问的作品"
             : "当前条件下没有抓取到\(service.browserContentMode.displayName)项目"
     }
 

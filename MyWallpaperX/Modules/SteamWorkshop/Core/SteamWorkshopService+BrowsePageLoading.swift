@@ -1,6 +1,10 @@
 import Foundation
 
 extension SteamWorkshopService {
+    var allowsAutomaticBrowserContinuation: Bool {
+        !browseContext.isAuthorWorkshop || browserQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func loadMoreBrowserItemsIfNeeded() {
         if shouldUseSteamKitStructuredBrowse {
             loadMoreDiscoveryViaSteamKitIfNeeded()

@@ -15,12 +15,10 @@ nonisolated enum SteamWorkshopDetailRefreshSupport {
     }
 
     static func needsRefresh(_ item: SteamWorkshopBrowserItem) -> Bool {
-        needsListRefresh(item)
-    }
-
-    static func needsDownloadedMetadataRefresh(_ item: SteamWorkshopBrowserItem) -> Bool {
-        !hasAuthorName(item)
-            || (item.authorProfileURL == nil && item.authorWorkshopURL == nil)
+        // List snapshots intentionally have no official detail fields. A
+        // successful detail response remains valid when optional metadata
+        // (resolution, preview or a public creator name) is unavailable.
+        item.detailFields.isEmpty
     }
 
     /// Downloaded-item metadata otherwise lives forever in the persisted
@@ -36,16 +34,6 @@ nonisolated enum SteamWorkshopDetailRefreshSupport {
     static func isDownloadedMetadataStale(fetchedAt: Date?, now: Date = Date()) -> Bool {
         guard let fetchedAt else { return false }
         return now.timeIntervalSince(fetchedAt) >= downloadedMetadataRefreshTTL
-    }
-
-    static func needsListRefresh(_ item: SteamWorkshopBrowserItem) -> Bool {
-        item.detailFields.isEmpty
-            || item.fileSizeText == nil
-            || item.resolutionText == nil
-            || item.workshopTypeText == nil
-            || item.previewImageURL == nil
-            || !hasAuthorName(item)
-            || (item.authorProfileURL == nil && item.authorWorkshopURL == nil)
     }
 
 }

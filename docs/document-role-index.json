@@ -137,10 +137,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "02d87882d78b0cefcb640c7a6729c234b1ba7a4049fa07e135f540096392292f",
+        "sourceSHA256": "00bf3e57cb07c56efc652e2c347234727aa53be42d8f2ef988f8e2e9eda7e0ed",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核下载排序的首次本地入库时间、metadata 发布/刷新保留与后台目录原始字节统计；其余获取职责合同沿用。",
-        "limitations": "本次为有界源码和文档导航复核；离线回归与隔离构建另记，不代表真实 Steam 下载、历史首次时间重建、全交互或 Release 验收。"
+        "scope": "沿用首次下载时间与metadata发布合同；复核唯一ID详情、摘要补齐与可选字段、请求消费者切换/取消、作者无隐藏筛选、搜索手动续页及重复/返回导航。",
+        "limitations": "本轮详情与导航行为回归、匿名Steam查询及Debug构建另行验证；不代表全部作者/账号、下载传输、长时多窗口或Release验收。"
       }
     },
     {

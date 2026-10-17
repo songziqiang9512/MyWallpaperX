@@ -3,7 +3,7 @@ import Foundation
 extension SteamWorkshopService {
     func navigateToBrowse() {
         browserFetchTask?.cancel()
-        selectedItemDetailTask?.cancel()
+        cancelSelectedItemDetailRefresh()
         currentWorkshopItemID = nil
         navigationVersion += 1
         currentPageTitle = browseContext.isAuthorWorkshop ? browseContext.title : source.pageTitle
@@ -16,7 +16,7 @@ extension SteamWorkshopService {
 
     func prepareForBrowserEntry() {
         guard !isLoadingMoreBrowserItems, browserFetchTask == nil else { return }
-        if browserItems.isEmpty || browserState == .idle {
+        if browserState == .idle || browserState == .loading {
             fetchBrowserItems(forceRefresh: true)
         }
     }

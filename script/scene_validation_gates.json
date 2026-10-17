@@ -3301,6 +3301,32 @@
       "modules": [
         "test_scene_particle_control_point_force"
       ]
+    },
+    {
+      "id": "steam-detail-author-navigation",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+ItemDetailPresentation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDetailRefreshSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadSelection.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+SteamKitBrowse.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseNavigation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseHydration.swift",
+        "script/tests/test_steam_detail_navigation.py",
+        "script/tests/fixtures/SteamDetailNavigationHarness.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopBrowserFooterSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Configuration.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseStateRecovery.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowsePageLoading.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift"
+      ],
+      "modules": [
+        "test_steam_detail_navigation",
+        "test_steam_queries",
+        "test_steam_detail_layout",
+        "test_steam_browse_failure_footer"
+      ]
     }
   ],
   "method_gates": {

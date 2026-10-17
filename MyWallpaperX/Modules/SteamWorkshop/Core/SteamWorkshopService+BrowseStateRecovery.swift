@@ -16,8 +16,7 @@ extension SteamWorkshopService {
     func clearAllCachedState() {
         browserFetchTask?.cancel()
         browserFetchTask = nil
-        selectedItemDetailTask?.cancel()
-        selectedItemDetailTask = nil
+        cancelSelectedItemDetailRefresh()
         // 只清浏览态与派生缓存。账号会话（signOut 会删 Keychain 持久
         // 凭据）与进行中的下载不属于"清除缓存"，不得在此隐藏执行；
         // 确认弹窗的清理清单与实际行为保持一致。

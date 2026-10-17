@@ -13,8 +13,8 @@
       "bytes": 6098
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
-      "lines": 74,
-      "bytes": 14104
+      "lines": 76,
+      "bytes": 15090
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 32,
@@ -1358,6 +1358,15 @@
       "owner": "scene-cp-force-source-space",
       "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "7a21727815c2fe21e39b4cb43fde470960c380b4a52c7dc37b0dca2125e3b0f2",
+      "after": "2b68a0e04a6a0ccf2d11c0efa8f49a3d2c82ddd8e92652d6ceef3e1634a29941",
+      "owner": "steam-workshop-details",
+      "reason": "统一按ID详情、旧摘要补齐、作者页面无隐藏筛选及重复导航/返回合同，与用户可见修复一致。",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
     }
   ]
 }

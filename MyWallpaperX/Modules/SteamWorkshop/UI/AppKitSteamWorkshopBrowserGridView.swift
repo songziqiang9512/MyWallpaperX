@@ -468,6 +468,9 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             return
         }
         guard service.hasMoreBrowserItems, !service.isLoadingMoreBrowserItems else { return }
+        // Author search covers loaded pages only; even a single match must not
+        // shrink the grid into repeatedly preloading the rest of the catalog.
+        guard service.allowsAutomaticBrowserContinuation else { return }
         // Filtering may hide an entire raw page. Keep a manual continuation
         // rather than automatically draining an unbounded personal collection.
         guard !orderedIDs.isEmpty else { return }

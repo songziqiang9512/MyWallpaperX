@@ -15,7 +15,7 @@ import Foundation
 // - `days` 是 trend 排序的远端排名区间，不是发布时间过滤；由 QueryKey
 //   贯穿 Swift IPC 到 helper，不得按 timeCreated 删除已返回作品。分面筛选
 //   （类型/分级/分辨率/分类）已于 2026-09-16 经 `taggroups` 实测开放：discovery 服务端执行（面内 OR、
-//   跨面 AND），author/personal 由 steamKitApplyKeyTagFilters 客户端后筛。
+//   跨面 AND），personal 由 steamKitApplyKeyTagFilters 客户端后筛；作者页显示全部类型。
 // - 详情批条目自带网格所需字段（标题/预览/标签/大小/更新时间），
 //   打开详情面板仍走既有按 ID 补全路径。
 extension SteamWorkshopService {
@@ -58,9 +58,7 @@ extension SteamWorkshopService {
         if case .authorWorkshop(_, let workshopURL) = browseContext,
            let creatorSteamID = Self.creatorID(from: workshopURL) {
             key = steamKitBrowseStore.makeAuthorKey(
-                creatorSteamID: creatorSteamID,
-                contentMode: browserContentMode,
-                filters: facetFilters
+                creatorSteamID: creatorSteamID
             )
         } else if let itemID = Self.workshopItemIDSearchID(from: browserQuery),
                   shouldUseSteamKitItemLookup {
@@ -384,17 +382,12 @@ extension SteamWorkshopService {
     /// source; preview MIME probing remains a bounded media request and cannot
     /// change item identity, author, tags or subscription metadata.
     func fetchWorkshopItemViaSteamKit(
-        fallback: SteamWorkshopBrowserItem,
-        browserContentMode: SteamWorkshopBrowserContentMode
+        fallback: SteamWorkshopBrowserItem
     ) async throws -> SteamWorkshopBrowserItem {
         let page = try await steamWorkshopQueryClient.details(ids: [fallback.id])
         guard let item = page.items.first(where: { $0.publishedFileId == fallback.id }) else {
             throw SteamServiceClient.RequestError.helperError(
                 code: "unsupportedContent", message: "作品不存在或当前账号无权访问。")
-        }
-        guard browserContentMode.allows(tags: item.tags) else {
-            throw SteamServiceClient.RequestError.helperError(
-                code: "unsupportedContent", message: "当前条目不是\(browserContentMode.displayName)。")
         }
         let detailed = SteamWorkshopBrowserItem.makeDetailed(from: item, fallback: fallback)
         let enriched = try await Self.maybeEnrichPreviewKind(
@@ -406,6 +399,9 @@ extension SteamWorkshopService {
     }
 
     private func appendSteamKitPartialNotice() {
+        if shouldUseSteamKitAuthor {
+            statusMessage += " 搜索仅作用于已加载作品。"
+        }
         if steamKitBrowseStore.currentKey?.route == .personal {
             statusMessage += " 排序和筛选仅作用于已加载项目。"
         }
@@ -423,8 +419,9 @@ extension SteamWorkshopService {
         case .details:
             return items
         case .author:
-            // 服务端无作者来源 tag 能力：分面由客户端后筛执行。
-            return steamKitApplyKeyTagFilters(items, key: key)
+            // Author pages have no filter controls. Discovery filters belong
+            // to the saved discovery context, never this author's collection.
+            return items
         case .discovery:
             // 分面筛选已随请求以 tagGroups 服务端执行（见 fetch 的 queryBrowse
             // 组装）；tags 为 helper 必返字段，客户端后筛不是兜底，双筛已删除。
@@ -434,7 +431,7 @@ extension SteamWorkshopService {
         }
     }
 
-    /// 内容分类组内 OR，与其他分面 AND；author/personal route 的客户端过滤。
+    /// 内容分类组内 OR，与其他分面 AND；personal route 的客户端过滤。
     /// discovery route 不经过此处（服务端 taggroups 单层执行）。
     private func steamKitApplyKeyTagFilters(
         _ items: [SteamWorkshopQueryItem],
@@ -734,15 +731,13 @@ final class SteamKitBrowseStore {
     }
 
     func makeAuthorKey(
-        creatorSteamID: String,
-        contentMode: SteamWorkshopBrowserContentMode,
-        filters: SteamWorkshopBrowseFacetFilters
+        creatorSteamID: String
     ) -> Key {
         Key(
             route: .author(creatorSteamID: creatorSteamID),
             sort: .newest,
-            contentTypeTags: contentMode.queryTags,
-            filters: filters,
+            contentTypeTags: [],
+            filters: .none,
             search: "",
             trendDays: nil,
             source: nil,

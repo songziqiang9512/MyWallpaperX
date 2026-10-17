@@ -79,8 +79,6 @@ extension SteamWorkshopService {
     func mergeBrowserItem(_ item: SteamWorkshopBrowserItem) {
         if let index = browserItems.firstIndex(where: { $0.id == item.id }) {
             browserItems[index] = item
-        } else {
-            browserItems.append(item)
         }
     }
 

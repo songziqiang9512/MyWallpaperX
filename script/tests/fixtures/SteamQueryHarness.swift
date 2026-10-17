@@ -9,6 +9,13 @@ final class QueryTransport: SteamServiceTransporting {
     var advertisedCapabilities = [SteamServiceProtocol.trendDaysCapability]
     var sends = 0
     var requests: [[String: Any]] = []
+    var holdsResponses = false
+    var deferredResponses: [[String: Any]] = []
+    func flushResponses() {
+        let responses = deferredResponses
+        deferredResponses = []
+        responses.forEach(emit)
+    }
     func start() throws {
         isRunning = true
         emit(["v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0",
@@ -24,7 +31,7 @@ final class QueryTransport: SteamServiceTransporting {
         var result: [String: Any] = ["v": 1, "type": "result", "requestId": request["requestId"]!,
                                     "ok": true, "data": respond(request)]
         if let epoch = request["accountEpoch"] { result["accountEpoch"] = epoch }
-        emit(result)
+        if holdsResponses { deferredResponses.append(result) } else { emit(result) }
         return true
     }
     func closeInput() {}
@@ -234,8 +241,7 @@ final class QueryTransport: SteamServiceTransporting {
         categories.toggle(.video)
         precondition(categories == .all && categories.queryTags.isEmpty)
 
-        let authorKey = browse.makeAuthorKey(creatorSteamID: "76561198000000000", contentMode: .video,
-            filters: .none)
+        let authorKey = browse.makeAuthorKey(creatorSteamID: "76561198000000000")
         browse.resetFor(key: authorKey)
         payload = page(1, [item("10", 10)])
         wire.respond = { request in
@@ -246,6 +252,13 @@ final class QueryTransport: SteamServiceTransporting {
         }
         let author = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
         precondition(author.items.map(\.publishedFileId) == ["10"])
+        precondition(authorKey.contentTypeTags.isEmpty && authorKey.filters.isEmpty,
+            "author requests cannot inherit hidden discovery filters")
+        let authorProjection = Projection(browse)
+        authorProjection.browserContentMode = .video
+        authorProjection.facetFilters = multi
+        precondition(authorProjection.steamKitStructuredPostProcess(mixed.items).map(\.publishedFileId)
+            == ["31", "32", "33"], "all author content types survive discovery filters")
 
         let detailsKey = browse.makeDetailsKey(itemID: "11")
         browse.resetFor(key: detailsKey)

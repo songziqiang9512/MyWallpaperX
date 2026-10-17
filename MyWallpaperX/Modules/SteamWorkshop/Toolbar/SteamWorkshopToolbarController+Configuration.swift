@@ -168,7 +168,8 @@ extension SteamWorkshopToolbarController {
         searchField.stringValue = SteamWorkshopService.shared.browserQuery
         searchToolbarItem.isEnabled = true
         searchField.isEnabled = true
-        searchField.placeholderString = "搜索"
+        searchField.placeholderString = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
+            ? "搜索已加载作品" : "搜索"
     }
 
     func syncBrowserContextControls() {

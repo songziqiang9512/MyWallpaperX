@@ -4,6 +4,16 @@ extension SteamWorkshopService {
     func showAuthorWorkshop(for item: SteamWorkshopBrowserItem) {
         guard let workshopURL = Self.resolvedAuthorWorkshopURL(for: item) else { return }
         dismissItemDetail()
+        dismissDownloadInspector()
+        if case let .authorWorkshop(_, currentURL) = browseContext,
+           let creator = Self.creatorID(from: workshopURL),
+           Self.creatorID(from: currentURL) == creator,
+           browserState == .loaded || browserState == .loading {
+            // Reopening the current author is navigation, not a refresh. Keep
+            // loaded pages, search, continuation and scroll position intact.
+            requestSteamWorkshopBrowserSelection()
+            return
+        }
         if !browseContext.isAuthorWorkshop {
             discoveryBrowseSnapshot = makeDiscoveryBrowseSnapshot()
         }
@@ -27,8 +37,8 @@ extension SteamWorkshopService {
         guard browseContext.isAuthorWorkshop else { return }
         browserFetchTask?.cancel()
         browserFetchTask = nil
-        selectedItemDetailTask?.cancel()
-        selectedItemDetailTask = nil
+        dismissItemDetail()
+        dismissDownloadInspector()
         navigationVersion += 1
         let restoredQuery = savedDiscoveryQueryBeforeAuthorBrowse ?? ""
         savedDiscoveryQueryBeforeAuthorBrowse = nil
@@ -86,11 +96,8 @@ extension SteamWorkshopService {
                 || $0.id.localizedLowercase.contains(idQuery)
         }
 
-        if displayedBrowserItems.isEmpty, hasMoreBrowserItems, !isLoadingMoreBrowserItems {
-            Task { @MainActor [weak self] in
-                self?.loadMoreBrowserItemsIfNeeded()
-            }
-        }
+        // Search is explicitly local to loaded author pages. A no-match query
+        // must not silently drain the author's entire collection.
     }
 
     /// A confirmed removal changes one membership, not the user's loaded feed.
@@ -132,7 +139,7 @@ extension SteamWorkshopService {
             browserState: browserState,
             hasMoreBrowserItems: hasMoreBrowserItems,
             browserLoadMoreFailureMessage: browserLoadMoreFailureMessage,
-            statusMessage: statusMessage,
+            statusMessage: isRefreshingBrowserFeed ? "已加载 \(browserItems.count) 项。" : statusMessage,
             currentPageTitle: currentPageTitle,
             browserQuery: browserQuery,
             currentWorkshopItemID: currentWorkshopItemID,
@@ -159,6 +166,13 @@ extension SteamWorkshopService {
             navigateToBrowse()
             return
         }
+        guard snapshot.browserState == .loaded else {
+            // The request captured before entering an author page was
+            // invalidated. Restoring its spinner cannot resume that request.
+            setBrowserQuery(restoredQuery)
+            navigateToBrowse()
+            return
+        }
         setBrowserQuery(restoredQuery)
         selectedBrowserItemError = nil
         isRefreshingSelectedBrowserItem = false
@@ -175,7 +189,10 @@ extension SteamWorkshopService {
         browserState = snapshot.browserState
         hasMoreBrowserItems = snapshot.hasMoreBrowserItems
         isLoadingMoreBrowserItems = false
+        isRefreshingBrowserFeed = false
         browserLoadMoreFailureMessage = snapshot.browserLoadMoreFailureMessage
+        browserLoadMoreRetryAfter = .distantPast
+        consecutiveEmptyLoadMorePages = 0
         statusMessage = snapshot.statusMessage
         currentPageTitle = snapshot.currentPageTitle
         currentWorkshopItemID = snapshot.currentWorkshopItemID

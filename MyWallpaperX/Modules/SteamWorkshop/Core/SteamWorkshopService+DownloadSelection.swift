@@ -104,8 +104,7 @@ extension SteamWorkshopService {
     }
 
     func dismissDownloadInspector() {
-        selectedItemDetailTask?.cancel()
-        selectedItemDetailTask = nil
+        if selectedDownloadInspectorItem != nil { cancelSelectedItemDetailRefresh() }
         selectedDownloadInspectorItem = nil
         selectedDownloadDetailItem = nil
         selectedDownloadDetailError = nil
@@ -176,6 +175,10 @@ extension SteamWorkshopService {
     }
 
     private func presentDownloadInspector(_ item: SteamWorkshopBrowserItem) {
+        if selectedDownloadInspectorItem?.id != item.id || selectedBrowserItem != nil {
+            cancelSelectedItemDetailRefresh()
+            selectedBrowserItem = nil
+        }
         selectedDownloadInspectorItem = item
         selectedDownloadDetailItem = item
         selectedDownloadDetailError = nil
@@ -184,8 +187,7 @@ extension SteamWorkshopService {
         statusMessage = "已加载 \(item.title)"
         let metadataSnapshot = managedDownloadSnapshots(matchingItemID: item.id)[item.id]
         refreshSelectedDownloadInspectorDetailIfNeeded(
-            forceRefresh: SteamWorkshopDetailRefreshSupport.needsDownloadedMetadataRefresh(item)
-                || SteamWorkshopDetailRefreshSupport.isDownloadedMetadataStale(fetchedAt: metadataSnapshot?.fetchedAt)
+            forceRefresh: SteamWorkshopDetailRefreshSupport.isDownloadedMetadataStale(fetchedAt: metadataSnapshot?.fetchedAt)
         )
     }
 

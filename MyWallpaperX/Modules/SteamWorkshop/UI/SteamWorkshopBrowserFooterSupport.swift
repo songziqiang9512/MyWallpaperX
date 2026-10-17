@@ -37,13 +37,13 @@ enum SteamWorkshopBrowserFooterSupport {
         case .hidden:
             return ""
         case .ready:
-            return "继续下滑以加载更多项目。"
+            return "可继续加载更多作品。"
         case .loading:
             return "正在加载更多项目…"
         case .failed(let message):
             return message
         case .exhausted:
-            return "已到达底部，更多作品请以 Steam 官方页面为准。"
+            return "已加载全部可访问的作品。"
         }
     }
 
