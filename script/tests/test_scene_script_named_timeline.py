@@ -129,6 +129,104 @@ HARNESS = r'''
         return samples
     }
 
+    static func combinedPlayback(renamed: Bool) throws -> [String: Any] {
+        let name = renamed ? "renamed group" : "motion group"
+        let card = renamed ? "other panel" : "panel"
+        let root = SceneDynamicTarget.layer(layerID: 2, field: renamed ? .angles : .origin)
+        let targets: [SceneDynamicTarget] = [.layer(layerID: 2, field: .origin),
+            .layer(layerID: 2, field: .angles), .layer(layerID: 2, field: .scale)]
+        let bases: [[Double]] = [[10,20,30], [1,2,3], [1,2,3]]
+        let endpoints: [[Double]] = [[2,4,6], [4,6,8], [0.5,1,1.5]]
+        let bindings = targets.enumerated().map { index, target in
+            SceneTimelineBinding(definition: .init(target: target, valueType: .vector3,
+                authoredValue: .vector3(bases[index][0],bases[index][1],bases[index][2])),
+                animation: .init(lanes: endpoints[index].map { end in [
+                    .init(frame:0,value:0,back:nil,front:nil,locksAngle:nil,locksLength:nil),
+                    .init(frame:20,value:end,back:nil,front:nil,locksAngle:nil,locksLength:nil)] },
+                options:.init(fps:10,length:20,mode:.single,startsPaused:true,wrapsLoop:false,
+                    smoothing:nil,stiffness:nil,parent:nil,children:[],name:target == root ? name : nil),
+                isRelative:true,previewValue:nil),composition:.additive,playbackOwner:root)
+        }
+        let program = SceneTimelineProgram(bindings:bindings,diagnostics:[])
+        let playback = SceneTimelinePlaybackRuntime(program:program)
+        let descriptor = SceneRenderDescriptor(layers: (1...2).map { id in
+            var layer = SceneRenderDescriptor.Layer(id:id,layerIndex:id-1,
+                name:id == 2 ? card : "healthy peer",visible:true,originXYZ:[10,20,30],
+                scaleXYZ:[1,2,3],scaleHasScript:nil,alpha:1,effects:[])
+            layer.imagePath = renamed ? "models/renamed-art.json" : "models/art.json"
+            return layer
+        })
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        let named = bindings.compactMap { binding in binding.animation.options.name.map {
+            (target:binding.target,name:$0) } }
+        try domain.configureNamedAnimations(named)
+        try domain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(
+            frameIndex:0,generation:1,definitions:[]).snapshot,descriptor:descriptor)
+        let selector = renamed ? "['renamed','group'].join(' ')" : String(reflecting:name)
+        let script = """
+        let child,group,n=0;
+        export function init(v){child=thisObject.getAnimation();
+          group=thisScene.getLayer(\(String(reflecting:card))).getAnimation(\(selector));
+          let missing=false;try{thisScene.getAnimation('child name');}catch(e){missing=e instanceof RangeError;}
+          if(!missing)throw new Error('child lookup must not be exported');return v;}
+        export function update(v){switch(n++){case 0:child.play();break;case 1:group.pause();break;
+          case 2:thisScene.getAnimation(\(selector)).play();break;default:child.stop();}return v;}
+        """
+        let childTarget = targets.first { $0 != root }!
+        func owner(_ source: String) throws -> SceneScriptValueOwner {
+            try .init(domain:domain,source:source,target:childTarget,valueType:.vector3,
+                effectNames:[],hasCurrentAnimation:true,generation:1,budget:.default)
+        }
+        func evaluate(_ owner: SceneScriptValueOwner, _ time: Double)
+            -> Result<SceneScriptValueEvaluation,SceneScriptScalarRuntimeFailure> {
+            owner.evaluate(input:.vector3(0,0,0),frame:.init(timing:.init(wallDate:Date(),
+                simulationFrameTime:0.016,sceneTime:time)),scriptPropertiesJSON:"",
+                userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil)
+        }
+        func sample(_ time: Double) throws -> [[Double]] {
+            let resolution = SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,
+                definitions:bindings.map(\.definition),timelineValues:playback.values(sceneTime:time))
+            return try targets.map { target in
+                guard resolution.diagnostics.isEmpty, let entry = resolution.snapshot[target],
+                      entry.source == .timeline, case let .vector3(x,y,z) = entry.value else {
+                    throw NSError(domain:"combined VM typed output",code:1)
+                }
+                return [x,y,z]
+            }
+        }
+        let controller = try owner(script)
+        var samples = [try sample(0)]
+        var commands: [SceneTimelinePlaybackMutation] = []
+        for (time, observation) in [(0.0,1.0),(1.0,3.0),(3.0,4.0),(4.0,5.0)] {
+            let evaluation = try evaluate(controller,time).get()
+            commands += evaluation.animationMutations
+            let preview = try playback.preview(evaluation.animationMutations,sceneTime:time).get()
+            guard Set(preview.keys) == Set(targets) else { throw NSError(domain:"VM group preview",code:2) }
+            try playback.apply(evaluation.animationMutations,sceneTime:time).get()
+            controller.commitLayerMutations()
+            samples.append(try sample(observation))
+        }
+        let before = try sample(5)
+        let throwing = try owner("export function update(v){thisObject.getAnimation().play();throw new Error('abort');}")
+        let throwResult = evaluate(throwing,5)
+        let discarded = try owner("export function update(v){thisObject.getAnimation().play();return v;}")
+        let discardedCommands = try evaluate(discarded,5).get().animationMutations
+        discarded.discardLayerMutations()
+        let unchanged = try sample(6) == before
+        let healthy = try owner("export function update(v){thisScene.getAnimation(\(selector)).play();return v;}")
+        try playback.apply(try evaluate(healthy,6).get().animationMutations,sceneTime:6).get()
+        healthy.commitLayerMutations()
+        samples.append(try sample(7))
+        let failed: Bool
+        if case .failure = throwResult { failed = true } else { failed = false }
+        return ["samples":samples,"facts":[
+            "rootNamedOnce":named.count == 1 && named[0].target == root,
+            "targetIdentity":commands.map(\.target) == [childTarget,root,root,childTarget],
+            "commandOrder":commands.map(\.command) == [.play,.pause,.play,.stop],
+            "throwDiscardNoApply":failed && unchanged && discardedCommands.count == 1]]
+    }
+
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
             .init(id:id,layerIndex:id-1,name:"layer\(id)",visible:true,
@@ -192,6 +290,8 @@ HARNESS = r'''
             timerCommands += result.animationMutations
         }
         let out:[String:Any] = [
+            "combined":try combinedPlayback(renamed:false),
+            "renamedCombined":try combinedPlayback(renamed:true),
             "statefulBoolTimer":boolClick.animations == [.init(target:a,command:.play)]
                 && timerCommands == [.init(target:a,command:.pause)],
             "overflowRejected":overflowRejected,
@@ -218,6 +318,13 @@ class NamedTimelineTests(unittest.TestCase):
                 extra_swift_sources=TIMELINE_SOURCES,preamble=playback_preamble())
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
             actual = json.loads(run.stdout.strip().splitlines()[-1])
+            base = [[10,20,30], [1,2,3], [1,2,3]]
+            middle = [[11,22,33], [3,5,7], [1.25,2.5,3.75]]
+            end = [[12,24,36], [5,8,11], [1.5,3,4.5]]
+            for key in ("combined", "renamedCombined"):
+                result = actual.pop(key)
+                self.assertEqual(result["samples"], [base,middle,middle,end,base,middle])
+                self.assertTrue(all(result["facts"].values()), result)
             for key in ["sceneSamples", "renamedSceneSamples"]:
                 self.assertEqual(actual.pop(key), [0, 0.375, 0.375, 0.75, 0, 0.375])
             self.assertEqual(actual, dict.fromkeys([

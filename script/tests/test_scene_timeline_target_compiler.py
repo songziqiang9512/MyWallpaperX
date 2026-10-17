@@ -17,6 +17,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .fixtures.scene_timeline_combined_cases import combined_scene, rejected_combined_scenes
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
@@ -533,7 +535,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         binary = directory / "scene-timeline-target"
         compilation = subprocess.run(
             [
-                "swiftc",
+                "swiftc", "-module-cache-path", str(directory / "module-cache"),
                 *(str(source) for source in SWIFT_SOURCES),
                 str(harness),
                 "-o",
@@ -562,11 +564,12 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
     def targets(self):
         return {b["target"] for b in self.result["bindings"]}
 
-    def compile_fixture(self, fixture, name):
+    def compile_fixture(self, fixture, name, *, duplicate_timeline=False):
         scene = Path(self.temporary_directory.name) / f"{name}.json"
         scene.write_text(json.dumps(fixture), encoding="utf-8")
         completed = subprocess.run(
-            [str(self.binary), str(scene)], check=True, capture_output=True, text=True
+            [str(self.binary), str(scene)] + (["duplicate-timeline"] if duplicate_timeline else []),
+            check=True, capture_output=True, text=True
         )
         return json.loads(completed.stdout)
 
@@ -712,6 +715,61 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
             wrap_controls["diagnostics"],
             ["layer 61 maxwidth: valueOutOfRange"],
         )
+
+    def test_relative_combined_transforms_inherit_only_the_root_settings(self) -> None:
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                result = self.compile_fixture(combined_scene(renamed=renamed), f"paired-{renamed}")
+                layer_id = 301 if renamed else 201
+                group = [b for b in result["bindings"] if b["target"].startswith(f"layer:{layer_id}:")]
+                self.assertEqual(result["diagnostics"], [])
+                self.assertEqual([b["target"].split(":")[-1] for b in group], ["origin", "angles", "scale"])
+                self.assertEqual([b["targetIndex"] for b in group], [0, 1, 2])
+                root = f"layer:{layer_id}:" + ("angles" if renamed else "origin")
+                self.assertEqual([b["playbackOwner"] for b in group], [root] * 3)
+                self.assertEqual([b["name"] for b in group if b["name"]],
+                                 ["renamed cohort" if renamed else "paired motion"])
+                for binding in group:
+                    self.assertEqual((binding["fps"], binding["length"], binding["mode"], binding["paused"]),
+                                     (10, 20, "single", True))
+                    self.assertEqual(binding["composition"], "additive")
+                self.assertEqual([b["sample"] for b in group],
+                                 ["vector3(10.0,20.0,30.0)", "vector3(1.0,2.0,3.0)", "vector3(1.0,2.0,3.0)"])
+                self.assertEqual(len(result["bindings"]), 4)
+
+    def test_invalid_combined_group_leaves_no_executable_member(self) -> None:
+        for label, fixture in rejected_combined_scenes().items():
+            with self.subTest(case=label):
+                result = self.compile_fixture(fixture, "bad-pair-" + label)
+                self.assertEqual([b["target"] for b in result["bindings"]], ["layer:202:alpha"], result)
+                self.assertTrue(result["diagnostics"], result)
+        duplicate = self.compile_fixture(combined_scene(), "duplicate-target", duplicate_timeline=True)
+        self.assertEqual([b["target"] for b in duplicate["bindings"]], ["layer:202:alpha"], duplicate)
+        self.assertTrue(duplicate["diagnostics"], duplicate)
+
+    def test_camera_group_rejects_incoming_peer_but_preserves_unlinked_timelines(self) -> None:
+        original = next(item for item in SCENE_FIXTURE["objects"] if item["id"] == 66)
+        for field, reference in (("alpha", "origin"), ("scale", "zoom")):
+            lanes = [[keyframe(0, 0), keyframe(15, 0.5)]] * (1 if field == "alpha" else 3)
+            peer = {"value": 1 if field == "alpha" else "1 1 1",
+                    "animation": animation(lanes, relative=field == "scale")}
+            for relationship in ("parent", "children"):
+                camera = copy.deepcopy(original)
+                camera[field] = copy.deepcopy(peer)
+                camera[field]["animation"]["options"][relationship] = (
+                    {"key": reference} if relationship == "parent" else [{"key": reference}])
+                result = self.compile_fixture({"version": 3, "objects": [camera]},
+                                              f"incoming-{field}-{relationship}")
+                self.assertEqual(result["bindings"], [], result)
+                self.assertTrue(result["diagnostics"], result)
+        camera = copy.deepcopy(original)
+        camera["alpha"] = {"value": 1, "animation": animation([[keyframe(0, 0), keyframe(15, 1)]])}
+        camera["scale"] = {"value": "1 1 1", "animation": animation(
+            [[keyframe(0, 0), keyframe(15, 0.5)]] * 3, relative=True)}
+        result = self.compile_fixture({"version": 3, "objects": [camera]}, "unlinked-camera-peer")
+        self.assertEqual({b["target"] for b in result["bindings"]},
+                         {"camera:origin", "camera:zoom", "layer:66:alpha", "layer:66:scale"})
+        self.assertEqual(result["diagnostics"], [])
 
     def test_combined_animation_group_is_rejected(self) -> None:
         # 组内成员共享持有方的 clock，独立求值会让两条 lane 逐渐错相

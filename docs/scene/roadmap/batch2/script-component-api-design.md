@@ -525,3 +525,18 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 **失败与退出。** 非有限输入、坏ABI、失效identity及现owner effects冲突继续局部拒绝/撤回，不放宽跨owner提交或JS heap回滚承诺。raw Double不可直接窄化成GPU Float；若发现现消费者绕过既有显示归一，先在该唯一消费者接回现owner，不能按值/样本另建clamp链。
 
 **验收。** 真实VM的dt0→正dt负值/上界暂态后修正、同/下一callback raw读回、commit/discard与健康peer，含改名/等价表达式、finite极值、NaN/Infinity及真实异常；复用现显示归一门证明GPU输入有限。一次最终Debug，原322的38/4907实际控制及中央/两侧人物、同条件独立样本实图和GPU排空、独审通过后才关闭该首错。保留接线中间失败，不因候选数或App正常退出认整样本通过。
+
+<a id="combined-timeline-playback-owner"></a>
+## Combined Timeline 的唯一播放状态（2026-10-17，有界已实施）
+
+目标是让同层合法组合属性在同一作者时间、控制与typed事务中播放。实施前U17原包20s已证脸/龙Puppet推进；头发origin↔angles关系保留却命中普通组的静态拒绝条件，未导出其逐帧typed值，不把视觉差异先归单因。[官方Combined合同](https://docs.wallpaperengine.io/en/scene/timeline/combined.html)要求新property复用已有animation的设置；旧camera只复制设置、Runtime逐target持State，不能作为通用组合控制实现。现扩展原Program/PlaybackRuntime，替换逐成员状态；不新建clock、动画注册表或输出链。
+
+准备职责：首片为同一作者层内平坦、双向引用的origin/angles/scale组，所有成员仍须通过原typed target、relative/base、component、finite及wrap准入；不借Combined开放原未支持host或绝对变换。完整root target决定组identity，成员按原binding顺序保留；root的fps/length/mode/start-paused/wrap设置在统一验证前归一到各自lanes，不缩放keyframe帧、不跨运算改变relative基值。普通新组归一化后的有效root smoothing/stiffness非空、跨容器、嵌套/循环、缺引用、自引用、重复/多parent或最终target冲突拒绝相关组，不能留下独立可执行残员；其他健康组/普通Timeline继续。
+
+原binding/Program保存不可变的完整播放owner关系，旧独立输入默认自身owner；准备期形成target→owner状态索引和owner→有序成员，普通帧只消费已准备索引。原PlaybackRuntime每组只有一个State，所有成员在同一elapsedFrames求各自值；命令按原journal顺序作用owner，preview投影该组全部成员，原validate/apply和typed事务共同接纳或撤回。未知target/throw/溢预算/提交前取消保持原owner包失败；Runtime的next-frame observation快照/恢复API保留并覆盖组成员；当前host没有该API调用者，本片不宣称无surface提交时host已恢复观察，也不以该诊断日志证明呈现。preview不消费、拒绝命令不apply，已接受播放状态不因后续GPU失败新增回滚协议。
+
+名称仅由root发布一次，不复制到child制造歧义，不改变既有targetIndex/handle身份与代次规则；合法成员target的控制归同owner，不新增API或猜同名优先级。已支持的default-camera origin/zoom迁移到同一owner状态表示与归一化职责，保原相机选择、range、near/far、relative与降级门；camera既有非空smoothing/stiffness只保真、Evaluator未解释的边界不在本片新增拒绝或认领行为支持。child被root替换的设置不另作有效输入准入，不保留第二套camera播放owner。普通单target输出/时序保持，旧普通组blanket拒绝只对经过完整准备证明的组退出。
+
+验收复用现parser→descriptor→compiler和Runtime/resolver、named QuickJS门：root/child不同设置仍服从root，改名/成员顺序变体、共享play/pause/stop/single重播、同帧全部成员preview、坏peer拒绝/Runtime观察API及原camera/独立Timeline，手动restore测试不冒host提交恢复；缺/坏引用、循环、重复、非准入host/relative和有限域为相邻反例。一次最终Debug后，自有相位可区分组合实图、原U17的15–18s画面与实际typed/geometry消费、一个未参与修法的真实Timeline样本及安全退出；不把原包几何健康或profile命中当组合画面收益，不声称官方同phase轨迹、整样本或性能完成。若需要嵌套/跨host合成、第二时钟或新视觉算法，停在新首断点重排。
+
+实施结果与限制归[能力合同](../../capabilities/runtime-input-property-coverage.md#op-timeline-combined)和[运行后验](../../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017)。旧逐成员播放State已退出；本片不扩嵌套/跨host及未准入target，不新增host观察回滚协议。

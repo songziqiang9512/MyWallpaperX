@@ -74,10 +74,10 @@ enum HarnessError: Error { case missingFixture, descriptorRejected }
 @main
 enum Harness {
     static func main() throws {
-        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
+        guard (2...3).contains(CommandLine.arguments.count) else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let document = try SceneDocumentLoader().load(from: sceneURL)
-        guard let descriptor = SceneRenderDescriptorBuilder().build(
+        guard var descriptor = SceneRenderDescriptorBuilder().build(
             project: SceneProject(
                 rootURL: sceneURL.deletingLastPathComponent(),
                 entryPath: sceneURL.lastPathComponent,
@@ -95,6 +95,17 @@ enum Harness {
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
         ) else {
             throw HarnessError.descriptorRejected
+        }
+        if CommandLine.arguments.last == "duplicate-timeline" {
+            // Duplicate a prepared typed target, after the real Loader's distinct-ID gate.
+            var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(descriptor)) as! [String: Any]
+            var layers = object["layers"] as! [[String: Any]]
+            var timelines = layers[0]["timelines"] as! [[String: Any]]
+            timelines.append(timelines[1])
+            layers[0]["timelines"] = timelines
+            object["layers"] = layers
+            descriptor = try JSONDecoder().decode(SceneRenderDescriptor.self,
+                from: JSONSerialization.data(withJSONObject: object))
         }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
         let vectorTarget = SceneDynamicTarget.effectConstant(
@@ -148,14 +159,21 @@ enum Harness {
             "diagnostics": program.diagnostics,
             "cameraPathFOV": cameraPathFOV,
             "vectorRuntime": vectorRuntime,
-            "bindings": program.bindings.map { binding in
+            "bindings": program.bindings.enumerated().map { index, binding -> [String: Any] in
                 [
                     "target": describe(binding.definition.target),
+                    "targetIndex": index,
                     "valueType": binding.definition.valueType.rawValue,
                     "authored": describe(binding.definition.authoredValue),
                     "mode": binding.animation.options.mode.rawValue,
                     "componentCount": binding.animation.componentCount,
                     "composition": binding.composition.rawValue,
+                    "playbackOwner": binding.playbackOwner.map(describe) ?? "self",
+                    "fps": binding.animation.options.fps,
+                    "length": binding.animation.options.length,
+                    "paused": binding.animation.options.startsPaused,
+                    "name": binding.animation.options.name ?? "",
+                    "sample": SceneTimelineRuntime.values(program: program, sceneTime: 1)[binding.target].map(describe) ?? "missing",
                 ]
             },
         ]

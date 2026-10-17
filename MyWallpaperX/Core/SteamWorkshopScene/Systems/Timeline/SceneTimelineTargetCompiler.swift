@@ -10,6 +10,24 @@ nonisolated struct SceneTimelineBinding: Codable, Equatable {
     let definition: SceneDynamicTargetDefinition
     let animation: SceneTimelineAnimation
     let composition: Composition
+    /// Nil preserves the standalone wire shape; a group uses its full root target.
+    let playbackOwner: SceneDynamicTarget?
+
+    init(
+        definition: SceneDynamicTargetDefinition,
+        animation: SceneTimelineAnimation,
+        composition: Composition,
+        playbackOwner: SceneDynamicTarget? = nil
+    ) {
+        self.definition = definition
+        self.animation = animation
+        self.composition = composition
+        self.playbackOwner = playbackOwner
+    }
+
+    nonisolated var playbackOwnerTarget: SceneDynamicTarget {
+        playbackOwner ?? target
+    }
 
     nonisolated var target: SceneDynamicTarget {
         definition.target
@@ -37,7 +55,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         case unsupportedScriptSource
         /// 当前只为 layer transform 定标了作者基值加动画偏移；其他 relative 仍拒绝。
         case relativeUnsupported
-        /// 普通 Combined Animation 尚未定标；受限 2D camera origin↔zoom 由专用编译器处理。
+        /// Only complete flat transform groups and the bounded camera pair are admitted.
         case combinedAnimationUnsupported
         /// lane 数与 target 的值类型不符（例如 3 lane 写 scalar）。
         case componentMismatch
@@ -90,31 +108,7 @@ nonisolated enum SceneTimelineTargetCompiler {
             diagnostics.append(contentsOf: layer.timelineDiagnostics.map {
                 "layer \(layer.id) \($0)"
             })
-            for timeline in layer.timelines {
-                if layer.cameraPath != nil,
-                   timeline.host == .origin || timeline.host == .zoom {
-                    continue
-                }
-                let label = "layer \(layer.id) \(timeline.host.rawValue)"
-                guard let resolved = layerTarget(host: timeline.host, layer: layer) else {
-                    diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
-                    continue
-                }
-                if case .maxwidth = timeline.host,
-                   !isBoundedTextWidth(timeline.animation, layer: layer) {
-                    diagnostics.append("\(label): \(Diagnostic.valueOutOfRange.rawValue)")
-                    continue
-                }
-                append(
-                    animation: timeline.animation,
-                    target: resolved.target,
-                    valueType: resolved.valueType,
-                    authoredValue: resolved.authoredValue,
-                    label: label,
-                    into: &candidates,
-                    diagnostics: &diagnostics
-                )
-            }
+            appendLayerTimelines(in: layer, into: &candidates, diagnostics: &diagnostics)
             diagnostics.append(contentsOf: layer.particleTimelineDiagnostics.map {
                 "layer \(layer.id) \($0)"
             })
@@ -142,19 +136,179 @@ nonisolated enum SceneTimelineTargetCompiler {
 
         // 同一 target 的多条 Timeline 全部丢弃：官方 Combined Animation 页面没有定义
         // 冲突优先级，按字典序或声明序挑一条都是猜。
+        let allCandidates = cameraProgram.bindings.map {
+            (binding: $0, label: "camera \($0.target)")
+        } + candidates
         var occurrences: [SceneDynamicTarget: Int] = [:]
-        for candidate in candidates {
+        for candidate in allCandidates {
             occurrences[candidate.binding.target, default: 0] += 1
         }
-        var bindings = cameraProgram.bindings
-        for candidate in candidates {
-            if occurrences[candidate.binding.target, default: 0] > 1 {
+        let rejectedOwners = Set(allCandidates.compactMap { candidate in
+            occurrences[candidate.binding.target, default: 0] > 1
+                ? candidate.binding.playbackOwnerTarget : nil
+        })
+        var bindings: [SceneTimelineBinding] = []
+        for candidate in allCandidates {
+            if rejectedOwners.contains(candidate.binding.playbackOwnerTarget) {
                 diagnostics.append("\(candidate.label): \(Diagnostic.duplicateTarget.rawValue)")
                 continue
             }
             bindings.append(candidate.binding)
         }
         return SceneTimelineProgram(bindings: bindings, diagnostics: diagnostics.sorted())
+    }
+
+    /// Resolve membership only inside this authored layer. Connected malformed
+    /// references fail as a group, including otherwise standalone referenced lanes.
+    private nonisolated static func appendLayerTimelines(
+        in layer: SceneRenderDescriptor.Layer,
+        into candidates: inout [(binding: SceneTimelineBinding, label: String)],
+        diagnostics: inout [String]
+    ) {
+        let timelines = layer.timelines
+        let indices = timelines.indices.filter {
+            layer.cameraPath == nil || (timelines[$0].host != .origin && timelines[$0].host != .zoom)
+        }
+        let byKey = Dictionary(grouping: indices, by: { timelines[$0].host.rawValue })
+        var links: [Int: Set<Int>] = [:]
+        for index in indices {
+            let options = timelines[index].animation.options
+            var keys = options.children.map(\.key)
+            if let parent = options.parent { keys.append(parent.key) }
+            guard !keys.isEmpty else { continue }
+            links[index] = links[index] ?? []
+            for key in keys {
+                for other in byKey[key] ?? [] {
+                    links[index, default: []].insert(other)
+                    links[other, default: []].insert(index)
+                }
+            }
+        }
+        var visited: Set<Int> = []
+        var prepared: [Int: (binding: SceneTimelineBinding, label: String)] = [:]
+        for index in indices where !visited.contains(index) {
+            guard links[index] != nil else {
+                var standalone: [(binding: SceneTimelineBinding, label: String)] = []
+                appendLayerTimeline(timelines[index], in: layer, into: &standalone,
+                    diagnostics: &diagnostics)
+                prepared[index] = standalone.first
+                continue
+            }
+            var pending = [index]
+            var component: Set<Int> = []
+            while let current = pending.popLast() {
+                guard component.insert(current).inserted else { continue }
+                pending.append(contentsOf: links[current] ?? [])
+            }
+            visited.formUnion(component)
+            let members = indices.filter { component.contains($0) }
+            let roots = members.filter { timelines[$0].animation.options.parent == nil }
+            let keys = members.map { timelines[$0].host.rawValue }
+            guard roots.count == 1, let rootIndex = roots.first,
+                  Set(keys).count == keys.count else {
+                rejectLayerGroup(members.map { timelines[$0] }, in: layer, diagnostics: &diagnostics)
+                continue
+            }
+            let root = timelines[rootIndex]
+            let children = root.animation.options.children.map(\.key)
+            let childKeys = members.filter { $0 != rootIndex }.map { timelines[$0].host.rawValue }
+            guard !children.isEmpty, Set(children).count == children.count,
+                  Set(children) == Set(childKeys),
+                  root.animation.options.smoothing == nil,
+                  root.animation.options.stiffness == nil,
+                  members.allSatisfy({ member in
+                      let timeline = timelines[member]
+                      let transform = timeline.host == .origin || timeline.host == .angles
+                          || timeline.host == .scale
+                      return transform && timeline.animation.isRelative
+                          && (member == rootIndex || (
+                              timeline.animation.options.parent?.key == root.host.rawValue
+                                  && timeline.animation.options.children.isEmpty
+                          ))
+                  }), let resolvedRoot = layerTarget(host: root.host, layer: layer) else {
+                rejectLayerGroup(members.map { timelines[$0] }, in: layer, diagnostics: &diagnostics)
+                continue
+            }
+            var groupCandidates: [(binding: SceneTimelineBinding, label: String)] = []
+            for member in members {
+                let timeline = timelines[member]
+                appendLayerTimeline(
+                    .init(host: timeline.host, animation: groupedAnimation(
+                        timeline.animation, owner: root.animation, isOwner: member == rootIndex
+                    )), in: layer, playbackOwner: resolvedRoot.target,
+                    into: &groupCandidates, diagnostics: &diagnostics
+                )
+            }
+            guard groupCandidates.count == members.count else {
+                rejectLayerGroup(members.map { timelines[$0] }, in: layer, diagnostics: &diagnostics)
+                continue
+            }
+            for (member, candidate) in zip(members, groupCandidates) {
+                prepared[member] = candidate
+            }
+        }
+        candidates.append(contentsOf: indices.compactMap { prepared[$0] })
+    }
+
+    private nonisolated static func rejectLayerGroup(
+        _ timelines: [SceneDocument.SceneObjectTimeline],
+        in layer: SceneRenderDescriptor.Layer,
+        diagnostics: inout [String]
+    ) {
+        diagnostics.append(contentsOf: timelines.map {
+            "layer \(layer.id) \($0.host.rawValue): \(Diagnostic.combinedAnimationUnsupported.rawValue)"
+        })
+    }
+
+    private nonisolated static func appendLayerTimeline(
+        _ timeline: SceneDocument.SceneObjectTimeline,
+        in layer: SceneRenderDescriptor.Layer,
+        playbackOwner: SceneDynamicTarget? = nil,
+        into candidates: inout [(binding: SceneTimelineBinding, label: String)],
+        diagnostics: inout [String]
+    ) {
+        let label = "layer \(layer.id) \(timeline.host.rawValue)"
+        guard let resolved = layerTarget(host: timeline.host, layer: layer) else {
+            diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+            return
+        }
+        if case .maxwidth = timeline.host, !isBoundedTextWidth(timeline.animation, layer: layer) {
+            diagnostics.append("\(label): \(Diagnostic.valueOutOfRange.rawValue)")
+            return
+        }
+        if playbackOwner != nil {
+            guard case let .vector3(x, y, z) = resolved.authoredValue,
+                  [x, y, z].allSatisfy(\.isFinite),
+                  timeline.animation.lanes.allSatisfy({ lane in
+                      timeline.animation.consumedControlValues(in: lane).allSatisfy(\.isFinite)
+                  }) else {
+                diagnostics.append("\(label): \(Diagnostic.invalidAuthoredValue.rawValue)")
+                return
+            }
+        }
+        append(animation: timeline.animation, target: resolved.target,
+            valueType: resolved.valueType, authoredValue: resolved.authoredValue,
+            label: label, playbackOwner: playbackOwner,
+            into: &candidates, diagnostics: &diagnostics)
+    }
+
+    /// Both camera and ordinary groups inherit one clock without lending a
+    /// display name to child bindings or retaining executable wire references.
+    nonisolated static func groupedAnimation(
+        _ animation: SceneTimelineAnimation,
+        owner: SceneTimelineAnimation,
+        isOwner: Bool
+    ) -> SceneTimelineAnimation {
+        let options = owner.options
+        var clock = SceneTimelineOptions(
+            fps: options.fps, length: options.length, mode: options.mode,
+            startsPaused: options.startsPaused, wrapsLoop: options.wrapsLoop,
+            smoothing: options.smoothing, stiffness: options.stiffness,
+            parent: nil, children: []
+        )
+        clock.name = isOwner ? options.name : nil
+        return SceneTimelineAnimation(lanes: animation.lanes, options: clock,
+            isRelative: animation.isRelative, previewValue: animation.previewValue)
     }
 
     private nonisolated static func appendEffectConstants(
@@ -264,6 +418,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         valueType: SceneDynamicValueType,
         authoredValue: SceneDynamicValue,
         label: String,
+        playbackOwner: SceneDynamicTarget? = nil,
         into candidates: inout [(binding: SceneTimelineBinding, label: String)],
         diagnostics: inout [String]
     ) {
@@ -298,7 +453,8 @@ nonisolated enum SceneTimelineTargetCompiler {
                     authoredValue: authoredValue
                 ),
                 animation: animation,
-                composition: composition
+                composition: composition,
+                playbackOwner: playbackOwner
             ),
             label
         ))

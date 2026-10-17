@@ -92,7 +92,7 @@
 | U13 · 3042492564 | 原报告光束形状、封面右裁切/blur、布局及媒体交互尚待新基线复验。10-16已恢复默认camera倍率、星芒/海平线/塔底，1128非有限origin首错也已修；这些不关闭余项，也不把544作者ReferenceError:event列host缺口。[camera边界](../history/default-2d-camera-inputs-2026-10-16.md)、[Vec证据](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md) |
 | U14 · 2932157836 | 封面缺失、时钟及named-user旋转首门均已闭。保留10-13新观察272 cursor/timer取消owner异常待当前复验，及旧blur/精确spin样式、真实来源仲裁的具体差异；不以299旋转恢复关闭整景。[named-user证据](../history/named-user-pass-scalar-2026-10-16.md) |
 | U15 · 3299228616 | ①hover水波弱；②时钟上方矩形独立运动。分别核pointer输入与graph/变换/相机/合成空间，不抬gain掩盖 |
-| U17 · 3233141951 | ①脸部不随头发动画；②龙头轨迹不对；③黑色小人动画缺失；④音频双色重叠现只粉色。pose/attachment、时序/激活与audio混合分别复验 |
+| U17 · 3233141951 | 10-17已退出同层平坦relative-transform Combined的blanket拒绝，唯一owner共享播放由自有实图验收；原包默认20s后段已看，face26/dragon266持续GPU输出，但头发52/482逐帧typed值未导出，脸随头发及龙头准确轨迹仍未判官方同phase。403的animation513因static visibility拒绝，尚未对应到旧“黑色小人”ROI，沿该首owner资格；音频双色旧观察仍待同声源复验。没有目录官方截屏，不能以健康几何/profile关闭四项；[限定后验](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
 | U19 · 3807668787 | 主报告灰头冠/音频缺失已修；仅保10-11实测可见pointer轨迹958因alphatocoverage拒绝。现粒子blend/profile须取得同条件合同，不能猜替代混合。[最后证据](../history/independent-signal-producer-2026-10-11.md) |
 | U24 · 3420215721 | freeze/封面依赖首门已闭；中央环官方亮度具体差异待当前复验。349/409 circular_text默认hidden且无激活证据，不计缺字，不改作者alpha补偿。[关闭首门及边界](../history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency) |
 | U25 · 3351163962 | 时间文字跑出左上音频环；核text anchor、布局与共同parent空间。自有camera-anchor官方ZERO资格失败，没有可用于改投影的合同 |

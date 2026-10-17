@@ -18,6 +18,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .fixtures.scene_timeline_combined_cases import combined_scene
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PLAYBACK_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift"
@@ -25,6 +27,7 @@ GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
 SWIFT_SOURCES = [
+    Path(__file__).with_name("fixtures") / "SceneTimelineCombinedPlaybackChecks.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
@@ -428,7 +431,7 @@ enum Harness {
     static func main() throws {
         guard (2...3).contains(CommandLine.arguments.count) else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
-        let isGeneral = CommandLine.arguments.count == 3
+        let isGeneral = CommandLine.arguments.last == "general"
         var catalog = SceneUserPropertyCatalog.empty
         if isGeneral {
             let projectURL = sceneURL.deletingLastPathComponent().appendingPathComponent("project.json")
@@ -461,6 +464,12 @@ enum Harness {
             throw HarnessError.descriptorRejected
         }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
+        if CommandLine.arguments.last == "combined" {
+            let result = try SceneTimelineCombinedPlaybackChecks.run(program)
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result,
+                options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         if isGeneral {
             var result = try generalChecks(document, descriptor, program)
             if case let .number(value)? = catalog.defaultValues.values.first {
@@ -553,6 +562,7 @@ enum Harness {
             samples[label] = entry
         }
         payload["samples"] = samples
+        payload["cameraPlayback"] = try SceneTimelineCombinedPlaybackChecks.camera(program)
 
         let pausedTarget = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
         let playback = SceneTimelinePlaybackRuntime(program: program)
@@ -705,6 +715,13 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
             [str(binary), str(scene)], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
+        cls.combined_results = []
+        for renamed in (False, True):
+            entry = directory / f"combined-{renamed}.json"
+            entry.write_text(json.dumps(combined_scene(renamed=renamed)), encoding="utf-8")
+            result = subprocess.run([str(binary), str(entry), "combined"],
+                                    check=True, capture_output=True, text=True)
+            cls.combined_results.append(json.loads(result.stdout))
         cls.general_results = {}
         for label, fixture in general_bloom_fixtures().items():
             case = directory / label
@@ -758,16 +775,16 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["samples"]["late"]["constant"]["value"], 0.0)
         self.assertAlmostEqual(self.result["samples"]["t0"]["constant"]["value"], 1.0)
 
-    def test_playback_projection_reuses_authored_order_and_elapsed_value(self) -> None:
-        source = PLAYBACK_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("private let orderedBindings", source)
-        self.assertIn("orderedBindings = program.bindings", source)
-        self.assertIn("for (binding, state) in zip(orderedBindings, orderedStates)", source)
-        self.assertIn("private var orderedStates", source)
-        self.assertIn("private let stateIndices", source)
-        self.assertIn("let elapsed = elapsedFrames(", source)
-        self.assertIn("elapsedFrames: elapsed", source)
-        self.assertNotIn("for (target, binding) in bindings", source)
+    def test_combined_members_share_commands_preview_and_typed_values(self) -> None:
+        base = [[10, 20, 30], [1, 2, 3], [1, 2, 3]]
+        middle = [[11, 22, 33], [3, 5, 7], [1.25, 2.5, 3.75]]
+        end = [[12, 24, 36], [5, 8, 11], [1.5, 3, 4.5]]
+        for result in self.combined_results:
+            self.assertEqual(result["samples"], [base, middle, middle, end, base, middle, base])
+            self.assertEqual(result["preview"], base)
+            self.assertEqual(result["ordered"], middle)
+            self.assertEqual(result["reversed"], base)
+            self.assertTrue(all(result["facts"].values()), result["facts"])
 
     def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
         for label in ("t0", "half", "closing", "late"):
@@ -924,6 +941,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertTrue(malformed["healthyLayerSurvives"], malformed)
 
     def test_combined_camera_members_share_the_owner_clock_and_snapshot(self) -> None:
+        self.assertTrue(all(self.result["cameraPlayback"].values()), self.result["cameraPlayback"])
         self.assertEqual(
             self.result["samples"]["t0"]["cameraOrigin"]["value"],
             [-100, 682, 500],

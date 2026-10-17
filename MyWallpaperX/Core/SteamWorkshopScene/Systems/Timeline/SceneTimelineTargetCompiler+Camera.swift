@@ -28,7 +28,15 @@ nonisolated enum Scene2DCameraTimelineCompiler {
                 || path.queueMode == "sequential" else {
             return rejected(labels, reason: "cameraProfileUnsupported")
         }
-        guard group.count == 2,
+        // The bounded pair must also be a complete authored component. Its
+        // outgoing references are checked below; a third lane may not point in.
+        let hasIncomingPeer = layer.timelines.contains { timeline in
+            guard timeline.host != .origin, timeline.host != .zoom else { return false }
+            let options = timeline.animation.options
+            return options.parent?.key == "origin" || options.parent?.key == "zoom"
+                || options.children.contains { $0.key == "origin" || $0.key == "zoom" }
+        }
+        guard !hasIncomingPeer, group.count == 2,
               let origin = group.first(where: { $0.host == .origin })?.animation,
               let zoom = group.first(where: { $0.host == .zoom })?.animation,
               origin.options.parent == nil,
@@ -37,10 +45,16 @@ nonisolated enum Scene2DCameraTimelineCompiler {
               zoom.options.children.isEmpty else {
             return rejected(labels, reason: "combinedAnimationUnsupported")
         }
-        guard origin.componentCount == 3, zoom.componentCount == 1 else {
+        let groupedOrigin = SceneTimelineTargetCompiler.groupedAnimation(
+            origin, owner: origin, isOwner: true
+        )
+        let groupedZoom = SceneTimelineTargetCompiler.groupedAnimation(
+            zoom, owner: origin, isOwner: false
+        )
+        guard groupedOrigin.componentCount == 3, groupedZoom.componentCount == 1 else {
             return rejected(labels, reason: "componentMismatch")
         }
-        guard origin.hasExecutableWrapLoop, zoom.hasExecutableWrapLoop else {
+        guard groupedOrigin.hasExecutableWrapLoop, groupedZoom.hasExecutableWrapLoop else {
             return rejected(labels, reason: "invalidWrapLoop")
         }
         guard origin.isRelative, !zoom.isRelative,
@@ -49,15 +63,14 @@ nonisolated enum Scene2DCameraTimelineCompiler {
               let authoredZoom = path.zoom,
               boundedOrigin(
                 authoredOrigin,
-                animation: origin,
+                animation: groupedOrigin,
                 nearZ: Double(descriptor.camera.nearZ),
                 farZ: Double(descriptor.camera.farZ)
               ),
-              boundedZoom(authoredZoom, animation: zoom) else {
+              boundedZoom(authoredZoom, animation: groupedZoom) else {
             return rejected(labels, reason: "valueOutOfRange")
         }
 
-        let clock = ownerClock(origin.options)
         let originBinding = SceneTimelineBinding(
             definition: .init(
                 target: .camera(.origin),
@@ -68,8 +81,9 @@ nonisolated enum Scene2DCameraTimelineCompiler {
                     Double(authoredOrigin[2])
                 )
             ),
-            animation: animation(origin, clock: clock),
-            composition: .additive
+            animation: groupedOrigin,
+            composition: .additive,
+            playbackOwner: .camera(.origin)
         )
         let zoomBinding = SceneTimelineBinding(
             definition: .init(
@@ -77,8 +91,9 @@ nonisolated enum Scene2DCameraTimelineCompiler {
                 valueType: .scalar,
                 authoredValue: .scalar(authoredZoom)
             ),
-            animation: animation(zoom, clock: clock),
-            composition: .absolute
+            animation: groupedZoom,
+            composition: .absolute,
+            playbackOwner: .camera(.origin)
         )
         return SceneTimelineProgram(
             bindings: [originBinding, zoomBinding],
@@ -140,31 +155,4 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         }
     }
 
-    private nonisolated static func ownerClock(
-        _ options: SceneTimelineOptions
-    ) -> SceneTimelineOptions {
-        SceneTimelineOptions(
-            fps: options.fps,
-            length: options.length,
-            mode: options.mode,
-            startsPaused: options.startsPaused,
-            wrapsLoop: options.wrapsLoop,
-            smoothing: options.smoothing,
-            stiffness: options.stiffness,
-            parent: nil,
-            children: []
-        )
-    }
-
-    private nonisolated static func animation(
-        _ animation: SceneTimelineAnimation,
-        clock: SceneTimelineOptions
-    ) -> SceneTimelineAnimation {
-        SceneTimelineAnimation(
-            lanes: animation.lanes,
-            options: clock,
-            isRelative: animation.isRelative,
-            previewValue: animation.previewValue
-        )
-    }
 }

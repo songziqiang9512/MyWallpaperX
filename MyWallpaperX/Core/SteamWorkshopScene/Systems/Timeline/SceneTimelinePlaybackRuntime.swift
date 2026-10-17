@@ -16,7 +16,7 @@ nonisolated enum SceneTimelinePlaybackFailure: Error, Equatable, Sendable {
     case unknownTarget(SceneDynamicTarget)
 }
 
-/// 唯一的 Timeline 播放状态。它只保存每条已编译 Timeline 的本地播放位置，并消费
+/// 唯一的 Timeline 播放状态。每个已编译 playback owner 只保一份本地播放位置，并消费
 /// 现有 SceneClock 的绝对时间；不创建第二套 clock、property registry 或 animation IR。
 nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     private enum State: Equatable {
@@ -24,23 +24,19 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         case paused(elapsedFrames: Double)
     }
 
-    private let bindings: [SceneDynamicTarget: SceneTimelineBinding]
-    /// Keep the authored binding order for the realtime value projection. The
-    /// dictionary remains the identity/validation index; it is not the frame
-    /// iteration order and does not need to be rebuilt or sorted per frame.
+    /// Keep binding/handle ordinals independent of shared playback state.
     private let orderedBindings: [SceneTimelineBinding]
-    /// State follows the prepared binding order so normal frame projection does
-    /// not hash every target back through the command/identity dictionary.
-    /// Mutations still resolve through `stateIndices` and are committed as one
-    /// candidate array, preserving the single playback-state owner.
+    /// Prepared once: commands resolve any member to one state, while normal
+    /// projection follows integer member indices without finding groups again.
     private let stateIndices: [SceneDynamicTarget: Int]
+    private let stateMembers: [[Int]]
+    private let ownerAnimations: [SceneTimelineAnimation]
     private var orderedStates: [State]
     private var pendingNextFrameObservations: Set<SceneDynamicTarget> = []
 
-    /// Frame-local observation state is separate from playback command state.
-    /// The host snapshots it before evaluating a frame and restores it when no
-    /// surface crosses the submission barrier, so a dropped frame cannot
-    /// consume a next-frame event that was never displayed.
+    /// Observation rollback is explicit and separate from accepted playback
+    /// state. A caller may snapshot/restore these diagnostics; the current host
+    /// does not wire that optional protocol to surface submission.
     nonisolated struct ObservationState: Equatable, Sendable {
         fileprivate let pendingNextFrameObservations: Set<SceneDynamicTarget>
 
@@ -50,21 +46,38 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     }
 
     init(program: SceneTimelineProgram) {
-        bindings = Dictionary(
+        let bindings = Dictionary(
             uniqueKeysWithValues: program.bindings.map { ($0.target, $0) }
         )
         orderedBindings = program.bindings
-        stateIndices = Dictionary(
-            uniqueKeysWithValues: program.bindings.enumerated().map { index, binding in
-                (binding.target, index)
+        var indices: [SceneDynamicTarget: Int] = [:]
+        var ownerIndices: [SceneDynamicTarget: Int] = [:]
+        var members: [[Int]] = []
+        var animations: [SceneTimelineAnimation] = []
+        var states: [State] = []
+        for (bindingIndex, binding) in program.bindings.enumerated() {
+            let ownerTarget = binding.playbackOwnerTarget
+            // Resolve the compiler's prepared owner without inventing a fallback.
+            guard let owner = bindings[ownerTarget] else { continue }
+            let stateIndex: Int
+            if let existing = ownerIndices[ownerTarget] {
+                stateIndex = existing
+            } else {
+                stateIndex = states.count
+                ownerIndices[ownerTarget] = stateIndex
+                members.append([])
+                animations.append(owner.animation)
+                states.append(owner.animation.options.startsPaused
+                    ? .paused(elapsedFrames: 0)
+                    : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0))
             }
-        )
-        orderedStates = program.bindings.map { binding in
-            let state: State = binding.animation.options.startsPaused
-                ? .paused(elapsedFrames: 0)
-                : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0)
-            return state
+            indices[binding.target] = stateIndex
+            members[stateIndex].append(bindingIndex)
         }
+        stateIndices = indices
+        stateMembers = members
+        ownerAnimations = animations
+        orderedStates = states
     }
 
     nonisolated func observationSnapshot() -> ObservationState {
@@ -81,26 +94,9 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         guard sceneTime.isFinite, sceneTime >= 0 else { return [:] }
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         values.reserveCapacity(orderedBindings.count)
-        for (binding, state) in zip(orderedBindings, orderedStates) {
-            let target = binding.target
-            let elapsed = elapsedFrames(
-                state: state,
-                animation: binding.animation,
-                sceneTime: sceneTime
-            )
-            guard let value = SceneTimelineRuntime.value(
-                of: binding,
-                elapsedFrames: elapsed
-            ) else { continue }
-            values[target] = value
-            if pendingNextFrameObservations.remove(target) != nil {
-                NSLog(
-                    "MWX SceneScript VM: animationTarget=%@ state=next-frame elapsedFrames=%.9g value=%@ route=generic-only",
-                    String(describing: target),
-                    elapsed,
-                    String(describing: value)
-                )
-            }
+        for index in orderedStates.indices {
+            project(stateIndex: index, state: orderedStates[index], sceneTime: sceneTime,
+                into: &values, observe: true)
         }
         return values
     }
@@ -117,7 +113,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     }
 
     /// Projects this frame's admitted commands without consuming playback or
-    /// observation state. Only changed targets are evaluated; the ordinary
+    /// observation state. All members of a changed owner are evaluated; the ordinary
     /// frame's complete Timeline projection remains the caller's base.
     func preview(
         _ mutations: [SceneTimelinePlaybackMutation],
@@ -130,19 +126,14 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         case let .failure(failure): return .failure(failure)
         }
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
-        for target in Set(mutations.map(\.target)) {
-            guard let binding = bindings[target],
-                  let index = stateIndices[target],
-                  candidate.indices.contains(index) else {
-                return .failure(.unknownTarget(target))
+        var projected: Set<Int> = []
+        for mutation in mutations {
+            guard let index = stateIndices[mutation.target] else {
+                return .failure(.unknownTarget(mutation.target))
             }
-            let elapsed = elapsedFrames(
-                state: candidate[index], animation: binding.animation,
-                sceneTime: sceneTime
-            )
-            values[target] = SceneTimelineRuntime.value(
-                of: binding, elapsedFrames: elapsed
-            )
+            guard projected.insert(index).inserted else { continue }
+            project(stateIndex: index, state: candidate[index], sceneTime: sceneTime,
+                into: &values, observe: false)
         }
         return .success(values)
     }
@@ -154,7 +145,13 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         switch candidateStates(for: mutations, sceneTime: sceneTime) {
         case let .success(candidate):
             orderedStates = candidate
-            pendingNextFrameObservations.formUnion(mutations.map(\.target))
+            for mutation in mutations {
+                if let index = stateIndices[mutation.target] {
+                    pendingNextFrameObservations.formUnion(
+                        stateMembers[index].map { orderedBindings[$0].target }
+                    )
+                }
+            }
             return .success(())
         case let .failure(failure):
             return .failure(failure)
@@ -170,23 +167,22 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         }
         var candidate = orderedStates
         for mutation in mutations {
-            guard let binding = bindings[mutation.target],
-                  let stateIndex = stateIndices[mutation.target],
-                  candidate.indices.contains(stateIndex) else {
+            guard let stateIndex = stateIndices[mutation.target] else {
                 return .failure(.unknownTarget(mutation.target))
             }
+            let animation = ownerAnimations[stateIndex]
             let state = candidate[stateIndex]
             let elapsed = elapsedFrames(
                 state: state,
-                animation: binding.animation,
+                animation: animation,
                 sceneTime: sceneTime
             )
             switch mutation.command {
             case .play:
                 // A completed single animation starts a new run. Playing or
                 // paused positions before its end still resume in place.
-                let completed = binding.animation.options.mode == .single
-                    && elapsed >= binding.animation.options.length
+                let completed = animation.options.mode == .single
+                    && elapsed >= animation.options.length
                 candidate[stateIndex] = .playing(
                     anchorSceneTime: sceneTime,
                     anchorElapsedFrames: completed ? 0 : elapsed
@@ -198,6 +194,37 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             }
         }
         return .success(candidate)
+    }
+
+    private func project(
+        stateIndex: Int,
+        state: State,
+        sceneTime: Double,
+        into values: inout [SceneDynamicTarget: SceneDynamicValue],
+        observe: Bool
+    ) {
+        let elapsed = elapsedFrames(state: state, animation: ownerAnimations[stateIndex],
+            sceneTime: sceneTime)
+        let members = stateMembers[stateIndex]
+        for index in members {
+            let binding = orderedBindings[index]
+            guard let value = SceneTimelineRuntime.value(of: binding, elapsedFrames: elapsed) else {
+                // A bad lane may not leave a partially published group behind.
+                for member in members { values.removeValue(forKey: orderedBindings[member].target) }
+                return
+            }
+            values[binding.target] = value
+        }
+        guard observe, !pendingNextFrameObservations.isEmpty else { return }
+        for index in members {
+            let target = orderedBindings[index].target
+            guard pendingNextFrameObservations.remove(target) != nil,
+                  let value = values[target] else { continue }
+            NSLog(
+                "MWX SceneScript VM: animationTarget=%@ state=next-frame elapsedFrames=%.9g value=%@ route=generic-only",
+                String(describing: target), elapsed, String(describing: value)
+            )
+        }
     }
 
     private func elapsedFrames(

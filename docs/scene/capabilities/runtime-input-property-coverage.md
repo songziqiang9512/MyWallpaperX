@@ -211,7 +211,7 @@ Timeline 是带预定义时长的 component-property 动画，不是 Effect anim
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
 | dynamic `animation` wrapper presence | `L2` | 粒子 CP position/angles nested wrapper 已保留完整 Timeline IR；随包 7 处 particle Timeline 是其他 scalar override，仍只记 presence 并诊断 | 不得把 CP 子集外推为 generic particle Timeline |
-| animation identity / optional name | `L1` | 身份由宿主 JSON 路径（layer + host 属性名、layer + `instanceoverride.controlpoint*`，或 layer/effect/pass/constant 名）决定；官方 optional name 在随包 48 处中未出现，未保存 | 出现合法 fixture 后补 name 与 owner scope |
+| animation identity / optional name | `L3 bounded` | 完整typed target保存宿主身份；显式name进入原Program索引与handle，独立动画保原查询，已准入Combined只由root发布一次名称；[命名入口](scenescript-api-coverage.md) | 旧44场景48处未出现name只是当时语料边界；动态clone、歧义名称及未准入target不扩 |
 | duration seconds / authored frame slots | `L2` | `fps`/`length` 原样保存，时长按 `length / fps` 换算（随包三例交叉验证 1.0s / 0.5s / 0.5s）；`smoothing`/`stiffness` 随包 16 处全为 null，只保真不解释 | 异常值（`length` 与末帧不符）无反例可依 |
 | component/property/axis target | `L3` | lane 以 `c0/c1/c2/c3` 对应 component 下标，必须从 `c0` 起连续否则 fail-closed；已 typed 编译为 `.camera(.origin/.zoom)`、`.layer(.alpha/.origin/.angles/.scale)`、`.effectConstant`、`.text(.maxWidth)` 与 particle `.controlPoint`/`.controlPointAngles`。effect constant 从完整作者 raw value 严格形成 1–4 维 scalar/vector shape，缺失、空、畸形、非有限、超过四维或 lane 数与 shape 不一致时整条 target 拒绝；合法普通值经同一 per-surface transaction 写入 snapshot。layer transform 仅在 `relative=true` 时准入 additive composition；唯一 camera 组按 relative origin + absolute zoom 准入，组内共用 owner clock；text width 仅准 `limitwidth=true`、absolute 单 lane，且实际 Bézier segment 的端点/control values 全部位于有限 `1...16384` 像素 | vector3 representative Tint color 已经 shared MaterialProgram/GPU/compositor/next-frame 可见，lane mismatch 只局部 passthrough；真实 `3748311238:728` 两个 vector2 Shake consumer 也已执行并通过 frame fault 局部恢复门，但不证明其余 effect constant/vector occurrence、整个 Shake owner、generic Combined、absolute layer transform 或其他非 layer-transform `relative`，后者继续拒绝或待验 |
 | `relative` composition | `L3 bounded` | 9 处 layer transform 以“作者基值 + 动画偏移”形成 typed additive binding：5 条 ordinary + 4 条 `lspot`；camera origin 另以相同 composition 进入 bounded Combined camera target。公开官方页只定义 property animation/modes 与 layer transform，不定义私有 serialized `relative` wire 或合成公式 | 合同来自合法语料、既有 black-box 校准与项目自有正反门；其他非 layer target、非有限基值或形态不完整均 fail closed，仍需 Windows golden |
@@ -226,9 +226,9 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| existing-animation membership | `L3 bounded` | 双向 key 引用已保真；唯一 default 2D camera `origin` owner + `zoom` child 组验证 reciprocal membership，并把两成员归一到 owner mode/fps/length/start-paused/wrap clock。坏引用、多 path、未知 camera/queue 和普通 Combined 整组 fail closed | generic Combined 的 owner identity、任意 property/axis 组合与 lifecycle |
-| authored lane order | `L2` | lane 按 `c0/c1/c2` 下标顺序保真；同一 target 被多条 Timeline 写入时全部拒绝并报 `duplicateTarget`，不按声明序或字典序猜 | 官方未定义冲突优先级，维持 fail closed |
-| atomic multi-target commit | `L3` | 全部 Timeline 值在同一帧算出后一次性送进 `SceneSurfaceEvaluationTransaction`，与 property 输入同一次原子提交；camera origin/zoom 有 owner-clock 与同 snapshot 正门 | generic Combined 冲突、seek/重启与多 surface lifecycle |
+| existing-animation membership | `L3 bounded` | 同层平坦、reciprocal的relative origin/angles/scale组，以及既有default-camera origin/zoom，共用完整root target与唯一播放State。准备期先归一root的mode/fps/length/start-paused/wrap，再按各target原数值/shape门验证；有序成员索引只准备一次。旧独立binding缺owner时仍以自身为owner | 嵌套/跨host、绝对transform、混合scalar/property及新host未扩；普通新组非空有效smoothing/stiffness拒绝，camera旧保真边界不变 |
+| authored lane order | `L3 bounded` | lane及binding顺序保留；缺/坏/重复引用、自引用、循环、多parent/root与duplicateTarget拒绝整个相关组，健康独立项保留。camera第三成员引用也进入同一闭包；不按dictionary顺序猜冲突 | 官方未定义最终target冲突优先级，维持局部fail closed |
+| atomic multi-target commit | `L3 bounded / S4 self-owned visible` | 成员控制按原journal顺序作用同一owner，preview纯投影全部成员，接受后一次apply；成员求值失败不留组内残值，全部Timeline仍经原typed事务提交。自有实图已证共同运动、暂停稳定及stop复位，见[限定后验](runtime-evidence-current.md#combined-timeline-playback-20261017) | Runtime观察snapshot/restore仅有测试API，host未调用；next-frame日志不证明surface提交，不新增GPU失败后的播放回滚。seek、更多生命周期及Windows同phase仍未验 |
 
 <a id="op-timeline-modes"></a>
 ### 4.3 [Playback](https://docs.wallpaperengine.io/en/scene/timeline/modes.html) 与 Bézier modes
@@ -238,7 +238,7 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 | Loop | `L3` | 按 `length` 取模，跨周期同相位；普通 Loop 与 9 条 wrap-loop 都执行，后者在末 keyframe 后连续插值到下一周期首帧 | 无 Windows 同相位 golden |
 | Mirror | `L3` | 周期 `2*length` 的三角波，端点不重复采样；单测覆盖折返段与上行段同值。随包 6 处均为 relative layer transform，现已执行；`2938612768` 的 ordinary origin 有共享 world-frame 隔离正门，`3768903841` 的四束 `lspot` 有既有 strict 真实门 | 端点是否重复采样官方未定义，仍无 Windows 同相位 golden |
 | Single | `L3` | 到末帧后保持末值不回绕；真实执行 21 处 | — |
-| start paused | `L3` | 恒停首帧，真实执行 6 处；`2067939514` 为负门（同级脚本在 `mediaThumbnailChanged` 里调 `play()`，无 VM 时不得自动播放）；Scene pause 只冻结全局 clock，不改变 animation-local start-paused 状态 | animation-local play/stop/seek 仍需 VM/API |
+| start paused | `L3` | 恒停首帧，真实执行 6 处；`2067939514` 为负门（同级脚本在 `mediaThumbnailChanged` 里调 `play()`，无 VM 时不得自动播放）；Scene pause 只冻结全局 clock，不改变 animation-local start-paused 状态 | 已准入target的play/pause/stop沿原VM命令与PlaybackRuntime；seek仍缺 |
 | Bézier `both/left/right/none` | `L3 bounded` | 每 keyframe 左右 handle 与 `enabled` 独立保真；普通段以 `start.front` / `end.back` 构造 cubic，wrap 闭合段以末 `front` / 首 `back` 构造；X 作为各自 segment span 归一化 offset、Y 作为 property value offset，按 frame progress 二分反求 curve parameter。一侧关闭退化到对应端点，两侧关闭严格线性。44 场景 **48 animations / 180 keyframes / 112 adjacent + 9 wrap segments** 中 178 个 enabled front/back 全部满足范围，自定义 handle 分布于四个样本；定向与 fixed13 见 [E-TIMELINE](../history/runtime-evidence-index.md#e-timeline) | 单位来自合法语料机械定标而非公开私有 wire；无 Windows 同相位数值/像素 golden |
 
 <a id="op-timeline-events"></a>

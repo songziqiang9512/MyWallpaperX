@@ -553,13 +553,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6477cb28c59679d0bb02f7ef110f7c8471e5e161dfc085239738f062a6849676",
+        "sourceSHA256": "f0fceb2ca6a94a042ca64e539ffa61d6725a3a6cc4846a284beef6d18671b4a6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核G9普通LDR scene scalar无layer身份接原VM/typed Bloom、实际白块hold/213 producer/独立314；普通producer缺口退出静态审计。另同步307 whole-container类型资格及CPU纯因子待采样线索。",
-        "limitations": "213作者后继非零结果/精确audioROI和旧右黑块未证；HDR/竞争wrapper/full general、多屏/全parity及性能未验。CPU短窗含DEBUG非基线，无优化实施；其他段未fresh复验，旧NO-GO与视觉余项保持。"
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -653,10 +653,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8c9f18118d6c53366ca90ca8fe6a733dea119986c1223158d38631f88051b86a",
+        "sourceSHA256": "79cd04f5a6ff81896f40eb6d7dcb5736ca643a1369933e84a63ddb7d7f391991",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -667,10 +667,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "37e8c22fc94888d4123b5a4dc3ea3b9631eff0fe0609de38ea290950d23569a7",
+        "sourceSHA256": "19c7cb3d32e9d9b6233f1444d9b6429e757cb6c28f5093ed60bac2124844127d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "限定shortcut底图合同/真实16图案后验、失败与候选身份分列；移除已修白块，保361静态候选、RGBA用途及新381not-run；清掉旧9月状态标签。",
-        "limitations": "只同步相关合同/状态与导航；不认领系统shortcut、整样本/同phase parity或性能收益。"
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -723,10 +723,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a33a90638b1b50d302b356ea8aec0f34190deb84934b175ace882c1509f87c1d",
+        "sourceSHA256": "457c61b2c3edcfefc970e073aa2cf5183a1a72ebdde48775ef34ebc27e5aad15",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -737,10 +737,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f14c6ee007e14545e117f381a71777c24d51ee3519863f4df5b9261041d98903",
+        "sourceSHA256": "821388a155286888d40b8546234498e6e758061e1275f295783656a02591140c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -757,10 +757,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "85ea077712c3fe493538d394f388750604849270ed76bfdda0ffdb4ba23293d6",
+        "sourceSHA256": "5c679ce4208810ddba75dd1af487f4aa757973d632023ecb14d89efbaa2b07df",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -3245,10 +3245,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "092987edac370d570e503c8ca6ae4a3fc310e38d4063a2131fecfb9c1765a82f",
+        "sourceSHA256": "65253347cc11ff6b81dc6ee6b458b9058c08127da9c7b99e99aefc5d38790a44",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene exact unique named Timeline and effectConstant single-owner entry; bounded real cursor/mask switch, typed phase and self GPU pixels; closed API absence removed from queue and sample ledger",
-        "limitations": "No whole-sample official same-state parity; shader2522 remains rejected/passthrough, Combined/dynamic clone/other targets/HDR and performance unaccepted"
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -3335,10 +3335,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "75c0d0fa21ac9fcf3195e66627e7aeb2cbdbc0e936a6883728b8624ad84c8221",
+        "sourceSHA256": "553e0db0b9438768a7ab62ccd3fe917aaaec2c5d5eda16102a69a21907e4910c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {
@@ -3349,10 +3349,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8feb47ee07e0b73f6a23ed10041d41e8fae33f0c2409d0ca7d65d53607158c81",
+        "sourceSHA256": "554a82fd63f7163a16ea652cf91ceb5fd43ddb26c7fca391a3bbe099d1b1146f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
+        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
       }
     },
     {

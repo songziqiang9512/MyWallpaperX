@@ -425,14 +425,15 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol / sound_peak_probe_sol",
-      "note": "10-17最终原包4907点击后2522实际执行作者Program：白面具→整景RGB分离/重影→清晰黑面具，左右眼与脸颈/身体在。前序reference组装、MDLV19挂点及MDLA5 alpha/零缩放眼睑修复保持，原2/3/2默认动画请求未改。非零Alpha通过encodedData相等守卫并由GPU/末合成消费，未导出uniform字节或附造异步PNG的exact帧。固定HEAD加11个Scene文件的隔离App两包均安全退出；未锁官方同phase/viewport，不记完整样本通过。",
+      "note": "10-17最终原包4907点击后2522实际执行作者Program：白面具→整景RGB分离/重影→清晰黑面具，左右眼与脸颈/身体在。前序reference组装、MDLV19挂点及MDLA5 alpha/零缩放眼睑修复保持，原2/3/2默认动画请求未改。非零Alpha通过encodedData相等守卫并由GPU/末合成消费，未导出uniform字节或附造异步PNG的exact帧。固定HEAD加11个Scene文件的隔离App两包均安全退出；未锁官方同phase/viewport，不记完整样本通过。 后继Combined共享播放批以本样本作独立回归：原click后2522三个非零typed值经同帧Program/GPU/末合成，原图瞬态RGB后回清晰黑面具；未重开手部旧观察或扩大完整parity结论。",
       "runs": [
         ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/fullscreen-layer-alpha-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/scene-named-animation-scope-20261017/final/report.json",
-        ".artifacts/scene-evidence/runs/shader-float2-consumer-width-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/shader-float2-consumer-width-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/samples/3226487183/runtime_evidence.zip",
@@ -440,10 +441,25 @@
         ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/fullscreen-layer-alpha-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/scene-named-animation-scope-20261017/final/samples/3226487183/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/shader-float2-consumer-width-20261017/final/samples/3226487183/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/shader-float2-consumer-width-20261017/final/samples/3226487183/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip"
       ],
       "remainingDifferences": "原1028手部旧观察仍待当前复验，现origin/reference/效果链已证正常，不能按外观改坐标。live媒体、完整同viewport/phase官方对照、全部交互及作者属性分支未验，仍unreviewed，不记整样本PASS。",
       "officialComparison": "compared"
+    },
+    "3233141951": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / sound_peak_probe_sol / dynamic_image_material_tests_sol",
+      "note": "同层平坦relative-transform Combined的旧blanket拒绝已退出；共同播放/暂停/停止由自有实际图验收。原包默认20s实际face26/dragon266各191个GPU几何，15–18s各28；头发52/482逐帧值及最终TimelineProgram未导出，不能认脸随头发或龙头准确轨迹已恢复。403 animation513仍因static visibility拒绝，不将其按名对应黑色小人。三次运行均exit0/无VM失败或漂移/stop1→0/GPU排空，无性能声明。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "脸与头发关系、龙头准确轨迹、黑色小人来源/动画及双色音频旧观察均未取得同状态关闭；目录无官方截屏，音频相位未锁。403拒绝是具体首owner候选，但可见ROI未知。完整属性、交互及Windows时序未验。",
+      "officialComparison": "unknown"
     }
   }
 }
