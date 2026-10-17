@@ -61,14 +61,16 @@ extension SceneMetalRenderer {
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],
         parallaxMouseNormalized: SIMD2<Float>,
-        configuration: SceneLayerParallax.Configuration
+        configuration: SceneLayerParallax.Configuration,
+        referenceWorldFrame: simd_float4x4? = nil
     ) -> simd_float4x4 {
-        let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
+        let world = referenceWorldFrame ?? worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(
             for: layer,
             worldFramesByLayerID: worldFramesByLayerID,
             mouseNormalized: parallaxMouseNormalized,
-            configuration: configuration
+            configuration: configuration,
+            sourceWorldFrameOverride: referenceWorldFrame
         )
         return SceneParticleCameraFrame.particleLayerModel(
             worldFrame: world,
@@ -143,10 +145,12 @@ extension SceneMetalRenderer {
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],
         mouseNormalized: SIMD2<Float>,
-        configuration: SceneLayerParallax.Configuration
+        configuration: SceneLayerParallax.Configuration,
+        sourceWorldFrameOverride: simd_float4x4? = nil
     ) -> SIMD2<Float> {
         guard let resolution = parallaxByLayerID[layer.id],
-              let sourceFrame = worldFramesByLayerID[resolution.sourceLayerID]
+              let sourceFrame = (resolution.sourceLayerID == layer.id ? sourceWorldFrameOverride : nil)
+                ?? worldFramesByLayerID[resolution.sourceLayerID]
         else { return .zero }
         // Depth and camera-relative position belong to the same inherited
         // source. Using each child's position separates authored pieces even

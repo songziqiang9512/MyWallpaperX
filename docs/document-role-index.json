@@ -563,10 +563,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0fceb2ca6a94a042ca64e539ffa61d6725a3a6cc4846a284beef6d18671b4a6",
+        "sourceSHA256": "48c93bb071c3b3ff68fb9b4b08e5ac7754bd0a5142c76ee6ef360e755581cdfb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
-        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
+        "scope": "Bounded root world-space XY reference birth/draw contract, original296 first-idle Z, independent perspective snow, preserved protocol failure, current U17 and morph qualification STOP; no stale completed guard in open queue.",
+        "limitations": "No full second original296 clear/resume pixels or later layer63 origin/per-layer GPU export; no complete samples, official trajectory, HDR or performance claim. Static forensic scalar unknowns and unrelated topical sections not freshly revalidated."
       }
     },
     {
@@ -601,13 +601,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1a7a46994c3b42db90369a5e12a7e6f60cb1be0e273ef4f30bb16d268a9bad51",
+        "sourceSHA256": "fe69f4eb008f3b66496dd89c2c98eaa153071c5af2f12610759da2ac077108dc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "static child Rope变换/构造期credit、实际非零batch与退休；parent/child视觉归属和其他profile继续留队列",
-        "limitations": "文档与有界行为核对；不认领完整样本、官方视觉或CPU/GPU/RAM收益"
+        "scope": "Bounded root world-space XY reference birth/draw contract, original296 first-idle Z, independent perspective snow, preserved protocol failure, current U17 and morph qualification STOP; no stale completed guard in open queue.",
+        "limitations": "No full second original296 clear/resume pixels or later layer63 origin/per-layer GPU export; no complete samples, official trajectory, HDR or performance claim. Static forensic scalar unknowns and unrelated topical sections not freshly revalidated."
       }
     },
     {
@@ -660,10 +660,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "79cd04f5a6ff81896f40eb6d7dcb5736ca643a1369933e84a63ddb7d7f391991",
+        "sourceSHA256": "ee963a02401f6d8738585bf0e647813d4800c4485d485d8eaf61bc39925ba616",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
-        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
+        "scope": "Bounded root world-space XY reference birth/draw contract, original296 first-idle Z, independent perspective snow, preserved protocol failure, current U17 and morph qualification STOP; no stale completed guard in open queue.",
+        "limitations": "No full second original296 clear/resume pixels or later layer63 origin/per-layer GPU export; no complete samples, official trajectory, HDR or performance claim. Static forensic scalar unknowns and unrelated topical sections not freshly revalidated."
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "821388a155286888d40b8546234498e6e758061e1275f295783656a02591140c",
+        "sourceSHA256": "5d1b0acd8466dc79e305d0a1fef5953f8eb6918f6151c435ff67ad823cb5e343",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
-        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
+        "scope": "Bounded root world-space XY reference birth/draw contract, original296 first-idle Z, independent perspective snow, preserved protocol failure, current U17 and morph qualification STOP; no stale completed guard in open queue.",
+        "limitations": "No full second original296 clear/resume pixels or later layer63 origin/per-layer GPU export; no complete samples, official trajectory, HDR or performance claim. Static forensic scalar unknowns and unrelated topical sections not freshly revalidated."
       }
     },
     {
@@ -3342,10 +3342,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "553e0db0b9438768a7ab62ccd3fe917aaaec2c5d5eda16102a69a21907e4910c",
+        "sourceSHA256": "412167005dbabe544a58d4281bbf45799e1cf02dd57d3d194559e6ef696fa439",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
-        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
+        "scope": "Bounded root world-space XY reference birth/draw contract, original296 first-idle Z, independent perspective snow, preserved protocol failure, current U17 and morph qualification STOP; no stale completed guard in open queue.",
+        "limitations": "No full second original296 clear/resume pixels or later layer63 origin/per-layer GPU export; no complete samples, official trajectory, HDR or performance claim. Static forensic scalar unknowns and unrelated topical sections not freshly revalidated."
       }
     },
     {
@@ -3356,10 +3356,10 @@
       "lastReviewed": "2026-10-17",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "554a82fd63f7163a16ea652cf91ceb5fd43ddb26c7fca391a3bbe099d1b1146f",
+        "sourceSHA256": "03397e365821635c7bd944eaaca1a5bf82bc0dd787c6ffb4fc5b303130d92666",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded flat relative-transform Combined shared playback owner; retained camera and standalone behavior; exact-identity test reuse, isolated Debug, self shared-state pixels, original U17 and independent322 observations; current queue and unreviewed sample ledger.",
-        "limitations": "No full U17 hair trajectory export,403 visibility/black-figure closure,controlled audio,official same-phase/viewport,HDR or performance claim. Self absolute90degree/normalized displacement predictions unqualified; Runtime restore is API-only with no host caller. Other topical sections not freshly reviewed."
+        "scope": "Bounded root world-space XY reference birth/draw contract, original296 first-idle Z, independent perspective snow, preserved protocol failure, current U17 and morph qualification STOP; no stale completed guard in open queue.",
+        "limitations": "No full second original296 clear/resume pixels or later layer63 origin/per-layer GPU export; no complete samples, official trajectory, HDR or performance claim. Static forensic scalar unknowns and unrelated topical sections not freshly revalidated."
       }
     },
     {

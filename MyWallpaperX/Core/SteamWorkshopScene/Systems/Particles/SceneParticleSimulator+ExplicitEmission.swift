@@ -18,6 +18,8 @@ extension SceneParticleSimulator {
         var deathEvents: [SceneParticleState]
         let simulationTime: Double
         let activeInstanceOverride: SceneParticleInstanceOverride?
+        /// Includes the current root birth offset; rollback never recomputes
+        /// an emission from the callback's later transform prefix.
         let activeWorldSpaceFrame: SceneParticleWorldSpaceFrame?
         var explicitBirthEventStart: Int?
         let emitters: [SceneParticleEmitterState]
@@ -55,6 +57,8 @@ extension SceneParticleSimulator {
         var controlPointAngles: [Int: SIMD3<Double>] = [:]
         var instanceOverride: SceneParticleInstanceOverride? = nil
         var audio: SceneParticleAudioInput = .silent
+        /// The caller resolves and validates this command's exact transform
+        /// prefix, including a root-translation birth offset when applicable.
         var worldFrame: SceneParticleWorldSpaceFrame? = nil
 
         var storageBytes: Int {

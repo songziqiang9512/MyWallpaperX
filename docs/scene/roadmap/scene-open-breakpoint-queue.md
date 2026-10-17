@@ -12,7 +12,7 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，但1678的时值被误认固定tag；实际关联MDMP shape与非零scalar曲线，仍沿安全bind-pose；未完整计数原clips前不把双alpha contributor当作已证后继首错。旧335资格不能覆盖新输入；后继资格已证stride84 position.w携带19个非邻接morph ordinal，旧参考reader误多读4B；shape437是记录身份，第二blob的19个32767不是全局顶点index。packed位移、通道/曲线及混合仍unknown，不能只放reader门 | 先完成morph/scalar消费者与混合顺序顶层设计，固定MDLA/auxiliary实际边界和作者请求；复用现AnimationReader/evaluator/pose，不跳track或吞错。原包姿态需随时钟推进，保健康Puppet/旧几何失败回退。 |
+| Puppet动画auxiliary profile · 3577990983人物仍停bind-pose | 多target裁剪已恢复中央人物，原四动画因首1678 auxiliary固定tag门未全部准备。四record现已按完整边界核准：1678/2078/258/3194均有骨79/80约0.7、其余84骨exact1的alpha，确有四份consequential贡献；1678/258另有非零逐骨scalar，只有1678带keyed shape曲线。stride84 position.w的19个ordinal、MDMP两blob边界已证，437/32767不作全局顶点index；packed位移/并行通道、scalar语义及混合顺序仍unknown，不能只放reader门 | 沿原AnimationReader/evaluator/pose补完整消费者；357仍需scalar与多clip alpha。3769688830另有无scalar/隐式opaque alpha的单curve候选，但固定pose/physics及screen ROI未资格，三臂生成后STOP且未派发，不重复未知正控。官方editor当前入口不可达；受控几何runtime差分必须先有明确morph位移正控，不以静态显示补结论。原四请求、健康Puppet与几何失败回退保持，不跳track或吞错。 |
 | active effect输入/来源准入缺口 · 358/357/363增量 | **10-17真实局部回退。** 358七个slot1用途proof拒；读源已证其RGB颜色+A权重、slot2才是红mask，不可当mask放行，且未有可归因的明显缺图ROI，暂作候选；357的320另拒slot1、210 framebuilder缺insideAlpha Vec2 producer、233 Combined Timeline被parent/children门拒；363的765 Blur被whole-stage childless门拒。不是同一算法，也未将每条标签认成可见缺图 | 沿各prepared Program的首个错误身份依次裁用途/typed producer/cohort，复用原graph与compositor；不能把RGBA改当红mask、扩大capture或为效果名加旁路。先修有最大明确ROI收益者；参数/来源已满足却仍拒才扩相应通用准入。 |
 | N08 · world / 负subdivision RopeTrail | **现profile仍拒绝，行为unknown。** 3337494481十个visible复制层unavailable；原十个hidden不计故障。固定官方自有20图只证明-16可见及曲线有输出，未判负值规则或world朝向 | 已停止无区分矩阵；重启须有能裁定空间或细分合同的正控，不猜abs/clamp、不直接放开guard。static child Rope的修复不关闭本项。[资格与停止边界](../history/rope-trail-profile-qualification-2026-10-15.md) |
 | U40 · 3749463715重复Puppet拖动失效 | **释放链仍未闭合。** 已准入平移物理骨的本地translation查询与持续物理姿态已分域；非物理骨、其余matrix分量保旧。原三轮故障、官方Q4/Q5及有界native验收统一归[记录](../history/repeated-puppet-drag-qualification-2026-10-16.md)，不再重修该查询首门 | 沿唯一pose/motion owner澄清并接通实际释放的translation impulse输入、顺序和一次提交；有效但启用字段省略的骨处置只复用Q4限定观察，不推广默认。保未知方向/单位、angular/reset边界及异常fuse；最终仍须原输入三轮持续响应、释放后更新及健康邻居，不扩无区分参数矩阵。 |
@@ -42,6 +42,8 @@
 3605722997的“只见裙摆脚部”已通过单次animation=false对照归为入场视频phase：默认after约在5.29s，作者18s后才淡出；关闭入场即恢复人物/建筑，camera descriptor逐值相同。该巨大取景观察退出相机故障排期，不关闭原入场时序或其余粒子/脚本缺口。169顶部灰带沿用已证同宽高比官方亦有的边界。302背景已按上文恢复；357底栏已实际恢复；同公共修复的3616389236顶部8白块经后继实际运行恢复透明链环并正常退出，已退出队列；不能从不同viewport/声源或未完整播放直接改颜色/相机。
 
 3078285611的effect6/22/24 speed于10-16同身份读源资格后退出“缺API”修法：三者对整个scriptProperties容器做算术，健康effect5读取其中Number成员；现无原型容器不能primitive coercion，解释原toPrimitive首错。没有公开whole-container转Number特殊合同，改变原型或替换slider也未证明能产生合法速度；不认定作者错误、官方结果或样本已修。后继须取得能改变此类型判断的公共行为证据再开共享缺口，不重复numeric门。中性收据`.artifacts/tmp/307-speed-consumer-research-20261016/qualification.json`（SHA `ab21f208267dfc4ed8719cf87c338210c26e64196d1b657d4e0175e0cb158939`）。
+
+2964778792的root动态origin准备与74.stop首门已退出；自有锚定及原包第一idle黑色Z已真实可见。范围与截图协议失败归[限定后验](../capabilities/runtime-evidence-current.md#particle-root-world-translation-20261017)，不再排“只放静态门”或称整样本/全部交互通过。
 
 ## 2. 具体视觉差异：保留观察，待当前身份复验
 
@@ -92,7 +94,7 @@
 | U13 · 3042492564 | 原报告光束形状、封面右裁切/blur、布局及媒体交互尚待新基线复验。10-16已恢复默认camera倍率、星芒/海平线/塔底，1128非有限origin首错也已修；这些不关闭余项，也不把544作者ReferenceError:event列host缺口。[camera边界](../history/default-2d-camera-inputs-2026-10-16.md)、[Vec证据](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md) |
 | U14 · 2932157836 | 封面缺失、时钟及named-user旋转首门均已闭。保留10-13新观察272 cursor/timer取消owner异常待当前复验，及旧blur/精确spin样式、真实来源仲裁的具体差异；不以299旋转恢复关闭整景。[named-user证据](../history/named-user-pass-scalar-2026-10-16.md) |
 | U15 · 3299228616 | ①hover水波弱；②时钟上方矩形独立运动。分别核pointer输入与graph/变换/相机/合成空间，不抬gain掩盖 |
-| U17 · 3233141951 | 10-17已退出同层平坦relative-transform Combined的blanket拒绝，唯一owner共享播放由自有实图验收；原包默认20s后段已看，face26/dragon266持续GPU输出，但头发52/482逐帧typed值未导出，脸随头发及龙头准确轨迹仍未判官方同phase。403的animation513因static visibility拒绝，尚未对应到旧“黑色小人”ROI，沿该首owner资格；音频双色旧观察仍待同声源复验。没有目录官方截屏，不能以健康几何/profile关闭四项；[限定后验](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
+| U17 · 3233141951 | 同层平坦relative-transform Combined首门已退出；原20s face26/dragon266持续GPU输出，但头发逐帧值未导出，脸随头发/龙头准确轨迹未判同phase。403原请求513仍因当前数值污染Bool seed而拒；[单变量资格](../../../.artifacts/scene-evidence/runs/u17-animation513-qualification-20261017/manifest.json)仅把该visible改原literal true后，clip458实际播放/105份geometry已证，共享atlas及无UV证据使左侧黑形像素归属和可见收益仍UNKNOWN，已停止此修法；重启需可归因ROI或新producer证据。双色音频旧观察仍待同声源；无目录官方截屏，四项不记关闭。[Combined边界](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
 | U19 · 3807668787 | 主报告灰头冠/音频缺失已修；仅保10-11实测可见pointer轨迹958因alphatocoverage拒绝。现粒子blend/profile须取得同条件合同，不能猜替代混合。[最后证据](../history/independent-signal-producer-2026-10-11.md) |
 | U24 · 3420215721 | freeze/封面依赖首门已闭；中央环官方亮度具体差异待当前复验。349/409 circular_text默认hidden且无激活证据，不计缺字，不改作者alpha补偿。[关闭首门及边界](../history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency) |
 | U25 · 3351163962 | 时间文字跑出左上音频环；核text anchor、布局与共同parent空间。自有camera-anchor官方ZERO资格失败，没有可用于改投影的合同 |
@@ -140,7 +142,7 @@
 |---|---|
 | Timeline event-only attachment归属 | **静态反例，无真实受影响target资格。** Vec2/Vec3或numeric String可能尚未获VM control owner，却被classifier仅凭event-only吞attachment；10-16三包只见已支持Number control，资格已停。后继必须先证target及proven control owner，再复用原Timeline值源；不扩API或继续宽搜。[当前API边界](../capabilities/scenescript-api-coverage.md) |
 | 普通桌面captureFrame返回1×1 | 10-15的3766415113 daemon已呈现而ScreenCaptureKit仅1×1 JPEG，同输入Metal诊断可完整；待当前窗口frame/捕获时机复验，不把诊断替代图当普通capture已修。[原尝试](../history/shader-completed-cache-retention-2026-10-15.md#未完成边界与无效尝试) |
-| 10-17新可达脚本/粒子首错 | 296动态world origin拒后74.stop不可用，只影响静止7s的1–3个Z；须设计出生锚定，不能只放guard；359777 active Bird部分CP force缺threshold/flags2未准入；360的196/205 animated Rope纹理未支持、49.visibility notfunction。360脚本须先锁真实receiver与public合同，不能从异常标签直接补API或改变类型；具体运行/输入只归台账，不把入场phase再排camera。 |
+| 10-17新可达脚本/粒子首错 | 359777 active Bird部分CP force缺threshold/flags2未准入；360的196/205 animated Rope纹理未支持、49.visibility notfunction。360脚本须先锁真实receiver与public合同，不能从异常标签直接补API或改变类型；具体运行/输入只归台账，不把入场phase再排camera。 |
 | 粒子剩余真实unsupported profile | static depth-one child Rope的scale/预算首门已闭，原3665307769取得909/303 child段；不再保getsuga Z=2缺口。mapsequencebetweencontrolpoints、控制点约束、nested/event或非均匀child变换、深层duration/9999 delay仍按精确active child资格推进；不能拿root可见当child执行。[唯一profile合同](../capabilities/particle-component-coverage.md)、[已闭首门](../history/static-child-rope-2026-10-16.md) |
 | 光照数值合同余项 | point剖面差异、spot父级缩放及更广2D ambient/spot/directional的精确响应未取得完整公开控制；先分consumer、固定法线/位置/父变换的官方自有正控。已闭灯数/零点、shadow朝向和模型表面响应不重修；R40逐动画播放已闭，见[共享角度合同](../capabilities/advanced-object-coverage.md#standalone-spot-playback)。[光照范围](../history/2d-lit-image-light-contract-2026-10-06.md)、[模型合同](../history/static-model-light-input-semantics-2026-10-06.md) |
 | RF05及真实跨层/跨屏、异步故障组合验收 | 原property→dependency/provider闭包→Session唯一evaluation→simulationFrame→各surface独立提交→唯一compositor已分别有界执行；[readiness后验](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)不证明全部组合。物理多屏/clock、跨surface VM/粒子/Puppet cadence、late epoch/purpose、重建中拖动和异步故障仍未联验。先实际可达组合与取消/退休反例，不新增第二事务或每帧heap序列化。[输入/lifecycle范围](../capabilities/runtime-input-property-coverage.md) |

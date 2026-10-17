@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 370,
-      "bytes": 172979
+      "bytes": 173096
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -105,8 +105,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 415,
-      "bytes": 144184
+      "lines": 426,
+      "bytes": 146019
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 187,
-      "bytes": 69015
+      "lines": 188,
+      "bytes": 70250
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 363,
-      "bytes": 60272
+      "bytes": 60464
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15443
+      "bytes": 15530
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 156,
-      "bytes": 33549
+      "lines": 158,
+      "bytes": 34105
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1235,36 +1235,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "a6639b25a74b3537fe65837805dfe674fbe7df483db6e5e64c72e1917af2ce97",
-      "after": "be92d9cad9150683d8462b2b11bf5824767983940fce8114649d43380ed9cd41",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e6a07c4998c160e78e950ac580af0a0c6f552b43b31a3d93867fb83d40162321",
-      "after": "af8faa5887ac21c3570cda0406b0c6cf571c29df67bd6b714bd36be6aba1a778",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "73768b2a8119795012e8727af7a4811dc4c506bc3ba7c3ce711c7d95bfdd8f40",
       "after": "8e6cca93929eae815010cb31e462387064624001f7a94cf5b77717c3738e708e",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "1b3052fd3f013711098a4a20e69e58de9ffb6f4d8dad3a487f921bef16ba6eb7",
-      "after": "aabe363c41e157fef13abcadbf0af20e8ed0656b8213527206c9856403f56b64",
       "owner": "scene-combined-timeline-playback",
       "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
@@ -1289,24 +1262,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "d691e6d09ab49d09b868c3df449fad04cb39f60f6d5b3fd37918806009c46019",
-      "after": "0e57eba13ba60be02c219354d5d314f1566919cc6abd2b104cab24a0dcb2c4eb",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9539ea90e2fd05d2e1c8a519bbac7f33123922efdd592d01ec1e8cc1737add11",
-      "after": "58443e3b87a9a82a373d13f6b6f05cff355ecde15bfdb2eb605ecfe0a97b8ec5",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "dff73acc7a010cb8b904de6e963d531e12a79a2817035d76f15b8e9b1994087d",
       "after": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
@@ -1322,6 +1277,60 @@
       "owner": "shared-playback-audio",
       "reason": "Retire peak-adaptive response after user visual rejection; document one fixed-decibel final-height chain, real-music comparison and motion acceptance; tighten this design body budget.",
       "decision": "docs/architecture/system-audio-spectrum-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "be92d9cad9150683d8462b2b11bf5824767983940fce8114649d43380ed9cd41",
+      "after": "4355f8704dd431aa09a0580c3efb57374a890cd889959f500becae9287941eaf",
+      "owner": "scene-particle-root-world-translation",
+      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "3d7690ba0ff083c6071276305cdd43f16411f362155ddb5ca608ff6bd79f1a60",
+      "after": "c355315c2d5bf2b7f6e824c0a137eb700c1da6a4ae54beb49525833c79e1252b",
+      "owner": "scene-particle-root-world-translation",
+      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "af8faa5887ac21c3570cda0406b0c6cf571c29df67bd6b714bd36be6aba1a778",
+      "after": "f00959ed9551477a3667f92f78365c3a94ff951a88d46137434a319a156bdf35",
+      "owner": "scene-particle-root-world-translation",
+      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "aabe363c41e157fef13abcadbf0af20e8ed0656b8213527206c9856403f56b64",
+      "after": "b24698eccb0355ca8c12526b7e6e3dbdecd6471db9830a35a1951183bbbad7bf",
+      "owner": "scene-particle-root-world-translation",
+      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "0e57eba13ba60be02c219354d5d314f1566919cc6abd2b104cab24a0dcb2c4eb",
+      "after": "e560ec99c55b52af7ce93251090cd6c908868c6c8bef5c32333377c8bee02230",
+      "owner": "scene-particle-root-world-translation",
+      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "58443e3b87a9a82a373d13f6b6f05cff355ecde15bfdb2eb605ecfe0a97b8ec5",
+      "after": "b28a14d0675045d08b462ce0df7ffae1cfe5df38e0a06e5f1600e6b1d6b962fe",
+      "owner": "scene-particle-root-world-translation",
+      "reason": "Transfer the implemented fixed-reference particle contract to the existing sole authority; replace superseded root-origin rejection with bounded visual evidence and keep genuine unresolved/profile/qualification limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-translation"
     }
   ]
 }

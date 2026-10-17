@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case missingDefinition
@@ -54,6 +55,7 @@ struct SceneParticleDrawBatch {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
+    var referenceWorldFrame: simd_float4x4? = nil
     var sizeIsWorldSpace: Bool = false
 }
 

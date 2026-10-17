@@ -159,14 +159,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "主体呈现；active世界空间粒子63的动态origin拒绝，74 cursor播放调用随后失败，属同一上游缺口。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "动态origin63的准备/74.stop首门已修，原包第一idle已实际可见黑色Z；与目录官方截屏基础构图相符。复用driver因explicit拖动不生成after而保留FAIL，未重跑；后段origin/63独立GPU未导出，不称完整两轮clear/resume像素闭合。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/samples/2964778792/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/samples/2964778792/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/samples/2964778792/runtime_evidence.zip"
       ],
-      "remainingDifferences": "主体呈现；active世界空间粒子63的动态origin拒绝，74 cursor播放调用随后失败，属同一上游缺口。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "完整两轮交互、官方同viewport/时相、全部参数、HDR与性能未验收。",
       "officialComparison": "compared"
     },
     "3616389236": {
@@ -460,6 +462,20 @@
       ],
       "remainingDifferences": "脸与头发关系、龙头准确轨迹、黑色小人来源/动画及双色音频旧观察均未取得同状态关闭；目录无官方截屏，音频相位未锁。403拒绝是具体首owner候选，但可见ROI未知。完整属性、交互及Windows时序未验。",
       "officialComparison": "unknown"
+    },
+    "3742133044": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-17",
+      "reviewer": "Codex root / prepared_puppet_design_sol",
+      "note": "本片未参与修法的独立回归：原perspective粒子196进入非空提交，实际雪花位置变化，人物/红月/花背景保持；只作基础构图对照，非完整官方parity。",
+      "remainingDifferences": "官方同viewport/时相、全部参数、完整视觉/播放及HDR/性能未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/samples/2964778792/runtime_evidence.zip"
+      ]
     }
   }
 }

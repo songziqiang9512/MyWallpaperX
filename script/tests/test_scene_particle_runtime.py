@@ -26,6 +26,16 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame+LayerCamera.swift",
+    SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
+    SOURCE_ROOT / "Systems/Input/SceneLayerParallax.swift",
+    SOURCE_ROOT / "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneMatrix.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerCursorGeometry.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
@@ -125,6 +135,7 @@ HARNESS_SOURCES = [
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeEventsHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeControlPointsHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeWorldFramesHarness.swift",
+    Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeTranslationHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeWorldPointerHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeRopeHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeRenderingHarness.swift",
@@ -143,11 +154,34 @@ class SceneParticleRuntimeTests(
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-particle-runtime-")
         directory = Path(cls.temporary_directory.name)
         cls.binary = directory / "scene-particle-runtime"
+        # Compile the complete production particle model/parallax methods. This
+        # cuts unrelated image/geometry responsibilities, never their decisions.
+        model_source = (SOURCE_ROOT / "Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift").read_text()
+        def method(marker: str) -> str:
+            start = model_source.index(marker)
+            body = model_source.index("{", start)
+            depth = 1
+            end = body + 1
+            while depth:
+                depth += (model_source[end] == "{") - (model_source[end] == "}")
+                end += 1
+            return model_source[start:end]
+        model_methods = "extension SceneMetalRenderer {\n" + "\n".join(
+            method(marker) for marker in ["    func particleModelMatrix(", "    private func parallaxOffset("]
+        ) + "\n}\n"
+        harness_sources = []
+        for source in HARNESS_SOURCES:
+            if source.name == "SceneParticleRuntimeHarness.swift":
+                copied = directory / source.name
+                copied.write_text(source.read_text().replace("// PRODUCTION_PARTICLE_MODEL_METHODS", model_methods))
+                harness_sources.append(copied)
+            else:
+                harness_sources.append(source)
         compilation = subprocess.run(
             [
                 swiftc,
                 *(str(path) for path in SWIFT_SOURCES),
-                *(str(path) for path in HARNESS_SOURCES),
+                *(str(path) for path in harness_sources),
                 "-framework", "Metal",
                 "-framework", "CoreGraphics",
                 "-framework", "ImageIO",

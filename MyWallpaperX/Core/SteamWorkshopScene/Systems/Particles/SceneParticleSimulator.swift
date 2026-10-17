@@ -37,6 +37,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     private let layerImageEmissionMap: SceneParticleLayerImageEmissionMap?
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
+    let rootWorldTranslation: SceneParticleRootWorldTranslationPlan?
     private let hasWorldSpaceMovement: Bool
     /// Immutable operator admission and turbulence data prepared with the definition.
     /// Dynamic audio and speed values are still read on every frame.
@@ -109,6 +110,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         maximumEmissionDuration: Double? = nil,
         layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
+        rootWorldTranslation: SceneParticleRootWorldTranslationPlan? = nil,
         stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) {
@@ -122,6 +124,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.maximumEmissionDuration = maximumEmissionDuration
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
+        self.rootWorldTranslation = rootWorldTranslation
         self.eventColorContext = eventColorContext
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
@@ -698,6 +701,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         applyInstanceOverride(to: &particle)
         if hasWorldSpaceMovement, let activeWorldSpaceFrame {
             particle.velocity = activeWorldSpaceFrame.localDirection(particle.velocity)
+        }
+        if rootWorldTranslation != nil, let activeWorldSpaceFrame {
+            particle.position += activeWorldSpaceFrame.birthPositionOffset
         }
         particle.initialColor = particle.color
         particle.initialAlpha = particle.alpha

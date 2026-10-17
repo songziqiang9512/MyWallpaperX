@@ -304,7 +304,8 @@ extension SceneMetalRenderer {
                 let model = particleModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
                     parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration
+                    configuration: parallaxConfiguration,
+                    referenceWorldFrame: layerBatches.first?.referenceWorldFrame
                 )
                 if let depthLease = renderParticleBatches(
                     layerBatches,

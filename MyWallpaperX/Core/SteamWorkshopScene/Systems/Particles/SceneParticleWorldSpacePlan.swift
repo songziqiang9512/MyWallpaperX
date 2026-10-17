@@ -2,6 +2,7 @@ import simd
 
 nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
     let worldToLocalDirection: simd_double3x3
+    let birthPositionOffset: SIMD3<Double>
 
     nonisolated init?(worldFrame: simd_float4x4) {
         let localToWorld = simd_double3x3(columns: (
@@ -28,6 +29,12 @@ nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
               inverse.columns.1.allFinite,
               inverse.columns.2.allFinite else { return nil }
         worldToLocalDirection = inverse
+        birthPositionOffset = .zero
+    }
+
+    fileprivate init(direction: simd_double3x3, birthOffset: SIMD3<Double>) {
+        worldToLocalDirection = direction
+        birthPositionOffset = birthOffset
     }
 
     /// Author particle coordinates are Y-up while the layer world frame uses
@@ -41,6 +48,38 @@ nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
 
     nonisolated func localDirection(_ worldDirection: SIMD3<Double>) -> SIMD3<Double> {
         worldToLocalDirection * worldDirection
+    }
+}
+
+/// One immutable reference for the bounded canvas root-translation profile.
+/// Current transforms are supplied by the existing typed world-frame resolver.
+nonisolated struct SceneParticleRootWorldTranslationPlan: Equatable, Sendable {
+    let referenceWorldFrame: simd_float4x4
+    private let directionFrame: SceneParticleWorldSpaceFrame
+
+    init?(referenceWorldFrame: simd_float4x4) {
+        guard Self.isFinite(referenceWorldFrame), referenceWorldFrame.columns.3.w == 1,
+              let frame = SceneParticleWorldSpaceFrame(worldFrame: referenceWorldFrame) else { return nil }
+        self.referenceWorldFrame = referenceWorldFrame
+        directionFrame = frame
+    }
+
+    func frame(currentWorldFrame current: simd_float4x4) -> SceneParticleWorldSpaceFrame? {
+        let reference = referenceWorldFrame
+        guard Self.isFinite(current), current.columns.0 == reference.columns.0,
+              current.columns.1 == reference.columns.1, current.columns.2 == reference.columns.2,
+              current.columns.3.z == reference.columns.3.z, current.columns.3.w == 1 else { return nil }
+        let delta = SIMD3(Double(current.columns.3.x) - Double(reference.columns.3.x),
+                          Double(current.columns.3.y) - Double(reference.columns.3.y), 0)
+        let local = directionFrame.worldToLocalDirection * delta
+        let offset = SIMD3(local.x, -local.y, local.z)
+        guard Float(offset.x).isFinite, Float(offset.y).isFinite, Float(offset.z).isFinite else { return nil }
+        return .init(direction: directionFrame.worldToLocalDirection, birthOffset: offset)
+    }
+
+    private static func isFinite(_ frame: simd_float4x4) -> Bool {
+        frame.columns.0.allFinite && frame.columns.1.allFinite
+            && frame.columns.2.allFinite && frame.columns.3.allFinite
     }
 }
 
@@ -79,6 +118,10 @@ nonisolated enum SceneParticleStaticWorldSpacePlan {
         }
         return membership
     }
+}
+
+private extension SIMD4 where Scalar == Float {
+    nonisolated var allFinite: Bool { x.isFinite && y.isFinite && z.isFinite && w.isFinite }
 }
 
 private extension SIMD3 where Scalar == Double {

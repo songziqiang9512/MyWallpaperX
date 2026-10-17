@@ -1,6 +1,36 @@
+import Foundation
 import simd
 
 extension SceneRenderDescriptor {
+    /// Prepared reference and initial typed source, before simulator prewarm.
+    func particleRootWorldTranslations(initialDynamicValues: SceneDynamicSnapshot)
+        -> [Int: (plan: SceneParticleRootWorldTranslationPlan, frame: SceneParticleWorldSpaceFrame)] {
+        guard let width = camera.orthoWidth, let height = camera.orthoHeight,
+              width.isFinite, height.isFinite, width > 0, height > 0 else { return [:] }
+        let parents = Set(layers.compactMap(\.parentID))
+        let candidates = layers.filter { layer in
+            layer.contentKind == "particle" && layer.parentID == nil
+                && layer.attachmentName == nil && layer.parentAttachmentBindFrame == nil
+                && layer.childLayerIDs.isEmpty && !parents.contains(layer.id)
+                && layer.usesPerspective != true && layer.hasTransformWriter(.origin)
+                && !layer.hasTransformWriter(.angles) && !layer.hasTransformWriter(.scale)
+                && !layer.timelineDiagnostics.contains { $0.hasPrefix("origin:") }
+        }
+        guard !candidates.isEmpty else { return [:] }
+        let byID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
+        let reference = SceneLayerWorldFrameResolver.compute(
+            layers: layers, byID: byID, sceneOrthoHeight: camera.orthoHeight)
+        let current = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: self,
+            byID: byID, snapshot: initialDynamicValues, staticFrames: reference)
+        return Dictionary(uniqueKeysWithValues: candidates.compactMap { layer
+            -> (Int, (plan: SceneParticleRootWorldTranslationPlan, frame: SceneParticleWorldSpaceFrame))? in
+            guard let source = reference[layer.id], let live = current[layer.id],
+                  let plan = SceneParticleRootWorldTranslationPlan(referenceWorldFrame: source),
+                  let frame = plan.frame(currentWorldFrame: live) else { return nil }
+            return (layer.id, (plan: plan, frame: frame))
+        })
+    }
+
     /// Eligible world-space layer -> its full ancestor-chain member set.
     /// Derived with the same node facts as `staticParticleWorldSpaceFrames`.
     var staticParticleWorldSpaceChains: [Int: Set<Int>] {
@@ -42,23 +72,48 @@ extension SceneRenderDescriptor {
     }
 }
 
+extension SceneParticleRootWorldTranslationPlan {
+    func supports(definition: SceneParticleDefinition) -> Bool {
+        guard definition.flags.isWorldSpace, !definition.flags.usesPerspective,
+              definition.children.isEmpty, definition.renderers.count == 1,
+              let renderer = definition.renderers.first, renderer.kind == .sprite,
+              renderer.rawFlags == 0 || renderer.rawFlags == 1,
+              renderer.axis == nil, !renderer.hasMalformedFields,
+              renderer.unsupportedFieldNames.isEmpty,
+              renderer.orientation.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+                .map({ $0.isEmpty || $0 == "screen" }) ?? true,
+              definition.controlPoints.allSatisfy({
+                  $0.rawFlags == 0 && $0.parentControlPoint == nil && !$0.hasMalformedFields
+              }),
+              definition.emitters.allSatisfy({ $0.kind == .sphereRandom || $0.kind == .boxRandom }),
+              !definition.diagnostics.contains(where: { $0.path.hasPrefix("child") }) else { return false }
+        return definition.operators.allSatisfy { component in
+            switch component.kind {
+            case .movement, .alphaFade, .alphaChange, .sizeChange, .colorChange,
+                 .angularMovement, .oscillateAlpha, .oscillateSize: return true
+            default: return false
+            }
+        } && !definition.initializers.contains { if case .unsupported = $0.kind { return true }; return false }
+    }
+}
+
 private extension SceneRenderDescriptor.Layer {
+    func hasTransformWriter(_ host: SceneDocument.SceneObjectTimeline.Host) -> Bool {
+        let script: Bool
+        switch host {
+        case .origin: script = originHasScript == true
+        case .angles: script = anglesHasScript == true
+        case .scale: script = scaleHasScript == true
+        default: script = false
+        }
+        return script || timelines.contains { $0.host == host }
+            || timelineDiagnostics.contains { $0.hasPrefix("\(host.rawValue):") }
+    }
+
     var hasAuthoredTransformMotion: Bool {
         // Only declared transform writers make the chain dynamic: scripted
         // transform field wrappers plus transform-host timelines. Value
         // scripts (color/alpha/visibility pumps) do not move the layer.
-        if originHasScript == true || scaleHasScript == true
-            || anglesHasScript == true {
-            return true
-        }
-        let transformHosts: Set<SceneDocument.SceneObjectTimeline.Host> = [
-            .origin, .angles, .scale,
-        ]
-        if timelines.contains(where: { transformHosts.contains($0.host) }) {
-            return true
-        }
-        return timelineDiagnostics.contains { diagnostic in
-            transformHosts.contains { diagnostic.hasPrefix("\($0.rawValue):") }
-        }
+        hasTransformWriter(.origin) || hasTransformWriter(.angles) || hasTransformWriter(.scale)
     }
 }

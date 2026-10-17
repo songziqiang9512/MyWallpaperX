@@ -183,3 +183,34 @@ class SceneParticleWorldSpaceCases:
         # gravity integrates into local +Y during live advances.
         self.assertTrue(result["livePositions"])
         self.assertGreater(result["liveY"], result["liveX"] * 4)
+
+
+    def test_root_translation_preserves_birth_world_positions_and_live_view(self) -> None:
+        result = self.run_harness("worldspace-translation")
+        self.assertTrue(result["admitted"], result)
+        self.assertEqual(len(result["rows"]), 2)
+        for row in result["rows"]:
+            with self.subTest(variant=row["name"]):
+                for fact in ["admitted", "referencePublished", "localHasNoReference", "cameraViewChanged"]:
+                    self.assertTrue(row[fact], row)
+                for key, expected in [("firstWorld", [[100, 600, 0]]),
+                                      ("secondWorld", [[100, 600, 0], [140, 540, 0]]),
+                                      ("secondLocal", [[140, 540, 0], [140, 540, 0]])]:
+                    self.assertEqual(len(row[key]), len(expected), row)
+                    for actual, point in zip(row[key], expected):
+                        for value, coordinate in zip(actual, point):
+                            self.assertAlmostEqual(value, coordinate, delta=0.002, msg=str(row))
+                # These expectations use known camera/viewport/pointer values,
+                # independent of the production inverse/reference conversion.
+                for key, expected in [("parallaxOriginDelta", [0, 0]),
+                                      ("pointerDelta", [-30, 12]),
+                                      ("cameraParallaxDelta", [-4, -1])]:
+                    for actual, value in zip(row[key], expected):
+                        self.assertAlmostEqual(actual, value, delta=0.002, msg=str(row))
+
+    def test_root_translation_freezes_locally_recovers_and_rejects_adjacent_profiles(self) -> None:
+        result = self.run_harness("worldspace-translation-edges")
+        self.assertTrue(result["admitted"], result)
+        for name, value in result.items():
+            with self.subTest(fact=name):
+                self.assertTrue(value, result)

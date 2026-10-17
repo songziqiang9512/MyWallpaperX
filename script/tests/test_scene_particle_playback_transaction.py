@@ -614,6 +614,68 @@ final class SceneDesktopWallpaperSession {
             tx.discard();result["transform-prefix-native-storage-release"] = mwx_scene_quickjs_domain_particle_reserved(d.handle)==0;d.endParticlePlaybackFrame()
         }
 
+        // Each translation birth consumes the real command's VM transform prefix.
+        for (label, expression) in [("prefix", "new Vec3(12,24,0)"), ("renamed", "new Vec3(3*4,8*3,0)")] {
+            let definition = SceneParticleDefinitionParser().parse(root: [
+                "material":"\(label)-owned.json", "flags":1, "maxcount":8,
+                "emitter":[["name":"boxrandom","rate":0,"distancemax":0]],
+                "initializer":[["name":"lifetimerandom","min":2,"max":4]], "renderer":[["name":"sprite"]],
+            ])
+            let projection=SceneScriptLayerWorldTransformProjection(descriptor:descriptor,catalogSignature:label)!
+            let reference=projection.worldFrames(for:.empty(frameIndex:0))[42]!
+            let plan=SceneParticleRootWorldTranslationPlan(referenceWorldFrame:reference)!
+            func fresh()->SceneParticleSimulator {
+                SceneParticleSimulator(definition:definition,seed:503,
+                    worldSpaceFrame:plan.frame(currentWorldFrame:reference),rootWorldTranslation:plan)
+            }
+            let sim=fresh(),control=fresh(),baseline=sim.frameSnapshot()
+            let index=SceneDynamicSnapshotResolver.prepare(definitions:[
+                .init(target:.layer(layerID:42,field:.origin),valueType:.vector3,authoredValue:.vector3(0,0,0)),
+            ])
+            var prefixes:[SceneParticleWorldSpaceFrame]=[]
+            let (d,tx)=try emissionScope([sim],context:{native,_ in
+                var origin=[Double](repeating:0,count:3),scale=origin,angles=origin
+                guard mwx_scene_quickjs_owner_particle_transform(native,42,&origin,&scale,&angles)==MWX_SCENE_QUICKJS_OK else {
+                    throw SceneScriptScalarRuntimeFailure.staleOwner
+                }
+                let snapshot=SceneDynamicSnapshotResolver().resolve(frameIndex:0,generation:0,index:index,
+                    sceneScriptValues:[.layer(layerID:42,field:.origin):.vector3(origin[0],origin[1],origin[2])]).snapshot
+                guard let world=projection.worldFrames(for:snapshot)[42],let value=plan.frame(currentWorldFrame:world)
+                    else {throw SceneParticleEmissionFailure.unavailable}
+                prefixes.append(value);return .init(worldFrame:value)
+            })
+            let body="thisLayer.origin=\(expression);thisLayer.emitParticles(1);thisLayer.origin=new Vec3(36,48,0);thisLayer.emitParticles(1);"
+            let throwing=try owner(d,"export function update(v){\(body)throw Error('owned reject');}")
+            do {_=try evaluate(throwing);result["translation-throw-\(label)"]=false}
+            catch {result["translation-throw-\(label)"] = sim.particles==baseline.particles
+                && sim.frameSnapshot().random.state==baseline.random.state && sim.frameSnapshot().nextParticleID==baseline.nextParticleID
+                && mwx_scene_quickjs_owner_particle_playback_command_count(throwing.handle)==0}
+            prefixes.removeAll()
+            let healthy=try owner(d,"export function update(v){\(body)return v;}",.particle(layerID:42,field:.count))
+            let discarded=try evaluate(healthy)
+            result["translation-preview-uncommitted-\(label)"] = discarded.particlePlaybackCommands.count==2
+                && sim.particles.isEmpty && sim.frameSnapshot().random.state==baseline.random.state && sim.frameSnapshot().nextParticleID==0
+            healthy.discardLayerMutations();tx.discard();prefixes.removeAll()
+            let retried=try evaluate(healthy),actual=Array(prefixes.suffix(2))
+            let admitted=prepareEmission(SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[42]),
+                tx,[effects(healthy,retried)],sim)
+            tx.install()
+            result["translation-prefix-\(label)"] = admitted.externallyRejectedOwners.isEmpty && actual.count==2
+                && sim.particles.map(\.id)==[0,1] && sim.particles.count==2
+                && abs(sim.particles[0].position.x-12)<1e-9 && abs(sim.particles[0].position.y+24)<1e-9
+                && abs(sim.particles[1].position.x-36)<1e-9 && abs(sim.particles[1].position.y+48)<1e-9
+            for context in actual {try control.emitExplicitly(count:1,context:.init(worldFrame:context)){_ in}}
+            result["translation-discard-retry-rng-id-\(label)"] = sim.particles==control.particles
+                && sim.frameSnapshot().random.state==control.frameSnapshot().random.state
+                && sim.frameSnapshot().nextParticleID==control.frameSnapshot().nextParticleID
+            let committed=sim.frameSnapshot()
+            let bad=try owner(d,"export function update(v){thisLayer.origin=new Vec3(0,0,1);thisLayer.emitParticles(1);return v;}")
+            do {_=try evaluate(bad);result["translation-bad-frame-\(label)"]=false}
+            catch {result["translation-bad-frame-\(label)"] = sim.particles==committed.particles
+                && sim.frameSnapshot().random.state==committed.random.state && sim.frameSnapshot().nextParticleID==committed.nextParticleID}
+            tx.discard();result["translation-storage-release-\(label)"] = mwx_scene_quickjs_domain_particle_reserved(d.handle)==0
+            d.endParticlePlaybackFrame()
+        }
         for count in [64,65] {
             let sim=try simulator(start:0), before=sim.frameSnapshot()
             let (d,tx)=try emissionScope([sim])
@@ -707,9 +769,9 @@ class ParticlePlaybackTransactionTests(unittest.TestCase):
             # Replace only the existing VM fixture's particle-value stand-ins
             # with the actual definitions used by the real simulator.
             start=SWIFT_PREAMBLE.index("enum SceneParticleNumericValue:")
-            end=SWIFT_PREAMBLE.index("struct SceneRenderDescriptor",start)
+            end=SWIFT_PREAMBLE.index("struct SceneDocument",start)
             preamble=SWIFT_PREAMBLE[:start]+SWIFT_PREAMBLE[end:]
-            source=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
+            source=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift").read_text()
             projection=source[source.index("extension SceneDesktopWallpaperSession {\n    func particlePlaybackObservations("):]
             harness=HARNESS.replace("// PRODUCTION_SESSION_PROJECTION",projection)
             binary=compile_vector_harness(Path(raw),harness,"particle-transaction",

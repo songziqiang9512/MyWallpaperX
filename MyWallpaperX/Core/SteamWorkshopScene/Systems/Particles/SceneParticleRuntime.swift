@@ -3,8 +3,8 @@ import Metal
 import simd
 
 /// Owns the CPU state and GPU instance buffers for effectively visible particle layers.
-/// Particle positions and sizes stay in the author-defined layer-local coordinate system.
-/// The renderer applies the layer world frame, Y-axis convention, and layer scale once.
+/// Positions remain local for legacy systems, or in one immutable reference
+/// for admitted root translations. The renderer applies that chosen frame once.
 final class SceneParticleRuntime {
     private let descriptor: SceneRenderDescriptor
     private let visibilityLayersByID: [Int: SceneRenderDescriptor.Layer]
@@ -42,6 +42,7 @@ final class SceneParticleRuntime {
     /// world frame; the system then simulates with a zero delta so its last
     /// committed particle state keeps rendering (previous-current).
     private let worldSpaceChains: [Int: Set<Int>]
+    private var rootWorldTranslationPlans: [Int: SceneParticleRootWorldTranslationPlan] = [:]
     /// Particle layers whose simulation actually converts through the world
     /// frame: root world-space flags/movement or any admitted child
     /// template with them. The freeze/re-adopt transaction applies only to
@@ -103,7 +104,12 @@ final class SceneParticleRuntime {
         var points = dynamicValues.particleControlPoints(layerID: layerID)
         points.merge(root.definition.pointerControlPointValues(at: pointerLocalPosition,
             identities: root.pointerControlPointIdentities)) { _, pointer in pointer }
-        let world = worldFrame.flatMap(SceneParticleWorldSpaceFrame.init(worldFrame:))
+        let world = worldFrame.flatMap { current in
+            if let plan = rootWorldTranslationPlans[layerID] {
+                return plan.frame(currentWorldFrame: current)
+            }
+            return SceneParticleWorldSpaceFrame(worldFrame: current)
+        }
         if worldSpaceRequiringLayerIDs.contains(layerID), world == nil {
             throw SceneParticleEmissionFailure.unavailable
         }
@@ -197,6 +203,7 @@ final class SceneParticleRuntime {
             ?? descriptor.staticParticleWorldSpaceFrames
         worldSpaceChains = staticWorldSpaceChains
             ?? descriptor.staticParticleWorldSpaceChains
+        let preparedTranslations = descriptor.particleRootWorldTranslations(initialDynamicValues: initialDynamicValues)
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
             (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
@@ -285,7 +292,11 @@ final class SceneParticleRuntime {
                 continue
             }
             let layerImageMap = layerImageEmissionMaps[layer.id]
-            let worldSpaceFrame = staticWorldSpaceFrames[layer.id]
+            let translation = staticWorldSpaceFrames[layer.id] == nil
+                ? preparedTranslations[layer.id].flatMap {
+                    $0.plan.supports(definition: asset.definition) && asset.refraction == nil ? $0 : nil
+                } : nil
+            let worldSpaceFrame = staticWorldSpaceFrames[layer.id] ?? translation?.frame
             guard !asset.definition.flags.isWorldSpace || worldSpaceFrame != nil else {
                 addDiagnostic(
                     kind: .worldSpaceUnsupported,
@@ -374,6 +385,7 @@ final class SceneParticleRuntime {
                     path: path,
                     layerImageMap: layerImageMap,
                     worldSpaceFrame: worldSpaceFrame,
+                    rootWorldTranslation: translation?.plan,
                     initialDynamicValues: initialDynamicValues,
                     initialPlayback: initialPlayback[layer.id] ?? .init(),
                     textureLoader: textureLoader,
@@ -392,6 +404,7 @@ final class SceneParticleRuntime {
                 rootRender: rootRender,
                 childRuntime: retainedChildRuntime
             ))
+            if let translation { rootWorldTranslationPlans[layer.id] = translation.plan }
             if !rootRender.pointerControlPointIdentities.isEmpty
                 || childRuntime.hasPointerControlPointConsumer {
                 pointerDemandLayerIDs.insert(layer.id)
@@ -423,10 +436,24 @@ final class SceneParticleRuntime {
         dynamicValues: SceneDynamicSnapshot,
         layerWorldFrames: [Int: simd_float4x4]
     ) -> [Int: SceneParticleWorldSpaceFrame] {
-        guard !worldSpaceChains.isEmpty else { return [:] }
-        let transformLayerIDs = dynamicValues.dynamicTransformLayerIDsForFrame
-        guard !transformLayerIDs.isEmpty || !frozenWorldSpaceLayerIDs.isEmpty else { return [:] }
         var liveFrames: [Int: SceneParticleWorldSpaceFrame] = [:]
+        for (layerID, plan) in rootWorldTranslationPlans {
+            if let current = layerWorldFrames[layerID], let frame = plan.frame(currentWorldFrame: current) {
+                liveFrames[layerID] = frame
+                if frozenWorldSpaceLayerIDs.remove(layerID) != nil {
+                    addDiagnostic(kind: .simulationLimitation, layerID: layerID,
+                        path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
+                        detail: "world-space root translation resumed")
+                }
+            } else if frozenWorldSpaceLayerIDs.insert(layerID).inserted {
+                addDiagnostic(kind: .simulationLimitation, layerID: layerID,
+                    path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
+                    detail: "world-space root translation frozen: invalid current frame")
+            }
+        }
+        guard !worldSpaceChains.isEmpty else { return liveFrames }
+        let transformLayerIDs = dynamicValues.dynamicTransformLayerIDsForFrame
+        guard !transformLayerIDs.isEmpty || !frozenWorldSpaceLayerIDs.isEmpty else { return liveFrames }
         for (layerID, chain) in worldSpaceChains
         where worldSpaceRequiringLayerIDs.contains(layerID)
             && (frozenWorldSpaceLayerIDs.contains(layerID)
@@ -503,7 +530,8 @@ final class SceneParticleRuntime {
                 layerID: layerID
             )
             let dynamicOverride = dynamicValues.particleInstanceValues(layerID: layerID)
-            if isVisible, let root = layers[index].rootRender {
+            if isVisible, let root = layers[index].rootRender,
+               !(rootWorldTranslationPlans[layerID] != nil && frozenWorldSpaceLayerIDs.contains(layerID)) {
                 var rootControlPoints = dynamicControlPoints
                 let pointerValues = root.definition.pointerControlPointValues(
                     at: pointerLocalPositions[layerID],
@@ -592,6 +620,7 @@ final class SceneParticleRuntime {
                 orientation: root.orientation,
                 orientationAxis: root.orientationAxis,
                 usesPerspective: root.usesPerspective,
+                referenceWorldFrame: root.simulator.rootWorldTranslation?.referenceWorldFrame,
                 sizeIsWorldSpace: root.definition.flags.isWorldSpace
             ))
             layers[index].rootRender = root
@@ -797,6 +826,7 @@ final class SceneParticleRuntime {
         path: String,
         layerImageMap: SceneParticleLayerImageEmissionMap?,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
+        rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
         textureLoader: SceneTextureLoader,
@@ -870,6 +900,7 @@ final class SceneParticleRuntime {
             prewarmStepBudget: 3_600,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
+            rootWorldTranslation: rootWorldTranslation,
             stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
         )
         return SceneParticleRootRenderRuntime(

@@ -60,7 +60,17 @@ final class SceneParticlePlaybackState {
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
         self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
-        self.batches = runtime.advance(by: 0, dynamicValues: initialDynamicValues)
+        let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        let initialWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: descriptor, byID: layersByID, snapshot: initialDynamicValues,
+            staticFrames: SceneLayerWorldFrameResolver.compute(
+                layers: descriptor.layers, byID: layersByID,
+                sceneOrthoHeight: descriptor.camera.orthoHeight
+            )
+        )
+        self.batches = runtime.advance(
+            by: 0, dynamicValues: initialDynamicValues, layerWorldFrames: initialWorldFrames
+        )
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
     }
 

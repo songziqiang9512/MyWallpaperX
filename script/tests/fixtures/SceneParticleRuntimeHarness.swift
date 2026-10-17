@@ -26,10 +26,28 @@ struct SceneRenderDescriptor: Codable {
         let contentKind: String
         let particlePath: String?
         let particleInstanceOverride: SceneParticleInstanceOverride?
-        let parentID: Int?
+        var parentID: Int?
         let visible: Bool?
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let alpha: Double?
+        var originXYZ: [Float]? = nil
+        var scaleXYZ: [Float]? = nil
+        var anglesXYZ: [Float]? = nil
+        var originHasScript: Bool? = nil
+        var scaleHasScript: Bool? = nil
+        var anglesHasScript: Bool? = nil
+        var attachmentName: String? = nil
+        var parentAttachmentBindFrame: [Float]? = nil
+        var childLayerIDs: [Int] = []
+        var usesPerspective: Bool? = nil
+        var timelines: [SceneDocument.SceneObjectTimeline] = []
+        var timelineDiagnostics: [String] = []
+        var parallaxDepthXY: [Float]? = nil
+        var disablesParallaxPropagation = false
+        var utilityLayer: Bool? = nil
+        var hasPerspectiveGeometryConsumer: Bool { false }
+        var cameraPath: CameraPath? = nil
+        struct CameraPath: Codable { let camera: String; let fov: Double? }
     }
 
     struct MaterialPassDescriptor: Codable {
@@ -81,22 +99,62 @@ struct SceneRenderDescriptor: Codable {
         }
     }
 
-    let layers: [Layer]
+    struct CameraDescriptor: Codable {
+        var eye: [Float] = [0, 0, 0]
+        var center: [Float] = [0, 0, -1]
+        var up: [Float] = [0, 1, 0]
+        var orthoWidth: Float? = nil
+        var orthoHeight: Float? = nil
+        var fovDegrees: Float? = nil
+        var perspectiveOverrideFOVDegrees: Float? = nil
+        var nearZ: Float = 0.01
+        var farZ: Float = 10000
+        var default2DOriginInputLayerID: Int? = nil
+    }
+    var camera = CameraDescriptor()
+    var layers: [Layer]
     let renderOrderLayerIDs: [Int]
     let materialPasses: [MaterialPassDescriptor]
 
-    var staticParticleWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame] {
-        Dictionary(uniqueKeysWithValues: layers.map {
-            ($0.id, SceneParticleWorldSpaceFrame(worldFrame: matrix_identity_float4x4)!)
-        })
-    }
 
-    var staticParticleWorldSpaceChains: [Int: Set<Int>] {
-        Dictionary(uniqueKeysWithValues: layers.map { ($0.id, [$0.id]) })
+}
+
+// Default absent external metadata exactly as the carrier did before this gate.
+extension SceneRenderDescriptor.Layer {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(Int.self, forKey: .id),
+            name: try c.decodeIfPresent(String.self, forKey: .name),
+            contentKind: try c.decode(String.self, forKey: .contentKind),
+            particlePath: try c.decodeIfPresent(String.self, forKey: .particlePath),
+            particleInstanceOverride: try c.decodeIfPresent(SceneParticleInstanceOverride.self, forKey: .particleInstanceOverride),
+            parentID: try c.decodeIfPresent(Int.self, forKey: .parentID),
+            visible: try c.decodeIfPresent(Bool.self, forKey: .visible),
+            alpha: try c.decodeIfPresent(Double.self, forKey: .alpha))
+        displayScriptOwnership = try c.decodeIfPresent(SceneLayerDisplayScriptOwnership.self, forKey: .displayScriptOwnership)
+        originXYZ = try c.decodeIfPresent([Float].self, forKey: .originXYZ)
+        scaleXYZ = try c.decodeIfPresent([Float].self, forKey: .scaleXYZ)
+        anglesXYZ = try c.decodeIfPresent([Float].self, forKey: .anglesXYZ)
+        originHasScript = try c.decodeIfPresent(Bool.self, forKey: .originHasScript)
+        scaleHasScript = try c.decodeIfPresent(Bool.self, forKey: .scaleHasScript)
+        anglesHasScript = try c.decodeIfPresent(Bool.self, forKey: .anglesHasScript)
+        attachmentName = try c.decodeIfPresent(String.self, forKey: .attachmentName)
+        parentAttachmentBindFrame = try c.decodeIfPresent([Float].self, forKey: .parentAttachmentBindFrame)
+        childLayerIDs = try c.decodeIfPresent([Int].self, forKey: .childLayerIDs) ?? []
+        timelines = try c.decodeIfPresent([SceneDocument.SceneObjectTimeline].self, forKey: .timelines) ?? []
+        timelineDiagnostics = try c.decodeIfPresent([String].self, forKey: .timelineDiagnostics) ?? []
+        usesPerspective = try c.decodeIfPresent(Bool.self, forKey: .usesPerspective)
+        parallaxDepthXY = try c.decodeIfPresent([Float].self, forKey: .parallaxDepthXY)
+        disablesParallaxPropagation = try c.decodeIfPresent(Bool.self, forKey: .disablesParallaxPropagation) ?? false
     }
 }
 
+// Carriers only: admission and all world/translation math below are product sources.
 struct SceneDocument {
+    struct SceneObjectTimeline: Codable {
+        enum Host: String, Codable { case origin, angles, scale }
+        let host: Host
+    }
     struct ShaderValue: Codable {
         let rawValue: String
         let valueKind: String
@@ -180,6 +238,10 @@ enum Harness {
             try printJSON(syntheticEventFollow())
         case "nested-synthetic":
             try printJSON(syntheticNestedChildren())
+        case "worldspace-translation":
+            try printJSON(translationAnchoring())
+        case "worldspace-translation-edges":
+            try printJSON(translationEdges())
         case "worldspace-freeze":
             try printJSON(syntheticWorldSpaceFreeze())
         case "worldspace-freeze-recovery":
@@ -550,3 +612,10 @@ enum Harness {
         case imageWrite
     }
 }
+
+// Only the two complete production methods are inserted by the Python compiler
+// fixture. The image/geometry encoder responsibilities are outside this gate.
+struct SceneMetalRenderer {
+    let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
+}
+// PRODUCTION_PARTICLE_MODEL_METHODS
