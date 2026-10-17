@@ -178,6 +178,7 @@ extension SteamWorkshopToolbarController {
             width: SteamWorkshopFilterPanelController.panelWidth,
             height: filterPanelController.preferredPanelHeight
         )
+        filterScrollDismissal.watch(relativeTo: anchorView)
         filterPanelPopover.show(
             relativeTo: positioningRect,
             of: anchorView,
@@ -258,6 +259,13 @@ extension SteamWorkshopToolbarController {
                     service.downloadsSortAscending = false
                     self?.configureDownloadsSortItem()
                 }
+            ))
+            rows.append(.separator())
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "成人内容",
+                kind: .check,
+                isChecked: service.downloadsShowsAdultContent,
+                handler: { service.downloadsShowsAdultContent.toggle() }
             ))
             return rows
         }

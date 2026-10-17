@@ -38,6 +38,7 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
     }
 
     private let popover = NSPopover()
+    private lazy var scrollDismissal = ToolbarPopoverScrollDismissal(popover: popover)
     private weak var anchoredView: NSView?
     private var contentProvider: (() -> [Row])?
     private let rowsViewController = ToolbarMenuRowsViewController()
@@ -81,6 +82,7 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         anchoredView = anchor
         contentProvider = provider
         reload(provider())
+        scrollDismissal.watch(relativeTo: resolvedAnchor)
         popover.show(relativeTo: positioningRect, of: resolvedAnchor, preferredEdge: .maxY)
     }
 
@@ -116,6 +118,74 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
             reload(contentProvider())
         default:
             break
+        }
+    }
+}
+
+/// A dimming overlay can consume a gesture on the grid's behalf. Only a hit
+/// on that surface itself counts; scrolling its inspector children does not.
+protocol ToolbarGridScrollDismissalSurface: AnyObject {}
+
+/// Shared by all toolbar popovers, including the dedicated Steam panels.
+/// Observe real wheel input only while presented; layout/scroll restoration
+/// must not dismiss menus, and the original event still reaches the grid.
+@MainActor
+final class ToolbarPopoverScrollDismissal {
+    private weak var popover: NSPopover?
+    private weak var sourceWindow: NSWindow?
+    private var monitor: Any?
+    private var closeObserver: NSObjectProtocol?
+
+    init(popover: NSPopover) {
+        self.popover = popover
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSPopover.willCloseNotification, object: popover, queue: .main
+        ) { [weak self] _ in self?.stop() }
+    }
+
+    deinit {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
+    }
+
+    func watch(relativeTo anchor: NSView) {
+        stop()
+        guard let window = anchor.window else { return }
+        sourceWindow = window
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            self?.handleScroll(event)
+            return event
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        sourceWindow = nil
+    }
+
+    private func handleScroll(_ event: NSEvent) {
+        guard event.type == .scrollWheel, let window = sourceWindow,
+              event.window === window, let content = window.contentView else { return }
+        let point = content.convert(event.locationInWindow, from: nil)
+        guard content.bounds.contains(point) else { return }
+        let hit = content.hitTest(content.convert(point, to: content.superview))
+        dismissIfGridScroll(in: window, target: hit)
+    }
+
+    func dismissIfGridScroll(in window: NSWindow?, target: NSView?) {
+        guard let popover, popover.isShown, let sourceWindow, window === sourceWindow else { return }
+        if target is ToolbarGridScrollDismissalSurface {
+            popover.performClose(nil)
+            return
+        }
+        var candidate = target
+        while let view = candidate {
+            if view is NSCollectionView || (view as? NSScrollView)?.documentView is NSCollectionView {
+                popover.performClose(nil)
+                return
+            }
+            candidate = view.superview
         }
     }
 }

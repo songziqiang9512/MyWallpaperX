@@ -1,5 +1,17 @@
 import Foundation
 
+/// Classify only official metadata tags, never titles or author project tags.
+enum SteamWorkshopContentRatingSupport {
+    static func hasAdultContent(tags: [String]) -> Bool {
+        tags.contains { tag in
+            switch tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "mature", "nudity": return true
+            default: return false
+            }
+        }
+    }
+}
+
 extension SteamWorkshopAgeRatingFilter {
     func allows(tags: [String]) -> Bool {
         guard self != .all else { return true }

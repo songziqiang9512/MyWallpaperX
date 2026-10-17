@@ -31,6 +31,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     private var deletionBatchReloadGeneration: Int?
     private var isLayoutItemSizeUpdateScheduled = false
     private var pendingPostDeletionSelectionIndex: Int?
+    private var pendingPostDeletionSelectionGeneration: Int?
     private var reloadEntriesTask: Task<Void, Never>?
     private var reloadEntriesGeneration: Int = 0
     private var sortMode: WallpaperSortMode = {
@@ -284,6 +285,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
                 self.sortAscending = ascending
                 UserDefaults.standard.set(ascending, forKey: "OLDownloadsSortAscending")
             }
+            self.pendingPostDeletionSelectionIndex = nil
             self.reloadEntries()
         }
         observers.append(sortObserver)
@@ -293,6 +295,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         ) { [weak self] notification in
             guard let self else { return }
             let q = notification.userInfo?["query"] as? String ?? ""
+            self.pendingPostDeletionSelectionIndex = nil
             self.searchQuery = q
             self.applyFilterAndSnapshot()
         }
@@ -330,6 +333,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         reloadEntriesTask?.cancel()
         reloadEntriesGeneration += 1
         let generation = reloadEntriesGeneration
+        if pendingPostDeletionSelectionIndex != nil { pendingPostDeletionSelectionGeneration = generation }
         // 弱引用持有 self：容器可在扫描运行中被释放，deinit 的 cancel 才能真正
         // 取消后台扫描，而不是被 task 的强持有反过来钉住延迟释放。
         reloadEntriesTask = Task.detached(priority: .userInitiated) { [weak self] in
@@ -344,6 +348,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     @objc private func handleSearchFieldChanged(_ sender: NSSearchField) {
+        pendingPostDeletionSelectionIndex = nil
         let q = sender.stringValue
         searchQuery = q
         applyFilterAndSnapshot()
@@ -386,6 +391,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     private func applySnapshot(ids: [Int]) {
+        let snapshotGeneration = reloadEntriesGeneration
         let isReorder = !lastAppliedSnapshotIDs.isEmpty
             && ids.count == lastAppliedSnapshotIDs.count
             && Set(ids) == Set(lastAppliedSnapshotIDs)
@@ -402,7 +408,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         dataSource.apply(snapshot, animatingDifferences: shouldAnimate) { [weak self] in
             guard let self else { return }
             self.lastAppliedSnapshotIDs = ids
-            self.resolveSelectionAfterSnapshot()
+            self.resolveSelectionAfterSnapshot(generation: snapshotGeneration)
             self.reloadVisibleSelectionItems(forceReload: true)
             self.refreshVisiblePlaybackItems(forceReload: true)
         }
@@ -457,6 +463,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     func selectAll() {
+        pendingPostDeletionSelectionIndex = nil
         // 未进入多选模式时自动先进入，对齐视频库/图片库行为
         if !isMultiSelectMode {
             isMultiSelectMode = true
@@ -476,6 +483,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     func toggleMultiSelect() {
+        pendingPostDeletionSelectionIndex = nil
         isMultiSelectMode.toggle()
         if isMultiSelectMode {
             selectedIDs = []
@@ -493,7 +501,6 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         guard !targets.isEmpty else { return }
         let all = entries
         let currentIndex = all.firstIndex { $0.id == (primarySelectedID ?? targets.first!) } ?? 0
-        pendingPostDeletionSelectionIndex = currentIndex
         // 记录删除前的 reload 代数：删除引发的 @Published 变更经 receive(on:) 异步
         // 投递，布尔标志等不到它们抵达，代计数才能与显式 reloadEntries 对齐。
         let batchGeneration = reloadEntriesGeneration
@@ -503,6 +510,8 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
             let local = OLLocalFile(url: entry.localURL, fileSize: 0, creationDate: Date())
             OnlineLibraryService.shared.deleteLocalFile(local)
         }
+        if isMultiSelectMode { toggleMultiSelect() }
+        pendingPostDeletionSelectionIndex = currentIndex
         reloadEntries()
         // deleteLocalFile 在主线程同步发射，删除产生的投递都排在下面这个异步块之前；
         // 排空后关闭窗口，之后的无关变更照常触发重载。
@@ -580,6 +589,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     func moveSelectionByArrowKey(_ keyCode: UInt16) {
+        pendingPostDeletionSelectionIndex = nil
         guard !orderedIDs.isEmpty else { return }
         guard let currentID = primarySelectedID ?? orderedIDs.first,
               let idx = orderedIDs.firstIndex(of: currentID) else { return }
@@ -608,6 +618,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
     private func handlePrimaryClick(indexPath: IndexPath, event: NSEvent) {
         guard indexPath.item < orderedIDs.count else { return }
+        pendingPostDeletionSelectionIndex = nil
         let id = orderedIDs[indexPath.item]
         if isMultiSelectMode {
             if selectedIDs.contains(id) {
@@ -685,6 +696,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
     private func makeContextMenu(for indexPath: IndexPath?) -> NSMenu? {
         if let indexPath, indexPath.item < orderedIDs.count {
+            pendingPostDeletionSelectionIndex = nil
             let id = orderedIDs[indexPath.item]
             selectedAnchorID = id
             if !isMultiSelectMode || !selectedIDs.contains(id) {
@@ -776,6 +788,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
     private func syncSelectionFromQuickLook(id: Int) {
         guard orderedIndexByID[id] != nil else { return }
+        pendingPostDeletionSelectionIndex = nil
         selectedAnchorID = id
         selectedIDs = [id]
         reloadVisibleSelectionItems()
@@ -785,6 +798,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
     private func handleBackgroundClick() {
         guard !isMultiSelectMode else { return }
+        pendingPostDeletionSelectionIndex = nil
         selectedIDs = []
         selectedAnchorID = nil
         reloadVisibleSelectionItems()
@@ -810,9 +824,12 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
-    private func resolveSelectionAfterSnapshot() {
-        guard let desiredIndex = pendingPostDeletionSelectionIndex else { return }
+    private func resolveSelectionAfterSnapshot(generation: Int) {
+        guard let desiredIndex = pendingPostDeletionSelectionIndex,
+              pendingPostDeletionSelectionGeneration == generation,
+              reloadEntriesGeneration == generation else { return }
         pendingPostDeletionSelectionIndex = nil
+        pendingPostDeletionSelectionGeneration = nil
         guard !orderedIDs.isEmpty else {
             selectedAnchorID = nil
             selectedIDs = []

@@ -61,9 +61,12 @@ extension SteamWorkshopService {
     }
 
     func deleteSelectedDownload() {
-        let targetIDs = Array(effectiveSelectedDownloadIDs)
+        let targetIDs = Array(effectiveSelectedDownloadIDs.subtracting(removingDownloadIDs))
         guard !targetIDs.isEmpty else { return }
         deleteDownloads(itemIDs: targetIDs)
+        // End the accepted bulk command now, so its asynchronous completion
+        // cannot later clear a new selection session started by the user.
+        if isDownloadsMultiSelectMode { exitDownloadsMultiSelectMode() }
     }
 
     func selectAllDownloads() {

@@ -3183,6 +3183,25 @@
         "test_steam_download_card_progress_diff",
         "test_steam_browse_failure_footer"
       ]
+    },
+    {
+      "id": "library-toolbar-interactions",
+      "patterns": [
+        "MyWallpaperX/Shell/UIActionHelper.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Removal.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadFiltering.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadSelection.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+SteamKitBrowse.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView.swift",
+        "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
+      ],
+      "modules": ["test_library_toolbar_behaviors"]
     }
   ],
   "method_gates": {

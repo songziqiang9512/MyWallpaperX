@@ -24,6 +24,10 @@ extension SteamWorkshopService {
             }
         }
         let visible = modeFiltered.filter { record in
+            if !downloadsShowsAdultContent, let item = record.browserItem,
+               item.hasAdultContent || SteamWorkshopContentRatingSupport.hasAdultContent(tags: item.tags) {
+                return false
+            }
             switch record.status {
             case .ready, .failed:
                 return true

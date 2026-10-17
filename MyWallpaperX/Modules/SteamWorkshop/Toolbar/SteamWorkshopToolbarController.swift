@@ -29,6 +29,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         popover.animates = true
         return popover
     }()
+    private(set) lazy var filterScrollDismissal = ToolbarPopoverScrollDismissal(popover: filterPanelPopover)
     private(set) lazy var filterPanelController = SteamWorkshopFilterPanelController(service: .shared)
 
     private(set) var isSteamWorkshopMode = false

@@ -30,6 +30,9 @@ extension WallpaperManager {
             completion?(WallpaperDeletionSummary(requestedCount: 0, removedCount: 0, failures: []))
             return
         }
+        // Close this accepted command before any background cleanup. Its later
+        // completion only removes retired IDs from whatever selection is current.
+        if isMultiSelectMode { clearSelectionState() }
 
         switch scope {
         case .library:
@@ -294,10 +297,6 @@ extension WallpaperManager {
         }
 
         selectedWallpaperIds.subtract(removedIDs)
-
-        if isMultiSelectMode {
-            clearSelectionState()
-        }
     }
 
     func clearCurrentWallpaperReference() {

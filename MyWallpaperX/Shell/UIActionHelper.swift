@@ -64,7 +64,6 @@ enum UIActionHelper {
                 )
                 presentAppAlert(failureAlert, in: resolvedHostWindow(window))
             }
-            exitMultiSelectIfNeeded(manager: manager)
         }
     }
 
@@ -90,7 +89,6 @@ enum UIActionHelper {
             )
             presentAppAlert(failureAlert, in: resolvedHostWindow(window))
         }
-        exitMultiSelectIfNeeded(manager: manager)
     }
 
     static func toggleFavoriteSelection(

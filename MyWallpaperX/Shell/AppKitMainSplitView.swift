@@ -627,7 +627,7 @@ private final class InspectorDetailContainerViewController: NSViewController {
     }
 }
 
-private final class InspectorOverlayPassthroughView: NSView {
+private final class InspectorOverlayPassthroughView: NSView, ToolbarGridScrollDismissalSurface {
     var isActive = false
 
     override init(frame frameRect: NSRect) {

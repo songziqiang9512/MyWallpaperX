@@ -6,6 +6,7 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
     static let panelSize = NSSize(width: 400, height: 460)
 
     private let popover = NSPopover()
+    private lazy var scrollDismissal = ToolbarPopoverScrollDismissal(popover: popover)
     private let contentController: SteamWorkshopDownloadTasksContentController
 
     init(service: SteamWorkshopService) {
@@ -29,6 +30,7 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
             return
         }
         contentController.startObserving()
+        scrollDismissal.watch(relativeTo: view)
         popover.show(relativeTo: positioningRect ?? view.bounds, of: view, preferredEdge: .maxY)
     }
 

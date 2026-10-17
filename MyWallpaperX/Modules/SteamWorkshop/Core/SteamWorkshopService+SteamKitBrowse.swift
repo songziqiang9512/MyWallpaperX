@@ -513,7 +513,7 @@ extension SteamWorkshopBrowserItem {
             author: item.creatorName ?? "",
             authorProfileURL: authorProfileURL,
             authorWorkshopURL: authorWorkshopURL,
-            hasAdultContent: item.tags.contains(where: { $0.caseInsensitiveCompare("Mature") == .orderedSame }),
+            hasAdultContent: SteamWorkshopContentRatingSupport.hasAdultContent(tags: item.tags),
             summary: "",
             descriptionText: "",
             tags: item.tags,
@@ -591,9 +591,7 @@ extension SteamWorkshopBrowserItem {
             author: author,
             authorProfileURL: authorProfileURL,
             authorWorkshopURL: authorWorkshopURL,
-            hasAdultContent: fallback.hasAdultContent || tags.contains(where: {
-                $0.caseInsensitiveCompare("Mature") == .orderedSame
-            }),
+            hasAdultContent: fallback.hasAdultContent || SteamWorkshopContentRatingSupport.hasAdultContent(tags: tags),
             summary: summary,
             descriptionText: description.isEmpty ? summary : description,
             tags: tags,

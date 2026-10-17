@@ -127,6 +127,9 @@ final class SteamWorkshopService: ObservableObject {
     @Published var downloadsSortAscending: Bool = false {
         didSet { refreshDisplayedDownloads() }
     }
+    @Published var downloadsShowsAdultContent = true {
+        didSet { refreshDisplayedDownloads() }
+    }
     @Published var zoomOffset: Int = 0
     @Published var statusMessage: String = "浏览页使用 SteamKit 结构化数据展示 Wallpaper Engine 创意工坊内容。"
     @Published var currentWorkshopItemID: String?
