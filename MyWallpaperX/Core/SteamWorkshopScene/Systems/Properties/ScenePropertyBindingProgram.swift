@@ -297,7 +297,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         case let (.scalar, .number(number)):
             return number.isFinite ? .success(.scalar(number)) : .failure(.nonFinite)
         case let (.vector3, .string(string)):
-            return parseColor(string)
+            return parseNumericVector(string, componentCount: 3)
         case let (.string, .string(string)):
             return .success(.string(string))
         case (.bool, _), (.scalar, _), (.vector3, _), (.string, _):
@@ -328,20 +328,26 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         return convert(value, as: type)
     }
 
-    private nonisolated static func parseColor(
-        _ value: String
+    nonisolated static func parseNumericVector(
+        _ value: String,
+        componentCount: Int
     ) -> Result<SceneDynamicValue, ValueError> {
         let components = value.split(whereSeparator: \Character.isWhitespace)
-        guard components.count == 3,
-              let red = Double(components[0]),
-              let green = Double(components[1]),
-              let blue = Double(components[2]) else {
+        let numbers = components.compactMap { Double($0) }
+        guard components.count == componentCount,
+              numbers.count == componentCount else {
             return .failure(.invalidFormat)
         }
-        guard red.isFinite, green.isFinite, blue.isFinite else {
+        guard numbers.allSatisfy(\.isFinite) else {
             return .failure(.nonFinite)
         }
-        return .success(.vector3(red, green, blue))
+        if componentCount == 2 {
+            guard numbers.allSatisfy({ Float($0).isFinite }) else {
+                return .failure(.nonFinite)
+            }
+            return .success(.vector2(numbers[0], numbers[1]))
+        }
+        return .success(.vector3(numbers[0], numbers[1], numbers[2]))
     }
 
     enum ValueError: Error {
@@ -684,6 +690,11 @@ nonisolated struct ScenePropertyBindingCompiler {
            case let .string(rawValue) = fallback,
            let value = scalarShaderFallback(rawValue) {
             return .success(.scalar(value))
+        }
+        if target.isShaderValue,
+           valueType == .vector2,
+           case let .string(rawValue) = fallback {
+            return ScenePropertyBindingProgram.parseNumericVector(rawValue, componentCount: 2)
         }
         if case .layerScale = target, valueType == .vector3 {
             guard case let .string(rawValue) = fallback,

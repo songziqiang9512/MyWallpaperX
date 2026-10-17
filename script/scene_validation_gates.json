@@ -735,7 +735,8 @@
         "script/tests/test_scene_nested_property_binding.py",
         "script/tests/fixtures/SceneNestedPropertyBindingChecks.swift",
         "script/tests/test_scene_color_script_property.py",
-        "script/tests/fixtures/SceneColorScriptPropertyChecks.swift"
+        "script/tests/fixtures/SceneColorScriptPropertyChecks.swift",
+        "script/tests/test_scene_shader_vec2_authored_fallback.py"
       ],
       "keywords": [
         "property",
@@ -750,7 +751,8 @@
         "test_scene_vector_media_events",
         "test_scene_vector_owner_admission",
         "test_scene_nested_property_binding",
-        "test_scene_color_script_property"
+        "test_scene_color_script_property",
+        "test_scene_shader_vec2_authored_fallback"
       ]
     },
     {
@@ -1262,13 +1264,15 @@
         "script/tests/test_scene_property_binding_program.py",
         "script/tests/test_scene_resolved_material_previous_blurred_composite_graph_admission.py",
         "script/tests/test_scene_previous_composite_scale.py",
-        "script/tests/fixtures/ScenePreviousCompositeScaleHarness.swift"
+        "script/tests/fixtures/ScenePreviousCompositeScaleHarness.swift",
+        "script/tests/test_scene_shader_vec2_authored_fallback.py"
       ],
       "modules": [
         "test_scene_resolved_material_previous_blurred_composite_graph_admission",
         "test_scene_generic_shader_incumbent_owner_deferred",
         "test_scene_property_binding_program",
-        "test_scene_previous_composite_scale"
+        "test_scene_previous_composite_scale",
+        "test_scene_shader_vec2_authored_fallback"
       ]
     },
     {

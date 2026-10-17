@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `2d0471bcf6dc22a7f0f8d1ba7232da5dfeaebc9e7baae75918ac2f15459bd9ba`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `8d1899d1b75b8d8d90679ba9efd99fa7c11b94ad382fde4ff03b9259db7d038e`。
-- 本页生成于 2026-10-17T19:20:48.884450+00:00。
+- 本页生成于 2026-10-17T20:20:24.022712+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -36,9 +36,9 @@
 
 | 归档首断点集群 | 含义 | 样本数 |
 |---|---|---:|
-| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 11 |
+| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 12 |
 | `particle-load` | 粒子层资源加载 | 10 |
-| `texture-load` | 基础图片纹理加载 | 6 |
+| `texture-load` | 基础图片纹理加载 | 5 |
 | `scenescript` | SceneScript 异常 | 13 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
 | `visual-review` | 结构链完整，待视觉验收 | 146 |
@@ -46,8 +46,8 @@
 
 | 归档运行状态 | 样本数 |
 |---|---:|
-| `blocked` | 2 |
-| `degraded-runtime` | 39 |
+| `blocked` | 1 |
+| `degraded-runtime` | 40 |
 | `not-run` | 116 |
 | `runtime-evidence-incomplete` | 1 |
 | `structural-chain-complete-visual-review` | 144 |
@@ -198,7 +198,7 @@
 | `3562021804` | 【完美世界】石昊 以身为种 | 3(0) bool 1 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3563038726` | 【凡人修仙传】梅凝  乖巧可怜 | 7(0) bool 4 color 2 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3566880847` | 【凡人修仙传】紫灵 白色限定 | 7(0) bool 1 color 3 combo 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 48(33) bool 12 color 3 combo 1 group 4 slider 9 untyped 3 u… | `blocked` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出… |
+| `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 48(33) bool 12 color 3 combo 1 group 4 slider 9 untyped 3 u… | `degraded-runtime` | `effect-execution / ResolvedMaterialExecution / effect-local-passthrough-material-dynamic-uniform-producer-unavailable / resolved-material-graph` | `effect-chain` | `unreviewed` 2026-10-17 | 10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出… |
 | `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 21(0) bool 8 color 4 slider 9 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 13(0) bool 6 color 4 slider 3 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3585875739` | Miku Monitoring | 6(0) bool 5 color 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |

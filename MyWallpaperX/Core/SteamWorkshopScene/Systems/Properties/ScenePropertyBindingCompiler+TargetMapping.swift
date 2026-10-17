@@ -212,6 +212,11 @@ extension ScenePropertyBindingCompiler {
             (.vector3, .color)
         case let (_, .string(rawValue)) where scalarShaderFallback(rawValue) != nil:
             (.scalar, .slider)
+        case let (_, .string(rawValue)) where
+            (try? ScenePropertyBindingProgram.parseNumericVector(rawValue, componentCount: 2).get()) != nil:
+            // Color and Slider were resolved above. No remaining property
+            // kind is a live Vec2 producer; preserve only the authored value.
+            (.vector2, .color)
         case (_, .string):
             (.vector3, .color)
         default:

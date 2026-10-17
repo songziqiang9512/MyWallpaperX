@@ -15700,115 +15700,24 @@
         "identitySource": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/run-plan.json"
       },
       "runtime": {
-        "status": "blocked",
+        "status": "degraded-runtime",
         "firstBreakpoint": {
-          "stage": "resource-load",
-          "owner": "BaseImageTextureStore",
-          "reasonCode": "base-image-texture-load-incomplete",
-          "capabilityProfileOrAuthoredShape": "image-layer",
-          "failureRadius": "scene",
+          "stage": "effect-execution",
+          "owner": "ResolvedMaterialExecution",
+          "reasonCode": "effect-local-passthrough-material-dynamic-uniform-producer-unavailable",
+          "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+          "failureRadius": "effect",
           "severity": "degraded",
           "unit": {
-            "kind": "scene"
+            "kind": "effect",
+            "layerId": 233,
+            "effectIndex": 0,
+            "descriptorId": "233#effect#235"
           },
-          "fallbackPreservedTerminalCompositor": null,
-          "evidenceBasis": "runtime.loaded_textures/texture_candidates"
+          "fallbackPreservedTerminalCompositor": true,
+          "evidenceBasis": "Latest original357 app.log effect-cpu-invocation frame0 for233/effect0; separate from recovered210"
         },
         "secondaryEvents": [
-          {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 210,
-              "effectIndex": 0,
-              "descriptorId": "210#effect#211"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 233,
-              "effectIndex": 0,
-              "descriptorId": "233#effect#235"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 320,
-              "effectIndex": 0,
-              "descriptorId": "320#effect#322"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "script-execution",
-            "owner": "SceneScriptVM",
-            "reasonCode": "scene-script-bad-return",
-            "capabilityProfileOrAuthoredShape": "target:layer:scale",
-            "failureRadius": "script",
-            "severity": "degraded",
-            "unit": {
-              "kind": "script",
-              "layerId": 210
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "evidence.app_log typed SceneScript failure"
-          },
-          {
-            "stage": "effect-execution",
-            "owner": "ResolvedMaterialExecution",
-            "reasonCode": "effect-local-passthrough-material-dynamic-uniform-producer-unavailable",
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 210,
-              "effectIndex": 0,
-              "descriptorId": "210#effect#211"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_execution.cpu_invocations"
-          },
-          {
-            "stage": "effect-execution",
-            "owner": "ResolvedMaterialExecution",
-            "reasonCode": "effect-local-passthrough-material-dynamic-uniform-producer-unavailable",
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 233,
-              "effectIndex": 0,
-              "descriptorId": "233#effect#235"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_execution.cpu_invocations"
-          },
           {
             "stage": "effect-execution",
             "owner": "ResolvedMaterialExecution",
@@ -15823,329 +15732,776 @@
               "descriptorId": "320#effect#322"
             },
             "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_execution.cpu_invocations"
-          },
+            "evidenceBasis": "Latest original357 app.log effect-cpu-invocation frame0 for320/effect0"
+          }
+        ],
+        "recoveredUnits": [
           {
-            "stage": "graph-execution",
-            "owner": "GraphExecutor",
-            "reasonCode": "graph-execution-missing",
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "failureRadius": "layer",
-            "severity": "blocking",
-            "unit": {
-              "kind": "layer",
-              "layerId": 31
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_layer_ids"
-          },
-          {
-            "stage": "graph-execution",
-            "owner": "GraphExecutor",
-            "reasonCode": "layer-source-not-ready",
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "failureRadius": "layer",
-            "severity": "blocking",
-            "unit": {
-              "kind": "layer",
-              "layerId": 31
-            },
-            "fallbackPreservedTerminalCompositor": false,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.executor.local_fallbacks"
-          },
-          {
-            "stage": "graph-execution",
-            "owner": "GraphExecutor",
-            "reasonCode": "material-dynamic-uniform-producer-unavailable",
-            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
             "unit": {
               "kind": "effect",
               "layerId": 210,
               "effectIndex": 0,
               "descriptorId": "210#effect#211"
             },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
-          },
-          {
-            "stage": "graph-execution",
-            "owner": "GraphExecutor",
-            "reasonCode": "material-dynamic-uniform-producer-unavailable",
-            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 233,
-              "effectIndex": 0,
-              "descriptorId": "233#effect#235"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
-          },
-          {
-            "stage": "graph-execution",
-            "owner": "GraphExecutor",
-            "reasonCode": "material-variant-envelope-texture-purpose",
-            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 320,
-              "effectIndex": 0,
-              "descriptorId": "320#effect#322"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
-          },
-          {
-            "stage": "gpu-completion",
-            "owner": "GraphExecutor",
-            "reasonCode": "gpu-completion-missing",
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "failureRadius": "layer",
-            "severity": "blocking",
-            "unit": {
-              "kind": "layer",
-              "layerId": 31
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_gpu_completed_layer_ids"
-          },
-          {
-            "stage": "terminal-compositor",
-            "owner": "SceneCompositor",
-            "reasonCode": "terminal-compositor-missing",
-            "capabilityProfileOrAuthoredShape": "graph-output",
-            "failureRadius": "layer",
-            "severity": "blocking",
-            "unit": {
-              "kind": "layer",
-              "layerId": 31
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_compositor_consumed_layer_ids"
-          },
-          {
-            "stage": "terminal-compositor",
-            "owner": "SceneCompositor",
-            "reasonCode": "terminal-output-non-black-missing",
-            "capabilityProfileOrAuthoredShape": "captured-scene-output",
-            "failureRadius": "scene",
-            "severity": "blocking",
-            "unit": {
-              "kind": "scene"
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "evidence.ready_non_black/after_non_black"
-          },
-          {
-            "stage": "next-frame",
-            "owner": "SceneCompositor",
-            "reasonCode": "next-frame-missing",
-            "capabilityProfileOrAuthoredShape": "graph-output",
-            "failureRadius": "layer",
-            "severity": "blocking",
-            "unit": {
-              "kind": "layer",
-              "layerId": 31
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_next_frame_layer_ids"
+            "claim": "Authored Vec2 fallback permits the actual material Program; dock translucent rounded background restored in the bounded after.",
+            "program": "ad653cce46ba99f688e6bac8c7f8fafd4cc3b3c4d1998070942caafe6a103c02",
+            "actualFrames": [
+              0,
+              1
+            ],
+            "materialNodes": 1,
+            "rejectedNodes": 0,
+            "gpuCompletion": "completed",
+            "compositorConsumed": true,
+            "publicationGenerations": [
+              32,
+              70
+            ],
+            "insideAlphaDefinitionCount": 1,
+            "evidenceBasis": "reviews/actual-independent-review.json"
           }
         ],
         "evidenceSummary": {
           "surfaceCount": 1,
-          "readyNonBlackObserved": false,
-          "afterNonBlackObserved": true,
-          "readyFlatBorderRatio": 1.0,
-          "afterFlatBorderRatio": 0.2183974617244158,
-          "previewSpatialColorSimilarityAdvisory": 0.72,
-          "graphEvidenceObserved": true,
-          "acceptedGraphLayerCount": 11,
-          "terminalCompositorLayerCount": 10,
-          "nextFrameLayerCount": 10
+          "AppExit": 0,
+          "timedOut": false,
+          "ready": {
+            "layers": 46,
+            "imageLayers": 32,
+            "effects": 22,
+            "surfaces": 1,
+            "startupMS": 10396.98
+          },
+          "stop": {
+            "surfacesBefore": 1,
+            "surfacesAfter": 0,
+            "gpuDrained": true
+          },
+          "gpuDrained": true,
+          "ownedProcessGroupGone": true,
+          "identityDrift": [],
+          "VMFailureLines": [],
+          "runRole": "original357-default-Vec2-authored-fallback",
+          "inputCount": 51,
+          "visibleResult": "210dock changed from opaque straight-corner black block to translucent rounded dark background with person/rail visible through it;16 floral icons remain. Qualitative direction agrees with directory official screenshot.",
+          "remainingOpen": [
+            "233/effect0 dynamic-uniform producer",
+            "320/effect0 texture-purpose admission",
+            "Layer31 bind pose: animation data rejected for invalid verified auxiliary track1678; morph/scalar/complete auxiliary animation unresolved"
+          ],
+          "claimBoundary": "Bounded210 recovery only; exact alpha/corner radius, viewport/phase, full interactions and whole sample remain unreviewed; no performance claim."
         },
-        "benchmarkResultIgnored": {
-          "passed": false,
-          "failureCount": 8,
-          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        "appIdentity": {
+          "executable_sha256": "1175af5056e71b0e265407121d18f09ce7e35448fd6321cbfd29073943f8b9cf",
+          "debug_dylib_sha256": "04a3057db61aab97562b58f1bc51db2cf28dcbfade90b75a0c035b4ec9dc6f77"
+        },
+        "executionEvidence": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+          "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+          "member": "native/original357/execution.json",
+          "bytes": 4856,
+          "sha256": "446d1435e9ececd9ea415581041ffae710de4d52cf4bd7fb904296dd3472b774",
+          "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
         }
       },
       "evidence": {
         "report": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-          "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-          "member": "original-group-03/report.json",
-          "bytes": 955266,
-          "sha256": "489097f3de588f5f67f2766b851ee2d4895e4b927440c2dea17dccf522e9d629",
-          "crc32": "6a6edc05",
-          "status": "retained-byte-verified",
-          "sampleIndex": 1,
-          "jsonPointer": "/samples/1",
-          "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/report.json"
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/report.json",
+          "bytes": 11610,
+          "sha256": "d65f5fce3f7b58e6e7067d343d4b23583f5c41b480da47dde84a0cc6b8f7071d",
+          "status": "formal-map-and-manifest-verified; ZIP not reopened",
+          "kind": "manual bounded native archival envelope",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
+        },
+        "manifest": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/manifest.json",
+          "bytes": 870,
+          "sha256": "1851f200fd62127c0529bf0fbb07e7b3652493c07d52d3f718072267280cc391",
+          "status": "formal-map-and-manifest-verified; ZIP not reopened"
         },
         "sampleEvidencePaths": {
           "runtime_evidence_zip": {
             "format": "file",
-            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-            "bytes": 25774152,
-            "sha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-            "status": "retained-byte-verified"
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "bytes": 33271311,
+            "sha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "status": "formal-map-and-manifest-verified; ZIP not reopened"
           },
-          "app_log": {
+          "execution": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-            "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-            "member": "case/app.log",
-            "bytes": 190699,
-            "sha256": "ca094a36ddce7b41abfb2ff447ce63d5cc6e13678c09419550c1ae47b6447fd2",
-            "crc32": "c60b5ada",
-            "status": "retained-byte-verified"
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "member": "native/original357/execution.json",
+            "bytes": 4856,
+            "sha256": "446d1435e9ececd9ea415581041ffae710de4d52cf4bd7fb904296dd3472b774",
+            "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
           },
-          "preview_log": {
+          "input_and_app_identity": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-            "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-            "member": "case/scene-preview.log",
-            "bytes": 36030,
-            "sha256": "9e1c7018f16574b0ea49b24687d541bbc24e6b066ae8497301b7a8c0caa252dd",
-            "crc32": "c8ca7b39",
-            "status": "retained-byte-verified"
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "member": "native/original357/input-before.json",
+            "bytes": 13765,
+            "sha256": "a54b3e749dbc67f277b5aa6c200c2b0a4bb43b5fd310cda7cbd0e88f93ee1f64",
+            "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+          },
+          "app_identity": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "member": "native/original357/app-before.json",
+            "bytes": 1890,
+            "sha256": "f1e0b745d30629498487396675b3ab63786f6902be7c9870e8c503e4911e82dd",
+            "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
           },
           "after_snapshot": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-            "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-            "member": "case/scene-after-window.png",
-            "bytes": 25669532,
-            "sha256": "de7cb9405661a9347c2ce052f66e6ab6513aeb9763554aa3175b8977bf6697ec",
-            "crc32": "600fa133",
-            "status": "retained-byte-verified"
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "member": "raw/original357-after.png",
+            "bytes": 26411952,
+            "sha256": "fc623366882c0e25577088ead2de2783bfea7d43f9e856d67690672f323128e7",
+            "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
           },
-          "ready_snapshot": {
+          "actual_independent_review": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-            "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-            "member": "case/scene-ready-window.png",
-            "bytes": 214628,
-            "sha256": "1b6510b6d47ca0ae5c52fda6828afb0cf5fe892dedbec3e2fd2b19bc47ed83c9",
-            "crc32": "e47c90f1",
-            "status": "retained-byte-verified"
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "member": "reviews/actual-independent-review.json",
+            "bytes": 7507,
+            "sha256": "e7a7cecaabbadea69f4ab34d3e41c5dd7b56983c524f37683354bc68b3f28118",
+            "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+          },
+          "root_native_review": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+            "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+            "member": "reviews/root-native-review.json",
+            "bytes": 2669,
+            "sha256": "d77a8427beaa415479a469d6afa54c7499740e201c000a291c54013025e0c7cb",
+            "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
           }
         },
-        "historicalSourceEvidencePaths": {
-          "app_log": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/app.log",
-            "sourceExistsAtMapping": true,
-            "bytes": 190699,
-            "sha256": "ca094a36ddce7b41abfb2ff447ce63d5cc6e13678c09419550c1ae47b6447fd2",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-              "member": "case/app.log",
-              "bytes": 190699,
-              "sha256": "ca094a36ddce7b41abfb2ff447ce63d5cc6e13678c09419550c1ae47b6447fd2",
-              "crc32": "c60b5ada",
-              "status": "retained-byte-verified"
-            }
-          },
-          "preview_log": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-preview.log",
-            "sourceExistsAtMapping": true,
-            "bytes": 36030,
-            "sha256": "9e1c7018f16574b0ea49b24687d541bbc24e6b066ae8497301b7a8c0caa252dd",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-              "member": "case/scene-preview.log",
-              "bytes": 36030,
-              "sha256": "9e1c7018f16574b0ea49b24687d541bbc24e6b066ae8497301b7a8c0caa252dd",
-              "crc32": "c8ca7b39",
-              "status": "retained-byte-verified"
-            }
-          },
-          "runtime_evidence": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-runtime-evidence.json",
-            "sourceExistsAtMapping": true,
-            "bytes": 1682625,
-            "sha256": "82f22967ca26bd50e1732a01ed5dc918b82f6ca21cbadbe6c4587b6e0b2f4c16",
-            "disposition": "historical-not-retained",
-            "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
-          },
-          "ready_snapshot": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-ready-window.png",
-            "sourceExistsAtMapping": true,
-            "bytes": 214628,
-            "sha256": "1b6510b6d47ca0ae5c52fda6828afb0cf5fe892dedbec3e2fd2b19bc47ed83c9",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-              "member": "case/scene-ready-window.png",
-              "bytes": 214628,
-              "sha256": "1b6510b6d47ca0ae5c52fda6828afb0cf5fe892dedbec3e2fd2b19bc47ed83c9",
-              "crc32": "e47c90f1",
-              "status": "retained-byte-verified"
-            }
-          },
-          "after_snapshot": {
-            "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-after-window.png",
-            "sourceExistsAtMapping": true,
-            "bytes": 25669532,
-            "sha256": "de7cb9405661a9347c2ce052f66e6ab6513aeb9763554aa3175b8977bf6697ec",
-            "disposition": "retained-as-zip-member; original source path is historical provenance",
-            "retainedEvidence": {
-              "format": "zip-member",
-              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-              "member": "case/scene-after-window.png",
-              "bytes": 25669532,
-              "sha256": "de7cb9405661a9347c2ce052f66e6ab6513aeb9763554aa3175b8977bf6697ec",
-              "crc32": "600fa133",
-              "status": "retained-byte-verified"
-            }
-          }
-        },
-        "identity": {
+        "context": {
           "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-          "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-          "member": "sample-identity-summary.json",
-          "bytes": 4785,
-          "sha256": "c7a8317448b1ad7b428e898b44e2e11d022819211ef39decce528a0f80cb5c72",
-          "crc32": "f14364a9",
-          "status": "retained-byte-verified"
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+          "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+          "member": "neutral/runtime-context.json",
+          "bytes": 12750,
+          "sha256": "2e7d1921e35dd6eb8acc2eb41529bdf50ccc1b44cf3676feab6eff53da78a242",
+          "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
         },
-        "sampleIndexEvidence": {
+        "sourceBearingEvidenceDisposition": {
           "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
-          "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
-          "member": "sample-index.json",
-          "bytes": 373,
-          "sha256": "e7ea153128d6eb1b6a4cbe1c036b399024376e163118e3f21e5c2eee6464e984",
-          "crc32": "558926c7",
-          "status": "retained-byte-verified"
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-20261018/final/samples/3577990983/runtime_evidence.zip",
+          "containerSha256": "3c54fbf4c770674263e4b4be83344b5a0630b01b4778bb3ce174fc353aed167a",
+          "member": "neutral/excluded-identities.json",
+          "bytes": 6060,
+          "sha256": "dd0adaf65a4e55dfd4c6cb4437fa418a867532c268f008c649ff1f791feea76a",
+          "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
         },
-        "archivalProjection": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/report.json",
-          "bytes": 3514,
-          "sha256": "dcbd823d2b48d778f70830df730211518a0b7f011458efddaacd58453f7aa390",
-          "role": "single-sample archival projection; not the original benchmark report"
-        },
-        "separateVariantQualifications": [],
-        "sealStatus": "promoted-member-SHA-CRC-verified"
+        "sealStatus": "promoted; original collector member audit retained, no repeat ZIP/CRC"
       },
-      "nextAction": "repair-shared-owner:resource-load:BaseImageTextureStore:base-image-texture-load-incomplete"
+      "nextAction": "210/effect0半透明圆角dock已作有界恢复；继续分别定位233/effect0 producer、320/effect0 purpose和1678 auxiliary/morph/scalar，精确官方同phase、全部交互与整样本仍未验。旧BaseImage/210失败仅历史，不再作latest。",
+      "history": [
+        {
+          "importedAt": "2026-10-17T20:20:23.849639+00:00",
+          "reason": "Previous initial diagnostic preserved before latest bounded357 follow-up; historical BaseImage/210 failure records are not the current status.",
+          "runtime": {
+            "status": "blocked",
+            "firstBreakpoint": {
+              "stage": "resource-load",
+              "owner": "BaseImageTextureStore",
+              "reasonCode": "base-image-texture-load-incomplete",
+              "capabilityProfileOrAuthoredShape": "image-layer",
+              "failureRadius": "scene",
+              "severity": "degraded",
+              "unit": {
+                "kind": "scene"
+              },
+              "fallbackPreservedTerminalCompositor": null,
+              "evidenceBasis": "runtime.loaded_textures/texture_candidates"
+            },
+            "secondaryEvents": [
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "admitted-fallback",
+                "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 210,
+                  "effectIndex": 0,
+                  "descriptorId": "210#effect#211"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "admitted-fallback",
+                "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 233,
+                  "effectIndex": 0,
+                  "descriptorId": "233#effect#235"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "admitted-fallback",
+                "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 320,
+                  "effectIndex": 0,
+                  "descriptorId": "320#effect#322"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "script-execution",
+                "owner": "SceneScriptVM",
+                "reasonCode": "scene-script-bad-return",
+                "capabilityProfileOrAuthoredShape": "target:layer:scale",
+                "failureRadius": "script",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "script",
+                  "layerId": 210
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "evidence.app_log typed SceneScript failure"
+              },
+              {
+                "stage": "effect-execution",
+                "owner": "ResolvedMaterialExecution",
+                "reasonCode": "effect-local-passthrough-material-dynamic-uniform-producer-unavailable",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 210,
+                  "effectIndex": 0,
+                  "descriptorId": "210#effect#211"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_execution.cpu_invocations"
+              },
+              {
+                "stage": "effect-execution",
+                "owner": "ResolvedMaterialExecution",
+                "reasonCode": "effect-local-passthrough-material-dynamic-uniform-producer-unavailable",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 233,
+                  "effectIndex": 0,
+                  "descriptorId": "233#effect#235"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_execution.cpu_invocations"
+              },
+              {
+                "stage": "effect-execution",
+                "owner": "ResolvedMaterialExecution",
+                "reasonCode": "effect-local-passthrough-material-variant-envelope-texture-purpose",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 320,
+                  "effectIndex": 0,
+                  "descriptorId": "320#effect#322"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_execution.cpu_invocations"
+              },
+              {
+                "stage": "graph-execution",
+                "owner": "GraphExecutor",
+                "reasonCode": "graph-execution-missing",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "layer",
+                "severity": "blocking",
+                "unit": {
+                  "kind": "layer",
+                  "layerId": 31
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_layer_ids"
+              },
+              {
+                "stage": "graph-execution",
+                "owner": "GraphExecutor",
+                "reasonCode": "layer-source-not-ready",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "layer",
+                "severity": "blocking",
+                "unit": {
+                  "kind": "layer",
+                  "layerId": 31
+                },
+                "fallbackPreservedTerminalCompositor": false,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.executor.local_fallbacks"
+              },
+              {
+                "stage": "graph-execution",
+                "owner": "GraphExecutor",
+                "reasonCode": "material-dynamic-uniform-producer-unavailable",
+                "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 210,
+                  "effectIndex": 0,
+                  "descriptorId": "210#effect#211"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
+              },
+              {
+                "stage": "graph-execution",
+                "owner": "GraphExecutor",
+                "reasonCode": "material-dynamic-uniform-producer-unavailable",
+                "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 233,
+                  "effectIndex": 0,
+                  "descriptorId": "233#effect#235"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
+              },
+              {
+                "stage": "graph-execution",
+                "owner": "GraphExecutor",
+                "reasonCode": "material-variant-envelope-texture-purpose",
+                "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 320,
+                  "effectIndex": 0,
+                  "descriptorId": "320#effect#322"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
+              },
+              {
+                "stage": "gpu-completion",
+                "owner": "GraphExecutor",
+                "reasonCode": "gpu-completion-missing",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "layer",
+                "severity": "blocking",
+                "unit": {
+                  "kind": "layer",
+                  "layerId": 31
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_gpu_completed_layer_ids"
+              },
+              {
+                "stage": "terminal-compositor",
+                "owner": "SceneCompositor",
+                "reasonCode": "terminal-compositor-missing",
+                "capabilityProfileOrAuthoredShape": "graph-output",
+                "failureRadius": "layer",
+                "severity": "blocking",
+                "unit": {
+                  "kind": "layer",
+                  "layerId": 31
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_compositor_consumed_layer_ids"
+              },
+              {
+                "stage": "terminal-compositor",
+                "owner": "SceneCompositor",
+                "reasonCode": "terminal-output-non-black-missing",
+                "capabilityProfileOrAuthoredShape": "captured-scene-output",
+                "failureRadius": "scene",
+                "severity": "blocking",
+                "unit": {
+                  "kind": "scene"
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "evidence.ready_non_black/after_non_black"
+              },
+              {
+                "stage": "next-frame",
+                "owner": "SceneCompositor",
+                "reasonCode": "next-frame-missing",
+                "capabilityProfileOrAuthoredShape": "graph-output",
+                "failureRadius": "layer",
+                "severity": "blocking",
+                "unit": {
+                  "kind": "layer",
+                  "layerId": 31
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_next_frame_layer_ids"
+              }
+            ],
+            "evidenceSummary": {
+              "surfaceCount": 1,
+              "readyNonBlackObserved": false,
+              "afterNonBlackObserved": true,
+              "readyFlatBorderRatio": 1.0,
+              "afterFlatBorderRatio": 0.2183974617244158,
+              "previewSpatialColorSimilarityAdvisory": 0.72,
+              "graphEvidenceObserved": true,
+              "acceptedGraphLayerCount": 11,
+              "terminalCompositorLayerCount": 10,
+              "nextFrameLayerCount": 10
+            },
+            "benchmarkResultIgnored": {
+              "passed": false,
+              "failureCount": 8,
+              "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+            }
+          },
+          "evidence": {
+            "report": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+              "member": "original-group-03/report.json",
+              "bytes": 955266,
+              "sha256": "489097f3de588f5f67f2766b851ee2d4895e4b927440c2dea17dccf522e9d629",
+              "crc32": "6a6edc05",
+              "status": "retained-byte-verified",
+              "sampleIndex": 1,
+              "jsonPointer": "/samples/1",
+              "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/report.json"
+            },
+            "sampleEvidencePaths": {
+              "runtime_evidence_zip": {
+                "format": "file",
+                "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                "bytes": 25774152,
+                "sha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                "status": "retained-byte-verified"
+              },
+              "app_log": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                "member": "case/app.log",
+                "bytes": 190699,
+                "sha256": "ca094a36ddce7b41abfb2ff447ce63d5cc6e13678c09419550c1ae47b6447fd2",
+                "crc32": "c60b5ada",
+                "status": "retained-byte-verified"
+              },
+              "preview_log": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                "member": "case/scene-preview.log",
+                "bytes": 36030,
+                "sha256": "9e1c7018f16574b0ea49b24687d541bbc24e6b066ae8497301b7a8c0caa252dd",
+                "crc32": "c8ca7b39",
+                "status": "retained-byte-verified"
+              },
+              "after_snapshot": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                "member": "case/scene-after-window.png",
+                "bytes": 25669532,
+                "sha256": "de7cb9405661a9347c2ce052f66e6ab6513aeb9763554aa3175b8977bf6697ec",
+                "crc32": "600fa133",
+                "status": "retained-byte-verified"
+              },
+              "ready_snapshot": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                "member": "case/scene-ready-window.png",
+                "bytes": 214628,
+                "sha256": "1b6510b6d47ca0ae5c52fda6828afb0cf5fe892dedbec3e2fd2b19bc47ed83c9",
+                "crc32": "e47c90f1",
+                "status": "retained-byte-verified"
+              }
+            },
+            "historicalSourceEvidencePaths": {
+              "app_log": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/app.log",
+                "sourceExistsAtMapping": true,
+                "bytes": 190699,
+                "sha256": "ca094a36ddce7b41abfb2ff447ce63d5cc6e13678c09419550c1ae47b6447fd2",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                  "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                  "member": "case/app.log",
+                  "bytes": 190699,
+                  "sha256": "ca094a36ddce7b41abfb2ff447ce63d5cc6e13678c09419550c1ae47b6447fd2",
+                  "crc32": "c60b5ada",
+                  "status": "retained-byte-verified"
+                }
+              },
+              "preview_log": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-preview.log",
+                "sourceExistsAtMapping": true,
+                "bytes": 36030,
+                "sha256": "9e1c7018f16574b0ea49b24687d541bbc24e6b066ae8497301b7a8c0caa252dd",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                  "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                  "member": "case/scene-preview.log",
+                  "bytes": 36030,
+                  "sha256": "9e1c7018f16574b0ea49b24687d541bbc24e6b066ae8497301b7a8c0caa252dd",
+                  "crc32": "c8ca7b39",
+                  "status": "retained-byte-verified"
+                }
+              },
+              "runtime_evidence": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-runtime-evidence.json",
+                "sourceExistsAtMapping": true,
+                "bytes": 1682625,
+                "sha256": "82f22967ca26bd50e1732a01ed5dc918b82f6ca21cbadbe6c4587b6e0b2f4c16",
+                "disposition": "historical-not-retained",
+                "retentionScope": "Not selected in the formal ZIP; source may still exist until separately authorized cleanup. No retained full runtime JSON or unselected ready image is claimed."
+              },
+              "ready_snapshot": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-ready-window.png",
+                "sourceExistsAtMapping": true,
+                "bytes": 214628,
+                "sha256": "1b6510b6d47ca0ae5c52fda6828afb0cf5fe892dedbec3e2fd2b19bc47ed83c9",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                  "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                  "member": "case/scene-ready-window.png",
+                  "bytes": 214628,
+                  "sha256": "1b6510b6d47ca0ae5c52fda6828afb0cf5fe892dedbec3e2fd2b19bc47ed83c9",
+                  "crc32": "e47c90f1",
+                  "status": "retained-byte-verified"
+                }
+              },
+              "after_snapshot": {
+                "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/scene-new-intake-20261017/group-03/results/3577990983/scene-after-window.png",
+                "sourceExistsAtMapping": true,
+                "bytes": 25669532,
+                "sha256": "de7cb9405661a9347c2ce052f66e6ab6513aeb9763554aa3175b8977bf6697ec",
+                "disposition": "retained-as-zip-member; original source path is historical provenance",
+                "retainedEvidence": {
+                  "format": "zip-member",
+                  "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+                  "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+                  "member": "case/scene-after-window.png",
+                  "bytes": 25669532,
+                  "sha256": "de7cb9405661a9347c2ce052f66e6ab6513aeb9763554aa3175b8977bf6697ec",
+                  "crc32": "600fa133",
+                  "status": "retained-byte-verified"
+                }
+              }
+            },
+            "identity": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+              "member": "sample-identity-summary.json",
+              "bytes": 4785,
+              "sha256": "c7a8317448b1ad7b428e898b44e2e11d022819211ef39decce528a0f80cb5c72",
+              "crc32": "f14364a9",
+              "status": "retained-byte-verified"
+            },
+            "sampleIndexEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
+              "containerSha256": "459e016d84be4b4386b0f73c9d1cd26c661d5e19d7a76962717b35c66a1d148c",
+              "member": "sample-index.json",
+              "bytes": 373,
+              "sha256": "e7ea153128d6eb1b6a4cbe1c036b399024376e163118e3f21e5c2eee6464e984",
+              "crc32": "558926c7",
+              "status": "retained-byte-verified"
+            },
+            "archivalProjection": {
+              "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/report.json",
+              "bytes": 3514,
+              "sha256": "dcbd823d2b48d778f70830df730211518a0b7f011458efddaacd58453f7aa390",
+              "role": "single-sample archival projection; not the original benchmark report"
+            },
+            "separateVariantQualifications": [],
+            "sealStatus": "promoted-member-SHA-CRC-verified"
+          },
+          "nextAction": "repair-shared-owner:resource-load:BaseImageTextureStore:base-image-texture-load-incomplete"
+        },
+        {
+          "importedAt": "2026-10-17T20:20:23.849639+00:00",
+          "reason": "Same51-input149a baseline immediately before Vec2 authored fallback; historical210 passthrough failure retained.",
+          "runtime": {
+            "status": "degraded-runtime",
+            "firstBreakpoint": {
+              "stage": "effect-execution",
+              "owner": "ResolvedMaterialExecution",
+              "reasonCode": "effect-local-passthrough-material-dynamic-uniform-producer-unavailable",
+              "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+              "failureRadius": "effect",
+              "severity": "degraded",
+              "unit": {
+                "kind": "effect",
+                "layerId": 210,
+                "effectIndex": 0,
+                "descriptorId": "210#effect#211"
+              },
+              "fallbackPreservedTerminalCompositor": true,
+              "evidenceBasis": "native/original357/baseline-observation.json actual CPU and fallback graph observations"
+            },
+            "secondaryEvents": [],
+            "evidenceSummary": {
+              "runRole": "same-input-before-Vec2-fallback",
+              "visibleResult": "Opaque rectangular black dock behind16 floral icons; bottom edge clipped.",
+              "actualFallbackGraphFrames": [
+                0,
+                1,
+                7,
+                8
+              ],
+              "inputCount": 51,
+              "scopeBoundary": "Local210 baseline only; unrelated open units not reclassified."
+            },
+            "appIdentity": {
+              "executable_sha256": "149a854c3eba70ee5980bbca342d57363748af307c7c05bc64ddbf2173502f5b",
+              "debug_dylib_sha256": "cc4ae4a8211bcaaaa5b40631473cbd7b78743fe239ce56fc02832f9764c6e9ed"
+            },
+            "executionEvidence": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+              "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+              "member": "native/original357/execution.json",
+              "bytes": 4831,
+              "sha256": "f3c2aa2099b710997a5eb4eeb31219a9a6da44d39a66da7130d43b709b6bf12b",
+              "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+            }
+          },
+          "evidence": {
+            "report": {
+              "format": "file",
+              "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/report.json",
+              "bytes": 7593,
+              "sha256": "7fe14b4f999345a7efeb522aee5ae6a5678989b04f0d52c713aea4e37ed48ead",
+              "status": "formal-map-and-manifest-verified; ZIP not reopened",
+              "kind": "manual bounded native archival envelope",
+              "sampleIndex": 0,
+              "jsonPointer": "/samples/0"
+            },
+            "manifest": {
+              "format": "file",
+              "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/manifest.json",
+              "bytes": 871,
+              "sha256": "d2e7802ebbcc335b7644f015a73c7d11124c0d6675cfdd4987a3d07bf40cfa76",
+              "status": "formal-map-and-manifest-verified; ZIP not reopened"
+            },
+            "sampleEvidencePaths": {
+              "runtime_evidence_zip": {
+                "format": "file",
+                "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+                "bytes": 25933598,
+                "sha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+                "status": "formal-map-and-manifest-verified; ZIP not reopened"
+              },
+              "execution": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+                "member": "native/original357/execution.json",
+                "bytes": 4831,
+                "sha256": "f3c2aa2099b710997a5eb4eeb31219a9a6da44d39a66da7130d43b709b6bf12b",
+                "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+              },
+              "input_and_app_identity": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+                "member": "native/original357/input-before.json",
+                "bytes": 13765,
+                "sha256": "a54b3e749dbc67f277b5aa6c200c2b0a4bb43b5fd310cda7cbd0e88f93ee1f64",
+                "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+              },
+              "app_identity": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+                "member": "native/original357/app-before.json",
+                "bytes": 1857,
+                "sha256": "f63f9e3261c96a507b68d01c08e80a8808933cedf6ad64ef4650febe519b4cf5",
+                "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+              },
+              "after_snapshot": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+                "member": "raw/original357-before.png",
+                "bytes": 25887656,
+                "sha256": "70e1cf636ea2e6f78c449deee2a1590669c37f17eab885522bca364a23b869e8",
+                "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+              },
+              "baseline_observation": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+                "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+                "member": "native/original357/baseline-observation.json",
+                "bytes": 8707,
+                "sha256": "4d0e7ee69eee68dadb8f0d57b6533882ef6907a6004ff6f627e911fb3af1f03f",
+                "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+              }
+            },
+            "context": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+              "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+              "member": "neutral/runtime-context.json",
+              "bytes": 12750,
+              "sha256": "2e7d1921e35dd6eb8acc2eb41529bdf50ccc1b44cf3676feab6eff53da78a242",
+              "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+            },
+            "sourceBearingEvidenceDisposition": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/shader-vec2-authored-fallback-before-20261018/final/samples/3577990983/runtime_evidence.zip",
+              "containerSha256": "fa178f739920a91b3e0192ebddc3adf28ba9e507d7a2fbb9906d6214c4cafb4f",
+              "member": "neutral/excluded-identities.json",
+              "bytes": 6060,
+              "sha256": "dd0adaf65a4e55dfd4c6cb4437fa418a867532c268f008c649ff1f791feea76a",
+              "status": "sealed-source-inventory-reference; no repeat ZIP or CRC read"
+            },
+            "sealStatus": "promoted; original collector member audit retained, no repeat ZIP/CRC"
+          },
+          "nextAction": "Historical210 producer-unavailable baseline, superseded only for this unit by the following bounded recovery."
+        }
+      ]
     },
     {
       "id": "3586705329",

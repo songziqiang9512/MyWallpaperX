@@ -121,12 +121,12 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 197,
-      "bytes": 81568
+      "lines": 198,
+      "bytes": 82911
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 197422
+      "bytes": 197938
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 62180
+      "bytes": 62244
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 12279
+      "bytes": 11991
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 52,
-      "bytes": 15718
+      "bytes": 15696
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 200,
-      "bytes": 46027
+      "bytes": 46558
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1208,15 +1208,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "73768b2a8119795012e8727af7a4811dc4c506bc3ba7c3ce711c7d95bfdd8f40",
-      "after": "8e6cca93929eae815010cb31e462387064624001f7a94cf5b77717c3738e708e",
-      "owner": "scene-combined-timeline-playback",
-      "reason": "Replace superseded blanket Combined rejection with the bounded prepared-owner contract and exact evidence limits; preserve failed or unobserved subgates and unrelated open issues.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
       "after": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
@@ -1253,27 +1244,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "a6126ee119ed1b4082d0330925c5d8f05f1912e5528dfdeaf0cc3e2eb184ea5b",
-      "after": "c9f1e340fdd158190d432e0bee4f06bf55f326b37306ceb4ba7f26b737bd4f61",
-      "owner": "scene-rope-whole-source",
-      "reason": "Keep one prepared texture-use contract and bounded runtime evidence; retire obsolete animated Rope blanket rejection while retaining unknown padding, nondefault profiles, original script failures and honest sample denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-whole-source-atlas"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "c559261c24aa5c0765314b8f631cfd8f951e97d20739cb00a2a4af3f5abdc919",
       "after": "a8d9061f2acea08460970338c893a7e44fb014758fc85c8d73812fb702b68936",
-      "owner": "scene-cp-force-source-space",
-      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "104eefd3b28a18c205634167cb15cf82e3382ebb508c9b180291c2bcad689f6a",
-      "after": "88bacc7829cdcc0681fd8c506061523c3a149cff820eaba385ac4a766d4c43b1",
       "owner": "scene-cp-force-source-space",
       "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
@@ -1325,15 +1298,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "664cd69982efcc4c1f18faeb36ac11631a838eba087dd7df3ac9a7efe61fdebf",
-      "after": "465bba128730d86b18563aa48f4ca8abf8736c1d779270fce4c0e6c8e2524d11",
-      "owner": "scene-puppet-bone-matrix-order",
-      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "295b2e2e5c8f53a2443baadd5866eb55aa51ba8913dde2e0890e5a2971713b96",
       "after": "2c8caea58f630b5411a6106f232a4c9908bbddcb04f6bbc96dd17f90b307c0cd",
@@ -1352,12 +1316,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "465bba128730d86b18563aa48f4ca8abf8736c1d779270fce4c0e6c8e2524d11",
+      "after": "858f08041adaf069fcee59be43bbd193633c7d5d21ceb9164154067f20008acd",
+      "owner": "scene-shader-vec2-authored-fallback",
+      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "8e6cca93929eae815010cb31e462387064624001f7a94cf5b77717c3738e708e",
+      "after": "8fe63041b147901f7971d2005e472551048c86aaad7fe17daf6faef837a5c41e",
+      "owner": "scene-shader-vec2-authored-fallback",
+      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f2d1ebefe69a0a31c0650ecccca3222e088b3addb3650912cebd28a9d2b182c9",
-      "after": "78818a0d0eea7b268a691b91946e3ad1a54421d7627bacc27f1d4811ee1c12bc",
-      "owner": "scene-puppet-bone-matrix-order",
-      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
+      "before": "78818a0d0eea7b268a691b91946e3ad1a54421d7627bacc27f1d4811ee1c12bc",
+      "after": "7dd295143d6f52d387e6c236775e7c5567abb874a12d5a375814a3e0218e4c92",
+      "owner": "scene-shader-vec2-authored-fallback",
+      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "02ddbc8a991b6dac2549b2002a47d1266743e25af01f8d402ef3bc220c235116",
+      "after": "d2ff69d633167673c5a8735b501890ed9134f5fb940eb8d03d37f17cc6703d42",
+      "owner": "scene-shader-vec2-authored-fallback",
+      "reason": "Record the two-lane fallback and actual dock recovery; retire stale210 failure/copy candidate and preserve the latest357 join without changing old verdicts.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#shader-vec2-authored-fallback"
     }
   ]
 }
