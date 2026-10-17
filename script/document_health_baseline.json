@@ -81,8 +81,8 @@
       "bytes": 2333
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 330,
-      "bytes": 66320
+      "lines": 336,
+      "bytes": 68206
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -117,8 +117,8 @@
       "bytes": 346601
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 181,
-      "bytes": 54610
+      "lines": 182,
+      "bytes": 55830
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 599,
@@ -138,7 +138,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 361,
-      "bytes": 59595
+      "bytes": 59563
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -234,11 +234,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 53,
-      "bytes": 15527
+      "bytes": 15667
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 148,
-      "bytes": 31223
+      "lines": 150,
+      "bytes": 31748
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1249,27 +1249,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b6a7dd904479abc07d23d97220f47b2bae600d2b33679b685a2719c891b38ef0",
-      "after": "7477743f2a33b6075448fc2453896f2c7b24f13baf96c535f66467ff148354dc",
-      "owner": "scene-puppet-multi-target",
-      "reason": "替换误命名单target格式合同，登记多target主体恢复的有界官方/真实运行结果并移除已修队列，保留动画及背景首断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-multi-target-20261017"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/puppet-clipping-design.md",
       "before": "c08edfb3b207de57009cbfb4a64463b1465ce6968aaa2b40479e86b89f7a9d63",
       "after": "00fd3315083cf98d074534ea3d9b4fe13a946b1500b509c64d98b2e87534f4e2",
-      "owner": "scene-puppet-multi-target",
-      "reason": "替换误命名单target格式合同，登记多target主体恢复的有界官方/真实运行结果并移除已修队列，保留动画及背景首断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-multi-target-20261017"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5027b93c6cf6d646e003d38517603cbd97e3d472ed9e83a5902c8436aeb64447",
-      "after": "6ddef9dd9babc38aec63bfcec78b4f0a7c57b394cc4ca9db0e2a6b25a9d567a7",
       "owner": "scene-puppet-multi-target",
       "reason": "替换误命名单target格式合同，登记多target主体恢复的有界官方/真实运行结果并移除已修队列，保留动画及背景首断点。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-multi-target-20261017"
@@ -1285,21 +1267,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "7477743f2a33b6075448fc2453896f2c7b24f13baf96c535f66467ff148354dc",
+      "after": "e3fe11cf4c90d7399f1312a004f51a95262609be5699c67da40873d663728a16",
+      "owner": "scene-static-position-uv",
+      "reason": "记录有界20B静态布局及旧选择/拒绝优先，移除已复验背景故障；同步有界真实后验与新资格待办，不扩大视觉裁决。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-static-position-uv"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6ddef9dd9babc38aec63bfcec78b4f0a7c57b394cc4ca9db0e2a6b25a9d567a7",
+      "after": "7cc7c59d4bb407af762c22643c0da0add9fdbbaa577706dc1ce04afbea46963e",
+      "owner": "scene-static-position-uv",
+      "reason": "记录有界20B静态布局及旧选择/拒绝优先，移除已复验背景故障；同步有界真实后验与新资格待办，不扩大视觉裁决。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-static-position-uv"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "4f480beeabaf4c2824e4476d8dc97f0a027f3cbd491204d5a0d60181c3a619cb",
-      "after": "97b35ac8b25161f42a1225a78c9618c8a37ed94d4162024b3aa8758020c01913",
-      "owner": "scene-puppet-multi-target",
-      "reason": "替换误命名单target格式合同，登记多target主体恢复的有界官方/真实运行结果并移除已修队列，保留动画及背景首断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-multi-target-20261017"
+      "before": "97b35ac8b25161f42a1225a78c9618c8a37ed94d4162024b3aa8758020c01913",
+      "after": "cd5abb2b63e9a224ca4c2ca2dcc5c806a05e417be983283210d6e299f8cc4f70",
+      "owner": "scene-static-position-uv",
+      "reason": "记录有界20B静态布局及旧选择/拒绝优先，移除已复验背景故障；同步有界真实后验与新资格待办，不扩大视觉裁决。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-static-position-uv"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "56cd040ff7af360962e5eaf0683fa772616ce17ad50860965619d41e8ba252c0",
-      "after": "dee817acdb767dd902cf62223595717056132b289390781bfef0bbfcaa188161",
-      "owner": "scene-puppet-multi-target",
-      "reason": "替换误命名单target格式合同，登记多target主体恢复的有界官方/真实运行结果并移除已修队列，保留动画及背景首断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-multi-target-20261017"
+      "before": "dee817acdb767dd902cf62223595717056132b289390781bfef0bbfcaa188161",
+      "after": "cd90873d8fb7f2bf13031e0d7aa463e4197a28bb12822ffdb79549a4871aa3f1",
+      "owner": "scene-static-position-uv",
+      "reason": "记录有界20B静态布局及旧选择/拒绝优先，移除已复验背景故障；同步有界真实后验与新资格待办，不扩大视觉裁决。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-static-position-uv"
     }
   ]
 }

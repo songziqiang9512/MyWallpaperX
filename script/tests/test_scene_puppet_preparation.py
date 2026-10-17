@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.test_scene_puppet_mesh import build_mdl
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -144,6 +146,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             "bad-animation.mdl": fixture_mdl(bad_animation=True),
             "absent-animation.mdl": fixture_mdl(animation=False),
             "bad-mesh.mdl": b"owned-invalid-mesh",
+            "static-uv20.mdl": build_mdl(magic=b"MDLV0016", stride=20,
+                vertex_format=9, include_mdls=False, suffix=b"\0"),
         }
         for name, data in files.items():
             (directory / name).write_bytes(data)
@@ -216,6 +220,19 @@ class ScenePuppetPreparationTests(unittest.TestCase):
                           ("absent-animation", "MDLA is absent"), ("unprepared-animation", "not prepared")):
             self.assertEqual(rows[key]["kind"], "bind", rows[key])
             self.assertIn(text, rows[key]["fallback"], rows[key])
+
+    def test_static_uv20_prepares_bind_without_bones_or_animation_and_survives_input_removal(self) -> None:
+        row = self.result["static-uv20"]
+        self.assertEqual((row["kind"], row["stride"]), ("ready", 20), row)
+        self.assertEqual(row["vertices"], [[-10, -20, 0, 0.25, 0.75],
+            [10, -20, 0, 0.5, 0.75], [0, 20, 0, 0.375, 0.25]], row)
+        self.assertEqual(row["indices"], [0, 1, 2, 2, 1, 0], row)
+        self.assertFalse(row["bonesAvailable"], row)
+        self.assertFalse(row["animationsPrepared"], row)
+        self.assertFalse(row["fileExists"], row)
+        expected = {"kind": "bind", "fallback": "", "animationIDs": []}
+        self.assertEqual(row["before"], expected, row)
+        self.assertEqual(row["after"], expected, row)
 
     def test_resource_map_keeps_pose_attached_to_its_mesh_and_layer(self) -> None:
         row = self.result["identity"]

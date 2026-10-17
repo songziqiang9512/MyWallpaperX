@@ -89,6 +89,12 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 
 以下合同基于既有 mesh、MDAT、MDLA/rig/full-TRS reader 与当前 `GeometryProduct`/playback 执行；块布局细节见 [场景格式与 Render Graph 第 11 节](scene-format-and-render-graph.md)。
 
+<a id="puppet-static-position-uv"></a>
+
+**MDLV0016 无权重静态几何合同**：已有52B skinned搜索不能解释合法的format9、position float3+UV float2资源，背景会在准备阶段整体缺席。沿原`SceneMdlPuppetMeshReader → PreparedAsset/bind pose → ScenePuppetMeshGeometry → main/compositor`扩入静态20B profile，不增加几何、资源或输出owner，不改RigReader/动画/挂点能力。必须先保原52B全文件搜索及其唯一unused-tail/歧义判定；原52B候选一旦选中，decode的finite/range失败仍直接拒绝，不能改stride求成功。旧52B歧义保持原mesh拒绝，不冒充无候选；仅原搜索真正无候选时复用同一搜索算法尝试format word9/stride20，要求terminal-index证明、完整三角/索引安全和mesh末端一个0字节后文件结束；不把旧52B的unused-tail资格自动扩给新profile。普通帧不解析或转换格式。
+
+选择显式profile与旧选择优先，避免简单追加stride使较早偶然20B块抢占后面合法52B块，也避免80B未知记录被当作大量20B尾顶点；未知format、带其他后缀或不完整/非有限数据仍走原最小mesh拒绝，不用atlas quad。输入只决定一次prepared mesh，当前world/MVP/UV与原资源回退、取消/生命周期继续复用。原始字节、独立纹理内容及用户官方截屏已足以定位格式缺口，不为字段布局另起官方参数矩阵；验收须真实reader的改名/prefix/UV变体、旧52B选择及坏数据邻例、原CPU准备链，再一次Debug构建与原背景和未参与修法的真实legacy样本GPU实图。若背景未恢复继续追首consumer，不以解析成功、TEX可读或非黑替代合成结果；不计性能或全样本parity。已完成的原背景及独立legacy验收归[有界运行证据](runtime-evidence-current.md#mdl-static-position-uv20-20261017)。
+
 **MDAT attachment 定位与逐帧跟随（受限执行子集）**
 
 - 已核验事实：MDAT0001 位于 MDLS 与 MDLA 之间；条目是 `u16 boneIndex + name\0 + 列主序 4x4 attachment-local matrix`。reader 保留该 local frame；bind/current model frame 分别为对应 bone world 与 local frame 的乘积，转入 Scene 坐标使用 `F * M * F`，其中 `F = diag(1,-1,1,1)`。

@@ -378,6 +378,18 @@
       ]
     },
     {
+      "id": "scene-puppet-static-position-uv",
+      "title": "Puppet无权重静态position/UV几何",
+      "owner": "scene-p-route",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
+      "design_notes": "实施前保存format9/MDLV0016静态20B决定。保原52B全文件候选及decode拒绝优先，仅旧搜索nil复用同算法读20B，terminal-index+exact单0尾；不扩unused-tail、RigReader或其他版本。原PreparedAsset/bind/GeometryProduct/world/UV/compositor不增owner；原始字节和独立资产/官方截图定位首错，最近变体/反例、CPU准备及真实原包/独立legacy GPU验收后才计可见恢复，不计完整parity或性能。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "scene-puppet-clipping",
       "title": "Puppet部件动态裁剪",
       "owner": "scene-p-route",

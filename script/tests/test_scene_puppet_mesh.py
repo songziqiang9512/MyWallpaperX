@@ -2,9 +2,9 @@
 
 """Contract tests for the restricted Puppet mesh and attachment readers.
 
-Builds synthetic MDLV binaries covering the verified mesh-block shape
-(stride 80 and 84, position at offset 0, UV in the trailing 8 bytes,
-uint16 triangle indices) plus the fail-closed rejections, then checks the
+Builds synthetic MDLV binaries covering the verified mesh-block profiles
+(position at offset 0, UV in the trailing 8 bytes, uint16 triangle indices)
+plus the fail-closed rejections, then checks the
 Swift reader against them through a compiled harness.
 """
 
@@ -115,6 +115,7 @@ def build_mdl(
     prefix_noise: bytes = b"\x00" * 24,
     include_mdls: bool = True,
     suffix: bytes = b"",
+    vertex_format: int = 0,
 ) -> bytes:
     """Assembles a minimal MDLV binary with one mesh block."""
     if vertices is None:
@@ -133,7 +134,7 @@ def build_mdl(
         vertex_blob += record
     index_blob = struct.pack("<%dH" % len(indices), *indices)
     body = magic + b"\x00" + prefix_noise
-    body += struct.pack("<II", 0, len(vertex_blob))
+    body += struct.pack("<II", vertex_format, len(vertex_blob))
     body += vertex_blob
     body += struct.pack("<I", len(index_blob))
     body += index_blob
@@ -262,6 +263,67 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             "bad-attachment-bone.mdl": build_attachment_mdl(attachment_bone=9),
             "duplicate-attachment.mdl": build_attachment_mdl(duplicate_name=True),
         }
+        static20 = dict(magic=b"MDLV0016", stride=20, vertex_format=9, include_mdls=False)
+        plain20 = build_mdl(**static20, suffix=b"\0")
+        cls.uv20_vertices = [(-7.5, 3.125, 2, -0.125, 1.125),
+                             (11.25, -9, 2, 1.25, -0.25), (0.75, 21.5, 2, 0.375, 0.625)]
+        renamed_noise = b"owned-renamed-matte" + bytes(13)
+        sparse_vertices = [(float(i), float(-i), 0, i / 4, 0.5) for i in range(4)]
+        sparse20 = build_mdl(**static20, vertices=sparse_vertices, indices=[0, 1, 2], suffix=b"\0")
+        legacy52 = build_mdl(magic=b"MDLV0016", stride=52, include_mdls=False)
+        sparse52 = build_mdl(magic=b"MDLV0016", stride=52, include_mdls=False,
+                             vertices=sparse_vertices, indices=[0, 1, 2])
+        cls.fixtures.update({
+            "uv20-static.mdl": plain20,
+            "renamed-static-paper.mdl": build_mdl(**static20, vertices=cls.uv20_vertices,
+                prefix_noise=renamed_noise, suffix=b"\0"),
+            "uv20-before-legacy52.mdl": plain20 + legacy52[9:] + b"\0",
+            "uv20-before-sparse52.mdl": plain20 + sparse52[9:] + b"\0",
+            "legacy52-sparse.mdl": sparse52 + b"\0",
+            "legacy52-ambiguous-sparse.mdl": sparse52 + sparse52[9:] + b"\0",
+            "legacy52-ambiguous-before20.mdl": sparse52 + sparse52[9:] + plain20[9:],
+            "uv20-unused-tail.mdl": sparse20,
+            "uv20-ambiguous-unused-tail.mdl": sparse20 + sparse20[9:],
+            "uv20-no-tail.mdl": build_mdl(**static20),
+            "uv20-two-zero-tail.mdl": build_mdl(**static20, suffix=bytes(2)),
+            "uv20-nonzero-tail.mdl": build_mdl(**static20, suffix=b"\1"),
+            "uv20-mdls.mdl": build_mdl(**{**static20, "include_mdls": True}, suffix=b"\0"),
+            "uv20-mdla.mdl": build_mdl(**static20, suffix=b"MDLA0003\0" + bytes(8)),
+            "uv20-bad-index.mdl": build_mdl(**static20, indices=[0, 1, 3], suffix=b"\0"),
+            "uv20-nontriangle.mdl": build_mdl(**static20, indices=[0, 1], suffix=b"\0"),
+            "uv20-format9-stride80-tail.mdl": build_mdl(magic=b"MDLV0016", stride=80,
+                vertex_format=9, include_mdls=False, suffix=b"\0"),
+        })
+        for word in (0, 8, 10):
+            cls.fixtures[f"uv20-format{word}.mdl"] = build_mdl(
+                **{**static20, "vertex_format": word}, suffix=b"\0")
+        for magic in (b"MDLV0014", b"MDLV0017", b"MDLV0019", b"MDLV0021", b"MDLV0023"):
+            cls.fixtures[magic.decode() + "-uv20.mdl"] = build_mdl(
+                **{**static20, "magic": magic}, suffix=b"\0")
+        for label, first in (("nan", (float("nan"), 0, 0, 0, 0)),
+                             ("uv-inf", (0, 0, 0, float("inf"), 0)),
+                             ("position-range", (1_000_001, 0, 0, 0, 0)),
+                             ("uv-range", (0, 0, 0, 65, 0))):
+            vertices = [first, (1, 0, 0, 1, 0), (0, 1, 0, 0, 1)]
+            cls.fixtures[f"uv20-{label}.mdl"] = build_mdl(**static20, vertices=vertices, suffix=b"\0")
+            if label in ("nan", "position-range"):
+                selected52 = build_mdl(magic=b"MDLV0016", stride=52,
+                    vertices=vertices, include_mdls=False)
+                cls.fixtures[f"selected52-{label}-before20.mdl"] = selected52 + plain20[9:]
+        # The outer20 candidate itself has format9/terminal indices/exact0.
+        # A later52 block inside its vertex bytes must nevertheless win the
+        # old complete-file search, not a new per-offset [52,20] stride list.
+        outer20 = bytearray(build_mdl(**static20, vertices=[(0, 0, 0, 0, 0)] * 12,
+                                     indices=[0, 1, 11], suffix=b"\0"))
+        embedded_offset = 9 + 24 + 8 + 20
+        inner52 = legacy52[9 + 24:]
+        outer20[embedded_offset:embedded_offset + len(inner52)] = inner52
+        cls.fixtures["uv20-embedded-legacy52.mdl"] = bytes(outer20)
+        cls.uv20_priority_offsets = {
+            "uv20-before-legacy52.mdl": len(plain20) + 24,
+            "uv20-before-sparse52.mdl": len(plain20) + 24,
+            "uv20-embedded-legacy52.mdl": embedded_offset,
+        }
         legacy = cls.fixtures["legacy-attachments.mdl"]
         cls.fixtures["legacy-truncated.mdl"] = legacy[:-1]
         nonfinite = bytearray(legacy)
@@ -329,11 +391,69 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         self.assertEqual((entry["version"], entry["stride"]), ("MDLV0023", 48))
         self.assertEqual(entry["vertices"][0], [-10.0, -20.0, 0.0, 0.25, 0.75])
 
-    def test_mdlv0016_reads_only_the_verified_stride_52_mesh(self):
+    def test_mdlv0016_preserves_the_verified_stride_52_mesh(self):
         entry = self.results["mdlv0016.mdl"]
         self.assertTrue(entry["ok"], entry)
         self.assertEqual((entry["version"], entry["stride"]), ("MDLV0016", 52))
         self.assertFalse(self.results["mdlv0016-wrong-stride.mdl"]["ok"])
+
+    def test_static_uv20_preserves_positions_uv_and_renamed_resource(self):
+        entry = self.results["uv20-static.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["version"], entry["stride"], entry["vertexCount"]), ("MDLV0016", 20, 3))
+        self.assertEqual(entry["vertices"], self.results["mdlv0016.mdl"]["vertices"])
+        self.assertEqual(entry["indices"], [0, 1, 2, 2, 1, 0])
+        renamed = self.results["renamed-static-paper.mdl"]
+        self.assertTrue(renamed["ok"], renamed)
+        self.assertEqual(renamed["stride"], 20)
+        self.assertEqual(renamed["vertices"], [list(vertex) for vertex in self.uv20_vertices])
+        self.assertNotEqual(renamed["blockOffset"], entry["blockOffset"])
+
+    def test_static_uv20_never_preempts_legacy52_whole_file_selection(self):
+        for name, offset in self.uv20_priority_offsets.items():
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertTrue(entry["ok"], entry)
+                self.assertEqual(entry["stride"], 52)
+                self.assertEqual(entry["blockOffset"], offset)
+        self.assertEqual(self.results["uv20-before-sparse52.mdl"]["vertexCount"], 4)
+
+    def test_selected_legacy52_numeric_failure_cannot_fall_back_to_static20(self):
+        for label, message in (("nan", "non-finite vertex data at index 0"),
+                               ("position-range", "vertex data out of accepted range at index 0")):
+            with self.subTest(label=label):
+                entry = self.results[f"selected52-{label}-before20.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                self.assertEqual(entry["error"], message)
+
+    def test_legacy52_keeps_its_unique_and_ambiguous_tail_rules(self):
+        entry = self.results["legacy52-sparse.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["stride"], entry["vertexCount"], entry["indices"]), (52, 4, [0, 1, 2]))
+        self.assertFalse(self.results["legacy52-ambiguous-sparse.mdl"]["ok"])
+        ambiguous = self.results["legacy52-ambiguous-before20.mdl"]
+        self.assertFalse(ambiguous["ok"], ambiguous)
+        self.assertIn("no strict bind-pose mesh block", ambiguous["error"])
+
+    def test_static_uv20_requires_format_terminal_index_and_exact_zero_tail(self):
+        for label in ("unused-tail", "ambiguous-unused-tail", "no-tail", "two-zero-tail",
+                      "nonzero-tail", "mdls", "mdla", "format0", "format8", "format10",
+                      "format9-stride80-tail", "bad-index", "nontriangle"):
+            with self.subTest(label=label):
+                self.assertFalse(self.results[f"uv20-{label}.mdl"]["ok"])
+
+    def test_static_uv20_numeric_failures_are_not_reinterpreted(self):
+        for label, message in (("nan", "non-finite"), ("uv-inf", "non-finite"),
+                               ("position-range", "out of accepted range"), ("uv-range", "out of accepted range")):
+            with self.subTest(label=label):
+                entry = self.results[f"uv20-{label}.mdl"]
+                self.assertFalse(entry["ok"], entry)
+                self.assertIn(message, entry["error"])
+
+    def test_static_uv20_profile_does_not_expand_other_versions(self):
+        for version in ("MDLV0014", "MDLV0017", "MDLV0019", "MDLV0021", "MDLV0023"):
+            with self.subTest(version=version):
+                self.assertFalse(self.results[version + "-uv20.mdl"]["ok"])
 
     def test_mdlv0014_reads_only_the_verified_stride_52_mesh(self):
         entry = self.results["mdlv0014.mdl"]

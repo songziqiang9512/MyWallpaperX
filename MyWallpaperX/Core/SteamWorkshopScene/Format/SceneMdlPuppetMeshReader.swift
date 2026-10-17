@@ -138,11 +138,21 @@ enum SceneMdlPuppetMeshReader {
             throw SceneMdlPuppetMeshReadError.unsupportedMagic(magic)
         }
         let searchBound = firstOccurrence(of: "MDLS", in: data) ?? data.count
-        guard let block = findMeshBlock(
+        var block = try findMeshBlock(
             in: data,
             bound: searchBound,
             vertexStrides: vertexStrides
-        ) else {
+        )
+        // Preserve the old layout's whole-file selection and decode failures.
+        // Format 9 is an unskinned position/UV stream, not another skin stride.
+        if block == nil, magic == "MDLV0016",
+           let candidate = try findMeshBlock(in: data, bound: searchBound,
+                vertexStrides: [20], requiredFormat: 9, allowsUnusedTail: false),
+           candidate.indexBytesOffset + candidate.indexCount * 2 + 1 == data.count,
+           data[data.count - 1] == 0 {
+            block = candidate
+        }
+        guard let block else {
             throw SceneMdlPuppetMeshReadError.meshBlockNotFound
         }
         return try decode(block: block, magic: magic, data: data, meshBound: searchBound)
@@ -165,12 +175,15 @@ enum SceneMdlPuppetMeshReader {
     private static func findMeshBlock(
         in data: Data,
         bound: Int,
-        vertexStrides: [Int]
-    ) -> MeshBlock? {
+        vertexStrides: [Int],
+        requiredFormat: UInt32? = nil,
+        allowsUnusedTail: Bool = true
+    ) throws -> MeshBlock? {
         guard bound > markerSize + meshHeaderSize + 4 else { return nil }
         var unusedTailCandidate: MeshBlock?
         var unusedTailIsAmbiguous = false
         for offset in markerSize ..< (bound - meshHeaderSize - 4) {
+            if let requiredFormat, readUInt32(data, at: offset) != requiredFormat { continue }
             let vertexBytes = Int(readUInt32(data, at: offset + 4))
             guard vertexBytes > 0 else { continue }
             let verticesOffset = offset + meshHeaderSize
@@ -203,6 +216,7 @@ enum SceneMdlPuppetMeshReader {
                     indexBytesOffset: indicesOffset
                 )
                 if Int(maxIndex) == vertexCount - 1 { return candidate }
+                guard allowsUnusedTail else { continue }
                 if unusedTailCandidate == nil {
                     unusedTailCandidate = candidate
                 } else {
@@ -210,7 +224,10 @@ enum SceneMdlPuppetMeshReader {
                 }
             }
         }
-        return unusedTailIsAmbiguous ? nil : unusedTailCandidate
+        // Ambiguity is an existing rejection, not permission to try a newly
+        // admitted layout. Only a genuinely absent candidate returns nil.
+        if unusedTailIsAmbiguous { throw SceneMdlPuppetMeshReadError.meshBlockNotFound }
+        return unusedTailCandidate
     }
 
     private static func decode(

@@ -215,14 +215,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "人物呈现；相较官方奶油底及书法红印，当前灰底且装饰未见，待默认条件/颜色/资源资格。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
+      "note": "10-17静态format9/20B mesh修正后，原包奶油纸底、书法与双红印已恢复，主体18旧52B动画保持；不再列背景灰底/装饰缺失。与目录官方仅基础构图对照，viewport/phase及完整属性/交互尚未同状态验收。",
       "runs": [
-        ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/report.json"
+        ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/report.json",
+        ".artifacts/scene-evidence/runs/mdl-static-position-uv20-20261017/final/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/samples/3022080536/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/samples/3022080536/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/mdl-static-position-uv20-20261017/final/samples/3022080536/runtime_evidence.zip"
       ],
-      "remainingDifferences": "人物呈现；相较官方奶油底及书法红印，当前灰底且装饰未见，待默认条件/颜色/资源资格。；完整视觉、播放、交互及作者参数未验收。",
+      "remainingDifferences": "背景首错已修；完整视觉/crop、音频条相位、指针与全部作者参数未验收，不能由工具2/2或主幅恢复记整样本PASS。",
       "officialComparison": "compared"
     },
     "3662245960": {

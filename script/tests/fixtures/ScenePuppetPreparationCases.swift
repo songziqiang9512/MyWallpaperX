@@ -139,6 +139,25 @@ private enum ScenePuppetPreparationCases {
             "default": try describe(ScenePuppetLayerLoad.preparePose(
                 for: retainedLayer, asset: retained, usesDefaultConfiguration: true))]
 
+        let staticPath = "static-uv20.mdl"
+        let staticPrepared = asset(staticPath, animations: false)
+        if case let .ready(value) = staticPrepared {
+            let layer = sourceLayer(31, mesh: staticPath)
+            let before = try describe(ScenePuppetLayerLoad.preparePose(for: layer, asset: staticPrepared))
+            try FileManager.default.removeItem(at: root.appendingPathComponent(staticPath))
+            output["static-uv20"] = ["kind": "ready", "stride": value.mesh.vertexStride,
+                "vertices": value.mesh.vertices.map { [$0.x, $0.y, $0.z, $0.u, $0.v] },
+                "indices": value.mesh.indices.map(Int.init),
+                "bonesAvailable": ScenePuppetLayerLoad.boneConfiguration(for: value) != nil,
+                "animationsPrepared": value.animationSet != nil,
+                "fileExists": FileManager.default.fileExists(
+                    atPath: root.appendingPathComponent(staticPath).path),
+                "before": before,
+                "after": try describe(ScenePuppetLayerLoad.preparePose(for: layer, asset: staticPrepared))]
+        } else {
+            output["static-uv20"] = failure(staticPrepared)
+        }
+
         var failures: [String: Any] = [:]
         for (label, path) in [("missing", "missing.mdl"), ("read", "directory.mdl"),
                                ("parse", "bad-mesh.mdl"), ("path", "../outside.mdl")] {

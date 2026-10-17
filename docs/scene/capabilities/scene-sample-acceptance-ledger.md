@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（300 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `2071a298df74d91206f0b026b6b241b5df5c25836c7ab7d145e16e27eaa66d61`（生成于 2026-10-16T17:53:30.857012+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `b5776100f3c8a30b13a1153699f79652b2b59205799f1991d5ff511a310ba44e`。
-- 本页生成于 2026-10-16T19:16:05.832284+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `c03975eb0ea9872e5af242b6e0fa52449bc58e2c03f67b617106b3807cad6613`。
+- 本页生成于 2026-10-17T02:10:45.552901+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -136,7 +136,7 @@
 | `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3002649614` | 纯欲少女 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3021013015` | 赛博color-墨侠客行 | 2(0) color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3022080536` | 赛博color-宣纸国画-紫罗兰永恒花园 | 2(0) bool 1 color 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 人物呈现；相较官方奶油底及书法红印，当前灰底且装饰未见，待默认条件/颜色/资源资格。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚… |
+| `3022080536` | 赛博color-宣纸国画-紫罗兰永恒花园 | 2(0) bool 1 color 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 10-17静态format9/20B mesh修正后，原包奶油纸底、书法与双红印已恢复，主体18旧52B动画保持；不再列背景灰底/装饰缺失。与目录官方仅基础构… |
 | `3025969015` | 黑龙闹海 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3028090166` | WLOP [Tian Nan2] | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3039882306` | 麻匪 音频识别 抽签 Media Player | 49(10) bool 11 color 9 combo 1 scenetexture 2 slider 2 text… | `not-run` | - | `not-run` | `unreviewed` |  |
