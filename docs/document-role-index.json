@@ -1668,6 +1668,17 @@
       }
     },
     {
+      "path": "docs/scene/history/linked-stage-startup-convergence-2026-10-18.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/performance-convergence-card.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "AGENTS.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/malformed-combo-record-recovery-2026-10-16.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
