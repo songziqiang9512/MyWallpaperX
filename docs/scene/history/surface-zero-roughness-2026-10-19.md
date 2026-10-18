@@ -18,3 +18,12 @@
 必要身份与失败暂保本机`.artifacts/tmp/roughness-zero-endpoint-20261019/`的`tests/{red-summary,final-receipt}.json`、`build-reviewed/receipt.json`、`visual-result.json`、`independent-visual-review.json`；官方native与旧捕获失败在`.artifacts/tmp/343-model-lighting-20261019/roughness-zero-qualification/native-endpoint-result.json`及所指原始收据。正式14天包`.artifacts/scene-evidence/runs/surface-zero-roughness-20261019/`已保earth-after、heldout-361和official native .5/0，22957113B、单包低于32MiB；基线只引用既有`lit-image-emission-after-20261019/after/`，不重复复制。official输出0/1明确为本机synthetic身份、workshopID为空，不计入样本或验收分母；实际PNG/日志以正式包为准。
 
 清理先核13份正式payload文件SHA，两例结果无损gzip保留，确认stop1→0/GPU排空后精确删除两例results/runtime、retained重复、两个旧staged App runtime_root和旧Cloud-off副本共8目录、1140056229B（1087.24MiB）。当前候选App、唯一共享source/DD与343 original/official probe供后继研究保留；范围见同根`promotion-receipt.json`、`cleanup-receipt.json`，不认CPU/GPU、内存、启动、能耗或完整官方parity。
+
+<a id="residual-low-energy-20261019"></a>
+## 后续：低能环境候选否定与真实状态资格停止
+
+只含环境光的合格generic4载体，sky .3/albedo .5，仅切HDR：固定官方2.8.0.42与Native的SDR/HDR四臂plane均RGB19、对应clear差≤3U8；Native日志确认HDR实际enabled且headroom>1。该低能候选被否定，停止此方向，不改gamma/skylight gain；不外推强direct/HDR截断、Bloom/LUT或完整343夜侧原因。复用旧同App原图/Cloud隐藏对而未新增运行，右地球ROI约37/42/50→23/26/36，去Cloud后基底仍受光；隐藏同时改变颜色/coverage/depth，不能据此裁定Chroma BRDF。
+
+真实默认状态仅一次官方preview，crash且无有效scene/property正控，按STOP_UNKNOWN收口。24文件hash虽匹配既有Native arm，但该arm以loose alias入口配仅在PKG内的资源，官方原project entry/alias挂载与VFS未先资格，不能认等价原包装载；有效保存属性也未读回。不把此失败说成原343官方必崩、属性原因或任何光色结论，保transport/Unicode与readiness首失败。VM保开，crash dialog及owned窗关闭尚未确认，guest stage留存；未执行产品变更或后续试验。
+
+普通14天包`.artifacts/scene-evidence/runs/model-lighting-residual-20261019/`保两Native/两official及两crash原图、日志/runtime与最终研究/VFS/transport收据，3581142B；旧Cloud对引用原正式包。临时身份/停止边界见`.artifacts/tmp/343-lighting-residual-20261019/`的`final-result.json`、`real-default-state/final-result.json`、`transport-review/review.json`及`promotion-receipt.json`。两个Native App确认GPU排空、lsof为空后，正式逐选文件SHA匹配，两例结果无损gzip；仅删5个已停目录、21070707B，见同根`cleanup-receipt.json`。current App/DD、原343 arm、tiny输入/收据与状态未知的guest stage保留。343仍fail，夜侧/光色、间歇闪烁与collision保持开放。

@@ -109,8 +109,8 @@
       "bytes": 152071
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
-      "lines": 15,
-      "bytes": 3112
+      "lines": 17,
+      "bytes": 4014
     },
     "docs/scene/capabilities/puppet-clipping-design.md": {
       "lines": 45,
@@ -118,11 +118,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 347457
+      "bytes": 347676
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 140082
+      "bytes": 140835
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68396
+      "bytes": 68512
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -158,11 +158,11 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 77,
-      "bytes": 11878
+      "bytes": 11930
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
-      "lines": 264,
-      "bytes": 17214
+      "lines": 270,
+      "bytes": 18384
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
       "lines": 545,
@@ -241,8 +241,8 @@
       "bytes": 16871
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 217,
-      "bytes": 62807
+      "lines": 216,
+      "bytes": 62463
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1351,15 +1351,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "2adf3be1601e5fee43ffdbbd81eb3d8cbbd3a22b044b63a445c9f5a9accec73c",
-      "after": "2336cf8c55e7c9da9fcf5340261dca54d2138e29b94e0ba54709d7be09d4ef81",
-      "owner": "scene-feedback-audio-order",
-      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
       "after": "47d74e31ee09f3d3ad8fec4cea4b257587978b63745cbf1a9c6a5ad9ca8e8121",
@@ -1405,24 +1396,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e9cf77f36997fe4a49039d1f876e39b3933b055357f1fb855d2fc3b37c946b62",
-      "after": "248346deed886b0808149364a1137970a4d602a849d6f141b4cc62524564b624",
-      "owner": "scene-surface-zero-roughness",
-      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "d64244a9ef7c2bae0ffb5696eefdcd74ba960ddb2cc3de64b2e23673154baba7",
-      "after": "7bd957d28c44b578d64ce5972bf57a0d6c8bfa53d10b3bf0650d9fec633eb6f2",
-      "owner": "scene-surface-zero-roughness",
-      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "before": "950551e6d8bd494dfa43afdd9683eeaecf631e42a1b27c893d08dd278930d885",
       "after": "6c5bc0c21848d704e97732ed356dbebe5513175646d1f0d750fd51cd8615a3b0",
@@ -1432,12 +1405,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b90a71764fffccee269acd7ae7b9e174026e704071cd81897f85f67a1ac5bd56",
-      "after": "e15cd066cc1ae9dda948effd594558baa4ddfc9849b58944dae3e4dc33bfb764",
-      "owner": "scene-surface-zero-roughness",
-      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
+      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
+      "before": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
+      "after": "fa17a1e9d415ae9ad367a8d3d951d987b79f51d47b2691c546ff98d7621634cb",
+      "owner": "scene-gaussian-zero-axis",
+      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "2336cf8c55e7c9da9fcf5340261dca54d2138e29b94e0ba54709d7be09d4ef81",
+      "after": "2c8cf70dd1dd3fa468b64382a09a4d1dc51c2ba4fe1bbec1dc156a16be017254",
+      "owner": "scene-gaussian-zero-axis",
+      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "248346deed886b0808149364a1137970a4d602a849d6f141b4cc62524564b624",
+      "after": "b6c52aa34b964c46cde43fd31f6645f696c6703e57e5c8c588945faae043b1f1",
+      "owner": "scene-gaussian-zero-axis",
+      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "7bd957d28c44b578d64ce5972bf57a0d6c8bfa53d10b3bf0650d9fec633eb6f2",
+      "after": "71a16c40f8fb94d9da2f22c1b27be9d189657b300e4e6a01f696deea7eb8cdf4",
+      "owner": "scene-gaussian-zero-axis",
+      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "4420e97dda982640642083588de1aa6417dacfa3a3167330238cad184d7f33c2",
+      "after": "460072c339a100e83a73a4caf6cd076498aed55c8722f59b3639ec9e6abf6c21",
+      "owner": "scene-gaussian-zero-axis",
+      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/official-client-behavior-research-workflow.md",
+      "before": "26e679bd7b452671335bce5b1e51d81681c4edf363bd478912aec87df113c60e",
+      "after": "07b2ebd75414507d052ae281139fcd43e18d4b47e55decb0f905034c870d45a5",
+      "owner": "scene-residual-lighting",
+      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
+      "decision": "docs/scene/history/surface-zero-roughness-2026-10-19.md#residual-low-energy-20261019"
     }
   ]
 }

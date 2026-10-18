@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `d81ec16c92e1b2816701391bedcf66733230fc55e3525cd9263b78e36335314c`。
-- 本页生成于 2026-10-18T18:52:19.754922+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2fa952ed1d07772ae8052c21e6c583d8f592995b781e7358d0681d9ea1486dba`。
+- 本页生成于 2026-10-18T19:42:59.962766+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -79,7 +79,7 @@
 | `2069136288` | [R18] Lexaiduer DOA Nagisa x Tamaki X-R… | 3(0) color 1 combo 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2112262451` | [R18] Sakimi Chan Azur Lane Belfast X-R… | 4(0) color 1 combo 2 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2131872317` | Night Market by 俊伦 何 in 4K | 7(0) bool 3 color 1 slider 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：蓝色爆炸烟花乱飘、轨迹不对；并入旧烟花观察，需同时间窗/随机输入区分。 |
-| `2134765860` | Bunk | 34(18) bool 14 color 7 combo 3 group 4 slider 5 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2134765860` | Bunk | 34(18) bool 14 color 7 combo 3 group 4 slider 5 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-19 Gaussian零轴批健康相邻原包短窗exit0/FAIL[]、正常stop/GPU排空，房间/时钟/吊灯/窗/书架可见，右灰白poster仍在；… |
 | `2163522240` | [18+] jk x-ray 🔞😍 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2179185481` | Azur Lane / 18+ X-ray NSFW & SFW (3 Ver… | 4(0) bool 3 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2181251652` | Mio Tokisaki (X-Ray) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -209,7 +209,7 @@
 | `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立de… |
 | `3601801724` | ash一爪布鲁托 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3601964477` | 千咲 \|\| 鸣潮  \|\| 枫 \|\| 4K | 44(19) bool 19 color 5 group 3 slider 7 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
-| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | 10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼… |
+| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | 10-19开场镜头完全缺失已闭；Gaussian零轴数值首拒后继退出，目标四Program/GPU执行、FAIL[]。细条受后画UI遮挡且相机phase不同，… |
 | `3605502569` | 顾州-暗影魅眸｜Shadow · Charming Eyes | 33(21) bool 15 color 4 combo 1 group 3 slider 10 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3605722997` | [假装4K]魔王-追悼【可交互壁纸】（喜欢的点个赞呗） | 43(27) bool 22 color 4 combo 3 scenetexture 2 slider 9 text… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:visibility` | `scenescript` | `unreviewed` 2026-10-17 | 默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍… |
 | `3609108600` | 千咲 \|\| 鸣潮 \|\| 4K | 9(4) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

@@ -825,7 +825,7 @@
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root 原包开场/关闭反例与独立看图；非官方同phase",
       "officialComparison": "compared",
-      "note": "10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "note": "10-19开场镜头完全缺失已闭；Gaussian零轴数值首拒后继退出，目标四Program/GPU执行、FAIL[]。细条受后画UI遮挡且相机phase不同，未辨独立视觉收益；整样本unreviewed保持。 10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json",
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/second/report.json"
@@ -833,9 +833,10 @@
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png",
-        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
+        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
+        "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md"
       ],
-      "remainingDifferences": "666/effect2/672 Blur在作者[.99,0]采样量下被旧>=.01门拒，独立于旧照明反馈；完整phase/属性/交互和精确官方光形未验。  不认完整官方phase、全部交互/整样本或性能通过。"
+      "remainingDifferences": "旧666/effect2/672数值首拒已由非负有限零轴准入后继退出；目标不是空透明源，默认捕获背景，但细条被615后画UI大幅覆盖，两图camera/UI状态不同，未证独立像素收益。旧照明限定观察、完整phase/属性/交互与精确官方光形仍保原边界；不认整样本或性能通过。"
     },
     "3806337293": {
       "verdict": "unreviewed",
@@ -1025,6 +1026,17 @@
       "runs": [],
       "evidence": [
         "docs/scene/history/lit-image-emission-albedo-2026-10-19.md"
+      ]
+    },
+    "2134765860": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex root 原包候选短窗实际看图；无本批旧App配对",
+      "officialComparison": "unknown",
+      "note": "10-19 Gaussian零轴批健康相邻原包短窗exit0/FAIL[]、正常stop/GPU排空，房间/时钟/吊灯/窗/书架可见，右灰白poster仍在；只有candidate after，不认旧黑块修复、整样本PASS或官方parity。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md"
       ]
     }
   }

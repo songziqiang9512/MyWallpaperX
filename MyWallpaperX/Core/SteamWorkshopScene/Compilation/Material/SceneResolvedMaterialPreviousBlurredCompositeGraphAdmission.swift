@@ -265,7 +265,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission {
               let components = values["scale"]?.components,
               components.count == 1 || components.count == 2,
               components.allSatisfy({
-                  $0.isFinite && $0 >= 0.01 && Float($0).isFinite
+                  $0.isFinite && $0 >= 0 && Float($0).isFinite
               }) else {
             return nil
         }

@@ -631,13 +631,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b21dac116b05e94b601ffb52a5ca8da6b8cb918f40a4615dad386d149a1688a1",
+        "sourceSHA256": "7a49fdea28488dde9481c0363ec0e4ebc680e5f835eb8919460896cfd7873a9b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "默认mask准入合同与原schema/resolver职责同步；产品运行证据另归后验记录",
-        "limitations": "本导航收据不替代测试、GPU/样本、性能或官方parity验收。"
+        "scope": "Bind the original GraphAdmission zero-axis sampling decision to bounded admission/GPU results and real-sample limits; retain source, state, producer and resource proofs.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -659,13 +659,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8e401fab88172176d110c07858d384b0a32b611111127b6774757861f3fa626b",
+        "sourceSHA256": "ab903fafb43cee0a139da1e5c7615d3208e741117f7e7003e40807b75a77797a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
-        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
+        "scope": "Replace the existing blur owner lower-bound restriction with the same-owner zero-axis successor; retain partial source-shape coverage and non-parity limits.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c40c25ef9410b38198b564db9188e43a5b91dc169917217374e831c2504e2915",
+        "sourceSHA256": "94f297fb68e37afc8791755ada9b8df44a2ba7452394c61f1c0f1b0433eca594",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
-        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
+        "scope": "Reconcile bounded Gaussian zero-axis execution, unchanged sample counts and unproven360 visible benefit; add the qualified low-energy residual-lighting negative result without broadening343 closure.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "79f95314fb1d0a3dc7278bf07ce37f8e94d92f3421efe4fbdffd74c8e0ae8ce8",
+        "sourceSHA256": "1f2ba693dde4c8d725d3dae0de22cab15acde925147894afdb4f2f3599a64894",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
-        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
+        "scope": "Regenerate the canonical verdict notes for360 and after-only213 from their real bounded evidence; preserve302 samples,283 unreviewed,19 fail and all old archive runs.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -818,13 +818,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "02812ce44c248063376b1194da2d3aee5c6b23ca761d213771fa3a5d1110fd84",
+        "sourceSHA256": "3104bc9a4bad451beff88b7d02c60ed764b0e5e873c1c7543c6e6c9e07932020",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
-        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
+        "scope": "Retire only the existing blur exception lower0.01 restriction; preserve the same source-shape migration debt and public proof owner.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -832,13 +832,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/development/source-index.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a25561d101790143a8e0c3524f255c1f5bf13e695acf42fafa9ed50b514efd01",
+        "sourceSHA256": "29b7f042d91318125fcce9ee5fe62a8486635a6def068e4ec61a7c023393fe68",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
-        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
+        "scope": "Fold verified hidden-file/encoding transport and original entry/PKG-VFS qualification into the existing official research method; distinguish nativeCUA positive controls from metadata and preserve authorized UI tools.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -916,10 +916,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "23f573176f7ce974ed99f17e525ebf0e018534efd1a2053b255219d6ceda5379",
+        "sourceSHA256": "3dac247a67205214ae5dfe57374d9f97c2234460aadf16dad363b0edc1c5968c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
-        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
+        "scope": "Route the original blur history to its bounded zero-axis followup and retain the existing surface history residual-lighting appendix as historical evidence.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {
@@ -2064,8 +2064,8 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "entrypoint": "docs/scene/history/README.md",
-      "cutoffDate": "2026-10-15",
-      "uniqueValue": "公共准入及typed default mask红绿反例、真实GPU/末合成、独立实图；stock测试隔离和旧有界cohort债。"
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "公共准入/default mask及零轴采样量红绿反例、真实四模式GPU与原包/heldout；保细条遮挡、无独立可见收益、after-only和旧有界cohort债。"
     },
     {
       "path": "docs/scene/history/property-callback-recovery-2026-10-14.md",
@@ -3082,7 +3082,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-19",
-      "uniqueValue": "官方native有正控的有界zero roughness端点、共享数学owner与三真实GPU consumer红绿；保类型夹具失败、原343圆白热点退出及夜侧余项、361 after-only和清理身份边界。"
+      "uniqueValue": "官方native有正控的zero roughness端点、三GPU consumer红绿及343热点退出；后继低能环境四臂否定候选、原包alias/PKG未资格crash STOP与transport边界；保夜侧/flicker及361 after-only。"
     },
     {
       "path": "docs/scene/history/system-media-live-supply-verification-2026-10-06.md",
@@ -3489,10 +3489,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e446967e93409848c4358e2a86b2bdec9edc8dfbb3b782040884cd2b0f064a9b",
+        "sourceSHA256": "200898144454e54254993fe2ddde219bea0f5f55c05446bf8e02b5f41c8f2ecf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
-        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
+        "scope": "Retire only the proven Gaussian numeric first rejection; preserve old lighting and343 night-side/flicker/collision limits and the qualified low-energy negative result.",
+        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
       }
     },
     {

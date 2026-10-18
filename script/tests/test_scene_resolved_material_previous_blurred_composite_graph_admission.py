@@ -127,6 +127,18 @@ enum Harness {
         case zeroScale, negativeScale, belowMinimumScale
         case floatOverflowScale, largestFiniteFloatScale, nonfiniteScale
         case mismatchedScales, wrongScaleShape, wrongState, wrongTargetFormat
+        case zeroHorizontalLane, zeroVerticalLane, scalarZero, equivalentZeroAxis
+        case smallestPositiveFloat, positiveFloatUnderflow, negativeZeroScale, mixedNegativeZero
+        case negativeFirstLane, negativeSecondLane, negativeFloatUnderflow
+        case nanFirstLane, nanSecondLane, infiniteFirstLane, infiniteSecondLane, negativeInfinityScale
+        case floatOverflowFirstLane, floatOverflowSecondLane
+        case emptyScale, missingScale, missingFirstPassScale, missingScaleComponents
+        case mismatchedZeroAxes, zeroTargetExtent, zeroSecondTargetExtent
+        case renamedZeroAxisResources
+
+        var usesRenamedResources: Bool {
+            self == .renamedResources || self == .renamedZeroAxisResources
+        }
     }
 
     static let layerID = 530
@@ -184,7 +196,7 @@ enum Harness {
             "materials/effects/blur_gaussian_y.json",
             "materials/effects/blur_combine.json",
         ]
-        let materialPath = fixture == .renamedResources
+        let materialPath = fixture.usesRenamedResources
             ? "materials/independent/store-\(ordinal).json" : materialPaths[ordinal]
         return .init(
             nodeIndex: ordinal,
@@ -205,8 +217,8 @@ enum Harness {
     }
 
     static func graph(_ fixture: Fixture) -> Graph {
-        let quarterA = fixture == .renamedResources ? framebuffer("independent-left") : Self.quarterA
-        let quarterB = fixture == .renamedResources ? framebuffer("independent-right") : Self.quarterB
+        let quarterA = fixture.usesRenamedResources ? framebuffer("independent-left") : Self.quarterA
+        let quarterB = fixture.usesRenamedResources ? framebuffer("independent-right") : Self.quarterB
         let verticalTarget = [Fixture.wrongTarget, .kernelOneWrongTarget]
             .contains(fixture) ? quarterB : quarterA
         let previousSlot = fixture == .wrongBinding ? 1 : 2
@@ -257,7 +269,7 @@ enum Harness {
         ]
         let effect = Graph.Effect(
             key: effectKey,
-            definitionPath: fixture == .renamedResources ? "independent/soft-result.json" : fixture == .workshopNamespaced
+            definitionPath: fixture.usesRenamedResources ? "independent/soft-result.json" : fixture == .workshopNamespaced
                 || fixture == .workshopWrongNamespace
                 ? "effects/workshop/3260400126/blur/effect.json"
                 : "effects/blur/effect.json",
@@ -273,8 +285,9 @@ enum Harness {
                     texture: texture,
                     extent: .init(
                         kind: .scale,
-                        first: fixture == .wrongTargetExtent && index == 0 ? 2 : 4,
-                        second: nil
+                        first: fixture == .zeroTargetExtent && index == 0 ? 0
+                            : fixture == .wrongTargetExtent && index == 0 ? 2 : 4,
+                        second: fixture == .zeroSecondTargetExtent && index == 0 ? 0 : nil
                     ),
                     format: fixture == .wrongTargetFormat ? "rg8" : "rgba_backbuffer",
                     declaredUnique: false,
@@ -292,7 +305,7 @@ enum Harness {
     static func effectPasses(
         _ fixture: Fixture
     ) -> [SceneRenderDescriptor.EffectDescriptor.PassDescriptor] {
-        let components: [Double] = switch fixture {
+        let components: [Double]? = switch fixture {
         case .largeTwelve: [12, 12]
         case .largeThirtyTwo: [32, 32]
         case .unrelatedLargerScale: [73, 73]
@@ -300,6 +313,26 @@ enum Harness {
         case .oldUpperBoundary: [2, 2]
         case .aboveOldUpperBoundary: [2.1, 2.1]
         case .zeroScale: [0, 0]
+        case .zeroHorizontalLane, .renamedZeroAxisResources: [0.99, 0]
+        case .zeroVerticalLane, .mismatchedZeroAxes: [0, 0.99]
+        case .scalarZero: [0]
+        case .equivalentZeroAxis: [0.33 * 3, 1 - 1]
+        case .smallestPositiveFloat: [Double(Float.leastNonzeroMagnitude), 0.99]
+        case .positiveFloatUnderflow: [Double.leastNonzeroMagnitude, 0.99]
+        case .negativeZeroScale: [-0.0, -0.0]
+        case .mixedNegativeZero: [0.99, -0.0]
+        case .negativeFirstLane: [-0.01, 0.99]
+        case .negativeSecondLane: [0.99, -0.01]
+        case .negativeFloatUnderflow: [-Double.leastNonzeroMagnitude, 0.99]
+        case .nanFirstLane: [.nan, 0.99]
+        case .nanSecondLane: [0.99, .nan]
+        case .infiniteFirstLane: [.infinity, 0.99]
+        case .infiniteSecondLane: [0.99, .infinity]
+        case .negativeInfinityScale: [-.infinity, 0.99]
+        case .floatOverflowFirstLane: [1e40, 0.99]
+        case .floatOverflowSecondLane: [0.99, 1e40]
+        case .emptyScale: []
+        case .missingScaleComponents: nil
         case .negativeScale: [-1, -1]
         case .belowMinimumScale: [0.001, 0.001]
         case .floatOverflowScale: [1e40, 1e40]
@@ -312,13 +345,22 @@ enum Harness {
         case .largeTwelve, .largeThirtyTwo, .unrelatedLargerScale, .anisotropicScale, .oldUpperBoundary,
              .aboveOldUpperBoundary, .zeroScale, .negativeScale, .belowMinimumScale,
              .floatOverflowScale, .largestFiniteFloatScale, .nonfiniteScale,
-             .wrongScaleShape: true
+             .wrongScaleShape, .zeroHorizontalLane, .zeroVerticalLane, .scalarZero,
+             .equivalentZeroAxis, .smallestPositiveFloat, .positiveFloatUnderflow,
+             .negativeZeroScale, .mixedNegativeZero, .negativeFirstLane, .negativeSecondLane,
+             .negativeFloatUnderflow, .nanFirstLane, .nanSecondLane, .infiniteFirstLane,
+             .infiniteSecondLane, .negativeInfinityScale, .floatOverflowFirstLane,
+             .floatOverflowSecondLane, .emptyScale, .missingScaleComponents,
+             .mismatchedZeroAxes, .renamedZeroAxisResources: true
         default: false
         }
-        let scale = SceneDocument.ShaderValue(valueKind: plainAuthored ? "vector" : "binding",
+        let scale = SceneDocument.ShaderValue(valueKind: fixture == .scalarZero ? "scalar" : plainAuthored ? "vector" : "binding",
             userBinding: plainAuthored ? nil : "newproperty", components: components)
-        let secondScale = fixture == .mismatchedScales
-            ? SceneDocument.ShaderValue(components: [0.7, 0.7]) : scale
+        let secondScale = switch fixture {
+        case .mismatchedScales: SceneDocument.ShaderValue(components: [0.7, 0.7])
+        case .mismatchedZeroAxes: SceneDocument.ShaderValue(components: [0.99, 0])
+        default: scale
+        }
         let maskIsEnabled = [
             Fixture.maskedStock,
             .maskWithoutAsset,
@@ -348,14 +390,15 @@ enum Harness {
                 textureSlots: [],
                 userTextureInputs: [],
                 combos: kernelPair.map { ["KERNEL": $0.0] } ?? [:],
-                constantShaderValues: ["scale": secondScale]
+                constantShaderValues: [Fixture.missingScale, .missingFirstPassScale].contains(fixture)
+                    ? [:] : ["scale": secondScale]
             ),
             .init(
                 passIndex: 2,
                 textureSlots: [],
                 userTextureInputs: [],
                 combos: kernelPair.map { ["KERNEL": $0.1] } ?? [:],
-                constantShaderValues: ["scale": scale]
+                constantShaderValues: fixture == .missingScale ? [:] : ["scale": scale]
             ),
             .init(
                 passIndex: 3,
@@ -392,8 +435,8 @@ enum Harness {
         ordinal: Int = 0
     ) -> SceneRenderDescriptor.MaterialPassDescriptor {
         .init(
-            id: fixture == .renamedResources ? "materials/independent/store-\(ordinal).json#0" : "materials/effects/\(name).json#0",
-            materialPath: fixture == .renamedResources ? "materials/independent/store-\(ordinal).json" : "materials/effects/\(name).json",
+            id: fixture.usesRenamedResources ? "materials/independent/store-\(ordinal).json#0" : "materials/effects/\(name).json#0",
+            materialPath: fixture.usesRenamedResources ? "materials/independent/store-\(ordinal).json" : "materials/effects/\(name).json",
             shaderPath: shader,
             textureSlots: textureSlots,
             userTextureInputs: [],
@@ -423,7 +466,7 @@ enum Harness {
             nil
         }
         func shader(_ basename: String) -> String {
-            if fixture == .renamedResources {
+            if fixture.usesRenamedResources {
                 return "shaders/independent/resource-\(basename.count)"
             }
             if let shaderNamespace {
@@ -546,16 +589,34 @@ class SceneResolvedMaterialPreviousBlurredCompositeGraphAdmissionTests(
             with self.subTest(fixture=fixture):
                 self.assertTrue(self.result[fixture])
 
+    def test_zero_sampling_axes_are_values_not_target_extents(self) -> None:
+        for fixture in ("zeroHorizontalLane", "zeroVerticalLane", "zeroScale", "scalarZero",
+                        "negativeZeroScale", "mixedNegativeZero", "equivalentZeroAxis",
+                        "renamedZeroAxisResources"):
+            with self.subTest(fixture=fixture):
+                self.assertTrue(self.result[fixture])
+
+    def test_small_positive_scale_and_float_underflow_remain_admitted(self) -> None:
+        for fixture in ("belowMinimumScale", "smallestPositiveFloat", "positiveFloatUnderflow"):
+            with self.subTest(fixture=fixture):
+                self.assertTrue(self.result[fixture])
+
     def test_scale_numeric_and_whole_stage_neighbors_remain_rejected(self) -> None:
-        for fixture in ("zeroScale", "negativeScale", "belowMinimumScale", "floatOverflowScale",
-                        "nonfiniteScale", "wrongScaleShape", "mismatchedScales", "wrongState",
-                        "wrongTargetFormat"):
+        for fixture in ("negativeScale", "negativeFirstLane", "negativeSecondLane",
+                        "negativeFloatUnderflow", "floatOverflowScale", "floatOverflowFirstLane",
+                        "floatOverflowSecondLane", "nonfiniteScale", "nanFirstLane", "nanSecondLane",
+                        "infiniteFirstLane", "infiniteSecondLane", "negativeInfinityScale",
+                        "wrongScaleShape", "emptyScale", "missingScale", "missingFirstPassScale",
+                        "missingScaleComponents", "mismatchedScales", "mismatchedZeroAxes",
+                        "wrongState", "wrongTargetFormat"):
             with self.subTest(fixture=fixture):
                 self.assertFalse(self.result[fixture])
 
     def test_target_and_binding_contracts_reject_mismatched_graphs(self) -> None:
         self.assertFalse(self.result["wrongTarget"])
         self.assertFalse(self.result["wrongTargetExtent"])
+        self.assertFalse(self.result["zeroTargetExtent"])
+        self.assertFalse(self.result["zeroSecondTargetExtent"])
         self.assertFalse(self.result["wrongBinding"])
 
     def test_matching_kernel_zero_and_one_preserve_the_whole_graph_contract(self) -> None:

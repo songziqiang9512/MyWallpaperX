@@ -38,3 +38,16 @@
 新自有CPU门实际经过parser→preparation→原analyzer/schema/purpose→Eligibility，变量/资源改名和采样别名正控，以及default/type/override/identity/color/owner反例共5正/16反全部成立，2测试通过；235源码无漂移。它不证明资源加载或GPU像素，真实输出由上述App运行补足。一次最终独审接受，无可行动P1/P2；只登记最近门，不重复整矩阵，无性能收益声明。
 
 最小身份/日志/前后截图与收据保在`.artifacts/tmp/n05-prepared-probe-20261015/`；全局证据缓存原已超1GiB预算，不扩容、不删未知证据。本轮可重建样本/HOME/缓存、重复截图和生成源码清理，继续复用原单份构建缓存。多屏、HDR物理显示、属性全组合、长期运行与完整画面仍未验。
+
+<a id="zero-axis-followup-20261019"></a>
+## 零轴采样量后继（2026-10-19）
+
+沿[同一准入合同](../capabilities/previous-blurred-composite-admission.md)，唯一GraphAdmission将采样量下界`.01→0`，接受非负且Double/Float均有限的原值，包括合法scalar、单轴/全零及微小正数下溢；不改作者值、kernel或四pass/双FBO scale4、两pass同源、source/state/producer与资源门。全零仍执行downsample/combine，不是跳效果；负轴、非有限/溢出、错shape/pass值和零extent等相邻拒绝保持。
+
+准入11个方法由旧11语义subtest红转绿（3.652s），含变量/资源改名、等价表达及非法邻例。复用现自有3tap/四pass/双FBO与二维方块尺，四次App门分别通过横轴、纵轴、全零和双正模式的独立ROI及健康后继；保两个settled enabled像素与连续GPU完成index，不把后者说成相邻帧像素同一或显隐切换定相。一次普通Debug固定`0a4bf577d1bc6726c504168f3bddc9d5e9651394`+唯一Swift `369d471b…16df3`，4312输入和44外部闭包无漂移，31.098s/严格签名0，App `d804dce6…cc33`、dylib `4beef3b7…5cbc`；无性能收益声明。
+
+原360同12s/30FPS/after8、原生3024×1964、静音/outside0，不冻结Date或scene clock；before两FAIL/4rejected→after FAIL[]/4material/0rejected，469×4双target实际GPU、末合成及后继成立。666虽无child，却由默认copyBackground=true、passthrough=true捕获背景，后Opacity alpha1，不是空透明源；实际细条又被615后画白条盖约93%宽/97%高，早先587二维blur已有平滑。两图camera阶段、UI宽度/y位置不同，实图未辨独立像素收益，不为显影复跑，也不把准入修正说成旧光照或整体画面闭合。
+
+未参与修法的2134765860完整原包仅5s/after3候选短窗，exit0/FAIL[]、正常stop1→0/GPU排空；房间、时钟、吊灯、窗和书架可见，右灰白poster仍在。没有本批旧App配对，不认整样本PASS、旧黑块修复或完整官方parity。独审接受产品与真实运行的上述有界解释；本轮不更改两包unreviewed或旧归档分母。
+
+原失败、准入/GPU与metadata更正收据归`.artifacts/tmp/gaussian-zero-axis-20261019/tests/final-receipt.json`，构建与独审归同根`build-reviewed/receipt.json`、`research/independent-review.json`。实际执行源与后续仅修非消费oracle JSON的可提交测试分别留身份；shader、scene/material、实际prereg/ROI数学与像素断言未变，独审接受且未重复四次App门。原包before正式证据保于`.artifacts/scene-evidence/runs/gaussian-zero-axis-before-20261019`，after、heldout与四GPU模式归`gaussian-zero-axis-20261019`，分别12,142,234/24,360,088B，14天、单包低于32MiB。提升/清理收据核28项正式payload hash；结果无损gzip、确认stop/GPU排空与无打开句柄后精确清13目录700,081,602B，保当前candidate与唯一共享DD，旧roughness App退役。
