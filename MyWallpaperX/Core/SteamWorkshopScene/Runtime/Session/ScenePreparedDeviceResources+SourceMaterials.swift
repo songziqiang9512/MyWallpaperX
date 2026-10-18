@@ -36,7 +36,21 @@ extension ScenePreparedDeviceResources {
                 reject("variant-envelope-incomplete"); continue
             }
             let outputDomain: SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial.OutputDomain
-            if envelope.variants.allSatisfy({ $0.activeSamplers[0] == nil }) {
+            if entry.capturesMainTarget {
+                guard let sourceSlot = template.textureSlots.first ?? nil,
+                      sourceSlot.candidates.count == 1,
+                      let reference = sourceSlot.candidates.first?.reference,
+                      case let .provider(.sceneBackground(consumerLayerID)) = reference,
+                      consumerLayerID == layerID,
+                      template.textureSlots.dropFirst().allSatisfy({ $0 == nil }),
+                      envelope.variants.allSatisfy({ variant in
+                          variant.activeSamplers.count == 1
+                              && variant.activeSamplers[0]?.purpose(for: reference) == .premultipliedColor
+                      }) else {
+                    reject("framebuffer-source-domain-unproven"); continue
+                }
+                outputDomain = .capturedMain
+            } else if envelope.variants.allSatisfy({ $0.activeSamplers[0] == nil }) {
                 // A complete base-image atom supplies geometry only. It is
                 // never manufactured as a sampler binding or color-purpose fact.
                 outputDomain = .baseImage

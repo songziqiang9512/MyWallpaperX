@@ -88,6 +88,7 @@ struct SceneRenderDescriptor {
         let utilityLayer: Bool?
         let usesPerspective: Bool?
         var hasPerspectiveGeometryConsumer = false
+        var hasFramebufferMaterialSource = false
     }
 
     struct CameraDescriptor {

@@ -221,6 +221,24 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertEqual(case["warmupCalls"], int(name in {
                     "sourceWarmupFailure", "sourceWarmupNoReady"}))
 
+    def test_captured_main_requires_exact_live_consumer_and_all_variant_samplers(self) -> None:
+        case = self.facts["sourceCapturedMain"]
+        self.assertEqual(case["preparedCount"], 1)
+        self.assertEqual(case["outputDomain"], "capturedMain")
+        self.assertEqual(case["sampledPath"], "")
+        self.assertEqual(case["warmupPlanCount"], 2)
+        self.assertEqual(case["reasons"], [])
+        for name in ("sourceCapturedInactive", "sourceCapturedWrongPurpose", "sourceCapturedOtherSampler",
+                     "sourceCapturedWrongConsumer", "sourceCapturedAsset", "sourceCapturedMissing"):
+            with self.subTest(name=name):
+                rejected = self.facts[name]
+                self.assertEqual(rejected["preparedCount"], 0)
+                self.assertEqual(rejected["warmupCalls"], 0)
+                self.assertEqual(rejected["reasons"], ["framebuffer-source-domain-unproven"])
+        failed = self.facts["sourceCapturedWarmupFailure"]
+        self.assertEqual(failed["preparedCount"], 0)
+        self.assertEqual(failed["reasons"], ["pipeline-warmup"])
+
 
 if __name__ == "__main__":
     unittest.main()

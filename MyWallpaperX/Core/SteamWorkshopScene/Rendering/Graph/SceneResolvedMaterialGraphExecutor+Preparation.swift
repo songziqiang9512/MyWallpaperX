@@ -1,8 +1,67 @@
 import CoreGraphics
 import Foundation
 import Metal
+import simd
 
 extension SceneResolvedMaterialGraphExecutor {
+    /// Prepare raw material output in the original pair. It samples the same
+    /// main attachment only when this graph is encoded at its authored boundary.
+    func prepareFramebufferSourceMaterial(
+        _ source: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial,
+        layerID: Int, sourceTexture: MTLTexture, target: MTLTexture,
+        frame: SceneResolvedMaterialFrameSnapshot,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) -> Result<(
+        pass: SceneResolvedMaterialPassEncoder.PreparedPass,
+        representation: SceneShaderColorRepresentation
+    ), Failure> {
+        guard case .capturedMain = source.material.outputDomain,
+              source.material.pixelFormat == target.pixelFormat,
+              source.source.publication.candidate.texture === sourceTexture,
+              source.source.isCompleteSceneBackground(
+                consumerLayerID: layerID, frameEpoch: frame.textureRegistrySnapshot.frameEpoch
+              ), let inputFrame = frame.overlayingSceneBackground(
+                consumerLayerID: layerID, resource: source.source
+              ) else { return .failure(.captureRejected) }
+        // The public quad ABI supplies target pixels; canonical geometry is a
+        // unit card. Preserve its world footprint even after pool downsampling.
+        let pixelsToUnit = simd_float4x4(diagonal: SIMD4(
+            1 / Float(target.width), 1 / Float(target.height), 1, 1
+        ))
+        let input = inputFrame.finalizationInput(
+            template: source.material.template, layerID: layerID,
+            renderSize: CGSize(width: target.width, height: target.height),
+            modelViewProjection: frameInputs.effectOutputModelViewProjection * pixelsToUnit,
+            layerModelMatrix: source.unitModelMatrix * pixelsToUnit,
+            effectOutputModelViewProjection: frameInputs.effectOutputModelViewProjection,
+            effectTextureProjectionMatrixInverse: frameInputs.effectTextureProjectionMatrixInverse
+        )
+        let program: SceneResolvedMaterialProgram
+        switch source.material.bindFrame(input) {
+        case let .success(value): program = value
+        case let .failure(failure):
+            return .failure(.sourceMaterialFinalizerRejected(failure))
+        }
+        guard program.textureSlots.first??.registryIdentity == .sceneBackground(layerID)
+        else { return .failure(.captureRejected) }
+        let pass: SceneResolvedMaterialPassEncoder.PreparedPass
+        switch materialEncoder.prepareResult(program: program, target: target) {
+        case let .success(value): pass = value
+        case let .failure(failure):
+            return .failure(.sourceMaterialPassPreparationRejected(
+                programKey: program.preparedShader.cacheKey, failure: failure
+            ))
+        }
+        guard case let .color(.resolved(representation)) = pass.storedContent,
+              representation != .independentAlphaSignal else {
+            return .failure(.sourceMaterialPassPreparationRejected(
+                programKey: program.preparedShader.cacheKey,
+                failure: .fragmentOutputRejected
+            ))
+        }
+        return .success((pass, representation))
+    }
+
     func prepare(
         stageIndex: Int,
         transition: State.Transition,

@@ -12,6 +12,7 @@ enum SceneImageLayerMainPassRenderer {
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
         distanceFog: SceneImageDistanceFogUniforms = .init(),
         geometryProduct: SceneGeometryProduct? = nil,
+        terminalDepth: SceneImageLayerTerminalDepthBinding? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         var visibleUniforms = uniforms
@@ -25,6 +26,7 @@ enum SceneImageLayerMainPassRenderer {
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
             geometryProduct: geometryProduct,
+            terminalDepth: terminalDepth,
             mainPass: mainPass
         )
     }

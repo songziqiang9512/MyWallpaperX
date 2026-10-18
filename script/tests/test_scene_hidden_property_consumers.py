@@ -12,11 +12,15 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_property_live_routing import method_body
-from script.tests.test_scene_property_live_update_state import SWIFT_SOURCES
+from script.tests.test_scene_property_live_update_state import SWIFT_SOURCES as LIVE_UPDATE_SWIFT_SOURCES
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+# The retired-callback checks execute with their own live-update Harness. This
+# probe borrows only product dependencies and supplies its own main below.
+SWIFT_SOURCES = [path for path in LIVE_UPDATE_SWIFT_SOURCES
+    if path != ROOT / "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift"]
 HOST_SOURCE = SCENE / "Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
 LAYER_SOURCE = SCENE / "Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 CATALOG_SOURCE = SCENE / "Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
@@ -47,6 +51,7 @@ struct SceneRenderDescriptor {
         }
         var orthoWidth: Float? = 512
         var orthoHeight: Float? = 512
+        var default2DInputLayerID: Int? = nil
         var bloom = Bloom()
         var clearEnabled = true
     }
@@ -79,6 +84,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
         var key: Key
         var entry: Entry
         var sharedModelPath: String? = nil
+        var capturesMainTarget = false
     }
     var sourceMaterialEntries: [Int: SourceMaterialEntry]
     __SOURCE_CANDIDATES__
@@ -493,12 +499,23 @@ HARNESS = r'''
             imagePath: "models/failed.json", effects: [1])
         let absent = SceneRenderDescriptor.Layer(id: 16, contentKind: "image",
             imagePath: "models/absent.json", effects: [1])
+        let currentMain = SceneRenderDescriptor.Layer(id: 20, contentKind: "image",
+            imagePath: "models/current-main.json", effects: [1])
+        let currentMainAlias = SceneRenderDescriptor.Layer(id: 21, contentKind: "image",
+            imagePath: " Models\\Current-Main.JSON ", effects: [1])
         let sourceCatalog = SceneResolvedMaterialRuntimeCatalog(sourceMaterialEntries: [
             4: .init(key: .init(layerID: 4), entry: .template, sharedModelPath: "models/shared.json"),
             15: .init(key: .init(layerID: 15), entry: .failure, sharedModelPath: "models/failed.json"),
+            20: .init(key: .init(layerID: 20), entry: .template,
+                sharedModelPath: "models/current-main.json", capturesMainTarget: true),
         ])
         let candidates = sourceCatalog.sourceMaterialCandidateConsumerLayerIDs(
-            in: .init(layers: [effectedImage, alias, failed, absent]))
+            in: .init(layers: [effectedImage, alias, failed, absent, currentMain, currentMainAlias]))
+        rows["currentMainAssetProjection"] = [
+            "templateNotClaimed": !candidates.contains(currentMain.id),
+            "normalizedAliasNotClaimed": !candidates.contains(currentMainAlias.id),
+            "ordinaryTemplatesUnchanged": candidates == [4, 14],
+        ]
         let firstSurface = SceneResolvedMaterialRuntimeBridge()
         let laterSurface = SceneResolvedMaterialRuntimeBridge()
         laterSurface.sourceMaterials = [4: .init(sharedModelPath: "models/shared.json")]
@@ -811,6 +828,12 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
         for case in ("failedSourceTemplate", "noSourceCandidate"):
             with self.subTest(case=case):
                 self.assertEqual(self.rows[case], {"accepted": True, "published": True, "unchanged": False})
+
+    def test_current_main_templates_do_not_claim_global_asset_consumers(self) -> None:
+        self.assertEqual(self.rows["currentMainAssetProjection"], {
+            "templateNotClaimed": True, "normalizedAliasNotClaimed": True,
+            "ordinaryTemplatesUnchanged": True,
+        })
 
     def test_puppet_model_and_dependency_do_not_gain_the_ordinary_image_route(self) -> None:
         for case in ("puppetImage", "modelImage", "dependentImage"):

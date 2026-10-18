@@ -218,10 +218,17 @@ enum SceneLayerColorBlendRenderer {
         pipeline: SceneImageLayerPipeline,
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
         geometryProduct: SceneGeometryProduct? = nil,
+        terminalDepth: SceneImageLayerTerminalDepthBinding? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         let blendMode = layer.colorBlendMode ?? 0
         guard supports(blendMode) else { return false }
+        if layer.utilityLayer?.framebufferSource != nil {
+            guard terminalDepth != nil, pipeline.supportsReadOnlyDepth,
+                  blendMode == 0, geometryProduct == nil else { return false }
+        } else if terminalDepth != nil {
+            return false
+        }
         if let prepare = geometryProduct?.prepare {
             let extent = mainPass.targetExtent
             mainPass.encodeOffscreen {
@@ -230,7 +237,10 @@ enum SceneLayerColorBlendRenderer {
             }
         }
         if blendMode == 0 {
-            guard let encoder = mainPass.encoder() else { return false }
+            let encoder: MTLRenderCommandEncoder?
+            if let terminalDepth { encoder = terminalDepth.encoder(mainPass) }
+            else { encoder = mainPass.encoder() }
+            guard let encoder else { return false }
             if let geometryProduct {
                 return geometryProduct.encode(
                     encoder,
@@ -241,7 +251,11 @@ enum SceneLayerColorBlendRenderer {
                     nil
                 )
             }
-            pipeline.bind(encoder: encoder)
+            if terminalDepth != nil {
+                guard pipeline.bindReadOnlyDepth(encoder: encoder) else { return false }
+            } else {
+                pipeline.bind(encoder: encoder)
+            }
             pipeline.drawLayer(
                 texture: texture,
                 dependencyTexture: dependencyTexture,

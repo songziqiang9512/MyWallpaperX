@@ -3,7 +3,7 @@
 
 # D1 — composition 采集范围、source 与目标生命周期
 
-> 状态：2026-10-04 普通 composition 的 parent 分组、根位置与 copybackground 已经有界官方黑盒裁决并完成实施验收；结果见[执行记录](../../history/d1-composition-authored-order-implementation-2026-10-04.md)。后继无子层透视与2026-10-18正交透明成员源边界见本卡；未获资格的passthrough/特殊形态及完整官方parity仍未开放，当前实际结果归[运行证据](../../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018)。开发顺序只由[兼容路线](../scene-compatibility-roadmap.md)维护。
+> 状态：普通 composition 的 parent/根位置/copybackground 已[有界验收](../../history/d1-composition-authored-order-implementation-2026-10-04.md)；2026-10-18正交透明源及10-19 native childless framebuffer source Program 边界见本卡，实际结果归[运行证据](../../capabilities/runtime-evidence-current.md#native-framebuffer-source-20261019)。其余特殊形态及完整官方parity仍未开放；当前执行顺序只由[兼容路线](../scene-compatibility-roadmap.md)维护。
 
 ## 目标合同与判据
 
@@ -42,6 +42,20 @@
 **失败与验收。** 数值/资源安全沿原最小拒绝，普通effect失败沿原局部回退；创建/回滚与退休仍属DynamicLayerRuntime。先验false/true的四角、非零深度倾角、内部标记及同MVP cursor反投影；保fullscreen、group、project/依赖、native相机和健康peer反例，再做Debug及实际288控制/画面和独立原包。若原包仍无可见收益则不保留空创建基础设施，按队列重选；此设计不预报修复、性能或完整parity。
 
 **native-world 后继资格（2026-10-16）。** childless `composelayer_depthtest` 尚未开放。两轮官方自有 native-camera 载体均缺背景网格与独立 world 四角正控，不能裁定采集或深度语义；到此停止载体重试，不增加矩阵或产品别名。现有仿射 sourceUV 不能直接外推 native 透视；后继须先建立可见源与独立几何，再区分采集和最终遮挡。深度仍应由原 StaticModelFrame 管共享 lease/首次 clear，source/graph 保色彩路径，最终 quad 才只读 scene depth；真实首 pass 依赖主源，保留 captured-main consumer 准入，不转无源绘制。未改变产品能力，资格及失败输入见[限量证据](../../../../.artifacts/scene-evidence/runs/native-world-capture-qualification-20261016/manifest.json)。
+
+### 有序 framebuffer source Program 后继（2026-10-19）
+
+目标是让 native 场景中的合法平面先读取当时背景、执行作者材质及效果，再受场景遮挡回绘；不据此承诺盒体透明或全屏背景反馈同因。采用完整 source Program，避免为 stock shader 另造投影公式或固定源码形状证明。旧官方载体仍为 STOP_UNKNOWN，不借其失败裁定算法；合法作者输入与独立实现的可证伪像素门支持本片设计。
+
+原 AssetCatalog 保真 model 的 passthrough 声明，DescriptorBuilder 沿唯一已加载 model/material、明确 framebuffer 输入及 render state 提名 typed source role；不按资源名选算法。首片限 native、无成员、无依赖、无实例覆盖的平面，显式 translucent/nocull、depthtest enabled、depthwrite disabled；其余形态保持局部拒绝。Program 的完整 variant envelope、输入绑定及颜色合同必须准备成功，未知 shader 不借 flags 替换成固定采样。改名、局部变量改名和等价表达式仍交同一 compiler 执行。
+
+复用原 source-material compiler/variants/PassEncoder，新增 captured-main 输入域；原 GraphExecutor 的 base command 可消费该已准备材质，而不是固定 affine source copy。准备阶段只预留原 full-frame pair、冻结当帧矩阵及同帧主源身份，不编码或发布。真正编码仍在原 utility 的作者顺序截点；不得挪到层循环前的 asset source-material 批处理，也不复用历史 framebuffer。作者顶点/片段 Program 决定本地源像素，canonical world/model 与现 target-pixel ABI 决定输入坐标；effects 继续消费同一 graph 源，普通 affine 路径不增加像素除法或额外 PSO。
+
+终端只读深度沿原 StaticModelFrame 的共享 acquisition、首次 clear、pending deferral 和 completion；reverse-depth MVP/compare 同模型，禁止 source/effect 中途清场景 depth 或写 depth。深度绑定显式到唯一 compositor 的最终 draw，不能提前绑定后又被普通 encoder() 解除；不新增 plan、pool、Candidate、历史或输出 owner。isolated 模型仍保既有边界，不虚称全部模型已参与共享遮挡。失败先于本层编码拒绝，普通视觉失败局部保原回退，身份/陈旧资源沿现失败合同；pending 只复用现 mandatory-depth 延后提交，不能呈现漏层帧。
+
+共享 depth 的 optional consumer 资格先于 graph admission：先按原可见、normalMatrix 与完整材质输入资格尝试 model/particle mandatory depth，再由同一 StaticModelFrame 申请共享 lease；普通 isolated part 失败不抹掉已有效的 shared depth。仅当前可见且取得资格的新 role 可创建 candidate，其他本帧 preparation 输入排除，不创建 bundle/candidate/ledger；busyOtherFrame 仍整帧取消并等待。late named model 输入未齐时只排除本帧新 consumer，保原晚绑定模型链；同一 StaticModelFrame 按 layer/原 part index 持有唯一 depth 结果（含失败），独立于可清空/晚刷新的 draw payload，ordered 提前退出也不丢后层 reservation，particle lease 亦复用。通过资格后 binding 再失效属于身份/生命周期错误，沿原失败合同拒绝，禁止晚 continue 留下 allocationCommitted ledger 或无深度回绘。
+
+验收先用自有非对称网格、native transform parent、source Program 和健康后层证明采集/投影；前置 MDL 半遮挡证明终端只读 depth，含无先行 writer、resize/取消/陈旧资源及 pending 恢复。普通 source/组合反例保持。随后固定非零 typed audio、相机与提示属性，要求真实目标有可归因新增像素及独立样本画面保持；只有执行计数或目标被遮挡不能关闭 N03。source/几何/遮挡正控任一失败即停并重评，不调作者位置、亮度或 cull 追图；无实际收益撤回产品准入。
 
 ## 无子层透明源与 named 输入的职责修正（2026-10-18）
 

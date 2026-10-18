@@ -93,8 +93,8 @@
       "bytes": 20680
     },
     "docs/scene/capabilities/coverage-ledger.md": {
-      "lines": 370,
-      "bytes": 174651
+      "lines": 371,
+      "bytes": 175267
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 140835
+      "bytes": 141148
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68512
+      "bytes": 68424
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -169,8 +169,8 @@
       "bytes": 122319
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 92,
-      "bytes": 21295
+      "lines": 106,
+      "bytes": 25135
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 216,
-      "bytes": 62463
+      "bytes": 62172
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1208,11 +1208,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "3b518eb6c02f52bdfc0bf81db688dfa336ea0072fd710f22a3293245058f4e94",
-      "after": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
-      "owner": "scene-composition-source-geometry",
-      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+      "before": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
+      "after": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
+      "owner": "scene-native-framebuffer-source",
+      "reason": "Bounded native framebuffer source Program and readonly shared-depth contract, actual lower audio-bar result and remaining occlusion queue; required capability/acceptance authorities updated once, obsolete source-missing state retired. No broad capability or performance promotion.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#有序-framebuffer-source-program-后继2026-10-19"
     },
     {
       "section": "bodies",
@@ -1325,11 +1325,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "69c335fba4004110b30e387f489bcb61c7fb63c5a8b5f6db44edea9d63873d33",
-      "after": "4844dac8dfe8964bf4559bca3c38ad172ab3d3cd5914062a17eda784013ecc43",
-      "owner": "scene-childless-background-source",
-      "reason": "Bounded authored source-priority contract and actual public fix with hidden preparation and per-sample evidence; replaced stale claims and retained failures, without broader capability promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#无子层-passthrough-的背景选择修正2026-10-18"
+      "before": "4844dac8dfe8964bf4559bca3c38ad172ab3d3cd5914062a17eda784013ecc43",
+      "after": "2165041e26d0f54aaceb03e721dd6ba863ce3b8c587552ef1a335f7eab85971f",
+      "owner": "scene-native-framebuffer-source",
+      "reason": "Bounded native framebuffer source Program and readonly shared-depth contract, actual lower audio-bar result and remaining occlusion queue; required capability/acceptance authorities updated once, obsolete source-missing state retired. No broad capability or performance promotion.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#有序-framebuffer-source-program-后继2026-10-19"
     },
     {
       "section": "bodies",
@@ -1424,11 +1424,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "248346deed886b0808149364a1137970a4d602a849d6f141b4cc62524564b624",
-      "after": "b6c52aa34b964c46cde43fd31f6645f696c6703e57e5c8c588945faae043b1f1",
-      "owner": "scene-gaussian-zero-axis",
-      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
+      "before": "b6c52aa34b964c46cde43fd31f6645f696c6703e57e5c8c588945faae043b1f1",
+      "after": "53ff4aa2ba89d6c7000d94b1adb79108e3d88bac57dff838c4640677e602ad9b",
+      "owner": "scene-native-framebuffer-source",
+      "reason": "Bounded native framebuffer source Program and readonly shared-depth contract, actual lower audio-bar result and remaining occlusion queue; required capability/acceptance authorities updated once, obsolete source-missing state retired. No broad capability or performance promotion.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#有序-framebuffer-source-program-后继2026-10-19"
     },
     {
       "section": "bodies",

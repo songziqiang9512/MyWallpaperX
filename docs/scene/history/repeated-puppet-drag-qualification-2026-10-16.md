@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # U40 连续 Puppet 拖动：fresh 资格与候选 API 缺口
 
-> **历史证据 — 非现役入口**。截止：2026-10-18。保留fresh三轮故障、早期载体失败与后继官方有界观察。U40未闭合，没有通用冲量合同、重复交互修复或完整样本通过结论。
+> **历史证据 — 非现役入口**。截止：2026-10-19。保留fresh三轮故障、早期载体失败与后继官方有界观察。U40未闭合，没有通用冲量合同、重复交互修复或完整样本通过结论。
 
 当前状态与后继归[断点队列](../roadmap/scene-open-breakpoint-queue.md)，属性专项归[工作卡](../roadmap/properties-panel-card.md)，执行边界归[兼容路线](../roadmap/scene-compatibility-roadmap.md)。
 
@@ -71,6 +71,12 @@ Q3时native物理推进把结果写入`scriptBoneOverrides`，随后同一pose�
 
 Q5首次CLI dispatch在0.15s返回255，未出现receiver或实验回执；只读预检确认原receiver不变、stage缺席和冻结runner可见后，以完全同argv/input完成一次实际实验。失败与预检保留，不计作第二次物理试验。上述结果只支持本平移profile的本地translation overlay按cadence退出、物理位置/速度续存；rotation/scale/其余matrix分量及非物理骨寿命未知。职责方案归[D4](../roadmap/batch2/script-component-api-design.md#puppet-query-render-pose)。
 U40仍须修后按原输入验证三轮持续响应、释放后继续更新、健康邻居与原生入口；不关闭N06、N08、其他Puppet profile、整样本视觉、物理多屏或性能专项。
+
+## setter 与冲量同 callback 顺序：停止边界（2026-10-19）
+
+重新核对作者释放链，3749463715与2998757800都调用尚未接入的 `applyBonePhysicsImpulse`；299没有先前怀疑的 `getAnimation` 变体。共享缺失API已定位，但该静态调用关系不代替两包当前身份的三轮交互验收，也不把异常 fuse 改成忽略即可恢复物理。
+
+固定官方2.8.0.42的自有C/S/SI/IS四格在age8执行一次setter20和低冲量40、显式angular零，观察同callback先后次序。首张实际交互PNG已到age11.267，未取得预登记的C/S格线稳定与大于3px位移正控；虽然24条有限getter和正常调用文本可读，SI/IS登记值同舍入显示，仍不能裁定顺序、单位、增益或隐藏物理状态。按门记 **STOP_UNKNOWN**，不重复同类无区分矩阵、不据此接入猜测solver。输入、原PNG、失败关闭命令和独审保留在[正式包](../../../.artifacts/scene-evidence/runs/u40-setter-impulse-order-stop-20261019/manifest.json)，普通14天；用户随后确认手动关闭该实验预览，官方主客户端及VM继续运行。历史工具未确认关闭的事实保持原样，人工确认不充当物理验收。
 
 <a id="native-query-render-pose"></a>
 

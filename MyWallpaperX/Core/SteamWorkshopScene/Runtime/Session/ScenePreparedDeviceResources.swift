@@ -645,7 +645,10 @@ final class ScenePreparedDeviceResourcesTask {
                 try checkCancellation()
                 guard let imageLayerPipeline = SceneImageLayerPipeline(
                     device: device,
-                    pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
+                    pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
+                    preparesReadOnlyDepth: descriptor.layers.contains {
+                        $0.utilityLayer?.framebufferSource != nil
+                    }
                 ) else {
                     throw SceneDesktopWallpaperHostLaunchError
                         .requiredImagePipelineUnavailable

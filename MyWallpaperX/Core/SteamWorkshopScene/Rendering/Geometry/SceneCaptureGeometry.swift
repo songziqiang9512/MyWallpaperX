@@ -143,11 +143,23 @@ enum SceneCaptureGeometryResolver {
         captureMVP: simd_float4x4? = nil,
         compositionSourceMemberLayerIDs: [Int]? = nil,
         authoredRenderSizeWH: [Float]? = nil,
-        localCompositionSourceExtent: CGSize? = nil
+        localCompositionSourceExtent: CGSize? = nil,
+        usesMaterialSource: Bool = false
     ) -> SceneCaptureGeometry? {
         guard viewportSize.width.isFinite, viewportSize.height.isFinite,
               viewportSize.width > 0, viewportSize.height > 0 else {
             return nil
+        }
+        if usesMaterialSource {
+            guard kind == .composition,
+                  compositionSourceMemberLayerIDs?.isEmpty != false,
+                  let extent = SceneLayerEffectSourceExtent.resolve(
+                    publishedRenderSizeWH: nil,
+                    authoredRenderSizeWH: authoredRenderSizeWH,
+                    candidateMappedSize: nil
+                  ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
+                     Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
+            return .init(sourceUV: .identity, outputMVP: layerMVP, pixelSize: extent.pixelSize)
         }
         if kind == .composition,
            compositionSourceMemberLayerIDs?.isEmpty == false,

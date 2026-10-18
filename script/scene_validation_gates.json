@@ -3699,6 +3699,27 @@
       "modules": [
         "test_scene_shader_syntax_concurrency"
       ]
+    },
+    {
+      "id": "scene-framebuffer-source-material",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources+SourceMaterials.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialUtilitySource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift",
+        "script/tests/test_scene_framebuffer_source_*.py",
+        "script/tests/fixtures/SceneFramebufferSourceGraphChecks.swift",
+        "script/tests/scene_framebuffer_source_test_support.py",
+        "script/tests/test_scene_native_world_composition.py"
+      ],
+      "modules": [
+        "test_scene_framebuffer_source_role",
+        "test_scene_framebuffer_source_graph",
+        "test_scene_native_world_composition"
+      ]
     }
   ],
   "method_gates": {

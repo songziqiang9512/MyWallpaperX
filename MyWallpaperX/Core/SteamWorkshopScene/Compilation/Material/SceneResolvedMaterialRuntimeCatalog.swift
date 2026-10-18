@@ -47,6 +47,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let key: SourceMaterialKey
         let entry: Entry
         var sharedModelPath: String? = nil
+        var capturesMainTarget: Bool = false
     }
 
     enum Entry {
@@ -166,7 +167,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var consumers = Set<Int>()
         var sharedModels = Set<String>()
         for source in sourceMaterialEntries.values {
-            guard case .template = source.entry else { continue }
+            guard !source.capturesMainTarget, case .template = source.entry else { continue }
             consumers.insert(source.key.layerID)
             if let model = source.sharedModelPath {
                 sharedModels.insert(SceneModelResourceIdentity(model).value)
@@ -402,29 +403,47 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let passes = Dictionary(grouping: descriptor.materialPasses) { normalized($0.materialPath) }
         let fullBindings = provenBindings.filter { !$0.canLowerToCompositor }
         var result: [Int: SourceMaterialEntry] = [:]
-        for layer in descriptor.layers where layer.contentKind == "image" {
+        for layer in descriptor.layers where layer.contentKind == "image"
+            || layer.utilityLayer?.framebufferSource != nil {
+            let capturesMainTarget = layer.utilityLayer?.framebufferSource != nil
             guard let modelPath = layer.imagePath,
-                  !loweredModelPaths.contains(normalized(modelPath)),
+                  capturesMainTarget || !loweredModelPaths.contains(normalized(modelPath)),
                   let matchingLinks = links[normalized(modelPath)],
                   matchingLinks.count == 1,
                   let materialPath = matchingLinks.first?.materialPath,
                   let materialPasses = passes[normalized(materialPath)],
-                  materialPasses.contains(where: { pass in
+                  capturesMainTarget || materialPasses.contains(where: { pass in
                       pass.shaderPath.map { !SceneBuiltinShaderIdentity.isImage($0) } ?? true
                   }) else { continue }
-            let proof = fullBindings.first { normalized($0.modelPath) == normalized(modelPath)
+            let proof = capturesMainTarget ? nil : fullBindings.first { normalized($0.modelPath) == normalized(modelPath)
                 && normalized($0.materialPath) == normalized(materialPath) }
             if let proof, proof.sourceLayerID != layer.id { continue }
             let key = SourceMaterialKey(layerID: layer.id, modelPath: modelPath,
                 materialPath: materialPath, passIndex: materialPasses.first?.passIndex ?? 0)
             func reject(_ detail: String) -> SourceMaterialEntry {
                 .init(key: key, entry: .failure(.init(phase: .graph,
-                    code: .graphNodeInvalid, details: ["source-material-" + detail])))
+                    code: .graphNodeInvalid, details: ["source-material-" + detail])),
+                    capturesMainTarget: capturesMainTarget)
             }
             guard materialPasses.count == 1, let pass = materialPasses.first,
                   pass.passIndex == 0, layer.puppetMeshPath == nil,
-                  layer.staticModelPath == nil, layer.usesPerspective != true else {
+                  layer.staticModelPath == nil,
+                  capturesMainTarget || layer.usesPerspective != true else {
                 result[layer.id] = reject("shape-unsupported"); continue
+            }
+            if capturesMainTarget {
+                guard layer.id >= 0,
+                      let utility = layer.utilityLayer, utility.kind == .composition,
+                      layer.contentKind == "composition", utility.copyBackground,
+                      !utility.passthrough,
+                      utility.framebufferSource.map({ normalized($0.materialPath) }) == normalized(materialPath),
+                      descriptor.camera.authoredOrthographicProjectionActive == false,
+                      layer.usesPerspective != false, layer.childLayerIDs.isEmpty,
+                      layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
+                      layer.attachmentName == nil, (layer.colorBlendMode ?? 0) == 0,
+                      layer.effects.contains(where: { $0.visible != false }) else {
+                    result[layer.id] = reject("framebuffer-shape-unsupported"); continue
+                }
             }
             // The existing slot-0 provider owner must not replace a completed
             // shader source. Admit those producers only with a full-slot plan.
@@ -442,7 +461,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             guard let material = resolution.node, resolution.issues.isEmpty else {
                 result[layer.id] = reject("resolution:" + resolution.issues.joined(separator: ";")); continue
             }
-            guard let state = sourceEvaluationState(material.renderState, provenInterface: proof != nil) else {
+            guard let state = sourceEvaluationState(material.renderState,
+                    provenInterface: proof != nil, capturesMainTarget: capturesMainTarget) else {
                 result[layer.id] = reject("render-state-unsupported"); continue
             }
             let contracts = shaderContracts.filter {
@@ -457,10 +477,17 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 provenSceneScriptValueTargets: sceneScriptTargets
             ) {
             case let .failure(failure):
-                result[layer.id] = .init(key: key, entry: .failure(failure))
+                result[layer.id] = .init(key: key, entry: .failure(failure),
+                    capturesMainTarget: capturesMainTarget)
             case let .success(template):
                 guard template.textureSlots.compactMap({ $0 }).allSatisfy({ slot in
                     slot.candidates.allSatisfy { candidate in
+                        if capturesMainTarget {
+                            guard slot.index == 0,
+                                  case let .provider(.sceneBackground(consumerLayerID)) = candidate.reference
+                            else { return false }
+                            return consumerLayerID == layer.id
+                        }
                         if case .asset = candidate.reference { return true }
                         return false
                     }
@@ -472,7 +499,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     userDemands: &userDemands, systemDemands: &systemDemands,
                     issues: &issues, analyses: analyses)
                 result[layer.id] = .init(key: key, entry: .template(template),
-                    sharedModelPath: proof.map { normalized($0.modelPath) })
+                    sharedModelPath: proof.map { normalized($0.modelPath) },
+                    capturesMainTarget: capturesMainTarget)
             }
         }
         return result
@@ -524,11 +552,26 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     /// that omitted authored blending/culling has a proven backend default.
     private static func sourceEvaluationState(
         _ raw: SceneResolvedMaterialNode.RenderState,
-        provenInterface: Bool
+        provenInterface: Bool,
+        capturesMainTarget: Bool = false
     ) -> SceneMaterialRenderState? {
         func allows(_ value: String?, _ expected: String) -> Bool {
             value == nil || value?.trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased() == expected
+        }
+        if capturesMainTarget {
+            guard raw.blending != nil, allows(raw.blending, "translucent"),
+                  raw.depthTest != nil, allows(raw.depthTest, "enabled"),
+                  raw.depthWrite != nil, allows(raw.depthWrite, "disabled"),
+                  raw.cullMode != nil, allows(raw.cullMode, "nocull"),
+                  raw.alphaWriting == nil || allows(raw.alphaWriting, "default")
+                    || allows(raw.alphaWriting, "enabled") else { return nil }
+            // This pass evaluates raw color. Its declared read-only scene
+            // depth is preserved by the role and consumed only at final replay.
+            return .init(rawValues: .init(blending: raw.blending, depthTest: raw.depthTest,
+                depthWrite: raw.depthWrite, cullMode: raw.cullMode, alphaWriting: raw.alphaWriting),
+                blending: .normal, depthTest: .disabled, depthWrite: .disabled,
+                cullMode: .noCull, alphaWriting: .enabled)
         }
         let provenRawOverwrite = provenInterface && allows(raw.blending, "translucent")
             && allows(raw.alphaWriting, "default")

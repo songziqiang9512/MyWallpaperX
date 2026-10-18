@@ -443,11 +443,16 @@ extension SceneResolvedMaterialGraphExecutor.Failure {
     /// previous-current output; all identity, state, resource, and invariant
     /// finalizer failures remain hard rejections.
     var isColorContractVisualRejection: Bool {
-        guard case let .materialFinalizerRejected(
-            _, _, _, _, failure
-        ) = self else { return false }
-        return failure.phase == .color
-            && failure.code == .colorContractUnproven
+        switch self {
+        case let .materialFinalizerRejected(_, _, _, _, failure),
+             let .sourceMaterialFinalizerRejected(failure):
+            return failure.phase == .color
+                && failure.code == .colorContractUnproven
+        case .sourceMaterialPassPreparationRejected(_, .fragmentOutputRejected):
+            return true
+        default:
+            return false
+        }
     }
 
     var rawValue: String {
@@ -467,6 +472,11 @@ extension SceneResolvedMaterialGraphExecutor.Failure {
                 + "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
                 + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
                 + Self.detailSuffix(failure.boundedDetails.first)
+        case let .sourceMaterialFinalizerRejected(failure):
+            "source-finalizer-\(failure.phase.rawValue)-\(failure.code.rawValue)"
+                + Self.detailSuffix(failure.boundedDetails.first)
+        case let .sourceMaterialPassPreparationRejected(programKey, failure):
+            "source-program-\(programKey.prefix(12))-pass-\(failure.code)-rejected"
         case .materialPassEncoderRejected: "material-pass-encoder-rejected"
         case let .materialPassPreparationRejected(
             stageIndex, nodeIndex, ordinal, programKey, failure

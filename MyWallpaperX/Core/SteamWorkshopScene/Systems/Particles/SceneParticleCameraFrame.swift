@@ -267,6 +267,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// other utility targets retain the screen-space policy; native-camera
     /// composition capture is not part of this profile.
     func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
+        if layer.hasFramebufferMaterialSource { return defaultsToPerspective }
         if layer.utilityLayer != nil,
            defaultsToPerspective || !layer.hasPerspectiveGeometryConsumer { return false }
         if let resolved = dynamicValues?[.layer(layerID: layer.id, field: .perspective)],
@@ -283,6 +284,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// Capture the same flat local background before replaying its texture
     /// through the output projection. Ordinary image/utility routes agree.
     func captureViewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
+        if layer.hasFramebufferMaterialSource { return viewProjection(for: layer) }
         if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer {
             return orthographicViewProjection
         }

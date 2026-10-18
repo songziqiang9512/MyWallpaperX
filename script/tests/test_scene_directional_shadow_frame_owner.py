@@ -34,6 +34,11 @@ SOURCES = list(dict.fromkeys([
 ]))
 
 SHELL = r'''
+// Prepared-input shell only; no framebuffer-source role is admitted here.
+extension Bool { var framebufferSource: Bool? { nil } }
+struct SceneImageLayerTerminalDepthBinding {
+ let encoder:(SceneMainPassEncoder)->MTLRenderCommandEncoder?
+}
 import CoreGraphics
 import Foundation
 import Metal

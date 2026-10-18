@@ -16,6 +16,7 @@ extension SceneMetalRenderer {
         time: Float,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
+        modelFrame: StaticModelFrame,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
@@ -52,6 +53,7 @@ extension SceneMetalRenderer {
             time: time,
             mainPass: mainPass,
             commandBuffer: commandBuffer,
+            modelFrame: modelFrame,
             effectExecutionTrace: effectExecutionTrace,
             resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
             compositionGroupRuntime: compositionGroupRuntime,

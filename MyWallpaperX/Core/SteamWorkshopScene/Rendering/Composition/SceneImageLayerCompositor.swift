@@ -97,6 +97,14 @@ struct SceneImageLayerCompositor {
         executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> DrawOutcome {
         var request = request
+        let usesMaterialSource = request.layer.utilityLayer?.framebufferSource != nil
+        if usesMaterialSource {
+            guard request.resolvedMaterialFrameTargetPlan != nil,
+                  request.terminalDepth != nil, request.geometryProduct == nil,
+                  (request.layer.colorBlendMode ?? 0) == 0 else { return .failed }
+        } else if request.terminalDepth != nil {
+            return .failed
+        }
         guard request.resolvedMaterialFrameTargetPlan == nil
             || resolvedMaterialRuntime != nil else {
 #if DEBUG
@@ -113,6 +121,7 @@ struct SceneImageLayerCompositor {
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
         guard !resolvedMaterialRoute.isRejected else { return .failed }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
+        guard !usesMaterialSource || resolvedMaterialClaim != nil else { return .failed }
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
@@ -124,7 +133,7 @@ struct SceneImageLayerCompositor {
                 layerSourceGraphFallbackPublisher != nil,
             allowsUnpublishedStaticSourceDraw: allowsUnpublishedStaticSourceDraw
         )
-        if case let .success(passthroughPlan) = passthroughResolution {
+        if !usesMaterialSource, case let .success(passthroughPlan) = passthroughResolution {
             if request.blocksStaticLayerSourcePassthrough,
                let layerSourceGraphFallbackPublisher,
                !layerSourceGraphFallbackPublisher(
@@ -510,6 +519,7 @@ struct SceneImageLayerCompositor {
                 colorBlendPipeline: colorBlendPipeline,
                 distanceFog: request.distanceFog,
                 geometryProduct: request.geometryProduct,
+                terminalDepth: request.terminalDepth,
                 mainPass: mainPass
             )
             if let graphExecutionTicket {
@@ -544,6 +554,7 @@ struct SceneImageLayerCompositor {
             colorBlendPipeline: colorBlendPipeline,
             distanceFog: request.distanceFog,
             geometryProduct: request.geometryProduct,
+            terminalDepth: request.terminalDepth,
             mainPass: mainPass
         )
         guard rendered else { return .failed }

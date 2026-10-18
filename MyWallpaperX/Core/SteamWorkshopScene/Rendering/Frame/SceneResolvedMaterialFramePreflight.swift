@@ -137,7 +137,13 @@ extension SceneMetalRenderer {
             // single pass that sizes the frame target.
             var capturedLayerSource: SceneBaseMaterialTextureSource?
             var utilityCaptureGeometry: SceneCaptureGeometry?
+            var framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
             var effectSourceExtent: SceneLayerEffectSourceExtent?
+            let preparedSourceMaterial = imageCompositor.resolvedMaterialRuntime?.sourceMaterials[layerID]
+            if layer.utilityLayer?.framebufferSource != nil {
+                guard case .capturedMain? = preparedSourceMaterial?.outputDomain,
+                      imagePipeline?.supportsReadOnlyDepth == true else { continue }
+            }
             // A utility composition owns a graph transaction only when its
             // typed utility plan can actually capture and consume that
             // transaction.  Keeping an unsupported utility claim in the
@@ -379,25 +385,19 @@ extension SceneMetalRenderer {
                     )
                 }
                 let model = imageModel(layer, nil)
-                guard let geometry = SceneCaptureGeometryResolver.resolve(
-                    kind: utility.kind,
-                    layerMVP: cameraFrame.viewProjection(for: layer) * model,
-                    viewportSize: compositionGroupRuntime?
-                        .enclosingTargetSize(forLayerID: layer.id) ?? viewportSize,
-                    captureMVP: compositionGroupRuntime?.rasterModelViewProjection(
-                        forLayerID: layer.id,
-                        worldMVP: cameraFrame.captureViewProjection(for: layer) * model
-                    ) ?? (cameraFrame.captureViewProjection(for: layer) * model),
-                    compositionSourceMemberLayerIDs:
-                        utilityExecution.membersByRootID[layer.id],
-                    authoredRenderSizeWH: layer.renderSizeWH,
-                    localCompositionSourceExtent: compositionGroupRuntime?
-                        .localSourceExtent(forRootID: layer.id)
+                guard let source = SceneResolvedMaterialUtilitySource.prepare(
+                    layer: layer, unitModelMatrix: model, cameraFrame: cameraFrame,
+                    viewportSize: viewportSize, groups: compositionGroupRuntime,
+                    memberLayerIDs: utilityExecution.membersByRootID[layer.id],
+                    sourceTexture: selectedMainSource, frameEpoch: textureRegistry.frameEpoch,
+                    preparedMaterial: preparedSourceMaterial
                 ) else {
+                    if utility.framebufferSource != nil { continue }
                     return .rejected(reasonCode: "utility-offscreen-size-unavailable")
                 }
-                utilityCaptureGeometry = geometry
-                desiredSize = geometry.pixelSize
+                utilityCaptureGeometry = source.geometry
+                framebufferSourceMaterial = source.material
+                desiredSize = source.geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       case .authoredCanvasDirectDraw =
@@ -950,6 +950,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 sourceTexture: sourceTexture,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline,
+                framebufferSourceMaterial: framebufferSourceMaterial,
                 sourceLighting: sourceLighting,
                 terminalReplayTarget: terminalReplayTarget,
                 frameInputs: frameInputs

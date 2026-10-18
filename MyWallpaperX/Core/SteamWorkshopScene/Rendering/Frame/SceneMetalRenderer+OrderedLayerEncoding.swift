@@ -62,7 +62,7 @@ extension SceneMetalRenderer {
         let hubLayerLoopStart = ProcessInfo.processInfo.systemUptime
 #endif
         frameLayers: for layer in orderedLayers {
-            if stopsAfterClaimedFailure { break frameLayers }
+            if stopsAfterClaimedFailure || modelFrame.depthDeferralReason != nil { break frameLayers }
             defer {
                 if !stopsAfterClaimedFailure,
                    !renderUtilityPlans(triggeredBy: layer.id,
@@ -71,6 +71,7 @@ extension SceneMetalRenderer {
                     worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
                     parallaxConfiguration: parallaxConfiguration, viewportSize: viewportSize,
                     time: time, mainPass: mainPass, commandBuffer: commandBuffer,
+                    modelFrame: modelFrame,
                     effectExecutionTrace: effectExecutionTrace,
                     resolvedMaterialFrameTargetPlans:
                         resolvedMaterialFrameTargetPlans,
@@ -270,6 +271,7 @@ extension SceneMetalRenderer {
                 // the group target, so the flat composition fallback would
                 // draw parent content that never contained them.
                 if resolvedMaterialFrameTargetPlans[layer.id] == nil,
+                   layer.utilityLayer?.framebufferSource == nil,
                    frameProjection.utilityExecution.membersByRootID[layer.id] == nil,
                    let imagePipeline {
                     _ = drawCompositionSourceFallback(
@@ -360,6 +362,11 @@ extension SceneMetalRenderer {
         // seal re-opens the main pass and Metal permits only one active
         // render encoder per command buffer.
         compositionGroupRuntime?.closeAllGroupEncoders()
+
+        if let reason = modelFrame.depthDeferralReason {
+            mainPass.closeForOffscreen()
+            return .deferred(reasonCode: reason)
+        }
 
         let mainEncoded = mainPass.finishEnsuringClear()
         reflection.mainSourceCompleted = mainEncoded

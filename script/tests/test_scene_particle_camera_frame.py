@@ -37,6 +37,7 @@ struct SceneRenderDescriptor {
         let utilityLayer: Bool?
         let usesPerspective: Bool?
         var hasPerspectiveGeometryConsumer = false
+        var hasFramebufferMaterialSource = false
     }
 
     let camera: CameraDescriptor
@@ -296,6 +297,10 @@ enum Harness {
         let explicitUtilityLayer = SceneRenderDescriptor.Layer(
             utilityLayer: true, usesPerspective: true
         )
+        let nativeMaterialSourceLayer = SceneRenderDescriptor.Layer(
+            utilityLayer: true, usesPerspective: true,
+            hasFramebufferMaterialSource: true
+        )
         let explicitImageLayer = SceneRenderDescriptor.Layer(
             utilityLayer: nil, usesPerspective: true
         )
@@ -418,6 +423,15 @@ enum Harness {
             "compositionCaptureRemainsFlat": scriptedFrame.captureViewProjection(for: composition)
                 == frame.orthographicViewProjection,
             "compositionNativeRemainsUnsupported": !nativeFrame.resolvesPerspective(for: composition),
+            "nativeMaterialSourceCamera": [
+                "usesPerspective": nativeFrame.resolvesPerspective(for: nativeMaterialSourceLayer),
+                "output": ndc(nativeFrame.viewProjection(for: nativeMaterialSourceLayer), nativeWorldUp),
+                "capture": ndc(nativeFrame.captureViewProjection(for: nativeMaterialSourceLayer), nativeWorldUp),
+                "ordinaryOutputStaysFlat": nativeFrame.viewProjection(for: composition)
+                    == nativeFrame.orthographicViewProjection,
+                "ordinaryCaptureStaysFlat": nativeFrame.captureViewProjection(for: composition)
+                    == nativeFrame.orthographicViewProjection,
+            ],
             "ordinaryImageCaptureFollowsOutput": scriptedFrame.captureViewProjection(for: scriptedLayer)
                 == scriptedFrame.viewProjection(for: scriptedLayer),
             "wrongTypedValueKeepsStatic": !wrongTypedFrame.resolvesPerspective(for: scriptedLayer),
@@ -808,6 +822,14 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
                     "compositionTypedFalseRestoresFlat", "compositionCaptureRemainsFlat",
                     "compositionNativeRemainsUnsupported", "ordinaryImageCaptureFollowsOutput"):
             self.assertTrue(self.result[key], key)
+
+    def test_native_material_source_keeps_native_output_and_capture_projection(self) -> None:
+        result = self.result["nativeMaterialSourceCamera"]
+        self.assertTrue(result["usesPerspective"])
+        self.assertEqual(result["output"], self.result["nativeWorldUpNDC"])
+        self.assertEqual(result["capture"], result["output"])
+        self.assertTrue(result["ordinaryOutputStaysFlat"])
+        self.assertTrue(result["ordinaryCaptureStaysFlat"])
 
     def test_native_camera_preserves_world_up_through_metal_clip_space(self) -> None:
         world_up = self.result["nativeWorldUpNDC"]

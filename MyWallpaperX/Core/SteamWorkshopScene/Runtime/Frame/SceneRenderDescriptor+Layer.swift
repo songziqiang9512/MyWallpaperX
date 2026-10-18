@@ -90,10 +90,15 @@ nonisolated extension SceneRenderDescriptor {
             guard let utility = utilityLayer else {
                 return ["image", "solid", "text", "model"].contains(contentKind)
             }
-            return utility.kind == .composition && contentKind == "composition"
+            return utility.framebufferSource == nil
+                && utility.kind == .composition && contentKind == "composition"
                 && utility.copyBackground && !utility.passthrough
                 && parentID == nil && childLayerIDs.isEmpty
                 && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
+        }
+
+        nonisolated var hasFramebufferMaterialSource: Bool {
+            utilityLayer?.framebufferSource != nil
         }
 
         nonisolated var supportsDirectLayerColorConsumer: Bool {

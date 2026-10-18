@@ -24,6 +24,7 @@ SOURCES = [SCENE / p for p in (
     "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
     "Rendering/Composition/SceneFramebufferSnapshot.swift",
     "Rendering/Composition/SceneMainPassEncoder.swift",
+    "Rendering/Composition/SceneImageLayerMainPassRenderer.swift",
     "Resources/Textures/SceneResourceBudget.swift",
     "Diagnostics/ScenePerformanceCounterHub.swift",
     "Diagnostics/SceneGPUCensus.swift")]
@@ -49,7 +50,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             commands = [
                 ["xcrun", "--sdk", "macosx", "metal", "-c", str(SHADER), "-o", str(air)],
                 ["xcrun", "--sdk", "macosx", "metallib", str(air), "-o", str(library)],
-                ["swiftc", *map(str, SOURCES), str(support), str(HARNESS),
+                ["swiftc", "-DDEBUG", *map(str, SOURCES), str(support), str(HARNESS),
                  "-module-cache-path", str(root / "cache"), "-o", str(binary)],
                 [str(binary), str(library), str(FOG)]]
             outputs = []
@@ -112,6 +113,13 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             for mode in range(1, 20):
                 self.assertEqual(rows["fractional", mode, hdr]["bytes"],
                                  rows["renamed-equivalent-matrix", mode, hdr]["bytes"])
+
+    def test_terminal_quad_rebinds_read_only_depth_after_color_pass(self):
+        for row in self.result["terminalDepth"]:
+            self.assertTrue(row["completed"] and row["drawn"] and row["missingRejected"], row)
+            self.assertEqual(row["left"], [0, 128, 255, 255] if row["writer"] else [255, 0, 0, 255], row)
+            self.assertEqual(row["right"], [255, 0, 0, 255], row)
+            self.assertEqual(row["farPeer"], [0, 255, 0, 255], row)
 
 
 if __name__ == "__main__":

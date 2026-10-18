@@ -7,11 +7,18 @@ nonisolated struct SceneUtilityLayer: Codable, Equatable {
         case fullscreen
     }
 
+    struct FramebufferSource: Codable, Equatable {
+        let materialPath: String
+    }
+
     let kind: Kind
     let copyBackground: Bool
     let passthrough: Bool
     /// Preserve the author's omission separately from the resolved behavior.
     var authoredCopyBackground: Bool? = nil
+    /// An authored Program evaluates the current main target in local pixels.
+    /// Its admitted material's read-only depth state belongs to final replay.
+    var framebufferSource: FramebufferSource? = nil
 
     nonisolated static func parse(
         imagePath: String?,

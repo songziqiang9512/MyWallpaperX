@@ -152,6 +152,40 @@ extension SceneMetalRenderer {
         reflectionFrame = reflection
         let environmentSource: (MTLCommandBuffer) -> SceneFrameTextureResource? = reflection.resolve
 #if DEBUG
+        performanceTelemetry?.beginStage("prepass-particles")
+#endif
+        // Upload once before depth qualification, so only actual particle draws
+        // participate in the original mandatory resource order.
+        particleBatches = preparedParticleBatches.filter {
+            $0.instanceBuffer.update(device: device, instances: $0.instances)
+                && $0.instanceBuffer.currentDrawState() != nil
+        }
+        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
+#if DEBUG
+        performanceTelemetry?.endStage("prepass-particles")
+#endif
+        let framebufferSourceLayerIDs: Set<Int> = imagePipeline?.supportsReadOnlyDepth == true
+            ? Set((frameProjection.preparationLayers ?? []).compactMap { layer in
+                layer.utilityLayer?.framebufferSource != nil ? layer.id : nil
+            }) : []
+        let requestedFramebufferSources = framebufferSourceLayerIDs.intersection(frameVisibleLayerIDs)
+            .intersection(frameProjection.utilityExecution.captureLayerIDs)
+        let unavailableFramebufferSources = framebufferSourceLayerIDs.subtracting(requestedFramebufferSources)
+            .union(unavailableFramebufferSourceDepthLayers(
+            requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
+            visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
+            batches: particleBatchesByID, particlePipeline: particlePipeline,
+            mainPass: mainPass, groups: compositionGroupRuntime,
+            commandBuffer: commandBuffer, leases: &frameDepthLeases))
+        if let reason = modelFrame.depthDeferralReason {
+            compositionGroupRuntime?.closeAllGroupEncoders()
+            mainPass.closeForOffscreen()
+            return .deferred(reasonCode: reason)
+        }
+        for layerID in unavailableFramebufferSources {
+            utilityCaptureTelemetry.record(layerID: layerID, encoded: false, on: commandBuffer)
+        }
+#if DEBUG
         performanceTelemetry?.beginStage("frame-admission")
 #endif
 
@@ -179,7 +213,10 @@ extension SceneMetalRenderer {
             environmentSource: environmentSource,
             frameLightSnapshot: frameLightSnapshot,
             compositionGroupRuntime: compositionGroupRuntime,
-            preparationLayers: frameProjection.preparationLayers,
+            preparationLayers: unavailableFramebufferSources.isEmpty
+                ? frameProjection.preparationLayers : frameProjection.preparationLayers?.filter {
+                !unavailableFramebufferSources.contains($0.id)
+            },
             utilityExecution: frameProjection.utilityExecution
         )
 #if DEBUG
@@ -217,24 +254,6 @@ extension SceneMetalRenderer {
 #if DEBUG
         let hubPrepassStart = ProcessInfo.processInfo.systemUptime
 #endif
-        // Sub-stages exist so the composite prepass cost can be attributed
-        // before any optimization; they are additive observations only.
-#if DEBUG
-        performanceTelemetry?.beginStage("prepass-particles")
-#endif
-
-        // CPU simulation produces immutable instances even while a display is
-        // unavailable. Update even empty batches to clear stale current slots;
-        // only the actual uploaded draw set may request depth or background copies.
-        particleBatches = preparedParticleBatches.filter {
-            $0.instanceBuffer.update(device: device, instances: $0.instances)
-                && $0.instanceBuffer.currentDrawState() != nil
-        }
-        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
-#if DEBUG
-        performanceTelemetry?.endStage("prepass-particles")
-#endif
-
         let shadowLights = frameLightSnapshot.shadowLights
         let hasShadowReceiver = !shadowLights.isEmpty && orderedLayers.contains { layer in
             frameVisibleLayerIDs.contains(layer.id)
@@ -242,9 +261,9 @@ extension SceneMetalRenderer {
         }
         let preparesNamedModelShadow = hasShadowReceiver && !activeStaticModelNamedAlbedoLayerIDs.isEmpty
         let shadowCandidates = hasShadowReceiver && !preparesNamedModelShadow
-            ? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+            ? (modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
-                groups: compositionGroupRuntime) : nil
+                groups: compositionGroupRuntime)) : nil
         // All callers inspect the same pre-source image/plan facts. Preserve
         // their short cuts while avoiding duplicate reflection-demand scans.
         var reflectionDemand: Bool?
@@ -307,7 +326,7 @@ extension SceneMetalRenderer {
             if !preparesNamedModelShadow,
                requiresReflection(),
                let pool = offscreenTexturePool,
-               let candidates = shadowDrawCandidates(orderedLayers: orderedLayers,
+               let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
                 visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
                 snapshot: frameContext.dynamicValues, groups: compositionGroupRuntime),
                prepareMandatoryDepth(state: modelFrame, candidates: candidates,

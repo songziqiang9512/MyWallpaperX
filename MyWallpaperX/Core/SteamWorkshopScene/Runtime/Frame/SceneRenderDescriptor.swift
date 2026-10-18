@@ -95,7 +95,8 @@ struct SceneRenderDescriptorBuilder {
             SceneRenderDescriptor.ModelMaterialLink
         ] = []
     ) -> SceneRenderDescriptor? {
-        guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count else {
+        guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count,
+              Set(assetCatalog.models.map(\.relativePath)).count == assetCatalog.models.count else {
             return nil
         }
         let modelCropOffsetsByPath = Dictionary(
@@ -133,6 +134,12 @@ struct SceneRenderDescriptorBuilder {
         }.mapValues { ids in
             ids.sorted()
         }
+        let sourceModels = Dictionary(grouping: assetCatalog.models) {
+            SceneModelResourceIdentity($0.relativePath).value
+        }
+        let sourceMaterials = Dictionary(grouping: assetCatalog.materials) {
+            SceneModelResourceIdentity($0.relativePath).value
+        }
 
         var descriptor = SceneRenderDescriptor(
             entryPath: project.entryPath,
@@ -147,7 +154,14 @@ struct SceneRenderDescriptorBuilder {
             generalTimelines: sceneDocument.general.timelines,
             generalTimelineDiagnostics: sceneDocument.general.timelineDiagnostics,
             layers: sceneDocument.objects.enumerated().map { index, object in
-                let contentKind = contentKind(for: object, solidModelPaths: solidModelPaths)
+                let utilityLayer = object.utilityLayer ?? framebufferSourceUtility(
+                    for: object, document: sceneDocument,
+                    models: sourceModels, materials: sourceMaterials,
+                    childIDsByParentID: childIDsByParentID,
+                    objectsByID: objectsByID
+                )
+                let contentKind = utilityLayer?.kind.rawValue
+                    ?? contentKind(for: object, solidModelPaths: solidModelPaths)
                 let puppetMeshPath = object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil
                 return SceneRenderDescriptor.Layer(
                     id: object.id,
@@ -181,7 +195,7 @@ struct SceneRenderDescriptorBuilder {
                     spotLight: object.spotLight,
                     directionalLight: object.directionalLight,
                     particleInstanceOverride: object.particleInstanceOverride,
-                    utilityLayer: object.utilityLayer,
+                    utilityLayer: utilityLayer,
                     dependencyLayerIDs: object.dependencyLayerIDs,
                     authoredDependencies: object.authoredDependencies,
                     parentID: object.parentID,
@@ -354,6 +368,65 @@ struct SceneRenderDescriptorBuilder {
                 return descriptor
             }
         }
+    }
+
+    /// Loaded declarations nominate a source Program; no model or shader name
+    /// selects a capture algorithm. Compilation still has to prove its inputs.
+    nonisolated private func framebufferSourceUtility(
+        for object: SceneDocument.SceneObject,
+        document: SceneDocument,
+        models: [String: [SceneAssetCatalog.ModelAsset]],
+        materials: [String: [SceneAssetCatalog.MaterialAsset]],
+        childIDsByParentID: [Int: [Int]],
+        objectsByID: [Int: SceneDocument.SceneObject]
+    ) -> SceneUtilityLayer? {
+        guard object.id >= 0,
+              document.general.authoredOrthographicProjectionActive == false,
+              object.usesPerspective != false,
+              object.utilityLayer == nil, object.materialInstance == nil,
+              object.staticModelPath == nil, object.particlePath == nil,
+              object.solid != true, object.attachmentName == nil,
+              object.puppetAnimationLayers.isEmpty,
+              object.shape == nil || object.shape == "quad",
+              (object.colorBlendMode ?? 0) == 0,
+              object.dependencyLayerIDs.isEmpty, object.authoredDependencies.isEmpty,
+              (childIDsByParentID[object.id] ?? []).isEmpty,
+              object.effects.contains(where: { $0.visible != false }),
+              let imagePath = object.imagePath,
+              let modelMatches = models[SceneModelResourceIdentity(imagePath).value],
+              modelMatches.count == 1, let model = modelMatches.first,
+              model.passthrough == true, !model.isSolidLayer, model.puppetPath == nil,
+              let materialPath = model.materialPath,
+              let materialMatches = materials[SceneModelResourceIdentity(materialPath).value],
+              materialMatches.count == 1, let material = materialMatches.first,
+              material.passes.count == 1, let pass = material.passes.first,
+              pass.shader?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              pass.textureSlots.count == 1, let source = pass.textureSlots.first ?? nil,
+              case .typedFrameInput = SceneRenderTargetVocabulary.dispatch(authoredName: source),
+              pass.userTextureInputs.allSatisfy({ $0 == nil }),
+              pass.userShaderValues.isEmpty else { return nil }
+        func normalized(_ value: String?) -> String? {
+            value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        guard normalized(pass.blending) == "translucent",
+              normalized(pass.depthTest) == "enabled",
+              normalized(pass.depthWrite) == "disabled",
+              normalized(pass.cullMode) == "nocull",
+              pass.alphaWriting == nil || ["default", "enabled"].contains(normalized(pass.alphaWriting) ?? "")
+        else { return nil }
+        // Other explicit utility configuration has not been admitted for this
+        // source profile. A transform parent does not create a group target.
+        if case let .object(authored)? = object.authoredValue,
+           authored["config"] != nil || authored["copybackground"] != nil { return nil }
+        var parentID = object.parentID
+        var visited: Set<Int> = [object.id]
+        while let id = parentID {
+            guard visited.insert(id).inserted,
+                  let parent = objectsByID[id], parent.utilityLayer == nil else { return nil }
+            parentID = parent.parentID
+        }
+        return .init(kind: .composition, copyBackground: true, passthrough: false,
+                     framebufferSource: .init(materialPath: materialPath))
     }
 
     nonisolated private func contentKind(

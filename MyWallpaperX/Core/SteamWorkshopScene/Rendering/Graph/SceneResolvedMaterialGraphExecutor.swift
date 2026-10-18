@@ -25,6 +25,11 @@ final class SceneResolvedMaterialGraphExecutor {
             materialOrdinal: Int,
             failure: SceneResolvedMaterialFailure
         )
+        case sourceMaterialFinalizerRejected(SceneResolvedMaterialFailure)
+        case sourceMaterialPassPreparationRejected(
+            programKey: String,
+            failure: SceneResolvedMaterialPassEncoder.PreparationFailure
+        )
         case materialPassEncoderRejected
         case materialPassPreparationRejected(
             stageIndex: Int,
@@ -188,6 +193,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
+        framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial? = nil,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         terminalReplayTarget: MTLTexture? = nil,
         pool: SceneOffscreenTexturePool? = nil,
@@ -249,10 +255,28 @@ final class SceneResolvedMaterialGraphExecutor {
             lease: firstLease,
             member: capability.pairPlan.baseCaptureMember
         )
-        let baseCommand: SceneGraphResourcePassEncoder.PreparedCommand
+        let sourceCommand: Command
         var baseRepresentation: SceneShaderColorRepresentation = .premultipliedAlpha
         switch capability.sourceRoute {
         case .capturedLayerTexture, .capturedMainTargetTexture:
+            if let framebufferSourceMaterial {
+                guard capability.sourceRoute == .capturedMainTargetTexture,
+                      let sourceTexture else {
+                    return .failure(.captureRejected)
+                }
+                switch prepareFramebufferSourceMaterial(
+                    framebufferSourceMaterial, layerID: capability.layerID,
+                    sourceTexture: sourceTexture, target: baseTarget,
+                    frame: executionFrame, frameInputs: frameInputs
+                ) {
+                case let .success(source):
+                    baseRepresentation = source.representation
+                    sourceCommand = .material(source.pass)
+                case let .failure(failure):
+                    return .failure(failure)
+                }
+                break
+            }
             // A lit payload whose PSO does not match the capture target
             // downgrades to the unlit capture inside the resource encoder
             // (failure radius: this layer, this frame); the request's
@@ -266,14 +290,15 @@ final class SceneResolvedMaterialGraphExecutor {
                       sourceLighting: sourceLighting
                   ) else { return .failure(.captureRejected) }
             baseRepresentation = capture.preservesStraightSourceColor ? .straightAlpha : .premultipliedAlpha
-            baseCommand = capture
+            sourceCommand = .resource(capture)
         case .transparentDirectDraw:
-            guard sourceTexture == nil, sourceUniforms == nil,
+            guard framebufferSourceMaterial == nil,
+                  sourceTexture == nil, sourceUniforms == nil,
                   let initialization = resourceEncoder?.prepareInitialization(
                       target: baseTarget,
                       clear: .init(red: 0, green: 0, blue: 0, alpha: 0)
                   ) else { return .failure(.captureRejected) }
-            baseCommand = initialization
+            sourceCommand = .resource(initialization)
         }
         guard let captureGeneration = nextPairGeneration(),
               let base = pairResource(
@@ -284,7 +309,6 @@ final class SceneResolvedMaterialGraphExecutor {
                   representation: baseRepresentation
               ) else { return .failure(.contentGenerationOverflow) }
 
-        let sourceCommand = Command.resource(baseCommand)
         var pair = PairAtom(
             member: capability.pairPlan.baseCaptureMember,
             resource: base,

@@ -15,6 +15,8 @@ struct SceneAssetCatalog {
         let puppetAttachments: [SceneMdlPuppetAttachment]
         /// Presence differs from a successfully parsed width/height pair.
         var hasDeclaredSizeFields: Bool = false
+        /// Model metadata is distinct from a layer's config.passthrough.
+        var passthrough: Bool? = nil
 
         var id: String { relativePath }
     }
@@ -235,7 +237,10 @@ struct SceneAssetCatalogLoader {
             cropOffsetXY: parsedVector(root["cropoffset"], length: 2),
             puppetPath: puppetPath,
             puppetAttachments: puppetAttachments,
-            hasDeclaredSizeFields: root["width"] != nil || root["height"] != nil
+            hasDeclaredSizeFields: root["width"] != nil || root["height"] != nil,
+            passthrough: root["passthrough"].flatMap {
+                SceneJSONValue(jsonObject: $0)?.boolValue
+            }
         )
     }
 

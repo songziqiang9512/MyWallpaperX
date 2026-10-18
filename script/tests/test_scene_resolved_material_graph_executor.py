@@ -16,6 +16,9 @@ import unittest
 from script.tests.scene_dependency_binding_test_support import (
     SCENE_DEPENDENCY_BINDING_SUPPORT,
 )
+from script.tests.scene_framebuffer_source_test_support import (
+    framebuffer_source_material_declarations,
+)
 
 
 CONTRACT_GATE = Path(__file__).with_name(
@@ -487,6 +490,7 @@ struct AdmittedLayerGraph {
 }
 
 final class SceneResolvedMaterialRuntimeBridge {
+''' + framebuffer_source_material_declarations() + r'''
     struct FrameInputs {
         enum DependencyUnavailability: String, Hashable {
             case providerSourceUnavailable =
@@ -498,6 +502,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let pointerIsInside: Bool
         let layerModelMatrix: simd_float4x4
         let effectOutputModelViewProjection: simd_float4x4
+        let terminalReplayModelViewProjection: simd_float4x4? = nil
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let effectDrawAlpha: Float = 1
         let effectDrawColor = SIMD3<Float>(repeating: 1)

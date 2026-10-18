@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "94f297fb68e37afc8791755ada9b8df44a2ba7452394c61f1c0f1b0433eca594",
+        "sourceSHA256": "db4a9094520807c3cb3f939a18d2f93c3dc96f5b5dc05d032a7e42e148095352",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile bounded Gaussian zero-axis execution, unchanged sample counts and unproven360 visible benefit; add the qualified low-energy residual-lighting negative result without broadening343 closure.",
-        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
+        "scope": "Reconcile bounded native framebuffer source results and five retired source misses; preserve real333 occlusion/background/229/Rope boundaries and prior Gaussian/lighting evidence.",
+        "limitations": "Navigation and input identities only; real333 visible contribution is r3, finalr4 uses focused lifecycle/self and independent380. No final333 replay, whole-sample, official-phase, HDR or measured performance claim."
       }
     },
     {
@@ -1873,6 +1873,19 @@
       ],
       "cutoffDate": "2026-10-15",
       "uniqueValue": "原生双PID与媒体helper CPU、类型限定实际分配、粒子单次物化两版撤回与未执行边界"
+    },
+    {
+      "path": "docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "原生主源Program有序采集、只读深度及失败局部化；333真实白音频条、相邻380与深度生命周期反例，保盒体穿透及全景余项。"
     },
     {
       "path": "docs/scene/history/native-perspective-cursor-implementation-2026-10-06.md",

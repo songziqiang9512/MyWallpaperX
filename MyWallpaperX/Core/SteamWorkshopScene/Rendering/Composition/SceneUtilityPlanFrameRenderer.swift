@@ -24,6 +24,7 @@ enum SceneUtilityPlanFrameRenderer {
         time: Float,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
+        modelFrame: SceneMetalRenderer.StaticModelFrame,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
@@ -122,6 +123,24 @@ enum SceneUtilityPlanFrameRenderer {
                         for: layer.id, encoded: false, on: commandBuffer)
                     continue
                 }
+                let terminalDepth: SceneImageLayerTerminalDepthBinding?
+                let terminalMVP: simd_float4x4?
+                if layer.utilityLayer?.framebufferSource != nil {
+                    guard compositePass === mainPass, isolatedGroupSource == nil,
+                          resolvedMaterialFrameTargetPlans[layer.id] != nil else { continue }
+                    guard let binding = modelFrame.terminalDepthBinding(
+                        pass: compositePass, commandBuffer: commandBuffer) else {
+                        imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                            "framebuffer-source-depth-binding-invalid")
+                        return false
+                    }
+                    terminalDepth = binding
+                    terminalMVP = cameraFrame.reverseDepthViewProjection(
+                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)) * model
+                } else {
+                    terminalDepth = nil
+                    terminalMVP = nil
+                }
                 captured = SceneUtilityLayerRenderer.draw(
                     layer: layer,
                     plan: plan,
@@ -147,6 +166,8 @@ enum SceneUtilityPlanFrameRenderer {
                     mainPass: compositePass,
                     resolvedMaterialFrameTargetPlan:
                         resolvedMaterialFrameTargetPlans[layer.id],
+                    terminalMVP: terminalMVP,
+                    terminalDepth: terminalDepth,
                     isolatedGroupSource: isolatedGroupSource,
                     captureMVP: compositionGroupRuntime?.rasterModelViewProjection(
                         forLayerID: layer.id,

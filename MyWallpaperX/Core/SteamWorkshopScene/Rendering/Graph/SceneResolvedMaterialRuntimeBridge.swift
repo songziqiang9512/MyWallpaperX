@@ -117,6 +117,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let sceneBackgroundResource: SceneFrameTextureResource?
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
+        let framebufferSourceMaterial: FramebufferSourceMaterial?
         let sourcePipeline: SceneImageLayerPipeline
         /// Lit base-capture payload for a claimed layer whose launch
         /// lighting profile enabled built-in lighting. nil keeps the
@@ -135,6 +136,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceTexture: MTLTexture?,
             sourceUniforms: SceneLayerFragmentUniforms?,
             sourcePipeline: SceneImageLayerPipeline,
+            framebufferSourceMaterial: FramebufferSourceMaterial? = nil,
             sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
             terminalReplayTarget: MTLTexture? = nil,
             frameInputs: FrameInputs
@@ -145,6 +147,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sceneBackgroundResource = sceneBackgroundResource
             self.sourceTexture = sourceTexture
             self.sourceUniforms = sourceUniforms
+            self.framebufferSourceMaterial = framebufferSourceMaterial
             self.sourcePipeline = sourcePipeline
             self.sourceLighting = sourceLighting
             self.terminalReplayTarget = terminalReplayTarget

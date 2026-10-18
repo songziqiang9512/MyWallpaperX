@@ -390,6 +390,7 @@
           "SceneResolvedMaterialFramePreflight+AggregateReservation.swift",
           "SceneResolvedMaterialFramePreflight+LitCapture.swift",
           "SceneResolvedMaterialFramePreflight.swift",
+          "SceneResolvedMaterialUtilitySource.swift",
           "SceneSourceUpdateTransaction.swift",
           "SceneMetalRenderer+SceneDrawing.swift",
           "SceneMetalRenderer+OrderedLayerEncoding.swift",

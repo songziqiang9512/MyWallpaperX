@@ -37,6 +37,7 @@ extension SceneResolvedMaterialRuntimeBridge {
         enum OutputDomain {
             case sampledAsset(SceneAssetTextureIdentity)
             case baseImage
+            case capturedMain
 
             func matchesSampledSource(_ program: SceneResolvedMaterialProgram) -> Bool {
                 switch self {
@@ -44,11 +45,21 @@ extension SceneResolvedMaterialRuntimeBridge {
                     program.textureSlots.first??.registryIdentity == .asset(identity)
                 case .baseImage:
                     (program.textureSlots.first ?? nil) == nil
+                case .capturedMain:
+                    false // Ordered main sources are validated with their frame resource.
                 }
             }
         }
         let outputDomain: OutputDomain
         var sharedModelPath: String? = nil
+    }
+
+    /// A prepared material and the exact ordered main attachment it reads.
+    /// This is a frame input, never a published asset or persistent source cache.
+    struct FramebufferSourceMaterial {
+        let material: PreparedSourceMaterial
+        let source: SceneFrameTextureResource
+        let unitModelMatrix: simd_float4x4
     }
 
     struct SourceMaterialConsumer {
@@ -105,6 +116,8 @@ extension SceneResolvedMaterialRuntimeBridge {
                 sourceCandidate = imageTextures[layerID].flatMap {
                     imageTextures.candidate(for: layerID, matching: $0)
                 }
+            case .capturedMain:
+                continue // Its source exists only at the authored layer-loop boundary.
             }
             guard let sourceCandidate,
                   sourceCandidate.materialProgramUVTransform() != nil,

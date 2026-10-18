@@ -501,7 +501,7 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root",
-      "note": "2026-10-18用户补报（待当前身份复验）：溅水滴为黑色、用户称应白色；混合模式仅用户猜测，根因unknown。旧短播保持不关闭此色彩观察。 旧记录：本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据。目录官方只作未控phase构图参考，不认完整动态、交互或同状态parity。",
+      "note": "2026-10-19原包8s/after6、native、静音/outside0短窗：Root与独审亲看ready/after/目录官方，未定位可归因黑色水花ROI；底图22自带水波effects，白水不能直接算粒子。四层REFRACT实完成且failed0，exit0/FAIL[]、输入/App无漂移、正常stop/GPU排空仅证执行，不证颜色fidelity。2026-10-18用户黑水补报保持open/unreviewed，混合模式仅猜测、原因unknown；正式观察：.artifacts/scene-evidence/runs/water-particle-current-20261019/original/report.json。旧原包短播的人物脸眼、伸手、荷叶、鱼、水及root/child/refraction证据保留；目录官方未控phase，不认完整动态、交互或同状态parity。",
       "remainingDifferences": "完整动态、交互、作者参数与同状态官方parity未验收；本批仅为独立短窗视觉及生命周期回归，继续unreviewed。 2026-10-18用户补报（待当前身份复验）：溅水滴为黑色、用户称应白色；混合模式仅用户猜测，根因unknown。旧短播保持不关闭此色彩观察。",
       "officialComparison": "compared",
       "runs": [
@@ -773,18 +773,20 @@
     },
     "3337494481": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-18",
-      "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root; independent feedback_queue_reconcile_sol",
       "officialComparison": "compared",
-      "note": "2026-10-18用户补报（待当前身份复验）：盒子模型可透见背面似透明、背景全屏特效缺失；normal RGB修复不关闭新范围，未证与五native层缺source同因。 旧记录：限定后验：显式normal的材质/纹理alpha0不再抹掉模型RGB与颜色深度；同原包758f9b实图蓝粉几何和粉色前面恢复、文字保留。顶面暗/贴片及五native composition缺source、Rope余项仍在，runner FAIL，未达目录官方整幅效果；noPCM/提示/phase不同，不误记完整通过。 最终Bool接口仅移动等值比较，GPU复验及独审后复用758实图，不称最终binary重播。",
+      "note": "10-19有界后验：五个native framebuffer层主源缺口退出，原包前下沿新增白音频条；70/202/228/591实际消费非零PCM并完成终端合成，229首Program fallback仍在。两arm同作者提示关闭，实际347=false，旧Gaussian与r3后继非sameHEAD/精确phase。最终r4只补depth生命周期/扫描成本，由自有像素和独立原380续验，未重播333。用户明确的正面透见其他角度文字/内容仍在；顶面与背景差异、Rope/229均不闭，整样本继续unreviewed。旧normal RGB误丢已退出。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md"
       ],
-      "remainingDifferences": "70/202/228/229/591 native-world composition缺source；Rope未支持profile；顶面暗/贴片及完整音乐/phase/构图、属性交互未验。normal RGB误丢已退出。 2026-10-18用户补报（待当前身份复验）：盒子模型可透见背面似透明、背景全屏特效缺失；normal RGB修复不关闭新范围，未证与五native层缺source同因。"
+      "remainingDifferences": "盒体前后遮挡/跨面文字穿叠；顶面构图须对齐camera37实际姿态与输入；全屏背景、Rope profile、229首Program fallback，以及完整音乐/属性/交互和同状态官方parity仍未验收。五层source-not-ready已退出。"
     },
     "3585542943": {
       "verdict": "unreviewed",

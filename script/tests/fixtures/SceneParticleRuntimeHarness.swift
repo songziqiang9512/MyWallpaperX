@@ -46,6 +46,7 @@ struct SceneRenderDescriptor: Codable {
         var disablesParallaxPropagation = false
         var utilityLayer: Bool? = nil
         var hasPerspectiveGeometryConsumer: Bool { false }
+        var hasFramebufferMaterialSource: Bool { false }
         var cameraPath: CameraPath? = nil
         struct CameraPath: Codable { let camera: String; let fov: Double? }
     }

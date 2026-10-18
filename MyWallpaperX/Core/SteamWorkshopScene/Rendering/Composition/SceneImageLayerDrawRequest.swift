@@ -241,6 +241,12 @@ struct SceneDependencyEffectInput {
     }
 }
 
+/// A frame-local capability issued by the shared depth owner. It neither
+/// acquires nor arms a lease; the final draw must consume it on its exact pass.
+struct SceneImageLayerTerminalDepthBinding {
+    let encoder: (SceneMainPassEncoder) -> MTLRenderCommandEncoder?
+}
+
 struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
     let texture: MTLTexture
@@ -264,6 +270,7 @@ struct SceneImageLayerDrawRequest {
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
     var geometryProduct: SceneGeometryProduct? = nil
+    var terminalDepth: SceneImageLayerTerminalDepthBinding? = nil
     var sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
     var distanceFog: SceneImageDistanceFogUniforms = .init()
 

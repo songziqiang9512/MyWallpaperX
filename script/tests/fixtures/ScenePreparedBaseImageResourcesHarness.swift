@@ -220,7 +220,9 @@ struct ScenePreparedStaticModelResources {
 }
 struct SceneResolvedMaterialExecutionCapabilityCatalog {}
 struct SceneAssetTextureIdentity { let path: String; let purpose: String }
-enum TestReference: Hashable { case asset(String), unavailable }
+enum TestProvider: Hashable { case sceneBackground(consumerLayerID: Int) }
+enum TestReference: Hashable { case asset(String), provider(TestProvider), unavailable }
+extension String { static let premultipliedColor = "premultipliedColor" }
 struct TestSampler {
     // Prepared typed facts supplied by the external compiler boundary. This
     // does not replace or test production shader-purpose derivation.
@@ -246,6 +248,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
         let key: Key
         let entry: Value
         let sharedModelPath: String?
+        var capturesMainTarget = false
     }
     let sourceMaterialTargetFormat = TestColorFormat()
     var sourceMaterialEntries: [Int: Entry] = [:]
@@ -305,7 +308,7 @@ struct SceneResolvedMaterialProgramFinalizer {
 final class SceneResolvedMaterialRuntimeBridge {
     typealias LogSink = (String) -> Void
     struct PreparedSourceMaterial {
-        enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage }
+        enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage, capturedMain }
         let outputDomain: OutputDomain
         let sharedModelPath: String?
         init(template: TestTemplate, bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
@@ -566,6 +569,7 @@ enum Checks {
                         slots: [TestTemplate.Slot?]? = nil,
                         allEntriesReady: Bool = true, schemaAccepted: Bool = true,
                         precompileAccepted: Bool = true,
+                        capturesMainTarget: Bool = false,
                         warmupReport: SceneResolvedMaterialPassEncoder.Report? = nil) {
             let template = TestTemplate(textureSlots: slots ?? [colorSlot], renderState: 0,
                 fixture: .init(schemaAccepted: schemaAccepted,
@@ -573,7 +577,7 @@ enum Checks {
                     variants: variants))
             let catalog = SceneResolvedMaterialRuntimeCatalog(sourceMaterialEntries: [17: .init(
                 key: .init(reportToken: "source:17:renamed-owned-source"), entry: .template(template),
-                sharedModelPath: "models/renamed-source.json")])
+                sharedModelPath: "models/renamed-source.json", capturesMainTarget: capturesMainTarget)])
             let encoder = SceneResolvedMaterialPassEncoder()
             encoder.reportOverride = warmupReport
             var logs: [String] = []
@@ -584,6 +588,7 @@ enum Checks {
             if let value = prepared[17] {
                 switch value.outputDomain {
                 case .baseImage: domain = "baseImage"
+                case .capturedMain: domain = "capturedMain"
                 case let .sampledAsset(identity):
                     domain = "sampledAsset"
                     sampledPath = identity.path
@@ -618,6 +623,26 @@ enum Checks {
                    warmupReport: .init(failedKeyCount: 1, readyKeyCount: 1))
         sourceCase("sourceWarmupNoReady", variants: inactiveVariants,
                    warmupReport: .init(failedKeyCount: 0, readyKeyCount: 0))
+        let mainReference = TestReference.provider(.sceneBackground(consumerLayerID: 17))
+        let mainSampler = TestSampler(purposes: [mainReference: .premultipliedColor])
+        let mainSlot = TestTemplate.Slot(candidates: [.init(reference: mainReference)])
+        let mainSlots: [TestTemplate.Slot?] = [mainSlot] + Array(repeating: nil, count: 7)
+        let mainVariants = [variant("main-a", samplerZero: mainSampler),
+                            variant("main-b", samplerZero: mainSampler)]
+        sourceCase("sourceCapturedMain", variants: mainVariants, slots: mainSlots, capturesMainTarget: true)
+        sourceCase("sourceCapturedInactive", variants: [mainVariants[0], inactiveVariants[0]],
+                   slots: mainSlots, capturesMainTarget: true)
+        sourceCase("sourceCapturedWrongPurpose", variants: activeVariants,
+                   slots: mainSlots, capturesMainTarget: true)
+        sourceCase("sourceCapturedOtherSampler", variants: [variant("main-other", samplerZero: mainSampler,
+                   otherSampler: true)], slots: mainSlots, capturesMainTarget: true)
+        let wrongMain = TestTemplate.Slot(candidates: [.init(reference: .provider(.sceneBackground(consumerLayerID: 99)))])
+        sourceCase("sourceCapturedWrongConsumer", variants: mainVariants,
+                   slots: [wrongMain] + Array(repeating: nil, count: 7), capturesMainTarget: true)
+        sourceCase("sourceCapturedAsset", variants: activeVariants, capturesMainTarget: true)
+        sourceCase("sourceCapturedMissing", variants: mainVariants, slots: [], capturesMainTarget: true)
+        sourceCase("sourceCapturedWarmupFailure", variants: mainVariants, slots: mainSlots,
+                   capturesMainTarget: true, warmupReport: .init(failedKeyCount: 1, readyKeyCount: 1))
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

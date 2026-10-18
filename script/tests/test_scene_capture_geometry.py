@@ -123,6 +123,11 @@ enum Harness {
             captureMVP: localMVP, compositionSourceMemberLayerIDs: [],
             authoredRenderSizeWH: [2000, 2000]
         )!
+        let materialSource = SceneCaptureGeometryResolver.resolve(
+            kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+            captureMVP: localMVP, compositionSourceMemberLayerIDs: [],
+            authoredRenderSizeWH: [665, 151], usesMaterialSource: true
+        )!
         let localPoints: [SIMD2<Float>] = [SIMD2(-0.3, 0.2), .zero, SIMD2(0.4, -0.1)]
         let cursorPoints = localPoints.map { point -> [Float] in
             let clip = replay.outputMVP * SIMD4(point.x, point.y, 0, 1)
@@ -212,6 +217,26 @@ enum Harness {
             "parentMembers": geometry(parentMembers),
             "authoredParent": geometry(authoredParent),
             "authoredSquare": geometry(authoredSquare),
+            "materialSource": geometry(materialSource),
+            "materialSourceProjectRejected": SceneCaptureGeometryResolver.resolve(
+                kind: .project, layerMVP: outputMVP, viewportSize: nonSquare,
+                authoredRenderSizeWH: [665, 151], usesMaterialSource: true
+            ) == nil,
+            "materialSourceMemberRejected": SceneCaptureGeometryResolver.resolve(
+                kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+                compositionSourceMemberLayerIDs: [777],
+                authoredRenderSizeWH: [665, 151], usesMaterialSource: true
+            ) == nil,
+            "materialSourceMissingExtentRejected": SceneCaptureGeometryResolver.resolve(
+                kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+                usesMaterialSource: true
+            ) == nil,
+            "materialSourceInvalidExtentsRejected": invalidTransparentSizes.mapValues {
+                SceneCaptureGeometryResolver.resolve(
+                    kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+                    authoredRenderSizeWH: $0, usesMaterialSource: true
+                ) == nil
+            },
             "nilSourceWithAuthoredSize": geometry(nilSourceWithAuthoredSize),
             "invalidTransparentSizesRejected": invalidTransparentSizes.mapValues {
                 SceneCaptureGeometryResolver.resolve(
@@ -396,6 +421,20 @@ class SceneCaptureGeometryTests(unittest.TestCase):
                          dict.fromkeys(["zero", "negative", "nan", "infinity",
                                         "empty", "oneAxis", "threeAxes", "finiteIntOverflow",
                                         "greatestFinite", "roundedIntOverflow"], True))
+
+    def test_material_source_preserves_authored_extent_and_projective_world_output(self) -> None:
+        result = self.result["materialSource"]
+        self.assertEqual(result["pixelSize"], [665, 151])
+        self.assertEqual(result["sourceUV"], [[0, 0], [1, 0], [0, 1]])
+        self.assertEqual(result["outputMVP"], self.result["authoredSquare"]["outputMVP"])
+        self.assertNotEqual(result["sourceUV"], self.result["replaySource"])
+
+    def test_material_source_rejects_project_members_and_invalid_explicit_extent(self) -> None:
+        for key in ("materialSourceProjectRejected", "materialSourceMemberRejected",
+                    "materialSourceMissingExtentRejected"):
+            self.assertTrue(self.result[key], key)
+        self.assertEqual(self.result["materialSourceInvalidExtentsRejected"],
+                         self.result["invalidTransparentSizesRejected"])
 
     def test_perspective_replay_preserves_flat_source_and_extent(self) -> None:
         self.assertEqual(self.result["replaySource"], [[0.5, 0.5], [0.5, 0], [0, 0.25]])

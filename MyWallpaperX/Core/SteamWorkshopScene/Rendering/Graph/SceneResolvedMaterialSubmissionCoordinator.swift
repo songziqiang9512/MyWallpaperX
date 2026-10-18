@@ -528,6 +528,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 sourceTexture: request.sourceTexture,
                 sourceUniforms: request.sourceUniforms,
                 sourcePipeline: request.sourcePipeline,
+                framebufferSourceMaterial: request.framebufferSourceMaterial,
                 sourceLighting: request.sourceLighting,
                 terminalReplayTarget: request.terminalReplayTarget,
                 pool: pool,

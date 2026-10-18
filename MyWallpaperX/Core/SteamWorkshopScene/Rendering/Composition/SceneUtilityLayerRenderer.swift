@@ -23,6 +23,8 @@ enum SceneUtilityLayerRenderer {
         offscreenTexturePool: SceneOffscreenTexturePool,
         mainPass: SceneMainPassEncoder,
         resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil,
+        terminalMVP: simd_float4x4? = nil,
+        terminalDepth: SceneImageLayerTerminalDepthBinding? = nil,
         isolatedGroupSource: MTLTexture? = nil,
         captureMVP: simd_float4x4? = nil,
         localCompositionSourceExtent: CGSize? = nil,
@@ -30,6 +32,12 @@ enum SceneUtilityLayerRenderer {
     ) -> Bool {
         guard plan.shouldCapture else {
             return false
+        }
+        let usesMaterialSource = layer.utilityLayer?.framebufferSource != nil
+        if usesMaterialSource {
+            guard resolvedMaterialFrameTargetPlan != nil, terminalMVP != nil,
+                  terminalDepth != nil, pipeline.supportsReadOnlyDepth,
+                  isolatedGroupSource == nil else { return false }
         }
         let executionOrigin: SceneEffectExecutionOrigin
         switch plan.kind {
@@ -44,7 +52,8 @@ enum SceneUtilityLayerRenderer {
             captureMVP: captureMVP,
             compositionSourceMemberLayerIDs: plan.isolatedGroupMembers,
             authoredRenderSizeWH: layer.renderSizeWH,
-            localCompositionSourceExtent: localCompositionSourceExtent
+            localCompositionSourceExtent: localCompositionSourceExtent,
+            usesMaterialSource: usesMaterialSource
         ) else { return false }
         // Only an already drawn member source uses viewport coordinates.
         // Empty transparent sources retain local effect and output geometry.
@@ -89,7 +98,7 @@ enum SceneUtilityLayerRenderer {
                     texture: sourceTexture,
                     masks: masks,
                     textureFrame: geometry.sourceUV,
-                    mvp: geometry.outputMVP,
+                    mvp: terminalMVP ?? geometry.outputMVP,
                     uniforms: SceneImageLayerUniformValues(
                         time: time,
                         alpha: 1,
@@ -107,7 +116,8 @@ enum SceneUtilityLayerRenderer {
                     dependencyEffects: dependencyEffects,
                     requiresDependencyEffect: requiresDependencyEffect,
                     dynamicValues: dynamicValues,
-                    audioSpectrum: audioSpectrum
+                    audioSpectrum: audioSpectrum,
+                    terminalDepth: terminalDepth
                 )
             return compositor.draw(
                 request,
