@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-18 | 启动/资源 | 筛选与STOP | [PKG与资产解析](pkg-startup-screen-2026-10-18.md) | 四包80进程与8次原生归因；大包机会、完整迁移风险及未确认安全裁剪，未改产品 | [开发规则](../../../AGENTS.md)、[启动合同](../architecture/scene-launch-responsiveness-contract.md)、[资源准入](../architecture/scene-resource-admission.md)、[运行地图](../architecture/runtime-as-built-map.md) |
 | 2026-10-16 | 动态图片/材质 | 有界实例与alpha资格 | [默认材质准备与消费](dynamic-image-default-material-2026-10-16.md) | builtin/source/lowering同join，三入口像素配对、原289三null退出；保失败载体、限定alpha与完整parity边界 | [D4](../roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material)、[API覆盖](../capabilities/scenescript-api-coverage.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-16 | SceneScript/composition | 有界几何与控制 | [平面采集/透视回绘](composition-local-perspective-2026-10-16.md) | 真实true请求接原控制/事务，官方自有四角与GPU；真实音频ROI最后消融未证，保留边界 | [API覆盖](../capabilities/scenescript-api-coverage.md)、[D1](../roadmap/batch2/composition-render-target-design.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-16 | 相机/适屏 | 正确性修复 | [默认2D相机输入与暂停resize](default-2d-camera-inputs-2026-10-16.md) | 静态/Slider/返回值共享相机输入、同窗倍率恢复与多比例；169官方留底及anchor资格失败保留 | [D4设计](../roadmap/batch2/script-component-api-design.md)、[属性输入覆盖](../capabilities/runtime-input-property-coverage.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |

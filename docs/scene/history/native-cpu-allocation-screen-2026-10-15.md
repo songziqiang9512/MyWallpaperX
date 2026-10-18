@@ -100,6 +100,26 @@ SourceFacts按路径读metadata提前发现材质，PreparedStaticModelResources
 
 独审复核原数与计算后接受停止；`.artifacts/tmp/mdl-validation-screen-20261015/`保最小源码/命令/身份与五份原数、日志、结果。已停止的大fixture/module cache和审查后的binary共清105,088,339逻辑B；没有App/正式测试或产品修改，原NaN/索引/trailer/Data-slice/工作预算合同保留。
 
+<a id="mdl-validation-followup-20261019"></a>
+
+### 2026-10-19复核：保留MDL STOP，纠正阶段归因
+
+用户指出本方向曾筛选并停止，复核提交`904fd9e23`与上节后保留原STOP；不再试跨阶段MDL packet/cache、跳过校验或重复旧五对campaign。10-18的[PKG记录](pkg-startup-screen-2026-10-18.md)中6.7–7s是整个descriptor构建（含MDL材质路径发现），不能全部归为reader。
+
+本次固定`6adabc113`真实reader，隔离副本3662790108按原对象顺序取69份唯一直接MDL，共278,939,886B。一次`swiftc -O -whole-module-optimization`诊断中，两入口各68份成功、同一Deimos输入保留unsupported-header拒绝；metadata wall/CPU=98.926/98.435ms、geometry=160.265/159.648ms，两段映射读取分别7.637/5.593ms；仅单次链路量级，不是五对稳定收益，也不等同App调用成本。未改reader、安全合同或几何生命周期。这不足以重开旧MDL方案，先前建议再次指向MDL的依据不足。
+
+另用已有固定普通Release（84b85d471）在隔离HOME/样本经真实Scene daemon协议，执行唯一一次5s外部CPU采样，窗口从load约2s起。实际栈落在descriptor→materialPassDescriptors→StaticModelMaterialBindingCompiler.compile→unconditionalStaticModelUniforms/staticModelInterfaceRecords，重复构造固定regex与source parse可见；3352个compile inclusive样本不能换算3352次调用、CPU百分比或毫秒，也不与子栈相加。84b85d471..6adabc113之间两候选源、binding compiler及descriptor无差异，支持该consumer与固定候选源码的连接。这是固定模型材质接口证明consumer，和旧MDL reader、normalizer声明准备及variant缓存职责不同，只赋予两个原owner中5个固定NSRegularExpression对象复用的一次短筛资格，不授予源码事实、材质结果或整图缓存。
+
+父driver首次大小写敏感比较UUID，漏识别已到达的canonical大写candidatePrepared，未发取消ACK，后续候选正常过期；最终shutdown exit0、gpuDrained=true。原事件/错误与修正后的可重放driver均保留，不重跑来覆盖此记录，不把它当产品准备失败或可见通过。本次无parent App产品入口或可见激活，不是启动A/B。
+
+**最终裁决：候选撤回，不改播放代码。** 隔离候选仅复用上述5个不可变匹配器对象，每次source parse及source/graph/hash/宏/条件/producer安全验证继续执行。parser子集按350个真实材质shader引用、每引用7节点，五对交替进程各3遍；CPU进程中位的B/C中位为1348.203/1241.924ms，配对降幅中位7.7569%，基线最大相对偏差3.9359%。低于10%且未超过两倍噪声，NOT-QUALIFIED；30遍完整projection digest一致，不外推App收益。
+
+随后按预先定位的完整`unconditionalStaticModelUniforms` consumer短筛：实际350份pass-zero shader/combos、真实graph与全部安全证明，无材质结果cache。3个已完成进程的3遍CPU原数（ms）依次为B1=6362.113/6354.523/6950.622，C1=7281.871/9462.108/5833.140，C2=5769.715/5641.440/6076.089；9遍均350份证明成功且完整schema digest相同。期间另一并行会话新启App验证，wall/CPU波动明显；只终止自有B2进程，保其空stdout、-15退出及原进程快照，不干预其他运行，不删除慢点、不补跑或放宽阈值。该实验标为UNAVAILABLE_CONCURRENT_RUNTIME_NO_RETRY，不能由C2快点宣称收益、也不能由C1慢点宣称产品回退。
+
+独立子代理检查两个owner的5个pattern/options、UTF-16范围、可选/强制构造原策略、macro存在性匹配等价及所有source/graph校验保留，未发现静态阻断；支持保留旧STOP及撤回未获性能资格的候选。因无产品改动，本轮不做App A/B、Debug产品build或视觉回归，不认领启动加速、内存/功耗或作者效果验收。
+
+原始reader逐项/完整几何canonical-word digest、精确harness/命令、撤回patch、源码与binary hash、Release身份/原始栈/事件、全部子集原数及中止原因限量保存在`/private/tmp/mwx-mdl-prepare-m40xxim9/evidence/report.json`及同级文件；证据库既有总预算已满，未扩容或删除未知材料。本轮临时样本、HOME/cache、隔离源码、module cache及binary按清单清理，仅保必要收据；无新App，之前供用户测试的Release保留。MDL/声明事实缓存不重新列作自然后继；相同方案需先读本节裁决和原数，不重复提案或campaign。
+
 <a id="world-resolver-cpu-qualification"></a>
 
 ## 实际world resolver CPU资格：线程覆盖不足
