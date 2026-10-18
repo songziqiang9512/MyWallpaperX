@@ -289,7 +289,12 @@ final class InspectorHostCardView: NSView {
         headerRow.spacing = 12
         headerRow.detachesHiddenViews = true
         headerRow.translatesAutoresizingMaskIntoConstraints = false
-        headerRow.setHuggingPriority(.required, for: .vertical)
+        // Keep the header compact so the body receives spare height. Packing
+        // remains optional so mixed-height controls and text stay centered.
+        let headerHugging = NSLayoutConstraint.Priority(
+            rawValue: NSLayoutConstraint.Priority.defaultLow.rawValue + 1
+        )
+        headerRow.setHuggingPriority(headerHugging, for: .vertical)
 
         iconView.image = NSImage(systemSymbolName: "info.circle.fill", accessibilityDescription: "详情")
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
@@ -323,7 +328,7 @@ final class InspectorHostCardView: NSView {
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             closeButton.widthAnchor.constraint(equalToConstant: 32),
-            closeButton.heightAnchor.constraint(equalToConstant: 32)
+            closeButton.heightAnchor.constraint(equalToConstant: 18)
         ])
 
         let spacer = headerSpacer

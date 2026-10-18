@@ -1,5 +1,6 @@
 """Exercise the production property window's geometry and ownership contract."""
 import pathlib
+import os
 import subprocess
 import tempfile
 import unittest
@@ -20,10 +21,10 @@ enum Module { case steamWorkshop }
 struct InspectorCardToken { let module: Module; let cardID: String }
 struct InspectorHostRequest {
     static let defaultPreferredWidth: CGFloat = 360
-    enum Chrome { case infoPanel }
+    enum Chrome { case standard, infoPanel }
     let token: InspectorCardToken
     let title: String
-    let subtitle: String
+    let subtitle: String?
     let chromeStyle: Chrome
 }
 enum InspectorHostActions {
@@ -41,6 +42,96 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
 @main struct Harness {
     @MainActor static func main() {
         _ = NSApplication.shared
+        func descendants<T: NSView>(_ view: NSView, _ kind: T.Type) -> [T] {
+            ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { descendants($0, kind) }
+        }
+        func checkHeader(_ card: InspectorHostCardView) {
+            card.layoutSubtreeIfNeeded()
+            let close = descendants(card, NSButton.self).first { $0.toolTip == "关闭详情" }!
+            let row = close.superview!
+            // AppKit constrains alignment rects; NSButton's frame includes
+            // native cell insets and need not have the same height.
+            let closeRect = close.alignmentRect(forFrame: close.frame)
+            let icons = row.subviews.compactMap { $0 as? NSImageView }.filter { !$0.isHidden }
+            precondition(abs(closeRect.height - 18) < 0.5, "close button must keep its 18pt height")
+            precondition(abs(closeRect.width - 32) < 0.5, "close button width must remain unchanged")
+            precondition(row.bounds.contains(closeRect), "close button escaped the header")
+            precondition(row.frame.height < 64, "header must not absorb spare panel height")
+            precondition(abs(closeRect.midY - row.bounds.midY) < 0.5, "close button must stay centered")
+            for image in icons where !image.isHidden {
+                precondition(abs(image.alignmentRect(forFrame: image.frame).height - 18) < 0.5,
+                             "header icon must retain its own height")
+            }
+            for label in descendants(row, NSTextField.self) where !label.isHiddenOrHasHiddenAncestor {
+                precondition(label.frame.height >= label.intrinsicContentSize.height - 0.5,
+                             "mixed-height header text must not be vertically clipped")
+            }
+        }
+        func capture(_ view: NSView, _ name: String) {
+            guard let directory = ProcessInfo.processInfo.environment["MWX_PROPERTY_WINDOW_PROOF_DIR"] else { return }
+            view.displayIfNeeded()
+            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+                preconditionFailure("native panel snapshot unavailable")
+            }
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            try! bitmap.representation(using: .png, properties: [:])!.write(
+                to: URL(fileURLWithPath: directory).appendingPathComponent(name + ".png"))
+        }
+        // The same production card owns detail, info and both property styles.
+        let preview = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 620),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        preview.isReleasedWhenClosed = false
+        var headerCases = 0
+        for dark in [false, true] {
+            preview.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            for width in [CGFloat(300), 360, 460] {
+                for index in 0..<4 {
+                    let card = InspectorHostCardView()
+                    let properties = index >= 2
+                    card.stretchesHostedContent = properties
+                    card.compactHeader = properties
+                    card.headerTitleOverride = properties ? (index == 2 ? "Scene 属性调节" : "Web 属性调节") : nil
+                    let body = TraversalView()
+                    let request = InspectorHostRequest(token: .init(module: .steamWorkshop, cardID: "header"),
+                        title: index == 0 ? "测试作品：用于检查长标题截断与关闭按钮布局" : "详情",
+                        subtitle: index == 0 ? "作者名称 · 测试副标题" : nil,
+                        chromeStyle: index == 0 ? .standard : .infoPanel)
+                    card.configure(request: request, hostedContentView: body)
+                    let container = NSView()
+                    preview.contentView = container
+                    card.translatesAutoresizingMaskIntoConstraints = false
+                    container.addSubview(card)
+                    NSLayoutConstraint.activate([
+                        card.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                        card.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                        card.topAnchor.constraint(equalTo: container.topAnchor),
+                        card.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                        card.widthAnchor.constraint(equalToConstant: width),
+                        card.heightAnchor.constraint(equalToConstant: 620)
+                    ])
+                    preview.setContentSize(NSSize(width: width, height: 620))
+                    preview.orderFront(nil)
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+                    card.refreshAppearance()
+                    precondition(abs(card.frame.width - width) < 0.5, "exercise the requested panel width")
+                    checkHeader(card)
+                    if properties { precondition(body.frame.height > 500, "property editor must receive spare height") }
+                    var closes = 0
+                    card.onClose = { closes += 1 }
+                    let close = descendants(card, NSButton.self).first { $0.toolTip == "关闭详情" }!
+                    close.performClick(nil)
+                    precondition(closes == 1, "close action must still reach its owner")
+                    if width == 360 {
+                        capture(card, "header-\(index)-\(dark ? "dark" : "light")")
+                    }
+                    card.configure(request: nil, hostedContentView: nil)
+                    card.configure(request: request, hostedContentView: body)
+                    checkHeader(card)
+                    headerCases += 1
+                }
+            }
+        }
+        preview.orderOut(nil)
         let main = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 800),
             styleMask: [.titled], backing: .buffered, defer: false)
         main.identifier = NSUserInterfaceItemIdentifier("MainWindow")
@@ -67,13 +158,11 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         let traversal = TraversalView()
         owner.show(title: "属性调节", subtitle: "测试", content: traversal)
         panel.contentView!.layoutSubtreeIfNeeded()
-        func descendants<T: NSView>(_ view: NSView, _ kind: T.Type) -> [T] {
-            (view as? T).map { [$0] } ?? [] + view.subviews.flatMap { descendants($0, kind) }
-        }
         let subtitle = descendants(panel.contentView!, NSTextField.self).first { $0.stringValue == "测试" }!
         precondition(subtitle.frame.height < 40, "fixed subtitle must not absorb spare panel height")
         precondition(traversal.frame.height > 550, "property viewport must receive spare panel height")
         let header = descendants(panel.contentView!, NSButton.self).first { $0.toolTip == "关闭详情" }!
+        checkHeader(panel.contentView as! InspectorHostCardView)
         precondition(panel.contentView!.convert(header.bounds, from: header).maxY > panel.frame.height - 80, "header must stay at panel top")
         print("headerTop", panel.contentView!.convert(header.bounds, from: header).maxY, "subtitle", subtitle.frame.height, "viewport", traversal.frame.height)
         panel.selectNextKeyView(nil)
@@ -83,6 +172,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         panel.selectNextKeyView(nil)
         precondition(traversal.directions == [false, true], "closed presentation must drop key traversal")
         precondition(owner.presentationID == nil)
+        print("Shared inspector header cases PASS", headerCases)
         print("Property window ownership and geometry PASS")
     }
 }
@@ -98,4 +188,11 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for message in ['Unable to simultaneously satisfy constraints', 'Conflicting constraints detected']:
+                self.assertNotIn(message, result.stdout + result.stderr)
+            self.assertIn('Shared inspector header cases PASS 24', result.stdout)
             print(result.stdout, end="")
+            proof = os.environ.get('MWX_PROPERTY_WINDOW_PROOF_DIR')
+            if proof:
+                (pathlib.Path(proof) / 'compile.log').write_text(compiled.stdout + compiled.stderr)
+                (pathlib.Path(proof) / 'runtime.log').write_text(result.stdout + result.stderr)
