@@ -657,7 +657,8 @@ FRAME_FLIGHT=r'''
    let separateDepth=oldDepth !== cancelledDepth
    nextPass.closeForOffscreen();nextPass.cancelCompositionPins();nextState.cancel();nextLeases.forEach{$0.cancel()}
    pool.reset()
-   let probe=renderer.staticModelDepthTargetPool.acquire(device:device,width:128,height:128)!
+   guard case let .acquired(probe)=renderer.staticModelDepthTargetPool.acquire(
+    device:device,width:128,height:128,on:queue.makeCommandBuffer()!) else {preconditionFailure("cancelled depth")}
    let cancellationReusable=probe.texture === cancelledDepth;probe.cancel()
    flight=["pending":pending,"retainedAfterReset":retained,"nextCount":nextCount,"nextMandatory":nextMandatory,
     "nextDepth":nextDepth,"separateMaps":separate,"separateDepth":separateDepth,
@@ -669,7 +670,8 @@ FRAME_FLIGHT=r'''
   cb.waitUntilCompleted()
   if mode=="flight" {
    flight["residentAfterCompletion"]=pool.residentByteCost
-   let probe=renderer.staticModelDepthTargetPool.acquire(device:device,width:64,height:64)!
+   guard case let .acquired(probe)=renderer.staticModelDepthTargetPool.acquire(
+    device:device,width:64,height:64,on:queue.makeCommandBuffer()!) else {preconditionFailure("completed depth")}
    flight["completedDepthReusable"]=probe.texture === shared!.texture;probe.cancel()
    // C is a fresh, completed actual owner frame after A completion and B cancel.
    let recoveryCB=queue.makeCommandBuffer()!

@@ -29,11 +29,16 @@ extension SceneMetalRenderer {
         let usesDepth = batches.contains { $0.renderState.requiresDepthAttachment }
         let targetExtent = mainPass.targetExtent
         let depthLease: SceneParticleDepthTargetLease?
-        if let preparedDepth {
-            depthLease = preparedDepth.lease
+        if let acquisition = preparedDepth?.acquisition ?? (usesDepth
+            ? pipeline.acquireDepthTarget(width: targetExtent.width,
+                height: targetExtent.height, on: commandBuffer) : nil) {
+            switch acquisition {
+            case let .acquired(lease): depthLease = lease
+            case .busyOtherFrame, .currentFrameCapacityExceeded, .invalidExtent, .allocationFailed:
+                depthLease = nil
+            }
         } else {
-            depthLease = usesDepth ? pipeline.acquireDepthTarget(
-                width: targetExtent.width, height: targetExtent.height) : nil
+            depthLease = nil
         }
         guard !usesDepth || depthLease != nil else {
             batches.forEach { _ = $0.instanceBuffer.cancelPending() }

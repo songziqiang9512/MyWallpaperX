@@ -294,6 +294,11 @@ extension SceneMetalRenderer {
                 recordsEvidence: SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2,
                 cameraFrame: cameraFrame)
         }
+        if let reason = modelFrame.depthDeferralReason {
+            compositionGroupRuntime?.closeAllGroupEncoders()
+            mainPass.closeForOffscreen()
+            return .deferred(reasonCode: reason)
+        }
         var preparedEnvironment: SceneFrameTextureResource?
         if let targets = optionalScratch {
             var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
@@ -308,7 +313,8 @@ extension SceneMetalRenderer {
                prepareMandatoryDepth(state: modelFrame, candidates: candidates,
                 orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime, leases: &frameDepthLeases),
+                mainPass: mainPass, groups: compositionGroupRuntime,
+                commandBuffer: commandBuffer, leases: &frameDepthLeases),
                prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
                 dynamicValues: frameContext.dynamicValues),
                prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
@@ -324,6 +330,11 @@ extension SceneMetalRenderer {
             reflection.admit(targets, sceneColor: history)
             // history is assigned only after the complete mandatory-capacity gate.
             if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
+        }
+        if let reason = modelFrame.depthDeferralReason {
+            compositionGroupRuntime?.closeAllGroupEncoders()
+            mainPass.closeForOffscreen()
+            return .deferred(reasonCode: reason)
         }
         // No coordinator lock is held here. Late named dependencies retain
         // their ordered preparation; they cannot promise early environment capacity.
@@ -471,6 +482,11 @@ extension SceneMetalRenderer {
 #if DEBUG
         hubStage(.prepassMicros, hubPrepassStart)
 #endif
+        if let reason = modelFrame.depthDeferralReason {
+            compositionGroupRuntime?.closeAllGroupEncoders()
+            mainPass.closeForOffscreen()
+            return .deferred(reasonCode: reason)
+        }
         return encodeOrderedLayers(
             orderedLayers: orderedLayers,
             initiallyStopped: stopsAfterClaimedFailure,

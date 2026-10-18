@@ -51,7 +51,7 @@ enum SceneParticleCameraRenderingHarness {
               let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
               let command = queue.makeCommandBuffer(),
-              let depthLease = pipeline.acquireDepthTarget(width: size, height: size)
+              case let .acquired(depthLease) = pipeline.acquireDepthTarget(width: size, height: size, on: command)
         else { return [] }
         let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
@@ -212,25 +212,32 @@ enum SceneParticleCameraRenderingHarness {
         guard let device = MTLCreateSystemDefaultDevice(),
               let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
-              let first = pipeline.acquireDepthTarget(width: 8, height: 8),
-              let second = pipeline.acquireDepthTarget(width: 8, height: 8),
-              let third = pipeline.acquireDepthTarget(width: 8, height: 8) else { return [:] }
-        let rejectsFourth = pipeline.acquireDepthTarget(width: 8, height: 8) == nil
+              let owner = queue.makeCommandBuffer(),
+              case let .acquired(first) = pipeline.acquireDepthTarget(width: 8, height: 8, on: owner),
+              case let .acquired(second) = pipeline.acquireDepthTarget(width: 8, height: 8, on: owner),
+              case let .acquired(third) = pipeline.acquireDepthTarget(width: 8, height: 8, on: owner) else { return [:] }
+        let rejectsFourth: Bool
+        if case .currentFrameCapacityExceeded = pipeline.acquireDepthTarget(width: 8, height: 8, on: owner) {
+            rejectsFourth = true
+        } else { rejectsFourth = false }
         let firstTexture = first.texture
         first.cancel()
-        let replacement = pipeline.acquireDepthTarget(width: 8, height: 8)
-        let reusesReleased = replacement?.texture === firstTexture
-        replacement?.cancel()
+        guard case let .acquired(replacement) = pipeline.acquireDepthTarget(width: 8, height: 8, on: owner)
+        else { return [:] }
+        let reusesReleased = replacement.texture === firstTexture
+        replacement.cancel()
         second.cancel()
         third.cancel()
         guard let command = queue.makeCommandBuffer(),
-              let armed = pipeline.acquireDepthTarget(width: 8, height: 8) else { return [:] }
+              case let .acquired(armed) = pipeline.acquireDepthTarget(width: 8, height: 8, on: command) else { return [:] }
         let armedTexture = armed.texture
         armed.arm(on: command)
         let completed = SceneParticleOffscreenReadbackHarness.commitAndWait(command)
-        let afterCompletion = pipeline.acquireDepthTarget(width: 8, height: 8)
-        let completionReleased = completed && afterCompletion?.texture === armedTexture
-        afterCompletion?.cancel()
+        guard let next = queue.makeCommandBuffer(),
+              case let .acquired(afterCompletion) = pipeline.acquireDepthTarget(width: 8, height: 8, on: next)
+        else { return [:] }
+        let completionReleased = completed && afterCompletion.texture === armedTexture
+        afterCompletion.cancel()
         return [
             "rejectsFourth": rejectsFourth,
             "reusesReleased": reusesReleased,

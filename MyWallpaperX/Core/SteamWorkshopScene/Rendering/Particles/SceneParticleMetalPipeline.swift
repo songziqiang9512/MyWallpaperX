@@ -182,8 +182,9 @@ struct SceneParticleMetalPipeline {
         return true
     }
 
-    func acquireDepthTarget(width: Int, height: Int) -> SceneParticleDepthTargetLease? {
-        depthTargetPool.acquire(device: device, width: width, height: height)
+    func acquireDepthTarget(width: Int, height: Int,
+                            on commandBuffer: MTLCommandBuffer) -> SceneParticleDepthTargetPool.Acquisition {
+        depthTargetPool.acquire(device: device, width: width, height: height, on: commandBuffer)
     }
 
     func snapshot(

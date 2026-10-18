@@ -19,12 +19,22 @@ extension SceneMetalRenderer {
     /// A failed prepared lease remains a failed draw, rather than requesting twice.
     final class StaticModelFrame {
         struct Depth {
-            let lease: SceneParticleDepthTargetLease?
+            let acquisition: SceneParticleDepthTargetPool.Acquisition
             let clears: Bool
             var shared: Bool = false
+
+            var lease: SceneParticleDepthTargetLease? {
+                if case let .acquired(lease) = acquisition { return lease }
+                return nil
+            }
         }
         var plan = SceneStaticModelDepthPlan()
-        var sharedLease: SceneParticleDepthTargetLease?
+        private var sharedAcquisition: SceneParticleDepthTargetPool.Acquisition?
+        private(set) var depthDeferralReason: String?
+        var sharedLease: SceneParticleDepthTargetLease? {
+            if case let .acquired(lease)? = sharedAcquisition { return lease }
+            return nil
+        }
         var sharedWasCleared = false
         var prepared: [Int: [StaticModelDraw]]?
         var particleDepth: [Int: Depth] = [:]
@@ -34,22 +44,33 @@ extension SceneMetalRenderer {
 
         func depth(for draw: StaticModelDraw, pass: SceneMainPassEncoder,
                    pool: SceneParticleDepthTargetPool, device: MTLDevice,
+                   commandBuffer: MTLCommandBuffer,
                    leases: inout [SceneParticleDepthTargetLease]) -> Depth {
             let target = plan.target(geometryIdentity: draw.entry.geometryIdentity, modelMatrix: draw.world)
             let extent = pass.targetExtent
+            let acquisition: SceneParticleDepthTargetPool.Acquisition
+            let shared: Bool
             switch target {
             case .shared:
-                if sharedLease == nil {
-                    sharedLease = pool.acquire(device: device, width: extent.width, height: extent.height)
-                    if let sharedLease { leases.append(sharedLease) }
+                if let existing = sharedAcquisition {
+                    acquisition = existing
+                } else {
+                    acquisition = pool.acquire(device: device, width: extent.width,
+                        height: extent.height, on: commandBuffer)
+                    sharedAcquisition = acquisition
+                    if case let .acquired(lease) = acquisition { leases.append(lease) }
                 }
-                let result = Depth(lease: sharedLease, clears: true, shared: true)
-                return result
+                shared = true
             case .isolated:
-                let lease = pool.acquire(device: device, width: extent.width, height: extent.height)
-                if let lease { leases.append(lease) }
-                return Depth(lease: lease, clears: true)
+                acquisition = pool.acquire(device: device, width: extent.width,
+                    height: extent.height, on: commandBuffer)
+                if case let .acquired(lease) = acquisition { leases.append(lease) }
+                shared = false
             }
+            if case .busyOtherFrame = acquisition {
+                depthDeferralReason = "static-model-depth-in-flight"
+            }
+            return Depth(acquisition: acquisition, clears: true, shared: shared)
         }
 
         func arm(on commandBuffer: MTLCommandBuffer) {
@@ -124,8 +145,10 @@ extension SceneMetalRenderer {
         var encodedLit = false
         for draw in draws {
             let depth = draw.depth ?? state.depth(for: draw, pass: pass,
-                pool: staticModelDepthTargetPool, device: device, leases: &leases)
-            guard let lease = depth.lease, let encoder = pass.encoder(
+                pool: staticModelDepthTargetPool, device: device,
+                commandBuffer: commandBuffer, leases: &leases)
+            if state.depthDeferralReason != nil { return encodedLit }
+            guard case let .acquired(lease) = depth.acquisition, let encoder = pass.encoder(
                 depthTexture: lease.texture, clearsDepth: depth.shared ? !state.sharedWasCleared : depth.clears,
                 clearDepth: 0) else { continue }
             if depth.shared { state.sharedWasCleared = true }
@@ -269,7 +292,7 @@ extension SceneMetalRenderer {
         guard prepareMandatoryDepth(state: state, candidates: candidates,
             orderedLayers: orderedLayers, visible: visible, batches: batches,
             particlePipeline: particlePipeline, mainPass: mainPass, groups: groups,
-            leases: &leases) else { return }
+            commandBuffer: commandBuffer, leases: &leases) else { return }
         emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
             mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
             recordsEvidence: recordsEvidence, cameraFrame: cameraFrame,
@@ -283,6 +306,7 @@ extension SceneMetalRenderer {
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
         batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
+        commandBuffer: MTLCommandBuffer,
         leases: inout [SceneParticleDepthTargetLease]
     ) -> Bool {
         var prepared = state.prepared ?? candidates
@@ -292,9 +316,15 @@ extension SceneMetalRenderer {
             if staticModelResources.pipeline != nil, var draws = prepared[layer.id] {
                 for index in draws.indices {
                     let depth = draws[index].depth ?? state.depth(for: draws[index], pass: pass,
-                        pool: staticModelDepthTargetPool, device: device, leases: &leases)
+                        pool: staticModelDepthTargetPool, device: device,
+                        commandBuffer: commandBuffer, leases: &leases)
                     draws[index].depth = depth
                     complete = complete && depth.lease != nil
+                    if state.depthDeferralReason != nil {
+                        prepared[layer.id] = draws
+                        state.prepared = prepared
+                        return false
+                    }
                 }
                 prepared[layer.id] = draws
             }
@@ -304,9 +334,11 @@ extension SceneMetalRenderer {
                 if let existing = state.particleDepth[layer.id] {
                     complete = complete && existing.lease != nil
                 } else {
-                    let lease = particlePipeline.acquireDepthTarget(width: extent.width, height: extent.height)
-                    state.particleDepth[layer.id] = .init(lease: lease, clears: true)
-                    if let lease { leases.append(lease) } else { complete = false }
+                    let acquisition = particlePipeline.acquireDepthTarget(width: extent.width,
+                        height: extent.height, on: commandBuffer)
+                    state.particleDepth[layer.id] = .init(acquisition: acquisition, clears: true)
+                    if case let .acquired(lease) = acquisition { leases.append(lease) }
+                    else { complete = false }
                 }
             }
         }
@@ -370,7 +402,7 @@ extension SceneMetalRenderer {
                         state.prepared?[layer.id] = draws
                         for index in draws.indices {
                             let depth = state.depth(for: draws[index], pass: pass, pool: staticModelDepthTargetPool,
-                                device: device, leases: &leases)
+                                device: device, commandBuffer: commandBuffer, leases: &leases)
                             draws[index].depth = depth
                             state.prepared?[layer.id] = draws
                             guard depth.lease != nil else { return nil }
@@ -378,9 +410,10 @@ extension SceneMetalRenderer {
                     }
                     if let particlePipeline, batches[layer.id]?.contains(where: { $0.renderState.requiresDepthAttachment }) == true {
                         let extent = pass.targetExtent
-                        let lease = particlePipeline.acquireDepthTarget(width: extent.width, height: extent.height)
-                        state.particleDepth[layer.id] = .init(lease: lease, clears: true)
-                        guard let lease else { return nil }
+                        let acquisition = particlePipeline.acquireDepthTarget(width: extent.width,
+                            height: extent.height, on: commandBuffer)
+                        state.particleDepth[layer.id] = .init(acquisition: acquisition, clears: true)
+                        guard case let .acquired(lease) = acquisition else { return nil }
                         leases.append(lease)
                     }
                     if framePlans[layer.id] == nil, ["image", "solid", "text"].contains(layer.contentKind) {

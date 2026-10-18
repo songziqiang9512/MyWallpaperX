@@ -907,7 +907,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
    nextState.cancel();nextState.prepared=nil;nextLeases.forEach{$0.cancel()}
    renderer.textureRegistry.discardFramePublication();pool.reset()
    let afterCancel=pool.residentByteCost
-   let reused=renderer.staticModelDepthTargetPool.acquire(device:d,width:size,height:size)!
+   guard case let .acquired(reused)=renderer.staticModelDepthTargetPool.acquire(device:d,width:size,height:size,on:queue.makeCommandBuffer()!) else {preconditionFailure("cancelled depth")}
    let cancelledDepthReusable=reused.texture === cancelledDepth;reused.cancel()
    flight=["pending":pending,"originalShadowBytes":originalShadowBytes,"retainedAfterReset":retainedAfterReset,
     "retainedAfterCancel":afterCancel,"nextInvalid":nextInvalid as Any? ?? NSNull(),"nextShadow":newShadow,
@@ -928,7 +928,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   }
   if mode=="flight" {
    flight["residentAfterCompletion"]=pool.residentByteCost
-   let completedLease=renderer.staticModelDepthTargetPool.acquire(device:d,width:64,height:64)!
+   guard case let .acquired(completedLease)=renderer.staticModelDepthTargetPool.acquire(device:d,width:64,height:64,on:queue.makeCommandBuffer()!) else {preconditionFailure("completed depth")}
    flight["completedDepthReusable"]=completedLease.texture === oldDepth;completedLease.cancel()
   }
   return ["mode":mode,"invalid":invalid as Any? ?? NSNull(),"shadow":shadowCreated,"sameCurrent":sharedCurrent,

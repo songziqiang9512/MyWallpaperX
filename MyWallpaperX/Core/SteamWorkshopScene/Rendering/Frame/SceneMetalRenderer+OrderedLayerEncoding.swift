@@ -292,6 +292,11 @@ extension SceneMetalRenderer {
                     worldFrames: frameWorldFrames, frameContext: frameContext,
                     cameraFrame: cameraFrame, lighting: frameLightSnapshot,
                     pass: layerMainPass, commandBuffer: commandBuffer, leases: &frameDepthLeases)
+                if let reason = modelFrame.depthDeferralReason {
+                    compositionGroupRuntime?.closeAllGroupEncoders()
+                    mainPass.closeForOffscreen()
+                    return .deferred(reasonCode: reason)
+                }
 #if DEBUG
                 if collectsPointLightExecutionEvidence, lit { pointLitStaticModelLayerIDs.append(layer.id) }
 #endif

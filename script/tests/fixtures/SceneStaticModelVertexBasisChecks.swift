@@ -213,7 +213,9 @@ enum SceneStaticModelVertexBasisChecks {
                 frameContext: .init(dynamicValues: snapshot), cameraFrame: camera,
                 lighting: lighting, pass: pass, commandBuffer: cb, leases: &leases)
         } else {
-            let depth = renderer.staticModelDepthTargetPool.acquire(device: device, width: width, height: height)!
+            guard case let .acquired(depth) = renderer.staticModelDepthTargetPool.acquire(
+                device: device, width: width, height: height, on: cb)
+            else { preconditionFailure("reference depth") }
             leases.append(depth)
             for (index, draw) in draws.enumerated() {
                 let encoder = pass.encoder(depthTexture: depth.texture, clearsDepth: index == 0, clearDepth: 0)!

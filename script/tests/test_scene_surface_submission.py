@@ -64,8 +64,9 @@ struct SceneMetalRenderer {}
   var expected=0
   for frame in 0..<16 {
    for screen in 0..<3 {
-    guard let lease=pool.acquire(device:device,width:8,height:8) else {producerOK=false;break}
     let transaction=SceneSourceUpdateTransaction(), buffer=queue.makeCommandBuffer()!
+    guard case let .acquired(lease)=pool.acquire(device:device,width:8,height:8,on:buffer)
+    else {producerOK=false;break}
     let next=fifo.update(transaction:transaction){$0 += 1;return $0}
     producerOK = next == expected+1 && producerOK
     let candidate=Renderer.PreparedFrame(commandBuffer:buffer,submit:{

@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 127221
+      "bytes": 127722
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 139104
+      "bytes": 139501
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -165,8 +165,8 @@
       "bytes": 17214
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 522,
-      "bytes": 114601
+      "lines": 533,
+      "bytes": 119093
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 92,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 62312
+      "bytes": 62638
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1334,11 +1334,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "581a278063990d2b9aba9786e9b679cba0685fb027351eea9f1611053e40ced1",
-      "after": "c41dc4946341aab51f2dd96c54ba62a8ecf1e6c920173656e2d24639e29807dc",
-      "owner": "scene-static-model-normal-coverage",
-      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
+      "before": "c41dc4946341aab51f2dd96c54ba62a8ecf1e6c920173656e2d24639e29807dc",
+      "after": "a148eebe4ba7b38cb98146202fbae9b543788b21e7f96375b17e8eaf7d425b26",
+      "owner": "scene-static-model-depth-pending",
+      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
     },
     {
       "section": "bodies",
@@ -1379,11 +1379,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "571332967c413a761d3d219b2d7dccc10f40291bdc6c8971de6ab7ef4e9c5766",
-      "after": "42d19de4b3543bd8fb81d88671ccf2bfd8dc16c6be00b3a610f72c1ea836c2f9",
-      "owner": "scene-procedural-solid-local-source",
-      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
+      "before": "42d19de4b3543bd8fb81d88671ccf2bfd8dc16c6be00b3a610f72c1ea836c2f9",
+      "after": "ef9404b681e63e3d3cb1c78c1a0c03b9e2f27ddbab215eada8a0cb3bf53a8f14",
+      "owner": "scene-static-model-depth-pending",
+      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
     },
     {
       "section": "bodies",
@@ -1415,20 +1415,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "235b448991a7de6cce3c499879fd228ab1d6f95252476fd936a97473719771fa",
-      "after": "77ad8109bcbf013a01f7ed765df01f5fe0328658aad75ab4b93c9609ec4f3ef1",
-      "owner": "scene-default-camera-single",
-      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+      "before": "77ad8109bcbf013a01f7ed765df01f5fe0328658aad75ab4b93c9609ec4f3ef1",
+      "after": "a4bc57c6c6357aae725aae1d49f0a73efebf8bb010f124c7c4257b980251310b",
+      "owner": "scene-static-model-depth-pending",
+      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4d33acba296c5064cab8fe729de8bed468f0e340b1024e44f7787cf30eae0a2c",
-      "after": "f6d393c1a6f074ae67406e8d6b3007ca4a8b1cd5ee57001c6cffe2b7abf9eb9a",
-      "owner": "scene-default-camera-single",
-      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+      "before": "f6d393c1a6f074ae67406e8d6b3007ca4a8b1cd5ee57001c6cffe2b7abf9eb9a",
+      "after": "aabcd77268905823df0f79774003c513a37920bda77368aa209c3f12508409ba",
+      "owner": "scene-static-model-depth-pending",
+      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
     },
     {
       "section": "bodies",

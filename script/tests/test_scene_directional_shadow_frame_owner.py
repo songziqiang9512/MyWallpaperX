@@ -63,6 +63,7 @@ struct SceneRenderDescriptor {
  struct CameraDescriptor {
   let eye:[Float];let center:[Float];let up:[Float];let orthoWidth:Float?;let orthoHeight:Float?
   let fovDegrees:Float?;let perspectiveOverrideFOVDegrees:Float?;let nearZ:Float;let farZ:Float
+  var default2DOriginInputLayerID:Int? = nil
  }
  let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]
  var camera:CameraDescriptor = CameraDescriptor(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)
@@ -129,6 +130,7 @@ final class SceneImageLayerCompositor {
 
 final class SceneMetalRenderer {
  let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources
+ var renderDescriptor=SceneRenderDescriptor(lighting:nil,layers:[],renderOrderLayerIDs:[])
  var utilityExecution=SceneUtilityLayerRuntimePlanner.Execution()
  var layersByID:[Int:SceneRenderDescriptor.Layer]=[:]
  let imageCompositor=SceneImageLayerCompositor()
@@ -260,7 +262,8 @@ MAIN = r'''
    5:[entry(meshA,"singular",SIMD3(1,1,0))]
   ]))
   let layers=[SceneRenderDescriptor.Layer(id:1),.init(id:2),.init(id:3),.init(id:4,contentKind:"particle"),.init(id:5)]
-  let world=Dictionary(uniqueKeysWithValues:layers.map { ($0.id,$0.id==5 ? SceneMatrix.scale(SIMD3(1,1,0)) : matrix_identity_float4x4) })
+  // Legacy canonical-down quad carrier: express its author Y reflection.
+  let world=Dictionary(uniqueKeysWithValues:layers.map { ($0.id,SceneMatrix.scale(SIMD3(1,-1,$0.id==5 ? 0:1))) })
   let dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,
       orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:64,height:64))
@@ -368,9 +371,10 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
                  _ device:MTLDevice,_ queue:MTLCommandQueue)throws->[String:Any] {
   let pipeline=SceneStaticModelPipeline(device:device)!
   let native=family.hasPrefix("native")
-  let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,5],center:[0,0,0],up:[0,1,0],
+  let cameraDescriptor=SceneRenderDescriptor.CameraDescriptor(eye:[0,0,5],center:[0,0,0],up:[0,1,0],
    orthoWidth:native ? nil:8,orthoHeight:native ? nil:8,fovDegrees:native ? 60:nil,
-   perspectiveOverrideFOVDegrees:family=="fitted" ? 60:nil,nearZ:0.01,farZ:100),viewportSize:CGSize(width:64,height:64))
+   perspectiveOverrideFOVDegrees:family=="fitted" ? 60:nil,nearZ:0.01,farZ:100)
+  let camera=SceneParticleCameraFrame(camera:cameraDescriptor,viewportSize:CGSize(width:64,height:64))
   let layer=SceneRenderDescriptor.Layer(id:1,utilityLayer:family=="native-utility" ? true:nil,
     usesPerspective:family=="canvas" || family=="native-ortho" ? false:true)
   let positions:[SIMD3<Float>]=[SIMD3(-1,-1,0),SIMD3(1,-1,0),SIMD3(1,1,0),SIMD3(-1,1,0)]
@@ -401,6 +405,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    if reverse {layers.reverse()}
   }
   let renderer=SceneMetalRenderer(device:device,resources:.init(pipeline:pipeline,entries:entries))
+  renderer.renderDescriptor.camera=cameraDescriptor
   var world=transformed ? SceneMatrix.eulerXYZ(SIMD3(0.2,-0.3,0.1))*SceneMatrix.scale(SIMD3(1.1,0.8,1.2)):matrix_identity_float4x4
   if transformed {world.columns.3=SIMD4(2,-3,-4,1)}
   let center=world.columns.3.xyz,position=(world*SIMD4(0,0,4,1)).xyz
@@ -506,7 +511,11 @@ class SceneDirectionalShadowFrameOwnerTests(unittest.TestCase):
         self.assertTrue(row['shadow']);self.assertEqual((row['before'],row['after']),(3,3))
         for key in ['sharedIdentity','isolatedIdentity','particleIdentity','allocationsStable','noRetry','completed','model1','model2','model3']:
             self.assertTrue(row[key], key)
-        self.assertEqual(row['particleDraws'],1)
+        self.assertEqual(row['pixels'][2],[255,0,255,255])
+        self.assertEqual([row['pixels'][0][0],row['pixels'][0][2]],[0,0])
+        self.assertGreater(row['pixels'][0][1],0)
+        self.assertEqual(row['pixels'][1][:2],[0,0])
+        self.assertGreater(row['pixels'][1][2],0)
 
     def test_optional_physical_quota_failure_preserves_original_model_and_particle_pixels(self):
         row = self.rows['optional-quota']
@@ -514,7 +523,7 @@ class SceneDirectionalShadowFrameOwnerTests(unittest.TestCase):
         self.assertEqual((row['before'],row['after']),(3,3))
         for key in ['sharedIdentity','isolatedIdentity','particleIdentity','allocationsStable','noRetry','model1','model2','model3']:
             self.assertTrue(row[key],key)
-        self.assertEqual(row['particleDraws'],1)
+        self.assertEqual(row['pixels'][2],[255,0,255,255])
         self.assertEqual(row['pixels'],self.rows['original']['pixels'])
         self.assertTrue(any(max(pixel[:3])>128 for pixel in row['pixels'][:3]))
 
@@ -522,7 +531,9 @@ class SceneDirectionalShadowFrameOwnerTests(unittest.TestCase):
         row=self.rows['mandatory-quota']
         self.assertFalse(row['shadow']);self.assertEqual((row['before'],row['after']),(1,1))
         self.assertTrue(row['model1']);self.assertTrue(row['model3']);self.assertFalse(row['model2'])
-        self.assertEqual(row['particleDraws'],0)
+        self.assertEqual(row['pixels'][2],[13,26,38,255])
+        self.assertEqual(row['pixels'][0][1:3],[0,0])
+        self.assertGreater(row['pixels'][0][0],0)
         self.assertTrue(row['allocationsStable']);self.assertTrue(row['noRetry']);self.assertTrue(row['particleIdentity'])
         self.assertEqual(row['pixels'][1],self.rows['original']['pixels'][1])
 

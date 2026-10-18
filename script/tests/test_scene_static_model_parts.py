@@ -373,11 +373,6 @@ def resource_support():
     s=s.replace('var anglesXYZ:[Float]? = nil', 'var anglesXYZ:[Float]? = nil;'
         'var originXYZ:[Float]?=nil;var scaleXYZ:[Float]?=nil;'
         'var attachmentName:String?=nil;var parentAttachmentBindFrame:[Float]?=nil')
-    s=s.replace('let nearZ:Float;let farZ:Float',
-        'let nearZ:Float;let farZ:Float;var default2DOriginInputLayerID:Int?=nil')
-    s=s.replace('let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources',
-        'let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources;'
-        'var renderDescriptor=SceneRenderDescriptor(lighting:nil,layers:[],renderOrderLayerIDs:[])')
     return frame.pool_fixture.HARNESS.split('@main',1)[0]+s+frame.UNUSED_ORDERED_SUPPORT+RESOURCE_TRANSPORT
 
 

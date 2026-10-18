@@ -439,13 +439,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "64a12f33043350ff2666b3f43922994afab1de7bdf5b4dd489c008a19b9f34b9",
+        "sourceSHA256": "54af8eabd67cc20f4046888dda59e908c933c7ddd8b6eedd154df5692464a67f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
-        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
+        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
+        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a35e85c1632057c3066e2bc66a7387bfc4de2a5cd8af8a3723f9b2cc100fb161",
+        "sourceSHA256": "955afdc5a5614dd1ee6568c81b3ff1bb68f86a9ad358e0201a87962c082499f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
-        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
+        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
+        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "948e156a3baaa4f472c13183fa682f075b51644e0beaf4656f2f89d8d2c767e8",
+        "sourceSHA256": "59ee9fe5047c5b35e71382d57687cc01eb3a6be4f834df61c9f2f85e7132a65d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
-        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
+        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
+        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
       }
     },
     {
@@ -913,13 +913,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6362ff097f92157fc6c1d3cfb704b6f3eaf1eb07bea08e77b14a9ac250534855",
+        "sourceSHA256": "0575b393cbbc1c9fea5891619510beb6dbcb0154213c069ca1e060f583da3af2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批metadata准入合同、21/20有界结果及U41下一项导航",
-        "limitations": "导航与来源边界复核；不代表其他能力、全样本或性能验收"
+        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
+        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
       }
     },
     {
@@ -3003,6 +3003,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/static-model-depth-pending-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "真实StaticModelFrame→pool→draw的pending机械反例、typed资源失败与唯一frame defer/cancel实施；保首FAIL及夹具纠正、343原生全屏用户反馈与独立361、未强制完整Host busy及样本归因边界。"
+    },
+    {
       "path": "docs/scene/history/static-model-emission-2026-10-09.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3220,7 +3233,15 @@
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。"
+      "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。",
+      "lastReviewed": "2026-10-19",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "a451409fbfb781a06b2c195c1134e2a7b32323c4f8dc8810dcc0b1cd6d941964",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
+        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+      }
     },
     {
       "path": "docs/scene/roadmap/batch2/authored-texture-coordinate-design.md",
@@ -3440,10 +3461,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5fd41e3749010c5c4c7a3820ccf7d5f415af6f4ed737794157748eae8c632de4",
+        "sourceSHA256": "5262b0321171ee236801ef1a8334d10b50bb17d347c34d03c314cbe4c83fe80f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
-        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
+        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
+        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
       }
     },
     {

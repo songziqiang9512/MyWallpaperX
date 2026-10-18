@@ -154,14 +154,15 @@ POOL_MAIN = r'''
         let configuration = SceneBloomConfiguration(enabled: true, strength: 0.5, threshold: 0.1, tint: SIMD3(repeating: 1))
         let modelDepthPool = SceneParticleDepthTargetPool()
         let particleDepthPool = SceneParticleDepthTargetPool()
-        let modelDepth = modelDepthPool.acquire(device: device, width: 8, height: 8)!
-        let particleDepth = particleDepthPool.acquire(device: device, width: 8, height: 8)!
+        let quotaCB = queue.makeCommandBuffer()!
+        guard case let .acquired(modelDepth) = modelDepthPool.acquire(device: device, width: 8, height: 8, on: quotaCB),
+              case let .acquired(particleDepth) = particleDepthPool.acquire(device: device, width: 8, height: 8, on: quotaCB)
+        else { preconditionFailure("mandatory depth acquisition") }
         checks["mandatory-original-bloom-capacity"] = bloom.prepareCapacity(configuration: configuration, source: bloomSource)
         let available = SceneResourceBudget.shared.maximumBytes - SceneResourceBudget.shared.snapshot.residentBytes
         precondition(SceneResourceBudget.shared.reserve(available, kind: .gpu))
         do {
             defer { SceneResourceBudget.shared.release(available, kind: .gpu) }
-            let quotaCB = queue.makeCommandBuffer()!
             let optional = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 1024)
             checks["mandatory-bloom-model-particle-before-optional-physical-refusal"] = optional.reserveModelShadow(slot: 0, width: 8, height: 8, commandBuffer: quotaCB) == nil && optional.residentByteCost == 0
             clear(modelDepth.texture, 0.25, quotaCB); clear(particleDepth.texture, 0.5, quotaCB)

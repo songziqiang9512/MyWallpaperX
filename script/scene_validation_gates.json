@@ -1050,6 +1050,7 @@
         "test_scene_visible_graph_output_render_plan",
         "test_scene_image_distance_fog",
         "test_scene_directional_shadow_frame_owner",
+        "test_scene_static_model_depth_pending",
         "test_scene_color_blend_capture_region",
         "test_scene_snapshot_capacity",
         "test_scene_performance_telemetry",
@@ -2634,6 +2635,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleDepthTargetPool.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
         "script/tests/test_scene_static_model_pipeline.py",
         "script/tests/fixtures/SceneLightSnapshotHarness.swift",
@@ -2643,7 +2646,8 @@
         "script/tests/test_scene_spot_model_shadow.py",
         "script/tests/test_scene_point_model_shadow.py",
         "script/tests/test_scene_static_model_blending.py",
-        "script/tests/fixtures/SceneStaticModelBlendChecks.swift"
+        "script/tests/fixtures/SceneStaticModelBlendChecks.swift",
+        "script/tests/fixtures/SceneStaticModelDepthPendingChecks.swift"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -2653,6 +2657,7 @@
         "test_scene_static_model_emission",
         "test_scene_static_model_cull_integration",
         "test_scene_directional_shadow_frame_owner",
+        "test_scene_static_model_depth_pending",
         "test_scene_directional_shadow",
         "test_scene_spot_model_shadow",
         "test_scene_point_model_shadow"
