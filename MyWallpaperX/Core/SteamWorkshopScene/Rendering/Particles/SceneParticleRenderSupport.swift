@@ -366,11 +366,11 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         let currentAspect = Self.validAspect(currentFrameAspect) ? currentFrameAspect : 1
         let authoredNextAspect = nextFrameAspect ?? currentAspect
         let followingAspect = Self.validAspect(authoredNextAspect) ? authoredNextAspect : currentAspect
-        // Retain the current half-size upload convention, also used by Mirage.
-        // The public stock shader expands the published width around the center
-        // with `(uv - 0.5)`; it does not establish the authored-to-published size
-        // multiplier. That absolute conversion still needs an official golden.
-        // Operators/collision continue to use the unmodified authored size.
+        // The qualified unrotated square Sprite renders authored size 80 at
+        // half the width of an 80-wide image in the official client and here.
+        // Keep that half-size upload against the unit quad's [-0.5, 0.5] span.
+        // This does not qualify rotated/parent-space or Trail/Rope dimensions.
+        // Operators/collision retain the unmodified authored size.
         positionAndSize = SIMD4(position.x, position.y, position.z, size * 0.5)
         rotationAndAlpha = SIMD4(rotation.x, rotation.y, rotation.z, alpha)
         colorAndFrameMix = SIMD4(color.x, color.y, color.z, min(max(frameMix, 0), 1))

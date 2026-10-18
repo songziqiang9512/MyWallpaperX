@@ -233,7 +233,15 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 ### U11亮紫能量与形态落点资格（2026-10-18）
 
-同一`16a80fc1`一次原3792249095默认属性、混合PCM，12s/after8：233/250两粒子层非空，各完成330帧GPU、0failed；254四effect实际Program/GPU，末级及下一帧参与合成。**254源alpha=0不等于关闭**，其CRT会独立增加输出alpha。根与独审看native ready/after及目录官方两图：外围暗紫圈仍在，但主亮内三角/亮点位于白月牙内侧，官方主亮大圈位于外侧；不能据此叫250半径缩小或全局相机错误。仅254-off、仅233-off的两派生均只在scene插入16B visible字段，其余39个PKG payload和21个输入保持；前者内三角仍在、外围圈/文字变亮，后者实际233 false且仅250非空，主体图案仍在。底图17本含图案，不按层名归因。三run均App0/无工具失败、漂移[]、stop1→0/GPU排空。音源/phase未同官方，不改作者半径、亮度或涡旋近似；公共Sprite绝对size单位另用独立标尺资格，非既定根因。原图、派生proof和`source-qualification.json`保`.artifacts/tmp/u11-visible-ring-qualification-20261018/`；不是整样本、算法或性能验收。
+同一`16a80fc1`一次原3792249095默认属性、混合PCM，12s/after8：233/250两粒子层非空，各完成330帧GPU、0failed；254四effect实际Program/GPU，末级及下一帧参与合成。**254源alpha=0不等于关闭**，其CRT会独立增加输出alpha。根与独审看native ready/after及目录官方两图：外围暗紫圈仍在，但主亮内三角/亮点位于白月牙内侧，官方主亮大圈位于外侧；不能据此叫250半径缩小或全局相机错误。仅254-off、仅233-off的两派生均只在scene插入16B visible字段，其余39个PKG payload和21个输入保持；前者内三角仍在、外围圈/文字变亮，后者实际233 false且仅250非空，主体图案仍在。底图17本含图案，不按层名归因。三run均App0/无工具失败、漂移[]、stop1→0/GPU排空。音源/phase未同官方，不改作者半径、亮度或涡旋近似；独立标尺已证该基础square Sprite的half尺寸符合官方，退出全局×2修法。日夜覆盖值为0/12，晨/晚问候差符合输入；五个脚本未写17/233/250/254的颜色、尺寸或effect参数，不能用时间标签解释环差异。原图、派生proof、`source-qualification.json`与`input-state-qualification.json`保`.artifacts/tmp/u11-visible-ring-qualification-20261018/`；不是整样本、算法或性能验收。
+
+<a id="particle-sprite-size-unit-20261018"></a>
+
+### 基础方形Sprite的绝对尺寸标尺（2026-10-18）
+
+独立自有640×360板，普通绿色image80²与白色单Sprite size80共根、无旋转/速度/尺寸变化；两端使用同project/PKG，4个payload与loose逐字相同。固定官方2.8.0.42一次两原图：image不透明bbox80×80、Sprite40×40，间隔1s完全稳定；640×360 client、own-window/资源正控通过，正常关闭自有窗口并精确清理guest，receiver5924保持。未改变数值代码，既有half上传在此profile符合官方，不采用全局×2修法。
+
+原生复用16a80一次7s/after4，actual viewport3024×1964；预锁作者ROI沿既有cover映射，image437×436、Sprite219×218，宽比0.50114/高比0.5，两帧相同、完整不透明方形，处于预锁2px误差内。single20非空，采样窗99批/99实例GPU完成、0failed；App0/无工具失败或身份漂移、stop1→0/GPU排空。准备期90FPS误实参在0派发时纠正并保留，Root只补2s主机运输间隔，未更改板/阈值；没有额外App构建或性能验收。此证据只关闭未旋转正交方形Sprite的该输入单位欠证，不推广其他size、父级、camera、Trail/Rope，也不关闭U11能量差异。完整fixture、四raw、计时/close/输入及独立裁决保`.artifacts/tmp/particle-sprite-size-unit-20261018/`，作为必要合同证据待正式归档。
 
 <a id="u05-fluid-content-20261018"></a>
 

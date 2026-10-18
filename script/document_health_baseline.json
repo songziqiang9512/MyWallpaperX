@@ -106,7 +106,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 448,
-      "bytes": 152063
+      "bytes": 152071
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 320,
-      "bytes": 122060
+      "lines": 328,
+      "bytes": 123693
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 53768
+      "bytes": 53847
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1351,15 +1351,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "a8d9061f2acea08460970338c893a7e44fb014758fc85c8d73812fb702b68936",
-      "after": "bc9e0544da270b3b51dc1407d483c2c90d84e683a6a1c5719ff996ace82cd27a",
-      "owner": "scene-particle-coverage-qualification",
-      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "ab67e98c441f96bf549c717c35cb14e445f96cb2881955239725d93f65371936",
       "after": "454a394073103eb8e6862b09c6c59aff61815a33e09dd1b88b8dd6551b2aaa38",
@@ -1405,21 +1396,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "bc9e0544da270b3b51dc1407d483c2c90d84e683a6a1c5719ff996ace82cd27a",
+      "after": "430adf12f1d8cc3ba916d6e6dd12b6a44969c1f6956293b071d4cfa148ed210f",
+      "owner": "scene-sprite-size-qualification",
+      "reason": "Bounded official/native size-unit result replaces an unqualified implementation statement; necessary raw proof and failure boundaries stay in local evidence. No product scope expansion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-sprite-size-unit-20261018"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c016f17b18bdb270815aacfac82236613d3196b873de6ca40db647d0d1feaf36",
-      "after": "88f232073b7d997c2aca7cea8de9ba08ee850e5b44261065092d7f9b7beb89a0",
-      "owner": "scene-visible-ring-qualification",
-      "reason": "Three bounded actual source/visibility qualifications replace stale conclusions; prior dense counters condensed and full raw/STOP/independent evidence retained. No authority or runtime scope expansion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u11-visible-ring-20261018"
+      "before": "88f232073b7d997c2aca7cea8de9ba08ee850e5b44261065092d7f9b7beb89a0",
+      "after": "d3df073a078c30718676ab9bfb6fb934aa5fdcf2966e9708ba6cc8815bb98a86",
+      "owner": "scene-sprite-size-qualification",
+      "reason": "Bounded official/native size-unit result replaces an unqualified implementation statement; necessary raw proof and failure boundaries stay in local evidence. No product scope expansion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-sprite-size-unit-20261018"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "43aa50f055e12e822650ed5e618951ce6db07a603021af1ebd7a9c888223f4cb",
-      "after": "bec0de7a37b5b07fb554b0c9887f2e8f14dc27f72f145eeaecbad4d29d3d2d25",
-      "owner": "scene-visible-ring-qualification",
-      "reason": "Three bounded actual source/visibility qualifications replace stale conclusions; prior dense counters condensed and full raw/STOP/independent evidence retained. No authority or runtime scope expansion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u11-visible-ring-20261018"
+      "before": "bec0de7a37b5b07fb554b0c9887f2e8f14dc27f72f145eeaecbad4d29d3d2d25",
+      "after": "d9a24595a4525799e092e97146abd1b3877fdef82b12269744261fe1fda0820a",
+      "owner": "scene-sprite-size-qualification",
+      "reason": "Bounded official/native size-unit result replaces an unqualified implementation statement; necessary raw proof and failure boundaries stay in local evidence. No product scope expansion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-sprite-size-unit-20261018"
     }
   ]
 }
