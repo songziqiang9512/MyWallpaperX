@@ -728,6 +728,54 @@ enum InspectorHostActions {
         // independently of the public getter above. This fixture proves projection
         // and delegation, not system-setting full-access chrome traversal.
         print("native chrome eligibility under unchanged system preference", chrome.map { $0.canBecomeKeyView })
+        var sparseCases = 0
+        let sparseKinds: [[SceneUserPropertyKind]] = [[.text, .text], [.text, .text, .text],
+                                                    [.bool, .slider], [.bool, .slider, .textInput]]
+        for dark in [false, true] {
+            window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            for kinds in sparseKinds {
+                let sparseDefinitions = kinds.enumerated().map { definition("第\($0.offset + 1)项", $0.element) }
+                let sparseCatalog = SceneUserPropertyCatalog(definitions: sparseDefinitions)
+                let sparseContext = SteamWorkshopScenePropertyContext(catalog: sparseCatalog,
+                    actionableKeys: Set(sparseDefinitions.map(\.key)), effectiveValues: sparseCatalog.defaultValues)
+                let sparseEditor = SteamWorkshopScenePropertyEditorView(record: .init(id: "sparse", title: "稀疏样本"),
+                    context: sparseContext)
+                // Exercise message -> editor replacement as well as a sparse editor.
+                owner.showMessage(title: "Scene 属性调节", subtitle: "稀疏样本", message: "正在准备 Scene 属性…")
+                owner.show(title: "Scene 属性调节", subtitle: "稀疏样本", content: sparseEditor)
+                RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+                window.contentView!.layoutSubtreeIfNeeded()
+                let sparseList = descendants(sparseEditor, NSCollectionView.self).first!
+                sparseList.layoutSubtreeIfNeeded()
+                window.displayIfNeeded()
+                precondition(sparseList.numberOfItems(inSection: 0) == kinds.count)
+                let frames = kinds.indices.map { index -> NSRect in
+                    precondition(sparseList.item(at: IndexPath(item: index, section: 0)) != nil,
+                                 "all sparse rows must be visible")
+                    return sparseList.collectionViewLayout!.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame
+                }
+                precondition(frames[0].minY < 8 && zip(frames, frames.dropFirst()).allSatisfy { first, second in first.maxY <= second.minY + 0.5 },
+                             "two/three authored rows must start at the top and follow their natural order")
+                let firstRect = window.contentView!.convert(frames[0], from: sparseList)
+                precondition(firstRect.maxY > window.frame.height - 180,
+                             "normal editor rows must stay near the top, never at panel center")
+                let workTitle = descendants(window.contentView!, NSTextField.self).first { $0.stringValue == "稀疏样本" }!
+                precondition(window.contentView!.convert(workTitle.bounds, from: workTitle).maxY > window.frame.height - 100)
+                if !dark, kinds.count == 3,
+                   let directory = ProcessInfo.processInfo.environment["MWX_PROPERTY_WINDOW_PROOF_DIR"] {
+                    let card = window.contentView as! InspectorHostCardView
+                    card.refreshAppearance()
+                    card.displayIfNeeded()
+                    let bitmap = card.bitmapImageRepForCachingDisplay(in: card.bounds)!
+                    card.cacheDisplay(in: card.bounds, to: bitmap)
+                    let name = kinds[0] == .text ? "sparse-text.png" : "sparse-controls.png"
+                    try! bitmap.representation(using: .png, properties: [:])!.write(
+                        to: URL(fileURLWithPath: directory).appendingPathComponent(name))
+                }
+                sparseCases += 1
+            }
+        }
+        print("native sparse top-aligned text/control panels PASS", sparseCases)
         owner.close()
         precondition(owner.presentationID == nil)
         print("process-local full-access projection and first/last delegation PASS; system full-access chrome not verified")

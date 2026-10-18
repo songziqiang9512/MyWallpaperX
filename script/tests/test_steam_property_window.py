@@ -161,7 +161,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         for dark in [false, true] {
             panel.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             for (index, text) in ["正在准备 Scene 属性…",
-                "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"].enumerated() {
+                "当前 Scene 没有可调节的受支持属性，\n或属性模型尚未解析成功。"].enumerated() {
                 owner.showMessage(title: "Scene 属性调节", subtitle: "无可调节项的作品", message: text)
                 let message = descendants(panel.contentView!, NSTextField.self).first { $0.stringValue == text }!
                 panel.contentView!.layoutSubtreeIfNeeded()

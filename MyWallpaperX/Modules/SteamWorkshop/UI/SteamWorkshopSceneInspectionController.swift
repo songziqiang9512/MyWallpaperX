@@ -437,7 +437,7 @@ final class SteamWorkshopSceneInspectionController {
     private func presentPropertyUnavailable(record: SteamWorkshopDownloadRecord) {
         guard let propertyPanelToken,
               SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else { return }
-        propertyMessage = "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"
+        propertyMessage = "当前 Scene 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
         self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: "Scene 属性调节", subtitle: record.title,
             message: propertyMessage!, retaining: self)
     }
