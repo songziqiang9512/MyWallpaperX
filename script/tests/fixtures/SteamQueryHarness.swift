@@ -413,6 +413,128 @@ final class QueryTransport: SteamServiceTransporting {
         precondition(emptyStore.nextPage == 1 && emptyStore.rawItems.isEmpty,
             "stale initial page cannot advance the cursor after remove miss")
 
+        // Real section navigation, success TTL and loaded-tail preservation.
+        var clock: TimeInterval = 1000
+        let cache = SteamKitBrowseStore(queryClient: query, now: { clock })
+        cache.resetFor(key: key)
+        payload = page(1, [item("701", 10), item("702", 10)])
+        _ = try await cache.fetchPersonal(page: 1, generation: cache.bumpGeneration(), replacingLoadedItems: true)
+        clock += 30
+        payload = page(2, [item("703", 10)])
+        _ = try await cache.fetchPersonal(page: 2, generation: cache.bumpGeneration())
+        let tabs = Projection(cache)
+        tabs.browserItems = cache.rawItems.map { .init(id: $0.publishedFileId) }
+        tabs.currentBrowserScrollOffsetY = 550
+        tabs.consecutiveEmptyLoadMorePages = 3
+        tabs.browserLoadMoreRetryAfter = Date().addingTimeInterval(30)
+        let retryAfter = tabs.browserLoadMoreRetryAfter
+        tabs.enterBrowseSection(.discovery)
+        precondition(tabs.navigations == 1 && tabs.source == .featured)
+        let publicKey = cache.makeKey(source: .featured, contentMode: .all,
+            filters: .none, search: "", window: .allTime)
+        cache.resetFor(key: publicKey)
+        payload = page(1, [item("801", 10), item("802", 10)])
+        _ = try await cache.fetch(page: 1, generation: cache.bumpGeneration())
+        tabs.browserItems = cache.rawItems.map { .init(id: $0.publishedFileId) }
+        tabs.browserState = .loaded
+        tabs.currentBrowserScrollOffsetY = 120
+        tabs.pendingBrowserScrollRestoreOffset = nil
+        tabs.enterBrowseSection(.personal)
+        precondition(tabs.browserItems.map(\.id) == ["701", "702", "703"] && cache.nextPage == 3)
+        precondition(tabs.pendingBrowserScrollRestoreOffset == 550 && tabs.personalSort == .fileSize)
+        precondition(tabs.consecutiveEmptyLoadMorePages == 3 && tabs.browserLoadMoreRetryAfter == retryAfter,
+            "tab return preserves sparse-page pause and automatic retry cooldown")
+        tabs.prepareForBrowserEntry()
+        tabs.enterBrowseSection(.personal)
+        precondition(tabs.refreshes == 0 && tabs.navigations == 1, "fresh tab return does not request or reorder")
+        clock = 1119.9
+        tabs.prepareForBrowserEntry()
+        precondition(tabs.refreshes == 0, "pagination must not extend first-page TTL")
+        clock = 1120
+        tabs.prepareForBrowserEntry()
+        precondition(tabs.refreshes == 1, "personal TTL expires at 120 seconds")
+        tabs.isLoadingMoreBrowserItems = true
+        tabs.prepareForBrowserEntry()
+        precondition(tabs.refreshes == 1, "entry cannot duplicate continuation")
+        tabs.isLoadingMoreBrowserItems = false
+        let holding = Task<Void, Never> { try? await Task.sleep(for: .seconds(30)) }
+        tabs.browserFetchTask = holding
+        tabs.prepareForBrowserEntry()
+        precondition(tabs.refreshes == 1, "entry cannot duplicate in-flight first page")
+        holding.cancel(); tabs.browserFetchTask = nil
+        payload = page(1, [item("701", 20), item("702", 10)])
+        let sameHead = try await cache.fetchPersonal(page: 1, generation: cache.bumpGeneration(), replacingLoadedItems: true)
+        precondition(sameHead.items.map(\.publishedFileId) == ["701", "702", "703"] && cache.nextPage == 3)
+        precondition(sameHead.observedSubscribedIDs == ["701", "702"], "cached tail is not new membership evidence")
+        precondition(cache.isFresh(maxAge: 120))
+        payload = [:]
+        clock = 1300
+        do { _ = try await cache.fetchPersonal(page: 1, generation: cache.bumpGeneration(), replacingLoadedItems: true); fatalError("bad refresh accepted") } catch {}
+        precondition(!cache.isFresh(maxAge: 120) && cache.rawItems.count == 3, "failure preserves content without extending TTL")
+        payload = page(1, [item("709", 10)])
+        _ = try await cache.fetchPersonal(page: 1, generation: cache.bumpGeneration(), replacingLoadedItems: true)
+        precondition(cache.rawItems.map(\.publishedFileId) == ["709"] && cache.nextPage == 2, "changed head retires tail")
+        clock = 1299
+        precondition(!cache.isFresh(maxAge: 120), "a future stamp cannot be fresh")
+        clock = 1300
+        tabs.enterBrowseSection(.discovery)
+        tabs.shouldUseSteamKitPersonal = false; tabs.shouldUseSteamKitStructuredBrowse = true
+        tabs.prepareForBrowserEntry()
+        precondition(tabs.refreshes == 1, "public feed has its own 300-second TTL")
+        clock = 1330
+        tabs.prepareForBrowserEntry()
+        precondition(tabs.refreshes == 2)
+
+        // Failed/loading new criteria replace any older successful tab snapshot.
+        tabs.browserQuery = "new search"
+        tabs.browserContentMode = .scene
+        tabs.browserState = .failed("offline")
+        cache.resetFor(key: cache.makeKey(source: .featured, contentMode: .scene,
+            filters: .none, search: "new search", window: .allTime))
+        tabs.enterBrowseSection(.personal)
+        tabs.enterBrowseSection(.discovery)
+        precondition(tabs.browserQuery == "new search" && tabs.browserContentMode == .scene,
+            "return after a failed new query preserves current controls")
+        precondition(tabs.navigations == 2, "failed snapshot restarts its own query")
+
+        // Subscription writes preserve inactive personal criteria; account events discard private data.
+        tabs.enterBrowseSection(.personal)
+        tabs.shouldUseSteamKitPersonal = true; tabs.shouldUseSteamKitStructuredBrowse = false
+        tabs.browserContentMode = .scene; tabs.browserQuery = "my scene"
+        tabs.personalSort = .name; tabs.browserState = .loaded
+        cache.resetFor(key: cache.makePersonalKey(source: .mySubscriptions, accountSteamID: "a",
+            contentMode: .scene, filters: .none, search: "my scene", window: .allTime, personalSort: .name))
+        payload = page(1, [item("711", 10)])
+        _ = try await cache.fetchPersonal(page: 1, generation: cache.bumpGeneration(), replacingLoadedItems: true)
+        tabs.browserItems = [.init(id: "711")]
+        tabs.enterBrowseSection(.discovery)
+        tabs.reconcileSubscriptionWrite(itemID: "711", isSubscribed: false)
+        tabs.enterBrowseSection(.personal)
+        precondition(tabs.browserQuery == "my scene" && tabs.browserContentMode == .scene && tabs.personalSort == .name)
+        precondition(!cache.isFresh(maxAge: 120), "inactive subscription write expires personal data")
+        let beforeAuthorReturn = tabs.refreshes
+        tabs.discoveryBrowseSnapshot = tabs.makeDiscoveryBrowseSnapshot()
+        tabs.savedDiscoveryQueryBeforeAuthorBrowse = tabs.browserQuery
+        tabs.browseContext.isAuthorWorkshop = true
+        tabs.shouldUseSteamKitPersonal = false; tabs.shouldUseSteamKitStructuredBrowse = true
+        cache.resetFor(key: authorKey)
+        tabs.reconcileSubscriptionWrite(itemID: "712", isSubscribed: true)
+        // Actual computed routing changes synchronously with browseContext in the App.
+        tabs.shouldUseSteamKitPersonal = true; tabs.shouldUseSteamKitStructuredBrowse = false
+        tabs.returnToDiscoveryBrowse()
+        precondition(tabs.refreshes == beforeAuthorReturn + 1 && tabs.browserQuery == "my scene",
+            "author return refreshes expired personal content without losing controls")
+        tabs.refresh()
+        precondition(tabs.refreshes == beforeAuthorReturn + 2, "manual refresh bypasses TTL")
+        tabs.invalidatePersonalBrowseSnapshot(discard: true)
+        precondition(tabs.retainedBrowseSections[.personal] == nil && cache.currentKey == nil && cache.rawItems.isEmpty,
+            "account event clears current private tail even when the SteamID will be unchanged")
+        payload = page(1, [item("711", 10)])
+        cache.resetFor(key: key)
+        _ = try await cache.fetchPersonal(page: 1, generation: cache.bumpGeneration(), replacingLoadedItems: true)
+        precondition(cache.nextPage == 2 && cache.rawItems.count == 1, "same-account relogin starts without old tail")
+        print("Section cache, TTL, failed criteria, membership invalidation and account boundaries PASS")
+
         var epoch: Int? = 1
         var writes = 0
         var reads = 0

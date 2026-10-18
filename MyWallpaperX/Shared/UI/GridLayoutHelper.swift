@@ -6,7 +6,7 @@
 //  各模块传入自己的 zoomOffset，不共享状态。
 //
 
-import CoreGraphics
+import AppKit
 
 enum GridLayoutHelper {
     /// 根据可用宽度计算基础列数（不含缩放偏移）
@@ -27,9 +27,11 @@ enum GridLayoutHelper {
         for width: CGFloat,
         zoomOffset: Int,
         minCols: Int = 3,
-        maxCols: Int = 6
+        maxCols: Int = 6,
+        minimumItemWidth: CGFloat = 0
     ) -> Int {
-        max(minCols, min(maxCols, baseColumnCount(for: width) + zoomOffset))
+        let maximum = fittingMaximum(for: width, maxCols: maxCols, minimumItemWidth: minimumItemWidth)
+        return max(min(minCols, maximum), min(maximum, baseColumnCount(for: width) + zoomOffset))
     }
 
     /// 缩放按钮可用性，返回 (canZoomOut, canZoomIn)
@@ -42,11 +44,44 @@ enum GridLayoutHelper {
         currentOffset: Int,
         for width: CGFloat,
         minCols: Int = 3,
-        maxCols: Int = 6
+        maxCols: Int = 6,
+        minimumItemWidth: CGFloat = 0
     ) -> (canZoomOut: Bool, canZoomIn: Bool) {
-        let base = baseColumnCount(for: width)
-        let canZoomOut = currentOffset > (minCols - base)
-        let canZoomIn  = currentOffset < (maxCols - base)
+        let maximum = fittingMaximum(for: width, maxCols: maxCols, minimumItemWidth: minimumItemWidth)
+        let current = columnCount(for: width, zoomOffset: currentOffset, minCols: minCols,
+                                  maxCols: maxCols, minimumItemWidth: minimumItemWidth)
+        let canZoomOut = current > min(minCols, maximum)
+        let canZoomIn = current < maximum
         return (canZoomOut, canZoomIn)
+    }
+
+    static func zoomedOffset(currentOffset: Int, delta: Int, for width: CGFloat,
+                             minCols: Int = 3, maxCols: Int = 6, minimumItemWidth: CGFloat = 0) -> Int {
+        let maximum = fittingMaximum(for: width, maxCols: maxCols, minimumItemWidth: minimumItemWidth)
+        let current = columnCount(for: width, zoomOffset: currentOffset, minCols: minCols,
+                                  maxCols: maxCols, minimumItemWidth: minimumItemWidth)
+        let target = max(min(minCols, maximum), min(maximum, current + delta))
+        return target - baseColumnCount(for: width)
+    }
+
+    @MainActor static func availableWidth(in view: NSView?) -> CGFloat? {
+        guard let view, !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if let collection = view as? NSCollectionView,
+           let flow = collection.collectionViewLayout as? NSCollectionViewFlowLayout,
+           let clip = collection.enclosingScrollView?.contentView {
+            let width = clip.bounds.width - flow.sectionInset.left - flow.sectionInset.right
+            if width.isFinite, width > 1 { return width }
+        }
+        for child in view.subviews {
+            if let width = availableWidth(in: child) { return width }
+        }
+        return nil
+    }
+
+    private static func fittingMaximum(for width: CGFloat, maxCols: Int, minimumItemWidth: CGFloat) -> Int {
+        guard minimumItemWidth > 0, width.isFinite else { return maxCols }
+        // Flow grids reserve at least eight points between cards. Their
+        // minimum card width must not force fewer native columns than declared.
+        return max(1, Int(min(CGFloat(maxCols), max(0, width + 8) / (minimumItemWidth + 8))))
     }
 }

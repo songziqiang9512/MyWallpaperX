@@ -150,13 +150,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "00bf3e57cb07c56efc652e2c347234727aa53be42d8f2ef988f8e2e9eda7e0ed",
+        "sourceSHA256": "217004d0848669ff0b7dc12e94dcdfafa0249ee4cc2eac63591944cff0356cf4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "沿用首次下载时间与metadata发布合同；复核唯一ID详情、摘要补齐与可选字段、请求消费者切换/取消、作者无隐藏筛选、搜索手动续页及重复/返回导航。",
-        "limitations": "本轮详情与导航行为回归、匿名Steam查询及Debug构建另行验证；不代表全部作者/账号、下载传输、长时多窗口或Release验收。"
+        "scope": "复核浏览与订阅快照新鲜度、账号和订阅失效、作者返回、原生网格可视宽度、最小卡宽与缩放命令的唯一职责。",
+        "limitations": "本轮有界原生测试、隔离Debug和可控响应App操作另行留证；不代表真实Steam账号网络、全部作品、长时多窗口或Release验收。"
       }
     },
     {

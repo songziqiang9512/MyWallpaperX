@@ -125,6 +125,8 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     override func layout() {
+        // Install narrower metrics before AppKit lays out resized children.
+        updateLayoutItemSize()
         super.layout()
         updateLayoutItemSize()
     }
@@ -367,8 +369,10 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     private func updateLayoutItemSize() {
+        let layoutWidth = min(bounds.width, scrollView.contentView.bounds.width)
+        guard layoutWidth.isFinite, layoutWidth > 1 else { return }
         let metrics = SteamWorkshopGridLayoutSupport.metrics(
-            boundsWidth: bounds.width,
+            boundsWidth: layoutWidth,
             zoomOffset: service.zoomOffset,
             hoverScale: AppKitSteamWorkshopBrowserItem.hoverScale,
             sectionInset: flowLayout.sectionInset

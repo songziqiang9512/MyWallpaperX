@@ -31,6 +31,7 @@ extension SteamWorkshopService {
         SteamWorkshopPreviewImageCache.shared.clearDiskCache()
 
         steamKitBrowseStore.clear()
+        retainedBrowseSections.removeAll()
         browserItems = []
         displayedBrowserItems = []
         pendingBrowserScrollRestoreOffset = nil

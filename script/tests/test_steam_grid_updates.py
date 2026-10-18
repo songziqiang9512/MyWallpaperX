@@ -13,6 +13,67 @@ UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'
 
 
 class SteamGridUpdateTests(unittest.TestCase):
+    def test_other_flow_grids_use_viewport_and_resize_safely(self):
+        paths = ['VideoLibrary/UI/AppKitLibraryGridView.swift',
+                 'SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift',
+                 'OnlineLibrary/UI/AppKitOLBrowserGridView.swift',
+                 'OnlineLibrary/UI/AppKitOLDownloadsGridView.swift']
+        classes = []
+        for index, path in enumerate(paths):
+            source = (ROOT / 'MyWallpaperX/Modules' / path).read_text()
+            signatures = ['    override func layout(', '    private func updateLayoutItemSize(']
+            signatures += ['    private func scheduleLayoutInvalidation('] if index == 1 else [
+                '    private func scheduleLayoutItemSizeUpdate(']
+            if index == 0:
+                signatures += ['    private func calculateColumnCount(']
+            classes.append(f'final class P{index}: Probe {{\n' + '\n'.join(
+                method(source, signature) for signature in signatures) + '\n}')
+        template = (ROOT / 'script/tests/fixtures/GridViewportSizingHarness.swift').read_text()
+        with tempfile.TemporaryDirectory(prefix='mwx-grid-viewport-', dir='/private/tmp') as folder:
+            work = Path(folder)
+            source = work / 'Sizing.swift'
+            source.write_text(template.replace('// PRODUCTION_SIZING_CLASSES', '\n'.join(classes)))
+            binary = work / 'sizing'
+            inputs = [source, ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift',
+                      UI / 'SteamWorkshopGridLayoutSupport.swift',
+                      ROOT / 'MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryGridLayoutSupport.swift']
+            build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, inputs),
+                                    '-o', str(binary)], capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            if proof := os.environ.get('MWX_STEAM_GRID_PROOF_DIR'):
+                Path(proof).mkdir(parents=True, exist_ok=True)
+                (Path(proof) / 'all-grid-sizing.log').write_text(run.stdout + run.stderr)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn('All four production sizing owners PASS', run.stdout)
+            self.assertNotIn('not defined because', run.stderr)
+            self.assertNotIn('UICollectionViewFlowLayoutBreakForInvalidSizes', run.stderr)
+
+    def test_real_container_layout_and_page_replacement(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-container-', dir='/private/tmp') as folder:
+            work = Path(folder)
+            source = work / 'ActualGrid.swift'
+            # Only expose state for settling/geometry checks. Keep the real
+            # provider, delegate, bindings and layout/snapshot scheduling.
+            source.write_text((UI / 'AppKitSteamWorkshopBrowserGridView.swift').read_text().replace('private ', ''))
+            names = ['SteamWorkshopKeyboardCollectionView.swift', 'SteamWorkshopGridLayoutSupport.swift',
+                     'SteamWorkshopGridKeyboardNavigation.swift', 'SteamWorkshopBrowserFooterSupport.swift',
+                     'AppKitSteamWorkshopBrowserFooterComponents.swift']
+            binary = work / 'container'
+            sources = [ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
+                       *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift']
+            build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
+                                    *map(str, sources), '-o', str(binary)], capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=40)
+            if proof := os.environ.get('MWX_STEAM_GRID_PROOF_DIR'):
+                Path(proof).mkdir(parents=True, exist_ok=True)
+                (Path(proof) / 'container-runtime.log').write_text(run.stdout + run.stderr)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn('checks 77 failures 0', run.stdout)
+            self.assertNotIn('not defined because', run.stderr)
+            self.assertNotIn('UICollectionViewFlowLayoutBreakForInvalidSizes', run.stderr)
+
     def test_coalesced_removals_and_native_reflow(self):
         browser = (UI / 'AppKitSteamWorkshopBrowserGridView.swift').read_text()
         downloads = (UI / 'AppKitSteamWorkshopDownloadsGridView.swift').read_text()

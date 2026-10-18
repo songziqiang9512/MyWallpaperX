@@ -55,6 +55,7 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
     var cancellables = Set<AnyCancellable>()
     private var observerTokens: [NSObjectProtocol] = []
     var pendingToolbarRefreshWorkItem: DispatchWorkItem?
+    private var isGridZoomRefreshScheduled = false
     var lastRefreshSignature: ToolbarRefreshSignature?
     /// 视频库排序按钮的统一下拉面板（箭头锚定按钮）。
     lazy var menuPopover = ToolbarMenuPopoverPresenter(
@@ -437,8 +438,33 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
                 queue: .main
             ) { [weak self] _ in
                 self?.onlineLibraryToolbarController.updateCategoryScrollWidth()
+                self?.scheduleGridZoomRefresh()
             }
             observerTokens.append(resizeObserver)
+            let splitObserver = NotificationCenter.default.addObserver(
+                forName: NSSplitView.didResizeSubviewsNotification, object: nil, queue: .main
+            ) { [weak self] note in
+                guard let self, let window = self.window,
+                      (note.object as? NSSplitView)?.window === window else { return }
+                self.scheduleGridZoomRefresh()
+            }
+            observerTokens.append(splitObserver)
+        }
+    }
+
+    private func scheduleGridZoomRefresh() {
+        guard !isGridZoomRefreshScheduled else { return }
+        isGridZoomRefreshScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isGridZoomRefreshScheduled = false
+            if self.onlineLibraryToolbarController.isOnlineLibraryMode {
+                self.onlineLibraryToolbarController.configureZoomItem()
+            } else if self.steamWorkshopToolbarController.isSteamWorkshopMode {
+                self.steamWorkshopToolbarController.configureZoomItem()
+            } else if !self.staticImageLibraryToolbarController.isSILMode {
+                self.configureZoomItem()
+            }
         }
     }
 
@@ -808,10 +834,11 @@ extension VideoLibraryToolbarController {
 
 extension VideoLibraryToolbarController {
     func configureZoomItem() {
-        let width = (window?.contentView?.bounds.width ?? 800) - 220
+        let width = GridLayoutHelper.availableWidth(in: window?.contentView) ?? ((window?.contentView?.bounds.width ?? 800) - 220)
         let avail = GridLayoutHelper.zoomAvailability(
             currentOffset: wallpaperManager.gridZoomOffset,
-            for: width
+            for: width,
+            minimumItemWidth: 100
         )
         zoomControl.setEnabled(avail.canZoomOut, forSegment: 0)
         zoomControl.setEnabled(avail.canZoomIn, forSegment: 1)
@@ -852,10 +879,11 @@ extension VideoLibraryToolbarController {
             return
         }
         
-        let width = (window?.contentView?.bounds.width ?? 800) - 220
+        let width = GridLayoutHelper.availableWidth(in: window?.contentView) ?? ((window?.contentView?.bounds.width ?? 800) - 220)
         let avail = GridLayoutHelper.zoomAvailability(
             currentOffset: wallpaperManager.gridZoomOffset,
-            for: width
+            for: width,
+            minimumItemWidth: 100
         )
         
         // delta > 0 表示增加列数，对应右侧 plus；delta < 0 表示减少列数，对应左侧 minus。
@@ -868,23 +896,26 @@ extension VideoLibraryToolbarController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.zoomControl.setSelected(false, forSegment: segmentIndex)
         }
-        wallpaperManager.gridZoomOffset += delta
+        wallpaperManager.gridZoomOffset = GridLayoutHelper.zoomedOffset(
+            currentOffset: wallpaperManager.gridZoomOffset, delta: delta, for: width, minimumItemWidth: 100)
         configureZoomItem()
     }
 
     @objc func handleZoomSegmentAction(_ sender: NSSegmentedControl) {
         // segment 0 = 减少列数（minus），segment 1 = 增加列数（plus）。
         let delta = sender.selectedSegment == 0 ? -1 : 1
-        let width = (window?.contentView?.bounds.width ?? 800) - 220
+        let width = GridLayoutHelper.availableWidth(in: window?.contentView) ?? ((window?.contentView?.bounds.width ?? 800) - 220)
         let avail = GridLayoutHelper.zoomAvailability(
             currentOffset: wallpaperManager.gridZoomOffset,
-            for: width
+            for: width,
+            minimumItemWidth: 100
         )
         
         let canZoom = delta > 0 ? avail.canZoomIn : avail.canZoomOut
         guard canZoom else { return }
         
-        wallpaperManager.gridZoomOffset += delta
+        wallpaperManager.gridZoomOffset = GridLayoutHelper.zoomedOffset(
+            currentOffset: wallpaperManager.gridZoomOffset, delta: delta, for: width, minimumItemWidth: 100)
         configureZoomItem()
     }
 }

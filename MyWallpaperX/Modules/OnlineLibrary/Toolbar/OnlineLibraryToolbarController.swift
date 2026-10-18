@@ -516,7 +516,7 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
 extension OnlineLibraryToolbarController {
 
     private func gridWidth() -> CGFloat {
-        (window?.contentView?.bounds.width ?? 800) - 220
+        GridLayoutHelper.availableWidth(in: window?.contentView) ?? ((window?.contentView?.bounds.width ?? 800) - 220)
     }
 
     /// OL-07：根据窗口宽度动态计算分类栏合适宽度
@@ -536,7 +536,8 @@ extension OnlineLibraryToolbarController {
     func configureZoomItem() {
         let avail = GridLayoutHelper.zoomAvailability(
             currentOffset: OnlineLibraryService.shared.zoomOffset,
-            for: gridWidth(), minCols: 3, maxCols: 6
+            for: gridWidth(), minCols: 3, maxCols: 6,
+            minimumItemWidth: 100
         )
         let hasItems = isOnlineDownloadsMode ? OnlineDownloadsBridge.shared.hasAnyItems : true
         // segment 0 = 减少列数(minus)，segment 1 = 增加列数(plus)，与 SIL 一致
@@ -558,11 +559,12 @@ extension OnlineLibraryToolbarController {
     func performZoom(delta: Int) {
         guard isOnlineLibraryMode else { return }
         let width = gridWidth()
-        let base  = GridLayoutHelper.baseColumnCount(for: width)
-        let minOff = 3 - base;  let maxOff = 6 - base
-        let current   = OnlineLibraryService.shared.zoomOffset
-        let newOffset = max(minOff, min(maxOff, current + delta))
-        guard newOffset != current else { return }
+        let current = OnlineLibraryService.shared.zoomOffset
+        let newOffset = GridLayoutHelper.zoomedOffset(currentOffset: current, delta: delta,
+            for: width, minimumItemWidth: 100)
+        let availability = GridLayoutHelper.zoomAvailability(
+            currentOffset: current, for: width, minimumItemWidth: 100)
+        guard delta > 0 ? availability.canZoomIn : availability.canZoomOut else { return }
         // segment 0 = 减少列数(minus)，segment 1 = 增加列数(plus)，与 SIL 一致
         let seg = delta > 0 ? 1 : 0
         zoomControl.setSelected(true, forSegment: seg)
@@ -577,11 +579,12 @@ extension OnlineLibraryToolbarController {
         // segment 0 = 减少列数(minus)，segment 1 = 增加列数(plus)，与 SIL 一致
         let delta  = sender.selectedSegment == 0 ? -1 : 1
         let width  = gridWidth()
-        let base   = GridLayoutHelper.baseColumnCount(for: width)
-        let minOff = 3 - base;  let maxOff = 6 - base
-        let current   = OnlineLibraryService.shared.zoomOffset
-        let newOffset = max(minOff, min(maxOff, current + delta))
-        guard newOffset != current else { return }
+        let current = OnlineLibraryService.shared.zoomOffset
+        let newOffset = GridLayoutHelper.zoomedOffset(currentOffset: current, delta: delta,
+            for: width, minimumItemWidth: 100)
+        let availability = GridLayoutHelper.zoomAvailability(
+            currentOffset: current, for: width, minimumItemWidth: 100)
+        guard delta > 0 ? availability.canZoomIn : availability.canZoomOut else { return }
         OnlineLibraryService.shared.zoomOffset = newOffset
         configureZoomItem()
     }

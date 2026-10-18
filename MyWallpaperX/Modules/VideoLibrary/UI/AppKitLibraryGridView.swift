@@ -183,6 +183,8 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     }
 
     override func layout() {
+        // Install narrower metrics before AppKit lays out resized children.
+        updateLayoutItemSize()
         super.layout()
         scheduleLayoutItemSizeUpdate()
     }
@@ -418,7 +420,9 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     }
 
     private func updateLayoutItemSize() {
-        let availableWidth = max(0, bounds.width - flowLayout.sectionInset.left - flowLayout.sectionInset.right)
+        let layoutWidth = min(bounds.width, scrollView.contentView.bounds.width)
+        guard layoutWidth.isFinite, layoutWidth > 1 else { return }
+        let availableWidth = max(0, layoutWidth - flowLayout.sectionInset.left - flowLayout.sectionInset.right)
         let columnCount = calculateColumnCount(width: availableWidth)
         let baseSpacing: CGFloat = 8
         // 动态间距：卡片宽 × (scale-1)，刚好容纳放大量不遮盖相邻卡片
@@ -495,7 +499,8 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private func calculateColumnCount(width: CGFloat) -> Int {
         GridLayoutHelper.columnCount(
             for: width,
-            zoomOffset: wallpaperManager.gridZoomOffset
+            zoomOffset: wallpaperManager.gridZoomOffset,
+            minimumItemWidth: 100
         )
     }
 

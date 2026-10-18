@@ -26,9 +26,13 @@ class SteamQueryTests(unittest.TestCase):
         reconcile = method(navigation, '    func reconcileSubscriptionWrite(')
         display = method(navigation, '    func updateDisplayedBrowserItems(')
         restoration = '\n'.join(method(navigation, signature) for signature in [
-            '    func makeDiscoveryBrowseSnapshot(', '    func restoreDiscoveryBrowseSnapshot('])
+            '    func makeDiscoveryBrowseSnapshot(', '    func restoreDiscoveryBrowseSnapshot(',
+            '    func enterBrowseSection(', '    func invalidatePersonalBrowseSnapshot(',
+            '    func returnToDiscoveryBrowse('])
+        fetching = (CORE / 'SteamWorkshopService+BrowseFetching.swift').read_text()
+        restoration += '\n' + method(fetching, '    func prepareForBrowserEntry(') + '\n' + method(fetching, '    func refresh(')
         models = (CORE / 'SteamWorkshopAPIModels.swift').read_text()
-        snapshot = models[models.index('struct SteamWorkshopDiscoveryBrowseSnapshot {'):models.index('nonisolated struct SteamWorkshopDetailCacheSnapshot')]
+        snapshot = models[models.index('enum SteamWorkshopBrowseSection'):models.index('nonisolated struct SteamWorkshopDetailCacheSnapshot')]
 
         service = (CORE / 'SteamWorkshopService.swift').read_text()
         start = service.index('        store.didReconcileWrite =')
@@ -49,7 +53,7 @@ class SteamQueryTests(unittest.TestCase):
   var title = "", author = "", summary = "", descriptionText = ""
   var tags: [String] = []
  }
- struct BrowseContext { var isAuthorWorkshop = false }
+ struct BrowseContext { var isAuthorWorkshop = false; static var discovery: Self { Self() } }
  var browseContext = BrowseContext()
  struct Auth { var isOnline = true; var steamId: String? = "a" }
  var steamAuth = Auth()
@@ -64,6 +68,14 @@ class SteamQueryTests(unittest.TestCase):
  var currentBrowserScrollOffsetY: CGFloat = 500
  var pendingBrowserScrollRestoreOffset: CGFloat?
  var navigations = 0
+ var navigationVersion = 0
+ var suppressAutomaticBrowseNavigation = false
+ var retainedBrowseSections: [SteamWorkshopBrowseSection: SteamWorkshopDiscoveryBrowseSnapshot] = [:]
+ var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
+ var savedDiscoveryQueryBeforeAuthorBrowse: String?
+ func dismissItemDetail() { selectedBrowserItem = nil }
+ func cancelSelectedItemDetailRefresh() {}
+ func dismissDownloadInspector() {}
  func setBrowserQuery(_ value: String) { browserQuery = value }
  func navigateToBrowse() { navigations += 1 }
  var browserQuery = ""
@@ -71,6 +83,7 @@ class SteamQueryTests(unittest.TestCase):
  var displayedBrowserItems: [MembershipItem] = []
  var browserItems: [MembershipItem] = [] { didSet { updateDisplayedBrowserItems() } }
  var shouldUseSteamKitPersonal = true
+ var shouldUseSteamKitStructuredBrowse = false
  var browserFetchTask: Task<Void, Never>?
  var isLoadingMoreBrowserItems = false
  var isRefreshingBrowserFeed = false

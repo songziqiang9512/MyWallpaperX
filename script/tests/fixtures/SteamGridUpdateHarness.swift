@@ -103,7 +103,7 @@ final class GridCell: NSCollectionViewItem {
     func bind() {
         // BROWSER_BINDINGS
     }
-    func updateLayoutItemSize(invalidateImmediately: Bool) -> Bool { hasResolvedInitialItemSize }
+    func updateLayoutItemSize() -> Bool { hasResolvedInitialItemSize }
     func scheduleLayoutItemSizeUpdate() {}
     func updateBrowserScrollMetrics() {}
     func prioritizeVisibleItemsForHydration() {}

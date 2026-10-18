@@ -391,6 +391,7 @@ final class SteamWorkshopService: ObservableObject {
     /// detail-panel re-opens re-fetched the same SteamKit details each time).
     var inFlightDetailItemID: String?
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
+    var retainedBrowseSections: [SteamWorkshopBrowseSection: SteamWorkshopDiscoveryBrowseSnapshot] = [:]
     var currentBrowserScrollOffsetY: CGFloat = 0
     var savedDiscoveryQueryBeforeAuthorBrowse: String?
     var isUpdatingBrowserQueryProgrammatically = false
@@ -534,6 +535,7 @@ final class SteamWorkshopService: ObservableObject {
                 // 账号身份变化即刷新下载页失败投影：合成与历史判定都按现役账号
                 // 隔离，旧账号的失败意图不得展示给新账号（D7 跨账号不接管）。
                 self.refreshDisplayedDownloads()
+                self.invalidatePersonalBrowseSnapshot(discard: true)
                 guard self.source.isPersonal else { return }
                 self.navigateToBrowse()
             }

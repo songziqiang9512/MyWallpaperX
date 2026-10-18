@@ -306,13 +306,17 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
     // MARK: - Layout
 
     override func layout() {
+        // Install narrower metrics before AppKit lays out resized children.
+        updateLayoutItemSize()
         super.layout()
         scheduleLayoutItemSizeUpdate()
     }
 
     private func updateLayoutItemSize() {
+        let layoutWidth = min(bounds.width, scrollView.contentView.bounds.width)
+        guard layoutWidth.isFinite, layoutWidth > 1 else { return }
         let metrics = OnlineLibraryGridLayoutSupport.metrics(
-            boundsWidth: bounds.width,
+            boundsWidth: layoutWidth,
             zoomOffset: service.zoomOffset,
             hoverScale: 1.05,
             sectionInset: flowLayout.sectionInset

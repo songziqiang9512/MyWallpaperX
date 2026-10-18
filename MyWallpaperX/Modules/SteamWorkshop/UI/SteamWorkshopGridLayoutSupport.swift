@@ -44,7 +44,8 @@ enum SteamWorkshopGridLayoutSupport {
         let availableWidth = max(0, boundsWidth - sectionInset.left - sectionInset.right)
         let columns = max(1, GridLayoutHelper.columnCount(
             for: availableWidth,
-            zoomOffset: zoomOffset
+            zoomOffset: zoomOffset,
+            minimumItemWidth: minimumCardWidth
         ))
         let estimatedWidth = max(
             minimumCardWidth,

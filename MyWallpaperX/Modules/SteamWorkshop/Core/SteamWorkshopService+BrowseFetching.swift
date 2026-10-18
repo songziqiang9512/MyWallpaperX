@@ -16,7 +16,12 @@ extension SteamWorkshopService {
 
     func prepareForBrowserEntry() {
         guard !isLoadingMoreBrowserItems, browserFetchTask == nil else { return }
-        if browserState == .idle || browserState == .loading {
+        let staleAccount = shouldUseSteamKitPersonal && !shouldUseSteamKitStructuredBrowse
+            && (!steamAuth.isOnline || steamKitBrowseStore.currentKey?.accountSteamID != steamAuth.steamId)
+        if browserState == .idle || browserState == .loading || staleAccount {
+            fetchBrowserItems(forceRefresh: true)
+        } else if browserState == .loaded,
+                  !steamKitBrowseStore.isFresh(maxAge: source.isPersonal ? 120 : 300) {
             fetchBrowserItems(forceRefresh: true)
         }
     }

@@ -24,7 +24,8 @@ enum OnlineLibraryGridLayoutSupport {
             for: available,
             zoomOffset: zoomOffset,
             minCols: 3,
-            maxCols: 6
+            maxCols: 6,
+            minimumItemWidth: 100
         )
         let estimatedWidth = max(
             100,

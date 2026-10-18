@@ -1,6 +1,60 @@
 import Foundation
 
 extension SteamWorkshopService {
+    func enterBrowseSection(_ section: SteamWorkshopBrowseSection) {
+        let current: SteamWorkshopBrowseSection = source.isPersonal ? .personal : .discovery
+        guard current != section else { return }
+        dismissItemDetail()
+        if steamKitBrowseStore.currentKey != nil,
+           !source.isPersonal || (steamAuth.isOnline && steamKitBrowseStore.currentKey?.accountSteamID == steamAuth.steamId) {
+            retainedBrowseSections[current] = makeDiscoveryBrowseSnapshot()
+        } else {
+            retainedBrowseSections.removeValue(forKey: current)
+        }
+        browserFetchTask?.cancel()
+        browserFetchTask = nil
+        cancelSelectedItemDetailRefresh()
+        selectedBrowserItem = nil
+        navigationVersion += 1
+        suppressAutomaticBrowseNavigation = true
+        defer { suppressAutomaticBrowseNavigation = false }
+        if let saved = retainedBrowseSections[section],
+           section != .personal || (steamAuth.isOnline && saved.steamKitBrowseSnapshot.key?.accountSteamID == steamAuth.steamId) {
+            source = saved.source
+            browserContentMode = saved.browserContentMode
+            facetFilters = saved.facetFilters
+            personalSort = saved.personalSort
+            trendingWindow = saved.trendingWindow
+            restoreDiscoveryBrowseSnapshot(saved, restoredQuery: saved.browserQuery)
+            return
+        }
+        source = section == .personal ? .mySubscriptions : .featured
+        browserContentMode = .all
+        facetFilters = .none
+        setBrowserQuery("")
+        steamKitBrowseStore.clear()
+        browserItems = []
+        browserState = .idle
+        currentBrowserScrollOffsetY = 0
+        pendingBrowserScrollRestoreOffset = 0
+        navigateToBrowse()
+    }
+
+    func invalidatePersonalBrowseSnapshot(discard: Bool = false) {
+        if discard {
+            retainedBrowseSections.removeValue(forKey: .personal)
+            if discoveryBrowseSnapshot?.source.isPersonal == true { discoveryBrowseSnapshot = nil }
+            if steamKitBrowseStore.currentKey?.route == .personal { steamKitBrowseStore.clear() }
+        } else {
+            // Membership changes expire content, not the user's search and filters.
+            retainedBrowseSections[.personal]?.steamKitBrowseSnapshot.refreshedAt = nil
+            if discoveryBrowseSnapshot?.source.isPersonal == true {
+                discoveryBrowseSnapshot?.steamKitBrowseSnapshot.refreshedAt = nil
+            }
+            if steamKitBrowseStore.currentKey?.route == .personal { steamKitBrowseStore.invalidateFreshness() }
+        }
+    }
+
     func showAuthorWorkshop(for item: SteamWorkshopBrowserItem) {
         guard let workshopURL = Self.resolvedAuthorWorkshopURL(for: item) else { return }
         dismissItemDetail()
@@ -51,6 +105,7 @@ extension SteamWorkshopService {
         }
         discoveryBrowseSnapshot = nil
         suppressAutomaticBrowseNavigation = false
+        prepareForBrowserEntry()
     }
 
     func handleBrowserQueryChanged() {
@@ -104,6 +159,7 @@ extension SteamWorkshopService {
     /// Retire older pages and replay the overlapping remote page on continuation
     /// because offset pagination shifts when an earlier subscription is removed.
     func reconcileSubscriptionWrite(itemID: String, isSubscribed: Bool) {
+        invalidatePersonalBrowseSnapshot()
         guard source == .mySubscriptions, shouldUseSteamKitPersonal else { return }
         if isSubscribed {
             if !browserItems.contains(where: { $0.id == itemID }) {
@@ -144,8 +200,14 @@ extension SteamWorkshopService {
             browserQuery: browserQuery,
             currentWorkshopItemID: currentWorkshopItemID,
             selectedBrowserItem: selectedBrowserItem,
-            scrollOffsetY: currentBrowserScrollOffsetY,
-            steamKitBrowseSnapshot: steamKitBrowseStore.snapshot()
+            scrollOffsetY: pendingBrowserScrollRestoreOffset ?? currentBrowserScrollOffsetY,
+            steamKitBrowseSnapshot: steamKitBrowseStore.snapshot(),
+            source: source,
+            facetFilters: facetFilters,
+            personalSort: personalSort,
+            trendingWindow: trendingWindow,
+            consecutiveEmptyLoadMorePages: consecutiveEmptyLoadMorePages,
+            browserLoadMoreRetryAfter: browserLoadMoreRetryAfter
         )
     }
 
@@ -191,8 +253,8 @@ extension SteamWorkshopService {
         isLoadingMoreBrowserItems = false
         isRefreshingBrowserFeed = false
         browserLoadMoreFailureMessage = snapshot.browserLoadMoreFailureMessage
-        browserLoadMoreRetryAfter = .distantPast
-        consecutiveEmptyLoadMorePages = 0
+        browserLoadMoreRetryAfter = snapshot.browserLoadMoreRetryAfter
+        consecutiveEmptyLoadMorePages = snapshot.consecutiveEmptyLoadMorePages
         statusMessage = snapshot.statusMessage
         currentPageTitle = snapshot.currentPageTitle
         currentWorkshopItemID = snapshot.currentWorkshopItemID

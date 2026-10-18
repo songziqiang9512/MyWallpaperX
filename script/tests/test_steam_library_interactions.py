@@ -28,6 +28,7 @@ import AppKit
 @MainActor final class Auth { var steamId: String? = "A" }
 enum Source { case featured, mySubscriptions; var isPersonal: Bool { self == .mySubscriptions } }
 enum Choice { case all, none }
+enum SteamWorkshopBrowseSection { case personal, discovery }
 enum SelectedItem {
     case steamWorkshop, steamSubscribed, steamDownloads, onlineLibrary, onlineDownloads, staticImageLibrary
     var isInSteamWorkshopContext: Bool { self == .steamWorkshop || self == .steamSubscribed }
@@ -48,6 +49,7 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     var facetFilters = Choice.none
     init(_ root: URL) { downloadJobStore = SteamDownloadJobStore(persistenceURL: root.appendingPathComponent("jobs.json")) }
     func returnToDiscoveryBrowse() { isBrowsingAuthorWorkshop = false }
+    func enterBrowseSection(_ section: SteamWorkshopBrowseSection) { source = section == .personal ? .mySubscriptions : .featured }
     func setBrowserQuery(_ query: String) {}
     func removeTransientRecord(id: String) {}
     func scheduleTerminalDownloadCleanup() {}

@@ -133,6 +133,8 @@ nonisolated struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     }
 }
 
+enum SteamWorkshopBrowseSection: Hashable { case discovery, personal }
+
 struct SteamWorkshopDiscoveryBrowseSnapshot {
     let browserContentMode: SteamWorkshopBrowserContentMode
     let browserItems: [SteamWorkshopBrowserItem]
@@ -145,7 +147,13 @@ struct SteamWorkshopDiscoveryBrowseSnapshot {
     let currentWorkshopItemID: String?
     let selectedBrowserItem: SteamWorkshopBrowserItem?
     let scrollOffsetY: CGFloat
-    let steamKitBrowseSnapshot: SteamKitBrowseStore.Snapshot
+    var steamKitBrowseSnapshot: SteamKitBrowseStore.Snapshot
+    var source: SteamWorkshopSource = .featured
+    var facetFilters: SteamWorkshopBrowseFacetFilters = .none
+    var personalSort: SteamWorkshopPersonalSort = .subscriptionDate
+    var trendingWindow: SteamWorkshopTrendingWindow = .week
+    var consecutiveEmptyLoadMorePages: Int = 0
+    var browserLoadMoreRetryAfter: Date = .distantPast
 }
 
 nonisolated struct SteamWorkshopDetailCacheSnapshot: Codable {

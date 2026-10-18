@@ -221,6 +221,7 @@ extension SteamWorkshopService {
         guard steamAuth.isOnline else {
             browserFetchTask?.cancel()
             browserFetchTask = nil
+            steamKitBrowseStore.clear()
             browserItems = []
             browserState = .loaded
             hasMoreBrowserItems = false
@@ -670,6 +671,9 @@ final class SteamKitBrowseStore {
         let hasMore: Bool
         let rawItems: [SteamWorkshopQueryItem]
         let partialErrors: [SteamWorkshopQueryPage.SteamWorkshopPartialError]
+        var refreshedAt: TimeInterval? = nil
+        var firstPageIDs: [String] = []
+        var remoteTotal: Int = 0
     }
 
     private(set) var generation = 0
@@ -680,10 +684,29 @@ final class SteamKitBrowseStore {
     private(set) var partialErrors: [SteamWorkshopQueryPage.SteamWorkshopPartialError] = []
 
     private let queryClient: SteamWorkshopQueryClient
+    private let now: () -> TimeInterval
+    private var refreshedAt: TimeInterval?
+    private var firstPageIDs: [String] = []
+    private var remoteTotal = 0
+    private static let freshnessOrigin = ContinuousClock.now
 
-    init(queryClient: SteamWorkshopQueryClient) {
-        self.queryClient = queryClient
+    private static func freshnessTime() -> TimeInterval {
+        let elapsed = freshnessOrigin.duration(to: ContinuousClock.now).components
+        return Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
     }
+
+    init(queryClient: SteamWorkshopQueryClient, now: (() -> TimeInterval)? = nil) {
+        self.queryClient = queryClient
+        self.now = now ?? { Self.freshnessTime() }
+    }
+
+    func isFresh(maxAge: TimeInterval) -> Bool {
+        guard let refreshedAt else { return false }
+        let age = now() - refreshedAt
+        return age >= 0 && age < maxAge
+    }
+
+    func invalidateFreshness() { refreshedAt = nil }
 
     func makeKey(
         source: SteamWorkshopSource,
@@ -766,6 +789,9 @@ final class SteamKitBrowseStore {
         partialErrors = []
         nextPage = 1
         hasMore = true
+        refreshedAt = nil
+        firstPageIDs = []
+        remoteTotal = 0
     }
 
     func bumpGeneration() -> Int {
@@ -779,7 +805,10 @@ final class SteamKitBrowseStore {
             nextPage: nextPage,
             hasMore: hasMore,
             rawItems: rawItems,
-            partialErrors: partialErrors
+            partialErrors: partialErrors,
+            refreshedAt: refreshedAt,
+            firstPageIDs: firstPageIDs,
+            remoteTotal: remoteTotal
         )
     }
 
@@ -790,6 +819,9 @@ final class SteamKitBrowseStore {
         hasMore = snapshot.hasMore
         rawItems = snapshot.rawItems
         partialErrors = snapshot.partialErrors
+        refreshedAt = snapshot.refreshedAt
+        firstPageIDs = snapshot.firstPageIDs
+        remoteTotal = snapshot.remoteTotal
     }
 
     func clear() {
@@ -799,6 +831,22 @@ final class SteamKitBrowseStore {
         hasMore = false
         rawItems = []
         partialErrors = []
+        refreshedAt = nil
+        firstPageIDs = []
+        remoteTotal = 0
+    }
+
+    private func acceptPage(_ items: [SteamWorkshopQueryItem], total: Int, more: Bool, page: Int,
+                            replacing: Bool, errors: [SteamWorkshopQueryPage.SteamWorkshopPartialError]) -> [SteamWorkshopQueryItem] {
+        let ids = items.map(\.publishedFileId)
+        // An unchanged first page need not collapse an already loaded feed.
+        // Tail pages remain cached, not newly revalidated remote evidence.
+        let keepTail = replacing && page == 1 && nextPage > 2 && more && !ids.isEmpty
+            && firstPageIDs == ids && remoteTotal == total && partialErrors.isEmpty && errors.isEmpty
+        if !keepTail { nextPage = page + 1; hasMore = more }
+        if page == 1 { refreshedAt = now(); firstPageIDs = ids }
+        remoteTotal = total
+        return merge(items, replacing: replacing && !keepTail, errors: errors)
     }
 
     private func merge(_ items: [SteamWorkshopQueryItem], replacing: Bool,
@@ -855,9 +903,9 @@ final class SteamKitBrowseStore {
         guard generation == self.generation, key == currentKey else {
             return (result.items, result.total, result.hasMore)
         }
-        nextPage = page + 1
-        hasMore = result.hasMore
-        return (merge(result.items, replacing: page == 1, errors: result.partialErrors), result.total, result.hasMore)
+        let items = acceptPage(result.items, total: result.total, more: result.hasMore, page: page,
+                               replacing: page == 1, errors: result.partialErrors)
+        return (items, result.total, hasMore)
     }
 
     /// SK3.3：个人来源取页。已订阅直接结构化分页；收藏为 ID 分页 +
@@ -871,21 +919,17 @@ final class SteamKitBrowseStore {
         guard let key = currentKey, key.route == .personal, let source = key.source else {
             throw SteamServiceClient.RequestError.notReady
         }
-        func commit(hasMore: Bool) {
-            nextPage = page + 1
-            self.hasMore = hasMore
-        }
         switch source {
         case .mySubscriptions:
             let result = try await queryClient.subscriptions(page: page)
             guard generation == self.generation, key == currentKey else {
                 return (result.items, result.total, result.hasMore, [])
             }
-            commit(hasMore: result.hasMore)
             // Only this response proves membership. Merged/restored pages are
             // cached content and must never turn a newer negative back positive.
-            return (merge(result.items, replacing: replacingLoadedItems, errors: result.partialErrors),
-                    result.total, result.hasMore, result.items.map(\.publishedFileId))
+            let items = acceptPage(result.items, total: result.total, more: result.hasMore, page: page,
+                                   replacing: replacingLoadedItems, errors: result.partialErrors)
+            return (items, result.total, hasMore, result.items.map(\.publishedFileId))
         case .myFavorites:
             let (ids, total, hasMore) = try await queryClient.favoriteIds(page: page)
             var items: [SteamWorkshopQueryItem] = []
@@ -900,8 +944,9 @@ final class SteamKitBrowseStore {
             guard generation == self.generation, key == currentKey else {
                 return (items, total, hasMore, [])
             }
-            commit(hasMore: hasMore)
-            return (merge(items, replacing: replacingLoadedItems, errors: errors), total, hasMore, [])
+            let merged = acceptPage(items, total: total, more: hasMore, page: page,
+                                    replacing: replacingLoadedItems, errors: errors)
+            return (merged, total, self.hasMore, [])
         default:
             throw SteamServiceClient.RequestError.helperError(
                 code: "unsupportedQuery", message: "unsupported personal source")
@@ -913,6 +958,8 @@ final class SteamKitBrowseStore {
         guard currentKey?.route == .personal, currentKey?.source == .mySubscriptions else { return false }
         generation += 1
         rawItems.removeAll { $0.publishedFileId == id }
+        firstPageIDs.removeAll { $0 == id }
+        refreshedAt = nil
         partialErrors.removeAll { $0.publishedFileId == id }
         nextPage = max(1, nextPage - 1)
         return true

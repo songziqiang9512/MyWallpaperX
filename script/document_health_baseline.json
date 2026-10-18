@@ -13,8 +13,8 @@
       "bytes": 6253
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
-      "lines": 76,
-      "bytes": 15090
+      "lines": 80,
+      "bytes": 16770
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 34,
@@ -1198,15 +1198,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "7a21727815c2fe21e39b4cb43fde470960c380b4a52c7dc37b0dca2125e3b0f2",
-      "after": "2b68a0e04a6a0ccf2d11c0efa8f49a3d2c82ddd8e92652d6ceef3e1634a29941",
-      "owner": "steam-workshop-details",
-      "reason": "统一按ID详情、旧摘要补齐、作者页面无隐藏筛选及重复导航/返回合同，与用户可见修复一致。",
-      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
       "after": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
@@ -1456,6 +1447,15 @@
       "owner": "scene-residual-lighting",
       "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
       "decision": "docs/scene/history/surface-zero-roughness-2026-10-19.md#residual-low-energy-20261019"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "2b68a0e04a6a0ccf2d11c0efa8f49a3d2c82ddd8e92652d6ceef3e1634a29941",
+      "after": "8f4b677fc4e30982ce929ab47ae2667cd709e0cb1f8052bc872b0ceef2acd642",
+      "owner": "steam-browse-grid",
+      "reason": "补充用户授权的双入口快照新鲜度、账号与订阅失效，以及Flow真实宽度和缩放协调合同；不增加第二分页owner或后台轮询。",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md#3-浏览缓存与-ui-投影"
     }
   ]
 }

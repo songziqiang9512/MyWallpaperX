@@ -20,7 +20,8 @@ extension SteamWorkshopToolbarController {
         let width = gridWidth()
         let availability = GridLayoutHelper.zoomAvailability(
             currentOffset: SteamWorkshopService.shared.zoomOffset,
-            for: width
+            for: width,
+            minimumItemWidth: 100
         )
         let canZoom = delta > 0 ? availability.canZoomIn : availability.canZoomOut
         guard canZoom else { return }
@@ -29,18 +30,20 @@ extension SteamWorkshopToolbarController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.zoomControl.setSelected(false, forSegment: segment)
         }
-        SteamWorkshopService.shared.zoomOffset += delta
+        SteamWorkshopService.shared.zoomOffset = GridLayoutHelper.zoomedOffset(
+            currentOffset: SteamWorkshopService.shared.zoomOffset, delta: delta, for: width, minimumItemWidth: 100)
         configureZoomItem()
     }
 
     private func gridWidth() -> CGFloat {
-        (window?.contentView?.bounds.width ?? 800) - 220
+        GridLayoutHelper.availableWidth(in: window?.contentView) ?? ((window?.contentView?.bounds.width ?? 800) - 220)
     }
 
     func configureZoomItem() {
         let availability = GridLayoutHelper.zoomAvailability(
             currentOffset: SteamWorkshopService.shared.zoomOffset,
-            for: gridWidth()
+            for: gridWidth(),
+            minimumItemWidth: 100
         )
         zoomControl.setEnabled(availability.canZoomOut, forSegment: 0)
         zoomControl.setEnabled(availability.canZoomIn, forSegment: 1)
