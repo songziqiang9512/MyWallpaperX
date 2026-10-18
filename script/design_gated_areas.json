@@ -745,6 +745,23 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-compiler-cache-identity",
+      "title": "Scene 编译缓存身份与自动恢复",
+      "owner": "Scene shader preparation / material cache owners",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "design_notes": "§5.1 构建期语义及工具指纹、完整不可变源码图身份、现single-flight内一次自愈；现格式校验/有界Program复用保持，缺身份仅进程私有复用。冷暖、依赖变更、并发与真实Scene另验，批准不代表验收。",
+      "matchPatterns": [
+        "script/generate_scene_shader_cache_identity.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialDemandAnalysisPersistentCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

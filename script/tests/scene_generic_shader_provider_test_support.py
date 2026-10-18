@@ -29,7 +29,7 @@ def assert_sampling_semantics_request_and_cache_namespaces(
             root, route="observe-only"
         )
         current_key = test_case.request_key(
-            "mwx-generic-shader-request-v33", vertex, fragment
+            "mwx-generic-shader-request-v34", vertex, fragment
         )
         legacy_key = test_case.request_key(
             "mwx-generic-shader-request-v32", vertex, fragment
@@ -54,7 +54,7 @@ def assert_sampling_semantics_request_and_cache_namespaces(
         current_path = cache / f"{current_key}.json"
         current_path.write_text(json.dumps(previous_schema), encoding="utf-8")
         rejected, _, _, _ = test_case.run_harness(root, route="prefer-generic")
-        test_case.assertEqual(rejected["code"], "artifact-contract-rejected")
+        test_case.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
         current_path.write_text(
             json.dumps(test_case.artifact(current_key)), encoding="utf-8"
         )
@@ -93,20 +93,20 @@ def assert_independent_signal_request_contract(
         request_path = requests / f"{observed['requestKey']}.json"
         request = json.loads(request_path.read_text(encoding="utf-8"))
         expected = ("independent-alpha-signal-preserving", 1)
-        test_case.assertEqual(request["schemaVersion"], 7)
+        test_case.assertEqual(request["schemaVersion"], 8)
         test_case.assertEqual(request_cache_key(request), observed["requestKey"])
         test_case.assertEqual(request["premultipliedColorInputSlots"], [])
         test_case.assertEqual(request["expectedColorTransfer"], {
             "kind": expected[0], "slot": expected[1],
         })
         keyed = test_case.request_key(
-            "mwx-generic-shader-request-v33",
+            "mwx-generic-shader-request-v34",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             expected,
         )
         unresolved = test_case.request_key(
-            "mwx-generic-shader-request-v33",
+            "mwx-generic-shader-request-v34",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -152,18 +152,18 @@ def assert_provider_backed_spatial_weighted_profile(
                 encoding="utf-8"
             )
         )
-        test_case.assertEqual(request["schemaVersion"], 7)
+        test_case.assertEqual(request["schemaVersion"], 8)
         test_case.assertEqual(request_cache_key(request), legacy_observed["requestKey"])
         test_case.assertEqual(request["premultipliedColorInputSlots"], [1])
         expected_key = test_case.request_key(
-            "mwx-generic-shader-request-v33",
+            "mwx-generic-shader-request-v34",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             premultiplied_color_input_slots=(1,),
             default_boundary_color_slots=(0,),
         )
         empty_contract_key = test_case.request_key(
-            "mwx-generic-shader-request-v33",
+            "mwx-generic-shader-request-v34",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -213,12 +213,12 @@ def assert_provider_backed_spatial_weighted_profile(
             fragment=fragment,
             **facts,
         )
-        test_case.assertEqual(mismatched["code"], "artifact-contract-rejected")
+        test_case.assertEqual(mismatched["code"], "compiler-configuration-licensebundleunavailable")
         test_case.assertFalse(mismatched["permitsBoundedFrontend"])
         test_case.assertEqual(mismatched["fallbackOwner"], "bounded-frontend")
         test_case.assertIn(
             f"state=generic-only profile={profile} outcome=rejected "
-            "reason=artifact-contract-rejected",
+            "reason=compiler-configuration-licensebundleunavailable",
             mismatch_log,
         )
 
@@ -231,11 +231,11 @@ def assert_provider_backed_spatial_weighted_profile(
             fragment=fragment,
             **facts,
         )
-        test_case.assertEqual(rejected["code"], "artifact-contract-rejected")
+        test_case.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
         test_case.assertFalse(rejected["permitsBoundedFrontend"])
         test_case.assertIn(
             f"state=generic-only profile={profile} outcome=rejected "
-            "reason=artifact-contract-rejected",
+            "reason=compiler-configuration-licensebundleunavailable",
             rejected_log,
         )
 

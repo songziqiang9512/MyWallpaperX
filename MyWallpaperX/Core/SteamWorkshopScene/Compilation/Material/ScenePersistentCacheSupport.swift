@@ -98,14 +98,19 @@ nonisolated enum ScenePersistentCacheSupport {
         _ url: URL,
         maximumBytes: Int
     ) -> Data? {
-        let values = try? url.resourceValues(forKeys: [
+        // URL caches resource values, including size and symlink status. An
+        // atomic publication replaces the inode, so a repeated read must not
+        // reject the new file using metadata retained from the old entry.
+        var currentURL = url
+        currentURL.removeAllCachedResourceValues()
+        let values = try? currentURL.resourceValues(forKeys: [
             .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
         ])
         guard values?.isRegularFile == true,
               values?.isSymbolicLink != true,
               let size = values?.fileSize,
               (1 ... maximumBytes).contains(size) else { return nil }
-        return try? Data(contentsOf: url, options: .mappedIfSafe)
+        return try? Data(contentsOf: currentURL, options: .mappedIfSafe)
     }
 
     static func prune(

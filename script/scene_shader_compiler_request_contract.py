@@ -52,7 +52,7 @@ def expected_color_transfer_for_output(
 
 def request_cache_key(request: dict[str, Any]) -> str:
     schema = request.get("schemaVersion")
-    if type(schema) is not int or schema not in (6, 7):
+    if type(schema) is not int or schema not in (6, 7, 8):
         raise RequestContractFailure("request-schema")
     bound_slots = bound_texture_slots(request, schema)
     raw_stages = request.get("stages")
@@ -84,9 +84,9 @@ def request_cache_key(request: dict[str, Any]) -> str:
     except InputColorContractFailure as error:
         raise RequestContractFailure(str(error)) from error
 
-    digest = hashlib.sha256()
     values = [
-        f"mwx-generic-shader-request-v{33 if schema == 7 else 29}",
+        f"mwx-generic-shader-request-v{34 if schema == 8 else 33 if schema == 7 else 29}",
+        *producer_identity(request, schema),
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
@@ -96,14 +96,35 @@ def request_cache_key(request: dict[str, Any]) -> str:
         input_color_cache_key(default_slots),
         ordinary_boundary_cache_key(boundary),
     ]
-    if schema == 7:
+    if schema >= 7:
         values.append(input_color_cache_key(bound_slots))
     values.append(json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")))
-    for value in values:
-        encoded = value.encode("utf-8")
-        digest.update(len(encoded).to_bytes(8, "big"))
-        digest.update(encoded)
-    return digest.hexdigest()
+    def framed_key(fields: list[str]) -> str:
+        digest = hashlib.sha256()
+        for value in fields:
+            encoded = value.encode("utf-8")
+            digest.update(len(encoded).to_bytes(8, "big"))
+            digest.update(encoded)
+        return digest.hexdigest()
+    current = framed_key(values)
+    if schema == 7:
+        # Schema 7 was exported by both historical v33 and v34 producers.
+        # Select only the known candidate that exactly reproduces its requestID.
+        previous = framed_key(["mwx-generic-shader-request-v34", *values[1:]])
+        if request.get("requestID") == previous:
+            return previous
+    return current
+
+
+def producer_identity(request: dict[str, Any], schema: int) -> list[str]:
+    if schema < 8:
+        if "compilerIdentity" in request or "toolchainIdentity" in request:
+            raise RequestContractFailure("compiler-identity-schema")
+        return []
+    values = [request.get("compilerIdentity"), request.get("toolchainIdentity")]
+    if not all(isinstance(value, str) and 1 <= len(value) <= 128 for value in values):
+        raise RequestContractFailure("compiler-identity")
+    return values
 
 
 def bound_texture_slots(payload: dict[str, Any], schema: int) -> list[int]:
@@ -123,8 +144,9 @@ def validated_request_stages(
     payload: dict[str, Any], maximum_stage_source_bytes: int
 ) -> list[dict[str, str]]:
     schema = payload.get("schemaVersion")
-    if type(schema) is not int or schema not in (6, 7):
+    if type(schema) is not int or schema not in (6, 7, 8):
         raise RequestContractFailure("schema-version")
+    producer_identity(payload, schema)
     bound_texture_slots(payload, schema)
     request_id = payload.get("requestID")
     if not isinstance(request_id, str) or not request_id or len(request_id) > 128:

@@ -6,10 +6,9 @@ import Foundation
 /// the prepared-source decode, canonicalization and source scans for every
 /// distinct variant on every process, which measured as the dominant
 /// warm-launch catalog cost. Entries mirror the exact in-process analysis
-/// key as a digest; `schemaVersion` is the sole invalidation lever, so any
-/// change to shader preparation, source canonicalization, sampler/channel
-/// analysis or demand projection semantics must bump it and retire the tier
-/// as a safe miss. Only ready results are published, and the read path never
+/// key as a digest, including complete source-graph content and the build's
+/// compiler-semantics identity. `schemaVersion` independently versions the
+/// stored wire contract. Only ready results are published, and the read path never
 /// creates the cache directory.
 enum SceneMaterialDemandAnalysisPersistentCache {
 /// Resource-demand reachability is a shader/template property, not a
@@ -31,6 +30,7 @@ struct ResourceDemandTextureSlotShape: Hashable {
 struct ResourceDemandAnalysisKey: Hashable {
     let shaderIdentity: String
     let shaderCanonicalSHA256: String
+    let sourceGraphCacheSHA256: String
     let textureSlots: [ResourceDemandTextureSlotShape?]
     let combos: [Template.Combo]
     let inheritedInactiveCombos: [String]
@@ -45,6 +45,7 @@ struct ResourceDemandAnalysisKey: Hashable {
     ) {
         shaderIdentity = template.shaderContract.identity
         shaderCanonicalSHA256 = template.shaderContract.canonicalSHA256
+        sourceGraphCacheSHA256 = template.shaderContract.sourceGraphCacheSHA256
         textureSlots = template.textureSlots.map { slot in
             slot.map {
                 ResourceDemandTextureSlotShape(
@@ -103,9 +104,11 @@ struct ResourceDemandAnalysisKey: Hashable {
         func append(_ value: String) {
             digest.append(value)
         }
-        append("mwx-material-demand-analysis-key-v1")
+        append("mwx-material-demand-analysis-key-v2")
+        append(SceneShaderCacheIdentity.semantics)
         append(key.shaderIdentity)
         append(key.shaderCanonicalSHA256)
+        append(key.sourceGraphCacheSHA256)
         for slot in key.textureSlots {
             guard let slot else {
                 append("-")

@@ -28,6 +28,22 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         )
     }
 
+    enum ProgramLoadFailure: Error {
+        case publicationMissing
+        case invalidJSON
+        case contractRejected
+        case compiler(SceneGenericShaderCompiler.Failure)
+
+        var code: String {
+            switch self {
+            case .publicationMissing: "compiler-publication-missing"
+            case .invalidJSON: "artifact-invalid-json"
+            case .contractRejected: "artifact-contract-rejected"
+            case let .compiler(failure): compilerFallbackCode(failure)
+            }
+        }
+    }
+
     private static let routeEnvironment = "MWX_SCENE_GENERIC_SHADER_ROUTE"
     /// Comma-separated profile-local route overrides.
     private static let profileRouteEnvironment =
@@ -328,13 +344,33 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         }
         let artifactURL = root.appendingPathComponent("\(key).json", isDirectory: false)
-        var data = regularFileData(artifactURL)
-        if data == nil {
-            let compilation = compilationCoordinator.perform(key: key) {
-                if regularFileData(artifactURL) != nil {
-                    return .success(artifactURL)
-                }
-                return SceneGenericShaderCompiler.compile(
+        let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
+            source: fragmentSource
+        )
+        let loaded = loadOrCompileProgram(
+            artifactURL: artifactURL,
+            requestKey: key,
+            validate: { data in
+                let artifact: SceneGenericShaderProgramArtifact
+                do {
+                    artifact = try JSONDecoder().decode(
+                        SceneGenericShaderProgramArtifact.self,
+                        from: data
+                    )
+                } catch { return .failure(.invalidJSON) }
+                guard let program = artifact.makeProgram(
+                    expectedKey: key,
+                    expectedOutputSemantics: outputSemantics,
+                    expectedPremultipliedColorInputSlots:
+                        premultipliedColorInputSlots,
+                    expectedColorBoundary: colorBoundary,
+                    expectedColorTransfer: colorTransfer,
+                    expectedFragmentOutputChannelUse: fragmentOutputChannelUse
+                ) else { return .failure(.contractRejected) }
+                return .success(program)
+            },
+            compile: {
+                SceneGenericShaderCompiler.compile(
                     requestKey: key,
                     vertexSource: vertexSource,
                     fragmentSource: fragmentSource,
@@ -347,69 +383,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     cacheRoot: root
                 )
             }
-            switch compilation.result {
-            case .success:
-                routeTelemetry.recordCompilerLifecycle(
-                    source: compilation.source,
-                    outcome: "published",
-                    reason: "-",
-                    requestKey: key
-                )
-                data = regularFileData(artifactURL)
-            case let .failure(failure):
-                let code = compilerFallbackCode(failure)
-                routeTelemetry.recordCompilerLifecycle(
-                    source: compilation.source,
-                    outcome: "failed",
-                    reason: code,
-                    requestKey: key
-                )
-                return fallback(
-                    state: routeState,
-                    profile: profile,
-                    code: code,
-                    requestKey: key
-                )
-            }
-        }
-        guard let data else {
-            return fallback(
-                state: routeState,
-                profile: profile,
-                code: "compiler-publication-missing",
-                requestKey: key
-            )
-        }
-        let artifact: SceneGenericShaderProgramArtifact
-        do {
-            artifact = try JSONDecoder().decode(
-                SceneGenericShaderProgramArtifact.self,
-                from: data
-            )
-        } catch {
-            return fallback(
-                state: routeState,
-                profile: profile,
-                code: "artifact-invalid-json",
-                requestKey: key
-            )
-        }
-        let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
-            source: fragmentSource
         )
-        guard let program = artifact.makeProgram(
-                  expectedKey: key,
-                  expectedOutputSemantics: outputSemantics,
-                  expectedPremultipliedColorInputSlots:
-                      premultipliedColorInputSlots,
-                  expectedColorBoundary: colorBoundary,
-                  expectedColorTransfer: colorTransfer,
-                  expectedFragmentOutputChannelUse: fragmentOutputChannelUse
-              ) else {
+        let program: SceneAuthoredShaderProgram
+        switch loaded {
+        case let .success(value): program = value
+        case let .failure(failure):
             return fallback(
                 state: routeState,
                 profile: profile,
-                code: "artifact-contract-rejected",
+                code: failure.code,
                 requestKey: key
             )
         }
@@ -446,6 +428,50 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         }
         return outcome.resolution
+    }
+
+    /// A disk entry is a hit only after decoding and the complete Program
+    /// contract have accepted it. Recheck inside the existing single-flight
+    /// before compiling: another caller/process may have repaired the entry.
+    /// Atomic publication replaces invalid files without first deleting a
+    /// concurrently repaired entry. One request never retries a bad publication.
+    static func loadOrCompileProgram(
+        artifactURL: URL,
+        requestKey: String,
+        coordinator: SceneResolvedMaterialGenericShaderCompilationCoordinator =
+            compilationCoordinator,
+        validate: (Data) -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure>,
+        compile: () -> Result<URL, SceneGenericShaderCompiler.Failure>
+    ) -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure> {
+        func readProgram() -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure> {
+            guard let data = regularFileData(artifactURL) else {
+                return .failure(.publicationMissing)
+            }
+            return validate(data)
+        }
+        if case let .success(program) = readProgram() { return .success(program) }
+        let compilation = coordinator.perform(key: requestKey) {
+            if case .success = readProgram() { return .success(artifactURL) }
+            return compile()
+        }
+        let result: Result<SceneAuthoredShaderProgram, ProgramLoadFailure>
+        switch compilation.result {
+        case .success: result = readProgram()
+        case let .failure(failure): result = .failure(.compiler(failure))
+        }
+        switch result {
+        case .success:
+            routeTelemetry.recordCompilerLifecycle(
+                source: compilation.source, outcome: "published",
+                reason: "-", requestKey: requestKey
+            )
+        case let .failure(failure):
+            routeTelemetry.recordCompilerLifecycle(
+                source: compilation.source, outcome: "failed",
+                reason: failure.code, requestKey: requestKey
+            )
+        }
+        return result
     }
 
     private static func fallback(

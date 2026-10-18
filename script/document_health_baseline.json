@@ -61,8 +61,8 @@
       "bytes": 5737
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 183,
-      "bytes": 15024
+      "lines": 195,
+      "bytes": 17488
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 49,
-      "bytes": 12309
+      "bytes": 12256
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -1420,6 +1420,15 @@
       "owner": "scene-shared-timer-cancellation",
       "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "5b31bb59906f3a99a37227203e64706a32ecc76027d5009c7cea2e4240316755",
+      "after": "7627faff8c1b009b3f81fd0a46dc5beac0eb3de2687bb4170997e131f458f452",
+      "owner": "scene-compiler-cache-identity",
+      "reason": "原缓存权威补齐构建期编译语义/工具指纹、完整依赖身份与single-flight一次自愈设计及验收；不新增第二缓存owner或逐帧扫描。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#51-编译缓存身份与恢复"
     }
   ]
 }

@@ -10,7 +10,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
             let source: String
         }
 
-        let schemaVersion = 7
+        let schemaVersion = 8
+        let compilerIdentity = SceneShaderCacheIdentity.semantics
+        let toolchainIdentity = SceneShaderCacheIdentity.toolchain
         let requestID: String
         let sourceDialect = "wallpaper-engine-glsl-like-v0"
         let outputSemantics: SceneGenericShaderOutputSemantics
@@ -40,6 +42,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         for value in [
             // v34 retires artifacts/failures with the old numeric output-use proof.
             "mwx-generic-shader-request-v34",
+            SceneShaderCacheIdentity.semantics,
+            SceneShaderCacheIdentity.toolchain,
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

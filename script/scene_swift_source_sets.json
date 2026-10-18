@@ -8,6 +8,7 @@
       "sources": [
         "Format/SceneJSONValue.swift",
         "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+        "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
         "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
         "Compilation/ShaderContract/SceneShaderContract.swift"
       ]

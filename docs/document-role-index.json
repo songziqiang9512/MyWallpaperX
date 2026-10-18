@@ -481,13 +481,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9c6803208ef6d761ece177d4d37473dfd2dd4226d7f7e6bf41c3378b3e197c59",
+        "sourceSHA256": "745864a6607c42b6966cbc914d663dec2f198fe5ca920f7596e47d305514f721",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对ready-request短筛撤回、原启动owner保留与证据链接；两次冷启动无收益，不称性能完成。",
-        "limitations": "仅本次导航维护，不证明语义完整性、产品运行或官方parity"
+        "scope": "在原启动缓存权威核对编译身份、完整依赖与单次自愈设计及源码归属；旧波次试验锚点保持。",
+        "limitations": "导航与缓存职责审查，不代替真实冷暖、全量兼容或官方parity验证"
       }
     },
     {

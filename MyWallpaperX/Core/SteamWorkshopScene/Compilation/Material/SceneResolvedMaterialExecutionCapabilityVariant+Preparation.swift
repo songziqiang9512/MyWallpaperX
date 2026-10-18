@@ -59,6 +59,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 contractIdentity: template.shaderContract.identity,
                 contractCanonicalSHA256: template.shaderContract
                     .canonicalSHA256,
+                sourceGraphCacheSHA256: template.shaderContract
+                    .sourceGraphCacheSHA256,
                 textureSlotShapes: template.textureSlots.map { slot in
                     slot.map {
                         "\($0.index):"

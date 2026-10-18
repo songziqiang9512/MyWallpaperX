@@ -33,7 +33,7 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 # Explicit invalidation expectation; never derive this from the product under test.
-CURRENT_VARIANT_SCHEMA_VERSION = 27
+CURRENT_VARIANT_SCHEMA_VERSION = 28
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
@@ -49,6 +49,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContract.swift",
+    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
     SCENE_ROOT / "Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "Compilation/Material/SceneMaterialRenderState.swift",
     *scene_swift_sources("authored_shader_frontend_implementation"),
@@ -350,7 +351,7 @@ private func runGenericProbe() throws -> ProbeOutput {
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
-    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v27")
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v28")
     let key = "probe-variant-key"
     try expect(
         into: &output,
@@ -440,7 +441,9 @@ private func makeProbeContract() -> SceneShaderContract {
     )
 }
 
-private func makeProbeTemplate() throws -> SceneResolvedMaterialTemplate {
+private func makeProbeTemplate(
+    contract: SceneShaderContract = makeProbeContract()
+) throws -> SceneResolvedMaterialTemplate {
     guard let renderState = SceneMaterialRenderState.compile(
         blending: "normal",
         depthTest: "disabled",
@@ -463,7 +466,7 @@ private func makeProbeTemplate() throws -> SceneResolvedMaterialTemplate {
             bindings: []
         ),
         compatibilityTarget: .unprofiledMetal,
-        shaderContract: makeProbeContract(),
+        shaderContract: contract,
         diagnosticProvenance: .init(
             nodeIndex: 0,
             authoredShaderPath: "shaders/probe.vert",
@@ -731,6 +734,10 @@ class ScenePersistentCacheBehaviorTests(unittest.TestCase):
             binary = root / "persistent-cache-probe"
             support.write_text(SUPPORT, encoding="utf-8")
             harness.write_text(HARNESS, encoding="utf-8")
+            (root / "SceneShaderCacheIdentity.json").write_text(
+                json.dumps({"schemaVersion": 1, "semantics": "a" * 64,
+                            "toolchain": "b" * 64}), encoding="utf-8"
+            )
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
             environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
@@ -881,6 +888,7 @@ class SceneVariantAnalysisCacheWireTests(unittest.TestCase):
         cls.proof = Path(os.environ["MWX_VARIANT_WIRE_PROOF"]) if os.environ.get("MWX_VARIANT_WIRE_PROOF") else None
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
                    str(SCENE_ROOT / "Compilation/Material/ScenePersistentCacheSupport.swift"),
+                   str(SCENE_ROOT / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift"),
                    str(SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift"),
                    str(cls.fixture), "-module-cache-path", str(cls.work / "module-cache"),
                    "-o", str(cls.binary)]

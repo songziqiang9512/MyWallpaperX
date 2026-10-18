@@ -2369,6 +2369,7 @@
       ],
       "modules": [
         "test_scene_generic_shader_compiler_process",
+        "test_scene_linked_stage_reuse",
         "test_scene_shader_dead_binding_projection",
         "test_scene_independent_signal_compiler_artifact",
         "test_scene_shader_compiler_artifact_foundation",
@@ -3480,6 +3481,31 @@
         "test_scene_switch_endpoint",
         "test_video_preparation_cancellation",
         "test_playback_policy_delivery"
+      ]
+    },
+    {
+      "id": "shader-cache-producer-identity",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialDemandAnalysisPersistentCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Preparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
+        "script/generate_scene_shader_cache_identity.py",
+        "script/tests/test_scene_shader_cache_identity.py",
+        "script/tests/test_scene_shader_dependency_cache_identity.py",
+        "script/tests/fixtures/SceneShaderDependencyCacheChecks.swift",
+        "script/tests/test_scene_generic_shader_artifact_recovery.py"
+      ],
+      "modules": [
+        "test_scene_shader_cache_identity",
+        "test_scene_shader_dependency_cache_identity",
+        "test_scene_generic_shader_artifact_recovery",
+        "test_scene_persistent_cache_behavior",
+        "test_scene_shader_compiler_request_contract"
       ]
     }
   ],

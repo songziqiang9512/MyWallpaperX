@@ -127,6 +127,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         }
 
         let frontendSchemaVersion: Int
+        let compilerIdentity: String
         let contractCanonicalSHA256: String
         let sourceGraphSHA256: String
         let compatibilityTarget: SceneShaderCompatibilityTarget
@@ -146,12 +147,11 @@ nonisolated enum SceneAuthoredShaderPreparation {
         ) {
             frontendSchemaVersion = SceneShaderVariantEnvironment
                 .frontendSchemaVersion
+            compilerIdentity = SceneShaderCacheIdentity.semantics
             contractCanonicalSHA256 = contract.canonicalSHA256
-            // The contract digest deliberately tracks root stages. Cache
-            // identity additionally hashes the complete immutable VFS graph,
-            // including actual include source, so reuse cannot hide a changed
-            // include behind a stale dependency marker.
-            sourceGraphSHA256 = SceneShaderStableDigest.hash(graph)
+            // Reuse the immutable contract's actual graph digest, computed
+            // once at construction/decoding rather than once per variant.
+            sourceGraphSHA256 = contract.sourceGraphCacheSHA256
             self.compatibilityTarget = compatibilityTarget
             self.combos = combos.map {
                 Combo(name: $0.key, value: $0.value)
@@ -167,6 +167,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
 
         func cost(including result: SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram>) -> Int {
             var cost = SceneShaderCacheCost()
+            cost.string(compilerIdentity)
             cost.string(contractCanonicalSHA256)
             cost.string(sourceGraphSHA256)
             cost.add(64)

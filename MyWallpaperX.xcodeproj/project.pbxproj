@@ -181,6 +181,7 @@
 				A40000012F810003005688A8 /* Embed SteamService */,
 				A40000022F810003005688A8 /* Embed stock runtime assets */,
 				A40000032F810003005688A8 /* Build Scene media observer */,
+				A40000042F810003005688A8 /* Generate Scene shader cache identity */,
 			);
 			buildRules = (
 			);
@@ -320,6 +321,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
 			shellScript = "/bin/bash \"$SRCROOT/script/build-scene-media-observer.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneMediaObserver\"\n";
+		};
+		A40000042F810003005688A8 /* Generate Scene shader cache identity */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(SRCROOT)/script/generate_scene_shader_cache_identity.py", );
+			name = "Generate Scene shader cache identity";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SceneShaderCacheIdentity.json", );
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/python3 -B \"$SRCROOT/script/generate_scene_shader_cache_identity.py\" --root \"$SRCROOT\" --output \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SceneShaderCacheIdentity.json\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

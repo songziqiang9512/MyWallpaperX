@@ -12,11 +12,9 @@ import Foundation
 /// per-node template facts outside this key (graphRole, effectContext,
 /// owner eligibility, exact candidate identities), so caching it would let
 /// one node's admission authority leak to another node sharing the key.
-/// `schemaVersion` is the sole invalidation lever: any change to shader
-/// preparation, source canonicalization or any cached analyzer's semantics
-/// must bump it and retire the tier as a safe miss. (Prelude defines are
-/// part of the prepared source this cache embeds, so they bump it too —
-/// artifact caches keyed by canonical source text invalidate themselves.) Entries publish only on
+/// The key includes the build's compiler-semantics identity and complete
+/// source-graph content. `schemaVersion` independently versions the stored
+/// wire contract. Entries publish only on
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
@@ -220,6 +218,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     static func keyDigest(
         contractIdentity: String,
         contractCanonicalSHA256: String,
+        sourceGraphCacheSHA256: String,
         textureSlotShapes: [String?],
         combos: [String: Int],
         inheritedInactiveCombos: Set<String>,
@@ -232,9 +231,11 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         outputIsRGBA8Unorm: Bool
     ) -> String? {
         var digest = ScenePersistentCacheDigest()
-        digest.append("mwx-variant-analysis-key-v2")
+        digest.append("mwx-variant-analysis-key-v3")
+        digest.append(SceneShaderCacheIdentity.semantics)
         digest.append(contractIdentity)
         digest.append(contractCanonicalSHA256)
+        digest.append(sourceGraphCacheSHA256)
         for slot in textureSlotShapes {
             digest.append(slot ?? "-")
         }

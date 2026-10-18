@@ -29,7 +29,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
-        self.assertEqual(len(support), 4)
+        self.assertEqual(len(support), 5)
         self.assertEqual(len(implementation), 87)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
@@ -69,10 +69,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "authored_effect_planning_support"
         )
 
-        self.assertEqual(len(resolution), 11)
-        self.assertEqual(resolution[:4], frontend_support)
+        self.assertEqual(len(resolution), 12)
+        self.assertEqual(resolution[:len(frontend_support)], frontend_support)
         self.assertEqual(
-            resolution[4:],
+            resolution[len(frontend_support):],
             (
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
@@ -106,7 +106,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertEqual(
             set(planning),
-            set(resolution)
+            # Resource/effect planning does not read persistent compiler identity.
+            (set(resolution) - {
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderCacheIdentity.swift"
+            })
             | {
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",

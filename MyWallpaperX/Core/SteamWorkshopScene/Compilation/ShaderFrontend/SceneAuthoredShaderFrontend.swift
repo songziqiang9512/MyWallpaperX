@@ -58,6 +58,7 @@ extension SceneShaderCacheCost {
 nonisolated enum SceneAuthoredShaderFrontend {
     private struct ProgramCacheKey: Codable, Hashable {
         let cacheSchemaVersion: Int
+        let compilerIdentity: String
         let vertexSourceSHA256: String
         let fragmentSourceSHA256: String
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
@@ -77,6 +78,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         ) {
             // v22 retires source-classified programs before typed RGBA signal auxiliaries.
             cacheSchemaVersion = 22
+            compilerIdentity = SceneShaderCacheIdentity.semantics
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
@@ -89,6 +91,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
 
         func cost(including program: SceneAuthoredShaderProgram) -> Int {
             var cost = SceneShaderCacheCost()
+            cost.string(compilerIdentity)
             cost.string(vertexSourceSHA256)
             cost.string(fragmentSourceSHA256)
             cost.runtimeLoopBounds(runtimeLoopBounds)

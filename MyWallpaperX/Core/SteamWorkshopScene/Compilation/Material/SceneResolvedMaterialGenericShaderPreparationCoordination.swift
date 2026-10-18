@@ -16,18 +16,14 @@ struct SceneGenericShaderAnalysis {
 /// process even when the compiled artifact cache hits, which measured as the
 /// dominant launch stage on shader-heavy scenes; this cache removes that
 /// repeated CPU work. Entries are keyed by a digest over the full resolution
-/// input; `schemaVersion` is the sole invalidation lever (the shared
-/// frontendSchemaVersion constant is not referenced here because it has no
-/// mechanical bump guarantee), so any analyzer/normalizer/profile semantics
-/// change must bump it and thereby retire the whole tier as a safe miss.
+/// input and the build-time compiler identity. `schemaVersion` owns storage
+/// compatibility; producer changes invalidate without a manual schema bump.
 /// Only resolutions that end accepted are published, and the read path never
 /// creates the cache directory; this follows the persistent-tier doctrine the
 /// frontend/preparation cache tests already lock, and is deliberately
 /// stricter than the program artifact tier's own read/write behaviour.
 nonisolated enum SceneGenericShaderAnalysisCache {
-    /// The only invalidation lever for this tier: bump when any analyzer,
-    /// normalizer or profile-classification semantic change lands (the shared
-    /// frontendSchemaVersion constant has no mechanical bump guarantee).
+    /// Storage contract version, independent of the automatic producer identity.
     /// v11: dead resource work shares the conservative deletion Projection.
     /// v13: shared varying-prefix proof and scalar/vector conversion semantics.
     /// v18: scalar-local RGBA reconstruction and helper purity proof.
@@ -65,6 +61,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             return String(decoding: data, as: UTF8.self)
         }
         var digest = ScenePersistentCacheDigest()
+        digest.append(SceneShaderCacheIdentity.semantics)
         func append(_ value: String) {
             digest.append(value)
         }
@@ -425,14 +422,15 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
     }
 }
 
-/// Shares compiler outcomes across equivalent launch-time requests after the
-/// outer Program-resolution cache has admitted the exact authored inputs.
+/// Shares an active compiler operation across equivalent launch-time requests.
+/// Accepted Programs remain in the outer bounded resolution cache; a completed
+/// URL is not proof that a disk entry still exists or satisfies its contract.
 nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator:
     @unchecked Sendable
 {
     enum Source: String {
         case spawn
-        case launchResultCache = "launch-result-cache"
+        case joinedFlight = "joined-flight"
     }
 
     struct Outcome {
@@ -442,18 +440,10 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
 
     private let condition = NSCondition()
     private var active: [String: SceneShaderCacheFlight<Result<URL, SceneGenericShaderCompiler.Failure>>] = [:]
-    private var completed: SceneShaderCompletedCacheStorage<
-        String, Result<URL, SceneGenericShaderCompiler.Failure>
-    >
-
-    init(maximumBytes: Int = 1_024 * 1_024, maximumEntries: Int = 4_096) {
-        completed = .init(maximumBytes: maximumBytes, maximumEntries: maximumEntries)
-    }
-
     var snapshot: SceneShaderCompletedCacheSnapshot {
         condition.lock()
         defer { condition.unlock() }
-        return .init(completedEntries: completed.count, retainedBytes: completed.retainedBytes,
+        return .init(completedEntries: 0, retainedBytes: 0,
             inFlightOperations: active.count,
             waitingCallers: active.values.reduce(0) { $0 + $1.waiters })
     }
@@ -463,31 +453,22 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
         operation: () -> Result<URL, SceneGenericShaderCompiler.Failure>
     ) -> Outcome {
         condition.lock()
-        if let result = completed.value(for: key) {
-            condition.unlock()
-            return .init(result: result, source: .launchResultCache)
-        }
         if let flight = active[key] {
             flight.waiters += 1
             while case .none = flight.result { condition.wait() }
             let result = flight.result!
             flight.waiters -= 1
             condition.unlock()
-            return .init(result: result, source: .launchResultCache)
+            return .init(result: result, source: .joinedFlight)
         }
         let flight = SceneShaderCacheFlight<Result<URL, SceneGenericShaderCompiler.Failure>>()
         active[key] = flight
         condition.unlock()
 
         let result = operation()
-        var cost = SceneShaderCacheCost()
-        cost.string(key)
-        if case let .success(url) = result { cost.string(url.absoluteString) }
-
         condition.lock()
-        // Share this operation's failure with its existing waiters, then let
-        // a later request retry a repaired compiler/cache/workspace.
-        if case .success = result { completed.insert(result, for: key, cost: cost.bytes) }
+        // Only existing waiters share the outcome. A later request revalidates
+        // the actual file and may retry a repaired compiler/cache/workspace.
         flight.result = result
         active.removeValue(forKey: key)
         condition.broadcast()

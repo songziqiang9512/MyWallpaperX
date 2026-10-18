@@ -125,7 +125,7 @@ class SceneShaderCompilerRequestContractTests(unittest.TestCase):
 
     def test_new_schema_preserves_stage_limits_and_version_rejection(self) -> None:
         payload = request()
-        for schema in (5, 8, "7", 7.0, True, None):
+        for schema in (5, 9, "7", 7.0, True, None):
             with self.subTest(schema=schema):
                 for validate, code in (
                     (request_cache_key, "request-schema"),

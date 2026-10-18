@@ -225,6 +225,14 @@ nonisolated enum SceneGenericShaderCompiler {
         workspace: URL
     ) -> Result<[CompiledStage], Failure> {
         do {
+            // A guarded retry shares this workspace. Never consume an earlier
+            // attempt if a successful link unexpectedly omits a stage output.
+            for suffix in ["vert", "frag"] {
+                let output = workspace.appendingPathComponent("\(suffix).spv")
+                if FileManager.default.fileExists(atPath: output.path) {
+                    try FileManager.default.removeItem(at: output)
+                }
+            }
             try boundedData(vertex, configuration: configuration)
                 .write(to: vertexURL, options: [.atomic])
             try boundedData(fragment, configuration: configuration)
@@ -246,26 +254,15 @@ nonisolated enum SceneGenericShaderCompiler {
         case let .failure(failure): return .failure(failure)
         }
         var compiled: [CompiledStage] = []
-        for (name, suffix, source, sourceURL, entryPoint) in [
-            ("vertex", "vert", vertex, vertexURL, "mwxGenericVertex"),
-            ("fragment", "frag", fragment, fragmentURL, "mwxGenericFragment"),
+        // The mandatory link emits both stage binaries in the working directory.
+        // Lower those exact outputs instead of compiling both sources again.
+        for (name, suffix, source, entryPoint) in [
+            ("vertex", "vert", vertex, "mwxGenericVertex"),
+            ("fragment", "frag", fragment, "mwxGenericFragment"),
         ] {
-            let spirv = workspace.appendingPathComponent("\(name).spv")
+            let spirv = workspace.appendingPathComponent("\(suffix).spv")
             let msl = workspace.appendingPathComponent("\(name).metal")
             let reflection = workspace.appendingPathComponent("\(name).reflection.json")
-            switch run(
-                configuration.glslang,
-                arguments: [
-                    "-V", "--auto-map-bindings", "--auto-map-locations",
-                    "-S", suffix, "-e", "main", "-o", spirv.path, sourceURL.path,
-                ],
-                phase: "\(name)-glslang",
-                configuration: configuration,
-                workspace: workspace
-            ) {
-            case .success: break
-            case let .failure(failure): return .failure(failure)
-            }
             guard validOutput(spirv, maximumBytes: configuration.limits.maximumArtifactBytes)
             else { return .failure(.artifact("\(name)-spirv")) }
             switch run(

@@ -8,7 +8,7 @@ import CryptoKit
 // v22 owner b4306295…256f, binary99c7a1ae…fe93, from self-authored comment
 // shader strings. They contain no Workshop sources or media.
 // Their record wire is unchanged, but v22 preparation facts are obsolete. Only
-// test-input re-enveloping as current v27 permits the wire check; no runtime migration.
+// test-input re-enveloping as current v28 permits the wire check; no runtime migration.
 enum SceneGenericShaderProgramArtifact {
     static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -73,7 +73,7 @@ enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
 enum SceneShaderTextureFormat: String { case fixture }
 
 private typealias Cache = SceneResolvedMaterialVariantAnalysisCache
-private let currentSchemaVersion = 27
+private let currentSchemaVersion = 28
 private var checks: [String: Bool] = [:]
 
 private func record() -> Cache.Record {

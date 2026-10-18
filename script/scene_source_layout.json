@@ -118,6 +118,7 @@
       "ShaderContract": {
         "file_globs": [
           "SceneBuiltinShaderIdentity.swift",
+          "SceneShaderCacheIdentity.swift",
           "SceneShaderContract.swift",
           "SceneShaderContractLoader+SourceGraph.swift",
           "SceneShaderContractLoader.swift",

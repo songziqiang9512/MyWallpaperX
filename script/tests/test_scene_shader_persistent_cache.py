@@ -71,7 +71,6 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
             "textureFormats",
         ):
             self.assertIn(field, key)
-        self.assertIn("SceneShaderStableDigest.hash(graph)", key)
         self.assertIn(".sorted", key)
 
 

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
@@ -120,6 +121,14 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
     /// intentionally separate from `canonicalSHA256`, whose root-stage
     /// identity remains the revision key used by registered shader profiles.
     let sourceGraph: SceneShaderSourceGraph?
+    /// Actual immutable graph content, computed once at this ownership boundary.
+    /// Self-reported node/dependency hashes cannot authenticate changed source.
+    /// This derived identity is never encoded or accepted from decoded input.
+    let sourceGraphCacheSHA256: String
+
+    private enum CodingKeys: String, CodingKey {
+        case identity, sourceKind, stages, diagnostics, canonicalSHA256, sourceGraph
+    }
 
     init(
         identity: String,
@@ -135,6 +144,31 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
         self.diagnostics = diagnostics
         self.canonicalSHA256 = canonicalSHA256
         self.sourceGraph = sourceGraph
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let graphData: Data
+        do {
+            graphData = try encoder.encode(sourceGraph)
+        } catch {
+            preconditionFailure("Scene shader source graph must be encodable.")
+        }
+        sourceGraphCacheSHA256 = SHA256.hash(data: graphData).map {
+            String(format: "%02x", $0)
+        }.joined()
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            identity: try container.decode(String.self, forKey: .identity),
+            sourceKind: try container.decode(SourceKind.self, forKey: .sourceKind),
+            stages: try container.decode([Stage].self, forKey: .stages),
+            diagnostics: try container.decode([Diagnostic].self, forKey: .diagnostics),
+            canonicalSHA256: try container.decode(String.self, forKey: .canonicalSHA256),
+            sourceGraph: try container.decodeIfPresent(
+                SceneShaderSourceGraph.self, forKey: .sourceGraph
+            )
+        )
     }
 }
 

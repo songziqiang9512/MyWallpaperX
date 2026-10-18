@@ -5087,6 +5087,9 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         harness = build_root / "GenericShaderArtifactHarness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = build_root / "generic-shader-artifact-harness"
+        (build_root / "SceneShaderCacheIdentity.json").write_text(json.dumps({
+            "schemaVersion": 1, "semantics": "a" * 64, "toolchain": "b" * 64,
+        }))
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(build_root / "clang-module-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(build_root / "swift-module-cache")
@@ -5432,6 +5435,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             f"{expected_color_transfer[0]}:{expected_color_transfer[1]}")
         for value in (
             seed,
+            *(("a" * 64, "b" * 64) if seed.endswith("-v34") else ()),
             "wallpaper-engine-glsl-like-v0",
             "color",
             vertex_source,
@@ -5440,7 +5444,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ",".join(map(str, sorted(premultiplied_color_input_slots))),
             ",".join(map(str, sorted(default_boundary_color_slots))),
             "-",
-            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith(("-v31", "-v32", "-v33")) else ()),
+            *((",".join(map(str, sorted(bound_texture_slots))),) if seed.endswith(("-v31", "-v32", "-v33", "-v34")) else ()),
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -5461,9 +5465,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         swift_key = subprocess.check_output(
             [str(self.binary), "--remainder-request-key-golden"], text=True,
         )
-        self.assertEqual(swift_key, request_cache_key(request()))
+        self.assertEqual(swift_key, request_cache_key({**request(), "schemaVersion": 8,
+            "compilerIdentity": "a" * 64, "toolchainIdentity": "b" * 64}))
         self.assertEqual(swift_key,
-            "dbbe49f500407f7680c5532f0bbab75e48708dc7bdc7aa7d9f07fde3996b8729")
+            "e294adf83c654259ed7110a73aa74f70aeda3fd778533070e2d937c27a74818b")
         self.assertNotEqual(swift_key,
             "50685a429c279c65a21e49de075e1f69be11d78884c7e4706484143f15f0d902")
 
@@ -6453,7 +6458,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(request["schemaVersion"], 7)
+            self.assertEqual(request["schemaVersion"], 8)
             self.assertEqual(request["premultipliedColorInputSlots"], [])
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
 
@@ -6504,7 +6509,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 has_only_graph_input_sampler=True,
                 preserved_rgba_output=True,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
 
             disabled, _, _, _ = self.run_harness(
@@ -6644,7 +6649,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 produces_red_green_unorm_output=True,
                 has_only_scalar_data_inputs=True,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
 
             disabled, _, _, _ = self.run_harness(
@@ -6782,10 +6787,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 root, route="prefer-generic"
             )
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertIn(
                 "profile=ordinary-shader outcome=shared-backend-fallback "
-                "reason=artifact-contract-rejected", rejected_log
+                "reason=compiler-configuration-licensebundleunavailable", rejected_log
             )
             self.assertIn(f"request={first['requestKey']}", rejected_log)
 
@@ -6801,10 +6806,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 root, route="prefer-generic"
             )
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertIn(
                 "profile=ordinary-shader outcome=shared-backend-fallback "
-                "reason=artifact-contract-rejected",
+                "reason=compiler-configuration-licensebundleunavailable",
                 rejected_log,
             )
 
@@ -6819,7 +6824,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             rejected, _, _, _ = self.run_harness(root, route="prefer-generic")
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
 
     def test_valid_but_forged_fragment_output_fact_fails_closed(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
@@ -6843,7 +6848,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=UNPROVEN_FRAGMENT,
             )
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
 
     def test_generic_only_syntax_preserves_unproven_output_fact(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
@@ -7378,7 +7383,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
                 f"state=generic-only profile={profile} outcome=rejected",
@@ -7471,12 +7476,12 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 root, route="prefer-generic", fragment=INTERPOLATED_FRAGMENT
             )
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
                 "state=generic-only "
                 "profile=source-proven-scalar-color-interpolation "
-                "outcome=rejected reason=artifact-contract-rejected",
+                "outcome=rejected reason=compiler-configuration-licensebundleunavailable",
                 rejected_log,
             )
 
@@ -7580,12 +7585,12 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=INTERPOLATED_FRAGMENT,
                 has_external_provider=True,
             )
-            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertEqual(fallback["code"], "compiler-configuration-licensebundleunavailable")
             self.assertTrue(fallback["permitsBoundedFrontend"])
             self.assertIn(
                 f"state=generic-only profile={profile} "
                 "outcome=shared-backend-fallback "
-                "reason=artifact-contract-rejected",
+                "reason=compiler-configuration-licensebundleunavailable",
                 fallback_log,
             )
 
@@ -8077,11 +8082,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=CONDITIONAL_GENERATED_RGB_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
                 f"state=generic-only profile={profile} outcome=rejected "
-                "reason=artifact-contract-rejected",
+                "reason=compiler-configuration-licensebundleunavailable",
                 rejected_log,
             )
 
@@ -8425,12 +8430,12 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 rejected, _, _, rejected_log = self.run_harness(
                     root, route="prefer-generic", fragment=fragment, **facts
                 )
-                self.assertEqual(rejected["code"], "artifact-contract-rejected")
+                self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
                 self.assertEqual(rejected["permitsBoundedFrontend"], shared_backend)
                 self.assertIn(
                     f"profile={profile} outcome="
                     f"{'shared-backend-fallback' if shared_backend else 'rejected'} "
-                    "reason=artifact-contract-rejected",
+                    "reason=compiler-configuration-licensebundleunavailable",
                     rejected_log,
                 )
 
@@ -8518,7 +8523,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertEqual(fallback["code"], "compiler-configuration-licensebundleunavailable")
             self.assertTrue(fallback["permitsBoundedFrontend"])
             self.assertEqual(fallback["fallbackOwner"], "bounded-frontend")
             self.assertIn(
@@ -8600,7 +8605,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
                 **provider_facts,
             )
-            self.assertEqual(mismatched["code"], "artifact-contract-rejected")
+            self.assertEqual(mismatched["code"], "compiler-configuration-licensebundleunavailable")
             self.assertIn(
                 f"profile={profile} outcome=shared-backend-fallback ",
                 mismatch_log,
@@ -8750,12 +8755,12 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fallback, _, _, fallback_log = self.run_harness(
                     root, route=None, fragment=fragment, **facts
                 )
-                self.assertEqual(fallback["code"], "artifact-contract-rejected")
+                self.assertEqual(fallback["code"], "compiler-configuration-licensebundleunavailable")
                 self.assertTrue(fallback["permitsBoundedFrontend"])
                 self.assertIn(
                     f"state={route_state} profile={profile} "
                     f"outcome={fallback_outcome} "
-                    "reason=artifact-contract-rejected",
+                    "reason=compiler-configuration-licensebundleunavailable",
                     fallback_log,
                 )
 
@@ -8813,7 +8818,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertEqual(rejected["fallbackOwner"], "bounded-frontend")
             self.assertIn(
@@ -8899,7 +8904,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertEqual(rejected["fallbackOwner"], "none")
             self.assertIn(
@@ -9074,7 +9079,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=fragment,
                 **facts,
             )
-            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertEqual(fallback["code"], "compiler-configuration-licensebundleunavailable")
             self.assertTrue(fallback["permitsBoundedFrontend"])
             self.assertEqual(fallback["fallbackOwner"], "bounded-frontend")
             self.assertIn(
@@ -9212,11 +9217,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 fragment=FILM_GRAIN_STOCK_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
                 f"state=generic-only profile={profile} outcome=rejected "
-                "reason=artifact-contract-rejected",
+                "reason=compiler-configuration-licensebundleunavailable",
                 rejected_log,
             )
 

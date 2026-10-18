@@ -122,9 +122,21 @@ accepted
 
 CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal library、pipeline、texture、surface 与 publication 仍属于当前进程和 device generation；在 OS/compiler/device/attachment identity 完整闭合并有真实首帧证据前，不得把磁盘 Program 命中表述为壁纸已经 ready。
 
+### 5.1 编译缓存身份与恢复
+
+编译规则或源码依赖变化后必须拒绝旧结果，同时保留无关 App/UI 修改后的暖启动收益。格式 schema 校验存储与 ABI，构建指纹负责生产规则失效，完整源码图负责内容依赖失效；不以手工 schema 作为唯一失效手段。
+
+构建阶段将 Compilation 自有 Swift、其显式共享输入类型、生成器规则与配置的内容摘要写入 App 的 `SceneShaderCacheIdentity.json`；工具链身份另覆盖受控 manifest、依赖锁定与实际 helper 字节。规则扫描包含新增/删除文件，不含路径根、mtime、Git/App 版本或 UI 源码；普通增量构建也重新检查，但摘要相同不重写资源。App 每进程只读取一次小型身份文件，所有 CPU 分析/准备/Program 键包含语义指纹，外部编译产物键再包含工具链指纹。身份文件缺失或非法时使用进程私有身份，继续正常编译但不跨进程复用未知产物；不从源码树或可执行文件运行时补算摘要。
+
+完整不可变 source graph 的实际内容摘要在 contract 构造/解码时计算一次，不能信任输入携带的 raw/dependency 摘要；preparation、variant 与 resource-demand 分析共用它，后两者的进程内与磁盘键都必须覆盖依赖。此摘要不进入逐帧路径，不改变根 stage 的既有 canonical admission identity。
+
+通用产物由原读取 owner 完整解码/合同校验，命中立即返回；无效或缺失则进入现有同键 single-flight，在锁定的工作内再检查一次，仍未命中才编译并原子发布一次，完成后再次完整校验。坏发布或真实编译失败返回原局部失败，不递归重试、不保存为成功；成功 URL 不长期充当内容有效性证据，已接受 CPU Program 的现有有界内存复用保留。不同进程可重复编译但只能原子发布完整产物，不先删除可能已被另一进程修复的文件。
+
+验收包括规则/工具变化与无关 UI 变化的指纹正反例、include-only 与陈旧自报摘要反例、各层独立进程冷暖读写、坏 JSON/旧合同/坏发布及并发单次重建，以及 Debug 构建和隔离真实 Scene 冷暖启动。旧磁盘条目按新身份成为 miss，沿既有有界淘汰退出；不全盘清缓存、不新增常驻调度器或第二缓存 owner。停止条件是这些边界闭合，不能将少量样本结果外推全量兼容或发布。
+
 <a id="ready-request-preparation"></a>
 
-### 5.1 ready-request 波次试验（已撤回）
+### 5.2 ready-request 波次试验（已撤回）
 
 将原 Variant/Material 准备拆为有界 prepare/execute/resume、让重复请求等待释放四槽 worker 的候选已在真实冷启动短筛中撤回；两次分别慢29.58%和25.67%，无产品收益。产品保原启动链，不能将该设计当待执行前置或继续扩建调度器。方案、输入身份与验收边界见[筛选记录](../history/shader-identity-hash-screen-2026-10-14.md#ready-request-screen)。只有新的实际瓶颈及可区分实验才重开；完整身份、失败回退、Catalog原子发布与现launch代次/取消owner仍是后续准备优化的边界。
 
