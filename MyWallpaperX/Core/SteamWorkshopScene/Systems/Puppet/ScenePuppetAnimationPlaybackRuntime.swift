@@ -50,6 +50,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 && lhs.animation.framesPerSecond == rhs.animation.framesPerSecond
                 && lhs.animation.frameCount == rhs.animation.frameCount
                 && lhs.animation.transformsByBone == rhs.animation.transformsByBone
+                && lhs.animation.transformTrackStates == rhs.animation.transformTrackStates
                 && lhs.animation.alphaByBone == rhs.animation.alphaByBone
                 && lhs.animation.events == rhs.animation.events
         }

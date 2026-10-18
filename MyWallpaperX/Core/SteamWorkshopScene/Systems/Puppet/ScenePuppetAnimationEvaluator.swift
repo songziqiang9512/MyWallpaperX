@@ -26,6 +26,7 @@ struct ScenePuppetAnimationEvaluator {
         let posesByBone: [[Pose]]
         let drivenBones: Set<Int>
         let authoredBones: Set<Int>
+        let referenceBones: Set<Int>
         let alphaVaries: Bool
         let hasAlphaContribution: Bool
         let alphaByBone: [[Float]]?
@@ -157,7 +158,7 @@ struct ScenePuppetAnimationEvaluator {
             guard preparedAnimations[animation.id] == nil else {
                 throw ScenePuppetAnimationEvaluationFailure.duplicateAdditiveAnimation(animation.id)
             }
-            preparedAnimations[animation.id] = try Self.prepare(animation: animation, boneCount: rig.bones.count)
+            preparedAnimations[animation.id] = try Self.prepare(animation: animation, rig: rig)
         }
         preparedAnimationsByID = preparedAnimations
     }
@@ -257,10 +258,11 @@ struct ScenePuppetAnimationEvaluator {
         if let prepared = preparedAnimationsByID[animation.id] {
             return try deformedPositions(
                 localMatrices: try prepared.posesByBone.indices.map { boneIndex in
-                    Self.matrix(from: try Self.sample(
-                        prepared.posesByBone[boneIndex],
-                        frameSample: frameSample
-                    ))
+                    let pose = try Self.sample(
+                        prepared.posesByBone[boneIndex], frameSample: frameSample
+                    )
+                    return prepared.referenceBones.contains(boneIndex)
+                        ? referenceLocalMatrices[boneIndex] : Self.matrix(from: pose)
                 }
             )
         }
@@ -446,6 +448,17 @@ struct ScenePuppetAnimationEvaluator {
               output.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
+        // Production clips are prepared at load. The fallback preserves the
+        // legacy convenience entry points, which can supply an unregistered clip.
+        var preparedAnimations = preparedAnimationsByID
+        for clip in selection.clips where preparedAnimations[clip.animation.id] == nil {
+            preparedAnimations[clip.animation.id] = try Self.prepare(animation: clip.animation, rig: rig)
+        }
+        if selection.clips.contains(where: {
+            preparedAnimations[$0.animation.id]?.referenceBones.isEmpty == false
+        }), selection.clips.reduce(0, { $0 + ($1.layer.additive == false ? 1 : 0) }) > 1 {
+            throw ScenePuppetAnimationEvaluationFailure.unsupportedReferenceComposition
+        }
         switch selection.composition {
         case .singleAbsolute:
             guard selection.clips.count == 1,
@@ -463,9 +476,17 @@ struct ScenePuppetAnimationEvaluator {
                 guard let sampled = Self.pose(from: try Self.sample(
                     animation.transformsByBone[boneIndex], frameSample: frameSample
                 )) else { throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA) }
+                let weight = blends?[0] ?? selection.clips[0].layer.blend ?? 1
+                if preparedAnimations[animation.id]?.referenceBones.contains(boneIndex) == true {
+                    guard weight.isFinite, weight >= 0, Float(weight).isFinite else {
+                        throw ScenePuppetAnimationEvaluationFailure.invalidBlend
+                    }
+                    output[boneIndex] = referenceLocalMatrices[boneIndex]
+                    continue
+                }
                 output[boneIndex] = Self.matrix(from: try Self.applying(
                     sampled, relativeTo: referencePoses[boneIndex], to: referencePoses[boneIndex],
-                    weight: blends?[0] ?? selection.clips[0].layer.blend ?? 1
+                    weight: weight
                 ))
             }
 
@@ -477,11 +498,11 @@ struct ScenePuppetAnimationEvaluator {
                     boneIndex: boneIndex,
                     clips: selection.clips,
                     frameSamples: frameSamples,
-                    preparedAnimationsByID: preparedAnimationsByID
+                    preparedAnimationsByID: preparedAnimations
                 )
                 if let baseClipIndex,
                    let baseSample = frameSamples[baseClipIndex],
-                   let prepared = preparedAnimationsByID[
+                   let prepared = preparedAnimations[
                        selection.clips[baseClipIndex].animation.id
                    ],
                    prepared.authoredBones.contains(boneIndex) {
@@ -493,7 +514,7 @@ struct ScenePuppetAnimationEvaluator {
                 }
                 for (clipIndex, clip) in selection.clips.enumerated() {
                     guard let frameSample = frameSamples[clipIndex],
-                          let prepared = preparedAnimationsByID[clip.animation.id],
+                          let prepared = preparedAnimations[clip.animation.id],
                           prepared.posesByBone.indices.contains(boneIndex),
                           prepared.authoredBones.contains(boneIndex)
                     else { continue }
@@ -513,17 +534,20 @@ struct ScenePuppetAnimationEvaluator {
 
     private static func prepare(
         animation: SceneMdlPuppetAnimation,
-        boneCount: Int
+        rig: SceneMdlPuppetRig
     ) throws -> PreparedAnimation {
-        guard animation.transformsByBone.count == boneCount else {
+        let boneCount = rig.bones.count
+        guard animation.transformsByBone.count == boneCount,
+              animation.transformTrackStates.count == boneCount else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
         var posesByBone: [[Pose]] = []
         posesByBone.reserveCapacity(boneCount)
         var drivenBones: Set<Int> = []
         var authoredBones: Set<Int> = []
+        var referenceBones: Set<Int> = []
         for (boneIndex, track) in animation.transformsByBone.enumerated() {
-            guard animation.frameCount >= 0,
+            guard animation.frameCount >= 0, animation.frameCount < Int.max,
                   track.isEmpty == false,
                   track.count == animation.frameCount + 1 else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
@@ -534,13 +558,24 @@ struct ScenePuppetAnimationEvaluator {
             }
             let unwrapped = poses.compactMap { $0 }
             let reference = unwrapped[0]
-            if unwrapped.contains(where: Self.isAuthoredPose) {
-                authoredBones.insert(boneIndex)
-            }
-            if unwrapped.dropFirst().contains(where: {
-                Self.maxDifference($0, reference) > 0.0001
-            }) {
-                drivenBones.insert(boneIndex)
+            if animation.transformTrackStates[boneIndex] == .referenceCandidate {
+                let matrix = Self.matrix(from: track[0])
+                let bind = Self.matrix(fromColumnMajor: rig.bones[boneIndex].bindLocalMatrixColumnMajor)
+                guard rig.referenceLocalMatricesColumnMajor == nil,
+                      track.dropFirst().allSatisfy({ $0 == track[0] }),
+                      Self.isFinite(matrix), Self.maxDifference(matrix, bind) <= 0.0001 else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidReferenceTrack(boneIndex)
+                }
+                referenceBones.insert(boneIndex)
+            } else {
+                if unwrapped.contains(where: Self.isAuthoredPose) {
+                    authoredBones.insert(boneIndex)
+                }
+                if unwrapped.dropFirst().contains(where: {
+                    Self.maxDifference($0, reference) > 0.0001
+                }) {
+                    drivenBones.insert(boneIndex)
+                }
             }
             posesByBone.append(unwrapped)
         }
@@ -561,6 +596,7 @@ struct ScenePuppetAnimationEvaluator {
             posesByBone: posesByBone,
             drivenBones: drivenBones,
             authoredBones: authoredBones,
+            referenceBones: referenceBones,
             alphaVaries: alphaVaries,
             hasAlphaContribution: animation.hasAlphaContribution,
             alphaByBone: animation.alphaByBone
@@ -571,11 +607,11 @@ struct ScenePuppetAnimationEvaluator {
         animation: SceneMdlPuppetAnimation,
         frameSample: FrameSample
     ) throws -> [simd_float4x4] {
-        guard animation.transformsByBone.count == rig.bones.count else {
-            throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
-        }
-        return try animation.transformsByBone.map { track in
-            Self.matrix(from: try Self.sample(track, frameSample: frameSample))
+        let prepared = try Self.prepare(animation: animation, rig: rig)
+        return try animation.transformsByBone.enumerated().map { boneIndex, track in
+            let sampled = try Self.sample(track, frameSample: frameSample)
+            return prepared.referenceBones.contains(boneIndex)
+                ? referenceLocalMatrices[boneIndex] : Self.matrix(from: sampled)
         }
     }
 

@@ -85,8 +85,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 377,
-      "bytes": 76672
+      "lines": 388,
+      "bytes": 79525
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 304,
-      "bytes": 118397
+      "lines": 308,
+      "bytes": 120016
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 64286
+      "bytes": 64258
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 53241
+      "bytes": 53102
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1324,15 +1324,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "888ae8aa9612227319c7d1cfc20b84dcdfc7042e849bdf278f49ef90cd9a5137",
-      "after": "8183c152cab8ffde0fbce258a1bd8fb6bfd764474e18aae9037cc634b86db9af",
-      "owner": "scene-puppet-source-depth",
-      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/technology-stack-boundaries.md",
       "before": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
       "after": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
@@ -1369,30 +1360,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "a22471ac102eabab638692515fb999a810cff5430cbca35d61c2c3911598d6f0",
-      "after": "9a2404ce873c8992da986a50aa765a84daba71c98591f1f0fc0c5da658241bca",
-      "owner": "scene-particle-coverage-qualification",
-      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "ab67e98c441f96bf549c717c35cb14e445f96cb2881955239725d93f65371936",
       "after": "454a394073103eb8e6862b09c6c59aff61815a33e09dd1b88b8dd6551b2aaa38",
       "owner": "scene-particle-coverage-qualification",
       "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "725a750bdea6471fdf10a0383cfd90a70357541075e3f8387924a7d2c79d9519",
-      "after": "fecec80ab429c41480cbb13fb674d8ea9fd3f5b997aec6f4669a3fad4c9cebeb",
-      "owner": "scene-shared-timer-cancellation",
-      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
     },
     {
       "section": "bodies",
@@ -1414,21 +1387,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "279ce091d2f6ebf0ee288da54d60b3726bd78dee23257f3797521bc61829049a",
-      "after": "077e8640b52fdf669cdc97ea856b01c3d46ae76e900effded642696611321b33",
-      "owner": "scene-shared-timer-cancellation",
-      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "5b31bb59906f3a99a37227203e64706a32ecc76027d5009c7cea2e4240316755",
       "after": "7627faff8c1b009b3f81fd0a46dc5beac0eb3de2687bb4170997e131f458f452",
       "owner": "scene-compiler-cache-identity",
       "reason": "原缓存权威补齐构建期编译语义/工具指纹、完整依赖身份与single-flight一次自愈设计及验收；不新增第二缓存owner或逐帧扫描。",
       "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#51-编译缓存身份与恢复"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "8183c152cab8ffde0fbce258a1bd8fb6bfd764474e18aae9037cc634b86db9af",
+      "after": "d681c1db704a85c26c1b2688dc91138711d28f6bcf4e57ac21d070cef05d7e29",
+      "owner": "scene-puppet-dense-reference-tracks",
+      "reason": "Bounded neutral-track design and actual original/heldout playback evidence; obsolete open first fault retired, full-sample verdict preserved.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-dense-reference-tracks"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "fecec80ab429c41480cbb13fb674d8ea9fd3f5b997aec6f4669a3fad4c9cebeb",
+      "after": "c016f17b18bdb270815aacfac82236613d3196b873de6ca40db647d0d1feaf36",
+      "owner": "scene-puppet-dense-reference-tracks",
+      "reason": "Bounded neutral-track design and actual original/heldout playback evidence; obsolete open first fault retired, full-sample verdict preserved.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-dense-reference-tracks"
     }
   ]
 }

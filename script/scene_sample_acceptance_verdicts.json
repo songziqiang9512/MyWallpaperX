@@ -689,15 +689,17 @@
     },
     "3396722575": {
       "verdict": "unreviewed",
-      "note": "2026-10-18原包短播放：人物/背景/文字可见，字体回调健康；头发后与身体动画仍未准备，2248→2252/2265→2269异常首因已锁MDLA0006 dense state1拒绝。常量state1直接当0的捷径被独立官方单header眼部对照否定，不放宽lookup、不记整样本PASS。",
+      "note": "10-18原包modern dense常量中性轨道首错已闭：头发/身体nested lookup恢复，实际init stop→event play、目标帧推进、各144个不同几何GPU完成及末合成成立；人物/头发/身体、背景和文字保持，App0/VM0/正常排空。只接无独立reference/单opaque的bind-equivalent中性profile；任意state1与完整交互/同phase官方合成未验，整样本仍unreviewed。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/font-value-type-official-20261018/native-heldout-3396722575/original-3396722575/execution.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/font-value-type-official-20261018/native-heldout-3396722575/original-3396722575/execution.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/constant-dense-state1-20261018/native-after/original339/execution.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/339-nested-animation-qualification-20261018/qualification.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/constant-dense-state1-20261018/official/qualification.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/constant-dense-state1-20261018/official/qualification.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/constant-dense-state1-20261018/native-after/final-summary.json"
       ],
-      "remainingDifferences": "头发/身体动画state1语义与播放未闭合；完整交互/同phase官方合成未验。",
+      "remainingDifferences": "完整交互、全部属性与同phase官方合成未验；更广state1/reference/mixing profile不由本次升级。",
       "officialComparison": "unknown"
     },
     "3807668787": {

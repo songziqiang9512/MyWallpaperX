@@ -140,9 +140,104 @@ func referenceEvaluation(mesh: SceneMdlPuppetMesh, rig: SceneMdlPuppetRig,
             "childWorld": transforms.world[1].columns.3.x,
             "points": points.map { [$0.x, $0.y] }, "written": written.map { [$0.x, $0.y] }]
 }
+func denseClip(_ id: Int = 1701, root: [SceneMdlPuppetAnimation.Transform]? = nil,
+               states: [SceneMdlPuppetAnimation.TransformTrackState] = [.referenceCandidate, .sampled],
+               alpha: Bool = false, tag: String = "neutral") -> SceneMdlPuppetAnimation {
+    .init(id: id, name: tag, mode: "single", framesPerSecond: 1, frameCount: 1,
+        transformsByBone: [root ?? [pose(4), pose(4)], [pose(2), pose(2)]],
+        transformTrackStates: states, alphaByBone: alpha ? [[1,1], [1,0.25]] : nil)
+}
+func denseEvaluation(_ clips: [ScenePuppetAnimationSelection.Clip],
+                     rig override: SceneMdlPuppetRig? = nil, hidden: Bool = false) throws -> [String: Any] {
+    let (mesh, original) = try fixture(vertexZ: 5)
+    let rig = override ?? original
+    let selection = try ScenePuppetAnimationSelector.select(layers: clips.map(\.layer),
+        animationSet: .init(boneCount: 2, animations: clips.map(\.animation))).get()!
+    let evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig,
+        additiveAnimations: clips.map(\.animation))
+    let samples: [ScenePuppetAnimationEvaluator.FrameSample?] = clips.map {
+        _ in hidden ? nil : .init(frameA: 1, frameB: 1)
+    }
+    let transforms = try evaluator.boneTransforms(selection: selection, frameSamples: samples)
+    let points = try evaluator.deformedPositions(selection: selection, frameSamples: samples)
+    var written = [SIMD2<Float>](repeating: .zero, count: 1)
+    var local = [simd_float4x4](repeating: matrix_identity_float4x4, count: 2)
+    var skin = local, world = local
+    try written.withUnsafeMutableBufferPointer {
+        try evaluator.writeDeformedPositions(selection: selection, frameSamples: samples, into: $0,
+            localMatricesScratch: &local, skinMatricesScratch: &skin, worldMatricesScratch: &world)
+    }
+    var coverage: [Float] = [0], boneCoverage: [Float] = [0,0]
+    try evaluator.writeVertexCoverages(selection: selection, frameSamples: samples,
+        into: &coverage, boneScratch: &boneCoverage)
+    return ["root": transforms.local[0].columns.3.x,
+        "child": transforms.local[1].columns.3.x, "point": [points[0].x, points[0].y],
+        "written": [written[0].x, written[0].y], "coverage": coverage[0],
+        "invariant": evaluator.isTimeInvariant(animationID: clips[0].animation.id)]
+}
+func denseReferenceCases() throws -> [String: Any] {
+    var output: [String: Any] = [:]
+    for weight in [0.0, 0.5, 1, 2] {
+        for additive in [false, true] {
+            let a = denseClip()
+            output["neutral-\(additive)-\(weight)"] = try denseEvaluation([
+                .init(layer: layer(weight, additive: additive, id: a.id), animation: a)])
+        }
+    }
+    let renamed = denseClip(2987, root: [pose(2 + 2), pose(2 + 2)], tag: "renamed-ρ")
+    output["renamed"] = try denseEvaluation([
+        .init(layer: layer(1, additive: false, id: renamed.id), animation: renamed)])
+    let sampled = denseClip(1702, root: [pose(9), pose(9)], states: [.sampled, .sampled])
+    output["sampled-constant"] = try denseEvaluation([
+        .init(layer: layer(1, additive: false, id: sampled.id), animation: sampled)])
+    let candidateOnChild = denseClip(1703, root: [pose(9), pose(9)],
+        states: [.sampled, .referenceCandidate])
+    output["second-bone"] = try denseEvaluation([
+        .init(layer: layer(1, additive: false, id: candidateOnChild.id), animation: candidateOnChild)])
+    for referenceOpaque in [false, true] {
+        let neutral = denseClip()
+        let pair: [ScenePuppetAnimationSelection.Clip] = [
+            .init(layer: layer(1, additive: !referenceOpaque, id: neutral.id), animation: neutral),
+            .init(layer: layer(1, additive: referenceOpaque, id: sampled.id), animation: sampled)]
+        output["mixed-\(referenceOpaque)"] = try denseEvaluation(pair)
+        output["reordered-\(referenceOpaque)"] = try denseEvaluation(Array(pair.reversed()))
+    }
+    let alpha = denseClip(alpha: true)
+    let alphaClips = [ScenePuppetAnimationSelection.Clip(
+        layer: layer(1, additive: false, id: alpha.id), animation: alpha)]
+    output["alpha"] = try denseEvaluation(alphaClips)
+    output["hidden"] = try denseEvaluation(alphaClips, hidden: true)
+    let (mesh, bind) = try fixture()
+    let assembled = SceneMdlPuppetRig(bones: bind.bones, vertexWeights: bind.vertexWeights,
+        referenceLocalMatricesColumnMajor: bind.bones.map(\.bindLocalMatrixColumnMajor))
+    for (label, candidate) in [
+        ("nonbind", denseClip(root: [pose(9), pose(9)])),
+        ("above-tolerance", denseClip(root: [pose(4.0002), pose(4.0002)])),
+        ("varying", denseClip(root: [pose(4), pose(4.00001)])),
+        ("state-count", denseClip(states: [.referenceCandidate]))
+    ] {
+        do {
+            _ = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: bind, additiveAnimations: [candidate])
+            output[label] = "accepted"
+        } catch { output[label] = String(describing: error) }
+    }
+    output["assembled-rejected"] = rejected {
+        try denseEvaluation([.init(layer: layer(1, id: alpha.id), animation: alpha)], rig: assembled)
+    }
+    output["multiple-opaque-rejected"] = rejected {
+        try denseEvaluation([.init(layer: layer(1, additive: false, id: alpha.id), animation: alpha),
+            .init(layer: layer(1, additive: false, id: sampled.id), animation: sampled)])
+    }
+    let close = denseClip(root: [pose(4.00005), pose(4.00005)])
+    output["within-tolerance"] = try denseEvaluation([
+        .init(layer: layer(1, additive: false, id: close.id), animation: close)])
+    return output
+}
+
 @main enum Harness {
     static func main() throws {
         var result: [String: Any] = [:]
+        result["denseReference"] = try denseReferenceCases()
         for w in [0.0,0.5,1,1.3,2] {
             for (label,additive,extra) in [("base",true,false),("extra",true,true),("opaque",false,false)] {
                 result["\(label)-\(w)"] = try evaluate(w,additive: additive,extra: extra)
@@ -302,7 +397,9 @@ class PuppetWeightTests(unittest.TestCase):
                 animation_marker=b"MDLA0004\0", bind_matrices=[matrix(4), matrix(2)],
                 skeleton_tail=b"\0\0\1" + struct.pack("<32f", *reference, *matrix(7))))
             extra_fixtures.append(str(path))
-        subprocess.run(["swiftc", *map(str, SWIFT_SOURCES), str(source), "-o", str(binary)], check=True, capture_output=True, text=True)
+        subprocess.run(["swiftc", "-module-cache-path", str(root / "module-cache"),
+                        *map(str, SWIFT_SOURCES), str(source), "-o", str(binary)],
+                       check=True, capture_output=True, text=True)
         cls.result = json.loads(subprocess.run([str(binary), str(fixture), *extra_fixtures],
                                               check=True, capture_output=True, text=True).stdout)
 
@@ -427,6 +524,34 @@ class PuppetWeightTests(unittest.TestCase):
                 self.assertIn("reference local transform 0 is not decomposable",
                               self.result[f"reference-{shape}-{mode}"])
             self.assertEqual(self.result[f"reference-rotated-{mode}"], "accepted")
+
+    def test_dense_reference_tracks_are_neutral_without_stealing_pose_ownership(self):
+        result = self.result["denseReference"]
+        for key in [f"neutral-{str(a).lower()}-{w}" for a in (False, True)
+                    for w in ("0.0", "0.5", "1.0", "2.0")] + ["renamed", "within-tolerance", "hidden"]:
+            with self.subTest(key=key):
+                self.assertEqual(result[key]["point"], [2, 1])
+                self.assertEqual(result[key]["written"], [2, 1])
+                if key != "hidden":
+                    self.assertTrue(result[key]["invariant"])
+        for key in ("sampled-constant", "second-bone", "mixed-false", "mixed-true",
+                    "reordered-false", "reordered-true"):
+            with self.subTest(key=key):
+                self.assertAlmostEqual(result[key]["root"], 9)
+                self.assertEqual(result[key]["point"], [7, 1])
+                self.assertEqual(result[key]["written"], [7, 1])
+        self.assertTrue(result["sampled-constant"]["invariant"])
+        self.assertEqual(result["alpha"]["coverage"], .25)
+        self.assertFalse(result["alpha"]["invariant"])
+        self.assertEqual(result["hidden"]["coverage"], 1)
+
+    def test_dense_reference_profile_rejects_nonbind_varying_assembled_and_ambiguous_inputs(self):
+        result = self.result["denseReference"]
+        for key in ("nonbind", "above-tolerance", "varying"):
+            self.assertIn("reference track 0", result[key])
+        self.assertNotEqual(result["state-count"], "accepted")
+        self.assertTrue(result["assembled-rejected"])
+        self.assertTrue(result["multiple-opaque-rejected"])
 
 
 if __name__ == "__main__":

@@ -164,6 +164,17 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 - 旧覆盖范围扫描已退出产品调用链；同片删除 Evaluator 三个无产品 caller 的 bounds 方法、对应死测试和未读取的 stored mesh，不扩展旧估算算法或调整 target/cap。删除引用不作为内存收益。
 - 验收沿实际 positions/writer 覆盖正负 Z、X/Y 旋转、非 identity bind、四 influence 与改名/等价重排、平面/纯平移/Rz反例及最终溢出；复用原首次失败/保留/恢复发布合同。一次 Debug、原包眨眼的实际 GPU/末合成及未参与修法的平面 Puppet 回归后才升级状态。若只见整体裁切/重定位、效果混淆、旧输入回退或需要新增输出 owner 则停止；不承诺全周期、全 MDL 族、官方内部公式、逐像素或性能一致性。
 
+<a id="puppet-dense-reference-tracks"></a>
+
+### 3.2.3 现代dense常量参考轨道
+
+2026-10-18 已按本节先行设计完成有界实施与原包/独立样本验收，实际身份见[运行证据](runtime-evidence-current.md#constant-dense-state1-20261018)。旧逐骨state1拒绝使整个MDLA准备失败，连带已存在的nested animation lookup不可用；原拒绝路径仅在下列中性profile退出，不补假lookup或把1擦成0。固定官方2.8.0.42的单字节A0/B1对照中，只改变骨9标记后其local origin与Mat4.translation由固定动画值回到bind-like，0/12仍保动画值，排除整clip重置；此为单profile的参考式消费，不区分接近的bind/其他初始参考，也不定义任意state1数学。原339两模型38条state1均为常量且与bind数值等价，只作为受益输入，不成为产品分派条件。
+
+- **职责与范围。** 原MDLA0006 reader保留逐骨原标记与完整TRS；state0行为不变，state1只读完整常量轨道，其他state、变化值、长度/finite/end错误仍拒绝原最小资源。现IR向唯一Evaluator传递标记，不再借“非identity”或“随时间变化”分类猜作者标记。
+- **准备与消费。** 仅无独立assembled reference、常量state1矩阵与MDLS bind逐元素最大差不超过0.0001的中性profile准入；该阈值是项目浮点准备容差，不是官方精度合同。其pose贡献保持原参考而不成为opaque骨owner；含state1的selection最多一个opaque clip，避免未证的多个替换层归属。更多payload、reference或层组合保持原unsupported。single与layered消费同一准备语义，state0恒定非identity仍正常贡献；alpha、events、visibility、blend与现clock不随TRS标记停用。
+- **身份、失败与退出。** 原PlaybackRuntime不可变clip定义纳入标记，跨surface同ID/TRS不同标记不能共用旧定义。bind inverse、script/query/render pose、skinning、attachment、资源及最终输出仍各用原owner；普通帧不再读二进制或重建轨道。新profile不合法沿原局部失败/已验证reference回退，不跳记录、不吞旧原因。若原包仍不推进、健康同伴或生命周期回退，撤回该准入而保留证据，不通过改作者参数救图。
+- **验收。** 最近reader/weights/playback门覆盖改名、等价输入、state0常量非identity、单/多clip中性轨道、权重、非恒定/非bind/未知state与reference/多opaque反例，以及仅标记不同的重注册冲突。一次Debug后须原输入实际prepared nested lookup、事件接续、目标pose推进、GPU/末合成及独立真实Puppet保持；只有首错退出不能记完整动画/官方同phase或性能收益。固定官方原图、数值、layout偏差与失败归[运行证据](runtime-evidence-current.md#constant-dense-state1-20261018)。
+
 ### 3.3 骨骼透明度动画
 
 目标是让含逐骨骼 alpha 轨道的 Puppet 动画进入真实合成，修复新版 MDLA reader 将 present flag 当全零字段的问题。官方 2.2 更新日志公开了 bone alpha animation；固定 2.8.0.42 客户端同帧原始/全零/全一控制的骨骼矩阵相同，全零隐藏、全一显示，全骨骼 0.5 显示半透明，排除运行时重复累乘 parent alpha。先行设计已实施；固定输入、官方观察与产品验证见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-bone-alpha)。

@@ -1,4 +1,9 @@
 struct SceneMdlPuppetAnimation {
+    enum TransformTrackState: UInt32 {
+        case sampled = 0
+        case referenceCandidate = 1
+    }
+
     struct Event: Equatable, Sendable {
         let name: String
         let frame: Int
@@ -18,6 +23,8 @@ struct SceneMdlPuppetAnimation {
     let framesPerSecond: Float
     let frameCount: Int
     let transformsByBone: [[Transform]]
+    /// Original dense-track state; reference candidates still retain every TRS sample.
+    let transformTrackStates: [TransformTrackState]
     /// Exported per-bone alpha samples use the same frame schedule as TRS.
     /// Absence means opaque; exported values are consumed directly.
     let alphaByBone: [[Float]]?
@@ -32,6 +39,7 @@ struct SceneMdlPuppetAnimation {
         framesPerSecond: Float,
         frameCount: Int,
         transformsByBone: [[Transform]],
+        transformTrackStates: [TransformTrackState]? = nil,
         alphaByBone: [[Float]]? = nil,
         events: [Event] = []
     ) {
@@ -41,6 +49,8 @@ struct SceneMdlPuppetAnimation {
         self.framesPerSecond = framesPerSecond
         self.frameCount = frameCount
         self.transformsByBone = transformsByBone
+        self.transformTrackStates = transformTrackStates
+            ?? Array(repeating: .sampled, count: transformsByBone.count)
         self.alphaByBone = alphaByBone
         self.hasAlphaContribution = alphaByBone?.contains { $0.contains { $0 != 1 } } == true
         self.events = events

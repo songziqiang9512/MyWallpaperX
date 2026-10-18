@@ -95,6 +95,10 @@ enum ScenePuppetAnimationSelector {
             // contributors still require an independently established rule.
             return .failure(.unsupportedLayer(alphaClip.layer.id))
         }
+        if clips.contains(where: { $0.animation.transformTrackStates.contains(.referenceCandidate) }),
+           clips.filter({ $0.layer.additive == false }).count > 1 {
+            return .failure(.unsupportedLayer(clips.first?.layer.id))
+        }
         if clips.count == 1, clips[0].layer.additive == false {
             return .success(.init(clips: clips, composition: .singleAbsolute))
         }
@@ -113,6 +117,8 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
     case singularBindMatrix(Int)
     case invalidBindTransform(Int)
     case invalidReferenceTransform(Int)
+    case invalidReferenceTrack(Int)
+    case unsupportedReferenceComposition
     case invalidFrame(Int)
     case duplicateAdditiveAnimation(Int)
     case invalidBlend
@@ -132,6 +138,10 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
             return "puppet bind local transform \(index) is not decomposable"
         case .invalidReferenceTransform(let index):
             return "puppet reference local transform \(index) is not decomposable"
+        case .invalidReferenceTrack(let index):
+            return "puppet animation reference track \(index) is outside the bounded bind-equivalent profile"
+        case .unsupportedReferenceComposition:
+            return "puppet reference tracks require at most one opaque clip"
         case .invalidFrame(let index):
             return "puppet animation frame \(index) is out of bounds"
         case .duplicateAdditiveAnimation(let animationID):

@@ -762,6 +762,22 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-puppet-dense-reference-tracks",
+      "title": "现代dense常量参考轨道",
+      "owner": "scene-puppet-reader/evaluator/playback",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
+      "design_notes": "2026-10-18 #puppet-dense-reference-tracks先行设计：原reader/IR保逐骨state，仅现代完整常量且无独立reference、等价bind及至多单opaque的中性profile；single/layered同一准备消费，原alpha/events/clock保持，immutable定义纳state。固定官方只证单骨参考式结果；任意payload、变化state1、独立reference/多opaque不开放。实际原包与独立回归另验。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

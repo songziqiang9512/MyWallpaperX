@@ -193,13 +193,17 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 <a id="constant-dense-state1-20261018"></a>
 
-### 现代dense动画state1：首错与已否定修法（2026-10-18）
+### 现代dense常量参考轨道：有界准备与播放（2026-10-18）
 
-原3396722575在字体独立样本运行中有2248「头发后」→2252、2265「身体」→2269两条nested-owner异常。按原输入回源，首错是MDLV0023/MDLA0006的dense track header state1被reader拒绝，未生成prepared animation；共同parent2243与查询脚本不是新增lookup缺口。头发首clip390/bone0 offset125135、身体clip322/bone0 offset235314；两文件分别2/15条state1 track均为有限常量TRS。条件字节诊断若假定1可读为0，两MDLA均可到exact end，但该诊断不能定义语义或授权放宽。
+原339的2248→2252、2265→2269 lookup异常首错在更早MDLV0023/MDLA0006逐骨state1拒绝。旧字节诊断只证exact end，旧固定官方单header两臂的眼部变化否定“1直接当0”；原资格、四raw与失败保在`.artifacts/tmp/constant-dense-state1-20261018/official/`及原339资格，不改判全格式语义。后继两模型五clip共38条state1均为常量、矩阵与bind最大差7.45e-8，只是输入事实。
 
-固定官方2.8.0.42两臂各一次：A0复用已健康的U27固定305闭包，B1只把clip806/bone9的header 0→1，901份非bind常量TRS、XYZ及其余44文件/159项全部保持。每臂两张原始GDI：A0均为棕色闭眼片，B1同区域均出现白/黑眼部；周围头部landmark、人、灯笼与背景健康，没有整头重定位或裁切解释该局部变化。只证明这条state1具有行为意义，**否定按0等价处理**；ignored/reference-relative/static及变化track规则仍UNKNOWN，不改产品、不松lookup、不再补无区分矩阵。
+新固定官方2.8.0.42 A0/B1各一次，以同一只读observer显示实际local origin及Mat4.translation：A0骨9为(57.1123,11.2236,0)，0/12分别(703.8498,-754.0087,0)/(39.8333,112.6611,0)；B1只改9 header后其两getter均为(116.7366,122.9255,0)，0/12保持。N13、live49→77/103→133与两帧健康成立，数值误差≤0.00004805，小于预锁.01；眼由棕片闭合到露出，排除本输入整clip重置。七行实际y204..324超预计panel，按完整raw读取，没有移动或重拟合，不称固定ROI全覆盖。118执行输入无漂移、自有窗口close0后运输/guest清理/receiver5924保持；summary SHA`530d05d6…effc84`。只证逐轨reference-like，bind与接近的其他初始参考、独立assembled reference、变化payload仍未区分；B1非bind payload本身不在产品准入内。
 
-原始资格`.artifacts/tmp/339-nested-animation-qualification-20261018/qualification.json`与官方两臂`.artifacts/tmp/constant-dense-state1-20261018/official/qualification.json`（SHA`48ea414f…fcdac`）保留。每臂preflight/dispatch0，输入无漂移，关闭自有窗口后才运输并删guest stage；四raw共5,234,794B保留。host88份输入在manifest/无句柄核对后清162,748,734逻辑B；VM/receiver保持运行，正式归档待既有容量答复。无native实现/新App运行、官方内部时钟或GPU计数、完整样本一致性结论。
+[唯一中性profile合同](advanced-object-coverage.md#puppet-dense-reference-tracks)复用Reader→显式IR→唯一Evaluator/Playback；五产品freeze`47404778…c981`。最近reader/weights/playback三门80PASS/1旧realcache缺席skip，24输入/14Swift/三次编译无漂移，预启动controller import错误发生于0编译/0测试并保留；无产品失败。固定87a5bb128加五产品的一次normal Debug35.371s/4311输入无漂移/签名0，只同步5文件并保4306mtime；App`16a80fc1…6b4a2`/dylib`2bbdfeff…41b6b`/CDHash`4a0b44218d5cbab3d29d86b8c277520f5a28ace4`。不含并行shader/cache改动，独审GO，无性能比较。
+
+原339未改三输入，19s/after16/series10实际两层prepared骨5/20；frame0四init stop、frame15四event play含2252/2269，后续各目标currentFrame推进/loop。两层各144个不同geometry digest、144GPU completed/0failed，末effect3/5在frame0/1及后期实际compositorConsumed=true；根亲看三raw及旧静态图，人物/头发/身体、背景/运动字保持，旧lookup异常退出。67.090s/App0/VM失败0。旧5d0e失败仅复用20个相同Puppet源与三原输入的首错证明，不作整App或性能基线。独立原322的48输入同App10s/after7，侧眼、中央脸颈/身体与mask/背景保持，63.193s/App0/VM失败0；不同viewport/phase不认官方精确parity，不关闭旧手部余项。两run均无身份漂移、stop1→0/GPU排空/进程组消失；controller0之外另按日志、pose、GPU和原图裁决，不记整样本/全部参数验收。
+
+必要原图、首失败、冻结/构建/最终收据保`.artifacts/tmp/constant-dense-state1-20261018/`，Swift测试收据归`.artifacts/tmp/puppet-dense-reference-tracks-20261018/tests/attempt01/`。官方88份host副本162716194B及停止的native输入/HOME和旧a7e3 stage625350903B已按manifest/零句柄清理；保唯一16a80fc1 stage与原单份source/DerivedData缓存，VM保持运行，正式归档待既有容量答复。没有CPU/GPU、内存、启动或能耗收益结论。
 
 <a id="asset-path-string-values-20261018"></a>
 

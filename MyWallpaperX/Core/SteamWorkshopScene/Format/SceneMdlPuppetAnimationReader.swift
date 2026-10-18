@@ -282,7 +282,8 @@ enum SceneMdlPuppetAnimationReader {
                 bound: endOffset,
                 animationID: id,
                 boneCount: boneCount,
-                sampleCount: sampleCount
+                sampleCount: sampleCount,
+                permitsReferenceCandidates: trailerContract == .modernAuxiliary
             )
             let trailer = try readTrailer(
                 data: data,
@@ -303,7 +304,8 @@ enum SceneMdlPuppetAnimationReader {
                 mode: mode,
                 framesPerSecond: framesPerSecond,
                 frameCount: frameCount,
-                transformsByBone: transforms,
+                transformsByBone: transforms.tracks,
+                transformTrackStates: transforms.states,
                 alphaByBone: trailer.alphaByBone,
                 events: trailer.events
             ))
@@ -320,14 +322,21 @@ enum SceneMdlPuppetAnimationReader {
         bound: Int,
         animationID: Int,
         boneCount: Int,
-        sampleCount: Int
-    ) throws -> [[SceneMdlPuppetAnimation.Transform]] {
+        sampleCount: Int,
+        permitsReferenceCandidates: Bool
+    ) throws -> (tracks: [[SceneMdlPuppetAnimation.Transform]],
+                 states: [SceneMdlPuppetAnimation.TransformTrackState]) {
         let expectedBytes = sampleCount * transformByteCount
         var tracks: [[SceneMdlPuppetAnimation.Transform]] = []
         tracks.reserveCapacity(boneCount)
+        var states: [SceneMdlPuppetAnimation.TransformTrackState] = []
+        states.reserveCapacity(boneCount)
         for boneIndex in 0 ..< boneCount {
             guard cursor + 8 <= bound,
-                  readUInt32(data, at: cursor) == 0,
+                  let state = SceneMdlPuppetAnimation.TransformTrackState(
+                      rawValue: readUInt32(data, at: cursor)
+                  ),
+                  state == .sampled || permitsReferenceCandidates,
                   Int(readUInt32(data, at: cursor + 4)) == expectedBytes,
                   cursor + 8 + expectedBytes <= bound
             else {
@@ -360,10 +369,17 @@ enum SceneMdlPuppetAnimationReader {
                     scale: SIMD3(values[6], values[7], values[8])
                 ))
             }
+            guard state != .referenceCandidate
+                || transforms.dropFirst().allSatisfy({ $0 == transforms[0] }) else {
+                throw SceneMdlPuppetAnimationReadError.invalidTrack(
+                    animationID: animationID, boneIndex: boneIndex
+                )
+            }
             cursor += expectedBytes
             tracks.append(transforms)
+            states.append(state)
         }
-        return tracks
+        return (tracks, states)
     }
 
     private static func readTrailer(

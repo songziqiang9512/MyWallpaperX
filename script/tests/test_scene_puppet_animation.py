@@ -54,6 +54,7 @@ enum Harness {
                         "frameCount": animation.frameCount,
                         "duration": Double(animation.durationSeconds),
                         "trackCount": animation.transformsByBone.count,
+                        "trackStates": animation.transformTrackStates.map(\.rawValue),
                         "sampleCounts": animation.transformsByBone.map(\.count),
                         "alphaByBone": animation.alphaByBone.map {
                             $0.map { $0.map { Double($0) } } as Any
@@ -142,6 +143,8 @@ def animation_record(
     events: list[bytes] | None = None,
     declared_event_count: int | None = None,
     modern_prefix: bytes = b"\0" * 25,
+    track_states: list[int] | None = None,
+    track_samples: dict[int, list[tuple[float, ...]]] | None = None,
 ) -> bytes:
     body = bytearray(struct.pack("<II", animation_id, header_state))
     body += name.encode() + b"\0"
@@ -157,12 +160,13 @@ def animation_record(
     expected_bytes = sample_count * 36
     for bone in range(bone_count):
         byte_count = expected_bytes - 4 if bad_track_bytes and bone == 0 else expected_bytes
-        body += struct.pack("<II", 0, byte_count)
+        body += struct.pack("<II", 0 if track_states is None else track_states[bone], byte_count)
         samples = bytearray()
         for frame in range(sample_count):
             samples += struct.pack(
                 "<9f",
-                *transform(frame, bone, nan_component=nan_transform and frame == 1 and bone == 0),
+                *(track_samples[bone][frame] if track_samples and bone in track_samples else
+                  transform(frame, bone, nan_component=nan_transform and frame == 1 and bone == 0)),
             )
         body += samples[:byte_count]
     if legacy_trailer:
@@ -553,6 +557,40 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
             cls.fixtures[f"bad-mdla5-{label}.mdl"] = build_mdl(
                 [first], bone_count=3, **profile
             )
+        held = (10.0, -20.0, 3.0, 0.1, -0.2, 0.3, 1.5, 0.8, 1.0)
+        for filename, clip_id, clip_name, samples in (
+            ("dense-reference.mdl", 1301, "Held reference", [held] * 3),
+            ("renamed-κ-resource.mdl", 2907, "不同控制", [tuple(x + 0.0 for x in held)] * 3),
+        ):
+            cls.fixtures[filename] = build_mdl([
+                animation_record(clip_id, clip_name, 2, 2, track_states=[1, 0],
+                    track_samples={0: samples}, alpha_by_bone=bone_alpha),
+                animation_record(clip_id + 1, "Following ordinary clip", 2, 2),
+            ], **(dict(magic=b"MDLV0021", skeleton_marker=b"MDLS0003\0") if clip_id == 2907 else {}))
+        dense = dict(track_states=[1, 0], track_samples={0: [held] * 3})
+        for component in range(9):
+            changed = list(held)
+            changed[component] += 0.00001
+            cls.fixtures[f"bad-dense-vary-{component}.mdl"] = build_mdl([
+                animation_record(1301, "Not constant", 2, 2,
+                    track_states=[1, 0], track_samples={0: [held, held, tuple(changed)]})])
+        for label, options in (("state2", dict(track_states=[2, 0])),
+                               ("length", dict(bad_track_bytes=True)),
+                               ("nonfinite", dict(track_samples={0: [(math.nan, *held[1:])] * 3}))):
+            cls.fixtures[f"bad-dense-{label}.mdl"] = build_mdl([
+                animation_record(1301, "Invalid reference", 2, 2, **(dense | options))])
+        for label, record, options in (
+            ("legacy16", dict(per_bone_auxiliary_trailer=True), dict(magic=b"MDLV0016",
+                skeleton_marker=b"MDLS0002\0", animation_marker=b"MDLA0003\0")),
+            ("legacy17", dict(legacy_trailer=True), dict(magic=b"MDLV0017",
+                skeleton_marker=b"MDLS0002\0", animation_marker=b"MDLA0004\0")),
+            ("legacy19", dict(mdla5_trailer=True), mdla5),
+        ):
+            cls.fixtures[f"bad-dense-{label}.mdl"] = build_mdl([
+                animation_record(1301, "Unqualified version", 2, 2, **dense, **record)], **options)
+        record = animation_record(1301, "Exact end", 2, 2, **dense)
+        cls.fixtures["bad-dense-end.mdl"] = build_mdl([record], corrupt_end_offset=True)
+        cls.fixtures["bad-dense-tail.mdl"] = build_mdl([record + b"\0"])
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
 
@@ -596,6 +634,29 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
 
     def test_absent_block_returns_no_animation_set(self):
         self.assertEqual(self.results["absent.mdl"].get("absent"), True)
+
+    def test_modern_constant_reference_state_is_loss_preserving_and_not_clip_wide(self):
+        for name in ("dense-reference.mdl", "renamed-κ-resource.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertTrue(entry["ok"], entry)
+                first, following = entry["animations"]
+                self.assertEqual(first["trackStates"], [1, 0])
+                self.assertEqual(following["trackStates"], [0, 0])
+                self.assertEqual(first["sampleCounts"], [3, 3])
+                self.assertEqual(first["firstTransform"], first["lastTransform"])
+                for actual, expected in zip(first["firstTransform"],
+                        [10, -20, 3, .1, -.2, .3, 1.5, .8, 1], strict=True):
+                    self.assertAlmostEqual(actual, expected, places=6)
+                self.assertEqual(first["alphaByBone"], [[1, .5, 0], [0, .25, 1]])
+        self.assertEqual(self.results["valid-legacy.mdl"]["animations"][0]["trackStates"], [0, 0])
+
+    def test_reference_track_does_not_relax_version_shape_numeric_or_exact_end(self):
+        cases = {name: result for name, result in self.results.items() if name.startswith("bad-dense-")}
+        self.assertEqual(len(cases), 17)
+        for name, result in cases.items():
+            with self.subTest(name=name):
+                self.assertFalse(result["ok"], result)
 
     def test_modern_events_preserve_typed_fields_and_next_clip_boundary(self):
         entry = self.results["events-two-clips.mdl"]

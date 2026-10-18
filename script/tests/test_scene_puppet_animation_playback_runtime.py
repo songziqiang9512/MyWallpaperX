@@ -257,6 +257,45 @@ func evaluate(_ frame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
     return [Double(matrices[0].columns.3.x), Double(coverage[0])]
 }
 
+func denseStateRuntimeReport() throws -> [[String: Any]] {
+    var output: [[String: Any]] = []
+    for (id, tag) in [(1, "held"), (917, "renamed-σ")] {
+        func held(_ state: SceneMdlPuppetAnimation.TransformTrackState?) -> SceneMdlPuppetAnimation {
+            .init(id: id, name: tag, mode: "loop", framesPerSecond: 2, frameCount: 4,
+                transformsByBone: [Array(repeating: .init(translation: .zero, rotation: .zero,
+                    scale: SIMD3(repeating: 1)), count: 5)],
+                transformTrackStates: state.map { [$0] }, alphaByBone: [[1,0.75,0.5,0.25,1]],
+                events: [event("\(tag)-cue", 1)])
+        }
+        let ownerLayer = layer(animationID: id)
+        let definition = selection(ownerLayer, held(.referenceCandidate))
+        let runtime = try eventRuntime(definition)
+        _ = step(runtime, 0, 0)
+        let first = step(runtime, 1, 0.5)
+        let same = registration(runtime.register(layerID: 42, selection: definition,
+            authoredLayers: [ownerLayer]))
+        let changed = selection(ownerLayer, held(.sampled))
+        let result = runtime.register(layerID: 42, selection: changed, authoredLayers: [ownerLayer])
+        let conflict: Bool
+        if case let .failure(failure) = result { conflict = failure == .conflictingDefinition(layerID: 42) }
+        else { conflict = false }
+        let next = step(runtime, 2, 1)
+        let hidden = step(runtime, 3, 1.5, visible: false)
+        let resumed = step(runtime, 4, 1.75)
+        let defaultRuntime = try eventRuntime(selection(ownerLayer, held(nil)))
+        let defaultEquivalent = registration(defaultRuntime.register(layerID: 42,
+            selection: changed, authoredLayers: [ownerLayer]))
+        output.append(["same": same, "stateOnlyConflict": conflict,
+            "defaultEquivalent": defaultEquivalent, "firstSamples": report(first),
+            "firstPoseAlpha": try evaluate(first, selection: definition),
+            "firstEvents": events(first).map { $0["name"] as! String },
+            "nextSamples": report(next), "nextPoseAlpha": try evaluate(next, selection: definition),
+            "hidden": report(hidden), "resumed": report(resumed),
+            "resumedPoseAlpha": try evaluate(resumed, selection: definition)])
+    }
+    return output
+}
+
 @main enum Harness {
     static func main() throws {
         var output: [String: Any] = [:]
@@ -618,6 +657,7 @@ func evaluate(_ frame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
             !sameRetirement.animationSnapshots.contains { $0.identity.layerID == -1 }]
 
         output["animationEvents"] = try animationEventReport()
+        output["denseState"] = try denseStateRuntimeReport()
         print(String(decoding: try JSONSerialization.data(withJSONObject: output,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -634,7 +674,8 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
             root = Path(directory)
             source, binary = root / "runtime.swift", root / "runtime"
             source.write_text(HARNESS, encoding="utf-8")
-            command = ["swiftc", *map(str, SWIFT_SOURCES),
+            command = ["swiftc", "-module-cache-path", str(root / "module-cache"),
+                       *map(str, SWIFT_SOURCES),
                        str(SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationControl.swift"),
                        str(SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift"),
                        str(SCENE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift"),
@@ -730,6 +771,21 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
         self.assertFalse(result["conflictAccepted"])
         self.assertFalse(result["alphaConflictAccepted"])
         self.assertEqual(result["afterConflict"], [[3, 4, 0.5]])
+
+    def test_reference_state_identity_does_not_stop_clock_alpha_events_or_hidden_resume(self) -> None:
+        for result, name in zip(self.result["denseState"], ("held", "renamed-σ"), strict=True):
+            with self.subTest(name=name):
+                self.assertTrue(result["same"])
+                self.assertTrue(result["stateOnlyConflict"])
+                self.assertTrue(result["defaultEquivalent"])
+                self.assertEqual(result["firstSamples"], [[1, 2, 0]])
+                self.assertEqual(result["firstPoseAlpha"], [0, .75])
+                self.assertEqual(result["firstEvents"], [f"{name}-cue"])
+                self.assertEqual(result["nextSamples"], [[2, 3, 0]])
+                self.assertEqual(result["nextPoseAlpha"], [0, .5])
+                self.assertEqual(result["hidden"], [[]])
+                self.assertEqual(result["resumed"], [[2, 3, .5]])
+                self.assertEqual(result["resumedPoseAlpha"], [0, .375])
 
     def test_single_loop_mirror_and_rates_preserve_natural_fractional_sampler(self) -> None:
         self.assertEqual(len(self.result["naturalSamples"]), 9)
