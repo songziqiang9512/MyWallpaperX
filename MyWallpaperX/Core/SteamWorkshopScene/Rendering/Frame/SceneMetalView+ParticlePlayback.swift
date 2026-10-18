@@ -61,15 +61,24 @@ extension SceneMetalView {
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> [SceneParticleDrawBatch] {
         guard let particlePlayback else { return [] }
+#if DEBUG
         performanceTelemetry?.beginStage("particle-pointer-projection")
+#endif
+
         let pointerLocalPositions = renderer.particlePointerLocalPositions(
             frameContext: frameContext,
             cameraFrame: cameraFrame,
             frameProjection: frameProjection,
             demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs
         )
+#if DEBUG
         performanceTelemetry?.endStage("particle-pointer-projection")
+#endif
+
+#if DEBUG
         performanceTelemetry?.beginStage("particle-advance")
+#endif
+
         let batches = particlePlayback.advance(
             by: timing.simulationFrameTime,
             dynamicValues: dynamicValues,
@@ -77,7 +86,10 @@ extension SceneMetalView {
             audioSpectrum: frameContext.audioSpectrum,
             layerWorldFrames: frameProjection.worldFrames
         )
+#if DEBUG
         performanceTelemetry?.endStage("particle-advance")
+#endif
+
         return batches
     }
 
@@ -87,6 +99,7 @@ extension SceneMetalView {
             return
         }
         let snapshot = observation.snapshotBeforeTeardown
+#if DEBUG
         NSLog(
             "MWX Particle: lifecycle=teardown id=%@ reason=%@ layers=%d rootSystems=%d childSystems=%d rootParticles=%d childParticles=%d batches=%d route=generic-only",
             observation.lifecycleIdentity.uuidString,
@@ -98,6 +111,7 @@ extension SceneMetalView {
             snapshot.childParticleCount,
             observation.batchCountBeforeTeardown
         )
+#endif
     }
 }
 
@@ -133,7 +147,6 @@ extension SceneMetalView {
         return values
     }
 }
-
 #if DEBUG
 extension SceneMetalView {
     func logExplicitParticleInstall(_ transitions: [SceneParticlePlaybackTransition], frame: UInt64, surface: UInt32) {

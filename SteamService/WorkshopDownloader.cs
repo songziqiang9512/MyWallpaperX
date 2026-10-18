@@ -224,7 +224,9 @@ internal sealed partial class SteamSession
                         try { lease.RemoveUnacknowledgedIfEmpty(); }
                         catch (Exception cleanupError)
                         {
+#if DEBUG
                             writer.SendDiagnostic($"unacknowledged staging cleanup failed: {cleanupError.Message}");
+#endif
                         }
                     }
                     throw;
@@ -445,7 +447,9 @@ internal sealed partial class SteamSession
         return drive.AvailableFreeSpace;
     }
 
+#if DEBUG
     internal static long AvailableDiskBytesForTest(string path) => AvailableDiskBytes(path);
+#endif
 
     internal static bool CanReserveDiskBytes(long requiredBytes, long availableBytes, long alreadyReservedBytes) =>
         requiredBytes >= 0 && requiredBytes <= MaxStagedBytes
@@ -827,6 +831,8 @@ internal sealed partial class SteamSession
         finally { downloadChunkSlots.Release(); }
     }
 
+#if DEBUG
     internal async Task<T> WithDownloadChunkSlotForTest<T>(Func<Task<T>> body, CancellationToken ct) =>
         await WithDownloadChunkSlot(body, ct).ConfigureAwait(false);
+#endif
 }

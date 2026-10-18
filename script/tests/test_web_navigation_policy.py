@@ -65,6 +65,8 @@ class WebNavigationPolicyTests(unittest.TestCase):
 
                 static let webContentRecoveryCoolingWindow: TimeInterval = 5 * 60
 
+                enum Phase { case launching }
+                var phase = Phase.launching
                 var surfaces: [CGDirectDisplayID: HostSurface] = [:]
                 var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest?
                 var webContentRecoveryAttemptsByScreen: [CGDirectDisplayID: Int] = [:]
@@ -96,6 +98,8 @@ class WebNavigationPolicyTests(unittest.TestCase):
                 func screenIDForCurrentNavigation(_ navigation: WKNavigation?, webView: WKWebView) -> CGDirectDisplayID? { nil }
                 func setAudioSpectrumDemand(_ active: Bool, for screenID: CGDirectDisplayID) {}
                 func installDefaultInteractiveRegionsIfNeeded() {}
+                func refreshSystemMediaSubscription() {}
+                func invalidatePresentation(on surface: HostSurface) {}
                 func applyCompatibilityState(to webView: WKWebView, deferDirectorySync: Bool) {}
                 func startSyntheticInputForwardingIfNeeded() {}
                 func markScreenReady(_ screenID: CGDirectDisplayID) {}

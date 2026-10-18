@@ -3,6 +3,37 @@ import Combine
 import Foundation
 
 extension SteamWorkshopService {
+    /// Product launch admission checks entry availability only. The dependency
+    /// scan and sample compatibility report below are development diagnostics.
+    func webLaunchEntryIsValid(for record: SteamWorkshopDownloadRecord) -> Bool {
+        let signature = webProjectDescriptorSignature(for: record)
+        if let cached = webLaunchEligibilityCache[record.id], cached.signature == signature {
+            return cached.isValid
+        }
+        let isValid = computeWebLaunchEntryIsValid(for: record)
+        webLaunchEligibilityCache[record.id] = .init(signature: signature, isValid: isValid)
+        return isValid
+    }
+
+    private func computeWebLaunchEntryIsValid(for record: SteamWorkshopDownloadRecord) -> Bool {
+        // A missing dependency is handled by the existing launchability guard;
+        // it was a nonfatal precondition in the development report as well.
+        if case .missing = record.dependencyStatus,
+           record.isDependencyBackedWeb, !record.hasPlayableDependencyWebHost { return true }
+        let descriptor = resolvedWebProjectDescriptor(for: record)
+        guard let entryURL = descriptor?.resolvedEntryURL ?? record.webEntryURL else { return false }
+        if !record.isDependencyBackedWeb,
+           let declared = declaredWebEntryRelativePath(for: record) {
+            let declaredURL = record.folderURL.appendingPathComponent(declared)
+                .resolvingSymlinksInPath().standardizedFileURL
+            guard FileManager.default.fileExists(atPath: declaredURL.path) else { return false }
+        }
+        return FileManager.default.fileExists(
+            atPath: entryURL.resolvingSymlinksInPath().standardizedFileURL.path
+        )
+    }
+
+#if DEBUG
     func webValidationReport(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebValidationReport? {
         let signature = webValidationSignature(for: record)
         if let cached = webValidationReportCache[record.id], cached.signature == signature {
@@ -310,6 +341,8 @@ extension SteamWorkshopService {
         webValidationReportCache[record.id] = CachedWebValidationReport(signature: signature, report: report)
         return report
     }
+
+#endif
 
     func webPlaybackFailureMessage(for record: SteamWorkshopDownloadRecord) -> String? {
         if let failureRecordID = lastWebPlaybackFailureRecordID {

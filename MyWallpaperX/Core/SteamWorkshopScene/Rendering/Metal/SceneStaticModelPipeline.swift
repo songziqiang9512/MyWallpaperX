@@ -445,8 +445,9 @@ struct SceneStaticModelPipeline {
                 SIMD4($0.metallic, $0.roughness, 1, 0)
             } ?? .zero
         )
-
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(state)
         encoder.setDepthStencilState(
             writesDepth ? writingDepthState : nonwritingDepthState
@@ -496,8 +497,8 @@ struct SceneStaticModelPipeline {
         )
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
         return true
     }
 
@@ -542,7 +543,9 @@ struct SceneStaticModelPipeline {
             textureFrame0: textureFrame.uniform0, textureFrame1: textureFrame.uniform1,
             coverage: SIMD4(min(max(material.opacity * layerAlpha, 0), 1),
                             material.textureAlphaIsOpacity ? 1 : 0, 0, 0))
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(pipeline)
         encoder.setDepthStencilState(shadowDepthState)
         encoder.setFrontFacing(frontFacing)
@@ -556,8 +559,8 @@ struct SceneStaticModelPipeline {
             indexType: mesh.indexType, indexBuffer: mesh.indexBuffer, indexBufferOffset: 0)
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
         return true
     }
 

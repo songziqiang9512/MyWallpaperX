@@ -386,7 +386,9 @@ final class ScenePuppetPlaybackState {
             if let bindColorBlend {
                 bindColorBlend(encoder, sourceTexture, mvp)
             } else {
+#if DEBUG
                 ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
                 encoder.setRenderPipelineState(renderPipelineState)
                 var matrix = mvp
                 encoder.setVertexBytes(&matrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
@@ -404,8 +406,8 @@ final class ScenePuppetPlaybackState {
                     indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
                 #if DEBUG
                 SceneGPUStageTimestampHook.drew(encoder)
-                #endif
-                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
             }
             return true
             },

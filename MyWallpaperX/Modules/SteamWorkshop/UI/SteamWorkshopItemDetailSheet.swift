@@ -13,16 +13,20 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     var currentItem: SteamWorkshopBrowserItem
     var cancellables = Set<AnyCancellable>()
     var subscriptionHint: String?
+#if DEBUG
     var diagnosticsPanelToken: UUID?
     var diagnosticsPanelStack: NSStackView?
     var webDiagnosticsExpanded = false
+#endif
     private var downloadProgressObserverID: UUID?
     private var downloadProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
     private weak var primaryProgressButton: InspectorFooterButton?
     private var didBuildInitialContent = false
     lazy var sceneInspectionController = SteamWorkshopSceneInspectionController { [weak self] in
         self?.rebuild(preservingScrollPosition: true)
+#if DEBUG
         self?.refreshDiagnosticsPanel()
+#endif
     }
 
     private let rootStack = NSStackView()
@@ -73,10 +77,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     func configure(item: SteamWorkshopBrowserItem) {
         let isSameItem = item.id == currentItem.id
         if !isSameItem {
+#if DEBUG
             diagnosticsPanelStack = nil
             diagnosticsPanelToken = nil
-            subscriptionHint = nil
             webDiagnosticsExpanded = false
+#endif
+            subscriptionHint = nil
             sceneInspectionController.reset()
             bindDownloadProgress(to: item.id)
         }
@@ -764,6 +770,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return row
     }
 
+#if DEBUG
     func validationPill(severity: SteamWorkshopWebValidationSeverity, levelTitle: String?, message: String) -> NSView {
         let row = NSStackView()
         row.orientation = .horizontal
@@ -805,6 +812,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
     }
 
+#endif
+
     private func footerButton(title: String, symbolName: String, kind: InspectorFooterButtonKind, target: AnyObject?, action: Selector?) -> InspectorFooterButton {
         InspectorFooterButton(title: title, image: NSImage(systemSymbolName: symbolName, accessibilityDescription: title), kind: kind, target: target, action: action)
     }
@@ -817,6 +826,20 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
 
+    @objc func openProperties() {
+        guard let record = latestDownloadRecord, record.status == .ready else { return }
+        switch record.contentType {
+        case .unknown: return
+        case .scene:
+            sceneInspectionController.requestPropertyEditor(for: record)
+        case .web:
+            SteamWorkshopPropertyPanelController.shared.show(title: "Web 属性调节", subtitle: record.title,
+                content: SteamWorkshopWebPropertyEditorView(record: record))
+        case .video:
+            let text = label("视频壁纸没有作者可调属性。音量、播放速度及播放方式使用应用的播放设置。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0)
+            SteamWorkshopPropertyPanelController.shared.show(title: "Video 属性", subtitle: record.title, content: text)
+        }
+    }
 }
 
 private final class ClosureButton: NSButton {

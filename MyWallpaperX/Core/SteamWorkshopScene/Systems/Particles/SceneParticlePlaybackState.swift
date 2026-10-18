@@ -158,6 +158,7 @@ final class SceneParticlePlaybackState {
                 continue
             }
             let encodedPath = Data(observation.particlePath.utf8).base64EncodedString()
+#if DEBUG
             NSLog(
                 "MWX particle audio: consumer=particle-component layer=%d "
                     + "pathBase64=%@ component=%@ index=%d generation=%llu "
@@ -173,6 +174,7 @@ final class SceneParticlePlaybackState {
                 evaluation.frequencyEnd,
                 evaluation.selectedNonZeroInputCount
             )
+#endif
         }
     }
 

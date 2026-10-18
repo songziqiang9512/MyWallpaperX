@@ -38,8 +38,10 @@ extension SceneMetalView {
            case let .failure(failure) = puppetAnimationPlaybackRuntime.register(
                layerID: layer.id, selection: playback.selection,
                authoredLayers: layer.puppetAnimationLayers) {
+#if DEBUG
             NSLog("MWX Puppet: layer=%d animation definition rejected: %@",
                 layer.id, String(describing: failure))
+#endif
             return .init(geometryProduct: nil, playback: nil,
                 allowsMissingMeshTextureProduct: false,
                 message: "puppet animation definition rejected")

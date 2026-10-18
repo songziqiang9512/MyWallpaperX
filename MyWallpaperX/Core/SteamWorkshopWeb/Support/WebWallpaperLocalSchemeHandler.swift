@@ -78,8 +78,9 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
     static let resolveCacheCapacity = 512
     /// 已交付 CSS 诊断去重集合的条目上限：满时清空重录，
     /// 未信任页面循环制造唯一 query 键也无法无界累积。
+#if DEBUG
     static let servedDiagnosticURLsCapacity = 512
-
+#endif
     /// 不可变，供 +Resolve 复用。
     let rootURL: URL
     let strictSymlinkPolicy: Bool
@@ -89,14 +90,16 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
     var additionalReadableRoots: [URL] = []
     var readableRootsGeneration: UInt64 = 0
     var resolveCache: [String: CachedResolution] = [:]
-    var diagnosticHandler: ((String, WebRuntimeDiagnosticEvent.Severity, String, URL?) -> Void)?
+    var diagnosticHandler: WebRuntimeDiagnosticHandler?
     /// resolve 与交付在 IO 队列、回调在主线程。
     let ioQueue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.local-scheme-io",
         qos: .userInitiated
     )
     /// 只在主线程访问（交付回调与诊断都收敛在主线程）。
+#if DEBUG
     private var servedDiagnosticURLs: Set<String> = []
+#endif
     /// 同样受 stateLock 保护：`stop` 可能在任意回调线程到达。
     private var activeCancellations: [ObjectIdentifier: RequestCancellation] = [:]
 
@@ -124,7 +127,11 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         let request = urlSchemeTask.request
         guard let requestURL = request.url else {
             let error = AccessDenied(reason: .invalidURL, requestURL: URL(fileURLWithPath: "/"), candidateURL: nil, resolvedURL: nil)
-            recordDeny(error)
+
+#if DEBUG
+recordDeny(error)
+#endif
+
             urlSchemeTask.didFailWithError(error)
             return
         }
@@ -211,7 +218,7 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
     }
-
+#if DEBUG
     func shouldRecordServedDiagnostic(for requestURL: URL) -> Bool {
         let key = requestURL.absoluteString
         guard servedDiagnosticURLs.contains(key) == false else {
@@ -224,7 +231,7 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         servedDiagnosticURLs.insert(key)
         return true
     }
-
+#endif
     func isOptionalMissingMediaRequest(_ requestURL: URL) -> Bool {
         optionalMissingMediaDiagnostic(for: requestURL) != nil
     }
@@ -290,9 +297,13 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         deliveredLength: Int,
         range: ClosedRange<Int64>?
     ) -> String? {
+#if DEBUG
         guard fileURL.pathExtension.lowercased() == "css" else { return nil }
         let rangeDescription = range.map { "\($0.lowerBound)-\($0.upperBound)" } ?? "full"
         return "mime=\(mimeType) size=\(fileSize) delivered=\(deliveredLength) range=\(rangeDescription) file=\(fileURL.path)"
+    #else
+        return nil
+#endif
     }
 
     static func mimeType(for fileURL: URL) -> String {
@@ -380,6 +391,7 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     /// 记录拒绝原因（诊断唯一出口）；调用方负责把同一 denial 交回请求方。
+#if DEBUG
     func recordDeny(_ denial: AccessDenied) {
         let candidate = denial.candidateURL?.path ?? ""
         let resolved = denial.resolvedURL?.path ?? ""
@@ -397,4 +409,5 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         }
         diagnosticHandler?("local-resource-deny", .warning, message, denial.requestURL)
     }
+#endif
 }

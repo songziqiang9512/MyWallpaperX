@@ -299,6 +299,7 @@ final class SceneParticleChildRuntime {
             let spawned = templates.compactMap { instanceScratch[$0.index]?.count }
             let systemParticleCounts = systems.map { $0.simulator.particles.count }
             let systemParticleTotal = systemParticleCounts.reduce(0, +)
+#if DEBUG
             NSLog(
                 "MWX DEBUG SCENE: phase=particle-child-census layer=%d templates=%d systems=%d systemParticles=%d spawnedTotal=%d emptyTemplates=%d nonEmptySystems=%d batches=%d bufferFailures=%d",
                 layerID, templates.count, systems.count,
@@ -306,6 +307,7 @@ final class SceneParticleChildRuntime {
                 systemParticleCounts.filter { $0 > 0 }.count,
                 batches.count, failures.count
             )
+#endif
         }
         return SceneParticleChildAdvanceResult(
             batches: batches,

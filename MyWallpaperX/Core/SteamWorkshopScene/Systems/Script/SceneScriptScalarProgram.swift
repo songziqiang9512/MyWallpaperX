@@ -82,9 +82,15 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
     let livePropertyInputTargets: Set<SceneDynamicTarget>
     var disabledTargets: Set<SceneDynamicTarget> = []
     var retiredTargets: Set<SceneDynamicTarget> = []
+#if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []
+#endif
+#if DEBUG
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
+#endif
+#if DEBUG
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
+#endif
     let frameLedger = SceneScriptProgramFrameLedger()
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
@@ -575,6 +581,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             if !propertyRefresh, binding.hasAudioRegistration {
                 switch binding.refreshAudio(audioSpectrum) {
                 case .success:
+#if DEBUG
                     if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
                        reportedAudioTargets.insert(binding.target).inserted {
                         let peak = [
@@ -592,6 +599,9 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                             peak
                         )
                     }
+#else
+                    break
+#endif
                 case let .failure(failure):
                     failures[binding.target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -732,42 +742,53 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 layerMutations.append(contentsOf: effects.layerMutations)
                 if changedUserPropertiesJSON != nil,
                    case let .scalar(outputValue) = evaluation.value {
-                    NSLog(
+#if DEBUG
+                   NSLog(
                         "MWX SceneScript VM: target=%@ callback=propertyInputApplied output=%.9g route=generic-only",
                         String(describing: binding.target),
                         outputValue
                     )
+#endif
                 }
                 if pendingMediaEvent != nil {
-                    NSLog(
+#if DEBUG
+                NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ mutations=%d route=generic-only",
                         String(describing: binding.target),
                         pendingMediaEvent?.generation ?? 0,
                         pendingMediaEvent?.hasThumbnail == true ? "true" : "false",
                         thumbnailMutationCount
                     )
+#endif
                 }
                 if pendingPlaybackEvent != nil {
-                    NSLog(
+#if DEBUG
+                NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaPlaybackChanged generation=%llu state=%d mutations=%d route=generic-only",
                         String(describing: binding.target),
                         pendingPlaybackEvent?.generation ?? 0,
                         pendingPlaybackEvent?.state ?? -1,
                         playbackMutationCount
                     )
+#endif
                 }
                 if let pendingPropertiesEvent {
+#if DEBUG
                     SceneScriptMediaRuntimeDiagnostics.logProperties(
                         target: binding.target,
                         event: pendingPropertiesEvent,
                         layerMutationCount: propertiesLayerMutationCount
                     )
+#endif
                 }
                 if let pendingTimelineEvent {
+#if DEBUG
                     SceneScriptMediaRuntimeDiagnostics.logTimeline(
                         target: binding.target, event: pendingTimelineEvent
                     )
+#endif
                 }
+#if DEBUG
                 if reportedTargets.insert(binding.target).inserted,
                    case let .scalar(inputValue) = input,
                    case let .scalar(outputValue) = evaluation.value {
@@ -783,12 +804,14 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                         mutationSummary
                     )
                 }
+#endif
+#if DEBUG
                 if !propertyRefresh, binding.hasAudioRegistration,
                    audioSpectrum.generation > 0, !audioSpectrum.isSilent,
                    reportedAudioValueTargets.insert(binding.target).inserted,
                    case let .scalar(inputValue) = input,
                    case let .scalar(outputValue) = evaluation.value {
-                    NSLog(
+                   NSLog(
                         "MWX SceneScript VM: target=%@ callback=audioValuePublished type=scalar generation=%llu input=%.9g output=%.9g route=generic-only",
                         String(describing: binding.target),
                         audioSpectrum.generation,
@@ -796,6 +819,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                         outputValue
                     )
                 }
+#endif
             case let .failure(failure):
                 failures[binding.target] = failure
                 if failure.permanentlyDisablesOwner {

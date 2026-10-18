@@ -184,7 +184,7 @@ POOL_MAIN = r'''
 '''
 
 
-def run_swift(sources, support, *, label, metal_sources=(), input_value=None):
+def run_swift(sources, support, *, label, metal_sources=(), input_value=None, swift_flags=()):
     snapshot = os.environ.get('MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT')
     if snapshot:
         def frozen(path):
@@ -221,7 +221,7 @@ def run_swift(sources, support, *, label, metal_sources=(), input_value=None):
     if input_value is not None:
         (work/'input.json').write_text(json.dumps(input_value, indent=2))
         arguments.append(str(work/'input.json'))
-    compiled = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', *map(str, sources), str(source),
+    compiled = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', *swift_flags, *map(str, sources), str(source),
                                '-module-cache-path', str(work/'cache'), '-framework', 'Metal', '-o', str(binary)],
                               capture_output=True, text=True)
     (work/'compile.log').write_text(compiled.stdout + compiled.stderr)

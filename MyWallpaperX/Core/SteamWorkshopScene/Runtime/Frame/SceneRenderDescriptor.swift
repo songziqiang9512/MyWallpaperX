@@ -62,18 +62,26 @@ struct SceneRenderDescriptor: Codable {
     let modelMaterialLinks: [ModelMaterialLink]
     let materialPasses: [MaterialPassDescriptor]
     let effectDefinitions: [SceneEffectDefinition]
-    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
+#if DEBUG
+    var effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic] = []
+#endif
     let shaderReferences: [String]
     let textureReferences: [String]
-    let missingResources: [String]
-    let builtInReferenceCount: Int
-    let runtimeProvidedReferenceCount: Int
+#if DEBUG
+    var missingResources: [String] = []
+    var builtInReferenceCount = 0
+    var runtimeProvidedReferenceCount = 0
+#endif
     let texturePropertyKeys: [String]
-    let firstStageRendererGaps: [String]
+#if DEBUG
+    var firstStageRendererGaps: [String] = []
+#endif
 
+#if DEBUG
     nonisolated var isResourceComplete: Bool {
         missingResources.isEmpty
     }
+#endif
 }
 
 struct SceneRenderDescriptorBuilder {
@@ -81,8 +89,8 @@ struct SceneRenderDescriptorBuilder {
         project: SceneProject,
         sceneDocument: SceneDocument,
         assetCatalog: SceneAssetCatalog,
-        resourceReferences: SceneResourceReferenceIndex,
-        capabilityProfile: SceneCapabilityProfile,
+        resourceReferences: SceneResourceReferenceIndex? = nil,
+        capabilityProfile: SceneCapabilityProfile? = nil,
         directStaticModelMaterialLinks: [
             SceneRenderDescriptor.ModelMaterialLink
         ] = []
@@ -126,7 +134,7 @@ struct SceneRenderDescriptorBuilder {
             ids.sorted()
         }
 
-        return SceneRenderDescriptor(
+        var descriptor = SceneRenderDescriptor(
             entryPath: project.entryPath,
             camera: cameraDescriptor(from: sceneDocument),
             lighting: .init(
@@ -242,20 +250,20 @@ struct SceneRenderDescriptorBuilder {
                 directStaticModelMaterialLinks: directStaticModelMaterialLinks
             ),
             effectDefinitions: assetCatalog.effectDefinitions,
-            effectDefinitionDiagnostics: effectDefinitionDiagnostics(
-                from: sceneDocument,
-                catalog: assetCatalog
-            ),
             shaderReferences: assetCatalog.shaderReferences,
             textureReferences: assetCatalog.textureReferences,
-            missingResources: resourceReferences.missingReferences,
-            builtInReferenceCount: resourceReferences.builtInReferenceCount,
-            runtimeProvidedReferenceCount: resourceReferences.runtimeProvidedReferenceCount,
             texturePropertyKeys: project.userProperties.definitions.compactMap {
                 $0.kind == .sceneTexture ? $0.key : nil
-            },
-            firstStageRendererGaps: capabilityProfile.firstStageRendererGaps
+            }
         )
+#if DEBUG
+        descriptor.effectDefinitionDiagnostics = effectDefinitionDiagnostics(from: sceneDocument, catalog: assetCatalog)
+        descriptor.missingResources = resourceReferences?.missingReferences ?? []
+        descriptor.builtInReferenceCount = resourceReferences?.builtInReferenceCount ?? 0
+        descriptor.runtimeProvidedReferenceCount = resourceReferences?.runtimeProvidedReferenceCount ?? 0
+        descriptor.firstStageRendererGaps = capabilityProfile?.firstStageRendererGaps ?? []
+#endif
+        return descriptor
     }
 
     nonisolated private func modelMaterialLinks(
@@ -506,6 +514,7 @@ struct SceneRenderDescriptorBuilder {
         }
     }
 
+#if DEBUG
     nonisolated private func effectDefinitionDiagnostics(
         from document: SceneDocument,
         catalog: SceneAssetCatalog
@@ -546,4 +555,5 @@ struct SceneRenderDescriptorBuilder {
                 < ($1.effectPath, $1.layerID ?? -1, $1.effectIndex ?? -1, $1.code.rawValue)
         }
     }
+#endif
 }

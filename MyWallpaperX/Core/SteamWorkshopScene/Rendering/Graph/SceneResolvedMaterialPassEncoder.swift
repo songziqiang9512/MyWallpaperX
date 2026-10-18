@@ -304,7 +304,9 @@ final class SceneResolvedMaterialPassEncoder {
             return false
         }
         encoder.label = "Scene resolved material pass"
+#if DEBUG
         SceneGPUCensus.recordOffscreenRender(.resolvedMaterial)
+#endif
         encodeDraw(pass, encoder: encoder)
         encoder.endEncoding()
         return true
@@ -321,7 +323,9 @@ final class SceneResolvedMaterialPassEncoder {
     }
 
     private func encodeDraw(_ pass: PreparedPass, encoder: MTLRenderCommandEncoder) {
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(pass.pipeline)
         encoder.setCullMode(.none)
         if !pass.uniformBytes.isEmpty {
@@ -348,8 +352,8 @@ final class SceneResolvedMaterialPassEncoder {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+#endif
     }
 
     func reset() {
@@ -488,12 +492,14 @@ final class SceneResolvedMaterialPassEncoder {
                 if entryOrigin == .launchWarmup,
                    consumedLaunchWarmupFailureKeys.insert(key).inserted {
                     launchWarmupFailureHits += 1
+#if DEBUG
                     NSLog(
                         "MWX resolved material pipeline consumption phase=frame-preparation source=launch-warmup outcome=negative-cache reason=%@ attempts=%d hits=%d",
                         failure.code,
                         compilationAttempts,
                         launchWarmupFailureHits
                     )
+#endif
                 }
                 return .failure(failure)
             }
@@ -590,16 +596,20 @@ final class SceneResolvedMaterialPassEncoder {
                 let failure = PreparationFailure.pipelineCompilationRejected(
                     diagnostic: String(describing: error)
                 )
+#if DEBUG
                 NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
+#endif
                 return .failure(failure)
             }
             descriptor.binaryArchives = nil
+#if DEBUG
             NSLog(
                 "MWX resolved material pipeline binary archive"
                     + " phase=launch-preparation outcome=retry-without-archive"
                     + " reason=%@",
                 String(describing: error)
             )
+#endif
             do {
                 let pipeline = try device.makeRenderPipelineState(
                     descriptor: descriptor
@@ -610,7 +620,9 @@ final class SceneResolvedMaterialPassEncoder {
                 let failure = PreparationFailure.pipelineCompilationRejected(
                     diagnostic: String(describing: error)
                 )
+#if DEBUG
                 NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
+#endif
                 return .failure(failure)
             }
         }
@@ -646,10 +658,12 @@ final class SceneResolvedMaterialPassEncoder {
             let failure = PreparationFailure.libraryCompilationRejected(
                 diagnostic: String(describing: error)
             )
+#if DEBUG
             NSLog(
                 "MWX resolved material Metal library rejection: %@",
                 String(describing: error)
             )
+#endif
             result = .failure(failure)
         }
 

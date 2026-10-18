@@ -54,8 +54,13 @@ extension SceneMetalRenderer {
 #endif
         var stopsAfterClaimedFailure = initiallyStopped
         var lastLayerPass: SceneMainPassEncoder?
+#if DEBUG
         performanceTelemetry?.beginStage("layer-loop")
+#endif
+
+#if DEBUG
         let hubLayerLoopStart = ProcessInfo.processInfo.systemUptime
+#endif
         frameLayers: for layer in orderedLayers {
             if stopsAfterClaimedFailure { break frameLayers }
             defer {
@@ -123,26 +128,35 @@ extension SceneMetalRenderer {
             }
             let baseSource = baseSelection.source
             if let reasonCode = baseSelection.rejectedProviderReason {
+#if DEBUG
                 effectExecutionTrace?.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-provider-rejected",
                     outcome: .failed(reasonCode: reasonCode)
                 )
+#endif
+
             } else if baseSource?.usesSystemProvider == true {
+#if DEBUG
                 effectExecutionTrace?.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-system-provider",
                     outcome: .encoded
                 )
+#endif
+
             } else if baseSource?.usesUserPropertyProvider == true {
+#if DEBUG
                 effectExecutionTrace?.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-user-property-provider",
                     outcome: .encoded
                 )
+#endif
+
             }
             if let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
                 layer: layer,
@@ -178,6 +192,7 @@ extension SceneMetalRenderer {
                 // visible here, so it must fail closed instead of being
                 // downgraded to that ordinary miss.
                 if case let .invalid(reasonCode)? = captureResult {
+#if DEBUG
                     effectExecutionTrace?.recordRouteOperation(
                         layerID: layer.id,
                         origin: Self.effectExecutionOrigin(
@@ -186,6 +201,8 @@ extension SceneMetalRenderer {
                         operation: "named-provider-capture",
                         outcome: .failed(reasonCode: reasonCode)
                     )
+#endif
+
                     imageCompositor.recordResolvedMaterialFramePreflightFailure(
                         reasonCode
                     )
@@ -327,8 +344,13 @@ extension SceneMetalRenderer {
                 continue
             }
         }
+#if DEBUG
         performanceTelemetry?.endStage("layer-loop")
+#endif
+
+#if DEBUG
         hubStage(.layerLoopMicros, hubLayerLoopStart)
+#endif
         // D1: no group encoder may outlive the layer loop — the compositor
         // seal re-opens the main pass and Metal permits only one active
         // render encoder per command buffer.

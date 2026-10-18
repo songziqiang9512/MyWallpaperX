@@ -80,28 +80,36 @@ extension SceneDesktopWallpaperSession {
         let nextDeadline: CFTimeInterval
         switch attempt {
         case .rendered:
+#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.framesRendered)
-            ScenePerformanceCounterHub.shared.recordLaunchPhase(
+        ScenePerformanceCounterHub.shared.recordLaunchPhase(
                 .firstVisibleFrame,
                 uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
             )
+#endif
             let cadenceDeadline = scheduledDeadline + sceneFrameInterval
             // Realign narrowly late frames at current host time; fast frames
             // still honor cadence while busy gate keeps history graphs serial.
             nextDeadline = max(cadenceDeadline, now)
         case .busy:
+#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.framesBusy)
+#endif
             // History-bearing graphs remain single-frame-in-flight. A short
             // retry prevents a slight overrun from losing a full 60 Hz slot.
             nextDeadline = now + sceneBusyFrameRetryInterval
         case .dropped:
+#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.framesDropped)
+#endif
             // A hard frame rejection did not produce a drawable, but it is
             // not an in-flight resource wait. Keep normal cadence without
             // reporting the attempt as rendered.
             nextDeadline = max(scheduledDeadline + sceneFrameInterval, now)
         case .inactive:
+#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.framesInactive)
+#endif
             frameTimer?.invalidate()
             frameTimer = nil
             frameDriverDeadline = nil
@@ -127,13 +135,17 @@ extension SceneDesktopWallpaperSession {
         // must inherit the pause even when the scene clock was already frozen.
         defer { if sceneClock.isPaused { setPlaybackPaused(true) } }
         // Always-on counters: bypass-only recording, no control flow change.
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.frameAttempts)
         let hubCPUFrameStart = ProcessInfo.processInfo.systemUptime
+#endif
         defer {
+#if DEBUG
             ScenePerformanceCounterHub.shared.add(
                 .cpuFrameMicros,
                 ScenePerformanceCounterHub.micros(since: hubCPUFrameStart)
             )
+#endif
         }
         guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
         if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
@@ -363,10 +375,12 @@ extension SceneDesktopWallpaperSession {
             )
         }
         if let failure = sceneScriptLayerSnapshotFailure {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: family=shared-domain frame=%llu failure=%@ code=%@ fallback=previous-current",
                 timing.frameIndex, String(describing: failure), failure.code
             )
+#endif
         }
         let particleEmission = beginParticleEmissionFrame(context: launchContext, timing: timing,
             preliminary: preliminarySceneScriptResolution, topology: layerMutationSnapshot,
@@ -406,17 +420,21 @@ extension SceneDesktopWallpaperSession {
             )
         }
         if cursorResult.inputBatchOverflowed {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: event=cursor batch=rejected reason=event-budget fallback=previous-current"
             )
+#endif
         }
         for (target, failure) in cursorResult.failures {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: target=%@ event=cursor failure=%@ code=%@ fallback=previous-current",
                 String(describing: target),
                 String(describing: failure),
                 failure.code
             )
+#endif
         }
         let projectedSceneScriptVectorInputs = preliminaryForSceneScript
             .typedValues(
@@ -497,12 +515,14 @@ extension SceneDesktopWallpaperSession {
             sceneScriptResult.failures,
         ] {
             for (target, failure) in failures {
-                NSLog(
+#if DEBUG
+            NSLog(
                     "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=current-frame-lower-priority",
                     String(describing: target),
                     String(describing: failure),
                     failure.code
                 )
+#endif
             }
         }
         let layerTopology = layerMutationSnapshot
@@ -712,22 +732,26 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
         for rejected in admission.rejectedOwners {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: layerMutations=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
                 layerMutationCount,
                 rejected.ownerTarget.map(String.init(describing:))
                     ?? "frame-integrity",
                 String(describing: rejected.failure)
             )
+#endif
         }
         for failure in runtimeValidationFailures {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: %@=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
                 failure.subsystem.rawValue,
                 failure.commandCount,
                 String(describing: failure.ownerTarget),
                 failure.reason
             )
+#endif
         }
         let animationMutations = SceneScriptAnimationHandleBridge.orderedMutations(in: admittedOwnerEffects)
         let puppetBoneMutations = SceneScriptPuppetBoneMutationBridge.orderedMutations(in: admittedOwnerEffects)
@@ -958,39 +982,4 @@ extension SceneDesktopWallpaperSession {
         }
         return frameOutcomes.contains(where: \.isSubmitted) ? .rendered : .dropped
     }
-#if DEBUG
-    private func logDebugDynamicLayerVisibilityIfChanged(
-        descriptor: SceneRenderDescriptor,
-        snapshot: SceneDynamicSnapshot
-    ) {
-        guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow else { return }
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: descriptor,
-            snapshot: snapshot
-        )
-        let records = descriptor.layers.compactMap { layer -> String? in
-            let resolved = snapshot[.layer(layerID: layer.id, field: .visibility)]
-            let value: Bool
-            if let resolved, case let .bool(current) = resolved.value {
-                value = current
-            } else {
-                value = layer.visible ?? true
-            }
-            return "layer=\(layer.id) source=\(resolved?.source.rawValue ?? "authored")"
-                + " value=\(value)"
-                + " effective=\(visibleLayerIDs.contains(layer.id))"
-        }
-        let signature = records.joined(separator: "|")
-        guard signature != debugDynamicLayerVisibilitySignature else { return }
-        debugDynamicLayerVisibilitySignature = signature
-        for record in records {
-            NSLog(
-                "MWX dynamic layer visibility: schema=dynamic-layer-visibility-v1 frame=%llu generation=%llu %@",
-                snapshot.frameIndex,
-                snapshot.generation,
-                record
-            )
-        }
-    }
-#endif
 }

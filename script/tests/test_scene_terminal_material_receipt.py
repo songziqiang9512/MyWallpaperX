@@ -62,7 +62,7 @@ class SceneTerminalMaterialReceiptTests(unittest.TestCase):
         harness_sha = hashlib.sha256(harness.read_bytes()).hexdigest()
         binary = root / "receipt"
         compiled = subprocess.run([
-            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "DEBUG",
             *map(str, SUBMISSION_SWIFT_SOURCES), str(harness), "-framework", "Metal",
             "-module-cache-path", str(root / "module-cache"), "-o", str(binary),
         ], capture_output=True, text=True)

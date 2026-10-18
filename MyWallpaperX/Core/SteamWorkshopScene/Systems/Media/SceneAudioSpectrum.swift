@@ -466,6 +466,7 @@ nonisolated final class SceneAudioSpectrumInbox: @unchecked Sendable {
         os_unfair_lock_unlock(&lock)
         if shouldLogPublication {
             let peak = (publishedSnapshot.left64 + publishedSnapshot.right64).max() ?? 0
+#if DEBUG
             NSLog(
                 "MWX Scene audio inbox: generation=%llu scopeEpoch=%llu peak=%.6f includeCurrentProcess=%@",
                 generation,
@@ -473,6 +474,7 @@ nonisolated final class SceneAudioSpectrumInbox: @unchecked Sendable {
                 peak,
                 includesCurrentProcessOutput ? "true" : "false"
             )
+#endif
         }
         return true
     }

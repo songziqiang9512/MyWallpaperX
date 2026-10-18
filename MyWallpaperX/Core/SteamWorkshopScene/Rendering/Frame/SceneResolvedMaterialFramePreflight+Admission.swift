@@ -104,8 +104,14 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> Bool {
+#if DEBUG
         performanceTelemetry?.beginStage("admit-prepare-frame")
+#endif
+
+#if DEBUG
         defer { performanceTelemetry?.endStage("admit-prepare-frame") }
+#endif
+
         switch imageCompositor.prepareResolvedMaterialFrame(
             preparationRequests,
             pool: offscreenTexturePool,
@@ -117,10 +123,14 @@ extension SceneMetalRenderer {
             // Observation only: splits admit-prepare-frame into the
             // coordinator's preparation and the provider-output install so
             // the remaining unattributed share can be located.
+#if DEBUG
             performanceTelemetry?.beginStage("admit-install-graph-outputs")
-            defer {
-                performanceTelemetry?.endStage("admit-install-graph-outputs")
-            }
+#endif
+
+#if DEBUG
+            defer { performanceTelemetry?.endStage("admit-install-graph-outputs") }
+#endif
+
             guard let preparedOutputs = imageCompositor
                     .preparedResolvedMaterialOutputTexturesByLayerID(),
                   dependencyRuntime.installPreparedGraphOutputs(

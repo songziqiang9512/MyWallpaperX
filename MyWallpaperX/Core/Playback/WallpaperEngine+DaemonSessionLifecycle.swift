@@ -84,7 +84,11 @@ extension WallpaperEngine {
         session.transport.onError = { text in
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return }
-            print(trimmed)
+
+#if DEBUG
+print(trimmed)
+#endif
+
         }
     }
 

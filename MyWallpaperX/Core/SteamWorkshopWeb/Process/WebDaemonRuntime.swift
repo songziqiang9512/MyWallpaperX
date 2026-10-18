@@ -14,9 +14,11 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     private let inbox = WebDaemonMailbox()
     private let outbox = WebDaemonMailbox()
     private let outputQueue = DispatchQueue(label: "com.mywallpaperx.web-daemon-output")
+#if DEBUG
     private var diagnosticObserver: NSObjectProtocol?
     private var pendingDiagnostics: [WebDaemonDiagnostic] = []
     private var diagnosticFlushScheduled = false
+#endif
     private var mediaReplayPending = false
     private var desiredVolume: Float = 0
     private var preparationGeneration: UInt64 = 0
@@ -40,7 +42,6 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     var debugNonSilentSpectrumFrames = 0
     var debugContinuityInFlight = false
 #endif
-
     init?(arguments: [String] = ProcessInfo.processInfo.arguments) {
         guard let index = arguments.firstIndex(of: WebDaemonProtocol.flag),
               arguments.indices.contains(index + 1),
@@ -83,6 +84,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             self?.emit(.mediaDemand(needsMedia))
         }
         host.eventHandler = { [weak self] event in self?.handleHostEvent(event) }
+#if DEBUG
         diagnosticObserver = NotificationCenter.default.addObserver(
             forName: WebRuntimeDiagnosticsStore.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -97,6 +99,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { [weak self] in self?.flushDiagnostics() }
             }
         }
+#endif
         let inbox = inbox
         let expected = requestID
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -167,8 +170,8 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                     mediaReplayPending = true
                     emit(.mediaReplayRequested)
                 }
-            case .inspect: emitObservation()
 #if DEBUG
+            case .inspect: emitObservation()
             case .debugMeasureContinuity: measureDebugContinuity()
             case .debugExerciseFailure: exerciseDebugFailure()
 #endif
@@ -191,9 +194,17 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
 #endif
         switch event {
         case .ready:
-            if committed { emitUsage(); emitObservation(); return }
+            if committed { emitUsage();
+#if DEBUG
+                emitObservation()
+#endif
+                return }
             preparePresentation()
-        default: flushDiagnostics(); emit(.host(event))
+        default:
+#if DEBUG
+            flushDiagnostics()
+#endif
+            emit(.host(event))
         }
     }
 
@@ -235,7 +246,10 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                   self.host.presentationSurfaceIdentities == self.preparedSurfaces else { return }
             guard !self.didPrepare else { return }
             self.didPrepare = true
-            self.emitUsage(); self.emitObservation()
+            self.emitUsage()
+#if DEBUG
+            self.emitObservation()
+#endif
             self.emit(.preparationCohort(.init(generation: generation, surfaces: self.preparedSurfaces)))
             self.emit(.prepared(generation))
         }
@@ -301,7 +315,9 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         if host.outputActivityAllowed && activationMediaReady && evidence.allSatisfy({ PlaybackSurfaceVisibility.evaluate($0) == .confirmed }) {
             committed = true
             activationDeadline?.cancel(); activationDeadline = nil
+#if DEBUG
             emitObservation()
+#endif
             emit(.activationConfirmed(identity, evidence))
             emit(.committed(identity.generation))
             return
@@ -397,6 +413,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         }
     }
 
+#if DEBUG
     private func emitObservation() {
         emit(.observation(.init(phase: host.phase.rawValue,
             currentRequest: host.currentRequest == nil ? 0 : 1,
@@ -408,7 +425,8 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             watchTimer: host.directoryWatchTimer == nil ? 0 : 1,
             watchers: host.directoryWatchersByProperty.count)))
     }
-
+#endif
+#if DEBUG
     private func flushDiagnostics() {
         diagnosticFlushScheduled = false
         guard !pendingDiagnostics.isEmpty else { return }
@@ -416,7 +434,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         pendingDiagnostics.removeAll(keepingCapacity: true)
         emit(.diagnostics(events))
     }
-
+#endif
     private func emitUsage() { emit(.usage(Array(host.inUsePersistentDataStoreIdentifiers))) }
 
     func emit(_ event: WebDaemonEvent) {
@@ -440,7 +458,9 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         stopActivationWork()
         inbox.close()
         host.handle(.stop)
+#if DEBUG
         if let diagnosticObserver { NotificationCenter.default.removeObserver(diagnosticObserver) }
+#endif
         outbox.close()
         NSApp.terminate(nil)
     }

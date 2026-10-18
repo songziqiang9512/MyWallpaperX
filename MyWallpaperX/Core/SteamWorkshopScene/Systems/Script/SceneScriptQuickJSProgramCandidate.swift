@@ -637,10 +637,12 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 do {
                     try domain.configureStorage(storageSession)
                 } catch {
-                    NSLog(
+#if DEBUG
+                NSLog(
                         "MWX SceneScript VM: localStorage provider unavailable failure=%@ fallback=owner-local",
                         String(describing: error)
                     )
+#endif
                 }
             }
             return .init(
@@ -693,10 +695,12 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         budget: SceneScriptScalarBudget,
         failure: SceneScriptScalarRuntimeFailure
     ) -> Self {
-        NSLog(
+#if DEBUG
+    NSLog(
             "MWX SceneScript VM: ownerDomain=failed failure=%@ code=%@ fallback=current-frame-lower-priority",
             String(describing: failure), failure.code
         )
+#endif
         let vectorProgram = SceneScriptVectorProgram.compileNonPass(
             domain: nil,
             descriptor: authoredDescriptor,
@@ -798,13 +802,15 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         rejected: inout Set<Identity>
     ) {
         for (identity, failure) in additions {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: family=%@ ownerConstruction=failed identity=%@ failure=%@ code=%@ fallback=current-frame-lower-priority",
                 family,
                 String(describing: identity),
                 String(describing: failure),
                 failure.code
             )
+#endif
         }
         failures.merge(additions, uniquingKeysWith: { first, _ in first })
         rejected.formUnion(additions.keys)

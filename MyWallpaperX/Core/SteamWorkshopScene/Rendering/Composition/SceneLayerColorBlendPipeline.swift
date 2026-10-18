@@ -162,8 +162,8 @@ final class SceneLayerColorBlendPipeline {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+#endif
     }
 
     /// Binds the same blend fragment contract for caller-owned geometry. The
@@ -180,7 +180,9 @@ final class SceneLayerColorBlendPipeline {
         var mvpCopy = mvp
         var mode = SIMD2<UInt32>(UInt32(blendMode), sourceIsStraightAlpha ? 1 : 0)
         var fog = distanceFog
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(state.renderPipeline)
         encoder.setVertexBytes(
             &mvpCopy,

@@ -343,12 +343,15 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 )
                 for mutation in mutations.layers
                     where mutation.fields.contains(.origin) {
+#if DEBUG
                     NSLog(
                         "MWX SceneScript VM: layerID=%d event=%@ mutation=origin value=%.6f,%.6f,%.6f route=generic-only",
                         mutation.layerID, kind.callbackName,
                         mutation.origin.x, mutation.origin.y, mutation.origin.z
                     )
+#endif
                 }
+#if DEBUG
                 NSLog(
                     "MWX SceneScript VM: layerID=%d event=%@ captureActive=%d currentHit=%d local=%.6f,%.6f,%.6f route=generic-only",
                     binding.layerID, kind.callbackName,
@@ -356,6 +359,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     hit.localPosition.x, hit.localPosition.y,
                     hit.localPosition.z
                 )
+#endif
             case let .failure(failure):
                 discardCandidates(ownerTarget: ownerTarget)
                 // Cursor callbacks borrow the vector owner's C transaction;

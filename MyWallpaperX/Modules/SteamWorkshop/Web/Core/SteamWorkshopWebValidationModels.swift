@@ -1,5 +1,6 @@
 import Foundation
 
+#if DEBUG
 enum SteamWorkshopWebValidationSeverity: String, Codable, Equatable, Hashable {
     case error
     case warning
@@ -16,6 +17,8 @@ enum SteamWorkshopWebValidationSeverity: String, Codable, Equatable, Hashable {
         }
     }
 }
+
+#endif
 
 enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Hashable {
     case dependencyBackedShell
@@ -46,6 +49,7 @@ enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Hashable {
     }
 }
 
+#if DEBUG
 enum SteamWorkshopWebValidationLevel: String, Codable, Equatable, Hashable {
     case fatal
     case runtimeBlocking
@@ -105,6 +109,8 @@ struct SteamWorkshopWebValidationReport: Codable, Equatable, Hashable {
         issues.first(where: { $0.level == .fatal || $0.level == .runtimeBlocking })
     }
 }
+
+#endif
 
 enum SteamWorkshopWebDependencyStatus: Equatable {
     case none

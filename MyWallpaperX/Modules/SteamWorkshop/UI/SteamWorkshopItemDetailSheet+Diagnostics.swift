@@ -1,3 +1,4 @@
+#if DEBUG
 //
 //  SteamWorkshopItemDetailSheet+Diagnostics.swift
 //  MyWallpaperX
@@ -125,20 +126,7 @@ extension AppKitSteamWorkshopItemDetailView {
         for child in stack.arrangedSubviews { child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
     }
 
-    @objc func openProperties() {
-        guard let record = latestDownloadRecord, record.status == .ready else { return }
-        switch record.contentType {
-        case .unknown: return
-        case .scene:
-            sceneInspectionController.requestPropertyEditor(for: record)
-        case .web:
-            SteamWorkshopPropertyPanelController.shared.show(title: "Web 属性调节", subtitle: record.title,
-                content: SteamWorkshopWebPropertyEditorView(record: record))
-        case .video:
-            let text = label("视频壁纸没有作者可调属性。音量、播放速度及播放方式使用应用的播放设置。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0)
-            SteamWorkshopPropertyPanelController.shared.show(title: "Video 属性", subtitle: record.title, content: text)
-        }
-    }
+
 
     @objc func toggleWebDiagnostics() {
         webDiagnosticsExpanded.toggle()
@@ -163,3 +151,4 @@ private extension WebRuntimeDiagnosticEvent {
         return "\(message)\(urlText)"
     }
 }
+#endif

@@ -102,6 +102,7 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+#if DEBUG
 struct SceneEffectDefinitionDiagnostic: Codable, Equatable, Identifiable, Sendable {
     enum Code: String, Codable, Sendable {
         case invalidDefinition
@@ -121,6 +122,9 @@ struct SceneEffectDefinitionDiagnostic: Codable, Equatable, Identifiable, Sendab
             .joined(separator: "#")
     }
 }
+#else
+enum SceneEffectDefinitionDiagnostic {}
+#endif
 
 struct SceneEffectDefinitionLoader {
     enum LoadError: LocalizedError {

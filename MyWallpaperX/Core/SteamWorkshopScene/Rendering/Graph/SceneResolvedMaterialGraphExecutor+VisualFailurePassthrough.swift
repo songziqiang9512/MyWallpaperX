@@ -134,15 +134,19 @@ extension SceneResolvedMaterialGraphExecutor {
             rejection: rejection
         )
         guard failure == nil else { return failure }
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
+#endif
         effectLocalFailureReasonCode = reasonCode
         if reasonCode.hasPrefix("material-pass-preparation-")
             || reasonCode.hasPrefix("material-finalizer-") {
+#if DEBUG
             recordEffectLocalFramePreparationFallback(
                 reasonCode: reasonCode,
                 effect: pairStep.effect,
                 boundedDetail: boundedDetail
             )
+#endif
         }
         return nil
     }
@@ -476,7 +480,7 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         return true
     }
-
+#if DEBUG
     private func recordEffectLocalFramePreparationFallback(
         reasonCode: String,
         effect: Graph.EffectKey,
@@ -502,4 +506,5 @@ extension SceneResolvedMaterialGraphExecutor {
             count
         )
     }
+#endif
 }

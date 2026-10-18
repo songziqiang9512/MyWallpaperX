@@ -16,8 +16,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
             ($0, readinessMask & (1 << UInt8($0)) != 0)
         })
+#if DEBUG
         let profileStart = SceneResolvedMaterialVariantCompileProfile.beginVariant()
         defer { SceneResolvedMaterialVariantCompileProfile.endVariant(startedAt: profileStart) }
+#endif
         let (
             prepared,
             variantAnalysisKey,

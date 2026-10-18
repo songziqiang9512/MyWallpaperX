@@ -226,6 +226,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
     public string? SteamId => steamId.Length > 0 ? steamId : null;
     public bool IsLoggedIn => isLoggedIn;
 
+#if DEBUG
     /// 仅供离线自检观察；产品路径不得使用。
     internal string? TestActiveAttemptId
     {
@@ -267,6 +268,8 @@ internal sealed partial class SteamSession : IAsyncDisposable
     }
 
     internal void ConnectionLostForTest(SteamClient source) => ConnectionLost(source);
+
+#endif
 
     public SteamSession(ProtocolWriter writer, TerminalTracker terminals)
     {
@@ -366,8 +369,10 @@ internal sealed partial class SteamSession : IAsyncDisposable
         finally { context.Authenticator?.Cancel(); }
     }, CancellationToken.None);
 
+#if DEBUG
     internal Task RunAuthenticationForTest(string requestId, Func<CancellationToken, Task> authenticate, TimeSpan timeout) =>
         RunAuthentication(BeginAttempt(requestId, "test", requestId).Context, authenticate, timeout);
+#endif
 
     /// 提交验证码：仅当前活动 attempt 接受；无活动/已死 attempt 返回 false。
     public bool SubmitChallenge(string authAttemptId, string code)
@@ -806,7 +811,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
         catch (OperationCanceledException) { }
         catch (Exception)
         {
+#if DEBUG
             writer.SendDiagnostic("steam callback pump stopped");
+#endif
             ConnectionLost(source);
         }
         finally { cancellation.Dispose(); }

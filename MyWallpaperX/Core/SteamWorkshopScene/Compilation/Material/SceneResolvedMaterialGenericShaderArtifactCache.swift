@@ -51,12 +51,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static let cacheEnvironment = "MWX_SCENE_GENERIC_SHADER_CACHE"
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
     static let maximumRouteAnalysisSourceBytes = 512 * 1_024
+#if DEBUG
     static let routeTelemetry = RouteTelemetry()
+#endif
     private static let compilationCoordinator =
         SceneResolvedMaterialGenericShaderCompilationCoordinator()
     private static let resolutionCache =
         SceneResolvedMaterialGenericShaderResolutionCache()
-
+#if DEBUG
     final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
         private var counts: [String: Int] = [:]
@@ -164,7 +166,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         }
     }
-
+#endif
     static func resolve(
         vertexSource: String,
         fragmentSource: String,
@@ -270,11 +272,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             for: profile,
             environment: environment
         ) else {
-            routeTelemetry.recordInvalid(
+#if DEBUG
+routeTelemetry.recordInvalid(
                 profile: profile,
                 requestKey: key,
                 reason: "route-configuration-invalid"
             )
+#endif
             return .unavailableOrDeferred(
                 code: "route-invalid",
                 requestKey: key,
@@ -292,13 +296,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             state: routeState.rawValue
         )
         guard routeState != .disableGeneric else {
-            routeTelemetry.record(
+#if DEBUG
+routeTelemetry.record(
                 state: routeState,
                 profile: profile,
                 outcome: "fallback",
                 reason: "route-disabled",
                 requestKey: key
             )
+#endif
             return .unavailableOrDeferred(
                 code: "route-disabled",
                 requestKey: key,
@@ -319,13 +325,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             boundTextureSlots: activeTextureSlots
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
-            routeTelemetry.record(
+#if DEBUG
+routeTelemetry.record(
                 state: routeState,
                 profile: profile,
                 outcome: "observed",
                 reason: "route-observe-only",
                 requestKey: key
             )
+#endif
             return .unavailableOrDeferred(
                 code: "route-observe-only",
                 requestKey: key,
@@ -395,13 +403,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key
             )
         }
-        routeTelemetry.record(
+#if DEBUG
+routeTelemetry.record(
             state: routeState,
             profile: profile,
             outcome: "accepted",
             reason: "-",
             requestKey: key
         )
+#endif
         if !analysisFromCache {
             SceneGenericShaderAnalysisCache.store(
                 analysis: analysis,
@@ -419,13 +429,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
            case let .accepted(_, _, requestKey, decision) = outcome.resolution,
            let state = RouteState(rawValue: decision.state),
            let profile = CapabilityProfile(rawValue: decision.profile) {
-            routeTelemetry.record(
+#if DEBUG
+routeTelemetry.record(
                 state: state,
                 profile: profile,
                 outcome: "accepted",
                 reason: "-",
                 requestKey: requestKey
             )
+#endif
         }
         return outcome.resolution
     }
@@ -461,15 +473,19 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         }
         switch result {
         case .success:
-            routeTelemetry.recordCompilerLifecycle(
+#if DEBUG
+routeTelemetry.recordCompilerLifecycle(
                 source: compilation.source, outcome: "published",
                 reason: "-", requestKey: requestKey
             )
+#endif
         case let .failure(failure):
-            routeTelemetry.recordCompilerLifecycle(
+#if DEBUG
+routeTelemetry.recordCompilerLifecycle(
                 source: compilation.source, outcome: "failed",
                 reason: failure.code, requestKey: requestKey
             )
+#endif
         }
         return result
     }
@@ -480,13 +496,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         code: String,
         requestKey: String
     ) -> Resolution {
-        routeTelemetry.record(
+#if DEBUG
+routeTelemetry.record(
             state: state,
             profile: profile,
             outcome: profile.artifactFallbackOutcome(routeState: state),
             reason: code,
             requestKey: requestKey
         )
+#endif
         return .unavailableOrDeferred(
             code: code,
             requestKey: requestKey,
@@ -604,11 +622,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         // stderr to identify the next shared source break. Keep normal
         // playback telemetry path-safe while exposing the already bounded
         // diagnostic only for that opt-in debug run.
+
+#if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {
             let detail = String(describing: failure)
                 .replacingOccurrences(of: "\n", with: " ")
             return String(detail.prefix(512))
         }
+#endif
+
         switch failure {
         case let .configuration(reason):
             return "compiler-configuration-\(sanitize(reason))"

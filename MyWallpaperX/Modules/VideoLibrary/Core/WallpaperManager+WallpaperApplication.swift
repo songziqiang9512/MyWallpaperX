@@ -189,10 +189,12 @@ extension WallpaperManager {
             try FileManager.default.copyItem(at: sourceURL, to: desktopCopyURL)
         } catch {
             // 拷贝失败退回直接引用源文件（同 URL 去重风险可接受，至少不倒退）。
+#if DEBUG
             NSLog(
                 "MWX SystemWallpaperSync: desktop copy failed: %@",
                 String(describing: error)
             )
+#endif
             applySourceImageDirectly(sourceURL)
             return
         }
@@ -358,10 +360,12 @@ extension WallpaperManager {
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.copyItem(at: source, to: destination)
         } catch {
+#if DEBUG
             NSLog(
                 "MWX SystemWallpaperSync: scene frame copy failed: %@",
                 String(describing: error)
             )
+#endif
             return
         }
         setDesktopWallpaper(from: destination.path)

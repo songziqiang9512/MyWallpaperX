@@ -101,14 +101,19 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         frameEncoded = 0
         frameFailures = 0
         frameDeferred = 0
+#if DEBUG
         resetReasonByGeneration.removeAll(keepingCapacity: false)
+#endif
         invalidateEpochLocked()
         _ = advanceResetLocked(reason: reason)
         switch reason {
         case .surfaceStop, .sceneSwitch:
             break
         default:
+#if DEBUG
             emission.diagnostics.append("runtime-invalidated-\(reason.rawValue)")
+#endif
+
         }
         lock.unlock()
         emit(emission)
@@ -147,11 +152,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return false
         }
         resetGeneration += 1
+#if DEBUG
         resetReasonByGeneration[resetGeneration] = reason
         if resetReasonByGeneration.count > 64,
            let oldest = resetReasonByGeneration.keys.min() {
             resetReasonByGeneration.removeValue(forKey: oldest)
         }
+#endif
         guard executor?.reset() != false else {
             terminalFailureReason = "executor-reset-generation-overflow"
             return false
@@ -306,43 +313,23 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         return previous.mappingGeneration + 1
     }
 
-    func resetReasonLocked(
+    func lifecycleIsValidLocked(
         previous: State?,
         next: State,
         transaction: State.Transaction,
         historyRehydrateCopyCount: Int,
         historyContentDiscarded: Bool
-    ) -> (valid: Bool, reason: SceneGraphExecutionResetReason?) {
+    ) -> Bool {
         guard historyRehydrateCopyCount >= 0,
               !(historyContentDiscarded && historyRehydrateCopyCount > 0)
-        else { return (false, nil) }
-        guard let previous else {
-            guard historyRehydrateCopyCount == 0 else {
-                return (false, nil)
-            }
-            return (
-                true,
-                resetReasonByGeneration[transaction.resetGeneration]
-                    ?? .initial
-            )
-        }
-        if previous.effectGeneration != transaction.effectGeneration {
-            return (true, .effectReparse)
-        }
-        if previous.resetGeneration != transaction.resetGeneration {
-            return (
-                true,
-                resetReasonByGeneration[transaction.resetGeneration]
-                    ?? .executorInvalidation
-            )
-        }
+        else { return false }
+        guard let previous else { return historyRehydrateCopyCount == 0 }
+        if previous.effectGeneration != transaction.effectGeneration
+            || previous.resetGeneration != transaction.resetGeneration { return true }
         guard previous.allocationGeneration != transaction.allocationGeneration else {
             return historyRehydrateCopyCount == 0 && !historyContentDiscarded
-                ? (true, nil) : (false, nil)
         }
-        if !previous.hasSameCompletePlan(as: next) {
-            return (true, .allocationReprepare)
-        }
+        if !previous.hasSameCompletePlan(as: next) { return true }
         if historyRehydrateCopyCount > 0 {
             let readableHistoryCount = previous.logicalMapping.reduce(into: 0) {
                 count, entry in
@@ -351,21 +338,45 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     count += 1
                 }
             }
-            guard !historyContentDiscarded,
-                  !previous.historyClosureIdentities.isEmpty,
-                  previous.historyClosureIdentities == next.historyClosureIdentities,
-                  historyRehydrateCopyCount == readableHistoryCount else {
-                return (false, nil)
-            }
-            return (true, .historyCopyOnWrite)
+            return !historyContentDiscarded
+                && !previous.historyClosureIdentities.isEmpty
+                && previous.historyClosureIdentities == next.historyClosureIdentities
+                && historyRehydrateCopyCount == readableHistoryCount
         }
-        guard !historyContentDiscarded,
-              previous.historyClosureIdentities.isEmpty,
-              next.historyClosureIdentities.isEmpty else {
-            return (false, nil)
-        }
-        return (true, .allocationRebind)
+        return !historyContentDiscarded
+            && previous.historyClosureIdentities.isEmpty
+            && next.historyClosureIdentities.isEmpty
     }
+
+#if DEBUG
+    func resetReasonLocked(
+        previous: State?,
+        next: State,
+        transaction: State.Transaction,
+        historyRehydrateCopyCount: Int,
+        historyContentDiscarded: Bool
+    ) -> (valid: Bool, reason: SceneGraphExecutionResetReason?) {
+        guard lifecycleIsValidLocked(
+            previous: previous, next: next, transaction: transaction,
+            historyRehydrateCopyCount: historyRehydrateCopyCount,
+            historyContentDiscarded: historyContentDiscarded
+        ) else { return (false, nil) }
+        guard let previous else {
+            return (true, resetReasonByGeneration[transaction.resetGeneration] ?? .initial)
+        }
+        if previous.effectGeneration != transaction.effectGeneration {
+            return (true, .effectReparse)
+        }
+        if previous.resetGeneration != transaction.resetGeneration {
+            return (true, resetReasonByGeneration[transaction.resetGeneration] ?? .executorInvalidation)
+        }
+        guard previous.allocationGeneration != transaction.allocationGeneration else {
+            return (true, nil)
+        }
+        if !previous.hasSameCompletePlan(as: next) { return (true, .allocationReprepare) }
+        return (true, historyRehydrateCopyCount > 0 ? .historyCopyOnWrite : .allocationRebind)
+    }
+#endif
 
     func physicalMapping(
         _ state: State
@@ -393,10 +404,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func emit(_ emission: Emission) {
+#if DEBUG
         guard capturesExecutionObservations else { return }
         emission.observations.forEach { _ = telemetry?.record($0) }
         emission.diagnostics.forEach {
             logSink("MWX DEBUG SCENE: schema=1 axis=graph-execution diagnostic=\($0)")
         }
+    #endif
     }
 }

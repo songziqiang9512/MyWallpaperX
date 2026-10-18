@@ -8,7 +8,7 @@ let webCompatibilityScriptInteractionAndRuntimeMedia = #"""
         mediaProto.play = function(...args) {
           const missingSource = String(this.__mwxMissingSource || '').trim();
           if (missingSource) {
-            hostLogger.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} missing=${missingSource}`);
+            hostLogger?.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} missing=${missingSource}`);
             return Promise.resolve();
           }
           const resolvedSource = String(this.currentSrc || this.src || '').trim();
@@ -21,7 +21,7 @@ let webCompatibilityScriptInteractionAndRuntimeMedia = #"""
             normalizedSource === 'about:blank' ||
             normalizedSource.endsWith('/null')
           ) {
-            hostLogger.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} src=${resolvedSource || 'none'}`);
+            hostLogger?.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} src=${resolvedSource || 'none'}`);
             return Promise.resolve();
           }
           const playResult = originalPlay.apply(this, args);
@@ -65,11 +65,11 @@ let webCompatibilityScriptInteractionAndRuntimeMedia = #"""
       installedMediaNodes.add(node);
       for (const eventName of mediaEvents) {
         node.addEventListener(eventName, () => {
-          hostLogger.post('media.event', describeMediaNode(node, eventName));
+          hostLogger?.post('media.event', describeMediaNode(node, eventName));
 
         });
       }
-      hostLogger.post('media.observe', describeMediaNode(node, 'attached'));
+      hostLogger?.post('media.observe', describeMediaNode(node, 'attached'));
     };
     const installInRoot = (root) => {
       try {

@@ -25,8 +25,14 @@ extension SceneMetalRenderer {
         preparationLayers: [SceneRenderDescriptor.Layer]? = nil,
         utilityExecution: SceneUtilityLayerRuntimePlanner.Execution? = nil
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
+#if DEBUG
         performanceTelemetry?.beginStage("admit-preflight-targets")
+#endif
+
+#if DEBUG
         defer { performanceTelemetry?.endStage("admit-preflight-targets") }
+#endif
+
         let viewportSize = frameContext.screenSize
         guard let orderedLayers = utilityExecution == nil
                 ? (preparationLayers ?? resolvedMaterialPreparationLayers)
@@ -927,10 +933,14 @@ extension SceneMetalRenderer {
                 case let .payload(value):
                     sourceLighting = value
                 case let .miss(reason):
-                    SceneBaseMaterialLitCaptureMissLog.record(
+
+#if DEBUG
+SceneBaseMaterialLitCaptureMissLog.record(
                         reason: reason,
                         layerID: layerID
                     )
+#endif
+
                 }
             }
             preparationRequests.append(.init(

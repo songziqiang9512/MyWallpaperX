@@ -187,11 +187,13 @@ extension SceneResolvedMaterialPassEncoder {
             return (compilationAttempts, launchWarmupHits)
         }
         guard let observation else { return }
+#if DEBUG
         NSLog(
             "MWX resolved material pipeline consumption phase=frame-preparation source=launch-warmup prepared=%@ attempts=%d hits=%d",
             preparedKey,
             observation.attempts,
             observation.hits
         )
+#endif
     }
 }

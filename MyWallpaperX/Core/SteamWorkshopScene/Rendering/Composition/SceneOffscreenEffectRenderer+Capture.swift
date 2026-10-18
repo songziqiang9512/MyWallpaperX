@@ -19,7 +19,9 @@ enum SceneOffscreenEffectRenderer {
         guard let encoder = timestampEncoder else {
             return nil
         }
+#if DEBUG
         SceneGPUCensus.recordOffscreenRender(.offscreenEffectCapture)
+#endif
         return encoder
     }
 

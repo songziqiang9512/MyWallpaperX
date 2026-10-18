@@ -646,6 +646,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         main: SceneAuthoredShaderSyntaxUnit.Function,
         outcome: String
     ) {
+#if DEBUG
         guard ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-evidence-dir"
         ) else { return }
@@ -665,6 +666,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             outcome,
             details.joined(separator: ";")
         )
+    #endif
     }
 
     static func isUnconditionalWrite(

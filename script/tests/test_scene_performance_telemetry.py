@@ -427,11 +427,13 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         )
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
+        harness.write_text(HARNESS + "\nfinal class SceneGPUStageTimestampRequest {}\n"
+                           + "enum SceneGPUStageTimestampHook { static func invalidate(reason: String) {} }\n",
+                           encoding="utf-8")
         binary = directory / "scene-performance-telemetry"
         compilation = subprocess.run(
             [
-                "swiftc",
+                "swiftc", "-D", "DEBUG",
                 str(SOURCE),
                 str(harness),
                 "-framework",
@@ -656,7 +658,7 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
             harness.write_text(COUNTER_HARNESS, encoding="utf-8")
             compilation = subprocess.run(
                 [
-                    "swiftc",
+                    "swiftc", "-D", "DEBUG",
                     str(COUNTER_HUB_SOURCE),
                     str(harness),
                     "-o",
@@ -701,13 +703,15 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
         from unittest.mock import patch
         from script.tests import test_scene_spot_model_shadow as spot
         fixture = REPOSITORY_ROOT / 'script/tests/fixtures/SceneShadowTelemetryHarness.swift'
-        support = 'import Foundation\nimport Metal\nimport simd\n' + spot.model.LIGHTING_STUB + fixture.read_text()
+        support = ('import Foundation\nimport Metal\nimport simd\n' + spot.model.LIGHTING_STUB
+                   + '\nenum SceneGPUStageTimestampHook { static func drew(_ encoder: MTLRenderCommandEncoder) {} }\n'
+                   + fixture.read_text())
         with tempfile.TemporaryDirectory(prefix='mwx-shadow-telemetry-', dir='/private/tmp') as directory:
             with patch.dict('os.environ', {'MWX_DIRECTIONAL_SHADOW_EVIDENCE': directory,
                                           'MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT': ''}):
                 sources = list(dict.fromkeys([*spot.sources(), spot.model.BINDINGS_SOURCE]))
                 report = spot.shared.run_swift(sources, support, label='telemetry',
-                                              metal_sources=[spot.model.METAL_SOURCE])
+                                              metal_sources=[spot.model.METAL_SOURCE], swift_flags=['-D', 'DEBUG'])
         self.assertEqual(report['rows'], [
             {'accepted': False, 'completed': True, 'binds': 0, 'draws': 0, 'geometry': 0},
             {'accepted': True, 'completed': True, 'binds': 1, 'draws': 1, 'geometry': 1},
@@ -732,7 +736,7 @@ class SceneGPUCensusTests(unittest.TestCase):
             harness.write_text(GPU_CENSUS_HARNESS, encoding="utf-8")
             compilation = subprocess.run(
                 [
-                    "swiftc",
+                    "swiftc", "-D", "DEBUG",
                     str(COUNTER_HUB_SOURCE),
                     str(GPU_CENSUS_SOURCE),
                     str(harness),

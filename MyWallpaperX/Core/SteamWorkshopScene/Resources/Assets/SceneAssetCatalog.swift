@@ -51,7 +51,9 @@ struct SceneAssetCatalog {
     let models: [ModelAsset]
     let materials: [MaterialAsset]
     let effectDefinitions: [SceneEffectDefinition]
-    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
+#if DEBUG
+    var effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic] = []
+#endif
     let shaderContracts: [SceneShaderContract]
 
     nonisolated var materialPassCount: Int {
@@ -138,17 +140,20 @@ struct SceneAssetCatalogLoader {
             material.passes.compactMap(\.shader)
         })
 
-        return SceneAssetCatalog(
+        var catalog = SceneAssetCatalog(
             rootURL: rootURL,
             models: models,
             materials: materials,
             effectDefinitions: effectDefinitions,
-            effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic),
             shaderContracts: SceneShaderContractLoader().load(
                 shaderReferences: shaderReferences,
                 resourceView: resourceView
             )
         )
+#if DEBUG
+        catalog.effectDefinitionDiagnostics = effectResults.compactMap(\.diagnostic)
+#endif
+        return catalog
     }
 
     nonisolated private func append(
@@ -179,6 +184,7 @@ struct SceneAssetCatalogLoader {
                 from: resource.url,
                 relativePath: resource.relativePath
             )
+#if DEBUG
             let diagnostic: SceneEffectDefinitionDiagnostic? = definition.unknownFieldPaths.isEmpty
                 ? nil
                 : .init(
@@ -189,7 +195,11 @@ struct SceneAssetCatalogLoader {
                     detail: definition.unknownFieldPaths.joined(separator: ", ")
                 )
             return (definition, diagnostic)
+#else
+            return (definition, nil)
+#endif
         } catch {
+#if DEBUG
             return (
                 nil,
                 .init(
@@ -200,6 +210,9 @@ struct SceneAssetCatalogLoader {
                     detail: error.localizedDescription
                 )
             )
+#else
+            return (nil, nil)
+#endif
         }
     }
 

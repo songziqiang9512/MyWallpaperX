@@ -190,11 +190,13 @@ extension SceneDesktopWallpaperSession {
                 )
             }
             if let superseded = pendingDeferredLayerVisibilityUpdate {
+#if DEBUG
                 logDeferredLayerVisibilityTransition(
                     generation: superseded.generation,
                     layerIDs: superseded.layerIDs,
                     state: "superseded"
                 )
+#endif
             }
             pendingDeferredLayerVisibilityUpdate = .init(
                 generation: generation,
@@ -203,20 +205,24 @@ extension SceneDesktopWallpaperSession {
                 layerIDs: deferredLayerIDs,
                 recordID: recordID
             )
+#if DEBUG
             logDeferredLayerVisibilityTransition(
                 generation: generation,
                 layerIDs: deferredLayerIDs,
                 state: "pending"
             )
+#endif
             promotePendingDeferredLayerVisibilityIfReady()
             return true
         }
         if mergesPending, let pending {
+#if DEBUG
             logDeferredLayerVisibilityTransition(
                 generation: pending.generation,
                 layerIDs: pending.layerIDs,
                 state: "superseded"
             )
+#endif
             pendingDeferredLayerVisibilityUpdate = nil
         }
         guard refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
@@ -261,11 +267,13 @@ extension SceneDesktopWallpaperSession {
             return code
         }).first {
             pendingDeferredLayerVisibilityUpdate = nil
+#if DEBUG
             logDeferredLayerVisibilityTransition(
                 generation: pending.generation,
                 layerIDs: pending.layerIDs,
                 state: "failed:\(failure)"
             )
+#endif
             return
         }
         guard statuses.allSatisfy({ $0 == .ready }), !surfaces.isEmpty else {
@@ -306,11 +314,13 @@ extension SceneDesktopWallpaperSession {
                 )
             }
             pendingDeferredLayerVisibilityUpdate = nil
+#if DEBUG
             logDeferredLayerVisibilityTransition(
                 generation: pending.generation,
                 layerIDs: pending.layerIDs,
                 state: "failed:commit-validation"
             )
+#endif
             return
         }
         context.liveState = candidateLiveState
@@ -324,13 +334,14 @@ extension SceneDesktopWallpaperSession {
         guard pendingDeferredLayerVisibilityUpdate?.generation
                 == pending.generation else { return }
         pendingDeferredLayerVisibilityUpdate = nil
+#if DEBUG
         logDeferredLayerVisibilityTransition(
             generation: pending.generation,
             layerIDs: pending.layerIDs,
             state: "committed"
         )
+#endif
     }
-
 #if DEBUG
     private func logLivePropertyRejection(
         keys: Set<String>, state: ScenePropertyLiveUpdateState,
@@ -348,17 +359,13 @@ extension SceneDesktopWallpaperSession {
             targets.intersection(unavailable).map { String(describing: $0) }.sorted().joined(separator: ";"))
     }
 #endif
-
+#if DEBUG
     func logDeferredLayerVisibilityTransition(
         generation: UInt64,
         layerIDs: Set<Int>,
         state: String
     ) {
-#if DEBUG
         guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow else { return }
-#else
-        guard state.hasPrefix("failed") else { return }
-#endif
         NSLog(
             "MWX deferred property transition: schema=deferred-property-transition-v1 generation=%llu layers=%@ state=%@",
             generation,
@@ -366,5 +373,6 @@ extension SceneDesktopWallpaperSession {
             state
         )
     }
+#endif
 
 }

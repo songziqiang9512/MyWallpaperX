@@ -207,7 +207,9 @@ final class SceneGraphResourcePassEncoder {
             return false
         }
         encoder.label = "Scene graph source capture"
+#if DEBUG
         SceneGPUCensus.recordOffscreenRender(.graphResourceSourceCapture)
+#endif
         if let sourceLighting = sourceLighting?.validated(for: target) {
             sourceLighting.pipeline.bind(encoder: encoder)
             sourceLighting.pipeline.drawLayer(
@@ -261,7 +263,9 @@ final class SceneGraphResourcePassEncoder {
             return false
         }
         encoder.label = "Scene graph resource initialization"
+#if DEBUG
         SceneGPUCensus.recordOffscreenRender(.graphResourceInitialization)
+#endif
         encoder.endEncoding()
         return true
     }
@@ -280,7 +284,9 @@ final class SceneGraphResourcePassEncoder {
             return false
         }
         encoder.label = "Scene graph exact resource copy"
+#if DEBUG
         SceneGPUCensus.recordTextureCopy(texture: source)
+#endif
         encoder.copy(
             from: source,
             sourceSlice: 0,

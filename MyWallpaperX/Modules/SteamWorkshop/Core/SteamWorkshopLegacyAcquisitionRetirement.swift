@@ -105,7 +105,9 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
         guard !defaults.bool(forKey: credentialMarker) else { return }
         let status = environment.deleteCredential()
         guard status == errSecSuccess || status == errSecItemNotFound else {
+#if DEBUG
             NSLog("[SteamWorkshopRetirement] legacy credential deletion failed: %d", status)
+#endif
             return
         }
         defaults.removeObject(forKey: "SteamWorkshop.lastUsername")
@@ -130,10 +132,12 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
             try removeIfPresent(target, fileManager: fileManager)
             defaults.set(true, forKey: cacheMarker)
         } catch {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "[SteamWorkshopRetirement] legacy cache deletion failed: %@",
                 error.localizedDescription
             )
+#endif
         }
     }
 
@@ -154,10 +158,12 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
             try removeIfPresent(target, fileManager: fileManager)
             defaults.set(true, forKey: runtimeMarker)
         } catch {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "[SteamWorkshopRetirement] legacy runtime deletion failed: %@",
                 error.localizedDescription
             )
+#endif
         }
     }
 
@@ -173,10 +179,12 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
             }
             environment.removeWebDataStore { error in
                 guard error == nil else {
-                    NSLog(
+#if DEBUG
+                NSLog(
                         "[SteamWorkshopRetirement] legacy web store deletion failed: %@",
                         error!.localizedDescription
                     )
+#endif
                     return
                 }
                 defaults.set(true, forKey: webStoreMarker)

@@ -4,17 +4,19 @@ struct SceneRuntimeModel {
     let project: SceneProject
     let sceneDocument: SceneDocument
     let assetCatalog: SceneAssetCatalog
-    let resourceReferences: SceneResourceReferenceIndex
-    let resourceIndex: SceneResourceIndex
     let packageReport: ScenePkgExtractionReport?
     let resourceView: SceneResourceView
-    let capabilityProfile: SceneCapabilityProfile
     let authoredRenderDescriptor: SceneRenderDescriptor
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let propertyVectorProjection: SceneScriptVectorCandidateCatalog
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
+#if DEBUG
+    var resourceReferences: SceneResourceReferenceIndex? = nil
+    var resourceIndex: SceneResourceIndex? = nil
+    var capabilityProfile: SceneCapabilityProfile? = nil
+#endif
 
     /// Compatibility inputs remain two independent provenance-bearing facts.
     /// No unverified rule is applied merely by exposing this context.
@@ -41,7 +43,9 @@ struct SceneRuntimeModelBuilder {
         case missingProject
         case missingSceneDocument(String?)
         case missingAssetCatalog
+#if DEBUG
         case missingResourceReferences
+#endif
         case missingRenderDescriptor
 
         var errorDescription: String? {
@@ -55,8 +59,10 @@ struct SceneRuntimeModelBuilder {
                 return "无法构建 Scene runtime：scene.json 未解析。"
             case .missingAssetCatalog:
                 return "无法构建 Scene runtime：资产摘要未解析。"
+#if DEBUG
             case .missingResourceReferences:
                 return "无法构建 Scene runtime：资源引用索引未建立。"
+#endif
             case .missingRenderDescriptor:
                 return "无法构建 Scene runtime：renderer 输入描述未建立。"
             }
@@ -82,10 +88,12 @@ struct SceneRuntimeModelBuilder {
         guard let assetCatalog = sourceFacts.assetCatalog else {
             throw BuildError.missingAssetCatalog
         }
+#if DEBUG
         guard let resourceReferences = sourceFacts.resourceReferences else {
             throw BuildError.missingResourceReferences
         }
         let capabilityProfile = sourceFacts.capabilityProfile
+#endif
         guard let renderDescriptor = sourceFacts.renderDescriptor else {
             throw BuildError.missingRenderDescriptor
         }
@@ -258,15 +266,12 @@ struct SceneRuntimeModelBuilder {
             hasScriptLayerAccess: !sceneDocument.scriptBindings.isEmpty
         )
 
-        return SceneRuntimeModel(
+        var model = SceneRuntimeModel(
             project: project,
             sceneDocument: sceneDocument,
             assetCatalog: assetCatalog,
-            resourceReferences: resourceReferences,
-            resourceIndex: sourceFacts.resourceIndex,
             packageReport: sourceFacts.packageReport,
             resourceView: sourceFacts.resourceView,
-            capabilityProfile: capabilityProfile,
             authoredRenderDescriptor: renderDescriptor,
             renderDescriptor: runtimeInput.renderDescriptor,
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
@@ -274,5 +279,11 @@ struct SceneRuntimeModelBuilder {
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
             runtimeInput: runtimeInput
         )
+#if DEBUG
+        model.resourceReferences = resourceReferences
+        model.resourceIndex = sourceFacts.resourceIndex
+        model.capabilityProfile = capabilityProfile
+#endif
+        return model
     }
 }

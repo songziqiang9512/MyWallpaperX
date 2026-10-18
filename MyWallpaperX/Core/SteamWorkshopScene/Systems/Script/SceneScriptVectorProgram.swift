@@ -15,9 +15,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private let userPropertyKinds: [String: SceneUserPropertyKind]
     private(set) var disabledTargets: Set<SceneDynamicTarget> = []
     private var retiredTargets: Set<SceneDynamicTarget> = []
+#if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []
+#endif
+#if DEBUG
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
+#endif
+#if DEBUG
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
+#endif
     let frameLedger = SceneScriptProgramFrameLedger()
     private var cachedUserPropertiesJSONRevision: UInt64?
     private var cachedUserPropertiesJSON: String?
@@ -419,6 +425,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             if binding.owner.hasAudioRegistration {
                 switch binding.owner.refreshAudio(audioSpectrum) {
                 case .success:
+#if DEBUG
                     if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
                        reportedAudioTargets.insert(target).inserted {
                         let peak = [
@@ -437,6 +444,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                             peak
                         )
                     }
+#else
+                    break
+#endif
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -794,7 +804,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     videoCommandTargets.insert(target)
                 }
                 if pendingMediaEvent != nil {
-                    NSLog(
+#if DEBUG
+                NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ primary=%.9g,%.9g,%.9g secondary=%.9g,%.9g,%.9g tertiary=%.9g,%.9g,%.9g text=%.9g,%.9g,%.9g highContrast=%.9g,%.9g,%.9g output=%@ mutations=%d route=generic-only fallback=none",
                         String(describing: target),
                         pendingMediaEvent?.generation ?? 0,
@@ -817,30 +828,38 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         String(describing: value),
                         thumbnailMutationCount
                     )
+#endif
                 }
                 if pendingPlaybackEvent != nil {
-                    NSLog(
+#if DEBUG
+                NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaPlaybackChanged generation=%llu state=%d mutations=%d route=generic-only",
                         String(describing: target),
                         pendingPlaybackEvent?.generation ?? 0,
                         pendingPlaybackEvent?.state ?? -1,
                         playbackMutationCount
                     )
+#endif
                 }
                 if let pendingPropertiesEvent {
+#if DEBUG
                     SceneScriptMediaRuntimeDiagnostics.logProperties(
                         target: target,
                         event: pendingPropertiesEvent,
                         layerMutationCount: propertiesLayerMutationCount
                     )
+#endif
                 }
                 if let pendingTimelineEvent {
+#if DEBUG
                     SceneScriptMediaRuntimeDiagnostics.logTimeline(
                         target: target, event: pendingTimelineEvent
                     )
+#endif
                 }
+#if DEBUG
                 if reportedTargets.insert(target).inserted {
-                    NSLog(
+                NSLog(
                         "MWX SceneScript VM: target=%@ callback=completed type=%@ input=%@ output=%@ audio=%@ audioGeneration=%llu route=generic-only",
                         String(describing: target),
                         binding.definition.valueType.rawValue,
@@ -850,10 +869,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         audioSpectrum.generation
                     )
                 }
+#endif
+#if DEBUG
                 if binding.owner.hasAudioRegistration,
                    audioSpectrum.generation > 0, !audioSpectrum.isSilent,
                    reportedAudioValueTargets.insert(target).inserted {
-                    NSLog(
+                   NSLog(
                         "MWX SceneScript VM: target=%@ callback=audioValuePublished type=%@ generation=%llu input=%@ output=%@ route=generic-only",
                         String(describing: target),
                         binding.definition.valueType.rawValue,
@@ -862,6 +883,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         String(describing: value)
                     )
                 }
+#endif
             case let .failure(failure):
                 failures[target] = failure
                 if failure.permanentlyDisablesOwner {

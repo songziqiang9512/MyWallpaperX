@@ -190,7 +190,25 @@ VFS_SUPPORT = (
 ).read_text(encoding="utf-8")
 
 
-SUBMISSION_COORDINATOR_FIXTURE = "\n".join(
+SUBMISSION_COORDINATOR_FIXTURE = r'''
+import Metal
+#if DEBUG
+enum SceneGPUStageTimestampHook {
+    static func surface(_ buffer: MTLCommandBuffer, frameIndex: UInt64, surfaceID: UInt32) {}
+    static func invalidateCoordinator(_ ownerIdentity: UInt, reason: String) {}
+    static func coordinator(_ buffer: MTLCommandBuffer, ownerIdentity: UInt,
+        observationID: UInt64, resetGeneration: UInt64, effectGeneration: UInt64,
+        executionEpoch: UInt64, frameEpoch: UInt64) {}
+    static func graphScope<T>(_ buffer: MTLCommandBuffer, layerID: Int,
+        ledgerID: UInt64, _ body: () -> T) -> T { body() }
+    static func render(_ buffer: MTLCommandBuffer, _ descriptor: MTLRenderPassDescriptor,
+        role: String) -> MTLRenderCommandEncoder? {
+        buffer.makeRenderCommandEncoder(descriptor: descriptor)
+    }
+    static func endedMain(_ encoder: MTLRenderCommandEncoder) {}
+}
+#endif
+''' + "\n".join(
     (Path(__file__).with_name("fixtures") / name).read_text(encoding="utf-8")
     for name in (
         "SceneSubmissionCoordinatorDependencies.swift",
@@ -830,7 +848,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                     "--sdk",
                     "macosx",
                     "swiftc",
-                    "-parse-as-library",
+                    "-parse-as-library", "-D", "DEBUG",
                     *(str(source) for source in SUBMISSION_SWIFT_SOURCES),
                     str(harness),
                     "-framework",

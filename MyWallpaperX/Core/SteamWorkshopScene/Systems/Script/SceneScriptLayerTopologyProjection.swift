@@ -12,7 +12,7 @@ nonisolated extension SceneRenderDescriptor {
         for index in merged.indices {
             merged[index].childLayerIDs.removeAll { !liveLayerIDs.contains($0) }
         }
-        return .init(
+        var descriptor = Self(
             entryPath: entryPath, camera: camera, lighting: lighting,
             hdrEnabled: hdrEnabled,
             layers: merged,
@@ -23,14 +23,17 @@ nonisolated extension SceneRenderDescriptor {
             renderOrderPolicy: renderOrderPolicy,
             modelMaterialLinks: modelMaterialLinks, materialPasses: materialPasses,
             effectDefinitions: effectDefinitions,
-            effectDefinitionDiagnostics: effectDefinitionDiagnostics,
             shaderReferences: shaderReferences, textureReferences: textureReferences,
-            missingResources: missingResources,
-            builtInReferenceCount: builtInReferenceCount,
-            runtimeProvidedReferenceCount: runtimeProvidedReferenceCount,
-            texturePropertyKeys: texturePropertyKeys,
-            firstStageRendererGaps: firstStageRendererGaps
+            texturePropertyKeys: texturePropertyKeys
         )
+#if DEBUG
+        descriptor.effectDefinitionDiagnostics = effectDefinitionDiagnostics
+        descriptor.missingResources = missingResources
+        descriptor.builtInReferenceCount = builtInReferenceCount
+        descriptor.runtimeProvidedReferenceCount = runtimeProvidedReferenceCount
+        descriptor.firstStageRendererGaps = firstStageRendererGaps
+#endif
+        return descriptor
     }
 }
 

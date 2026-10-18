@@ -19,10 +19,12 @@ internal sealed class ProtocolWriter
         lock (gate) { Console.Out.WriteLine(json); Console.Out.Flush(); }
     }
 
+#if DEBUG
     public void SendDiagnostic(string text)
     {
         Console.Error.WriteLine(ProtocolRedactor.Redact(text));
     }
+#endif
 }
 
 internal static class Program
@@ -32,6 +34,7 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
+#if DEBUG
         // SK0.1 探针模式：独立于产品 NDJSON 服务循环，仅开发验证使用。
         if (args.Length > 0 && args[0] == "probe")
         {
@@ -49,6 +52,8 @@ internal static class Program
             }
             return await ProtocolSelfTest.RunAsync(args.Length > 2 ? args[2..] : []).ConfigureAwait(false);
         }
+#endif
+        if (args.Length != 0) return 2;
         try { return await RunServiceAsync().ConfigureAwait(false); }
         finally { await steamSession.DisposeAsync().ConfigureAwait(false); }
     }
@@ -92,7 +97,9 @@ internal static class Program
             }
             catch (Exception error)
             {
+#if DEBUG
                 writer.SendDiagnostic($"frame read failed: {error.Message}");
+#endif
                 return 1;
             }
             if (frame == null)
@@ -147,7 +154,9 @@ internal static class Program
             }
             if (!terminals.TryBegin(requestId))
             {
+#if DEBUG
                 writer.SendDiagnostic($"duplicate requestId suppressed: {requestId}");
+#endif
                 continue;
             }
 

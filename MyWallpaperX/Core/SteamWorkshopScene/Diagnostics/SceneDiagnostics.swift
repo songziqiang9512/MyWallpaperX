@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct SceneDiagnosticsReport {
@@ -22,7 +23,7 @@ struct SceneDiagnosticsReport {
     var resourceReferences: SceneResourceReferenceIndex? {
         sourceFacts.resourceReferences
     }
-    var resourceIndex: SceneResourceIndex { sourceFacts.resourceIndex }
+    var resourceIndex: SceneResourceIndex? { sourceFacts.resourceIndex }
     var packageReport: ScenePkgExtractionReport? { sourceFacts.packageReport }
     var resourceView: SceneResourceView { sourceFacts.resourceView }
     var sceneDocumentLoadErrorDescription: String? {
@@ -79,7 +80,7 @@ struct SceneDiagnosticsBuilder {
             issues.append(.init(severity: .blocking, message: "未找到 Scene 资源包。"))
         }
 
-        let shaderBlobCount = resourceIndex.count(kind: .shaderBlob)
+        let shaderBlobCount = resourceIndex?.count(kind: .shaderBlob) ?? 0
         if shaderBlobCount > 0 {
             issues.append(.init(severity: .warning, message: "发现 \(shaderBlobCount) 个 DirectX shader blob，Metal 转译尚未实现。"))
         }
@@ -133,7 +134,7 @@ struct SceneDiagnosticsBuilder {
             }
         }
 
-        let capabilityGaps = capabilityProfile.firstStageRendererGaps
+        let capabilityGaps = capabilityProfile?.firstStageRendererGaps ?? []
         if capabilityGaps.isEmpty {
             issues.append(.init(severity: .info, message: "当前样本未暴露第一阶段已知阻塞能力。"))
         } else {
@@ -150,3 +151,5 @@ struct SceneDiagnosticsBuilder {
         )
     }
 }
+
+#endif

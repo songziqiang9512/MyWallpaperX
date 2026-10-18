@@ -150,12 +150,14 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                         defaultBoundaryColorSlots: defaultBoundaryColorSlots
                     )
                 } catch {
+
+#if DEBUG
                     if ProcessInfo.processInfo.arguments.contains(
                         "--mwx-debug-scene-evidence-dir"
                     ) {
                         let classification = SceneAuthoredShaderColorTransferAnalyzer
                             .analyze(fragmentSource: fragmentStage.authoredSource)
-                        NSLog(
+                            NSLog(
                             "MWX DEBUG SCENE: phase=artifact-color-transfer-prepare-failed request=%@ classification=%@ expected=%@ authoredBytes=%d error=%@",
                             requestKey,
                             String(describing: classification),
@@ -164,6 +166,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                             String(describing: error)
                         )
                     }
+#endif
+
                     throw error
                 }
             case .redGreenUnorm:
@@ -252,10 +256,12 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 resolutionTextureSlots: resolutionTextureSlots
             )
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
+
+#if DEBUG
                 if ProcessInfo.processInfo.arguments.contains(
                     "--mwx-debug-scene-evidence-dir"
                 ) {
-                    NSLog(
+                NSLog(
                         "MWX DEBUG SCENE: phase=artifact-color-transfer-rejected request=%@ kind=%@ slot=%@ slots=%@ bindings=%@ authoredBytes=%d",
                         requestKey,
                         color.transfer.kind,
@@ -265,6 +271,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                         fragmentStage.authoredSource.utf8.count
                     )
                 }
+#endif
+
                 throw Failure.colorTransfer
             }
             guard premultipliedColorInputSlots.isSubset(

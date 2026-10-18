@@ -95,6 +95,7 @@ nonisolated enum SceneGraphExecutionObservationError: String, Error, Sendable {
     case invalidLifecycle, invalidFinalOutput, invalidOutcome
 }
 
+#if DEBUG
 nonisolated struct SceneGraphExecutionObservation: Sendable {
     // These mirror SceneGraphExecutionState. The observation builder verifies
     // the equality before it can authorize a committed graph tail.
@@ -555,3 +556,4 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             .joined()
     }
 }
+#endif

@@ -1,7 +1,6 @@
-import Foundation
 #if DEBUG
+import Foundation
 import Synchronization
-#endif
 @preconcurrency import Metal
 @preconcurrency import QuartzCore
 
@@ -69,7 +68,6 @@ nonisolated struct SceneParticleLayerPerformanceSnapshot: Equatable, Sendable {
 }
 
 nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
-#if DEBUG
     // Temporary opt-in GPU evidence. This existing telemetry owns the sole
     // request; the atomic is only a lock-free bypass for unselected buffers.
     let gpuStageTimestampActiveCB = Atomic<UInt>(0)
@@ -78,7 +76,6 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     func withGPUStageTimestampLock<T>(_ operation: () -> T) -> T {
         withLock(operation)
     }
-#endif
     private struct ParticleFrame: Sendable {
         var batches = 0
         var instances = 0
@@ -131,11 +128,9 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
         targetFPS: Int = 60
     ) {
-#if DEBUG
         if self === Self.debugEvidence {
             SceneGPUStageTimestampHook.invalidate(reason: "telemetry-reset")
         }
-#endif
         precondition(targetFPS == 30 || targetFPS == 60)
         withLock {
             generation &+= 1
@@ -498,3 +493,11 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         return operation()
     }
 }
+
+#else
+// Shared signatures carry only nil in Release; no observer can be constructed.
+nonisolated enum SceneFramePerformanceTelemetry: Sendable {
+    static var debugEvidence: Self? { nil }
+}
+nonisolated enum SceneParticlePerformanceObservation: Sendable {}
+#endif

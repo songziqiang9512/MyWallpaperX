@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct SceneCapabilityProfile {
@@ -69,3 +70,6 @@ struct SceneCapabilityProfileBuilder {
         )
     }
 }
+#else
+enum SceneCapabilityProfile {}
+#endif

@@ -236,6 +236,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             in: .page
         ) { [weak self] result in
             guard let self, case let .failure(error) = result else { return }
+#if DEBUG
             self.recordDiagnostic(
                 type: "frame.reply.invalid",
                 severity: .info,
@@ -243,6 +244,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: self.screenID(for: webView),
                 url: webView.url?.absoluteString
             )
+#endif
         }
     }
 }

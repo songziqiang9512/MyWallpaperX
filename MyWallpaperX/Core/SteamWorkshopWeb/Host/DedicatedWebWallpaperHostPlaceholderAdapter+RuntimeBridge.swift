@@ -2,7 +2,6 @@
 //  DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift
 //  MyWallpaperX
 //
-
 import Foundation
 import AppKit
 import WebKit
@@ -638,6 +637,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 webView: webView,
                 frameInfo: frameInfo
             )
+#if DEBUG
             recordDiagnostic(
                 type: "network.proxy.overloaded",
                 severity: .warning,
@@ -645,6 +645,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: screenID,
                 url: surfaces[screenID]?.webView.url?.absoluteString
             )
+#endif
             return
         }
 
@@ -663,6 +664,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 webView: webView,
                 frameInfo: frameInfo
             )
+#if DEBUG
             self.recordDiagnostic(
                 type: "network.proxy.authorization.timeout",
                 severity: .warning,
@@ -670,6 +672,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: screenID,
                 url: webView.url?.absoluteString
             )
+#endif
         }
         DispatchQueue.global(qos: .utility).async { [weak self, weak ownedWebView = webView] in
             guard let authorization = Self.authorizedNetworkBridgeRequest(
@@ -687,6 +690,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                         webView: webView,
                         frameInfo: frameInfo
                     )
+#if DEBUG
                     self.recordDiagnostic(
                         type: "network.proxy.denied",
                         severity: .warning,
@@ -694,6 +698,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                         screenID: screenID,
                         url: webView.url?.absoluteString
                     )
+#endif
                 }
                 return
             }
@@ -738,6 +743,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                             webView: webView,
                             frameInfo: frameInfo
                         )
+#if DEBUG
                         self.recordDiagnostic(
                             type: "network.proxy",
                             severity: .info,
@@ -745,6 +751,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                             screenID: screenID,
                             url: webView.url?.absoluteString
                         )
+#endif
                     case let .failure(failure):
                         self.resolveNetworkRequest(
                             requestID: requestID,
@@ -752,6 +759,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                             webView: webView,
                             frameInfo: frameInfo
                         )
+#if DEBUG
                         self.recordDiagnostic(
                             type: failure == .responseTooLarge ? "network.proxy.too-large" : "network.proxy.error",
                             severity: .warning,
@@ -759,6 +767,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                             screenID: screenID,
                             url: webView.url?.absoluteString
                         )
+#endif
                     }
                 }
             }

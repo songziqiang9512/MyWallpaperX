@@ -291,11 +291,13 @@ extension WallpaperManager {
                 // 注册/注销失败必须留痕：静默吞掉会让面板与系统登录项
                 // 状态永久漂移且无从排查。
                 let failedOperation = settings.startOnBoot ? "register" : "unregister"
+#if DEBUG
                 NSLog(
                     "MWX LoginItem: SMAppService %@ failed: %@",
                     failedOperation,
                     String(describing: error)
                 )
+#endif
                 // 失败后把 startOnBoot 回写为系统真实注册状态：不落盘
                 // 未生效的期望值，持久化与 SMAppService 保持一致，面板
                 // 回填不再和系统脱节。回写经 $settings sink 自动落盘。

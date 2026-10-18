@@ -67,7 +67,9 @@ final class SystemAudioCaptureConfigurationMonitor {
             throw SystemAudioCaptureDeviceFactory.CaptureError.osStatus(aliveStatus)
         }
         aggregateAliveListener = aliveListener
+#if DEBUG
         NSLog("MWX AUDIO CAPTURE: listeners installed")
+#endif
     }
 
     func remove() {
@@ -81,7 +83,9 @@ final class SystemAudioCaptureConfigurationMonitor {
                 listener
             )
             if status != noErr {
+#if DEBUG
                 NSLog("MWX AUDIO CAPTURE: listener removal failed target=aggregate status=%d", status)
+#endif
             }
         }
         aggregateAliveListener = nil
@@ -89,14 +93,18 @@ final class SystemAudioCaptureConfigurationMonitor {
             var address = Self.tapFormatAddress
             let status = AudioObjectRemovePropertyListenerBlock(tapID, &address, queue, listener)
             if status != noErr {
+#if DEBUG
                 NSLog("MWX AUDIO CAPTURE: listener removal failed target=tap status=%d", status)
+#endif
             }
         }
         tapFormatListener = nil
         tapID = kAudioObjectUnknown
         aggregateDeviceID = kAudioObjectUnknown
         if hadListeners {
+#if DEBUG
             NSLog("MWX AUDIO CAPTURE: listeners removed")
+#endif
         }
     }
 }

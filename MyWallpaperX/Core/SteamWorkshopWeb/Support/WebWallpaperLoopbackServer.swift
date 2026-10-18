@@ -17,7 +17,7 @@ final class WebWallpaperLoopbackServer {
     private var pendingStartCompletions: [(Result<URL, Error>) -> Void] = []
     private var startupTimeoutWorkItem: DispatchWorkItem?
     private(set) var port: UInt16?
-    var diagnosticHandler: ((String, WebRuntimeDiagnosticEvent.Severity, String, URL?) -> Void)?
+    var diagnosticHandler: WebRuntimeDiagnosticHandler?
     /// 并发连接上限与当前计数（+Connection 的 handle 消费）：每连接一个串行
     /// 队列与 FD，无上限 accept 会被本机进程用作可用性放大面。
     static let maxConcurrentConnections = 16
@@ -126,7 +126,9 @@ final class WebWallpaperLoopbackServer {
                   let url = Self.loopbackURL(port: port, accessPathPrefix: accessPathPrefix) else {
                 listener.cancel()
                 self.listener = nil
+#if DEBUG
                 diagnosticHandler?("loopback.failed", .error, "loopback_port_unavailable", nil)
+#endif
                 finishStartup(.failure(NSError(
                     domain: "WebWallpaperLoopbackServer",
                     code: 1,
@@ -135,15 +137,21 @@ final class WebWallpaperLoopbackServer {
                 return
             }
             self.port = port
+#if DEBUG
             diagnosticHandler?("loopback.ready", .info, "port=\(port)", nil)
+#endif
             finishStartup(.success(url))
         case let .failed(error):
+#if DEBUG
             diagnosticHandler?("loopback.failed", .error, error.localizedDescription, nil)
+#endif
             listener.cancel()
             self.listener = nil
             finishStartup(.failure(error))
         case let .waiting(error):
+#if DEBUG
             diagnosticHandler?("loopback.waiting", .warning, error.localizedDescription, nil)
+#endif
         default:
             break
         }
@@ -151,7 +159,9 @@ final class WebWallpaperLoopbackServer {
 
     private func handleStartupTimeout() {
         guard pendingStartCompletions.isEmpty == false else { return }
+#if DEBUG
         diagnosticHandler?("loopback.start.timeout", .error, "listener did not become ready", nil)
+#endif
         listener?.cancel()
         listener = nil
         finishStartup(.failure(NSError(

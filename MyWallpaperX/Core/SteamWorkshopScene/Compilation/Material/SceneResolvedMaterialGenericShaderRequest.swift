@@ -76,6 +76,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         colorBoundary: SceneShaderColorBoundary? = nil,
         boundTextureSlots: Set<Int> = []
     ) {
+#if DEBUG
         let environment = ProcessInfo.processInfo.environment
         guard let rawRoot = environment[exportEnvironment],
               let root = validatedDirectory(rawRoot) else { return }
@@ -108,6 +109,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         } catch {
             NSLog("MWX generic shader request export failed request=%@", key)
         }
+    #endif
     }
 
     private static func validatedDirectory(_ rawPath: String) -> URL? {

@@ -131,7 +131,9 @@ struct SceneParticleMetalPipeline {
         let state = renderState.blendMode == .additive
             ? (usesDepthAttachment ? depthAdditiveState : additiveState)
             : (usesDepthAttachment ? depthTranslucentState : translucentState)
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(state)
         if usesDepthAttachment {
             encoder.setDepthStencilState(depthState(for: renderState))
@@ -175,8 +177,8 @@ struct SceneParticleMetalPipeline {
         )
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
         return true
     }
 
@@ -205,7 +207,9 @@ struct SceneParticleMetalPipeline {
     ) -> Bool {
         guard let drawState = instances.currentDrawState(),
               let normal = binding.resolvedNormalArguments() else { return false }
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(
             renderState.blendMode == .additive ? refractAdditiveState : refractTranslucentState
         )
@@ -259,8 +263,8 @@ struct SceneParticleMetalPipeline {
         )
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
         return true
     }
 

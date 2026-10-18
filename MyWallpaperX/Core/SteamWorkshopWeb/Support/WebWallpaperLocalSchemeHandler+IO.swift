@@ -46,7 +46,11 @@ extension WebWallpaperLocalSchemeHandler {
                 guard cancellation.isCancelled == false else {
                     // 被 stop 的请求不再交付，但拒绝原因仍要记账（改前 resolve 期即记账）。
                     if case let .failure(error) = delivery, let denied = error as? AccessDenied {
-                        self.recordDeny(denied)
+
+#if DEBUG
+self.recordDeny(denied)
+#endif
+
                     }
                     delivery.closeStreamedHandle()
                     self.finishRequest(urlSchemeTask)
@@ -67,7 +71,7 @@ extension WebWallpaperLocalSchemeHandler {
         for request: URLRequest,
         requestURL: URL,
         isHeadRequest: Bool,
-        diagnosticHandler: ((String, WebRuntimeDiagnosticEvent.Severity, String, URL?) -> Void)?
+        diagnosticHandler: WebRuntimeDiagnosticHandler?
     ) -> PreparedDelivery {
         let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)
         guard let resource = outcome.resource else {
@@ -79,12 +83,14 @@ extension WebWallpaperLocalSchemeHandler {
             ))
         }
         if resource.didTraverseSymlink {
+#if DEBUG
             diagnosticHandler?(
                 "local-resource-symlink",
                 .warning,
                 "symlink_inside_allowed_root matchedRoot=\(resource.matchedRootPath) resolved=\(resource.fileURL.path)",
                 requestURL
             )
+#endif
         }
 
         let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL)
@@ -180,21 +186,31 @@ extension WebWallpaperLocalSchemeHandler {
                 urlSchemeTask.didReceive(notSatisfiableResponse)
                 finishRequest(urlSchemeTask)
                 urlSchemeTask.didFinish()
+#if DEBUG
                 diagnosticHandler?("local-resource.range-not-satisfiable", .info, "totalSize=\(totalSize)", requestURL)
+#endif
                 return
             }
             if let denied = error as? AccessDenied {
-                recordDeny(denied)
+
+#if DEBUG
+recordDeny(denied)
+#endif
+
             } else {
+#if DEBUG
                 diagnosticHandler?("local-resource-error", .warning, error.localizedDescription, requestURL)
+#endif
             }
             silenceFailedMediaRequestIfNeeded(requestURL: requestURL, in: webView)
             finishRequest(urlSchemeTask)
             urlSchemeTask.didFailWithError(error)
         case let .ready(prepared):
+#if DEBUG
             if let message = prepared.cssServedDiagnostic, shouldRecordServedDiagnostic(for: requestURL) {
                 diagnosticHandler?("local-resource.served", .info, message, requestURL)
             }
+#endif
             urlSchemeTask.didReceive(prepared.response)
             if let streamedHandle = prepared.streamedHandle {
                 streamNextChunk(

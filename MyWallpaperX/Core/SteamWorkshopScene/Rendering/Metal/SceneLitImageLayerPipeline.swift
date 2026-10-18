@@ -114,7 +114,7 @@ struct SceneBaseMaterialLitCapturePayload {
             }
         }
     }
-
+#if DEBUG
     private static let diagnosticLock = NSLock()
     private static var reportedTextureStates = Set<String>()
     private static func report(status: String, role: String) {
@@ -125,6 +125,7 @@ struct SceneBaseMaterialLitCapturePayload {
         NSLog("MWX SCENE: schema=base-material-%@ status=%@ fallback=%@", role, status, role == "normal" ? "flat-lit" : "scalar-no-emission")
     }
 
+#endif
     let pipeline: SceneLitImageLayerPipeline
     private(set) var lights: SceneLitImageLayerLightPayload
     let normal: TextureInput
@@ -178,12 +179,18 @@ struct SceneBaseMaterialLitCapturePayload {
             packed.mapFrame1 = SIMD4(uv.yAxis.x, uv.yAxis.y, 0, 0)
             packed.mapSamplingComponents = SIMD4(binding.sampling.imageLayerUniformMode, enabled, 0, 0)
             if mapRequiredComponents & ~header != 0 {
+#if DEBUG
                 Self.report(status: "component-unavailable", role: "map")
+#endif
             }
         }
         self.lights = packed
+#if DEBUG
         Self.report(status: normal.status, role: "normal")
+#endif
+#if DEBUG
         Self.report(status: materialMap.status, role: "map")
+#endif
     }
 
     /// A bad normal is rejected independently of a legal capture target. The
@@ -355,7 +362,9 @@ final class SceneLitImageLayerPipeline {
     }
 
     func bind(encoder: MTLRenderCommandEncoder) {
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(state)
         SceneImageLayerPipeline.bindQuad(encoder: encoder)
     }
@@ -395,7 +404,7 @@ final class SceneLitImageLayerPipeline {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+#endif
     }
 }

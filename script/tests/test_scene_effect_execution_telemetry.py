@@ -293,7 +293,7 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
         environment["SWIFT_MODULECACHE_PATH"] = str(directory / "swift-cache")
         compilation = subprocess.run(
             [
-                "swiftc",
+                "swiftc", "-D", "DEBUG",
                 "-swift-version",
                 "6",
                 "-default-isolation",

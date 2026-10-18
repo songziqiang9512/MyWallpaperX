@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 @preconcurrency import Metal
 
@@ -119,3 +120,5 @@ nonisolated final class SceneEffectExecutionTelemetry: @unchecked Sendable {
         return operation()
     }
 }
+
+#endif

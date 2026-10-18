@@ -224,7 +224,7 @@ nonisolated struct SceneScriptObservedMediaFrameEvents: Equatable, Sendable {
     let thumbnail: SceneScriptMediaThumbnailEventInput?
     let timeline: SceneScriptMediaTimelineEventInput?
 }
-
+#if DEBUG
 nonisolated enum SceneScriptMediaRuntimeDiagnostics {
     static func logProperties(
         target: SceneDynamicTarget,
@@ -252,7 +252,7 @@ nonisolated enum SceneScriptMediaRuntimeDiagnostics {
         )
     }
 }
-
+#endif
 nonisolated enum SceneScriptMediaOwnerFamily: Int, Equatable, Sendable {
     case vector
     case string

@@ -37,7 +37,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
         let controller = WKUserContentController()
         let audioDemandMessageHandler = WebAudioDemandMessageHandler(adapter: self, screenID: screenID)
+        controller.add(self, name: "wallpaperHostReady")
+#if DEBUG
         controller.add(self, name: "wallpaperHostLog")
+#endif
         controller.add(audioDemandMessageHandler, name: "wallpaperHostAudioDemand")
         controller.add(self, name: "wallpaperHostRandomFile")
         controller.add(self, name: "wallpaperHostInteractiveRegions")
@@ -102,11 +105,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             strictSymlinkPolicy: request?.runtimeProfile.strictLocalResourcePolicy ?? false
         )
         schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request?.propertiesJSON))
+#if DEBUG
         schemeHandler.diagnosticHandler = { [weak self] type, severity, message, url in
             Task { @MainActor in
                 self?.recordDiagnostic(type: type, severity: severity, message: message, screenID: screenID, url: url?.absoluteString)
             }
         }
+#endif
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = controller
         configuration.mediaTypesRequiringUserActionForPlayback = []
@@ -123,9 +128,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         webView.navigationDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
         webView.allowsMagnification = false
+#if DEBUG
         if #available(macOS 13.0, *) {
             webView.isInspectable = request?.runtimeProfile.diagnosticsEnabled ?? true
         }
+#endif
         contentView.addSubview(webView)
         return HostSurface(
             mediaPlaybackGate: mediaPlaybackGate,
@@ -166,6 +173,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         loopbackServers.removeAll()
         let activeMonitorCount = (localMouseMonitor == nil ? 0 : 1) + (globalMouseMonitor == nil ? 0 : 1)
+#if DEBUG
         recordDiagnostic(
             type: "lifecycle.teardown",
             severity: .info,
@@ -173,6 +181,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: nil,
             url: nil
         )
+#endif
     }
 
     func removeSurface(for screenID: CGDirectDisplayID) {
@@ -188,13 +197,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         #endif
         surfaces.removeValue(forKey: screenID)
         if let loopbackServer = loopbackServers.removeValue(forKey: screenID) {
-            recordDiagnostic(
+#if DEBUG
+        recordDiagnostic(
                 type: "loopback.stopped",
                 severity: .info,
                 message: "screen=\(screenID)",
                 screenID: screenID,
                 url: nil
             )
+#endif
             loopbackServer.stop()
         }
         readyScreenIDs.remove(screenID)
@@ -203,7 +214,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         refreshSystemMediaSubscription()
         surface.webView.navigationDelegate = nil
         surface.webView.stopLoading()
+        surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostReady")
+#if DEBUG
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostLog")
+#endif
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostAudioDemand")
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostRandomFile")
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostInteractiveRegions")
@@ -215,6 +229,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         surface.window.close()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self, weak webView = surface.webView] in
             guard let self else { return }
+#if DEBUG
             self.recordDiagnostic(
                 type: webView == nil ? "lifecycle.surface.released" : "lifecycle.surface.retained",
                 severity: webView == nil ? .info : .warning,
@@ -222,6 +237,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: screenID,
                 url: nil
             )
+#endif
         }
     }
 

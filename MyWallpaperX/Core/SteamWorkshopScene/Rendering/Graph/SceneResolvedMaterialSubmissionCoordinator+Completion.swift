@@ -181,7 +181,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 if let sceneColor = head.sceneColor {
                     let promoted = completeSceneColorLocked(sceneColor, succeeded: true)
                     if promoted, capturesExecutionObservations {
+#if DEBUG
                         emission.diagnostics.append("scene-color-completed frame=\(sceneColor.producerReceipt.frameIndex) allocation=\(sceneColor.lease.targets.identity.generation) member=\(sceneColor.member) authoredDraw=\(sceneColor.requiresDraw) mapped=\(sceneColor.displayMapped == true) intent=\(sceneColor.intent) sourceSubmission=\(sceneColor.producerReceipt.commandBufferObservationID)")
+#endif
+
                     }
                 }
                 for identity in head.ledgerIDs {
@@ -259,11 +262,17 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     ) -> Emission {
         var emission = Emission()
         guard !pendingSubmissions.isEmpty else {
+#if DEBUG
             emission.diagnostics.append(headReason)
+#endif
+
             return emission
         }
         pendingSubmissions[0].cancellationReason = headReason
+#if DEBUG
         emission.diagnostics.append(headReason)
+#endif
+
         return emission
     }
 
@@ -304,6 +313,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     /// Observations describe a terminal result; they never authorize it.
     /// The sealed ledger already passed the same product checks in both modes.
     func successObservationsLocked(for ledger: PreparedLedger) -> Emission {
+#if DEBUG
         var emission = Emission()
         guard capturesExecutionObservations else { return emission }
         for value in ledger.prepared.stages {
@@ -312,11 +322,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             guard let mappingGeneration = localFailure == nil
                 ? ledger.blueprint?.mappingGenerations[value.effect]
                 : committedBase?.mappingGeneration ?? 0 else {
-                emission.diagnostics.append(
+
+emission.diagnostics.append(
                     "success-observation-mapping-generation-missing"
                     + "-layer-\(value.effect.layerID)"
                     + "-effect-\(value.effect.effectIndex)"
                 )
+
                 continue
             }
             do {
@@ -345,14 +357,19 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     )
                 )
             } catch {
-                emission.diagnostics.append(
+
+emission.diagnostics.append(
                     "success-observation-\(String(describing: error))"
                     + "-layer-\(value.effect.layerID)"
                     + "-effect-\(value.effect.effectIndex)"
                 )
+
             }
         }
         return emission
+    #else
+        return Emission()
+#endif
     }
 
     func failureObservationsLocked(
@@ -360,6 +377,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         reasonCode: String,
         gpu: SceneGraphExecutionGPUCompletionStatus?
     ) -> Emission {
+#if DEBUG
         var emission = Emission()
         guard capturesExecutionObservations else { return emission }
         for value in ledger.prepared.stages {
@@ -387,12 +405,17 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     )
                 )
             } catch {
-                emission.diagnostics.append(
+
+emission.diagnostics.append(
                     "failure-observation-invariant-rejected"
                 )
+
             }
         }
         return emission
+    #else
+        return Emission()
+#endif
     }
 
     func candidateBlueprintLocked(
@@ -411,7 +434,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]
         ] = [:]
         var mappings: [Graph.EffectKey: UInt64] = [:]
+#if DEBUG
         var resets: [Graph.EffectKey: SceneGraphExecutionResetReason] = [:]
+#endif
         for value in prepared.stages {
             let previous = current[value.effect]
             guard transitionResourcesAreValid(value),
@@ -419,6 +444,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                       previous: previous,
                       next: value.transition.nextState
                   ) else { return nil }
+#if DEBUG
             let lifecycle = resetReasonLocked(
                 previous: previous?.state,
                 next: value.transition.nextState,
@@ -428,6 +454,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             )
             guard lifecycle.valid else { return nil }
             if let reason = lifecycle.reason { resets[value.effect] = reason }
+#else
+            let validLifecycle = lifecycleIsValidLocked(
+                previous: previous?.state,
+                next: value.transition.nextState,
+                transaction: value.transition.transaction,
+                historyRehydrateCopyCount: value.historyRehydrateCopyCount,
+                historyContentDiscarded: value.historyContentDiscarded
+            )
+            guard validLifecycle else { return nil }
+#endif
             states[value.effect] = value.transition.nextState
             resources[value.effect] = value.persistentResources
             mappings[value.effect] = generation
@@ -438,12 +474,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 mappingGeneration: generation
             )
         }
-        return .init(
+        var blueprint = CandidateBlueprint(
             states: states,
             resources: resources,
-            mappingGenerations: mappings,
-            resetReasons: resets
+            mappingGenerations: mappings
         )
+#if DEBUG
+        blueprint.resetReasons = resets
+#endif
+        return blueprint
     }
 
 }

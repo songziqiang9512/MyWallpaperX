@@ -22,6 +22,9 @@ def controller_fixture_source() -> str:
         opening = source.index('{', start)
         source = source[:start] + source[opening + len(body):]
     start = source.index('    private func statusText(')
+    conditional = source.rfind('#if DEBUG', 0, start)
+    assert source[conditional:start].strip() == '#if DEBUG'
+    start = conditional
     version = source.index('/// Conservative version')
     source = source[:start] + '}\n\n' + source[version:]
     models = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift'

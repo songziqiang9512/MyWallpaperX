@@ -35,7 +35,9 @@ enum BundledVideoLibrary {
                 )
             )
         } catch {
+#if DEBUG
             NSLog("MyWallpaperX bundled videos unavailable: %@", error.localizedDescription)
+#endif
             return nil
         }
     }()

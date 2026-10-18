@@ -87,7 +87,8 @@ let webCompatibilityScriptMediaObservers = #"""
     // 本脚本按 frame 注入：就绪信号是宿主屏幕级状态机（applyCompatibilityState、
     // markScreenReady）的触发条件，只由顶层 frame 发出。
     if (wallpaperIsTopFrame === true) {
-      hostLogger.post('dom.ready', document.location.href);
+      try { window.webkit.messageHandlers.wallpaperHostReady.postMessage({}); } catch (_) {}
+      hostLogger?.post('dom.ready', document.location.href);
     }
     try {
       document.documentElement.style.width = '100%';
@@ -121,11 +122,11 @@ let webCompatibilityScriptMediaObservers = #"""
       try { parts.push(`visibility=${document.visibilityState || 'unknown'}`); } catch (_) {}
       return parts.join(' ');
     };
-    const postMediaState = (type, node) => hostLogger.post(type, mediaStateSummary(node));
+    const postMediaState = (type, node) => hostLogger?.post(type, mediaStateSummary(node));
     Array.from(document.querySelectorAll('source')).forEach((sourceNode) => {
       const src = (sourceNode.getAttribute('src') || '').trim();
       if (!src) {
-        hostLogger.post('resource.sanitized', `empty-source ${sourceNode.outerHTML}`);
+        hostLogger?.post('resource.sanitized', `empty-source ${sourceNode.outerHTML}`);
         sourceNode.remove();
       }
     });
@@ -151,7 +152,7 @@ let webCompatibilityScriptMediaObservers = #"""
           } catch (_) {}
         }
         if (!hasSrc) {
-          hostLogger.post('resource.sanitized', 'play() skipped: no src on media node');
+          hostLogger?.post('resource.sanitized', 'play() skipped: no src on media node');
           return Promise.resolve();
         }
         return _originalPlay.apply(this, arguments);
@@ -178,15 +179,16 @@ let webCompatibilityScriptMediaObservers = #"""
         const hostPlaybackRate = Number(window.__myWallpaperLastHostPlaybackRate);
         if (Number.isFinite(hostPlaybackRate)) node.playbackRate = hostPlaybackRate;
       } catch (_) {}
+      if (!hostLogger) return;
       if (!loggedFirstMediaNode) {
         loggedFirstMediaNode = true;
-        hostLogger.post('first-media-node-found', mediaStateSummary(node));
+        hostLogger?.post('first-media-node-found', mediaStateSummary(node));
       }
       postMediaState('media.initial', node);
       node.addEventListener('error', () => {
         const error = node.error;
         const details = error ? `code=${error.code}` : 'unknown';
-        hostLogger.post('media.error', `${mediaStateSummary(node)} ${details}`.trim());
+        hostLogger?.post('media.error', `${mediaStateSummary(node)} ${details}`.trim());
       });
       node.addEventListener('stalled', () => {
         postMediaState('media.stalled', node);
@@ -212,7 +214,7 @@ let webCompatibilityScriptMediaObservers = #"""
       node.addEventListener('canplay', () => {
         if (!loggedFirstVideoCanPlay && String(node.tagName || '').toLowerCase() === 'video') {
           loggedFirstVideoCanPlay = true;
-          hostLogger.post('first-video-canplay', mediaStateSummary(node));
+          hostLogger?.post('first-video-canplay', mediaStateSummary(node));
         }
         postMediaState('media.canplay', node);
       });

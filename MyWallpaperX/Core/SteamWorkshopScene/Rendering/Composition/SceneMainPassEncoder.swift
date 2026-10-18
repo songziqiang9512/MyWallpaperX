@@ -124,7 +124,9 @@ final class SceneMainPassEncoder {
             return nil
         }
         encoder.label = "Scene main layer composite"
+#if DEBUG
         SceneGPUCensus.recordMainPassRender(usesDepth: depthTexture != nil)
+#endif
         activeEncoder = encoder
         activeDepthTexture = depthTexture
         nextLoadAction = .load

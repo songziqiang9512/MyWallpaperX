@@ -211,8 +211,10 @@ final class SceneVideoTextureSource {
             case .success:
                 self.installItem(at: file.url)
             case let .failure(error):
+#if DEBUG
                 NSLog("MWX video preparation failed: owner=%@ error=%@",
                     String(describing: self.owner), String(describing: error))
+#endif
             }
         }
     }
@@ -514,12 +516,14 @@ final class SceneVideoTextureSource {
         lastFrame = pendingFrame
         if primedFrame?.texture === pendingFrame.texture { primedFrame = nil }
         if capturesLifecycleObservations, let layerID = owner.layerID {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX video frame: schema=video-frame-v1 layer=%d epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@",
                 layerID, pendingFrame.epoch, frameIndex, pendingFrame.contentGeneration,
                 pendingFrame.requestedItemTime,
                 pendingFrame.decodedItemTime.map { String(format: "%.9f", $0) } ?? "unavailable"
             )
+#endif
         }
 #if DEBUG
         if capturesLifecycleObservations, owner == .asset {
@@ -747,6 +751,7 @@ final class SceneVideoTextureSource {
     ) {
         guard capturesLifecycleObservations else { return }
         guard let layerID = owner.layerID else { return }
+#if DEBUG
         NSLog(
             "MWX video provider event: schema=video-provider-event-v1 layer=%d event=end disposition=%@ commandGeneration=%llu anchoredGeneration=%@ itemTime=%.6f duration=%.6f",
             layerID,
@@ -756,6 +761,7 @@ final class SceneVideoTextureSource {
             observedItemTime,
             duration
         )
+#endif
     }
 
     private func boundedItemTime(_ itemTime: TimeInterval) -> CMTime {

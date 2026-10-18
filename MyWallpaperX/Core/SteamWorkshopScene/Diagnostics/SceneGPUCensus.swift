@@ -1,3 +1,4 @@
+#if DEBUG
 import Metal
 
 /// Frame-path GPU operation census.
@@ -9,7 +10,7 @@ import Metal
 /// or from theoretical bytes.
 ///
 /// Every helper here is one lock acquisition on the existing
-/// `ScenePerformanceCounterHub`, the same always-on counter owner that already
+/// `ScenePerformanceCounterHub`, the same Debug counter owner that already
 /// records draws and pipeline binds. Nothing here measures GPU duration; Metal
 /// exposes per-command-buffer GPU time only, so pass-level attribution must come
 /// from counting what was encoded and confirming with a before/after GPU number.
@@ -86,3 +87,4 @@ enum SceneGPUCensus {
         }
     }
 }
+#endif

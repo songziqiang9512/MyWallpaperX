@@ -27,7 +27,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         activeSamplerNames: Set<String>,
         sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
     ) {
+#if DEBUG
         let profileStart = CACurrentMediaTime()
+#else
+        let profileStart = 0.0
+#endif
         let boundTextureSlots = Set(template.textureSlots.indices.filter {
             template.textureSlots[$0] != nil
         })
@@ -51,9 +55,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
         }
+#if DEBUG
         SceneResolvedMaterialVariantCompileProfile.add(
             prepare: (CACurrentMediaTime() - profileStart) * 1000
         )
+#endif
         let variantAnalysisKey = SceneResolvedMaterialVariantAnalysisCache
             .keyDigest(
                 contractIdentity: template.shaderContract.identity,
@@ -88,7 +94,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let cachedAnalysis = variantAnalysisKey.flatMap {
             SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: $0)
         }
+#if DEBUG
         let canonicalizeStart = CACurrentMediaTime()
+#endif
         let compatibilityTargetAdmissionPending = prepared.all.allSatisfy {
             $0.compatibilityTarget == .windowsDX11ShaderModel4
         } && prepared.all.contains {
@@ -109,10 +117,16 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     boundTextureSlots: boundTextureSlots
                 )
         }
+#if DEBUG
         SceneResolvedMaterialVariantCompileProfile.add(
             canonicalize: (CACurrentMediaTime() - canonicalizeStart) * 1000
         )
+
         let analysisStart = CACurrentMediaTime()
+#else
+
+        let analysisStart = 0.0
+#endif
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
         if let cachedAnalysis {
             runtimeLoopBounds = cachedAnalysis.runtimeLoopBounds

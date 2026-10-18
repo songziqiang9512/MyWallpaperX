@@ -38,9 +38,10 @@ extension SteamWorkshopDownloadRecord {
     }
 
     var isWebPlayable: Bool {
-        status == .ready && webEntryURL != nil && webValidationFailureLevel != .fatal
+        status == .ready && webEntryURL != nil
     }
 
+#if DEBUG
     var webValidationFailureSeverity: SteamWorkshopWebValidationSeverity? {
         webValidationFailureLevel?.severity
     }
@@ -56,12 +57,14 @@ extension SteamWorkshopDownloadRecord {
         return nil
     }
 
+#endif
+
     var isDependencyBackedWeb: Bool {
         contentType == .web && dependencyItemID != nil
     }
 
     var isStandaloneWebPlayable: Bool {
-        status == .ready && webEntryURL != nil && dependencyItemID == nil && webValidationFailureLevel != .fatal
+        status == .ready && webEntryURL != nil && dependencyItemID == nil
     }
 
     var hasPlayableDependencyWebHost: Bool {

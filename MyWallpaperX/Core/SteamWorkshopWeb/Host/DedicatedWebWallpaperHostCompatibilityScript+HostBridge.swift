@@ -5,7 +5,7 @@ let webCompatibilityScriptHostBridge = #"""
     // 或页面显式调用）都以子 frame 自身视口归一化，而宿主按屏幕归一化做命中
     // 测试：两者坐标系不同，子 frame 登记一律丢弃并留诊断，避免污染屏幕级命中区域。
     if (wallpaperIsTopFrame !== true) {
-      hostLogger.post('interactive-regions.subframe-ignored', `${regionSource} frame=${document.location.href}`);
+      hostLogger?.post('interactive-regions.subframe-ignored', `${regionSource} frame=${document.location.href}`);
       return;
     }
     try {
@@ -36,7 +36,7 @@ let webCompatibilityScriptHostBridge = #"""
       try {
         window.webkit.messageHandlers.wallpaperHostInteractiveRegions.postMessage(messagePayload);
       } catch (error) {
-        hostLogger.post('interactive-regions.post.error', error && error.message ? error.message : error);
+        hostLogger?.post('interactive-regions.post.error', error && error.message ? error.message : error);
       }
       try {
         window.dispatchEvent(new CustomEvent('wallpaper-interactive-regions-registered', { detail: messagePayload }));
@@ -48,7 +48,7 @@ let webCompatibilityScriptHostBridge = #"""
         window.__myWallpaperInteractiveRegionState.lastAutoRegisterAt = Date.now();
       } catch (_) {}
     } catch (error) {
-      hostLogger.post('interactive-regions.error', error && error.message ? error.message : error);
+      hostLogger?.post('interactive-regions.error', error && error.message ? error.message : error);
     }
   };
   window.__myWallpaperNormalizePropertyBag = function(properties) {
@@ -230,9 +230,9 @@ let webCompatibilityScriptHostBridge = #"""
       window.__myWallpaperRunAfterSettledFrames(() => {
         try {
           window.dispatchEvent(new Event('resize'));
-          hostLogger.post('properties.resize-after-script-failure', reason || 'script error');
+          hostLogger?.post('properties.resize-after-script-failure', reason || 'script error');
         } catch (error) {
-          hostLogger.post('properties.resize-after-script-failure.failed', myWallpaperPropertyErrorMessage(error) || error);
+          hostLogger?.post('properties.resize-after-script-failure.failed', myWallpaperPropertyErrorMessage(error) || error);
         }
       });
     } catch (_) {}
@@ -245,7 +245,7 @@ let webCompatibilityScriptHostBridge = #"""
       if (reported[skipKey] === true) return;
       reported[skipKey] = true;
       myWallpaperPropertyReplayState.reportedSkips = reported;
-      hostLogger.post('properties.skipped', `${key}: ${message}`);
+      hostLogger?.post('properties.skipped', `${key}: ${message}`);
     } catch (_) {}
   };
   const myWallpaperApplyPropertiesIndividually = function(properties, listener, callback, signature) {
@@ -265,7 +265,7 @@ let webCompatibilityScriptHostBridge = #"""
           try {
             callback.call(listener, { [key]: compatibleValue });
             appliedCount += 1;
-            hostLogger.post('properties.compat.color-array', key);
+            hostLogger?.post('properties.compat.color-array', key);
             continue;
           } catch (compatibleError) {
             error = compatibleError;
@@ -325,7 +325,7 @@ let webCompatibilityScriptHostBridge = #"""
       state.pendingProperties = null;
       state.pendingSignature = '';
       state.attempt = 0;
-      hostLogger.post('properties.applied', `count=${Object.keys(safeProperties).length}`);
+      hostLogger?.post('properties.applied', `count=${Object.keys(safeProperties).length}`);
       window.dispatchEvent(new CustomEvent('wallpaper-properties-applied', { detail: safeProperties }));
     } else {
       const error = applyResult.error;
@@ -341,7 +341,7 @@ let webCompatibilityScriptHostBridge = #"""
             detail: safeProperties
           }));
         } catch (_) {}
-        hostLogger.post('properties.deferred-side-effect', myWallpaperPropertyErrorMessage(error) || 'initialization error');
+        hostLogger?.post('properties.deferred-side-effect', myWallpaperPropertyErrorMessage(error) || 'initialization error');
         return;
       }
       if (isInitializationError && state.attempt < myWallpaperPropertyRetryDelays.length) {
@@ -359,7 +359,7 @@ let webCompatibilityScriptHostBridge = #"""
             compatibleBag.properties
           );
           for (const key of compatibleBag.convertedKeys) {
-            hostLogger.post('properties.compat.color-array', key);
+            hostLogger?.post('properties.compat.color-array', key);
           }
           window.__myWallpaperLastAppliedUserPropertySignature = signature;
           window.__myWallpaperLastAppliedUserPropertyCallback = userPropertyCallback;
@@ -372,11 +372,11 @@ let webCompatibilityScriptHostBridge = #"""
             }));
           } catch (_) {}
           if (compatibleResult.completed === true) {
-            hostLogger.post('properties.applied.compatible', `colors=${compatibleBag.convertedKeys.length}`);
+            hostLogger?.post('properties.applied.compatible', `colors=${compatibleBag.convertedKeys.length}`);
           } else {
             const compatibleError = compatibleResult.error;
             const message = myWallpaperPropertyErrorMessage(compatibleError) || compatibleError;
-            hostLogger.post('properties.error', message);
+            hostLogger?.post('properties.error', message);
             myWallpaperDispatchResizeAfterPropertyError(message);
           }
           return;
@@ -392,7 +392,7 @@ let webCompatibilityScriptHostBridge = #"""
           }));
         } catch (_) {}
         const message = myWallpaperPropertyErrorMessage(error) || error;
-        hostLogger.post('properties.error', message);
+        hostLogger?.post('properties.error', message);
         myWallpaperDispatchResizeAfterPropertyError(message);
         return;
       }
@@ -414,7 +414,7 @@ let webCompatibilityScriptHostBridge = #"""
         }));
       } catch (_) {}
       if (isolatedResult.skippedCount > 0) {
-        hostLogger.post('properties.applied.partial', `applied=${isolatedResult.appliedCount} skipped=${isolatedResult.skippedCount}`);
+        hostLogger?.post('properties.applied.partial', `applied=${isolatedResult.appliedCount} skipped=${isolatedResult.skippedCount}`);
       }
     }
   };
@@ -445,7 +445,7 @@ let webCompatibilityScriptHostBridge = #"""
       }
       window.dispatchEvent(new CustomEvent('wallpaper-general-properties-applied', { detail: normalizedProperties }));
     } catch (error) {
-      hostLogger.post('general-properties.error', error && error.message ? error.message : error);
+      hostLogger?.post('general-properties.error', error && error.message ? error.message : error);
     }
   };
   window.__myWallpaperNotifyDirectoryFilesChanged = function(propertyName, addedOrChangedFiles, removedFiles) {
@@ -496,7 +496,7 @@ let webCompatibilityScriptHostBridge = #"""
         }
       }));
     } catch (error) {
-      hostLogger.post('directory.notify.error', error && error.message ? error.message : error);
+      hostLogger?.post('directory.notify.error', error && error.message ? error.message : error);
     }
   };
   window.__myWallpaperNotifyDirectoryAccessError = function(propertyName, errorMessage) {
@@ -516,9 +516,9 @@ let webCompatibilityScriptHostBridge = #"""
           errorMessage: safeErrorMessage
         }
       }));
-      hostLogger.post('directory.access', `${safePropertyName} ${safeErrorMessage || 'ok'}`.trim());
+      hostLogger?.post('directory.access', `${safePropertyName} ${safeErrorMessage || 'ok'}`.trim());
     } catch (error) {
-      hostLogger.post('directory.access.error', error && error.message ? error.message : error);
+      hostLogger?.post('directory.access.error', error && error.message ? error.message : error);
     }
   };
   // D5：宿主回包（网络响应 / 随机文件路径）已按发送 frame 定向 evaluateJavaScript
@@ -531,7 +531,7 @@ let webCompatibilityScriptHostBridge = #"""
           return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
         })
       : [];
-    if (!hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {
+    if (hostLogger && !hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {
       const peak = safeLevels.reduce((maximum, value) => Math.max(maximum, value), 0);
       const half = Math.floor(safeLevels.length / 2);
       const stereoDelta = half > 0
@@ -540,14 +540,14 @@ let webCompatibilityScriptHostBridge = #"""
             0
           ) / half
         : 0;
-      hostLogger.post(
+      hostLogger?.post(
         'audio.spectrum.dispatched',
         `listeners=${audioListeners.length} bins=${safeLevels.length} peak=${peak.toFixed(4)} stereoDelta=${stereoDelta.toFixed(4)}`
       );
-      firstDeliveredAudioSpectrum.splice(0, firstDeliveredAudioSpectrum.length, ...safeLevels);
+      firstDeliveredAudioSpectrum = safeLevels.slice();
       hasLoggedAudioSpectrumDelivery = true;
     } else if (
-      !hasLoggedAudioSpectrumChange &&
+      hostLogger && !hasLoggedAudioSpectrumChange &&
       audioListeners.length > 0 &&
       firstDeliveredAudioSpectrum.length === safeLevels.length &&
       safeLevels.length > 0
@@ -557,7 +557,7 @@ let webCompatibilityScriptHostBridge = #"""
         0
       ) / safeLevels.length;
       if (meanDelta >= 0.001) {
-        hostLogger.post('audio.spectrum.changed', `meanDelta=${meanDelta.toFixed(4)}`);
+        hostLogger?.post('audio.spectrum.changed', `meanDelta=${meanDelta.toFixed(4)}`);
         hasLoggedAudioSpectrumChange = true;
       }
     }
@@ -566,9 +566,10 @@ let webCompatibilityScriptHostBridge = #"""
     } catch (_) {}
     for (const listener of audioListeners) {
       try { listener(safeLevels); } catch (error) {
-        if (!failedAudioListeners.has(listener)) {
+        if (hostLogger && !(failedAudioListeners && failedAudioListeners.has(listener))) {
+          if (!failedAudioListeners) failedAudioListeners = new WeakSet();
           failedAudioListeners.add(listener);
-          hostLogger.post('audio.listener.error', error && error.stack ? error.stack : String(error));
+          hostLogger?.post('audio.listener.error', error && error.stack ? error.stack : String(error));
         }
       }
     }
@@ -628,7 +629,7 @@ let webCompatibilityScriptHostBridge = #"""
         }
         window.__myWallpaperLastNotifiedPaused = paused;
       } catch (error) {
-        hostLogger.post('pause.error', error && error.message ? error.message : error);
+        hostLogger?.post('pause.error', error && error.message ? error.message : error);
       }
     }
     try {
@@ -659,20 +660,20 @@ let webCompatibilityScriptHostBridge = #"""
           }
           if (typeof context.suspend === 'function' && contextState !== 'suspended') {
             context.suspend().catch((error) => {
-              hostLogger.post('audio.suspend.error', error && error.message ? error.message : error);
+              hostLogger?.post('audio.suspend.error', error && error.message ? error.message : error);
             });
           }
         } else if (typeof context.resume === 'function' && contextState !== 'running') {
           if (context.__myWallpaperResumeAudioContextAfterHostPause === false) {
-            hostLogger.post('audio.resume.skipped', `state=${contextState || 'unknown'}`);
+            hostLogger?.post('audio.resume.skipped', `state=${contextState || 'unknown'}`);
             continue;
           }
           context.resume().catch((error) => {
-            hostLogger.post('audio.resume.error', error && error.message ? error.message : error);
+            hostLogger?.post('audio.resume.error', error && error.message ? error.message : error);
           });
         }
       } catch (error) {
-        hostLogger.post('audio.context-state.error', error && error.message ? error.message : error);
+        hostLogger?.post('audio.context-state.error', error && error.message ? error.message : error);
       }
     }
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
@@ -692,7 +693,7 @@ let webCompatibilityScriptHostBridge = #"""
         } else if (typeof node.play === 'function') {
           if (wallpaperShouldResumeMediaAfterHostPause(node) !== true) {
             const pausedSource = String(node.currentSrc || node.src || '').trim();
-            hostLogger.post('media.resume.skipped', `author paused ${pausedSource}`.trim());
+            hostLogger?.post('media.resume.skipped', `author paused ${pausedSource}`.trim());
             continue;
           }
           const resolvedSource = String(node.currentSrc || node.src || '').trim();
@@ -706,12 +707,12 @@ let webCompatibilityScriptHostBridge = #"""
             : playResult;
           if (wrappedPlayResult && typeof wrappedPlayResult.catch === 'function') {
             wrappedPlayResult.catch((error) => {
-              hostLogger.post('media.play.error', error && error.message ? error.message : error);
+              hostLogger?.post('media.play.error', error && error.message ? error.message : error);
             });
           }
         }
       } catch (error) {
-        hostLogger.post('media.control.error', error && error.message ? error.message : error);
+        hostLogger?.post('media.control.error', error && error.message ? error.message : error);
       }
     }
     if (!paused && typeof window.__myWallpaperFlushSystemMedia === 'function') {
@@ -728,7 +729,7 @@ let webCompatibilityScriptHostBridge = #"""
     window.__myWallpaperNotifyPluginLoaded('led');
     window.__myWallpaperNotifyPluginLoaded('rgb');
   } catch (error) {
-    hostLogger.post('bootstrap.seed.error', error && error.message ? error.message : error);
+    hostLogger?.post('bootstrap.seed.error', error && error.message ? error.message : error);
   }
 })();
 """#

@@ -91,6 +91,7 @@ struct SteamWorkshopInlineErrorNotice: View {
     }
 }
 
+#if DEBUG
 struct SteamWorkshopValidationPill: View {
     let severity: SteamWorkshopWebValidationSeverity
     let levelTitle: String?
@@ -151,6 +152,7 @@ struct SteamWorkshopValidationPill: View {
         }
     }
 }
+#endif
 
 enum SteamWorkshopFooterButtonKind {
     case primary

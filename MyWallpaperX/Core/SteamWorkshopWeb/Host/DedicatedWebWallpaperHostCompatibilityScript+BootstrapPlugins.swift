@@ -32,7 +32,7 @@ let webCompatibilityScriptBootstrapPlugins = #"""
   };
   const myWallpaperLogBackstretchNoop = (command, scope) => {
     try {
-      hostLogger.post('backstretch.noop', `${scope} ${command} before init`);
+      hostLogger?.post('backstretch.noop', `${scope} ${command} before init`);
     } catch (_) {}
   };
   const myWallpaperWrapBackstretchMethod = ($, original) => {
@@ -285,7 +285,7 @@ let webCompatibilityScriptBootstrapPlugins = #"""
         window.dispatchEvent(new CustomEvent('wallpaper-plugin-loaded', { detail: loadedName }));
       }
     } catch (error) {
-      hostLogger.post('plugin.listener.error', error && error.message ? error.message : error);
+      hostLogger?.post('plugin.listener.error', error && error.message ? error.message : error);
     }
   };
   window.wallpaperPropertyListener = window.wallpaperPropertyListener || {

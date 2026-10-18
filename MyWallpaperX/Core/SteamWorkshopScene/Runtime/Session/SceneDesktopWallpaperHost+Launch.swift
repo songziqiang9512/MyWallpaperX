@@ -241,7 +241,6 @@ extension SceneDesktopWallpaperHost {
         }
         return false
     }
-
 #if DEBUG
     /// The evidence runner awaits the same request/first-frame transaction as
     /// the daemon. There is no synchronous activation bypass.
@@ -261,7 +260,6 @@ extension SceneDesktopWallpaperHost {
         }
     }
 #endif
-
     private static func prepareLaunch(
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue],
@@ -275,20 +273,24 @@ extension SceneDesktopWallpaperHost {
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
     ) throws -> PreparedLaunch {
         try cancellation?.check()
+#if DEBUG
         let prepareEntry = CACurrentMediaTime()
         func logPrepareStage(_ name: String) {
-            NSLog(
+        NSLog(
                 "MWX LAUNCH-STAGE: stage=%@ elapsedMs=%.0f",
                 name,
                 (CACurrentMediaTime() - prepareEntry) * 1000
             )
         }
+#endif
         progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
             propertyOverrides: propertyOverrides
         )
+#if DEBUG
         let modelBuildMs = (CACurrentMediaTime() - prepareEntry) * 1_000
+#endif
         try cancellation?.check()
         progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
         guard let cacheDirectory = model.packageReport?.outputURL else {
@@ -326,7 +328,9 @@ extension SceneDesktopWallpaperHost {
         runtimeInput = runtimeInput.applyingPreparedImageGeometry(preparedImageGeometry)
         authoredRenderDescriptor = authoredRenderDescriptor
             .applyingPreparedImageGeometry(preparedImageGeometry)
+#if DEBUG
         logPrepareStage("prepare-setup")
+#endif
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
@@ -497,7 +501,9 @@ extension SceneDesktopWallpaperHost {
         let resolvedMaterialVisibleExecutionRootLayerIDs = SceneLayerVisibility
             .visibleLayerIDs(in: runtimeInput.renderDescriptor)
                 .union(projectedLayerVisibilityRootLayerIDs)
+#if DEBUG
         logPrepareStage("prepare-programs")
+#endif
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -517,7 +523,9 @@ extension SceneDesktopWallpaperHost {
                         shaderContracts: runtimeInput.shaderContracts
                     )
             )
+#if DEBUG
         logPrepareStage("prepare-admission")
+#endif
         let materialPropertyTargets = Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
         let provenMaterialBindings = model.propertyVectorProjection.materialBindings
         let loweredMaterialModelPaths = Set(provenMaterialBindings.filter(\.canLowerToCompositor).map(\.modelPath))
@@ -533,15 +541,19 @@ extension SceneDesktopWallpaperHost {
             loweredSourceMaterialModelPaths: loweredMaterialModelPaths,
             provenSourceMaterialBindings: provenMaterialBindings
         )
+#if DEBUG
         logPrepareStage("prepare-catalog")
+#endif
         try cancellation?.check()
         progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
+#if DEBUG
         let resourcesStageStart = CACurrentMediaTime()
         NSLog(
             "MWX LAUNCH-STAGE: stage=model-build elapsedMs=%.0f preludeMs=%.0f",
             modelBuildMs,
             (resourcesStageStart - prepareEntry) * 1000
         )
+#endif
         var baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 materialInstancesByLayerID:
@@ -563,7 +575,9 @@ extension SceneDesktopWallpaperHost {
             textureDecodeCacheBudget: textureDecodeCacheBudget,
             device: device
         )
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         let stockNoiseTextures = try SceneStockNoiseTextureStore(
             assetStates: materialAssetCatalog.launchStates,
             systemDemands: resolvedMaterialCatalog.systemProviderDemands
@@ -590,7 +604,9 @@ extension SceneDesktopWallpaperHost {
                     projectedLayerVisibilityRootLayerIDs,
                 backbufferFormat: runtimeInput.renderDescriptor.colorTargetFormat
             )
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=capability-catalog elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         let admittedVectorPassTargets =
             provisionalMaterialExecutionCapabilities.sceneScriptConsumerTargets
                 .intersection(propertyVectorPassCandidateTargets)
@@ -650,7 +666,9 @@ extension SceneDesktopWallpaperHost {
             firstSurfaceRuntimePreparation.cancel()
             _ = try? firstSurfaceRuntimePreparation.value()
         }
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=first-surface-start elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         try cancellation?.check()
         let sceneScriptStorageSession = recordID.map {
             SceneScriptLocalStorageSession(recordID: $0, defersPersistence: true)
@@ -688,7 +706,9 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("media-route-fixed-point")
         }
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=quickjs-compile elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         let committedPrograms = routedPrograms.programs
         let committedVectorPassTargets = routedPrograms.admittedPassTargets
         let propertyVectorMediaTargets = routedPrograms.mediaOwnerTargets
@@ -816,7 +836,9 @@ extension SceneDesktopWallpaperHost {
             !SceneUserPropertyTextureLoader.isVideo(url: url)
                 || userPropertyTextureLoad.videoDeclarations[key] != nil
         }) else { throw SceneDesktopWallpaperHostLaunchError.requiredUserTextureUnavailable }
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
         let preparedSourceMaterialTargets: Set<SceneDynamicTarget> = Set(firstSurfaceRuntime.sourceMaterials.values
             .flatMap { material in
@@ -835,7 +857,9 @@ extension SceneDesktopWallpaperHost {
         baseMaterialProviderBindings = baseMaterialProviderBindings
             .preparingDynamicImageMaterials(resourceCatalog.lightingProfiles)
         try propertyVectorScriptProgram.domain?.configurePreparedResourceLayerCatalog(preparedResourceLayerTemplates)
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=first-surface-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: runtimeInput,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
@@ -921,45 +945,10 @@ extension SceneDesktopWallpaperHost {
         )
         try context.configurePreparedPuppetBones()
         try cancellation?.check()
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=prepare-end elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+#endif
         return PreparedLaunch(model: model, context: context)
-    }
-
-    /// M3.2：launch 阶段 → M1 计数器 hub 的统一映射（同步/异步两条
-    /// launch 路径共用，保证 TTFVF 归因口径一致）。
-    static func recordLaunchPhase(_ phase: SceneWallpaperLaunchState.Phase) {
-        let hubPhase: SceneLaunchPhase?
-        switch phase {
-        case .accepted: hubPhase = .accepted
-        case .preparingModel: hubPhase = .preparingModel
-        case .preparingPrograms: hubPhase = .preparingPrograms
-        case .preparingResources: hubPhase = .preparingResources
-        case .preparingSurfaces: hubPhase = .preparingSurfaces
-        case .launched: hubPhase = .launched
-        case .cancelled, .failed, .stopped: hubPhase = nil
-        }
-        guard let hubPhase else { return }
-        ScenePerformanceCounterHub.shared.recordLaunchPhase(
-            hubPhase,
-            uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
-        )
-    }
-
-    func publishLaunchState(_ state: SceneWallpaperLaunchState) {
-        launchState = state
-        NSLog(
-            "MWX SCENE STARTUP: request=%@ record=%@ phase=%@ message=%@",
-            state.requestID.uuidString,
-            state.recordID ?? "-",
-            state.phase.rawValue,
-            state.message
-        )
-        Self.recordLaunchPhase(state.phase)
-        SceneSignpost.emitEvent("launch-state", state.phase.rawValue)
-        NotificationCenter.default.post(
-            name: .sceneWallpaperLaunchStateDidChange,
-            object: state
-        )
     }
 
     private func finishLaunchFailure(

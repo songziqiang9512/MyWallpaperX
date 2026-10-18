@@ -60,6 +60,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func scheduleScreenReconciliation() {
+#if DEBUG
         recordDiagnostic(
             type: "lifecycle.screen.observed",
             severity: .info,
@@ -67,11 +68,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: nil,
             url: nil
         )
+#endif
         guard currentRequest != nil else { return }
         screenReconciliationWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self, let request = self.currentRequest else { return }
             self.reconcileDisplaySurfaces(for: request)
+#if DEBUG
             self.recordDiagnostic(
                 type: "lifecycle.screen.reconciled",
                 severity: .info,
@@ -79,12 +82,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: nil,
                 url: nil
             )
+#endif
         }
         screenReconciliationWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
     }
 
     func handleActiveSpaceDidChange() {
+#if DEBUG
         recordDiagnostic(
             type: "lifecycle.space.observed",
             severity: .info,
@@ -92,8 +97,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: nil,
             url: nil
         )
+#endif
         guard phase == .ready else { return }
         reassertSurfaceVisibilityAndRuntimeState(orderFront: true)
+#if DEBUG
         recordDiagnostic(
             type: "lifecycle.space.reasserted",
             severity: .info,
@@ -101,6 +108,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: nil,
             url: nil
         )
+#endif
     }
 
     func handleAppActivationChanged() {

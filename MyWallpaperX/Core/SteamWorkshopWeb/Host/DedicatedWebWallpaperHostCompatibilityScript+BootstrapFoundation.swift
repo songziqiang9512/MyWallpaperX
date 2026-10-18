@@ -1,10 +1,10 @@
 let webCompatibilityScriptBootstrapFoundation = #"""
   const audioStreams = [];
   const audioListeners = [];
-  const failedAudioListeners = new WeakSet();
+  let failedAudioListeners;
   let hasLoggedAudioSpectrumDelivery = false;
   let hasLoggedAudioSpectrumChange = false;
-  let firstDeliveredAudioSpectrum = [];
+  let firstDeliveredAudioSpectrum;
   const volumeListeners = [];
   const mediaStatusListeners = [];
   const mediaPropertiesListeners = [];
@@ -49,14 +49,14 @@ let webCompatibilityScriptBootstrapFoundation = #"""
         try {
           const tagName = node && node.tagName ? String(node.tagName).toLowerCase() : 'media';
           const source = node ? String(node.currentSrc || node.src || '').trim() : '';
-          hostLogger.post('media.play.aborted', `${tagName} ${source}`.trim());
+          hostLogger?.post('media.play.aborted', `${tagName} ${source}`.trim());
         } catch (_) {}
         return;
       }
       if (window.__myWallpaperIsOptionalAudioPlayError(error, node)) {
         try {
           const source = node ? String(node.currentSrc || node.src || '').trim() : '';
-          hostLogger.post('media.play.unsupported', `audio ${source}`.trim());
+          hostLogger?.post('media.play.unsupported', `audio ${source}`.trim());
         } catch (_) {}
         return;
       }
@@ -207,7 +207,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
         Ctor.prototype.resume = function(...args) {
           try { audioContextInstances.add(this); } catch (_) {}
           return originalResume.apply(this, args).catch((error) => {
-            hostLogger.post('audio.resume.error', error && error.message ? error.message : error);
+            hostLogger?.post('audio.resume.error', error && error.message ? error.message : error);
             throw error;
           });
         };
@@ -244,6 +244,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   };
   const hostLogger = (() => {
     const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostLog;
+    if (!handler) return undefined;
     const lastLogTimes = new Map();
     const noisyTypeIntervals = {
       'console.warn': 2000,
@@ -330,7 +331,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     if (typeof listener !== 'function') return;
     audioListeners.push(listener);
     if (audioListeners.length === 1) { try { window.webkit.messageHandlers.wallpaperHostAudioDemand.postMessage({ active: true }); } catch (_) {} }
-    hostLogger.post('audio.listener.registered', `count=${audioListeners.length}`);
+    hostLogger?.post('audio.listener.registered', `count=${audioListeners.length}`);
   };
   window.wallpaperRegisterVolumeListener = function(listener) {
     if (typeof listener === 'function') {

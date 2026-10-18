@@ -457,7 +457,9 @@ final class SteamServiceClient {
             switch SteamServiceFrameDecoder.decode(line) {
             case .failure(let error):
                 // 单个坏帧不锁死连接；只记诊断并丢弃。
+#if DEBUG
                 NSLog("[SteamServiceClient] dropped malformed frame: \(error)")
+#endif
             case .success(let decoded):
                 handleFrame(decoded)
             }

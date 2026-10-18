@@ -61,8 +61,8 @@
       "bytes": 5737
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 195,
-      "bytes": 17488
+      "lines": 203,
+      "bytes": 20062
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -1343,11 +1343,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "5b31bb59906f3a99a37227203e64706a32ecc76027d5009c7cea2e4240316755",
-      "after": "7627faff8c1b009b3f81fd0a46dc5beac0eb3de2687bb4170997e131f458f452",
-      "owner": "scene-compiler-cache-identity",
-      "reason": "原缓存权威补齐构建期编译语义/工具指纹、完整依赖身份与single-flight一次自愈设计及验收；不新增第二缓存owner或逐帧扫描。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#51-编译缓存身份与恢复"
+      "before": "7627faff8c1b009b3f81fd0a46dc5beac0eb3de2687bb4170997e131f458f452",
+      "after": "14c7506455f028f9ff070b7715a9fd6cce5aea9dd5dcb2e7df884983ddd02256",
+      "owner": "release-diagnostic-exclusion",
+      "reason": "发布构建移除诊断入口、实现、样本扫描与缓存及Web Inspector；保留窄的产品启动准入、正常错误及作者属性。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#30-发布构建的诊断边界"
     },
     {
       "section": "bodies",

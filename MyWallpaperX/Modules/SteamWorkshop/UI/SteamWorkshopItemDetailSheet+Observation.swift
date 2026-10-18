@@ -64,7 +64,7 @@ extension AppKitSteamWorkshopItemDetailView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.scheduleRebuild(force: true) }
             .store(in: &cancellables)
-
+#if DEBUG
         NotificationCenter.default.publisher(for: WebRuntimeDiagnosticsStore.didChangeNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
@@ -80,5 +80,6 @@ extension AppKitSteamWorkshopItemDetailView {
                 self.refreshDiagnosticsPanel()
             }
             .store(in: &cancellables)
+#endif
     }
 }

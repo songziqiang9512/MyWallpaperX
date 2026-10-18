@@ -10,6 +10,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PUBLISH_DIR="${1:-$REPO_ROOT/SteamService/bin/publish}"
 INTERMEDIATE_DIR="${2:-$REPO_ROOT/SteamService/obj}"
+HELPER_CONFIGURATION="${CONFIGURATION:-Release}"
+case "$HELPER_CONFIGURATION" in Debug|Release) ;; *) echo "Unsupported helper configuration: $HELPER_CONFIGURATION" >&2; exit 2 ;; esac
 DOTNET="${DOTNET:-$(command -v dotnet || true)}"
 if [[ -z "$DOTNET" ]]; then DOTNET="$HOME/.dotnet/dotnet"; fi
 [[ -x "$DOTNET" ]] || { echo "SteamService requires .NET SDK 8.0.401 to build" >&2; exit 1; }
@@ -33,7 +35,7 @@ cd "$REPO_ROOT/SteamService"
 # Xcode exports TARGETNAME; MSBuild imports it case-insensitively as TargetName.
 # Freeze our assembly output as well as apphost identity at this boundary.
 "$DOTNET" restore --locked-mode -p:TargetName=SteamService -p:BaseIntermediateOutputPath="$INTERMEDIATE_DIR/"
-"$DOTNET" publish -c Release -r osx-arm64 --self-contained true --no-restore -p:TargetName=SteamService \
+"$DOTNET" publish -c "$HELPER_CONFIGURATION" -r osx-arm64 --self-contained true --no-restore -p:TargetName=SteamService \
   -p:BaseIntermediateOutputPath="$INTERMEDIATE_DIR/" \
   -p:BaseOutputPath="$INTERMEDIATE_DIR/bin/" -o "$FRESH_DIR"
 [[ -x "$FRESH_DIR/SteamService" && -f "$FRESH_DIR/SteamService.dll" && -f "$FRESH_DIR/libhostfxr.dylib" \

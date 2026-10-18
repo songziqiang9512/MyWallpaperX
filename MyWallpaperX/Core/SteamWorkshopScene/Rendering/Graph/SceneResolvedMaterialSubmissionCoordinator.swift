@@ -33,7 +33,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]
         ]
         let mappingGenerations: [Graph.EffectKey: UInt64]
-        let resetReasons: [Graph.EffectKey: SceneGraphExecutionResetReason]
+#if DEBUG
+        var resetReasons: [Graph.EffectKey: SceneGraphExecutionResetReason] = [:]
+#endif
     }
 
     enum LedgerPhase: Int {
@@ -83,12 +85,17 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     }
 
     struct Emission {
+#if DEBUG
         var observations: [SceneGraphExecutionObservation] = []
         var diagnostics: [String] = []
+#endif
 
         mutating func append(_ other: Self) {
+#if DEBUG
             observations.append(contentsOf: other.observations)
             diagnostics.append(contentsOf: other.diagnostics)
+
+        #endif
         }
     }
 
@@ -100,9 +107,19 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     /// coordinator 主锁内。
     let claimExecutionCacheLock = NSLock()
     var claimExecutionByToken: [SceneResolvedMaterialExecutionCapabilityCatalog.Token: Bridge.ClaimedExecution] = [:]
+#if DEBUG
     let telemetry: SceneGraphExecutionTelemetry?
+#endif
+#if DEBUG
     let logSink: LogSink
+#else
+    var logSink: LogSink { { _ in } }
+#endif
+#if DEBUG
     let capturesExecutionObservations: Bool
+#else
+    var capturesExecutionObservations: Bool { false }
+#endif
     let lock = NSLock()
     /// Scopes transaction and allocation counters to this coordinator lifetime.
     /// It is deliberately independent from replaceable physical texture pools.
@@ -134,7 +151,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var executionEpoch: UInt64 = 1
     var effectGeneration: UInt64 = 1
     var resetGeneration: UInt64 = 1
+#if DEBUG
     var resetReasonByGeneration: [UInt64: SceneGraphExecutionResetReason] = [:]
+#endif
     var terminalFailureReason: String?
     var frameClaimed = 0
     var frameEncoded = 0
@@ -166,11 +185,15 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             capabilities: capabilities,
             capturesExecutionDiagnostics: capturesExecutionObservations
         )
+#if DEBUG
         telemetry = capturesExecutionObservations
             ? .init(logSink: logSink)
             : nil
+#endif
+#if DEBUG
         self.logSink = logSink
         self.capturesExecutionObservations = capturesExecutionObservations
+#endif
     }
 
     func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {
@@ -216,9 +239,12 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         }
         lock.unlock()
         if let diagnostic {
+#if DEBUG
             logSink(
                 "MWX DEBUG SCENE: schema=1 axis=graph-execution diagnostic=\(diagnostic)"
             )
+#endif
+
         }
         return true
     }
@@ -356,7 +382,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             return .rejected(reasonCode: reason)
         }
         let targetAllocations = requests.map { $0.targetPlan.allocation }
+#if DEBUG
         performanceTelemetry?.beginStage("admit-target-pool")
+#endif
+
         let preparedTargets: [ScenePreparedPersistentGraphTargets]
         if let resourcePossession {
             preparedTargets = resourcePossession.targets
@@ -379,7 +408,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             guard let allocated = pool.preparePreflightedPersistentGraphTargets(
                 framePlans: targetAllocations
             ) else {
+#if DEBUG
                 performanceTelemetry?.endStage("admit-target-pool")
+#endif
+
                 let reason = "frame-target-plan-allocation-failed"
                 emission = framePreparationFailureLocked([], reason: reason)
                 lock.unlock()
@@ -389,7 +421,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             preparedTargets = allocated
         }
 
+#if DEBUG
         performanceTelemetry?.endStage("admit-target-pool")
+#endif
+
         var candidates: [PreparedFrameCandidate] = []
         var candidateInputIndices: [Int] = []
         var provisionalTails = scheduledTails
@@ -479,7 +514,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             let frameInputs = request.frameInputs.withDependencyEffects(
                 preparedDependencyEffects
             )
+#if DEBUG
             performanceTelemetry?.beginStage("admit-executor-prepare")
+#endif
+
             let result = executor.prepare(
                 token: claim.token,
                 leases: targets.leases,
@@ -503,7 +541,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration
             )
+#if DEBUG
             performanceTelemetry?.endStage("admit-executor-prepare")
+#endif
+
             guard case let .success(prepared) = result else {
                 let reason: String
                 switch result {
@@ -538,11 +579,14 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                                 + " entries=\(entries)"
                             if signature != lastLocalFallbackSignature {
                                 lastLocalFallbackSignature = signature
+#if DEBUG
                                 emission.diagnostics.append(
                                     "layer-local-fallback \(signature)"
                                         + " frame=\(frame.frameIndex)"
                                         + " preflight=\(failure.rawValue)"
                                 )
+#endif
+
                             }
                         }
                         continue
@@ -595,8 +639,14 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
 
         // Observation only: splits the post-loop commit path out of
         // admit-prepare-frame so the remaining loop work can be located.
+#if DEBUG
         performanceTelemetry?.beginStage("admit-frame-commit")
+#endif
+
+#if DEBUG
         defer { performanceTelemetry?.endStage("admit-frame-commit") }
+#endif
+
         guard preparedEvidenceFitsLocked(candidates.map(\.prepared)) else {
             let reason = "execution-evidence-capacity"
             emission = framePreparationFailureLocked(candidates, reason: reason)

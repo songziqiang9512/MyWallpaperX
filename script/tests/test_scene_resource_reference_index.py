@@ -108,7 +108,7 @@ class SceneResourceReferenceIndexTests(unittest.TestCase):
         cls.binary = directory / "scene-resource-reference-index"
         compilation = subprocess.run(
             [
-                "xcrun", "--sdk", "macosx", "swiftc",
+                "xcrun", "--sdk", "macosx", "swiftc", "-D", "DEBUG",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness), "-o", str(cls.binary),
             ],

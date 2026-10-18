@@ -15,15 +15,15 @@ let webCompatibilityScriptDOMLifecyclePointer = #"""
     }, { passive: true });
     window.addEventListener('mousedown', (event) => {
       updateCursorState(event);
-      hostLogger.post('pointer.down', `button=${event.button} buttons=${event.buttons}`);
+      hostLogger?.post('pointer.down', `button=${event.button} buttons=${event.buttons}`);
     }, true);
     window.addEventListener('mouseup', (event) => {
       updateCursorState(event);
-      hostLogger.post('pointer.up', `button=${event.button} buttons=${event.buttons}`);
+      hostLogger?.post('pointer.up', `button=${event.button} buttons=${event.buttons}`);
     }, true);
     window.addEventListener('contextmenu', (event) => {
       updateCursorState(event);
-      hostLogger.post('pointer.contextmenu', `button=${event.button} buttons=${event.buttons}`);
+      hostLogger?.post('pointer.contextmenu', `button=${event.button} buttons=${event.buttons}`);
     }, true);
   });
 """#

@@ -55,7 +55,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         framePreparationComplete = false
         preparedLedgerByLayerID.removeAll(keepingCapacity: true)
         pruneCommandBufferRecordsLocked()
+#if DEBUG
         return .init(observations: [], diagnostics: [reason])
+#else
+        return .init()
+#endif
     }
 
     func candidateIsCommitReadyLocked(
@@ -248,7 +252,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 submissionID = nextSubmissionID
             } else {
                 terminalFailureReason = "submission-id-overflow"
+#if DEBUG
                 emission.diagnostics.append("submission-id-overflow")
+#endif
+
                 submissionID = .max
             }
             for identity in identities {
@@ -278,7 +285,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         restoreScheduledTailsLocked()
         invalidateEpochLocked()
         pruneCommandBufferRecordsLocked()
+#if DEBUG
         emission.diagnostics.append(reason)
+#endif
+
         return emission
     }
 
@@ -398,7 +408,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard reasonCode == "named-provider-publication-unavailable" else {
             return .failed(reasonCode: "named-publication-local-reason-rejected")
         }
+#if DEBUG
         var diagnostic: String?
+#endif
         lock.lock()
         guard terminalFailureReason == nil, frameIsActive,
               framePreparationComplete, !frameRequiresDrop,
@@ -474,10 +486,14 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             activeByID[successorID]?.candidateTails =
                 rebasedByIdentity[successorID]
         }
+#if DEBUG
         diagnostic = "named-publication-local-discard layer=\(ledger.layerID)"
             + " reason=\(reasonCode)"
+#endif
         lock.unlock()
+#if DEBUG
         if let diagnostic { logSink(diagnostic) }
+#endif
         return .consumed
     }
 

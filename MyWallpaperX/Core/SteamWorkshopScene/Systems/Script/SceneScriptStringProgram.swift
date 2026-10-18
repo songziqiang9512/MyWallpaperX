@@ -59,7 +59,9 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
     var livePropertyInputTargets: Set<SceneDynamicTarget>
     var disabledTargets: Set<SceneDynamicTarget> = []
     var retiredTargets: Set<SceneDynamicTarget> = []
+#if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []
+#endif
     let frameLedger = SceneScriptProgramFrameLedger()
     var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
@@ -603,6 +605,7 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
                 layerMutations.append(contentsOf: effects.layerMutations)
                 if let properties,
                    case let .string(output) = evaluation.value {
+#if DEBUG
                     NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaPropertiesChanged generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d subTitleUTF8Bytes=%d albumTitleUTF8Bytes=%d albumArtistUTF8Bytes=%d genresUTF8Bytes=%d contentTypeUTF8Bytes=%d outputUTF8Bytes=%d route=generic-only",
                         String(describing: binding.target), properties.generation,
@@ -614,12 +617,16 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
                         properties.contentType.utf8.count,
                         output.utf8.count
                     )
+#endif
                 }
                 if let timeline {
+#if DEBUG
                     SceneScriptMediaRuntimeDiagnostics.logTimeline(
                         target: binding.target, event: timeline
                     )
+#endif
                 }
+#if DEBUG
                 if reportedTargets.insert(binding.target).inserted,
                    case let .string(output) = evaluation.value {
                     NSLog(
@@ -628,6 +635,7 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
                         output.utf8.count
                     )
                 }
+#endif
             case let .failure(failure):
                 failures[binding.target] = failure
                 if failure.permanentlyDisablesOwner {
@@ -720,7 +728,9 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
         }
         disabledTargets.subtract(removed)
         retiredTargets.subtract(removed)
+#if DEBUG
         reportedTargets.subtract(removed)
+#endif
         scriptPropertiesJSONCache.remove(targets: removed)
         frameLedger.remove(targets: removed)
         return outcomes

@@ -19,6 +19,26 @@ internal static class ProtocolSelfTest
         var checks = new List<CheckResult>();
         void Check(string name, bool ok, string detail = "") => checks.Add(new CheckResult(name, ok, detail));
 
+        var diagnosticEvaluated = false;
+        var previousError = Console.Error;
+        using (var diagnosticOutput = new StringWriter())
+        {
+            try
+            {
+                Console.SetError(diagnosticOutput);
+                new ProtocolWriter().SendDiagnostic(
+                    (diagnosticEvaluated = true) ? "diagnostic-test" : "unreachable");
+            }
+            finally { Console.SetError(previousError); }
+#if DEBUG
+            Check("debug-diagnostic-delivery", diagnosticEvaluated
+                && diagnosticOutput.ToString().Contains("diagnostic-test"));
+#else
+            Check("release-diagnostic-excluded", !diagnosticEvaluated
+                && diagnosticOutput.ToString().Length == 0);
+#endif
+        }
+
         // 1. 错误码 taxonomy 与共享 fixture 一致（双端单一事实源）。
         var codesPath = Path.Combine(fixturesDir, "error-codes.json");
         var codesDoc = JsonDocument.Parse(File.ReadAllText(codesPath));

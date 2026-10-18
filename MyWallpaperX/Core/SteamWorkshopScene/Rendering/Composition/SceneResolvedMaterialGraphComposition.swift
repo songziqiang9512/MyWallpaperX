@@ -83,12 +83,15 @@ enum SceneResolvedMaterialGraphComposition {
             runtime.recordClaimedFailure(
                 reasonCode: "frame-target-plan-consumption-failed"
             )
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "layer-graph-target-allocation",
                 outcome: .failed(reasonCode: "frame-plan-unavailable")
             )
+#endif
+
             return .failed
         }
         let execute: (
@@ -123,6 +126,7 @@ enum SceneResolvedMaterialGraphComposition {
         case let .encoded(texture, ticket):
             // M2 Patch A：evidence subjects 构造（catalog 解析 + 锁）仅在
             // 诊断 trace 存在时执行；正常播放 trace 为 nil，整段跳过。
+#if DEBUG
             if let executionTrace {
                 for subject in runtime.executionEvidenceSubjects(for: claim) {
                     let outcome: SceneEffectCPUInvocationOutcome
@@ -150,14 +154,18 @@ enum SceneResolvedMaterialGraphComposition {
                     )
                 }
             }
+#endif
             return .encoded(texture: texture, ticket: ticket)
         case let .failed(reasonCode):
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "unified-graph-executor",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             return .failed
         }
     }
@@ -389,24 +397,30 @@ extension SceneImageLayerCompositor {
             ticket, mainPass: mainPass
         ) {
         case .consumed:
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "terminal-material-replay",
                 outcome: .encoded
             )
+#endif
+
             return true
         case .notApplicable:
             reason = "terminal-material-replay-unprepared"
         case let .failed(reasonCode):
             reason = reasonCode
         }
+#if DEBUG
         executionTrace?.recordRouteOperation(
             layerID: layerID,
             origin: executionOrigin,
             operation: "terminal-material-replay",
             outcome: .failed(reasonCode: reason)
         )
+#endif
+
         return false
     }
 
@@ -427,12 +441,15 @@ extension SceneImageLayerCompositor {
         case .consumed:
             return true
         case let .failed(reasonCode):
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "final-composite",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             return false
         }
     }
@@ -454,12 +471,15 @@ extension SceneImageLayerCompositor {
         case .consumed:
             return true
         case let .failed(reasonCode):
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "named-provider-publication",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             return false
         }
     }
@@ -484,20 +504,26 @@ extension SceneImageLayerCompositor {
             reasonCode: canonicalReasonCode
         ) {
         case .consumed:
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "named-provider-publication",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             return true
         case let .failed(reasonCode):
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "named-provider-publication",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             return false
         }
     }

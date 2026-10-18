@@ -1,14 +1,13 @@
+#if DEBUG
 import Foundation
 
 nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
     typealias LogSink = @Sendable (String) -> Void
 
     private static let maximumTransactionsPerSubject = 64
-#if DEBUG
     private static let explicitSourceEvidenceLayers = Set(
         (ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE"] ?? "")
             .split(separator: ",").compactMap { Int($0) })
-#endif
 
     private enum Trigger: String {
         case firstFrame = "first-frame", nextFrame = "next-frame", reset
@@ -185,13 +184,11 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
         reduceReset(observation, state: &state, triggers: &triggers)
         reduceStickyFacts(observation, state: &state, triggers: &triggers)
         states[key] = state
-#if DEBUG
         if observation.frameIndex < 2048,
            Self.explicitSourceEvidenceLayers.contains(observation.identity.layerID),
            observation.gpuCompletionStatus == .completed {
             triggers.append(.explicitSourceEvidence)
         }
-#endif
         triggers.sort { $0.order < $1.order }
         return triggers.isEmpty ? .none : .emit(triggers)
     }
@@ -435,3 +432,5 @@ nonisolated enum SceneGraphExecutionLogToken {
         }.joined()
     }
 }
+
+#endif

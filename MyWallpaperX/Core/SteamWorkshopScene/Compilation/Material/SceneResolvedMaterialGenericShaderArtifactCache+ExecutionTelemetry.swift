@@ -12,7 +12,8 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
         preparedKey: String
     ) {
         guard let routeDecision else { return }
-        routeTelemetry.recordExecution(
+#if DEBUG
+routeTelemetry.recordExecution(
             routeDecision: routeDecision,
             backend: backend,
             graphInputDiagnostics: graphInputDiagnostics,
@@ -22,5 +23,6 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
             nodeIndex: nodeIndex,
             preparedKey: preparedKey
         )
+#endif
     }
 }

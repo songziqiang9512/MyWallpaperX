@@ -94,9 +94,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             activeByID[successorID]?.candidateTails =
                 rebasedByIdentity[successorID]
         }
+#if DEBUG
         emission.diagnostics.append(
             "dependency-subgraph-local-rejection layer=\(layerID) reason=\(reasonCode)"
         )
+#endif
+
         lock.unlock()
         emit(emission)
         return true
@@ -160,9 +163,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 ? "prepared-frame-consumption-rejected"
                 : "transaction-armed-after-submit"
             emission = claimedFailureLocked(reason: reason)
+#if DEBUG
             emission.diagnostics.append(
                 "\(reason) layer=\(claim.layerID) detail=\(detail)"
             )
+#endif
+
             lock.unlock()
             emit(emission)
             return .failed(reasonCode: reason)

@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 extension SteamWorkshopService {
@@ -241,3 +242,4 @@ extension SteamWorkshopService {
     }
 
 }
+#endif

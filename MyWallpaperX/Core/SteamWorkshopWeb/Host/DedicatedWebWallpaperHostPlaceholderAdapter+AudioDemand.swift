@@ -43,6 +43,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         guard didChange else { return }
 
         let isActive = !audioSpectrumDemandScreenIDs.isEmpty
+#if DEBUG
         recordDiagnostic(
             type: "web.audio-demand",
             severity: .info,
@@ -50,6 +51,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: screenID,
             url: surfaces[screenID]?.webView.url?.absoluteString
         )
+#endif
         if wasActive != isActive, let requestID = currentRequest?.id {
             eventHandler?(.audioSpectrumDemandChanged(isActive, requestID: requestID))
         }
@@ -58,6 +60,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func clearAudioSpectrumDemand() {
         guard !audioSpectrumDemandScreenIDs.isEmpty else { return }
         audioSpectrumDemandScreenIDs.removeAll()
+#if DEBUG
         recordDiagnostic(
             type: "web.audio-demand",
             severity: .info,
@@ -65,6 +68,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: nil,
             url: nil
         )
+#endif
         if let requestID = currentRequest?.id {
             eventHandler?(.audioSpectrumDemandChanged(false, requestID: requestID))
         }

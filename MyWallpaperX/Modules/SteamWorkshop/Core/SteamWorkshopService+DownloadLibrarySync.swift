@@ -477,19 +477,25 @@ extension SteamWorkshopService {
                     } catch {
                         if retry == 2 {
                             deferredCount += 1
+#if DEBUG
                             NSLog("MWX Steam library: v1 public migration deferred for %@: %@",
                                   candidate.item.id, error.localizedDescription)
+#endif
                         }
                     }
                 }
             }
             self.legacyLibraryPublicationMigrationTask = nil
             if migratedCount > 0 {
+#if DEBUG
                 NSLog("MWX Steam library: migrated %d hidden version(s) into public type folders", migratedCount)
+#endif
                 self.reloadInstalledItems()
             }
             if deferredCount > 0 {
+#if DEBUG
                 NSLog("MWX Steam library: %d hidden version migration(s) remain retryable", deferredCount)
+#endif
             }
         }
     }

@@ -118,7 +118,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
           regions
         });
       } catch (error) {
-        hostLogger.post('interactive-regions.auto.error', error && error.message ? error.message : error);
+        hostLogger?.post('interactive-regions.auto.error', error && error.message ? error.message : error);
       }
     };
     const wallpaperScheduleInteractiveRegionRefresh = (() => {

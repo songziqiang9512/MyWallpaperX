@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 extension SteamWorkshopService {
@@ -48,3 +49,4 @@ extension SteamWorkshopService {
         return markers.contains { loweredMessage.contains($0) }
     }
 }
+#endif

@@ -35,7 +35,9 @@ struct SceneMetalRenderer {
     let resolvedMaterialPreparationLayerIDs: [Int]?; let resolvedMaterialPreparationLayers: [SceneRenderDescriptor.Layer]?
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
+#if DEBUG
     let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
+#endif
     let staticModelDepthTargetPool = SceneParticleDepthTargetPool()
     /// Dynamic layer descriptor projection is invalidated by the runtime's
     /// topology revision, not by every frame that reuses the same snapshot.
@@ -70,21 +72,30 @@ struct SceneMetalRenderer {
         // Always-on renderer CPU time. Start is unconditional (the existing
         // cpuStart below is telemetry-gated); the defer covers every return
         // path including the resolved-material busy-guard below.
+#if DEBUG
         let hubRenderStart = ProcessInfo.processInfo.systemUptime
-        defer {
-            ScenePerformanceCounterHub.shared.add(
+#endif
+
+#if DEBUG
+        defer { ScenePerformanceCounterHub.shared.add(
                 .rendererMicros,
                 ScenePerformanceCounterHub.micros(since: hubRenderStart)
-            )
-        }
+            ) }
+#endif
+
         var particleSubmissionCommandBuffer: MTLCommandBuffer? = nil
         var didTransferFrameOwnership = false
         guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
             return .deferred(reasonCode: "resolved-material-frame-in-flight")
         }
+#if DEBUG
         let cpuStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+#endif
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+#if DEBUG
             performanceTelemetry?.recordCommandBufferUnavailable()
+#endif
+
             return .deferred(reasonCode: "command-buffer-unavailable")
         }
         particleSubmissionCommandBuffer = commandBuffer
@@ -115,10 +126,14 @@ struct SceneMetalRenderer {
         // M2 Patch A：effect 执行证据链（每帧 trace + SHA256 cohort）只属于
         // 诊断/基准模式（runtime-architecture §5.5）；正常播放为 nil，
         // 全部 record 调用点为 optional 旁路。
+#if DEBUG
         let effectExecutionTrace: SceneEffectExecutionFrameTrace? =
             SceneDesktopWallpaperHost.usesDebugEvidenceWindow
             ? effectExecutionTelemetry.makeFrame(frameIndex: frameContext.frameIndex)
             : nil
+#else
+        let effectExecutionTrace: SceneEffectExecutionFrameTrace? = nil
+#endif
         beginTextureFrame(imageTextures, userPropertyTextures, userPropertyTextureStates,
                           mediaThumbnail, frameContext)
 #if DEBUG
@@ -197,8 +212,13 @@ struct SceneMetalRenderer {
                 compositionGroupRuntime: &compositionGroupRuntime
             ) { return failure }
         }
+#if DEBUG
         performanceTelemetry?.beginStage("compositor-seal")
+#endif
+
+#if DEBUG
         let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime
+#endif
         if let failure = encodeReflectionSnapshot(reflectionFrame, source: mainTarget,
             commandBuffer: commandBuffer) { return failure }
         if let failure = encodeTerminalColor(
@@ -225,13 +245,22 @@ struct SceneMetalRenderer {
             particleBatches: particleBatches
         )
         didTransferFrameOwnership = true
+#if DEBUG
         performanceTelemetry?.endStage("compositor-seal")
+#endif
+
+#if DEBUG
         hubStage(.compositorSealMicros, hubCompositorSealStart)
+#endif
+#if DEBUG
         if let cpuStart {
-            performanceTelemetry?.recordCPUFrame(
+
+performanceTelemetry?.recordCPUFrame(
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart
             )
+
         }
+#endif
         return .prepared(preparedFrame)
     }
 }

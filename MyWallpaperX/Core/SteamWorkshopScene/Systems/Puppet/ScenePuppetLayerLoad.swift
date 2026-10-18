@@ -135,8 +135,10 @@ enum ScenePuppetLayerLoad {
     private static func logPhysicsDiagnostics(rig: SceneMdlPuppetRig, layerID: Int) {
         for (index, bone) in rig.bones.enumerated() {
             if let diagnostic = bone.physicsDiagnostic {
+#if DEBUG
                 NSLog("MWX Puppet: layer=%d bone=%d fallback=authored-pose reason=%@",
                       layerID, index, diagnostic)
+#endif
             }
         }
     }
@@ -200,7 +202,9 @@ enum ScenePuppetLayerLoad {
                 allowsMissingMeshTextureProduct: allowsMissing, message: message))
         }
         if case let .success(rig) = asset.rig, let diagnostic = rig.referencePoseDiagnostic {
+#if DEBUG
             NSLog("MWX Puppet: layer=%d fallback=bind-pose reason=%@", layer.id, diagnostic)
+#endif
         }
         var fallbackMessage: String?
         var needsReferenceOnlyPlayback = false
@@ -328,7 +332,9 @@ enum ScenePuppetLayerLoad {
                    texture.pixelFormat == .r8Unorm {
                     paintTextures[index] = texture
                 } else {
+#if DEBUG
                     NSLog("MWX Puppet: layer=%d clip=%d mask unavailable; target part hidden", layer.id, index)
+#endif
                 }
             }
             clipping = ScenePuppetClipping(mesh: mesh, pipeline: clippingPipeline(),

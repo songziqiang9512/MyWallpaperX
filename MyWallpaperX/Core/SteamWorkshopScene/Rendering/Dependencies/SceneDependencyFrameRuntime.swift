@@ -127,7 +127,6 @@ final class SceneDependencyFrameRuntime {
     private var debugCaptureFault = SceneDependencyCaptureFault()
     var debugPreparedOutputInstallFailureRecorded = false
 #endif
-
     var renderTargetResidentByteCost: Int { targetPool.residentByteCost }
 
     init(
@@ -873,7 +872,9 @@ final class SceneDependencyFrameRuntime {
                     reasonCode: "named-provider-publication-encoder-unavailable"
                 )
             }
+#if DEBUG
             SceneGPUCensus.recordGraphOutputPublication(texture: reservation.texture)
+#endif
             guard textureRegistry.publishReservedNamedLayerTarget(
                 reference: reference,
                 frameEpoch: frameEpoch,
@@ -929,7 +930,9 @@ final class SceneDependencyFrameRuntime {
             destinationLevel: 0,
             destinationOrigin: .init(x: 0, y: 0, z: 0)
         )
+#if DEBUG
         SceneGPUCensus.recordGraphOutputPublication(texture: texture)
+#endif
         blit.endEncoding()
         guard textureRegistry.publishReservedNamedLayerTarget(
             reference: reference,

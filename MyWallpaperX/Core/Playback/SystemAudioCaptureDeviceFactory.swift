@@ -101,8 +101,10 @@ enum SystemAudioCaptureDeviceFactory {
         var actualFrames: UInt32 = 0
         var actualSize = UInt32(MemoryLayout<UInt32>.size)
         let readStatus = AudioObjectGetPropertyData(deviceID, &frameSizeAddress, 0, nil, &actualSize, &actualFrames)
+#if DEBUG
         NSLog("MWX AUDIO CAPTURE: buffer requested=%u actual=%u setStatus=%d readStatus=%d",
               frameCount, actualFrames, status, readStatus)
+#endif
     }
 
     /// Only configures our private tap aggregate. About 10 ms of PCM keeps the

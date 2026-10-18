@@ -94,7 +94,9 @@ struct SceneImageLayerPipeline {
     // Sets pipeline state + vertex quad buffer once per encoder. Call drawLayer
     // per layer after binding.
     func bind(encoder: MTLRenderCommandEncoder) {
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(state)
         Self.bindQuad(encoder: encoder)
     }
@@ -137,7 +139,7 @@ struct SceneImageLayerPipeline {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+#endif
     }
 }

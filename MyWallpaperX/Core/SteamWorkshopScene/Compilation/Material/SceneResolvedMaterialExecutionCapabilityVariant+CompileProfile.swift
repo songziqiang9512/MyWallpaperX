@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import QuartzCore
 
@@ -67,3 +68,4 @@ nonisolated enum SceneResolvedMaterialVariantCompileProfile {
         )
     }
 }
+#endif

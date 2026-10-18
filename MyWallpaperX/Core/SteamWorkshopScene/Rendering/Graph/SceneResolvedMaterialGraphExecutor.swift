@@ -137,11 +137,18 @@ final class SceneResolvedMaterialGraphExecutor {
     private var queueIdentity: ObjectIdentifier?
     private var resetGeneration: UInt64 = 0
     private var pairContentGeneration: UInt64 = 0
+#if DEBUG
     let effectLocalFallbackLock = NSLock()
+#endif
+#if DEBUG
     var effectLocalFallbackCounts: [String: Int] = [:]
+#endif
+#if DEBUG
     let typedUniformPublicationLock = NSLock()
+#endif
+#if DEBUG
     var typedUniformPublicationIdentities: Set<String> = []
-
+#endif
     init?(
         device: MTLDevice,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
@@ -153,13 +160,21 @@ final class SceneResolvedMaterialGraphExecutor {
         self.device = device
         self.capabilities = capabilities
         self.materialEncoder = materialEncoder
+#if DEBUG
         self.capturesExecutionDiagnostics = capturesExecutionDiagnostics
+#else
+        self.capturesExecutionDiagnostics = false
+#endif
         pipelineWarmupReport = materialEncoder.warmup(
             capabilities.launchPipelineWarmupPlans(device: device)
         )
+#if DEBUG
         if capturesExecutionDiagnostics {
-            pipelineWarmupReport.reportLines.forEach { NSLog("%@", $0) }
+            pipelineWarmupReport.reportLines.forEach {
+            NSLog("%@", $0)
+ }
         }
+#endif
     }
 
     func prepare(
@@ -642,7 +657,7 @@ final class SceneResolvedMaterialGraphExecutor {
         pairContentGeneration += 1
         return pairContentGeneration
     }
-
+#if DEBUG
     func recordTypedUserPropertyUniformPublications(
         program: SceneResolvedMaterialProgram,
         effect: Graph.EffectKey,
@@ -705,7 +720,7 @@ final class SceneResolvedMaterialGraphExecutor {
             guard inserted else { continue }
             let valueToken = values.map { String(format: "%.9g", $0) }
                 .joined(separator: ",")
-            NSLog(
+                NSLog(
                 "MWX typed input publication: channel=user-property consumer=material-uniform layer=%d effect=%d descriptor=%@ node=%d property=%@ pass=%d constant=%@ uniform=%@ stage=%@ type=%@ frame=%llu generation=%llu value=%@",
                 layerID,
                 effectIndex,
@@ -723,12 +738,13 @@ final class SceneResolvedMaterialGraphExecutor {
             )
         }
     }
-
+#endif
     /// Records the bounded evidence-window proof that a prepared Program's
     /// reflected audio host array was encoded from this frame's shared
     /// snapshot. Ordinary playback never enters this loop; the deduplication
     /// key keeps a long evidence run to one silent and one non-silent
     /// observation per reflected array.
+#if DEBUG
     func recordTypedAudioSpectrumUniformConsumptions(
         program: SceneResolvedMaterialProgram,
         effect: Graph.EffectKey,
@@ -819,7 +835,8 @@ final class SceneResolvedMaterialGraphExecutor {
             )
         }
     }
-
+#endif
+#if DEBUG
     func recordTypedUserPropertyBoolActivationPublication(
         activation: SceneResolvedMaterialStageActivationPolicy,
         decision: SceneResolvedMaterialStageActivationPolicy.Decision,
@@ -862,4 +879,5 @@ final class SceneResolvedMaterialGraphExecutor {
             decisionName
         )
     }
+#endif
 }

@@ -55,11 +55,13 @@ extension SceneDesktopWallpaperSession {
                     .cancelDeferredPreparation()
             }
             if let pending = pendingDeferredLayerVisibilityUpdate {
+#if DEBUG
                 logDeferredLayerVisibilityTransition(
                     generation: pending.generation,
                     layerIDs: pending.layerIDs,
                     state: "cancelled:surface-stop"
                 )
+#endif
             }
             pendingDeferredLayerVisibilityUpdate = nil
             audioDemand = (false, false)

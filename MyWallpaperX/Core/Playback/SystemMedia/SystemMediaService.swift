@@ -297,7 +297,9 @@ final class SystemMediaService {
         case .system: source = "system"
         case .none: source = "none"
         }
+#if DEBUG
         NSLog("MWX shared media source: source=%@ status=%@", source, status)
+#endif
     }
 
     private func publishSystemSession(_ value: SystemMediaSource.Snapshot) {

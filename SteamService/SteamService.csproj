@@ -19,6 +19,9 @@
     <Product>MyWallpaperX</Product>
     <Version>0.1.0</Version>
   </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Probe/**/*.cs;*SelfTest.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="SteamKit2" Version="3.4.0" />
     <Content Include="NOTICE.md;licenses/**/*" CopyToPublishDirectory="PreserveNewest" />

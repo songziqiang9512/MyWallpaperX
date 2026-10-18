@@ -660,7 +660,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                     honorTaskCancellation: false
                 )
             } catch {
+#if DEBUG
                 NSLog("MWX Steam library: owned incoming rollback failed: %@", error.localizedDescription)
+#endif
             }
             _ = unlinkat(library.value, incomingName, AT_REMOVEDIR)
         }

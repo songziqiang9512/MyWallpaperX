@@ -114,7 +114,7 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
       } catch (_) {}
       try {
         const tagName = String(node.tagName || 'media').toLowerCase();
-        hostLogger.post('resource.sanitized', `${tagName}.${normalizedAttributeName} skipped invalid media source ${String(rawValue || '')}`);
+        hostLogger?.post('resource.sanitized', `${tagName}.${normalizedAttributeName} skipped invalid media source ${String(rawValue || '')}`);
       } catch (_) {}
     } catch (_) {}
   };
@@ -380,7 +380,7 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
       // D5：宿主回包按发送 frame 定向送达；可达性是活判据——主 frame 恒可达，
       // 子 frame hello ack 后可达。不可达 frame 保持即时回调分支，避免 8s 空等。
       if (wallpaperHostReplyReachable() !== true) {
-        hostLogger.post('host-reply.unsupported', `randomFile ${String(propertyName || 'unknown')}`);
+        hostLogger?.post('host-reply.unsupported', `randomFile ${String(propertyName || 'unknown')}`);
       }
       const handler = wallpaperHostReplyReachable() === true
         ? window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostRandomFile
@@ -399,7 +399,7 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
         }
         callback('');
       }
-      hostLogger.post('runtime.randomFile', String(propertyName || 'unknown'));
+      hostLogger?.post('runtime.randomFile', String(propertyName || 'unknown'));
     } catch (_) {
       if (requestID) {
         randomFileCallbacks.delete(requestID);

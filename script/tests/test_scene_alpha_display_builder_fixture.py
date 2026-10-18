@@ -71,6 +71,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/Geometry/SceneMatrix.swift",
     SOURCE_ROOT / "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
     SOURCE_ROOT / "Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
     SOURCE_ROOT / "Rendering/Metal/SceneMetalPipeline.swift",
@@ -571,6 +572,11 @@ enum Harness {
                 return (String(layer.id), ["present": present, "size": layer.sizeWH ?? []])
             })
         let payload: [String: Any] = [
+            "releaseHasNoDiagnosticPayload": !Mirror(reflecting: model).children.contains {
+                ["resourceReferences", "capabilityProfile", "resourceIndex"].contains($0.label ?? "")
+            } && !Mirror(reflecting: model.renderDescriptor).children.contains {
+                ["firstStageRendererGaps", "effectDefinitionDiagnostics", "missingResources"].contains($0.label ?? "")
+            },
             "rawSizePresence": rawSizePresence,
             "catalogDimensions": catalogDimensions,
             "preparedGeometry": preparedGeometry,
@@ -583,7 +589,6 @@ enum Harness {
             "sharedAlphaTargets": model.sharedLayerAlphaProgram.definitions.map {
                 "\($0.target)"
             },
-            "missingResources": model.renderDescriptor.missingResources,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -680,7 +685,12 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
                              "pair": {"width": 80, "height": 40}}.items():
             (scene_root / "models" / f"field-presence-{name}.json").write_text(json.dumps({"material": "materials/field-presence.json", **fields}))
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        # Link the actual data-only particle environment leaf; this solid/text
+        # builder fixture does not execute particle simulation.
+        force = (SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift").read_text()
+        start = force.index("nonisolated struct SceneParticleControlPointForceEnvironment:")
+        environment = force[start:force.index("\n}", start) + 2]
+        harness.write_text(environment + "\n" + HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-alpha-display-builder"
         compilation = subprocess.run(
             [
@@ -724,8 +734,10 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIs(value[key], True)
 
-    def test_fixture_loads_without_missing_resources(self) -> None:
-        self.assertEqual(self.result["missingResources"], [])
+    def test_release_model_keeps_playback_without_sample_diagnostic_payload(self) -> None:
+        self.assertTrue(self.result["releaseHasNoDiagnosticPayload"])
+
+    def test_fixture_loads_all_authored_layers(self) -> None:
         self.assertEqual(
             [l["id"] for l in self.result["layers"]], [10, 20, 30, 40, 50, 101, 102, 103, 104, 105]
         )

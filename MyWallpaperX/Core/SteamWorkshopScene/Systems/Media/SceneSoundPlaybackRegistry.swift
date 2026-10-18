@@ -39,7 +39,6 @@ final class SceneSoundPlaybackRegistry {
         private var volumeEvidenceCount = 0
         private var clockEvidenceCount = 0
 #endif
-
         init(binding: SceneSoundPlaybackProgram.Binding, epoch: UInt64) {
             self.binding = binding
             self.epoch = epoch
@@ -69,10 +68,12 @@ final class SceneSoundPlaybackRegistry {
                 DispatchQueue.main.async { [weak self] in
                     guard let self, !self.stopped, self.epoch == epoch,
                           self.player.timeControlStatus == .playing else { return }
-                    NSLog(
+#if DEBUG
+                          NSLog(
                         "MWX Scene sound: layer=%d epoch=%llu phase=playing source=%@ volume=%.6f",
                         binding.layerID, epoch, self.currentResource.displayPath, self.player.volume
                     )
+#endif
                 }
             }
         }
@@ -269,8 +270,10 @@ final class SceneSoundPlaybackRegistry {
             looper?.disableLooping()
             player.pause()
             player.removeAllItems()
+#if DEBUG
             NSLog("MWX Scene sound: layer=%d phase=stopped source=%@",
                   binding.layerID, currentResource.displayPath)
+#endif
         }
 
         private func observeStatus(of item: AVPlayerItem) {
@@ -287,11 +290,11 @@ final class SceneSoundPlaybackRegistry {
                     switch item.status {
                     case .readyToPlay:
                         self.reconcilePlayback()
+#if DEBUG
                         NSLog(
                             "MWX Scene sound: layer=%d epoch=%llu phase=ready source=%@ rate=%.3f",
                             self.binding.layerID, epoch, self.currentResource.displayPath, self.player.rate
                         )
-#if DEBUG
                         self.scheduleClockObservation()
 #endif
                     case .failed:
@@ -302,18 +305,19 @@ final class SceneSoundPlaybackRegistry {
                             self.player.pause()
                             self.player.removeAllItems()
                         }
+#if DEBUG
                         NSLog(
                             "MWX Scene sound: layer=%d epoch=%llu phase=failed source=%@ reason=%@",
                             self.binding.layerID, epoch, self.currentResource.displayPath,
                             item.error?.localizedDescription ?? "unknown"
                         )
+#endif
                     case .unknown: break
                     @unknown default: break
                     }
                 }
             }
         }
-
 #if DEBUG
         private func scheduleClockObservation() {
             guard Self.capturesEvidence, clockEvidenceCount < 16 else { return }
@@ -334,7 +338,6 @@ final class SceneSoundPlaybackRegistry {
             }
         }
 #endif
-
         deinit { stop() }
     }
 
@@ -365,12 +368,14 @@ final class SceneSoundPlaybackRegistry {
             sources[binding.layerID] = source
             source.start(paused: paused)
         }
+#if DEBUG
         NSLog(
             "MWX Scene sound: epoch=%llu phase=started admitted=%d rejected=%d"
                 + " skipped=%d paused=%@",
             epoch, program.bindings.count, program.layerRejectionCount,
             program.skippedSourceCount, paused ? "true" : "false"
         )
+#endif
     }
 
     func canApply(userValues: [SceneDynamicTarget: SceneDynamicValue]) -> Bool {

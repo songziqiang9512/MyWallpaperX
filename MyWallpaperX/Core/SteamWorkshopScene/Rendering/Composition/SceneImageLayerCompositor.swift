@@ -99,12 +99,15 @@ struct SceneImageLayerCompositor {
         var request = request
         guard request.resolvedMaterialFrameTargetPlan == nil
             || resolvedMaterialRuntime != nil else {
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
                 operation: "resolved-material-claim",
                 outcome: .failed(reasonCode: "resolved-material-runtime-unavailable")
             )
+#endif
+
             return .failed
         }
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
@@ -127,12 +130,15 @@ struct SceneImageLayerCompositor {
                !layerSourceGraphFallbackPublisher(
                    passthroughPlan.source.texture
                ) {
+#if DEBUG
                 executionTrace?.recordRouteOperation(
                     layerID: request.layer.id,
                     origin: executionOrigin,
                     operation: "degraded-named-provider-source-publication",
                     outcome: .failed(reasonCode: "named-target-capture-failed")
                 )
+#endif
+
                 return .failed
             }
             let encoded = drawLayerSourcePassthrough(
@@ -141,6 +147,7 @@ struct SceneImageLayerCompositor {
                 pipeline: pipeline,
                 mainPass: mainPass
             )
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
@@ -151,8 +158,11 @@ struct SceneImageLayerCompositor {
                     ? .encoded
                     : .failed(reasonCode: "main-pass-encode-failed")
             )
+#endif
+
             if request.blocksStaticLayerSourcePassthrough,
                layerSourceGraphFallbackPublisher != nil {
+#if DEBUG
                 executionTrace?.recordRouteOperation(
                     layerID: request.layer.id,
                     origin: executionOrigin,
@@ -161,6 +171,8 @@ struct SceneImageLayerCompositor {
                         ? .encoded
                         : .failed(reasonCode: "main-pass-encode-failed")
                 )
+#endif
+
             }
             return encoded ? .layerSourcePassthrough : .failed
         }
@@ -172,12 +184,15 @@ struct SceneImageLayerCompositor {
             case let .failure(reason):
                 reasonCode = "unclaimed-visible-effects-\(reason.rawValue)"
             }
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
                 operation: "unclaimed-effect-product-authority",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             return .failed
         }
         let dependencyEffect = request.dependencyEffects.first
@@ -389,12 +404,15 @@ struct SceneImageLayerCompositor {
                 case .published:
                     graphOutputPublished = true
                 case let .unavailable(reasonCode):
+#if DEBUG
                     executionTrace?.recordRouteOperation(
                         layerID: request.layer.id,
                         origin: executionOrigin,
                         operation: "named-provider-publication",
                         outcome: .failed(reasonCode: reasonCode)
                     )
+#endif
+
                     // Color providers still own a visible authored-order
                     // output.  Preserve that main-compositor result; the
                     // absent named target makes only its dependent consumer
@@ -411,12 +429,15 @@ struct SceneImageLayerCompositor {
                         return .failed
                     }
                 case let .invalid(reasonCode):
+#if DEBUG
                     executionTrace?.recordRouteOperation(
                         layerID: request.layer.id,
                         origin: executionOrigin,
                         operation: "named-provider-publication",
                         outcome: .failed(reasonCode: reasonCode)
                     )
+#endif
+
                     _ = consumeResolvedMaterialNamedPublication(
                         graphExecutionTicket,
                         texture: finalTexture,

@@ -408,9 +408,7 @@ extension SteamWorkshopService {
             )
         }
 
-        let validationReport = webValidationReport(for: record)
         let lastPlaybackFailureMessage = webPlaybackFailureMessage(for: record)
-        let lastPlaybackFailureIssue = lastPlaybackFailureMessage.map(webPlaybackFailureIssue(for:))
         let runtimeRiskFlags = descriptor.runtimeRiskFlags
             .union(with: preconditionStates.compactMap { precondition in
                 guard precondition.status == .unmet else { return nil }
@@ -422,28 +420,7 @@ extension SteamWorkshopService {
                 }
             })
 
-        let diagnosticsSnapshot = ResolvedWebRuntimeDiagnosticsSnapshot(
-            recordID: record.id,
-            entryRelativePath: descriptor.resolvedEntryRelativePath,
-            entryPath: descriptor.resolvedEntryURL.path,
-            rootPath: descriptor.effectiveRootURL.path,
-            propertySource: descriptor.propertySource.displayName,
-            sourceKind: descriptor.sourceKind.displayName,
-            entrySource: descriptor.entrySource.displayName,
-            sampleStructure: descriptor.sampleStructure.displayName,
-            presetOverrideCount: descriptor.presetOverrideMap.count,
-            visiblePropertyCount: visiblePropertyKeys.count,
-            validationIssueCount: validationReport?.issueCount ?? 0,
-            propertyPayloadSize: propertyPayloadJSON?.utf8.count ?? 0,
-            unmetPreconditionMessages: preconditionStates
-                .filter { $0.status == .unmet }
-                .map(\.message),
-            runtimeRiskFlags: runtimeRiskFlags,
-            lastPlaybackFailureMessage: lastPlaybackFailureMessage,
-            isActivePlayback: isActiveWebRecord(record)
-        )
-
-        let runtimeModel = ResolvedWebRuntimeModel(
+        var runtimeModel = ResolvedWebRuntimeModel(
             recordID: record.id,
             descriptor: descriptor,
             resolvedLanguage: Self.resolvedWebWallpaperLanguage(),
@@ -458,13 +435,32 @@ extension SteamWorkshopService {
             visiblePropertyKeys: visiblePropertyKeys,
             visibleOptionsByKey: visibleOptionsByKey,
             propertyPayloadJSON: propertyPayloadJSON,
-            validationReport: validationReport,
             preconditionStates: preconditionStates,
             runtimeRiskFlags: runtimeRiskFlags,
-            lastPlaybackFailureMessage: lastPlaybackFailureMessage,
-            lastPlaybackFailureIssue: lastPlaybackFailureIssue,
-            diagnosticsSnapshot: diagnosticsSnapshot
+            lastPlaybackFailureMessage: lastPlaybackFailureMessage
         )
+#if DEBUG
+        runtimeModel.validationReport = webValidationReport(for: record)
+        runtimeModel.lastPlaybackFailureIssue = lastPlaybackFailureMessage.map(webPlaybackFailureIssue(for:))
+        runtimeModel.diagnosticsSnapshot = ResolvedWebRuntimeDiagnosticsSnapshot(
+            recordID: record.id,
+            entryRelativePath: descriptor.resolvedEntryRelativePath,
+            entryPath: descriptor.resolvedEntryURL.path,
+            rootPath: descriptor.effectiveRootURL.path,
+            propertySource: descriptor.propertySource.displayName,
+            sourceKind: descriptor.sourceKind.displayName,
+            entrySource: descriptor.entrySource.displayName,
+            sampleStructure: descriptor.sampleStructure.displayName,
+            presetOverrideCount: descriptor.presetOverrideMap.count,
+            visiblePropertyCount: visiblePropertyKeys.count,
+            validationIssueCount: runtimeModel.validationReport?.issueCount ?? 0,
+            propertyPayloadSize: propertyPayloadJSON?.utf8.count ?? 0,
+            unmetPreconditionMessages: preconditionStates.filter { $0.status == .unmet }.map(\.message),
+            runtimeRiskFlags: runtimeRiskFlags,
+            lastPlaybackFailureMessage: lastPlaybackFailureMessage,
+            isActivePlayback: isActiveWebRecord(record)
+        )
+#endif
         webRuntimeModelCache[record.id] = CachedWebRuntimeModel(signature: signature, model: runtimeModel)
         return runtimeModel
     }

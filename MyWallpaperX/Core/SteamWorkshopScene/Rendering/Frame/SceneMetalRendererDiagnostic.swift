@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct SceneMetalRendererDiagnostic {
@@ -9,3 +10,4 @@ struct SceneMetalRendererDiagnostic {
     let materialPassCount: Int
     let rendererGaps: [String]
 }
+#endif

@@ -33,17 +33,25 @@ extension SceneMetalRenderer {
 #endif
             onDrawableWillPresent?(drawable)
             commandBuffer.present(drawable)
+#if DEBUG
             if let effectExecutionTrace {
                 effectExecutionTelemetry.observeSharedCommandBuffer(
                     for: effectExecutionTrace, on: commandBuffer
                 )
             }
+#endif
             if let particlePerformanceObservations {
+#if DEBUG
                 performanceTelemetry?.recordParticleSubmission(
                     particlePerformanceObservations, on: commandBuffer
                 )
+#endif
+
             }
+#if DEBUG
             performanceTelemetry?.recordSubmitted(on: commandBuffer)
+#endif
+
             compositionGroupRuntime?.arm()
             sourceUpdateTransaction.arm(on: commandBuffer)
             frameDepthLeases.forEach { $0.arm(on: commandBuffer) }

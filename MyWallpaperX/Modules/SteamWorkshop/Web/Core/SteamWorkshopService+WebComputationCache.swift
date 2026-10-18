@@ -1,9 +1,17 @@
 import Foundation
 
+struct CachedWebLaunchEligibility {
+    let signature: String
+    let isValid: Bool
+}
+
+#if DEBUG
 struct CachedWebValidationReport {
     let signature: String
     let report: SteamWorkshopWebValidationReport
 }
+
+#endif
 
 struct CachedWebRuntimeModel {
     let signature: String
@@ -73,6 +81,7 @@ extension SteamWorkshopService {
         ].joined(separator: "|")
     }
 
+#if DEBUG
     func webValidationSignature(for record: SteamWorkshopDownloadRecord) -> String {
         let descriptorModifiedAt = webRuntimeCacheProjectModifiedAt(for: record)?.timeIntervalSince1970 ?? 0
         let propertySourceModifiedAt = webRuntimeCachePropertySourceProjectModifiedAt(for: record)?.timeIntervalSince1970 ?? 0
@@ -100,14 +109,22 @@ extension SteamWorkshopService {
         ].joined(separator: "|")
     }
 
+#endif
+
     func invalidateCachedWebRuntime(for recordID: String) {
+        webLaunchEligibilityCache.removeValue(forKey: recordID)
+#if DEBUG
         webValidationReportCache.removeValue(forKey: recordID)
+#endif
         webRuntimeModelCache.removeValue(forKey: recordID)
         webProjectDescriptorCache.removeValue(forKey: recordID)
     }
 
     func invalidateAllCachedWebRuntime() {
+        webLaunchEligibilityCache.removeAll()
+#if DEBUG
         webValidationReportCache.removeAll()
+#endif
         webRuntimeModelCache.removeAll()
         webProjectDescriptorCache.removeAll()
     }

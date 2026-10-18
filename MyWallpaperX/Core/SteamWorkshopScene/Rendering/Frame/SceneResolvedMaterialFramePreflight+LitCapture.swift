@@ -12,6 +12,7 @@ enum SceneLitCaptureMissReason: String, Hashable {
 
 /// At most one entry per fixed reason for the process lifetime. Layer IDs are
 /// diagnostic context only, so changing scenes cannot grow a global ID set.
+#if DEBUG
 enum SceneBaseMaterialLitCaptureMissLog {
     private static let lock = NSLock()
     private static var reported = Set<SceneLitCaptureMissReason>()
@@ -27,7 +28,7 @@ enum SceneBaseMaterialLitCaptureMissLog {
         )
     }
 }
-
+#endif
 enum SceneLitCapturePayloadResolution {
     case payload(SceneBaseMaterialLitCapturePayload)
     case miss(SceneLitCaptureMissReason)
@@ -51,7 +52,12 @@ extension SceneMetalRenderer {
             sceneViewProjection: cameraFrame.viewProjection(for: layer),
             environmentSource: environmentSource, geometryProduct: request.geometryProduct) {
         case let .payload(payload): request.sourceLighting = payload
-        case let .miss(reason): SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
+        case let .miss(reason):
+#if DEBUG
+SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
+#else
+            break
+#endif
         }
     }
 

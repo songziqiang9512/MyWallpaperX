@@ -40,7 +40,9 @@ final class SceneDisplayMappingPostProcess {
               let vertex = library.makeFunction(name: "sceneDisplayMappingVertex"),
               let fragment = library.makeFunction(name: "sceneDisplayMappingFragment")
         else {
+#if DEBUG
             NSLog("MWX Scene display mapping: default library functions unavailable")
+#endif
             return nil
         }
         let descriptor = MTLRenderPipelineDescriptor()
@@ -50,10 +52,12 @@ final class SceneDisplayMappingPostProcess {
         do {
             pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
         } catch {
+#if DEBUG
             NSLog(
                 "MWX Scene display mapping: pipeline state rejected: %@",
                 String(describing: error)
             )
+#endif
             return nil
         }
         var preparedAttachment: MTLRenderPipelineState?
@@ -64,8 +68,10 @@ final class SceneDisplayMappingPostProcess {
             do {
                 preparedAttachment = try device.makeRenderPipelineState(descriptor: descriptor)
             } catch {
+#if DEBUG
                 NSLog("MWX Scene display mapping: optional attachment input unavailable: %@",
                     String(describing: error))
+#endif
             }
         }
         attachmentPipeline = preparedAttachment

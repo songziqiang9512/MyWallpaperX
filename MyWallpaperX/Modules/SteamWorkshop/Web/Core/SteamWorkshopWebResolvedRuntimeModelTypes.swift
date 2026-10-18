@@ -259,6 +259,7 @@ enum ResolvedWebRuntimeRiskFlag: String, Codable, Equatable, Hashable {
     }
 }
 
+#if DEBUG
 struct ResolvedWebRuntimeDiagnosticsSnapshot: Equatable {
     let recordID: String
     let entryRelativePath: String
@@ -277,6 +278,7 @@ struct ResolvedWebRuntimeDiagnosticsSnapshot: Equatable {
     let lastPlaybackFailureMessage: String?
     let isActivePlayback: Bool
 }
+#endif
 
 /// 纯数据值：由运行时缓存的后台解析段构造并跨执行器返回，不随
 /// default-MainActor 隔离。
@@ -354,10 +356,12 @@ struct ResolvedWebRuntimeModel: Equatable {
     let visiblePropertyKeys: [String]
     let visibleOptionsByKey: [String: [SteamWorkshopWebPropertyOption]]
     let propertyPayloadJSON: String?
-    let validationReport: SteamWorkshopWebValidationReport?
     let preconditionStates: [ResolvedWebRuntimePrecondition]
     let runtimeRiskFlags: [ResolvedWebRuntimeRiskFlag]
     let lastPlaybackFailureMessage: String?
-    let lastPlaybackFailureIssue: SteamWorkshopWebValidationIssue?
-    let diagnosticsSnapshot: ResolvedWebRuntimeDiagnosticsSnapshot
+#if DEBUG
+    var validationReport: SteamWorkshopWebValidationReport? = nil
+    var lastPlaybackFailureIssue: SteamWorkshopWebValidationIssue? = nil
+    var diagnosticsSnapshot: ResolvedWebRuntimeDiagnosticsSnapshot? = nil
+#endif
 }

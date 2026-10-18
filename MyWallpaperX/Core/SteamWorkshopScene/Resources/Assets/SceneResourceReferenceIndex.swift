@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct SceneResourceReferenceIndex {
@@ -123,3 +124,6 @@ struct SceneResourceReferenceIndexBuilder {
             .replacingOccurrences(of: "\\", with: "/")
     }
 }
+#else
+enum SceneResourceReferenceIndex {}
+#endif

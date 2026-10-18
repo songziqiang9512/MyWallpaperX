@@ -12,7 +12,7 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
           style.id = '__mwx-synthetic-hover-style';
           style.textContent = nextRules.join('\n');
           (document.head || document.documentElement || document.body).appendChild(style);
-          try { hostLogger.post('pointer.hoverStyle.ready', `rules=${nextRules.length}`); } catch (_) {}
+          try { hostLogger?.post('pointer.hoverStyle.ready', `rules=${nextRules.length}`); } catch (_) {}
           return true;
         } catch (_) {
           return false;
@@ -90,12 +90,12 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         }
         appendSyntheticHoverStyle(fetchedRules);
       }).catch((error) => {
-        try { hostLogger.post('pointer.hoverStyle.error', error && error.message ? error.message : error); } catch (_) {}
+        try { hostLogger?.post('pointer.hoverStyle.error', error && error.message ? error.message : error); } catch (_) {}
       }).finally(() => {
         window.__mwxSyntheticHoverStyleLoading = false;
       });
     } catch (error) {
-      try { hostLogger.post('pointer.hoverStyle.error', error && error.message ? error.message : error); } catch (_) {}
+      try { hostLogger?.post('pointer.hoverStyle.error', error && error.message ? error.message : error); } catch (_) {}
     }
   };
   window.__myWallpaperSetSyntheticHoverChain = function(nextTarget) {
@@ -312,7 +312,7 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
       if (!target) return;
       window.__myWallpaperUpdateHoverTarget(target, mouseEventInitBase(clientX, clientY, buttonValue, buttonsValue));
       if (shouldDeferButtonedPointerEvent(type, target)) {
-        hostLogger.post('pointer.defer', `${String(type)} target=${target.tagName || 'unknown'} id=${target.id || ''}`.trim());
+        hostLogger?.post('pointer.defer', `${String(type)} target=${target.tagName || 'unknown'} id=${target.id || ''}`.trim());
         if (String(type) === 'pointerup' || String(type) === 'pointercancel' || buttonsValue === 0) {
           wallpaperState.captureTarget = null;
           wallpaperState.captureButtons = 0;
@@ -444,7 +444,7 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         return [type, childPointerArgs[1], childPointerArgs[2], button, buttons, pointerId];
       });
     } catch (error) {
-      hostLogger.post('pointer.dispatch.error', error && error.message ? error.message : error);
+      hostLogger?.post('pointer.dispatch.error', error && error.message ? error.message : error);
     }
   };
   window.__myWallpaperDispatchWheelEvent = function(normalizedX, normalizedY, deltaX, deltaY, buttons) {
@@ -470,7 +470,7 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
       });
       target.dispatchEvent(wheelEvent);
     } catch (error) {
-      hostLogger.post('wheel.dispatch.error', error && error.message ? error.message : error);
+      hostLogger?.post('wheel.dispatch.error', error && error.message ? error.message : error);
     }
   };
   window.__myWallpaperSetPassiveMouseState = function(active, normalizedX, normalizedY, buttons) {

@@ -484,10 +484,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "745864a6607c42b6966cbc914d663dec2f198fe5ca920f7596e47d305514f721",
+        "sourceSHA256": "527cac9d8127675b9db240b1ea2f67e850f8f1bf300925d588a8f2162ff1073d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "在原启动缓存权威核对编译身份、完整依赖与单次自愈设计及源码归属；旧波次试验锚点保持。",
-        "limitations": "导航与缓存职责审查，不代替真实冷暖、全量兼容或官方parity验证"
+        "scope": "核对Release诊断入口/实现、属性面板样本报告、Web Inspector编译隔离；产品入口准入与作者属性编辑保持独立。",
+        "limitations": "导航与职责审查，不代替实际Release运行、全量兼容或正式性能验收"
       }
     },
     {

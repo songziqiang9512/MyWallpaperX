@@ -70,6 +70,8 @@ enum WebWallpaperHostSupport {
 // RUNTIME_HELPERS
 
 final class Adapter {
+    var outputActivityAllowed = true
+
     func applyGeneralProperties(to webView: WKWebView) {}
     func refreshSystemMediaSubscription() {}
     /// D5：与产品 adapter 同名的 frame endpoint 登记桩（同表面），供提取出的
@@ -253,6 +255,8 @@ final class FrameEndpointHelloStub: NSObject, WKScriptMessageHandler {
 /// 兼容脚本的宿主侧观测点：记录 wallpaperHostLog 类型序列与交互区域登记次数，
 /// 用于断言多 frame 注入面（dom.ready 唯一、子 frame 登记被丢弃并出诊断）。
 final class HostProbeRecorder: NSObject, WKScriptMessageHandler {
+    var readyMessages = 0
+
     var logTypes: [String] = []
     var interactiveRegionMessageCount = 0
 
@@ -264,6 +268,7 @@ final class HostProbeRecorder: NSObject, WKScriptMessageHandler {
             interactiveRegionMessageCount += 1
             return
         }
+        if message.name == "wallpaperHostReady" { readyMessages += 1; return }
         guard message.name == "wallpaperHostLog", let body = message.body as? [String: Any] else { return }
         logTypes.append(body["type"] as? String ?? "")
     }
@@ -325,7 +330,8 @@ final class PageHost {
         stubNativeFetch: Bool = false,
         networkStub: NetworkBridgeStub? = nil,
         crossOriginChildHTML: String? = nil,
-        adapter: Adapter? = nil
+        adapter: Adapter? = nil,
+        diagnosticsEnabled: Bool = true
     ) {
         let configuration = WKWebViewConfiguration()
         let generationToken = "mwx-parity-\(UUID().uuidString)"
@@ -337,7 +343,10 @@ final class PageHost {
         configuration.userContentController.addUserScript(WKUserScript(
             source: "window.__mwxParityGeneration = '\(generationToken)';",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        configuration.userContentController.add(recorder, name: "wallpaperHostReady")
+        if diagnosticsEnabled {
         configuration.userContentController.add(recorder, name: "wallpaperHostLog")
+        }
         configuration.userContentController.add(recorder, name: "wallpaperHostInteractiveRegions")
         // D5：frame endpoint hello 通道（每个注入文档一条），与宿主消息面同名。
         configuration.userContentController.add(endpointStub, name: "wallpaperHostFrameEndpoint")
@@ -421,6 +430,7 @@ enum Scenarios {
         case "f29": try await dynamicMediaVolumeBackfill()
         case "f19": try await networkBridgeBinaryRestore()
         case "frames": try await frameInjectionBoundaries()
+        case "release-diagnostics": try await releaseWithoutDiagnosticBridge()
         case "bridge-budget": try await bridgeBudgetConservation()
         default:
             throw NSError(domain: "WebCompatibilityParity", code: 2, userInfo: [
@@ -428,6 +438,23 @@ enum Scenarios {
             ])
         }
         print("web-compat-parity-pass: \(name)")
+    }
+
+    /// A Release document has no diagnostic handler. Readiness and author audio
+    /// callbacks must still work, including repeated dispatch after a listener throws.
+    static func releaseWithoutDiagnosticBridge() async throws {
+        let host = PageHost(html: "<html><body>release</body></html>", diagnosticsEnabled: false)
+        defer { host.close() }
+        try await host.waitUntil("typeof window.__myWallpaperPushAudioSpectrum === 'function'", label: "release bridge")
+        _ = try await host.script("""
+            window.releaseAudioCount = 0;
+            window.wallpaperRegisterAudioListener(() => { throw new Error('author failure'); });
+            window.wallpaperRegisterAudioListener((levels) => { window.releaseAudioCount++; window.releaseLastAudio = levels; });
+            for (let i = 0; i < 90; i++) window.__myWallpaperPushAudioSpectrum([0.1, 0.4, 0.9, 0.2]);
+            """)
+        try await host.waitUntil("window.releaseAudioCount === 90 && window.releaseLastAudio.length === 4", label: "release audio dispatch")
+        expect(host.recorder.readyMessages == 1, "Release readiness must be independent of diagnostics")
+        expect(host.recorder.logTypes.isEmpty, "Release must not emit diagnostics")
     }
 
     /// D5 frame 定向投递合同：每个注入文档（主 frame、同源子 frame、跨源子
@@ -605,6 +632,7 @@ enum Scenarios {
         )
         let domReadyCount = host.recorder.logTypes.filter { $0 == "dom.ready" }.count
         expect(domReadyCount == 1, "dom.ready 应由顶层 frame 唯一发出，实际 \(domReadyCount) 次")
+        expect(host.recorder.readyMessages == 1, "Product ready channel must be main-frame only")
     }
 
     /// D5 网络桥接在飞预算守恒：换代整桶作废不得挤压新世代预算（旧世代残余
@@ -992,6 +1020,9 @@ class WebCompatibilityParityTests(unittest.TestCase):
 
     def test_f19_network_bridge_binary_restore(self) -> None:
         self.scenario("f19")
+
+    def test_release_has_no_diagnostics_but_keeps_ready_and_audio(self) -> None:
+        self.scenario("release-diagnostics")
 
     def test_frames_injection_boundaries(self) -> None:
         self.scenario("frames")

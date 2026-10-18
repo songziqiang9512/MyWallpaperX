@@ -121,7 +121,10 @@ extension SceneResolvedMaterialRuntimeBridge {
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4)
             let finalized = material.bindFrame(input)
             if case let .failure(failure) = finalized, original.frameIndex <= 2 {
+#if DEBUG
                 submissions.logSink("source material frame rejected: layer=\(layerID) reason=\(failure)")
+#endif
+
             }
             guard case let .success(program) = finalized,
                   material.outputDomain.matchesSampledSource(program),
@@ -154,7 +157,10 @@ extension SceneResolvedMaterialRuntimeBridge {
                 sources[consumerID] = source
             }
             if original.frameIndex <= 2 {
+#if DEBUG
                 submissions.logSink("source material encoded: layer=\(layerID) frame=\(original.frameIndex) consumers=\(layerIDs.count) target=\(target.texture.width)x\(target.texture.height)")
+#endif
+
             }
         }
         guard !sources.isEmpty,

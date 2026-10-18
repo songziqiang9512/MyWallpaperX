@@ -218,8 +218,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  DaemonPlaybackProcessRegistry.shared.waitForExit { [weak self] result in
  MainActor.assumeIsolated {
  if !result.allExited {
+#if DEBUG
  NSLog("MWX playback termination deadline exceeded; remaining pids=%@",
        result.remainingProcessIdentifiers.description)
+#endif
  self?.terminationReplyPending = false
  }
  sender.reply(toApplicationShouldTerminate: result.allExited)

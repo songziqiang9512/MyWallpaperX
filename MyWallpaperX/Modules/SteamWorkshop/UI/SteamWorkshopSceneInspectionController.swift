@@ -11,7 +11,9 @@ final class SteamWorkshopSceneInspectionController {
     )
 
     private enum Purpose: Equatable {
+#if DEBUG
         case diagnostics
+#endif
         case properties
     }
 
@@ -33,14 +35,18 @@ final class SteamWorkshopSceneInspectionController {
         let identity: Identity
         let content: InspectionResult
 
+#if DEBUG
         var diagnosticsReport: SceneDiagnosticsReport? {
             guard case let .diagnostics(report) = content else { return nil }
             return report
         }
+#endif
     }
 
     private enum InspectionResult {
+#if DEBUG
         case diagnostics(SceneDiagnosticsReport)
+#endif
         case properties(SceneRuntimeSourceFacts, ScenePropertySourceVersion?)
         case preparedProperties(SteamWorkshopScenePropertyContext, ScenePropertySourceVersion)
     }
@@ -71,8 +77,10 @@ final class SteamWorkshopSceneInspectionController {
     private var snapshot: Snapshot?
     private var propertyMessage: String?
     private var propertyPanelToken: UUID?
+#if DEBUG
     private var diagnosticsExpanded = false
     private var diagnosticsRequested = false
+#endif
 
     init(
         onStateChange: @escaping @MainActor () -> Void,
@@ -152,10 +160,13 @@ final class SteamWorkshopSceneInspectionController {
         discardSnapshot()
         presentedIdentity = nil
         propertyMessage = nil
+#if DEBUG
         diagnosticsExpanded = false
         diagnosticsRequested = false
+#endif
     }
 
+#if DEBUG
     func makeSection(for record: SteamWorkshopDownloadRecord) -> NSView {
         let identity = inspectionIdentity(for: record)
         presentedIdentity = identity
@@ -259,13 +270,16 @@ final class SteamWorkshopSceneInspectionController {
         }
         return root
     }
+#endif
 
+#if DEBUG
     private func requestDiagnostics(for record: SteamWorkshopDownloadRecord) {
         diagnosticsRequested = true
         diagnosticsExpanded = true
         propertyMessage = nil
         startInspection(for: record, purpose: .diagnostics)
     }
+#endif
 
     func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) {
         // Property preparation belongs to the independent window, not to the
@@ -301,11 +315,13 @@ final class SteamWorkshopSceneInspectionController {
         let workItem = DispatchWorkItem { [weak self] in
             let result: InspectionResult
             switch purpose {
+#if DEBUG
             case .diagnostics:
                 result = .diagnostics(SceneDiagnosticsBuilder().build(
                     rootURL: rootURL,
                     propertyOverrides: propertyOverrides
                 ))
+#endif
             case .properties:
                 if let reusable,
                    case let .preparedProperties(context, version) = reusable.content,
@@ -375,8 +391,10 @@ final class SteamWorkshopSceneInspectionController {
             }
         }
         switch result {
+#if DEBUG
         case let .diagnostics(report):
             snapshot = Snapshot(identity: identity, content: .diagnostics(report))
+#endif
         case let .properties(facts, version):
             if let context = service.scenePropertyContext(for: currentRecord, sourceFacts: facts) {
                 if let version, requestEpoch == cacheEpoch,
@@ -471,7 +489,7 @@ final class SteamWorkshopSceneInspectionController {
         )
         let after = ScenePropertySourceVersion.capture(roots: [rootURL] + facts.resourceView.roots.map(\.url))
         let successful = facts.project != nil && facts.sceneDocument != nil
-            && facts.assetCatalog != nil && facts.resourceReferences != nil
+            && facts.assetCatalog != nil
             && facts.renderDescriptor != nil && facts.sceneDocumentLoadErrorDescription == nil
             && (facts.project?.packageURL == nil
                 || (facts.packageReport != nil && facts.packageReport?.blockingMessage == nil))
@@ -536,6 +554,7 @@ final class SteamWorkshopSceneInspectionController {
         )
     }
 
+#if DEBUG
     private func statusText(
         identity: Identity,
         hasCurrentDiagnostics: Bool
@@ -555,7 +574,9 @@ final class SteamWorkshopSceneInspectionController {
         }
         return "诊断默认关闭，只有主动点击后才开始"
     }
+#endif
 
+#if DEBUG
     private func diagnosticsButtonTitle(
         identity: Identity,
         hasCurrentDiagnostics: Bool
@@ -566,7 +587,9 @@ final class SteamWorkshopSceneInspectionController {
         return hasCurrentDiagnostics && diagnosticsRequested
             ? "重新诊断" : "开始诊断"
     }
+#endif
 
+#if DEBUG
     private func appendExpandedContent(
         to stack: NSStackView,
         currentReport: SceneDiagnosticsReport?
@@ -589,7 +612,9 @@ final class SteamWorkshopSceneInspectionController {
             ))
         }
     }
+#endif
 
+#if DEBUG
     private func appendReport(
         _ report: SceneDiagnosticsReport,
         to stack: NSStackView
@@ -610,7 +635,9 @@ final class SteamWorkshopSceneInspectionController {
             ))
         }
     }
+#endif
 
+#if DEBUG
     private func diagnosticRows(
         _ report: SceneDiagnosticsReport
     ) -> [(label: String, value: String)] {
@@ -618,7 +645,7 @@ final class SteamWorkshopSceneInspectionController {
         let descriptor = report.renderDescriptor
         return [
             ("入口", report.project?.entryPath ?? "未解析"),
-            ("资源数", "\(report.resourceIndex.resources.count)"),
+            ("资源数", "\(report.resourceIndex?.resources.count ?? 0)"),
             ("对象数", "\(report.sceneDocument?.objectCount ?? 0)"),
             ("effect", "\(report.sceneDocument?.effectCount ?? 0)"),
             ("模型", "\(report.assetCatalog?.models.count ?? 0)"),
@@ -635,7 +662,7 @@ final class SteamWorkshopSceneInspectionController {
             ),
             ("PKGV 索引", "\(report.packageReport?.packageIndex?.entries.count ?? 0)"),
             ("缓存解包", "\(report.packageReport?.discoveredPaths.count ?? 0)"),
-            ("shader blob", "\(report.resourceIndex.count(kind: .shaderBlob))"),
+            ("shader blob", "\(report.resourceIndex?.count(kind: .shaderBlob) ?? 0)"),
             ("脚本", capability?.hasScripts == true ? "有" : "无"),
             ("粒子", capability?.hasParticles == true ? "有" : "无"),
             ("音频处理", capability?.supportsAudioProcessing == true ? "声明支持" : "未声明"),
@@ -654,12 +681,15 @@ final class SteamWorkshopSceneInspectionController {
             ),
         ]
     }
+#endif
 
+#if DEBUG
     private func progressRow(for purpose: Purpose) -> NSView {
         progressRow(text: purpose == .diagnostics
             ? "正在后台生成 Scene 诊断…"
             : "正在后台准备 Scene 属性…")
     }
+#endif
 
     private func progressRow(text: String) -> NSView {
         let row = NSStackView()
@@ -779,7 +809,6 @@ final class SteamWorkshopSceneInspectionController {
         }
     }
 }
-
 
 /// Conservative version of all namespaces consumed by one property inspection.
 /// Metadata uncertainty only disables reuse; the normal builder still decides

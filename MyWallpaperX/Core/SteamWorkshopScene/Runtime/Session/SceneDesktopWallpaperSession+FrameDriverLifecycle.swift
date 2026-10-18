@@ -25,8 +25,10 @@ extension SceneDesktopWallpaperSession {
             effectivePropertyValues: context.liveState.effectiveValues,
             propertyRevision: context.liveState.revision)
         for (target, failure) in failures {
+#if DEBUG
             NSLog("MWX SceneScript VM: target=%@ preparation=text-template-input failure=%@ code=%@",
                 String(describing: target), String(describing: failure), failure.code)
+#endif
         }
         return .init(timing: timing, surface: surface)
     }
@@ -134,11 +136,13 @@ extension SceneDesktopWallpaperSession {
            case .success = context.timelinePlaybackRuntime.apply(
                animationMutations, sceneTime: timing.sceneTime
            ) {
-            NSLog(
+#if DEBUG
+           NSLog(
                 "MWX SceneScript VM: animationCommands=%d callback=committed frame=%llu projection=same-frame route=generic-only",
                 animationMutations.count,
                 timing.frameIndex
             )
+#endif
         }
         commitSceneMediaPlayback(mediaPlaybackCommands, timing: timing)
         if !textureAnimationCommands.isEmpty,
@@ -178,12 +182,16 @@ extension SceneDesktopWallpaperSession {
             frame: scriptFrame, liveTextTemplates: layerPlan.textTemplateIdentitiesByLayerID)
         context.frameSchema.registerStatefulTargets(Set(adoption.definitions.map(\.target)))
         for (target, failure) in adoption.failures {
+#if DEBUG
             NSLog("MWX SceneScript VM: target=%@ lifecycle=text-clone-adoption failure=%@ code=%@",
                   String(describing: target), String(describing: failure), failure.code)
+#endif
         }
         if let failure = adoption.queueFailure {
+#if DEBUG
             NSLog("MWX SceneScript VM: lifecycle=text-clone-adoption failure=%@ code=%@",
                   String(describing: failure), failure.code)
+#endif
         }
         let committedEvaluation: SceneEvaluationTransaction.PendingEvaluation
         if layerPlan.createdPreparedTextValues.isEmpty {
@@ -282,10 +290,12 @@ extension SceneDesktopWallpaperSession {
                 SceneScriptLayerMutationBridge.layerID(for: target).map(layerIDs.contains) ?? false
             }
             context.frameSchema.retireStatefulTargets(retiredTargets)
+#if DEBUG
             NSLog("MWX SceneScript VM: lifecycle=layer-retirement owners=%d destroyCallbacks=%d quiescent=%d failures=%d sceneTime=%.3f",
                 outcomes.count, outcomes.filter(\.destroyCallbackInvoked).count,
                 outcomes.filter(\.snapshot.isQuiescent).count,
                 outcomes.compactMap(\.failure).count, frame.runtime)
+#endif
         }
     }
 
@@ -338,6 +348,7 @@ extension SceneDesktopWallpaperSession {
         let destroyCallbacks = outcomes.filter(\.destroyCallbackInvoked).count
         let quiescent = outcomes.filter(\.snapshot.isQuiescent).count
         let failures = outcomes.compactMap(\.failure)
+#if DEBUG
         NSLog(
             "MWX SceneScript VM: lifecycle=teardown reason=%@ owners=%d destroyCallbacks=%d quiescent=%d failures=%d timers=%d jobs=%d mutations=%d dynamicLayers=%d route=generic-only",
             String(describing: reason), outcomes.count, destroyCallbacks,
@@ -347,5 +358,6 @@ extension SceneDesktopWallpaperSession {
             outcomes.reduce(0) { $0 + $1.snapshot.pendingLayerMutationCount },
             outcomes.reduce(0) { $0 + $1.snapshot.activeDynamicLayerCount }
         )
+#endif
     }
 }

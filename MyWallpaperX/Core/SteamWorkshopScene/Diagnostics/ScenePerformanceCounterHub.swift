@@ -1,7 +1,8 @@
+#if DEBUG
 import Foundation
 
-/// Always-on lightweight performance counters for the Scene runtime frame
-/// path (enabled in Release too). Contract: fixed-capacity accumulation
+/// Debug-only performance counters for the Scene runtime frame
+/// path (excluded from Release). Contract: fixed-capacity accumulation
 /// slots indexed by metric — no unbounded arrays, no sorting, no
 /// percentiles. Each update is one NSLock plus fixed integer work. The hub
 /// stores no history windows; callers diff snapshots themselves.
@@ -234,3 +235,4 @@ nonisolated final class ScenePerformanceCounterHub: @unchecked Sendable {
         return elapsed > 0 ? UInt64(elapsed) : 0
     }
 }
+#endif

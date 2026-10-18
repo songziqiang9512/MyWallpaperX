@@ -40,7 +40,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         var mediaNeedsContent: Bool?
         var lastMediaArtworkKey: WebDaemonMediaArtworkKey?
         var audioDemand = false
+#if DEBUG
         var observation: WebDaemonHostObservation?
+#endif
         var isRetiring = false
         var timeout: DispatchWorkItem?
         var captures: [UUID: (NSImage?) -> Void] = [:]
@@ -49,7 +51,6 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
 #if DEBUG
         let startedAt = ProcessInfo.processInfo.systemUptime
 #endif
-
         init(request: WallpaperEngine.WebWallpaperLaunchRequest,
              state: WallpaperEngine.WebWallpaperRuntimeState,
              transport: DaemonProcessTransport, recoveryAttempt: Int, ticket: PlaybackSwitchTicket) {
@@ -235,7 +236,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         prepared.transport.requestGracefulStop(data, gracePeriod: 1)
     }
 
+#if DEBUG
     var observation: WebDaemonHostObservation? { (candidate ?? active)?.observation }
+#endif
     var liveProcessIdentifiers: [Int32] {
         let playback = liveSessions.filter { $0.transport.isRunning }.map { $0.transport.process.processIdentifier }
         let prepared = [preparedProcess].compactMap { $0 } + Array(retiringPrepared.values)
@@ -260,7 +263,6 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         if let active { send(.debugExerciseFailure, to: active) }
     }
 #endif
-
     var hasLivePlayback: Bool { !liveSessions.isEmpty }
     var hasPendingRequest: Bool { candidate != nil || displayRebuildSource != nil || preparedProcess?.isIdle == false }
     var activeRequest: WallpaperEngine.WebWallpaperLaunchRequest? { active?.executionRequest }
@@ -348,7 +350,11 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
 #endif
         let transport = DaemonProcessTransport(executableURL: executable, arguments: arguments,
                                                playbackRenderer: true)
-        transport.onError = { text in NSLog("MWX WEB HOST: %@", String(text.prefix(2000))) }
+        transport.onError = { text in
+#if DEBUG
+        NSLog("MWX WEB HOST: %@", String(text.prefix(2000)))
+#endif
+ }
         return transport
     }
 
@@ -448,8 +454,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
 
     func receive(_ event: WebDaemonEvent, from session: Session) {
         switch event {
-        case let .observation(value): session.observation = value
 #if DEBUG
+        case let .observation(value): session.observation = value
         case let .debugNavigationChecks(checks): debugNavigationChecksHandler?(checks)
         case .debugContinuityStarted: debugContinuityStartedHandler?()
         case let .debugContinuity(stats): debugContinuityHandler?(stats)
@@ -523,12 +529,14 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                       self.active === session || self.candidate === session else { return }
                 self.sendMedia(snapshot, to: session)
             }
+#if DEBUG
         case let .diagnostics(values):
             for value in values {
                 WebRuntimeDiagnosticsStore.shared.record(type: value.type,
                     severity: .init(rawValue: value.severity) ?? .warning, message: value.message,
                     recordID: session.request.recordID, screenID: value.screenID, url: value.url)
             }
+#endif
         case let .error(message): fail(session, message: message)
         }
     }

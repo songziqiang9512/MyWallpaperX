@@ -68,9 +68,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let boundedOutput: SceneAuthoredShaderFrontendOutput?
         let artifactFailure: [String]
         let premultipliedColorInputSlots: Set<Int>
+#if DEBUG
         SceneResolvedMaterialVariantCompileProfile.add(
             artifact: (CACurrentMediaTime() - artifactStart) * 1000
         )
+#endif
         switch artifactResolution {
         case let .accepted(program, inputSlots, requestKey, decision):
             // The accepted artifact already validated this exact compiler ABI.

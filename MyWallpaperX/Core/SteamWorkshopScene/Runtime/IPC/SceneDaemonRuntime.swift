@@ -11,10 +11,11 @@ private final class SceneDaemonEventWriter: @unchecked Sendable {
         label: "com.mywallpaperx.scene-daemon-events",
         qos: .utility
     )
+#if DEBUG
     private let lock = NSLock()
     private var latestStats: Data?
     private var statsWriteScheduled = false
-
+#endif
     init(output: FileHandle) {
         self.output = output
     }
@@ -25,7 +26,7 @@ private final class SceneDaemonEventWriter: @unchecked Sendable {
             completion?()
         }
     }
-
+#if DEBUG
     func sendLatestStats(_ data: Data) {
         lock.lock()
         latestStats = data
@@ -37,7 +38,6 @@ private final class SceneDaemonEventWriter: @unchecked Sendable {
             self?.writeLatestStatsUntilEmpty()
         }
     }
-
     private func writeLatestStatsUntilEmpty() {
         while true {
             lock.lock()
@@ -51,6 +51,7 @@ private final class SceneDaemonEventWriter: @unchecked Sendable {
             output.write(data)
         }
     }
+#endif
 }
 
 /// One bounded handoff from the stdin reader to the daemon main thread.
@@ -147,18 +148,24 @@ final class SceneDaemonRuntime {
     private let commands = SceneDaemonCommandInbox()
     private let host = SceneDesktopWallpaperHost()
     private var observers: [NSObjectProtocol] = []
+#if DEBUG
     private var statsTimer: DispatchSourceTimer?
+#endif
     private var currentRequestID: UUID?
     private var lastPropertyRevision: UInt64 = 0
     private var shouldPausePlayback = false
     private var isShuttingDown = false
     private var audioDemand = SceneAudioSpectrumCaptureDemand.none
+#if DEBUG
     private var didReportNonSilentAudioPublication = false
+#endif
     private var systemMediaReceiver = SceneDaemonMediaReceiver()
     private var systemMediaLease: DispatchWorkItem?
 
     deinit {
+#if DEBUG
         statsTimer?.cancel()
+#endif
         systemMediaLease?.cancel()
         observers.forEach(NotificationCenter.default.removeObserver)
     }
@@ -178,7 +185,9 @@ final class SceneDaemonRuntime {
         installAudioSpectrumDemandBridge()
         installSystemMediaDemandBridge()
         installObservers()
+#if DEBUG
         installStatsTimer()
+#endif
         startCommandLoop()
     }
 
@@ -343,10 +352,12 @@ final class SceneDaemonRuntime {
                                               accepted: accepted && hidden)
             }
         case let .setDisplayConfiguration(topology):
+#if DEBUG
             NSLog(
                 "MWX SCENE DAEMON: phase=display-configuration screens=%d",
                 topology.count
             )
+#endif
             host.applyDisplayConfiguration(topology)
         case let .setPerformanceProfile(profile):
             host.applyPerformanceProfile(profile)
@@ -368,6 +379,7 @@ final class SceneDaemonRuntime {
                 right64: frame.right64,
                 token: frame.captureToken
             )
+#if DEBUG
             if accepted, !didReportNonSilentAudioPublication {
                 let peak = (
                     frame.left64 + frame.right64
@@ -383,6 +395,7 @@ final class SceneDaemonRuntime {
                     "peak": peak
                 ])
             }
+#endif
         case let .publishSystemMedia(frame):
             acknowledgeSystemMedia(systemMediaReceiver.receive(frame))
         case let .publishSystemMediaArtwork(chunk):
@@ -506,7 +519,9 @@ final class SceneDaemonRuntime {
     ) {
         guard demand != audioDemand else { return }
         audioDemand = demand
+#if DEBUG
         didReportNonSilentAudioPublication = false
+#endif
         emit([
             "v": SceneDaemonProtocol.version,
             "event": "audioSpectrumDemandChanged",
@@ -581,7 +596,6 @@ final class SceneDaemonRuntime {
         emit(["v": SceneDaemonProtocol.version, "event": "launchResourcesReleased",
               "requestID": requestID.uuidString])
     }
-
 #if DEBUG
     private func capturePresentedFrameIfRequested(reason: String) {
         guard let outputPath = Self.argumentValue(
@@ -600,8 +614,6 @@ final class SceneDaemonRuntime {
             outputDirectory: outputDirectory
         )
     }
-#endif
-
     private func installStatsTimer() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 1, repeating: 1)
@@ -634,7 +646,7 @@ final class SceneDaemonRuntime {
         timer.resume()
         statsTimer = timer
     }
-
+#endif
     private func shutdown(exitCode: Int32) {
         DaemonParentLifetime.shared.requestShutdown()
         guard !isShuttingDown else { return }
@@ -644,8 +656,10 @@ final class SceneDaemonRuntime {
         systemMediaLease?.cancel()
         systemMediaLease = nil
         commands.clear()
+#if DEBUG
         statsTimer?.cancel()
         statsTimer = nil
+#endif
         host.stopAndDrainGPU { [writer] drained in
             let resolvedCode: Int32 = drained ? exitCode : 70
             guard let data = Self.encode([

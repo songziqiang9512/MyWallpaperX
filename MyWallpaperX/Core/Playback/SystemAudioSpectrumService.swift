@@ -58,13 +58,11 @@ final class SystemAudioSpectrumService: NSObject {
     private var captureResourceRetirementUntil: TimeInterval = 0
     private var captureTeardownRetrySequence = 0
     var captureTeardownRetryWorkItem: DispatchWorkItem?
-
 #if DEBUG
     // DEBUG capture-recovery test seam state. The seam type, the snapshot and
     // the testing entry points live in SystemAudioSpectrumService+DebugRecovery.swift.
     let debugRecovery = SystemAudioDebugRecoveryState()
 #endif
-
     var onLevels: (([Float]) -> Void)?
     var onWebLevels: (([Float]) -> Void)?
     var onSceneLevels: ((
@@ -146,13 +144,11 @@ final class SystemAudioSpectrumService: NSObject {
             self.reconcileCaptureState()
         }
     }
-
 #if DEBUG
     var debugHasCaptureResources: Bool {
         sampleQueue.sync { hasCaptureResources }
     }
 #endif
-
     func updateConfiguration(
         style: SystemAudioSpectrumStyle,
         sensitivity: SystemAudioSpectrumSensitivity,
@@ -225,7 +221,9 @@ final class SystemAudioSpectrumService: NSObject {
         ) { return }
 #endif
         guard #available(macOS 14.2, *) else {
+#if DEBUG
             NSLog("MWX AUDIO CAPTURE: unavailable before macOS 14.2")
+#endif
             resetConsumersAfterCaptureFailure()
             return
         }
@@ -301,6 +299,7 @@ final class SystemAudioSpectrumService: NSObject {
             captureRetryAttempt = 0
             captureGeneration += 1
             hasLoggedCapturedData = false
+#if DEBUG
             NSLog(
                 "MWX AUDIO CAPTURE: started generation=%d scope=%@ sampleRate=%.0f channels=%u",
                 captureGeneration,
@@ -308,8 +307,11 @@ final class SystemAudioSpectrumService: NSObject {
                 tapStreamFormat.mSampleRate,
                 tapStreamFormat.mChannelsPerFrame
             )
+#endif
         } catch {
+#if DEBUG
             NSLog("MWX AUDIO CAPTURE: failed %@", error.localizedDescription)
+#endif
             stopCapture()
             scheduleCaptureRetryIfNeeded()
         }
@@ -355,8 +357,8 @@ final class SystemAudioSpectrumService: NSObject {
         let workItem = DispatchWorkItem(block: action)
         captureRetryWorkItem?.cancel()
         captureRetryWorkItem = workItem
-        NSLog("MWX AUDIO CAPTURE: retry scheduled attempt=%d delay=%.1f", captureRetryAttempt, delay)
 #if DEBUG
+        NSLog("MWX AUDIO CAPTURE: retry scheduled attempt=%d delay=%.1f", captureRetryAttempt, delay)
         if debugRecovery.recordScheduledRecovery(kind: "retry", action: action) { return }
 #endif
         sampleQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
@@ -370,14 +372,18 @@ final class SystemAudioSpectrumService: NSObject {
         captureRestartSequence += 1
         let sequence = captureRestartSequence
         captureRestartWorkItem?.cancel()
+#if DEBUG
         NSLog("MWX AUDIO CAPTURE: invalidated reason=%@ generation=%d", reason, generation)
+#endif
         let action = { [weak self] in
             guard let self,
                   self.captureRestartSequence == sequence,
                   self.captureResourceGeneration == generation,
                   self.hasActiveConsumer else { return }
             self.captureRestartWorkItem = nil
+#if DEBUG
             NSLog("MWX AUDIO CAPTURE: restarting reason=%@ generation=%d", reason, generation)
+#endif
             self.stopCapture()
             self.reconcileCaptureState()
         }
@@ -414,13 +420,13 @@ final class SystemAudioSpectrumService: NSObject {
         }
         let workItem = DispatchWorkItem(block: action)
         captureRestartWorkItem = workItem
+#if DEBUG
         NSLog(
             "MWX AUDIO CAPTURE: resource-retirement waiting delay=%.1f scope=%@ epoch=%llu",
             delay,
             restartProcessScope.rawValue,
             scopeEpoch
         )
-#if DEBUG
         if debugRecovery.recordScheduledRecovery(kind: "resource-retirement-start", action: action) { return }
 #endif
         sampleQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
@@ -505,7 +511,9 @@ final class SystemAudioSpectrumService: NSObject {
             if allowRetry {
                 scheduleCaptureTeardownRetryIfNeeded()
             } else {
+#if DEBUG
                 NSLog("MWX AUDIO CAPTURE: teardown incomplete during service deinit")
+#endif
             }
             return
         }
@@ -515,7 +523,9 @@ final class SystemAudioSpectrumService: NSObject {
         captureTeardownRetryWorkItem = nil
         captureResourceRetirementUntil = ProcessInfo.processInfo.systemUptime
             + Self.captureResourceRetirementDelay
+#if DEBUG
         NSLog("MWX AUDIO CAPTURE: stopped")
+#endif
     }
 
     private func scheduleCaptureTeardownRetryIfNeeded() {
@@ -535,11 +545,11 @@ final class SystemAudioSpectrumService: NSObject {
         }
         let workItem = DispatchWorkItem(block: action)
         captureTeardownRetryWorkItem = workItem
+#if DEBUG
         NSLog(
             "MWX AUDIO CAPTURE: teardown retry waiting delay=%.2f",
             Self.captureResourceTeardownRetryDelay
         )
-#if DEBUG
         if debugRecovery.recordScheduledRecovery(kind: "resource-teardown-retry", action: action) { return }
 #endif
         sampleQueue.asyncAfter(
@@ -614,11 +624,13 @@ final class SystemAudioSpectrumService: NSObject {
         operation: String,
         status: OSStatus
     ) {
-        NSLog(
+#if DEBUG
+    NSLog(
             "MWX AUDIO CAPTURE: teardown failed operation=%@ status=%d",
             operation,
             status
         )
+#endif
     }
 
     private func resetCaptureCallbackState() {
@@ -689,11 +701,13 @@ final class SystemAudioSpectrumService: NSObject {
             let peak = frame.rectifiedMono.max() ?? 0
             if peak >= 0.0001 {
                 hasLoggedCapturedData = true
+#if DEBUG
                 NSLog(
                     "MWX AUDIO CAPTURE: data generation=%d peak=%.4f",
                     captureGeneration,
                     peak
                 )
+#endif
             }
         }
         guard let sceneAnalyzer else {

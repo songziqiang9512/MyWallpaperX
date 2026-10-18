@@ -365,7 +365,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         // A single effect-heavy layer can use idle preparation capacity;
         // nested preparation never multiplies the total worker budget.
         let workerBudget = max(1, min(4, ProcessInfo.processInfo.activeProcessorCount))
+#if DEBUG
         SceneResolvedMaterialVariantCompileProfile.reset()
+#endif
         let layerWorkers = min(workerBudget, admittedIndices.count)
         DispatchQueue.concurrentPerform(iterations: layerWorkers) { worker in
             let stageWorkers = workerBudget / layerWorkers
@@ -469,7 +471,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
             )
         )
+#if DEBUG
         SceneResolvedMaterialVariantCompileProfile.logSummaryIfMeasured()
+#endif
         capabilitiesByLayerID = accepted
         productAuthorityRejectionReasonsByLayerID =
             productAuthorityRejectedByLayerID

@@ -37,7 +37,7 @@ let webCompatibilityScriptMediaState = #"""
       try {
         if (legacy && typeof legacy[callback] === 'function') legacy[callback](next[key]);
       } catch (error) {
-        hostLogger.post('media.' + key + '.error', error && error.message ? error.message : error);
+        hostLogger?.post('media.' + key + '.error', error && error.message ? error.message : error);
       }
       for (const listener of listeners) {
         try { listener(next[key]); } catch (_) {}

@@ -93,11 +93,13 @@ extension SceneMetalRenderer {
                 didEncode = false
             }
             if didEncode {
+#if DEBUG
                 performanceObservations?.append(SceneParticlePerformanceObservation(
                     layerID: batch.layerID,
                     instanceCount: batch.instanceBuffer.count,
                     isRefraction: batch.refraction != nil
                 ))
+#endif
                 // Reserve the slot for this command only after the pipeline
                 // confirms that a draw was actually encoded.  The renderer's
                 // outer defer handles a later preflight/seal rejection while

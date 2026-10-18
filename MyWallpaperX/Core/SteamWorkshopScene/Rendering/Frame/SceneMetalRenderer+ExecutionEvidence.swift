@@ -1,3 +1,4 @@
+#if DEBUG
 extension SceneMetalRenderer {
     func installResolvedMaterialExecutionEvidence() {
         let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
@@ -11,3 +12,5 @@ extension SceneMetalRenderer {
         )
     }
 }
+
+#endif

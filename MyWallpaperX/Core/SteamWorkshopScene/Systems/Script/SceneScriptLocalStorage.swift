@@ -131,11 +131,13 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                 current.scheduled = shouldRetry
                 pendingByURL[fileURL] = current
                 lock.unlock()
+#if DEBUG
                 NSLog(
                     "MWX SceneScript VM: localStorage persistence failure=%@ retry=%@",
                     failure,
                     shouldRetry ? "scheduled" : "deferred-until-next-mutation"
                 )
+#endif
                 if shouldRetry { enqueue(fileURL, delay: .seconds(1)) }
                 return
             }
@@ -319,7 +321,9 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                     if rejected.insert(reader).inserted {
                         pending.append(reader)
                         if let target = frameTargets[reader] {
+#if DEBUG
                             NSLog("MWX SceneScript VM: localStorage owner=%@ callback=rejected reason=read-dependency fallback=previous-current", String(describing: target))
+#endif
                         }
                     }
                 }
@@ -336,7 +340,9 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                     // Unrelated Scene owners remain eligible for the frame.
                     frameRejected.formUnion(frameTargets.keys)
                     rejected.formUnion(frameRejected)
+#if DEBUG
                     NSLog("MWX SceneScript VM: localStorage callback=rejected reason=replay-budget owners=%d fallback=previous-current", frameTargets.count)
+#endif
                     candidate = base
                     break
                 }
@@ -345,7 +351,9 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                     try Self.validate(candidate, validatingValues: false)
                 } catch {
                     rejected.insert(batch.owner)
+#if DEBUG
                     NSLog("MWX SceneScript VM: localStorage owner=%@ callback=rejected reason=replay-quota fallback=previous-current", String(describing: frameTargets[batch.owner]))
+#endif
                     failed = true
                     break
                 }
@@ -435,7 +443,9 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
             // The merged envelope can exceed the existing storage budget when
             // both sessions add disjoint keys. Reject only this storage owner.
             loadState = .unavailable("candidate localStorage merge exceeds budget")
+#if DEBUG
             NSLog("MWX SceneScript VM: localStorage activation rejected failure=%@", error.localizedDescription)
+#endif
         }
     }
 

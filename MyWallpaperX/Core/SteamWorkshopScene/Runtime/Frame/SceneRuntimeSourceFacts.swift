@@ -1,18 +1,20 @@
 import Foundation
 
 /// Immutable source facts shared by playback preparation and explicit inspection.
-/// This type contains no user-facing diagnostics and does not own product output.
+/// Debug attaches report-only projections; Release builds only playback/property facts.
 struct SceneRuntimeSourceFacts {
     let project: SceneProject?
     let sceneDocument: SceneDocument?
     let assetCatalog: SceneAssetCatalog?
-    let resourceReferences: SceneResourceReferenceIndex?
-    let resourceIndex: SceneResourceIndex
     let packageReport: ScenePkgExtractionReport?
     let resourceView: SceneResourceView
     let sceneDocumentLoadErrorDescription: String?
-    let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor?
+#if DEBUG
+    var resourceReferences: SceneResourceReferenceIndex? = nil
+    var resourceIndex: SceneResourceIndex? = nil
+    var capabilityProfile: SceneCapabilityProfile? = nil
+#endif
 }
 
 struct SceneRuntimeSourceFactsBuilder {
@@ -22,7 +24,9 @@ struct SceneRuntimeSourceFactsBuilder {
         willReadResourceRoots: (([URL]) -> Void)? = nil
     ) -> SceneRuntimeSourceFacts {
         let project = try? SceneProjectLoader().load(from: rootURL)
+#if DEBUG
         let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
+#endif
         let packageReport: ScenePkgExtractionReport? = {
             guard let packageURL = project?.packageURL else { return nil }
             return try? ScenePkgExtractor(toolURL: nil).extract(
@@ -64,6 +68,7 @@ struct SceneRuntimeSourceFactsBuilder {
                     sceneDocument?.referencedResourcePaths ?? []
             )
         }
+#if DEBUG
         let resourceReferences = sceneDocument.map {
             SceneResourceReferenceIndexBuilder().build(
                 document: $0,
@@ -77,11 +82,14 @@ struct SceneRuntimeSourceFactsBuilder {
             resourceReferences: resourceReferences,
             resourceIndex: resourceIndex
         )
+#else
+        let resourceReferences: SceneResourceReferenceIndex? = nil
+        let capabilityProfile: SceneCapabilityProfile? = nil
+#endif
         let renderDescriptor: SceneRenderDescriptor? = {
             guard let project,
                   let sceneDocument,
-                  let assetCatalog,
-                  let resourceReferences else {
+                  let assetCatalog else {
                 return nil
             }
 
@@ -98,19 +106,22 @@ struct SceneRuntimeSourceFactsBuilder {
             )
         }()
 
-        return SceneRuntimeSourceFacts(
+        var facts = SceneRuntimeSourceFacts(
             project: project,
             sceneDocument: sceneDocument,
             assetCatalog: assetCatalog,
-            resourceReferences: resourceReferences,
-            resourceIndex: resourceIndex,
             packageReport: packageReport,
             resourceView: resourceView,
             sceneDocumentLoadErrorDescription:
                 sceneDocumentLoadError?.localizedDescription,
-            capabilityProfile: capabilityProfile,
             renderDescriptor: renderDescriptor
         )
+#if DEBUG
+        facts.resourceReferences = resourceReferences
+        facts.resourceIndex = resourceIndex
+        facts.capabilityProfile = capabilityProfile
+#endif
+        return facts
     }
 
     private func directStaticModelMaterialLinks(

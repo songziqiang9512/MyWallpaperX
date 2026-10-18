@@ -283,6 +283,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
     private(set) var sourceMaterialPrototypeByModel: [String: Int] = [:]
     let visibleExecutionRootLayerIDs: Set<Int>
+#if DEBUG
     private let executionEvidenceLock = NSLock()
     private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]
     private var executionEvidenceIssues: [String: Int] = [:]
@@ -292,6 +293,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         case failed(reasonCode: String)
     }
 
+#endif
+
     init(
         catalog: SceneResolvedMaterialRuntimeCatalog,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
@@ -299,7 +302,11 @@ final class SceneResolvedMaterialRuntimeBridge {
         device: MTLDevice,
         visibleExecutionRootLayerIDs: Set<Int> = [],
         capturesExecutionObservations: Bool = true,
-        logSink: @escaping LogSink = { NSLog("%@", $0) }
+        logSink: @escaping LogSink = {
+#if DEBUG
+        NSLog("%@", $0)
+#endif
+ }
     ) {
         self.catalog = catalog
         self.orderedSystemProviderDemands = catalog.systemProviderDemands.sorted(by: {
@@ -490,6 +497,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     /// Installs the static disposition projection after effect resources have
     /// been loaded.  It is used only to label successful runtime evidence; it
     /// never changes capability admission or claim state.
+#if DEBUG
     func installExecutionEvidence(_ subjects: [ExactEffectSubject]) {
         executionEvidenceLock.lock()
         defer { executionEvidenceLock.unlock() }
@@ -566,6 +574,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         }
         return lines
     }
+
+#endif
 
     func executeClaimed(
         claim: ClaimedExecution,

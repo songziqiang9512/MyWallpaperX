@@ -1,11 +1,12 @@
 import Foundation
 
 extension SceneMetalRenderer {
-    /// Always-on stage timings mirror the telemetry-gated stages of
+    /// Debug stage timings mirror the telemetry-gated stages of
     /// renderFrame; each is bypass-only accumulation with no control-flow
     /// effect. Formerly a local function of renderFrame; self-contained
     /// (no captures), so it lives as an instance method with identical
     /// call sites and behavior.
+#if DEBUG
     @inline(__always) func hubStage(
         _ metric: ScenePerformanceMetric, _ start: TimeInterval
     ) {
@@ -13,7 +14,8 @@ extension SceneMetalRenderer {
             metric, ScenePerformanceCounterHub.micros(since: start)
         )
     }
-
+#endif
+#if DEBUG
     func runtimeReportLines() -> [String] {
         let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,
@@ -42,18 +44,22 @@ extension SceneMetalRenderer {
             + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
+#endif
 
     var resolvedMaterialExecutionLayerIDs: Set<Int> {
         imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
     }
 
+#if DEBUG
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
         SceneLayerPlacementSummary.make(
             layer: layer,
             worldFrame: worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         )
     }
+#endif
 
+#if DEBUG
     func diagnostics() -> SceneMetalRendererDiagnostic {
         let layers = renderDescriptor.layers
         let imageCount = layers.filter(\.isImageRenderable).count
@@ -79,7 +85,9 @@ extension SceneMetalRenderer {
             rendererGaps: gaps
         )
     }
+#endif
 
+#if DEBUG
     func effectRuntimeSummary(
         for layer: SceneRenderDescriptor.Layer
     ) -> String? {
@@ -88,4 +96,5 @@ extension SceneMetalRenderer {
         }
         return nil
     }
+#endif
 }

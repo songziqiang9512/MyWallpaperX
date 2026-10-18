@@ -52,8 +52,8 @@ nonisolated enum WebDaemonCommand: Codable {
     case runtime(WallpaperEngine.WebWallpaperRuntimeCommand)
     case displays(Bool)
     case media(WebDaemonMediaSnapshot)
-    case inspect
 #if DEBUG
+    case inspect
     case debugMeasureContinuity
     case debugExerciseFailure
 #endif
@@ -73,8 +73,8 @@ nonisolated enum WebDaemonCommand: Codable {
 
 nonisolated enum WebDaemonEvent: Codable {
     case hello
-    case observation(WebDaemonHostObservation)
 #if DEBUG
+    case observation(WebDaemonHostObservation)
     case debugNavigationChecks([String: Bool])
     case debugContinuityStarted
     case debugContinuity([String: Double])
@@ -92,10 +92,13 @@ nonisolated enum WebDaemonEvent: Codable {
     case mediaDemand(Bool?)
     case mediaReplayRequested
     case usage([UUID])
+#if DEBUG
     case diagnostics([WebDaemonDiagnostic])
+#endif
     case error(String)
 }
 
+#if DEBUG
 nonisolated struct WebDaemonDiagnostic: Codable {
     let type: String
     let severity: String
@@ -103,6 +106,7 @@ nonisolated struct WebDaemonDiagnostic: Codable {
     let screenID: UInt32?
     let url: String?
 }
+#endif
 
 nonisolated struct WebDaemonMediaArtworkKey: Codable, Equatable {
     let epoch: UInt64
@@ -146,6 +150,7 @@ nonisolated struct WebDaemonMediaSnapshot: Codable {
     }
 }
 
+#if DEBUG
 nonisolated struct WebDaemonHostObservation: Codable {
     let phase: String
     let currentRequest: Int
@@ -157,6 +162,7 @@ nonisolated struct WebDaemonHostObservation: Codable {
     let watchTimer: Int
     let watchers: Int
 }
+#endif
 
 nonisolated struct WebDaemonSurfaceIdentity: Codable, Equatable, Sendable {
     let displayID: UInt32

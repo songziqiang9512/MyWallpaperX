@@ -16,9 +16,11 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         expectedColorSlot: Int,
         expectedUnderlaySlot: Int? = nil
     ) -> String? {
+#if DEBUG
         let debug = ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-evidence-dir"
         )
+#endif
         guard (0 ..< 8).contains(expectedSignalSlot),
               (0 ..< 8).contains(expectedColorSlot),
               expectedSignalSlot != expectedColorSlot,
@@ -53,6 +55,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         let declarations = SceneShaderSourceTextFacts.matches(
             declarationPattern, in: source, range: body
         )
+
+#if DEBUG
         if debug {
             NSLog(
                 "MWX DEBUG SCENE: phase=signal-compositing-lowering-shape expectedSlots=%@ sampleCalls=%d declarations=%d",
@@ -61,6 +65,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 declarations.count
             )
         }
+#endif
+
         guard declarations.count >= expectedSlots.count else { return nil }
 
         var bySlot: [Int: (match: NSTextCheckingResult, name: String)] = [:]
@@ -77,6 +83,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               signal.name != color.name,
               SceneShaderSourceTextFacts.countWord(signal.name, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "") >= 2
         else { return nil }
+
+#if DEBUG
         if debug {
             NSLog(
                 "MWX DEBUG SCENE: phase=signal-compositing-lowering-bindings signal=%@ color=%@ slots=%@",
@@ -85,6 +93,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 bySlot.keys.sorted().map(String.init).joined(separator: ",")
             )
         }
+#endif
 
         let control = SceneShaderSourceTextFacts.matches(
             #"\b(?:if|else|for|while|do|switch|case|discard|break|continue)\b|\?"#,
@@ -101,6 +110,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             in: source,
             range: body
         )
+
+#if DEBUG
         if debug {
             NSLog(
                 "MWX DEBUG SCENE: phase=signal-compositing-lowering-tail control=%d outputWrites=%d outputAssignments=%d returns=%d outputName=%@ colorName=%@ colorBefore=%@ signalBefore=%@",
@@ -114,6 +125,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 outputAssignments.first.map { signal.match.range.location < $0.range.location ? "yes" : "no" } ?? "-"
             )
         }
+#endif
+
         let outputName = SceneShaderSourceTextFacts.capture(outputAssignments[0], 1, in: source)
         // Orientation A keeps the color carrier as the output variable. The
         // signal-carrier orientation (proven by the analyzer at the authored
@@ -167,7 +180,12 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               SceneShaderSourceTextFacts.matches(
                   #"\breturn\s+out\s*;"#, in: source, range: body
               ).count == 1 else { return nil }
-        if debug { NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-tail-accepted") }
+
+#if DEBUG
+        if debug {
+        NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-tail-accepted")
+ }
+#endif
 
         guard let outputRange = Range(outputAssignments[0].range, in: source),
               let outputName
@@ -187,12 +205,16 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         guard straightDeclarations.count == straightColorSlots.count else {
             return nil
         }
+
+#if DEBUG
         if debug {
             NSLog(
                 "MWX DEBUG SCENE: phase=signal-compositing-lowering-declarations accepted=%d",
                 straightDeclarations.count
             )
         }
+#endif
+
         for (slot, declaration) in straightDeclarations {
             guard let adjustedRange = Range(declaration.match.range, in: transformed),
                   let prefix = SceneShaderSourceTextFacts.capture(declaration.match, 1, in: source),
@@ -212,7 +234,13 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             of: #"\busing\s+namespace\s+metal\s*;"#,
             options: .regularExpression
         ) else { return nil }
-        if debug { NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-complete") }
+
+#if DEBUG
+        if debug {
+        NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-complete")
+ }
+#endif
+
         transformed.insert(contentsOf: helpers, at: namespace.upperBound)
         return transformed
     }

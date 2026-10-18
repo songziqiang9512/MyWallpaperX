@@ -118,7 +118,9 @@ enum SceneBaseMaterialLightingProfileCompiler {
             let tierFour = shader.lowercased() == "genericimage4"
             func scalar(_ key: String, default fallback: Double) -> Float {
                 guard let value = SceneMaterialPropertyBindingCompiler.staticComponents(key, instance: materialInstance, pass: pass, count: 1, fallback: [fallback])?.first else {
+#if DEBUG
                     NSLog("MWX SCENE: schema=base-material-scalar component=%@ fallback=tier-default reason=invalid-or-unresolved", key)
+#endif
                     return Float(fallback)
                 }
                 return Float(min(1, max(0, value)))
@@ -138,7 +140,9 @@ enum SceneBaseMaterialLightingProfileCompiler {
                     profile.mapRequiredComponents |= bit
                 case 0: break
                 default:
+#if DEBUG
                     NSLog("MWX SCENE: schema=base-material-map component=%@ status=unsupported fallback=component-disabled", key)
+#endif
                 }
             }
             if builtinLighting, let rgb = SceneMaterialPropertyBindingCompiler.emissionColor(instance: materialInstance, pass: pass) {
@@ -155,7 +159,9 @@ enum SceneBaseMaterialLightingProfileCompiler {
                 }
             }
             if profile.emission == nil {
+#if DEBUG
                 NSLog("MWX SCENE: schema=base-material-emission status=invalid-or-unresolved fallback=disabled")
+#endif
             }
             if profile.emission == nil { profile.mapAllowedComponents &= 7 }
             if reflection == nil { profile.mapAllowedComponents &= ~4 }

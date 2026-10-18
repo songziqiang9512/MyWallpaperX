@@ -99,7 +99,7 @@ final class WallpaperIndexStore {
                 ? Int(sqlite3_column_int(statement, 9))
                 : nil
             let resolution = nullableStringColumn(statement, index: 10)
-            
+
             items.append(VideoWallpaper(
                 id: id, title: title, path: path,
                 thumbnailPath: thumbnailPath, staticFramePath: staticFramePath,
@@ -139,7 +139,9 @@ final class WallpaperIndexStore {
                 try self.removeDatabaseFiles()
             } catch {
                 // 删除失败时不崩溃，但记录日志以便排查；下次启动会覆盖旧数据。
+#if DEBUG
                 NSLog("[WallpaperIndexStore] resetStore: failed to remove database files: %@", error.localizedDescription)
+#endif
             }
         }
     }

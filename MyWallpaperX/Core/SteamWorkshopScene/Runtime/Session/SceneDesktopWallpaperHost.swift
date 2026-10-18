@@ -14,7 +14,6 @@ final class SceneDesktopWallpaperHost {
     }
 
 #endif
-
     var nextSceneScriptGeneration: UInt64 = 0
     let launchPreparationQueue = DispatchQueue(
         label: "com.mywallpaperx.scene-launch-preparation",
@@ -47,7 +46,6 @@ final class SceneDesktopWallpaperHost {
     private var debugPointerOverride: SceneSurfacePointerInput?
     private var debugDropDynamicValuesFrameIndex: UInt64?
 #endif
-
     var activeRecordID: String? { activeSession?.activeRecordID }
     var isPlaybackActive: Bool { activeSession?.isPlaybackActive == true }
 
@@ -146,7 +144,7 @@ final class SceneDesktopWallpaperHost {
         }
         session.applyUserTextureUpdate(update, resolvedURLs: resolvedURLs, completion: completion)
     }
-
+#if DEBUG
     func refreshPerformanceResourceGauges() {
         // Sample all roles at the daemon's 1 Hz cadence, never per frame.
         let sessions = [activeSession, candidateSession].compactMap { $0 }
@@ -159,7 +157,7 @@ final class SceneDesktopWallpaperHost {
         hub.set(.sceneResidentBytes, UInt64(budget.residentBytes))
         hub.set(.sceneResourceAdmissionRejections, UInt64(budget.rejectionCount))
     }
-
+#endif
     func stop() {
         rollbackUnconfirmedPromotion()
         cancelPendingLaunch()
@@ -180,7 +178,6 @@ final class SceneDesktopWallpaperHost {
 #endif
         session.onAudioDemandChanged = { [weak self] in self?.reconcileAudioDemand() }
     }
-
 #if DEBUG
     func debugSnapshot() -> DebugSnapshot {
         activeSession?.debugSnapshot() ?? .init(surfaceCount: 0, windowNumbers: [],

@@ -34,12 +34,14 @@ extension SceneResolvedMaterialGraphExecutor {
                 dynamicValues: frameInputs.dynamicValues,
                 pointerIsInside: frameInputs.pointerIsInside
             )
+#if DEBUG
             recordTypedUserPropertyBoolActivationPublication(
                 activation: activation,
                 decision: decision,
                 graph: graph,
                 frameInputs: frameInputs
             )
+#endif
             switch decision {
             case .active:
                 break
@@ -390,18 +392,23 @@ extension SceneResolvedMaterialGraphExecutor {
                     }
                 }
                 programKeys.append(program.preparedShader.cacheKey)
+#if DEBUG
                 recordTypedUserPropertyUniformPublications(
                     program: program,
                     effect: node.effect,
                     nodeIndex: nodeIndex,
                     frameInputs: frameInputs
                 )
+#endif
+#if DEBUG
                 recordTypedFrameDrivenUniformConsumptions(
                     program: program,
                     effect: node.effect,
                     nodeIndex: nodeIndex,
                     frameInputs: frameInputs
                 )
+#endif
+#if DEBUG
                 recordTypedAudioSpectrumUniformConsumptions(
                     program: program,
                     effect: node.effect,
@@ -409,6 +416,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     frameIndex: frame.frameIndex,
                     audioSpectrum: frame.audioSpectrum
                 )
+#endif
                 if capturesExecutionDiagnostics {
                     SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
                         routeDecision: program.routeDecision,

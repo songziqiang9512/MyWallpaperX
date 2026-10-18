@@ -244,7 +244,7 @@ class SceneSurfaceSubmissionTests(unittest.TestCase):
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",*SUBMISSION_SWIFT_SOURCES,scene/"Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift",
                  scene/"Rendering/Frame/SceneSourceUpdateTransaction.swift",
                  scene/"Rendering/Particles/SceneParticleDepthTargetPool.swift"]
-        built=subprocess.run(["xcrun","--sdk","macosx","swiftc","-parse-as-library",*map(str,sources),
+        built=subprocess.run(["xcrun","--sdk","macosx","swiftc","-parse-as-library","-D","DEBUG",*map(str,sources),
                               str(source),"-framework","Metal","-module-cache-path",str(root/"cache"),"-o",str(binary)],capture_output=True,text=True)
         if built.returncode:raise AssertionError(built.stdout+built.stderr)
         run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=30)

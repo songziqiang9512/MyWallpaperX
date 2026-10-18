@@ -1,8 +1,9 @@
+#if DEBUG
 import os
 
-/// Always-on thin facade over OSSignposter for Scene runtime timing.
+/// Debug-only facade over OSSignposter for Scene runtime timing.
 /// Zero abstraction layers by contract: static calls only — no protocols,
-/// no registry, no gating; each call is a single signpost emit.
+/// no registry; each call is a single signpost emit.
 nonisolated enum SceneSignpost {
     private static let signposter = OSSignposter(
         subsystem: "com.songziqiang.MyWallpaperX.scene",
@@ -27,3 +28,4 @@ nonisolated enum SceneSignpost {
         }
     }
 }
+#endif

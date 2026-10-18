@@ -277,8 +277,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             )
         }
     }
-
-
 #if DEBUG
     var debugProcessIdentifier: Int32? {
         guard let transport, transport.isRunning else { return nil }
@@ -291,7 +289,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         return Darwin.kill(processIdentifier, SIGKILL) == 0
     }
 #endif
-
     @discardableResult
     func cancelPendingLaunch(recordID: String) -> Bool {
         guard pendingIntent?.recordID == recordID else { return false }
@@ -568,7 +565,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !message.isEmpty else { return }
             guard self != nil else { return }
+#if DEBUG
             NSLog("MWX SCENE DAEMON STDERR: %@", message)
+#endif
         }
         transport.onTermination = { [weak self] status in
             self?.handleTermination(status: status, generation: generation)
@@ -676,7 +675,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         return .init(generation: sessionGeneration, demand: audioSpectrumDemand,
                      transport: transport)
     }
-
 #if DEBUG
     private static func argumentValue(after flag: String) -> String? {
         let arguments = ProcessInfo.processInfo.arguments

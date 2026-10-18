@@ -116,23 +116,27 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         case .allow:
             return
         case let .handoffExternal(url):
-            recordDiagnostic(
+#if DEBUG
+        recordDiagnostic(
                 type: "navigation.blocked",
                 severity: .info,
                 message: "link_handoff",
                 screenID: screenID(for: webView),
                 url: url.absoluteString
             )
+#endif
             publishNavigationBlockedToWebView(url: url, reason: "link_handoff", webView: webView)
             NSWorkspace.shared.open(url)
         case let .cancel(reason):
-            recordDiagnostic(
+#if DEBUG
+        recordDiagnostic(
                 type: "navigation.blocked",
                 severity: .info,
                 message: reason,
                 screenID: screenID(for: webView),
                 url: targetURL?.absoluteString
             )
+#endif
             publishNavigationBlockedToWebView(url: targetURL, reason: reason, webView: webView)
         }
     }
@@ -174,7 +178,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         applyCompatibilityState(to: webView, deferDirectorySync: false)
         startSyntheticInputForwardingIfNeeded()
         finishWebContentRecovery(for: screenID, webView: webView)
+#if DEBUG
         recordDiagnostic(type: "navigation.finish", severity: .info, message: "ready", screenID: screenID, url: webView.url?.absoluteString)
+#endif
         markScreenReady(screenID)
     }
 
@@ -203,7 +209,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         phase = .launching
         invalidatePresentation(on: surface)
         setAudioSpectrumDemand(false, for: screenID)
-
+#if DEBUG
         recordDiagnostic(
             type: "webcontent.terminated",
             severity: .warning,
@@ -211,7 +217,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: screenID,
             url: webView.url?.absoluteString
         )
-
+#endif
         if recoveringWebContentScreenIDs.contains(screenID) {
             guard webContentRecoveryReloadStartedScreenIDs.contains(screenID) else {
                 return
@@ -240,6 +246,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         recoveringWebContentScreenIDs.insert(screenID)
         readyScreenIDs.remove(screenID)
         resetInteractionState(for: screenID)
+#if DEBUG
         recordDiagnostic(
             type: "webcontent.recovery",
             severity: .warning,
@@ -247,7 +254,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: screenID,
             url: webView.url?.absoluteString
         )
-
+#endif
         webContentRecoveryWorkItems[screenID]?.cancel()
         let workItem = DispatchWorkItem { [weak self, weak webView] in
             guard let self,
@@ -284,6 +291,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // 仍 fail-fast；窗外的终止按独立事件重新获得一次恢复预算。
         let consumedBudget = webContentRecoveryAttemptsByScreen[screenID] ?? 0
         webContentRecoveryAttemptsByScreen[screenID] = 0
+#if DEBUG
         recordDiagnostic(
             type: "webcontent.recovery.succeeded",
             severity: .info,
@@ -291,16 +299,19 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: screenID,
             url: webView.url?.absoluteString
         )
+#endif
     }
 
     func failWebContentRecovery(for screenID: CGDirectDisplayID, message: String) {
-        recordDiagnostic(
+#if DEBUG
+    recordDiagnostic(
             type: "webcontent.recovery.exhausted",
             severity: .error,
             message: message,
             screenID: screenID,
             url: surfaces[screenID]?.webView.url?.absoluteString
         )
+#endif
         failCurrentLaunch(message: "dedicated_web_host_webcontent_terminated")
     }
 
@@ -344,14 +355,17 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             return
         }
         if recoveringWebContentScreenIDs.contains(screenID) {
-            recordDiagnostic(
+#if DEBUG
+        recordDiagnostic(
                 type: "webcontent.recovery.failed",
                 severity: .error,
                 message: error.localizedDescription,
                 screenID: screenID,
                 url: webView.url?.absoluteString
             )
+#endif
         }
+#if DEBUG
         recordDiagnostic(
             type: "navigation.fail",
             severity: .error,
@@ -359,6 +373,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: screenID,
             url: webView.url?.absoluteString
         )
+#endif
         failCurrentLaunch(message: error.localizedDescription)
     }
 }

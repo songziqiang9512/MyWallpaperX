@@ -31,7 +31,9 @@ extension SteamWorkshopService {
         do {
             snapshots = try loadManagedDownloadSnapshots(requireComplete: true)
         } catch {
+#if DEBUG
             NSLog("MWX Steam library: incomplete index; reclamation deferred: %@", error.localizedDescription)
+#endif
             return
         }
         let leases = steamLibraryVersionLeaseRegistry
@@ -57,11 +59,15 @@ extension SteamWorkshopService {
             do {
                 let result = try await work.value
                 if !result.removedStorageIdentities.isEmpty {
+#if DEBUG
                     NSLog("MWX Steam library: reclaimed %d inactive version(s)", result.removedStorageIdentities.count)
+#endif
                 }
             } catch is CancellationError {
             } catch {
+#if DEBUG
                 NSLog("MWX Steam library: version reclamation deferred: %@", error.localizedDescription)
+#endif
             }
             // 索引 GC：元数据索引只增不减（墓碑与孤儿 legacy 条目永久累
             // 积），与版本回收同节奏清理内容已不存在的超龄条目；v1 兼容
@@ -78,7 +84,9 @@ extension SteamWorkshopService {
                     Self.retireLegacyVersionsRoot(libraryRoot: library, minimumAge: 24 * 60 * 60)
                 }.value
                 if reclaimed > 0 {
+#if DEBUG
                     NSLog("MWX Steam library: reclaimed %d orphaned metadata entr(ies)", reclaimed)
+#endif
                 }
             }
             self?.libraryVersionReclamationTask = nil

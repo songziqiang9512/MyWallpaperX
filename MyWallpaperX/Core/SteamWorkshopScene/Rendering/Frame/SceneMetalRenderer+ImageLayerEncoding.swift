@@ -265,7 +265,9 @@ extension SceneMetalRenderer {
             )
         )
         if case .layerSourcePassthrough = drawOutcome {
+#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
+#endif
         }
         return (false, drawOutcome)
     }

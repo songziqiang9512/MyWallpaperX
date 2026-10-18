@@ -188,7 +188,9 @@ extension SteamWorkshopService {
         let requiresLiveResolution = liveResourceResolutionRequired
             ?? webRuntimeRequiresLiveResourceResolution(for: record)
         guard !requiresLiveResolution else {
+#if DEBUG
             NSLog("MWX WEB RUNTIME CACHE: live resource resolution record=%@", record.id)
+#endif
             return nil
         }
         let inputs = webRuntimeCacheManifestInputs(for: record)

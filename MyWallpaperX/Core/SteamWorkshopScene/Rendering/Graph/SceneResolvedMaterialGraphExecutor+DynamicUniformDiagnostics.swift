@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 extension SceneResolvedMaterialGraphExecutor {
@@ -77,3 +78,4 @@ extension SceneResolvedMaterialGraphExecutor {
         }
     }
 }
+#endif

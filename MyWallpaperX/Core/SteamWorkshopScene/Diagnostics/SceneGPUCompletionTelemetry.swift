@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 @preconcurrency import Metal
 
@@ -141,3 +142,14 @@ nonisolated final class SceneGPUCompletionTelemetry: @unchecked Sendable {
         return operation()
     }
 }
+#else
+import Metal
+
+/// The renderer shares a parameter shape with Debug. This empty value carries
+/// no state and optimizes away; it never owns locks or GPU completion handlers.
+nonisolated struct SceneGPUCompletionTelemetry: Sendable {
+    init(phase: StaticString) {}
+    @inline(__always) func record(layerID: Int, encoded: Bool, on commandBuffer: MTLCommandBuffer) {}
+    @inline(__always) func recordFailure(layerID: Int) {}
+}
+#endif

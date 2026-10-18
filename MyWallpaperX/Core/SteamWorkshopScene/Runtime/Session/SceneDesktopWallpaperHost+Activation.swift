@@ -12,12 +12,16 @@ extension SceneDesktopWallpaperHost {
         configure(session)
         candidateSession = session
         candidateCompletion = completion
+#if DEBUG
         NSLog("MWX Scene: phase=session-candidate session=%@", session.lifecycleID.uuidString)
+#endif
         var pendingScreens: Set<CGDirectDisplayID> = []
         session.onFirstFrameCompletion = { [weak self, weak session] screen, succeeded in
             guard let self, let session, self.candidateSession === session else { return }
+#if DEBUG
             NSLog("MWX Scene: phase=session-first-frame session=%@ surface=%u gpu=%@",
                 session.lifecycleID.uuidString, screen, succeeded ? "completed" : "failed")
+#endif
             guard succeeded else {
                 self.finishCandidate(.failure(SceneDesktopWallpaperHostLaunchError.firstFrameFailed))
                 return
@@ -47,8 +51,10 @@ extension SceneDesktopWallpaperHost {
                 self.activeSession = session
                 session.promote(firstPresentation: firstPresentation)
                 if self.candidatePreparedHandler != nil { previous?.suspendPresentationForHandoff() }
+#if DEBUG
                 NSLog("MWX Scene: phase=session-activated session=%@ previous=%@ surfaces=%d",
                     session.lifecycleID.uuidString, previous?.lifecycleID.uuidString ?? "none", session.surfaces.count)
+#endif
                 if self.candidatePreparedHandler == nil, let previous { self.retire(previous) }
                 self.finishCandidate(.success(()))
             }
@@ -103,13 +109,19 @@ extension SceneDesktopWallpaperHost {
     func retire(_ session: SceneDesktopWallpaperSession) {
         let identity = ObjectIdentifier(session)
         retiringSessions[identity] = session
+#if DEBUG
         NSLog("MWX Scene: phase=session-retiring session=%@", session.lifecycleID.uuidString)
+#endif
         session.stopAndDrainGPU { [weak self] succeeded in
             self?.retiringSessions.removeValue(forKey: identity)
             if let requestID = session.launchRequestID {
                 self?.requestResourcesReleasedHandler?(requestID)
             }
-            if !succeeded { NSLog("MWX Scene: retired session GPU drain failed") }
+            if !succeeded {
+#if DEBUG
+            NSLog("MWX Scene: retired session GPU drain failed")
+#endif
+ }
         }
     }
 
@@ -239,4 +251,44 @@ extension SceneDesktopWallpaperHost {
             }
         }
     }
+    /// M3.2：launch 阶段 → M1 计数器 hub 的统一映射（同步/异步两条
+    /// launch 路径共用，保证 TTFVF 归因口径一致）。
+#if DEBUG
+    static func recordLaunchPhase(_ phase: SceneWallpaperLaunchState.Phase) {
+        let hubPhase: SceneLaunchPhase?
+        switch phase {
+        case .accepted: hubPhase = .accepted
+        case .preparingModel: hubPhase = .preparingModel
+        case .preparingPrograms: hubPhase = .preparingPrograms
+        case .preparingResources: hubPhase = .preparingResources
+        case .preparingSurfaces: hubPhase = .preparingSurfaces
+        case .launched: hubPhase = .launched
+        case .cancelled, .failed, .stopped: hubPhase = nil
+        }
+        guard let hubPhase else { return }
+        ScenePerformanceCounterHub.shared.recordLaunchPhase(
+            hubPhase,
+            uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
+        )
+    }
+#endif
+    func publishLaunchState(_ state: SceneWallpaperLaunchState) {
+        launchState = state
+#if DEBUG
+        NSLog(
+            "MWX SCENE STARTUP: request=%@ record=%@ phase=%@ message=%@",
+            state.requestID.uuidString,
+            state.recordID ?? "-",
+            state.phase.rawValue,
+            state.message
+        )
+        Self.recordLaunchPhase(state.phase)
+        SceneSignpost.emitEvent("launch-state", state.phase.rawValue)
+#endif
+        NotificationCenter.default.post(
+            name: .sceneWallpaperLaunchStateDidChange,
+            object: state
+        )
+    }
+
 }

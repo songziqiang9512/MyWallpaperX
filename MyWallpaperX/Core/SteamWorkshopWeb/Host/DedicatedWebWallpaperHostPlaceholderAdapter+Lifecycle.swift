@@ -77,6 +77,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             entryURL: request.entryURL,
             rootURL: request.rootURL
         )
+#if DEBUG
         recordDiagnostic(
             type: "runtime.profile",
             severity: .info,
@@ -84,7 +85,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screenID: nil,
             url: entryURL.absoluteString
         )
-
+#endif
         if !shouldRebuildSurfaces, !surfaces.isEmpty {
             installDefaultInteractiveRegionsIfNeeded()
             // 装载失败在异步完成回调里以同一 message failCurrentLaunch。
@@ -195,13 +196,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // 已发过）不重发。
         if phase == .launching, surfaces.isEmpty == false,
            readyScreenIDs == Set(surfaces.keys) {
-            recordDiagnostic(
+#if DEBUG
+           recordDiagnostic(
                 type: "host.ready.restored",
                 severity: .info,
                 message: "screens=\(surfaces.count)",
                 screenID: nil,
                 url: nil
             )
+#endif
             phase = .ready
             if didEmitReadyEventForCurrentRequest == false,
                let requestID = currentRequest?.id {
@@ -280,6 +283,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 removeLifecycleObservers()
                 phase = .idle
                 endHostActivity()
+#if DEBUG
                 recordDiagnostic(
                     type: "lifecycle.stop",
                     severity: .info,
@@ -287,6 +291,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     screenID: nil,
                     url: nil
                 )
+#endif
                 currentRequest = nil
                 if let requestID {
                     eventHandler?(.stopped(requestID: requestID))
@@ -333,18 +338,31 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 return
             }
             guard isMainFrame else {
-                recordDiagnostic(
+#if DEBUG
+            recordDiagnostic(
                     type: "interactive-regions.subframe-rejected",
                     severity: .warning,
                     message: "subframe registration ignored sender=\(message.frameInfo.request.url?.absoluteString ?? "unknown")",
                     screenID: screenID,
                     url: webView.url?.absoluteString
                 )
+#endif
                 return
             }
             guard let regions = parseInteractiveRegions(from: message.body) else { return }
             let source = ((message.body as? [String: Any])?["source"] as? String) ?? "page-script"
             updateInteractiveRegions(regions, source: source, screenID: screenID)
+        case "wallpaperHostReady":
+            guard let webView = self.webView(for: userContentController) else { return }
+            let screenID = screenID(for: webView)
+            if isMainFrame, let screenID,
+               !recoveringWebContentScreenIDs.contains(screenID) {
+                installDefaultInteractiveRegionsIfNeeded()
+                applyCompatibilityState(to: webView, deferDirectorySync: false)
+                startSyntheticInputForwardingIfNeeded()
+                markScreenReady(screenID)
+            }
+#if DEBUG
         case "wallpaperHostLog":
             guard let webView = self.webView(for: userContentController) else { return }
             let screenID = screenID(for: webView)
@@ -355,22 +373,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             let frameScopedMessage = isMainFrame
                 ? rawMessage
                 : "[frame:\(message.frameInfo.request.url?.absoluteString ?? "subframe")] \(rawMessage)"
-            recordDiagnostic(
+                recordDiagnostic(
                 type: type,
                 severity: diagnosticSeverity(for: type),
                 message: frameScopedMessage,
                 screenID: screenID,
                 url: webView.url?.absoluteString
             )
-            // dom.ready 是屏幕级就绪：只认主 frame 发来的那一条（子 frame 可绕过
-            // 注入 JS 的门直接 postMessage）。
-            if type == "dom.ready", isMainFrame, let screenID,
-               !recoveringWebContentScreenIDs.contains(screenID) {
-                installDefaultInteractiveRegionsIfNeeded()
-                applyCompatibilityState(to: webView, deferDirectorySync: false)
-                startSyntheticInputForwardingIfNeeded()
-                markScreenReady(screenID)
-            }
+#endif
         case "wallpaperHostRandomFile":
             guard let body = message.body as? [String: Any],
                   let requestID = body["requestID"] as? String,
@@ -393,6 +403,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 guard let self, case let .failure(error) = result else { return }
                 // 无效 frame 的回包就地取消，不改发主 frame（迟到回包不得到达
                 // 替代文档）。
+#if DEBUG
                 self.recordDiagnostic(
                     type: "frame.reply.invalid",
                     severity: .info,
@@ -400,6 +411,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     screenID: self.screenID(for: webView),
                     url: webView.url?.absoluteString
                 )
+#endif
             }
         case "wallpaperHostNetworkRequest":
             guard let body = message.body as? [String: Any],
@@ -454,13 +466,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             frameInfo: frameInfo,
             in: webView
         ) else {
-            recordDiagnostic(
+#if DEBUG
+        recordDiagnostic(
                 type: "frame.endpoint.capacity",
                 severity: .warning,
                 message: "frame endpoint registration refused (capacity)",
                 screenID: screenID(for: webView),
                 url: webView.url?.absoluteString
             )
+#endif
             return
         }
         ensureFrameEndpointLeaseRenewalTimer()
@@ -509,11 +523,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             server = existing
         } else {
             server = WebWallpaperLoopbackServer(schemeHandler: surface.schemeHandler)
+#if DEBUG
             server.diagnosticHandler = { [weak self] type, severity, message, url in
                 Task { @MainActor in
                     self?.recordDiagnostic(type: type, severity: severity, message: message, screenID: surface.screenID, url: url?.absoluteString)
                 }
             }
+#endif
             loopbackServers[surface.screenID] = server
         }
         server.start { [weak self] result in
@@ -522,16 +538,20 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             case let .success(baseURL):
                 let path = localEntryURL.path
                 let url = baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+#if DEBUG
                 self.recordDiagnostic(type: "runtime.origin", severity: .info, message: "httpLoopback \(url.absoluteString)", screenID: surface.screenID, url: url.absoluteString)
+#endif
                 completion(url)
             case let .failure(error):
                 // 保持旧语义：端口就绪超时/失败回退 localEntryURL，不判启动失败。
+#if DEBUG
                 self.recordDiagnostic(type: "runtime.origin.error", severity: .error, message: error.localizedDescription, screenID: surface.screenID, url: localEntryURL.absoluteString)
+#endif
                 completion(localEntryURL)
             }
         }
     }
-
+#if DEBUG
     func recordDiagnostic(
         type: String,
         severity: WebRuntimeDiagnosticEvent.Severity,
@@ -549,7 +569,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             url: url
         )
     }
-
+#endif
     func markScreenReady(_ screenID: CGDirectDisplayID) {
         let inserted = readyScreenIDs.insert(screenID).inserted
         guard inserted,
@@ -557,7 +577,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
               phase != .ready else {
             return
         }
+#if DEBUG
         recordDiagnostic(type: "host.ready", severity: .info, message: "ready", screenID: screenID, url: nil)
+#endif
         phase = .ready
         didEmitReadyEventForCurrentRequest = true
         if let requestID = currentRequest?.id {
@@ -566,7 +588,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         scheduleDebugEvidenceIfNeeded()
         scheduleWebNavigationProbeIfNeeded()
     }
-
+#if DEBUG
     func diagnosticSeverity(for type: String) -> WebRuntimeDiagnosticEvent.Severity {
         let lowered = type.lowercased()
         if lowered.contains("error") || lowered.contains("rejection") {
@@ -577,7 +599,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         return .info
     }
-
     func adjustedDiagnosticSeverity(
         type: String,
         severity: WebRuntimeDiagnosticEvent.Severity,
@@ -603,7 +624,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         return severity
     }
-
     private func isOptionalLocalAudioDiagnosticMessage(_ loweredMessage: String) -> Bool {
         let isLocalSource = loweredMessage.contains("mwx-local://wallpaper/") ||
             loweredMessage.contains("http://127.0.0.1:") ||
@@ -625,5 +645,5 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         return loweredMessage.contains("/audio/0-") ||
             loweredMessage.contains("/audio/00-")
     }
-
+#endif
 }

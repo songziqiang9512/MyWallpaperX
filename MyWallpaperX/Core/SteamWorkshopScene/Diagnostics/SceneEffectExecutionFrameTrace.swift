@@ -1,3 +1,4 @@
+#if DEBUG
 import CryptoKit
 import Foundation
 
@@ -263,3 +264,16 @@ nonisolated private enum SceneEffectExecutionLogToken {
         }.joined()
     }
 }
+
+#else
+nonisolated enum SceneEffectExecutionOrigin: String, Sendable {
+    case image
+    case solid
+    case text
+    case quad
+    case utilityComposition = "utility-composition"
+    case utilityProject = "utility-project"
+    case utilityFullscreen = "utility-fullscreen"
+}
+nonisolated enum SceneEffectExecutionFrameTrace: Sendable {}
+#endif

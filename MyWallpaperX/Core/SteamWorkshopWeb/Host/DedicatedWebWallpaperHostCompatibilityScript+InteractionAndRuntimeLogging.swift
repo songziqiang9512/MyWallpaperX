@@ -1,4 +1,5 @@
 let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
+  if (hostLogger) {
   const serializedConsoleArgs = (args) => args.map(arg => {
     if (typeof arg === 'string') return arg;
     if (arg && typeof arg === 'object') {
@@ -41,7 +42,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     console[name] = function(...args) {
       try {
         const message = serializedConsoleArgs(args);
-        hostLogger.post(
+        hostLogger?.post(
           name === 'error' && isTransientLoaderReferenceError(message) ? 'loader.pending' : `console.${name}`,
           message
         );
@@ -70,7 +71,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
             ? String(target.getAttribute('src') || '').trim()
             : '';
         if (normalizedTagName === 'IMG' && (!rawSource || (sourceURL && sourceURL.href === document.location.href))) {
-          hostLogger.post('resource.ignored', `${tagName} empty-src`);
+          hostLogger?.post('resource.ignored', `${tagName} empty-src`);
           return;
         }
         const invalidMediaSource =
@@ -81,23 +82,24 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
               window.__myWallpaperIsInvalidMediaSourceValue(rawSource || source))
           );
         if (invalidMediaSource) {
-          hostLogger.post('resource.ignored', `${tagName} empty-src`);
+          hostLogger?.post('resource.ignored', `${tagName} empty-src`);
           return;
         }
       } catch (_) {}
       if (isLocalStylesheetLink(target, source)) {
-        hostLogger.post('resource.stylesheet.partial', `${tagName} ${source}`.trim());
+        hostLogger?.post('resource.stylesheet.partial', `${tagName} ${source}`.trim());
         return;
       }
-      hostLogger.post('resource.error', `${tagName} ${source}`.trim());
+      hostLogger?.post('resource.error', `${tagName} ${source}`.trim());
       return;
     }
-    hostLogger.post('window.error', `${event.message || 'unknown'} @ ${event.filename || 'inline'}:${event.lineno || 0}:${event.colno || 0}`);
+    hostLogger?.post('window.error', `${event.message || 'unknown'} @ ${event.filename || 'inline'}:${event.lineno || 0}:${event.colno || 0}`);
   }, true);
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason && event.reason.stack ? event.reason.stack : event.reason;
-    hostLogger.post('promise.rejection', reason || 'unknown');
+    hostLogger?.post('promise.rejection', reason || 'unknown');
   });
+  }
   const networkRequestHandler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostNetworkRequest;
   let networkRequestCounter = 0;
   // 请求 ID 加 per-frame 随机段：主 frame 与子 frame 的计数器各自从 0 起，
@@ -270,7 +272,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       const rawURL = resource && typeof resource === 'object' && 'url' in resource ? resource.url : resource;
       const companionResponse = localCompanionResponse(resource);
       if (companionResponse) {
-        hostLogger.post('fetch.compat', String(rawURL));
+        hostLogger?.post('fetch.compat', String(rawURL));
         return Promise.resolve(companionResponse);
       }
       return originalFetch(resource, init).catch(error => {
@@ -278,18 +280,18 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
           const url = new URL(String(rawURL || ''), document.location.href);
           const localPath = url.pathname.replace(/^\/+/, '');
           if (method === 'HEAD' && localPath === 'performance.layout.user.js') {
-            hostLogger.post('fetch.ignored', `${method} ${localPath} optional`);
+            hostLogger?.post('fetch.ignored', `${method} ${localPath} optional`);
             throw error;
           }
           const proxyCapable = canProxyNetworkRequest(method, url.href);
           if (proxyCapable && wallpaperHostReplyReachable() !== true) {
             // hello 未 ack（回包通道未建立）的 frame 不进入只会等桥超时的代理
             // 路径，保持原生结果（下面按 fetch.error 记录并重抛原生错误）。
-            hostLogger.post('host-reply.unsupported', `${method} ${url.href}`);
+            hostLogger?.post('host-reply.unsupported', `${method} ${url.href}`);
           } else if (proxyCapable) {
             const proxiedRequestHeaders = normalizedProxiedRequestHeaders(init && init.headers);
             return hostNetworkRequest(url.href, method, proxiedRequestHeaders).then(payload => {
-              hostLogger.post('fetch.proxy', `${method} ${url.href} status=${payload.status}`);
+              hostLogger?.post('fetch.proxy', `${method} ${url.href} status=${payload.status}`);
               const status = payload.status || 200;
               const body = method === 'HEAD' || proxiedResponseHasNullBody(status)
                 ? null
@@ -306,7 +308,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
               } catch (_) {}
               return response;
             }).catch(proxyError => {
-              hostLogger.post('fetch.proxy.error', `${method} ${url.href} ${proxyError && proxyError.message ? proxyError.message : proxyError}`);
+              hostLogger?.post('fetch.proxy.error', `${method} ${url.href} ${proxyError && proxyError.message ? proxyError.message : proxyError}`);
               throw error;
             });
           }
@@ -317,7 +319,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
             throw error;
           }
         }
-        hostLogger.post('fetch.error', `${String(rawURL)} ${error && error.message ? error.message : error}`);
+        hostLogger?.post('fetch.error', `${String(rawURL)} ${error && error.message ? error.message : error}`);
         throw error;
       });
     };
@@ -338,17 +340,17 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     }
     this.addEventListener('error', () => {
       if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
-        hostLogger.post('xhr.proxy.pending', `${method} ${String(url)}`);
+        hostLogger?.post('xhr.proxy.pending', `${method} ${String(url)}`);
         return;
       }
-      hostLogger.post('xhr.error', `${method} ${String(url)}`);
+      hostLogger?.post('xhr.error', `${method} ${String(url)}`);
     });
     this.addEventListener('loadend', () => {
       if (this.status >= 400 || this.status === 0) {
         if (this.status === 0 && canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
           return;
         }
-        hostLogger.post('xhr.status', `${method} ${String(url)} status=${this.status}`);
+        hostLogger?.post('xhr.status', `${method} ${String(url)} status=${this.status}`);
       }
     });
     return originalOpen.call(this, method, url, ...rest);
@@ -404,7 +406,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       if (proxyCapable && shouldProxy !== true) {
         // hello 未 ack（回包通道未建立）的 frame 不进入只会等桥超时的代理路径，
         // 保持原生 XHR（否则请求既不发原生也拿不到回包）。
-        hostLogger.post('host-reply.unsupported', `${method} ${url.href}`);
+        hostLogger?.post('host-reply.unsupported', `${method} ${url.href}`);
       }
     } catch (_) {}
     if (shouldProxy && networkRequestHandler && typeof networkRequestHandler.postMessage === 'function') {
@@ -451,7 +453,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
         try { xhr.dispatchEvent(new Event('readystatechange')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('load')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('loadend')); } catch (_) {}
-        hostLogger.post('xhr.proxy', `${method} ${proxyURL} status=${payload.status}`);
+        hostLogger?.post('xhr.proxy', `${method} ${proxyURL} status=${payload.status}`);
       }).catch(error => {
         try {
           Object.defineProperty(xhr, 'readyState', { configurable: true, get: () => 4 });
@@ -461,7 +463,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
         try { xhr.onloadend && xhr.onloadend.call(xhr, new Event('loadend')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('error')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('loadend')); } catch (_) {}
-        hostLogger.post('xhr.proxy.error', `${method} ${proxyURL} ${error && error.message ? error.message : error}`);
+        hostLogger?.post('xhr.proxy.error', `${method} ${proxyURL} ${error && error.message ? error.message : error}`);
       });
       return;
     }

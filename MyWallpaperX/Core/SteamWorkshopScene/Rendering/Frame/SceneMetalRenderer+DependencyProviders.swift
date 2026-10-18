@@ -205,12 +205,15 @@ extension SceneMetalRenderer {
                     executionOrigin: .image
                 )
         case let .unavailable(reasonCode), let .invalid(reasonCode):
+#if DEBUG
             executionTrace?.recordRouteOperation(
                 layerID: layer.id,
                 origin: .image,
                 operation: "named-provider-publication",
                 outcome: .failed(reasonCode: reasonCode)
             )
+#endif
+
             _ = imageCompositor.consumeResolvedMaterialNamedPublication(
                 ticket,
                 texture: texture,
@@ -346,6 +349,7 @@ extension SceneMetalRenderer {
             // identity rejection can only be seen here and aborts the prepass
             // so the caller stops on the claimed failure.
             if case let .invalid(reasonCode)? = captureResult {
+#if DEBUG
                 executionTrace?.recordRouteOperation(
                     layerID: provider.id,
                     origin: Self.effectExecutionOrigin(
@@ -354,6 +358,8 @@ extension SceneMetalRenderer {
                     operation: "named-provider-capture",
                     outcome: .failed(reasonCode: reasonCode)
                 )
+#endif
+
                 imageCompositor.recordResolvedMaterialFramePreflightFailure(
                     reasonCode
                 )

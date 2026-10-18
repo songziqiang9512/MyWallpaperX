@@ -86,7 +86,9 @@ final class SceneBloomPostProcess {
               let bright = library.makeFunction(name: hdrEnabled ? "sceneBloomHDRBrightFragment" : "sceneBloomBrightFragment"),
               let blur = library.makeFunction(name: hdrEnabled ? "sceneBloomHDRDownsampleFragment" : "sceneBloomBlurFragment"),
               let combine = library.makeFunction(name: hdrEnabled ? "sceneBloomHDRCombineFragment" : "sceneBloomCombineFragment") else {
+#if DEBUG
             NSLog("MWX Scene bloom: default library functions unavailable")
+#endif
             return nil
         }
         func descriptor(
@@ -127,10 +129,12 @@ final class SceneBloomPostProcess {
                 descriptor: descriptor(combine, additive: true)
             )
         } catch {
+#if DEBUG
             NSLog(
                 "MWX Scene bloom: pipeline state rejected: %@",
                 String(describing: error)
             )
+#endif
             return nil
         }
     }
@@ -179,7 +183,9 @@ final class SceneBloomPostProcess {
         else {
             if !textureFailureLogged {
                 textureFailureLogged = true
+#if DEBUG
                 NSLog("MWX Scene bloom: intermediate texture allocation failed")
+#endif
             }
             return nil
         }

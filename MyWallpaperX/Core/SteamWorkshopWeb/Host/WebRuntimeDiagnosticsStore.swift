@@ -1,3 +1,4 @@
+#if DEBUG
 //
 //  WebRuntimeDiagnosticsStore.swift
 //  MyWallpaperX
@@ -22,7 +23,6 @@ struct WebRuntimeDiagnosticEvent: Identifiable, Equatable {
     let message: String
     let url: String?
 }
-
 @MainActor
 final class WebRuntimeDiagnosticsStore {
     static let shared = WebRuntimeDiagnosticsStore()
@@ -54,7 +54,6 @@ final class WebRuntimeDiagnosticsStore {
             events.removeFirst(events.count - capacity)
         }
         NotificationCenter.default.post(name: Self.didChangeNotification, object: recordID)
-        #if DEBUG
         guard shouldLogToConsole else { return }
         NSLog(
             "MWX WEB DIAG record=%@ screen=%@ severity=%@ type=%@ url=%@ message=%@",
@@ -65,7 +64,6 @@ final class WebRuntimeDiagnosticsStore {
             event.url ?? "-",
             event.message
         )
-        #endif
     }
 
     func recentEvents(recordID: String?, limit: Int = 50) -> [WebRuntimeDiagnosticEvent] {
@@ -86,3 +84,7 @@ final class WebRuntimeDiagnosticsStore {
         NotificationCenter.default.post(name: Self.didChangeNotification, object: recordID)
     }
 }
+typealias WebRuntimeDiagnosticHandler = (String, WebRuntimeDiagnosticEvent.Severity, String, URL?) -> Void
+#else
+typealias WebRuntimeDiagnosticHandler = Never
+#endif

@@ -117,7 +117,7 @@ let webCompatibilityScriptDOMLifecycleScaffold = #"""
           const src = frame && typeof frame.getAttribute === 'function'
             ? frame.getAttribute('src')
             : '';
-          hostLogger.post('iframe.crossOriginAccess', `${propertyName} fallback ${String(src || '')}`);
+          hostLogger?.post('iframe.crossOriginAccess', `${propertyName} fallback ${String(src || '')}`);
         } catch (_) {}
       };
       const createFallbackWindow = (frame, frameWindow) => {

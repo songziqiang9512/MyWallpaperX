@@ -110,6 +110,7 @@ extension SceneMetalRenderer {
             colorBlendPipeline: nil,
             mainPass: mainPass
         )
+#if DEBUG
         executionTrace?.recordRouteOperation(
             layerID: layer.id,
             origin: .utilityComposition,
@@ -118,8 +119,12 @@ extension SceneMetalRenderer {
                 ? .encoded
                 : .failed(reasonCode: "main-pass-encode-failed")
         )
+#endif
+
         if encoded {
+#if DEBUG
             ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
+#endif
         }
         return encoded
     }

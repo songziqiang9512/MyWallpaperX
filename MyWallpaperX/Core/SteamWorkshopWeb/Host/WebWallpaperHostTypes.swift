@@ -34,39 +34,39 @@ extension WallpaperEngine {
         let originMode: WebRuntimeOriginMode
         let dataStorePolicy: DataStorePolicy
         let strictLocalResourcePolicy: Bool
-        let diagnosticsEnabled: Bool
+#if DEBUG
+        var diagnosticsEnabled = true
+#endif
 
         static let standard = WebRuntimeProfile(
             id: "standard",
             originMode: .customScheme,
             dataStorePolicy: .workshopPersistent,
-            strictLocalResourcePolicy: false,
-            diagnosticsEnabled: true
+            strictLocalResourcePolicy: false
         )
 
         static let highCompatibility = WebRuntimeProfile(
             id: "highCompatibility",
             originMode: .httpLoopback,
             dataStorePolicy: .scopedPersistent,
-            strictLocalResourcePolicy: false,
-            diagnosticsEnabled: true
+            strictLocalResourcePolicy: false
         )
 
         static let strictLocal = WebRuntimeProfile(
             id: "strictLocal",
             originMode: .customScheme,
             dataStorePolicy: .ephemeral,
-            strictLocalResourcePolicy: true,
-            diagnosticsEnabled: true
+            strictLocalResourcePolicy: true
         )
 
+#if DEBUG
         static let diagnostic = WebRuntimeProfile(
             id: "diagnostic",
             originMode: .httpLoopback,
             dataStorePolicy: .ephemeral,
-            strictLocalResourcePolicy: false,
-            diagnosticsEnabled: true
+            strictLocalResourcePolicy: false
         )
+#endif
     }
 
     nonisolated struct WebWallpaperLaunchRequest {
@@ -714,11 +714,13 @@ final class WebWallpaperDataStoreReclaimer {
             if stillInUse {
                 guard attempt < Self.maxRemovalAttempts else {
                     self.removalAttemptsByRecordID.removeValue(forKey: recordID)
+#if DEBUG
                     NSLog(
                         "MWX WEB DATASTORE REMOVAL: skipped record=%@ reason=still_in_use attempts=%d",
                         recordID,
                         attempt
                     )
+#endif
                     return
                 }
                 self.schedulePersistentDataStoreRemoval(recordID: recordID, identifiers: identifiers)
@@ -771,18 +773,22 @@ final class WebWallpaperDataStoreReclaimer {
             for identifier in targets.sorted(by: { $0.uuidString < $1.uuidString }) {
                 WKWebsiteDataStore.remove(forIdentifier: identifier) { error in
                     if let error {
-                        NSLog(
+#if DEBUG
+                    NSLog(
                             "MWX WEB DATASTORE REMOVAL: failed record=%@ identifier=%@ error=%@",
                             recordID,
                             identifier.uuidString,
                             error.localizedDescription
                         )
+#endif
                     } else {
-                        NSLog(
+#if DEBUG
+                    NSLog(
                             "MWX WEB DATASTORE REMOVAL: removed record=%@ identifier=%@",
                             recordID,
                             identifier.uuidString
                         )
+#endif
                     }
                 }
             }

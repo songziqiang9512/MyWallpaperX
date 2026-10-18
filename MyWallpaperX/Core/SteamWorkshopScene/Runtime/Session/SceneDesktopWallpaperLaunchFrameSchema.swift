@@ -190,8 +190,10 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
             propertyBindingProgram: runtimeInput.propertyBindingProgram
         )
         for (target, failure) in templateFailures {
+#if DEBUG
             NSLog("MWX SceneScript VM: target=%@ preparation=text-template failure=%@ code=%@",
                   String(describing: target), String(describing: failure), failure.code)
+#endif
         }
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,

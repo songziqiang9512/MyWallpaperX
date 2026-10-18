@@ -143,7 +143,9 @@ extension WebWallpaperLoopbackServer {
         }
         let cookieHeader = headerValue(named: "Cookie", in: requestText)
         guard let requestPath = authorizedRequestPath(lineParts[1], cookieHeader: cookieHeader) else {
+#if DEBUG
             diagnosticHandler?("loopback.request.rejected", .warning, "reason=missing_access_token", nil)
+#endif
             sendError(403, message: "forbidden", on: context)
             return
         }
@@ -160,7 +162,10 @@ extension WebWallpaperLoopbackServer {
                 candidateURL: nil,
                 resolvedURL: nil
             )
+#if DEBUG
             schemeHandler.recordDeny(denial)
+#endif
+
             respondWithResourceFailure(denial, requestURL: requestURL, on: context)
             return
         }
@@ -186,7 +191,9 @@ extension WebWallpaperLoopbackServer {
             // Content-Range: bytes */总长），不是资源失败——媒体 seek 越界
             //（文件在会话中被替换短版）客户端可据此重验证尺寸。
             if case let WebWallpaperLocalSchemeHandler.LocalSchemeError.rangeNotSatisfiable(totalSize) = error {
+#if DEBUG
                 diagnosticHandler?("loopback.resource.range-not-satisfiable", .info, "totalSize=\(totalSize)", requestURL)
+#endif
                 sendRangeNotSatisfiableResponse(totalSize: totalSize, keepAlive: keepAlive, on: context) { [weak self] in
                     self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
                 }
@@ -298,9 +305,13 @@ extension WebWallpaperLoopbackServer {
 
     private func respondWithResourceFailure(_ error: Error, requestURL: URL, on context: ConnectionContext) {
         if schemeHandler.isOptionalMissingMediaRequest(requestURL) {
+#if DEBUG
             diagnosticHandler?("loopback.resource.optional", .info, error.localizedDescription, requestURL)
+#endif
         } else {
+#if DEBUG
             diagnosticHandler?("loopback.resource.error", .warning, error.localizedDescription, requestURL)
+#endif
         }
         sendError(404, message: error.localizedDescription, on: context)
     }
@@ -349,12 +360,14 @@ extension WebWallpaperLoopbackServer {
             // 路径的 truncatedDuringDelivery 同语义的失败。响应头已发出、无法再改
             // 状态码，只能留诊断并关闭连接，绝不把截断体当正常结束静默交付。
             if remaining > 0 {
+#if DEBUG
                 diagnosticHandler?(
                     "loopback.stream.truncated",
                     .warning,
                     "truncated_during_delivery remaining=\(remaining)",
                     requestURL
                 )
+#endif
                 context.connection.cancel()
                 return
             }

@@ -200,8 +200,8 @@ final class ScenePuppetClipping {
                 indexBufferOffset: part.indexOffset * MemoryLayout<UInt16>.stride)
             #if DEBUG
             SceneGPUStageTimestampHook.drew(encoder)
-            #endif
-            ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+                        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
         }
         SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: sourceTexture)
     }

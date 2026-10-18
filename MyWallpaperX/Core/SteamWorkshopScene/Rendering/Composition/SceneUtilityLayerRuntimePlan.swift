@@ -584,7 +584,9 @@ final class SceneCompositionGroupFrameRuntime {
                         to: target, destinationSlice: 0, destinationLevel: 0,
                         destinationOrigin: MTLOrigin())
                     blit.endEncoding()
+#if DEBUG
                     SceneGPUCensus.recordTextureCopy(texture: target)
+#endif
                     return true
                 } ?? false
             } ?? false

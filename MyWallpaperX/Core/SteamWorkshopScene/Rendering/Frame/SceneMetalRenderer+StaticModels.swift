@@ -353,9 +353,12 @@ extension SceneMetalRenderer {
                         viewportSize: viewportSize, mainPass: pass,
                         preparesCapacityOnly: !dependencyRuntime.isStaticModelSourceProvider(layer.id))
                     if case let .invalid(reason)? = result {
+#if DEBUG
                         executionTrace?.recordRouteOperation(layerID: layer.id,
                             origin: Self.effectExecutionOrigin(for: layer.contentKind),
                             operation: "named-provider-capture", outcome: .failed(reasonCode: reason))
+#endif
+
                         return reason
                     }
                     if case .unavailable? = result { return nil }

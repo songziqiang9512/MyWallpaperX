@@ -778,6 +778,37 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "release-diagnostic-exclusion",
+      "title": "Release 剥离开发诊断入口与实现",
+      "owner": "App/Scene/Web/Video/Steam development diagnostics",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "design_notes": "§3.0：Release排除Steam Probe/selftest、诊断报告、Web诊断IPC、Inspector与样本扫描缓存；Debug对应构建保留工具；产品入口准入、错误、属性与播放控制独立保留。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCompletionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebRuntimeDiagnosticsStore.swift",
+        "SteamService/Program.cs",
+        "SteamService/SteamService.csproj",
+        "script/publish-steam-helper.sh",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModel*.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopDownloadRecord+Web.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntime*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneCapabilityProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceReferenceIndex.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

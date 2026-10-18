@@ -3,6 +3,7 @@ import Metal
 import QuartzCore
 import simd
 
+#if DEBUG
 private struct SceneStartupReportBuffer {
     private var lines: [String]?
 
@@ -35,6 +36,7 @@ private struct SceneStartupReportBuffer {
         )
     }
 }
+#endif
 
 class SceneMetalView: NSView {
     let metalDevice: MTLDevice
@@ -252,43 +254,85 @@ class SceneMetalView: NSView {
             resourceView: resourceView,
             descriptor: renderer.renderDescriptor
         )
+#if DEBUG
         var report = SceneStartupReportBuffer(enabled: logURL != nil)
+        let recordsDiagnostics = report.isEnabled
+        let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = { [renderer] in renderer.effectRuntimeSummary(for: $0) }
+#else
+        let recordsDiagnostics = false
+        let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
+#endif
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedSpecializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var preparedBaseImageHitCount = 0
+#if DEBUG
         renderer.installResolvedMaterialExecutionEvidence()
+#endif
         self.preparedBaseImages = preparedBaseImages
         puppetResourceView = resourceView
         dynamicPuppetTopologyRevision = nil
         dynamicPuppetLayerIDs.removeAll(keepingCapacity: true)
         deferredBaseImageURLs.removeAll(keepingCapacity: true)
         adoptedDeferredBaseImageURLs.removeAll(keepingCapacity: true)
+#if DEBUG
         report.append("Scene preview texture load report")
+#endif
+
+#if DEBUG
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
+#endif
+
+#if DEBUG
         report.append(SceneCameraShake.reportLine(renderer.renderDescriptor.camera))
+#endif
+
+#if DEBUG
         report.append("cacheDirectory: \(cacheDirectory.path)")
+#endif
+
+#if DEBUG
         report.append(contentsOf: userPropertyTextureLoad.reportLines)
+#endif
+
+#if DEBUG
         report.append(preparedBaseImages.reportLine)
+#endif
+
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
+#if DEBUG
         report.append("imageLayerCount: \(imageLayers.count)")
+#endif
+
+#if DEBUG
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
+#endif
+
+#if DEBUG
         report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
+#endif
+
         for layer in imageLayers {
+#if DEBUG
             let name = report.isEnabled ? (layer.name ?? "(unnamed)") : ""
             let placementSummary = report.isEnabled
                 ? renderer.debugPlacementSummary(for: layer) : ""
+#endif
             let primaryTextureURL = layer.contentKind != "solid"
                 || layer.staticBaseTexturePath != nil
                 ? resolver.resolvePrimaryTexture(for: layer) : nil
             if layer.contentKind == "solid", primaryTextureURL == nil {
                 guard let texture = solidLayerTexture else {
+#if DEBUG
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
+#endif
+
                     continue
                 }
                 loaded.set(texture, candidate: nil, layerID: layer.id)
+#if DEBUG
                 if report.isEnabled {
                     let color = SIMD3(layer.colorRGB ?? [], fill: 1)
                     var message = String(
@@ -300,11 +344,17 @@ class SceneMetalView: NSView {
                     }
                     message += "; \(placementSummary)"
                     report.append(message)
+
                 }
+#endif
+
                 continue
             }
             guard let url = primaryTextureURL else {
+#if DEBUG
                 report.append("layer \(layer.id) \"\(name)\": no texture URL (built-in or unresolvable); \(placementSummary)")
+#endif
+
                 continue
             }
             let preparedBaseImage = preparedBaseImages.outcome(
@@ -316,10 +366,13 @@ class SceneMetalView: NSView {
                preparedBaseImage == nil
             {
                 deferredBaseImageURLs[layer.id] = url
+#if DEBUG
                 report.append(
                     "layer \(layer.id) \"\(name)\":"
                         + " deferred-static-base; \(placementSummary)"
                 )
+#endif
+
                 continue
             }
             if let videoSource = videoSourceRegistry.source(
@@ -330,6 +383,7 @@ class SceneMetalView: NSView {
                 loader: loader
             ) {
                 loadedVideoSources[layer.id] = videoSource
+#if DEBUG
                 if report.isEnabled {
                     var message = "layer \(layer.id) \"\(name)\":"
                         + " mp4 payload video source ready (\(url.lastPathComponent))"
@@ -339,7 +393,10 @@ class SceneMetalView: NSView {
                     }
                     message += "; \(placementSummary)"
                     report.append(message)
+
                 }
+#endif
+
                 continue
             }
             let baseImage = preparedBaseImage ?? SceneBaseImageTextureLoad.load(
@@ -355,7 +412,9 @@ class SceneMetalView: NSView {
             switch baseImage {
             case let .loaded(baseLoad):
                 let texture = baseLoad.texture
+#if DEBUG
                 var puppetMessage: String?
+#endif
                 if let pose = preparedBaseImages.puppets.posesByLayerID[layer.id],
                    let puppetOutcome = instantiatePuppetGeometry(
                        for: layer, pose: pose, atlasTexture: texture,
@@ -370,7 +429,10 @@ class SceneMetalView: NSView {
                     if let playback = puppetOutcome.playback {
                         loadedPuppetPlaybackStates[layer.id] = playback
                     }
+#if DEBUG
                     if report.isEnabled { puppetMessage = "; \(puppetOutcome.message)" }
+#endif
+
                 } else if layer.puppetMeshPath == nil {
                     loaded.set(
                         texture,
@@ -392,15 +454,19 @@ class SceneMetalView: NSView {
                     ) {
                         loadedSpriteAnimations[layer.id] = animation
                     } else {
+#if DEBUG
                         report.append(
                             "layer \(layer.id) \"\(name)\":"
                                 + " conflicting texture-animation definition"
                         )
+#endif
+
                     }
                 }
                 if let sampling = baseLoad.baseTextureSampling {
                     loadedSpecializedBaseTextureSamplings[layer.id] = sampling
                 }
+#if DEBUG
                 if report.isEnabled {
                     var message = "layer \(layer.id) \"\(name)\": OK"
                         + " \(url.lastPathComponent) → \(texture.width)×\(texture.height)"
@@ -418,8 +484,12 @@ class SceneMetalView: NSView {
                     }
                     message += "; \(placementSummary)"
                     report.append(message)
+
                 }
+#endif
+
             case let .failed(failure):
+#if DEBUG
                 if report.isEnabled {
                     var message = SceneBaseImageTextureLoad.failureReportLine(
                         failure,
@@ -431,7 +501,10 @@ class SceneMetalView: NSView {
                         message += "; launch-prepared-static-base"
                     }
                     report.append(message)
+
                 }
+#endif
+
             }
         }
         imageTextures = loaded
@@ -441,11 +514,14 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
             device: metalDevice,
-            recordsDiagnostics: report.isEnabled,
-            effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
+            recordsDiagnostics: recordsDiagnostics,
+            effectSummary: textEffectSummary
         )
         imageTextures.merge(textLoad.rasters.mapValues(\.texture))
+#if DEBUG
         report.append(contentsOf: renderer.runtimeReportLines())
+#endif
+
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
@@ -462,7 +538,10 @@ class SceneMetalView: NSView {
         dynamicImageTextures = SceneDynamicImageTextureProvider(
             resources: preparedBaseImages.dynamicImageResources
         )
+#if DEBUG
         report.append(contentsOf: textLoad.messages)
+#endif
+
         videoTextureSources = loadedVideoSources
         puppetPlaybackStates = loadedPuppetPlaybackStates
         particlePlayback = SceneParticlePlaybackState(
@@ -478,28 +557,50 @@ class SceneMetalView: NSView {
             initialPlayback: initialPlayback
         )
         if let particlePlayback {
+#if DEBUG
             report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))
+#endif
+
         } else {
+#if DEBUG
             report.append("particle runtime: pipeline unavailable")
+#endif
+
         }
         // Specialized images and particle templates can repopulate the shared
         // loader after base-image preparation evicted its decoded cache. All
         // surface sources now own their GPU products; release those CPU copies.
         loader.evictDecodedCaches()
+#if DEBUG
         report.append("")
+#endif
+
+#if DEBUG
         report.append(
             "prepared static base resource usage: hits=\(preparedBaseImageHitCount)"
         )
+#endif
+
+#if DEBUG
         report.append(
             "prepared static model layers: \(renderer.staticModelResources.preparedLayerIDs)"
         )
+#endif
+
+#if DEBUG
         if report.isEnabled {
             let loadedLayerCount = Set(loaded.textures.keys)
                 .union(loadedVideoSources.keys).count
             let reportedLayerCount = report.layerEntryCount
             report.append("loaded: \(loadedLayerCount) / \(reportedLayerCount)")
+
         }
+#endif
+
+#if DEBUG
         report.write(to: logURL)
+#endif
+
     }
 
     func adoptPreparedDeferredBaseImage(layerID: Int) -> Bool {
@@ -710,24 +811,37 @@ class SceneMetalView: NSView {
             return .deferred(reasonCode: "debug-drawable-unavailable")
         }
 #endif
+#if DEBUG
         let frameStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+#endif
         // Unconditional always-on drawable wait measurement; independent of
         // the telemetry-gated frameStart/drawableAcquired constants above.
+#if DEBUG
         let hubDrawableWaitStart = ProcessInfo.processInfo.systemUptime
+#endif
         refreshDisplayOutput()
         guard let drawable = metalLayer.nextDrawable() else {
-            ScenePerformanceCounterHub.shared.add(
+#if DEBUG
+        ScenePerformanceCounterHub.shared.add(
                 .drawableWaitMicros,
                 ScenePerformanceCounterHub.micros(since: hubDrawableWaitStart)
             )
+#endif
+#if DEBUG
             performanceTelemetry?.recordDrawableMiss()
+#endif
+
             return .deferred(reasonCode: "drawable-unavailable")
         }
+#if DEBUG
         ScenePerformanceCounterHub.shared.add(
             .drawableWaitMicros,
             ScenePerformanceCounterHub.micros(since: hubDrawableWaitStart)
         )
+#endif
+#if DEBUG
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+#endif
 
         let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
@@ -748,22 +862,29 @@ class SceneMetalView: NSView {
         #else
             let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
         #endif
+#if DEBUG
         if let frameStart, let drawableAcquired {
-            performanceTelemetry?.recordPreparation(
+
+performanceTelemetry?.recordPreparation(
                 drawableWait: drawableAcquired - frameStart,
                 preEncode: ProcessInfo.processInfo.systemUptime - drawableAcquired
             )
+
         }
+#endif
         let presentationRegistration = firstFramePresentationRegistration
         let onDrawableWillPresent: ((CAMetalDrawable) -> Void)?
         if presentationRegistration != nil || performanceTelemetry != nil {
             onDrawableWillPresent = { [weak self, presentationStreamID] drawable in
                 self?.firstFramePresentationRegistration = nil
                 _ = presentationRegistration?(drawable)
+#if DEBUG
                 performanceTelemetry?.recordWillPresent(
                     drawable,
                     streamID: presentationStreamID
                 )
+#endif
+
             }
         } else {
             onDrawableWillPresent = nil

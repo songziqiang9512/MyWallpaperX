@@ -166,13 +166,17 @@ nonisolated final class SceneVideoOwnedFile: Sendable {
 
     private static func closeDuringCleanup(_ descriptor: Int32) {
         if Darwin.close(descriptor) != 0 {
+#if DEBUG
             NSLog("MWX video owned-file cleanup failed: operation=close errno=%d", errno)
+#endif
         }
     }
 
     deinit {
         if Darwin.unlink(url.path) != 0 && errno != ENOENT {
+#if DEBUG
             NSLog("MWX video owned-file cleanup failed: operation=unlink errno=%d", errno)
+#endif
         }
     }
 }

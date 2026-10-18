@@ -116,10 +116,19 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         } else {
             previousBlurredCompositeSlots = nil
         }
+#if DEBUG
         SceneResolvedMaterialVariantCompileProfile.add(
             analysis: (CACurrentMediaTime() - analysisStart) * 1000
         )
+#if DEBUG
         let artifactStart = CACurrentMediaTime()
+#else
+        let artifactStart = 0.0
+#endif
+#else
+
+        let artifactStart = 0.0
+#endif
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: compilerSources.vertex,
             fragmentSource: compilerSources.fragment,

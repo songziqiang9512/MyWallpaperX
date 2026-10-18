@@ -230,10 +230,12 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             let target = orderedBindings[index].target
             guard pendingNextFrameObservations.remove(target) != nil,
                   let value = values[target] else { continue }
+#if DEBUG
             NSLog(
                 "MWX SceneScript VM: animationTarget=%@ state=next-frame elapsedFrames=%.9g value=%@ route=generic-only",
                 String(describing: target), elapsed, String(describing: value)
             )
+#endif
         }
     }
 

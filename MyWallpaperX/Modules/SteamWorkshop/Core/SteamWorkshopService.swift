@@ -319,7 +319,10 @@ final class SteamWorkshopService: ObservableObject {
     @Published var lastWebPlaybackFailurePath: String?
     @Published var lastWebPlaybackFailureMessage: String?
 
+    var webLaunchEligibilityCache: [String: CachedWebLaunchEligibility] = [:]
+#if DEBUG
     var webValidationReportCache: [String: CachedWebValidationReport] = [:]
+#endif
     var webRuntimeModelCache: [String: CachedWebRuntimeModel] = [:]
     var webProjectDescriptorCache: [String: CachedWebProjectDescriptor] = [:]
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
@@ -422,7 +425,9 @@ final class SteamWorkshopService: ObservableObject {
             // Runtime gates intentionally use a private defaults suite. Never
             // let that fresh marker namespace trigger deletion in the user's
             // real login Keychain, WebKit store, caches or runtime directory.
+#if DEBUG
             NSLog("MWX DEBUG RETIREMENT: skipped for isolated defaults suite")
+#endif
         }
 #if DEBUG
         let isIsolatedWebSampleRun = ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")

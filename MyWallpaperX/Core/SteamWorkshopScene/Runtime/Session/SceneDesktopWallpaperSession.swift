@@ -5,11 +5,13 @@ import OSLog
 import QuartzCore
 
 final class SceneDesktopWallpaperSession {
+#if DEBUG
     private static let performanceLogger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "MyWallpaperX",
         category: "ScenePerformance"
     )
 
+#endif
     private final class HostWindow: NSWindow {
         override var canBecomeKey: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
         override var canBecomeMain: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
@@ -102,7 +104,6 @@ final class SceneDesktopWallpaperSession {
     var debugDidLogDynamicValuesRecovery = false
     var debugDynamicLayerVisibilitySignature: String?
 #endif
-
     var activeRecordID: String? { launchContext?.recordID }
     var isPlaybackActive: Bool {
         launchContext != nil && !sceneClock.isPaused
@@ -150,8 +151,8 @@ final class SceneDesktopWallpaperSession {
         launchContext = context
         userPropertyTextureLoad = context.userPropertyTextureLoad
         evaluationTransaction = .init()
-        let activateStageStart = CACurrentMediaTime()
 #if DEBUG
+        let activateStageStart = CACurrentMediaTime()
         debugDynamicLayerVisibilitySignature = nil
 #endif
         sharedLayerAlphaRuntime = .init(
@@ -188,13 +189,17 @@ final class SceneDesktopWallpaperSession {
         ) else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+#if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
+#endif
         installPointerEventMonitorsIfNeeded()
         prepareInitialUserPropertyVideos()
+#if DEBUG
         NSLog(
             "MWX LAUNCH-STAGE: stage=activate-end elapsedMs=%.0f",
             (CACurrentMediaTime() - activateStageStart) * 1000
         )
+#endif
     }
 
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) {
@@ -257,7 +262,6 @@ final class SceneDesktopWallpaperSession {
     func stop() {
         teardownSurfaces(clearContext: true, reason: .surfaceStop)
     }
-
 #if DEBUG
     func debugSnapshot() -> SceneDesktopWallpaperHost.DebugSnapshot {
         SceneDesktopWallpaperHost.DebugSnapshot(
@@ -290,13 +294,11 @@ final class SceneDesktopWallpaperSession {
     /// DEBUG evidence: the current particle load report lines, captured at
     /// request time so bursty/short-lifetime child systems are represented by
     /// their live state instead of the launch-time zero-particle summary.
-    #if DEBUG
     func debugParticleLoadReportLines() -> [String] {
         surfaces.values.sorted { $0.window.windowNumber < $1.window.windowNumber }
             .compactMap { $0.metalView.debugParticleLoadReportLines() }
             .flatMap { $0 }
     }
-    #endif
 
     func setDebugPointerOverride(_ input: SceneSurfacePointerInput?) {
         debugPointerOverride = input
@@ -350,7 +352,6 @@ final class SceneDesktopWallpaperSession {
         return true
     }
 #endif
-
     private func installObservers() {
         activeSpaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
@@ -377,15 +378,19 @@ final class SceneDesktopWallpaperSession {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self, self.launchContext != nil else { return }
             guard topology != self.rebuiltTopology else {
+#if DEBUG
                 Self.performanceLogger.debug(
                     "Ignored unchanged Scene screen topology; surfaces=\(self.surfaces.count)"
                 )
+#endif
                 self.reassertSurfaceVisibility()
                 return
             }
+#if DEBUG
             Self.performanceLogger.info(
                 "Rebuilding Scene surfaces after screen topology change; old=\(self.rebuiltTopology.count) new=\(topology.count)"
             )
+#endif
             guard let launchContext = self.launchContext else { return }
             _ = self.rebuildSurfacesReconcilingAudioDemand(
                 launchContext,
@@ -570,11 +575,13 @@ final class SceneDesktopWallpaperSession {
                     initialDynamicValues: initialParticleDynamicValues,
                     logURL: launchContext.logURL
                 )
+#if DEBUG
                 launchContext.appendResolvedMaterialStartupReport()
                 Self.appendTextScriptReport(
                     to: launchContext.logURL,
                     program: launchContext.textScriptProgram
                 )
+#endif
                 wroteLog = true
             }
 
@@ -646,10 +653,12 @@ final class SceneDesktopWallpaperSession {
             try launchContext.propertyVectorScriptProgram.domain?
                 .setStorageScreenIdentity(storageScreenIdentity)
         } catch {
-            NSLog(
+#if DEBUG
+        NSLog(
                 "MWX SceneScript VM: localStorage screen identity unavailable failure=%@ fallback=global-only",
                 String(describing: error)
             )
+#endif
         }
         startFrameDriver()
         return true

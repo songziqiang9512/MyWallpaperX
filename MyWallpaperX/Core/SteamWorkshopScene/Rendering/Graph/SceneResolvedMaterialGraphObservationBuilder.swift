@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 /// Converts one terminal executor transition into an immutable telemetry atom.
@@ -347,3 +348,5 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         }
     }
 }
+
+#endif

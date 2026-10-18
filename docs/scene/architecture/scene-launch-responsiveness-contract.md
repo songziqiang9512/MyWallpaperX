@@ -31,6 +31,14 @@ MirageWallpaper 只提供 `candidate / active / standby`、request generation、
 
 ## 3. 详情与诊断合同
 
+### 3.0 发布构建的诊断边界
+
+正式 Release 从编译输入、实现与 IPC 入口排除开发观测链：启动/逐帧计时、带锁性能计数、signpost、GPU census/完成日志、周期资源统计、诊断 IPC、Web 事件缓存/通知及脚本日志桥均由 `DEBUG` 编译条件隔离。Steam helper 的 `Probe/` 与 `*SelfTest.cs` 不参与 Release 编译，`probe`／`selftest` 和 Web `inspect`／诊断事件只在 Debug 提供；Scene／Web 属性面板的样本诊断、完整 Web 依赖诊断扫描及报告缓存仅在 Debug 存在；普通 Web 发布播放不开放 Web Inspector。Scene 的资源引用与能力缺口汇总、effect 报告和 descriptor 诊断投影也只在 Debug 构造，真实资源解析与编译准入继续执行。产品 Web 启动准入只检查入口与依赖可用事实，不调用样本诊断；runtime profile 仍由产品 descriptor 风险事实决定。Scene／Web 属性面板的样本诊断、完整 Web 依赖诊断扫描及报告缓存仅在 Debug 存在；普通 Web 发布播放不开放 Web Inspector。Scene 的资源引用与能力缺口汇总、effect 报告和 descriptor 诊断投影也只在 Debug 构造，真实资源解析与编译准入继续执行。产品 Web 启动准入只检查入口与依赖可用事实，不调用样本诊断；runtime profile 仍由产品 descriptor 风险事实决定。Scene 详情的诊断构建与属性准备分离。Debug 保留现有显式证据入口，helper 随 App 的构建配置发布；不能用运行时开关冒充 Release 编译隔离，也不能在空日志调用前计算 payload 或注册 observer/timer。发布验收核对实际无 `DEBUG` 的构建、主 App／Video helper 符号、Steam 程序集类型与成员、开发命令拒绝及普通播放运行，而不是带 DEBUG 的优化诊断配置。
+
+播放请求/代次、首帧与可见确认、资源预算、GPU drain、错误返回和局部降级是产品控制，继续由原 owner 执行；它们不能依赖统计或诊断返回值。共享渲染签名只可保留无观测实现的占位类型；已有只做 GPU 观测的参数通道在 Release 使用无状态且可内联消除的值，不分配观测对象、加锁或安装 GPU handler。失败原因仍作为用户可见 typed 状态返回。
+
+验收为 Debug 观测仍可用；普通 Release 无统计 timer/诊断事件/日志桥活动，真实冷暖启动及暂停/恢复/切换/退出可执行；资源归因和启动优化用同构建/同入口交替对照，不跳过校验、提前报告 ready 或增加常驻调度器。
+
 ### 3.1 默认状态
 
 Scene 详情的齿轮次级菜单提供“播放诊断”入口（2026-10-07 起该菜单入口仅 Debug 构建提供；Release 详情面板没有诊断入口，诊断能力保留给开发调试）。打开诊断面板只显示说明或已存在的结果，初始状态为 `idle`，不开始诊断；只有用户点击“开始诊断”才可创建诊断请求。

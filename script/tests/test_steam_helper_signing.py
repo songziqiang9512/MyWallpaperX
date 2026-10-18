@@ -125,7 +125,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         with entitlements.open("rb") as stream:
             self.assertIs(plistlib.load(stream)["com.apple.security.cs.allow-jit"], True)
 
-    def assert_published(self, result, output, *, timestamp, identity=IDENTITY, options="runtime"):
+    def assert_published(self, result, output, *, timestamp, identity=IDENTITY, options="runtime", configuration="Release"):
         self.assertEqual(result.returncode, 0, result.stdout)
         # The real signer runs in the fresh directory before rsync publication.
         signed_helper = Path(self.calls()[-1][-1]).parent
@@ -139,6 +139,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         self.assertEqual([args[0] for args in dotnet], ["restore", "publish"])
         self.assertIn("--locked-mode", dotnet[0])
         self.assertIn("--no-restore", dotnet[1])
+        self.assertEqual(dotnet[1][dotnet[1].index("-c") + 1], configuration)
         self.assertIn("-p:TargetName=SteamService", dotnet[1])
         self.assertEqual(list(output.parent.glob(".mwx-steam-publish.*")), [])
 
@@ -169,7 +170,7 @@ class SteamHelperSigningTests(unittest.TestCase):
     def test_publish_debug_forces_no_timestamp(self):
         result, output = self.publish(overrides={"CONFIGURATION": "Debug",
                                                 "MWX_STEAM_HELPER_TIMESTAMP_POLICY": "required"})
-        self.assert_published(result, output, timestamp="--timestamp=none")
+        self.assert_published(result, output, timestamp="--timestamp=none", configuration="Debug")
 
     def test_publish_release_defaults_to_required_timestamp(self):
         result, output = self.publish(overrides={"CONFIGURATION": "Release"})

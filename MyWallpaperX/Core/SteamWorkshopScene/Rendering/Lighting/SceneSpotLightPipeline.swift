@@ -153,7 +153,9 @@ final class SceneSpotLightPipeline {
             volumetricsExponent: plan.volumetricsExponent,
             intensity: intensity
         )
+#if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
         encoder.setRenderPipelineState(state)
         encoder.setVertexBytes(
             &vertices,
@@ -173,8 +175,8 @@ final class SceneSpotLightPipeline {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-        #endif
-        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+#endif
         return true
     }
 }

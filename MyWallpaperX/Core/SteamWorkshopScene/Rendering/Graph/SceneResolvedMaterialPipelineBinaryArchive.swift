@@ -81,12 +81,14 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         func recordReadyOutcome(descriptor: MTLRenderPipelineDescriptor) {
             if loadedFromDisk {
                 Tier.bump { $0.hits += 1 }
+#if DEBUG
                 NSLog(
                     "MWX resolved material pipeline binary archive"
                         + " schema=\(Tier.schemaName)"
                         + " phase=launch-preparation outcome=hit digest=%@",
                     shortDigest
                 )
+#endif
             } else {
                 publish(descriptor: descriptor)
             }
@@ -123,12 +125,14 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                 }
                 try FileManager.default.moveItem(at: temporary, to: destination)
                 Tier.bump { $0.publications += 1 }
+#if DEBUG
                 NSLog(
                     "MWX resolved material pipeline binary archive"
                         + " schema=\(Tier.schemaName)"
                         + " phase=launch-preparation outcome=store digest=%@",
                     shortDigest
                 )
+#endif
                 Tier.pruneOnce(directory: directory)
             } catch {
                 // A failed publication must not leak the serialized scratch
@@ -140,6 +144,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
 
         private func recordPublicationFailure(reason: String) {
             Tier.bump { $0.publicationFailures += 1 }
+#if DEBUG
             NSLog(
                 "MWX resolved material pipeline binary archive"
                     + " schema=\(Tier.schemaName)"
@@ -148,6 +153,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                 shortDigest,
                 reason
             )
+#endif
         }
     }
 
@@ -196,6 +202,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                     loadedFromDisk = true
                 } catch {
                     bump { $0.invalidLoads += 1 }
+#if DEBUG
                     NSLog(
                         "MWX resolved material pipeline binary archive"
                             + " schema=\(schemaName)"
@@ -204,6 +211,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                         String(digest.prefix(12)),
                         String(describing: error)
                     )
+#endif
                 }
             }
         }

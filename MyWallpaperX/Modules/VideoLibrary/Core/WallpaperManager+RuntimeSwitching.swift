@@ -218,7 +218,9 @@ extension WallpaperManager {
             case let .failed(ticket, reason):
                 switchDeadline?.cancel()
                 pendingWallpaper = nil
+#if DEBUG
                 NSLog("MWX playback switch %@ failed: %@", ticket.id.uuidString, reason)
+#endif
                 NotificationCenter.default.post(name: .wallpaperSwitchDidFail, object: nil,
                     userInfo: ["message": reason, "runtime": ticket.runtime.rawValue])
                 if activeWallpaperRuntime == .video { refreshAutoSwitchTimerIfNeeded() }
@@ -231,7 +233,9 @@ extension WallpaperManager {
                 isPlaying = false
                 stopAutoSwitchTimer()
                 persistCurrentWallpaperSnapshot()
+#if DEBUG
                 NSLog("MWX playback output lost %@: %@", ticket.id.uuidString, reason)
+#endif
                 NotificationCenter.default.post(name: .wallpaperSwitchDidFail, object: nil,
                     userInfo: ["message": reason, "runtime": ticket.runtime.rawValue])
             }
@@ -239,9 +243,11 @@ extension WallpaperManager {
     }
 
     private func commitSwitch(_ selection: PlaybackSwitchTransaction.Selection, recovery: Bool) {
+#if DEBUG
         NSLog("MWX playback committed runtime=%@ ticket=%@ execution=%@ recovery=%d",
               selection.ticket.runtime.rawValue, selection.ticket.id.uuidString,
               selection.executionID?.uuidString ?? "none", recovery)
+#endif
         guard let value = switchSelections[selection.ticket.id] else { return }
         switchDeadline?.cancel()
         pendingSystemWallpaperSyncWorkItem?.cancel()
