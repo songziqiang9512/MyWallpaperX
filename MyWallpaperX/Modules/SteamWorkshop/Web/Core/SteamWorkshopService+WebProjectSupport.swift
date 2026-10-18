@@ -10,7 +10,7 @@ extension SteamWorkshopService {
         case directory
     }
 
-    static let webResourcePathPrefixes = [
+    nonisolated static let webResourcePathPrefixes = [
         "files/",
         "directories/",
         "images/",
@@ -23,20 +23,20 @@ extension SteamWorkshopService {
         "video/"
     ]
 
-    static let webFallbackDirectoryKeyAliases: Set<String> = [
+    nonisolated static let webFallbackDirectoryKeyAliases: Set<String> = [
         "customdirectory",
         "directory",
         "folder"
     ]
 
-    static let webFallbackVideoKeyAliases: Set<String> = [
+    nonisolated static let webFallbackVideoKeyAliases: Set<String> = [
         "bgvideo",
         "customvideo",
         "selectvideo",
         "video"
     ]
 
-    static let webFallbackImageKeyAliases: Set<String> = [
+    nonisolated static let webFallbackImageKeyAliases: Set<String> = [
         "image",
         "background_image",
         "foreground_image",

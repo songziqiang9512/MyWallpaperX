@@ -41,7 +41,7 @@ nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
     )
 }
 
-enum SceneBaseMaterialLightingProfileCompiler {
+nonisolated enum SceneBaseMaterialLightingProfileCompiler {
     /// Material-pass combos are the authored default; the layer instance can
     /// override them. Built-in generic-image references are material identities,
     /// not authored shader sources. Source-backed passes retain their frontend.

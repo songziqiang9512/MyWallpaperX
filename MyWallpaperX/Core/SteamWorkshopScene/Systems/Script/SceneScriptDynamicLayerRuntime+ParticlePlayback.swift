@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneScriptDynamicLayerRuntime {
+nonisolated extension SceneScriptDynamicLayerRuntime {
     /// Recomputed inside the existing owner fixed point; it never mutates an
     /// instance. Callback epochs recover event order after owner grouping.
     func particlePlaybackPlan(

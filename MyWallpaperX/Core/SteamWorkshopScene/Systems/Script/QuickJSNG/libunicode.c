@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 
 #include "cutils.h"
 #include "libunicode.h"
@@ -1080,7 +1081,11 @@ int unicode_normalize(uint32_t **pdst, const uint32_t *src, int src_len,
         return -1;
     }
     buf = (int *)dbuf->buf;
-    buf_len = dbuf->size / sizeof(int);
+    if (dbuf->size / sizeof(int) > INT_MAX) {
+        dbuf_free(dbuf);
+        goto fail;
+    }
+    buf_len = (int)(dbuf->size / sizeof(int));
 
     sort_cc(buf, buf_len);
 
@@ -1689,7 +1694,7 @@ int unicode_general_category(CharRange *cr, const char *gc_name)
     if (gc_idx < 0)
         return -2;
     if (gc_idx <= UNICODE_GC_Co) {
-        gc_mask = (uint64_t)1 << gc_idx;
+        gc_mask = (uint32_t)1 << gc_idx;
     } else {
         gc_mask = unicode_gc_mask_table[gc_idx - UNICODE_GC_LC];
     }

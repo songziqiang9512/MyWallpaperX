@@ -200,10 +200,10 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
             rowsByJobKey.removeValue(forKey: key)
         }
         for job in jobs {
-            row(rowKey(job)) { $0.configure(job: job) }
+            _ = row(rowKey(job)) { $0.configure(job: job) }
         }
         for summary in summaries {
-            row(rowKey(summary)) { $0.configure(summary: summary) }
+            _ = row(rowKey(summary)) { $0.configure(summary: summary) }
         }
 
         let orderedKeys = jobs.map(rowKey) + summaries.map(rowKey)

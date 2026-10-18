@@ -9,7 +9,7 @@ import Foundation
 /// The only PCM producer for Video, Web and Scene. Frequency identities, the fixed
 /// decibel response and final-height envelopes belong here; consumers only
 /// average/project the resulting heights. Author shaders/scripts keep their own styling.
-final class SystemAudioSceneSpectrumAnalyzer {
+nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     static let bandCount = SceneAudioSpectrumSnapshot.bandCount
     static let mediumBandCount = SceneAudioSpectrumSnapshot.mediumBandCount
     static let extendedBandCount = SceneAudioSpectrumSnapshot.extendedBandCount

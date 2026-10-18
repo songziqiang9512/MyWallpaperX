@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-extension SceneShaderCacheCost {
+nonisolated extension SceneShaderCacheCost {
     mutating func program(_ program: SceneAuthoredShaderProgram) {
         add(256)
         string(program.metalSource)

@@ -1,7 +1,7 @@
 import Foundation
 import QuartzCore
 
-private func normalBlendIdentifiers(
+private nonisolated func normalBlendIdentifiers(
     _ combos: [String: Int]
 ) -> Set<String> {
     Set(combos.compactMap { name, value in value == 0 ? name : nil })

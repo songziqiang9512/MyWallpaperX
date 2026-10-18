@@ -1,6 +1,6 @@
 import simd
 
-extension ScenePuppetAnimationEvaluator {
+nonisolated extension ScenePuppetAnimationEvaluator {
     var boneNames: [String] { rig.bones.map(\.name) }
     var boneParentIndices: [Int] { rig.bones.map(\.parentIndex) }
 

@@ -274,7 +274,9 @@ extension SceneDaemonClient {
             systemMedia.transfer = nil
         }
         // Yield between chunks so playback controls get a main-run-loop turn.
-        RunLoop.main.perform(inModes: [.common]) { [weak self] in self?.pumpSystemMedia() }
+        RunLoop.main.perform(inModes: [.common]) { [weak self] in
+            MainActor.assumeIsolated { self?.pumpSystemMedia() }
+        }
     }
 
     func handleSystemMediaReplayRequest(_ payload: [String: Any], generation: UInt64) {

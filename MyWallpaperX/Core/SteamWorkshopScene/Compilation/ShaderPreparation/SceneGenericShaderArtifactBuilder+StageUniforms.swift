@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderArtifactBuilder {
+nonisolated extension SceneGenericShaderArtifactBuilder {
     nonisolated static func activeUniformFields(
         _ fields: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field],
         in msl: String

@@ -82,7 +82,7 @@ extension DebugScenePlaybackRunner {
                     let report = lines.joined(separator: "\n") + "\n"
                     if let handle = try? FileHandle(forWritingTo: previewLogURL) {
                         defer { try? handle.close() }
-                        try? handle.seekToEnd()
+                        _ = try? handle.seekToEnd()
                         try? handle.write(contentsOf: Data(report.utf8))
                     }
                 }

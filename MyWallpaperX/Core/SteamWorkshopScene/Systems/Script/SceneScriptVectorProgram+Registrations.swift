@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneScriptVectorProgram {
+nonisolated extension SceneScriptVectorProgram {
     var hasAudioConsumers: Bool {
         bindings.contains { !disabledTargets.contains($0.definition.target) && $0.owner.hasAudioRegistration }
     }

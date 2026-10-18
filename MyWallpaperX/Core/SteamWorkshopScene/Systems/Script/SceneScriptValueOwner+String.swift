@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneScriptValueOwner {
+nonisolated extension SceneScriptValueOwner {
     /// String-specific UTF-8 ABI conversion. Ownership, callbacks, mutation
     /// validation and commit/rollback belong to the shared typed value owner.
     func callString(

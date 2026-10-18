@@ -178,7 +178,7 @@ extension SteamWorkshopService {
 
     // Guarded by detailCacheSweepLock; sweepExpiredDetailCaches runs off the
     // main actor from a utility queue, so the lock is the sole synchronizer.
-    private nonisolated(unsafe) static let detailCacheSweepLock = NSLock()
+    private nonisolated static let detailCacheSweepLock = NSLock()
     private nonisolated(unsafe) static var lastDetailCacheSweepAt: Date?
 
     /// Expired detail-cache files were previously never deleted (the TTL was

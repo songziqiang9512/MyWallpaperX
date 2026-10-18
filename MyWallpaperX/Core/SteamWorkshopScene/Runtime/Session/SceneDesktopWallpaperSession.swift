@@ -668,7 +668,7 @@ final class SceneDesktopWallpaperSession {
         (screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 
-    private static func sceneScriptStorageScreenIdentity(
+    private nonisolated static func sceneScriptStorageScreenIdentity(
         _ displayID: CGDirectDisplayID
     ) -> String? {
         let vendor = CGDisplayVendorNumber(displayID)

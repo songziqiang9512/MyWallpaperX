@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderSourceNormalizer {
+nonisolated extension SceneGenericShaderSourceNormalizer {
     static func rewriteAssignmentVectorConversions(
         _ source: String,
         stage: SceneShaderContract.StageKind

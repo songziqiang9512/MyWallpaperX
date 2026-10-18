@@ -6,7 +6,7 @@ import Foundation
 /// 凭据只允许出现在 `private` 包装对象内，进入日志前必须先脱敏。
 /// 错误码 taxonomy 与 `script/tests/fixtures/steam-protocol/error-codes.json` 保持一致
 /// （C# 侧 `ProtocolErrorCodes.Codes` 与此数组同序）。
-enum SteamServiceProtocol {
+nonisolated enum SteamServiceProtocol {
     static let version = 1
     static let stagingAcknowledgementCapability = "download-staging-ack-v2"
     static let cdnDownloadCapability = "download-cdn-auth-retry-v1"

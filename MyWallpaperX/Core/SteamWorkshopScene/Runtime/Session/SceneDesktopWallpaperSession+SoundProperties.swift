@@ -54,7 +54,8 @@ extension SceneDesktopWallpaperSession {
             return false
         }
         let previousState = program.frameStateSnapshot()
-        context.sceneScriptStorageSession?.beginFrameTransaction()
+        // Unavailable storage rejects its own callbacks; unrelated owners still advance.
+        _ = context.sceneScriptStorageSession?.beginFrameTransaction()
         var committed = false
         defer {
             if !committed {

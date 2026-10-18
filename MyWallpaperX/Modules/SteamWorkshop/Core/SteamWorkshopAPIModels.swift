@@ -113,7 +113,7 @@ nonisolated struct SteamWorkshopProject: Decodable {
     }
 }
 
-struct SteamWorkshopDownloadMetadataSnapshot: Codable {
+nonisolated struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     let fetchedAt: Date
     let item: SteamWorkshopBrowserItem
     let sourceVideoRelativePath: String?

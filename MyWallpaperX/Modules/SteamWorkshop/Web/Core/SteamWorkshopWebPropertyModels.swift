@@ -1,6 +1,6 @@
 import Foundation
 
-enum SteamWorkshopWebPropertyKind: String, Codable, Equatable, Hashable {
+nonisolated enum SteamWorkshopWebPropertyKind: String, Codable, Equatable, Hashable {
     case slider
     case color
     case toggle
@@ -13,7 +13,7 @@ enum SteamWorkshopWebPropertyKind: String, Codable, Equatable, Hashable {
     case unknown
 }
 
-enum SteamWorkshopWebPropertyValue: Codable, Equatable, Hashable {
+nonisolated enum SteamWorkshopWebPropertyValue: Codable, Equatable, Hashable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -94,7 +94,7 @@ enum SteamWorkshopWebPropertyValue: Codable, Equatable, Hashable {
     }
 }
 
-struct SteamWorkshopWebPropertyOption: Identifiable, Codable, Equatable, Hashable {
+nonisolated struct SteamWorkshopWebPropertyOption: Identifiable, Codable, Equatable, Hashable {
     let label: String
     let value: SteamWorkshopWebPropertyValue
     let displayCondition: String?
@@ -102,7 +102,7 @@ struct SteamWorkshopWebPropertyOption: Identifiable, Codable, Equatable, Hashabl
     var id: String { "\(label)|\(value)" }
 }
 
-struct SteamWorkshopWebPropertyDefinition: Identifiable, Codable, Equatable, Hashable {
+nonisolated struct SteamWorkshopWebPropertyDefinition: Identifiable, Codable, Equatable, Hashable {
     let key: String
     let title: String
     let kind: SteamWorkshopWebPropertyKind
@@ -121,7 +121,7 @@ struct SteamWorkshopWebPropertyDefinition: Identifiable, Codable, Equatable, Has
     var id: String { key }
 }
 
-enum SteamWorkshopWebPropertySource: Codable, Equatable, Hashable {
+nonisolated enum SteamWorkshopWebPropertySource: Codable, Equatable, Hashable {
     case ownProject
     case dependencyHost(itemID: String)
 

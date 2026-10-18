@@ -10,12 +10,12 @@ private enum DebugSceneAudioSpectrumFixtureState {
         label: "com.songziqiang.MyWallpaperX.debug-scene-audio-observation"
     )
     static let captureService: SystemAudioSpectrumService = {
-        let service = SystemAudioSpectrumService(barCount: 16)
-        service.debugEnableRecoveryTesting() // Suppress real device creation only.
-        service.onSceneLevels = { left, right, left32, right32, left64, right64, _ in
+        let service = SystemAudioSpectrumService(barCount: 16, onSceneLevels: {
+            left, right, left32, right32, left64, right64, _ in
             SceneAudioSpectrumInbox.shared.publish(left: left, right: right,
                 left32: left32, right32: right32, left64: left64, right64: right64)
-        }
+        })
+        service.debugEnableRecoveryTesting() // Suppress real device creation only.
         service.setConsumers(overlayEnabled: false, webEnabled: false, sceneEnabled: true)
         return service
     }()

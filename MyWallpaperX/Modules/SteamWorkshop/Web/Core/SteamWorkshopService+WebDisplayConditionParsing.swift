@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    enum WebDisplayConditionToken: Equatable {
+    nonisolated enum WebDisplayConditionToken: Equatable {
         case identifier(String)
         case number(Double)
         case string(String)
@@ -19,7 +19,7 @@ extension SteamWorkshopService {
         case lessThanOrEqual
     }
 
-    enum WebDisplayConditionValue {
+    nonisolated enum WebDisplayConditionValue {
         case bool(Bool)
         case number(Double)
         case string(String)
@@ -65,7 +65,7 @@ extension SteamWorkshopService {
         }
     }
 
-    struct WebDisplayConditionParser {
+    nonisolated struct WebDisplayConditionParser {
         private let tokens: [WebDisplayConditionToken]
         private let values: [String: SteamWorkshopWebPropertyValue]
         private let comboTextValues: [String: String]

@@ -24,8 +24,8 @@ nonisolated enum SceneShaderUserValueKind: String, Codable, Sendable {
     }
 }
 
-extension SceneDocument {
-    struct ShaderValue: Codable, Equatable {
+nonisolated extension SceneDocument {
+    nonisolated struct ShaderValue: Codable, Equatable {
         let rawValue: String
         let valueKind: String
         let userBinding: String?

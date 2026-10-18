@@ -7,17 +7,19 @@ import Foundation
 import AudioToolbox
 import CoreAudio
 
-final class SystemAudioSpectrumService: NSObject {
+// Capture state belongs to sampleQueue; the single CoreAudio callback producer
+// hands immutable snapshots to it through processingGate, not MainActor.
+// Public control methods enqueue on sampleQueue. Immutable Sendable handlers
+// are registered at construction; CoreAudio stop precedes callback-state reset.
+// The unchecked transfer covers this queue/single-producer ownership contract.
+nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendable {
     enum ProcessScope: String {
         case excludesCurrentProcess = "exclude-current-process"
         case includesCurrentProcess = "include-current-process"
     }
 
     var barCount: Int
-    let sampleQueue = DispatchQueue(
-        label: "com.songziqiang.MyWallpaperX.system-audio-spectrum",
-        qos: .utility
-    )
+    let sampleQueue: DispatchQueue
     private let processingMinInterval: TimeInterval = 1.0 / 30.0
     private static let captureResourceRetirementDelay: TimeInterval = 1.0
     private static let captureResourceTeardownRetryDelay: TimeInterval = 0.25
@@ -27,7 +29,7 @@ final class SystemAudioSpectrumService: NSObject {
     private var overlayAnalyzer: SystemAudioOverlaySpectrumAnalyzer
     private let webAnalyzer = SystemAudioWebSpectrumAnalyzer()
     private let sceneAnalyzer = SystemAudioSceneSpectrumAnalyzer()
-    private lazy var configurationMonitor = SystemAudioCaptureConfigurationMonitor(queue: sampleQueue)
+    private let configurationMonitor: SystemAudioCaptureConfigurationMonitor
 
     private var processingSource: DispatchSourceUserDataAdd!
     private var tapID: AudioObjectID = kAudioObjectUnknown
@@ -63,15 +65,31 @@ final class SystemAudioSpectrumService: NSObject {
     // the testing entry points live in SystemAudioSpectrumService+DebugRecovery.swift.
     let debugRecovery = SystemAudioDebugRecoveryState()
 #endif
-    var onLevels: (([Float]) -> Void)?
-    var onWebLevels: (([Float]) -> Void)?
-    var onSceneLevels: ((
+    typealias LevelsHandler = @Sendable ([Float]) -> Void
+    typealias SceneLevelsHandler = @Sendable (
         _ left: [Float], _ right: [Float], _ left32: [Float], _ right32: [Float],
         _ left64: [Float], _ right64: [Float],
         _ token: SceneAudioSpectrumCaptureToken
-    ) -> Void)?
+    ) -> Void
+    private let onLevels: LevelsHandler?
+    private let onWebLevels: LevelsHandler?
+    private let onSceneLevels: SceneLevelsHandler?
 
-    init(barCount: Int) {
+    init(
+        barCount: Int,
+        onLevels: LevelsHandler? = nil,
+        onWebLevels: LevelsHandler? = nil,
+        onSceneLevels: SceneLevelsHandler? = nil
+    ) {
+        let queue = DispatchQueue(
+            label: "com.songziqiang.MyWallpaperX.system-audio-spectrum",
+            qos: .utility
+        )
+        self.sampleQueue = queue
+        self.configurationMonitor = SystemAudioCaptureConfigurationMonitor(queue: queue)
+        self.onLevels = onLevels
+        self.onWebLevels = onWebLevels
+        self.onSceneLevels = onSceneLevels
         self.barCount = barCount
         self.overlayAnalyzer = SystemAudioOverlaySpectrumAnalyzer(barCount: barCount)
         super.init()
@@ -762,7 +780,7 @@ final class SystemAudioSpectrumService: NSObject {
 
 }
 
-private extension SystemAudioSpectrumService {
+nonisolated private extension SystemAudioSpectrumService {
     static let clearedWebLevels = Array(
         repeating: Float(0),
         count: SystemAudioWebSpectrumAnalyzer.outputLevelCount

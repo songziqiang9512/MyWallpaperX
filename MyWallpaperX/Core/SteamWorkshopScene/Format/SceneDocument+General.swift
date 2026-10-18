@@ -37,7 +37,7 @@ extension SceneDocument {
         /// defaults those classes to disabled. The 2D lit-image consumer is
         /// not config-gated — `point` lights illuminate images with no
         /// lightconfig at all (corpus 2815826216, IMG6 pair).
-        struct LightClassesDescriptor: Codable {
+        nonisolated struct LightClassesDescriptor: Codable {
             var directional: Bool = false
             var point: Bool = false
             var spot: Bool = false

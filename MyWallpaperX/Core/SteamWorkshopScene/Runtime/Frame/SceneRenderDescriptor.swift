@@ -52,7 +52,7 @@ struct SceneRenderDescriptor: Codable {
     var generalTimelines: [SceneDocument.SceneGeneralTimeline]? = nil
     var generalTimelineDiagnostics: [String]? = nil
 
-    var colorTargetFormat: SceneGraphRenderTargetPlan.TextureFormat {
+    nonisolated var colorTargetFormat: SceneGraphRenderTargetPlan.TextureFormat {
         hdrEnabled ? .rgba16f : .rgbaBackbuffer
     }
     var layers: [Layer]

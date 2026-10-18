@@ -96,7 +96,7 @@ static limb_t mp_mul1(limb_t *tabr, const limb_t *taba, limb_t n,
 
     for(i = 0; i < n; i++) {
         t = (dlimb_t)taba[i] * (dlimb_t)b + l;
-        tabr[i] = t;
+        tabr[i] = (limb_t)(t);
         l = t >> LIMB_BITS;
     }
     return l;
@@ -108,7 +108,7 @@ static inline limb_t udiv1norm_init(limb_t d)
     limb_t a0, a1;
     a1 = -d - 1;
     a0 = -1;
-    return (((dlimb_t)a1 << LIMB_BITS) | a0) / d;
+    return (limb_t)((((dlimb_t)a1 << LIMB_BITS) | a0) / d);
 }
 
 /* return the quotient and the remainder in '*pr'of 'a1*2^LIMB_BITS+a0
@@ -140,7 +140,7 @@ static limb_t mp_div1(limb_t *tabr, const limb_t *taba, limb_t n,
     dlimb_t a1;
     for(i = n - 1; i >= 0; i--) {
         a1 = ((dlimb_t)r << LIMB_BITS) | taba[i];
-        tabr[i] = a1 / b;
+        tabr[i] = (limb_t)(a1 / b);
         r = a1 % b;
     }
     return r;
@@ -280,7 +280,7 @@ static uint32_t pow_ui_inv(uint32_t *pr_inv, int *pshift, uint32_t a, uint32_t b
     } else
 #endif
     {
-        r = pow_ui(a, b);
+        r = (uint32_t)(pow_ui(a, b));
         shift = clz32(r);
         r <<= shift;
         r_inv = udiv1norm_init(r);
@@ -421,7 +421,7 @@ static void mpb_set_u64(mpb_t *r, uint64_t m)
     r->tab[0] = m;
     r->len = 1;
 #else
-    r->tab[0] = m;
+    r->tab[0] = (limb_t)(m);
     r->tab[1] = m >> LIMB_BITS;
     if (r->tab[1] == 0)
         r->len = 1;
@@ -482,7 +482,7 @@ static int mul_log2_radix(int a, int radix)
         return a / radix_bits;
     } else {
         mult = mul_log2_radix_table[radix - 2];
-        return ((int64_t)a * mult) >> MUL_LOG2_RADIX_BASE_LOG2;
+        return (int)(((int64_t)a * mult) >> MUL_LOG2_RADIX_BASE_LOG2);
     }
 }
 
@@ -531,7 +531,7 @@ static void mul_log2_radix_test(void)
 static void u32toa_len(char *buf, uint32_t n, size_t len)
 {
     int digit, i;
-    for(i = len - 1; i >= 0; i--) {
+    for(i = (int)(len - 1); i >= 0; i--) {
         digit = n % 10;
         n = n / 10;
         buf[i] = digit + '0';
@@ -615,7 +615,7 @@ size_t i32toa(char *buf, int32_t n)
 size_t u64toa(char *buf, uint64_t n)
 {
     if (n < 0x100000000) {
-        return u32toa(buf, n);
+        return u32toa(buf, (uint32_t)(n));
     } else {
         uint64_t n1;
         char *q = buf;
@@ -624,7 +624,7 @@ size_t u64toa(char *buf, uint64_t n)
         n1 = n / 1000000000;
         n %= 1000000000;
         if (n1 >= 0x100000000) {
-            n2 = n1 / 1000000000;
+            n2 = (uint32_t)(n1 / 1000000000);
             n1 = n1 % 1000000000;
             /* at most two digits */
             if (n2 >= 10) {
@@ -632,12 +632,12 @@ size_t u64toa(char *buf, uint64_t n)
                 n2 %= 10;
             }
             *q++ = n2 + '0';
-            u32toa_len(q, n1, 9);
+            u32toa_len(q, (uint32_t)(n1), 9);
             q += 9;
         } else {
-            q += u32toa(q, n1);
+            q += u32toa(q, (uint32_t)(n1));
         }
-        u32toa_len(q, n, 9);
+        u32toa_len(q, (uint32_t)(n), 9);
         q += 9;
         return q - buf;
     }
@@ -904,7 +904,7 @@ static int mul_pow(mpb_t *a, int radix1, int radix_shift, int f, bool is_int, in
             while (f != 0) {
                 n = min_int(f, d);
                 if (n != n0) {
-                    b = pow_ui(radix1, n);
+                    b = (limb_t)(pow_ui(radix1, n));
                     n0 = n;
                 }
                 h = mp_mul1(a->tab, a->tab, a->len, b, 0);
@@ -1313,7 +1313,7 @@ int js_dtoa(char *buf, double d, int radix, int n_digits, int flags,
     *q = '\0';
     dtoa_free(mant_max);
     dtoa_free(tmp1);
-    return q - buf;
+    return (int)(q - buf);
 }
 
 static inline int to_digit(int c)
@@ -1491,7 +1491,7 @@ double js_atod(const char *str, const char **pnext, int radix, int flags,
         }
     }
     if (limb_digit_count != 0) {
-        mpb_mul1_base(tmp0, pow_ui(radix, limb_digit_count), cur_limb);
+        mpb_mul1_base(tmp0, (limb_t)(pow_ui(radix, limb_digit_count)), cur_limb);
     }
     if (digit_count == 0) {
         is_zero = true;

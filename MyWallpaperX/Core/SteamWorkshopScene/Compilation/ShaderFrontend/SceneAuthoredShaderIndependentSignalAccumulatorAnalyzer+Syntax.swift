@@ -3,7 +3,7 @@ import Foundation
 /// Shared token mechanics for the bounded helper-accumulator proof. Keeping
 /// them separate leaves the primary analyzer focused on provenance, loop work,
 /// and output-storage constraints.
-extension SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer {
+nonisolated extension SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer {
     static func flattenedProduct(_ expression: [Token]) -> [[Token]] {
         let value = unwrapped(expression)
         guard let ranges = split(

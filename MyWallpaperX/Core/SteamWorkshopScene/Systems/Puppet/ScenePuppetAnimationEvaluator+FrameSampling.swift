@@ -1,6 +1,6 @@
 import Foundation
 
-extension ScenePuppetAnimationEvaluator {
+nonisolated extension ScenePuppetAnimationEvaluator {
     /// Converts scene time into an interval between authored poses. Keeping
     /// the interpolation fraction here gives all playback callers one shared
     /// rule for single, loop, and mirror clips.

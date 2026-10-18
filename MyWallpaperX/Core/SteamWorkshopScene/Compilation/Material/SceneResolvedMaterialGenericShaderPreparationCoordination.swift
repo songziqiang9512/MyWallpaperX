@@ -477,7 +477,7 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
     }
 }
 
-extension SceneResolvedMaterialGenericShaderArtifactCache {
+nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
 
     /// Load the pure analysis prefix from the persistent tier, or compute it
     /// through the analyzer family. Publication is the caller's decision: the

@@ -84,7 +84,7 @@ enum SceneUtilityLayerRenderer {
             )
         }
         return mainPass.withReadableTarget { sourceTexture, _ in
-            var request = SceneImageLayerDrawRequest(
+            let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: sourceTexture,
                     masks: masks,

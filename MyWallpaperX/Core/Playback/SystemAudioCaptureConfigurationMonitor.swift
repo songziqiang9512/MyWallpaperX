@@ -6,7 +6,7 @@
 import CoreAudio
 import Foundation
 
-final class SystemAudioCaptureConfigurationMonitor {
+nonisolated final class SystemAudioCaptureConfigurationMonitor {
     private let queue: DispatchQueue
     private var tapID: AudioObjectID = kAudioObjectUnknown
     private var aggregateDeviceID: AudioObjectID = kAudioObjectUnknown
@@ -109,7 +109,7 @@ final class SystemAudioCaptureConfigurationMonitor {
     }
 }
 
-private extension SystemAudioCaptureConfigurationMonitor {
+nonisolated private extension SystemAudioCaptureConfigurationMonitor {
     static let tapFormatAddress = AudioObjectPropertyAddress(
         mSelector: kAudioTapPropertyFormat,
         mScope: kAudioObjectPropertyScopeGlobal,

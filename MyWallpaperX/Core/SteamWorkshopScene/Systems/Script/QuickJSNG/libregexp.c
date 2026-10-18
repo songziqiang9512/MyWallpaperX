@@ -642,7 +642,7 @@ static int re_emit_op_u32(REParseState *s, int op, uint32_t val)
 {
     int pos;
     dbuf_putc(&s->byte_code, op);
-    pos = s->byte_code.size;
+    pos = (int)(s->byte_code.size);
     dbuf_put_u32(&s->byte_code, val);
     return pos;
 }
@@ -651,7 +651,7 @@ static int re_emit_goto(REParseState *s, int op, uint32_t val)
 {
     int pos;
     dbuf_putc(&s->byte_code, op);
-    pos = s->byte_code.size;
+    pos = (int)(s->byte_code.size);
     dbuf_put_u32(&s->byte_code, val - (pos + 4));
     return pos;
 }
@@ -661,7 +661,7 @@ static int re_emit_goto_u8(REParseState *s, int op, uint32_t arg, uint32_t val)
     int pos;
     dbuf_putc(&s->byte_code, op);
     dbuf_putc(&s->byte_code, arg);
-    pos = s->byte_code.size;
+    pos = (int)(s->byte_code.size);
     dbuf_put_u32(&s->byte_code, val - (pos + 4));
     return pos;
 }
@@ -672,7 +672,7 @@ static int re_emit_goto_u8_u32(REParseState *s, int op, uint32_t arg0, uint32_t 
     dbuf_putc(&s->byte_code, op);
     dbuf_putc(&s->byte_code, arg0);
     dbuf_put_u32(&s->byte_code, arg1);
-    pos = s->byte_code.size;
+    pos = (int)(s->byte_code.size);
     dbuf_put_u32(&s->byte_code, val - (pos + 4));
     return pos;
 }
@@ -727,7 +727,7 @@ static int parse_digits(const uint8_t **pp, bool allow_overflow)
         p++;
     }
     *pp = p;
-    return v;
+    return (int)(v);
 }
 
 static int re_parse_expect(REParseState *s, const uint8_t **pp, int c)
@@ -1033,7 +1033,8 @@ static int parse_class_string_disjunction(REParseState *s, REStringList *cr,
                 goto fail;
             }
         }
-        if (re_string_add(cr, str.size / 4, (uint32_t *)str.buf)) {
+        if (str.size / sizeof(uint32_t) > INT_MAX ||
+            re_string_add(cr, (int)(str.size / sizeof(uint32_t)), (uint32_t *)str.buf)) {
             re_parse_out_of_memory(s);
             goto fail;
         }
@@ -1339,7 +1340,7 @@ static int re_emit_string_list(REParseState *s, const REStringList *sl)
                    could be emitted */
                 if (dbuf_error(&s->byte_code))
                     goto out_of_memory;
-                put_u32(s->byte_code.buf + split_pos, s->byte_code.size - (split_pos + 4));
+                put_u32(s->byte_code.buf + split_pos, (uint32_t)(s->byte_code.size - (split_pos + 4)));
             }
         }
 
@@ -1355,7 +1356,7 @@ static int re_emit_string_list(REParseState *s, const REStringList *sl)
             if (!is_last) {
                 if (dbuf_error(&s->byte_code))
                     goto out_of_memory;
-                put_u32(s->byte_code.buf + split_pos, s->byte_code.size - (split_pos + 4));
+                put_u32(s->byte_code.buf + split_pos, (uint32_t)(s->byte_code.size - (split_pos + 4)));
             }
         }
 
@@ -1364,7 +1365,7 @@ static int re_emit_string_list(REParseState *s, const REStringList *sl)
             goto out_of_memory;
         while (last_match_pos != -1) {
             int next_pos = get_u32(s->byte_code.buf + last_match_pos);
-            put_u32(s->byte_code.buf + last_match_pos, s->byte_code.size - (last_match_pos + 4));
+            put_u32(s->byte_code.buf + last_match_pos, (uint32_t)(s->byte_code.size - (last_match_pos + 4)));
             last_match_pos = next_pos;
         }
         
@@ -1896,7 +1897,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
         break;
     case '.':
         p++;
-        last_atom_start = s->byte_code.size;
+        last_atom_start = (int)(s->byte_code.size);
         last_capture_count = s->capture_count;
         if (is_backward_dir)
             re_emit_op(s, REOP_prev);
@@ -1934,7 +1935,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
         if (p[1] == '?') {
             if (p[2] == ':') {
                 p += 3;
-                last_atom_start = s->byte_code.size;
+                last_atom_start = (int)(s->byte_code.size);
                 last_capture_count = s->capture_count;
                 s->buf_ptr = p;
                 if (re_parse_disjunction(s, is_backward_dir))
@@ -1969,7 +1970,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                 s->multi_line = update_modifier(s->multi_line, add_mask, remove_mask, LRE_FLAG_MULTILINE);
                 s->dotall = update_modifier(s->dotall, add_mask, remove_mask, LRE_FLAG_DOTALL);
 
-                last_atom_start = s->byte_code.size;
+                last_atom_start = (int)(s->byte_code.size);
                 last_capture_count = s->capture_count;
                 s->buf_ptr = p;
                 if (re_parse_disjunction(s, is_backward_dir))
@@ -1996,7 +1997,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                 /* Annex B allows lookahead to be used as an atom for
                    the quantifiers */
                 if (!s->is_unicode && !is_backward_lookahead)  {
-                    last_atom_start = s->byte_code.size;
+                    last_atom_start = (int)(s->byte_code.size);
                     last_capture_count = s->capture_count;
                 }
                 pos = re_emit_op_u32(s, REOP_lookahead + is_neg, 0);
@@ -2010,7 +2011,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                 /* jump after the 'match' after the lookahead is successful */
                 if (dbuf_error(&s->byte_code))
                     return re_parse_out_of_memory(s);
-                put_u32(s->byte_code.buf + pos, s->byte_code.size - (pos + 4));
+                put_u32(s->byte_code.buf + pos, (uint32_t)(s->byte_code.size - (pos + 4)));
             } else if (p[2] == '<') {
                 p += 3;
                 if (re_parse_group_name(s->u.tmp_buf, sizeof(s->u.tmp_buf),
@@ -2041,7 +2042,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
         parse_capture:
             if (s->capture_count >= CAPTURE_COUNT_MAX)
                 return re_parse_error(s, "too many captures");
-            last_atom_start = s->byte_code.size;
+            last_atom_start = (int)(s->byte_code.size);
             last_capture_count = s->capture_count;
             capture_index = s->capture_count++;
             re_emit_op_u8(s, REOP_save_start + is_backward_dir,
@@ -2108,7 +2109,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                     }
                     is_forward = true;
                 }
-                last_atom_start = s->byte_code.size;
+                last_atom_start = (int)(s->byte_code.size);
                 last_capture_count = s->capture_count;
                 
                 /* emit back references to all the captures indexes matching the group name */
@@ -2166,7 +2167,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                     }
                     return re_parse_error(s, "back reference out of range in regular expression");
                 }
-                last_atom_start = s->byte_code.size;
+                last_atom_start = (int)(s->byte_code.size);
                 last_capture_count = s->capture_count;
                 
                 re_emit_op_u8(s, REOP_back_reference + 2 * is_backward_dir + s->ignore_case, 1);
@@ -2178,7 +2179,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
         }
         break;
     case '[':
-        last_atom_start = s->byte_code.size;
+        last_atom_start = (int)(s->byte_code.size);
         last_capture_count = s->capture_count;
         if (is_backward_dir)
             re_emit_op(s, REOP_prev);
@@ -2198,7 +2199,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
         if ((int)c < 0)
             return -1;
     normal_char:
-        last_atom_start = s->byte_code.size;
+        last_atom_start = (int)(s->byte_code.size);
         last_capture_count = s->capture_count;
         if (is_backward_dir)
             re_emit_op(s, REOP_prev);
@@ -2297,7 +2298,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                 add_zero_advance_check =
                     re_need_check_adv_and_capture_init(&need_capture_init,
                                                        s->byte_code.buf + last_atom_start,
-                                                       s->byte_code.size - last_atom_start);
+                                                       (int)(s->byte_code.size - last_atom_start));
             
                 /* general case: need to reset the capture at each
                    iteration. We don't do it if there are no captures
@@ -2314,7 +2315,7 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                     s->byte_code.buf[pos++] = s->capture_count - 1;
                 }
 
-                len = s->byte_code.size - last_atom_start;
+                len = (int)(s->byte_code.size - last_atom_start);
                 if (quant_min == 0) {
                     /* need to reset the capture in case the atom is
                        not executed */
@@ -2442,13 +2443,13 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
     if (lre_check_stack_overflow(s->opaque, 0))
         return re_parse_error(s, "stack overflow");
 
-    start = s->byte_code.size;
+    start = (int)(s->byte_code.size);
     if (re_parse_alternative(s, is_backward_dir))
         return -1;
     while (*s->buf_ptr == '|') {
         s->buf_ptr++;
 
-        len = s->byte_code.size - start;
+        len = (int)(s->byte_code.size - start);
 
         /* insert a split before the first alternative */
         if (dbuf_insert(&s->byte_code, start, 5)) {
@@ -2471,7 +2472,7 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
            offset could be emitted) */
         if (dbuf_error(&s->byte_code))
             return re_parse_out_of_memory(s);
-        len = s->byte_code.size - (pos + 4);
+        len = (int)(s->byte_code.size - (pos + 4));
         put_u32(s->byte_code.buf + pos, len);
     }
     return 0;
@@ -2623,7 +2624,7 @@ uint8_t *lre_compile(int *plen, char *error_msg, int error_msg_size,
         goto error;
     }
 
-    register_count = compute_register_count(s->byte_code.buf, s->byte_code.size);
+    register_count = compute_register_count(s->byte_code.buf, (int)(s->byte_code.size));
     if (register_count < 0) {
         re_parse_error(s, "too many imbricated quantifiers");
         goto error;
@@ -2632,7 +2633,7 @@ uint8_t *lre_compile(int *plen, char *error_msg, int error_msg_size,
     s->byte_code.buf[RE_HEADER_CAPTURE_COUNT] = s->capture_count;
     s->byte_code.buf[RE_HEADER_REGISTER_COUNT] = register_count;
     put_u32(s->byte_code.buf + RE_HEADER_BYTECODE_LEN,
-            s->byte_code.size - RE_HEADER_LEN);
+            (uint32_t)(s->byte_code.size - RE_HEADER_LEN));
 
     /* add the named groups if needed */
     if (s->group_names.size > (s->capture_count - 1) * LRE_GROUP_NAME_TRAILER_LEN) {
@@ -2650,7 +2651,7 @@ uint8_t *lre_compile(int *plen, char *error_msg, int error_msg_size,
 #endif
 
     error_msg[0] = '\0';
-    *plen = s->byte_code.size;
+    *plen = (int)(s->byte_code.size);
     return s->byte_code.buf;
 }
 
@@ -3108,7 +3109,7 @@ static intptr_t lre_exec_backtrack(REExecContext *s, uint8_t **capture,
                 val = get_u32(pc + 1);
                 pc += 5;
 
-                val2 = (uintptr_t)capture[idx] - 1;
+                val2 = (uint32_t)((uintptr_t)capture[idx] - 1);
                 SAVE_CAPTURE_CHECK(idx, (void *)(uintptr_t)val2);
                 if (val2 != 0) {
                     pc += (int)val;
@@ -3130,7 +3131,7 @@ static intptr_t lre_exec_backtrack(REExecContext *s, uint8_t **capture,
                 pc += 9;
 
                 /* decrement the counter */
-                val2 = (uintptr_t)capture[idx] - 1;
+                val2 = (uint32_t)((uintptr_t)capture[idx] - 1);
                 SAVE_CAPTURE_CHECK(idx, (void *)(uintptr_t)val2);
 
                 if (val2 > limit) {
@@ -3399,7 +3400,7 @@ int lre_exec(uint8_t **capture,
         }
     }
 
-    ret = lre_exec_backtrack(s, capture, bc_buf + RE_HEADER_LEN, cptr);
+    ret = (int)(lre_exec_backtrack(s, capture, bc_buf + RE_HEADER_LEN, cptr));
 
     if (s->stack_buf != s->static_stack_buf)
         lre_realloc(s->opaque, s->stack_buf, 0);

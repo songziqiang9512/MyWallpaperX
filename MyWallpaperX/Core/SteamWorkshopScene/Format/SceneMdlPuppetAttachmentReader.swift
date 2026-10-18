@@ -63,7 +63,7 @@ enum SceneMdlPuppetAttachmentReadError: Error, CustomStringConvertible, Equatabl
 // MDLV0017/0019 with MDLS0002, MDLV0021/MDLS0003 and MDLV0023/MDLS0004 share the bind-bone and
 // MDAT0001 attachment records. Only these verified version pairs are admitted;
 // weights, constraints and MDLA animation data remain owned by their readers.
-enum SceneMdlPuppetAttachmentReader {
+nonisolated enum SceneMdlPuppetAttachmentReader {
     private static let markerSize = 9
     private static let matrixByteCount = 64
     private static let maxBoneCount = 4_096

@@ -1,11 +1,11 @@
 import Foundation
 
-extension SceneDocument {
+nonisolated extension SceneDocument {
     /// Loss-preserving layer-level material instance authored on
     /// `objects[].instance`. Admission happens later: Format keeps slot order,
     /// unknown user-texture values and malformed collection shape so an
     /// unsupported override cannot silently fall back to a different material.
-    struct SceneLayerMaterialInstance: Codable, Equatable {
+    nonisolated struct SceneLayerMaterialInstance: Codable, Equatable {
         let id: Int?
         let textureSlots: [String?]
         let userTextureInputs: [SceneEffectTextureInput?]
@@ -162,7 +162,7 @@ extension SceneDocument {
     /// 编辑器生成的 camera path record。它没有可绘制内容，`path` 是作者路径身份；
     /// 2D Timeline consumer 只在单一 default-camera record 上准入 bounded origin/zoom 组，
     /// native perspective scene 还会把同一 record 的 FOV 和 layer world frame 交给共享相机。
-    struct Scene2DCameraPathDefinition: Codable, Equatable {
+    nonisolated struct Scene2DCameraPathDefinition: Codable, Equatable {
         let camera: String
         let path: String
         let queueMode: String?

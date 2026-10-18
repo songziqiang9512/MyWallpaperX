@@ -275,7 +275,7 @@ enum SceneBaseImageTextureLoad {
         case failed(SceneTextureLoadOutcome)
     }
 
-    struct Loaded {
+    nonisolated struct Loaded {
         let texture: MTLTexture
         let candidate: SceneTextureCandidate?
         let animation: SceneSpriteAnimation?

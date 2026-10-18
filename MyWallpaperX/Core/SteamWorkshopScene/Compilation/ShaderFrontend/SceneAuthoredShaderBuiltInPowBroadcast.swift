@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneAuthoredShaderBuiltInVectorConversion {
+nonisolated extension SceneAuthoredShaderBuiltInVectorConversion {
     /// Wallpaper Engine's authored surface accepts one scalar exponent for a
     /// floating vector `pow` base. Vulkan GLSL requires both operands to have
     /// the same vector width. Broadcast only an expression whose scalar type

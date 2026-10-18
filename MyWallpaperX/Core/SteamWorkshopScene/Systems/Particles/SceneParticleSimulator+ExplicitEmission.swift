@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneParticleSimulator {
+nonisolated extension SceneParticleSimulator {
     var playbackObservation: SceneParticlePlaybackObservation? {
         guard let playbackHasWork else { return nil }
         return .init(liveAny: !particles.isEmpty,
@@ -156,7 +156,7 @@ extension SceneParticleSimulator {
     }
 }
 
-extension SceneParticleSimulator.FrameSnapshot {
+nonisolated extension SceneParticleSimulator.FrameSnapshot {
     /// Conservative reservation for both sides of an Array COW/growth and
     /// hash-container buckets. Immutable prepared plans remain shared.
     func emissionStorageBytes(adding count: Int, initializers: Int) -> Int {

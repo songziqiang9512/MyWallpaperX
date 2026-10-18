@@ -1,6 +1,6 @@
 import Foundation
 
-extension SteamWorkshopDownloadRecord {
+nonisolated extension SteamWorkshopDownloadRecord {
     var webEntryURL: URL? {
         guard let entryHTMLURL,
               FileManager.default.fileExists(atPath: entryHTMLURL.path) else {

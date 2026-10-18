@@ -526,7 +526,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         guard transport?.isRunning != true else { return }
         guard pendingIntent == nil else { return }
         warmSessionPending = true
-        spawnSession(silentHandshakeFailure: true)
+        _ = spawnSession(silentHandshakeFailure: true)
     }
 
     private func spawnSession(silentHandshakeFailure: Bool) -> Bool {

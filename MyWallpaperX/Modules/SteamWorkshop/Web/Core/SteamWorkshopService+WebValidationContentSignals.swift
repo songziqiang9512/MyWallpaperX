@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    static let webStaticAnalysisMaximumFileBytes = 128 * 1024
+    nonisolated static let webStaticAnalysisMaximumFileBytes = 128 * 1024
 
     nonisolated static func webStaticAnalysisContent(from fileURL: URL) -> (content: String, isTruncated: Bool)? {
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return nil }

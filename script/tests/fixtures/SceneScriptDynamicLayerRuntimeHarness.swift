@@ -91,6 +91,7 @@ nonisolated struct SceneParticleInstanceOverride: Sendable {
 nonisolated struct SceneRenderDescriptor: Sendable {
     struct Effect: Sendable { var visible: Bool? }
     struct Layer: Sendable {
+        var parentID: Int? = nil
         var solid: Bool? = nil
         var usesPerspective: Bool? = nil
         var utilityLayer: Bool? = nil

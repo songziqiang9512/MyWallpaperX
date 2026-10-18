@@ -1,6 +1,6 @@
 import Foundation
 
-struct SceneUtilityLayer: Codable, Equatable {
+nonisolated struct SceneUtilityLayer: Codable, Equatable {
     enum Kind: String, Codable, CaseIterable {
         case composition
         case project

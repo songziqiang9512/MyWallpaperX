@@ -1,7 +1,7 @@
 import Foundation
 
 enum WebStaticFileSignalScanner {
-    private static let maximumScanBytes: UInt64 = 1024 * 1024
+    private nonisolated static let maximumScanBytes: UInt64 = 1024 * 1024
 
     nonisolated static func containsServiceWorkerRegistration(in fileURL: URL) -> Bool {
         contains(

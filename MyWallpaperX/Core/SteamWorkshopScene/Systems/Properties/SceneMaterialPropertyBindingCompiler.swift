@@ -364,6 +364,6 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
     }
 }
 
-private extension Array {
+private nonisolated extension Array {
     var only: Element? { count == 1 ? self[0] : nil }
 }

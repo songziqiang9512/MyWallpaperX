@@ -142,7 +142,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
      object: nil,
      queue: .main
  ) { _ in
-     SceneDaemonClient.shared.warmSession()
+     MainActor.assumeIsolated { SceneDaemonClient.shared.warmSession() }
  }
  let warmupIntentEpoch = WallpaperManager.shared.playbackIntentEpoch
  DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in

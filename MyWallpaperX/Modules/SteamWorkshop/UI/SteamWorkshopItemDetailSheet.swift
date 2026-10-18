@@ -696,7 +696,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private func divider() -> NSView {
         let view = NSBox()
         view.boxType = .custom
-        view.borderType = .noBorder
+        view.borderWidth = 0
         view.fillColor = NSColor.labelColor.withAlphaComponent(0.10)
         view.contentViewMargins = .zero
         view.translatesAutoresizingMaskIntoConstraints = false

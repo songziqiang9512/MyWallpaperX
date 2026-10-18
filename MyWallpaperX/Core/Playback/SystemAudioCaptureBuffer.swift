@@ -6,12 +6,12 @@
 import AudioToolbox
 import CoreAudio
 
-struct SystemAudioCapturedFrame {
+nonisolated struct SystemAudioCapturedFrame {
     let rectifiedMono: [Float]
     let signedChannels: [[Float]]
 }
 
-final class SystemAudioCaptureBuffer {
+nonisolated final class SystemAudioCaptureBuffer {
     private enum SampleFormat {
         case float32
         case int16

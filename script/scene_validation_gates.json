@@ -337,6 +337,7 @@
         "script/tests/test_scene_quickjs_layer_reference_identity.py",
         "script/tests/fixtures/SceneLayerReferenceQuickJSCases.c",
         "script/tests/test_scene_script_quickjs.py",
+        "script/tests/test_scene_quickjs_numeric_boundaries.py",
         "script/tests/fixtures/SceneScriptQuickJS*.c",
         "script/tests/fixtures/SceneScriptQuickJSFixture.h"
       ],
@@ -373,6 +374,7 @@
         "test_scene_script_authored_layer_retirement",
         "test_scene_deleted_named_provider_integration",
         "test_scene_script_quickjs",
+        "test_scene_quickjs_numeric_boundaries",
         "test_scene_quickjs_layer_reference_identity",
         "test_scene_script_quickjs_media_lifecycle",
         "test_scene_script_quickjs_owner_budget",
@@ -3676,6 +3678,26 @@
       "modules": [
         "test_scene_timeline_target_compiler",
         "test_scene_timeline_runtime"
+      ]
+    },
+    {
+      "id": "puppet-bone-catalog",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetBoneCatalog.swift",
+        "script/tests/test_scene_puppet_bone_catalog.py"
+      ],
+      "modules": [
+        "test_scene_puppet_bone_catalog"
+      ]
+    },
+    {
+      "id": "shader-syntax-concurrency",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+        "script/tests/test_scene_shader_syntax_concurrency.py"
+      ],
+      "modules": [
+        "test_scene_shader_syntax_concurrency"
       ]
     }
   ],

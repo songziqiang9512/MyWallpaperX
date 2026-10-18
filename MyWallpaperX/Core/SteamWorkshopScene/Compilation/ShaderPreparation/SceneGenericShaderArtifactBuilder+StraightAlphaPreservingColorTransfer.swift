@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderArtifactBuilder {
+nonisolated extension SceneGenericShaderArtifactBuilder {
     static func prepareStraightAlphaPreservingColorTransfer(
         msl source: String,
         authoredSource: String,

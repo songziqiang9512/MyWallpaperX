@@ -19,7 +19,7 @@ nonisolated struct SceneScriptOwnerEffectsRuntimeFailure: Sendable {
 /// owner transaction. Layer admission drives the fixed-point loop; these
 /// results only decide which complete owner bundles must be removed.
 nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
-    static func failures(
+    @MainActor static func failures(
         for effects: [SceneScriptOwnerEffects],
         timelineRuntime: SceneTimelinePlaybackRuntime,
         textureAnimationRuntime: SceneTextureAnimationPlaybackRuntime,

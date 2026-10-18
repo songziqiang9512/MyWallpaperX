@@ -1,6 +1,6 @@
 import Foundation
 
-struct SceneRuntimeInput: Codable {
+nonisolated struct SceneRuntimeInput: Codable {
     let renderDescriptor: SceneRenderDescriptor
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let propertyBindingProgram: ScenePropertyBindingProgram

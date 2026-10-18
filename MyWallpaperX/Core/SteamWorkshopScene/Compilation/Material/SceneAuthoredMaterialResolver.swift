@@ -51,7 +51,7 @@ nonisolated struct SceneAuthoredMaterialResolution {
     var isResolved: Bool { node != nil && issues.isEmpty }
 }
 
-enum SceneAuthoredMaterialResolver {
+nonisolated enum SceneAuthoredMaterialResolver {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
     private struct InstanceOverlay {

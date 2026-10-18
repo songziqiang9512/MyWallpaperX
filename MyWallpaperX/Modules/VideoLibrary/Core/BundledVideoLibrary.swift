@@ -43,7 +43,7 @@ enum BundledVideoLibrary {
     }()
 
     static var videoURLs: [URL] {
-        expectedFileNames.compactMap(videoURL(forFileName:))
+        expectedFileNames.compactMap { videoURL(forFileName: $0) }
     }
 
     static func videoURL(named name: String) -> URL? {

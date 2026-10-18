@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderArtifactBuilder {
+nonisolated extension SceneGenericShaderArtifactBuilder {
     /// Moves exact provider-backed color inputs from the compositor's
     /// premultiplied boundary into the authored shader's straight-color domain.
     /// Output transfer remains owned by the independently proven color profile.

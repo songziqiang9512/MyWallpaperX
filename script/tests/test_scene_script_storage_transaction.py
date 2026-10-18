@@ -8,6 +8,7 @@ import unittest
 from .scene_vector_vm_test_support import compile_vector_harness
 
 HARNESS = r'''
+import CryptoKit
 @main enum Harness {
     static let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970:0), simulationFrameTime: 0.016, sceneTime: 1))
     static func target(_ id: Int) -> SceneDynamicTarget { .layer(layerID: id, field: .origin) }
@@ -45,6 +46,36 @@ HARNESS = r'''
     }
     static func main() throws {
         var out: [String:Any] = [:]
+        let corruptRoot = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("corrupt")
+        try FileManager.default.createDirectory(at: corruptRoot, withIntermediateDirectories: true)
+        let recordID = "damaged-transaction"
+        let digest = SHA256.hash(data: Data(recordID.utf8)).map { String(format: "%02x", $0) }.joined()
+        let corruptURL = corruptRoot.appendingPathComponent("\(digest).json")
+        let originalBytes = Data("{invalid persisted JSON".utf8)
+        try originalBytes.write(to: corruptURL)
+        let damaged = SceneScriptLocalStorageSession(recordID: recordID, rootDirectory: corruptRoot)
+        out["damagedBeginRefused"] = !damaged.beginFrameTransaction()
+        do { _ = try value(damaged, "seed"); out["damagedReadRefused"] = false }
+        catch { out["damagedReadRefused"] = true }
+        do { try damaged.apply([mutation(.set, "seed", "2")]); out["damagedWriteRefused"] = false }
+        catch { out["damagedWriteRefused"] = true }
+        let damagedDomain = try domain(damaged)
+        let storageIndependent = try owner(damagedDomain, 1, "export function update(v){return new Vec3(17,0,0);}")
+        out["unavailableStorageKeepsUnrelatedOwner"] = try run(storageIndependent)
+        damaged.commitFrameTransaction(); damaged.discardFrameTransaction()
+        out["damagedBytesPreserved"] = try Data(contentsOf: corruptURL) == originalBytes
+        let duplicate = SceneScriptLocalStorageSession(recordID: "duplicate",
+            rootDirectory: URL(fileURLWithPath: CommandLine.arguments[1]), defersPersistence: true)
+        try duplicate.apply([mutation(.set, "seed", "1")])
+        out["firstBeginAccepted"] = duplicate.beginFrameTransaction()
+        try write(duplicate, 1, [mutation(.set, "seed", "2")])
+        out["duplicateBeginRefused"] = !duplicate.beginFrameTransaction()
+        out["duplicateKeepsCandidate"] = try value(duplicate, "seed")
+        duplicate.discardFrameTransaction()
+        out["duplicateDiscardRestoresBase"] = try value(duplicate, "seed")
+        out["beginAfterDiscardAccepted"] = duplicate.beginFrameTransaction()
+        try write(duplicate, 1, [mutation(.set, "seed", "3")]); duplicate.commitFrameTransaction()
+        out["nextTransactionCommits"] = try value(duplicate, "seed")
         let active = session("activation")
         try active.apply([mutation(.set,"seed","1"), mutation(.set,"deleted","7")])
         let candidate = SceneScriptLocalStorageSession(recordID:"activation",
@@ -239,8 +270,24 @@ class StorageTransactionTests(unittest.TestCase):
         cls.addClassCleanup(cls.temp.cleanup)
         root=Path(cls.temp.name)
         binary=compile_vector_harness(root,HARNESS,"storage-owner")
-        run=subprocess.run([str(binary),str(root/"store")],capture_output=True,text=True,check=True)
+        run=subprocess.run([str(binary),str(root/"store")],capture_output=True,text=True)
+        if run.returncode:
+            raise AssertionError(run.stdout + run.stderr)
         cls.result=json.loads(run.stdout.strip().splitlines()[-1])
+
+    def test_unavailable_storage_preserves_disk_and_unrelated_script_output(self):
+        for key in ("damagedBeginRefused", "damagedReadRefused", "damagedWriteRefused", "damagedBytesPreserved"):
+            with self.subTest(key=key):
+                self.assertIs(self.result[key], True)
+        self.assertEqual(self.result["unavailableStorageKeepsUnrelatedOwner"], 17)
+
+    def test_repeated_begin_keeps_candidate_and_discard_allows_the_next_transaction(self):
+        for key in ("firstBeginAccepted", "duplicateBeginRefused", "beginAfterDiscardAccepted"):
+            with self.subTest(key=key):
+                self.assertIs(self.result[key], True)
+        self.assertEqual(self.result["duplicateKeepsCandidate"], "2")
+        self.assertEqual(self.result["duplicateDiscardRestoresBase"], "1")
+        self.assertEqual(self.result["nextTransactionCommits"], "3")
 
     def test_candidate_storage_is_private_until_promotion_and_merges_active_peer_writes(self):
         self.assertEqual(self.result["candidateBeforePromotion"], ["2", "1"])

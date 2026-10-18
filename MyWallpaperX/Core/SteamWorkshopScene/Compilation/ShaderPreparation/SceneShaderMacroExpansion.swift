@@ -193,7 +193,7 @@ nonisolated enum SceneShaderLexicalExpander {
     }
 }
 
-private extension SceneShaderLexicalExpander {
+private nonisolated extension SceneShaderLexicalExpander {
     struct Token {
         enum Kind { case code, identifier, whitespace, quoted, comment, lineBreak, boundary }
         let kind: Kind

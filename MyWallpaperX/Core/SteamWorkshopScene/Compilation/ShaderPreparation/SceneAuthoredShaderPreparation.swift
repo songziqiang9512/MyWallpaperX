@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneShaderCacheCost {
+nonisolated extension SceneShaderCacheCost {
     mutating func preparedProgram(_ program: SceneShaderPreparedProgram) {
         add(256)
         string(program.cacheKey)

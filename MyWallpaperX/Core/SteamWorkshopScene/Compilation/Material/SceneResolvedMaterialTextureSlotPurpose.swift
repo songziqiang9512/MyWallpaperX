@@ -196,7 +196,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
     }
 }
 
-private extension SceneResolvedMaterialTemplate.TextureReference {
+private nonisolated extension SceneResolvedMaterialTemplate.TextureReference {
     var isRendererColorProvider: Bool {
         switch self {
         case .provider(.namedLayerTarget), .provider(.sceneEnvironment): true

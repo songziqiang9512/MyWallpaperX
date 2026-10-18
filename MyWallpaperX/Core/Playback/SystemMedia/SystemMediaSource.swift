@@ -170,7 +170,7 @@ final class SystemMediaSource {
         generation &+= 1
         let requestGeneration = generation
         let child = Session(resourceURL: resourceURL) { [weak self] result, terminal, acknowledged in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 defer { acknowledged.signal() }
                 guard let self, self.generation == requestGeneration, self.session != nil else { return }
                 if terminal { self.session = nil }

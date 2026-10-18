@@ -1,6 +1,6 @@
 import Foundation
 
-private let sceneScriptMaximumOwnerLayerMutations = 256
+private nonisolated let sceneScriptMaximumOwnerLayerMutations = 256
 
 /// Scene JSON and the renderer keep Euler angles in radians, while the public
 /// SceneScript layer API exposes degrees. Convert only at the VM boundary so
@@ -836,7 +836,7 @@ private nonisolated func sceneScriptParticleBoundary(
     domain.particleEmissionBoundary?(owner, discard != 0)
 }
 
-extension SceneScriptQuickJSDomain {
+nonisolated extension SceneScriptQuickJSDomain {
     func beginParticlePlaybackFrame(
         onBoundary: @escaping (OpaquePointer, Bool) -> Void,
 

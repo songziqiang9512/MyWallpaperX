@@ -129,7 +129,7 @@ extension SteamWorkshopService {
     }
 }
 
-private extension String {
+private nonisolated extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }

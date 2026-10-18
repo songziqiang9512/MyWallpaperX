@@ -73,7 +73,7 @@ enum SceneOffscreenPassKind: Sendable {
     case graphResourceInitialization
     case offscreenEffectCapture
 
-    var metric: ScenePerformanceMetric {
+    nonisolated var metric: ScenePerformanceMetric {
         switch self {
         case .resolvedMaterial:
             return .resolvedMaterialRenderPasses

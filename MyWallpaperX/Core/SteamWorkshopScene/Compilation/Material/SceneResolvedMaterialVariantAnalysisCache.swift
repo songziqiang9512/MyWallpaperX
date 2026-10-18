@@ -417,7 +417,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
 
 // MARK: - Mirror ↔ analyzer fact rebuilds
 
-extension SceneResolvedMaterialVariantAnalysisCache {
+nonisolated extension SceneResolvedMaterialVariantAnalysisCache {
 
     static func rebuild(
         _ mirror: SpatialWeightedColorBlendMirror?
@@ -607,7 +607,7 @@ extension SceneResolvedMaterialVariantAnalysisCache {
     }
 }
 
-extension SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact {
+nonisolated extension SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact {
     /// Rebuilds the fact from its persisted mirror. The sample-count
     /// dictionaries are not consumed by the compilation path (only the
     /// `auxiliarySlots` derivation is), so they are reconstructed to the

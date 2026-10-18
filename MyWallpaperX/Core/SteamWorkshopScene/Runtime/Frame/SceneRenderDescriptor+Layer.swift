@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneRenderDescriptor {
+nonisolated extension SceneRenderDescriptor {
     struct Layer: Identifiable, Codable {
         let id: Int
         let layerIndex: Int
@@ -126,7 +126,7 @@ extension SceneRenderDescriptor {
     }
 }
 
-extension SceneRenderDescriptor {
+nonisolated extension SceneRenderDescriptor {
     /// Launch-prepared logical geometry. Authored configuration and all other
     /// fields retain their provenance while every consumer shares sizeWH.
     func applyingPreparedImageGeometry(_ sizes: [Int: [Float]]) -> Self {

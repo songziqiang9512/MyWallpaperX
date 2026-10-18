@@ -35,8 +35,8 @@ const window = { dispatchEvent: event => events.push(event.detail) };
 class CustomEvent { constructor(name, options) { this.detail = options.detail; } }
 const audioListeners = [() => { throw Error('author callback failure'); }, levels => received.push(levels)];
 let hasLoggedAudioSpectrumDelivery = false, hasLoggedAudioSpectrumChange = false;
-const firstDeliveredAudioSpectrum = [];
-const failedAudioListeners = new WeakSet();
+let firstDeliveredAudioSpectrum = [];
+let failedAudioListeners = new WeakSet();
 const loggedEvents = [];
 const hostLogger = { post(name) { loggedEvents.push(name); } };
 """ + source[start:end] + """
@@ -671,9 +671,10 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
     def test_scene_frames_preserve_capture_generation_and_scope(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
         callback_declaration = source[
-            source.index("var onSceneLevels:") : source.index("init(barCount:")
+            source.index("typealias SceneLevelsHandler") : source.index("private let onSceneLevels:")
         ]
         self.assertIn("_ token: SceneAudioSpectrumCaptureToken", callback_declaration)
+        self.assertIn("@Sendable", callback_declaration)
 
         start_capture = source[
             source.index("private func startCaptureIfNeeded(")

@@ -7,7 +7,7 @@ import Foundation
 /// once, matching the compositor's premultiplied publication. The authored
 /// math itself is not proven here; a visual verdict on the real sample, not a
 /// per-shape analyzer, accepts or rejects the result.
-extension SceneGenericShaderArtifactBuilder {
+nonisolated extension SceneGenericShaderArtifactBuilder {
     static let defaultStraightColorBoundaryKind = "default-straight-color-boundary"
 
     /// Proven shapes keep their exact lowering. When that lowering rejects the

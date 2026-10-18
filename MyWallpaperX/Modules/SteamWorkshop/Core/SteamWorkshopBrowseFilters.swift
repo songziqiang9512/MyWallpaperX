@@ -1,6 +1,6 @@
 import Foundation
 
-struct SteamWorkshopBrowserContentMode: OptionSet, CaseIterable, Identifiable, Hashable {
+nonisolated struct SteamWorkshopBrowserContentMode: OptionSet, CaseIterable, Identifiable, Hashable {
     let rawValue: Int
     nonisolated init(rawValue: Int) { self.rawValue = rawValue }
     nonisolated static let video = Self(rawValue: 1)

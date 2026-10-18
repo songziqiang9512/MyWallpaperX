@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-struct ScenePreparedDynamicImageResource {
+nonisolated struct ScenePreparedDynamicImageResource {
     let modelPath: String
     let loaded: SceneBaseImageTextureLoad.Loaded
     /// Source image extent retained before texture normalization/downscaling.

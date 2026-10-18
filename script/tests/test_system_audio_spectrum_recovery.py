@@ -27,6 +27,19 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
             import AudioToolbox
             import CoreAudio
 
+            final class Observation<Value>: @unchecked Sendable {
+                private let lock = NSLock()
+                private var storage: Value
+                init(_ value: Value) { storage = value }
+                var value: Value {
+                    get { lock.withLock { storage } }
+                    set { lock.withLock { storage = newValue } }
+                }
+                func update(_ body: (inout Value) -> Void) {
+                    lock.withLock { body(&storage) }
+                }
+            }
+
             struct SceneAudioSpectrumCaptureToken: Equatable {
                 let scopeEpoch: UInt64
                 let includesCurrentProcessOutput: Bool
@@ -116,12 +129,16 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
             // only device creation suppressed. Every published spectrum must
             // describe the latest contiguous PCM, regardless of callback size.
             for chunkSize in [128, 512, 1024, 8192] {
-                let stream = SystemAudioSpectrumService(barCount: 16)
+                let published = Observation<[[Float]]>([])
+                let stream = SystemAudioSpectrumService(barCount: 16, onSceneLevels: {
+                    _,_,_,_,left,right,_ in published.update { $0.append(left + right) }
+                })
                 stream.debugEnableRecoveryTesting()
                 stream.setConsumers(overlayEnabled:false,webEnabled:false,sceneEnabled:true)
                 _ = stream.debugRecoverySnapshot()
-                var published: [[Float]] = []
-                stream.onSceneLevels = { _,_,_,_,left,right,_ in published.append(left + right) }
+                expect(published.value.count == 1 && published.value[0].allSatisfy { $0 == 0 },
+                    "initial activation must clear the endpoint exactly once")
+                published.value = []
                 let reference = SystemAudioSceneSpectrumAnalyzer()!
                 let rate: Float = 48_000
                 let windowCount = SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate:rate)
@@ -136,7 +153,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     mBytesPerPacket:4,mFramesPerPacket:1,mBytesPerFrame:4,mChannelsPerFrame:1,mBitsPerChannel:32,mReserved:0)
                 for start in stride(from:0,to:total,by:chunkSize) {
                     var block = Array(pcm[start..<(start+chunkSize)])
-                    let before = published.count
+                    let before = published.value.count
                     block.withUnsafeMutableBufferPointer { pointer in
                         var list = AudioBufferList(mNumberBuffers:1,mBuffers:AudioBuffer(
                             mNumberChannels:1,mDataByteSize:UInt32(chunkSize*4),mData:pointer.baseAddress))
@@ -144,52 +161,55 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                             now:1+Double(start+chunkSize)/Double(rate),
                             workerBusy:(start/chunkSize)%5 == 3)
                     }
-                    if published.count > before {
+                    if published.value.count > before {
                         expect(start+chunkSize >= windowCount,"partial windows must not be published")
                         expect((start/chunkSize)%5 != 3,"busy worker must not receive a snapshot")
                         let latest = Array(pcm[(start+chunkSize-windowCount)..<(start+chunkSize)])
                         let expected = reference.analyze(signedChannels:[latest],sampleRate:rate,
                             timestamp:1+Double(start+chunkSize)/Double(rate))
-                        let error = zip(published.last!,expected.left64+expected.right64).map { abs($0-$1) }.max()!
+                        let error = zip(published.value.last!,expected.left64+expected.right64).map { abs($0-$1) }.max()!
                         maxError = max(maxError,error)
-                        if published.count > 12 { lateError = max(lateError,error) }
+                        if published.value.count > 12 { lateError = max(lateError,error) }
                     }
                 }
-                print("continuity chunk=\(chunkSize) publications=\(published.count) max=\(maxError) settled=\(lateError)")
-                expect(published.count > 12,"stream must publish several complete windows")
+                print("continuity chunk=\(chunkSize) publications=\(published.value.count) max=\(maxError) settled=\(lateError)")
+                expect(published.value.count > 12,"stream must publish several complete windows")
                 expect(maxError < 0.00001,"callback \(chunkSize) must preserve contiguous PCM spectrum; error=\(maxError), settled=\(lateError)")
             }
 
             // The actual callback gate must preserve average 30 Hz on the
             // native 512-frame grid, rather than rounding every frame to 42 ms.
-            let cadence = SystemAudioSpectrumService(barCount:16)
+            let ticks = Observation<[Double]>([])
+            let tickTime = Observation<Double>(0)
+            let cadence = SystemAudioSpectrumService(barCount:16, onSceneLevels: {
+                _,_,_,_,_,_,_ in ticks.update { $0.append(tickTime.value) }
+            })
             cadence.debugEnableRecoveryTesting()
             cadence.setConsumers(overlayEnabled:false,webEnabled:false,sceneEnabled:true)
             _ = cadence.debugRecoverySnapshot()
-            var ticks: [Double] = []
-            var tickTime: Double = 0
-            cadence.onSceneLevels = { _,_,_,_,_,_,_ in ticks.append(tickTime) }
+            expect(ticks.value == [0], "initial activation must publish its silence barrier")
+            ticks.value = []
             let cadenceFormat = AudioStreamBasicDescription(mSampleRate:48000,
                 mFormatID:kAudioFormatLinearPCM,mFormatFlags:kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
                 mBytesPerPacket:4,mFramesPerPacket:1,mBytesPerFrame:4,mChannelsPerFrame:1,mBitsPerChannel:32,mReserved:0)
             var cadenceBlock = Array(repeating:Float(0.1),count:512)
             for i in 0..<600 {
-                tickTime = 1 + Double((i+1)*512)/48000
+                tickTime.value = 1 + Double((i+1)*512)/48000
                 cadenceBlock.withUnsafeMutableBufferPointer { pointer in
                     var list = AudioBufferList(mNumberBuffers:1,mBuffers:AudioBuffer(
                         mNumberChannels:1,mDataByteSize:2048,mData:pointer.baseAddress))
-                    cadence.debugProcessPCMForTesting(&list,format:cadenceFormat,now:tickTime)
+                    cadence.debugProcessPCMForTesting(&list,format:cadenceFormat,now:tickTime.value)
                 }
             }
-            expect(ticks.count > 180 && ticks.count < 195,"512-frame callbacks must sustain about 30 Hz")
-            let tickGaps = zip(ticks,ticks.dropFirst()).map { $1-$0 }
+            expect(ticks.value.count > 180 && ticks.value.count < 195,"512-frame callbacks must sustain about 30 Hz")
+            let tickGaps = zip(ticks.value,ticks.value.dropFirst()).map { $1-$0 }
             expect(tickGaps.allSatisfy { $0 > 0.02 && $0 < 0.044 },"no backlog bursts or long cadence gaps")
 
-            let service = SystemAudioSpectrumService(barCount: 16)
+            let configuredOverlayLevels = Observation<[Float]>([])
+            let service = SystemAudioSpectrumService(barCount: 16, onLevels: {
+                configuredOverlayLevels.value = $0
+            })
             service.debugEnableRecoveryTesting()
-
-            var configuredOverlayLevels: [Float] = []
-            service.onLevels = { configuredOverlayLevels = $0 }
 
             // Initial consumer reconciliation executes the real start gate, but
             // the DEBUG seam suppresses all CoreAudio creation.
@@ -215,7 +235,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
             snapshot = service.debugRecoverySnapshot()
             expect(snapshot.overlayBarCount == 36,
                    "bar-count update must reconfigure the live service")
-            expect(configuredOverlayLevels.count == 36,
+            expect(configuredOverlayLevels.value.count == 36,
                    "bar-count update must publish the new cleared overlay shape")
             expect(snapshot.captureStopCount == 0,
                    "bar-count update must not tear down shared capture")

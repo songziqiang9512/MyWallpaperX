@@ -1,5 +1,5 @@
 import simd
-struct ScenePuppetAnimationEvaluator {
+nonisolated struct ScenePuppetAnimationEvaluator {
     /// A source-FPS interval sample.  MDLA stores frameCount + 1 poses, so a
     /// frame is an interval between two authored poses rather than a single
     /// integer lookup.  Keeping both endpoints also lets mirror playback

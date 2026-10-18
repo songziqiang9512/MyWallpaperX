@@ -13,7 +13,7 @@ import CoreAudio
 /// seam replaces real CoreAudio device creation, teardown and recovery
 /// scheduling with deterministic, scriptable sequences so recovery paths can
 /// be exercised without touching system audio devices.
-final class SystemAudioDebugRecoveryState {
+nonisolated final class SystemAudioDebugRecoveryState {
     private struct ScheduledRecovery {
         let kind: String
         let action: () -> Void
@@ -175,7 +175,7 @@ final class SystemAudioDebugRecoveryState {
     }
 }
 
-extension SystemAudioSpectrumService {
+nonisolated extension SystemAudioSpectrumService {
     struct DebugRecoverySnapshot {
         let captureStartTokens: [SceneAudioSpectrumCaptureToken]
         let captureRetryAttempt: Int
@@ -287,17 +287,17 @@ extension SystemAudioSpectrumService {
         now: TimeInterval,
         workerBusy: Bool = false
     ) {
-        let identity = sampleQueue.sync { () -> (Int, SceneAudioSpectrumCaptureToken) in
+        if workerBusy { processingGate.wait() }
+        sampleQueue.sync {
             precondition(debugRecovery.isTestEnabled)
             tapStreamFormat = format
-            return (captureResourceGeneration, .init(
+            let token = SceneAudioSpectrumCaptureToken(
                 scopeEpoch: sceneCaptureScopeEpoch,
                 includesCurrentProcessOutput: processScope == .includesCurrentProcess
-            ))
+            )
+            processAudioBufferList(input, resourceGeneration: captureResourceGeneration,
+                token: token, now: now)
         }
-        if workerBusy { processingGate.wait() }
-        processAudioBufferList(input, resourceGeneration: identity.0,
-            token: identity.1, now: now)
         if workerBusy { processingGate.signal() }
         // Wait until the single pending immutable snapshot has been consumed.
         processingGate.wait()

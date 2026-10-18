@@ -1,7 +1,7 @@
 import Foundation
 
 #if DEBUG
-enum SteamWorkshopWebValidationSeverity: String, Codable, Equatable, Hashable {
+nonisolated enum SteamWorkshopWebValidationSeverity: String, Codable, Equatable, Hashable {
     case error
     case warning
     case info
@@ -50,7 +50,7 @@ enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Hashable {
 }
 
 #if DEBUG
-enum SteamWorkshopWebValidationLevel: String, Codable, Equatable, Hashable {
+nonisolated enum SteamWorkshopWebValidationLevel: String, Codable, Equatable, Hashable {
     case fatal
     case runtimeBlocking
     case warning
@@ -112,7 +112,7 @@ struct SteamWorkshopWebValidationReport: Codable, Equatable, Hashable {
 
 #endif
 
-enum SteamWorkshopWebDependencyStatus: Equatable {
+nonisolated enum SteamWorkshopWebDependencyStatus: Equatable {
     case none
     case available(itemID: String)
     case missing(itemID: String)

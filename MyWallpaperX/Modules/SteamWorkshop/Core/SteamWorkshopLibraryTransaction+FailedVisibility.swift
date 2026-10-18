@@ -9,7 +9,7 @@
 import Foundation
 import Darwin
 
-extension SteamWorkshopLibraryTransaction {
+nonisolated extension SteamWorkshopLibraryTransaction {
     static func publishedMetadata(libraryRoot: URL, requireComplete: Bool = false,
                                   matchingItemID: String? = nil, matchingFilename: String? = nil) throws -> [String: Data] {
         if let matchingFilename { try require(matchingFilename.utf8.count <= 255

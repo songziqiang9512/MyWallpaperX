@@ -8,17 +8,18 @@ import QuartzCore
 
 extension WallpaperEngine {
     func makeSystemAudioSpectrumService(barCount: Int) -> SystemAudioSpectrumService {
-        let service = SystemAudioSpectrumService(barCount: barCount)
         let delivery = spectrumDelivery
-        service.onLevels = { delivery.publishOverlay($0) }
-        service.onWebLevels = { delivery.publishWeb($0) }
-        service.onSceneLevels = {
-            left, right, left32, right32, left64, right64, token in
-            delivery.publishScene(.init(left: left, right: right,
-                left32: left32, right32: right32, left64: left64, right64: right64,
-                captureToken: token))
-        }
-        return service
+        return SystemAudioSpectrumService(
+            barCount: barCount,
+            onLevels: { delivery.publishOverlay($0) },
+            onWebLevels: { delivery.publishWeb($0) },
+            onSceneLevels: {
+                left, right, left32, right32, left64, right64, token in
+                delivery.publishScene(.init(left: left, right: right,
+                    left32: left32, right32: right32, left64: left64, right64: right64,
+                    captureToken: token))
+            }
+        )
     }
 
     /// 由 `SceneAudioSpectrumInbox` 的需求变化驱动。Scene 没有消费者时不采集。

@@ -746,7 +746,7 @@ nonisolated enum SceneScriptStorageMutationBridge {
     }
 }
 
-extension SceneScriptQuickJSDomain {
+nonisolated extension SceneScriptQuickJSDomain {
     func configureStorage(_ session: SceneScriptLocalStorageSession) throws {
         var diagnostic = [CChar](repeating: 0, count: 512)
         let opaque = Unmanaged.passUnretained(session).toOpaque()

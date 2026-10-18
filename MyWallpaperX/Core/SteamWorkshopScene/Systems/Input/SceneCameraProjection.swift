@@ -1,7 +1,7 @@
 import CoreGraphics
 import simd
 
-enum SceneCameraProjection {
+nonisolated enum SceneCameraProjection {
     nonisolated static func imageCardYDirection(
         usesPerspective: Bool, sceneOrthoHeight: Float?
     ) -> Float {

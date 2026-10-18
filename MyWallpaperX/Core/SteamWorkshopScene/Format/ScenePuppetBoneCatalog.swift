@@ -6,7 +6,7 @@ import Foundation
 /// that dense, zero-based order immutable and builds one name index for
 /// lookups. Unnamed bones retain numeric identity; duplicate nonempty names
 /// and malformed parents are rejected rather than selecting another bone.
-struct ScenePuppetBoneCatalog: Equatable {
+nonisolated struct ScenePuppetBoneCatalog: Equatable {
     struct Entry: Equatable {
         let index: Int
         let name: String
@@ -85,7 +85,7 @@ struct ScenePuppetBoneCatalog: Equatable {
     }
 }
 
-extension SceneMdlPuppetRig {
+nonisolated extension SceneMdlPuppetRig {
     /// The single validated name/parent/index view for script-facing Puppet
     /// identity.  Invalid authored identity fails closed and remains visible
     /// to diagnostics through the throwing initializer above.

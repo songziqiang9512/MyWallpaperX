@@ -8,7 +8,7 @@
 /// PCM、FFT、频段定义和 temporal smoothing 全部由
 /// `SystemAudioSceneSpectrumAnalyzer` 这个 shared producer 完成；这个类型只把
 /// canonical 64-band L/R snapshot 交给 Web runtime，不再持有第二个 FFT setup。
-final class SystemAudioWebSpectrumAnalyzer {
+nonisolated final class SystemAudioWebSpectrumAnalyzer {
     static let channelBandCount = 64
     static let outputLevelCount = channelBandCount * 2
 

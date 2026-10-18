@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-extension SceneResolvedMaterialProgram {
+nonisolated extension SceneResolvedMaterialProgram {
     struct RenderStateIdentity: Hashable {
         let blending: SceneMaterialRenderState.Blending
         let depthTest: SceneMaterialRenderState.Depth
@@ -506,7 +506,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
     }
 }
 
-extension SceneResolvedMaterialProgram {
+nonisolated extension SceneResolvedMaterialProgram {
     /// Pipeline state depends on the already-derived shader/state/color facts
     /// plus the concrete render attachment and Metal device selected by R4.
     func metalCompileStateKey(
@@ -537,7 +537,7 @@ extension SceneResolvedMaterialProgram {
     }
 }
 
-extension SceneResolvedMaterialProgramIdentity {
+nonisolated extension SceneResolvedMaterialProgramIdentity {
     static func metalCompileStateKey(
         frontend: SceneAuthoredShaderProgram,
         renderState: SceneMaterialRenderState,

@@ -479,7 +479,7 @@ nonisolated enum SceneShaderSourceTextFacts {
     }
 }
 
-extension SceneShaderSourceTextFacts {
+nonisolated extension SceneShaderSourceTextFacts {
     static func containsWord(_ word: String, in source: String) -> Bool {
         countWord(word, in: source) > 0
     }
@@ -497,7 +497,7 @@ extension SceneShaderSourceTextFacts {
     }
 }
 
-extension SceneShaderSourceTextFacts {
+nonisolated extension SceneShaderSourceTextFacts {
     /// Family regex entry point. Every pattern reaching it was audited
     /// (2026-09-29) to be a literal or a concatenation of escaped/digit text, so
     /// compilation cannot fail; a silent empty result would hide a broken pattern
@@ -529,7 +529,7 @@ extension SceneShaderSourceTextFacts {
 /// `SceneAuthoredShaderToken` runs only; nothing here touches source text.
 nonisolated enum SceneAuthoredShaderTokenScanner {}
 
-extension SceneAuthoredShaderTokenScanner {
+nonisolated extension SceneAuthoredShaderTokenScanner {
     /// Parentheses preserve an lvalue; a constructor/call creates a value.
     /// Peel only grouping around this exact reference before checking writes
     /// and indexing, so `(value.xy) += ...` cannot masquerade as a pure read.

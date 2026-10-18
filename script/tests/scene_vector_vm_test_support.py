@@ -31,6 +31,7 @@ SWIFT_SOURCES = [
     SCENE / "Systems/Properties/ScenePropertyBindingProgramValidator.swift",
     SCENE / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+    SCENE / "Format/SceneTimelineAnimation.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPropertyInput.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationControl.swift",
@@ -469,6 +470,14 @@ extension SceneRenderDescriptor.Layer {
     }
 }
 '''
+
+# Keep the camera profile's external Timeline carrier aligned with production.
+_document_models = (SCENE / "Format/SceneDocumentObject.swift").read_text(encoding="utf-8")
+_timeline_start = _document_models.index("    struct SceneObjectTimeline:")
+_timeline_end = _document_models.index("\n    /// Particle", _timeline_start)
+SWIFT_PREAMBLE = SWIFT_PREAMBLE.replace(
+    "struct SceneDocument {", "struct SceneDocument {\n" + _document_models[_timeline_start:_timeline_end]
+)
 
 
 def compile_vector_harness(

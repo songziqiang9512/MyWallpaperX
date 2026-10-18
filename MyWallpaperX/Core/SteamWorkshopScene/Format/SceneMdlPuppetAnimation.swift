@@ -1,4 +1,4 @@
-struct SceneMdlPuppetAnimation {
+nonisolated struct SceneMdlPuppetAnimation {
     enum TransformTrackState: UInt32 {
         case sampled = 0
         case referenceCandidate = 1

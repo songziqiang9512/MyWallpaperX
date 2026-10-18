@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneResolvedMaterialProgram {
+nonisolated extension SceneResolvedMaterialProgram {
     /// Validated immutable ABI projection. The existing CompiledVariant owns
     /// this value; live textures, graph roles and uniform bytes never enter it.
     struct PreparedAssembly {

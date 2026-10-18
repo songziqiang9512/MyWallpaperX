@@ -25,7 +25,7 @@ nonisolated struct SceneScriptPreparedTextCloneAdoption {
     var queueFailure: SceneScriptScalarRuntimeFailure?
 }
 
-extension SceneScriptStringProgram {
+nonisolated extension SceneScriptStringProgram {
     /// Called once after the original catalog, String owners and property
     /// program have prepared successfully. It never discovers new source.
     @discardableResult

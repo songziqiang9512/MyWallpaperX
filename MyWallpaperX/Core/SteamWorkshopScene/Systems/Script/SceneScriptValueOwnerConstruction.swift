@@ -42,7 +42,7 @@ nonisolated struct SceneScriptValueOwnerExports {
     }
 }
 
-extension SceneScriptValueOwner {
+nonisolated extension SceneScriptValueOwner {
     convenience init(
         domain: SceneScriptQuickJSDomain,
         source: String,

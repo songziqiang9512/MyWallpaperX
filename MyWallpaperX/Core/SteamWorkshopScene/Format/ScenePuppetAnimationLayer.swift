@@ -1,6 +1,6 @@
 import Foundation
 
-struct ScenePuppetAnimationLayer: Codable, Equatable {
+nonisolated struct ScenePuppetAnimationLayer: Codable, Equatable {
     let id: Int?
     let animationID: Int?
     let name: String?

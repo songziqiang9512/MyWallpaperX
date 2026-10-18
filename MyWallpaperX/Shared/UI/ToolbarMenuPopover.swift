@@ -140,7 +140,9 @@ final class ToolbarPopoverScrollDismissal {
         self.popover = popover
         closeObserver = NotificationCenter.default.addObserver(
             forName: NSPopover.willCloseNotification, object: popover, queue: .main
-        ) { [weak self] _ in self?.stop() }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stop() }
+        }
     }
 
     deinit {

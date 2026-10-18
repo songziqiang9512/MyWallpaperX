@@ -1,6 +1,6 @@
 import simd
 
-enum SceneLayerCursorGeometry {
+nonisolated enum SceneLayerCursorGeometry {
     /// Converts the renderer's internal world frame to the absolute author
     /// world frame exposed by SceneScript. Orthographic Scene authors use a
     /// Y-up world coordinate, while the editor canvas/screen is top-left/Y-down

@@ -12,7 +12,7 @@ or Node globals.
 The upstream MIT license is preserved in `LICENSE`. Product code must use the
 `SceneScript` wrapper rather than depending on QuickJS internals directly.
 
-The local `quickjs.c` patch implements only `RegExp.$1` through `RegExp.$9`
+The legacy-capture patch in `quickjs.c` implements `RegExp.$1` through `RegExp.$9`
 from the [TC39 legacy RegExp proposal](https://github.com/tc39/proposal-regexp-legacy-features/tree/e4257f8e83c4d4b648ef1b6150c01ba5938def37)
 (Stage 3, checked 2026-10-13). It does not claim the entire proposal or current
 ECMA-262 coverage. The nine configurable, non-enumerable native getters have
@@ -51,3 +51,20 @@ two contexts, GC, interruption and allocation failure. The D4 decision is in
 compare this surface and these regressions first; retire the local patch only
 when the replacement intrinsic supplies the same tested contracts. The
 upstream commit and MIT attribution above remain unchanged.
+
+The local numeric-width maintenance patch keeps the upstream 32-bit limb,
+hash, atom, bytecode and typed-array representations. Explicit conversions
+preserve intentional low limbs/hash bits, or follow existing size/range checks;
+wide arithmetic still runs before the final limb conversion. Generic array
+indices use the existing 64-bit property/value APIs. String entry points accept
+`size_t` and reject unrepresentable logical lengths before narrowing or reading
+input; append checks use remaining capacity before addition. Module path
+capacity and serialized atom-table sizes retain their required wide arithmetic.
+Compiler bytecode and source-map buffers share a bounded allocator so signed
+instruction offsets and their intermediate arithmetic remain representable.
+Unicode normalization rejects an expanded element count above `INT_MAX`, and
+the JavaScript bridge translates that failure into an actual pending exception.
+No compiler warning category is disabled. These changes do not add product
+shell, filesystem or diagnostic entry points. The numeric-boundary gate executes
+BigInt carry/division, floating-point round trips, Unicode, regexp, typed arrays
+and rejection-before-read cases; it can also run under AddressSanitizer.

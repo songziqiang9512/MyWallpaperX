@@ -1,7 +1,7 @@
 import Foundation
 
 /// Typed definitions and value projection for the existing topology transaction.
-extension SceneScriptDynamicLayerRuntime {
+nonisolated extension SceneScriptDynamicLayerRuntime {
     static func layerID(for target: SceneDynamicTarget) -> Int? {
         switch target {
         case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _),

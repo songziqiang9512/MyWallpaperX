@@ -1,6 +1,6 @@
 import simd
 
-extension SceneParticleCameraFrame {
+nonisolated extension SceneParticleCameraFrame {
     /// A camera layer owns the working native-perspective view when present;
     /// the scene-level Eye/Center/Up remains the no-camera fallback. Camera-path
     /// origin/zoom is already published through the shared dynamic camera target.

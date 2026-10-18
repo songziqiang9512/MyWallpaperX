@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Persistent tier for the per-variant material demand analysis; see the
 /// in-process tier in SceneResolvedMaterialRuntimeCatalog for the
@@ -10,7 +11,7 @@ import Foundation
 /// compiler-semantics identity. `schemaVersion` independently versions the
 /// stored wire contract. Only ready results are published, and the read path never
 /// creates the cache directory.
-enum SceneMaterialDemandAnalysisPersistentCache {
+nonisolated enum SceneMaterialDemandAnalysisPersistentCache {
 /// Resource-demand reachability is a shader/template property, not a
 /// material-node identity property. Authored graphs commonly instantiate
 /// the same material many times; analyzing every node separately turns
@@ -74,8 +75,7 @@ struct ResourceDemandAnalysisKey: Hashable {
     private static let schemaVersion = 10
     private static let maximumEntryBytes = 256 * 1_024
     private static let retainedEntryLimit = 4_096
-    private static let lock = NSLock()
-    private static var pruned = false
+    private static let pruning = Mutex(false)
 
         private struct PersistedSlot: Codable {
             let slot: Int
@@ -341,7 +341,7 @@ struct ResourceDemandAnalysisKey: Hashable {
               (1 ... maximumEntryBytes).contains(data.count) else {
             return
         }
-        lock.withLock {
+        pruning.withLock { pruned in
             do {
                 try FileManager.default.createDirectory(
                     at: directory, withIntermediateDirectories: true

@@ -4,7 +4,7 @@ import Foundation
 /// bindings become cursor owners, and how a failed attempt is reported. It
 /// evaluates no frames and holds no per-frame state; `dispatch` in
 /// SceneScriptCursorProgram.swift owns the runtime half.
-extension SceneScriptCursorProgram {
+nonisolated extension SceneScriptCursorProgram {
     static func compile(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,

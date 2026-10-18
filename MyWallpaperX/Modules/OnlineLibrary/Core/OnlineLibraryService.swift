@@ -325,7 +325,7 @@ final class OnlineLibraryService: ObservableObject {
         downloadProgressByID[item.id] = 0
         Task {
             do {
-                let local = try await fetchAndMove(
+                _ = try await fetchAndMove(
                     from: url,
                     name: "online_\(item.id).mp4",
                     itemID: item.id

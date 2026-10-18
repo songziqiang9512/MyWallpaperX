@@ -259,17 +259,17 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// 无应用层超时的解析）：超时先到先得地释放配额并回包；授权完成后
     /// bridge 期由自身双 10s 时限自守，单请求总存活上界约 20s（按阶段各有界）。
     private static let networkBridgeAuthorizationTimeout: TimeInterval = 10
-
     func currentGeneralProperties(for screen: NSScreen?, screenID: CGDirectDisplayID?) -> [String: Any] {
         let targetScreen = screen ?? NSScreen.main
         let frame = targetScreen?.frame ?? .zero
+        let displayName = screenID.map { "Monitor\($0)" } ?? "Monitor0"
         return [
             "fps": resolvedGeneralFPSValue(for: targetScreen),
             "language": currentRequest?.language ?? "en-us",
             "paused": ["value": paused],
             "volume": ["value": effectiveVolume],
             "display": [
-                "value": screenID.map { "Monitor\($0)" } ?? "Monitor0",
+                "value": displayName,
                 "width": Int(frame.width),
                 "height": Int(frame.height),
                 "scale": targetScreen?.backingScaleFactor ?? 1
@@ -680,7 +680,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 allowedHosts: allowedHosts,
                 reusing: nil
             ) else {
-                Task { @MainActor in
+                Task { @MainActor [weak self, weak ownedWebView] in
                     guard let self, self.pendingNetworkBridgeAuthorizationIDs.remove(requestID) != nil else { return }
                     WebNetworkBridgeInflightRegistry.shared.release(screenID, frameKey: frameKey, owner: ownedWebView)
                     guard let webView = self.surfaces[screenID]?.webView else { return }
@@ -713,8 +713,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                         reusing: lock
                     )
                 }
-            ) { [weak self] result in
-                Task { @MainActor in
+            ) { [weak self, weak ownedWebView] result in
+                Task { @MainActor [weak self, weak ownedWebView] in
                     // 授权成功即已移除 pendingID（见下方 start 前的门卫）——
                     // bridge 期由自身双 10s 时限自守，完成时无条件释放配额。
                     WebNetworkBridgeInflightRegistry.shared.release(screenID, frameKey: frameKey, owner: ownedWebView)

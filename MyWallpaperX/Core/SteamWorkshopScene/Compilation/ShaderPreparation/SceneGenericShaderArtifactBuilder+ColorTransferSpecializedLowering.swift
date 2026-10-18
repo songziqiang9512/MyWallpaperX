@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderArtifactBuilder {
+nonisolated extension SceneGenericShaderArtifactBuilder {
     /// Conserves the source-proven straight-RGB/scalar-alpha shape through
     /// SPIRV-Cross without treating auxiliary data textures as color. The
     /// authored analyzer owns the semantic proof; this only verifies the

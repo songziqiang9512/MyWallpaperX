@@ -273,7 +273,7 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
     }
 }
 
-private extension SceneAuthoredShaderProgram.TextureBinding.ChannelUse {
+private nonisolated extension SceneAuthoredShaderProgram.TextureBinding.ChannelUse {
     var componentMask: Int {
         switch self {
         case .redOnly: 1

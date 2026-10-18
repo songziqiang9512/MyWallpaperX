@@ -209,7 +209,7 @@ nonisolated struct SceneScriptVectorProgramConstruction: @unchecked Sendable {
     }
 }
 
-extension SceneScriptOwnerEffects {
+nonisolated extension SceneScriptOwnerEffects {
     mutating func append(_ evaluation: SceneScriptValueEvaluation) {
         layerTopologyOwnerIdentity = evaluation.layerTopologyOwnerIdentity ?? layerTopologyOwnerIdentity
         materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)

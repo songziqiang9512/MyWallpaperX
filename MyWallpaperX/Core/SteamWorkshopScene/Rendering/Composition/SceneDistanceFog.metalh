@@ -24,7 +24,7 @@ struct SceneImageDistanceFogUniforms {
     float4 modelY;
 };
 
-static float3 sceneImageDistanceFog(float3 rgb, float2 modelPosition,
+static inline float3 sceneImageDistanceFog(float3 rgb, float2 modelPosition,
     constant SceneImageDistanceFogUniforms &fog, float coverage = 1.0) {
     return sceneDistanceFog(rgb, fog.cameraRelativeOrigin.xyz
         + modelPosition.x * fog.modelX.xyz + modelPosition.y * fog.modelY.xyz,

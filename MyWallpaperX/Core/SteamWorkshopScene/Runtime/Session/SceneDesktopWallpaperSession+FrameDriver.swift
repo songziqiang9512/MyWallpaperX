@@ -313,7 +313,8 @@ extension SceneDesktopWallpaperSession {
             )
         let sceneScriptFrame = prepareSceneScriptFrame(
             launchContext, timing: timing, dynamicValues: preliminaryForSceneScript)
-        launchContext.sceneScriptStorageSession?.beginFrameTransaction()
+        // Unavailable storage rejects its own callbacks; unrelated owners still advance.
+        _ = launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
         let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(

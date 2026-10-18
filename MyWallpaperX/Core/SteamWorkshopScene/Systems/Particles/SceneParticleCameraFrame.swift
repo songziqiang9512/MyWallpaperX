@@ -1,7 +1,7 @@
 import CoreGraphics
 import simd
 
-struct SceneParticleCameraFrame: Sendable {
+nonisolated struct SceneParticleCameraFrame: Sendable {
     static let perspectiveEyeDistance: Float = 1_000
     static let orthographicCanvasDefaultFOVDegrees: Float = 95
 

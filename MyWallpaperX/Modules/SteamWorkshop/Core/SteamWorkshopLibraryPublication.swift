@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-extension SteamWorkshopLibraryTransaction {
+nonisolated extension SteamWorkshopLibraryTransaction {
     static func contentURL(for commit: SteamWorkshopLibraryCommit, libraryRoot: URL) throws -> URL {
         try require(storageIdentity(for: commit) != nil)
         if commit.version == 1 {

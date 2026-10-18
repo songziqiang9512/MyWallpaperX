@@ -33,7 +33,7 @@ extension WebWallpaperLocalSchemeHandler {
         webView: WKWebView
     ) {
         // 诊断出口在调用线程取一次，后台 prepare 不再读同一属性。
-        let diagnosticHandler = self.diagnosticHandler
+        let diagnosticHandler: WebRuntimeDiagnosticHandler? = self.diagnosticHandler
         ioQueue.async { [weak self] in
             guard let self else { return }
             let delivery = self.prepareDelivery(

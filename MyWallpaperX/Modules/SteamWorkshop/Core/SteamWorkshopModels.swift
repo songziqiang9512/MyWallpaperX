@@ -17,7 +17,7 @@ enum SteamWorkshopDownloadsSortMode: String, CaseIterable, Equatable {
     }
 }
 
-enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatable {
+nonisolated enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatable {
     case video
     case web
     case scene
@@ -133,8 +133,8 @@ nonisolated struct SteamWorkshopBrowserItem: Identifiable, Equatable, Codable {
     }
 }
 
-struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
-    enum Status: Equatable {
+nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
+    nonisolated enum Status: Equatable {
         case queued
         case downloading
         case ready

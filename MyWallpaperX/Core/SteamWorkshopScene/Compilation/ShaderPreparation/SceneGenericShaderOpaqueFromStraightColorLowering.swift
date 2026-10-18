@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderStraightAlphaPreservingLowering {
+nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
     /// Conserves a source-proven opaque transform whose sampled RGB math is
     /// authored in straight color. The semantic analyzer owns the dataflow;
     /// this pass independently verifies the compiler's exact sample count and

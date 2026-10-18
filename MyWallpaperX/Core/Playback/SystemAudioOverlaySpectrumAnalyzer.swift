@@ -9,7 +9,7 @@ import Foundation
 ///
 /// 只投影共享分析器已完成分贝响应与平滑的最终高度；不持有FFT、自动增益
 /// 或第二套包络。默认风格与Web/Scene同尺度，灵敏度是原生绘制的静态风格。
-final class SystemAudioOverlaySpectrumAnalyzer {
+nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
     private let barCount: Int
     private var style: SystemAudioSpectrumStyle = .balanced
     private var sensitivity: SystemAudioSpectrumSensitivity = .normal

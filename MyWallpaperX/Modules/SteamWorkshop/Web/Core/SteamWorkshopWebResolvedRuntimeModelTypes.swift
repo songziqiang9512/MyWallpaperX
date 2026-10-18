@@ -1,6 +1,6 @@
 import Foundation
 
-struct ResolvedWebHostCapabilitySnapshot: Codable, Equatable {
+nonisolated struct ResolvedWebHostCapabilitySnapshot: Codable, Equatable {
     enum SupportLevel: String, Codable, Equatable {
         case none
         case placeholder
@@ -32,7 +32,7 @@ struct ResolvedWebHostCapabilitySnapshot: Codable, Equatable {
     let volumeBridgeLevel: SupportLevel
 }
 
-struct ResolvedWebStaticContentSummary: Codable, Equatable {
+nonisolated struct ResolvedWebStaticContentSummary: Codable, Equatable {
     let usesApplyGeneralProperties: Bool
     let usesGeneralFPS: Bool
     let usesPluginBridge: Bool
@@ -296,7 +296,7 @@ struct ResolvedWebPlaybackPreparation {
     let descriptor: ResolvedWebProjectDescriptor
 }
 
-struct ResolvedWebRuntimePrecondition: Codable, Equatable, Hashable {
+nonisolated struct ResolvedWebRuntimePrecondition: Codable, Equatable, Hashable {
     enum Kind: String, Codable, Equatable, Hashable {
         case file
         case directory
