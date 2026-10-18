@@ -545,16 +545,21 @@
     },
     "3617056047": {
       "verdict": "unreviewed",
-      "note": "2026-10-18限定后验：仅记录A App当前基线，人物/模型offset实际余项仍OPEN；没有本批f844运行，不因关联347封包而称同App回归或已修复。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加限定后验：canvas模型局部Y基修正后，根亲看原图与目录参考，罐体正立并位于虚线圈内、不再压住底栏，位置/倒置反馈仅此闭合。361画面是带同observer的8183/8123候选，最终无observer74a1/ea59只运行独立358；不混作同App/同phase对照，whole sample继续unreviewed。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip。",
+      "note": "限定后验：位置/倒置反馈已闭。同批行为等价前版758f9b原包9秒/after5/resize/noPCM回归，罐体正立位于虚线圈内、不压底字，背景文字保持；exit0/failures[]，source/App无drift。此前observer与普通App的身份区别只归旧run，不延用成当前缺陷；整样本继续unreviewed，不认官方同phase/光照/像素一致。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/heldout361/result.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/heldout361/results/3617056047/scene-after-window.png"
       ],
-      "remainingDifferences": "位置/倒置反馈已闭；整样本播放、全部作者参数/交互及官方相位/光照/像素对照仍未完成。"
+      "remainingDifferences": "位置/倒置反馈已闭；整样本播放、全部作者参数/交互及官方相位/光照/像素对照仍未完成。",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
+      "officialComparison": "compared"
     },
     "3589454154": {
       "verdict": "unreviewed",
@@ -748,6 +753,21 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u37-scalar-loop-qualification-20261018/results/3769364482/scene-series-0000-window.png"
       ],
       "remainingDifferences": "三Shake Breathing/发光风格及完整样本/属性/交互与官方同phase未验；基本scalar loop已证执行，不再作为缺失排期。"
+    },
+    "3337494481": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
+      "officialComparison": "compared",
+      "note": "限定后验：显式normal的材质/纹理alpha0不再抹掉模型RGB与颜色深度；同原包758f9b实图蓝粉几何和粉色前面恢复、文字保留。顶面暗/贴片及五native composition缺source、Rope余项仍在，runner FAIL，未达目录官方整幅效果；noPCM/提示/phase不同，不误记完整通过。 最终Bool接口仅移动等值比较，GPU复验及独审后复用758实图，不称最终binary重播。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png"
+      ],
+      "remainingDifferences": "70/202/228/229/591 native-world composition缺source；Rope未支持profile；顶面暗/贴片及完整音乐/phase/构图、属性交互未验。normal RGB误丢已退出。"
     }
   }
 }

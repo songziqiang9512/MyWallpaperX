@@ -923,3 +923,16 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 <a id="e-v4-typed-named-publication-generation-registry-generation-与-frame-epoch-分责"></a> [归档记录](../history/runtime-evidence-batches-through-2026-10-03.md#e-v4-typed-named-publication-generation-registry-generation-与-frame-epoch-分责) <!-- archive-redirect -->
 <a id="e-v4-unified-media-frame-batch"></a> [归档记录](../history/runtime-evidence-batches-through-2026-10-03.md#e-v4-unified-media-frame-batch) <!-- archive-redirect -->
 <a id="e-v4-unified-media-frame-batch-跨类型有序媒体事件与自动-visibility-mutation-合同"></a> [归档记录](../history/runtime-evidence-batches-through-2026-10-03.md#e-v4-unified-media-frame-batch-跨类型有序媒体事件与自动-visibility-mutation-合同) <!-- archive-redirect -->
+
+<a id="static-model-normal-coverage-20261018"></a>
+### 2026-10-18：静态模型 normal RGB 与几何 coverage
+
+**结果与语义。** 显式 normal 的 RGB 不再因 material/texture alpha0被丢弃；prepared Entry 的 typed blending 已到原颜色 draw，显示 coverage 只取图层 alpha，复用原 PMA shader/PSO。作者值和绑定保留，nil/未知及 translucent 的旧消费不变；additive、任意原生RT的作者A/alphawriting不因此获资格。[设计](../roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage)与[稳定 owner](../architecture/runtime-architecture.md)维护表示和失败边界。stock generic3与第三方normal禁blend提供main RGB依据；没有新增官方板，不将其称为官方RT alpha测量。
+
+**真实原包。** `3337494481` project=`2977f696…eda7`、pkg=`51c6dbbe…5d6b`，原默认9秒/after5/resize/noPCM，App正常退出、source/App无drift，ready24.527s、surface1→0/GPUdrained。根与独审亲看原图：蓝粉模型几何和粉色前面恢复，文字保留。目录参考与此运行不同音乐/提示/phase，顶面仍暗/贴片；五个native composition仍source-not-ready、Rope仍有加载缺口，runner明确FAIL，整样本继续unreviewed。不能把18个准备模型或非黑替代完整官方构图。
+
+**独立样本。** 同签名App原包`3617056047`，project=`c1739219…a3f0`、pkg=`eec1affa…22ea`，9秒/after5/resize/noPCM，exit0/failures[]、source/App无drift；罐体正向位于虚线圈内、不压底字，背景与文字保持。只证旧位置修复在当前App保持，不宣称同phase/亮度或整景一致。
+
+**可复验边界。** 同一真实prepare→drawStaticModel→共享reverse-depth像素门，旧HEAD为1PASS/2FAIL（5子例），修后3PASS/16case；normal材质/纹理A0与改名变体由远蓝变近红且深度从0.49变0.51，layer0仍远蓝，layer.5在透明附件读回[128,0,0,128]；translucent零覆盖、nil/未知保持旧输出。最近旧方向阴影2PASS，覆盖旧PMA/纹理覆盖与cutoff反例。MSL未改，未新认领normal的阴影alpha或全部材质state。
+
+**身份与保留。** 根目录`.artifacts/tmp/n03-static-model-normal-coverage-20261018/`保存两产品投影、build/receipt、native两case、原图、独审及清理收据；测试原始红绿归同目录`tests/final-summary.json`。固定HEAD`20afa1c46`+两文件semantic overlay，4312产品输入无drift、Debug36.754s且签名通过；exe=`758f9b77…248a`、dylib=`56ec880f…a46a`、CDHash=`fada8669aa32be8fbb587740beea2f72d16bdcf6`。依赖门随后将normal比较下沉到现帧适配层，Metal只接收不透明颜色Bool事实；最终`build-final/receipt.json`为44.682s/4312输入无drift、exe=`6f501d7d…2621`、dylib=`81dd8db2…3374`、CDHash=`f859ebde1c467f0e00391f5113bbb9d131d47a0e`，仅接口收窄、计算/ABI/MSL/PSO不变。最终像素门另存`tests/final-interface-summary.json`；独审按值与调用等价复用758两原包实图，不冒称最终binary重播。必要结果暂存本机待证据库容量；已停runtime/HOME/旧888 stage及测试cache精确清理共904379941 logical bytes，非物理或运行内存收益。保留单份迭代缓存、758图证stage与全部失败原图/日志。未做同条件性能比较，不认领CPU/GPU/启动收益。

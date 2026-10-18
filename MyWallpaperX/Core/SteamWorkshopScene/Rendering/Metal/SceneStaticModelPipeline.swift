@@ -280,6 +280,7 @@ struct SceneStaticModelPipeline {
         sampling: SceneTextureSampling,
         layerAlpha: Float,
         material: SceneStaticModelMaterial,
+        materialColorIsOpaque: Bool = false,
         lighting: SceneLightSnapshot,
         writesDepth: Bool,
         shadows: [SceneStaticModelShadow] = [],
@@ -344,6 +345,10 @@ struct SceneStaticModelPipeline {
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
             : 1
+        // Opaque material RGB is independent of its authored fragment alpha.
+        // Project it into the existing PMA target using geometric coverage;
+        // keep the layer fade separate from material/texture opacity.
+        let coverage = materialColorIsOpaque ? layerAlpha : material.opacity * layerAlpha
         var uniforms = SceneStaticModelUniforms(
             modelMatrix: modelMatrix,
             viewProjectionMatrix: viewProjection,
@@ -360,7 +365,7 @@ struct SceneStaticModelPipeline {
                 max(material.color.x * brightness, 0),
                 max(material.color.y * brightness, 0),
                 max(material.color.z * brightness, 0),
-                min(max(material.opacity * layerAlpha, 0), 1)
+                min(max(coverage, 0), 1)
             ),
             emissiveColorAndBrightness: SIMD4(
                 max(material.emissiveColor.x, 0),
@@ -384,7 +389,7 @@ struct SceneStaticModelPipeline {
                 cameraPosition.x, cameraPosition.y, cameraPosition.z, 1
             ),
             materialFlags: SIMD4(
-                (material.textureAlphaIsOpacity ? 1 : 0)
+                (!materialColorIsOpaque && material.textureAlphaIsOpacity ? 1 : 0)
                     | (colorTextureIsPremultiplied ? 2 : 0),
                 (emissiveMask == nil ? 0 : 1)
                     | (material.receivesLighting ? 0 : 2),

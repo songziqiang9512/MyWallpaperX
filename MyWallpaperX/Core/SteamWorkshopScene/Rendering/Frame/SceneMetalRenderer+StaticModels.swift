@@ -139,7 +139,8 @@ extension SceneMetalRenderer {
                     usesPerspective: cameraFrame.resolvesPerspective(for: layer)),
                 cameraPosition: cameraFrame.perspectiveEyePosition,
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
-                layerAlpha: draw.alpha, material: draw.material, lighting: lighting,
+                layerAlpha: draw.alpha, material: draw.material,
+                materialColorIsOpaque: draw.entry.materialBlending == .normal, lighting: lighting,
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
 #if DEBUG

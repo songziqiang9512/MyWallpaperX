@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 126102
+      "bytes": 126824
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 342,
-      "bytes": 126828
+      "lines": 356,
+      "bytes": 130155
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 64556
+      "bytes": 64782
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -165,8 +165,8 @@
       "bytes": 17214
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 511,
-      "bytes": 112318
+      "lines": 522,
+      "bytes": 114601
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 92,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 53,
-      "bytes": 16265
+      "lines": 54,
+      "bytes": 16871
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 54091
+      "bytes": 54297
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1234,15 +1234,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "3c040b968e69266aac093b348611ffcd1a89efbe3f58edee17fe690e59c48be0",
-      "after": "581a278063990d2b9aba9786e9b679cba0685fb027351eea9f1611053e40ced1",
-      "owner": "scene-model-reflection-qualification",
-      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "b0c5c3de6f81ea80dfef1719c860372fb44fe3419b58929909d26c532915d636",
       "after": "535b056c54090714a82a1b1164a01d714c58f9b6f2bbb490a274c696bde8942b",
@@ -1387,48 +1378,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "495aa681940396a7d05fa48a6385415f8761d276a0de1f02e47e52182cbaceac",
-      "after": "27f8aa232ec0861bf279a1da1bc22fac27e3332e2682f07e93e555b5ab28c434",
-      "owner": "scene-childless-background-source",
-      "reason": "Bounded authored source-priority contract and actual public fix with hidden preparation and per-sample evidence; replaced stale claims and retained failures, without broader capability promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#无子层-passthrough-的背景选择修正2026-10-18"
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "581a278063990d2b9aba9786e9b679cba0685fb027351eea9f1611053e40ced1",
+      "after": "c41dc4946341aab51f2dd96c54ba62a8ecf1e6c920173656e2d24639e29807dc",
+      "owner": "scene-static-model-normal-coverage",
+      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d9a24595a4525799e092e97146abd1b3877fdef82b12269744261fe1fda0820a",
-      "after": "2bfa9f3acddddcf99ebcad76c561597d8e9fee9ca5e7f4c16900dba3328c3920",
-      "owner": "scene-childless-background-source",
-      "reason": "Bounded authored source-priority contract and actual public fix with hidden preparation and per-sample evidence; replaced stale claims and retained failures, without broader capability promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#无子层-passthrough-的背景选择修正2026-10-18"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "27f8aa232ec0861bf279a1da1bc22fac27e3332e2682f07e93e555b5ab28c434",
+      "after": "571332967c413a761d3d219b2d7dccc10f40291bdc6c8971de6ab7ef4e9c5766",
+      "owner": "scene-static-model-normal-coverage",
+      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "454a394073103eb8e6862b09c6c59aff61815a33e09dd1b88b8dd6551b2aaa38",
-      "after": "4bf5de52992ecd3e15bd000ade8078a8549599f6268d8774920aba5b357c0b39",
-      "owner": "scene-childless-background-source",
-      "reason": "Bounded authored source-priority contract and actual public fix with hidden preparation and per-sample evidence; replaced stale claims and retained failures, without broader capability promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#无子层-passthrough-的背景选择修正2026-10-18"
+      "before": "4bf5de52992ecd3e15bd000ade8078a8549599f6268d8774920aba5b357c0b39",
+      "after": "c45d8a575a49a01f682350bd086c1b7faf9a3e65d3139e97deebb57fb35aa21d",
+      "owner": "scene-static-model-normal-coverage",
+      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "11a6b8a440cd19900bc9cfd126833ee1e66460e517d61c7968e455f0a37a3cf6",
+      "after": "a7a5e985be229408c45e66d714ac935bad887a0c7c69b0833c5886424a386382",
+      "owner": "scene-static-model-normal-coverage",
+      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "365a4a7f773aa2c261d650b13d6dd933893cda9dbd2552e759139abd717771ec",
-      "after": "4d22a3d8def134c42e75ea053017e552eb862f48949e9560246c953508dee554",
-      "owner": "scene-scalar-loop-qualification",
-      "reason": "Bounded actual encoded scalar and visible red-glow cycle replace a stale missing-loop candidate; retain remaining feedback without a product capability promotion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u37-scalar-loop-20261018"
+      "before": "4d22a3d8def134c42e75ea053017e552eb862f48949e9560246c953508dee554",
+      "after": "90046bb5f870619a5f821a5307353af5c43f1b4c9bc493af577eb3051a3c11e4",
+      "owner": "scene-static-model-normal-coverage",
+      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "9fedd1c5b09bdf105361a53960381e21761ce85cd8eeeed13f38d2009477e5e4",
-      "after": "0f894ddfd0aad15b964092be3a9438cad9b32aedf217948983868b149eb7c4a9",
-      "owner": "scene-scalar-loop-qualification",
-      "reason": "Bounded actual encoded scalar and visible red-glow cycle replace a stale missing-loop candidate; retain remaining feedback without a product capability promotion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u37-scalar-loop-20261018"
+      "before": "0f894ddfd0aad15b964092be3a9438cad9b32aedf217948983868b149eb7c4a9",
+      "after": "24237937277f8dd6f0b2c160db36169f70fcb22d2e1d59c62a28c6e710864ad3",
+      "owner": "scene-static-model-normal-coverage",
+      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
     }
   ]
 }

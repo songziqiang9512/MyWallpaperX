@@ -128,6 +128,17 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **退役。** 标量片先完成可见门与独立终审并按职责提交；窄登记在贴图输入/解码后继也闭合、稳定输入/owner移交架构后删除。D3整体登记保留，贴图之后推进明确环境资源的reflection与有合法caster/depth的shadow。未知某个分支只限制该分支，不以缺官方公式停止整个能力。
 
+<a id="static-model-normal-coverage"></a>
+### 静态模型 normal 颜色与显示 coverage（2026-10-18）
+
+**问题与最小结果。** 准备资源已有 typed material blending，颜色 draw 尚未消费，统一把 material alpha 当覆盖率；显式 normal、alpha0 的主体因此在片元被丢弃。修复公共材质语义，不改作者 alpha 值或绑定，不按模型、路径或样本选路。首片恢复 normal 的独立 RGB 和几何深度，保留图层淡出及 translucent 的透明遮挡规则。
+
+**职责与取舍。** 沿原 Entry → drawStaticModel 消费已有 typed blending，将不透明颜色事实交给 Pipeline.draw；底层绘制不依赖编译层枚举。准备 uniform 时，normal 的显示 coverage 仅取 layerAlpha，并关闭纹理 alpha 作为覆盖率的 flag。其他状态及旧无 state caller 沿原 materialAlpha×layerAlpha×可选 textureAlpha。现 shader 仍输出 RGB×coverage、coverage，零 coverage 仍 discard，复用唯一 PMA PSO、reverse-depth、cull、HDR、fog、阴影与资源生命周期，不新增 pass、target、cache 或逐帧解析。layerAlpha1 时 normal 对任意当前 RGB 等价覆盖，半透明图层仍按本项目原淡出规则合成。
+
+这是现 PMA 目标的显示表示策略：保留原 material alpha DTO 与动态输入，不把显示 coverage 称为作者 fragment alpha。不采用只关闭 blending（片元已先 discard）、把作者 alpha 改为1、或写 straight RGB+A0 后仍标 PMA（named 读者会清掉 RGB）。透明 group 继续得到有效 PMA；任意原生 RT 的材质 A/alphawriting 官方一致性与 additive 修正不由本片认领。
+
+**失败、退出与验收。** 不扩大资源/句柄准入，沿原失败与取消；移除 normal 错用 opacity 的旧消费，保留未资格状态的既有行为。最近像素门经过真实资源准备、颜色/深度绘制，区分 normal material/texture A0、translucent A0、layer A0/.5/1、透明目标和 tint-mask；变体改资源名，缺 state caller 保旧。隔离 Debug、原包主体/目录官方图及未参与修法的模型样本检查 terminal/次帧，独审后同步稳定架构与当前证据。只报告实见 RGB/coverage 与深度，不以此宣称完整材质、任意 RT A 或性能收益。
+
 ### generic4 模型静态表面响应（2026-10-09有界后继）
 
 **目标与依据。** 实施前模型只累加漫反射并在灯编码乘经验0.30，未消费MR。自有模型平面H1–H10中性控制已区分albedo、强度、距离、视向与明确roughness/metallic；公开GGX、Schlick Fresnel、能量分配后的Lambert及analytic-light Schlick visibility可解释该有界集合，不声称还原官方私有BRDF或完整PBR。只开放原direct模型路径中generic4的静态MR、point/spot；本片按中性作者声明与数值门采用项目默认metallic0/roughness0.7，不外推所有tier/editor。其它tier、动态MR及模型normal/PBR贴图不扩权；directional 后继限于下述2026-10-10同profile消费。2D新夹具未通过Lighting入场，不能裁定其官方visibility或分量gate，也不阻塞本有界模型缺口。

@@ -2633,11 +2633,14 @@
         "script/tests/test_scene_static_model_cull_integration.py",
         "script/tests/test_scene_directional_shadow.py",
         "script/tests/test_scene_spot_model_shadow.py",
-        "script/tests/test_scene_point_model_shadow.py"
+        "script/tests/test_scene_point_model_shadow.py",
+        "script/tests/test_scene_static_model_blending.py",
+        "script/tests/fixtures/SceneStaticModelBlendChecks.swift"
       ],
       "modules": [
         "test_scene_static_model_reader",
         "test_scene_static_model_parts",
+        "test_scene_static_model_blending",
         "test_scene_static_model_pipeline",
         "test_scene_static_model_emission",
         "test_scene_static_model_cull_integration",
