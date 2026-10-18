@@ -28,6 +28,8 @@ extension SceneMetalRenderer {
               let imagePipeline, let offscreenTexturePool else { return true }
         let plans = planned.filter {
             resolvedMaterialFrameTargetPlans[$0.layerID] != nil
+                || ($0.usesAuthoredLocalSource
+                    && layersByID[$0.layerID]?.effects.contains(where: { $0.visible != false }) == false)
         }
         guard !plans.isEmpty else { return true }
         // D1: only one render encoder may be active per command buffer, and a

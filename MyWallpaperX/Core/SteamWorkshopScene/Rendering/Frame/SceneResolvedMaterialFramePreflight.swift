@@ -377,11 +377,17 @@ extension SceneMetalRenderer {
                 guard let geometry = SceneCaptureGeometryResolver.resolve(
                     kind: utility.kind,
                     layerMVP: cameraFrame.viewProjection(for: layer) * model,
-                    viewportSize: viewportSize,
-                    captureMVP: cameraFrame.captureViewProjection(for: layer) * model,
+                    viewportSize: compositionGroupRuntime?
+                        .enclosingTargetSize(forLayerID: layer.id) ?? viewportSize,
+                    captureMVP: compositionGroupRuntime?.rasterModelViewProjection(
+                        forLayerID: layer.id,
+                        worldMVP: cameraFrame.captureViewProjection(for: layer) * model
+                    ) ?? (cameraFrame.captureViewProjection(for: layer) * model),
                     compositionSourceMemberLayerIDs:
                         utilityExecution.membersByRootID[layer.id],
-                    authoredRenderSizeWH: layer.renderSizeWH
+                    authoredRenderSizeWH: layer.renderSizeWH,
+                    localCompositionSourceExtent: compositionGroupRuntime?
+                        .localSourceExtent(forRootID: layer.id)
                 ) else {
                     return .rejected(reasonCode: "utility-offscreen-size-unavailable")
                 }
@@ -536,9 +542,14 @@ extension SceneMetalRenderer {
                     dependencyUnavailability = .providerSourceUnavailable
                     break
                 }
-                let providerMVP = cameraFrame.captureViewProjection(for: providerLayer)
+                let providerWorldMVP = cameraFrame.captureViewProjection(for: providerLayer)
                     * imageModel(providerLayer,
                         imageTextures.layerSourceRenderSize(for: providerLayer.id))
+                let providerMVP = providerLayer.utilityLayer == nil ? providerWorldMVP
+                    : compositionGroupRuntime?.rasterModelViewProjection(
+                        forLayerID: providerLayer.id, worldMVP: providerWorldMVP) ?? providerWorldMVP
+                let providerViewport = providerLayer.utilityLayer == nil ? viewportSize
+                    : compositionGroupRuntime?.enclosingTargetSize(forLayerID: providerLayer.id) ?? viewportSize
                 let preparedOutputExtent = preparedGraphOutputExtent(
                     for: binding.providerLayerID,
                     plans: byLayerID
@@ -593,7 +604,7 @@ extension SceneMetalRenderer {
                         providerTexture: source?.texture,
                         providerCandidate: source?.candidate,
                         layerMVP: providerMVP,
-                        viewportSize: frameContext.screenSize,
+                        viewportSize: providerViewport,
                         preparedOutputExtent: preparedOutputExtent,
                         geometryProduct: geometryProduct,
                         providerOutputMVP: providerOutputMVP,
@@ -867,6 +878,8 @@ extension SceneMetalRenderer {
                 primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
                 layerModelMatrix: layerModelMatrix,
                 effectOutputModelViewProjection: effectProjectionMVP,
+                terminalReplayModelViewProjection: compositionGroupRuntime?
+                    .rasterModelViewProjection(forLayerID: layer.id, worldMVP: outputMVP),
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 effectDrawAlpha: effectDrawAlpha,

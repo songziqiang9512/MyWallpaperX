@@ -1,4 +1,5 @@
 import Metal
+import simd
 
 final class SceneMainPassEncoder {
     private let commandBuffer: MTLCommandBuffer
@@ -9,6 +10,7 @@ final class SceneMainPassEncoder {
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
     private let submissionOwner: SceneMainPassEncoder?
+    private let worldClipToTargetClip: simd_float4x4?
     private var auxiliaryReleases: [() -> Void] = []
     private var isFinished = false
     private var encodingFailed = false
@@ -18,6 +20,10 @@ final class SceneMainPassEncoder {
     }
 
     var targetPixelFormat: MTLPixelFormat { target.pixelFormat }
+
+    func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {
+        worldClipToTargetClip.map { $0 * worldMVP } ?? worldMVP
+    }
 
     func belongs(to commandBuffer: MTLCommandBuffer) -> Bool {
         self.commandBuffer === commandBuffer
@@ -40,9 +46,11 @@ final class SceneMainPassEncoder {
         target: MTLTexture,
         clearColor: MTLClearColor,
         clearEnabled: Bool,
-        submissionOwner: SceneMainPassEncoder? = nil
+        submissionOwner: SceneMainPassEncoder? = nil,
+        worldClipToTargetClip: simd_float4x4? = nil
     ) {
         self.submissionOwner = submissionOwner
+        self.worldClipToTargetClip = worldClipToTargetClip
         self.commandBuffer = commandBuffer
         self.target = target
         self.clearColor = clearColor

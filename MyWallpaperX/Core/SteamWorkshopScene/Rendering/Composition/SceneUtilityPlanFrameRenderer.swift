@@ -126,7 +126,8 @@ enum SceneUtilityPlanFrameRenderer {
                     layer: layer,
                     plan: plan,
                     layerMVP: mvp,
-                    viewportSize: viewportSize,
+                    viewportSize: compositionGroupRuntime?
+                        .enclosingTargetSize(forLayerID: layer.id) ?? viewportSize,
                     time: time,
                     finalCompositeAlpha: SceneDynamicLayerValues.alpha(
                         layerID: layer.id,
@@ -147,7 +148,12 @@ enum SceneUtilityPlanFrameRenderer {
                     resolvedMaterialFrameTargetPlan:
                         resolvedMaterialFrameTargetPlans[layer.id],
                     isolatedGroupSource: isolatedGroupSource,
-                    captureMVP: cameraFrame.captureViewProjection(for: layer) * model,
+                    captureMVP: compositionGroupRuntime?.rasterModelViewProjection(
+                        forLayerID: layer.id,
+                        worldMVP: cameraFrame.captureViewProjection(for: layer) * model
+                    ) ?? (cameraFrame.captureViewProjection(for: layer) * model),
+                    localCompositionSourceExtent: compositionGroupRuntime?
+                        .localSourceExtent(forRootID: layer.id),
                     executionTrace: effectExecutionTrace
                 )
             }

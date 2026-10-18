@@ -15,6 +15,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         let capturesCompositionSubtree: Bool
         let orderedCompositionSubtreeLayerIDs: [Int]
         var usesIsolatedGroupTarget: Bool = false
+        var usesAuthoredLocalSource: Bool = false
     }
 
     static func resolve(
@@ -77,6 +78,20 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 pending.append(childID)
             }
         }
+        let localSource = descriptor.camera.authoredOrthographicProjectionActive == true
+            && !utility.copyBackground && !descendants.isEmpty
+            && layer.usesPerspective != true
+            && descendants.allSatisfy { childID in
+                guard let child = layersByID[childID], child.usesPerspective != true else {
+                    return false
+                }
+                // A nested background group still requires its original
+                // viewport copy. Do not change that input by partial migration.
+                return child.utilityLayer?.kind != .composition
+                    || child.utilityLayer?.passthrough == true
+                    || child.utilityLayer?.copyBackground != true
+                    || child.childLayerIDs.isEmpty
+            }
         // Existing color producers can draw into this target. Depth-tested
         // models, particles and lights retain their existing unsupported route.
         // Plain members may own transform-parent chains; membership follows
@@ -88,7 +103,8 @@ nonisolated enum SceneUtilityLayerSourceRoute {
             if let childUtility = child.utilityLayer {
                 guard childUtility.kind == .composition,
                       child.contentKind == childUtility.kind.rawValue,
-                      !childUtility.passthrough else {
+                      !childUtility.passthrough || (localSource
+                        && (child.childLayerIDs.isEmpty || child.effects.isEmpty)) else {
                     return .failure(.compositionSubtreeShape)
                 }
             } else {
@@ -101,7 +117,8 @@ nonisolated enum SceneUtilityLayerSourceRoute {
             triggerLayerID: layer.id,
             capturesCompositionSubtree: !descendants.isEmpty,
             orderedCompositionSubtreeLayerIDs: order.filter { descendants.contains($0) },
-            usesIsolatedGroupTarget: true
+            usesIsolatedGroupTarget: true,
+            usesAuthoredLocalSource: localSource
         ))
     }
 }

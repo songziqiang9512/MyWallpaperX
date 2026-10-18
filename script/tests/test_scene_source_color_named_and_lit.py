@@ -22,17 +22,22 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 
 
-def run_frozen(sources, support, label, metal_sources):
+def run_frozen(sources, support, label, metal_sources, read_inputs=()):
     with tempfile.TemporaryDirectory(prefix="mwx-source-color-final-") as temporary:
         work = Path(temporary)
         frozen, identities = {}, {}
-        for source in dict.fromkeys([*sources, *metal_sources]):
+        metal_headers = {metal.parent / header for metal in metal_sources
+                         for header in ("SceneDistanceFog.metalh", "SceneSurfaceResponse.metalh")
+                         if (metal.parent / header).is_file()}
+        for source in dict.fromkeys([*sources, *metal_sources, *sorted(metal_headers), *read_inputs]):
             destination = work / "production" / source.relative_to(ROOT)
             destination.parent.mkdir(parents=True, exist_ok=True)
             data = source.read_bytes()
             destination.write_bytes(data)
             frozen[source] = destination
             identities[str(source.relative_to(ROOT))] = hashlib.sha256(data).hexdigest()
+        if callable(support):
+            support = support(frozen)
         keys = ("MWX_DIRECTIONAL_SHADOW_EVIDENCE", "MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT")
         previous = {key: os.environ.get(key) for key in keys}
         os.environ[keys[0]] = str(work)
@@ -59,6 +64,184 @@ def run_frozen(sources, support, label, metal_sources):
                 "productSourceDrift": drift, "result": report,
             }, indent=2) + "\n")
         return report
+
+
+PROVIDER_HELPER = SCENE / "Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift"
+COMPLETED_SOURCE_UNIFORMS = SCENE / "Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift"
+
+
+def local_named_support(frozen):
+    support = named.dependency_support()
+    start = support.index("enum SceneCaptureGeometryResolver")
+    support = support[:start] + support[support.index("enum SceneTextureLoadOutcome", start):]
+    support = support.replace("enum Kind { case composition }", "enum Kind { case composition, fullscreen, project }")
+    source = frozen[PROVIDER_HELPER].read_text()
+    method = source[source.index("    func captureRawDependencyProvider("):
+                    source.index("    func prepareForwardDependencyProviders(")]
+    uniforms = frozen[COMPLETED_SOURCE_UNIFORMS].read_text().split("extension SceneImageLayerCompositor {", 1)[0]
+    return support + uniforms + LOCAL_NAMED_DTOS + "\nextension SceneMetalRenderer {\n" + method + "}\n" + LOCAL_NAMED_MAIN
+
+
+# Only adjacent DTOs are supplied. The selected production helper is compiled
+# unchanged from its frozen input; capture, geometry, pool and publication are real.
+LOCAL_NAMED_DTOS = r'''
+struct SceneFrameContext { let dynamicValues = 0; let cameraParallaxPosition = SIMD2<Float>.zero }
+struct SceneParticleCameraFrame {
+    let coverHalfExtents = SIMD2<Float>(128, 128)
+    func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool { false }
+    func captureViewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 { matrix_identity_float4x4 }
+}
+enum SceneLayerParallax { struct Configuration {} }
+enum SceneDynamicLayerValues {
+    static func alpha(layerID: Int, authoredValue: Double?, snapshot: Int) -> Double { authoredValue ?? 1 }
+    static func color(layerID: Int, authoredValue: [Double]?, snapshot: Int) -> SIMD3<Float> {
+        SIMD3(authoredValue ?? [1, 1, 1], fill: 1)
+    }
+}
+struct SceneBaseMaterialTextureSource {
+    let texture: MTLTexture; let candidate: SceneTextureCandidate?; let usesAuthoredLayerColor: Bool
+}
+struct SceneBaseImageTextureSnapshot {
+    let geometryProducts: [Int: SceneGeometryProduct] = [:]
+    func layerSourceRenderSize(for id: Int) -> [Float]? { nil }
+    func layerSourceTextCenterOffsetY(for id: Int) -> Float? { nil }
+}
+final class SceneMetalRenderer {
+    let dependencyRuntime: SceneDependencyFrameRuntime; let textureRegistry: SceneFrameTextureRegistry
+    init(_ runtime: SceneDependencyFrameRuntime, _ registry: SceneFrameTextureRegistry) {
+        dependencyRuntime = runtime; textureRegistry = registry
+    }
+    // Canonical world MVP is supplied by the probe; this DTO does not implement
+    // camera, parent or layer transformation behavior a second time.
+    func imageModelMatrix(for layer: SceneRenderDescriptor.Layer,
+        worldFramesByLayerID: [Int: simd_float4x4], renderSizeOverride: [Float]?,
+        textCenterOffsetY: Float, parallaxMouseNormalized: SIMD2<Float>,
+        configuration: SceneLayerParallax.Configuration, visibleHalfExtents: SIMD2<Float>,
+        usesPerspective: Bool) -> simd_float4x4 { worldFramesByLayerID[layer.id]! }
+}
+'''
+
+LOCAL_NAMED_MAIN = r'''
+@main enum LocalNamedProviderProbe {
+    static func texture(_ device: MTLDevice, _ width: Int, _ height: Int,
+                        marker: Bool = false) -> MTLTexture {
+        let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+            width: width, height: height, mipmapped: false)
+        d.storageMode = .shared; d.usage = [.shaderRead, .renderTarget]
+        let result = device.makeSceneTexture(descriptor: d)!
+        var bytes = [UInt8](repeating: 255, count: width * height * 4)
+        for y in 0..<height { for x in 0..<width {
+            let i = (y * width + x) * 4, red = marker && (40..<48).contains(x)
+            bytes[i] = red ? 0 : 255; bytes[i+1] = 0; bytes[i+2] = red ? 255 : 0
+        } }
+        bytes.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: width * 4) }
+        return result
+    }
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
+              let pipeline = SceneImageLayerPipeline(device: device) else {
+            print("{\"metalUnavailable\":true}"); return
+        }
+        func binding(_ provider: Int, _ consumer: Int, _ kind: SceneDependencyRenderPlan.Binding.Kind)
+            -> SceneDependencyRenderPlan.Binding {
+            .init(consumerLayerID: consumer, providerLayerID: provider,
+                slot: .init(effectID: "own-local-named", passIndex: 0, slotIndex: 1), blendMode: 0, kind: kind)
+        }
+        let provider = SceneRenderDescriptor.Layer(id: 500, contentKind: "composition",
+            utilityLayer: .init(kind: .composition), alpha: 1, colorRGB: [1, 1, 1])
+        let link = binding(500, 501, .resolvedMaterial), registry = SceneFrameTextureRegistry()
+        let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:])
+        let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+            bindings: [501: link], graphOutputProviderLayerIDs: []), visibleLayerIDs: [500, 501],
+            executableUtilityConsumerLayerIDs: [], device: device)
+        let renderer = SceneMetalRenderer(runtime, registry), command = queue.makeCommandBuffer()!
+        let attachment = texture(device, 128, 128, marker: true)
+        let parentGeometry = SceneCompositionSourceGeometry(authoredRenderSizeWH: [128, 128],
+            worldMVP: matrix_identity_float4x4)!
+        let main = SceneMainPassEncoder(commandBuffer: command, target: attachment,
+            clearColor: MTLClearColor(), clearEnabled: false,
+            worldClipToTargetClip: parentGeometry.worldClipToSourceClip)
+        let worldMVP = SceneMatrix.scale(SIMD3(0.5, 0.5, 1))
+        func capture(_ capacity: Bool) -> SceneGraphOutputPublicationResult? {
+            renderer.captureRawDependencyProvider(layer: provider, source: nil,
+                imageTextures: .init(), imagePipeline: pipeline, frameContext: .init(),
+                worldFrames: [500: worldMVP], cameraFrame: .init(), parallax: .init(),
+                viewportSize: CGSize(width: 256, height: 256), mainPass: main, preparesCapacityOnly: capacity)
+        }
+        var facts = ["utilityCapacityUsesAttachment": capture(true) == nil,
+                     "utilityPublicationSucceeded": capture(false) == .published]
+        let reference = SceneNamedTextureReference(providerLayerID: 500, variant: .primary)
+        let output = registry.completeNamedLayerTargetResource(reference: reference, frameEpoch: epoch)!.publication.texture
+        facts["utilityPhysicalExtent"] = output.width == 64 && output.height == 64
+        let pixels = device.makeBuffer(length: 64 * 256, options: .storageModeShared)!
+        main.closeForOffscreen()
+        let blit = command.makeBlitCommandEncoder()!
+        blit.copy(from: output, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
+            sourceSize: MTLSize(width: output.width, height: output.height, depth: 1), to: pixels,
+            destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 64 * 256)
+        blit.endEncoding(); precondition(main.finishEnsuringClear())
+        main.armCompositionPins(); command.commit(); command.waitUntilCompleted()
+        let bytes = pixels.contents().assumingMemoryBound(to: UInt8.self)
+        func rgba(_ x: Int) -> [UInt8] { let i = 20 * 256 + x * 4
+            return [bytes[i+2], bytes[i+1], bytes[i], bytes[i+3]] }
+        facts["utilitySamplesEnclosingLocalCoordinates"] = rgba(10) == [255, 0, 0, 255]
+            && rgba(30) == [0, 0, 255, 255]
+        facts["utilityGPUCompleted"] = command.status == .completed && command.error == nil
+
+        // A graph's prepared output extent supersedes projected utility size.
+        var graphProvider = provider; graphProvider.effects = [.init(visible: true)]
+        let graphRuntime = SceneDependencyFrameRuntime(descriptor: .init(layers: [graphProvider],
+            bindings: [501: link], graphOutputProviderLayerIDs: [500]), visibleLayerIDs: [500, 501],
+            executableUtilityConsumerLayerIDs: [], device: device)
+        let graphRegistry = SceneFrameTextureRegistry()
+        let graphEpoch = graphRegistry.beginFrame(frameIndex: 2, layerSources: [:])
+        var reason: String?
+        let reserved = graphRuntime.reserveEffectInput(for: link, providerLayer: graphProvider,
+            providerTexture: nil, providerCandidate: nil, layerMVP: worldMVP,
+            viewportSize: CGSize(width: 256, height: 256), preparedOutputExtent: (32, 16),
+            frameEpoch: graphEpoch, failureReason: &reason)
+        let graphCommand = queue.makeCommandBuffer()!, graphOutput = texture(device, 32, 16)
+        facts["preparedUtilityGraphExtentPreserved"] = reason == nil
+            && reserved?.texture.width == 32 && reserved?.texture.height == 16
+        facts["preparedUtilityGraphPublished"] = graphRuntime.publishGraphOutputIfRequired(layerID: 500,
+            texture: graphOutput, publicationRole: .namedProviderPrepass,
+            textureRegistry: graphRegistry, commandBuffer: graphCommand) == .published
+        graphCommand.commit(); graphCommand.waitUntilCompleted()
+        facts["graphGPUCompleted"] = graphCommand.status == .completed && graphCommand.error == nil
+
+        // The enclosing mapping must not redefine independent asset publication.
+        let asset = SceneRenderDescriptor.Layer(id: 610, contentKind: "image", utilityLayer: nil,
+            alpha: 1, colorRGB: [1, 1, 1]), assetLink = binding(610, 611, .imageLayerBlend)
+        let assetRegistry = SceneFrameTextureRegistry(), assetSource = texture(device, 8, 4)
+        let assetEpoch = assetRegistry.beginFrame(frameIndex: 3, layerSources: [:])
+        let atom = SceneTextureCandidate(texture: assetSource, identity: .builtIn(name: "own-independent-asset"),
+            generation: .immutable(revision: 1), purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)), physicalSize: CGSize(width: 8, height: 4),
+            mappedSize: CGSize(width: 8, height: 4), uvTransform: .identity, sampling: .linearClamp)
+        let assetRuntime = SceneDependencyFrameRuntime(descriptor: .init(layers: [asset],
+            bindings: [611: assetLink], graphOutputProviderLayerIDs: []), visibleLayerIDs: [610, 611],
+            executableUtilityConsumerLayerIDs: [], device: device)
+        let assetCommand = queue.makeCommandBuffer()!
+        let assetMain = SceneMainPassEncoder(commandBuffer: assetCommand, target: attachment,
+            clearColor: MTLClearColor(), clearEnabled: false,
+            worldClipToTargetClip: parentGeometry.worldClipToSourceClip)
+        facts["independentAssetPublicationPreserved"] = SceneMetalRenderer(assetRuntime, assetRegistry)
+            .captureRawDependencyProvider(layer: asset,
+                source: .init(texture: assetSource, candidate: atom, usesAuthoredLayerColor: true),
+                imageTextures: .init(), imagePipeline: pipeline, frameContext: .init(),
+                worldFrames: [610: worldMVP], cameraFrame: .init(), parallax: .init(),
+                viewportSize: CGSize(width: 256, height: 256), mainPass: assetMain) == .published
+        let assetOutput = assetRegistry.completeNamedLayerTargetResource(reference:
+            .init(providerLayerID: 610, variant: .primary), frameEpoch: assetEpoch)?.publication.texture
+        facts["independentAssetExtentPreserved"] = assetOutput?.width == 8 && assetOutput?.height == 4
+        precondition(assetMain.finishEnsuringClear()); assetMain.armCompositionPins()
+        assetCommand.commit(); assetCommand.waitUntilCompleted()
+        facts["assetGPUCompleted"] = assetCommand.status == .completed && assetCommand.error == nil
+        print(String(decoding: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
 
 
 NAMED_MAIN = r'''
@@ -253,6 +436,15 @@ LIT_MAIN = r'''
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneSourceColorNamedAndLitTests(unittest.TestCase):
+    def test_actual_local_utility_named_capture_and_prepared_graph_extent(self):
+        sources = list(dict.fromkeys([*named.DEPENDENCY_SOURCES, *[SCENE / path for path in (
+            "Rendering/Geometry/SceneCaptureGeometry.swift", "Rendering/Geometry/SceneLayerCursorGeometry.swift")]]))
+        report = run_frozen(sources, local_named_support, "local-utility-named",
+                            [SCENE / "Rendering/Composition/SceneImageLayer.metal"],
+                            read_inputs=[PROVIDER_HELPER, COMPLETED_SOURCE_UNIFORMS])
+        self.assertEqual(len(report), 11, report)
+        self.assertTrue(all(report.values()), report)
+
     def test_actual_named_capture_readiness_model_representation_and_data_rejection(self):
         report = run_frozen(named.DEPENDENCY_SOURCES, named.dependency_support() + NAMED_MAIN,
                             "named-source-color", [SCENE / "Rendering/Composition/SceneImageLayer.metal"])

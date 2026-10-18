@@ -15,10 +15,14 @@ from script.tests import test_scene_dependency_render_plan as dependency_fixture
 
 SWIFT_SOURCES = list(dict.fromkeys(pool_fixture.SWIFT_SOURCES + dependency_fixture.SWIFT_SOURCES + [
     pool_fixture.SOURCE_ROOT / "Rendering/Composition/SceneMainPassEncoder.swift",
+    pool_fixture.SOURCE_ROOT / "Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
+    pool_fixture.SOURCE_ROOT / "Rendering/Geometry/SceneCaptureGeometry.swift",
+    pool_fixture.SOURCE_ROOT / "Rendering/Geometry/SceneMatrix.swift",
+    pool_fixture.SOURCE_ROOT / "Rendering/Geometry/SceneLayerCursorGeometry.swift",
 ]))
 
 
-HARNESS = pool_fixture.HARNESS.split("@main", 1)[0] + r'''
+HARNESS = "import simd\n" + pool_fixture.HARNESS.split("@main", 1)[0] + r'''
 @main
 enum CompositionSourceProbe {
     static func allocationCommitInterleavings(
@@ -134,12 +138,221 @@ enum CompositionSourceProbe {
         return facts
     }
 
+    static func localSourceFacts(device: MTLDevice, queue: MTLCommandQueue) throws -> [String: Bool] {
+        var utility = SceneUtilityLayer(kind: .composition)
+        utility.copyBackground = false
+        var passthrough = utility; passthrough.passthrough = true
+        func layer(_ id: Int, parent: Int? = nil, children: [Int] = [],
+                   utility: SceneUtilityLayer? = nil,
+                   effects: [SceneRenderDescriptor.EffectDescriptor] = []) -> SceneRenderDescriptor.Layer {
+            .init(parentID: parent, id: id, contentKind: utility == nil ? "solid" : "composition",
+                utilityLayer: utility, dependencyLayerIDs: [], childLayerIDs: children,
+                visible: true, effects: effects)
+        }
+        var facts: [String: Bool] = [:]
+        var selected: SceneUtilityLayerRuntimePlanner.Execution!
+        let outer = 709, inner = 901, middle = 73, leaf = 218
+        for (index, ids) in [[101, 203, 307, 401], [outer, inner, middle, leaf]].enumerated() {
+            let roots = [layer(ids[0], children: [ids[1]], utility: utility),
+                layer(ids[1], parent: ids[0], children: [ids[2]], utility: utility),
+                layer(ids[2], parent: ids[1], children: [ids[3]], utility: passthrough),
+                layer(ids[3], parent: ids[2])]
+            var descriptor = SceneRenderDescriptor(layers: index == 0 ? roots : Array(roots.reversed()),
+                renderOrderLayerIDs: [ids[3], ids[0], ids[2], ids[1]])
+            descriptor.camera.authoredOrthographicProjectionActive = true
+            let plans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor)
+            let execution = SceneUtilityLayerRuntimePlanner.execution(in: descriptor, plans: plans)
+            facts["noEffectLocalCapture-\(index)"] = [ids[0], ids[1]].allSatisfy {
+                plans[$0]?.disposition == .capture && plans[$0]?.usesAuthoredLocalSource == true
+            }
+            facts["nearestMembershipAndOrder-\(index)"] = execution.orderedLayerIDs
+                == [ids[3], ids[2], ids[1], ids[0]]
+                && execution.memberRootsByLayerID[ids[1]] == ids[0]
+                && execution.memberRootsByLayerID[ids[2]] == ids[1]
+                && execution.memberRootsByLayerID[ids[3]] == ids[1]
+                && execution.localSourceRootIDs == Set([ids[0], ids[1]])
+                && execution.membersByRootID[ids[2]] == nil
+            selected = execution
+            for visible in [true, false] {
+                let changedRoot = layer(ids[0], children: [ids[1]], utility: utility,
+                    effects: [.init(id: "own-equivalent-effect", file: "effects/own-filter.json",
+                        visible: visible, passes: [])])
+                var changed = SceneRenderDescriptor(layers: [changedRoot] + roots.dropFirst(),
+                    renderOrderLayerIDs: descriptor.renderOrderLayerIDs)
+                changed.camera.authoredOrthographicProjectionActive = true
+                let changedPlans = SceneUtilityLayerRuntimePlanner.plans(in: changed,
+                    resolvedMaterialLayerIDs: [ids[0]])
+                facts["effectVisibilityKeepsLocalSource-\(index)-\(visible)"] = changedPlans[ids[0]]?
+                    .usesAuthoredLocalSource == true && changedPlans[ids[0]]?.disposition == .capture
+            }
+        }
+        let rootMVP = SceneMatrix.translation(SIMD3(0.12, -0.08, 0))
+            * SceneMatrix.rotationZ(0.35) * SceneMatrix.scale(SIMD3(1.2, 0.8, 1))
+        let innerMVP = rootMVP * SceneMatrix.translation(SIMD3(0.4, 0, 0))
+            * SceneMatrix.scale(SIMD3(0.5, 0.5, 1))
+        let leafMVP = innerMVP * SceneMatrix.translation(SIMD3(0.25, 0, 7))
+            * SceneMatrix.scale(SIMD3(2, 2, 1))
+        let geometries = [outer: SceneCompositionSourceGeometry(
+            authoredRenderSizeWH: [16, 8], worldMVP: rootMVP)!,
+            inner: SceneCompositionSourceGeometry(authoredRenderSizeWH: [8, 4], worldMVP: innerMVP)!]
+        facts["invalidGeometryRejected"] = SceneCompositionSourceGeometry(
+            authoredRenderSizeWH: [0, 8], worldMVP: rootMVP) == nil
+            && SceneCompositionSourceGeometry(authoredRenderSizeWH: [16, 8],
+                worldMVP: SceneMatrix.scale(SIMD3(0, 1, 1))) == nil
+        let library = try device.makeLibrary(source: """
+        #include <metal_stdlib>
+        using namespace metal;
+        struct V { float4 p [[position]]; float2 uv; };
+        vertex V localVertex(uint id [[vertex_id]], constant float4x4 &m [[buffer(0)]]) {
+            float2 p[4] = {float2(-.5,-.5),float2(.5,-.5),float2(-.5,.5),float2(.5,.5)};
+            return {m * float4(p[id],0,1),float2(p[id].x+.5,.5-p[id].y)};
+        }
+        fragment float4 localFragment(V v [[stage_in]], texture2d<float> t [[texture(0)]]) {
+            constexpr sampler s(filter::nearest,address::clamp_to_edge); return t.sample(s,v.uv);
+        }
+        """, options: nil)
+        let pipeline = MTLRenderPipelineDescriptor()
+        pipeline.vertexFunction = library.makeFunction(name: "localVertex")
+        pipeline.fragmentFunction = library.makeFunction(name: "localFragment")
+        let color = pipeline.colorAttachments[0]!
+        color.pixelFormat = .bgra8Unorm; color.isBlendingEnabled = true
+        color.sourceRGBBlendFactor = .one; color.destinationRGBBlendFactor = .oneMinusSourceAlpha
+        color.sourceAlphaBlendFactor = .one; color.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        let state = try device.makeRenderPipelineState(descriptor: pipeline)
+        func mainTexture() -> MTLTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm, width: 64, height: 48, mipmapped: false)
+            descriptor.usage = [.renderTarget, .shaderRead]
+            return device.makeTexture(descriptor: descriptor)!
+        }
+        let red = device.makeTexture(descriptor: .texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false))!
+        let redBytes: [UInt8] = [255, 0, 0, 255]
+        redBytes.withUnsafeBytes { red.replace(region: MTLRegionMake2D(0, 0, 1, 1),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 4) }
+        func draw(_ pass: SceneMainPassEncoder, _ texture: MTLTexture, _ worldMVP: simd_float4x4) {
+            var raster = pass.rasterModelViewProjection(worldMVP)
+            let encoder = pass.encoder()!
+            encoder.setRenderPipelineState(state)
+            encoder.setVertexBytes(&raster, length: MemoryLayout<simd_float4x4>.stride, index: 0)
+            encoder.setFragmentTexture(texture, index: 0)
+            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        }
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 64, residentByteBudget: 4096)
+        let command = queue.makeCommandBuffer()!, main = mainTexture()
+        let parent = SceneMainPassEncoder(commandBuffer: command, target: main,
+            clearColor: MTLClearColor(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
+        let groups = SceneCompositionGroupFrameRuntime(parentPass: parent, commandBuffer: command,
+            offscreenTexturePool: pool, memberRootsByLayerID: selected.memberRootsByLayerID,
+            membersByRootID: selected.membersByRootID, viewportSize: CGSize(width: 64, height: 48),
+            localSourceRootIDs: selected.localSourceRootIDs, sourceGeometriesByRootID: geometries)
+        groups.reserveSources(orderedRootIDs: selected.orderedRootIDs, visibleLayerIDs: [outer, inner])
+        let innerPass = groups.renderPass(forLayerID: leaf, beginsRendering: true)!
+        draw(innerPass, red, leafMVP); innerPass.closeForOffscreen()
+        let innerSource = groups.groupTexture(forRootID: inner)!
+        let outerPass = groups.compositeTargetPass(forRootID: inner, beginsRendering: true)!
+        draw(outerPass, innerSource, innerMVP); outerPass.closeForOffscreen()
+        let outerSource = groups.groupTexture(forRootID: outer)!
+        draw(groups.compositeTargetPass(forRootID: outer)!, outerSource, rootMVP)
+        precondition(parent.finishEnsuringClear())
+        facts["differentNestedExtents"] = [outerSource.width, outerSource.height] == [16, 8]
+            && [innerSource.width, innerSource.height] == [8, 4]
+            && groups.enclosingTargetSize(forLayerID: leaf) == CGSize(width: 8, height: 4)
+            && groups.enclosingTargetSize(forLayerID: inner) == CGSize(width: 16, height: 8)
+        let mapped = groups.rasterModelViewProjection(forLayerID: leaf, worldMVP: leafMVP)
+        facts["passAndPreflightMapAgree"] = (0..<4).allSatisfy {
+            simd_length(mapped[$0] - innerPass.rasterModelViewProjection(leafMVP)[$0]) < 0.00001
+        } && mapped.columns.3.z == 0
+        let pixels = device.makeBuffer(length: 256 * 60, options: .storageModeShared)!
+        let blit = command.makeBlitCommandEncoder()!
+        for (texture, offset) in [(innerSource, 0), (outerSource, 4 * 256), (main, 12 * 256)] {
+            blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(),
+                sourceSize: MTLSize(width: texture.width, height: texture.height, depth: 1),
+                to: pixels, destinationOffset: offset, destinationBytesPerRow: 256,
+                destinationBytesPerImage: 256 * texture.height)
+        }
+        blit.endEncoding()
+        let event = device.makeSharedEvent()!, done = DispatchSemaphore(value: 0)
+        command.encodeWaitForEvent(event, value: 1); groups.arm()
+        command.addCompletedHandler { _ in done.signal() }; command.commit()
+        pool.reset()
+        facts["localSourceOldPinsHeld"] = pool.residentByteCost == 640
+        let nextCommand = queue.makeCommandBuffer()!
+        let nextParent = SceneMainPassEncoder(commandBuffer: nextCommand, target: mainTexture(),
+            clearColor: MTLClearColor(), clearEnabled: true)
+        let resized = SceneCompositionGroupFrameRuntime(parentPass: nextParent,
+            commandBuffer: nextCommand, offscreenTexturePool: pool,
+            memberRootsByLayerID: selected.memberRootsByLayerID, membersByRootID: selected.membersByRootID,
+            viewportSize: CGSize(width: 64, height: 48), localSourceRootIDs: selected.localSourceRootIDs,
+            sourceGeometriesByRootID: [outer: SceneCompositionSourceGeometry(
+                authoredRenderSizeWH: [8, 16], worldMVP: rootMVP)!, inner: SceneCompositionSourceGeometry(
+                authoredRenderSizeWH: [4, 8], worldMVP: innerMVP)!])
+        resized.reserveSources(orderedRootIDs: selected.orderedRootIDs, visibleLayerIDs: [outer, inner])
+        let nextSource = resized.preparedSource(forLayerID: outer, mainTarget: main)
+        facts["resizeKeepsOldLocalSource"] = nextSource !== outerSource
+            && nextSource?.width == 8 && nextSource?.height == 16 && pool.residentByteCost == 1280
+        pool.reset(); resized.cancel()
+        facts["cancelReleasesOnlyNewLocalPins"] = pool.residentByteCost == 640
+        event.signaledValue = 1
+        precondition(done.wait(timeout: .now() + 5) == .success)
+        let bytes = pixels.contents().bindMemory(to: UInt8.self, capacity: 256 * 60)
+        func rgba(_ x: Int, _ y: Int, _ offset: Int = 0) -> [UInt8] {
+            let start = offset + y * 256 + x * 4
+            return [bytes[start+2], bytes[start+1], bytes[start], bytes[start+3]]
+        }
+        facts["innerSourceClipsOversizedChild"] = (0..<4).allSatisfy { y in
+            (0..<8).allSatisfy { rgba($0, y) == [255, 0, 0, 255] }
+        }
+        facts["outerSourceClipsInnerAtOwnBoundary"] = (0..<8).allSatisfy { y in
+            (0..<16).allSatisfy { x in
+                rgba(x, y, 4 * 256) == (x >= 10 && (2..<6).contains(y)
+                    ? [255, 0, 0, 255] : [0, 0, 0, 0])
+            }
+        }
+        facts["rootWorldOutputExactlyOnce"] = [(SIMD2<Float>(0.3, 0), true),
+            (SIMD2<Float>(0.6, 0), false), (SIMD2<Float>(-0.4, 0), false),
+            (SIMD2<Float>(0.3, 0.4), false)].allSatisfy { local, red in
+                let q = rootMVP * SIMD4(local.x, local.y, 0, 1)
+                let x = Int((q.x / q.w + 1) * 32), y = Int((1 - q.y / q.w) * 24)
+                return rgba(x, y, 12 * 256) == (red ? [255, 0, 0, 255] : [0, 0, 255, 255])
+            }
+        facts["localGPUCompletedAndPinsReleased"] = command.status == .completed && pool.residentByteCost == 0
+        let cappedCommand = queue.makeCommandBuffer()!, cappedPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 16, residentByteBudget: 2048)
+        let cappedGeometry = SceneCompositionSourceGeometry(authoredRenderSizeWH: [40, 20], worldMVP: rootMVP)!
+        let capped = SceneCompositionGroupFrameRuntime(parentPass: SceneMainPassEncoder(
+            commandBuffer: cappedCommand, target: mainTexture(), clearColor: MTLClearColor(), clearEnabled: true),
+            commandBuffer: cappedCommand, offscreenTexturePool: cappedPool,
+            memberRootsByLayerID: [leaf: outer], membersByRootID: [outer: [leaf]],
+            viewportSize: CGSize(width: 64, height: 48), localSourceRootIDs: [outer],
+            sourceGeometriesByRootID: [outer: cappedGeometry])
+        capped.reserveSources(orderedRootIDs: [outer], visibleLayerIDs: [outer])
+        let cappedSource = capped.groupTexture(forRootID: outer)
+        facts["oversizedLogicalSourcePreserved"] = capped.localSourceExtent(forRootID: outer)
+            == CGSize(width: 40, height: 20) && cappedGeometry.pixelSize == CGSize(width: 40, height: 20)
+        facts["oversizedPhysicalSourceUsesPoolLimit"] = cappedSource?.width == 16 && cappedSource?.height == 8
+            && capped.enclosingTargetSize(forLayerID: leaf) == CGSize(width: 16, height: 8)
+            && capped.renderPass(forLayerID: leaf, beginsRendering: false)?.targetExtent.width == 16
+        let cappedMVP = capped.rasterModelViewProjection(forLayerID: leaf, worldMVP: leafMVP)
+        facts["cappingPreservesLogicalCoordinates"] = (0..<4).allSatisfy {
+            simd_length(cappedMVP[$0] - cappedGeometry.rasterModelViewProjection(leafMVP)[$0]) < 0.00001
+        }
+        capped.closeAllGroupEncoders(); cappedPool.reset(); capped.cancel()
+        facts["cappedSourceCancelReleasesPin"] = cappedPool.residentByteCost == 0
+        return facts
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"metalUnavailable\":true}")
             return
         }
         let queue = device.makeCommandQueue()!
+        if CommandLine.arguments.contains("--local-source") {
+            print(String(decoding: try JSONSerialization.data(withJSONObject:
+                localSourceFacts(device: device, queue: queue), options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.contains("--gpu") {
             let gpuPool = SceneOffscreenTexturePool(device: device, maxDimension: 64,
                 residentByteBudget: 512)
@@ -442,7 +655,8 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
         cls.binary = binary
         compiled = subprocess.run(
             ["xcrun", "--sdk", "macosx", "swiftc",
-             "-D", "SCENE_ACTUAL_COMPOSITION_TARGETS", *(str(p) for p in SWIFT_SOURCES), str(harness),
+             "-D", "SCENE_ACTUAL_COMPOSITION_TARGETS", "-D", "SCENE_ACTUAL_COMPOSITION_SOURCE_ROUTE",
+             *(str(p) for p in SWIFT_SOURCES), str(harness),
              "-framework", "Metal", "-module-cache-path", str(root / "module-cache"),
              "-o", str(binary)],
             capture_output=True, text=True,
@@ -468,6 +682,14 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
         self.assertEqual(self.result["residentBytes"], 1024)
         self.assertEqual(self.result["lifetime"], [True] * 10)
         self.assertEqual(self.result["runtime"], [True] * 5)
+
+    def test_local_no_effect_planner_membership_and_nested_gpu_bounds(self) -> None:
+        completed = subprocess.run([str(self.binary), "--local-source"],
+                                   capture_output=True, text=True, timeout=20)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        facts = json.loads(completed.stdout)
+        self.assertGreaterEqual(len(facts), 14, facts)
+        self.assertEqual([name for name, passed in facts.items() if not passed], [], facts)
 
     def test_empty_groups_share_only_the_transparent_input(self) -> None:
         completed = subprocess.run([str(self.binary), "--empty-groups"], capture_output=True, text=True, timeout=20)

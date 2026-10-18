@@ -14,6 +14,7 @@ import shutil
 import unittest
 from script.tests import test_scene_offscreen_texture_pool as pool_fixture
 from script.tests import test_scene_resolved_material_graph_executor as graph_fixture
+from script.tests import test_scene_effect_draw_alpha as alpha_fixture
 
 
 # Reuse the graph/compiler scaffold. Only the input shader and extent change.
@@ -58,11 +59,24 @@ SUPPORT = SUPPORT.replace('''final class SceneGraphRenderTargetResidencyPin {
 ''', '', 1)
 SUPPORT = SUPPORT.replace(SUPPORT[SUPPORT.index('final class ScenePreparedPersistentGraphTargets {'):
     SUPPORT.index('extension SceneResolvedMaterialExecutionCapabilityCatalog {')], '', 1)
-SUPPORT = SUPPORT.replace('pointerIsInside: Bool = true\n',
-    'pointerIsInside: Bool = true,\n'
-    '            effectOutputModelViewProjection: simd_float4x4 = matrix_identity_float4x4\n', 1)
-SUPPORT = SUPPORT.replace('effectOutputModelViewProjection = matrix_identity_float4x4\n',
-    'self.effectOutputModelViewProjection = effectOutputModelViewProjection\n', 1)
+# Reuse the existing production FrameInputs/copy carrier. The convenience
+# initializer only supplies fixture defaults; withDependencyEffects is real.
+FRAME_SOURCE = alpha_fixture.finalizer_fixture.SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
+frame_support = alpha_fixture.runtime_frame_support()
+frame_start = frame_support.index('struct SceneAudioSpectrumSnapshot { static let silent = Self() }')
+frame_end = frame_support.index('\nstruct SceneDependencyEffectInput', frame_start)
+actual_frame = frame_support[frame_start:frame_end].replace(
+    'effectDrawColor: SIMD3<Float> = .init(repeating: 1)) {',
+    'effectDrawColor: SIMD3<Float> = .init(repeating: 1),\n'
+    '        effectOutputModelViewProjection: simd_float4x4 = matrix_identity_float4x4,\n'
+    '        terminalReplayModelViewProjection: simd_float4x4? = nil) {', 1)
+actual_frame = actual_frame.replace(
+    'effectOutputModelViewProjection: matrix_identity_float4x4,',
+    'effectOutputModelViewProjection: effectOutputModelViewProjection,\n'
+    '            terminalReplayModelViewProjection: terminalReplayModelViewProjection,', 1)
+frame_start = SUPPORT.index('final class SceneResolvedMaterialRuntimeBridge {')
+frame_end = SUPPORT.index('\nstruct SceneDependencyEffectInput', frame_start)
+SUPPORT = SUPPORT[:frame_start] + actual_frame + SUPPORT[frame_end:]
 
 HARNESS = HELPERS + r'''
 private func terminalChain(_ count: Int) -> Graph {
@@ -108,7 +122,7 @@ private func dependencySizingChecks(
 
 private func overflowCase(
     device: MTLDevice, queue: MTLCommandQueue, skew: Float, offset: Float,
-    alpha: Float = 1, probeX: Int, probeY: Int
+    alpha: Float = 1, probeX: Int, probeY: Int, attachmentReplay: Bool? = nil
 ) throws -> [String: Any] {
     // Match the existing bare-Swift effect host gate; no Program is manufactured.
     let previousRoute = getenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES").map { String(cString: $0) }
@@ -167,13 +181,29 @@ private func overflowCase(
     let graphTarget = makeSource(device, width: 64, height: 64, usage: [.renderTarget])
     // targetPixels supplies a_Position in [-5,5]; terminal replay converts it
     // back to the unit quad through the production render-size binding.
-    let placement = matrix_identity_float4x4
+    var placement = matrix_identity_float4x4
+    var rasterPlacement: simd_float4x4?
+    if let attachmentReplay {
+        // Distinct nonoverlapping destinations: world center at pixel16,16;
+        // attachment center at48,48. No camera or world chain is compensated.
+        placement.columns.0.x = 0.5; placement.columns.1.y = 0.5
+        placement.columns.3.x = -0.5; placement.columns.3.y = 0.5
+        if attachmentReplay {
+            var raster = placement
+            raster.columns.3.x = 0.5; raster.columns.3.y = -0.5
+            rasterPlacement = raster
+        }
+    }
+    let originalInputs = SceneResolvedMaterialRuntimeBridge.FrameInputs(
+        effectOutputModelViewProjection: placement,
+        terminalReplayModelViewProjection: rasterPlacement)
+    let copiedInputs = originalInputs.withDependencyEffects([])
     let command = queue.makeCommandBuffer()!
     let prepared = try executor.prepare(token: claim.token, leases: leases,
         historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
         sourceUniforms: .neutral(), sourcePipeline: makeSourcePipeline(device),
         terminalReplayTarget: replayTarget,
-        frameInputs: .init(effectOutputModelViewProjection: placement), commandBuffer: command,
+        frameInputs: copiedInputs, commandBuffer: command,
         previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1).get()
     let weightsSourceAlpha = prepared.finalResource.publication.candidate.content
         == .color(.resolved(.straightAlpha))
@@ -208,6 +238,38 @@ private func overflowCase(
     let center = replayRead.pixel(x: 32, y: 32)
     let expected: [UInt8] = alpha == 1 ? [0, 0, 255, 255] : [128, 0, 128, 255]
     let blue: [UInt8] = [255, 0, 0, 255]
+    if let attachmentReplay {
+        let red: [UInt8] = [0, 0, 255, 255]
+        let graphWorld = graphRead.pixel(x: 16, y: 16)
+        let graphAttachment = graphRead.pixel(x: 48, y: 48)
+        let replayWorld = replayRead.pixel(x: 16, y: 16)
+        let replayAttachment = replayRead.pixel(x: 48, y: 48)
+        let copiedRasterMatches: Bool
+        if let rasterPlacement, let copied = copiedInputs.terminalReplayModelViewProjection {
+            copiedRasterMatches = copied == rasterPlacement
+        } else {
+            copiedRasterMatches = rasterPlacement == nil
+                && copiedInputs.terminalReplayModelViewProjection == nil
+        }
+        return ["override": attachmentReplay,
+            "graphWorldPixel": graphWorld, "graphAttachmentPixel": graphAttachment,
+            "replayWorldPixel": replayWorld, "replayAttachmentPixel": replayAttachment,
+            "results": ["graphEncoded": encoded,
+                "terminalReplayAvailable": prepared.terminalMaterialReplay != nil,
+                "bothMainDrawsEncoded": graphDraw && replayDraw && graphFinished && replayFinished,
+                "gpuCompleted": command.status == .completed && command.error == nil,
+                "worldPlacementRetained": copiedInputs.effectOutputModelViewProjection == placement,
+                "rasterOptionalSurvivesDependencyCopy": copiedRasterMatches,
+                "dependencyReplacementIsEmpty": copiedInputs.dependencyEffects.isEmpty,
+                "graphStillUsesWorld": matches(graphWorld, red) && matches(graphAttachment, blue),
+                "terminalUsesExpectedAttachment": matches(replayWorld, attachmentReplay ? blue : red)
+                    && matches(replayAttachment, attachmentReplay ? red : blue),
+                "nilRetainsLegacyPixels": attachmentReplay || replayRead.allPixels == graphRead.allPixels,
+                "backgroundPreserved": matches(replayRead.pixel(x: 1, y: 1), blue),
+                "sourceExtentRetained": source.width == 10 && source.height == 10
+                    && prepared.finalTexture.width == 10 && prepared.finalTexture.height == 10,
+                "noFallback": prepared.stages.allSatisfy { $0.effectLocalFailureReasonCode == nil }]]
+    }
     let identity = skew == 0 && offset == 0
     return ["skew": skew, "offset": offset, "alpha": alpha, "probe": [probeX, probeY],
         "graphProbe": graphProbe, "replayProbe": replayProbe, "expected": expected,
@@ -435,12 +497,18 @@ private func terminalCase(
             probeX: 50, probeY: 32),
         "halfAlpha": try overflowCase(device: device, queue: queue, skew: 0.75, offset: 2.5,
             alpha: 0.5, probeX: 50, probeY: 22)]
+    let attachment = [
+        "localRaster": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
+            probeX: 48, probeY: 48, attachmentReplay: true),
+        "nilWorld": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
+            probeX: 16, probeY: 16, attachmentReplay: false)]
     let named = [
         "active": try terminalCase(device: device, queue: queue, count: 2, named: true),
         "inactive": try terminalCase(device: device, queue: queue, count: 2, inactive: [1], named: true),
         "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1], named: true)]
     let data = try JSONSerialization.data(withJSONObject:
-        ["metalAvailable": true, "rows": rows, "overflow": overflow, "named": named], options: [.sortedKeys])
+        ["metalAvailable": true, "rows": rows, "overflow": overflow, "named": named,
+            "attachment": attachment], options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
 }
@@ -465,8 +533,11 @@ class TerminalMaterialGraphTests(unittest.TestCase):
             if run is not None:
                 (root/'result.json').write_text(run.stdout)
                 (root/'runtime.log').write_text(run.stderr)
+            (root/'Support.swift').write_text(SUPPORT)
+            (root/'Harness.swift').write_text(HARNESS)
             (root/'source-sha.json').write_text(json.dumps({str(p): hashlib.sha256(p.read_bytes()).hexdigest()
-                for p in [Path(__file__), *dict.fromkeys(sources + pool_fixture.SWIFT_SOURCES)]}, indent=2))
+                for p in [Path(__file__), FRAME_SOURCE,
+                          *dict.fromkeys(sources + pool_fixture.SWIFT_SOURCES)]}, indent=2))
         if compilation.returncode:
             raise RuntimeError(compilation.stderr)
         if run is None or run.returncode:
@@ -500,6 +571,12 @@ class TerminalMaterialGraphTests(unittest.TestCase):
     def test_identity_terminal_replay_matches_the_unclipped_graph(self):
         row = self.result['overflow']['identity']
         self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+
+    def test_attachment_raster_override_and_nil_survive_dependency_copy(self):
+        for name in ('localRaster', 'nilWorld'):
+            with self.subTest(case=name):
+                row = self.result['attachment'][name]
+                self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
 
     def test_named_input_survives_active_inactive_and_failed_terminal_suffixes(self):
         for name in ('active', 'inactive', 'failed'):

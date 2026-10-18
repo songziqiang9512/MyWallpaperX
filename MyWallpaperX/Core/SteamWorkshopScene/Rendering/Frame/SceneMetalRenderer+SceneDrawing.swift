@@ -90,12 +90,28 @@ extension SceneMetalRenderer {
             visibleLayerIDs: frameVisibleLayerIDs
         )
         performanceTelemetry?.beginStage("prepass-encoder")
+        let sourceGeometriesByRootID = Dictionary(uniqueKeysWithValues:
+            frameProjection.utilityExecution.localSourceRootIDs.compactMap { rootID -> (Int, SceneCompositionSourceGeometry)? in
+                guard let layer = frameLayersByID[rootID] else { return nil }
+                let model = imageModelMatrix(
+                    for: layer, worldFramesByLayerID: frameWorldFrames,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents,
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+                )
+                return SceneCompositionSourceGeometry(
+                    authoredRenderSizeWH: layer.renderSizeWH,
+                    worldMVP: cameraFrame.viewProjection(for: layer) * model
+                ).map { (rootID, $0) }
+            })
         let (mainPass, groups) = makeScenePass(target: mainTarget,
             clearEnabled: frameDescriptor.camera.clearEnabled || (sceneColor != nil && sceneColor?.previous == nil),
             dynamicValues: frameContext.dynamicValues,
             pool: offscreenTexturePool,
             viewportSize: viewportSize, commandBuffer: commandBuffer,
-            utilityExecution: frameProjection.utilityExecution)
+            utilityExecution: frameProjection.utilityExecution,
+            sourceGeometriesByRootID: sourceGeometriesByRootID)
         compositionGroupRuntime = groups
         mainPassForSubmission = mainPass
         performanceTelemetry?.endStage("prepass-encoder")

@@ -7,6 +7,45 @@ struct SceneCaptureGeometry {
     let pixelSize: CGSize
 }
 
+/// One composition source's attachment coordinates. World placement remains
+/// canonical; only raster writes and reads of this attachment use this map.
+nonisolated struct SceneCompositionSourceGeometry {
+    let pixelSize: CGSize
+    let worldClipToSourceClip: simd_float4x4
+
+    init?(authoredRenderSizeWH: [Float]?, worldMVP: simd_float4x4) {
+        guard let extent = SceneLayerEffectSourceExtent.resolve(
+            publishedRenderSizeWH: nil,
+            authoredRenderSizeWH: authoredRenderSizeWH,
+            candidateMappedSize: nil
+        ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
+           Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
+        // The admitted source is a 2D plane. Invert its XYW mapping, rather
+        // than assigning a child's unrelated world Z to the source's depth.
+        let plane = simd_float4x4(columns: (
+            SIMD4(worldMVP.columns.0.x, worldMVP.columns.0.y, 0, worldMVP.columns.0.w),
+            SIMD4(worldMVP.columns.1.x, worldMVP.columns.1.y, 0, worldMVP.columns.1.w),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(worldMVP.columns.3.x, worldMVP.columns.3.y, 0, worldMVP.columns.3.w)
+        ))
+        guard let inverse = SceneLayerCursorGeometry.inverseModelViewProjection(plane) else {
+            return nil
+        }
+        let mapping = SceneMatrix.scale(SIMD3(2, 2, 0)) * inverse
+        // Finite authored scales can leave a finite inverse whose conversion
+        // from unit-local to clip overflows Float. Reject before GPU upload.
+        for column in 0..<4 {
+            for row in 0..<4 where !mapping[column][row].isFinite { return nil }
+        }
+        pixelSize = extent.pixelSize
+        worldClipToSourceClip = mapping
+    }
+
+    func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {
+        worldClipToSourceClip * worldMVP
+    }
+}
+
 /// The semantic pixel extent of one layer-local effect source. This is kept
 /// separate from the Metal texture allocation: padded TEX resources can have
 /// a square physical texture while the authored layer and mapped image are a
@@ -103,13 +142,20 @@ enum SceneCaptureGeometryResolver {
         viewportSize: CGSize,
         captureMVP: simd_float4x4? = nil,
         compositionSourceMemberLayerIDs: [Int]? = nil,
-        authoredRenderSizeWH: [Float]? = nil
+        authoredRenderSizeWH: [Float]? = nil,
+        localCompositionSourceExtent: CGSize? = nil
     ) -> SceneCaptureGeometry? {
         guard viewportSize.width.isFinite, viewportSize.height.isFinite,
               viewportSize.width > 0, viewportSize.height > 0 else {
             return nil
         }
-        // Members already occupy enclosing viewport coordinates. Empty
+        if kind == .composition,
+           compositionSourceMemberLayerIDs?.isEmpty == false,
+           let localCompositionSourceExtent {
+            return SceneCaptureGeometry(sourceUV: .identity, outputMVP: layerMVP,
+                                        pixelSize: localCompositionSourceExtent)
+        }
+        // Legacy members already occupy enclosing viewport coordinates. Empty
         // transparent inputs instead retain the utility's authored local quad.
         if kind == .fullscreen || (kind == .composition
             && compositionSourceMemberLayerIDs?.isEmpty == false) {

@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
 ]
+LOCAL_SOURCE_FIXTURE = Path(__file__).with_name("fixtures") / "SceneCompositionLocalSourceChecks.swift"
 
 HARNESS_SOURCE = r'''
 import CoreGraphics
@@ -192,6 +193,7 @@ enum Harness {
             "roundedIntOverflow": [Float(Int.max), 1],
         ]
         let result: [String: Any] = [
+            "compositionLocalSource": SceneCompositionLocalSourceChecks.run(),
             "collapsedProjectedSize": {
                 let size = SceneCaptureGeometryResolver.projectedPixelSize(
                     layerMVP: SceneMatrix.scale(SIMD3<Float>(0, 0, 0)),
@@ -328,6 +330,7 @@ class SceneCaptureGeometryTests(unittest.TestCase):
             [
                 "xcrun", "--sdk", "macosx", "swiftc",
                 *(str(path) for path in SWIFT_SOURCES),
+                str(LOCAL_SOURCE_FIXTURE),
                 str(harness), "-o", str(cls.binary),
             ],
             check=True,
@@ -355,7 +358,7 @@ class SceneCaptureGeometryTests(unittest.TestCase):
             [1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 0, 0.5, -0.25, 0, 1],
         )
 
-    def test_only_composition_member_source_uses_viewport_geometry(self) -> None:
+    def test_legacy_composition_member_source_uses_viewport_geometry(self) -> None:
         full = [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
         self.assertEqual(self.result["memberGroup"], {
             "sourceUV": [[0, 0], [1, 0], [0, 1]],
@@ -451,6 +454,74 @@ class SceneCaptureGeometryTests(unittest.TestCase):
 
     def test_invalid_explicit_extent_does_not_fall_back_to_allocation_size(self) -> None:
         self.assertTrue(self.result["invalidAuthoredExtentIsNil"])
+
+    def test_local_composition_uses_authored_extent_and_world_output_once(self) -> None:
+        result = self.result["compositionLocalSource"]
+        expected = {"pixelSize": [80, 40], "sourceUV": [[0, 0], [1, 0], [0, 1]],
+                    "outputMVP": [0, 0.75, 0, 0, -0.125, 0, 0, 0,
+                                  0, 0, 1, 0, 0.125, 0.0625, 0.375, 1]}
+        self.assertEqual(result["local"], expected)
+        self.assertEqual(result["otherViewport"], expected)
+        self.assertEqual(result["fractionalExtent"], [80.25, 40.5])
+        self.assert_float_tree(result["worldOutputOncePoints"],
+                               [[[0.09375, -0.125], [0.0625, 0.0625], [0.125, -0.3125]]] * 3)
+
+    def test_local_source_recovers_affine_and_projective_xyw(self) -> None:
+        result = self.result["compositionLocalSource"]
+        self.assert_float_tree(result["affineWorldToSourcePoints"],
+                               [[0, 0, 0, 1], [1, 0, 0, 1], [0, 1, 0, 1],
+                                [-0.5, 0.5, 0, 1], [0, 1.25, 0, 1], [1.5, 0, 0, 1]])
+        expected = [[0, 0, 0, 1], [16 / 37, -8 / 37, 0, 32 / 37],
+                    [-1.6, 1.6, 0, 1.6]]
+        self.assert_float_tree(result["projectiveXYWPoints"], expected)
+        self.assert_float_tree(result["negativeScalePoint"], [0.5, -0.5, 0, 1])
+
+    def test_local_source_raster_keeps_xy_and_discards_unrelated_child_depth(self) -> None:
+        result = self.result["compositionLocalSource"]
+        self.assert_float_tree(result["childRasterMatrices"],
+                               [[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -0.5, 0.5, 0, 1]] * 3)
+        expected = [[-1, 0, 0, 1], [0, 0, 0, 1], [0, 1, 0, 1], [-1, 1, 0, 1]]
+        self.assert_float_tree(result["childRasterCorners"], [expected] * 3)
+        self.assertTrue(result["singularDepthStillValidXYW"])
+
+    def assert_float_tree(self, actual, expected) -> None:
+        # Fixed Float inverse/projection tolerance, set before the first run.
+        if isinstance(expected, list):
+            self.assertEqual(len(actual), len(expected))
+            for value, target in zip(actual, expected, strict=True):
+                self.assert_float_tree(value, target)
+        else:
+            self.assertAlmostEqual(actual, expected, delta=1e-6)
+
+    def test_local_source_rejects_missing_extent_invalid_extent_and_singular_xyw(self) -> None:
+        result = self.result["compositionLocalSource"]
+        self.assertTrue(result["absentExtentRejected"])
+        self.assertEqual(result["invalidExtentsRejected"], dict.fromkeys([
+            "empty", "oneAxis", "extraAxis", "zero", "negative", "nan", "infinity",
+            "finiteIntOverflow", "greatestFinite", "roundedIntOverflow"], True))
+        self.assertEqual(result["invalidMatricesRejected"], dict.fromkeys([
+            "collapsedX", "dependentXY", "zeroHomogeneousRow", "nonfiniteXY", "nonfiniteW",
+            "rasterScaleOverflow"], True))
+
+    def test_local_source_checks_finiteness_after_raster_scale(self) -> None:
+        result = self.result["compositionLocalSource"]
+        self.assertTrue(result["invalidMatricesRejected"]["rasterScaleOverflow"])
+        finite_neighbor = result["finiteSubnormalRasterScale"]
+        self.assertGreater(finite_neighbor, 0)
+        self.assertAlmostEqual(finite_neighbor / 2.5e38, 1, delta=1e-6)
+
+    def test_local_source_extent_does_not_change_legacy_or_other_utility_routes(self) -> None:
+        result = self.result["compositionLocalSource"]
+        full = {"sourceUV": [[0, 0], [1, 0], [0, 1]],
+                "outputMVP": [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                "pixelSize": [640, 360]}
+        self.assertEqual(result["legacyMembers"], full)
+        self.assertEqual(result["fullscreen"], full)
+        projected = {"sourceUV": [[0.53125, 0.65625], [0, -0.375], [0.0625, 0]],
+                     "outputMVP": result["rootMVP"], "pixelSize": [40, 135]}
+        self.assertEqual(result["nilMembers"], projected)
+        self.assertEqual(result["project"], projected)
+        self.assertEqual(result["empty"], dict(projected, pixelSize=[80, 40]))
 
 
 if __name__ == "__main__":

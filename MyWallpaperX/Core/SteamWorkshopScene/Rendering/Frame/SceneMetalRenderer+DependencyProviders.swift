@@ -242,10 +242,16 @@ extension SceneMetalRenderer {
             parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
             visibleHalfExtents: cameraFrame.coverHalfExtents,
             usesPerspective: cameraFrame.resolvesPerspective(for: layer))
-        let mvp = cameraFrame.captureViewProjection(for: layer) * model
+        let worldMVP = cameraFrame.captureViewProjection(for: layer) * model
+        // Utility providers read the enclosing attachment. Independent image
+        // and geometry publications retain their world-space placement.
+        let mvp = layer.utilityLayer == nil ? worldMVP
+            : mainPass.rasterModelViewProjection(worldMVP)
+        let captureSize = layer.utilityLayer == nil ? viewportSize
+            : CGSize(width: mainPass.targetExtent.width, height: mainPass.targetExtent.height)
         if preparesCapacityOnly {
             return dependencyRuntime.prepareCaptureCapacity(layer: layer, sourceTexture: source?.texture,
-                sourceCandidate: source?.candidate, layerMVP: mvp, viewportSize: viewportSize,
+                sourceCandidate: source?.candidate, layerMVP: mvp, viewportSize: captureSize,
                 textureRegistry: textureRegistry) ? nil : .unavailable(reasonCode: "named-provider-capacity-unavailable")
         }
         return dependencyRuntime.captureProviderIfRequired(layer: layer, sourceTexture: source?.texture,
@@ -254,7 +260,7 @@ extension SceneMetalRenderer {
                 authoredValue: layer.alpha, snapshot: frameContext.dynamicValues)),
             providerColor: SceneDynamicLayerValues.color(layerID: layer.id,
                 authoredValue: layer.colorRGB, snapshot: frameContext.dynamicValues),
-            layerMVP: mvp, viewportSize: viewportSize, pipeline: imagePipeline,
+            layerMVP: mvp, viewportSize: captureSize, pipeline: imagePipeline,
             textureRegistry: textureRegistry, mainPass: mainPass,
             geometryProduct: imageTextures.geometryProducts[layer.id])
     }

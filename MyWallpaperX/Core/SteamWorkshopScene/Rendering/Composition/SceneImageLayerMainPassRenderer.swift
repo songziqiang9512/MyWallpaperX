@@ -18,7 +18,7 @@ enum SceneImageLayerMainPassRenderer {
         visibleUniforms.distanceFog = distanceFog
         return SceneLayerColorBlendRenderer.draw(
             texture: texture,
-            mvp: mvp,
+            mvp: mainPass.rasterModelViewProjection(mvp),
             uniforms: visibleUniforms,
             dependencyTexture: dependencyTexture,
             layer: layer,

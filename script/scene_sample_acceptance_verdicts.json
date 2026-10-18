@@ -91,7 +91,7 @@
     "3780119725": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "人物压缩已修；脸部黑线/缺块、动画层 unsupported、光照与闪烁未通过"
+      "note": "10-18摩托/人物pointer响应，原中层全固定反馈退出；旧脸部黑线/缺块、动画/光照/闪烁未同条件复验，旧fail与整包未闭。 旧“人物压缩已修”裁决保留。参考 docs/scene/capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018。"
     },
     "3787382101": {
       "verdict": "fail",
@@ -530,7 +530,7 @@
     },
     "3351179520": {
       "verdict": "unreviewed",
-      "note": "2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同App/phase对照解释为像素或性能收益；后继独立消融未并入此记录。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加UI组限定后验：关2391仍保留斜纹；关4785后组内斜纹/环形文字消失，98完整链保留。官方loaded raw1也有环形文字/斜盖/湿地面，raw0加载黑及原joint FAIL保留；只完成组归因，具体cause与画面余项仍OPEN，不认修复、音频因果或整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip。 2026-10-18追加a67原包限定后验：巨大两侧裂片与白环偏离有界恢复；393实际输入2000×2000，旧projected-bbox偏心条件已消除，after及较晚series画面改善。但用户文字环反馈仅partial：精确位置、尺度、完整旋转周期和官方同phase仍未验，不记整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip。",
+      "note": "10-18巨裂片/白环/2000²首门已闭；文字位置尺度/漂移partial。可见38.849s<T；静音opacity0不可测，不能合拼周期。 参考 docs/scene/capabilities/runtime-evidence-current.md#composition-local-source-20261018 与同页 #visual-feedback-followup-20261018。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json",
@@ -541,7 +541,7 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
       ],
-      "remainingDifferences": "巨大裂片/白环有界恢复；文字环partial，精确位置尺度、完整旋转周期、官方同phase及整样本验收仍未完成。"
+      "remainingDifferences": "文字精确位置、尺度与旋转漂移仍partial；ordinary可见38.849s<文字周期41.8879s，silence作者opacity0不可测，不得合拼完整周期；官方同媒体/phase与整景验收未完成。"
     },
     "3617056047": {
       "verdict": "unreviewed",
@@ -582,7 +582,7 @@
     "3764725758": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。",
+      "note": "10-18最终App两成员组/上部构图保持；旧光束/眼睛未闭，非整景PASS。 原记录：U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [
@@ -619,6 +619,42 @@
       "verdict": "unreviewed",
       "reviewedOn": "",
       "note": "10-18原包可见斜盘、代码与洋红圆粒子，未见旧巨大紫块；缺同状态官方对照，合成反馈仍开放。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "3802005866": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18父本地组源首门已修；原包蓝条/框外白细线消失、音频保持。整景/HDR/phase/性能未裁决。见#composition-member-bounds-20261018。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "3351163962": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18当前时分/秒在环内并推进；越界为217问候文字。left锚点合同待裁定，不改相机；U25开放。见#u25-u35-current-qualification-20261018。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "2974757317": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18当前卡片下矩形/重复像素仍在；四独立音频链真实非零且末级GPU/合成成功，实际mask与producer待归因；U35开放。见#u25-u35-current-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [

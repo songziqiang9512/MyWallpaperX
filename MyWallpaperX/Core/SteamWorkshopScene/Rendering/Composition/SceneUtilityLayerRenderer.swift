@@ -25,6 +25,7 @@ enum SceneUtilityLayerRenderer {
         resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil,
         isolatedGroupSource: MTLTexture? = nil,
         captureMVP: simd_float4x4? = nil,
+        localCompositionSourceExtent: CGSize? = nil,
         executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bool {
         guard plan.shouldCapture else {
@@ -42,7 +43,8 @@ enum SceneUtilityLayerRenderer {
             viewportSize: viewportSize,
             captureMVP: captureMVP,
             compositionSourceMemberLayerIDs: plan.isolatedGroupMembers,
-            authoredRenderSizeWH: layer.renderSizeWH
+            authoredRenderSizeWH: layer.renderSizeWH,
+            localCompositionSourceExtent: localCompositionSourceExtent
         ) else { return false }
         // Only an already drawn member source uses viewport coordinates.
         // Empty transparent sources retain local effect and output geometry.

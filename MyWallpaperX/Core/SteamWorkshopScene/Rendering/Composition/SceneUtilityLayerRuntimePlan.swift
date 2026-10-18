@@ -1,5 +1,7 @@
 import Foundation
+import CoreGraphics
 import Metal
+import simd
 
 struct SceneUtilityLayerRuntimePlan {
     enum Disposition: String {
@@ -19,6 +21,7 @@ struct SceneUtilityLayerRuntimePlan {
     /// Descendants in authored relative order. Empty still denotes the
     /// transparent source of a childless composition with copybackground=false.
     var isolatedGroupMembers: [Int]? = nil
+    var usesAuthoredLocalSource: Bool = false
 
     var shouldCapture: Bool { disposition == .capture }
     var usesIsolatedGroupTarget: Bool { isolatedGroupMembers != nil }
@@ -33,6 +36,7 @@ enum SceneUtilityLayerRuntimePlanner {
         let membersByRootID: [Int: [Int]]
         let orderedRootIDs: [Int]
         let copyBackgroundRootIDs: Set<Int>
+        var localSourceRootIDs: Set<Int> = []
     }
 
     /// Prepared once per descriptor/topology revision. Members execute at
@@ -43,8 +47,8 @@ enum SceneUtilityLayerRuntimePlanner {
     ) -> Execution {
         let values = Array(plans.values)
         let membership = SceneCompositionGroupFrameRuntime.membership(of: values)
-        // A no-effect group needs only ordering: its children draw directly to
-        // the enclosing pass, without an extra target or graph transaction.
+        // Legacy no-effect groups need only ordering. Local-source groups
+        // retain capture membership even when no effect graph is required.
         let orderMembership = SceneCompositionGroupFrameRuntime.membership(
             of: values, includesNoEffectGroups: true
         )
@@ -73,7 +77,8 @@ enum SceneUtilityLayerRuntimePlanner {
             copyBackgroundRootIDs: Set(descriptor.layers.compactMap { layer in
                 membership.membersByRootID[layer.id] != nil
                     && layer.utilityLayer?.copyBackground == true ? layer.id : nil
-            })
+            }),
+            localSourceRootIDs: Set(captures.filter(\.usesAuthoredLocalSource).map(\.layerID))
         )
     }
 
@@ -142,8 +147,10 @@ enum SceneUtilityLayerRuntimePlanner {
                 && sourceRoute?.capturesCompositionSubtree == false
                 && resolvedMaterialLayerIDs.contains(layer.id)
                 && (isAggregate || isLegacyExecutable)
+            let preparedCompositionSource = sourceRoute?.usesAuthoredLocalSource == true
+                && !hasVisibleEffects
             let preparedUtility = preparedFullscreen || preparedProject || preparedComposition
-                || preparedDependencyComposition
+                || preparedDependencyComposition || preparedCompositionSource
             // Hidden prepared groups retain their source plan. No-effect
             // groups retain only ordering and allocate no capture target.
             if !visibleLayerIDs.contains(layer.id) && !preparedUtility
@@ -165,7 +172,7 @@ enum SceneUtilityLayerRuntimePlanner {
             } else if sourceRoute == nil, !layer.childLayerIDs.isEmpty {
                 disposition = .unsupportedChildren
             } else if sourceRoute != nil,
-                      resolvedMaterialLayerIDs.contains(layer.id) {
+                      resolvedMaterialLayerIDs.contains(layer.id) || preparedCompositionSource {
                 disposition = .capture
             } else {
                 disposition = .unsupportedEffects
@@ -180,7 +187,8 @@ enum SceneUtilityLayerRuntimePlanner {
                     triggerLayerID: sourceRoute?.triggerLayerID ?? layer.id,
                     isolatedGroupMembers: sourceRoute?.usesIsolatedGroupTarget
                         == true
-                        ? sourceRoute?.orderedCompositionSubtreeLayerIDs : nil
+                        ? sourceRoute?.orderedCompositionSubtreeLayerIDs : nil,
+                    usesAuthoredLocalSource: sourceRoute?.usesAuthoredLocalSource == true
                 )
             )
         })
@@ -360,6 +368,7 @@ final class SceneCompositionGroupFrameRuntime {
     private let membersByRootID: [Int: [Int]]
     private let copyBackgroundRootIDs: Set<Int>
     private let viewportSize: CGSize
+    private let sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry]
     private var passesByRootID: [Int: SceneMainPassEncoder] = [:]
     private var texturesByRootID: [Int: MTLTexture] = [:]
     private var emptySourceRootID: Int?
@@ -375,7 +384,9 @@ final class SceneCompositionGroupFrameRuntime {
         memberRootsByLayerID: [Int: Int],
         membersByRootID: [Int: [Int]],
         viewportSize: CGSize,
-        copyBackgroundRootIDs: Set<Int> = []
+        copyBackgroundRootIDs: Set<Int> = [],
+        localSourceRootIDs: Set<Int> = [],
+        sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:]
     ) {
         self.parentPass = parentPass
         self.commandBuffer = commandBuffer
@@ -384,7 +395,26 @@ final class SceneCompositionGroupFrameRuntime {
         self.membersByRootID = membersByRootID
         self.copyBackgroundRootIDs = copyBackgroundRootIDs
         self.viewportSize = viewportSize
+        self.sourceGeometriesByRootID = sourceGeometriesByRootID
+        self.degradedRootIDs = localSourceRootIDs.subtracting(sourceGeometriesByRootID.keys)
         self.resetEpoch = offscreenTexturePool.sceneColorResetEpoch
+    }
+
+    func localSourceExtent(forRootID rootID: Int) -> CGSize? {
+        sourceGeometriesByRootID[rootID]?.pixelSize
+    }
+
+    func rasterModelViewProjection(forLayerID layerID: Int,
+                                   worldMVP: simd_float4x4) -> simd_float4x4 {
+        memberRootsByLayerID[layerID]
+            .flatMap { sourceGeometriesByRootID[$0] }?
+            .rasterModelViewProjection(worldMVP) ?? worldMVP
+    }
+
+    func enclosingTargetSize(forLayerID layerID: Int) -> CGSize {
+        memberRootsByLayerID[layerID]
+            .flatMap { texturesByRootID[$0] }
+            .map { CGSize(width: $0.width, height: $0.height) } ?? viewportSize
     }
 
     /// Reserve selected sources before graph preparation; immutable empty
@@ -586,8 +616,18 @@ final class SceneCompositionGroupFrameRuntime {
             texturesByRootID[rootID] = texture
             return pass
         }
-        let width = max(1, Int(viewportSize.width.rounded(.up)))
-        let height = max(1, Int(viewportSize.height.rounded(.up)))
+        let sourceGeometry = sourceGeometriesByRootID[rootID]
+        let size = sourceGeometry?.pixelSize ?? viewportSize
+        let requestedWidth = max(1, Int(size.width.rounded(.up)))
+        let requestedHeight = max(1, Int(size.height.rounded(.up)))
+        // A composition is a scalable raster source, not an exact atlas.
+        // Preserve its logical canvas while respecting the existing pool cap.
+        guard let (width, height) = SceneOffscreenResolutionPolicy.resolvedDimensions(
+            width: requestedWidth, height: requestedHeight,
+            hardLimit: offscreenTexturePool.maxDimension,
+            policy: .init(maximumDimensionClass: .poolLimit,
+                          requiresExactInputExtent: sourceGeometry == nil)
+        ) else { degradedRootIDs.insert(rootID); return nil }
         guard let target = offscreenTexturePool.compositionGroupTarget(
             layerID: rootID,
             width: width,
@@ -602,7 +642,8 @@ final class SceneCompositionGroupFrameRuntime {
             target: target.texture,
             clearColor: MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0),
             clearEnabled: true,
-            submissionOwner: parentPass
+            submissionOwner: parentPass,
+            worldClipToTargetClip: sourceGeometry?.worldClipToSourceClip
         )
         passesByRootID[rootID] = pass
         texturesByRootID[rootID] = target.texture

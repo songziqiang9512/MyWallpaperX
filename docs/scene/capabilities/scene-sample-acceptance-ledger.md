@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `c7fd0a027e83949a550c59c00717d4e722597f1e7acdda24a6991f950336f66a`。
-- 本页生成于 2026-10-17T23:55:21.465595+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `26d251982907a9427c0e845dcf3693b3953d1256ab8853cd1c3bcd1c6dc1dd25`。
+- 本页生成于 2026-10-18T01:38:58.522738+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -130,7 +130,7 @@
 | `2959875782` | [R18] Lexaiduer Last Origin Dark Elven … | 4(0) color 1 combo 2 slider 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` |  |
 | `2960821850` | Media Player (2.0) | 5(0) bool 4 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2964778792` | [4K/动态/R18-3.0版]碧蓝航线-莱莎琳·斯托特「熬夜的炼金术士」补档… | 4(0) bool 1 color 1 slider 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` 2026-10-17 | 动态origin63的准备/74.stop首门已修，原包第一idle已实际可见黑色Z；与目录官方截屏基础构图相符。复用driver因explicit拖动不生成… |
-| `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 80(35) bool 13 color 17 combo 3 scenetexture 5 slider 16 te… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
+| `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 80(35) bool 13 color 17 combo 3 scenetexture 5 slider 16 te… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` | 10-18当前卡片下矩形/重复像素仍在；四独立音频链真实非零且末级GPU/合成成功，实际mask与producer待归因；U35开放。见#u25-u35-cu… |
 | `2981249186` | 4K SCI-FI Black Hole | 8(0) bool 5 color 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2983846453` | 麻匪 自定义双背景开关 - Customizable Day/Night Sw… | 40(15) bool 3 color 8 combo 2 scenetexture 2 slider 10 text… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2986218263` | Tokisaki Asaba & Tokisaki Mio │18+ X-Ra… | 6(0) bool 5 color 1 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
@@ -169,8 +169,8 @@
 | `3323988600` | Hentai Goddess of Victory Nikke ANIMATE… | 9(0) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:1… | 82(59) bool 17 color 20 combo 6 scenetexture 1 slider 9 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3341111071` | 麻匪 初音未来 MIKU 海边 32:9 21:9 16:9 16:10 | 32(8) bool 7 color 4 slider 2 text 18 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 187(154) bool 31 color 26 combo 22 scenetexture 4 slider 86… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:1… | 74(46) bool 13 color 9 combo 5 scenetexture 1 slider 12 tex… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：A App before与f844 after分别实际运行，人物/红眼/手/纸保持，既有透视地面扭曲仍OPEN。本条不将不同Ap… |
+| `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 187(154) bool 31 color 26 combo 22 scenetexture 4 slider 86… | `not-run` | - | `not-run` | `unreviewed` | 10-18当前时分/秒在环内并推进；越界为217问候文字。left锚点合同待裁定，不改相机；U25开放。见#u25-u35-current-qualifica… |
+| `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:1… | 74(46) bool 13 color 9 combo 5 scenetexture 1 slider 12 tex… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18巨裂片/白环/2000²首门已闭；文字位置尺度/漂移partial。可见38.849s<T；静音opacity0不可测，不能合拼周期。 参考 doc… |
 | `3357627941` | 麻匪 开门见喜 鼠标交互 自定义本地文件 Windows door 16:9 … | 30(1) bool 4 color 2 combo 1 scenetexture 2 slider 1 text 20 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Ni… | 97(39) bool 28 color 15 combo 4 group 6 slider 33 text 8 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3374523158` | 麻匪 极光音频响应式 交互壁纸 Aurora audio-responsive… | 87(54) bool 7 color 25 combo 5 slider 25 text 23 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -263,7 +263,7 @@
 | `3762312138` | Elf x Goth | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3763323436` | 3763323436 | `missing-project` | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 行政入库备注（2026-10-17）：当前同ID目录仅见shaders残留，缺project.json与scene.pkg，本轮未运行。保留旧archive的… |
 | `3763428294` | 秧秧·玄翎1\|\|穗穗\|\|舟行画中，心随风远\|\|鸣潮 | 48(22) bool 16 color 7 group 4 slider 9 text 10 textinput 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3764725758` | Lumine_HuuOliv | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` | U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。 |
+| `3764725758` | Lumine_HuuOliv | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` | 10-18最终App两成员组/上部构图保持；旧光束/眼睛未闭，非整景PASS。 原记录：U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新… |
 | `3765760121` | 【4K】三色堇与她 | 9(5) bool 5 color 1 combo 1 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 倒置已修，整样本未全面验收；2026-10-17后验：同签名final App、作者选项newproperty=2单次9s/after5，reader/灯/蓝… |
 | `3765904723` | 调月莉音 | 8(0) bool 5 color 1 slider 1 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3766310551` | 【完美世界】柳神 九劫焚天 | 6(1) bool 4 color 1 combo 1 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -287,7 +287,7 @@
 | `3777761326` | I do Anything | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 13(0) bool 4 color 1 group 2 slider 6 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-reference-error / target:layer:visibility` | `scenescript` | `unreviewed` |  |
 | `3779904456` | 尤诺2 \|\| 鸣潮 | 47(21) bool 15 color 7 group 4 slider 9 text 10 textinput 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
-| `3780119725` | in the rain V 31 | 13(0) bool 9 color 2 slider 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `fail` 2026-09-08 | 人物压缩已修；脸部黑线/缺块、动画层 unsupported、光照与闪烁未通过 |
+| `3780119725` | in the rain V 31 | 13(0) bool 9 color 2 slider 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `fail` 2026-09-08 | 10-18摩托/人物pointer响应，原中层全固定反馈退出；旧脸部黑线/缺块、动画/光照/闪烁未同条件复验，旧fail与整包未闭。 旧“人物压缩已修”裁决保… |
 | `3780391264` | Agnes Tachyon Umamusume Neon | 7(0) bool 6 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3780940857` | 枕澜 蒂法 电脑动态壁纸 最终幻想7 TIFA Final Fantasy V… | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3781307553` | Look this | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -327,7 +327,7 @@
 | `3800728730` | 浮士德ego穴 | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3801294161` | Reze - Let's turn off the lights | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3801984224` | 粉红护士 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3802005866` | 绝区零 维琳娜 西域风 Zenless Zone Zero Velina | 3(0) bool 2 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3802005866` | 绝区零 维琳娜 西域风 Zenless Zone Zero Velina | 3(0) bool 2 color 1 | `not-run` | - | `not-run` | `unreviewed` | 10-18父本地组源首门已修；原包蓝条/框外白细线消失、音频保持。整景/HDR/phase/性能未裁决。见#composition-member-bounds… |
 | `3803087940` | 原神 少女黑丝玉足 X - ray NSFW 差分 | 4(0) bool 1 color 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3803482159` | Black Morpho | 6(0) bool 5 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3803576671` | NFFA画风 冰雪公主（可去防封马赛克+可去时钟） | 5(3) bool 3 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |

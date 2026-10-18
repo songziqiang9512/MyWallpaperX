@@ -170,6 +170,9 @@ final class SceneResolvedMaterialRuntimeBridge {
         /// This remains the actual placement MVP and is intentionally not
         /// derived back from the pointer-facing inverse convention below.
         let effectOutputModelViewProjection: simd_float4x4
+        /// Attachment-space placement used only by terminal material replay.
+        /// Effect projection and lighting retain the world-space output above.
+        let terminalReplayModelViewProjection: simd_float4x4?
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let effectDrawAlpha: Float
         let effectDrawColor: SIMD3<Float>
@@ -192,6 +195,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             primaryButtonIsDown: Bool,
             layerModelMatrix: simd_float4x4,
             effectOutputModelViewProjection: simd_float4x4,
+            terminalReplayModelViewProjection: simd_float4x4? = nil,
             effectTextureProjectionMatrixInverse: simd_float4x4,
             effectDrawAlpha: Float = 1,
             effectDrawColor: SIMD3<Float> = .init(repeating: 1),
@@ -211,6 +215,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.layerModelMatrix = layerModelMatrix
             self.effectOutputModelViewProjection =
                 effectOutputModelViewProjection
+            self.terminalReplayModelViewProjection = terminalReplayModelViewProjection
             self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
             self.effectDrawAlpha = effectDrawAlpha
             self.effectDrawColor = effectDrawColor
@@ -235,6 +240,8 @@ final class SceneResolvedMaterialRuntimeBridge {
                 layerModelMatrix: layerModelMatrix,
                 effectOutputModelViewProjection:
                     effectOutputModelViewProjection,
+                terminalReplayModelViewProjection:
+                    terminalReplayModelViewProjection,
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 effectDrawAlpha: effectDrawAlpha,

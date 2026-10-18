@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 struct SceneDocument {
     struct ShaderValue {
@@ -45,6 +46,7 @@ struct SceneEffectTextureInput {
 }
 
 struct SceneRenderDescriptor {
+    struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
     struct ModelMaterialLink {
         let modelPath: String
         let materialPath: String?
@@ -95,6 +97,7 @@ struct SceneRenderDescriptor {
         struct DisplayScriptOwnership { let visible: Bool }
         var displayScriptOwnership: DisplayScriptOwnership? = nil
         var parentID: Int? = nil
+        var usesPerspective: Bool? = nil
         var colorBlendMode: Int? = nil
         let id: Int
         var staticModelPath: String? = nil
@@ -110,6 +113,7 @@ struct SceneRenderDescriptor {
 
     let layers: [Layer]
     let renderOrderLayerIDs: [Int]
+    var camera = Camera()
     var modelMaterialLinks: [ModelMaterialLink] = []
     var materialPasses: [MaterialPassDescriptor] = []
 }
@@ -121,8 +125,10 @@ enum SceneLayerVisibility {
         Set(descriptor.layers.filter { $0.visible != false }.map(\.id))
     }
 }
+#if !SCENE_ACTUAL_COMPOSITION_SOURCE_ROUTE
 struct SceneUtilityLayerSourceRoute {
     let usesIsolatedGroupTarget = false
+    let usesAuthoredLocalSource = false
     let orderedCompositionSubtreeLayerIDs: [Int] = []
     let capturesCompositionSubtree: Bool
     let triggerLayerID: Int
@@ -131,11 +137,21 @@ struct SceneUtilityLayerSourceRoute {
         .success(.init(capturesCompositionSubtree: false, triggerLayerID: layer.id))
     }
 }
+#endif
 enum SceneBlendModeShaderSource { static let maximumMode = 31 }
 
 #if !SCENE_ACTUAL_COMPOSITION_TARGETS
 // This harness executes planning only. GPU dependencies share the production
 // source file but must never execute through these link-only test doubles.
+struct SceneCompositionSourceGeometry {
+    var pixelSize: CGSize { fatalError("Source geometry is outside dependency planning") }
+    var worldClipToSourceClip: simd_float4x4 {
+        fatalError("Source geometry is outside dependency planning")
+    }
+    func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {
+        fatalError("Source geometry is outside dependency planning")
+    }
+}
 enum SceneGPUCensus {
     static func recordTextureCopy(texture: MTLTexture) {
         fatalError("GPU copy census is outside the dependency planning harness")
@@ -144,6 +160,12 @@ enum SceneGPUCensus {
 final class SceneMainPassEncoder {
     init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
          clearColor: MTLClearColor, clearEnabled: Bool) {
+        fatalError("GPU encoding is outside the dependency planning harness")
+    }
+    init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
+         clearColor: MTLClearColor, clearEnabled: Bool,
+         submissionOwner: SceneMainPassEncoder,
+         worldClipToTargetClip: simd_float4x4?) {
         fatalError("GPU encoding is outside the dependency planning harness")
     }
     func withReadableTarget<Result>(_ operation: (MTLTexture, MTLCommandBuffer) -> Result) -> Result? {

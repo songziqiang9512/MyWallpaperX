@@ -73,6 +73,7 @@ struct SceneLayerDisplayScriptOwnership {
     var fields: [String] { [] }
 }
 struct SceneRenderDescriptor {
+    struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
     struct Layer {
         let id: Int
         var visible: Bool? = true
@@ -84,11 +85,14 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [SceneObjectDependency] = []
         var colorBlendMode: Int? = nil
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
+        var usesPerspective: Bool? = nil
+        var effects: [Int] = []
     }
     struct MaterialPass { let combos: [String: Int] }
     let layers: [Layer]
     var materialPasses: [MaterialPass] = []
     var renderOrderOverride: [Int]? = nil
+    var camera = Camera()
     var renderOrderLayerIDs: [Int] { renderOrderOverride ?? layers.map(\.id) }
 }
 struct SceneDependencyRenderPlan {

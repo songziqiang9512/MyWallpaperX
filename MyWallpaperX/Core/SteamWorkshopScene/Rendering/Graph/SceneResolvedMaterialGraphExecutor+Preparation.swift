@@ -374,7 +374,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         program: program,
                         target: terminalReplayTarget,
                         unitModelViewProjection:
-                            frameInputs.effectOutputModelViewProjection
+                            frameInputs.terminalReplayModelViewProjection
+                                ?? frameInputs.effectOutputModelViewProjection
                     ) {
                     case let .success(replay):
                         terminalMaterialReplay = replay

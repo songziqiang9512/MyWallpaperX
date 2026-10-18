@@ -90,7 +90,8 @@ extension SceneMetalRenderer {
                        dynamicValues: SceneDynamicSnapshot,
                        pool: SceneOffscreenTexturePool?,
                        viewportSize: CGSize, commandBuffer: MTLCommandBuffer,
-                       utilityExecution: SceneUtilityLayerRuntimePlanner.Execution)
+                       utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
+                       sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:])
         -> (SceneMainPassEncoder, SceneCompositionGroupFrameRuntime?) {
         let mainPass = SceneMainPassEncoder(commandBuffer: commandBuffer,
             target: target, clearColor: sceneClearColor(dynamicValues: dynamicValues), clearEnabled: clearEnabled)
@@ -100,7 +101,9 @@ extension SceneMetalRenderer {
                 commandBuffer: commandBuffer, offscreenTexturePool: pool,
                 memberRootsByLayerID: utilityExecution.memberRootsByLayerID,
                 membersByRootID: utilityExecution.membersByRootID, viewportSize: viewportSize,
-                copyBackgroundRootIDs: utilityExecution.copyBackgroundRootIDs)
+                copyBackgroundRootIDs: utilityExecution.copyBackgroundRootIDs,
+                localSourceRootIDs: utilityExecution.localSourceRootIDs,
+                sourceGeometriesByRootID: sourceGeometriesByRootID)
         }
         return (mainPass, groups)
     }

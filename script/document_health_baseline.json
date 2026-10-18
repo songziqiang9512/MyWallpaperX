@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 124879
+      "bytes": 125934
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 205,
-      "bytes": 90931
+      "lines": 213,
+      "bytes": 95218
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 62866
+      "bytes": 63546
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -169,8 +169,8 @@
       "bytes": 112318
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 66,
-      "bytes": 13828
+      "lines": 86,
+      "bytes": 19762
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -241,8 +241,8 @@
       "bytes": 16098
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 200,
-      "bytes": 48812
+      "lines": 201,
+      "bytes": 50744
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1271,27 +1271,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "0c823dd674c6593fc7975ec96c3eb691d4ecc718674d87100026551df0dd8da4",
-      "after": "c794585a393b484111b0460b691bba01134a4e245b7fafce409b5c6309f629c4",
-      "owner": "scene-composition-source-geometry",
-      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "3b518eb6c02f52bdfc0bf81db688dfa336ea0072fd710f22a3293245058f4e94",
       "after": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
-      "owner": "scene-composition-source-geometry",
-      "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "1fcefeab6c9ad1b09702b90a662b4956d9397c5bc1f2a9631eb8a6c26cc488b5",
-      "after": "ae980de0785c5fa9d3ee73ddf23280368caa1ee3f85658a0a87633764665cd6d",
       "owner": "scene-composition-source-geometry",
       "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
@@ -1352,30 +1334,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1962f37b7c7fb32ad2896ec747b25a5dfb41f3cac7aa617dd182df7eec958be1",
-      "after": "50a07978153b499740947153f1fe65116ad2257aa124dde97faea1054f076eb9",
-      "owner": "scene-parallax-depth-omission",
-      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "c794585a393b484111b0460b691bba01134a4e245b7fafce409b5c6309f629c4",
+      "after": "495aa681940396a7d05fa48a6385415f8761d276a0de1f02e47e52182cbaceac",
+      "owner": "scene-composition-member-bounds",
+      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c9faa6ae45af424b71e21ef3c343c6a7a0f67644f8d16c09f54258b82cbf53c6",
-      "after": "cf0716a63e1b9ef32863fe5c433bcd4045a26150831d2023140403cd1e76ed2c",
-      "owner": "scene-parallax-depth-omission",
-      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "50a07978153b499740947153f1fe65116ad2257aa124dde97faea1054f076eb9",
+      "after": "ef43c2c946fe8e8d4e9afc3ae990f0cd815704fcad2bfe09497f23f004a56d9e",
+      "owner": "scene-composition-member-bounds",
+      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "29738b61a1f45b06f5d7366815312f4548d0f498ac8ed7b822cc58b70b21c5da",
-      "after": "ac9c07fc7e29fb0c3233710fc62053ed22de1b3c91e0ece4eb18cdbf3e5977a7",
-      "owner": "scene-parallax-depth-omission",
-      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
+      "before": "ac9c07fc7e29fb0c3233710fc62053ed22de1b3c91e0ece4eb18cdbf3e5977a7",
+      "after": "e1fdcb3d7adbf7372fa41764dea126a41301ded8c3aba907981e588d3c76ebaf",
+      "owner": "scene-composition-member-bounds",
+      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "ae980de0785c5fa9d3ee73ddf23280368caa1ee3f85658a0a87633764665cd6d",
+      "after": "69c335fba4004110b30e387f489bcb61c7fb63c5a8b5f6db44edea9d63873d33",
+      "owner": "scene-composition-member-bounds",
+      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "cf0716a63e1b9ef32863fe5c433bcd4045a26150831d2023140403cd1e76ed2c",
+      "after": "adcb74896d5d18a5ecf27adb10cbf6c5c0f724266ed1e043b76ea71917229c17",
+      "owner": "scene-composition-member-bounds",
+      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
     }
   ]
 }

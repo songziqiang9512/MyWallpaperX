@@ -87,7 +87,7 @@
 
 | 样本 | 用户观察 / 下一关闭门 |
 |---|---|
-| 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 10-18源路由修后巨大斜片消失，用户确认白环已贴合；后报文字仍偏位/大小不准且旋转漂移，未据早期目视销账。最终a67让空透明effect源恢复author2000²，393三stage实际GPU/末合成，两late文字位白环内侧，已消除非方源圆心与Spin中心不一致的条件。**精确官方位置/尺度、完整周期仍待同状态复核，本反馈partial**；不改作者中心/宽度或强制同速。独立347网格保持。[最新限定后验](../capabilities/runtime-evidence-current.md#composition-local-source-20261018)；原组归属仍保历史。 |
+| 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 巨大斜片、白环贴合与空透明源2000²首门已闭；文字精确对齐仍partial。10-18当前App普通原包可见弧位白环内侧，但有效跨度38.849s短于41.888s周期，且音频驱动radius；静音对照使作者三路opacity=0，无法测环，二者不合拼完整周期。暂不重试或强制同速/改中心；后继须同时满足可见、稳定输入及有效时序。[后继资格](../capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018)，[已闭源语义](../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。 |
 
 <a id="qv-cccea6c-user-report"></a>
 
@@ -99,10 +99,9 @@
 
 | 编号 / 样本 | 仍开放的具体观察 / 下一关闭门 |
 |---|---|
-| U01 · 3764725758 | ①左侧斜光；②眼睛飘动仍保留。10-18当前HEAD复验已证830/1706实际Program、GPU、末合成及next-frame，未见准入首拒；窗口与官方比例不同，未确定可归因光束ROI，不改增益/点位。眼部未作完整周期复验。[有界复验](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
+| U01 · 3764725758 | ①左侧斜光；②眼睛飘动仍保留。10-18当前HEAD复验已证830/1706实际Program、GPU、末合成及next-frame，未见准入首拒；窗口与官方比例不同，未确定可归因光束ROI，不改增益/点位。眼部未作完整周期复验。[有界复验](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018)；后继成员源同最终App两组/上部构图保持，未关闭本行两项。[组源后验](../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018) |
 | U02 · 3549827466、3585542943、3581882134、3603711180 | 354于10-18当前HEAD复验：1226实际完成143批/672实例、无失败，主体/背景保持；尚无同viewport可归因缺光ROI，不按族名补算法。其余三包未随本次复验，仍分别核来源、geometry/coverage与最终ROI。[边界](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U05 · 3723344874 | 人物背后烟雾/涡动仍开放。10-17初始化numeric自读与typed RGBA辅助carrier首门已退出，原包effect3实际17material/2swap、0rejected/GPU完成，经suffix末合成/下一帧；node19证明与node22metadata不再拒。根对照前后/官方原图仍未证明显烟雾恢复，Dye内容非零UNKNOWN；下一门应取可归因输入/内容，不再以准入、完成计数或盲加时/增益销账。[后验](../capabilities/runtime-evidence-current.md#u05-source-proven-signal-20261017) |
-| U08 · 3802005866 | 音频条/蓝背景疑似越出限定矩形；先确认作者限定区域，再核变换/clip/extent |
 | U10 · 3793998447 | 音频光圈和部分属性疑似缺失；先列具体active属性与typed消费者，不能从面板有声明推全部失效 |
 | U11 · 3792249095 | 音频发光缺失、整体样式差异；先同声源定位驱动→effect/颜色/合成与具体构图ROI |
 | U13 · 3042492564 | 尺寸/显示比例、光束形状、封面右裁切/blur、布局及媒体交互分别保留待当前条件复验。10-16原包默认倍率0.73→1→0.73同窗可见，星芒/海平线/塔底恢复，官方同aspect主体尺度接近；这关闭旧倍率输入首门，不代替最新尺寸观察或其他ROI。1128非有限origin也已修；544作者ReferenceError:event不列host缺口。[camera边界](../history/default-2d-camera-inputs-2026-10-16.md)、[Vec证据](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md) |
@@ -111,7 +110,7 @@
 | U17 · 3233141951 | 同层平坦relative-transform Combined首门已退出；原20s face26/dragon266持续GPU输出，但头发逐帧值未导出，脸随头发/龙头准确轨迹未判同phase。403原请求513仍因当前数值污染Bool seed而拒；[单变量资格](../../../.artifacts/scene-evidence/runs/u17-animation513-qualification-20261017/manifest.json)仅把该visible改原literal true后，clip458实际播放/105份geometry已证，共享atlas及无UV证据使左侧黑形像素归属和可见收益仍UNKNOWN，已停止此修法；重启需可归因ROI或新producer证据。双色音频旧观察仍待同声源；无目录官方截屏，四项不记关闭。[Combined边界](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
 | U19 · 3807668787 | 主报告灰头冠/音频缺失已修；仅保10-11实测可见pointer轨迹958因alphatocoverage拒绝。现粒子blend/profile须取得同条件合同，不能猜替代混合。[最后证据](../history/independent-signal-producer-2026-10-11.md) |
 | U24 · 3420215721 | freeze/封面依赖首门已闭；中央环官方亮度具体差异待当前复验。349/409 circular_text默认hidden且无激活证据，不计缺字，不改作者alpha补偿。[关闭首门及边界](../history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency) |
-| U25 · 3351163962 | 时间文字跑出左上音频环；核text anchor、布局与共同parent空间。自有camera-anchor官方ZERO资格失败，没有可用于改投影的合同 |
+| U25 · 3351163962 | 10-18当前原包中时分90、秒198均在环内并推进，越界的是问候文字217→195→341。该层`anchor=left`的屏幕偏移解释约257.11作者单位的右移；尺寸夹取本轮关闭，不能当根因。作者GIF非同viewport，只证差异、尚未裁定anchor合同；旧官方ZERO资格失败，不能直接改相机或补坐标。[当前资格](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | U26 · 2849382252 | 三条白色图形分辨率过低；核原资产、采样/target extent与几何，不先判压缩或任意加分辨率 |
 | U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
 | U28 · 2684431262 | 整体合成差异反馈仍待同状态官方ROI。10-18原包fresh已见倾斜青环/白盘、代码和洋红圆粒子，未见旧巨大紫块；139原色本为洋红，239/355/405实际Program/GPU/末合成/下一帧，不能按颜色判占位。250²作者GIF非同viewport/phase/音源参考，不据此关闭原反馈或改参数。[本次资格](../capabilities/runtime-evidence-current.md#u28-visual-qualification-20261018) |
@@ -120,8 +119,8 @@
 | U31 · 3264246690 | ①人物边缘锯齿；②警戒带运动仍待当前画面对照。旧头部出画/左肘缺块已有[稳定帧完整肢体后验](../capabilities/runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)，不再列待修。点击口罩已有before戴口罩→click露嘴及effect切换的[实际后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)；pool误拒另修，不据这些关闭AA/运动或整样本。 |
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |
 | U33 · 3769688830 | 玩偶应左右循环转而现单向转；核rotation/oscillation/Timeline的相位和方向，不专设摆动算法 |
-| U35 · 2974757317 | 卡片下多出独立矩形频谱；先证作者是否本有该层，再核named/previous、层序/变换/clip，不直接隐藏 |
-| U36 · 3780119725 | 中层固定而整景应随鼠标视差；另旧人工记录有脸部黑线/缺块、动画、光照/闪烁差异。沿camera/depth/parent→MVP与effect输入复验；默认camera后继不能代替该包当前验收 |
+| U35 · 2974757317 | 10-18当前原包仍见卡片下独立矩形/重复画面像素。四条作者独立音频链1411/1424/1072/1083均实际消费非零16band，末Opacity完成GPU与合成；实际mask slot/UV及矩形producer仍unknown。它们无parent且copybackground默认true，不属U08成员组修法；核背景抓取、源输出和mask绑定，不隐藏作者层。376 visibility另有invalidSource，不归为矩形原因。[当前资格](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
+| U36 · 3780119725旧视觉余项 | 10-18缺席深度公共修复后，原包短pointer轨迹已见前摩托与人物响应，旧“中层完全固定”退出；21/276及附属层prepared1,1，显式879=1.91保持。只证基本可见响应，不判delay2/gain、同phase/viewport或整景一致；脸部黑线/缺块、动画、光照/闪烁的旧观察仍待当前条件复验。[实际后验](../capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018) |
 | U37 · 3769364482 | 发光突现/缺呼吸的旧视觉反馈待当前完整周期复验。10-18定义复核无layer alpha Timeline；Blink实际控制59/effect173/pass1的rayintensity循环，Breathing控制三条Shake，不按“缺opacity动画”修。尚无当前标量Timeline拒绝证据，先区分这两实际消费者及可归因ROI。[资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U39 · 3219398263 | 漩涡方向疑似相反；固定时间/角度/UV/空间后裁决，不凭单帧改符号 |
 
@@ -133,6 +132,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 3802005866 · 蓝色越界/框外音频细线反馈已闭 | 10-18同22输入原包显示中蓝条、底部框外白细线消失，框内非零频谱保持；修复的是正交透明成员组的父本地源边界，无effect也沿原pool/compositor输出一次，白框不作clip声明。named enclosing采集、终端重放、尺寸cap与安全邻例已验，独立原U01有界保持、最终独审无阻断；整景/官方同phase与HDR未扩。[有界后验](../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018) |
 | 3750342273 · 缺pointer视差首反馈已闭 | 10-18原包在固定官方省略/显式深度双臂均有山体移动，而旧App为零；原2D字段parser只为真正缺席归一化单位深度。最终未修改原包山体两轴响应、文字固定、回中心构图恢复，显式零/坏值/继承与独立单轴样本保持。仅关闭原“完全缺视差”反馈，精确gain/delay、全轨迹与整样本未验。[有界后验](../capabilities/runtime-evidence-current.md#parallax-depth-omission-20261018) |
 | 3797217144 · 基础入场/横倒首反馈已闭 | 10-18原输入的Single angles→scale不再因响应选项而整组冻结：先保蓝环背景，再恢复完整转正人物。作者选项保留，未实现响应明确为基础曲线近似；固定官方原包及删键变体均见正向人物。精确平滑/phase与整样本未验，不另造已证视觉缺陷。[有界后验](../capabilities/runtime-evidence-current.md#single-timeline-response-fallback-20261018) |
 | 3617056047 · 位置/倒置反馈已闭 | 10-18原包罐体恢复正向并回虚线圆内，不再压底字；作者origin/scale与camera保持，原准备入口完成静态mesh顶点基适配。真实单面/背剔除、父级/负scale/native及三shadow通过，独立native原包有界呈现；不记全样本、精确亮度/同phase或全部互动通过。[后验](../capabilities/runtime-evidence-current.md#static-model-canvas-basis-20261018) |
@@ -180,6 +180,7 @@
 
 | 项目 | 证据边界与下一门 |
 |---|---|
+| text `size`更新时序 | **静态候选，非U25当前根因。** VM getter只读catalog size，实际文字排版另发布logical extent；text/font/pointsize待写值与size分离。公开合同仅称只读像素分辨率，setter后何时刷新、padding/装饰边范围仍未证；先取得行为资格，再决定复用唯一CoreText测量owner，避免getter/raster重复排版或把parent投影尺寸写回逻辑size。 |
 | Timeline event-only attachment归属 | **静态反例，无真实受影响target资格。** Vec2/Vec3或numeric String可能尚未获VM control owner，却被classifier仅凭event-only吞attachment；10-16三包只见已支持Number control，资格已停。后继必须先证target及proven control owner，再复用原Timeline值源；不扩API或继续宽搜。[当前API边界](../capabilities/scenescript-api-coverage.md) |
 | 普通桌面captureFrame返回1×1 | 10-15的3766415113 daemon已呈现而ScreenCaptureKit仅1×1 JPEG，同输入Metal诊断可完整；待当前窗口frame/捕获时机复验，不把诊断替代图当普通capture已修。[原尝试](../history/shader-completed-cache-retention-2026-10-15.md#未完成边界与无效尝试) |
 | 10-17新可达脚本/粒子首错 | 359777 Bird的省略距离与零origin world CP旧拒绝已按[源空间合同](../capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离)退出；operator10非零world origin仍拒，当前默认窗口270无非空粒子/可见鸟群UNKNOWN，既有音频发射response原因未证；360的196/205单图atlas Rope旧拒绝已[退出](../capabilities/runtime-evidence-current.md#rope-whole-source-20261017)，只保49.visibility notfunction。360脚本须先锁真实receiver与public合同，不能从异常标签直接补API或改变类型；具体运行/输入只归台账，不把入场phase再排camera。 |
