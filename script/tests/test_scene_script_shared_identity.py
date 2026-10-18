@@ -42,8 +42,115 @@ import Foundation
     static func code(_ r: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>) -> String {
         switch r { case .success: "ok"; case let .failure(f): f.code }
     }
+    static func candidate(_ sources: [String], ids: [Int], seed: Bool = true)
+        throws -> SceneScriptQuickJSProgramCandidate {
+        let descriptor = SceneRenderDescriptor(layers: ids.enumerated().map { index, id in
+            .init(id: id, layerIndex: index, name: "own-\(id)", visible: index == 0 ? seed : true,
+                  originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: nil,
+                  alpha: 1, effects: [])
+        })
+        let bindings = sources.enumerated().map { index, source -> SceneScriptBindingIR in
+            let reader = index == sources.count - 1
+            return .init(source: source,
+                owner: .init(kind: .object, objectIndex: index, objectID: ids[index],
+                    effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(index), .key(reader ? "origin" : "visible")],
+                properties: [:], authoredValue: reader ? .string("0 0 0") : .bool(index == 0 ? seed : true),
+                valueType: reader ? .string : .boolean, wrapperKeys: ["script", "value"])
+        }
+        return try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor, runtimeDescriptor: descriptor, scriptBindings: bindings,
+            vectorProjection: SceneScriptVectorProgram.project(descriptor: descriptor, scriptBindings: bindings),
+            userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [],
+            stringExcludedTargets: [], admittedVectorPassTargets: [], generation: 1)
+    }
+    static func evaluate(_ candidate: SceneScriptQuickJSProgramCandidate, time: Double = 1)
+        -> SceneScriptVectorFrameResult {
+        candidate.vectorProgram.evaluate(
+            inputs: Dictionary(uniqueKeysWithValues: candidate.vectorProgram.definitions.map {
+                ($0.target, $0.authoredValue)
+            }), effectivePropertyValues: [:], frame: .init(timing: .init(
+                wallDate: Date(timeIntervalSince1970: 0), simulationFrameTime: 0.016, sceneTime: time)))
+    }
+    static func moduleOnlyCases() throws -> [[String: Any]] {
+        try [false, true].map { renamed in
+            let ids = renamed ? [71,93] : [11,22]
+            let token = renamed ? "renamedValue" : "token"
+            let flag = renamed ? "otherFlag" : "flag"
+            let source = renamed
+                ? "const payload={};payload.\(token)=8+9;payload.\(flag)=false;shared=payload;"
+                : "shared={\(token):17,\(flag):false};"
+            let candidate = try candidate([source,
+                "export function update(v){return new Vec3(shared.\(token),shared.\(flag)===false?1:0,0);}"],
+                ids: ids, seed: !renamed)
+            let producer: SceneDynamicTarget = .layer(layerID: ids[0], field: .visibility)
+            let reader: SceneDynamicTarget = .layer(layerID: ids[1], field: .origin)
+            let binding = candidate.vectorProgram.bindings.first { $0.definition.target == producer }
+            let idleBefore = binding?.owner.requiresFrameEvaluation == false
+            let first = evaluate(candidate)
+            let settled = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: candidate.vectorProgram.definitions, sceneScriptValues: first.values).snapshot
+            candidate.vectorProgram.finalizeLayerMutations(committing: true)
+            let second = evaluate(candidate, time: 2)
+            candidate.vectorProgram.finalizeLayerMutations(committing: true)
+            return ["complete": candidate.constructionReport.isComplete,
+                "instantiated": candidate.constructionReport.instantiatedVectorTargets.count,
+                "constructionFailures": candidate.constructionReport.vectorFailures.count,
+                "stateful": binding?.requiresStatefulOwner == true,
+                "idleBeforeAndAfter": idleBefore && binding?.owner.requiresFrameEvaluation == false,
+                "noInitialization": binding?.owner.needsInitialization == false,
+                "noValuePublication": first.values[producer] == nil && second.values[producer] == nil,
+                "authoredSeedPreserved": settled[producer]?.value == .bool(!renamed),
+                "readerValues": [first.values[reader], second.values[reader]].map {
+                    $0 == .vector3(17,1,0)
+                },
+                "noProducerEffects": (first.ownerEffects + second.ownerEffects).allSatisfy {
+                    $0.ownerTarget != producer
+                }, "runtimeFailures": first.failures.count + second.failures.count]
+        }
+    }
+    static func failedModuleCase() throws -> [String: Any] {
+        let candidate = try candidate([
+            "shared.runs=(shared.runs||0)+1;shared.healthy=17;",
+            "shared.poison=99;throw new Error('self-owned module rejection');",
+            "export function update(v){return new Vec3(shared.runs,shared.poison||0,shared.healthy);}"],
+            ids: [31,42,53])
+        let rejected: SceneDynamicTarget = .layer(layerID: 42, field: .visibility)
+        let producer: SceneDynamicTarget = .layer(layerID: 31, field: .visibility)
+        let reader: SceneDynamicTarget = .layer(layerID: 53, field: .origin)
+        let result = evaluate(candidate)
+        candidate.vectorProgram.finalizeLayerMutations(committing: true)
+        return ["complete": candidate.constructionReport.isComplete,
+            "expected": candidate.constructionReport.expectedVectorTargets.count,
+            "instantiated": candidate.constructionReport.instantiatedVectorTargets.count,
+            "onlyRejectedModule": Set(candidate.constructionReport.vectorFailures.keys) == [rejected],
+            "failureCode": candidate.constructionReport.vectorFailures[rejected]?.code ?? "missing",
+            "healthyModuleRetained": candidate.constructionReport.instantiatedVectorTargets.contains(producer),
+            "cleanRebuiltHeap": result.values[reader] == .vector3(1,0,17),
+            "noProducerValue": result.values[producer] == nil,
+            "runtimeFailures": result.failures.count]
+    }
+    static func moduleOnlyRejections() throws -> [String: String] {
+        let d = try domain()
+        func construct(_ source: String, stateful: Bool) -> String {
+            do {
+                _ = try SceneScriptValueOwner(domain: d, source: source,
+                    target: .layer(layerID: 1, field: .visibility), valueType: .bool,
+                    effectNames: [], allowsStatefulLayerSideEffects: stateful,
+                    generation: 1, budget: .default)
+                return "accepted"
+            } catch let failure as SceneScriptScalarRuntimeFailure { return failure.code }
+            catch { return "unexpected:\(error)" }
+        }
+        return ["valueOnlyNoHooks": construct("const ownValue=17;", stateful: false),
+            "valueOnlyShared": construct("shared={ownValue:17};", stateful: false),
+            "destroyOnly": construct("export function destroy(){}", stateful: true)]
+    }
     static func main() throws {
         var out: [String:Any] = [:]
+        out["moduleOnly"] = try moduleOnlyCases()
+        out["failedModule"] = try failedModuleCase()
+        out["moduleOnlyRejections"] = try moduleOnlyRejections()
         let d = try domain()
         let aliases = try owner(d, """
             let root, child;
@@ -244,7 +351,35 @@ class SceneScriptSharedIdentityTests(unittest.TestCase):
         self.assertEqual(self.value["sharedFunctionMemory"], "memory-exceeded")
 
     def test_shared_handle_preserves_owner_identity_and_persistence(self):
-        self.assertEqual(self.value["sharedForeignHandle"], [1, 0, 0])
-        self.assertEqual(self.value["sharedForeignHandleMutations"], 0)
+        # A persistent authored reference keeps its concrete layer across
+        # owners; the executing stateful owner may journal its allowed write.
+        self.assertEqual(self.value["sharedForeignHandle"], [0, 0, 0])
+        self.assertEqual(self.value["sharedForeignHandleMutations"], 1)
         self.assertEqual(self.value["sharedPersistentHandle"], [0, 0, 0])
         self.assertEqual(self.value["sharedPersistentHandleMutations"], 1)
+
+    def test_module_only_bool_is_retained_idle_and_visible_to_sibling(self):
+        for row in self.value["moduleOnly"]:
+            with self.subTest(row=row):
+                self.assertEqual(row["instantiated"], 2)
+                self.assertEqual(row["constructionFailures"], 0)
+                self.assertEqual(row["runtimeFailures"], 0)
+                self.assertEqual(row["readerValues"], [True, True])
+                for key in ("complete", "stateful", "idleBeforeAndAfter", "noInitialization",
+                            "noValuePublication", "authoredSeedPreserved", "noProducerEffects"):
+                    self.assertTrue(row[key], key)
+
+    def test_failed_module_rebuilds_a_clean_candidate_and_keeps_healthy_peer(self):
+        row = self.value["failedModule"]
+        self.assertEqual(row["expected"], 3)
+        self.assertEqual(row["instantiated"], 2)
+        self.assertEqual(row["failureCode"], "exception")
+        self.assertEqual(row["runtimeFailures"], 0)
+        for key in ("complete", "onlyRejectedModule", "healthyModuleRetained",
+                    "cleanRebuiltHeap", "noProducerValue"):
+            self.assertTrue(row[key], key)
+
+    def test_module_only_admission_keeps_value_only_and_destroy_only_closed(self):
+        self.assertEqual(self.value["moduleOnlyRejections"], {
+            "valueOnlyNoHooks": "invalid-source", "valueOnlyShared": "exception",
+            "destroyOnly": "invalid-source"})

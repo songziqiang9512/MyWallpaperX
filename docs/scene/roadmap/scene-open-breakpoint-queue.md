@@ -110,7 +110,6 @@
 | U17 · 3233141951 | 同层平坦relative-transform Combined首门已退出；原20s face26/dragon266持续GPU输出，但头发逐帧值未导出，脸随头发/龙头准确轨迹未判同phase。403原请求513仍因当前数值污染Bool seed而拒；[单变量资格](../../../.artifacts/scene-evidence/runs/u17-animation513-qualification-20261017/manifest.json)仅把该visible改原literal true后，clip458实际播放/105份geometry已证，共享atlas及无UV证据使左侧黑形像素归属和可见收益仍UNKNOWN，已停止此修法；重启需可归因ROI或新producer证据。双色音频旧观察仍待同声源；无目录官方截屏，四项不记关闭。[Combined边界](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
 | U19 · 3807668787 | 主报告灰头冠/音频缺失已修；仅保10-11实测可见pointer轨迹958因alphatocoverage拒绝。现粒子blend/profile须取得同条件合同，不能猜替代混合。[最后证据](../history/independent-signal-producer-2026-10-11.md) |
 | U24 · 3420215721 | freeze/封面依赖首门已闭；中央环官方亮度具体差异待当前复验。349/409 circular_text默认hidden且无激活证据，不计缺字，不改作者alpha补偿。[关闭首门及边界](../history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency) |
-| U25 · 3351163962 | 10-18当前原包中时分90、秒198均在环内并推进，越界的是问候文字217→195→341。该层`anchor=left`的屏幕偏移解释约257.11作者单位的右移；尺寸夹取本轮关闭，不能当根因。作者GIF非同viewport，只证差异、尚未裁定anchor合同；旧官方ZERO资格失败，不能直接改相机或补坐标。[当前资格](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | U26 · 2849382252 | 三条白色图形分辨率过低；核原资产、采样/target extent与几何，不先判压缩或任意加分辨率 |
 | U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
 | U28 · 2684431262 | 整体合成差异反馈仍待同状态官方ROI。10-18原包fresh已见倾斜青环/白盘、代码和洋红圆粒子，未见旧巨大紫块；139原色本为洋红，239/355/405实际Program/GPU/末合成/下一帧，不能按颜色判占位。250²作者GIF非同viewport/phase/音源参考，不据此关闭原反馈或改参数。[本次资格](../capabilities/runtime-evidence-current.md#u28-visual-qualification-20261018) |
@@ -119,7 +118,6 @@
 | U31 · 3264246690 | ①人物边缘锯齿；②警戒带运动仍待当前画面对照。旧头部出画/左肘缺块已有[稳定帧完整肢体后验](../capabilities/runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)，不再列待修。点击口罩已有before戴口罩→click露嘴及effect切换的[实际后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)；pool误拒另修，不据这些关闭AA/运动或整样本。 |
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |
 | U33 · 3769688830 | 玩偶应左右循环转而现单向转；核rotation/oscillation/Timeline的相位和方向，不专设摆动算法 |
-| U35 · 2974757317 | 10-18当前原包仍见卡片下独立矩形/重复画面像素。四条作者独立音频链1411/1424/1072/1083均实际消费非零16band，末Opacity完成GPU与合成；实际mask slot/UV及矩形producer仍unknown。它们无parent且copybackground默认true，不属U08成员组修法；核背景抓取、源输出和mask绑定，不隐藏作者层。376 visibility另有invalidSource，不归为矩形原因。[当前资格](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | U36 · 3780119725旧视觉余项 | 10-18缺席深度公共修复后，原包短pointer轨迹已见前摩托与人物响应，旧“中层完全固定”退出；21/276及附属层prepared1,1，显式879=1.91保持。只证基本可见响应，不判delay2/gain、同phase/viewport或整景一致；脸部黑线/缺块、动画、光照/闪烁的旧观察仍待当前条件复验。[实际后验](../capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018) |
 | U37 · 3769364482 | 发光突现/缺呼吸的旧视觉反馈待当前完整周期复验。10-18定义复核无layer alpha Timeline；Blink实际控制59/effect173/pass1的rayintensity循环，Breathing控制三条Shake，不按“缺opacity动画”修。尚无当前标量Timeline拒绝证据，先区分这两实际消费者及可归因ROI。[资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U39 · 3219398263 | 漩涡方向疑似相反；固定时间/角度/UV/空间后裁决，不凭单帧改符号 |
@@ -132,6 +130,8 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 2974757317 · 卡片下多余矩形反馈已闭 | 10-18原包两帧不再出现下方重复卡片矩形，主卡/title/artist/日期/背景保持；合法无回调Bool模块现留在最终共享域，三个origin首值保持作者屏外Y=-1850，旧376 invalidSource退出。官方同viewport原包与初始化标记实验、改名/等价式及失败域重建门分别支撑此链；独立3351163962布局保持。不修改AudioBars、mask或作者坐标，不认领全phase/音源、完整交互及整样本PASS。[有界后验](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
+| 3351163962 · 默认时钟布局反馈已核对 | 10-18原包默认、同908×590官方A两帧与当前native相对环心的hour/seconds/greeting最大单轴差1.643px，低于预锁4px门；时分秒均在环内，问候均跨圆右侧，bbox相同。旧GIF非同viewport，不能据此改anchor/相机；本条按同默认官方一致退出，不称引擎修复、全部属性或整样本PASS。[有界对照](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | 3802005866 · 蓝色越界/框外音频细线反馈已闭 | 10-18同22输入原包显示中蓝条、底部框外白细线消失，框内非零频谱保持；修复的是正交透明成员组的父本地源边界，无effect也沿原pool/compositor输出一次，白框不作clip声明。named enclosing采集、终端重放、尺寸cap与安全邻例已验，独立原U01有界保持、最终独审无阻断；整景/官方同phase与HDR未扩。[有界后验](../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018) |
 | 3750342273 · 缺pointer视差首反馈已闭 | 10-18原包在固定官方省略/显式深度双臂均有山体移动，而旧App为零；原2D字段parser只为真正缺席归一化单位深度。最终未修改原包山体两轴响应、文字固定、回中心构图恢复，显式零/坏值/继承与独立单轴样本保持。仅关闭原“完全缺视差”反馈，精确gain/delay、全轨迹与整样本未验。[有界后验](../capabilities/runtime-evidence-current.md#parallax-depth-omission-20261018) |
 | 3797217144 · 基础入场/横倒首反馈已闭 | 10-18原输入的Single angles→scale不再因响应选项而整组冻结：先保蓝环背景，再恢复完整转正人物。作者选项保留，未实现响应明确为基础曲线近似；固定官方原包及删键变体均见正向人物。精确平滑/phase与整样本未验，不另造已证视觉缺陷。[有界后验](../capabilities/runtime-evidence-current.md#single-timeline-response-fallback-20261018) |

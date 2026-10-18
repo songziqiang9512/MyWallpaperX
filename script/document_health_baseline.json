@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 213,
-      "bytes": 95218
+      "lines": 217,
+      "bytes": 97603
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 63546
+      "bytes": 63583
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 112241
+      "bytes": 112754
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 550,
-      "bytes": 142656
+      "lines": 560,
+      "bytes": 144600
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 50744
+      "bytes": 50846
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1280,15 +1280,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "295b2e2e5c8f53a2443baadd5866eb55aa51ba8913dde2e0890e5a2971713b96",
-      "after": "2c8caea58f630b5411a6106f232a4c9908bbddcb04f6bbc96dd17f90b307c0cd",
-      "owner": "scene-puppet-bone-matrix-order",
-      "reason": "Record the existing cross-owner matrix ordering correction and bounded release-direction evidence; replace stale queue assumptions without claiming U40 completion.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-query-render-pose"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "before": "3c040b968e69266aac093b348611ffcd1a89efbe3f58edee17fe690e59c48be0",
       "after": "581a278063990d2b9aba9786e9b679cba0685fb027351eea9f1611053e40ced1",
@@ -1304,15 +1295,6 @@
       "owner": "scene-model-reflection-qualification",
       "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
       "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "933e99de136bebe0a349a8a84cfb428b3ed649026023f8012a8a7223d78a0969",
-      "after": "5fa7b992f960c9aae98980ff982853d8a7441db6a0116d7057625480e9d2cda1",
-      "owner": "scene-single-timeline-response-fallback",
-      "reason": "Replace frozen known curves with a declared bounded Single fallback; synchronize real playback qualification, remaining observations and generated ledger source without changing manual verdicts.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
@@ -1343,24 +1325,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "50a07978153b499740947153f1fe65116ad2257aa124dde97faea1054f076eb9",
-      "after": "ef43c2c946fe8e8d4e9afc3ae990f0cd815704fcad2bfe09497f23f004a56d9e",
-      "owner": "scene-composition-member-bounds",
-      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ac9c07fc7e29fb0c3233710fc62053ed22de1b3c91e0ece4eb18cdbf3e5977a7",
-      "after": "e1fdcb3d7adbf7372fa41764dea126a41301ded8c3aba907981e588d3c76ebaf",
-      "owner": "scene-composition-member-bounds",
-      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "ae980de0785c5fa9d3ee73ddf23280368caa1ee3f85658a0a87633764665cd6d",
       "after": "69c335fba4004110b30e387f489bcb61c7fb63c5a8b5f6db44edea9d63873d33",
@@ -1370,12 +1334,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "ef43c2c946fe8e8d4e9afc3ae990f0cd815704fcad2bfe09497f23f004a56d9e",
+      "after": "7dab113a7caf5585f7dcbbdd62d927cadb554968080844c8ea6cc6fcf97d889c",
+      "owner": "scene-script-module-initialization",
+      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "e1fdcb3d7adbf7372fa41764dea126a41301ded8c3aba907981e588d3c76ebaf",
+      "after": "db904ac3e5704a4d540a4cd6178880356fe29cc44184c35a1923745133f60726",
+      "owner": "scene-script-module-initialization",
+      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "2c8caea58f630b5411a6106f232a4c9908bbddcb04f6bbc96dd17f90b307c0cd",
+      "after": "ebe4acefc3b6632fd853ad83a354ce6344136964ad0ced8a9a4955abc778257f",
+      "owner": "scene-script-module-initialization",
+      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "5fa7b992f960c9aae98980ff982853d8a7441db6a0116d7057625480e9d2cda1",
+      "after": "52b198e09dbb7947b7c7931aaa57763e2d3dcf73c8f80e3b2e191dfd7774f80d",
+      "owner": "scene-script-module-initialization",
+      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cf0716a63e1b9ef32863fe5c433bcd4045a26150831d2023140403cd1e76ed2c",
-      "after": "adcb74896d5d18a5ecf27adb10cbf6c5c0f724266ed1e043b76ea71917229c17",
-      "owner": "scene-composition-member-bounds",
-      "reason": "Replace obsolete no-effect direct/viewport authority only for admitted authored-local member profile; preserve world/attachment separation and exact bounded original/heldout evidence and open feedback.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#局部-source-实施决定"
+      "before": "adcb74896d5d18a5ecf27adb10cbf6c5c0f724266ed1e043b76ea71917229c17",
+      "after": "1f1e1207d7ff3ddf8656908f2d072db9dd2cbcda1873e37123a199b3c51b4f49",
+      "owner": "scene-script-module-initialization",
+      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
     }
   ]
 }

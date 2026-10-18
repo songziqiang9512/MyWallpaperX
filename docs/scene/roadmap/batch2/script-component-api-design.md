@@ -516,6 +516,16 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 
 **验收与停止。** 自有VM输入验证Bool返回与跨effect副作用、改名/等价表达式、原子失败及邻近不准入形态；隔离App以相同窗口证明脚本持续更新和实际effect像素切换，另验project自身false→true→false及未参与修法内容。原包口罩变化须同时有owner、typed effect/graph执行和实际ROI，点击命中或非黑不足。不能承接动态capture或出现更早owner缺失时停下重排；多surface/HDR、完整样本及性能另验。
 
+<a id="script-module-top-level-initialization"></a>
+
+#### 模块顶层初始化后继（2026-10-18，有界已实施）
+
+成功求值的 stateful Bool 模块即使没有可调用回调，也可通过顶层初始化贡献共享状态。官方 marker、真实 candidate 门与原 U35 的限定画面已验证；构造 attempt 内曾执行模块仍不等于最终 domain 已接纳，本片不改变 Catalog 或 UI 属性通知。只撤除现有合法 stateful Bool 的额外无 hook 拒绝，不另造 Scalar、String 或非 Bool Vector 分支，不扩大其已有行为；非函数导出沿现共享 export Bridge 视为无可调用回调，不新增 ABI 判定。
+
+共享 `ValueOwnerConstruction/Exports` 识别无回调模块，真实 owner、namespace 与顶层贡献由最终成功的 domain 保活；不合成 `init`、伪造返回值、复制旧 heap 或新增调度。纯初始化模块沿 `requiresFrameEvaluation` 闲置，不抢占 authored/property/Timeline 值；原 timer/work 能力仍按现 owner 调度与预算。value-only Bool、destroy-only 和独立 Cursor 的原资格保持，不能借 module-only 身份取得新权限或放开空事件入口。退休、销毁与 Session 退出沿原 owner/domain 生命周期。
+
+模块 throw、预算或其他构造失败仍排除失败 target，并重建干净候选 domain；不把失败 attempt 的共享 heap 合并到最终域。最近门验证实际 candidate 重建、兄弟读取、改名与等价初始化、闲置无多余帧调用、失败模块清堆及健康 peer；value-only 与 destroy-only 反例保留。原 U35 默认输入的 ready/after 均不再出现底部复制矩形，三个 origin 首输出保持作者屏外基值；独立 U25 的时钟、圆环、问候与主体保持。只据此确认初始化贡献及这项画面收益，不外推精确音频/动画相位、字体像素、整样本兼容或性能；其他模块生命周期不能由此自动准入。
+
 <a id="layer-alpha-raw-setter"></a>
 
 ### Layer alpha 的 raw setter 与显示边界（2026-10-17）

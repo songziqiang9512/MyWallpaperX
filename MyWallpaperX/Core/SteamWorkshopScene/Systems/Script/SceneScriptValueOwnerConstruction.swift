@@ -196,9 +196,6 @@ extension SceneScriptValueOwner {
                 )
                 let hasMediaHook = exports.handlesMediaThumbnail || exports.handlesMediaPlayback
                     || exports.handlesMediaProperties || exports.handlesMediaTimeline
-                let hasCursorHook = !exports.exportedCursorEvents.isEmpty
-                let hasEventHook = hasMediaHook || exports.handlesUserProperties
-                    || hasCursorHook || (puppetAnimationIdentity != nil && exports.animationEventExport == 1)
                 if exports.handlesInit || exports.handlesUpdate {
                     // A stateful owner's destroy hook joins the existing
                     // exactly-once teardown dispatch (fail-soft, journal
@@ -214,12 +211,12 @@ extension SceneScriptValueOwner {
                         throw SceneScriptScalarRuntimeFailure.invalidSource
                     }
                 } else {
-                    // Event callbacks share the stateful mutation journal and
-                    // current audio snapshot. Registration does not require a
-                    // per-frame update; idle owners keep the existing event/
-                    // timer scheduling and borrowed cursor ownership.
-                    guard hasEventHook,
-                          !handlesDestroy,
+                    // A successfully evaluated module can contribute shared
+                    // initialization without exporting a callback. Retain its
+                    // owner in the accepted domain; the existing frame-work
+                    // predicate keeps it idle until it has scheduled work.
+                    // Event-only owners use this same lifetime and journal.
+                    guard !handlesDestroy,
                           allowsStatefulLayerSideEffects else {
                         throw SceneScriptScalarRuntimeFailure.invalidSource
                     }

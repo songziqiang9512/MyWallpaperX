@@ -642,7 +642,7 @@
     "3351163962": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "10-18当前时分/秒在环内并推进；越界为217问候文字。left锚点合同待裁定，不改相机；U25开放。见#u25-u35-current-qualification-20261018。",
+      "note": "10-18同默认/908×590官方A两帧与native时钟相对布局差≤1.643px（门4px）；时分秒在环内、问候同跨环。U25该反馈按官方一致退出，非引擎修复或整景PASS。见#u25-u35-current-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [
@@ -654,7 +654,7 @@
     "2974757317": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "10-18当前卡片下矩形/重复像素仍在；四独立音频链真实非零且末级GPU/合成成功，实际mask与producer待归因；U35开放。见#u25-u35-current-qualification-20261018。",
+      "note": "10-18合法module-only Bool初始化保留于最终共享域后，原包两帧卡片下多余矩形消失、主卡/文字/背景保持；官方无CLI标记实验及改名/失败重建门有界支撑，独立U25布局保持。仅U35该反馈退出，不改整样本unreviewed。见#u25-u35-current-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [
