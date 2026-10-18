@@ -11,6 +11,7 @@ struct SceneMetalRendererFrameWorldProjection {
     let worldFrames: [Int: simd_float4x4]
     let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     let preparationLayers: [SceneRenderDescriptor.Layer]?
+    var imageMaterialStateLayerIDs: Set<Int> = []
 }
 
 extension SceneMetalRenderer {
@@ -27,6 +28,7 @@ extension SceneMetalRenderer {
         let lightLayerIDs: [Int]
         let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
         let preparationLayers: [SceneRenderDescriptor.Layer]?
+        let imageMaterialStateLayerIDs: Set<Int>
         if let layerTopology,
            !layerTopology.dynamicLayers.isEmpty
                 || layerTopology.renderOrderLayerIDs
@@ -47,6 +49,7 @@ extension SceneMetalRenderer {
             lightLayerIDs = projection.lightLayerIDs
             utilityExecution = projection.utilityExecution
             preparationLayers = projection.preparationLayers
+            imageMaterialStateLayerIDs = projection.imageMaterialStateLayerIDs
         } else {
             descriptor = renderDescriptor
             layersByID = self.layersByID
@@ -56,6 +59,7 @@ extension SceneMetalRenderer {
             lightLayerIDs = self.lightLayerIDs
             utilityExecution = self.utilityExecution
             preparationLayers = resolvedMaterialPreparationLayers
+            imageMaterialStateLayerIDs = self.imageMaterialStateLayerIDs
         }
         return SceneMetalRendererFrameWorldProjection(
             descriptor: descriptor,
@@ -72,7 +76,8 @@ extension SceneMetalRenderer {
                 puppetAttachmentFrames: puppetAttachmentFrames
             ),
             utilityExecution: utilityExecution,
-            preparationLayers: preparationLayers
+            preparationLayers: preparationLayers,
+            imageMaterialStateLayerIDs: imageMaterialStateLayerIDs
         )
     }
 

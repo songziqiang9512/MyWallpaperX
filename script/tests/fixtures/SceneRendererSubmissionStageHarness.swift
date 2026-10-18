@@ -29,6 +29,14 @@ final class MTLCommandBuffer {
         completions.forEach { $0(self) }
     }
 }
+// The stage's DEBUG observation order is exercised below. Timestamp selection
+// is an independent diagnostic leaf; this CPU fixture never requests it.
+enum SceneGPUStageTimestampHook {
+    static func isSelected(_ buffer: MTLCommandBuffer) -> Bool { false }
+    static func submitted(_ buffer: MTLCommandBuffer) {}
+    static func cancel(_ buffer: MTLCommandBuffer, reason: String) {}
+    static func surface(_ buffer: MTLCommandBuffer, frameIndex: UInt64, surfaceID: UInt32) {}
+}
 struct SceneResolvedMaterialFrameTargetPlan {}
 // Admission/resource preparation is outside this submission-stage probe.
 // Uninhabited opaque leaves satisfy FrameOutcome's carried signature without

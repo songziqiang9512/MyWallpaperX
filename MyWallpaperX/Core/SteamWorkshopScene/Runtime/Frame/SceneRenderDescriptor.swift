@@ -61,6 +61,8 @@ struct SceneRenderDescriptor: Codable {
     let renderOrderPolicy: String
     let modelMaterialLinks: [ModelMaterialLink]
     let materialPasses: [MaterialPassDescriptor]
+    /// Launch-qualified model defaults reused by prepared dynamic image templates.
+    var preparedImageMaterialStatesByModelPath: [String: SceneMaterialRenderState]? = nil
     let effectDefinitions: [SceneEffectDefinition]
 #if DEBUG
     var effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic] = []
@@ -73,6 +75,15 @@ struct SceneRenderDescriptor: Codable {
     var runtimeProvidedReferenceCount = 0
 #endif
     let texturePropertyKeys: [String]
+    /// Launch preparation includes dormant model templates as well as layers.
+    nonisolated var requiresImageDepthAttachment: Bool {
+        layers.contains {
+            $0.utilityLayer?.framebufferSource != nil
+                || $0.imageMaterialRenderState?.requiresDepthAttachment == true
+        } || preparedImageMaterialStatesByModelPath?.values.contains {
+            $0.requiresDepthAttachment
+        } == true
+    }
 #if DEBUG
     var firstStageRendererGaps: [String] = []
 #endif
@@ -140,6 +151,16 @@ struct SceneRenderDescriptorBuilder {
         let sourceMaterials = Dictionary(grouping: assetCatalog.materials) {
             SceneModelResourceIdentity($0.relativePath).value
         }
+        let imageMaterialFacts = preparedImageMaterialFacts(
+            models: sourceModels, materials: sourceMaterials,
+            shaderContracts: assetCatalog.shaderContracts)
+        let preparesNativeImageState = sceneDocument.general.orthoWidth == nil
+            && sceneDocument.general.orthoHeight == nil
+            && sceneDocument.general.fovDegrees.map { $0.isFinite && $0 > 0 && $0 < 180 } == true
+            && sceneDocument.general.nearZ.map { $0.isFinite && $0 > 0 } != false
+            && sceneDocument.general.farZ.map {
+                $0.isFinite && $0 > (sceneDocument.general.nearZ ?? 0.01)
+            } != false
 
         var descriptor = SceneRenderDescriptor(
             entryPath: project.entryPath,
@@ -163,7 +184,7 @@ struct SceneRenderDescriptorBuilder {
                 let contentKind = utilityLayer?.kind.rawValue
                     ?? contentKind(for: object, solidModelPaths: solidModelPaths)
                 let puppetMeshPath = object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil
-                return SceneRenderDescriptor.Layer(
+                var layer = SceneRenderDescriptor.Layer(
                     id: object.id,
                     layerIndex: index,
                     name: object.name,
@@ -251,6 +272,17 @@ struct SceneRenderDescriptorBuilder {
                     effectFiles: object.effectFiles,
                     texturePaths: object.texturePaths
                 )
+                let facts = object.imagePath.flatMap { imageMaterialFacts[SceneModelResourceIdentity($0).value] }
+                layer.proceduralSolidSource = facts?.procedural
+                if preparesNativeImageState, layer.isImageRenderable, utilityLayer == nil,
+                   puppetMeshPath == nil, object.staticModelPath == nil,
+                   object.shape == nil || object.shape == "quad",
+                   (object.colorBlendMode ?? 0) == 0,
+                   object.materialInstance?.isMalformed != true,
+                   object.materialInstance?.unknownKeys.isEmpty != false {
+                    layer.imageMaterialRenderState = facts?.state
+                }
+                return layer
             },
             rootLayerIDs: sceneDocument.objects.filter { $0.parentID == nil }.map(\.id),
             renderOrderLayerIDs: sceneDocument.objects.map(\.id),
@@ -263,6 +295,8 @@ struct SceneRenderDescriptorBuilder {
                 from: assetCatalog,
                 directStaticModelMaterialLinks: directStaticModelMaterialLinks
             ),
+            preparedImageMaterialStatesByModelPath: preparesNativeImageState
+                ? imageMaterialFacts.compactMapValues(\.state) : nil,
             effectDefinitions: assetCatalog.effectDefinitions,
             shaderReferences: assetCatalog.shaderReferences,
             textureReferences: assetCatalog.textureReferences,
@@ -278,6 +312,55 @@ struct SceneRenderDescriptorBuilder {
         descriptor.firstStageRendererGaps = capabilityProfile?.firstStageRendererGaps ?? []
 #endif
         return descriptor
+    }
+
+    /// Loaded model/material identity and the existing shader role qualify the
+    /// quad once. Missing declarations remain distinct from explicit disabled.
+    private nonisolated func preparedImageMaterialFacts(
+        models: [String: [SceneAssetCatalog.ModelAsset]],
+        materials: [String: [SceneAssetCatalog.MaterialAsset]],
+        shaderContracts: [SceneShaderContract]
+    ) -> [String: (state: SceneMaterialRenderState?, procedural: SceneMaterialRenderState.ProceduralSolidSource?)] {
+        let contracts = Dictionary(grouping: shaderContracts) { $0.identity.lowercased() }
+        var facts: [String: (SceneMaterialRenderState?, SceneMaterialRenderState.ProceduralSolidSource?)] = [:]
+        for (identity, matches) in models {
+            guard matches.count == 1, let model = matches.first, model.puppetPath == nil else { continue }
+            guard let materialPath = model.materialPath else {
+                if model.isSolidLayer { facts[identity] = (nil, .neutral) }
+                continue
+            }
+            guard let matchingMaterials = materials[SceneModelResourceIdentity(materialPath).value],
+                  matchingMaterials.count == 1, let material = matchingMaterials.first,
+                  material.passes.count == 1, let pass = material.passes.first else { continue }
+            let shader = pass.shader?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let matchingContracts = shader.flatMap { contracts[$0] } ?? []
+            let contract = matchingContracts.count == 1 ? matchingContracts.first : nil
+            let builtinImage = shader.map(SceneBuiltinShaderIdentity.isImage) == true
+                && contract?.sourceKind == .hostBuiltin
+            // A solid model already selects the procedural white source. Its
+            // state-only stock material supplies no alternate source inputs.
+            // Source-backed author shaders cannot acquire that neutral role.
+            let stockSource = contract?.sourceGraph.map {
+                $0.diagnostics.isEmpty && !$0.nodes.isEmpty
+                    && $0.nodes.allSatisfy { $0.provenance == .stock }
+            } ?? false
+            let neutral = model.isSolidLayer && pass.textureSlots.isEmpty
+                && pass.userTextureInputs.isEmpty && pass.constantShaderValues.isEmpty
+                && pass.userShaderValues.isEmpty && pass.combos.isEmpty
+                && (pass.shader == nil || builtinImage
+                    || (shader.map(SceneBuiltinShaderIdentity.isNeutralSolid) == true && stockSource))
+            guard builtinImage || neutral else { continue }
+            let state = SceneMaterialRenderState.compile(
+                blending: pass.blending, depthTest: pass.depthTest,
+                depthWrite: pass.depthWrite, cullMode: pass.cullMode,
+                alphaWriting: pass.alphaWriting)
+            facts[identity] = (
+                state.flatMap {
+                    $0.blending == .translucent && $0.alphaWriting == .unspecified ? $0 : nil
+                },
+                neutral ? .neutral : nil)
+        }
+        return facts
     }
 
     nonisolated private func modelMaterialLinks(

@@ -6,6 +6,7 @@ import Foundation
 nonisolated struct ScenePreparedImageMaterialCatalog {
     let profiles: [String: SceneBaseMaterialLightingProfile]
     let builtinModelPaths: Set<String>
+    let renderStates: [String: SceneMaterialRenderState]
 
     init(descriptor: SceneRenderDescriptor) {
         let passesByMaterial = Dictionary(grouping: descriptor.materialPasses) {
@@ -24,15 +25,20 @@ nonisolated struct ScenePreparedImageMaterialCatalog {
                 builtinModels.insert(model)
             }
             guard links.count == 1, passes.count == 1, let pass = passes.first,
-                  let profile = Self.profile(pass: pass) else { continue }
+                  let profile = Self.profile(pass: pass,
+                    preparedState: descriptor.preparedImageMaterialStatesByModelPath?[model]) else { continue }
             profiles[model] = profile
         }
         self.profiles = profiles
         builtinModelPaths = builtinModels
+        renderStates = (descriptor.preparedImageMaterialStatesByModelPath ?? [:]).filter {
+            profiles[$0.key] != nil
+        }
     }
 
     private static func profile(
-        pass: SceneRenderDescriptor.MaterialPassDescriptor
+        pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        preparedState: SceneMaterialRenderState?
     ) -> SceneBaseMaterialLightingProfile? {
         // The alpha-sensitive official fixture qualifies default only for this
         // lit built-in consumer, not a generic render-state/write-mask mapping.
@@ -49,11 +55,12 @@ nonisolated struct ScenePreparedImageMaterialCatalog {
               }),
               pass.constantShaderValues.keys.allSatisfy({ ["metallic", "roughness"].contains($0) }),
               pass.constantShaderValues.isEmpty || pass.combos["LIGHTING"] == 1,
-              let state = SceneMaterialRenderState.compile(
+              let state = preparedState ?? SceneMaterialRenderState.compile(
                 blending: pass.blending, depthTest: pass.depthTest,
                 depthWrite: pass.depthWrite, cullMode: pass.cullMode, alphaWriting: pass.alphaWriting),
-              state.blending == .translucent, state.depthTest == .disabled,
-              state.depthWrite == .disabled, state.cullMode == .noCull,
+              state.blending == .translucent,
+              preparedState != nil || (state.depthTest == .disabled
+                && state.depthWrite == .disabled && state.cullMode == .noCull),
               state.alphaWriting == .unspecified
                 || (state.alphaWriting == .default && supportsDefaultAlpha) else { return nil }
         for key in pass.constantShaderValues.keys {

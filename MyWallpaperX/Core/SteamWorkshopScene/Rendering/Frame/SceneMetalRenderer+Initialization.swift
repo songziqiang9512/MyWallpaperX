@@ -114,6 +114,9 @@ extension SceneMetalRenderer {
             return layers.count == ids.count ? layers : nil
         }
         self.layersByID = byID
+        self.imageMaterialStateLayerIDs = Set(renderDescriptor.layers.compactMap {
+            $0.imageMaterialRenderState == nil ? nil : $0.id
+        })
         self.lightLayerIDs = SceneLightSnapshot.orderedLightLayerIDs(
             descriptor: renderDescriptor,
             layersByID: byID

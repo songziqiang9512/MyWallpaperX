@@ -290,11 +290,11 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   if case .allocationFailed = emptyPool.acquire(device: device, width: 128, height: 128, on: owner) {
    checks["physical-refusal-is-not-busy"] = true
   } else { checks["physical-refusal-is-not-busy"] = false }
-  let excluded = sourceRenderer.unavailableFramebufferSourceDepthLayers([20], state: sourceState,
-   orderedLayers: [], visible: [20], worldFrames: [:], snapshot: dynamic,
+  let excluded = sourceRenderer.unavailableSharedTerminalDepthLayers([20], state: sourceState,
+   orderedLayers: [], ordinaryLayerIDs: [21], visible: [20, 21], worldFrames: [:], snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: sourcePass, groups: nil,
    commandBuffer: sourceCB, leases: &sourceLeases)
-  checks["source-physical-miss-excludes-before-candidate"] = excluded == [20]
+  checks["source-physical-miss-excludes-before-candidate"] = excluded == [20, 21]
    && sourceState.depthDeferralReason == nil && sourceLeases.isEmpty
    && sourceState.terminalDepthBinding(pass: sourcePass, commandBuffer: sourceCB) == nil
   SceneResourceBudget.shared.release(quota, kind: .gpu)
@@ -310,11 +310,13 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
   let sourceRecoveryState = SceneMetalRenderer.StaticModelFrame()
   var sourceRecoveryLeases: [SceneParticleDepthTargetLease] = []
-  let recoveredExclusion = sourceRenderer.unavailableFramebufferSourceDepthLayers([20], state: sourceRecoveryState,
-   orderedLayers: [], visible: [20], worldFrames: [:], snapshot: dynamic,
+  let recoveredExclusion = sourceRenderer.unavailableSharedTerminalDepthLayers([20], state: sourceRecoveryState,
+   orderedLayers: [], ordinaryLayerIDs: [21], visible: [20, 21], worldFrames: [:], snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: sourceRecoveryPass, groups: nil,
    commandBuffer: sourceRecoveryCB, leases: &sourceRecoveryLeases)
   let recoveredBinding = sourceRecoveryState.terminalDepthBinding(pass: sourceRecoveryPass, commandBuffer: sourceRecoveryCB)
+  checks["ordinary-and-source-share-single-qualified-lease"] = recoveredExclusion.isEmpty
+   && sourceRecoveryLeases.count == 1
   checks["source-next-frame-recovers-without-writer"] = recoveredExclusion.isEmpty
    && sourceRecoveryLeases.count == 1 && recoveredBinding != nil
    && !sourceRecoveryState.sharedWasCleared
@@ -336,8 +338,8 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
   let sourceBusyState = SceneMetalRenderer.StaticModelFrame()
   var sourceBusyLeases: [SceneParticleDepthTargetLease] = []
-  _ = sourceRenderer.unavailableFramebufferSourceDepthLayers([20], state: sourceBusyState,
-   orderedLayers: [], visible: [20], worldFrames: [:], snapshot: dynamic,
+  _ = sourceRenderer.unavailableSharedTerminalDepthLayers([20], state: sourceBusyState,
+   orderedLayers: [], ordinaryLayerIDs: [21], visible: [20, 21], worldFrames: [:], snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: sourceBusyPass, groups: nil,
    commandBuffer: sourceBusyCB, leases: &sourceBusyLeases)
   checks["source-busy-defers-before-admission"] = sourceBusyState.depthDeferralReason == "static-model-depth-in-flight"
@@ -352,7 +354,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
   let priorityState = SceneMetalRenderer.StaticModelFrame()
   var priorityLeases: [SceneParticleDepthTargetLease] = []
-  let priorityExclusion = priorityRenderer.unavailableFramebufferSourceDepthLayers([20], state: priorityState,
+  let priorityExclusion = priorityRenderer.unavailableSharedTerminalDepthLayers([20], state: priorityState,
    orderedLayers: [.init(id: 20, contentKind: "composition"), .init(id: 1)], visible: [1, 20],
    worldFrames: world, snapshot: dynamic, batches: [:], particlePipeline: nil,
    mainPass: priorityPass, groups: nil, commandBuffer: priorityCB, leases: &priorityLeases)
@@ -375,7 +377,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   let partialDepthBytes = device.heapTextureSizeAndAlign(descriptor: partialDepthDescriptor).size
   let partialQuota = SceneResourceBudget.shared.maximumBytes - SceneResourceBudget.shared.snapshot.residentBytes - partialDepthBytes
   precondition(SceneResourceBudget.shared.reserve(partialQuota, kind: .gpu))
-  let partialExclusion = partialRenderer.unavailableFramebufferSourceDepthLayers([20], state: partialState,
+  let partialExclusion = partialRenderer.unavailableSharedTerminalDepthLayers([20], state: partialState,
    orderedLayers: [.init(id: 1)], visible: [1, 20], worldFrames: world, snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: partialPass, groups: nil,
    commandBuffer: partialCB, leases: &partialLeases)
@@ -397,7 +399,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
   let lateState = SceneMetalRenderer.StaticModelFrame()
   var lateLeases: [SceneParticleDepthTargetLease] = []
-  let lateExclusion = lateRenderer.unavailableFramebufferSourceDepthLayers([20], state: lateState,
+  let lateExclusion = lateRenderer.unavailableSharedTerminalDepthLayers([20], state: lateState,
    orderedLayers: [.init(id: 1)], visible: [1, 20], worldFrames: world, snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: latePass, groups: nil,
    commandBuffer: lateCB, leases: &lateLeases)
@@ -422,7 +424,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
   let exitState = SceneMetalRenderer.StaticModelFrame()
   var exitLeases: [SceneParticleDepthTargetLease] = []
-  let exitExclusion = exitRenderer.unavailableFramebufferSourceDepthLayers([20], state: exitState,
+  let exitExclusion = exitRenderer.unavailableSharedTerminalDepthLayers([20], state: exitState,
    orderedLayers: exitLayers, visible: [1, 2, 3, 4, 5, 20], worldFrames: exitWorld, snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: exitPass, groups: nil,
    commandBuffer: exitCB, leases: &exitLeases)

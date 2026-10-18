@@ -47,6 +47,9 @@ extension SceneMetalRenderer {
         var prepared: [Int: [StaticModelDraw]]?
         var particleDepth: [Int: Depth] = [:]
         var plainLighting: [Int: SceneLitCapturePayloadResolution] = [:]
+        var imageMaterialStates: [Int: SceneMaterialRenderState] = [:]
+        var unavailableImageMaterialLayerIDs: Set<Int> = []
+        var terminalDepthFailureReason: String?
         var shadows: [SceneStaticModelShadow] = []
         var pins: [SceneGraphRenderTargetResidencyPin] = []
 
@@ -395,22 +398,26 @@ extension SceneMetalRenderer {
         return complete
     }
 
-    /// Qualify the optional terminal consumer before it owns a graph candidate.
+    /// Qualify optional terminal consumers before they own graph candidates.
     /// Complete real draws keep their original mandatory allocation order. A
     /// pending named model keeps its late path and excludes only this consumer.
-    func unavailableFramebufferSourceDepthLayers(
+    func unavailableSharedTerminalDepthLayers(
         _ layerIDs: Set<Int>, state: StaticModelFrame,
-        orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        orderedLayers: [SceneRenderDescriptor.Layer], ordinaryLayerIDs: Set<Int> = [],
+        visible: Set<Int>,
         worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
         batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer, leases: inout [SceneParticleDepthTargetLease]
     ) -> Set<Int> {
-        guard !layerIDs.isEmpty else { return [] }
+        let consumers = layerIDs.union(ordinaryLayerIDs)
+        guard !consumers.isEmpty else { return [] }
         let mainConsumers = Set(layerIDs.filter {
             groups?.compositeTargetPass(forRootID: $0) === mainPass || groups == nil
+        }).union(ordinaryLayerIDs.filter {
+            groups?.renderPass(forLayerID: $0) === mainPass || groups == nil
         })
-        guard !mainConsumers.isEmpty else { return layerIDs }
+        guard !mainConsumers.isEmpty else { return consumers }
         // A degraded/unreserved group may become drawable in admission. Its
         // mandatory depth cannot be promised by this earlier complete plan.
         for layer in orderedLayers where visible.contains(layer.id) {
@@ -418,21 +425,21 @@ extension SceneMetalRenderer {
                 || (particlePipeline != nil && batches[layer.id]?.contains(where: {
                     $0.renderState.requiresDepthAttachment
                 }) == true)
-            if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return layerIDs }
+            if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
         }
         guard let candidates = shadowDrawCandidates(orderedLayers: orderedLayers, visible: visible,
-            worldFrames: worldFrames, snapshot: snapshot, groups: groups) else { return layerIDs }
+            worldFrames: worldFrames, snapshot: snapshot, groups: groups) else { return consumers }
         // Ordinary failed model parts keep their existing local failure. Once
         // their allocation attempts have priority, a valid shared lease remains
         // usable even if an isolated part could not obtain its own depth.
         _ = prepareMandatoryDepth(state: state, candidates: candidates, orderedLayers: orderedLayers,
             visible: visible, batches: batches, particlePipeline: particlePipeline,
             mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases)
-        if state.depthDeferralReason != nil { return layerIDs }
+        if state.depthDeferralReason != nil { return consumers }
         _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
             device: device, commandBuffer: commandBuffer, leases: &leases)
         return state.terminalDepthBinding(pass: mainPass, commandBuffer: commandBuffer) == nil
-            ? layerIDs : layerIDs.subtracting(mainConsumers)
+            ? consumers : consumers.subtracting(mainConsumers)
     }
 
     /// Preserve the original mandatory allocation prefix before optional shadow.

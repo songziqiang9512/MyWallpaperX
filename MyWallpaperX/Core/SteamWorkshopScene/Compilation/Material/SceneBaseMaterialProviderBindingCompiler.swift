@@ -274,10 +274,9 @@ enum SceneBaseMaterialProviderBindingCompiler {
            let loadedFallback = pass.textureSlots[0] {
             return normalized(instanceFallback) == normalized(loadedFallback)
         }
-        // Stock solid materials are absent from the descriptor catalog. Keep
-        // neutral white procedural; prepare other authored color assets through
-        // the existing asset catalog instead of discarding them into white.
-        guard materialPasses.isEmpty,
+        // The prepared model fact owns the neutral source even when its
+        // state-only stock material is present in the descriptor catalog.
+        guard layer.proceduralSolidSource == .neutral,
               layer.contentKind == "solid",
               let path = SceneVFSAssetPath(instanceFallback) else { return false }
         if SceneStockTextureSemanticRegistry.isNeutralColorCarrier(path) { return true }

@@ -1036,7 +1036,8 @@
         "script/tests/test_scene_color_blend_capture_region.py",
         "script/tests/scene_color_blend_capture_test_support.py",
         "script/tests/fixtures/SceneColorBlendCaptureRegionHarness.swift",
-        "script/tests/fixtures/SceneParticleRefractionPixelsHarness.swift"
+        "script/tests/fixtures/SceneParticleRefractionPixelsHarness.swift",
+        "script/tests/test_scene_image_terminal_render_state.py"
       ],
       "keywords": [
         "rendering",
@@ -1063,7 +1064,8 @@
         "test_scene_snapshot_capacity",
         "test_scene_performance_telemetry",
         "test_scene_persistent_color_output",
-        "test_scene_particle_refraction_pixels"
+        "test_scene_particle_refraction_pixels",
+        "test_scene_image_terminal_render_state"
       ]
     },
     {
@@ -1141,7 +1143,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState+Compilation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
@@ -3059,7 +3062,9 @@
         "script/tests/fixtures/SceneUserTextureSolidDrawChecks.swift",
         "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift",
         "script/tests/fixtures/ScenePropertyVectorMaterialCases.swift",
-        "script/tests/fixtures/ScenePreparedImageMaterialChecks.swift"
+        "script/tests/fixtures/ScenePreparedImageMaterialChecks.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedImageMaterialCatalog.swift",
+        "script/tests/test_scene_prepared_image_terminal_policy.py"
       ],
       "modules": [
         "test_scene_base_material_static_tint",
@@ -3068,7 +3073,8 @@
         "test_scene_script_layer_transform_projection",
         "test_scene_inactive_optional_named_dependency",
         "test_scene_base_material_provider_binding",
-        "test_scene_property_vector_script"
+        "test_scene_property_vector_script",
+        "test_scene_prepared_image_terminal_policy"
       ]
     },
     {

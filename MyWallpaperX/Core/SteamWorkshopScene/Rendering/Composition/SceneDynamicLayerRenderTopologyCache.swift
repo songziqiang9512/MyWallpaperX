@@ -14,6 +14,7 @@ final class SceneDynamicLayerRenderTopologyCache {
         let orderedLayerPositionsByID: [Int: Int]
         let dynamicLayerIDs: Set<Int>
         let lightLayerIDs: [Int]
+        let imageMaterialStateLayerIDs: Set<Int>
         let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
         let preparationLayers: [SceneRenderDescriptor.Layer]?
         let preparationLayerPositionsByID: [Int: Int]
@@ -50,6 +51,7 @@ final class SceneDynamicLayerRenderTopologyCache {
                 orderedLayerPositionsByID: orderedLayerPositionsByID,
                 dynamicLayerIDs: dynamicLayerIDs,
                 lightLayerIDs: lightLayerIDs,
+                imageMaterialStateLayerIDs: imageMaterialStateLayerIDs,
                 utilityExecution: utilityExecution,
                 preparationLayers: preparationLayers,
                 preparationLayerPositionsByID: preparationLayerPositionsByID
@@ -124,6 +126,9 @@ final class SceneDynamicLayerRenderTopologyCache {
             orderedLayerPositionsByID: orderedLayerPositionsByID,
             dynamicLayerIDs: dynamicLayerIDs,
             lightLayerIDs: lightLayerIDs,
+            imageMaterialStateLayerIDs: Set(descriptor.layers.compactMap {
+                $0.imageMaterialRenderState == nil ? nil : $0.id
+            }),
             utilityExecution: utilityExecution,
             preparationLayers: preparationLayers,
             preparationLayerPositionsByID: preparationLayerPositionsByID

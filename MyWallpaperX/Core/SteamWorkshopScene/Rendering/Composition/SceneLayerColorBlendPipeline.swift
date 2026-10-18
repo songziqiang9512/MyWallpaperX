@@ -219,12 +219,21 @@ enum SceneLayerColorBlendRenderer {
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
         geometryProduct: SceneGeometryProduct? = nil,
         terminalDepth: SceneImageLayerTerminalDepthBinding? = nil,
+        terminalMaterialState: SceneMaterialRenderState? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         let blendMode = layer.colorBlendMode ?? 0
         guard supports(blendMode) else { return false }
         if layer.utilityLayer?.framebufferSource != nil {
-            guard terminalDepth != nil, pipeline.supportsReadOnlyDepth,
+            guard terminalMaterialState == nil, terminalDepth != nil, pipeline.supportsReadOnlyDepth,
+                  blendMode == 0, geometryProduct == nil else { return false }
+        } else if let terminalMaterialState {
+            let needsDepth = terminalMaterialState.requiresDepthAttachment
+            guard layer.utilityLayer == nil,
+                  layer.contentKind == "image" || layer.contentKind == "solid",
+                  layer.imageMaterialRenderState == terminalMaterialState,
+                  pipeline.supports(terminalMaterialState),
+                  needsDepth == (terminalDepth != nil),
                   blendMode == 0, geometryProduct == nil else { return false }
         } else if terminalDepth != nil {
             return false
@@ -251,7 +260,9 @@ enum SceneLayerColorBlendRenderer {
                     nil
                 )
             }
-            if terminalDepth != nil {
+            if let terminalMaterialState {
+                guard pipeline.bind(encoder: encoder, renderState: terminalMaterialState) else { return false }
+            } else if terminalDepth != nil {
                 guard pipeline.bindReadOnlyDepth(encoder: encoder) else { return false }
             } else {
                 pipeline.bind(encoder: encoder)

@@ -100,9 +100,19 @@ struct SceneImageLayerCompositor {
         let usesMaterialSource = request.layer.utilityLayer?.framebufferSource != nil
         if usesMaterialSource {
             guard request.resolvedMaterialFrameTargetPlan != nil,
+                  request.terminalMaterialState == nil, request.terminalMVP == nil,
                   request.terminalDepth != nil, request.geometryProduct == nil,
                   (request.layer.colorBlendMode ?? 0) == 0 else { return .failed }
-        } else if request.terminalDepth != nil {
+        } else if let state = request.terminalMaterialState {
+            let needsDepth = state.requiresDepthAttachment
+            guard request.layer.utilityLayer == nil,
+                  request.layer.contentKind == "image" || request.layer.contentKind == "solid",
+                  request.layer.imageMaterialRenderState == state, pipeline.supports(state),
+                  needsDepth == (request.terminalDepth != nil),
+                  needsDepth == (request.terminalMVP != nil),
+                  request.geometryProduct == nil,
+                  (request.layer.colorBlendMode ?? 0) == 0 else { return .failed }
+        } else if request.terminalDepth != nil || request.terminalMVP != nil {
             return .failed
         }
         guard request.resolvedMaterialFrameTargetPlan == nil
@@ -359,7 +369,10 @@ struct SceneImageLayerCompositor {
                     layer: request.layer, pipeline: pipeline,
                     colorBlendPipeline: colorBlendPipeline,
                     distanceFog: request.distanceFog,
-                    geometryProduct: request.geometryProduct, mainPass: mainPass
+                    geometryProduct: request.geometryProduct,
+                    terminalDepth: request.terminalDepth,
+                    terminalMaterialState: request.terminalMaterialState,
+                    terminalMVP: request.terminalMVP, mainPass: mainPass
                 )
                 guard encoded else { return .failed }
                 return request.geometryProduct == nil
@@ -379,7 +392,8 @@ struct SceneImageLayerCompositor {
             var graphOutputPublished = false
             if let ticket = graphExecutionTicket,
                ticket.hasTerminalMaterialReplay {
-                guard resolvedMaterialGraphOutputPublisher == nil,
+                guard request.terminalMaterialState == nil,
+                      resolvedMaterialGraphOutputPublisher == nil,
                       (request.layer.contentKind == "solid" || request.layer.contentKind == "text"),
                       request.geometryProduct == nil,
                       ticket.consumesExternalPrimaryDependency == hasDependencyInput,
@@ -520,6 +534,8 @@ struct SceneImageLayerCompositor {
                 distanceFog: request.distanceFog,
                 geometryProduct: request.geometryProduct,
                 terminalDepth: request.terminalDepth,
+                terminalMaterialState: request.terminalMaterialState,
+                terminalMVP: request.terminalMVP,
                 mainPass: mainPass
             )
             if let graphExecutionTicket {
@@ -555,6 +571,8 @@ struct SceneImageLayerCompositor {
             distanceFog: request.distanceFog,
             geometryProduct: request.geometryProduct,
             terminalDepth: request.terminalDepth,
+            terminalMaterialState: request.terminalMaterialState,
+            terminalMVP: request.terminalMVP,
             mainPass: mainPass
         )
         guard rendered else { return .failed }
@@ -599,6 +617,9 @@ struct SceneImageLayerCompositor {
                 pipeline: pipeline,
                 colorBlendPipeline: nil,
                 distanceFog: request.distanceFog,
+                terminalDepth: request.terminalDepth,
+                terminalMaterialState: request.terminalMaterialState,
+                terminalMVP: request.terminalMVP,
                 mainPass: mainPass
             )
         }
@@ -641,6 +662,9 @@ struct SceneImageLayerCompositor {
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
             distanceFog: request.distanceFog,
+            terminalDepth: request.terminalDepth,
+            terminalMaterialState: request.terminalMaterialState,
+            terminalMVP: request.terminalMVP,
             mainPass: mainPass
         )
     }

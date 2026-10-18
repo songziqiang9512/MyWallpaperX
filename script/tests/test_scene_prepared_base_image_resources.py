@@ -22,7 +22,8 @@ PREPARATION = SCENE / "Runtime/Session/ScenePreparedDeviceResources.swift"
 SOURCE_MATERIALS = SCENE / "Runtime/Session/ScenePreparedDeviceResources+SourceMaterials.swift"
 RESOLVER = SCENE / "Resources/Textures/SceneTexturePathResolver.swift"
 BUILTIN = SCENE / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"
-RENDER_STATE = SCENE / "Compilation/Material/SceneMaterialRenderState.swift"
+RENDER_STATE = SCENE / "Runtime/Frame/SceneMaterialRenderState.swift"
+RENDER_STATE_COMPILATION = SCENE / "Compilation/Material/SceneMaterialRenderState+Compilation.swift"
 FIXTURE = Path(__file__).with_name("fixtures") / "ScenePreparedBaseImageResourcesHarness.swift"
 
 
@@ -37,7 +38,8 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         source = Path(os.environ.get("MWX_PREPARED_BASE_IMAGE_SOURCE", PREPARATION))
         compile_result = subprocess.run(
             ["xcrun", "swiftc", "-swift-version", "5", str(source), str(SOURCE_MATERIALS), str(RESOLVER),
-             str(BUILTIN), str(RENDER_STATE), str(SCENE / "Format/SceneJSONValue.swift"),
+             str(BUILTIN), str(RENDER_STATE), str(RENDER_STATE_COMPILATION),
+             str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
              str(SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift"),
              str(FIXTURE), "-framework", "Metal", "-module-cache-path",

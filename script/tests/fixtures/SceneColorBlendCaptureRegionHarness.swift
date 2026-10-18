@@ -9,6 +9,8 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int; let colorBlendMode: Int?
         var utilityLayer: Utility? = nil
+        var contentKind: String = "image"
+        var imageMaterialRenderState: SceneMaterialRenderState? = nil
     }
     struct Utility { var framebufferSource: Bool? = true }
 }
@@ -167,7 +169,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
     static func terminalDepth(_ device: MTLDevice, _ queue: MTLCommandQueue,
                               _ library: MTLLibrary) throws -> [[String: Any]] {
         let pipeline = SceneImageLayerPipeline(device: device, library: library,
-            preparesReadOnlyDepth: true)!
+            preparesDepth: true)!
         let writer = MTLRenderPipelineDescriptor()
         writer.vertexFunction = library.makeFunction(name: "sceneImageLayerVert")
         let constants = MTLFunctionConstantValues()
@@ -249,6 +251,130 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         return rows
     }
 
+    static func finiteTerminalStates(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                     _ library: MTLLibrary) -> [[String: Any]] {
+        let pipeline = SceneImageLayerPipeline(device: device, library: library, preparesDepth: true)!
+        let base = SceneImageLayerPipeline(device: device, library: library)!
+        func policy(_ read: Bool, _ write: Bool, _ cull: String = "nocull") -> SceneMaterialRenderState {
+            SceneMaterialRenderState.compile(blending: "translucent", depthTest: read ? "enabled" : "disabled",
+                depthWrite: write ? "enabled" : "disabled", cullMode: cull, alphaWriting: nil)!
+        }
+        func solid(_ rgba: [UInt8]) -> MTLTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: 1, height: 1, mipmapped: false)
+            descriptor.storageMode = .shared; descriptor.usage = .shaderRead
+            let result = device.makeTexture(descriptor: descriptor)!
+            rgba.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, 1, 1),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 4) }
+            return result
+        }
+        let amber = solid([255, 128, 0, 255]), blue = solid([0, 0, 255, 255])
+        let green = solid([0, 255, 0, 255])
+        let purple = solid([192, 32, 192, 255])
+        let uniforms = SceneLayerFragmentUniforms(time: 0, alpha: 1,
+            dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
+            sourceSampling: .zero, tint: SIMD4(repeating: 1),
+            textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
+        var rows: [[String: Any]] = []
+        let variants: [(String, Bool, Bool, String, Float, Float)] = [
+            ("read-only", true, false, "nocull", 2, 1),
+            ("renamed-equivalent-read-only", true, false, "nocull", 2, 1),
+            ("read-write", true, true, "nocull", 2, 1),
+            ("write-only", false, true, "nocull", 2, 1),
+            ("neither", false, false, "nocull", 2, 1),
+            ("normal-front", true, false, "normal", 2, 1),
+            ("normal-front-no-depth", false, false, "normal", 2, 1),
+            ("normal-back", true, false, "normal", -2, 1),
+            ("nocull-back", true, false, "nocull", -2, 1),
+            ("transparent-write", false, true, "nocull", 2, 0),
+            ("transparent-no-write", false, false, "nocull", 2, 0)]
+        for (name, read, write, cull, scaleX, alpha) in variants {
+            let state = name == "renamed-equivalent-read-only"
+                ? SceneMaterialRenderState.compile(blending: " Translucent ", depthTest: " ENABLED ",
+                    depthWrite: " Disabled ", cullMode: " NoCull ", alphaWriting: nil)!
+                : policy(read, write, cull)
+            let output = target(device, width: 32, height: 32, format: .bgra8Unorm, seed: 31)
+            let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float,
+                width: 32, height: 32, mipmapped: false)
+            desc.storageMode = .private; desc.usage = .renderTarget
+            let depth = device.makeTexture(descriptor: desc)!, command = queue.makeCommandBuffer()!
+            let pass = SceneMainPassEncoder(commandBuffer: command, target: output,
+                clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+            var cleared = false
+            let binding = SceneImageLayerTerminalDepthBinding { actual in
+                guard actual === pass, actual.belongs(to: command),
+                      let encoder = actual.encoder(depthTexture: depth, clearsDepth: !cleared,
+                          clearDepth: 0) else { return nil }
+                cleared = true; return encoder
+            }
+            func draw(_ texture: MTLTexture, _ mvp: simd_float4x4, _ state: SceneMaterialRenderState,
+                      alpha: Float = 1) -> Bool {
+                var values = uniforms; values.alpha = alpha
+                let encoder = binding.encoder(pass)!
+                guard pipeline.bind(encoder: encoder, renderState: state) else { return false }
+                pipeline.drawLayer(texture: texture, mvp: mvp, uniforms: values, encoder: encoder)
+                return true
+            }
+            var front = transformed(1, 2, -0.5, 0); front.columns.3.z = 0.7
+            precondition(draw(amber, front, policy(false, true)))
+            // A color-only encoder closes depth; a wrong capability must not
+            // clear it or emit pixels before the healthy terminal draw.
+            precondition(pass.withReadableTarget { _, _ in true } == true)
+            var authored = transformed(scaleX, 2, 0, 0); authored.columns.3.z = 0.9
+            var terminal = authored; terminal.columns.3.z = 0.4
+            let layer = SceneRenderDescriptor.Layer(id: 812, colorBlendMode: 0,
+                imageMaterialRenderState: state)
+            let needsDepth = read || write
+            var finalUniforms = uniforms; finalUniforms.alpha = alpha
+            let missingRejected = !SceneImageLayerMainPassRenderer.draw(texture: blue, mvp: authored,
+                uniforms: finalUniforms, dependencyTexture: nil, layer: layer, pipeline: pipeline,
+                colorBlendPipeline: nil, terminalMaterialState: state,
+                terminalMVP: needsDepth ? terminal : nil, mainPass: pass)
+            let stateMismatchRejected = !SceneImageLayerMainPassRenderer.draw(texture: blue, mvp: authored,
+                uniforms: finalUniforms, dependencyTexture: nil,
+                layer: .init(id: 813, colorBlendMode: 0), pipeline: pipeline, colorBlendPipeline: nil,
+                terminalDepth: needsDepth ? binding : nil, terminalMaterialState: state,
+                terminalMVP: needsDepth ? terminal : nil, mainPass: pass)
+            let wrongPass = SceneMainPassEncoder(commandBuffer: command, target: output,
+                clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+            let wrongPassRejected = !SceneImageLayerMainPassRenderer.draw(texture: blue, mvp: authored,
+                uniforms: finalUniforms, dependencyTexture: nil, layer: layer, pipeline: pipeline,
+                colorBlendPipeline: nil, terminalDepth: binding, terminalMaterialState: state,
+                terminalMVP: needsDepth ? terminal : nil, mainPass: wrongPass)
+            let drawn = SceneImageLayerMainPassRenderer.draw(texture: blue, mvp: authored,
+                uniforms: finalUniforms, dependencyTexture: nil, layer: layer, pipeline: pipeline,
+                colorBlendPipeline: nil, terminalDepth: needsDepth ? binding : nil,
+                terminalMaterialState: state, terminalMVP: needsDepth ? terminal : nil, mainPass: pass)
+            // Plain overlay must restore no-depth/nocull after a finite draw.
+            // Negative X makes inherited back-face culling observable.
+            var overlay = transformed(-0.25, 0.25, 0, 0); overlay.columns.3.z = 0.1
+            let overlayDrawn = SceneImageLayerMainPassRenderer.draw(texture: purple, mvp: overlay,
+                uniforms: uniforms, dependencyTexture: nil, layer: .init(id: 814, colorBlendMode: 0),
+                pipeline: pipeline, colorBlendPipeline: nil, mainPass: pass)
+            var corner = transformed(0.5, 0.5, 0.5, -0.5); corner.columns.3.z = 0.3
+            precondition(draw(green, corner, policy(true, false)))
+            precondition(pass.finishEnsuringClear()); command.commit(); command.waitUntilCompleted()
+            let bytes = pixels(output)
+            func bgra(_ x: Int, _ y: Int) -> [UInt8] {
+                Array(bytes[((y * 32 + x) * 4)..<((y * 32 + x) * 4 + 4)])
+            }
+            rows.append(["name": name, "drawn": drawn, "missingRejected": missingRejected,
+                "stateMismatchRejected": stateMismatchRejected, "wrongPassRejected": wrongPassRejected,
+                "overlayDrawn": overlayDrawn, "overlay": bgra(16, 16),
+                "supports": pipeline.supports(state), "baseSupports": base.supports(state),
+                "unsupportedPoliciesRejected": ["normal", "additive"].allSatisfy {
+                    !pipeline.supports(SceneMaterialRenderState.compile(blending: $0,
+                        depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!)
+                } && ["default", "enabled"].allSatisfy {
+                    !pipeline.supports(SceneMaterialRenderState.compile(blending: "translucent",
+                        depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: $0)!)
+                },
+                "left": bgra(6, 8), "right": bgra(24, 8), "farPeer": bgra(24, 24),
+                "completed": command.status == .completed && command.error == nil])
+        }
+        return rows
+    }
+
     static func render(_ queue: MTLCommandQueue, target: MTLTexture, source: MTLTexture,
                        image: SceneImageLayerPipeline, blend: SceneLayerColorBlendPipeline,
                        matrices: [simd_float4x4], modes: [Int], full: Bool, seed: Int) -> Frame {
@@ -275,10 +401,18 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
     }
 
     static func main() throws {
+        if CommandLine.arguments.contains("--compile-only") {
+            print("{\"compiled\":true,\"gpuExecuted\":false}"); return
+        }
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             print("{\"metalUnavailable\":true}"); return
         }
         let library = try device.makeLibrary(URL: URL(fileURLWithPath: CommandLine.arguments[1]))
+        if CommandLine.arguments.contains("--terminal-finite-only") {
+            print(String(decoding: try JSONSerialization.data(withJSONObject:
+                ["finiteStates": finiteTerminalStates(device, queue, library),
+                 "terminalDepth": terminalDepth(device, queue, library)]), as: UTF8.self)); return
+        }
         let fog = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
         var rows: [[String: Any]] = []
         for format in [MTLPixelFormat.bgra8Unorm, .rgba16Float] {

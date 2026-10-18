@@ -31,6 +31,7 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?
     ) -> (stop: Bool, outcome: SceneImageLayerCompositor.DrawOutcome?) {
+        guard !modelFrame.unavailableImageMaterialLayerIDs.contains(layer.id) else { return (false, nil) }
         let texture = baseSource.texture
         let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
         let dependencyBypassReason = resolvedFramePlan == nil
@@ -79,6 +80,18 @@ extension SceneMetalRenderer {
             usesPerspective: usesPerspective
         )
         let mvp = cameraFrame.viewProjection(for: layer) * model
+        let terminalMaterialState = modelFrame.imageMaterialStates[layer.id]
+        let terminalDepth: SceneImageLayerTerminalDepthBinding?
+        if terminalMaterialState?.requiresDepthAttachment == true {
+            guard let binding = modelFrame.terminalDepthBinding(
+                pass: layerMainPass, commandBuffer: commandBuffer) else {
+                // Qualification already reserved this exact frame/pass. Losing
+                // it now is an identity/lifecycle failure, not a visual fallback.
+                modelFrame.terminalDepthFailureReason = "image-terminal-depth-binding-invalid"
+                return (true, nil)
+            }
+            terminalDepth = binding
+        } else { terminalDepth = nil }
         // The native camera contract is proven for world-space images.
         // Orthographic Fog's distance domain remains unproven; neither canvas
         // depth nor the fitted perspective eye is established by current probes.
@@ -176,6 +189,9 @@ extension SceneMetalRenderer {
             geometryProduct: geometryProduct,
             distanceFog: fog
         )
+        request.terminalMaterialState = terminalMaterialState
+        request.terminalDepth = terminalDepth
+        request.terminalMVP = terminalDepth == nil ? nil : SceneMatrix.reversingDepth(mvp)
         preparePlainSourceLighting(request: &request, snapshot: frameLightSnapshot,
             model: model, worldFrame: frameWorldFrames[layer.id] ?? SceneMatrix.identity(),
             cameraFrame: cameraFrame, usesPerspective: usesPerspective,

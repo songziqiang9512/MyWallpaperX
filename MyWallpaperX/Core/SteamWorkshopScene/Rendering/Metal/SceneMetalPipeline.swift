@@ -45,10 +45,15 @@ struct SceneLayerFragmentUniforms {
 struct SceneImageLayerPipeline {
     let pixelFormat: MTLPixelFormat
     let state: MTLRenderPipelineState
-    private let readOnlyDepthState: MTLRenderPipelineState?
-    private let readOnlyDepthStencilState: MTLDepthStencilState?
+    private enum DepthMode: Hashable {
+        case readOnly, readWrite, writeOnly
+    }
+    private let depthState: MTLRenderPipelineState?
+    private let depthStencilStates: [DepthMode: MTLDepthStencilState]
+    private let supportsTranslucentMaterialState: Bool
     var supportsReadOnlyDepth: Bool {
-        readOnlyDepthState != nil && readOnlyDepthStencilState != nil
+        supportsTranslucentMaterialState && depthState != nil
+            && depthStencilStates[.readOnly] != nil
     }
 
     // Unit quad centered at origin, +Y up. The vertex MVP scales/translates it
@@ -68,7 +73,7 @@ struct SceneImageLayerPipeline {
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
         blendMode: SceneLayerBlendMode = .sourceOver,
         library injectedLibrary: MTLLibrary? = nil,
-        preparesReadOnlyDepth: Bool = false
+        preparesDepth: Bool = false
     ) {
         guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
@@ -95,17 +100,36 @@ struct SceneImageLayerPipeline {
         guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else { return nil }
         self.state = state
         self.pixelFormat = pixelFormat
-        if preparesReadOnlyDepth {
+        supportsTranslucentMaterialState = blendMode == .sourceOver
+        if preparesDepth {
             descriptor.depthAttachmentPixelFormat = .depth32Float
-            self.readOnlyDepthState = try? device.makeRenderPipelineState(descriptor: descriptor)
-            let depthDescriptor = MTLDepthStencilDescriptor()
-            depthDescriptor.depthCompareFunction = .greaterEqual
-            depthDescriptor.isDepthWriteEnabled = false
-            self.readOnlyDepthStencilState = device.makeDepthStencilState(descriptor: depthDescriptor)
+            depthState = try? device.makeRenderPipelineState(descriptor: descriptor)
+            var states: [DepthMode: MTLDepthStencilState] = [:]
+            for mode in [DepthMode.readOnly, .readWrite, .writeOnly] {
+                let depthDescriptor = MTLDepthStencilDescriptor()
+                depthDescriptor.depthCompareFunction = mode == .writeOnly ? .always : .greaterEqual
+                depthDescriptor.isDepthWriteEnabled = mode != .readOnly
+                states[mode] = device.makeDepthStencilState(descriptor: depthDescriptor)
+            }
+            depthStencilStates = states
         } else {
-            self.readOnlyDepthState = nil
-            self.readOnlyDepthStencilState = nil
+            depthState = nil
+            depthStencilStates = [:]
         }
+    }
+
+    func supports(_ renderState: SceneMaterialRenderState) -> Bool {
+        guard supportsTranslucentMaterialState, renderState.blending == .translucent,
+              renderState.alphaWriting == .unspecified else { return false }
+        guard let mode = Self.depthMode(for: renderState) else { return true }
+        return depthState != nil && depthStencilStates[mode] != nil
+    }
+
+    private static func depthMode(for state: SceneMaterialRenderState) -> DepthMode? {
+        if state.depthTest == .enabled {
+            return state.depthWrite == .enabled ? .readWrite : .readOnly
+        }
+        return state.depthWrite == .enabled ? .writeOnly : nil
     }
 
     // Sets pipeline state + vertex quad buffer once per encoder. Call drawLayer
@@ -115,16 +139,39 @@ struct SceneImageLayerPipeline {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
         encoder.setRenderPipelineState(state)
+        encoder.setDepthStencilState(nil)
+        encoder.setFrontFacing(.counterClockwise)
+        encoder.setCullMode(.none)
         Self.bindQuad(encoder: encoder)
     }
 
     func bindReadOnlyDepth(encoder: MTLRenderCommandEncoder) -> Bool {
-        guard let readOnlyDepthState, let readOnlyDepthStencilState else { return false }
+        guard supportsReadOnlyDepth else { return false }
+        return bindDepth(encoder: encoder, mode: .readOnly, cullMode: .none)
+    }
+
+    func bind(encoder: MTLRenderCommandEncoder, renderState: SceneMaterialRenderState) -> Bool {
+        guard supports(renderState) else { return false }
+        let cullMode: MTLCullMode = renderState.cullMode == .normal ? .back : .none
+        guard let mode = Self.depthMode(for: renderState) else {
+            bind(encoder: encoder)
+            encoder.setCullMode(cullMode)
+            return true
+        }
+        return bindDepth(encoder: encoder, mode: mode, cullMode: cullMode)
+    }
+
+    private func bindDepth(
+        encoder: MTLRenderCommandEncoder, mode: DepthMode, cullMode: MTLCullMode
+    ) -> Bool {
+        guard let depthState, let depthStencilState = depthStencilStates[mode] else { return false }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        encoder.setRenderPipelineState(readOnlyDepthState)
-        encoder.setDepthStencilState(readOnlyDepthStencilState)
+        encoder.setRenderPipelineState(depthState)
+        encoder.setDepthStencilState(depthStencilState)
+        encoder.setFrontFacing(.counterClockwise)
+        encoder.setCullMode(cullMode)
         Self.bindQuad(encoder: encoder)
         return true
     }

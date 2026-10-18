@@ -28,7 +28,8 @@ SOURCES = list(dict.fromkeys([
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
-    SCENE/'Compilation/Material/SceneMaterialRenderState.swift',
+    SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
+    SCENE/'Compilation/Material/SceneMaterialRenderState+Compilation.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',
 ]))

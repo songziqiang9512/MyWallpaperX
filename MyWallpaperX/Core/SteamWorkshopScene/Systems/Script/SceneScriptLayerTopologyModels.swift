@@ -19,6 +19,7 @@ nonisolated struct SceneScriptPreparedResourceLayerTemplate: Equatable, Sendable
     var autosize: Bool = false
     var puppetMeshPath: String? = nil
     var kind: Kind = .image
+    var imageMaterialRenderState: SceneMaterialRenderState? = nil
 
     var defaultRenderSizeWH: [Float] { autosize ? renderSizeWH : [1, 1] }
 }

@@ -170,13 +170,40 @@ extension SceneMetalRenderer {
             }) : []
         let requestedFramebufferSources = framebufferSourceLayerIDs.intersection(frameVisibleLayerIDs)
             .intersection(frameProjection.utilityExecution.captureLayerIDs)
-        let unavailableFramebufferSources = framebufferSourceLayerIDs.subtracting(requestedFramebufferSources)
-            .union(unavailableFramebufferSourceDepthLayers(
+        // Only prepared policy IDs are inspected. Source/effect programs retain
+        // their coordinate ABI; this policy belongs to the ordinary terminal.
+        var ordinaryDepthLayerIDs: Set<Int> = []
+        if cameraFrame.defaultsToPerspective, let imagePipeline {
+            for id in frameProjection.imageMaterialStateLayerIDs.intersection(frameVisibleLayerIDs) {
+                guard let layer = frameLayersByID[id],
+                      cameraFrame.resolvesPerspective(for: layer), layer.utilityLayer == nil,
+                      imageTextures.geometryProducts[id] == nil,
+                      (compositionGroupRuntime?.renderPass(forLayerID: id) === mainPass
+                        || compositionGroupRuntime == nil),
+                      imageCompositor.preflightResolvedMaterialClaim(layerID: id)
+                        .execution?.supportsTerminalMaterialReplay != true,
+                      let state = layer.imageMaterialRenderState else { continue }
+                guard imagePipeline.supports(state) else {
+                    modelFrame.unavailableImageMaterialLayerIDs.insert(id)
+                    continue
+                }
+                modelFrame.imageMaterialStates[id] = state
+                if state.requiresDepthAttachment { ordinaryDepthLayerIDs.insert(id) }
+            }
+        }
+        let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
+            ordinaryLayerIDs: ordinaryDepthLayerIDs,
             visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
             batches: particleBatchesByID, particlePipeline: particlePipeline,
             mainPass: mainPass, groups: compositionGroupRuntime,
-            commandBuffer: commandBuffer, leases: &frameDepthLeases))
+            commandBuffer: commandBuffer, leases: &frameDepthLeases)
+        modelFrame.unavailableImageMaterialLayerIDs.formUnion(
+            unavailableDepthConsumers.intersection(ordinaryDepthLayerIDs))
+        let unavailableFramebufferSources = framebufferSourceLayerIDs.subtracting(requestedFramebufferSources)
+            .union(unavailableDepthConsumers.intersection(requestedFramebufferSources))
+        let unavailableTerminalLayers = unavailableFramebufferSources
+            .union(modelFrame.unavailableImageMaterialLayerIDs)
         if let reason = modelFrame.depthDeferralReason {
             compositionGroupRuntime?.closeAllGroupEncoders()
             mainPass.closeForOffscreen()
@@ -213,9 +240,9 @@ extension SceneMetalRenderer {
             environmentSource: environmentSource,
             frameLightSnapshot: frameLightSnapshot,
             compositionGroupRuntime: compositionGroupRuntime,
-            preparationLayers: unavailableFramebufferSources.isEmpty
+            preparationLayers: unavailableTerminalLayers.isEmpty
                 ? frameProjection.preparationLayers : frameProjection.preparationLayers?.filter {
-                !unavailableFramebufferSources.contains($0.id)
+                !unavailableTerminalLayers.contains($0.id)
             },
             utilityExecution: frameProjection.utilityExecution
         )

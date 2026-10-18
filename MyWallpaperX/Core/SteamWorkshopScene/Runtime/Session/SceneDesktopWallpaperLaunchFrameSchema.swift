@@ -29,7 +29,8 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
                     SceneModelResourceIdentity(resource.modelPath).value) else { continue }
             templates[key] = .init(modelPath: resource.modelPath,
                 renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize,
-                puppetMeshPath: resource.puppetMeshPath)
+                puppetMeshPath: resource.puppetMeshPath,
+                imageMaterialRenderState: resource.imageMaterialRenderState)
             profiles[resource.modelPath] = resource.lightingProfile
         }
         // Empty clones carry no source effects, members, scripts or final texture.

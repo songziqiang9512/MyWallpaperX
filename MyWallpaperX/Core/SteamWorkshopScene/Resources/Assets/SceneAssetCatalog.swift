@@ -119,7 +119,7 @@ struct SceneAssetCatalogLoader {
             loadModel($0, resourceView: resourceView)
         }
         for model in models {
-            if !model.isSolidLayer && !Self.isUtilityModelPath(model.relativePath) {
+            if !Self.isUtilityModelPath(model.relativePath) {
                 append(model.materialPath.flatMap(resourceView.resource(relativePath:)), to: &resources)
             }
             append(model.puppetPath.flatMap(resourceView.resource(relativePath:)), to: &resources)

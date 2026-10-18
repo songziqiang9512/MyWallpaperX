@@ -6,11 +6,11 @@
 
 ## 判定与范围
 
-设计五问：横切 Compilation/Rendering 治理边界＝是；修改产品 identity/clock/graph/resource/compositor 权威＝否；用户数据或持久格式＝否；冻结新的依赖债务集合＝是；需要外部语义取证＝否。试点扫描器、基线、正反例已并入验证编排，窄实施登记退役；本文继续作为稳定合同，50条现存todo及原检查器继续执法，不表示产品边界迁移完成。
+设计五问：横切 Compilation/Rendering 治理边界＝是；修改产品 identity/clock/graph/resource/compositor 权威＝否；用户数据或持久格式＝否；冻结新的依赖债务集合＝是；需要外部语义取证＝否。试点扫描器、基线、正反例已并入验证编排，窄实施登记退役；本文继续作为稳定合同，现存todo及原检查器继续执法，不表示产品边界迁移完成。
 
 `script/scene_dependency_baseline.json` 是唯一机器声明：试点只禁止 **Rendering 直接引用 Compilation 内部顶级类型**。Compilation 的已准备 graph、Program、shader/reflection 数据、typed frame 输入和失败值属于可跨边界的合同，以精确符号及说明登记在 `public_contracts`。这不是 Swift `public/private` 访问控制重建，也不按文件整体公开；一个文件可以同时定义公共值与内部 compiler。未登记的新 Compilation 类型默认内部，不能因已有消费者就取得公共资格。
 
-公共性判定：可传递的编译结果、执行描述或 typed frame 输入值，可以列入；解析、编译、schema 推导、准入选择、mutable cache/catalog 和 source digest 实现不因此列入。顶级命名空间混有公开嵌套值与内部算法时，试点保守记录 todo，由后续职责迁移区分，不自动公开整个 namespace。例如 `SceneResolvedMaterialShaderSchema.Sampler` 的类型消费和同 namespace 的推导方法目前都属于该结构债务；`SceneResolvedMaterialProgramIdentity` 的 identity 推导入口、`SceneResolvedMaterialMixedProviderSlotFact.resolve` 的作者形状解析、`SceneMaterialRenderState.compile` 的作者字符串解析也没有因名字像值而公开。todo 不证明这些调用发生在普通帧，也不宣判运行结果错误。
+公共性判定：可传递的编译结果、执行描述或 typed frame 输入值，可以列入；解析、编译、schema 推导、准入选择、mutable cache/catalog 和 source digest 实现不因此列入。顶级命名空间混有公开嵌套值与内部算法时，试点保守记录 todo，由后续职责迁移区分，不自动公开整个 namespace。例如 `SceneResolvedMaterialShaderSchema.Sampler` 的类型消费和同 namespace 的推导方法目前都属于该结构债务；`SceneResolvedMaterialProgramIdentity` 的 identity 推导入口、`SceneResolvedMaterialMixedProviderSlotFact.resolve` 的作者形状解析也没有因名字像值而公开。`SceneMaterialRenderState` 的纯 typed DTO/查询已迁入 Runtime/Frame；作者字符串 `.compile`/`.compileBlending` 仅留 Compilation/Material 的解析 extension，Rendering 仅消费 DTO，对应旧混合 namespace todo 随实际职责分离退休，并未公开解析算法。todo 不证明这些调用发生在普通帧，也不宣判运行结果错误。
 
 已确认的禁止边包括 `Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift -> SceneShaderContractSourceParser`，以及 texture resolver 对 `SceneResolvedMaterialVariantCache` 的引用。它们是真实源码引用，作为现存 todo 冻结，纠正门是将解析/选择结果在现有 preparation owner 完成后经 typed 合同传递，或经另一个有据设计调整实际所有权；禁止仅改名、包装或扩公共表来归零。
 

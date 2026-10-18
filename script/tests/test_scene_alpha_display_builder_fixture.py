@@ -66,6 +66,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/Composition/SceneUtilityLayer.swift",
     SOURCE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
     SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneRenderDescriptor.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneRenderDescriptor+Layer.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",

@@ -580,14 +580,18 @@
     },
     "3589454154": {
       "verdict": "unreviewed",
-      "note": "2026-10-18新增精确ID限定记录：当前原包native nil-ortho独立运行，仅见作者intro阶段的星空/SYKM/下缘土星/右环/底部图标，App0/VM0/无漂移/正常排空。只作有界运行，未确认整球取景或同phase保持；不猜旧Saturn别名、不关闭其历史视觉余项。正式report主样本为361，本ID只在包内关联中性上下文。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip。",
+      "note": "10-19旧App与最终深度候选在请求sceneTime30下均呈现整颗土星、星环、时钟/底部图标；exit0/runner FAIL[]、输入/App无漂移、正常停止排空。sun431 explicit test/write状态已准备，但像素归属与可归因遮挡收益未证；作者Date/媒体音量仍走实时时钟，非整图锁相对照。这里只退出“仅见intro”的观察边界，不证明自然开场全轨迹或官方parity，旧视觉余项保持unreviewed。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json"
       ],
       "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md"
       ],
-      "remainingDifferences": "仅intro阶段有界运行；整球取景/全部播放与参数、旧Saturn视觉余项未关闭，未建立别名关系。"
+      "remainingDifferences": "sun具体遮挡收益、自然开场全轨迹、全部参数/播放与旧视觉余项未闭；无完整同phase官方对照或性能结论。",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root; bounded native depth integration"
     },
     "3797217144": {
       "verdict": "unreviewed",
@@ -776,17 +780,19 @@
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root; independent camera/cursor reviewers",
       "officialComparison": "compared",
-      "note": "10-19相机后继：原生default相机和父层typed TRS接入同阶段world；自有双深度标记红绿成立。原包同非中心pointer两arm视角改变，但after精确矩阵/官方同phase未对齐，扁盒归因未闭。五层source旧缺口保持退出；本批真实两arm均exit0/无漂移/stop排空，effect CPU、229 Program fallback、Rope三FAIL保持。正面仍透见背面文字，背景仍缺，整样本unreviewed。",
+      "note": "10-19相机后继：原生default相机和父层typed TRS接入同阶段world；自有双深度标记红绿成立。原包同非中心pointer两arm视角改变，但after精确矩阵/官方同phase未对齐，扁盒归因未闭。五层source旧缺口保持退出；本批真实两arm均exit0/无漂移/stop排空，effect CPU、229 Program fallback、Rope三FAIL保持。正面仍透见背面文字，背景仍缺，整样本unreviewed。 10-19普通image显式深度自有App红绿成立，但本包普通正例隐藏或关闭depth；R1实际复验反向文字仍穿透、原三FAIL保持，不记本包受益。text默认官方载体STOP_UNKNOWN，转查模型实例隔离。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-camera-frame-transforms-20261019/native/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-camera-frame-transforms-20261019/native/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md"
       ],
       "remainingDifferences": "盒体前后遮挡/跨面文字穿叠；顶面构图须对齐camera37实际姿态与输入；全屏背景、Rope profile、229首Program fallback与完整音乐/属性/交互、同状态官方parity。五层source-not-ready及camera静态world误接已退出。"
     },

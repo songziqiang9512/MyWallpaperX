@@ -378,7 +378,8 @@ def resource_support():
 
 NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,RESOURCE_SOURCE,
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
-    SCENE/'Compilation/Material/SceneMaterialRenderState.swift',
+    SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
+    SCENE/'Compilation/Material/SceneMaterialRenderState+Compilation.swift',
     SCENE/'Resources/Textures/SceneNamedTextureReference.swift',
     SCENE/'Rendering/Geometry/SceneLayerWorldFrameResolver.swift',
     SCENE/'Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift',

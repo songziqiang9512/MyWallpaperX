@@ -22,6 +22,7 @@ nonisolated extension SceneRenderDescriptor {
             renderOrderLayerIDs: topology.renderOrderLayerIDs,
             renderOrderPolicy: renderOrderPolicy,
             modelMaterialLinks: modelMaterialLinks, materialPasses: materialPasses,
+            preparedImageMaterialStatesByModelPath: preparedImageMaterialStatesByModelPath,
             effectDefinitions: effectDefinitions,
             shaderReferences: shaderReferences, textureReferences: textureReferences,
             texturePropertyKeys: texturePropertyKeys
@@ -75,7 +76,10 @@ nonisolated extension SceneRenderDescriptor.Layer {
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
             cameraPath: nil, contentKind: template.kind == .composition ? "composition" : "image",
-            imagePath: template.modelPath, usesPerspective: mutation.perspective, particlePath: nil,
+            imagePath: template.modelPath,
+            imageMaterialRenderState: template.kind == .image && template.puppetMeshPath == nil
+                ? template.imageMaterialRenderState : nil,
+            usesPerspective: mutation.perspective, particlePath: nil,
             spotLight: nil, particleInstanceOverride: nil,
             utilityLayer: template.kind == .composition
                 ? SceneUtilityLayer(kind: .composition, copyBackground: true, passthrough: false) : nil,

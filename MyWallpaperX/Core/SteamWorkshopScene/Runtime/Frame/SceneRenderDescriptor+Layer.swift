@@ -12,6 +12,10 @@ nonisolated extension SceneRenderDescriptor {
         let imagePath: String?
         /// Prepared layer-local static slot 0; nil inherits the model material.
         var staticBaseTexturePath: String? = nil
+        /// Explicit ordinary-quad terminal state; nil keeps unproven defaults.
+        var imageMaterialRenderState: SceneMaterialRenderState? = nil
+        /// Prepared source semantics, never inferred from an empty pass list.
+        var proceduralSolidSource: SceneMaterialRenderState.ProceduralSolidSource? = nil
         var staticModelPath: String? = nil
         var modelShadowCastIntent: SceneShadowCastIntent? = nil
         var usesPerspective: Bool? = nil

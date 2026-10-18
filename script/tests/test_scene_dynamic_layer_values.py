@@ -141,7 +141,12 @@ import simd
 // GPU surfaces are observation doubles. The production utility draw function
 // makes all route, source-uniform and compositor-request decisions.
 struct MTLTexture { let identity: Int }
-struct SceneRenderDescriptor { struct Layer { var renderSizeWH: [Float]? = nil } }
+struct SceneRenderDescriptor {
+    struct Layer {
+        var renderSizeWH: [Float]? = nil
+        var utilityLayer: SceneUtilityLayer? = nil
+    }
+}
 struct SceneUtilityLayerRuntimePlan {
     let shouldCapture: Bool
     let kind: SceneUtilityLayer.Kind
@@ -152,7 +157,10 @@ struct SceneImageLayerMasks {}
 struct SceneDynamicSnapshot {}
 struct SceneAudioSpectrumSnapshot {}
 struct SceneDependencyEffectInput {}
-struct SceneImageLayerPipeline {}
+struct SceneImageLayerPipeline { let supportsReadOnlyDepth = false }
+// This alpha handoff probe never requests a depth capability. The empty leaf
+// carries the optional signature without duplicating the depth/frame owner.
+struct SceneImageLayerTerminalDepthBinding {}
 struct SceneOffscreenTexturePool {}
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneEffectExecutionFrameTrace {}
@@ -182,6 +190,7 @@ struct SceneImageLayerDrawRequest {
     let requiresDependencyEffect: Bool
     let dynamicValues: SceneDynamicSnapshot
     let audioSpectrum: SceneAudioSpectrumSnapshot
+    var terminalDepth: SceneImageLayerTerminalDepthBinding? = nil
 }
 final class SceneMainPassEncoder {
     var captures = 0
@@ -472,6 +481,7 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
                         ["swiftc", str(owner),
                          str(SCENE_ROOT / "Rendering/Composition/SceneUtilityLayer.swift"),
                          str(SCENE_ROOT / "Rendering/Geometry/SceneMatrix.swift"),
+                         str(SCENE_ROOT / "Rendering/Geometry/SceneLayerCursorGeometry.swift"),
                          str(SCENE_ROOT / "Rendering/Geometry/SceneCaptureGeometry.swift"),
                          str(harness), "-module-cache-path", str(directory / "module-cache"),
                          "-o", str(binary)],

@@ -271,6 +271,8 @@ struct SceneImageLayerDrawRequest {
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
     var geometryProduct: SceneGeometryProduct? = nil
     var terminalDepth: SceneImageLayerTerminalDepthBinding? = nil
+    var terminalMaterialState: SceneMaterialRenderState? = nil
+    var terminalMVP: simd_float4x4? = nil
     var sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
     var distanceFog: SceneImageDistanceFogUniforms = .init()
 

@@ -311,38 +311,11 @@
     {
       "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
-      "symbol": "SceneMaterialRenderState",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "首次bootstrap独立审查纠正公共误分类：SceneMaterialRenderState同时承载作者字符串compile解析，不能把整个namespace视为prepared公共合同",
-      "retirement": "在现有preparation职责内分离解析算法与typed状态值并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
       "symbol": "SceneResolvedMaterialProgramIdentity",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift",
       "owner": "Scene Compilation / Rendering",
       "reason": "混合namespace仍承担identity推导或作者形状解析，不能仅因返回typed值就公开其算法入口",
       "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
-      "symbol": "SceneMaterialRenderState",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "首次bootstrap独立审查纠正公共误分类：SceneMaterialRenderState同时承载作者字符串compile解析，不能把整个namespace视为prepared公共合同",
-      "retirement": "在现有preparation职责内分离解析算法与typed状态值并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
-      "symbol": "SceneMaterialRenderState",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "首次bootstrap独立审查纠正公共误分类：SceneMaterialRenderState同时承载作者字符串compile解析，不能把整个namespace视为prepared公共合同",
-      "retirement": "在现有preparation职责内分离解析算法与typed状态值并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
     },
     {
       "rule": "rendering-no-compilation-internals",
@@ -427,15 +400,6 @@
     },
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
-      "symbol": "SceneMaterialRenderState",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "首次bootstrap独立审查纠正公共误分类：SceneMaterialRenderState同时承载作者字符串compile解析，不能把整个namespace视为prepared公共合同",
-      "retirement": "在现有preparation职责内分离解析算法与typed状态值并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Validation.swift",
       "symbol": "SceneAuthoredEffectInputValidator",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
@@ -488,5 +452,30 @@
       "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
       "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
     }
-  ]
+  ],
+  "last_ratchet": {
+    "reason": "SceneMaterialRenderState DTO moved to Runtime/Frame; unique authored parsing extension remains Compilation/Material; Rendering has no parsing calls",
+    "removed": [
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
+        "SceneMaterialRenderState"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
+        "SceneMaterialRenderState"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
+        "SceneMaterialRenderState"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
+        "SceneMaterialRenderState"
+      ]
+    ]
+  }
 }

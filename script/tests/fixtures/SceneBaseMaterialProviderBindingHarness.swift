@@ -172,12 +172,14 @@ struct SceneRenderDescriptor {
         let contentKind: String
         let imagePath: String?
         var effects: [EffectDescriptor]
+        var proceduralSolidSource: SceneMaterialRenderState.ProceduralSolidSource? = nil
         var visible: Bool? = nil
         var isImageRenderable: Bool { contentKind == "image" || contentKind == "solid" }
     }
     var layers: [Layer]
     let modelMaterialLinks: [ModelMaterialLink]
     let materialPasses: [MaterialPassDescriptor]
+    var preparedImageMaterialStatesByModelPath: [String: SceneMaterialRenderState]? = nil
     let texturePropertyKeys: [String]
 }
 
@@ -369,7 +371,7 @@ let descriptor = SceneRenderDescriptor(layers: [
     ),
     .init(
         id: 30, contentKind: "solid", imagePath: "models/previous.json",
-        effects: [effect(visible: true)]
+        effects: [effect(visible: true)], proceduralSolidSource: .neutral
     ),
     .init(
         id: 40, contentKind: "image", imagePath: "models/bad-slot.json",
@@ -397,11 +399,11 @@ let descriptor = SceneRenderDescriptor(layers: [
     ),
     .init(
         id: 100, contentKind: "solid", imagePath: "models/non-neutral.json",
-        effects: [effect()]
+        effects: [effect()], proceduralSolidSource: .neutral
     ),
     .init(
         id: 110, contentKind: "solid", imagePath: "models/stock-absent.json",
-        effects: [effect()]
+        effects: [effect()], proceduralSolidSource: .neutral
     ),
     .init(
         id: 120, contentKind: "solid", imagePath: "models/solid-multi.json",
@@ -702,14 +704,20 @@ func shortcutProviderCollisionChecks() -> [String: Bool] {
 
 func instanceFallbackChecks() -> [String: Bool] {
     func compile(_ path: String, slots: [String?]? = nil,
-        combos: [String:Int] = ["version":2]) -> SceneBaseMaterialProviderBindingProgram {
+        combos: [String:Int] = ["version":2], neutral: Bool = true,
+        stateOnlyPass: Bool = false) -> SceneBaseMaterialProviderBindingProgram {
         let layer = SceneRenderDescriptor.Layer(id: 501, contentKind: "solid",
-            imagePath: "models/instanced-solid.json", effects: [])
+            imagePath: "models/instanced-solid.json", effects: [],
+            proceduralSolidSource: neutral ? .neutral : nil)
         let instance = SceneDocument.SceneLayerMaterialInstance(id: 502,
             textureSlots: slots ?? [path], userTextureInputs: [current],
             hasUserTextureOverride: true, combos: combos, unknownKeys: [], isMalformed: false)
         return SceneBaseMaterialProviderBindingCompiler.compile(descriptor: .init(layers:[layer],
-            modelMaterialLinks: [], materialPasses: [], texturePropertyKeys: []),
+            modelMaterialLinks: stateOnlyPass ? [.init(modelPath: "models/instanced-solid.json",
+                materialPath: "materials/renamed-state-only.json")] : [],
+            materialPasses: stateOnlyPass ? [.init(materialPath: "materials/renamed-state-only.json",
+                shaderPath: "a-source-identity", textureSlots: [], userTextureInputs: [])] : [],
+            texturePropertyKeys: []),
             materialInstancesByLayerID:[501:instance], scriptBindings:[], materialPropertyTargets:[])
     }
     let authored = compile("music")
@@ -717,7 +725,15 @@ func instanceFallbackChecks() -> [String: Bool] {
         && authored.assetDemands.first?.path.value == "music"
         && authored.assetDemands.first?.purpose == .premultipliedColor
         && authored.baseMaterialBindings[501]?.fallbackAsset == authored.assetDemands.first,
-        "neutralWhiteKeepsOldCarrier": compile("util/white").assetDemands.isEmpty]
+        "neutralWhiteKeepsOldCarrier": compile("util/white").assetDemands.isEmpty,
+        "loadedStateOnlyMaterialKeepsNeutralWhite": compile("util/white", stateOnlyPass: true)
+            .baseMaterialBindings[501] != nil,
+        "loadedStateOnlyMaterialKeepsCustomFallback": compile("music", stateOnlyPass: true)
+            .assetDemands.first?.path.value == "music",
+        "passEmptyDoesNotGrantProceduralSource": compile("music", neutral: false)
+            .baseMaterialBindings.isEmpty,
+        "unprovenSourceWithMaterialRejected": compile("music", neutral: false, stateOnlyPass: true)
+            .baseMaterialBindings.isEmpty]
     for path in ["effects/waterripplenormal", "$mediaThumbnail", "_rt_imageLayerComposite_42_a"] {
         let result = compile(path)
         checks["reject-"+path] = result.baseMaterialBindings.isEmpty && result.assetDemands.isEmpty

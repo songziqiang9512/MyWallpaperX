@@ -57,6 +57,20 @@
 
 验收先用自有非对称网格、native transform parent、source Program 和健康后层证明采集/投影；前置 MDL 半遮挡证明终端只读 depth，含无先行 writer、resize/取消/陈旧资源及 pending 恢复。普通 source/组合反例保持。随后固定非零 typed audio、相机与提示属性，要求真实目标有可归因新增像素及独立样本画面保持；只有执行计数或目标被遮挡不能关闭 N03。source/几何/遮挡正控任一失败即停并重评，不调作者位置、亮度或 cull 追图；无实际收益撤回产品准入。
 
+### 普通原生图层的材质深度状态（2026-10-19）
+
+目标是让已准备的普通世界平面服从作者显式 depthtest/depthwrite/cull，而非永远覆盖先画模型。单个 opaque MDL 的自有正控已排除 near-coincident：普通 image 的 enabled/disabled 两 arm 均穿透，材质声明、前模型、后图外侧及 screen overlay 均已资格。本片先恢复明确状态，不从资源名推断，更不把 text 或省略 state 的默认政策猜成 enabled。
+
+准备阶段沿原 AssetCatalog→Descriptor 保真材料，并用既有 MaterialRenderState 归一有限政策；当前 builtin quad 消费资格与材质/几何来源必须明确，未知 Program/多pass/几何产品沿原局部处理。已有 solid 材料漏收须在原catalog修，不能在renderer按stock路径补状态。状态进入原prepared层/模板投影，普通帧不解析字符串或扫描材料。原生相机及当帧perspective决定消费；明确disabled、screen-space与不相关二维路径保持原合成。
+
+纯 typed `SceneMaterialRenderState` DTO 与查询归 Runtime/Frame，作者字符串解析仅留 Compilation/Material 的唯一 extension；Rendering 只消费准备值，拆分后退休该混合 namespace 的旧依赖 todo，不扩大公共算法边界。
+
+StaticModelFrame继续独占共享depth申请、首次clear、busy/完成与取消。普通平面和原framebuffer-source复用这份能力；需求在原帧准入中取得资格，mandatory model/particle优先，不能晚分配后遗留graph ledger或呈现漏层pending帧。普通不可用只降级相应层，陈旧/错pass等安全错误拒绝最小不安全单元。模型隔离政策不在本片顺带改动，不以shared source成功代表所有模型互遮。
+
+唯一compositor的terminal draw消费准备好的读/写/剔除政策与同模型reverse-depth，source/effect仍用原空间/颜色ABI；不能把全屏copy或中间graph pass写入scene depth。ImagePipeline复用有限PSO/DepthStencil状态，不造第二depth pool/输出owner，没需求不新增常驻准备。原source只读/nocull约束保持，普通输出不因绑定能力存在而擅改作者状态。
+
+最低验收为单前模型遮后image、disabled和外侧/overlay正反控；再以有无depthwrite区分后继更远层、背向normal/nocull区分剔除，含无先行模型、alpha覆盖、改名/等价字段别名、wrong-pass/取消/busy及健康后层。Debug后核真实333的可归因遮挡贡献和独立原包；text/省略默认仅在固定官方自有正控合格后另行接入。公共显式状态已由自有App像素红绿验收；真实333未有可归因改善，停止向text/省略默认或terminal replay扩策略，转查模型实例隔离。独立358构图保持、sun收益未证；[有界后验](../../history/ordinary-native-image-depth-2026-10-19.md)保各身份及失败。整盒遮挡、背景与性能仍须各自实证，不按截图调位置、材质/透明度或全局depth。
+
 ## 无子层透明源与 named 输入的职责修正（2026-10-18）
 
 `copybackground=false` 的无子层 composition 使用透明源；另一个 sampler 的 named provider 不构成复制 enclosing 背景的请求。现 SourceRoute 因声明依赖而改走 readable-main，真实393随后把背景与文字一起变形。修正只在原 SourceRoute 分离这两种输入职责；named 解析、准入、预留、publication 与 epoch 仍归现有 dependency/graph owner。有子层且带外部依赖的未知形态不借此开放，唯一身份、父子索引和无环检查保持。

@@ -368,6 +368,11 @@ extension SceneMetalRenderer {
             return .deferred(reasonCode: reason)
         }
 
+        if let reason = modelFrame.terminalDepthFailureReason {
+            mainPass.closeForOffscreen()
+            return .dropped(reasonCode: reason)
+        }
+
         let mainEncoded = mainPass.finishEnsuringClear()
         reflection.mainSourceCompleted = mainEncoded
         if sceneColor != nil && !mainEncoded {

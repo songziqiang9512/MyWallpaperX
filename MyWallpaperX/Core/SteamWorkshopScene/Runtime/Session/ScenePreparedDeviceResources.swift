@@ -11,6 +11,7 @@ nonisolated struct ScenePreparedDynamicImageResource {
     var puppetPose: ScenePuppetLayerLoad.PreparedPose? = nil
     /// A model-default built-in recipe, never an authored layer instance.
     var lightingProfile: SceneBaseMaterialLightingProfile? = nil
+    var imageMaterialRenderState: SceneMaterialRenderState? = nil
 
     var renderSizeWH: [Float] {
         [Float(loaded.texture.width), Float(loaded.texture.height)]
@@ -242,7 +243,8 @@ final class ScenePreparedBaseImageResources {
                     modelPath: modelPath, loaded: loaded,
                     naturalSizeWH: textureLoader.preparedNaturalImageSize(from: url, source: source)
                         .map { [Float($0.width), Float($0.height)] },
-                    lightingProfile: imageMaterials.profiles[modelIdentity]
+                    lightingProfile: imageMaterials.profiles[modelIdentity],
+                    imageMaterialRenderState: imageMaterials.renderStates[modelIdentity]
                 )
                 loadedCount += 1
             case .failed:
@@ -646,9 +648,7 @@ final class ScenePreparedDeviceResourcesTask {
                 guard let imageLayerPipeline = SceneImageLayerPipeline(
                     device: device,
                     pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-                    preparesReadOnlyDepth: descriptor.layers.contains {
-                        $0.utilityLayer?.framebufferSource != nil
-                    }
+                    preparesDepth: descriptor.requiresImageDepthAttachment
                 ) else {
                     throw SceneDesktopWallpaperHostLaunchError
                         .requiredImagePipelineUnavailable

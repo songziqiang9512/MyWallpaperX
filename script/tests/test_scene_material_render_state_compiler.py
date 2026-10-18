@@ -9,8 +9,9 @@ import unittest
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift"
+SOURCES = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState+Compilation.swift",
 )
 
 HARNESS = r"""
@@ -120,7 +121,7 @@ class SceneMaterialRenderStateCompilerTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = build_root / "material-render-state"
         subprocess.run(
-            [swiftc, str(SOURCE), str(harness), "-o", str(cls.binary)],
+            [swiftc, *map(str, SOURCES), str(harness), "-o", str(cls.binary)],
             cwd=REPOSITORY_ROOT,
             check=True,
             capture_output=True,

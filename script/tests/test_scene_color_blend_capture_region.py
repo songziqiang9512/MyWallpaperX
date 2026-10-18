@@ -19,6 +19,8 @@ REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / "MyWallpaperX/Core/SteamWorkshopScene"
 HARNESS = Path(__file__).with_name("fixtures") / "SceneColorBlendCaptureRegionHarness.swift"
 SOURCES = [SCENE / p for p in (
+    "Runtime/Frame/SceneMaterialRenderState.swift",
+    "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
     "Rendering/Metal/SceneMetalPipeline.swift",
     "Rendering/Composition/SceneBlendModeShaderSource.swift",
     "Rendering/Composition/SceneLayerColorBlendPipeline.swift",

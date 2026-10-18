@@ -28,7 +28,7 @@ class SceneRendererSubmissionStageTests(unittest.TestCase):
                 stage.write_text(source.replace(old, new, 1))
             binary = scratch / "harness"
             built = subprocess.run([
-                "xcrun", "swiftc", "-parse-as-library", str(stage),
+                "xcrun", "swiftc", "-DDEBUG", "-parse-as-library", str(stage),
                 str(FRAME / "SceneMetalRenderer+FrameOutcome.swift"),
                 str(FRAME / "SceneSourceUpdateTransaction.swift"), str(FIXTURE),
                 "-module-cache-path", str(scratch / "cache"), "-o", str(binary),

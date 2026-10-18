@@ -139,6 +139,25 @@ func preparedImageMaterialChecks() -> [String: Any] {
     let withLayer = ScenePreparedImageMaterialCatalog(descriptor: descriptor([explicit], layers: [sourceLayer]))
     checks["sourceLayerPresenceDoesNotChangeModelFact"] = withLayer.profiles == catalog(explicit).profiles
 
+    var depthPass = plain
+    depthPass.depthTest = "enabled"
+    depthPass.cullMode = "normal"
+    let depthState = SceneMaterialRenderState.compile(blending: depthPass.blending,
+        depthTest: depthPass.depthTest, depthWrite: depthPass.depthWrite,
+        cullMode: depthPass.cullMode, alphaWriting: depthPass.alphaWriting)!
+    var depthDescriptor = descriptor([depthPass])
+    depthDescriptor.preparedImageMaterialStatesByModelPath = [model: depthState]
+    let depthCatalog = ScenePreparedImageMaterialCatalog(descriptor: depthDescriptor)
+    checks["preparedNativeDepthStateRetainsRecipe"] = depthCatalog.profiles[model] != nil
+        && depthCatalog.renderStates[model] == depthState
+    checks["rawDepthDoesNotGrantDynamicQualification"] = catalog(depthPass).profiles.isEmpty
+    var unsupportedDepth = depthPass
+    unsupportedDepth.combos["UNKNOWN"] = 1
+    depthDescriptor = descriptor([unsupportedDepth])
+    depthDescriptor.preparedImageMaterialStatesByModelPath = [model: depthState]
+    checks["unsupportedRecipeCannotBorrowPreparedState"] = ScenePreparedImageMaterialCatalog(
+        descriptor: depthDescriptor).profiles.isEmpty
+
     var rejected: [String: Bool] = [:]
     func reject(_ name: String, _ mutation: (inout Pass) -> Void) {
         var value = explicit
