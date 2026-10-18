@@ -1,6 +1,6 @@
 # Scene Render Graph 与 Shader 覆盖矩阵
 
-二维 data 的直接红通道遮罩消费按[用途协调合同](scalar-mask-data-purpose.md)实施与验收；本入口不另存第二份规则。
+二维 data 的直接红通道遮罩消费按[用途协调合同](scalar-mask-data-purpose.md)实施与验收；本入口不另存第二份规则。 函数宏现由同一词法展开owner跨连续active普通行识别调用，注释只作token间空白；保留物理行映射、原metadata来源与早期预算，directive/include/条件边界不跨环境续接。职责与邻例归[逻辑调用合同](../architecture/shader-metadata-failure-contract.md#logical-macro-invocation)，实际受控颜色与独立原包边界归[后验](runtime-evidence-current.md#logical-macro-invocation-20261018)；尚无已证受影响的真实样本，不宣称全样本恢复或性能收益。
 
 ## 未消费版本字段
 

@@ -102,6 +102,7 @@ extension SceneShaderPreprocessor {
             let lines = node.source.split(omittingEmptySubsequences: false, whereSeparator: { $0.isNewline })
             let recoverableEndifLines = Self.recoverableRedundantEndifLines(in: lines)
             var inBlockComment = false
+            var expansion: SceneShaderLexicalExpander.Stream?
             for (offset, substring) in lines.enumerated() {
                 let lineNumber = offset + 1
                 let line = String(substring)
@@ -110,6 +111,7 @@ extension SceneShaderPreprocessor {
                     inBlockComment: &inBlockComment
                 )
                 if let directive = SceneShaderDirective.parse(lexical.code) {
+                    try finishExpansion(&expansion, path: node.virtualPath)
                     if directive.metadataIsActive(
                         currentActive: currentActive,
                         closingParentActive: conditions.count > floor
@@ -137,11 +139,7 @@ extension SceneShaderPreprocessor {
                     if let diagnostics = diagnosticsByLine[lineNumber] {
                         throw sourceFailure(diagnostics, fallbackPath: node.virtualPath)
                     }
-                    try append(
-                        try expand(lexical, path: node.virtualPath, line: lineNumber),
-                        path: node.virtualPath,
-                        line: lineNumber
-                    )
+                    try expand(lexical, stream: &expansion, path: node.virtualPath, line: lineNumber)
                     for annotation in annotationLines[lineNumber] ?? [] {
                         annotations.append(.init(sourcePath: node.virtualPath, annotation: annotation))
                     }
@@ -150,6 +148,7 @@ extension SceneShaderPreprocessor {
                     }
                 }
             }
+            try finishExpansion(&expansion, path: node.virtualPath)
             guard !inBlockComment else {
                 throw failure(
                     .unterminatedBlockComment,
@@ -260,41 +259,76 @@ extension SceneShaderPreprocessor {
             sourceMap.append(.init(outputLine: outputLines.count, sourcePath: path, sourceLine: line))
         }
 
-        mutating func expand(_ line: SceneShaderLexicalLine, path: String, line lineNumber: Int) throws -> String {
+        func makeExpansion(path: String) -> SceneShaderLexicalExpander.Stream {
             let definitions = selectedDefinitions
-            let target = environment.compatibilityTarget
-            var resolvedCompatibilityMacros: Set<String> = []
-            do {
-                let result = try SceneShaderLexicalExpander.expand(
-                    line,
-                    objectMacros: macros,
-                    functionMacros: functionMacros,
-                    limits: limits,
-                    resolved: { name in
-                        if target.languageMacroDefinition(for: name) != nil {
-                            resolvedCompatibilityMacros.insert(name)
-                        }
-                    }
-                ) { name in
-                    if definitions[name] == nil,
-                       let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                        throw Failure(diagnostics: [Diagnostic(
-                            code: .unresolvedEnvironmentDefine,
-                            message: "Shader macro '\(name)' requires an explicit \(requirement.rawValue) source.",
-                            relativePath: path,
-                            line: lineNumber
-                        )])
-                    }
+            return .init(objectMacros: macros, functionMacros: functionMacros, limits: limits) { name, line in
+                if definitions[name] == nil,
+                   let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
+                    throw Failure(diagnostics: [Diagnostic(
+                        code: .unresolvedEnvironmentDefine,
+                        message: "Shader macro '\(name)' requires an explicit \(requirement.rawValue) source.",
+                        relativePath: path,
+                        line: line
+                    )])
                 }
-                compatibilityMacroDependencies.formUnion(
-                    resolvedCompatibilityMacros
-                )
-                return result
-            } catch let error as SceneShaderMacroExpansionError {
-                let code: DiagnosticCode = error.kind == .budgetExceeded
-                    ? .budgetExceeded : .functionLikeMacro
-                throw failure(code, error.message, path, lineNumber)
             }
+        }
+
+        mutating func expand(
+            _ line: SceneShaderLexicalLine,
+            stream: inout SceneShaderLexicalExpander.Stream?,
+            path: String,
+            line lineNumber: Int
+        ) throws {
+            var current = stream ?? makeExpansion(path: path)
+            stream = nil
+            let diagnosticLine = current.pendingLine ?? lineNumber
+            let retainedLineCount = lineNumber - diagnosticLine + 1
+            guard outputLines.count < limits.maximumOutputLines,
+                  retainedLineCount <= limits.maximumOutputLines - outputLines.count else {
+                throw failure(.budgetExceeded, "Prepared shader output exceeds its budget.", path, lineNumber)
+            }
+            do {
+                let progress = try current.feed(line, sourceLine: lineNumber)
+                try appendExpansion(progress.lines, resolved: current.resolvedMacros, path: path)
+                switch progress {
+                case .complete: stream = nil
+                case .pending: stream = current
+                }
+            } catch let error as SceneShaderMacroExpansionError {
+                throw expansionFailure(error, path: path, line: diagnosticLine)
+            }
+        }
+
+        mutating func finishExpansion(
+            _ stream: inout SceneShaderLexicalExpander.Stream?, path: String
+        ) throws {
+            guard var current = stream else { return }
+            stream = nil
+            let diagnosticLine = current.pendingLine
+            do {
+                let lines = try current.finish()
+                try appendExpansion(lines, resolved: current.resolvedMacros, path: path)
+                stream = nil
+            } catch let error as SceneShaderMacroExpansionError {
+                throw expansionFailure(error, path: path, line: diagnosticLine)
+            }
+        }
+
+        mutating func appendExpansion(
+            _ lines: [SceneShaderLexicalExpander.OutputLine], resolved: Set<String>, path: String
+        ) throws {
+            for line in lines { try append(line.text, path: path, line: line.sourceLine) }
+            for name in resolved where environment.compatibilityTarget.languageMacroDefinition(for: name) != nil {
+                compatibilityMacroDependencies.insert(name)
+            }
+        }
+
+        func expansionFailure(
+            _ error: SceneShaderMacroExpansionError, path: String, line: Int?
+        ) -> Failure {
+            failure(error.kind == .budgetExceeded ? .budgetExceeded : .functionLikeMacro,
+                    error.message, path, line)
         }
 
         func sourceFailure(

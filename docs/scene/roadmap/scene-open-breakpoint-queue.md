@@ -191,7 +191,7 @@
 
 其余尚未覆盖profile按[材质/Graph](../capabilities/render-graph-shader-coverage.md)、[Effect](../capabilities/effect-execution-coverage.md)、[Puppet/3D与平台](../capabilities/advanced-object-coverage.md)维护：LUT/material、未证source/provider、alpha/nested clipping、Puppet mixing/ended、级联destroy、Vec4/matrix、未证歌词平台或物理HDR等，只有获得具体可达缺口/反例才进入本队列。family名、L0/L1、没有golden或某平台未测不单独排一个“当前缺陷”。Steam真实授权/签名安装任务归[获取合同](../../architecture/steam-workshop-acquisition-contract.md)，不从旧发布版本生成安装指令。
 
-跨物理行function-like宏调用保留为**静态预处理合同债**：同一行的合法调用已由原owner展开；宏名与`(`分行时可能留下调用而其定义已移除。该有界源码资格未运行成真实样本故障，不与本批numeric/信号证明混记；后继沿现preprocessor补自有同/跨行等价输入及已定义/未知反例，再定实际影响，当前不增加另一宏展开器。
+跨物理行函数宏的静态合同债已退出：同一展开owner沿连续active普通行处理调用与注释空白，保留来源行、token边界和早期预算；受控实际App由旧红/青恢复两侧纯红。独立347的网格/人物/文字等实际呈现保持，但冷启动占满原总时限而被截断，正常停止未验、原FAIL保留。没有已证受影响的真实作者样本，不刷新整样本verdict；[后验与边界](../capabilities/runtime-evidence-current.md#logical-macro-invocation-20261018)。
 
 ## 6. 进入、关闭与证据退出
 

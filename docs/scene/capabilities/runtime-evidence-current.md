@@ -936,3 +936,15 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 **可复验边界。** 同一真实prepare→drawStaticModel→共享reverse-depth像素门，旧HEAD为1PASS/2FAIL（5子例），修后3PASS/16case；normal材质/纹理A0与改名变体由远蓝变近红且深度从0.49变0.51，layer0仍远蓝，layer.5在透明附件读回[128,0,0,128]；translucent零覆盖、nil/未知保持旧输出。最近旧方向阴影2PASS，覆盖旧PMA/纹理覆盖与cutoff反例。MSL未改，未新认领normal的阴影alpha或全部材质state。
 
 **身份与保留。** 根目录`.artifacts/tmp/n03-static-model-normal-coverage-20261018/`保存两产品投影、build/receipt、native两case、原图、独审及清理收据；测试原始红绿归同目录`tests/final-summary.json`。固定HEAD`20afa1c46`+两文件semantic overlay，4312产品输入无drift、Debug36.754s且签名通过；exe=`758f9b77…248a`、dylib=`56ec880f…a46a`、CDHash=`fada8669aa32be8fbb587740beea2f72d16bdcf6`。依赖门随后将normal比较下沉到现帧适配层，Metal只接收不透明颜色Bool事实；最终`build-final/receipt.json`为44.682s/4312输入无drift、exe=`6f501d7d…2621`、dylib=`81dd8db2…3374`、CDHash=`f859ebde1c467f0e00391f5113bbb9d131d47a0e`，仅接口收窄、计算/ABI/MSL/PSO不变。最终像素门另存`tests/final-interface-summary.json`；独审按值与调用等价复用758两原包实图，不冒称最终binary重播。必要结果暂存本机待证据库容量；已停runtime/HOME/旧888 stage及测试cache精确清理共904379941 logical bytes，非物理或运行内存收益。保留单份迭代缓存、758图证stage与全部失败原图/日志。未做同条件性能比较，不认领CPU/GPU/启动收益。
+
+
+<a id="logical-macro-invocation-20261018"></a>
+### 2026-10-18：函数宏逻辑调用与物理来源行
+
+**语义与结果。** 函数宏名、开括号或实参换行不再被物理行/注释segment误截断；原LexicalExpander单一Stream只保留必要待续，别名与递归仍由同一owner处理，Preprocessor在directive/include/条件/EOF前结清原宏环境。comments作trivia、quoted保持，原物理行/sourceMap与metadata不重排；同owner另修空replacement/相邻identifier或`+`的token误拼接。pending行在feed前计入原输出行预算，防止大量空行延迟拒绝；紧预算实际line4先于line6坏metadata拒绝。[设计](../architecture/shader-metadata-failure-contract.md#logical-macro-invocation)不开放跨directive调用或其他未资格语法。自动compiler semantic input identity覆盖两产品与各analysis/cache，不另建缓存或手动重复版本权威。
+
+**实际受控App。** 自有8000081两材质仅差一个换行：旧App同行红、跨行误走builtin mix呈青；最终候选三帧均两侧红，黄标、深蓝背景与几何保持。预定作者ROI经640×360→908×590 cover映射，两侧各16900像素；旧左[255,0,0,255]/右[0,128,128,255]，候选两侧全[255,0,0,255]。两个真实Program均1material/0rejected，frame0与1完成GPU、publication及compositor消费。旧/新exit0、source/App无drift，surface1→0/GPUdrained；同版三张PNG分别byte-identical，旧SHA`47b45d1d…ff0b`、新`992acedec…aa93`。这证明可见公共语义，不将自有fixture记作真实样本恢复。
+
+**独立原包与失败。** 同最终stage原3471294034，project=`71257d32…21e7`、pkg=`2cd8279e…b1a1`，默认10s/after7/resize/noPCM；根与独审另看原图，网格、人物、白色大字/红条、花瓣及底部频谱保持，49effects场景中31个Program subject取得GPU/下一帧观察，不能把49全部记为独立Program通过。ready60.549s后，原总70s watchdog在完整播放/停止前截断；exit-15、timeout及surface-not-released原FAIL保留，不重跑、不将未取得stop误称已验或直接判产品teardown故障。源与App无drift，正常停止/GPUdrain及整样本同phase/viewport未验；没有归因到本宏首错的真实作者样本，不改全样本verdict/台账。
+
+**验证、身份与保留。** 新6方法/41case及旧预处理3方法通过；改名/资源路径、等价表达、注释/quoted/inactive、裸名/未知调用、边界重定义、错参/未闭/递归、token分隔及紧预算均覆盖。首轮夹具缺nil参数的编译ERROR原样保留，修载体后40case绿；早拒5行delta后仅补跑新组41case（10.262s，1compile/1process、23Swift/28冻结文件无drift），旧组不重复。固定HEAD`1d0d11683`+两宏源的最终Debug40.704s/4312输入无drift、只同步1文件且其余mtime保持；exe=`834ae728…4365`、dylib=`e3c780ca…f64c`、CDHash=`397436eacabe1ae1dbdc37e005b5787f111b7366`，资源身份及签名通过。独审为有界GO并保独立样本watchdog限制。根`.artifacts/tmp/shader-macro-continuation-20261018/`保存红绿实际图、build-final、ROI/运行收据、独审与清理；测试冻结/首错误归相邻`shader-multiline-macro-qualification-20261018/tests/`。必要结果待正式库容量归档；保留单份迭代source/DerivedData与后继在用stage，清理仅停用的本轮输入/HOME/旧stage。没有同条件性能验收，不认领CPU/GPU、内存或启动收益。

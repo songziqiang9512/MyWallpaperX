@@ -34,3 +34,14 @@
 沿现有 VariantResolver 的 Schema origin 区分：普通 sampler presence 与 authored COMBO 的 `require/requireany` 只保留为已解析编辑器关系，运行 presence 只由确切 slot readiness 决定；实际源码 `#if`、include 与活跃 sampler 仍由原预处理器及资源闭包决定。SchemaSeed 的自门控 presence、共享 presence 的可达假设及单个 authored zero default 让位于 readiness 统一消费该分类，退出三个直接用 raw 条件判断运行资格的旧入口，不增解析器、cache、资源或 compositor owner。原 bounded fixed point 继续服务未单独验证的 texture-format 条件；它是项目现有有界策略，不冒充官方合同。
 
 错误 metadata 类型、缺 readiness、显式 presence 冲突、共享 slot 冲突、format provider、实际读取 host/version 宏、资源用途/路径/代际与局部失败边界保持。缓存 wire 不变，frontend51、VariantAnalysis25、DemandAnalysis8 退出旧语义 tier。验收为改名/等价输入、presence 有无与冲突反例、自门控和共享 presence、format 邻例；原包 Program→GPU→唯一合成→下一帧及未参与修法样本实际画面另验，失败时保留局部 previous-current，完整性错误仍拒绝。未取得原包可见收益、控制不成立或存在安全回退即撤回；不据少跑准备或单轮启动时间宣称性能收益。实际结果只归运行证据，选序只归现役队列。
+
+<a id="logical-macro-invocation"></a>
+### 函数宏的逻辑调用与物理行（2026-10-18 决策）
+
+**目标与范围。** 普通 active shader 代码中的函数宏调用不因换行或注释空白而改变结果；同一预处理 owner 同时负责定义、展开、源码 provenance 和预算。已复现的受控反例是定义已移除、跨行/注释调用却未展开或实参被误判未闭。依据[GLSL §3.3](https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.html#preprocessor)及其C++宏规则，不复制外部预处理器；尚无真实受影响样本，不将本片写成全样本故障或修复。
+
+**职责与数据流。** 既有 LexicalScanner 保留 code、quoted、comment 身份，既有 MacroExpansion 拥有调用识别、实参平衡、递归/别名展开和预算。由同一 owner 给出完整/待续/失败事实；Preprocessor只在已知函数宏需要后续 token 时暂存连续 active 普通行，在同一宏环境下完成后交原输出与metadata链。comments作token间空白而非调用障碍，quoted文本不作宏扫描。不得 flatten 整个shader、另造宏算法或把未展开调用交给另一个backend兜底。普通完整行保原成本，待续扫描须有界，避免每追加一行重扫整个前缀导致二次工作。
+
+**边界与退出。** directive、include、条件切换和文件边界保持作者执行时序；pending不能穿过环境变化悄悄改绑定。EOF的裸函数宏名保持原样，真实未闭实参仍有位置明确的局部失败；错误参数、递归和现depth/token/byte/input/output预算不放松。保留物理行与sourceMap的一一对应、注释/annotation/declaration来源和directive/module digest；展开不增删后续代码的来源行。新规则只作用准备阶段，无逐帧解析或第二owner。旧按物理行/segment截断函数调用的消费退出，未资格的其他语法不顺带开放。
+
+**验收与停止。** 同行/跨行、实参换行、注释、别名、改宏/资源名与等价表达式须得到相同语义；裸名、未知调用、quoted/inactive、directive/include重定义、未闭/错参数/递归和紧预算是相邻反例。复用最近预处理器门，再验受控shader实际Program/GPU/terminal/次帧与一个未参与修法的真实原包；Debug、独审与失败清理按影响面执行。无法保持映射/预算或实际颜色时先收窄或撤回，不能仅凭prepared字符串、编译或非黑宣称兼容与性能。

@@ -1712,7 +1712,9 @@
     {
       "id": "shader-preparation",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**",
+        "script/tests/test_scene_shader_macro_continuation.py",
+        "script/tests/fixtures/SceneShaderMacroContinuationChecks.swift"
       ],
       "modules": [
         "test_scene_graph_condition_schema_evidence",
@@ -1724,6 +1726,7 @@
         "test_scene_shader_module_resolution",
         "test_scene_shader_preparation_census",
         "test_scene_shader_preprocessor",
+        "test_scene_shader_macro_continuation",
         "test_scene_shader_variant_environment",
         "test_scene_rgb_blend_scalar_alpha",
         "test_scene_associated_over_blend",

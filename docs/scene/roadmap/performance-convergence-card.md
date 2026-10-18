@@ -20,6 +20,8 @@
 - **内存/退场**：[轻重切换](../history/scene-switch-residency-qualification-2026-10-15.md)观察返回轻场景footprint上移、GPU/目标池回平台，已缩到purgeable分配，持有owner未定；先取得有效分配来源，不重复无caller的整轮切换。逐session drain/pin/总账、最终pin与长期cache增长边界保留，不能把allocator驻留写泄漏或优化收益。
 - **启动**：[10-18链接产物复用](../history/linked-stage-startup-convergence-2026-10-18.md)窄接受五对优化Debug产品入口冷启动中位4869→4331ms，Program字节一致；暖启动无确定收益，Web短筛未改产品。原366未见可见结果；[类型名lookup](../history/shader-value-type-recognition-2026-10-16.md)仅局部收益，[原322同次栈](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)仍不足重开旧声明扫描。cold/warm分阶段按实际入口验收，保base-image/natural-size依赖，增timeout不算优化。
 
+**10-18工具链资格短筛：STOP。** 同源真实resolve/严格验签与双version，三进程各11次全部成功，但总计时噪声306.98%超过事前5%门；未剔首次慢探针，三个真实normalized pair的工具子链0执行。后10次的乐观可省上界中位103.845ms不是实测收益，不据此加缓存或认App启动收益。原数、固定输入、清理与独审仅保[本机收据](../../../.artifacts/tmp/shader-toolchain-qualification-cost-20261018/summary.json)；本方向无产品修改，不重复旧筛或放宽阈值，先回可执行能力断点。
+
 **已接受结果只作前驱。** [BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX](../history/tex-request-local-convergence-2026-10-13.md)、[区域复制](../history/color-blend-region-convergence-2026-10-13.md)、[属性异常恢复](../history/property-callback-recovery-2026-10-14.md)、[resident查询](../history/graph-residency-query-convergence-2026-10-14.md)、[完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)的实际收益和非目标回退按各自冻结记录，不扩成整体GPU/能耗或全专项完成。面板准备/列表成本归属性卡，正确性修复不计性能。
 
 <a id="sampler-seed-preparation"></a>

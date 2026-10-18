@@ -521,13 +521,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "purpose": "Shader metadata记录级失败、源码/声明保真、共享准入与下游拒绝边界；不决定批次选序。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0523c36aa2b78732e4470de771f0a9b7b8a7c5dcc8c855857c856cdb4c0cb191",
+        "sourceSHA256": "201043ee9b8c861e8bc89f65184de094ecbdfc87b4def927fdcf2eb326f3eaba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "presence/editor条件分域、原382双光束与独立376实际画面/退出；357中性资格校正ordinal和旧reader偏移。",
-        "limitations": "只复核本批职责；format官方语义、完整同状态parity及性能未验；观察器两次误判保留并仅重分类既存日志。"
+        "scope": "Single macro expansion owner, physical provenance/token separation and early line budget; controlled actual red/cyan-to-red/red and bounded real347 visual execution; original watchdog failure retained.",
+        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -659,13 +659,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a283b09881d08d5b992ea57098b0602396c3302a2254dc5b1b647a7e08023fca",
+        "sourceSHA256": "6cad483e1d559dceba7270839c85b41dace70cb73f10109ea3dbedb28a995ba2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared lexical binding and typed floating common-width/constructor ownership; final isolated fixed HEAD+11 Scene delta, real322 RGB transition and bounded379 composition/teardown; current queue/verdict successor and same-direction CPU NO-GO retained.",
-        "limitations": "Owned topical changes and navigation only; workspace Audio build failure remains separate; official carrier controls unqualified; no whole-sample same-phase/viewport, direct uniform-byte dump, Release or performance claim."
+        "scope": "Single macro expansion owner, physical provenance/token separation and early line budget; controlled actual red/cyan-to-red/red and bounded real347 visual execution; original watchdog failure retained.",
+        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "951bfff306fb33a620fac45e0423b9968906331974feae72bfa65b567e576470",
+        "sourceSHA256": "e6d6c80a51ca12e02caaf4392c9658afbd6a57bfd914ac377e1c329aad83cfd5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile typed normal model coverage, bounded RGB/depth and original/heldout visual results; retain native composition, Rope and other material-state gaps.",
-        "limitations": "No whole-sample, exact official phase, arbitrary RT alpha/alphaWriting, new shadow semantics or performance claim."
+        "scope": "Single macro expansion owner, physical provenance/token separation and early line budget; controlled actual red/cyan-to-red/red and bounded real347 visual execution; original watchdog failure retained.",
+        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
       }
     },
     {
@@ -3353,10 +3353,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "688912c7221a3185bd00cbf46404c570e447debbfc3ee2aec5eb93ddd8faba19",
+        "sourceSHA256": "04f7e14b2f33372a5d9258aad7adaab5d6811b3a4ddf3dbfe697a3fe61b02e99",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded model reflection prototype NO-GO and full product rollback; current queue/sample remarks and conditional reopening design.",
-        "limitations": "No delivered reflection capability, U29 visual fix, official model parity or App performance gain; legacy non-finite scale failure retained."
+        "scope": "Toolchain real resolve/signature/version short screen STOP with original high-noise observations and zero App treatment; no product change.",
+        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
       }
     },
     {
@@ -3409,10 +3409,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3cb90fac91d1af48f19e185347e7994370047cfc9d016a358ba9ad2559b86752",
+        "sourceSHA256": "97bda0d098f7ce4e8cf3e0ee4e823486f08a1e2966c22b2159ffe0e91c8d4ee4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record the observed U37 signed scalar loop and red-glow rise/fall; retire the basic-loop/opacity candidate while preserving Shake style and full-sample gaps.",
-        "limitations": "Single current default run; no exact PNG sceneTime, official waveform, same viewport or full-sample/property/interaction/performance conclusion."
+        "scope": "Single macro expansion owner, physical provenance/token separation and early line budget; controlled actual red/cyan-to-red/red and bounded real347 visual execution; original watchdog failure retained.",
+        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
       }
     },
     {

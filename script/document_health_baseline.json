@@ -77,8 +77,8 @@
       "bytes": 11603
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 36,
-      "bytes": 6401
+      "lines": 47,
+      "bytes": 8890
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -118,11 +118,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 346842
+      "bytes": 347375
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 356,
-      "bytes": 130155
+      "lines": 368,
+      "bytes": 133633
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -225,8 +225,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 49,
-      "bytes": 12256
+      "lines": 51,
+      "bytes": 12842
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 54297
+      "bytes": 54406
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1189,24 +1189,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "916922105aa731a7900ce31f6d791e92d0d9acce159c0a27df4671d765b5cc94",
-      "after": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
-      "owner": "scene-sampler-presence",
-      "reason": "新增有固定官方六臂与原包实际画面支撑的presence分域设计/后验，退出382缺光首错并校正357已证ordinal边界；保format未证及完整parity限制，不复制长期Goal或旧状态。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#sampler-presence-editor-requirements"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "592ba093013027051f54ed04010485e388243878567c6e039cf4a3d74a5c4cbf",
-      "after": "07424c74f4ca4d49a866618540c187d56ce9060b4249c4e784785ccece26f6d3",
-      "owner": "scene-shader-frontend",
-      "reason": "Shared lexical/typed conversion contract and bounded final execution replace stale2522 failure; exact topical content budget, current same-direction startup NO-GO retained; no foreign scope increase.",
-      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#shader-float2-consumer-width"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "065ba0929c0325aa2136cb2237d5af114ef95ca0a06ec701e7367811c1c5304f",
       "after": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
@@ -1231,15 +1213,6 @@
       "owner": "scene-composition-source-geometry",
       "reason": "Replace wrong background/viewport source semantics, record bounded native repair and partial335 boundary with preserved original failures.",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "b0c5c3de6f81ea80dfef1719c860372fb44fe3419b58929909d26c532915d636",
-      "after": "535b056c54090714a82a1b1164a01d714c58f9b6f2bbb490a274c696bde8942b",
-      "owner": "scene-model-reflection-qualification",
-      "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
     },
     {
       "section": "bodies",
@@ -1405,30 +1378,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "11a6b8a440cd19900bc9cfd126833ee1e66460e517d61c7968e455f0a37a3cf6",
-      "after": "a7a5e985be229408c45e66d714ac935bad887a0c7c69b0833c5886424a386382",
-      "owner": "scene-static-model-normal-coverage",
-      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4d22a3d8def134c42e75ea053017e552eb862f48949e9560246c953508dee554",
-      "after": "90046bb5f870619a5f821a5307353af5c43f1b4c9bc493af577eb3051a3c11e4",
-      "owner": "scene-static-model-normal-coverage",
-      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "0f894ddfd0aad15b964092be3a9438cad9b32aedf217948983868b149eb7c4a9",
       "after": "24237937277f8dd6f0b2c160db36169f70fcb22d2e1d59c62a28c6e710864ad3",
       "owner": "scene-static-model-normal-coverage",
       "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
       "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
+      "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
+      "owner": "scene-logical-macro-invocation",
+      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "07424c74f4ca4d49a866618540c187d56ce9060b4249c4e784785ccece26f6d3",
+      "after": "2adf3be1601e5fee43ffdbbd81eb3d8cbbd3a22b044b63a445c9f5a9accec73c",
+      "owner": "scene-logical-macro-invocation",
+      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "90046bb5f870619a5f821a5307353af5c43f1b4c9bc493af577eb3051a3c11e4",
+      "after": "bf6b83ad0db067720d161332cd90e198894e0d585f6f6085ea4dc2b2a2a35655",
+      "owner": "scene-logical-macro-invocation",
+      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "a7a5e985be229408c45e66d714ac935bad887a0c7c69b0833c5886424a386382",
+      "after": "83a18091ae54c7f684324ec9ab80ae818f151268cc7e4ee2dfc5b0a14523af61",
+      "owner": "scene-logical-macro-invocation",
+      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "01eb8e2d6d0724e178a1cadc1c62f7b8c1d30d1847d2d434829a48fb4fc99712",
+      "after": "9c9dccc37549c0f1afb144862eaf61662afda3d4af33fceeb52ecf41d5f355b6",
+      "owner": "scene-logical-macro-invocation",
+      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
     }
   ]
 }
