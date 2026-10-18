@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `45e775d72d94279115a5c9f6aed0e928d349784ca11f9f4e6e55be4991ee8a1c`。
-- 本页生成于 2026-10-18T17:13:07.331006+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `da81a115638832db90853796c93329a6944f64cbaa3672e62bdf80de5291d46c`。
+- 本页生成于 2026-10-18T18:30:19.161605+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -108,7 +108,7 @@
 | `2808874251` | youer | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2811643059` | 原神 | 4(0) bool 2 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2813231542` | 清新美女 R-18 | 9(0) bool 7 color 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `2815826216` | 麻匪 约尔·福杰 间谍过家家 SPY×FAMILY | 34(13) bool 7 color 13 slider 2 text 11 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `2815826216` | 麻匪 约尔·福杰 间谍过家家 SPY×FAMILY | 34(13) bool 7 color 13 slider 2 text 11 textinput 1 | `not-run` | - | `not-run` | `unreviewed` | 10-19完整原包健康相邻短窗exit0/FAIL[]：人物、红底与时钟可见，target20 effect后继及正常排空成立；文字越右图缘未归因，无旧App… |
 | `2824109832` | Yor Forger - NIXEU 4K | 16(7) bool 12 color 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2824690710` | 麻匪 原神 雷电将军 Windows 16:9 21:9 | 36(18) bool 11 color 19 slider 4 text 1 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2834973884` | 麻匪 wlop-鬼刀 重置版 | 22(0) bool 5 color 3 slider 3 text 11 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -180,7 +180,7 @@
 | `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 1… | 132(71) bool 22 color 17 combo 3 slider 47 text 40 textinpu… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` | 10-18原包modern dense常量中性轨道首错已闭：头发/身体nested lookup恢复，实际init stop→event play、目标帧推进… |
 | `3420215721` | 麻匪 圈 媒体识别交互壁纸 Circle Media Player | 87(21) bool 12 color 9 combo 3 scenetexture 1 slider 21 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3435573282` | 麻匪 巳蛇 自定义动画 音频识别 Media Player | 82(23) bool 14 color 10 combo 2 slider 16 text 39 textinput… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-10-19 | 2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。 旧记录：日期时间恢复，cur… |
+| `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-10-19 | 10-19 2D emission基色修正使银河恢复橙调；Earth白热点/暗侧、偶发闪烁及collision仍开放，整样本fail保持。详见本条eviden… |
 | `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -227,7 +227,7 @@
 | `3655958892` | R18 Acheron & Black Swan 黄泉&黑天鹅 [Honkai… | 5(0) bool 4 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3662245960` | Wuthering Waves - Aemeath | 4(0) bool 3 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物与故障风格效果呈现；动态阶段及同状态精度未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3662390671` | 【Angels of Delusion】\| Sunna \| Aria \|… | 51(0) bool 11 color 7 combo 2 slider 18 textinput 1 untyped… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3662790108` | 实时太阳系 Live Solar System - SYKM | 198(26) bool 71 color 9 combo 3 group 12 scenetexture 24 sl… | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 轨道/布局已恢复，球体与曲率画面、点击交互未验收；约 8.8 FPS |
+| `3662790108` | 实时太阳系 Live Solar System - SYKM | 198(26) bool 71 color 9 combo 3 group 12 scenetexture 24 sl… | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 10-19仅Sun-4原资产隔离presentation有界后验：修前/后各exit0/FAIL[]，蓝色星芒保持、外围额外发光下降；不认完整366 read… |
 | `3663810817` | 鎏金狮影映娇颜 | 8(0) bool 6 color 1 text 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3665307769` | 爱弥斯1 \|\| 鸣潮 \|\| 4K | 51(19) bool 18 color 7 group 4 slider 10 text 10 textinput 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
 | `3666041758` | 麻匪 磁流体 Magnetofluid 音频相应 | 101(32) bool 3 color 14 combo 5 scenetexture 1 slider 31 te… | `not-run` | - | `not-run` | `unreviewed` |  |

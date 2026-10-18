@@ -109,6 +109,7 @@ struct SceneImageLayerUniformValues {
     let alpha: Float
     let cursorUV: SIMD2<Float>
     let tint: SIMD3<Float>
+    var brightness: Float? = nil
 }
 
 struct SceneLayerEffectSourceExtent {

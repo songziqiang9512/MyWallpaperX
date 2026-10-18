@@ -37,8 +37,8 @@
     "3437487219": {
       "verdict": "fail",
       "reviewedOn": "2026-10-19",
-      "note": "2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。 旧记录：日期时间恢复，cursor owner collision 未闭合 10-19用户确认小窗不闪/全屏闪且颜色光影不同，随后确认最新depth候选全屏不闪；自有GPU门已闭他帧占槽导致局部漏画机制，原生候选两短窗不关闭偶发343。所有App0/正常stop/GPU排空，snapshot superseded原FAIL保留。",
-      "remainingDifferences": "地球颜色/光影与官方明显不同，Cloud Chroma表面字段未消费候选待隔离归因；全屏间歇闪烁保时序/负载复验，最新候选用户无闪观察不等于永不再现。旧collision反馈独立保留，不由资源修正关闭。",
+      "note": "10-19 2D emission基色修正使银河恢复橙调；Earth白热点/暗侧、偶发闪烁及collision仍开放，整样本fail保持。详见本条evidence后继。 2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。 旧记录：日期时间恢复，cursor owner collision 未闭合 10-19用户确认小窗不闪/全屏闪且颜色光影不同，随后确认最新depth候选全屏不闪；自有GPU门已闭他帧占槽导致局部漏画机制，原生候选两短窗不关闭偶发343。所有App0/正常stop/GPU排空，snapshot superseded原FAIL保留。",
+      "remainingDifferences": "Earth generic4颜色/光影与官方差异仍开放；Cloud并非已观察白热点的必要条件，Chroma字段缺口不等于已证根因。全屏间歇闪烁保时序/负载复验，最新候选用户无闪观察不等于永不再现。旧collision反馈独立保留，不由资源或2D emission修正关闭。",
       "reviewer": "Codex 原包屏幕帧短窗、用户目视反馈与独立资源审查；非完整官方对照",
       "runs": [
         ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/small/report.json",
@@ -47,7 +47,8 @@
         ".artifacts/scene-evidence/runs/static-model-depth-repeat-20261019/repeat/report.json"
       ],
       "evidence": [
-        "docs/scene/history/static-model-depth-pending-2026-10-19.md"
+        "docs/scene/history/static-model-depth-pending-2026-10-19.md",
+        "docs/scene/history/lit-image-emission-albedo-2026-10-19.md"
       ]
     },
     "3448845950": {
@@ -73,7 +74,7 @@
     "3662790108": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "轨道/布局已恢复，球体与曲率画面、点击交互未验收；约 8.8 FPS"
+      "note": "10-19仅Sun-4原资产隔离presentation有界后验：修前/后各exit0/FAIL[]，蓝色星芒保持、外围额外发光下降；不认完整366 ready或parity。旧轨道/布局已恢复，球体与曲率、点击交互未验收；约8.8 FPS为2026-09-08历史观察，非当前性能结论。"
     },
     "3712499998": {
       "verdict": "fail",
@@ -1013,6 +1014,17 @@
       ],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 待锁当前App、输入/属性、phase、音源与viewport复验。",
       "officialComparison": "unknown"
+    },
+    "2815826216": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-19完整原包健康相邻短窗exit0/FAIL[]：人物、红底与时钟可见，target20 effect后继及正常排空成立；文字越右图缘未归因，无旧App配对或官方图。该包无emission，不认外观不变、布局/完整交互或parity；旧归档not-run及人工unreviewed保持。",
+      "reviewer": "Codex root 原包短窗与目视后验；无官方截图对照",
+      "officialComparison": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/history/lit-image-emission-albedo-2026-10-19.md"
+      ]
     }
   }
 }

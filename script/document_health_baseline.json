@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 139501
+      "bytes": 139888
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68156
+      "bytes": 68384
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -165,8 +165,8 @@
       "bytes": 17214
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 533,
-      "bytes": 119093
+      "lines": 536,
+      "bytes": 119798
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 92,
@@ -225,8 +225,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 51,
-      "bytes": 12832
+      "lines": 53,
+      "bytes": 13569
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 62638
+      "bytes": 62718
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1333,15 +1333,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "c41dc4946341aab51f2dd96c54ba62a8ecf1e6c920173656e2d24639e29807dc",
-      "after": "a148eebe4ba7b38cb98146202fbae9b543788b21e7f96375b17e8eaf7d425b26",
-      "owner": "scene-static-model-depth-pending",
-      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "4bf5de52992ecd3e15bd000ade8078a8549599f6268d8774920aba5b357c0b39",
       "after": "c45d8a575a49a01f682350bd086c1b7faf9a3e65d3139e97deebb57fb35aa21d",
@@ -1354,15 +1345,6 @@
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
       "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
-      "owner": "scene-logical-macro-invocation",
-      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "01eb8e2d6d0724e178a1cadc1c62f7b8c1d30d1847d2d434829a48fb4fc99712",
-      "after": "9c9dccc37549c0f1afb144862eaf61662afda3d4af33fceeb52ecf41d5f355b6",
       "owner": "scene-logical-macro-invocation",
       "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
       "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
@@ -1415,29 +1397,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "77ad8109bcbf013a01f7ed765df01f5fe0328658aad75ab4b93c9609ec4f3ef1",
-      "after": "a4bc57c6c6357aae725aae1d49f0a73efebf8bb010f124c7c4257b980251310b",
-      "owner": "scene-static-model-depth-pending",
-      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f6d393c1a6f074ae67406e8d6b3007ca4a8b1cd5ee57001c6cffe2b7abf9eb9a",
-      "after": "aabcd77268905823df0f79774003c513a37920bda77368aa209c3f12508409ba",
-      "owner": "scene-static-model-depth-pending",
-      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
+      "before": "a4bc57c6c6357aae725aae1d49f0a73efebf8bb010f124c7c4257b980251310b",
+      "after": "e9cf77f36997fe4a49039d1f876e39b3933b055357f1fb855d2fc3b37c946b62",
+      "owner": "scene-lit-image-emission-albedo",
+      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "7fe2cbdf8c6ba603a20adf8b6653423353dc93fe1cf142d38c0c846074e166f7",
-      "after": "e8fd044e458d542329139f3a8a8382a76fd877dcd5c18f54eaf07b97e3d2e7b1",
-      "owner": "scene-default-camera-single",
-      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+      "before": "e8fd044e458d542329139f3a8a8382a76fd877dcd5c18f54eaf07b97e3d2e7b1",
+      "after": "d64244a9ef7c2bae0ffb5696eefdcd74ba960ddb2cc3de64b2e23673154baba7",
+      "owner": "scene-lit-image-emission-albedo",
+      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "a148eebe4ba7b38cb98146202fbae9b543788b21e7f96375b17e8eaf7d425b26",
+      "after": "950551e6d8bd494dfa43afdd9683eeaecf631e42a1b27c893d08dd278930d885",
+      "owner": "scene-lit-image-emission-albedo",
+      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "bd3d94b57bda8e7e18ad8be6756965b252f63fdc860879478825b654aeaf2a93",
+      "after": "bfdc2834836b29f6540b57163eca0fd46232d64fc9bdc1ae1d8ed83b7971614e",
+      "owner": "scene-lit-image-emission-albedo",
+      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "aabcd77268905823df0f79774003c513a37920bda77368aa209c3f12508409ba",
+      "after": "b90a71764fffccee269acd7ae7b9e174026e704071cd81897f85f67a1ac5bd56",
+      "owner": "scene-lit-image-emission-albedo",
+      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
     }
   ]
 }

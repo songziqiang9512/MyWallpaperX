@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "955afdc5a5614dd1ee6568c81b3ff1bb68f86a9ad358e0201a87962c082499f5",
+        "sourceSHA256": "14af5811b02587e75cbf138e4eb3c072b70fc7f77e0173aa3ee03fa758a8be59",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
-        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
+        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "59ee9fe5047c5b35e71382d57687cc01eb3a6be4f834df61c9f2f85e7132a65d",
+        "sourceSHA256": "664ecc44b4404349e3e47cdc3f6a442fd6013aa62bb52011d222ff0e5c0b0865",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
-        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
+        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
       }
     },
     {
@@ -916,10 +916,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aaa50f4e83df4fa820d04a188fc64be695c73c68fc494dda200157b1921f8239",
+        "sourceSHA256": "243ede061a49c61c575ca949fbf14a6d46508feaf659f95f8962d3368d724352",
         "method": "document_registry --audit + document_health --check",
-        "scope": "补齐linked stage启动收敛及粒子覆盖材质资格的历史入口，核对当前权威集合；保留已有历史条目。",
-        "limitations": "仅历史索引与链接集合复核；不改写历史产品、运行或性能结论。"
+        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
+        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
       }
     },
     {
@@ -1678,6 +1678,19 @@
         "docs/scene/architecture/scene-launch-responsiveness-contract.md",
         "docs/scene/roadmap/performance-convergence-card.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/lit-image-emission-albedo-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "2D emission基色GPU反例与唯一PMA消费修正；保旧共享fixture/官方资格失败、原343银河/独立Sun资产与281短窗边界，不认整样本parity或性能。"
     },
     {
       "path": "docs/scene/history/malformed-combo-record-recovery-2026-10-16.md",
@@ -3238,10 +3251,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a451409fbfb781a06b2c195c1134e2a7b32323c4f8dc8810dcc0b1cd6d941964",
+        "sourceSHA256": "07f1a253dcb4d00e1ea445742a5e73f104ca0f4e4869d917efdbeae836d3109d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
-        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
+        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
       }
     },
     {
@@ -3403,13 +3416,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "04f7e14b2f33372a5d9258aad7adaab5d6811b3a4ddf3dbfe697a3fe61b02e99",
+        "sourceSHA256": "092b942e4d61db93cbd82085f5ea1eb76d8f7a26554bfe863a4a05c95d4f016f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Toolchain real resolve/signature/version short screen STOP with original high-noise observations and zero App treatment; no product change.",
-        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
+        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
+        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
       }
     },
     {
@@ -3462,10 +3475,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5262b0321171ee236801ef1a8334d10b50bb17d347c34d03c314cbe4c83fe80f",
+        "sourceSHA256": "6e17b282cbb3f3f1bc6064f53e0c8217ab6fd95f056479e3cf262642dd4525f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
-        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
+        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
       }
     },
     {

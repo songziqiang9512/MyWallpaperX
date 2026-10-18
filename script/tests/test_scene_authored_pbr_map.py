@@ -12,13 +12,19 @@ def map_vectors():
            ('zero-metal',dict(bits=1,rgba=[0,128,77,128])),('zero-rough',dict(bits=2,rgba=[192,0,77,128])),
            ('emission-only-preserves-mr',dict(bits=8)),('all-three',dict(bits=11)),
            ('components-disabled',dict(bits=11,allowed=0)),
-           ('no-header',dict(bits=0)),('no-light-black',dict(bits=8,intensity=0,source=[0,0,0,1])),
-           ('coverage-quarter',dict(bits=8,intensity=0,source=[0,0,0,.25],tint=[.5,.25,1],opacity=.5)),
+           ('no-header',dict(bits=0)),
+           ('no-light-black',dict(bits=8,intensity=0,source=[0,0,0,.5],emission=[1,1,1,1],rgba=[255]*4)),
+           ('no-light-dark-orange',dict(bits=8,intensity=0,source=[.125,.03125,.0078125,.5],emission=[1,1,1,1],rgba=[255]*4)),
+           ('no-light-white',dict(bits=8,intensity=0,source=[.5,.5,.5,.5],emission=[1,1,1,1],rgba=[255]*4)),
+           ('coverage-quarter',dict(bits=8,intensity=0,source=[.0625,.015625,.00390625,.25],
+                                    emission=[1,1,1,1],rgba=[255]*4,tint=[.5,.25,1],opacity=.5)),
            ('coverage-zero',dict(bits=11,source=[0,0,0,0])),
            ('emission-zero',dict(bits=8,intensity=0,rgba=[255,255,255,0])),
            ('brightness-zero',dict(bits=8,intensity=0,emission=[1,1,1,0])),
            ('hdr-emission',dict(bits=8,intensity=0,emission=[1,2,3,1000000])),
            ('extreme-covered',dict(bits=8,intensity=0,emission=[1e20,2e20,3e20,1e20],opacity=1e-18,tint=[1e-20]*3)),
+           ('hdr-small-coverage',dict(bits=8,intensity=0,source=[2**-12,2**-14,2**-16,2**-10],
+                                    emission=[1e20]*4,opacity=1e-12,tint=[1e-20]*3)),
            ('non-axis-lit',dict(light=[.6,.2,1],normal=[0,0,1])),
            ('normal-opposite-emission',dict(bits=8,intensity=0,normal=[0,0,-1])),
            ('invalid-emission-keeps-mr',dict(bits=11,emission=None))]
@@ -36,6 +42,7 @@ def map_oracle(v):
     bits=v['bits']&v['allowed'];sample=[f(x/255) for x in v['rgba']]
     m=sample[0] if bits&1 else f(v['material'][0]);r=sample[1] if bits&2 else f(v['material'][1])
     source=[struct.unpack('e',struct.pack('e',x))[0] for x in v['source']]
+    if source[3]<=0:return [0,0,0,0]
     nl=max(0,min(1,dot(n,l)));nv=max(0,min(1,dot(n,view)))
     # Official 2D lit-image point contract (own-fixture, 2026-10-06): planar
     # (X/Y) falloff only and intensity amplified by k_2D=1.85.
@@ -51,7 +58,7 @@ def map_oracle(v):
             G=1/(1+lam(nl)+lam(nv));fresnel+=(1-fresnel)*(1-max(0,min(1,dot(view,h))))**5
             spec=math.pi*D*G*fresnel/(4*nl*nv)*nl
         direct=((1-m)*(1-fresnel)*albedo*nl+spec)*source[3]*f(v['intensity'])*1.85*falloff
-        emission=sample[3]*f(v['emission'][c])*f(v['emission'][3])*source[3] if bits&8 and v['emission'] else 0
+        emission=sample[3]*f(v['emission'][c])*f(v['emission'][3])*source[c] if bits&8 and v['emission'] else 0
         result.append(min(65504,max(0,(direct+emission)*f(v['tint'][c])*f(v['opacity']))))
     return result+[source[3]*f(v['opacity'])]
 
@@ -265,6 +272,10 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
             print(json.dumps(report,sort_keys=True))
             if destination:(Path(destination)/'gpu-report.json').write_text(json.dumps(report,indent=2))
 
+def fixture_emission_rgb(color, *, brightness=1, map_alpha=255, effect_gain=1):
+    # run_normal authors materials/albedo.png as opaque (128,128,128).
+    return [base*c*brightness*(map_alpha/255)*effect_gain for base,c in zip((128,128,128),color)]
+
 class SceneAuthoredPBRMapIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -292,7 +303,7 @@ class SceneAuthoredPBRMapIntegrationTests(unittest.TestCase):
             pbr_map={'rgba':[0,128,255,0],'flags':1<<21})
 
     def test_emission_visible_without_lights(self):
-        self.check_map([64,128,32],no_lights=True,
+        self.check_map(fixture_emission_rgb((.25,.5,.125)),no_lights=True,
             scalar_values={'emissivecolor':'0.25 0.5 0.125','emissivebrightness':1},
             pbr_map={'rgba':[255,255,0,255],'flags':1<<23})
 
@@ -301,7 +312,7 @@ class SceneAuthoredPBRMapIntegrationTests(unittest.TestCase):
         expected=normal.pbr_expected(light=(0,0,100),metallic=1,roughness=.5,intensity=.2)/2
         self.check_map([expected]*3,effect=True,scalar_values={'metallic':0,'roughness':.5},pbr_map={'rgba':[255,0,0,0],'flags':1<<20})
         self.scenario_id='emission-effect'
-        self.check_map([32,64,16],effect=True,no_lights=True,scalar_values={'emissivecolor':'0.25 0.5 0.125'},pbr_map={'rgba':[0,0,0,255],'flags':1<<23})
+        self.check_map(fixture_emission_rgb((.25,.5,.125),effect_gain=.5),effect=True,no_lights=True,scalar_values={'emissivecolor':'0.25 0.5 0.125'},pbr_map={'rgba':[0,0,0,255],'flags':1<<23})
 
     def test_zero_and_header_conflict_do_not_invent_presence(self):
         for name,values,combos,headerless in [
@@ -325,14 +336,14 @@ class SceneAuthoredPBRMapIntegrationTests(unittest.TestCase):
             scalar_values={'metallic':1,'roughness':1,'emissivebrightness':None},pbr_map={'rgba':[0,128,0,255],'flags':11<<20})
 
     def test_instance_map_and_emission_constants_override(self):
-        self.check_map([32,64,128],no_lights=True,scalar_values={'emissivecolor':'1 0 0','emissivebrightness':3},
+        self.check_map(fixture_emission_rgb((.125,.25,.5)),no_lights=True,scalar_values={'emissivecolor':'1 0 0','emissivebrightness':3},
             instance_scalar={'emissivecolor':'0.125 0.25 0.5','emissivebrightness':1},
             pbr_map={'rgba':[0,0,0,0],'instance_rgba':[0,0,0,255],'flags':1<<23})
 
     def test_emission_animation_uses_current_map_frame(self):
         result=self.run_normal(no_normal=True,no_lights=True,scalar_values={'emissivecolor':'0.25 0.5 0.125'},
             pbr_map={'rgba':[0,0,0,0],'next_rgba':[0,0,0,255],'flags':1<<23,'animated':True})
-        for key,wanted in [('scene-ready-window.png',[0,0,0]),('scene-after-window.png',[64,128,32])]:
+        for key,wanted in [('scene-ready-window.png',[0,0,0]),('scene-after-window.png',fixture_emission_rgb((.25,.5,.125)))]:
             for actual,expected in zip(result[key]['roiMean'],wanted):self.assertLessEqual(abs(actual-expected),2,result)
 
     def test_lighting_zero_does_not_admit_emission(self):

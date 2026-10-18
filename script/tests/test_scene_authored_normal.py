@@ -11,7 +11,7 @@ from script.tests.test_scene_lit_image_layer import ROOT, SCENE
 
 def pbr_expected(normal=(0,0,1), light=(100,0,100), view=(0,0,1), *,
                  metallic=.5, roughness=.5, albedo=128, intensity=1.5, radius=1000):
-    """Independent double oracle in project light units, before SDR rounding."""
+    """Independent 2D point-light oracle, before SDR rounding."""
     import math
     def unit(v):
         length=math.sqrt(sum(x*x for x in v)); return tuple(x/length for x in v) if length else (0,0,0)
@@ -29,8 +29,10 @@ def pbr_expected(normal=(0,0,1), light=(100,0,100), view=(0,0,1), *,
         fresnel=f0+(1-f0)*(1-max(0,min(1,dot(v,h))))**5
         specular=math.pi*distribution*geometry*fresnel/(4*nl*nv)*nl
     response=(1-metallic)*(1-fresnel)*base*nl+specular
-    attenuation=max(0,1-math.sqrt(sum(x*x for x in light))/radius)**2
-    return min(255,max(0,response*intensity*attenuation*255))
+    # 2026-10-06 image-light contract: height affects direction only;
+    # planar radius and the existing 1.85 image energy unit stay separate.
+    attenuation=max(0,1-math.sqrt(sum(x*x for x in light[:2]))/radius)**2
+    return min(255,max(0,response*intensity*1.85*attenuation*255))
 
 def normal_expected(sign=1, *, flat=False, encoding='rgb', parent=None, animated=False):
     n=(0,0,1) if flat else ((230 if sign>0 else 25)/255*2-1,-(128/255*2-1),204/255*2-1)
@@ -125,7 +127,7 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
         if layer_perspective is not None: receiver['perspective']=layer_perspective
         if effect: receiver['effects']=[{'id':10,'file':'effects/own_dim/effect.json','visible':True}]
         scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':96},'clearcolor':'0 0 0','ambientcolor':'0 0 0','skylightcolor':'0 0 0'},'objects':[receiver,
-            {'id':2,'light':'lpoint','origin':light_origin,'color':'1 1 1','intensity':intensity,'radius':1000},
+            {'id':2,'light':'point','origin':light_origin,'color':'1 1 1','intensity':intensity,'radius':1000},
             {'id':99,'name':'Healthy peer','image':'models/util/solidlayer.json','origin':'140 80 0','size':'12 12','color':'0 1 0'}]}
         if no_lights:scene['objects']=[o for o in scene['objects'] if o['id']!=2]
         if same_model_peer:

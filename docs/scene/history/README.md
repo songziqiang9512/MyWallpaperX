@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-19 | 2D材质/发光 | 正确性修复 | [Emission原图基色](lit-image-emission-albedo-2026-10-19.md) | 黑基色GPU反例、PMA/HDR与原343银河恢复；保Cloud/官方资格失败和Earth余项 | [F3 emission](../roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo)、[运行证据](../capabilities/runtime-evidence-current.md#lit-image-emission-albedo-20261019)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 模型/资源 | 正确性修复 | [在飞mandatory depth](static-model-depth-pending-2026-10-19.md) | 实际pending漏画/typed取消与GPU恢复、原生屏幕窗及独立模型；保首FAIL、343偶发与光影边界 | [F6资源](../roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending)、[运行架构](../architecture/runtime-architecture.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-18 | 启动/编译 | 收敛与STOP | [linked stage准备](linked-stage-startup-convergence-2026-10-18.md) | 链接阶段准备复用、固定启动对照与停止边界 | [开发规则](../../../AGENTS.md)、[启动合同](../architecture/scene-launch-responsiveness-contract.md)、[性能卡](../roadmap/performance-convergence-card.md) |
 | 2026-10-18 | 粒子/材质 | 资格与撤回 | [覆盖材质资格](particle-material-coverage-qualification-2026-10-18.md) | 原型撤回、官方反例及未确认行为边界 | [组件覆盖](../capabilities/particle-component-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

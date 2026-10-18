@@ -375,8 +375,10 @@ fragment float4 sceneLitImageLayerFrag(
 
     if ((components & 8u) != 0u) {
         for (uint channel = 0; channel < 3; ++channel) {
+            // Emission preserves the authored base color. RGB already carries
+            // coverage, including straight sources associated at entry.
             const float emission = sceneLitStoredTerm(mapped.a, payload.emission.w,
-                payload.emission[channel], 1.0, color.a, uniforms.tint[channel], uniforms.alpha);
+                payload.emission[channel], 1.0, color[channel], uniforms.tint[channel], uniforms.alpha);
             radiance[channel] = min(65504.0, radiance[channel] + emission);
         }
     }

@@ -197,9 +197,12 @@ material combos 为 default，静态 instance 同键覆盖；slot2 非空 instan
 
 每fragment先以 slot2 自己的 logical-UV convention、完整 origin/axes 和 sampler 采样一次。只对准入分量提取已解码 R/G/A：MR直接替代对应已准备scalar，保持现有 GGX/Smith/Schlick、roughness数值下界、相机/normal方向、ambient与灯单位。
 
-Emission采用项目独立策略：有效map调制作者 emissivecolor 与 emissivebrightness，作为与 ambient/direct分开的正辐射贡献一次加入同一结果。该贡献不随 N/L/V、灯数量/强度或是否有灯改变；不额外乘 albedo RGB。保留现 layer RGB tint 作为整层颜色调制，透明覆盖取现 albedo alpha，并与 layer opacity/tint alpha 的既有合成约定一致；最终 alpha与未加emission时完全相同。RGB coverage/opacity只应用一次，不先饱和再覆盖；保留HDR大于1，最终有限rgba16f存储上限遵守现65504约束。这是设计选择而非恢复私有公式。
+<a id="lit-image-emission-albedo"></a>
+Emission采用项目独立策略：有效map调制作者 emissivecolor、emissivebrightness和原图基色，作为与 ambient/direct分开的正辐射贡献一次加入同一结果。该贡献不随 N/L/V、灯数量/强度或是否有灯改变；以现已关联覆盖的 albedo RGB 进入唯一 `sceneLitStoredTerm`，不另乘一次 alpha、不先解关联再重关联。保留现 layer RGB tint、opacity及最终 alpha合同；RGB coverage/opacity只应用一次，不先饱和再覆盖，保留HDR大于1及现65504存储约束。
 
-典型无灯反例：显式黑ambient、zero lights、非零map/color/brightness必须可见；brightness0或该map0必须无emission；只改normal/灯位置不能改变emission项。不能用普通BRDF增亮冒充自发光。有效但很大的有限作者值与很小覆盖组合沿现lit存储算术处理，防止中间overflow/inf乘0；不扩通用数值框架。
+典型无灯反例：显式黑ambient、zero lights、非零map/color/brightness时，黑基色仍黑、同覆盖的暗橙与白基色保留各自颜色和强度；brightness0或map0必须无emission；只改normal/灯位置不能改变emission项。有效但很大的有限作者值与很小覆盖组合沿现lit存储算术处理，防止中间overflow/inf乘0；不扩通用数值框架。
+
+**2026-10-19 实施前纠正。** 旧“不乘albedo RGB”策略将基色覆盖误当作发光颜色，真实343可见Universe135为非白基色与正emission mask，旧GPU门实际把黑基色输出为`(.25098,.50195,1.00391)`。合法stock输入行为研究支持基色依赖；只修现消费点，不复制其公式、不改灯、混合、map准入或全局HDR。三色官方2D载体未取得白带正控，按预登记STOP_UNKNOWN，不把全黑当两假设的答案；此次不声称官方精确shading或整幅颜色一致。验收为现GPU正反例、straight/PMA、HDR有限乘积、plain/effect及动画map，冻结App原343银河ROI和独立真实发光样本；Earth白点、Cloud材质及间歇闪烁继续保留独立问题。
 
 ### Owner、最小改动范围与普通帧
 

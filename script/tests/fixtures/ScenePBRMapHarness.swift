@@ -35,12 +35,12 @@ import simd
         func render(_ map:Capture.TextureInput,allowed:UInt32=11,material:SIMD2<Float> = SIMD2(0.2,0.8),
                     emission:SIMD4<Float>? = SIMD4(0.25,0.5,1,2),source:[Float] = [0.5,0.25,0.125,1],
                     intensity:Float=0,light:SIMD3<Float> = SIMD3(0,0,1),normal:SIMD3<Float> = SIMD3(0,0,1),
-                    tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1)->[Float] {
+                    tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false)->[Float] {
             let normalMatrix=simd_float4x4(diagonal:SIMD4(1,1,normal.z,1))
             let packed=Capture.packLights(pointLights:[.init(position:light,color:SIMD3(repeating:1),intensity:intensity,radius:1000)],spotLights:[],ambient:.zero,material:material,view:SIMD4(0,0,1,0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:normalMatrix)!
             let payload=Capture(pipeline:lit,lights:packed,normal:.disabled,materialMap:map,mapAllowedComponents:allowed,emission:emission)!
             let input=target(source),output=target(),command=queue.makeCommandBuffer()!
-            let uniforms=SceneLayerFragmentUniforms(time:0,alpha:opacity,dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,sourceSampling:.zero,tint:SIMD4(tint,1),textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
+            let uniforms=SceneLayerFragmentUniforms(time:0,alpha:opacity,dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,sourceSampling:SIMD2<UInt32>(0,sourceIsStraight ? 1 : 0),tint:SIMD4(tint,1),textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
             precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:input,target:output,sourceUniforms:uniforms,pipeline:base,commandBuffer:command,sourceLighting:payload))
             command.commit();command.waitUntilCompleted();precondition(command.status == .completed)
             var raw=[Float16](repeating:0,count:4)
@@ -72,6 +72,10 @@ import simd
         let rgba=[UInt8(255),128,77,128]
         let valid=load("valid",tex(Array(repeating:rgba,count:16).flatMap{$0},flags:flags))
         let slot=Capture.TextureInput.resolve(valid,kind:.materialMap)
+        let associated=render(slot,allowed:8,emission:SIMD4(repeating:1),source:[0.125,0.03125,0.0078125,0.5],opacity:0.5)
+        let straight=render(slot,allowed:8,emission:SIMD4(repeating:1),source:[0.25,0.0625,0.015625,0.5],opacity:0.5,sourceIsStraight:true)
+        contracts["straightAndPremultipliedEmissionMatch"]=associated == straight && associated[0]>associated[1] && associated[1]>associated[2] && associated[2]>0
+        contracts["zeroAlphaStraightStillDiscarded"]=render(slot,allowed:8,emission:SIMD4(repeating:1),source:[1,0.5,0.25,0],sourceIsStraight:true)==[0,0,0,0]
         let fallback=render(.disabled,intensity:1)
         contracts["unavailableKeepsScalar"]=render(.resolve(nil,kind:.materialMap),intensity:1)==fallback
         let invalid=SceneTextureCandidate(texture:valid.texture,identity:valid.identity,generation:valid.generation,purpose:valid.purpose,content:valid.content,physicalSize:CGSize(width:999,height:4),mappedSize:valid.mappedSize,uvTransform:valid.uvTransform,sampling:valid.sampling)
@@ -87,7 +91,7 @@ import simd
         let formats:[(UInt32,[UInt8],Float)]=[(7,colorBlock,1),(6,Array(repeating:136,count:8)+colorBlock,8.0/15),(4,[128,128,0,0,0,0,0,0]+colorBlock,128.0/255)]
         for (format,bytes,alpha) in formats {
             let c=load("bc\(format)",tex(bytes,flags:flags,format:format))
-            let pixel=render(.resolve(c,kind:.materialMap),allowed:8,emission:SIMD4(1,1,1,1),source:[0,0,0,1])
+            let pixel=render(.resolve(c,kind:.materialMap),allowed:8,emission:SIMD4(1,1,1,1),source:[1,1,1,1])
             contracts["texFormat\(format)PixelFormat\(c.pixelFormat.rawValue)Alpha"]=abs(pixel[0]-alpha)<0.002
         }
         // Full origin/axes applied once. Same atlas, independent map sampler.
@@ -98,7 +102,7 @@ import simd
         }
         let left=frame(.init(origin:.zero,xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,1)))
         let right=frame(.init(origin:SIMD2(0.5,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,1)))
-        func alpha(_ c:SceneTextureCandidate)->Float { render(.resolve(c,kind:.materialMap),allowed:8,emission:SIMD4(repeating:1),source:[0,0,0,1])[0] }
+        func alpha(_ c:SceneTextureCandidate)->Float { render(.resolve(c,kind:.materialMap),allowed:8,emission:SIMD4(repeating:1),source:[1,1,1,1])[0] }
         contracts["exactOwnFrame"]=alpha(left)==0 && alpha(right)==1
         let linear=frame(.identity),nearest=frame(.identity,atlas.sampling.applying(clampUVs:true,noInterpolation:true))
         contracts["exactOwnSampler"]=abs(alpha(linear)-0.5)<0.002 && alpha(nearest)==1
