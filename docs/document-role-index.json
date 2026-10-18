@@ -660,10 +660,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "40e6747146e7d0517582b49f7507adb9495b705dfb3c7d8e54e218ce209486da",
+        "sourceSHA256": "c45059758cfa737016767f29ed40f87b9fd62c92a6542bc284d8dc43405c0559",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded Single Combined basic-curve approximation, actual before/after and heldout evidence, corrected queue qualification and generated-ledger source routing.",
-        "limitations": "No exact smoothing, equal engine phase, full sample parity or App performance claim; remaining user observations stay open."
+        "scope": "Bounded authored-orthographic2D missing parallax depth normalization and original/heldout visual recovery; fresh U28 qualification and actual generated ledger notes.",
+        "limitations": "No universal serialized default, perspective/gain/delay/full-sample parity or performance claim. Remaining concrete user observations stay open."
       }
     },
     {
@@ -674,10 +674,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6eb31ffe486a52200dfae3070ee0af372da267a6ca57dd985e69f0fb375ef581",
+        "sourceSHA256": "f3db571fe84c2ad36f41a382f5e10f76de6934a5acfd4b7cffd19c46cfd73800",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded Single Combined basic-curve approximation, actual before/after and heldout evidence, corrected queue qualification and generated-ledger source routing.",
-        "limitations": "No exact smoothing, equal engine phase, full sample parity or App performance claim; remaining user observations stay open."
+        "scope": "Bounded authored-orthographic2D missing parallax depth normalization and original/heldout visual recovery; fresh U28 qualification and actual generated ledger notes.",
+        "limitations": "No universal serialized default, perspective/gain/delay/full-sample parity or performance claim. Remaining concrete user observations stay open."
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "045ca371b2a458006ab4dcb2c6a8ae907c6046359661edf1443c83e42bebf1a8",
+        "sourceSHA256": "dece0725fa1d187f9338fbd533e2e3ce5270ed5a69b92a888413001eaeafcb94",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded Single Combined basic-curve approximation, actual before/after and heldout evidence, corrected queue qualification and generated-ledger source routing.",
-        "limitations": "No exact smoothing, equal engine phase, full sample parity or App performance claim; remaining user observations stay open."
+        "scope": "Bounded authored-orthographic2D missing parallax depth normalization and original/heldout visual recovery; fresh U28 qualification and actual generated ledger notes.",
+        "limitations": "No universal serialized default, perspective/gain/delay/full-sample parity or performance claim. Remaining concrete user observations stay open."
       }
     },
     {
@@ -3364,10 +3364,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4a1e4bed751b33f941b56485883327bb955afb7ccf4095c7f9667555cf9873d4",
+        "sourceSHA256": "2bb76ed2f5cb2f654654bb7e118895514d85e4bfa6efab8bce478bda3b64c836",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded Single Combined basic-curve approximation, actual before/after and heldout evidence, corrected queue qualification and generated-ledger source routing.",
-        "limitations": "No exact smoothing, equal engine phase, full sample parity or App performance claim; remaining user observations stay open."
+        "scope": "Bounded authored-orthographic2D missing parallax depth normalization and original/heldout visual recovery; fresh U28 qualification and actual generated ledger notes.",
+        "limitations": "No universal serialized default, perspective/gain/delay/full-sample parity or performance claim. Remaining concrete user observations stay open."
       }
     },
     {

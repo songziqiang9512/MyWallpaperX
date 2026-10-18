@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from script.tests.source_family import read_source_family
+from script.tests.test_scene_particle_simulator import SWIFT_SOURCES as PARTICLE_SOURCES
 import json
 import re
 import shutil
@@ -15,6 +16,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneParallaxDepthDefaultChecks.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneUserShortcutFallbackChecks.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
@@ -60,6 +62,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
     SOURCE_ROOT / "Resources/Textures/SceneTexturePathResolver.swift",
 ]
+SWIFT_SOURCES = list(dict.fromkeys([*SWIFT_SOURCES, *PARTICLE_SOURCES,
+    SOURCE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift"]))
 
 
 SCENE_FIXTURE = {
@@ -325,9 +329,6 @@ struct SceneUserPropertyCatalog {
 
     static let empty = SceneUserPropertyCatalog(definitions: [])
 }
-
-
-
 struct SceneUserPropertyDocumentResolver {
     func resolve(
         root: [String: Any],
@@ -588,6 +589,7 @@ enum Harness {
             return (String(id), result)
         })
         let result: [String: Any] = [
+            "parallaxDepthDefaults": try sceneParallaxDepthDefaultChecks(project: project),
             "shortcutFallback": try sceneUserShortcutFallbackChecks(project: project),
             "soundKind": layers[901]?.contentKind ?? "",
             "soundRenderable": layers[901]?.isImageRenderable ?? true,
@@ -706,7 +708,10 @@ class SceneSolidLayerTests(unittest.TestCase):
         }
         duplicate_fixture.write_text(json.dumps(duplicate_scene), encoding="utf-8")
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        particle_stub = HARNESS_SOURCE[HARNESS_SOURCE.index("struct SceneParticleInstanceOverride: Codable {}"):
+                                     HARNESS_SOURCE.index("struct SceneTextDescriptor:")]
+        if not particle_stub or HARNESS_SOURCE.count(particle_stub) != 1: raise RuntimeError("particle carrier markers drifted")
+        harness.write_text(HARNESS_SOURCE.replace(particle_stub, ""), encoding="utf-8")
         cls.binary = directory / "scene-solid-layers"
         compilation = subprocess.run(
             [
@@ -859,8 +864,13 @@ class SceneSolidLayerTests(unittest.TestCase):
     def test_numeric_shader_wrapper_preserves_components(self) -> None:
         self.assertEqual(self.result["wrappedShaderComponents"], [0.75])
 
-    def test_composition_parallax_requires_an_authored_depth(self) -> None:
-        self.assertEqual(self.result["compositionParallaxDepths"], [[], [0.25, -0.5]])
+    def test_composition_parallax_uses_2d_default_without_changing_explicit_depth(self) -> None:
+        self.assertEqual(self.result["compositionParallaxDepths"], [[1, 1], [0.25, -0.5]])
+
+    def test_2d_depth_defaults_preserve_declared_values_authored_input_and_shared_offsets(self) -> None:
+        self.assertGreaterEqual(len(self.result["parallaxDepthDefaults"]), 90)
+        for name, passed in self.result["parallaxDepthDefaults"].items():
+            self.assertTrue(passed, name)
 
     def test_fragment_uniform_carries_layer_tint(self) -> None:
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):

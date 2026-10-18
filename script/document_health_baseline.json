@@ -121,12 +121,12 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 203,
-      "bytes": 88538
+      "lines": 205,
+      "bytes": 90931
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 199009
+      "bytes": 200058
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 62601
+      "bytes": 62866
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 200,
-      "bytes": 48138
+      "bytes": 48812
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1334,33 +1334,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "99bde1ec5d70efb665ed22cb8428c41b110c900519d26969672ed91f95f2c7f1",
-      "after": "54c8b6f1c2308f788cce034ebb39ff12cee8ec71a7e73b179d682774dac6b404",
-      "owner": "scene-single-timeline-response-fallback",
-      "reason": "Replace frozen known curves with a declared bounded Single fallback; synchronize real playback qualification, remaining observations and generated ledger source without changing manual verdicts.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "bb7eaa409a447aff3dfc3397ce75ec17952b87e3b0aac9814a1affa0c62e3fc9",
-      "after": "29738b61a1f45b06f5d7366815312f4548d0f498ac8ed7b822cc58b70b21c5da",
-      "owner": "scene-single-timeline-response-fallback",
-      "reason": "Replace frozen known curves with a declared bounded Single fallback; synchronize real playback qualification, remaining observations and generated ledger source without changing manual verdicts.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "88c060bf851ff4a17a792d7abca8559a4ac66cf59157fede2dde933551f3aecf",
-      "after": "c9faa6ae45af424b71e21ef3c343c6a7a0f67644f8d16c09f54258b82cbf53c6",
-      "owner": "scene-single-timeline-response-fallback",
-      "reason": "Replace frozen known curves with a declared bounded Single fallback; synchronize real playback qualification, remaining observations and generated ledger source without changing manual verdicts.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "ec47eb4832a128b4e52f48bc91da21fe1c672bae22a33331a1ccf96d6ec66447",
       "after": "d47afd883d6b2ccc93c32f3f17348c20261970d441d83ab7079d652bd4c9e6b2",
@@ -1370,12 +1343,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "54c8b6f1c2308f788cce034ebb39ff12cee8ec71a7e73b179d682774dac6b404",
+      "after": "4af2468be768f27d1daa6830622c1784ee1dfc469754a20b6959a42dfc244769",
+      "owner": "scene-parallax-depth-omission",
+      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a52a5d15ea1ea13f1ada4708121f741dbd014deaf3d9d85e57196604cb0bd805",
-      "after": "1962f37b7c7fb32ad2896ec747b25a5dfb41f3cac7aa617dd182df7eec958be1",
-      "owner": "scene-single-timeline-response-fallback",
-      "reason": "Replace frozen known curves with a declared bounded Single fallback; synchronize real playback qualification, remaining observations and generated ledger source without changing manual verdicts.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+      "before": "1962f37b7c7fb32ad2896ec747b25a5dfb41f3cac7aa617dd182df7eec958be1",
+      "after": "50a07978153b499740947153f1fe65116ad2257aa124dde97faea1054f076eb9",
+      "owner": "scene-parallax-depth-omission",
+      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c9faa6ae45af424b71e21ef3c343c6a7a0f67644f8d16c09f54258b82cbf53c6",
+      "after": "cf0716a63e1b9ef32863fe5c433bcd4045a26150831d2023140403cd1e76ed2c",
+      "owner": "scene-parallax-depth-omission",
+      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "29738b61a1f45b06f5d7366815312f4548d0f498ac8ed7b822cc58b70b21c5da",
+      "after": "ac9c07fc7e29fb0c3233710fc62053ed22de1b3c91e0ece4eb18cdbf3e5977a7",
+      "owner": "scene-parallax-depth-omission",
+      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
     }
   ]
 }

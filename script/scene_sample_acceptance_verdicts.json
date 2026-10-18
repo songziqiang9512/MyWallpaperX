@@ -602,6 +602,30 @@
       ],
       "remainingDifferences": "unknown",
       "officialComparison": "unknown"
+    },
+    "3750342273": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18缺席深度首门已修，原包山体视差恢复、零深度文字固定；精确响应及完整交互未验，整景未裁决。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "2684431262": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18原包可见斜盘、代码与洋红圆粒子，未见旧巨大紫块；缺同状态官方对照，合成反馈仍开放。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
     }
   }
 }

@@ -117,6 +117,12 @@ struct SceneDocumentLoader {
             overrides: propertyOverrides
         )
         let root = propertyResolution.root
+        let general = Self.parseGeneral(
+            root["general"] as? [String: Any],
+            authoredRoot: sourceRoot["general"] as? [String: Any]
+        )
+        let missingParallaxDepth = general.authoredOrthographicProjectionActive == true
+            ? "1 1" : nil
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let authoredObjects = sourceRoot["objects"] as? [[String: Any]] ?? []
@@ -126,6 +132,7 @@ struct SceneDocumentLoader {
                 authoredRoot: authoredObjects.indices.contains(index)
                     ? authoredObjects[index]
                     : object,
+                missingParallaxDepth: missingParallaxDepth,
                 startupMaterialScalarKeys: Set(["metallic", "roughness", "emissivecolor", "emissivebrightness", "reflectivity", "reflectivitydistance"].filter { key in
                     propertyResolution.startupValuePaths.contains(.init(components: [
                         .key("objects"), .index(index), .key("instance"),
@@ -155,10 +162,7 @@ struct SceneDocumentLoader {
             authoredRoot: authoredValue,
             declaredVersion: SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version"),
             camera: Self.parseCamera(root["camera"] as? [String: Any]),
-            general: Self.parseGeneral(
-                root["general"] as? [String: Any],
-                authoredRoot: sourceRoot["general"] as? [String: Any]
-            ),
+            general: general,
             objectCount: rawObjects.count,
             effectCount: objects.reduce(0) { $0 + $1.effectFiles.count },
             referencedResourcePaths: referencedPaths.sorted {
@@ -183,6 +187,7 @@ struct SceneDocumentLoader {
     nonisolated private static func parseObject(
         _ root: [String: Any],
         authoredRoot: [String: Any],
+        missingParallaxDepth: String?,
         startupMaterialScalarKeys: Set<String>
     ) -> SceneDocument.SceneObject? {
         guard let id = root["id"] as? Int else { return nil }
@@ -255,7 +260,10 @@ struct SceneDocumentLoader {
                 is String,
             anglesHasScript: (authoredRoot["angles"] as? [String: Any])?["script"]
                 is String,
-            parallaxDepth: stringValue(root["parallaxDepth"]),
+            // Only omission receives the bounded 2D default. Explicit invalid
+            // declarations keep their local fallback; raw configuration stays authored.
+            parallaxDepth: authoredRoot.keys.contains("parallaxDepth")
+                ? stringValue(root["parallaxDepth"]) : missingParallaxDepth,
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
             usesPerspective: root["perspective"] as? Bool,
             text: text,

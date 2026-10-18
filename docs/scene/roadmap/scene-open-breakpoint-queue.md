@@ -114,7 +114,7 @@
 | U25 · 3351163962 | 时间文字跑出左上音频环；核text anchor、布局与共同parent空间。自有camera-anchor官方ZERO资格失败，没有可用于改投影的合同 |
 | U26 · 2849382252 | 三条白色图形分辨率过低；核原资产、采样/target extent与几何，不先判压缩或任意加分辨率 |
 | U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
-| U28 · 2684431262 | 与官方显示差异大，旧维护者另报异常紫色块；现描述不足以定算法，先取得当前构图、紫块对应source及逐层首个不同ROI |
+| U28 · 2684431262 | 整体合成差异反馈仍待同状态官方ROI。10-18原包fresh已见倾斜青环/白盘、代码和洋红圆粒子，未见旧巨大紫块；139原色本为洋红，239/355/405实际Program/GPU/末合成/下一帧，不能按颜色判占位。250²作者GIF非同viewport/phase/音源参考，不据此关闭原反馈或改参数。[本次资格](../capabilities/runtime-evidence-current.md#u28-visual-qualification-20261018) |
 | U29 · 3470948192 | 默认35s已越过intro仍黑水滴、缺亮边/拖尾；115.scale非有限返回仍在，旧公式NaN不再开放。F5原型无可认收益已撤回；后继固定官方模型载体两OFF均未通过环境/健康正控，入口机械纠正也未闭合，反射空间/能量保持UNKNOWN，不重跑未资格载体或调距离/亮度追图。[原型停止](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018)、[后继资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U30 · 3750813609 | 旧观察①闪电缺失；②时钟颜色/发光不符；③雨弱，均待同phase复验。10-16原包身份复核：雷电为121→lightning2，普通Sphere/rate1，无periodic cap；旧405/412+cap32关联错误已删，它们属3749463715，能力缺口只归[静态审计](scene-full-sample-static-audit.md)。未找到121 root静态准入拒绝，不推断其视觉原因。 |
 | U31 · 3264246690 | ①人物边缘锯齿；②警戒带运动仍待当前画面对照。旧头部出画/左肘缺块已有[稳定帧完整肢体后验](../capabilities/runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)，不再列待修。点击口罩已有before戴口罩→click露嘴及effect切换的[实际后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)；pool误拒另修，不据这些关闭AA/运动或整样本。 |
@@ -123,7 +123,6 @@
 | U35 · 2974757317 | 卡片下多出独立矩形频谱；先证作者是否本有该层，再核named/previous、层序/变换/clip，不直接隐藏 |
 | U36 · 3780119725 | 中层固定而整景应随鼠标视差；另旧人工记录有脸部黑线/缺块、动画、光照/闪烁差异。沿camera/depth/parent→MVP与effect输入复验；默认camera后继不能代替该包当前验收 |
 | U37 · 3769364482 | 发光突现/缺呼吸的旧视觉反馈待当前完整周期复验。10-18定义复核无layer alpha Timeline；Blink实际控制59/effect173/pass1的rayintensity循环，Breathing控制三条Shake，不按“缺opacity动画”修。尚无当前标量Timeline拒绝证据，先区分这两实际消费者及可归因ROI。[资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
-| U38 · 3750342273 | 缺pointer镜头视差；复验输入、相机配置与各层变换，不全图后移补偿 |
 | U39 · 3219398263 | 漩涡方向疑似相反；固定时间/角度/UV/空间后裁决，不凭单帧改符号 |
 
 低优先旧观察仍记录：3028090166光束、2419444134白点数量/密度、3113554287顿挫、2304304373雾气叠加，以及尚缺唯一sampleID的一般烟花/洋红/拖尾。按可见收益与可区分输入依次复验，不把旧观察无条件写成当前缺陷。3088601835雪雾用户已认为较正常、官方也过曝，保此降低优先级的反馈；没有新的具体差异不补调色修法，也不记全条件通过。[原用户观察与身份](../capabilities/runtime-evidence-current.md#e-2026-09-27-user-retest-priorities)
@@ -134,6 +133,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 3750342273 · 缺pointer视差首反馈已闭 | 10-18原包在固定官方省略/显式深度双臂均有山体移动，而旧App为零；原2D字段parser只为真正缺席归一化单位深度。最终未修改原包山体两轴响应、文字固定、回中心构图恢复，显式零/坏值/继承与独立单轴样本保持。仅关闭原“完全缺视差”反馈，精确gain/delay、全轨迹与整样本未验。[有界后验](../capabilities/runtime-evidence-current.md#parallax-depth-omission-20261018) |
 | 3797217144 · 基础入场/横倒首反馈已闭 | 10-18原输入的Single angles→scale不再因响应选项而整组冻结：先保蓝环背景，再恢复完整转正人物。作者选项保留，未实现响应明确为基础曲线近似；固定官方原包及删键变体均见正向人物。精确平滑/phase与整样本未验，不另造已证视觉缺陷。[有界后验](../capabilities/runtime-evidence-current.md#single-timeline-response-fallback-20261018) |
 | 3617056047 · 位置/倒置反馈已闭 | 10-18原包罐体恢复正向并回虚线圆内，不再压底字；作者origin/scale与camera保持，原准备入口完成静态mesh顶点基适配。真实单面/背剔除、父级/负scale/native及三shadow通过，独立native原包有界呈现；不记全样本、精确亮度/同phase或全部互动通过。[后验](../capabilities/runtime-evidence-current.md#static-model-canvas-basis-20261018) |
 | 3471294034 · 缺网格反馈已闭 | 10-18原包默认实机恢复背景菱形网格，人物/文字/花瓣及频谱保持；368沿原链只选159，371/373实际GPU及末合成成立。双候选切换/变体和相邻拒绝已验；仅关闭报告的缺网格现象，不记整样本/全部属性通过。[有界后验](../capabilities/runtime-evidence-current.md#selected-provider-admission-20261018) |
