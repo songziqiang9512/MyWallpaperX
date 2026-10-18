@@ -710,6 +710,23 @@
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "web-dedicated-host-process",
+      "title": "Web独立桌面宿主与候选交接",
+      "owner": "web-playback-host",
+      "status": "approved",
+      "designDoc": "docs/web/dedicated-host-process-design.md",
+      "design_notes": "先隔离原WKWebView host，父App唯一采集媒体/音频，版本化request IPC、有界候选/活跃与停止退出；真实Space残余停顿和跨引擎首帧须分别验收，不能以导航完成冒充无缝。 2026-10-18启动后继：同adapter有界空宿主至多一个、2s延后/30s退出、无内容无订阅、采用原UUID与epoch、内存压力和停止撤销；1×1首帧同步保留，Scene预热按真实意图收窄。收益须同输入计时，未批准渲染线程或独立target迁移。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process/*.swift",
+        "MyWallpaperX/App/MyWallpaperXApplication.swift",
+        "MyWallpaperX/Core/Playback/PlaybackSpectrumDelivery.swift",
+        "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

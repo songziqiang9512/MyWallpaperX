@@ -26,6 +26,11 @@ extension SceneDaemonClient {
             }
             guard let event = payload["event"] as? String else { continue }
             switch event {
+            case "candidatePrepared": handleCandidatePrepared(payload)
+            case "launchResourcesReleased":
+                if let raw = payload["requestID"] as? String, let requestID = UUID(uuidString: raw) {
+                    requestResourceLifetimes.removeValue(forKey: requestID)
+                }
             case "launchStateChanged": handleLaunchState(payload)
             case "firstFramePresented": handleFirstFrame(payload)
             case "frameStats": handleFrameStats(payload)
@@ -57,6 +62,14 @@ extension SceneDaemonClient {
                 )
             }
         }
+    }
+
+    private func handleCandidatePrepared(_ payload: [String: Any]) {
+        guard let raw = payload["requestID"] as? String,
+              let requestID = UUID(uuidString: raw),
+              requestID == pendingRequestID, pendingIntent != nil else { return }
+        send(["v": SceneDaemonProtocol.version, "cmd": "commitCandidate",
+              "requestID": requestID.uuidString])
     }
 
     private func handleFrameCaptured(_ payload: [String: Any]) {
@@ -113,21 +126,16 @@ extension SceneDaemonClient {
         )
         launchState = state
         if phase == .launched {
-            activeIntent = fallbackReplayIntent(requestID: requestID) ?? pendingIntent
-            activeResourceLifetime = pendingResourceLifetime
-            activeRecordID = pendingIntent?.recordID
-            activeRequestID = requestID
-            pendingIntent = nil
-            pendingResourceLifetime = nil
-            pendingRequestID = nil
-            activeCallbackPropertyFacts = reachability.map {
-                .init(transportGeneration: sessionGeneration, requestID: requestID,
-                      recordID: recordID, reachability: $0)
-            }
+            // The previous Scene remains rollback-capable in the daemon until
+            // this exact request's real presentation is accepted below.
+            pendingPresentationRequestID = requestID
+            pendingPresentationReachability = reachability
         } else if phase == .cancelled || phase == .failed {
             pendingIntent = nil
             pendingResourceLifetime = nil
             pendingRequestID = nil
+            pendingPresentationRequestID = nil
+            pendingPresentationReachability = nil
             finishTextureReload(recordID: recordID,
                 outcome: phase == .cancelled ? .superseded : .failed(message))
         }
@@ -140,9 +148,33 @@ extension SceneDaemonClient {
     private func handleFirstFrame(_ payload: [String: Any]) {
         guard let rawRequestID = payload["requestID"] as? String,
               let requestID = UUID(uuidString: rawRequestID),
-              requestID == activeRequestID,
               let uptimeMs = Self.double(payload["uptimeMs"]),
               uptimeMs >= 0 else { return }
+        if requestID == pendingPresentationRequestID, requestID == pendingRequestID, pendingIntent != nil {
+            let fallback = fallbackReplayIntent(requestID: requestID)
+            if let fallback, let accepted = activeIntent,
+               accepted.recordID == fallback.recordID,
+               accepted.rootURL.standardizedFileURL == fallback.rootURL.standardizedFileURL {
+                // A texture rebuild commits its own key below. Independently
+                // acknowledged keys/scalars still belong to the previous
+                // accepted version and must survive the presentation boundary.
+                activeIntent = accepted
+            } else { activeIntent = fallback ?? pendingIntent }
+            activeResourceLifetime = pendingResourceLifetime
+            activeRecordID = pendingIntent?.recordID
+            activeRequestID = requestID
+            pendingIntent = nil
+            pendingResourceLifetime = nil
+            pendingRequestID = nil
+            activeCallbackPropertyFacts = pendingPresentationReachability.map {
+                .init(transportGeneration: sessionGeneration, requestID: requestID,
+                      recordID: activeRecordID, reachability: $0)
+            }
+            pendingPresentationRequestID = nil
+            pendingPresentationReachability = nil
+            send(["v": SceneDaemonProtocol.version, "cmd": "finalizeCandidate",
+                  "requestID": requestID.uuidString])
+        } else if requestID != activeRequestID { return }
         resumeDeferredTextureUpdates(recordID: activeIntent?.recordID, requestID: requestID)
         restartBackoff.reset()
         let presentation = SceneFramePresentation(
@@ -321,12 +353,15 @@ extension SceneDaemonClient {
         let recoveryResourceLifetime = recoveryUsesPendingIntent
             ? pendingResourceLifetime
             : activeResourceLifetime
+        requestResourceLifetimes.removeAll()
         activeIntent = nil
         activeResourceLifetime = nil
         activeRecordID = nil
         activeRequestID = nil
         activeCallbackPropertyFacts = nil
         pendingRequestID = nil
+        pendingPresentationRequestID = nil
+        pendingPresentationReachability = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         guard let recoveryIntent else { return }
         pendingIntent = recoveryIntent

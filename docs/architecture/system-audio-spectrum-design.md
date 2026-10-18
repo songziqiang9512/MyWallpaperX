@@ -9,7 +9,9 @@
 
 让有效音乐频段既有可见高度，又保留各自起伏；减少悬殊落差、连片压顶及整组随最强频段缩放。保留作者柱数、坐标、镜像、插值、颜色、发光和布局。Video现有产品只有柱形，不增加环形选项。
 
-SystemAudioSpectrumService独占采集及约30Hz发布；SystemAudioSceneSpectrumAnalyzer独占FFT、频率轴、固定频率均衡和高度包络。Video只投影最终高度与既有风格，Web/Scene消费同一响应。不新增线程、provider或最终输出owner。
+SystemAudioSpectrumService独占采集及约30Hz发布；SystemAudioSceneSpectrumAnalyzer独占FFT、频率轴、固定频率均衡和高度包络。Video只投影最终高度与既有风格，Web/Scene消费同一响应。不新增采集器、provider或最终输出owner。`PlaybackSpectrumDelivery`由控制面更新有身份的进程目标，采集后台直接向有界transport发布完整数组；普通帧不经主App的AppKit队列。停止/替换撤权仍保持Scene capture scope与daemon generation校验。
+
+Video overlay 需求同时要求设置开启、未暂停且存在运行中的 Video transport；目标创建、退出、崩溃与回收都重新核对需求。Web/Scene 保留各自作者需求，保留中的旧 Video 也算真实接收端。没有接收端时不为设置开启维持采集或 FFT；空 Web 预热不建立需求，重新播放自动恢复。撤销 Video/Web 需求时先向旧合法目标投递一次有序静音屏障，随后拒绝迟到帧并清除父端快照，避免暂停残留柱高。
 
 连续PCM → 去DC/Hann/标定FFT → 64频段幅度密度 → 固定频率补偿 → 固定分贝窗口/柔和映射 → 最终高度逐带包络 → 16/32/64及Video均值投影 → 既有绘制。
 

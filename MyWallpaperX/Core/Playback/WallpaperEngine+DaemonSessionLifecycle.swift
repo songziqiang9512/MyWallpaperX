@@ -8,6 +8,11 @@ import AppKit
 import CoreGraphics
 
 extension WallpaperEngine {
+    func refreshVideoSpectrumTargets() {
+        spectrumDelivery.setVideoTargets(displaySessions.values.map(\.transport))
+        refreshSystemAudioSpectrumCapture()
+    }
+
     func ensureSession(for displayID: CGDirectDisplayID) -> DisplayDaemonSession? {
         if let session = displaySessions[displayID], session.process.isRunning {
             return session
@@ -35,15 +40,15 @@ extension WallpaperEngine {
                 let wasCurrentSession = self.displaySessions[displayID] === session
                 if wasCurrentSession {
                     self.displaySessions.removeValue(forKey: displayID)
+                    self.refreshVideoSpectrumTargets()
                 }
                 self.cleanupSessionIO(session)
 
-                // web 准备窗内被保留的 video runtime 全灭（多屏全部会话崩溃/
-                // 单屏唯一会话崩溃）时清空保留：E2a-4 失败回滚假设被保留的
-                // runtime 还活着——否则回滚会把引擎真值复活成已死的 video
-                // （isPlaying 为真、屏幕无输出、无自愈路径）。全灭后走 else
-                // 清空分支，引擎如实报告未在播。
-                if self.pendingVideoRetirementOnWebReady, self.displaySessions.isEmpty {
+                // Keep the finalized identity across a helper crash. A failed
+                // Web preparation can restore that identity and rebuild its
+                // missing helper; an uncommitted Video request is not a fallback.
+                if self.pendingVideoRetirementOnWebReady, self.displaySessions.isEmpty,
+                   self.activeVideoPlayback == nil {
                     self.pendingVideoRetirementOnWebReady = false
                     self.retainedVideoWallpaper = nil
                     self.retainedVideoContentPath = nil
@@ -82,7 +87,8 @@ extension WallpaperEngine {
                         currentWallpaper,
                         multiDisplayEnabled: self.currentMultiDisplayEnabled,
                         videoFillMode: self.currentVideoFillMode,
-                        shouldLoopCurrentItem: self.currentShouldLoopCurrentItem
+                        shouldLoopCurrentItem: self.currentShouldLoopCurrentItem,
+                        retainedVideoRecovery: self.activeVideoPlayback?.path == recoveryPath
                     )
                 }
 
@@ -96,6 +102,7 @@ extension WallpaperEngine {
         do {
             try transport.start()
             displaySessions[displayID] = session
+            refreshVideoSpectrumTargets()
             return session
         } catch {
             cleanupSessionIO(session)
@@ -137,6 +144,9 @@ extension WallpaperEngine {
 
     func terminateSession(for displayID: CGDirectDisplayID) {
         guard let session = displaySessions.removeValue(forKey: displayID) else { return }
+        refreshVideoSpectrumTargets()
+        if displaySessions.isEmpty, currentPlaybackContentKind != .video,
+           !pendingVideoRetirementOnWebReady { activeVideoPlayback = nil }
 
         if session.process.isRunning {
             send(DaemonCommand(action: "stop", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
@@ -155,6 +165,9 @@ extension WallpaperEngine {
         session.nextRequestID += 1
         let requestID = session.nextRequestID
         session.latestRequestedPlayRequestID = requestID
+        session.latestPreparedPlayRequestID = nil
+        session.latestCommittedPlayRequestID = nil
+        session.latestReadyPlayRequestID = nil
         send(
             DaemonCommand(
                 action: "play",
@@ -166,7 +179,7 @@ extension WallpaperEngine {
                 volume: effectiveVolumeNormalized,
                 playbackRate: targetPlaybackRate,
                 spectrumEnabled: currentSystemAudioSpectrumEnabled,
-                spectrumLevels: currentSpectrumLevels,
+                spectrumLevels: spectrumDelivery.currentOverlayLevels,
                 spectrumBarCount: currentSystemAudioSpectrumBarCount,
                 spectrumColorHex: currentSystemAudioSpectrumColorHex,
                 spectrumOffsetX: currentSystemAudioSpectrumOffsetX,
@@ -177,6 +190,73 @@ extension WallpaperEngine {
             to: session
         )
         sendPlaybackPaused(PlaybackCommandMultiplexer.shared.isPlaybackPaused, to: session)
+    }
+
+    func sendVideoPreparationCommand(_ action: String, requestID: Int, to session: DisplayDaemonSession) {
+        send(DaemonCommand(action: action, videoPath: nil, framePath: nil,
+            propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil,
+            volume: nil, playbackRate: nil, spectrumEnabled: nil,
+            spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil,
+            spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil,
+            requestID: requestID), to: session)
+    }
+
+    /// Revoke the candidate without destroying a helper's finalized active slot.
+    /// Cancellation is ordered after a possibly in-flight commit in the same pipe.
+    func cancelVideoPreparationRetainingActivePlayback() {
+        defer { scheduleRetainedVideoRecoveryIfNeeded() }
+        let hadPreparation = !pendingVideoDisplayIDs.isEmpty
+        pendingVideoDisplayIDs.removeAll()
+        pendingVideoIsRetainedRecovery = false
+        if hadPreparation { pendingWebRetirementOnVideoReady = false }
+        for session in Array(displaySessions.values) {
+            guard session.process.isRunning else {
+                terminateSession(for: session.displayID)
+                continue
+            }
+            guard let requested = session.latestRequestedPlayRequestID,
+                  requested != session.latestFinalizedPlayRequestID else { continue }
+            if let finalized = session.latestFinalizedPlayRequestID {
+                sendVideoPreparationCommand("cancelVideoPreparation", requestID: requested, to: session)
+                session.latestRequestedPlayRequestID = finalized
+                session.latestReadyPlayRequestID = finalized
+                session.latestPreparedPlayRequestID = nil
+                session.latestCommittedPlayRequestID = nil
+            } else {
+                terminateSession(for: session.displayID)
+            }
+        }
+        guard hadPreparation, currentPlaybackContentKind == .video else { return }
+        if let active = activeVideoPlayback {
+            currentWallpaper = active.wallpaper
+            currentContentPath = active.path
+            currentMultiDisplayEnabled = active.multiDisplayEnabled
+        } else {
+            currentWallpaper = nil
+            currentContentPath = nil
+            currentPlaybackContentKind = nil
+        }
+    }
+
+    private func scheduleRetainedVideoRecoveryIfNeeded() {
+        guard let active = activeVideoPlayback else { return }
+        let epoch = playbackIntentEpoch
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.playbackIntentEpoch == epoch,
+                  self.currentPlaybackContentKind == .video,
+                  self.currentContentPath == active.path,
+                  self.activeVideoPlayback?.path == active.path,
+                  self.pendingVideoDisplayIDs.isEmpty else { return }
+            self.scanDisplays()
+            let targets = active.multiDisplayEnabled ? self.displayIDs : Array(self.displayIDs.prefix(1))
+            guard targets.contains(where: {
+                guard let session = self.displaySessions[$0] else { return true }
+                return !session.process.isRunning || session.latestFinalizedPlayRequestID == nil
+            }) else { return }
+            self.applyWallpaper(active.wallpaper, multiDisplayEnabled: active.multiDisplayEnabled,
+                videoFillMode: self.currentVideoFillMode,
+                shouldLoopCurrentItem: self.currentShouldLoopCurrentItem, retainedVideoRecovery: true)
+        }
     }
 
 }

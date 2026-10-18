@@ -14,7 +14,6 @@ SPECTRUM_SOURCES = [
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioOverlaySpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioWebSpectrumAnalyzer.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebAudioSpectrum.swift",
 ]
 SERVICE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift"
 ENGINE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift"
@@ -37,13 +36,16 @@ class CustomEvent { constructor(name, options) { this.detail = options.detail; }
 const audioListeners = [() => { throw Error('author callback failure'); }, levels => received.push(levels)];
 let hasLoggedAudioSpectrumDelivery = false, hasLoggedAudioSpectrumChange = false;
 const firstDeliveredAudioSpectrum = [];
-const hostLogger = { post() {} };
+const failedAudioListeners = new WeakSet();
+const loggedEvents = [];
+const hostLogger = { post(name) { loggedEvents.push(name); } };
 """ + source[start:end] + """
 window.__myWallpaperPushAudioSpectrum([0.2, 1.5, -1, NaN, Infinity]);
 assert.deepEqual(received[0], [0.2, 1.5, 0, 0, 0]);
 window.__myWallpaperPushAudioSpectrum([0, 0, 0, 0, 0]);
 assert.deepEqual(received[1], [0, 0, 0, 0, 0]);
 assert.deepEqual(events, received);
+assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length, 1);
 """
         subprocess.run([node, "-e", harness], check=True, capture_output=True, text=True)
 
@@ -73,27 +75,6 @@ assert.deepEqual(events, received);
                 static let bandCount = 16
                 static let mediumBandCount = 32
                 static let extendedBandCount = 64
-            }
-
-            enum PlaybackContentKind {
-                case web
-            }
-
-            enum WebRuntimeCommand {
-                case pushAudioSpectrum([Float])
-            }
-
-            final class WallpaperEngine {
-                var currentPlaybackContentKind: PlaybackContentKind = .web
-                var currentSystemAudioSpectrumEnabled = true
-                var currentWebAudioSpectrumRequested = true
-                var lastWebSpectrumLevels: [Float] = []
-                var dispatchedWebLevels: [Float] = []
-
-                func dispatchWebRuntimeCommand(_ command: WebRuntimeCommand) {
-                    guard case let .pushAudioSpectrum(levels) = command else { return }
-                    dispatchedWebLevels = levels
-                }
             }
 
             func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -565,166 +546,6 @@ assert.deepEqual(events, received);
             expect(amplitudeLevels.allSatisfy { $0 > 0 && $0 < 0.96 }
                 && amplitudeLevels[2] - amplitudeLevels[0] > 0.1,
                 "fixed decibel response must retain listening volume and reserve headroom")
-
-            let compatibilityEngine = WallpaperEngine()
-            expect(
-                compatibilityEngine.dispatchWebAudioSpectrumIfNeeded(
-                    Array(repeating: amplitudeLevels[2], count: 128)
-                ),
-                "Web spectrum should dispatch when requested"
-            )
-            let expectedCompatibilityPeak = amplitudeLevels[2]
-            expectNear(
-                compatibilityEngine.dispatchedWebLevels.max()!,
-                expectedCompatibilityPeak,
-                tolerance: 0.000_001,
-                "Web dispatch should preserve producer values"
-            )
-            expect(
-                compatibilityEngine.dispatchedWebLevels.allSatisfy { $0.isFinite && $0 >= 0 },
-                "Web dispatch must preserve finite positive author values"
-            )
-
-            let consecutiveWebEngine = WallpaperEngine()
-            let firstWebSnapshot = Array(repeating: Float(0.8), count: 128)
-            let secondWebSnapshot = Array(repeating: Float(0.2), count: 128)
-            expect(
-                consecutiveWebEngine.dispatchWebAudioSpectrumIfNeeded(firstWebSnapshot),
-                "First Web snapshot should dispatch"
-            )
-            expect(
-                consecutiveWebEngine.dispatchWebAudioSpectrumIfNeeded(secondWebSnapshot),
-                "Second Web snapshot should dispatch"
-            )
-            expectArrayNear(
-                consecutiveWebEngine.dispatchedWebLevels,
-                secondWebSnapshot,
-                tolerance: 0,
-                "Web dispatch must not add a second temporal tail"
-            )
-
-            let throttledWebEngine = WallpaperEngine()
-            let pendingFirst = Array(repeating: Float(0.2), count: 128)
-            let pendingLatest = Array(repeating: Float(0.8), count: 128)
-            for frame in 0..<120 {
-                let input = frame.isMultiple(of:2) ? pendingFirst : pendingLatest
-                expect(throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(input),"valid frame must dispatch")
-                expectArrayNear(throttledWebEngine.dispatchedWebLevels,input,tolerance:0,
-                    "every producer frame must reach Web without a second cadence gate")
-                expectArrayNear(throttledWebEngine.currentWebSpectrumSnapshot()!,input,tolerance:0,
-                    "Web snapshot must match the complete current frame")
-            }
-            let silenceSnapshot = [Float](repeating:0,count:128)
-            expect(throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(silenceSnapshot),"silence accepted")
-            expectArrayNear(throttledWebEngine.dispatchedWebLevels,silenceSnapshot,tolerance:0,"silence clears Web")
-
-            let dispatchedBeforeInvalid = throttledWebEngine.dispatchedWebLevels
-            expect(
-                !throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(
-                    [Float](repeating: 0.4, count: 127)
-                ),
-                "Wrong-count Web input must be rejected"
-            )
-            expect(
-                throttledWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
-                "Wrong-count Web input must clear the pending snapshot"
-            )
-            expectArrayNear(
-                throttledWebEngine.dispatchedWebLevels,
-                dispatchedBeforeInvalid,
-                tolerance: 0,
-                "Wrong-count Web input must not dispatch an error command"
-            )
-            var nonFiniteWebInput = [Float](repeating: 0.4, count: 128)
-            nonFiniteWebInput[7] = .nan
-            expect(
-                !throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(nonFiniteWebInput),
-                "Non-finite Web input must be rejected"
-            )
-            expect(
-                throttledWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
-                "Non-finite Web input must clear the pending snapshot"
-            )
-
-            let malformedWebEngine = WallpaperEngine()
-            let malformedBaseline = Array(repeating: Float(0.7), count: 128)
-            expect(
-                malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
-                "Malformed-input lifecycle should start from a non-zero Web value"
-            )
-            expect(
-                !malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(
-                    [Float](repeating: 0.2, count: 127)
-                ),
-                "Wrong-count input after non-zero Web output must be rejected"
-            )
-            expect(
-                malformedWebEngine.dispatchedWebLevels.allSatisfy { $0 == 0 },
-                "Wrong-count input must immediately publish Web silence"
-            )
-            expect(
-                malformedWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
-                "Wrong-count input must clear the visible Web snapshot"
-            )
-            expect(
-                malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
-                "Web output should recover after malformed input"
-            )
-            var malformedNaNInput = malformedBaseline
-            malformedNaNInput[3] = .nan
-            expect(
-                !malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedNaNInput),
-                "Non-finite input after non-zero Web output must be rejected"
-            )
-            expect(
-                malformedWebEngine.dispatchedWebLevels.allSatisfy { $0 == 0 },
-                "Non-finite input must immediately publish Web silence"
-            )
-            expect(
-                malformedWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
-                "Non-finite input must clear the visible Web snapshot"
-            )
-
-            let overlayOffWebEngine = WallpaperEngine()
-            overlayOffWebEngine.currentSystemAudioSpectrumEnabled = false
-            expect(
-                overlayOffWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
-                "Overlay switch off must not gate a Web sample's own audio demand"
-            )
-            expectArrayNear(
-                overlayOffWebEngine.dispatchedWebLevels,
-                malformedBaseline,
-                tolerance: 0,
-                "Overlay switch off must still publish live Web levels"
-            )
-            expect(
-                !overlayOffWebEngine.dispatchWebAudioSpectrumIfNeeded(
-                    [Float](repeating: 0.1, count: 127)
-                ),
-                "Malformed input under overlay-off must still be rejected"
-            )
-            expect(
-                overlayOffWebEngine.dispatchedWebLevels.allSatisfy { $0 == 0 },
-                "Malformed input under overlay-off must publish Web silence"
-            )
-            expect(
-                overlayOffWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
-                "Malformed input under overlay-off must clear local snapshot"
-            )
-
-            let stereoCompatibilityEngine = WallpaperEngine()
-            let stereoInput = Array(repeating: Float(0.2), count: 64)
-                + Array(repeating: Float(0.8), count: 64)
-            expect(
-                stereoCompatibilityEngine.dispatchWebAudioSpectrumIfNeeded(stereoInput),
-                "Stereo Web spectrum should dispatch"
-            )
-            let deliveredStereo = stereoCompatibilityEngine.dispatchedWebLevels
-            expect(deliveredStereo.count == 128, "Web compatibility response must retain 128 levels")
-            expect(
-                deliveredStereo[0] < deliveredStereo[64],
-                "Web compatibility response must preserve independent stereo channels"
-            )
 
             var nonFiniteTone = sine(frequency: 500)
             nonFiniteTone[10] = .nan

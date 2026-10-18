@@ -1,7 +1,8 @@
 import Foundation
 import Darwin
+import CoreFoundation
 
-enum DaemonCommandBufferLimits {
+nonisolated enum DaemonCommandBufferLimits {
     static let maximumPendingControlCount = 256
     static let maximumPendingControlBytes = 8 * 1_024 * 1_024
 }
@@ -10,7 +11,7 @@ enum DaemonCommandBufferLimits {
 /// segment. A control is a barrier: values on opposite sides can never replace
 /// or overtake each other, while repeated high-rate values in one segment keep
 /// only the newest payload.
-struct DaemonCommandBuffer<Control, Droppable> {
+nonisolated struct DaemonCommandBuffer<Control, Droppable> {
     enum Entry {
         case control(Control, byteCount: Int)
         case droppable(Droppable)
@@ -72,7 +73,7 @@ struct DaemonCommandBuffer<Control, Droppable> {
 
 /// One child process wired to stdin/stdout/stderr pipes. Protocol payloads,
 /// session identity, and restart decisions stay with the owning engine client.
-final class DaemonProcessTransport: @unchecked Sendable {
+nonisolated final class DaemonProcessTransport: @unchecked Sendable {
     let process: Process
     let inputPipe: Pipe
     let outputPipe: Pipe
@@ -92,6 +93,34 @@ final class DaemonProcessTransport: @unchecked Sendable {
     private var inputPumpScheduled = false
     private var inputCloseRequested = false
     private var inputClosed = false
+
+    private enum OutputStreamKind { case output, error }
+    private struct ReceivedChunk {
+        let stream: OutputStreamKind
+        let data: Data
+    }
+    // Admission happens before scheduling main work. Otherwise a blocked main
+    // loop merely moves an unbounded pipe backlog into queued closures.
+    private let receiveLock = NSLock()
+    private let receiveQueue = DispatchQueue(label: "com.mywallpaperx.daemon-output-reader")
+    private var outputReader: DispatchSourceRead?
+    private var errorReader: DispatchSourceRead?
+    private var pendingReceived: [ReceivedChunk] = []
+    private var pendingOutputBytes = 0
+    private var pendingErrorBytes = 0
+    private var receiveDrainScheduled = false
+    private var receiveClosed = false
+    private var receiveGeneration: UInt64 = 0
+    private var outputEOF = false
+    private var errorEOF = false
+    private var exitStatus: Int32?
+    private var didDeliverTermination = false
+    private var receiveFailure: String?
+    // A complete 8 MiB protocol frame plus subsequent small events fits even
+    // while main is blocked. stderr has its own smaller diagnostic allowance.
+    private static let maximumOutputBytes = 16 * 1_024 * 1_024
+    private static let maximumErrorBytes = 2 * 1_024 * 1_024
+    private static let maximumReceivedChunks = 1_024
 
     init(executableURL: URL, arguments: [String]) {
         let process = Process()
@@ -119,30 +148,15 @@ final class DaemonProcessTransport: @unchecked Sendable {
             F_SETNOSIGPIPE,
             1
         )
-        outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.onOutput?(data)
-            }
-        }
-        errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard let text = String(data: data, encoding: .utf8),
-                  !text.isEmpty else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.onError?(text)
-            }
-        }
         process.terminationHandler = { [weak self] process in
-            RunLoop.main.perform(inModes: [.common]) { [weak self] in
-                self?.onTermination?(process.terminationStatus)
-            }
+            self?.recordExit(process.terminationStatus)
         }
         do {
             try process.run()
+            try startReader(outputPipe.fileHandleForReading, stream: .output)
+            try startReader(errorPipe.fileHandleForReading, stream: .error)
         } catch {
-            closeIO()
+            terminate()
             throw error
         }
     }
@@ -184,8 +198,17 @@ final class DaemonProcessTransport: @unchecked Sendable {
     }
 
     func closeIO() {
-        outputPipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
+        receiveLock.lock()
+        let readers = [outputReader, errorReader].compactMap { $0 }
+        outputReader = nil; errorReader = nil
+        receiveClosed = true
+        receiveGeneration &+= 1
+        outputEOF = true; errorEOF = true
+        pendingReceived.removeAll()
+        pendingOutputBytes = 0; pendingErrorBytes = 0
+        scheduleReceiveDrainLocked()
+        receiveLock.unlock()
+        readers.forEach { $0.cancel() }
         inputStateLock.lock()
         inputClosed = true
         inputCloseRequested = false
@@ -194,6 +217,166 @@ final class DaemonProcessTransport: @unchecked Sendable {
         try? inputPipe.fileHandleForWriting.close()
         try? outputPipe.fileHandleForReading.close()
         try? errorPipe.fileHandleForReading.close()
+    }
+
+    private func startReader(_ handle: FileHandle, stream: OutputStreamKind) throws {
+        let descriptor = fcntl(handle.fileDescriptor, F_DUPFD_CLOEXEC, 0)
+        guard descriptor >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags >= 0, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) == 0 else {
+            let code = errno
+            _ = Darwin.close(descriptor)
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(code))
+        }
+        let reader = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: receiveQueue)
+        reader.setEventHandler { [weak self] in self?.readAvailable(descriptor, stream: stream) }
+        // The duplicate belongs only to this source. Cancellation never closes
+        // a descriptor concurrently with the serial event handler's read.
+        reader.setCancelHandler { _ = Darwin.close(descriptor) }
+        receiveLock.lock()
+        let closed = receiveClosed
+        if !closed {
+            switch stream {
+            case .output: outputReader = reader
+            case .error: errorReader = reader
+            }
+        }
+        receiveLock.unlock()
+        reader.resume()
+        if closed { reader.cancel() }
+    }
+
+    private func readAvailable(_ descriptor: Int32, stream: OutputStreamKind) {
+        var bytes = [UInt8](repeating: 0, count: 65_536)
+        var count: Int
+        repeat {
+            count = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
+        } while count < 0 && errno == EINTR
+        if count > 0 {
+            admitReceived(Data(bytes.prefix(count)), stream: stream)
+        } else if count == 0 {
+            finishReader(stream)
+        } else if errno != EAGAIN && errno != EWOULDBLOCK {
+            failReceiving("transport-read-failed errno=\(errno)")
+        }
+    }
+
+    private func admitReceived(_ data: Data, stream: OutputStreamKind) {
+        receiveLock.lock()
+        guard !receiveClosed else { receiveLock.unlock(); return }
+        let fits = pendingReceived.count < Self.maximumReceivedChunks && {
+            switch stream {
+            case .output: return data.count <= Self.maximumOutputBytes - pendingOutputBytes
+            case .error: return data.count <= Self.maximumErrorBytes - pendingErrorBytes
+            }
+        }()
+        guard fits else {
+            receiveLock.unlock()
+            failReceiving("transport-output-limit-exceeded stream=\(stream)")
+            return
+        }
+        pendingReceived.append(.init(stream: stream, data: data))
+        switch stream {
+        case .output: pendingOutputBytes += data.count
+        case .error: pendingErrorBytes += data.count
+        }
+        scheduleReceiveDrainLocked()
+        receiveLock.unlock()
+    }
+
+    private func finishReader(_ stream: OutputStreamKind) {
+        receiveLock.lock()
+        let reader: DispatchSourceRead?
+        switch stream {
+        case .output: outputEOF = true; reader = outputReader; outputReader = nil
+        case .error: errorEOF = true; reader = errorReader; errorReader = nil
+        }
+        scheduleReceiveDrainLocked()
+        receiveLock.unlock()
+        reader?.cancel()
+    }
+
+    private func recordExit(_ status: Int32) {
+        receiveLock.lock()
+        exitStatus = status
+        scheduleReceiveDrainLocked()
+        receiveLock.unlock()
+        // A descendant may accidentally inherit a write end. Do not leave the
+        // owner's exit notification waiting forever for that unrelated process.
+        receiveQueue.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            self.receiveLock.lock()
+            let waitingForEOF = !self.outputEOF || !self.errorEOF
+            self.receiveLock.unlock()
+            if waitingForEOF { self.failReceiving("transport-output-eof-timeout") }
+        }
+    }
+
+    private func failReceiving(_ message: String) {
+        receiveLock.lock()
+        guard !receiveClosed, receiveFailure == nil else { receiveLock.unlock(); return }
+        receiveFailure = message
+        receiveClosed = true
+        receiveGeneration &+= 1
+        pendingReceived.removeAll()
+        pendingOutputBytes = 0; pendingErrorBytes = 0
+        scheduleReceiveDrainLocked()
+        receiveLock.unlock()
+        // No truncated protocol stream is presented as a successful endpoint.
+        // The explicit failure is delivered before the termination callback.
+        terminate()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self, self.process.isRunning else { return }
+            _ = Darwin.kill(self.process.processIdentifier, SIGKILL)
+        }
+    }
+
+    private func scheduleReceiveDrainLocked() {
+        guard !receiveDrainScheduled else { return }
+        receiveDrainScheduled = true
+        RunLoop.main.perform(inModes: [.common]) { [weak self] in self?.drainReceived() }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+
+    private func drainReceived() {
+        // Yield between bounded batches even if a producer remains busy.
+        var deliveredBytes = 0
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.002
+        while deliveredBytes < 256 * 1_024,
+              deliveredBytes == 0 || ProcessInfo.processInfo.systemUptime < deadline {
+            receiveLock.lock()
+            if let failure = receiveFailure {
+                receiveFailure = nil
+                receiveLock.unlock()
+                onError?(failure)
+                continue
+            }
+            guard !pendingReceived.isEmpty else { receiveLock.unlock(); break }
+            let chunk = pendingReceived.removeFirst()
+            let generation = receiveGeneration
+            switch chunk.stream {
+            case .output: pendingOutputBytes -= chunk.data.count
+            case .error: pendingErrorBytes -= chunk.data.count
+            }
+            receiveLock.unlock()
+            receiveLock.lock()
+            let current = generation == receiveGeneration
+            receiveLock.unlock()
+            guard current else { continue }
+            deliveredBytes += chunk.data.count
+            switch chunk.stream {
+            case .output: onOutput?(chunk.data)
+            case .error: onError?(String(decoding: chunk.data, as: UTF8.self))
+            }
+        }
+        receiveLock.lock()
+        receiveDrainScheduled = false
+        let status = pendingReceived.isEmpty && receiveFailure == nil && outputEOF && errorEOF
+            && !didDeliverTermination ? exitStatus : nil
+        if status != nil { didDeliverTermination = true }
+        if !pendingReceived.isEmpty || receiveFailure != nil { scheduleReceiveDrainLocked() }
+        receiveLock.unlock()
+        if let status { onTermination?(status) }
     }
 
     func terminate() {

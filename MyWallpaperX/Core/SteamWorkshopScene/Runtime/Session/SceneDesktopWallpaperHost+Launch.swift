@@ -95,6 +95,7 @@ extension SceneDesktopWallpaperHost {
         requestID: UUID = UUID(),
         completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
     ) {
+        rollbackUnconfirmedPromotion()
         cancelPendingLaunch()
         activeSession?.cancelPendingUserTextureUpdates()
         nextLaunchRequestGeneration &+= 1
@@ -944,7 +945,7 @@ extension SceneDesktopWallpaperHost {
         )
     }
 
-    private func publishLaunchState(_ state: SceneWallpaperLaunchState) {
+    func publishLaunchState(_ state: SceneWallpaperLaunchState) {
         launchState = state
         NSLog(
             "MWX SCENE STARTUP: request=%@ record=%@ phase=%@ message=%@",

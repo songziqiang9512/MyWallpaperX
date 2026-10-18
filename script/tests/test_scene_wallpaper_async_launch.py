@@ -104,7 +104,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.shader_reachability = SHADER_REACHABILITY.read_text(encoding="utf-8")
         cls.variant_cache = VARIANT_CACHE.read_text(encoding="utf-8")
 
-    def test_product_request_uses_daemon_command_and_switches_on_launch_event(self) -> None:
+    def test_product_request_uses_daemon_command_and_switches_on_real_presentation(self) -> None:
         observer = function_body(
             self.coordinator,
             "private static func observeSteamWorkshopSceneReadyToRender()",
@@ -113,13 +113,13 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn(".loadScene(.init(", observer)
         self.assertIn("to: .scene", observer)
         self.assertNotIn("SceneDesktopWallpaperHost.shared", observer)
-        state_observer = function_body(
+        commit_observer = function_body(
             self.coordinator,
-            "private static func observeSceneWallpaperLaunchState()",
+            "private static func observeSceneFirstFrameCommit()",
         )
-        launched = state_observer[state_observer.index("case .launched:") :]
-        self.assertIn("postWallpaperRuntimeWillSwitch", launched)
-        self.assertIn("WallpaperEngine.shared.stopPlayback()", launched)
+        self.assertIn("sceneWallpaperFirstFrameDidPresent", commit_observer)
+        self.assertIn("postWallpaperRuntimeWillSwitch", commit_observer)
+        self.assertIn("WallpaperEngine.shared.stopPlayback()", commit_observer)
 
     def test_main_window_projects_central_launch_state(self) -> None:
         configure = function_body(self.coordinator, "static func configure(")
@@ -288,6 +288,7 @@ def property_launch_harness(host_source: str) -> str:
 
     host_methods = "\n".join([
         method(host_source, "func applyUserPropertyValues("),
+        method(host_source, "func sessionForCommittedPropertyUpdate("),
         method(launch, "func requestLaunch("),
         method(launch, "func cancelPendingLaunch("),
     ])
@@ -296,10 +297,12 @@ def property_launch_harness(host_source: str) -> str:
     textures = (ipc / "SceneDaemonClient+UserTextures.swift").read_text()
     client_methods = "\n".join([
         method(client, "func requestLaunch("),
+        method(client, "func cancelPreparationForRuntimeSwitch("),
         method(client, "private func applyPropertyValues("),
         method(client, "func hasIntent("),
         method(events, "private func handlePropertyUpdateResult("),
         method(events, "private func handleLaunchState("),
+        method(events, "private func handleFirstFrame("),
         method(client, "func preparedCallbackPropertyKeys("),
     ] + [method(textures, signature) for signature in [
         "func applyUserTextureUpdate(", "func reloadUserTextureUpdate(",
@@ -346,6 +349,9 @@ struct SceneDesktopWallpaperLaunchContext {
     let generation: UInt64
 }
 struct SceneFirstFramePresentationRegistration { let requestID: UUID; let recordID: String? }
+struct SceneFramePresentation { let requestID:UUID;let recordID:String?;let uptimeMicros:UInt64 }
+extension Notification.Name { static let sceneWallpaperFirstFrameDidPresent=Notification.Name("first-present") }
+struct RestartBackoff { mutating func reset() {} }
 enum SceneDaemonProtocol { static let version = 1 }
 
 final class PreparationControl: @unchecked Sendable {
@@ -362,14 +368,16 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var values: [String: SceneUserPropertyValue]
     var calls = 0
     let acceptsJ: Bool
+    let activeRecordID:String?
+    func cancelPendingUserTextureUpdates() {}
     func preparedCallbackPropertyKeys(definitions: [String]) -> Set<String> { [] }
-    init(_ values: [String: SceneUserPropertyValue], acceptsJ: Bool = true) {
-        self.values = values; self.acceptsJ = acceptsJ
+    init(_ values: [String: SceneUserPropertyValue], acceptsJ: Bool = true, recordID:String="record") {
+        self.values = values; self.acceptsJ = acceptsJ;self.activeRecordID=recordID
     }
     func applyUserPropertyValues(_ replacements: [String: SceneUserPropertyValue],
         changedPropertyKeys: Set<String>, recordID: String?) -> Bool {
         calls += 1
-        guard recordID == "record" else { return false }
+        guard recordID == activeRecordID else { return false }
         if changedPropertyKeys.contains("K"), replacements["K"] != values["K"] { return false }
         if changedPropertyKeys.contains("J"), !acceptsJ { return false }
         for key in changedPropertyKeys { values[key] = replacements[key] }
@@ -385,6 +393,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var launchState: SceneWallpaperLaunchState?
     var activeSession: SceneDesktopWallpaperSession?
+    var unconfirmedPromotion:(requestID:UUID,previous:SceneDesktopWallpaperSession?)?
     var onState: ((SceneWallpaperLaunchState) -> Void)?
     var began: [UInt64] = [], trace: [String] = []
     init(_ control: PreparationControl) { textureDecodeCacheBudget = .init(control: control) }
@@ -406,6 +415,12 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         onState?(state)
     }
     func discardCandidate() { trace.append("discard:\(nextLaunchRequestGeneration)") }
+    func rollbackUnconfirmedPromotion() {}
+    func cancelCandidate(requestID:UUID) {
+        guard unconfirmedPromotion?.requestID == requestID else {return}
+        activeSession=unconfirmedPromotion?.previous;unconfirmedPromotion=nil
+        trace.append("rollback-unconfirmed")
+    }
     func beginCandidate(_ context: SceneDesktopWallpaperLaunchContext,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void) throws {
@@ -438,6 +453,8 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var activeResourceLifetime: Lifetime?, pendingResourceLifetime: Lifetime?
     var activeRecordID: String?, activeRequestID: UUID?, pendingRequestID: UUID?
+    var pendingPresentationRequestID:UUID?
+    var pendingPresentationReachability:ScenePreparedCallbackPropertyReachability?
     struct ActiveCallbackPropertyFacts: Equatable {
         let transportGeneration: UInt64; let requestID: UUID; let recordID: String?
         let reachability: ScenePreparedCallbackPropertyReachability
@@ -448,6 +465,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var lastPropertyRevision: UInt64 = 0
     var warmSessionPending = false, endpointReady = true
     var restartWorkItem: DispatchWorkItem?
+    var restartBackoff=RestartBackoff()
     var replayed: [ScenePlaybackLoadRequest] = [], completions: [Bool] = []
     init(_ host: SceneDesktopWallpaperHost) { self.host = host }
     func edit(_ values: [String: SceneUserPropertyValue], revision: UInt64) -> Bool {
@@ -462,6 +480,11 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     func receiveNow(_ state: SceneWallpaperLaunchState) {
         handleLaunchState(["phase": state.phase.rawValue, "requestID": state.requestID.uuidString,
                            "message": state.message, "recordID": state.recordID ?? ""])
+        if state.phase == .launched {
+            // GPU/presentation is a controlled leaf here; production admission
+            // still runs its real pending -> active first-present method.
+            handleFirstFrame(["requestID":state.requestID.uuidString,"recordID":state.recordID ?? "", "uptimeMs":1.0])
+        }
     }
     func flushLaunchStates() {
         holdAllLaunchStates = false; holdLaunched = false
@@ -474,6 +497,8 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         acks.forEach(handlePropertyUpdateResult)
     }
     func send(_ payload: [String: Any]) {
+        if payload["cmd"] as? String == "finalizeCandidate" { return }
+        if payload["cmd"] as? String == "cancelCandidate" { host.cancelPendingLaunch();return }
         if payload["cmd"] as? String == "setUserTextures" { textureSends += 1; return }
         let values = (payload["values"] as! [String: Any]).mapValues {
             SceneUserPropertyValue.parse($0)!
@@ -485,6 +510,11 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         if holdAcks { heldAcks.append(ack) } else { handlePropertyUpdateResult(ack) }
     }
     func ensureSession() -> Bool { true }
+    func stop() {
+        pendingIntent=nil;pendingResourceLifetime=nil;pendingRequestID=nil
+        pendingPresentationRequestID=nil;pendingPresentationReachability=nil
+        host.cancelPendingLaunch()
+    }
     func replayPendingIntent() {
         guard let request = pendingIntent else { return }
         let requestID = UUID()
@@ -498,6 +528,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     }
     func publishFailure(code: String, message: String) { preconditionFailure(message) }
     static func unsignedInteger(_ value: Any?) -> UInt64? { value as? UInt64 }
+    static func double(_ value:Any?)->Double? { value as? Double }
     __CLIENT_METHODS__
 }
 
@@ -527,6 +558,18 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     @MainActor static func delayedIntentCases() async -> ([String: Bool], [String: [String]]) {
         let initial: [String: SceneUserPropertyValue] = ["K": .number(0), "J": .number(0)]
         var facts: [String: Bool] = [:], traces: [String: [String]] = [:]
+        for sameRecord in [false,true] {
+            let host=SceneDesktopWallpaperHost(PreparationControl())
+            let previous=SceneDesktopWallpaperSession(initial)
+            let replacement=SceneDesktopWallpaperSession(initial,recordID:sameRecord ? "record" : "other")
+            host.activeSession=replacement
+            host.unconfirmedPromotion=(UUID(),previous)
+            let accepted=host.applyUserPropertyValues(["J":.number(7)],changedPropertyKeys:["J"],recordID:"record")
+            facts["standby-edit-\(sameRecord)-updatesCommittedSession"] = accepted && previous.values["J"] == .number(7) && replacement.values == initial
+            facts["standby-edit-\(sameRecord)-preservesCorrectCandidate"] = sameRecord
+                ? host.unconfirmedPromotion == nil && host.activeSession === previous
+                : host.unconfirmedPromotion != nil && host.activeSession === replacement
+        }
         for mode in ["ordinary", "texture-bound", "texture-unbound"] {
             for ackFirst in [false, true] {
                 let name = mode + (ackFirst ? "-ack-first" : "-launched-first")

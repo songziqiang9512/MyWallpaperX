@@ -16,7 +16,6 @@ func postWallpaperRuntimeWillSwitch(
     to kind: WallpaperRuntimeKind,
     recordID: String? = nil
 ) {
-    ImportedVideoAutoplayGate.shared.invalidate()
     var userInfo = ["kind": kind.rawValue]
     if let recordID {
         userInfo["recordID"] = recordID

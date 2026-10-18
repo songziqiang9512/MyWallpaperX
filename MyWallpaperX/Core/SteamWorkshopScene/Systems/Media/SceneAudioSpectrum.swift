@@ -228,7 +228,7 @@ nonisolated struct SceneAudioSpectrumCaptureRoutingState: Equatable, Sendable {
 /// 采集在 `SystemAudioSpectrumService` 的串行队列上产生快照，Scene 渲染在主线程读取。
 /// 这里只保留「最近一帧」：Scene 消费者按渲染帧采样，不需要历史队列，
 /// 掉帧时读到同一份快照而不是积压的旧数据。
-final class SceneAudioSpectrumInbox: @unchecked Sendable {
+nonisolated final class SceneAudioSpectrumInbox: @unchecked Sendable {
     static let shared = SceneAudioSpectrumInbox()
 
     /// A frame-local read of the shared inbox.  When a producer has stopped

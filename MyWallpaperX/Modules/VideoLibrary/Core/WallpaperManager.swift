@@ -92,10 +92,28 @@ class WallpaperManager: ObservableObject {
     // 不改变任何提交点）。
     private var playbackIntentEpochCounter = PlaybackIntentEpoch()
     var playbackIntentEpoch: UInt64 { playbackIntentEpochCounter.value }
+    private(set) var requestedRuntime: WallpaperRuntimeKind? = .video
 
     @discardableResult
-    func beginPlaybackIntent() -> UInt64 {
-        playbackIntentEpochCounter.begin()
+    func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64 {
+        let epoch = playbackIntentEpochCounter.begin()
+        requestedRuntime = runtime
+        ImportedVideoAutoplayGate.shared.invalidate()
+        if runtime != .video {
+            pendingWallpaper = nil
+            stopAutoSwitchTimer()
+        }
+        if runtime != .scene {
+            SceneDaemonClient.shared.cancelPreparationForRuntimeSwitch()
+        }
+        return epoch
+    }
+
+    func restoreCommittedPlaybackIntent() {
+        requestedRuntime = WallpaperRuntimeKind(rawValue: activeWallpaperRuntime.rawValue)
+        if activeWallpaperRuntime == .video { refreshAutoSwitchTimerIfNeeded() }
+        else { stopAutoSwitchTimer() }
+        WallpaperEngine.shared.replayDeferredVideoEndIfNeeded()
     }
     
     // 标签管理

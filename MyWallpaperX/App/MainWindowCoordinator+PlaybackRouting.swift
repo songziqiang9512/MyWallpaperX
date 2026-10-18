@@ -19,6 +19,8 @@ extension MainWindowCoordinator {
             name: .steamWorkshopVideoReadyToPlay, context: .steamPlayback, wallpaperManager: wallpaperManager
         ))
         observeSteamWorkshopWebWallpaperReadyToPlay()
+        observeWebPlaybackCommit()
+        observeSceneFirstFrameCommit()
         observeSteamWorkshopSceneReadyToRender()
         observeSceneWallpaperLaunchState()
         observeStaticImageWallpaperReadyToApply()
@@ -40,13 +42,19 @@ extension MainWindowCoordinator {
             let language = notification.userInfo?["language"] as? String ?? "en-us"
             let runtimeProfile = notification.userInfo?["runtimeProfile"] as? WallpaperEngine.WebRuntimeProfile ?? .standard
             let resourceLifetime = notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime
-            wallpaperManager.clearCurrentWallpaperReference()
-            wallpaperManager.activeWallpaperRuntime = .web
-            wallpaperManager.lastWorkshopPlaybackRecordID = recordID
             wallpaperManager.stopAutoSwitchTimer()
             // E2a-1: web 切换入口注入产品意图纪元（只读，提交点不变）。
-            WallpaperEngine.shared.adoptIntentEpoch(wallpaperManager.beginPlaybackIntent())
+            let epoch: UInt64
+            if let preparedEpoch = notification.userInfo?["intentEpoch"] as? UInt64 {
+                guard wallpaperManager.playbackIntentEpoch == preparedEpoch,
+                      wallpaperManager.requestedRuntime == .web else { return }
+                epoch = preparedEpoch
+            } else {
+                epoch = wallpaperManager.beginPlaybackIntent(runtime: .web)
+            }
+            WallpaperEngine.shared.adoptIntentEpoch(epoch)
             WallpaperEngine.shared.setWebWallpaper(
+                requestID: notification.userInfo?["requestID"] as? UUID ?? UUID(),
                 entryURL: entryURL,
                 rootURL: rootURL,
                 propertiesJSON: propertiesJSON,
@@ -56,15 +64,51 @@ extension MainWindowCoordinator {
                 multiDisplayEnabled: wallpaperManager.settings.multiDisplayEnabled,
                 resourceLifetime: resourceLifetime
             )
-            wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
-            // web 无静帧可提取；同步系统壁纸走延迟截帧（等启动过渡结束）。
-            // 生产路径 recordID 恒存在；诊断 harness 无 recordID 时
-            // currentWebRecordID 也为 nil，同步本就不适用，跳过。
-            if let recordID {
-                wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(
-                    kind: .web,
-                    recordID: recordID
-                )
+
+        }
+        observerTokens.append(observer)
+    }
+
+    private static func observeWebPlaybackCommit() {
+        let observer = NotificationCenter.default.addObserver(
+            forName: WallpaperEngine.webPlaybackReadyNotification, object: nil, queue: .main
+        ) { notification in
+            let engine = WallpaperEngine.shared
+            guard let requestID = notification.userInfo?["requestID"] as? UUID,
+                  requestID == engine.currentWebRequestID,
+                  wallpaperManager.requestedRuntime == .web else { return }
+            wallpaperManager.clearCurrentWallpaperReference()
+            wallpaperManager.activeWallpaperRuntime = .web
+            wallpaperManager.lastWorkshopPlaybackRecordID = engine.currentWebRecordID
+            wallpaperManager.stopAutoSwitchTimer()
+            wallpaperManager.isPlaying = engine.isPlaying()
+            if let recordID = engine.currentWebRecordID {
+                wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(kind: .web, recordID: recordID)
+            }
+        }
+        observerTokens.append(observer)
+    }
+
+    private static func observeSceneFirstFrameCommit() {
+        let observer = NotificationCenter.default.addObserver(
+            forName: .sceneWallpaperFirstFrameDidPresent, object: nil, queue: .main
+        ) { notification in
+            MainActor.assumeIsolated {
+                guard let frame = notification.object as? SceneFramePresentation,
+                      frame.requestID == SceneDaemonClient.shared.activeRequestID,
+                      frame.requestID == sceneHandoffRequestID,
+                      wallpaperManager.requestedRuntime == .scene,
+                      sceneHandoffIntentEpoch == wallpaperManager.playbackIntentEpoch else { return }
+                postWallpaperRuntimeWillSwitch(to: .scene, recordID: frame.recordID)
+                wallpaperManager.clearCurrentWallpaperReference()
+                wallpaperManager.activeWallpaperRuntime = .scene
+                wallpaperManager.lastWorkshopPlaybackRecordID = frame.recordID
+                wallpaperManager.stopAutoSwitchTimer()
+                WallpaperEngine.shared.stopPlayback()
+                wallpaperManager.isPlaying = SceneDaemonClient.shared.isPlaying
+                if let recordID = frame.recordID {
+                    wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(kind: .scene, recordID: recordID)
+                }
             }
         }
         observerTokens.append(observer)
@@ -80,6 +124,10 @@ extension MainWindowCoordinator {
             MainActor.assumeIsolated {
                 guard let request = notification.userInfo?["request"]
                         as? SteamWorkshopScenePlaybackRequest else { return }
+                // Settle the previous request while its product identity is
+                // still installed, before assigning the new Scene handoff.
+                SceneDaemonClient.shared.cancelPreparationForRuntimeSwitch()
+                SteamWorkshopService.shared.markLaunchPending(recordID: request.recordID)
                 SceneDaemonClient.shared.retainResourceLifetime(
                     request.resourceLifetime,
                     rootURL: request.rootURL,
@@ -87,9 +135,13 @@ extension MainWindowCoordinator {
                 )
                 // E2a-1: scene 切换入口注入产品意图纪元（只读，提交点
                 // 不变；adapter 内部 sessionGeneration 自成体系）。
-                WallpaperEngine.shared.adoptIntentEpoch(
-                    WallpaperManager.shared.beginPlaybackIntent()
-                )
+                wallpaperManager.stopAutoSwitchTimer()
+                let epoch = wallpaperManager.beginPlaybackIntent(runtime: .scene)
+                sceneHandoffIntentEpoch = epoch
+                sceneHandoffRecordID = request.recordID
+                sceneHandoffRequestID = nil
+                WallpaperEngine.shared.adoptIntentEpoch(epoch)
+                WallpaperEngine.shared.cancelPreparationRetainingActivePlayback()
                 let accepted = PlaybackCommandMultiplexer.shared.dispatch(
                     .loadScene(.init(
                         rootURL: request.rootURL,
@@ -126,6 +178,12 @@ extension MainWindowCoordinator {
                 guard let state = notification.object as? SceneWallpaperLaunchState else {
                     return
                 }
+                if state.phase == .accepted,
+                   wallpaperManager.requestedRuntime == .scene,
+                   sceneHandoffIntentEpoch == wallpaperManager.playbackIntentEpoch,
+                   sceneHandoffRecordID == state.recordID {
+                    sceneHandoffRequestID = state.requestID
+                }
                 let message: String
                 switch state.phase {
                 case .accepted, .preparingModel, .preparingPrograms,
@@ -133,28 +191,16 @@ extension MainWindowCoordinator {
                     message = "\(state.message)，当前壁纸会继续播放"
                 case .launched:
                     message = "Scene 表面已启动，正在等待首帧显示"
-                    postWallpaperRuntimeWillSwitch(
-                        to: .scene,
-                        recordID: state.recordID
-                    )
-                    wallpaperManager.clearCurrentWallpaperReference()
-                    wallpaperManager.activeWallpaperRuntime = .scene
-                    wallpaperManager.lastWorkshopPlaybackRecordID = state.recordID
-                    wallpaperManager.stopAutoSwitchTimer()
-                    WallpaperEngine.shared.stopPlayback()
-                    wallpaperManager.isPlaying = SceneDaemonClient.shared.isPlaying
-                    // scene 无静帧可提取；同步系统壁纸走延迟截帧（等启动
-                    // 过渡与开场动画结束）。
-                    if let launchedRecordID = state.recordID {
-                        wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(
-                            kind: .scene,
-                            recordID: launchedRecordID
-                        )
+                case .cancelled, .failed:
+                    message = state.phase == .cancelled
+                        ? "已取消 Scene 壁纸准备，当前壁纸保持不变"
+                        : "Scene 壁纸准备失败，当前壁纸保持不变"
+                    if wallpaperManager.requestedRuntime == .scene,
+                       sceneHandoffIntentEpoch == wallpaperManager.playbackIntentEpoch,
+                       sceneHandoffRecordID == state.recordID,
+                       sceneHandoffRequestID == nil || sceneHandoffRequestID == state.requestID {
+                        wallpaperManager.restoreCommittedPlaybackIntent()
                     }
-                case .cancelled:
-                    message = "已取消 Scene 壁纸准备，当前壁纸保持不变"
-                case .failed:
-                    message = "Scene 壁纸准备失败，当前壁纸保持不变"
                 case .stopped:
                     // E2a-2: 用户请求的停止——选择权威回收真值。防御性
                     // 守卫：若切换已把 runtime 指向别处，本回收迟到则跳过。
@@ -193,7 +239,7 @@ extension MainWindowCoordinator {
             wallpaperManager.stopAutoSwitchTimer()
             // E2a-1: 静态图切换入口注入产品意图纪元（只读，提交点不变）。
             WallpaperEngine.shared.adoptIntentEpoch(
-                wallpaperManager.beginPlaybackIntent()
+                wallpaperManager.beginPlaybackIntent(runtime: .systemStill)
             )
             WallpaperEngine.shared.stopPlayback()
         }

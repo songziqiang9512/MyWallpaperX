@@ -31,6 +31,9 @@ import Foundation
     }
     var activeCallbackPropertyFacts: ActiveCallbackPropertyFacts?
     var pendingRequestID: UUID?
+    var pendingPresentationRequestID:UUID?
+    var pendingPresentationReachability:ScenePreparedCallbackPropertyReachability?
+    var requestResourceLifetimes:[UUID:Int]=[:]
     var endpointReady = true
     var transport: Transport? = .init()
     var sessionGeneration: UInt64 = 1
@@ -41,6 +44,7 @@ import Foundation
     var lastPropertyRevision: UInt64 = 0
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var sent: [[String: Any]] = []
+    var launchControls:[[String:Any]]=[]
     var launches: [ScenePlaybackLoadRequest] = []
     var restartBackoff = Backoff()
     var restartWorkItem: DispatchWorkItem?
@@ -59,11 +63,17 @@ import Foundation
     func scheduleRestart(reason: String) { restartReasons.append(reason) }
     func ensureSession() -> Bool { true }
     func replayPendingIntent() { if let pendingIntent { launches.append(pendingIntent) } }
+    func stop() {stop(postsLaunchState:false)}
 
     func hasIntent(for recordID: String) -> Bool {
         activeIntent?.recordID == recordID || pendingIntent?.recordID == recordID
     }
-    func send(_ payload: [String: Any]) { sent.append(payload) }
+    func send(_ payload: [String: Any]) {
+        if let command=payload["cmd"] as? String,
+           ["commitCandidate","finalizeCandidate","cancelCandidate"].contains(command) {
+            launchControls.append(payload)
+        } else { sent.append(payload) }
+    }
     func publishFailure(code: String, message: String) { fatalError(message) }
 }
 

@@ -16,6 +16,9 @@ extension SceneDaemonClient {
         let configuration = SceneScreenTopology.capture(screens: screens)
         guard !configuration.isEmpty,
               configuration != displayConfiguration else { return }
+        // Host topology changes revoke its prepared cohort. Revoke the same
+        // parent identity before an already queued presentation can commit it.
+        cancelPreparationForRuntimeSwitch()
         displayConfiguration = configuration
         if endpointReady { sendDisplayConfiguration() }
     }

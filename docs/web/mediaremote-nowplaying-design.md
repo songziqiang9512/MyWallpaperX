@@ -21,7 +21,7 @@
 主 App：共享系统媒体服务（source 选择、授权、epoch、曲目身份、后台采集、封面缓存）
                  ↓ 统一不可变 snapshot
         ┌────────┴─────────┐
-Web 宿主适配器          SceneDaemonClient
+WebDaemonHostAdapter     SceneDaemonClient
         ↓                  ↓ 现有 transport，新增 typed media 命令
 D5 frame 定向推送      SceneMediaThumbnailInbox
         ↓                  ↓
@@ -46,7 +46,7 @@ D5 frame 定向推送      SceneMediaThumbnailInbox
 
 官方正文称封面为 base64 PNG，示例直接赋给 img.src，因此采用完整 PNG data URL；不能误传裸 base64、file URL 或 JPEG。共享服务在后台另按 artwork identity 缓存 Web PNG（最长边至多 512px、编码至多 1MiB），不重复转码或降低 Scene 原图质量；颜色复用现有 `SceneMediaArtworkPalette`，Web 只转换 CSS 表示，不再重复用 canvas 抓系统封面。调色板具体数值不声称与官方一致。
 
-宿主通过既有 D5 endpoint/token、定向 evaluateJavaScript 和 push sequence 投递，主 frame、同源及跨源子 frame 都按各自有效文档消费。监听注册上报独立 media 需求，不能借用频谱需求；只有 status 监听时仅订阅开关，无需启动歌曲采集；legacy `updateMedia*` 兼容回调也通过同一 reducer 分发。初始化、晚注册、导航后的 hello snapshot 都包含开关和最新媒体状态；endpoint 注销、导航、WebContent 退出与 teardown 同步撤需求。每 endpoint 只保留一个在途投递和最新待发 snapshot，合并时保留最新完整状态，不能丢掉清空或封面变更。最后一个 Scene/Web 需求退出即停止共享观察和轮询，开关关闭时仅保留轻量设置状态同步。
+Web 独立播放进程按 request UUID 接收主 App 的完整快照，不在子进程另建采集；宿主通过既有 D5 endpoint/token、定向 evaluateJavaScript 和 push sequence 投递，主 frame、同源及跨源子 frame 都按各自有效文档消费。监听注册上报独立 media 需求，不能借用频谱需求；只有 status 监听时仅订阅开关，无需启动歌曲采集；legacy `updateMedia*` 兼容回调也通过同一 reducer 分发。初始化、晚注册、导航后的 hello snapshot 都包含开关和最新媒体状态；endpoint 注销、导航、WebContent 退出与 teardown 同步撤需求。每 endpoint 只保留一个在途投递和最新待发 snapshot，合并时保留最新完整状态，不能丢掉清空或封面变更。最后一个 Scene/Web 需求退出即停止共享观察和轮询，开关关闭时仅保留轻量设置状态同步。
 
 先一次替换 JS 中的完整会话，再差分派发各事件，保证回调读取其他字段时属于同一曲目。迟到图片、旧导航投递与 A→B→A 曲目回包按 epoch/曲目 generation 拒收。壁纸暂停不等于播放器暂停：页面冻结期间合并更新，恢复先重放最新 snapshot，不制造曲目时间。timeline 复用来源的更新节奏，不为每根柱、每个 frame 或每块屏幕另建计时器。
 

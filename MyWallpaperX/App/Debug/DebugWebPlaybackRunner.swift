@@ -14,7 +14,8 @@ enum DebugWebPlaybackRunner {
     }
 
     static var runsIsolatedWebWorkshopSample: Bool {
-        arguments.contains("--mwx-debug-run-web-workshop-id")
+        arguments.contains("--mwx-debug-web-process-isolation-report")
+            || arguments.contains("--mwx-debug-run-web-workshop-id")
             || arguments.contains("--mwx-debug-web-lifecycle-sequence")
             || arguments.contains("--mwx-debug-web-system-state-sequence")
             || arguments.contains("--mwx-debug-web-audio-restart-sequence")
@@ -66,6 +67,8 @@ enum DebugWebPlaybackRunner {
     }
 
     static func scheduleWebWorkshopRuntimeIfRequested() {
+        DebugWebProcessIsolationRunner.startObservingIfRequested()
+        if DebugWebProcessIsolationRunner.scheduleIfRequested() { return }
         if DebugWebFailureStateRunner.scheduleIfRequested() {
             return
         }
@@ -175,12 +178,12 @@ enum DebugWebPlaybackRunner {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
                 let engine = WallpaperEngine.shared
-                let host = engine.dedicatedWebHostAdapter as? DedicatedWebWallpaperHostPlaceholderAdapter
+                let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter
                 NSLog(
                     "MWX DEBUG RAPID LAUNCH: summary currentRecord=%@ phase=%@ surfaces=%ld",
                     engine.currentWebRecordID ?? "-",
-                    host?.phase.rawValue ?? "unavailable",
-                    host?.surfaces.count ?? -1
+                    host?.observation?.phase ?? "unavailable",
+                    host?.observation?.surfaces ?? -1
                 )
                 NotificationCenter.default.removeObserver(postedObserver)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {

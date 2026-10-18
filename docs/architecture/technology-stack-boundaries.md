@@ -106,7 +106,7 @@ XPC 或 bundled helper 只有在需要隔离不可信代码、编译器崩溃、
 
 第三方 shader compiler 的首个集成形态必须是独立、可终止的 subprocess harness，用于固定输入、预算、diagnostics、reflection 和产物验证，不持有产品执行权。进入产品路径前必须明确二选一：以故障注入证明 in-process compiler 的 crash、hang、timeout、OOM、取消和损坏结果不会杀死 App 或污染 cache/Program；或使用可重启的 bundled compiler worker。完整 XPC/service 平台不阻塞开发 spike，但未完成这项选择不得让不可信作者源码在主 App 内取得产品编译权。
 
-普通 XPC service 不承担桌面窗口或 WindowServer UI 所有权；需要呈现窗口的 renderer 保持在主 App，或在证据成立时使用 bundled helper application。[Designing Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html)
+Video、Web、Scene 采用一致的控制面/播放面隔离：主 App 管用户意图、设置、唯一共享采集与异步会话控制；独立后台 AppKit 播放进程管桌面窗口、时钟、输入和渲染，不依赖主界面逐帧驱动。高频音频经后台有界单向投递，控制和目标身份变化仍由各会话 owner 串行裁决；新输出就绪后才退休旧输出。普通 XPC service 不承担桌面窗口或 WindowServer UI 所有权，窗口 renderer 使用 App 包内的独立 AppKit 入口。[Designing Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html)
 
 ### 3.6 迁移 owner 必须显式路由
 

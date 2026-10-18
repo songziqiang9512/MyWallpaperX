@@ -60,11 +60,16 @@ final class SteamWorkshopService: ObservableObject {
     /// 出现更新的点击（web/scene/video 任意分支）时本请求整体退役，避免
     /// 旧请求的迟到通知覆盖用户的最后选择（完成序倒置）。
     private(set) var webLaunchIntentGeneration: UInt64 = 0
+    /// App composition injects a cancellable, request-scoped renderer preparation.
+    var prepareWebPlaybackProcess: (() -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64))?
+    var cancelWebProcessPreparation: (() -> Void)?
 
     /// 递增点击代际并返回新值（仅 setAsWallpaper 入口调用；跨文件扩展
     /// 不能直接写 private(set) 字段）。
     @discardableResult
     func advanceWebLaunchIntentGeneration() -> UInt64 {
+        cancelWebProcessPreparation?()
+        cancelWebProcessPreparation = nil
         webLaunchIntentGeneration &+= 1
         return webLaunchIntentGeneration
     }

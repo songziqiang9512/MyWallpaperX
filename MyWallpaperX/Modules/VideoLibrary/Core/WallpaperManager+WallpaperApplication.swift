@@ -30,8 +30,6 @@ extension WallpaperManager {
         // E2a-3: requested 层立即写（UI 高亮即时）；committed
         // currentWallpaper 延后到 daemon ready 事件提交——失败项真值不落地。
         pendingWallpaper = wallpaper
-        activeWallpaperRuntime = .video
-        lastWorkshopPlaybackRecordID = nil
         NotificationCenter.default.post(
             name: .onlineDownloadsPlaybackPathDidChange,
             object: nil,
@@ -49,8 +47,7 @@ extension WallpaperManager {
         // 实际播放逻辑：使用WallpaperEngine设置壁纸
         // E2a-1: 切换入口先推进产品意图纪元并注入引擎（只读注入，
         // 提交点不变）。
-        WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())
-        postWallpaperRuntimeWillSwitch(to: .video)
+        WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent(runtime: .video))
         WallpaperEngine.shared.setWallpaper(
             wallpaper,
             multiDisplayEnabled: settings.multiDisplayEnabled,
@@ -270,8 +267,7 @@ extension WallpaperManager {
 
     /// web/scene 没有可提取的媒体静帧；按用户语义在启动过渡结束后截取
     /// 壁纸层一帧作为系统壁纸。延迟覆盖样本的开场动画；迟到帧不得写进
-    /// 已切换走的壁纸，回调时按运行时身份二次守卫。web 宿主在主 App
-    /// 进程内（免权限自截）；scene 表面属 daemon 子进程，经自截回传通道。
+    /// 已切换走的壁纸，回调时按运行时身份二次守卫。Web/Scene 表面均属独立播放进程，经各自的自截回传通道。
     func scheduleRuntimeFrameSystemWallpaperSync(
         kind: RuntimeFrameSyncKind,
         recordID: String
@@ -286,8 +282,7 @@ extension WallpaperManager {
             else { return }
             switch kind {
             case .web:
-                WallpaperRuntimeFrameCapture
-                    .captureInProcessWallpaperFrame { [weak self] image in
+                WallpaperEngine.shared.captureWebWallpaperFrame { [weak self] image in
                         guard let self,
                               self.settings.syncSystemWallpaper,
                               self.activeRuntimeMatchesFrameSyncTarget(

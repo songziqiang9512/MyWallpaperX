@@ -42,6 +42,7 @@ ADAPTER = r'''
     let systemMediaConsumerID = UUID()
     var systemMediaSubscriptionNeedsContent: Bool?
     var currentSystemMediaSnapshot: SystemMediaSnapshot?
+    var systemMediaDemandHandler: ((Bool?, UUID) -> Void)?
     func screenID(for view: WKWebView) -> Int? { surfaces.first { $0.value.webView === view }?.key }
     func forEachWebView(_ action: (WKWebView) -> Void) { surfaces.values.forEach { action($0.webView) } }
     func recordDiagnostic(type: String, severity: Severity, message: String, screenID: Int?, url: String?) {}
@@ -100,6 +101,7 @@ SCENARIOS = r'''
     """
     static func run(_ name: String) async throws {
         switch name {
+        case "remote": try await remoteProducer()
         case "legacy": try await legacyCallbacksAndEmptySession()
         case "cached-legacy": try await cachedLegacyOriginalObjectMutation()
         case "state": try await stateAndLifecycle()
@@ -110,6 +112,24 @@ SCENARIOS = r'''
         expect(SystemMediaService.shared.subscriptions.isEmpty, "last media endpoint must release shared subscription")
         print("web-system-media-pass: \(name)")
     }
+    static func remoteProducer() async throws {
+        let host = PageHost(html: "<html><body></body></html>")
+        var demands: [Bool?] = []
+        host.adapter.systemMediaDemandHandler = { needsMedia, _ in demands.append(needsMedia) }
+        defer { host.close() }
+        try await host.open()
+        _ = try await host.script(listeners)
+        try await host.wait(0.2)
+        expect(demands.last == true, "child projects one content demand")
+        expect(SystemMediaService.shared.subscriptions.isEmpty, "child must not start a second media producer")
+        host.adapter.receiveSystemMediaSnapshot(snapshot("IPC song", revision: 1))
+        try await host.waitUntil("__myWallpaperMediaState.properties.title === 'IPC song'", label: "remote complete snapshot reaches page")
+        _ = try await host.script("wallpaperRegisterMediaPropertiesListener(x => window.remoteReplay = x.title); true")
+        try await host.waitUntil("window.remoteReplay === 'IPC song'", label: "late listener replays remote snapshot")
+        host.close()
+        expect(demands.last! == nil, "last endpoint withdraws remote demand")
+    }
+
     static func stateAndLifecycle() async throws {
         let service = SystemMediaService.shared
         service.publish(snapshot("A", revision: 1))
@@ -406,3 +426,6 @@ class WebSystemMediaTests(unittest.TestCase):
 
     def test_complete_latest_snapshot_and_endpoint_revocation(self):
         self.scenario("backpressure")
+
+    def test_remote_producer_and_replay_without_local_capture(self):
+        self.scenario("remote")

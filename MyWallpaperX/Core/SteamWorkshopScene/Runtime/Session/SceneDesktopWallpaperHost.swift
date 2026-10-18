@@ -33,6 +33,13 @@ final class SceneDesktopWallpaperHost {
     var retiringSessions: [ObjectIdentifier: SceneDesktopWallpaperSession] = [:]
     var candidateDeadline: DispatchWorkItem?
     var candidateCompletion: ((Result<Void, Error>) -> Void)?
+    /// The daemon requests admission after every candidate GPU surface is ready.
+    /// Direct DEBUG hosts leave this nil and preserve their local transaction.
+    var candidatePreparedHandler: ((UUID) -> Void)?
+    var requestResourcesReleasedHandler: ((UUID) -> Void)?
+    var candidatePromotion: (requestID: UUID, promote: () -> Void)?
+    var unconfirmedPromotion: (requestID: UUID, previous: SceneDesktopWallpaperSession?)?
+    var presentationDeadline: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     private(set) var performanceProfile: PlaybackPerformanceProfile = .current
     private var playbackPaused = false
@@ -54,6 +61,7 @@ final class SceneDesktopWallpaperHost {
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
         guard topology != screenTopology else { return }
         screenTopology = topology
+        if let promotion = unconfirmedPromotion { cancelCandidate(requestID: promotion.requestID) }
         cancelPendingLaunch()
         activeSession?.applyDisplayConfiguration(topology)
     }
@@ -67,6 +75,7 @@ final class SceneDesktopWallpaperHost {
     func setMasterVolume(_ volume: Double) {
         activeSession?.soundPlaybackRegistry?.setMasterVolume(volume)
         candidateSession?.soundPlaybackRegistry?.setMasterVolume(volume)
+        unconfirmedPromotion?.previous?.soundPlaybackRegistry?.setMasterVolume(volume)
     }
 
     func setMuted(_ muted: Bool) {
@@ -83,7 +92,20 @@ final class SceneDesktopWallpaperHost {
             cancelPendingLaunch(recordID: recordID)
             return false
         }
-        return activeSession?.applyUserPropertyValues(values, changedPropertyKeys: changedPropertyKeys, recordID: recordID) ?? false
+        return sessionForCommittedPropertyUpdate(recordID: recordID)?.applyUserPropertyValues(
+            values, changedPropertyKeys: changedPropertyKeys, recordID: recordID) ?? false
+    }
+
+    /// Until real presentation is confirmed, the parent still edits the
+    /// previous Scene. A same-record edit invalidates the frozen replacement.
+    func sessionForCommittedPropertyUpdate(recordID: String?) -> SceneDesktopWallpaperSession? {
+        guard let promotion = unconfirmedPromotion, let previous = promotion.previous,
+              previous.activeRecordID == recordID else { return activeSession }
+        if activeSession?.activeRecordID == recordID {
+            cancelCandidate(requestID: promotion.requestID)
+            return activeSession
+        }
+        return previous
     }
 
     @discardableResult
@@ -97,11 +119,12 @@ final class SceneDesktopWallpaperHost {
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
         guard launchState?.isInProgress != true || launchState?.recordID != update.recordID,
-              let activeSession, activeSession.activeRecordID == update.recordID else {
+              let session = sessionForCommittedPropertyUpdate(recordID: update.recordID),
+              session.activeRecordID == update.recordID else {
             completion(.unavailable)
             return
         }
-        activeSession.applyUserTextureUpdate(update, resolvedURLs: resolvedURLs, completion: completion)
+        session.applyUserTextureUpdate(update, resolvedURLs: resolvedURLs, completion: completion)
     }
 
     func refreshPerformanceResourceGauges() {
@@ -118,6 +141,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     func stop() {
+        rollbackUnconfirmedPromotion()
         cancelPendingLaunch()
         if let activeSession {
             self.activeSession = nil

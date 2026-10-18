@@ -28,7 +28,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         #else
         surface.window.orderFrontRegardless()
         #endif
-        surface.window.level = Self.webWindowLevel
+        surface.window.level = surfaceWindowLevel
         loadTrackedNavigation(
             on: surface,
             request: request,
@@ -49,7 +49,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             setTransientMouseCaptureEnabled(false, for: surface)
             surface.schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request.propertiesJSON))
             surface.window.orderFrontRegardless()
-            surface.window.level = Self.webWindowLevel
+            surface.window.level = surfaceWindowLevel
             loadTrackedNavigation(
                 on: surface,
                 request: request,

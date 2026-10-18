@@ -33,6 +33,7 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
             handlers += "\n" + scalar.replace("private func", "func", 1)
             handlers += "\n" + method_body(CLIENT.read_text(), "func stop(postsLaunchState:")
             handlers += "\n" + method_body(CLIENT.read_text(), "func requestLaunch(")
+            handlers += "\n" + method_body(CLIENT.read_text(), "func cancelPreparationForRuntimeSwitch(")
             probe = work / "Probe.swift"
             probe.write_text((ROOT / "script/tests/fixtures/SceneUserTextureControlChecks.swift").read_text()
                 + "\n@MainActor extension SceneDaemonClient {\n" + handlers + "\n}\n")

@@ -165,6 +165,9 @@ final class SceneDaemonRuntime {
 
     func configure() {
         NSApplication.shared.setActivationPolicy(.accessory)
+        host.requestResourcesReleasedHandler = { [weak self] requestID in
+            self?.emitRequestResourcesReleased(requestID)
+        }
         emit([
             "v": SceneDaemonProtocol.version,
             "role": "scene-daemon"
@@ -252,6 +255,15 @@ final class SceneDaemonRuntime {
             rootURL, overrides, textureReferences, profile, recordID, requiredTextureKeys, requestID
         ):
             lastPropertyRevision = 0
+            // Explicit parent identities use a cancellable prepare/commit/
+            // first-present transaction. Standalone legacy diagnostics retain
+            // the direct Host behavior when no request identity was supplied.
+            host.candidatePreparedHandler = requestID.map { _ in
+                { [weak self] preparedID in
+                    self?.emit(["v": SceneDaemonProtocol.version,
+                        "event": "candidatePrepared", "requestID": preparedID.uuidString])
+                }
+            }
             host.applyPerformanceProfile(profile)
             host.requestLaunch(
                 rootURL: rootURL,
@@ -306,6 +318,12 @@ final class SceneDaemonRuntime {
             host.cancelPendingLaunch(
                 recordID: recordID
             )
+        case let .commitCandidate(requestID):
+            host.commitCandidate(requestID: requestID)
+        case let .finalizeCandidate(requestID):
+            host.finalizeCandidate(requestID: requestID)
+        case let .cancelCandidate(requestID):
+            host.cancelCandidate(requestID: requestID)
         case let .setDisplayConfiguration(topology):
             NSLog(
                 "MWX SCENE DAEMON: phase=display-configuration screens=%d",
@@ -480,6 +498,11 @@ final class SceneDaemonRuntime {
                     payload["callbackPropertyReachability"] = encoded
                 }
                 self.emit(payload)
+                if state.phase == .failed || state.phase == .cancelled {
+                    self.host.whenRequestResourcesReleased(requestID: state.requestID) { [weak self] in
+                        self?.emitRequestResourcesReleased(state.requestID)
+                    }
+                }
             }
         })
         observers.append(NotificationCenter.default.addObserver(
@@ -492,6 +515,7 @@ final class SceneDaemonRuntime {
                       let presentation = notification.object
                         as? SceneFramePresentation,
                       presentation.requestID == self.currentRequestID else { return }
+                self.host.noteCandidatePresentation(requestID: presentation.requestID)
                 self.emit([
                     "v": SceneDaemonProtocol.version,
                     "event": "firstFramePresented",
@@ -504,6 +528,11 @@ final class SceneDaemonRuntime {
 #endif
             }
         })
+    }
+
+    private func emitRequestResourcesReleased(_ requestID: UUID) {
+        emit(["v": SceneDaemonProtocol.version, "event": "launchResourcesReleased",
+              "requestID": requestID.uuidString])
     }
 
 #if DEBUG

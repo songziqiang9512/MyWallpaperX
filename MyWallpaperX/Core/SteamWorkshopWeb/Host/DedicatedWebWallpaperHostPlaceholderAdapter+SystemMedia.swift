@@ -29,7 +29,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // An additional listener/frame may attach while the service subscription
         // stays unchanged. Replay the current snapshot without restarting capture.
         if active {
-            deliverSystemMedia(SystemMediaService.shared.currentSnapshot, to: endpoint, webView: webView)
+            let snapshot = systemMediaDemandHandler == nil
+                ? SystemMediaService.shared.currentSnapshot : currentSystemMediaSnapshot
+            if let snapshot { deliverSystemMedia(snapshot, to: endpoint, webView: webView) }
         }
     }
 
@@ -39,7 +41,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let demanded = endpoints.filter { $0.mediaDemandActive && $0.isLeaseValid(now: now) }
         guard let requestID = currentRequest?.id, !demanded.isEmpty else {
             if systemMediaSubscriptionNeedsContent != nil {
-                SystemMediaService.shared.unsubscribe(systemMediaConsumerID)
+                if let systemMediaDemandHandler, let requestID = currentRequest?.id {
+                    systemMediaDemandHandler(nil, requestID)
+                } else if systemMediaDemandHandler == nil {
+                    SystemMediaService.shared.unsubscribe(systemMediaConsumerID)
+                }
             }
             systemMediaSubscriptionNeedsContent = nil
             currentSystemMediaSnapshot = nil
@@ -48,14 +54,23 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let needsContent = demanded.contains { $0.mediaDemandNeedsContent }
         guard systemMediaSubscriptionNeedsContent != needsContent else { return }
         systemMediaSubscriptionNeedsContent = needsContent
+        if let systemMediaDemandHandler {
+            systemMediaDemandHandler(needsContent, requestID)
+            return
+        }
         SystemMediaService.shared.subscribe(systemMediaConsumerID, needsMedia: needsContent) { [weak self] snapshot in
             guard let self, self.currentRequest?.id == requestID,
                   self.systemMediaSubscriptionNeedsContent != nil else { return }
-            self.currentSystemMediaSnapshot = snapshot
-            self.forEachWebView { webView in
-                for endpoint in self.frameEndpointRegistry.endpoints(in: webView) where endpoint.mediaDemandActive {
-                    self.deliverSystemMedia(snapshot, to: endpoint, webView: webView)
-                }
+            self.receiveSystemMediaSnapshot(snapshot)
+        }
+    }
+
+    func receiveSystemMediaSnapshot(_ snapshot: SystemMediaSnapshot) {
+        guard currentRequest != nil, systemMediaSubscriptionNeedsContent != nil else { return }
+        currentSystemMediaSnapshot = snapshot
+        forEachWebView { webView in
+            for endpoint in self.frameEndpointRegistry.endpoints(in: webView) where endpoint.mediaDemandActive {
+                deliverSystemMedia(snapshot, to: endpoint, webView: webView)
             }
         }
     }

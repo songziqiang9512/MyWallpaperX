@@ -3,8 +3,7 @@
 //  MyWallpaperX
 //
 //  Web 壁纸播放边界类型。
-//  当前 daemon + WKWebView 方案已经被验证为诊断 harness，
-//  不应继续被默认理解为最终 Web 壁纸宿主。
+//  主 App 控制端与独立 Web 播放进程共用的执行输入和命令合同。
 //
 
 import Foundation
@@ -14,17 +13,17 @@ import CoreGraphics
 import Darwin
 
 extension WallpaperEngine {
-    enum WebWallpaperLaunchSource: String {
+    nonisolated enum WebWallpaperLaunchSource: String, Codable {
         case steamWorkshop
     }
 
-    enum WebRuntimeOriginMode: String, Equatable {
+    nonisolated enum WebRuntimeOriginMode: String, Equatable, Codable {
         case customScheme
         case httpLoopback
     }
 
-    struct WebRuntimeProfile: Equatable {
-        enum DataStorePolicy: String {
+    nonisolated struct WebRuntimeProfile: Equatable, Codable {
+        enum DataStorePolicy: String, Codable {
             case sharedPersistent
             case workshopPersistent
             case scopedPersistent
@@ -70,7 +69,7 @@ extension WallpaperEngine {
         )
     }
 
-    struct WebWallpaperLaunchRequest {
+    nonisolated struct WebWallpaperLaunchRequest {
         let id: UUID
         let entryURL: URL
         let rootURL: URL
@@ -107,14 +106,14 @@ extension WallpaperEngine {
         }
     }
 
-    struct WebWallpaperRuntimeState {
+    nonisolated struct WebWallpaperRuntimeState: Codable {
         let paused: Bool
         let volume: Float
         let playbackRate: Float
         let spectrumLevels: [Float]?
     }
 
-    enum WebWallpaperRuntimeCommand {
+    nonisolated enum WebWallpaperRuntimeCommand: Codable {
         case pause
         case resume(playbackRate: Float)
         case stop
@@ -124,7 +123,7 @@ extension WallpaperEngine {
         case pushAudioSpectrum([Float])
     }
 
-    enum WebWallpaperHostEvent {
+    nonisolated enum WebWallpaperHostEvent: Codable {
         case accepted(requestID: UUID)
         case ready(requestID: UUID)
         case audioSpectrumDemandChanged(Bool, requestID: UUID)
@@ -272,6 +271,16 @@ final class WebWallpaperFrameEndpointRegistry {
 }
 
 final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngine.WebWallpaperHostAdapter, WKNavigationDelegate, WKScriptMessageHandler {
+    /// Product daemon projects media demand to the main App's single producer.
+    /// Standalone host harnesses retain their existing local service injection.
+    var systemMediaDemandHandler: ((Bool?, UUID) -> Void)?
+    var presentationInvalidationHandler: (() -> Void)?
+    var defersPresentation = false
+    var surfaceWindowLevel: NSWindow.Level {
+        defersPresentation
+            ? NSWindow.Level(rawValue: Self.webWindowLevel.rawValue - 2)
+            : Self.webWindowLevel
+    }
     enum Phase: String {
         case idle
         case launching

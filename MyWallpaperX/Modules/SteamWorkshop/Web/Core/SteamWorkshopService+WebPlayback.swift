@@ -27,6 +27,9 @@ extension SteamWorkshopService {
     }
 
     func setAsWallpaper(_ record: SteamWorkshopDownloadRecord) {
+        // New selection revokes stale import autoplay before async preparation,
+        // independently of the later visible-output handoff notification.
+        ImportedVideoAutoplayGate.shared.invalidate()
         // M0.5：点击即进入 pending（≤1 runloop turn 渲染加载态）。
         // 早退路径立即清除；scene 由 launch 终态清除；video/web 由
         // runtime 切换通知清除，1.5s 兜底防挂死。
@@ -49,6 +52,21 @@ extension SteamWorkshopService {
             return
         }
 
+        // Start the empty renderer before validation/cache/resource preparation;
+        // these stages already consume part of the click-to-play critical path.
+        // Every early return below releases it without loading author content.
+        let launchGeneration = webLaunchIntentGeneration
+        let processPreparation = record.contentType == .web ? prepareWebPlaybackProcess?() : nil
+        let requestID = processPreparation?.requestID ?? UUID()
+        let cancelProcessPreparation = processPreparation?.cancel
+        cancelWebProcessPreparation = cancelProcessPreparation
+        var processPreparationTransferred = false
+        defer {
+            if !processPreparationTransferred {
+                cancelProcessPreparation?()
+                if webLaunchIntentGeneration == launchGeneration { cancelWebProcessPreparation = nil }
+            }
+        }
         guard canLaunchDownloadRecord(record) else {
             clearLaunchPending(matching: record.id)
             downloadError = record.contentType == .web
@@ -78,14 +96,24 @@ extension SteamWorkshopService {
             // 文件 IO），解析完成后回主线程发布启动通知；失败走同一早退出口。
             // 代际校验：窗口内有更新的点击时本请求整体退役——成功通知与
             // 失败出口都不得覆盖新点击的 pending / 状态 / 最终壁纸。
-            let launchGeneration = webLaunchIntentGeneration
+            processPreparationTransferred = true
             Task { [weak self] in
+                defer {
+                    cancelProcessPreparation?()
+                    if self?.webLaunchIntentGeneration == launchGeneration {
+                        self?.cancelWebProcessPreparation = nil
+                    }
+                }
                 guard let self else { return }
                 let playbackContext = await self.resolvedWebPlaybackContext(for: record)
                 guard launchGeneration == self.webLaunchIntentGeneration else {
                     // 更新的点击已在 setAsWallpaper 入口同步 mark 过 pending
                     //（或已随早退自行清除），退役请求不触碰任何共享状态——
                     // 也不清 pending，避免同名重击时提前熄灭加载态。
+                    return
+                }
+                guard processPreparation?.isCurrent() != false else {
+                    self.clearLaunchPending(matching: record.id)
                     return
                 }
                 guard let playbackContext else {
@@ -98,6 +126,8 @@ extension SteamWorkshopService {
                     name: .steamWorkshopWebWallpaperReadyToPlay,
                     object: nil,
                     userInfo: [
+                        "requestID": requestID,
+                        "intentEpoch": processPreparation?.intentEpoch as Any,
                         "recordID": record.id,
                         "entryURL": playbackContext.effectiveEntryURL,
                         "rootURL": playbackContext.effectiveRootURL,

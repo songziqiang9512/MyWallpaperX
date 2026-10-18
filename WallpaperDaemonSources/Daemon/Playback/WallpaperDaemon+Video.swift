@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 
 extension WallpaperDaemon {
     func play(videoPath: String, framePath: String?, fillMode: String, shouldLoopCurrentItem: Bool, requestID: Int?) {
+        cancelVideoPreparation()
         guard FileManager.default.fileExists(atPath: videoPath) else {
             daemonLog("video not found \(videoPath)")
             emit(type: "failed", requestID: requestID, message: "video_not_found", videoPath: videoPath, contentKind: "video")
@@ -24,12 +25,18 @@ extension WallpaperDaemon {
 
         switchToken += 1
         let token = switchToken
+        videoPreparation = VideoPreparation(token: token, requestID: requestID,
+            videoPath: videoPath, incomingSlot: inactiveSlot, previousSlot: activeSlot,
+            previousVideoPath: currentVideoPath, previousRequestID: currentRequestID,
+            previousFillMode: currentFillMode)
         pendingStatusObservation = nil
 
         configureWindowForVideoRendering()
         window.setFrame(screen.frame, display: true)
-        window.orderFrontRegardless()
-        window.level = WallpaperDaemon.desktopWindowLevel
+        if currentVideoPath != nil {
+            window.level = WallpaperDaemon.desktopWindowLevel
+            window.orderFrontRegardless()
+        }
         currentFillMode = fillMode
         updateLayerFrames()
 
@@ -47,26 +54,19 @@ extension WallpaperDaemon {
         incomingPlayer.removeAllItems()
         incomingPlayer.actionAtItemEnd = shouldLoopCurrentItem ? .advance : .none
         setInactiveLooper(nil)
-        if let pendingEndObservation {
-            NotificationCenter.default.removeObserver(pendingEndObservation)
-            self.pendingEndObservation = nil
-        }
-        if let loopEndObservation {
-            NotificationCenter.default.removeObserver(loopEndObservation)
-            self.loopEndObservation = nil
-        }
+        clearPlaybackObservers(for: inactiveSlot)
 
         let item = AVPlayerItem(url: URL(fileURLWithPath: videoPath))
         item.preferredForwardBufferDuration = 1.5
         item.preferredMaximumResolution = CGSize(width: screen.frame.width, height: screen.frame.height)
 
-        incomingPlayer.volume = currentVolume
+        incomingPlayer.volume = 0
         if shouldLoopCurrentItem {
             let looper = AVPlayerLooper(player: incomingPlayer, templateItem: item)
             setInactiveLooper(looper)
         } else {
             incomingPlayer.insert(item, after: nil)
-            observePlaybackEnd(for: item, requestID: requestID, videoPath: videoPath)
+            observePlaybackEnd(for: item, requestID: requestID, videoPath: videoPath, slot: inactiveSlot)
         }
         waitUntilPlayerReady(incomingPlayer, token: token, requestID: requestID, videoPath: videoPath)
     }
@@ -193,12 +193,7 @@ extension WallpaperDaemon {
         let incomingPlayer = inactivePlayer
         let incomingLayer = inactiveLayer
 
-        if let vp = videoPath {
-            currentVideoPath = vp
-            currentRequestID = requestID
-        }
-
-        incomingPlayer.volume = currentVolume
+        incomingPlayer.volume = 0
         if paused {
             incomingPlayer.pause()
         } else {

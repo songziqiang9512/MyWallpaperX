@@ -565,7 +565,12 @@ let webCompatibilityScriptHostBridge = #"""
       window.dispatchEvent(new CustomEvent('wallpaper-audio-spectrum', { detail: safeLevels }));
     } catch (_) {}
     for (const listener of audioListeners) {
-      try { listener(safeLevels); } catch (_) {}
+      try { listener(safeLevels); } catch (error) {
+        if (!failedAudioListeners.has(listener)) {
+          failedAudioListeners.add(listener);
+          hostLogger.post('audio.listener.error', error && error.stack ? error.stack : String(error));
+        }
+      }
     }
   };
   window.__myWallpaperSetGlobalVolume = function(value) {

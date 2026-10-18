@@ -81,9 +81,12 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         var accessNotifications: [FetchAllDirectoryAccessNotification] = []
 
         for property in properties {
-            hasFetchAllDirectory = true
             let propertyName = property.name
             let directoryPath = property.path
+            // An unselected directory cannot change through filesystem events.
+            // Property updates will trigger the next synchronization themselves.
+            hasFetchAllDirectory = hasFetchAllDirectory
+                || !directoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             seenPropertyNames.insert(propertyName)
             let nextStatus = directorySyncStatus(forPath: directoryPath)
             let nextSnapshot = nextStatus.snapshot
@@ -197,15 +200,20 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func directorySyncStatus(forPath path: String) -> DirectorySyncStatus {
+        // URL(fileURLWithPath: "") resolves to the process working directory.
+        // Reject before URL construction: an unset author property grants no
+        // directory and must never enumerate the App/repository/current folder.
+        guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return DirectorySyncStatus(snapshot: DirectorySnapshot(filesByPath: [:]),
+                isAccessible: false, errorMessage: "directory_path_empty")
+        }
         let directoryURL = URL(fileURLWithPath: path)
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory) else {
             return DirectorySyncStatus(
                 snapshot: DirectorySnapshot(filesByPath: [:]),
                 isAccessible: false,
-                errorMessage: path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? "directory_path_empty"
-                    : "directory_not_found"
+                errorMessage: "directory_not_found"
             )
         }
         guard isDirectory.boolValue else {

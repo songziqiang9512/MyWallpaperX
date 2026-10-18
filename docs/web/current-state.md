@@ -2,7 +2,7 @@
 
 > 状态：Web 当前状态唯一入口
 >
-> 源码复核：2026-08-11；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
+> 源码复核：2026-10-18（独立播放进程）；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
 >
 > 证据边界：2026-09-28 共享暂停批已完成 Debug 构建、实际 WKWebView 暂停测试与隔离 Scene 子进程验证；没有重跑 Web 样本矩阵。2026-09-30 宿主缺陷批按 229a6b25 / c5719a0d 的记录完成免签名 Debug checkpoint 构建（退出码 0）与 F01/F29/F40 的 node vm 拼接 15 段注入脚本实跑，但没有在同一身份跑运行门（无 App 运行、无样本门）。导航/兼容脚本收敛批与收尾修复批（同一工作树，未提交）批内实际执行：`py_compile`、`swiftc -parse`、门禁选择器干跑（inner/checkpoint），以及**真实 WKWebView harness 实跑**——`test_web_compat_parity`（F01/F19/F29/F40/frames 全过）、`test_web_playback_pause`（暂停/恢复、帧边界与 AudioContext 暂停回合）、`test_web_navigation_policy`、`test_web_response_transformer`、`test_web_static_content_signals`、`test_web_display_conditions`。未执行 App 构建、`swiftc` 类型检查（只有语法解析）、`checkpoint` 构建与任何样本门。
 
@@ -15,8 +15,8 @@
 | 项目解释 | `SteamWorkshopService` 的 Web Core | 原始 `project.json` 是声明源；构建 descriptor、runtime model、playback context 与诊断，不覆盖作者文件 |
 | 播放协调 | `WallpaperEngine` | 保存当前 Web request/content/property 状态，执行共享暂停结果，处理属性、音频需求、显示器与 runtime 切换 |
 | 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b 历史验收](../scene/history/engine-refactor-program-through-2026-10-14.md#e2-收敛控制意图与公共依赖) |
-| 生产宿主 | `DedicatedWebWallpaperHostPlaceholderAdapter` | 当前唯一生产 Web 宿主（`WallpaperEngine.dedicatedWebHostAdapter`，`WallpaperEngine.swift:73`）；负责每显示器 WKWebView surface、生命周期、输入、属性、音频和本地资源桥接 |
-| daemon Web 路径 | 无 | 旧宿主策略切换与 `.daemonDiagnosticsHarness` 已随 aee7c08a 删除；daemon 不再持有 Web 宿主，扩展第二套宿主仍需先有可复现证据 |
+| 生产宿主 | `WebDaemonHostAdapter` → `WebDaemonRuntime` → `DedicatedWebWallpaperHostPlaceholderAdapter` | 主 App 控制端通过带 request UUID 的有界 IPC 管理独立后台 AppKit 播放进程；每屏 WKWebView、桌面窗口、输入、属性与资源桥接只在子进程创建 |
+| 进程入口 | 同一 App 可执行文件 `--mwx-web-daemon` | 产品装配前进入专用 AppKit run loop；Video helper 与 Scene daemon 保持原播放 owner。主 App 不再创建生产 WebView；没有可切换的双生产 route |
 | 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | 受控读取项目根、MIME/响应转换和兼容资源映射；不能扩大为任意文件访问。loopback 档另受「入口前缀 + `SameSite=Strict` 会话 cookie」双重凭据约束 |
 | 持久化 WebKit store 回收 | `WebWallpaperDataStoreReclaimer`（装配层注入在用事实） | 只按「曾见过 + 新投影缺席 + 模块删除意图」判删除（`confirmedDeletedRecordIDs`，`WebWallpaperHostTypes.swift:471`）；宽限期末按实时在用事实复核，未回收必有 `MWX WEB DATASTORE REMOVAL` 日志；派生标识为 SHA256（`+Surface.swift:370`）。用户可见后果：highCompatibility 用户既有 scoped store（旧模 256 派生的 localStorage）不会被新算法再次命中，等于重置，旧 store 由孤儿退役清理；未接入显示器期间创建的 scoped store 也按孤儿回收，该屏重连后 store 重建 |
 | 评测工具 | `script/web_wallpaper_benchmark.py` 及矩阵 | 采集 App 身份、日志、DOM/窗口/动画证据；没有 fixture 时不能伪造 PASS |
@@ -29,11 +29,22 @@ project.json / Workshop directory
   -> ResolvedWebRuntimeModel
   -> ResolvedWebPlaybackContext
   -> WallpaperEngine
+  -> WebDaemonHostAdapter (main App)
+  -> versioned request IPC
+  -> WebDaemonRuntime (background child, prohibited activation)
   -> DedicatedWebWallpaperHostPlaceholderAdapter
   -> per-display WKWebView surface
 ```
 
 `Placeholder` 是尚未完成命名收口的历史名称，不表示该类型没有产品执行权。重命名必须作为独立机械批次完成源码、测试、日志 schema 和文档同步；不得同时改变宿主行为。
+
+独立进程与候选交接的职责、失败和退出见[实施设计](dedicated-host-process-design.md)。`PlaybackSpectrumDelivery` 在采集后台队列直接投递三引擎 transport，保留 Scene generation/scope 校验；系统歌曲信息仍由主 App 唯一采集，再向 Web 子进程投递完整快照。Web 系统壁纸同步使用子进程自截帧回传。作品准备与同 UUID 空宿主初始化并行，完成后原子采用；成功播放后延后 2s 预备至多一个无内容宿主，30s 未采用退出且不循环补充。采用原 UUID 后沿用 15s 请求截止期；停止、跨引擎、退出和内存压力撤销预热。每屏以中心 1×1 快照确认准备，保留全部 surface 与代际门；启动预热按实际引擎收窄，不因 Web/泛工坊身份额外启动 Scene。
+
+2026-10-18 签名 Debug 实跑通过 30 项隔离/交接与资源检查：主界面阻塞 1.25s 时子进程页面与原生循环继续运行，75 次真实频谱抵达页面、74 次值发生变化；覆盖 hello 前/后采用预备进程、采用后跨过原 30s 期限存活、未采用实际退出、取消/停止撤销、六方向切换、失败保留、崩溃恢复和停止退出。没有 Video 端点时释放采集，返回 Video 自动恢复；Web/Scene 作者需求独立保留。定向协议、采集恢复、需求与暂停回归通过。CWAV 的空 `fetchall` 目录误解析为当前工作目录，递归扫描后把大量文件送入作者列表回调，可令页面长期占满一个 CPU 核、音频条冻结；现于 URL 构造前拒绝空路径，空目录不启轮询，实际目录的增删改与重试保留。`test_web_directory_sync` 对旧代码反证失败、新代码通过；修复后的真实音乐运行跨越原先约半分钟的复现点持续更新。音频观察同时验证页面收到变化值，不再仅凭原生收包计数通过。
+
+启动身份由应用包的 `LSUIElement=YES` 从进程注册时声明；主窗口打开时由既有 coordinator 升为普通 App 并显示 Dock 入口，关闭回后台。Web/Scene 子角色不再经历普通 App 注册后隐藏图标的过程；Web 仍禁止激活。
+
+物理 Space 仍有未闭合边界：用户实际切换时，在暂停转换为 0 的观测窗口出现约 0.56–0.73s RAF 间隔，而子进程原生循环最大间隔约 24–60ms。进程隔离不等于消除 WebKit/窗口系统调度停顿；全样本、长稳与多屏热插拔未作通过声明。启动分阶段日志区分作品准备、进程初始化、网页准备与交接，单次冷启动改善不作普遍性能承诺。
 
 ## 2. 稳定实现合同
 

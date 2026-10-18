@@ -232,6 +232,36 @@ class WebRuntimeSwitchBenchmarkTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "entries are invalid"):
                 validate_bundled_video_archive(resources)
 
+    def test_remote_prepare_retains_video_and_cancels_without_main_thread_teardown(self):
+        lines = passing_lines()
+        def remote(payload):
+            payload["web"]["processPids"] = []
+        for name in ["preflight", "video1-requested", "web-requested", "video2-requested",
+                     "stale-event-filtered", "video2-stable", "video2-recovered", "recovery-pending", "stopped", "post-stop"]:
+            lines = replace_checkpoint(lines, name, remote)
+        def preparing(payload):
+            payload["sessions"] = [session(VIDEO1_PID)]
+            payload["web"] = dict(web_state("launching"), processPids=[909])
+        lines = replace_checkpoint(lines, "web-requested", preparing)
+        def reused(payload):
+            payload["video1Alive"] = [VIDEO1_PID]
+            payload["video2Pids"] = [VIDEO1_PID]
+            payload["video2Alive"] = [VIDEO1_PID]
+            payload["sessions"][0]["pid"] = VIDEO1_PID
+        for name in ["video2-requested", "stale-event-filtered", "video2-stable"]:
+            lines = replace_checkpoint(lines, name, reused)
+        # Cancellation before hello/launch has no host teardown log. Actual
+        # child identity and exit become the lifecycle evidence.
+        lines = [line for line in lines if "MWX WEB DIAG" not in line]
+        result = score(lines)
+        self.assertTrue(result["passed"], result["failures"])
+        leaked = replace_checkpoint(lines, "video2-stable",
+            lambda payload: payload["web"].update(processPids=[909]))
+        self.assertFalse(score(leaked)["passed"])
+        wrong = replace_checkpoint(lines, "web-requested",
+            lambda payload: payload["sessions"][0].update(pid=999))
+        self.assertFalse(score(wrong)["passed"])
+
     def test_passing_timeline(self) -> None:
         result = score(passing_lines())
         self.assertTrue(result["passed"], result["failures"])

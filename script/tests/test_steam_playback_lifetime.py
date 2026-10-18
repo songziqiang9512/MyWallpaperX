@@ -25,17 +25,25 @@ struct ScenePlaybackLoadRequest {
     let rootURL: URL
     let recordID: String?
 }
+struct ScenePreparedCallbackPropertyReachability: Decodable {
+    struct Source: Decodable { let rootPath: String }
+    let source: Source
+    let scriptGeneration: UInt64
+}
+struct SceneFramePresentation { let requestID: UUID; let recordID: String?; let uptimeMicros: UInt64 }
 struct SceneWallpaperLaunchState {
     enum Phase: String { case accepted, launched, cancelled, failed, stopped }
     let requestID: UUID
     let recordID: String?
     let phase: Phase
     let message: String
+    var callbackPropertyReachability: ScenePreparedCallbackPropertyReachability? = nil
 }
 enum SceneDaemonProtocol { static let version = 1 }
 struct Backoff { mutating func reset() {} }
 extension Notification.Name {
     static let sceneWallpaperLaunchStateDidChange = Notification.Name("launch")
+    static let sceneWallpaperFirstFrameDidPresent = Notification.Name("first-frame")
     static let steamWorkshopSceneReadyToRender = Notification.Name("render")
 }
 @MainActor final class SceneDaemonClient {
@@ -47,6 +55,14 @@ extension Notification.Name {
     var handshakeWorkItem: DispatchWorkItem?
     var pendingIntent: ScenePlaybackLoadRequest?
     var activeIntent: ScenePlaybackLoadRequest?
+    var pendingPresentationRequestID: UUID?
+    var pendingPresentationReachability: ScenePreparedCallbackPropertyReachability?
+    struct Facts {
+        let transportGeneration: UInt64; let requestID: UUID; let recordID: String?
+        let reachability: ScenePreparedCallbackPropertyReachability
+    }
+    var activeCallbackPropertyFacts: Facts?
+    var requestResourceLifetimes: [UUID: PlaybackResourceLifetime] = [:]
     var pendingRequestID: UUID?
     var activeRequestID: UUID?
     var activeRecordID: String?
@@ -73,6 +89,10 @@ extension Notification.Name {
     var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     func revokeAudioSpectrumDemand(generation: UInt64) {}
+    func revokeSystemMediaDemand(generation: UInt64) {}
+    func resumeDeferredTextureUpdates(recordID: String?, requestID: UUID) {}
+    static func double(_ value: Any?) -> Double? { value as? Double }
+    func send(_ value: [String: Any]) {}
     // 用户纹理重载管线（真实方法体在 +UserTextures.swift）；抽取的
     // handleTermination/finishShutdownIfPossible 路径引用这些入口，保持
     // 无操作即可——本 harness 的断言不依赖纹理完成回调副作用。
@@ -86,7 +106,7 @@ extension Notification.Name {
             '    func hasIntent(', '    func retainResourceLifetime(',
             '    func shutdown(', '    func stop(postsLaunchState:',
         )) + '\n' + '\n'.join(method(events, signature) for signature in (
-            '    private func handleLaunchState(', '    func handleTermination(',
+            '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(',
             '    func finishShutdownIfPossible(',
         )) + r'''
     func startProcess() throws {
@@ -100,11 +120,15 @@ extension Notification.Name {
         transport = process
     }
     func launchPending() {
-        let id = UUID().uuidString
+        let requestID = UUID()
+        pendingRequestID = requestID
+        if let lifetime = pendingResourceLifetime { requestResourceLifetimes[requestID] = lifetime.lifetime }
+        let id = requestID.uuidString
         handleLaunchState(["phase": "accepted", "requestID": id,
             "recordID": pendingIntent!.recordID!, "message": "accepted"])
         handleLaunchState(["phase": "launched", "requestID": id,
             "recordID": pendingIntent!.recordID!, "message": "launched"])
+        handleFirstFrame(["requestID": id, "recordID": pendingIntent!.recordID!, "uptimeMs": 1.0])
     }
 }
 enum ContentType { case scene }

@@ -6,7 +6,7 @@ extension WallpaperEngine {
     func applyPlaybackPaused(_ paused: Bool) {
         guard playbackPaused != paused else { return }
         playbackPaused = paused
-        if currentPlaybackContentKind == .web {
+        if currentWebRequestID != nil {
             dispatchWebRuntimeCommand(paused ? .pause : .resume(playbackRate: targetPlaybackRate))
         }
         // A preparing Web surface may still retain the previous video sessions.

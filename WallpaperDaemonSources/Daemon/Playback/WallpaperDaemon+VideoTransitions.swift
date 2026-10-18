@@ -8,30 +8,29 @@ import UniformTypeIdentifiers
 
 extension WallpaperDaemon {
     func finishVisualSwitch(targetFrame: CGRect, requestID: Int?, videoPath: String?) {
+        guard let preparation = videoPreparation, preparation.isCommitted,
+              preparation.requestID == requestID else { return }
+        let token = preparation.token
         let incomingLayer = inactiveLayer
         let outgoingLayer = activeLayer
         let isFirstPlay = outgoingLayer.opacity == 0
         let timing = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0)
 
-        let previousSlot = activeSlot
         activeSlot = activeSlot == .primary ? .secondary : .primary
+        currentVideoPath = videoPath
+        currentRequestID = requestID
+        window.level = WallpaperDaemon.desktopWindowLevel
+        window.orderFrontRegardless()
 
-        let cleanupOutgoing = { [weak self] in
-            guard let self else { return }
-            switch previousSlot {
-            case .primary:
-                self.primaryPlayer.pause()
-                self.primaryPlayer.removeAllItems()
-            case .secondary:
-                self.secondaryPlayer.pause()
-                self.secondaryPlayer.removeAllItems()
-            }
-            self.clearLooper(for: previousSlot)
+        let cleanupOutgoing: () -> Void = { [weak self] in
+            self?.completeVideoTransition(token: token)
         }
 
         guard !isFirstPlay else {
             currentVideoPath = videoPath
             currentRequestID = requestID
+            window.level = WallpaperDaemon.desktopWindowLevel
+            window.orderFrontRegardless()
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             incomingLayer.opacity = 1
@@ -168,7 +167,8 @@ extension WallpaperDaemon {
         currentRequestID = requestID
         emit(type: "ready", requestID: requestID, message: nil, videoPath: videoPath, contentKind: "video")
         DispatchQueue.main.asyncAfter(deadline: .now() + animDuration) { [weak self] in
-            guard self != nil else { return }
+            guard let self, self.switchToken == token,
+                  self.videoPreparation?.token == token else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             incomingLayer.transform = CATransform3DIdentity
@@ -189,16 +189,21 @@ extension WallpaperDaemon {
         }
     }
 
-    func observePlaybackEnd(for item: AVPlayerItem, requestID: Int?, videoPath: String) {
-        pendingEndObservation = NotificationCenter.default.addObserver(
+    func observePlaybackEnd(for item: AVPlayerItem, requestID: Int?, videoPath: String, slot: Slot? = nil) {
+        let slot = slot ?? activeSlot
+        let observation = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
+            guard let self, self.activeSlot == slot,
+                  self.currentRequestID == requestID,
+                  self.currentVideoPath == videoPath else { return }
             daemonLog("playbackEnded fired for \(videoPath)")
-            self.pendingEndObservation = nil
+            self.clearPlaybackObservers(for: slot)
             self.emit(type: "ended", requestID: requestID, message: nil, videoPath: videoPath, contentKind: "video")
         }
+        if slot == .primary { primaryEndObservation = observation }
+        else { secondaryEndObservation = observation }
     }
 }

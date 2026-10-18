@@ -130,6 +130,21 @@ import Foundation
         if case .success(.cancelLaunch(recordID: "fixture")) = decode([
             "v": 1, "cmd": "cancelLaunch", "recordID": "fixture"
         ]) { cancelValid = true } else { cancelValid = false }
+        let candidateID = UUID()
+        let candidateControlsValid = ["commitCandidate", "finalizeCandidate", "cancelCandidate"].allSatisfy { command in
+            switch decode(["v": 1, "cmd": command, "requestID": candidateID.uuidString]) {
+            case let .success(.commitCandidate(requestID)): return command == "commitCandidate" && requestID == candidateID
+            case let .success(.finalizeCandidate(requestID)): return command == "finalizeCandidate" && requestID == candidateID
+            case let .success(.cancelCandidate(requestID)): return command == "cancelCandidate" && requestID == candidateID
+            default: return false
+            }
+        }
+        let malformedCandidateControlsRejected = ["commitCandidate", "finalizeCandidate", "cancelCandidate"].allSatisfy { command in
+            ["" as Any, "bad", 1, NSNull()].allSatisfy { value in
+                if case .failure(.invalidPayload(command)) = decode(["v": 1, "cmd": command, "requestID": value]) { return true }
+                return false
+            }
+        }
         let displayValid: Bool
         if case let .success(.setDisplayConfiguration(screens)) = decode([
             "v": 1, "cmd": "setDisplayConfiguration", "screens": [[
@@ -271,6 +286,8 @@ import Foundation
             "volumeValid": volumeValid,
             "volumeOutOfRangeRejected": volumeOutOfRangeRejected,
             "cancelValid": cancelValid,
+            "candidateControlsValid": candidateControlsValid,
+            "malformedCandidateControlsRejected": malformedCandidateControlsRejected,
             "displayValid": displayValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,

@@ -99,6 +99,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         }
     }
     var pendingRequestID: UUID?
+    var pendingPresentationRequestID: UUID?
+    var pendingPresentationReachability: ScenePreparedCallbackPropertyReachability?
+    /// Sent launches retain their immutable versions through CPU preparation,
+    /// candidate rollback and GPU drain, independently of mutable UI intent.
+    var requestResourceLifetimes: [UUID: PlaybackResourceLifetime] = [:]
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
     var latestTextureRevisions: [String: UInt64] = [:]
@@ -296,14 +301,37 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     @discardableResult
     func cancelPendingLaunch(recordID: String) -> Bool {
         guard pendingIntent?.recordID == recordID else { return false }
-        if endpointReady {
-            send([
-                "v": SceneDaemonProtocol.version,
-                "cmd": "cancelLaunch",
-                "recordID": recordID
-            ])
-        }
+        cancelPreparationForRuntimeSwitch()
         return true
+    }
+
+    /// New product intent revokes an uncommitted Scene before another engine
+    /// starts preparing. Keep a committed Scene, including its version lease.
+    func cancelPreparationForRuntimeSwitch() {
+        guard let pending = pendingIntent else { return }
+        let requestID = pendingRequestID
+        finishPendingTextureUpdates(.superseded)
+        if activeIntent == nil {
+            // In particular, a hello still queued on stdout must not replay it.
+            stop()
+        } else {
+            pendingIntent = nil
+            pendingResourceLifetime = nil
+            pendingRequestID = nil
+            pendingPresentationRequestID = nil
+            pendingPresentationReachability = nil
+            pendingPropertyRevisions.removeAll(keepingCapacity: true)
+            if endpointReady, let requestID {
+                send(["v": SceneDaemonProtocol.version, "cmd": "cancelCandidate",
+                      "requestID": requestID.uuidString])
+            }
+        }
+        // Before hello no wire UUID exists yet, but the product still needs a
+        // terminal record observation to clear its loading state.
+        let state = SceneWallpaperLaunchState(requestID: requestID ?? UUID(),
+            recordID: pending.recordID, phase: .cancelled, message: "已取消 Scene 壁纸准备")
+        launchState = state
+        NotificationCenter.default.post(name: .sceneWallpaperLaunchStateDidChange, object: state)
     }
 
     func shutdown(postsLaunchState: Bool = false, completion: (() -> Void)? = nil) {
@@ -354,12 +382,15 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         handshakeWorkItem?.cancel()
         handshakeWorkItem = nil
         let resourceLifetimes = [pendingResourceLifetime?.lifetime, activeResourceLifetime?.lifetime]
-            .compactMap { $0 }
+            .compactMap { $0 } + Array(requestResourceLifetimes.values)
+        requestResourceLifetimes.removeAll()
         pendingResourceLifetime = nil
         activeResourceLifetime = nil
         pendingIntent = nil
         activeIntent = nil
         pendingRequestID = nil
+        pendingPresentationRequestID = nil
+        pendingPresentationReachability = nil
         activeRequestID = nil
         activeCallbackPropertyFacts = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
@@ -405,16 +436,22 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     func requestLaunch(_ request: ScenePlaybackLoadRequest) {
+        // retainResourceLifetime already installed this incoming request's token.
+        // Property/texture rebuilds of the active immutable version reuse its
+        // lease; releasing the previous session must not unpin the replacement.
+        let normalizedRoot = request.rootURL.resolvingSymlinksInPath().standardizedFileURL
+        let incomingLifetime = [pendingResourceLifetime, activeResourceLifetime].compactMap { $0 }.first {
+            $0.rootURL == normalizedRoot && $0.recordID == request.recordID
+        }
+        cancelPreparationForRuntimeSwitch()
+        pendingResourceLifetime = incomingLifetime
         finishPendingTextureUpdates(.superseded)
         latestTextureRevisions.removeAll(keepingCapacity: true)
         warmSessionPending = false
-        let normalizedRoot = request.rootURL.resolvingSymlinksInPath().standardizedFileURL
-        if pendingResourceLifetime?.rootURL != normalizedRoot
-            || pendingResourceLifetime?.recordID != request.recordID {
-            pendingResourceLifetime = nil
-        }
         pendingIntent = request
         pendingRequestID = nil
+        pendingPresentationRequestID = nil
+        pendingPresentationReachability = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         lastPropertyRevision = 0
         restartWorkItem?.cancel()
@@ -557,6 +594,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         guard let request = pendingIntent else { return }
         let requestID = UUID()
         pendingRequestID = requestID
+        if let lifetime = pendingResourceLifetime?.lifetime {
+            requestResourceLifetimes[requestID] = lifetime
+        }
         sendDisplayConfiguration()
         var textures: [String: [String: Any]] = [:]
         textures.reserveCapacity(request.userPropertyTextures.count)
@@ -610,38 +650,12 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         }
     }
 
-    func publishAudioSpectrum(
-        left: [Float],
-        right: [Float],
-        left32: [Float],
-        right32: [Float],
-        left64: [Float],
-        right64: [Float],
-        token: SceneAudioSpectrumCaptureToken,
-        generation: UInt64
-    ) {
-        guard generation == sessionGeneration,
-              endpointReady,
-              audioSpectrumDemandGeneration == generation,
-              audioSpectrumDemand.requiresSpectrum,
-              audioSpectrumDemand.scopeEpoch == token.scopeEpoch,
-              audioSpectrumDemand.includesCurrentProcessOutput
-                == token.includesCurrentProcessOutput else { return }
-        guard let data = try? DaemonNewlineJSON.encodeJSONObject([
-            "v": SceneDaemonProtocol.version,
-            "cmd": "publishAudioSpectrum",
-            "left": left,
-            "right": right,
-            "left32": left32,
-            "right32": right32,
-            "left64": left64,
-            "right64": right64,
-            "scopeEpoch": token.scopeEpoch,
-            "includesDaemonProcessOutput": token.includesCurrentProcessOutput
-        ], options: [.sortedKeys]),
-              transport?.sendLatest(data) == true else {
-            return
-        }
+    var spectrumDeliveryTarget: PlaybackSpectrumDelivery.SceneTarget? {
+        guard endpointReady, let transport,
+              audioSpectrumDemandGeneration == sessionGeneration,
+              audioSpectrumDemand.requiresSpectrum else { return nil }
+        return .init(generation: sessionGeneration, demand: audioSpectrumDemand,
+                     transport: transport)
     }
 
 #if DEBUG

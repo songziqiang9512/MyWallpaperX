@@ -27,7 +27,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         window.isOpaque = true
         window.hasShadow = false
         window.hidesOnDeactivate = false
-        window.level = Self.webWindowLevel
+        window.level = surfaceWindowLevel
         window.collectionBehavior = Self.webWindowCollectionBehavior
         let contentView = HostContentView(frame: window.frame)
         contentView.autoresizingMask = [.width, .height]

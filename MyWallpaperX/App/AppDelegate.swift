@@ -135,11 +135,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  guard let self, self.statusBarController == nil else { return }
  self.statusBarController = StatusBarController()
  }
- // daemon 预热（best-effort）：下载完成通知无条件孵化；启动 3 秒的兜底
- // 孵化带使用面守卫——仅 scene/web 运行时或存在工坊回放身份时预热，
- // video/systemStill 用户不再孵化常驻 daemon（两信号 WallpaperManager
- // init 已装载，零额外 IO）。失败静默、不重试、零可见状态。warmSession
- // 自带守卫（已有热 transport / 已有 pending intent 时跳过）。
+ // Best-effort warmup follows the actual engine. Web may hold one empty
+ // renderer for 30s; it never starts Scene just because a Web record exists.
  NotificationCenter.default.addObserver(
      forName: .steamWorkshopSceneDownloadCompleted,
      object: nil,
@@ -147,16 +144,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  ) { _ in
      SceneDaemonClient.shared.warmSession()
  }
+ let warmupIntentEpoch = WallpaperManager.shared.playbackIntentEpoch
  DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-     guard self != nil else { return }
+     guard let self, !self.didPrepareProductTermination else { return }
      let manager = WallpaperManager.shared
+     guard manager.playbackIntentEpoch == warmupIntentEpoch else { return }
      let runtime = manager.activeWallpaperRuntime
-     let hasWorkshopRecord =
-         manager.lastWorkshopPlaybackRecordID.map { !$0.isEmpty } ?? false
-     guard runtime == .scene || runtime == .web || hasWorkshopRecord else {
-         return
+     if runtime == .scene || manager.requestedRuntime == .scene {
+         SceneDaemonClient.shared.warmSession()
      }
-     SceneDaemonClient.shared.warmSession()
+     if SteamWorkshopService.shared.downloads.contains(where: { $0.contentType == .web && $0.status == .ready }) {
+         (WallpaperEngine.shared.dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.prepareIdleProcess()
+     }
  }
  }
 
@@ -243,6 +242,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  pendingInitialWindowOpen?.cancel()
  pendingInitialWindowOpen = nil
  statusBarController = nil
+ // Revoke accepted async work before a Scene drain enters terminateLater.
+ // Engine cleanup alone does not invalidate the selection authority's epoch.
+ let epoch = WallpaperManager.shared.beginPlaybackIntent()
+ WallpaperEngine.shared.adoptIntentEpoch(epoch)
+ SteamWorkshopService.shared.advanceWebLaunchIntentGeneration()
  WallpaperManager.shared.flushPersistentState()
  WallpaperEngine.shared.cleanup()
  }

@@ -50,6 +50,7 @@
       "docs/web/cold-descriptor-parse-offload-design.md",
       "docs/web/cross-origin-reply-delivery-design.md",
       "docs/web/css-animation-freeze-redesign.md",
+      "docs/web/dedicated-host-process-design.md",
       "docs/web/mediaremote-nowplaying-design.md",
       "docs/web/steam-downloads-failed-items-visibility-design.md",
       "docs/web/wallpaper-engine-web-rules.md",
@@ -154,13 +155,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/README.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "264f469c2f77c356bcf6e58a689dfc601bf7ebff3e8569ecd7ac5dc2ed29dcd0",
+        "sourceSHA256": "628532316e427e85e732e506399ec6c4974d7d3cbeee959132bb7862692db45b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "统一三引擎控制面/播放面隔离与后台频谱投递；普通 XPC 不拥有桌面窗口；保留既有渲染 owner，现役证据归 Web 当前状态。",
+        "limitations": "只审本批进程/生命周期边界；不是全作者兼容、发布、系统 Space 零暂停或长稳性能证明。"
       }
     },
     {
@@ -485,13 +486,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8dc256973efcda690a68e0c9889d015f0a6757434033fb77547e6c2b205a7550",
+        "sourceSHA256": "ac8fb88b4bef1f12479f22b92dac3fb90bbd1ddbcc46d8d6cf7b391c42adc527",
         "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
-        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
+        "scope": "Candidate prepared/commit/present/finalize protocol, exact request cancellation and version lifetime routing updated against production owners.",
+        "limitations": "Bounded protocol and navigation review; not full sample compatibility, multi-display runtime acceptance, release or performance proof."
       }
     },
     {
@@ -3407,6 +3408,12 @@
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
+      "path": "docs/web/dedicated-host-process-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/web/README.md",
+      "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。"
+    },
+    {
       "path": "docs/web/mediaremote-nowplaying-design.md",
       "role": "active-plan",
       "entrypoint": "docs/web/README.md",
@@ -3761,7 +3768,8 @@
         "docs/web/web-project-json-runtime-model.md",
         "docs/web/wallpaper-engine-web-rules.md",
         "docs/web/web-project-json-localization.md",
-        "docs/web/web-wallpaper-benchmark-standard.md"
+        "docs/web/web-wallpaper-benchmark-standard.md",
+        "docs/web/dedicated-host-process-design.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopWeb"

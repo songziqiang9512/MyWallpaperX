@@ -37,7 +37,10 @@ final class SceneDesktopWallpaperSession {
     var surfaces: [Int: Surface] = [1: .init(), 2: .init()]
     var preparedSurfaceIDs: Set<Int> = [1, 2]
     var unavailable: Set<SceneDynamicTarget> = []
+    var retired: Set<SceneDynamicTarget> = []
     func unavailableLiveConsumerTargets(in context: SceneDesktopWallpaperLaunchContext) -> Set<SceneDynamicTarget> { unavailable }
+    func retiredPropertyCallbackTargets(in context: SceneDesktopWallpaperLaunchContext,
+        propertyKeys: Set<String>) -> Set<SceneDynamicTarget> { retired }
     __PROJECTION__
 }
 @main enum ProjectionProbe {
@@ -84,6 +87,9 @@ final class SceneDesktopWallpaperSession {
         results["unavailable-owner-withdraws-all-keys"] = session.preparedCallbackPropertyKeys(definitions: definitions).isEmpty
         results["unavailable-update-still-rejected"] = !live.apply(.string("pause"), forPropertyKey: "choice", unavailableConsumerTargets: [target])
         session.unavailable = []
+        session.retired = [target]
+        results["retired-callbacks-not-advertised"] = session.preparedCallbackPropertyKeys(definitions: definitions).isEmpty
+        session.retired = []
         session.surfaces.removeValue(forKey: 2)
         results["partial-surfaces-rejected"] = session.preparedCallbackPropertyKeys(definitions: definitions).isEmpty
         session.surfaces[2] = .init(scriptGeneration: 6)
@@ -124,6 +130,8 @@ enum SceneDaemonProtocol { static let version = 1 }
 enum DaemonNewlineJSON { static func encodeJSONObject(_ value: [String: Any], options: JSONSerialization.WritingOptions) throws -> Data { try JSONSerialization.data(withJSONObject: value, options: options) } }
 struct PlaybackVolumeState { static let shared = Self(); let normalizedVolume = 1.0 }
 struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
+struct SceneFramePresentation {let requestID:UUID;let recordID:String?;let uptimeMicros:UInt64}
+extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notification.Name("first-present")}
 @MainActor final class SceneDaemonClient {
     final class Transport {
         var isRunning = true
@@ -141,6 +149,9 @@ struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var activeResourceLifetime: Lifetime?, pendingResourceLifetime: Lifetime?
     var activeRecordID: String?, activeRequestID: UUID?, pendingRequestID: UUID?
+    var pendingPresentationRequestID:UUID?
+    var pendingPresentationReachability:ScenePreparedCallbackPropertyReachability?
+    var requestResourceLifetimes:[UUID:Int]=[:]
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var handshakeWorkItem: DispatchWorkItem?, restartWorkItem: DispatchWorkItem?
     var latestFrameStats: Int?
@@ -152,14 +163,17 @@ struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
     __ACTIVE_FACT_TYPE__
     __ACTIVE_FACT_PROPERTY__
     func failPendingFrameCaptures() {}; func revokeAudioSpectrumDemand(generation: UInt64) {}
+    func revokeSystemMediaDemand(generation:UInt64) {}
     func finishShutdownIfPossible() {}; func finishPendingTextureUpdates(_ outcome: ScenePlaybackTextureUpdateOutcome) {}
     func fallbackReplayIntent(requestID: UUID) -> ScenePlaybackLoadRequest? { nil }
     func bindDeferredTextureUpdates(recordID: String?, requestID: UUID) {}
+    func resumeDeferredTextureUpdates(recordID:String?,requestID:UUID) {}
     func finishTextureReload(recordID: String?, outcome: ScenePlaybackTextureUpdateOutcome) {}
     func scheduleRestart(reason: String) { restarts += 1 }
     func publishFailure(code: String, message: String) { preconditionFailure(code + message) }
     func sendDisplayConfiguration() {}; func sendSimpleCommand(_ value: String) {}
     func send(_ payload: [String: Any]) { sent.append(payload) }
+    static func double(_ raw:Any?)->Double? {raw as? Double}
     __CLIENT_METHODS__
 }
 @main enum ClientProbe {
@@ -179,6 +193,7 @@ struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
             let id = client.pendingRequestID!
             client.handleLaunchState(try payload(id, "accepted"))
             client.handleLaunchState(try payload(id, "launched"))
+            client.handleFirstFrame(["requestID":id.uuidString,"recordID":"record","uptimeMs":1.0])
             return id
         }
         let first = try launch()
@@ -228,7 +243,9 @@ struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
             && client.pendingRequestID == afterRestart && client.activeCallbackPropertyFacts == nil
         client.handleLaunchState(try payload(afterRestart, "accepted"))
         client.handleLaunchState(try payload(afterRestart, "launched"))
-        results["restart-needs-new-launched"] = client.preparedCallbackPropertyKeys(for: "record", source: source) == ["choice"]
+        results["restart-waits-real-presentation"] = client.preparedCallbackPropertyKeys(for: "record", source: source).isEmpty
+        client.handleFirstFrame(["requestID":afterRestart.uuidString,"recordID":"record","uptimeMs":2.0])
+        results["restart-needs-new-presentation"] = client.preparedCallbackPropertyKeys(for: "record", source: source) == ["choice"]
         client.sessionGeneration += 1
         results["transport-generation-mismatch-rejected"] = client.preparedCallbackPropertyKeys(for: "record", source: source).isEmpty
         print(String(decoding: try JSONSerialization.data(withJSONObject: results), as: UTF8.self))
@@ -259,7 +276,10 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
     def test_prepared_cohort_and_existing_live_authority(self) -> None:
         session = SCENE / 'Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift'
         source = PROJECTION.replace('__PROJECTION__', method_body(session.read_text(), '    func preparedCallbackPropertyKeys('))
-        self.run_probe(source, SWIFT_SOURCES)
+        # The neighbouring gate's retired-callback fixture extends its own
+        # Harness. This probe supplies its own main and only needs product types.
+        self.run_probe(source, [p for p in SWIFT_SOURCES
+            if p.name != 'SceneRetiredCallbackLiveUpdateChecks.swift'])
 
     def test_active_facts_request_source_stop_and_restart(self) -> None:
         client, events = CLIENT.read_text(), EVENTS.read_text()
@@ -271,6 +291,6 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
         methods = [method_body(client, signature) for signature in [
             '    func preparedCallbackPropertyKeys(', '    func stop(postsLaunchState:', '    func replayPendingIntent()']]
         methods += [method_body(events, signature) for signature in [
-            '    private func handleLaunchState(', '    func handleTermination(']]
+            '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(']]
         source = source.replace('__CLIENT_METHODS__', '\n'.join(methods).replace('private ', ''))
         self.run_probe(source, [MODELS, SCENE / 'Systems/Properties/SceneUserProperty.swift'])

@@ -15,6 +15,9 @@ enum MainWindowCoordinator {
     static var wallpaperManager: WallpaperManager = .shared
     static var isSteamDownloadsMode = false
     static var observerTokens: [NSObjectProtocol] = []
+    static var sceneHandoffIntentEpoch: UInt64?
+    static var sceneHandoffRecordID: String?
+    static var sceneHandoffRequestID: UUID?
 
     // MARK: - 当前激活模块
 

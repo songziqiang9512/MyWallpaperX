@@ -112,14 +112,19 @@ extension WallpaperDaemon {
     func waitUntilPlayerReady(_ player: AVQueuePlayer, token: Int, requestID: Int?, videoPath: String, attempt: Int = 0) {
         guard switchToken == token else { return }
 
+        if attempt == 0 {
+            pendingDisplayFallbackWorkItem?.cancel()
+            let timeout = DispatchWorkItem { [weak self] in
+                self?.failVideoItemPreparation(token: token, requestID: requestID,
+                    videoPath: videoPath, message: "video_item_timeout")
+            }
+            pendingDisplayFallbackWorkItem = timeout
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: timeout)
+        }
+
         guard let currentItem = player.currentItem else {
-            if attempt < 20 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
-                    self?.waitUntilPlayerReady(player, token: token, requestID: requestID, videoPath: videoPath, attempt: attempt + 1)
-                }
-            } else {
-                daemonLog("fallback activate without currentItem token=\(token)")
-                activatePreparedPlayer(requestID: requestID, videoPath: videoPath)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+                self?.waitUntilPlayerReady(player, token: token, requestID: requestID, videoPath: videoPath, attempt: attempt + 1)
             }
             return
         }
@@ -129,30 +134,35 @@ extension WallpaperDaemon {
             activatePreparedPlayer(requestID: requestID, videoPath: videoPath)
         case .failed:
             daemonLog("current item failed token=\(token) error=\(currentItem.error?.localizedDescription ?? "unknown")")
-            emit(type: "failed", requestID: requestID, message: "item_failed", videoPath: videoPath, contentKind: "video")
+            failVideoItemPreparation(token: token, requestID: requestID, videoPath: videoPath, message: "item_failed")
         case .unknown:
-            pendingStatusObservation = currentItem.observe(\.status, options: [.new]) { [weak self] item, _ in
-                guard let self else { return }
-                guard self.switchToken == token else { return }
-                switch item.status {
-                case .readyToPlay:
-                    self.pendingStatusObservation = nil
-                    DispatchQueue.main.async {
-                        guard self.switchToken == token else { return }
+            pendingStatusObservation = currentItem.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+                DispatchQueue.main.async {
+                    guard let self, self.switchToken == token,
+                          self.pendingStatusObservation != nil else { return }
+                    switch item.status {
+                    case .readyToPlay:
+                        self.pendingStatusObservation = nil
                         self.activatePreparedPlayer(requestID: requestID, videoPath: videoPath)
+                    case .failed:
+                        self.pendingStatusObservation = nil
+                        daemonLog("observed item failed token=\(token) error=\(item.error?.localizedDescription ?? "unknown")")
+                        self.failVideoItemPreparation(token: token, requestID: requestID, videoPath: videoPath, message: "item_failed")
+                    default:
+                        break
                     }
-                case .failed:
-                    self.pendingStatusObservation = nil
-                    daemonLog("observed item failed token=\(token) error=\(item.error?.localizedDescription ?? "unknown")")
-                    self.emit(type: "failed", requestID: requestID, message: "item_failed", videoPath: videoPath, contentKind: "video")
-                default:
-                    break
                 }
             }
         @unknown default:
             daemonLog("unknown player item status token=\(token)")
-            activatePreparedPlayer(requestID: requestID, videoPath: videoPath)
+            failVideoItemPreparation(token: token, requestID: requestID, videoPath: videoPath, message: "video_item_status_unsupported")
         }
+    }
+
+    private func failVideoItemPreparation(token: Int, requestID: Int?, videoPath: String, message: String) {
+        guard switchToken == token, videoPreparation?.requestID == requestID else { return }
+        cancelVideoPreparation(requestID: requestID)
+        emit(type: "failed", requestID: requestID, message: message, videoPath: videoPath, contentKind: "video")
     }
 
     @objc func handleScreenParametersChanged() {

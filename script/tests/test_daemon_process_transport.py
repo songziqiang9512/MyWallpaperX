@@ -11,9 +11,40 @@ TRANSPORT = ROOT / "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift"
 
 HARNESS = r'''
 import Foundation
+import Darwin
+import CoreFoundation
 
 @main enum Harness {
     static func main() throws {
+        if let mode = ProcessInfo.processInfo.arguments.dropFirst().first {
+            signal(SIGPIPE, SIG_IGN)
+            switch mode {
+            case "--child-final-output":
+                var payload = Data(repeating: 0x64, count: 8 * 1_024 * 1_024 + 128)
+                payload.append(Data("-FINAL\n".utf8))
+                try FileHandle.standardOutput.write(contentsOf: payload)
+                try FileHandle.standardError.write(contentsOf: Data("final-diagnostic\n".utf8))
+                return
+            case "--child-flood-output", "--child-flood-error":
+                let destination = mode == "--child-flood-output"
+                    ? FileHandle.standardOutput : FileHandle.standardError
+                let chunk = Data(repeating: 0x65, count: 256 * 1_024)
+                for _ in 0..<128 { try? destination.write(contentsOf: chunk) }
+                Thread.sleep(forTimeInterval: 5)
+                return
+            case "--child-inherited-pipe":
+                let descendant = Process()
+                descendant.executableURL = URL(fileURLWithPath: "/bin/sleep")
+                descendant.arguments = ["5"]
+                descendant.standardOutput = FileHandle.standardOutput
+                descendant.standardError = FileHandle.standardError
+                try descendant.run()
+                try FileHandle.standardOutput.write(contentsOf: Data("\(descendant.processIdentifier)\n".utf8))
+                return
+            default: preconditionFailure("unknown child mode")
+            }
+        }
+
         var backoff = DaemonRestartBackoff()
         precondition((0..<7).map { _ in backoff.nextDelay() } == [0, 1, 2, 4, 8, 16, 30])
         backoff.reset()
@@ -83,13 +114,99 @@ import Foundation
         try transport.start()
         precondition(transport.send(Data("transport-round-trip\n".utf8)))
         let deadline = Date().addingTimeInterval(3)
-        while received.isEmpty && RunLoop.current.run(mode: .default, before: deadline) {}
+        while received.isEmpty && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
         precondition(String(data: received, encoding: .utf8) == "transport-round-trip\n")
         transport.terminate()
         let terminationDeadline = Date().addingTimeInterval(3)
-        while !didTerminate
-            && RunLoop.current.run(mode: .default, before: terminationDeadline) {}
+        while !didTerminate && Date() < terminationDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
         precondition(didTerminate)
+
+        let ownExecutable = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
+        // Exit can be observed before the final readable notification. All bytes
+        // already written by a normally exiting child must precede termination,
+        // including an entire maximum-size frame buffered while main is blocked.
+        let finalOutput = DaemonProcessTransport(
+            executableURL: ownExecutable, arguments: ["--child-final-output"]
+        )
+        var finalBytes = Data()
+        var finalError = ""
+        var finalTerminated = false
+        var expectedFinal = Data(repeating: 0x64, count: 8 * 1_024 * 1_024 + 128)
+        expectedFinal.append(Data("-FINAL\n".utf8))
+        finalOutput.onOutput = { finalBytes.append($0) }
+        finalOutput.onError = { finalError += $0 }
+        finalOutput.onTermination = { status in
+            precondition(status == 0)
+            precondition(finalBytes == expectedFinal, "exit overtook complete stdout")
+            precondition(finalError == "final-diagnostic\n", "exit overtook stderr")
+            finalTerminated = true
+        }
+        try finalOutput.start()
+        Thread.sleep(forTimeInterval: 0.2)
+        precondition(finalBytes.isEmpty && !finalTerminated)
+        let trackingMode = RunLoop.Mode("MWXTransportTracking")
+        CFRunLoopAddCommonMode(CFRunLoopGetMain(), CFRunLoopMode(rawValue: trackingMode.rawValue as CFString))
+        let trackingTimer = Timer(timeInterval: 0.01, repeats: true) { _ in }
+        RunLoop.current.add(trackingTimer, forMode: trackingMode)
+        let finalDeadline = Date().addingTimeInterval(5)
+        while !finalTerminated && Date() < finalDeadline {
+            RunLoop.current.run(mode: trackingMode, before: Date().addingTimeInterval(0.01))
+        }
+        precondition(finalTerminated, "output callbacks must run in common modes")
+        trackingTimer.invalidate()
+        finalOutput.closeIO()
+
+        // A real producer must be stopped by receive admission while the parent
+        // cannot drain main. The old per-read main.async path kept both children
+        // alive, retaining all 32 MiB in queued closures without reaching a limit.
+        for mode in ["--child-flood-output", "--child-flood-error"] {
+            let flood = DaemonProcessTransport(executableURL: ownExecutable, arguments: [mode])
+            var floodFailure = ""
+            var floodTerminated = false
+            flood.onError = { floodFailure += $0 }
+            flood.onTermination = { _ in
+                precondition(floodFailure.contains("transport-output-limit-exceeded"))
+                floodTerminated = true
+            }
+            try flood.start()
+            let blockedDeadline = Date().addingTimeInterval(2)
+            while flood.isRunning && Date() < blockedDeadline {
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            precondition(!flood.isRunning, "receive limits depended on the blocked parent main loop")
+            precondition(floodFailure.isEmpty && !floodTerminated)
+            let drainDeadline = Date().addingTimeInterval(3)
+            while !floodTerminated && Date() < drainDeadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            }
+            precondition(floodTerminated)
+        }
+
+        let inherited = DaemonProcessTransport(
+            executableURL: ownExecutable, arguments: ["--child-inherited-pipe"]
+        )
+        var inheritedPIDBytes = Data()
+        var inheritedFailure = ""
+        var inheritedTerminated = false
+        inherited.onOutput = { inheritedPIDBytes.append($0) }
+        inherited.onError = { inheritedFailure += $0 }
+        inherited.onTermination = { _ in inheritedTerminated = true }
+        try inherited.start()
+        let inheritedDeadline = Date().addingTimeInterval(3)
+        while !inheritedTerminated && Date() < inheritedDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        guard let leakedPID = Int32(String(decoding: inheritedPIDBytes, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            preconditionFailure("inherited-pipe fixture did not report its exact descendant")
+        }
+        _ = Darwin.kill(leakedPID, SIGTERM)
+        precondition(inheritedTerminated, "a descendant's pipe delayed the exited child's callback")
+        precondition(inheritedFailure.contains("transport-output-eof-timeout"))
 
         let stalled = DaemonProcessTransport(
             executableURL: URL(fileURLWithPath: "/bin/sleep"),
@@ -113,11 +230,9 @@ import Foundation
         precondition(!stalled.sendRequired(boundedControl))
         precondition(Date().timeIntervalSince(terminationStartedAt) < 0.5)
         let stalledTerminationDeadline = Date().addingTimeInterval(3)
-        while !stalledDidTerminate
-            && RunLoop.current.run(
-                mode: .default,
-                before: stalledTerminationDeadline
-            ) {}
+        while !stalledDidTerminate && Date() < stalledTerminationDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
         precondition(stalledDidTerminate)
 
         // Exercise both a queued writer and a write blocked in the pipe while
@@ -143,6 +258,22 @@ import Foundation
             precondition(!racing.isRunning)
             precondition(!racing.sendLatest(droppableFrame))
         }
+        // Cancellation can also race a readable source, not only a blocked
+        // stdin writer. Source-owned duplicate descriptors must never be closed
+        // under an active read and then reused as another transport's pipe.
+        for iteration in 0..<16 {
+            let racing = DaemonProcessTransport(
+                executableURL: URL(fileURLWithPath: "/bin/cat"), arguments: []
+            )
+            try racing.start()
+            precondition(racing.send(Data(repeating: 0x72, count: 256 * 1_024)))
+            Thread.sleep(forTimeInterval: iteration % 2 == 0 ? 0.0001 : 0.001)
+            let closed = DispatchSemaphore(value: 0)
+            DispatchQueue.global().async { racing.terminate(); closed.signal() }
+            precondition(closed.wait(timeout: .now() + 1) == .success)
+            racing.process.waitUntilExit()
+            precondition(!racing.isRunning)
+        }
         print("daemon-process-transport-pass")
     }
 }
@@ -165,7 +296,7 @@ class DaemonProcessTransportTests(unittest.TestCase):
             )
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             completed = subprocess.run(
-                [str(binary)], capture_output=True, text=True, timeout=10
+                [str(binary)], capture_output=True, text=True, timeout=20
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertIn("daemon-process-transport-pass", completed.stdout)

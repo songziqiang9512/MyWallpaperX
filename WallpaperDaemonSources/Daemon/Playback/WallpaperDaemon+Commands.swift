@@ -9,6 +9,9 @@ import UniformTypeIdentifiers
 extension WallpaperDaemon {
     func handle(_ command: DaemonCommand) {
         switch command.action {
+        case "commitVideo": commitVideoPreparation(requestID: command.requestID)
+        case "finalizeVideo": finalizeVideoPreparation(requestID: command.requestID)
+        case "cancelVideoPreparation": cancelVideoPreparation(requestID: command.requestID)
         case "play":
             guard let videoPath = command.videoPath else { return }
             emit(type: "accepted", requestID: command.requestID, message: nil, videoPath: videoPath, contentKind: "video")
@@ -46,9 +49,8 @@ extension WallpaperDaemon {
         case "setVolume":
             if let volume = command.volume {
                 currentVolume = min(max(volume, 0), 1)
-                for player in players {
-                    player.volume = currentVolume
-                }
+                activePlayer.volume = currentVolume
+                inactivePlayer.volume = 0
             }
         case "setPlaybackRate":
             if let playbackRate = command.playbackRate {
@@ -59,6 +61,7 @@ extension WallpaperDaemon {
             }
         case "setFillMode":
             if let fillMode = command.fillMode, fillMode != currentFillMode {
+                videoPreparation?.previousFillMode = fillMode
                 currentFillMode = fillMode
                 animateLayerFrameForFillMode(fillMode)
                 let fallbackGravity: CALayerContentsGravity = fillMode == "aspectFit" ? .resizeAspect : .resizeAspectFill
@@ -73,7 +76,7 @@ extension WallpaperDaemon {
                             object: item,
                             queue: .main
                         ) { [weak self] _ in
-                            guard let self else { return }
+                            guard let self, self.activePlayer.currentItem === item else { return }
                             self.activePlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
                             self.activePlayer.rate = self.playbackRate
                         }
@@ -127,9 +130,9 @@ extension WallpaperDaemon {
 
     func shutdown() {
         pendingStatusObservation = nil
-        pendingEndObservation = nil
+        clearPlaybackObservers(for: .primary)
+        clearPlaybackObservers(for: .secondary)
         pendingDisplayObservation = nil
-        loopEndObservation = nil
         pendingDisplayFallbackWorkItem?.cancel()
         pendingDisplayFallbackWorkItem = nil
         for player in players {
@@ -155,6 +158,24 @@ extension WallpaperDaemon {
 
     var inactivePlayer: AVQueuePlayer {
         activeSlot == .primary ? secondaryPlayer : primaryPlayer
+    }
+
+    var inactiveSlot: Slot { activeSlot == .primary ? .secondary : .primary }
+
+    var pendingEndObservation: NSObjectProtocol? {
+        get { activeSlot == .primary ? primaryEndObservation : secondaryEndObservation }
+        set {
+            if activeSlot == .primary { primaryEndObservation = newValue }
+            else { secondaryEndObservation = newValue }
+        }
+    }
+
+    var loopEndObservation: NSObjectProtocol? {
+        get { activeSlot == .primary ? primaryLoopEndObservation : secondaryLoopEndObservation }
+        set {
+            if activeSlot == .primary { primaryLoopEndObservation = newValue }
+            else { secondaryLoopEndObservation = newValue }
+        }
     }
 
     var activeLayer: AVPlayerLayer {

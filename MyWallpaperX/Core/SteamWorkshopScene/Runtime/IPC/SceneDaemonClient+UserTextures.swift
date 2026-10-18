@@ -224,8 +224,8 @@ extension SceneDaemonClient {
 
     private func restoreFallbackIntent(_ pending: PendingTextureUpdate) {
         guard let base = pending.fallbackBaseIntent else { return }
-        // activeIntent retained the accepted base at .launched. It may
-        // already include independently acknowledged edits; keep those.
+        // activeIntent retains the accepted base until real presentation. It
+        // may already include independently acknowledged edits; keep those.
         if pendingIntent?.recordID == base.recordID {
             pendingIntent = activeIntent?.recordID == base.recordID ? activeIntent : base
         }

@@ -1,6 +1,7 @@
 let webCompatibilityScriptBootstrapFoundation = #"""
   const audioStreams = [];
   const audioListeners = [];
+  const failedAudioListeners = new WeakSet();
   let hasLoggedAudioSpectrumDelivery = false;
   let hasLoggedAudioSpectrumChange = false;
   let firstDeliveredAudioSpectrum = [];

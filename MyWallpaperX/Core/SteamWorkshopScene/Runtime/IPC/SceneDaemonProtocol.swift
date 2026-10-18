@@ -19,6 +19,9 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     )
     case setUserTextures(ScenePlaybackTextureUpdate)
     case cancelLaunch(recordID: String)
+    case commitCandidate(requestID: UUID)
+    case finalizeCandidate(requestID: UUID)
+    case cancelCandidate(requestID: UUID)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
     /// Normalized master volume (0...1) applied after authored/user volume.
@@ -169,6 +172,16 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.cancelLaunch(recordID: recordID))
+        case "commitCandidate", "finalizeCandidate", "cancelCandidate":
+            guard let raw = payload["requestID"] as? String,
+                  let requestID = UUID(uuidString: raw) else {
+                return .failure(.invalidPayload(action))
+            }
+            switch action {
+            case "commitCandidate": return .success(.commitCandidate(requestID: requestID))
+            case "finalizeCandidate": return .success(.finalizeCandidate(requestID: requestID))
+            default: return .success(.cancelCandidate(requestID: requestID))
+            }
         case "setDisplayConfiguration":
             guard let topology = displayConfiguration(payload["screens"]) else {
                 return .failure(.invalidPayload(action))

@@ -16,6 +16,23 @@ final class WallpaperDaemon: NSObject {
         case secondary
     }
 
+    struct VideoPreparation {
+        let token: Int
+        let requestID: Int?
+        let videoPath: String
+        let incomingSlot: Slot
+        let previousSlot: Slot
+        let previousVideoPath: String?
+        let previousRequestID: Int?
+        var previousFillMode: String
+        var targetFrame: CGRect = .zero
+        var isPrepared = false
+        var isSeekingToStart = false
+        var isCommitted = false
+        var isFinalized = false
+        var transitionComplete = false
+    }
+
     let displayID: CGDirectDisplayID
     let window: NSWindow
     let fallbackLayer: CALayer
@@ -28,8 +45,11 @@ final class WallpaperDaemon: NSObject {
     var primaryLooper: AVPlayerLooper?
     var secondaryLooper: AVPlayerLooper?
     var pendingStatusObservation: NSKeyValueObservation?
-    var pendingEndObservation: NSObjectProtocol?
-    var loopEndObservation: NSObjectProtocol?
+    var primaryEndObservation: NSObjectProtocol?
+    var secondaryEndObservation: NSObjectProtocol?
+    var primaryLoopEndObservation: NSObjectProtocol?
+    var secondaryLoopEndObservation: NSObjectProtocol?
+    var videoPreparation: VideoPreparation?
     var pendingDisplayObservation: NSKeyValueObservation?
     var pendingDisplayFallbackWorkItem: DispatchWorkItem?
     var currentVideoPath: String?
@@ -76,7 +96,7 @@ final class WallpaperDaemon: NSObject {
             defer: false,
             screen: screen
         )
-        window.level = WallpaperDaemon.desktopWindowLevel
+        window.level = NSWindow.Level(rawValue: WallpaperDaemon.desktopWindowLevel.rawValue - 2)
         window.backgroundColor = .black
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true

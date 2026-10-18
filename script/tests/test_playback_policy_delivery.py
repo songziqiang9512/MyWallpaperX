@@ -22,11 +22,18 @@ final class WallpaperEngine {
     struct RunningProcess { var isRunning = true }
     final class DisplayDaemonSession {
         var process = RunningProcess()
-        var nextRequestID = 0, latestRequestedPlayRequestID = 0
+        var nextRequestID = 0
+        var latestRequestedPlayRequestID: Int?
+        var latestPreparedPlayRequestID: Int?
+        var latestCommittedPlayRequestID: Int?
+        var latestReadyPlayRequestID: Int?
         var commands: [DaemonCommand] = []
     }
     var playbackPaused = false
     var currentPlaybackContentKind: ContentKind = .video
+    var currentWebRequestID: UUID?
+    struct SpectrumDelivery { var currentOverlayLevels: [Float] = [] }
+    var spectrumDelivery = SpectrumDelivery()
     var targetPlaybackRate: Float = 1.5
     var displaySessions: [Int: DisplayDaemonSession] = [:]
     var webCommands: [WebWallpaperRuntimeCommand] = []
@@ -57,6 +64,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var isPlaying: Bool { activeIntent != nil && !isPaused }
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var pendingRequestID: UUID?
+    struct Lifetime { let lifetime: Int }
+    var pendingResourceLifetime: Lifetime?
+    var requestResourceLifetimes: [UUID: Int] = [:]
     var performanceProfile = PlaybackPerformanceProfile()
     var commands: [[String: Any]] = []
     func send(_ command: [String: Any]) { commands.append(command) }
@@ -91,11 +101,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.last?["cmd"] as? String == "pause")
         // Web preparing alongside retained Video must pause/resume both surfaces.
         engine.currentPlaybackContentKind = .web
+        engine.currentWebRequestID = UUID()
         mux.dispatch(.resume)
         precondition(session.commands.last?.action == "resume")
         precondition(scene.commands.last?["cmd"] as? String == "resume")
         guard case let .resume(rate) = engine.webCommands.last else { fatalError("missing Web resume") }
         precondition(rate == 1.5)
+        engine.currentPlaybackContentKind = .video // retained Web during Video preparation
         mux.setSystemPaused(true)
         precondition(session.commands.last?.action == "pause")
         precondition(scene.commands.last?["cmd"] as? String == "pause")

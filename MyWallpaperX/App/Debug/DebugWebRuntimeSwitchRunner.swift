@@ -156,7 +156,6 @@ enum DebugWebRuntimeSwitchRunner {
         settings.pauseWhenUnplugged = false
         settings.pauseWhenIdle = false
         PlaybackPolicyController.shared.updateSettings(settings)
-        postWallpaperRuntimeWillSwitch(to: .video)
         engine.setWallpaper(
             VideoWallpaper(title: title, path: url.path),
             multiDisplayEnabled: false,
@@ -228,7 +227,7 @@ enum DebugWebRuntimeSwitchRunner {
 
     private static func logCheckpoint(_ checkpoint: String) {
         let engine = WallpaperEngine.shared
-        let host = engine.dedicatedWebHostAdapter as? DedicatedWebWallpaperHostPlaceholderAdapter
+        let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter
         let sessions = engine.displaySessions.values
             .sorted { $0.displayID < $1.displayID }
             .map { session -> [String: Any] in
@@ -262,16 +261,16 @@ enum DebugWebRuntimeSwitchRunner {
             "video2Alive": video2PIDs.filter(processIsAlive),
             "video2Pids": video2PIDs,
             "web": [
-                "currentRequest": host?.currentRequest == nil ? 0 : 1,
-                "loopbacks": host?.loopbackServers.count ?? 0,
-                "monitors": (host?.localMouseMonitor == nil ? 0 : 1)
-                    + (host?.globalMouseMonitor == nil ? 0 : 1),
-                "observers": host?.lifecycleObservers.count ?? 0,
-                "phase": host?.phase.rawValue ?? "unavailable",
-                "pointerTimer": host?.pointerPollingTimer == nil ? 0 : 1,
-                "surfaces": host?.surfaces.count ?? 0,
-                "watchTimer": host?.directoryWatchTimer == nil ? 0 : 1,
-                "watchers": host?.directoryWatchersByProperty.count ?? 0
+                "processPids": host?.liveProcessIdentifiers ?? [],
+                "currentRequest": host?.observation?.currentRequest ?? 0,
+                "loopbacks": host?.observation?.loopbacks ?? 0,
+                "monitors": host?.observation?.monitors ?? 0,
+                "observers": host?.observation?.observers ?? 0,
+                "phase": host?.observation?.phase ?? (host?.liveProcessIdentifiers.isEmpty == false ? "launching" : "idle"),
+                "pointerTimer": host?.observation?.pointerTimer ?? 0,
+                "surfaces": host?.observation?.surfaces ?? 0,
+                "watchTimer": host?.observation?.watchTimer ?? 0,
+                "watchers": host?.observation?.watchers ?? 0
             ]
         ]
         guard JSONSerialization.isValidJSONObject(payload),
@@ -300,14 +299,10 @@ enum DebugWebRuntimeSwitchRunner {
     }
 
     private static func webHostIsIdle(_ engine: WallpaperEngine) -> Bool {
-        guard let host = engine.dedicatedWebHostAdapter as? DedicatedWebWallpaperHostPlaceholderAdapter else {
+        guard let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
             return false
         }
-        return host.phase == .idle
-            && host.currentRequest == nil
-            && host.surfaces.isEmpty
-            && host.loopbackServers.isEmpty
-            && host.lifecycleObservers.isEmpty
+        return host.activeRequest == nil && host.liveProcessIdentifiers.isEmpty
     }
 }
 #endif

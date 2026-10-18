@@ -147,6 +147,12 @@ final class SystemAudioSpectrumService: NSObject {
         }
     }
 
+#if DEBUG
+    var debugHasCaptureResources: Bool {
+        sampleQueue.sync { hasCaptureResources }
+    }
+#endif
+
     func updateConfiguration(
         style: SystemAudioSpectrumStyle,
         sensitivity: SystemAudioSpectrumSensitivity,

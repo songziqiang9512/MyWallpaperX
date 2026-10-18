@@ -232,6 +232,9 @@ def validate_checkpoint_schema(
     if not isinstance(web, dict):
         failures.append(f"checkpoint {name} has invalid or missing web state")
         return
+    if "processPids" in web and (not isinstance(web["processPids"], list)
+            or any(type(pid) is not int or pid <= 0 for pid in web["processPids"])):
+        failures.append(f"checkpoint {name} has invalid web process identities")
     if not isinstance(web.get("phase"), str):
         failures.append(f"checkpoint {name} has invalid or missing web phase")
     for field in ZERO_WEB_FIELDS:
@@ -375,13 +378,15 @@ def score_log(
             switch_failures.append("Video1 PID snapshot did not match its daemon session")
 
     web = states.get("web-requested")
+    remote_web = bool(web and isinstance(web.get("web", {}).get("processPids"), list))
+    retained_video = bool(remote_web and web.get("sessions"))
     if web is not None:
         web_details = web.get("web") if isinstance(web.get("web"), dict) else {}
-        if web.get("kind") != "web" or web.get("sessions") != []:
+        if web.get("kind") != "web" or (web.get("sessions") != [] and not retained_video):
             switch_failures.append("Web request did not replace the Video1 engine/session state")
         if web_details.get("phase") not in ("launching", "ready"):
             switch_failures.append("Web host did not enter launching or ready phase")
-        if web_details.get("surfaces") != 1 or web_details.get("currentRequest") != 1:
+        if not remote_web and (web_details.get("surfaces") != 1 or web_details.get("currentRequest") != 1):
             switch_failures.append("Web request did not create exactly one owned surface")
 
     video2_requested = states.get("video2-requested")
@@ -392,7 +397,7 @@ def score_log(
         if video2_requested
         else None
     )
-    if video2_requested is not None and not web_state_is_zero(video2_requested):
+    if not remote_web and video2_requested is not None and not web_state_is_zero(video2_requested):
         switch_failures.append("Web resources were not zero immediately after the Video2 request")
 
     stable = states.get("video2-stable")
@@ -406,7 +411,7 @@ def score_log(
             switch_failures.append("Video2 was not playing at the stable checkpoint")
         if not web_state_is_zero(stable):
             switch_failures.append("Web resources were not zero at the Video2 stable checkpoint")
-        if stable.get("video1Alive") != []:
+        if not retained_video and stable.get("video1Alive") != []:
             switch_failures.append("a Video1 daemon PID remained alive after Video2 became stable")
     if requested_session and stable_session:
         requested_pid = requested_session.get("pid")
@@ -414,7 +419,7 @@ def score_log(
         video1_pid = video1_session.get("pid") if video1_session else None
         if requested_pid != stable_pid:
             switch_failures.append("Video2 daemon PID changed before reaching stable playback")
-        if requested_pid == video1_pid:
+        if not retained_video and requested_pid == video1_pid:
             switch_failures.append("Video2 reused the terminated Video1 daemon PID")
         request_id = stable_session.get("requested")
         if (
@@ -438,7 +443,7 @@ def score_log(
         if (
             stale_filtered.get("kind") != "video"
             or stale_filtered.get("path") != "Video3.mp4"
-            or not web_state_is_zero(stale_filtered)
+            or (not remote_web and not web_state_is_zero(stale_filtered))
         ):
             ownership_failures.append("stale reader check did not preserve Video2 ownership")
 
@@ -548,14 +553,24 @@ def score_log(
     loopback_stops = sum(
         entry[1]["type"] == "loopback.stopped" for entry in diagnostic_entries
     )
-    if len(profile_entries) != 1:
+    if not remote_web and len(profile_entries) != 1:
         switch_failures.append("Web request did not emit exactly one runtime.profile before Video2")
-    if len(stop_entries) != 1 or not all(
+    if not remote_web and (len(stop_entries) != 1 or not all(
         token in stop_entries[0][1]["message"] for token in FINAL_STOP_TOKENS
-    ):
+    )):
         switch_failures.append("Video2 did not stop Web with one idle zero-resource lifecycle event")
-    if not release_entries:
+    if not remote_web and not release_entries:
         switch_failures.append("the replaced Web surface was not released before Video2 stabilized")
+    if remote_web:
+        preparing_pids = web.get("web", {}).get("processPids", [])
+        if not preparing_pids or any(type(pid) is not int or pid <= 0 for pid in preparing_pids):
+            switch_failures.append("Web candidate did not own an identifiable child process")
+        if retained_video and (not video1_session or not single_session(web)
+                or single_session(web).get("pid") != video1_session.get("pid")):
+            switch_failures.append("Web preparation did not retain exactly the previous Video session")
+        for label in ("video2-stable", "video2-recovered", "stopped", "post-stop"):
+            if states.get(label, {}).get("web", {}).get("processPids"):
+                switch_failures.append(f"Web process survived {label}")
     if retained_entries:
         switch_failures.append(f"{len(retained_entries)} Web surface(s) remained retained")
     if ready_after_video2:

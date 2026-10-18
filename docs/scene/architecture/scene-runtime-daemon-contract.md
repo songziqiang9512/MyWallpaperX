@@ -4,7 +4,7 @@
 
 > 状态：现役进程设计契约；实际接线查[代码地图](runtime-as-built-map.md)，后续专项顺序归[性能卡](../roadmap/performance-convergence-card.md)，工程边界查[顶层设计](../roadmap/engine-refactor-program.md)。
 >
-> 复核：2026-09-14
+> 复核：2026-10-18（候选提交、撤销与版本租约协议；不代表全样本或性能验收）
 >
 > 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
 >
@@ -14,7 +14,7 @@
 
 ## 1. 目标与非目标
 
-**目标**：Scene 播放引擎运行在独立 daemon 进程（与 video/web 的 `MyWallpaperXWallpaperDaemon` 同模式）；主程序只做 UI/选择/设置/命令下发；崩溃/堆/QuickJS/编译器故障与主程序隔离；UI 永不掉帧。
+**目标**：Scene 播放引擎运行在独立 daemon 进程（与 Video/Web 共享控制／播放隔离边界，各自保留现役执行端）；主程序只做 UI/选择/设置/命令下发；崩溃/堆/QuickJS/编译器故障与主程序隔离。UI 响应、首帧与播放连续性分别验证。
 
 **非目标（如实）**：不承诺总 CPU/GPU 下降；不改变引擎内部架构（唯一权威五件套、PreparedProduct 协议、失效域合同原样保留）；不在进程间传输任何 Metal 对象。
 
@@ -43,10 +43,11 @@
 
 | 命令 | 载荷 | 语义 |
 |---|---|---|
-| `loadScene` | `{rootURL, propertyOverrides, userPropertyTextures:{path,bookmark}, profile, recordID, requiredUserTextureKeys?}` | newer-wins 世代接受；外部纹理书签在后台准备范围内持有。仅纹理回退候选携带 requiredUserTextureKeys：指定 key 全用途 ready/reset absent 才准入，失败留旧Scene；该约束接受后清除，不进长期重放 |
+| `loadScene` | `{rootURL, propertyOverrides, userPropertyTextures:{path,bookmark}, profile, recordID, requestID?, requiredUserTextureKeys?}` | 产品请求带 UUID，newer-wins；外部纹理书签在准备期间持有。仅纹理回退携带 requiredUserTextureKeys，指定 key 全用途 ready/reset absent 才准入，约束接受后清除，不进长期重放 |
 | `setProperty` | `{values, revision, recordID}` | 先尝试活动记录的 typed 热更新；daemon 回传接受结果，拒绝时 client 用合并后的 authored intent 走完整 load 兜底 |
 | `setUserTextures` | `{references, resetKeys, values, revision, recordID}` | 单 key selected/reset 事务；后台准备全部用途，成功回执后保存。坏图不重载；同记录 pending launch 等匹配 requestID 首次呈现后再提交。真正非实时绑定才带 requiredUserTextureKeys 走候选；其 accepted replay 保留旧值直到该候选首次呈现。停止、切记录及 transport 退出结清等待者 |
 | `cancelLaunch` | `{recordID}` | 只取消匹配记录的在途 launch |
+| `commitCandidate` / `finalizeCandidate` / `cancelCandidate` | `{requestID}` | 精确 UUID 授权提交、实际呈现后的确认或撤销；确认前保留旧 Scene 可回滚，迟到请求不能操作新候选 |
 | `setDisplayConfiguration` | `{screens:[{id, frame, scale}]}` | 多屏拓扑重建 |
 | `setPerformanceProfile` | `{maxFPS}` | 60/30 档热切换（下一次排帧生效） |
 | `setMuted` | `{muted}` | 静音公共态（Scene Sound 层 0 增益） |
@@ -59,7 +60,9 @@
 | 事件 | 载荷 | 时机 |
 |---|---|---|
 | `launchStateChanged` | `{phase, message, requestID, recordID}` | 五阶段状态机（accepted/preparingModel/preparingPrograms/preparingResources/preparingSurfaces/launched/failed/cancelled） |
+| `candidatePrepared` | `{requestID}` | 当前全部候选 surface 的首帧 GPU 完成，等待父端授权；不等于可见输出 |
 | `firstFramePresented` | `{requestID, recordID, uptimeMs}` | 同请求 drawable 的实际 present 后 |
+| `launchResourcesReleased` | `{requestID}` | 对应 CPU preparation 与 GPU session 均结束，可释放请求版本租约；transport 退出也结清租约 |
 | `textureUpdateResult` | `{recordID, revision, outcome, message?}` | outcome 为 applied/failed/superseded/unavailable；按 transport generation、记录和 revision 接纳。applied 为 CPU 资源/属性采用完成，不等于所有屏同时呈现 |
 | `frameStats` | `{rendered,busy,dropped,drawCalls,pipelineStateBinds,geometryDrawCalls,fallbackBranches,gpuAllocatedBytes,renderTargetPoolBytes,cpuFrameMs?}` | 1Hz；前七项为 daemon 进程累计 counter，后两项为当前 gauge。`gpuAllocatedBytes` 是 Metal device 的进程总分配量；`renderTargetPoolBytes` 是已跟踪有界 RT 池预算和，不含 drawable |
 | `propertyUpdateResult` | `{revision, recordID, accepted}` | 热更新尝试完成；client 只消费自己登记的 revision/recordID |
@@ -77,7 +80,7 @@
 - **孵化**：主程序 `SceneDaemonClient` 经公共 `DaemonProcessTransport` 启动自身可执行文件并传 `--mwx-scene-daemon`，三根管道；单实例使用既有 Host 多表面模型。不得启动不存在的 Scene tool。
 - **崩溃/断连**：主程序侧持有公共 `DaemonRestartBackoff`（0s 立即一次，随后 1/2/4/8/16s，单次连续故障最多 6 次；通用上限 30s），重启后自动重放当前 authored intent；只有恢复请求的实际 first-present 才清零退避。连续失败超阈值 → 停止重试 + UI 错误态。
 - **有序退出**：`shutdown` → daemon 排空在飞 command buffer → `exited` → 进程退出；client 超时 2s 强杀。
-- **世代语义**：`loadScene` 世代号新者胜——旧准备的取消/回滚全部在 daemon 内完成，主程序无感知（只看到新 launchState 事件流）。
+- **世代语义**：产品候选经 prepared → commit → 实际 first-present → finalize。父端在接受新意图时立即撤销 pending 身份，daemon 按 UUID 取消或回滚；旧 active 在确认前保持可恢复，暂停隐藏的 standby 至多一个。commit 后 5s 没有实际 presented 则回滚并报失败；同请求的 daemon 本地 presented 只撤计时，父 finalize 才退休旧输出，父 UI 阻塞不误判呈现超时。稳态帧不依赖父端心跳。请求版本租约保持到释放确认或进程真实退出。
 
 ## 5. 线程约束审计结论（M5.1 审计；细节查事实架构地图 §1.3/§4）
 

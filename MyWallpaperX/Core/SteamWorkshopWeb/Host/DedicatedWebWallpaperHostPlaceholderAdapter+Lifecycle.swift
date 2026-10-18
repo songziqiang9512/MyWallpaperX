@@ -57,6 +57,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         stopAllDirectoryWatchers()
         stopDirectoryWatchTimer()
         eventHandler?(.accepted(requestID: request.id))
+        // A scheme-handler 404 may finish as an HTML error document. It must
+        // never count as a prepared wallpaper and replace the previous output.
+        guard request.entryURL.isFileURL,
+              FileManager.default.isReadableFile(atPath: request.entryURL.path),
+              (try? request.entryURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
+            failCurrentLaunch(message: "Web 壁纸入口不存在或无法读取")
+            return
+        }
+
 
         let targetScreens = targetScreens(for: request)
         guard !targetScreens.isEmpty else {
@@ -125,6 +134,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func reconcileDisplaySurfaces(for request: WallpaperEngine.WebWallpaperLaunchRequest) {
+        defer { presentationInvalidationHandler?() }
         let screens = targetScreens(for: request)
         guard !screens.isEmpty else {
             failCurrentLaunch(message: "dedicated_web_host_no_screens")
@@ -212,7 +222,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         surface.schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request.propertiesJSON))
         surface.window.setFrame(screen.frame, display: true)
         surface.window.collectionBehavior = Self.webWindowCollectionBehavior
-        surface.window.level = Self.webWindowLevel
+        surface.window.level = surfaceWindowLevel
         surface.window.orderFrontRegardless()
         applyGeneralProperties(to: surface.webView)
     }

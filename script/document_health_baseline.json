@@ -10,19 +10,19 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 32,
-      "bytes": 6098
+      "bytes": 6253
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 76,
       "bytes": 15090
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 32,
-      "bytes": 3679
+      "lines": 34,
+      "bytes": 4438
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 257,
-      "bytes": 25725
+      "bytes": 26072
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -69,8 +69,8 @@
       "bytes": 19022
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 124,
-      "bytes": 16182
+      "lines": 127,
+      "bytes": 17191
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 137,
@@ -257,12 +257,12 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 122,
-      "bytes": 47339
+      "lines": 133,
+      "bytes": 50160
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 68,
-      "bytes": 10537
+      "bytes": 10634
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -283,6 +283,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
+    },
+    "docs/web/dedicated-host-process-design.md": {
+      "lines": 72,
+      "bytes": 13368
     }
   },
   "archives": [
@@ -1199,42 +1203,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
-      "owner": "shared-playback-audio",
-      "reason": "Retire peak-adaptive response after user visual rejection; document one fixed-decibel final-height chain, real-music comparison and motion acceptance; tighten this design body budget.",
-      "decision": "docs/architecture/system-audio-spectrum-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "432bfa38ca1caa2191e891234238de59b45298b8f327901bf3575aa07eeb314a",
-      "after": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
-      "owner": "shared-system-media",
-      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
-      "decision": "docs/web/mediaremote-nowplaying-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "f31845c3fb7cdf1b543f1473342017703a544593109902f6b97c9bcf1dcb4d7a",
-      "after": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
-      "owner": "shared-system-media",
-      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
-      "decision": "docs/web/mediaremote-nowplaying-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/mediaremote-nowplaying-design.md",
-      "before": "13555099683fe6d2336f49c33e7922fd2b680ff85ce02bf9ca6f3094c006a722",
-      "after": "08cf28e0d080e8da34be5ee4605b25eeb2cad7a031ddf33caa31067be3d632c9",
-      "owner": "shared-system-media",
-      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
-      "decision": "docs/web/mediaremote-nowplaying-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "065ba0929c0325aa2136cb2237d5af114ef95ca0a06ec701e7367811c1c5304f",
       "after": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
@@ -1376,6 +1344,69 @@
       "owner": "scene-script-module-initialization",
       "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "1919d78624fcce550f95ae3fa3f2e6baae980bacb24752c46dde71582026397b",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
+      "after": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "ba100120dba89209bfe6e4b74b69947aa76819704ff4f69f4a040c47e37c77c5",
+      "after": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
+      "after": "1fe0d24c627dd3495ed737dc20e76cbc5d70092a8e6d3d555dcb065b1b7f1df9",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "before": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
+      "after": "f5bdb1c83f171f85ad93497139cf6671628ec2b09fbce6f23278803d3c1512b9",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "08cf28e0d080e8da34be5ee4605b25eeb2cad7a031ddf33caa31067be3d632c9",
+      "after": "67729105c7845a6e23aa9895ab56afc65dce9fb359ce974702dc9c23c0cbbe99",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "f4b7c4eefa670b0002a78707c2a49836b16a74fbdb8ea483e4ec7104fc3016ec",
+      "after": "fe903875d18c039637a85ed73fdcc47bcf04b607ebb932e4fe5eb0c19a17ca90",
+      "owner": "playback-process-isolation",
+      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
+      "decision": "docs/web/dedicated-host-process-design.md"
     }
   ]
 }

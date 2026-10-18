@@ -20,11 +20,10 @@ enum DebugWebNavigationIdentityProbe {
 
     static func run(
         host: DedicatedWebWallpaperHostPlaceholderAdapter,
-        engine: WallpaperEngine,
+        isCurrentRequest: () -> Bool,
         requestID: UUID,
         staleNavigation: WKNavigation,
         staleWebView: WKWebView,
-        expectedPath: String,
         baselineSurfaceCount: Int,
         failureCount: () -> Int
     ) -> Result? {
@@ -42,9 +41,8 @@ enum DebugWebNavigationIdentityProbe {
         )
         let staleSurfaceNavigationIgnored = ownsCurrentRequest(
             host: host,
-            engine: engine,
+            isCurrentRequest: isCurrentRequest,
             requestID: requestID,
-            expectedPath: expectedPath,
             baselineSurfaceCount: baselineSurfaceCount,
             navigation: currentNavigation,
             surface: surface,
@@ -70,9 +68,8 @@ enum DebugWebNavigationIdentityProbe {
         )
         let staleRecoveryNavigationIgnored = ownsCurrentRequest(
             host: host,
-            engine: engine,
+            isCurrentRequest: isCurrentRequest,
             requestID: requestID,
-            expectedPath: expectedPath,
             baselineSurfaceCount: baselineSurfaceCount,
             navigation: recoveryNavigation,
             surface: surface,
@@ -85,9 +82,8 @@ enum DebugWebNavigationIdentityProbe {
         host.webView(surface.webView, didFinish: recoveryNavigation)
         let currentRecoveryNavigationFinished = ownsCurrentRequest(
             host: host,
-            engine: engine,
+            isCurrentRequest: isCurrentRequest,
             requestID: requestID,
-            expectedPath: expectedPath,
             baselineSurfaceCount: baselineSurfaceCount,
             navigation: recoveryNavigation,
             surface: surface,
@@ -108,9 +104,8 @@ enum DebugWebNavigationIdentityProbe {
         let pageNavigationFinished = pageNavigationStarted
             && ownsCurrentRequest(
                 host: host,
-                engine: engine,
+                isCurrentRequest: isCurrentRequest,
                 requestID: requestID,
-                expectedPath: expectedPath,
                 baselineSurfaceCount: baselineSurfaceCount,
                 navigation: pageNavigation,
                 surface: surface,
@@ -141,17 +136,14 @@ enum DebugWebNavigationIdentityProbe {
 
     private static func ownsCurrentRequest(
         host: DedicatedWebWallpaperHostPlaceholderAdapter,
-        engine: WallpaperEngine,
+        isCurrentRequest: () -> Bool,
         requestID: UUID,
-        expectedPath: String,
         baselineSurfaceCount: Int,
         navigation: WKNavigation,
         surface: DedicatedWebWallpaperHostPlaceholderAdapter.HostSurface,
         failureCount: () -> Int
     ) -> Bool {
-        engine.currentWebRequestID == requestID
-            && engine.currentContentPath == expectedPath
-            && engine.currentPlaybackContentKind == .web
+        isCurrentRequest()
             && host.currentRequest?.id == requestID
             && host.phase == .ready
             && host.surfaces.count == baselineSurfaceCount

@@ -76,6 +76,7 @@ final class SceneDesktopWallpaperSession {
     var nextSoundPlaybackEpoch: UInt64 = 0
     var firstFramePresentationRegistration:
         SceneFirstFramePresentationRegistration?
+    var launchRequestID: UUID?
     var nextDeferredPropertyGeneration: UInt64 = 0
     var pendingDeferredLayerVisibilityUpdate:
         PendingDeferredLayerVisibilityUpdate?
@@ -223,6 +224,16 @@ final class SceneDesktopWallpaperSession {
         // Present it once visibly without rerunning its simulation.
         surfaces.values.forEach { $0.didSubmitSimulationFrame = false }
         if sceneClock.isPaused { startFrameDriver() }
+    }
+
+    /// Keep the previous frame/resources available until the parent accepts the
+    /// replacement's real presentation. A revoked candidate can restore it.
+    func suspendPresentationForHandoff() {
+        isVisible = false
+        surfaces.values.forEach { $0.window.alphaValue = 0 }
+        soundPlaybackRegistry?.setMuted(true)
+        setPlaybackPaused(true)
+        removePointerEventMonitors()
     }
 
 

@@ -29,7 +29,7 @@ nonisolated struct DaemonNewlineFrameBuffer {
 
 /// The shared wire framing for daemon commands and events. Protocol payload
 /// types remain owned by their video or Scene endpoint.
-enum DaemonNewlineJSON {
+nonisolated enum DaemonNewlineJSON {
     static func encode<Value: Encodable>(_ value: Value) throws -> Data {
         framed(try JSONEncoder().encode(value))
     }

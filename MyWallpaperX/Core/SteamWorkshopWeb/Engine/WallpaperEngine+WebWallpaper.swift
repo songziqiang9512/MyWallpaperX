@@ -3,11 +3,13 @@
 //  MyWallpaperX
 //
 
+import AppKit
 import Foundation
 import QuartzCore
 
 extension WallpaperEngine {
     func setWebWallpaper(
+        requestID: UUID = UUID(),
         entryURL: URL,
         rootURL: URL,
         propertiesJSON: String?,
@@ -17,14 +19,12 @@ extension WallpaperEngine {
         multiDisplayEnabled: Bool,
         resourceLifetime: PlaybackResourceLifetime? = nil
     ) {
-        postWallpaperRuntimeWillSwitch(to: .web, recordID: recordID)
-        currentWebPropertiesJSON = propertiesJSON ?? "{}"
-        currentWebRecordID = recordID
         launchWebWallpaper(
             WebWallpaperLaunchRequest(
+                id: requestID,
                 entryURL: entryURL,
                 rootURL: rootURL,
-                propertiesJSON: currentWebPropertiesJSON,
+                propertiesJSON: propertiesJSON ?? "{}",
                 source: .steamWorkshop,
                 recordID: recordID,
                 language: language,
@@ -57,10 +57,11 @@ extension WallpaperEngine {
     }
 
     func launchWebWallpaper(_ request: WebWallpaperLaunchRequest) {
+        cancelPreparationRetainingActivePlayback(preservingPreparedRequestID: request.id)
         beginPlaybackIntent()
-        if currentPlaybackContentKind == .web {
-            setWebAudioSpectrumRequested(false)
-        }
+        pendingWebRetirementOnVideoReady = false
+        // The adapter aggregates demand from the retained active process and
+        // its candidate. Preparing another page must not interrupt that tap.
         PlaybackPolicyController.shared.refresh()
         let runtimeState = webWallpaperRuntimeState()
         // E2a-4 保留块必须在 web 请求值写入前快照真值：video 仍在播放时的
@@ -106,7 +107,11 @@ extension WallpaperEngine {
             guard currentWebRequestID == requestID else { return }
             break
         case let .ready(requestID):
-            guard currentWebRequestID == requestID else { return }
+            guard currentPlaybackContentKind == .web, currentWebRequestID == requestID,
+                  runtimeCommitAdmission?(.web) != false else { return }
+            postWallpaperRuntimeWillSwitch(to: .web, recordID: currentWebRecordID)
+            NotificationCenter.default.post(name: Self.webPlaybackReadyNotification,
+                object: self, userInfo: ["requestID": requestID])
             lastFailureVideoPath = nil
             lastFailureAt = 0
             // E2a-4: web 已就绪——现在退场被保留的 video runtime（提交点）。
@@ -116,6 +121,7 @@ extension WallpaperEngine {
             // 与 web→web 提交路径不对称。
             if pendingVideoRetirementOnWebReady {
                 pendingVideoRetirementOnWebReady = false
+                activeVideoPlayback = nil
                 for displayID in Array(displaySessions.keys) {
                     terminateSession(for: displayID)
                 }
@@ -137,7 +143,9 @@ extension WallpaperEngine {
             let failedRecordID = currentWebRecordID
             let failedPath = currentContentPath
             beginPlaybackIntent()
-            setWebAudioSpectrumRequested(false)
+            if (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.activeRequest == nil {
+                setWebAudioSpectrumRequested(false)
+            }
             lastFailureVideoPath = failedPath
             lastFailureAt = CACurrentMediaTime()
             // E2a-4: web 准备失败——被保留的 video runtime 原样恢复，
@@ -153,14 +161,21 @@ extension WallpaperEngine {
                 retainedVideoWallpaper = nil
                 retainedVideoContentPath = nil
                 retainedVideoMultiDisplayEnabled = nil
+                // The retained helper may have exited while Web prepared.
+                // Use the same exact cancellation/recovery owner as a revoke.
+                cancelVideoPreparationRetainingActivePlayback()
+            } else if let retained = (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.activeRequest {
+                restoreActiveWebRequest(retained)
             } else {
                 currentWallpaper = nil
                 currentContentPath = nil
                 currentPlaybackContentKind = nil
             }
-            currentWebPropertiesJSON = nil
-            currentWebRecordID = nil
-            currentWebRequestID = nil
+            if currentPlaybackContentKind != .web {
+                currentWebPropertiesJSON = nil
+                currentWebRecordID = nil
+                currentWebRequestID = nil
+            }
             NotificationCenter.default.post(
                 name: Self.playbackFailedNotification,
                 object: nil,
@@ -176,6 +191,57 @@ extension WallpaperEngine {
             guard currentWebRequestID == requestID else { return }
             setWebAudioSpectrumRequested(false)
         }
+    }
+
+    func captureWebWallpaperFrame(completion: @escaping (AppKit.NSImage?) -> Void) {
+        guard let adapter = dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
+            completion(nil); return
+        }
+        adapter.captureSurfaceFrame(completion: completion)
+    }
+
+    private func restoreActiveWebRequest(_ request: WebWallpaperLaunchRequest) {
+        currentWallpaper = nil
+        currentPlaybackContentKind = .web
+        currentWebRequestID = request.id
+        currentWebRecordID = request.recordID
+        currentWebPropertiesJSON = request.propertiesJSON
+        currentContentPath = request.entryURL.resolvingSymlinksInPath().standardizedFileURL.path
+        currentMultiDisplayEnabled = request.multiDisplayEnabled
+    }
+
+    /// Revoke candidates independently of retiring committed output. Used by
+    /// early Web preparation and Scene intents, including validation failures.
+    func cancelPreparationRetainingActivePlayback(preservingPreparedRequestID: UUID? = nil) {
+        cancelVideoPreparationRetainingActivePlayback()
+        guard let adapter = dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
+        adapter.cancelPreparation(preservingPreparedRequestID: preservingPreparedRequestID)
+        if let retained = adapter.activeRequest { restoreActiveWebRequest(retained) }
+        else if pendingVideoRetirementOnWebReady {
+            currentPlaybackContentKind = .video
+            currentWallpaper = retainedVideoWallpaper
+            currentContentPath = retainedVideoContentPath
+            currentMultiDisplayEnabled = retainedVideoMultiDisplayEnabled ?? currentMultiDisplayEnabled
+            currentWebRequestID = nil; currentWebRecordID = nil; currentWebPropertiesJSON = nil
+        }
+        if adapter.activeRequest == nil && !pendingVideoRetirementOnWebReady {
+            currentWebRequestID = nil; currentWebRecordID = nil; currentWebPropertiesJSON = nil
+            if currentPlaybackContentKind == .web {
+                currentPlaybackContentKind = nil; currentContentPath = nil
+            }
+            setWebAudioSpectrumRequested(false)
+        }
+        pendingVideoRetirementOnWebReady = false
+        pendingWebRetirementOnVideoReady = false
+        retainedVideoWallpaper = nil; retainedVideoContentPath = nil; retainedVideoMultiDisplayEnabled = nil
+    }
+
+    @discardableResult
+    func rollbackVideoPreparationToWeb() -> Bool {
+        guard pendingWebRetirementOnVideoReady else { return false }
+        beginPlaybackIntent()
+        cancelPreparationRetainingActivePlayback()
+        return currentPlaybackContentKind == .web
     }
 
     private func mergedWebPropertiesJSON(baseJSON: String?, deltaJSON: String?) -> String {

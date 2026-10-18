@@ -3392,6 +3392,35 @@
       ]
     },
     {
+      "id": "playback-process-isolation",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process/*.swift",
+        "MyWallpaperX/Core/Playback/PlaybackSpectrumDelivery.swift",
+        "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
+        "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
+        "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift",
+        "MyWallpaperX/App/Debug/DebugWebProcessIsolationRunner.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+DirectorySync.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift"
+      ],
+      "modules": [
+        "test_playback_process_isolation",
+        "test_playback_policy_delivery",
+        "test_scene_audio_capture_scope",
+        "test_daemon_process_transport",
+        "test_daemon_line_framing",
+        "test_web_system_media",
+        "test_web_failure_state_benchmark",
+        "test_web_runtime_switch_benchmark",
+        "test_web_directory_sync",
+        "test_web_compat_parity",
+        "test_steam_library_interactions"
+      ]
+    },
+    {
       "id": "scene-static-model-vertex-basis",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
