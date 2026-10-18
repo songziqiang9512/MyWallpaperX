@@ -122,11 +122,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 138762
+      "bytes": 139104
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 200058
+      "bytes": 200263
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68086
+      "bytes": 68156
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 589,
-      "bytes": 151101
+      "lines": 597,
+      "bytes": 154359
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -241,8 +241,8 @@
       "bytes": 16871
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 216,
-      "bytes": 61571
+      "lines": 217,
+      "bytes": 62312
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1216,15 +1216,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "54c8b6f1c2308f788cce034ebb39ff12cee8ec71a7e73b179d682774dac6b404",
-      "after": "4af2468be768f27d1daa6830622c1784ee1dfc469754a20b6959a42dfc244769",
-      "owner": "scene-parallax-depth-omission",
-      "reason": "Normalize only genuinely missing 2D author depth at its existing parser; synchronize bounded official/native/heldout facts and generated notes, preserving manual verdicts and open feedback.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#op-parallax-camera"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
       "after": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
@@ -1300,15 +1291,6 @@
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "62e7b70b4eb27055cf2911a88981d1f6fb50635af093170fb503fc7301804ecf",
       "after": "f84340965475672bdd7a53321dae3bf821da6ac6d1918937a8b66f3418cba395",
-      "owner": "scene-shared-timer-cancellation",
-      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "0e5a580349607249b00aa9413c5af8685e843022444f4ff4823347197180c8b7",
-      "after": "d7fdd908e8836d1aa26310dbc36990b3f82727190b10d5a9fd654cb219c25e19",
       "owner": "scene-shared-timer-cancellation",
       "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
@@ -1414,21 +1396,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "d7fdd908e8836d1aa26310dbc36990b3f82727190b10d5a9fd654cb219c25e19",
+      "after": "db3361e504d0c8054ed2ce1f9d7e0c8926884ae2a7f40e586a413e7051bc9235",
+      "owner": "scene-default-camera-single",
+      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "4af2468be768f27d1daa6830622c1784ee1dfc469754a20b6959a42dfc244769",
+      "after": "59338bfd78b249d317da2e3bd93e01e14cb7d0f5c8555a2cb1e389823a020930",
+      "owner": "scene-default-camera-single",
+      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d66c9f8d6d32c691154ea8b6e78eaad6e9cb50fdd89a45c0c1e324ce0556ab77",
-      "after": "235b448991a7de6cce3c499879fd228ab1d6f95252476fd936a97473719771fa",
-      "owner": "scene-procedural-solid-local-source",
-      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
+      "before": "235b448991a7de6cce3c499879fd228ab1d6f95252476fd936a97473719771fa",
+      "after": "77ad8109bcbf013a01f7ed765df01f5fe0328658aad75ab4b93c9609ec4f3ef1",
+      "owner": "scene-default-camera-single",
+      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "4d33acba296c5064cab8fe729de8bed468f0e340b1024e44f7787cf30eae0a2c",
+      "after": "f6d393c1a6f074ae67406e8d6b3007ca4a8b1cd5ee57001c6cffe2b7abf9eb9a",
+      "owner": "scene-default-camera-single",
+      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ade51948096b705c5523fd6ffd34b9c7a4e88a167b8d4f8b8ce276bc7cab92da",
-      "after": "7fe2cbdf8c6ba603a20adf8b6653423353dc93fe1cf142d38c0c846074e166f7",
-      "owner": "scene-procedural-solid-local-source",
-      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
+      "before": "7fe2cbdf8c6ba603a20adf8b6653423353dc93fe1cf142d38c0c846074e166f7",
+      "after": "e8fd044e458d542329139f3a8a8382a76fd877dcd5c18f54eaf07b97e3d2e7b1",
+      "owner": "scene-default-camera-single",
+      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
     }
   ]
 }

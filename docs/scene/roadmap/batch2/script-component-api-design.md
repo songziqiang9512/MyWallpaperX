@@ -18,15 +18,23 @@
 
 <a id="default-2d-camera-inputs"></a>
 
-## Default 2D camera 输入（2026-10-16，有界已实施）
+## Default 2D camera 输入
 
-目标是让普通正交画布的作者默认相机 origin/zoom 经唯一 typed camera snapshot 到达现有投影。原无 Timeline 的 path 基值与 direct Slider zoom 漏接、origin Script 误作普通层位置，现与原 Combined Timeline 共享 `.camera(.origin/.zoom)`。混合来源按字段准入；运行和不同比例边界归[限定证据](../../history/default-2d-camera-inputs-2026-10-16.md)，不改作者画布或图层位置补偿。
+**现役范围（2026-10-16，有界已实施）。** 目标是让普通正交画布的作者默认相机 origin/zoom 经唯一 typed camera snapshot 到达现有投影。原无 Timeline 的 path 基值与 direct Slider zoom 漏接、origin Script 误作普通层位置，现与原 Combined Timeline 共享 `.camera(.origin/.zoom)`。混合来源按字段准入；运行和不同比例边界归[限定证据](../../history/default-2d-camera-inputs-2026-10-16.md)，不改作者画布或图层位置补偿。
 
 限定 profile 为具有合法正交画布、唯一合法 default camera path 的场景。准备期统一确定来源层及可消费字段，静态基值、direct Slider zoom、现 VM origin Script 和已准入 Combined Timeline 共享 `.camera(.origin/.zoom)` definition、优先级、resolver 与 clock。输入路径保留原作者层 identity，VM 的 thisLayer/property scope 仍属于该源层；只有 origin 真正准入时输出 target 才改为 camera，保源 owner identity且退出该字段旧层 writer；未准入的 origin 完整保留原层 owner、definition、getter/setter和world路由，zoom可独立准入。相机当前值只由 settled snapshot 消费，renderer 不再读 path 或加第二 fallback。
 
 direct user zoom 复用原 extractor、property Program、live 准入与事务；合法初值、连续改值、保存/reset 均更新同一相机 target。return 型 origin Script 沿既有 Vector owner 的 init/update、事件、失败撤回和退休，基值仅作原 resolver fallback。本片不开放 camera origin handle setter：其 mutation→schema/冲突尚属普通层合同，在原 preflight 拒绝相关 owner 整包，不能与 camera primary 形成双 writer；完整 setter 归后继统一别名准入，不能记作已支持。Combined Timeline 保原时钟与已准入 composition；未知动画、重复/非 default path、native 3D、冲突来源与非法有限域不顺带开放，拒绝只影响相关相机输入，健康内容保原路由。数值域复用已有 camera Timeline 验证，不在普通帧重找相机、解析、建图或编译。
 
 验收从自有改名输入的真实 parser/extractor→property/Vector C owner→definition 合并/resolver→cameraTransform/投影走通：init 产生区别于 seed 的 origin，direct zoom 默认与两次热改保留该 current origin；静态 path、原 Combined Timeline、坏返回/非法 zoom、同名非 camera、重复 path/native/冲突来源为相邻反例。Swift 产品做一次有效 Debug build，304 原包实图对照并核实际相机输入，未参与修法样本真实回归；169 只按其独立证据裁决。正确接线不自动等于完整官方画面、跨比例、全部相机 API 或性能收益。失败保原局部回退，保暂停、取消、同 generation 与资源释放。
+
+### 独立 Single 与 path 显隐（2026-10-19，有界已实施）
+
+作者默认相机的独立开场曲线与开关现进入同一投影。旧 Timeline 编译器只接 origin-root→zoom-child Combined，静态输入 profile 拒 animation，2D camera 消费未使用来源层 visible。现准入限定合法正交画布、唯一 prepared default source 内无 parent/children、无 incoming peer 的 Single，按字段支持 origin-only、zoom-only 和两条独立轨，不要求同 fps/length，不按名称、路径或样本挑形状。独立字段分别验证，旧合法 Combined 保完整组、原 owner 与原子拒绝；Single与Combined的incoming证明共用原reference parser的准备期声明投影，hard-error peer与混坏children不抹掉已知指向，不以任意诊断整场拒绝；component/wrap、有限值、被消费 Bézier controls、origin 近远平面/幅度及 zoom `0.01...100` 沿现门。重复/非 default source、native 3D、冲突来源、非法 peer、未知动画、反向 Combined 与 Z=0 继续拒绝，不剥 animation 冒静态 fallback。失败只影响相关输入，原静态/direct zoom/return-origin 与健康内容保留；需要多 path selection、ICamera/handle setter、新播放状态或官方重播策略时，停在该首断点取资格，不扩第二 owner。
+
+原 Camera Timeline compiler 继续输出 `.camera(.origin/.zoom)` bindings：origin 保 relative/additive、zoom 保 absolute；每条独立 binding 以自身 target 为 playback owner，保作者 fps、length、startsPaused，由现 TimelinePlaybackRuntime 各持播放位置、共用唯一 SceneClock，Single 结束保持末值。源层 identity 准备期固定，真正准入的 origin 退出旧层 writer，未准入字段保旧路由；definitions、优先级与同帧 preview/settled resolver 不换 owner，renderer 只消费同一 immutable snapshot，不重读 path、建绑定或缓存当前值。该 prepared source ID 的同帧有效 visibility 复用现 Bool target 与 parent-aware 判断，初始隐藏仍保准备；false 只撤 path 的 origin/zoom 消费到现无 path 的 identity 分量，Scene shake/parallax 保原链。隐藏期 Timeline 继续求值，再显示消费当前位置，不隐式发 play/pause/stop；这是现通用 Timeline 的项目策略，关→开是否按官方重播尚未取证，不据开关标签重置时钟。
+
+最低验收复用最近 default-2D camera、Timeline compiler/runtime 门：真实 parser→prepared source/definition→独立播放位置→settled snapshot→camera frame/几何，覆盖改名/资源改名/等价输入、origin-only/zoom-only、不同 fps/length/startsPaused、typed独立 play/pause/stop（不代表JS IAnimation camera handles）；旧 Combined、静态/direct zoom/return-origin 保持。以上拒绝反例、父隐藏、同帧 Bool 变化及失败保 current 必须成立；launch-off、结束前/后关开分别记录项目行为与未证官方边界。一次有效 Debug 后，原输入从开场至末帧取得实际 camera 值与最终画面、正常停止，再验未参与修法的真实独立样本；不以准入命中、非黑或旧缺光关闭开场运动反馈，不升级完整官方时序、整样本或性能结论。
 
 <a id="asset-path-string-values"></a>
 

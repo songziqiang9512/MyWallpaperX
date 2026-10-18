@@ -168,6 +168,28 @@ nonisolated struct SceneTimelineParseResult: Equatable {
 nonisolated enum SceneTimelineAnimationParser {
     private static let maximumLaneCount = 4
 
+    /// Preparation may need the declared connections even when mode/lanes
+    /// reject the animation. This never authorizes an executable animation.
+    /// Decode children separately so one malformed peer cannot erase another
+    /// valid, directed reference; the ordinary parser keeps its atomic failure.
+    nonisolated static func declaredGroupReferences(
+        parent: Any?, children: Any?
+    ) -> [SceneTimelineGroupReference] {
+        var diagnostics: [SceneTimelineDiagnostic] = []
+        var references: [SceneTimelineGroupReference] = []
+        if let parsed = parseGroupReference(parent, diagnostics: &diagnostics),
+           let reference = parsed.reference {
+            references.append(reference)
+        }
+        for child in children as? [Any] ?? [] {
+            if let parsed = parseGroupReference(child, diagnostics: &diagnostics),
+               let reference = parsed.reference {
+                references.append(reference)
+            }
+        }
+        return references
+    }
+
     /// 解析宿主属性对象上的 `animation`。传入的是宿主对象本身（例如 `alpha` 的
     /// `{"value": …, "animation": …}`），不是 `animation` 子对象。
     ///

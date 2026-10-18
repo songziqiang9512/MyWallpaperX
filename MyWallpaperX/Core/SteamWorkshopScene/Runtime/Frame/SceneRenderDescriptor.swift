@@ -460,7 +460,8 @@ struct SceneRenderDescriptorBuilder {
                 sourceLayerID: camera.default2DInputLayerID,
                 authoredConfiguration: source.authoredValue,
                 parsedOrigin: padVector(parseVector(source.origin), length: 3, fill: 0),
-                nearZ: Double(camera.nearZ), farZ: Double(camera.farZ)
+                nearZ: Double(camera.nearZ), farZ: Double(camera.farZ),
+                timelines: source.timelines
             )
         }
         return camera

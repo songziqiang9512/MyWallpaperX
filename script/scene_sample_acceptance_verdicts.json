@@ -790,33 +790,39 @@
     },
     "3581882134": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-18",
-      "reviewer": "Codex root; independent prepared_puppet_design_sol",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root 原包开场/关闭反例与独立看图；非官方同phase",
       "officialComparison": "compared",
-      "note": "2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧左上暖亮/冷暗观察分开，不以稳定帧照明关闭。 旧记录：限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实201/200批GPU完成不代像素合同。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "note": "10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实201/200批GPU完成不代像素合同。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/result.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/result.json",
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/before/report.json",
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/after/report.json",
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/off/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png",
+        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
       ],
-      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧左上暖亮/冷暗观察分开，不以稳定帧照明关闭。"
+      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。  不认完整官方phase、全部交互/整样本或性能通过。"
     },
     "3603711180": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-18",
-      "reviewer": "Codex root; independent prepared_puppet_design_sol",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root 原包开场/关闭反例与独立看图；非官方同phase",
       "officialComparison": "compared",
-      "note": "2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光本窗未重现及Blur准入缺口分开。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "note": "10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json",
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/second/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png",
+        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
       ],
-      "remainingDifferences": "666/effect2/672 Blur在作者[.99,0]采样量下被旧>=.01门拒，独立于旧照明反馈；完整phase/属性/交互和精确官方光形未验。 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光本窗未重现及Blur准入缺口分开。"
+      "remainingDifferences": "666/effect2/672 Blur在作者[.99,0]采样量下被旧>=.01门拒，独立于旧照明反馈；完整phase/属性/交互和精确官方光形未验。  不认完整官方phase、全部交互/整样本或性能通过。"
     },
     "3806337293": {
       "verdict": "unreviewed",
@@ -949,12 +955,14 @@
       "verdict": "unreviewed",
       "reviewedOn": "",
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。",
-      "runs": [],
+      "note": "2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 10-19原包8s邻例已见PSYCHE GEAR标识，App0/stop1→0/GPU排空；主体与完整过渡未验，stationary hover最低变化FAIL保留。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/adjacent/report.json"
+      ],
       "evidence": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "remainingDifferences": "本窗开场标识可见，主体及完整过渡仍未覆盖，不关闭原反馈；未测作者交互，不从stationary hover最低变化判产品缺陷。",
       "officialComparison": "unknown"
     },
     "3554161528": {
@@ -985,8 +993,10 @@
       "verdict": "unreviewed",
       "reviewedOn": "",
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。",
-      "runs": [],
+      "note": "2026-10-18用户补报（待当前身份复验）：X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 10-19相机heldout在62.958s ready，短窗主体构图保留；69s总watchdog中断正常停止，原5FAIL保留，不认生命周期通过。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/heldout/report.json"
+      ],
       "evidence": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],

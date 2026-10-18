@@ -673,13 +673,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0edac2a754f8ac66d4aa3e755b7374bf34300270234d2c4ab6b259c1838bd5c9",
+        "sourceSHA256": "a35e85c1632057c3066e2bc66a7387bfc4de2a5cd8af8a3723f9b2cc100fb161",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
-        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
+        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
+        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
       }
     },
     {
@@ -687,13 +687,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3db571fe84c2ad36f41a382f5e10f76de6934a5acfd4b7cffd19c46cfd73800",
+        "sourceSHA256": "09bf7c4837ccf6b0fa46c7f8cde426d42c54a3720fa377849fc4f3ef207da043",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded authored-orthographic2D missing parallax depth normalization and original/heldout visual recovery; fresh U28 qualification and actual generated ledger notes.",
-        "limitations": "No universal serialized default, perspective/gain/delay/full-sample parity or performance claim. Remaining concrete user observations stay open."
+        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
+        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
       }
     },
     {
@@ -757,13 +757,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "03c5a4ee16770cecfbdef5b772d47e8be8d5f54d66dae3293f52a57109889207",
+        "sourceSHA256": "948e156a3baaa4f472c13183fa682f075b51644e0beaf4656f2f89d8d2c767e8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
-        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
+        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
+        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
       }
     },
     {
@@ -1299,8 +1299,8 @@
         "docs/scene/capabilities/runtime-input-property-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "cutoffDate": "2026-10-16",
-      "uniqueValue": "默认2D混合相机输入/source identity与304倍率同窗恢复、169同aspect官方留底；生产多比例/密度与Anchor GPU、SDR暂停resize基线/实修/原HDR邻例及独立314，保官方anchor零组失败与余界。"
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "默认2D混合相机输入/source identity与304倍率同窗恢复、169同aspect官方留底；生产多比例/密度与Anchor GPU、SDR暂停resize基线/实修/原HDR邻例及独立314，保官方anchor零组失败与余界。；后继独立Single/visibility与358/360开场，含304中断及376默认hidden短窗原失败。"
     },
     {
       "path": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md",
@@ -3325,13 +3325,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2c6df2e466e8140cf2e2537cee08ad3ada27e0f39962d7ad5e4a55d9f547d99e",
+        "sourceSHA256": "7c074359559cec73eef0f52b2daab566a58e04c9567e3b5f11fe6c9f440075a0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire the private asset Object ABI and document strict public path String values across registerAsset, font get/set and creation; remove the solved public gap. Preserve qualified Fluid consumer and ring-motion unknowns without reopening closed feedback.",
-        "limitations": "One bounded official/native API board and an independent real sample; seven preexisting Bool assertions remain failed. No stable intermediate glyph parity, arbitrary registration/precache, complete-sample, or performance conclusion. Formal promotion remains pending existing capacity authorization."
+        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
+        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
       }
     },
     {
@@ -3437,13 +3437,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e2dd17f08d0a6430f8accfdc5bd2b387d2eef696dc5131e16e213c504fd2fc33",
+        "sourceSHA256": "5fd41e3749010c5c4c7a3820ccf7d5f415af6f4ed737794157748eae8c632de4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
-        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
+        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
+        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
       }
     },
     {

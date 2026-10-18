@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # Default 2D camera 输入与画布适屏
 
-> **历史证据 — 非现役入口**。截止2026-10-16。限定输入合同归[D4](../roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs)，当前消费归[输入覆盖](../capabilities/runtime-input-property-coverage.md#3-scene-与-camera-输入)，未验视觉与后继归[现役队列](../roadmap/scene-open-breakpoint-queue.md)。不将正常比例裁切、作者留底与引擎输入缺口合并裁决。
+> **历史证据 — 非现役入口**。截止2026-10-19；后继独立Single记录见末节。限定输入合同归[D4](../roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs)，当前消费归[输入覆盖](../capabilities/runtime-input-property-coverage.md#3-scene-与-camera-输入)，未验视觉与后继归[现役队列](../roadmap/scene-open-breakpoint-queue.md)。不将正常比例裁切、作者留底与引擎输入缺口合并裁决。
 
 ## 通用修复
 
@@ -58,3 +58,16 @@ camera origin handle setter仍按原preflight整owner包拒绝；此片只支持
 当前修复收据根`.artifacts/tmp/default-2d-camera-inputs-20261016/`，中性运行投影`candidate-runtime-summary.json`；本轮已结束环境/副本及raw诊断精确删除540,298,540逻辑B，日志回读验证gzip，仅保三张必要实图和冻结/测试/独审/执行收据，低于32MiB，见`cleanup.json`；旧图沿用已保留的`.artifacts/tmp/vec3-vec2-arithmetic-20261016/candidate304/scene-after-window.png`。169资格及官方同aspect基准分别在`.artifacts/tmp/169-screen-fit-qualification-20261016/`、`.artifacts/tmp/304-screen-fit-qualification-20261016/`，仅保必要实图、压缩日志和身份收据。
 
 唯一连续构建缓存保留`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`供后继迭代，用户原件只读；此记录不含CPU/GPU/内存/启动收益结论。
+
+<a id="independent-single-20261019"></a>
+## 2026-10-19：独立 Single 开场与 path 显隐
+
+旧编译器只接同组origin/zoom，独立Single被拒；相机消费没有使用prepared source的有效visibility。现由原Camera compiler按字段输出同一typed camera target，relative origin加基值、absolute zoom分别保自己的播放位置，共用SceneClock。唯一prepared来源ID与同帧parent-aware visibility只控制投影消费；隐藏仍计时、显示消费当前位置，关开是否官方重播仍unknown。静态/direct/return Script及旧合法Combined保持，未准入origin不提前退出旧层链。Single和Combined共用原reference parser的准备期声明投影，hard-error peer与混坏children不抹掉已知指向；不复制曲线算法或增加相机/时钟owner。
+
+最终5产品冻结，最近真实parser/prepared/playback/settled snapshot/实际camera-frame门7/7 PASS（93.126s），覆盖改名/等价输入、不同fps/length/startsPaused、typed命令、隐藏/父隐藏、有限控制点、定向坏peer与健康对侧、旧Combined整组拒绝。typed命令不证明JS IAnimation camera handles，Bool注入不冒充原生面板或本次JS显隐回调。独立静态审查GO，7owned最大725行。固定6adabc113加5源的隔离Debug30.024s、4312输入无漂移、严格签名0；App `48fb7ac2…d839`、dylib `e747d5e7…aff7`。中间候选在独审发现peer丢失后修正，最终重建未混入并行depth工作。
+
+同条件358原包7s/30FPS/center stationary/908×590：基线三期始终宽构图；最终0000/0001近景、0002展开、0003/0006保持较宽人物/日期取景，发丝/金带/粒子仍运动。关闭Opening的newproperty9=false首末均宽构图；两run App0/FAIL[]/source与App无漂移、stop1→0/GPU排空。360原包相同窗口从脸/胸部近景展开到完整头部/半身/帘幕/日期，播放器随取景缩小；App0/正常stop及无漂移，但原Blur的CPU invocation与effect-local passthrough两FAIL保持。只关闭两包“开场镜头完全缺少”，不关闭358暖亮/冷暗或360 Blur，也不认官方逐帧时序/精确光形或全样本通过。
+
+未参与修法的304原包在62.958s ready，before/after保留塔底栏杆、双人物、星空/海平面/日期，姿态仍变化；69s总watchdog在正常停止前截断，原exit-15/5FAIL保留，只认短窗实际画面，不认停止验收。没有延长同门重试。追加独立376原包旧合法Combined且camera127默认hidden：8s短窗实际显示PSYCHE GEAR开场标识、App0/source及App无漂移/stop1→0/GPU排空；runner的hover最低变化FAIL原样保留，本窗center stationary未测试作者交互。主体及完整过渡未覆盖，不能以标识可见关闭用户过渡反馈。355反向Combined/Z=0、一般动画、多path/native selection、camera setter、官方关开重播和完整跨比例仍未开放。
+
+根代理与独立看图审查仅判采样中的近→展开→保持，不把跨日日期、随机粒子或未对齐音源差异判回归。普通14天正式包`.artifacts/scene-evidence/runs/default-camera-single-20261019/`含before/after/off/second/heldout/adjacent，31.384MiB，所有原失败保留；必要开场原图、构建/测试身份和独审收据在`.artifacts/tmp/default-camera-single-20261018/retained-reviewed/`。无稳定CPU/GPU、内存、启动或能耗收益声明。

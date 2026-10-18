@@ -3,15 +3,10 @@ import Foundation
 /// Bounded 2D camera-path Timeline profile.
 ///
 /// Camera path records are not drawable layers. A single default-camera record may expose the
-/// editor's Combined `origin` owner + `zoom` child pair; both members are normalized onto the
-/// owner's clock and committed through the shared dynamic snapshot. Multiple path selection and
-/// 3D camera paths remain fail closed because their queue/visibility lifecycle is a separate
-/// contract.
+/// editor's Combined `origin` owner + `zoom` child pair or independent Single fields.
+/// A Combined pair shares its owner's clock; independent fields retain their own playback
+/// positions on SceneClock. Both publish through the same dynamic snapshot.
 nonisolated enum Scene2DCameraTimelineCompiler {
-    private static let maximumOriginMagnitude = SceneDefault2DCameraInputProfile.maximumOriginMagnitude
-    private static let minimumZoom = 0.01
-    private static let maximumZoom = 100.0
-
     nonisolated static func compile(
         descriptor: SceneRenderDescriptor
     ) -> SceneTimelineProgram {
@@ -30,11 +25,12 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         }
         // The bounded pair must also be a complete authored component. Its
         // outgoing references are checked below; a third lane may not point in.
-        let hasIncomingPeer = layer.timelines.contains { timeline in
-            guard timeline.host != .origin, timeline.host != .zoom else { return false }
-            let options = timeline.animation.options
-            return options.parent?.key == "origin" || options.parent?.key == "zoom"
-                || options.children.contains { $0.key == "origin" || $0.key == "zoom" }
+        guard case let .object(authored)? = layer.initialConfiguration else {
+            return rejected(labels, reason: "cameraProfileUnsupported")
+        }
+        let hasIncomingPeer = [SceneDocument.SceneObjectTimeline.Host.origin, .zoom].contains {
+            SceneDefault2DCameraInputProfile.hasDeclaredIncomingPeer(
+                to: $0, authored: authored, excludingHosts: [.origin, .zoom])
         }
         guard !hasIncomingPeer, group.count == 2,
               let origin = group.first(where: { $0.host == .origin })?.animation,
@@ -43,7 +39,7 @@ nonisolated enum Scene2DCameraTimelineCompiler {
               origin.options.children.map(\.key) == ["zoom"],
               zoom.options.parent?.key == "origin",
               zoom.options.children.isEmpty else {
-            return rejected(labels, reason: "combinedAnimationUnsupported")
+            return independentProgram(layer: layer, descriptor: descriptor, group: group)
         }
         let groupedOrigin = SceneTimelineTargetCompiler.groupedAnimation(
             origin, owner: origin, isOwner: true
@@ -61,13 +57,13 @@ nonisolated enum Scene2DCameraTimelineCompiler {
               let authoredOrigin = layer.originXYZ,
               authoredOrigin.count == 3,
               let authoredZoom = path.zoom,
-              boundedOrigin(
+              SceneDefault2DCameraInputProfile.acceptsOrigin(
                 authoredOrigin,
                 animation: groupedOrigin,
                 nearZ: Double(descriptor.camera.nearZ),
                 farZ: Double(descriptor.camera.farZ)
               ),
-              boundedZoom(authoredZoom, animation: groupedZoom) else {
+              SceneDefault2DCameraInputProfile.acceptsZoom(authoredZoom, animation: groupedZoom) else {
             return rejected(labels, reason: "valueOutOfRange")
         }
 
@@ -101,6 +97,61 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         )
     }
 
+    private nonisolated static func independentProgram(
+        layer: SceneRenderDescriptor.Layer,
+        descriptor: SceneRenderDescriptor,
+        group: [SceneDocument.SceneObjectTimeline]
+    ) -> SceneTimelineProgram {
+        let labels = group.map { "layer \(layer.id) \($0.host.rawValue)" }
+        let independent = group.compactMap { timeline in
+            SceneDefault2DCameraInputProfile.independentAnimation(
+                host: timeline.host, timelines: layer.timelines,
+                authoredConfiguration: layer.initialConfiguration
+            ).map { (timeline.host, $0) }
+        }
+        guard !independent.isEmpty else {
+            return rejected(labels, reason: "combinedAnimationUnsupported")
+        }
+        guard descriptor.camera.default2DInputLayerID == layer.id else {
+            return rejected(labels, reason: "cameraProfileUnsupported")
+        }
+        var bindings: [SceneTimelineBinding] = []
+        var diagnostics: [String] = []
+        for timeline in group {
+            let label = "layer \(layer.id) \(timeline.host.rawValue)"
+            guard let animation = independent.first(where: { $0.0 == timeline.host })?.1 else {
+                diagnostics.append("\(label): combinedAnimationUnsupported")
+                continue
+            }
+            switch timeline.host {
+            case .origin:
+                guard descriptor.camera.default2DOriginInputLayerID == layer.id,
+                      let origin = layer.originXYZ,
+                      SceneDefault2DCameraInputProfile.acceptsOrigin(origin,
+                        animation: animation, nearZ: Double(descriptor.camera.nearZ),
+                        farZ: Double(descriptor.camera.farZ)) else {
+                    diagnostics.append("\(label): valueOutOfRange")
+                    continue
+                }
+                bindings.append(.init(definition: .init(target: .camera(.origin),
+                    valueType: .vector3, authoredValue: .vector3(
+                        Double(origin[0]), Double(origin[1]), Double(origin[2]))),
+                    animation: animation, composition: .additive))
+            case .zoom:
+                guard let zoom = layer.cameraPath?.zoom,
+                      SceneDefault2DCameraInputProfile.acceptsZoom(zoom, animation: animation) else {
+                    diagnostics.append("\(label): valueOutOfRange")
+                    continue
+                }
+                bindings.append(.init(definition: .init(target: .camera(.zoom),
+                    valueType: .scalar, authoredValue: .scalar(zoom)),
+                    animation: animation, composition: .absolute))
+            default: break
+            }
+        }
+        return SceneTimelineProgram(bindings: bindings, diagnostics: diagnostics.sorted())
+    }
+
     private nonisolated static func rejectedMultiplePaths(
         _ paths: [SceneRenderDescriptor.Layer]
     ) -> SceneTimelineProgram {
@@ -122,37 +173,6 @@ nonisolated enum Scene2DCameraTimelineCompiler {
             bindings: [],
             diagnostics: labels.map { "\($0): \(reason)" }.sorted()
         )
-    }
-
-    private nonisolated static func boundedOrigin(
-        _ authored: [Float],
-        animation: SceneTimelineAnimation,
-        nearZ: Double,
-        farZ: Double
-    ) -> Bool {
-        guard nearZ.isFinite, farZ.isFinite, nearZ >= 0, farZ > nearZ else { return false }
-        guard authored.allSatisfy({ $0.isFinite && abs(Double($0)) <= maximumOriginMagnitude })
-        else { return false }
-        for (index, lane) in animation.lanes.enumerated() {
-            let base = Double(authored[index])
-            guard animation.consumedControlValues(in: lane).allSatisfy({ control in
-                let value = base + control
-                let bounded = value.isFinite && abs(value) <= maximumOriginMagnitude
-                return index == 2 ? bounded && value > nearZ && value < farZ : bounded
-            }) else { return false }
-        }
-        return true
-    }
-
-    private nonisolated static func boundedZoom(
-        _ authored: Double,
-        animation: SceneTimelineAnimation
-    ) -> Bool {
-        guard authored.isFinite, minimumZoom ... maximumZoom ~= authored else { return false }
-        let lane = animation.lanes[0]
-        return animation.consumedControlValues(in: lane).allSatisfy {
-            $0.isFinite && minimumZoom ... maximumZoom ~= $0
-        }
     }
 
 }

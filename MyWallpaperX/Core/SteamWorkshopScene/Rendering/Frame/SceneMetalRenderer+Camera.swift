@@ -6,7 +6,15 @@ extension SceneMetalRenderer {
         frameContext: SceneFrameContext
     ) -> SceneParticleCameraFrame {
         let camera = renderDescriptor.camera
-        let dynamic = frameContext.dynamicValues.cameraTransform()
+        // Visibility controls consumption, not Timeline playback. Hidden paths
+        // keep evaluating on SceneClock; showing one does not imply a replay.
+        let consumesPath = camera.default2DInputLayerID.map {
+            SceneLayerVisibility.isEffectivelyVisible(layerID: $0,
+                in: renderDescriptor, layersByID: layersByID,
+                snapshot: frameContext.dynamicValues)
+        } ?? true
+        let dynamic = consumesPath
+            ? frameContext.dynamicValues.cameraTransform() : .identity
         let property = frameContext.dynamicValues.cameraPropertyProjection()
         let shake = SceneRenderDescriptor.CameraDescriptor.ShakeDescriptor(
             enabled: property.shakeEnabled ?? camera.shake.enabled,

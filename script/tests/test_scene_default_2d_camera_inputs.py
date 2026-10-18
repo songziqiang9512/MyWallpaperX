@@ -31,6 +31,9 @@ EXTRA_SOURCES = [
     SCENE / "Systems/Properties/SceneDynamicDefinitionMerger.swift",
     SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
     SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",
+    SCENE / "Rendering/Frame/SceneMetalRenderer+Camera.swift",
+    SCENE / "Systems/Input/SceneCameraShake.swift",
+    SCENE / "Systems/Input/SceneLayerParallax.swift",
     SCENE / "Systems/Script/SceneScriptLayerTopologyProjection.swift",
 ]
 
@@ -112,6 +115,26 @@ class SceneDefault2DCameraInputTests(unittest.TestCase):
 
     def test_unsupported_camera_shapes_do_not_claim_default_2d_targets(self) -> None:
         facts = self.result["rejections"]
+        self.assertTrue(facts)
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_independent_camera_fields_keep_their_clock_and_source_identity(self) -> None:
+        for row in self.result["independent"]:
+            self.assertTrue(row)
+            self.assertEqual([k for k, v in row.items() if v is not True], [], row)
+
+    def test_path_visibility_uses_the_settled_snapshot_without_restarting_time(self) -> None:
+        facts = self.result["pathVisibility"]
+        self.assertTrue(facts)
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_rejected_independent_fields_do_not_become_static_camera_inputs(self) -> None:
+        facts = self.result["independentRejections"]
+        self.assertTrue(facts)
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_hard_error_peers_keep_declared_references_and_local_rejection(self) -> None:
+        facts = self.result["malformedPeers"]
         self.assertTrue(facts)
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
 
