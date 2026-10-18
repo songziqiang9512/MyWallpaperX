@@ -1,5 +1,6 @@
 import AppKit
 import QuartzCore
+import simd
 
 /// Owner-local callback admission may reject typed effects. Presentation
 /// failure never restores these watermarks or replays an executed VM frame.
@@ -15,11 +16,12 @@ extension SceneDesktopWallpaperSession {
     func prepareSceneScriptFrame(
         _ context: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptFrameInput {
         let surface = surfaces.count == 1
             ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
-                timing: timing, dynamicValues: dynamicValues) : nil
+                timing: timing, dynamicValues: dynamicValues, worldFrames: worldFrames) : nil
         let failures = context.sceneScriptStringProgram.preparePreparedTextCloneInputs(
             userValues: context.liveState.userValues,
             effectivePropertyValues: context.liveState.effectiveValues,

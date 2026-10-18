@@ -215,3 +215,5 @@
 - [材质视频资产与实际采样后验](material-video-assets-2026-10-12.md)：同一媒体owner的asset/fallback接入、实际黑屏断点；含日期与显隐队列纠正。
 
 - [Native framebuffer source Program](native-framebuffer-material-source-2026-10-19.md)：有序主源与只读深度、333音频条及资源失败边界。
+
+- [原生相机当帧变换](native-camera-frame-transforms-2026-10-19.md)：相机/父变换与同阶段world、双深度像素及盒体未闭边界。

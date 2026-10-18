@@ -122,11 +122,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 141148
+      "bytes": 141356
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 200263
+      "bytes": 200206
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68424
+      "bytes": 68432
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 216,
-      "bytes": 62172
+      "bytes": 62166
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1414,24 +1414,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b6c52aa34b964c46cde43fd31f6645f696c6703e57e5c8c588945faae043b1f1",
-      "after": "53ff4aa2ba89d6c7000d94b1adb79108e3d88bac57dff838c4640677e602ad9b",
-      "owner": "scene-native-framebuffer-source",
-      "reason": "Bounded native framebuffer source Program and readonly shared-depth contract, actual lower audio-bar result and remaining occlusion queue; required capability/acceptance authorities updated once, obsolete source-missing state retired. No broad capability or performance promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#有序-framebuffer-source-program-后继2026-10-19"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "7bd957d28c44b578d64ce5972bf57a0d6c8bfa53d10b3bf0650d9fec633eb6f2",
-      "after": "71a16c40f8fb94d9da2f22c1b27be9d189657b300e4e6a01f696deea7eb8cdf4",
-      "owner": "scene-gaussian-zero-axis",
-      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "4420e97dda982640642083588de1aa6417dacfa3a3167330238cad184d7f33c2",
       "after": "460072c339a100e83a73a4caf6cd076498aed55c8722f59b3639ec9e6abf6c21",
@@ -1456,6 +1438,24 @@
       "owner": "steam-browse-grid",
       "reason": "补充用户授权的双入口快照新鲜度、账号与订阅失效，以及Flow真实宽度和缩放协调合同；不增加第二分页owner或后台轮询。",
       "decision": "docs/architecture/steam-workshop-acquisition-contract.md#3-浏览缓存与-ui-投影"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "53ff4aa2ba89d6c7000d94b1adb79108e3d88bac57dff838c4640677e602ad9b",
+      "after": "b5485f1e9cdd61380becf6f3cb0667b0639efcc036d2e9bbece29a2cecce93a1",
+      "owner": "scene-native-camera-world",
+      "reason": "Replace stale static-camera input claims with current typed/world ownership and bounded evidence; retain real333 residual failures and whole-sample unreviewed state. No new authority.",
+      "decision": "docs/scene/history/native-camera-frame-transforms-2026-10-19.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "7ef2f94103a2307ba10dd8a7bd891bbf7815952838a267ec4c12b6e3dd192f71",
+      "after": "fd51e22cdfc34739f7dbdd113267fcd8e7f4959a896255be9e70a3168ab0b44c",
+      "owner": "scene-native-camera-world",
+      "reason": "Replace stale static-camera input claims with current typed/world ownership and bounded evidence; retain real333 residual failures and whole-sample unreviewed state. No new authority.",
+      "decision": "docs/scene/history/native-camera-frame-transforms-2026-10-19.md"
     }
   ]
 }

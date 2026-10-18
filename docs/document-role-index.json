@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db4a9094520807c3cb3f939a18d2f93c3dc96f5b5dc05d032a7e42e148095352",
+        "sourceSHA256": "d68bb8256d01136bba990038c29171e09fa9cdcdb42f88fe0fe398a0942cec5c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile bounded native framebuffer source results and five retired source misses; preserve real333 occlusion/background/229/Rope boundaries and prior Gaussian/lighting evidence.",
-        "limitations": "Navigation and input identities only; real333 visible contribution is r3, finalr4 uses focused lifecycle/self and independent380. No final333 replay, whole-sample, official-phase, HDR or measured performance claim."
+        "scope": "Reconcile native camera current-world input, same-phase per-surface reuse and qualified typed/App counterexamples; retain real333 occlusion and original sample failure boundaries.",
+        "limitations": "Bounded routing/input review with actual pixels recorded; no whole-sample, official phase, multi-screen/HDR App parity or measured performance claim."
       }
     },
     {
@@ -690,10 +690,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "09bf7c4837ccf6b0fa46c7f8cde426d42c54a3720fa377849fc4f3ef207da043",
+        "sourceSHA256": "25c5dfb52233bfb8076b5e1da1a3f417c71b99747a2614d5215bbd79d1e73218",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record independent default2D Single inputs, preserved declared incoming peers and settled source visibility; route actual358/360 opening and retain separate lighting/Blur feedback. Keep304 watchdog and376 partial opening evidence bounded.",
-        "limitations": "Sampled native phases and one Debug identity; no official same-phase parity, JS camera handles, full376 transition, complete304 lifecycle or stable performance claim."
+        "scope": "Reconcile native camera current-world input, same-phase per-surface reuse and qualified typed/App counterexamples; retain real333 occlusion and original sample failure boundaries.",
+        "limitations": "Bounded routing/input review with actual pixels recorded; no whole-sample, official phase, multi-screen/HDR App parity or measured performance claim."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1f2ba693dde4c8d725d3dae0de22cab15acde925147894afdb4f2f3599a64894",
+        "sourceSHA256": "3988ff1c45d08ca5c8dfe73206eb006434f7f523455f6b3b3e785d5727673d55",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Regenerate the canonical verdict notes for360 and after-only213 from their real bounded evidence; preserve302 samples,283 unreviewed,19 fail and all old archive runs.",
-        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
+        "scope": "Reconcile native camera current-world input, same-phase per-surface reuse and qualified typed/App counterexamples; retain real333 occlusion and original sample failure boundaries.",
+        "limitations": "Bounded routing/input review with actual pixels recorded; no whole-sample, official phase, multi-screen/HDR App parity or measured performance claim."
       }
     },
     {
@@ -1861,6 +1861,19 @@
       ],
       "cutoffDate": "2026-10-12",
       "uniqueValue": "原生BC三轮实际内存对照、CPU发射map消费者回退闭合及正确性/呈现边界。"
+    },
+    {
+      "path": "docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "原生default相机与父变换消费当帧world；typed/双深度App红绿、每屏cursor复用及333仍有穿透的有界后验。"
     },
     {
       "path": "docs/scene/history/native-cpu-allocation-screen-2026-10-15.md",
@@ -3502,10 +3515,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "200898144454e54254993fe2ddde219bea0f5f55c05446bf8e02b5f41c8f2ecf",
+        "sourceSHA256": "7adf1b8cd6592f015a1703a32002411075be00ef07bf9dba58fc320f2e4c83bc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire only the proven Gaussian numeric first rejection; preserve old lighting and343 night-side/flicker/collision limits and the qualified low-energy negative result.",
-        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
+        "scope": "Reconcile native camera current-world input, same-phase per-surface reuse and qualified typed/App counterexamples; retain real333 occlusion and original sample failure boundaries.",
+        "limitations": "Bounded routing/input review with actual pixels recorded; no whole-sample, official phase, multi-screen/HDR App parity or measured performance claim."
       }
     },
     {

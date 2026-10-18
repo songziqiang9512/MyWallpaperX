@@ -3720,6 +3720,26 @@
         "test_scene_framebuffer_source_graph",
         "test_scene_native_world_composition"
       ]
+    },
+    {
+      "id": "scene-native-camera-frame-transforms",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetBones.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift",
+        "script/tests/test_scene_native_camera_frame_*.py",
+        "script/tests/fixtures/SceneNativeCameraFrameTransformChecks.swift"
+      ],
+      "modules": [
+        "test_scene_native_camera_frame_transforms",
+        "test_scene_native_camera_frame_integration",
+        "test_scene_default_2d_camera_inputs",
+        "test_scene_cursor_surface_routing"
+      ]
     }
   ],
   "method_gates": {

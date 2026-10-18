@@ -30,6 +30,8 @@ EXTRA_SOURCES = [
     SCENE / "Systems/Properties/SceneDynamicSnapshot+Camera.swift",
     SCENE / "Systems/Properties/SceneDynamicDefinitionMerger.swift",
     SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+    SCENE / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SCENE / "Compilation/Material/SceneRenderTargetVocabulary.swift",
     SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",
     SCENE / "Rendering/Frame/SceneMetalRenderer+Camera.swift",
     SCENE / "Systems/Input/SceneCameraShake.swift",
@@ -54,6 +56,9 @@ def preamble() -> str:
     return "import Foundation\nimport simd\n" + media + materials + assets + """
 enum SceneGraphRenderTargetPlan {
     enum TextureFormat { case rgba16f, rgbaBackbuffer }
+}
+extension SceneAssetCatalog.ModelAsset {
+    var passthrough: Bool? { nil }
 }
 struct SceneTextScriptProgram {
     struct Binding { let definition: SceneDynamicTargetDefinition }

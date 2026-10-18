@@ -43,7 +43,7 @@ extension SceneDesktopWallpaperSession {
             sceneTime: frozenClock.sceneTime, rawFrameTime: 0, simulationFrameTime: 0,
             droppedFrameTime: 0, wallDate: frozenClock.wallDate)
         let frame = SceneScriptFrameInput(timing: timing,
-            surface: surfaces.count == 1 ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
+            surface: surfaces.count == 1 ? surfaces.values.first?.metalView.sceneScriptPausedSurfaceInput(
                 timing: timing, dynamicValues: base) : nil)
         do {
             try program.domain?.publishSoundPlaybackSnapshot(base,

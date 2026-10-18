@@ -774,19 +774,21 @@
     "3337494481": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
-      "reviewer": "Codex root; independent feedback_queue_reconcile_sol",
+      "reviewer": "Codex root; independent camera/cursor reviewers",
       "officialComparison": "compared",
-      "note": "10-19有界后验：五个native framebuffer层主源缺口退出，原包前下沿新增白音频条；70/202/228/591实际消费非零PCM并完成终端合成，229首Program fallback仍在。两arm同作者提示关闭，实际347=false，旧Gaussian与r3后继非sameHEAD/精确phase。最终r4只补depth生命周期/扫描成本，由自有像素和独立原380续验，未重播333。用户明确的正面透见其他角度文字/内容仍在；顶面与背景差异、Rope/229均不闭，整样本继续unreviewed。旧normal RGB误丢已退出。",
+      "note": "10-19相机后继：原生default相机和父层typed TRS接入同阶段world；自有双深度标记红绿成立。原包同非中心pointer两arm视角改变，但after精确矩阵/官方同phase未对齐，扁盒归因未闭。五层source旧缺口保持退出；本批真实两arm均exit0/无漂移/stop排空，effect CPU、229 Program fallback、Rope三FAIL保持。正面仍透见背面文字，背景仍缺，整样本unreviewed。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-camera-frame-transforms-20261019/native/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md"
       ],
-      "remainingDifferences": "盒体前后遮挡/跨面文字穿叠；顶面构图须对齐camera37实际姿态与输入；全屏背景、Rope profile、229首Program fallback，以及完整音乐/属性/交互和同状态官方parity仍未验收。五层source-not-ready已退出。"
+      "remainingDifferences": "盒体前后遮挡/跨面文字穿叠；顶面构图须对齐camera37实际姿态与输入；全屏背景、Rope profile、229首Program fallback与完整音乐/属性/交互、同状态官方parity。五层source-not-ready及camera静态world误接已退出。"
     },
     "3585542943": {
       "verdict": "unreviewed",

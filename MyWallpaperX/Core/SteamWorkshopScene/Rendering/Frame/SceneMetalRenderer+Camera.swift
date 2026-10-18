@@ -3,7 +3,8 @@ import simd
 
 extension SceneMetalRenderer {
     func makeCameraFrame(
-        frameContext: SceneFrameContext
+        frameContext: SceneFrameContext,
+        worldFrames: [Int: simd_float4x4]
     ) -> SceneParticleCameraFrame {
         let camera = renderDescriptor.camera
         // Visibility controls consumption, not Timeline playback. Hidden paths
@@ -38,7 +39,7 @@ extension SceneMetalRenderer {
             cameraZoom: dynamic.zoom,
             nativePerspectiveOverride: SceneParticleCameraFrame.nativePerspectiveOverride(
                 descriptor: renderDescriptor, layersByID: layersByID,
-                worldFrames: worldFramesByLayerID, dynamicValues: frameContext.dynamicValues
+                worldFrames: worldFrames, dynamicValues: frameContext.dynamicValues
             ),
             dynamicValues: frameContext.dynamicValues
         )

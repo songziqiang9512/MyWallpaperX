@@ -3,41 +3,6 @@ import Metal
 import QuartzCore
 import simd
 
-#if DEBUG
-private struct SceneStartupReportBuffer {
-    private var lines: [String]?
-
-    init(enabled: Bool) {
-        lines = enabled ? [] : nil
-    }
-
-    var isEnabled: Bool {
-        lines != nil
-    }
-
-    mutating func append(_ line: @autoclosure () -> String) {
-        guard lines != nil else { return }
-        lines?.append(line())
-    }
-
-    mutating func append(contentsOf newLines: @autoclosure () -> [String]) {
-        guard lines != nil else { return }
-        lines?.append(contentsOf: newLines())
-    }
-
-    var layerEntryCount: Int {
-        lines?.filter { $0.starts(with: "layer ") }.count ?? 0
-    }
-
-    func write(to url: URL?) {
-        guard let url, let lines else { return }
-        try? lines.joined(separator: "\n").write(
-            to: url, atomically: true, encoding: .utf8
-        )
-    }
-}
-#endif
-
 class SceneMetalView: NSView {
     let metalDevice: MTLDevice
     private let preparedDynamicTextFieldsByLayerID:
@@ -690,6 +655,7 @@ class SceneMetalView: NSView {
         let mediaInput: SceneMediaThumbnailInbox.Snapshot
         let spriteTimes: [Int: Float]
         let puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot
+        let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
     }
     enum RenderInvalidation {
         case surface
@@ -699,6 +665,26 @@ class SceneMetalView: NSView {
     private var simulationFrame: SimulationFrame?
     var hasSimulationFrame: Bool { simulationFrame != nil }
     var simulationFrameIndex: UInt64 { simulationFrame?.timing.frameIndex ?? 0 }
+
+    /// Scoped paused property publication can change snapshot generation
+    /// without advancing simulation. Reuse its frozen pose, not a stale camera.
+    func sceneScriptPausedSurfaceInput(
+        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot
+    ) -> SceneScriptSurfaceInput? {
+        guard let frame = simulationFrame else { return nil }
+        let worlds: [Int: simd_float4x4]
+        if !requiresSceneScriptCameraWorldFrames {
+            worlds = [:]
+        } else if frame.context.dynamicValues.generation == dynamicValues.generation,
+                  frame.context.dynamicValues.frameIndex == dynamicValues.frameIndex {
+            worlds = frame.projection.worldFrames
+        } else {
+            worlds = renderer.resolveFrameWorldProjection(layerTopology: frame.topology,
+                dynamicValues: dynamicValues, puppetAttachmentFrames: frame.attachmentFrames).worldFrames
+        }
+        return sceneScriptSurfaceInput(timing: timing, dynamicValues: dynamicValues,
+            worldFrames: worlds)
+    }
 
     func updateSimulation(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
@@ -740,7 +726,6 @@ class SceneMetalView: NSView {
             },
             "prepared texture animation is missing typed playback state"
         )
-        let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
         let attachmentFrames = ScenePuppetAttachmentFrameSnapshot(
             framesByParentLayerID: puppetPlaybackStates.reduce(into: [:]) { result, entry in
@@ -752,6 +737,9 @@ class SceneMetalView: NSView {
             layerTopology: layerTopology, dynamicValues: dynamicValues,
             puppetAttachmentFrames: attachmentFrames
         )
+        let cameraFrame = renderer.makeCameraFrame(
+            frameContext: frameContext, worldFrames: frameProjection.worldFrames
+        )
         let particleBatches = advanceParticles(
             timing: timing, dynamicValues: dynamicValues,
             frameContext: frameContext, cameraFrame: cameraFrame,
@@ -762,7 +750,8 @@ class SceneMetalView: NSView {
             projection: frameProjection, particles: particleBatches,
             topology: layerTopology, textFields: dynamicTextFieldsByLayerID,
             mediaThumbnail: mediaThumbnail, mediaInput: mediaInput,
-            spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame
+            spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame,
+            attachmentFrames: attachmentFrames
         )
     }
 
@@ -787,9 +776,10 @@ class SceneMetalView: NSView {
                 materialFunctionMutations: [], audioSpectrum: savedContext.audioSpectrum)
         } else { frameContext = savedContext }
         let dynamicValues = frameContext.dynamicValues
-        let cameraFrame = savedContext.screenSize == frameContext.screenSize
-            ? simulationFrame.camera : renderer.makeCameraFrame(frameContext: frameContext)
         let frameProjection = simulationFrame.projection
+        let cameraFrame = savedContext.screenSize == frameContext.screenSize
+            ? simulationFrame.camera : renderer.makeCameraFrame(
+                frameContext: frameContext, worldFrames: frameProjection.worldFrames)
         let particleBatches = simulationFrame.particles
         let layerTopology = simulationFrame.topology
         let dynamicTextFieldsByLayerID = simulationFrame.textFields

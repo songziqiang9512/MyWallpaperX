@@ -1,5 +1,6 @@
 import AppKit
 import QuartzCore
+import simd
 private enum SceneFrameDriverAttempt {
     case rendered
     case busy
@@ -311,8 +312,6 @@ extension SceneDesktopWallpaperSession {
                 effectiveValues: launchContext.liveState.effectiveValues,
                 revision: launchContext.liveState.revision
             )
-        let sceneScriptFrame = prepareSceneScriptFrame(
-            launchContext, timing: timing, dynamicValues: preliminaryForSceneScript)
         // Unavailable storage rejects its own callbacks; unrelated owners still advance.
         _ = launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
@@ -326,6 +325,18 @@ extension SceneDesktopWallpaperSession {
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
             ? puppetPoseFrames.values.first ?? .empty : .empty
+        // One phase-local hierarchy serves callback surface, bones and cursor.
+        // Rendering resolves the subsequently committed typed snapshot separately.
+        var sceneScriptWorldFramesBySurface: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
+        if surfaces.count == 1, let (displayID, surface) = surfaces.first,
+           surface.metalView.requiresSceneScriptCameraWorldFrames || !sceneScriptPuppetPoseFrame.posesByLayerID.isEmpty {
+            sceneScriptWorldFramesBySurface[displayID] = surface.metalView.sceneScriptCursorWorldFrames(
+                dynamicValues: preliminaryForSceneScript,
+                puppetAttachmentFrames: sceneScriptPuppetPoseFrame.attachmentFrames)
+        }
+        let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing,
+            dynamicValues: preliminaryForSceneScript,
+            worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:])
         let particleObservations = particlePlaybackObservations(
             context: launchContext,
             committed: layerMutationSnapshot.particlePlayback
@@ -364,7 +375,8 @@ extension SceneDesktopWallpaperSession {
                         sceneScriptPuppetPoseFrame,
                         context: launchContext,
                         timing: timing,
-                        dynamicValues: preliminaryForSceneScript
+                        dynamicValues: preliminaryForSceneScript,
+                        worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
                     )
             }
             sceneScriptLayerSnapshotFailure = nil
@@ -394,8 +406,8 @@ extension SceneDesktopWallpaperSession {
             launchContext: launchContext,
             timing: timing,
             preliminaryForSceneScript: preliminaryForSceneScript,
-            puppetAttachmentFrames:
-                sceneScriptPuppetPoseFrame.attachmentFrames,
+            puppetAttachmentFramesBySurface: puppetPoseFrames.mapValues(\.attachmentFrames),
+            worldFramesBySurface: &sceneScriptWorldFramesBySurface,
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure
         )
         let sceneScriptProgramFrameState = self.sceneScriptProgramFrameState(

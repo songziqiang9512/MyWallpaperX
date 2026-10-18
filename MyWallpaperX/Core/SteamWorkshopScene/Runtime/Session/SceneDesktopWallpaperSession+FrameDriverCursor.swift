@@ -9,7 +9,8 @@ extension SceneDesktopWallpaperSession {
         launchContext: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         preliminaryForSceneScript: SceneDynamicSnapshot,
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot,
+        puppetAttachmentFramesBySurface: [CGDirectDisplayID: ScenePuppetAttachmentFrameSnapshot],
+        worldFramesBySurface: inout [CGDirectDisplayID: [Int: simd_float4x4]],
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
     ) -> SceneScriptCursorFrameBatch {
         guard layerSnapshotFailure == nil else {
@@ -45,9 +46,21 @@ extension SceneDesktopWallpaperSession {
         var previousSurfaceID = edge.previousSurfaceID
         var wasDown = edge.previousPrimaryButtonIsDown
         var samples: [SceneScriptCursorFrameSample] = []
-        // All events use the same pre-script snapshot. Resolve each surface's
-        // hierarchy once; discard this data with the current batch.
-        var worldFramesBySurface: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
+        // All input consumers share the caller's pre-script phase. Resolve a
+        // demanded surface once, including a camera-only leaving surface.
+        func worldFrames(
+            for displayID: CGDirectDisplayID,
+            view: SceneMetalView,
+            requiresOwnerProjections: Bool
+        ) -> [Int: simd_float4x4] {
+            if worldFramesBySurface[displayID] == nil,
+               view.requiresSceneScriptCameraWorldFrames || requiresOwnerProjections {
+                worldFramesBySurface[displayID] = view.sceneScriptCursorWorldFrames(
+                    dynamicValues: preliminaryForSceneScript,
+                    puppetAttachmentFrames: puppetAttachmentFramesBySurface[displayID] ?? .empty)
+            }
+            return worldFramesBySurface[displayID] ?? [:]
+        }
         var previousInput: SceneSurfacePointerEvent?
         for group in ordered {
             let displayID = capturedSurfaceID.flatMap { group[$0] != nil ? $0 : nil }
@@ -65,14 +78,11 @@ extension SceneDesktopWallpaperSession {
                       let previousView = surfaces[previousID]?.metalView else { return nil }
                 return previousView.sceneScriptSurfaceInput(
                     pointer: previousPointer, timing: timing,
-                    dynamicValues: preliminaryForSceneScript
-                )
-            }
-            if worldFramesBySurface[displayID] == nil,
-               !(pointer.isInside ? program.ownerLayerIDs : captureCandidates).isEmpty {
-                worldFramesBySurface[displayID] = view.sceneScriptCursorWorldFrames(
                     dynamicValues: preliminaryForSceneScript,
-                    puppetAttachmentFrames: puppetAttachmentFrames)
+                    worldFrames: worldFrames(
+                        for: previousID, view: previousView,
+                        requiresOwnerProjections: false)
+                )
             }
             let sample = view.sceneScriptCursorFrameSample(
                 pointer: pointer, surfaceID: displayID,
@@ -81,7 +91,10 @@ extension SceneDesktopWallpaperSession {
                 capturedOwnerLayerIDs: captureCandidates,
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript,
-                worldFrames: worldFramesBySurface[displayID] ?? [:]
+                worldFrames: worldFrames(
+                    for: displayID, view: view,
+                    requiresOwnerProjections:
+                        !(pointer.isInside ? program.ownerLayerIDs : captureCandidates).isEmpty)
             )
             samples.append(sample)
             if pointer.primaryButtonIsDown && !wasDown && !sample.hits.isEmpty {

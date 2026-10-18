@@ -53,18 +53,13 @@ extension SceneMetalView {
         _ poseFrame: ScenePuppetScriptPoseFrame,
         context: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        worldFrames: [Int: simd_float4x4]
     ) throws {
         guard !poseFrame.posesByLayerID.isEmpty else { return }
         let frame = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
-        let camera = renderer.makeCameraFrame(frameContext: frame)
-        let worlds = SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: renderer.renderDescriptor, byID: renderer.layersByID,
-            snapshot: dynamicValues,
-            staticFrames: renderer.worldFramesByLayerID,
-            puppetAttachmentFrames: poseFrame.attachmentFrames
-        )
+        let camera = renderer.makeCameraFrame(frameContext: frame, worldFrames: worldFrames)
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: camera, viewportSize: frame.screenSize,
             dynamicValues: dynamicValues)
@@ -73,7 +68,7 @@ extension SceneMetalView {
             let bones = pose.bones
             let authoredSize = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
             let model = renderer.geometryModelMatrix(
-                for: layer, worldFramesByLayerID: worlds,
+                for: layer, worldFramesByLayerID: worldFrames,
                 authoredSize: authoredSize,
                 parallaxMouseNormalized: .zero, configuration: parallax,
                 visibleHalfExtents: camera.coverHalfExtents,

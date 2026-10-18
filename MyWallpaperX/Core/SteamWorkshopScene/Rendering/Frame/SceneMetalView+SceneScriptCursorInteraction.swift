@@ -8,12 +8,18 @@ private var sceneScriptCursorBoundsLoggedLayerIDs: Set<Int> = []
 #endif
 
 extension SceneMetalView {
+    var requiresSceneScriptCameraWorldFrames: Bool {
+        let camera = renderer.renderDescriptor.camera
+        return camera.orthoWidth == nil && camera.orthoHeight == nil
+    }
+
     /// Publishes one immutable callback snapshot from the same surface camera
     /// and pointer state used by rendering. The host only calls this when a
     /// scene has exactly one output surface, so no screen identity is guessed.
     func sceneScriptSurfaceInput(
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptSurfaceInput? {
         sceneScriptSurfaceInput(
             pointer: .init(
@@ -22,14 +28,16 @@ extension SceneMetalView {
                 primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
             ),
             timing: timing,
-            dynamicValues: dynamicValues
+            dynamicValues: dynamicValues,
+            worldFrames: worldFrames
         )
     }
 
     func sceneScriptSurfaceInput(
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptSurfaceInput? {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0 else { return nil }
@@ -39,7 +47,8 @@ extension SceneMetalView {
             parallax: .zero,
             audioSpectrum: .silent
         )
-        let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
+        let cameraFrame = renderer.makeCameraFrame(
+            frameContext: frameContext, worldFrames: worldFrames)
         let world: SIMD3<Float>?
         if cameraFrame.defaultsToPerspective {
             world = cameraFrame.nativeCursorWorldPosition(pointer.normalizedPosition)
@@ -102,7 +111,8 @@ extension SceneMetalView {
             ownerProjections: projections.ownerProjections,
             pointerPosition: pointer.normalizedPosition,
             primaryButtonIsDown: pointer.primaryButtonIsDown,
-            surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing, dynamicValues: dynamicValues),
+            surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing,
+                dynamicValues: dynamicValues, worldFrames: worldFrames),
             surfaceID: surfaceID,
             leavingSurface: leavingSurface
         )
@@ -182,7 +192,8 @@ extension SceneMetalView {
             ),
             audioSpectrum: .silent
         )
-        let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
+        let cameraFrame = renderer.makeCameraFrame(
+            frameContext: frameContext, worldFrames: worldFrames)
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: cameraFrame,
             viewportSize: frameContext.screenSize,

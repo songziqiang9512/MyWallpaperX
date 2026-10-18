@@ -11,25 +11,39 @@ SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 SUPPORT = r'''
 import AppKit
 import simd
+func cursorWorldFrames(_ marker:Float) -> [Int:simd_float4x4] {
+    var frame = matrix_identity_float4x4
+    frame.columns.3.x = marker
+    return [1:frame]
+}
+func cursorAttachmentFrames(_ marker:Float) -> ScenePuppetAttachmentFrameSnapshot {
+    .init(framesByParentLayerID:[7:["camera":cursorWorldFrames(marker)[1]!]])
+}
 final class SceneMetalView {
     let identity:UInt32
     init(_ identity:UInt32 = 10) { self.identity = identity }
     var worldResolveCount = 0
     var frameMarker: Float = 31
     var consumedFrameMarkers: [Float] = []
+    var surfaceInputFrameMarkers: [Float] = []
+    var resolvedAttachmentMarkers: [Float] = []
+    var requiresSceneScriptCameraWorldFrames = false
     func sceneScriptCursorWorldFrames(dynamicValues:SceneDynamicSnapshot,
         puppetAttachmentFrames:ScenePuppetAttachmentFrameSnapshot) -> [Int:simd_float4x4] {
         worldResolveCount += 1
-        var frame = matrix_identity_float4x4
-        frame.columns.3.x = frameMarker
-        return [1:frame]
+        let attachmentMarker = puppetAttachmentFrames.frame(parentLayerID:7,attachmentName:"camera")?.columns.3.x
+        resolvedAttachmentMarkers.append(attachmentMarker ?? -1)
+        return cursorWorldFrames(attachmentMarker ?? frameMarker)
     }
     var pointerState = SceneSurfacePointerState()
     var events = SceneSurfacePointerEventBuffer()
     func drainSceneScriptPointerEvents() -> SceneSurfacePointerEventBatch { events.drain() }
-    func sceneScriptSurfaceInput(pointer:SceneSurfacePointerEvent,timing:SceneFrameTiming,dynamicValues:SceneDynamicSnapshot) -> SceneScriptSurfaceInput? {
-        .init(canvasSize:.init(100,100),screenSize:.init(Double(identity),100),
-            cursorWorldPosition:.init(Double(pointer.normalizedPosition.x),0,0),
+    func sceneScriptSurfaceInput(pointer:SceneSurfacePointerEvent,timing:SceneFrameTiming,
+        dynamicValues:SceneDynamicSnapshot,worldFrames:[Int:simd_float4x4]) -> SceneScriptSurfaceInput? {
+        let marker = worldFrames[1]?.columns.3.x ?? -1
+        surfaceInputFrameMarkers.append(marker)
+        return .init(canvasSize:.init(100,100),screenSize:.init(Double(identity),100),
+            cursorWorldPosition:.init(Double(pointer.normalizedPosition.x),Double(marker),0),
             cursorScreenPosition:.init(Double(pointer.normalizedPosition.x),0),cursorLeftDown:pointer.primaryButtonIsDown)
     }
     func sceneScriptCursorFrameSample(pointer:SceneSurfacePointerEvent,surfaceID:UInt32,leavingSurface:SceneScriptSurfaceInput?,
@@ -38,10 +52,12 @@ final class SceneMetalView {
     ) -> SceneScriptCursorFrameSample {
         consumedFrameMarkers.append(worldFrames[1]?.columns.3.x ?? -1)
         let hit = SceneScriptCursorHit(layerID:1,worldPosition:.init(Double(pointer.normalizedPosition.x),0,0),localPosition:.init(Double(pointer.normalizedPosition.x),0,0))
-        return .init(hits:pointer.isInside ? [1:hit] : [:],ownerProjections:[1:hit],
+        let projectedOwners = pointer.isInside ? ownerLayerIDs : capturedOwnerLayerIDs
+        let projections = projectedOwners.contains(1) ? [1:hit] : [:]
+        return .init(hits:pointer.isInside ? projections : [:],ownerProjections:projections,
             pointerPosition:pointer.normalizedPosition,primaryButtonIsDown:pointer.primaryButtonIsDown,
-            surface:.init(canvasSize:.init(100,100),screenSize:.init(Double(surfaceID),100),
-                cursorWorldPosition:hit.worldPosition,cursorScreenPosition:.init(Double(pointer.normalizedPosition.x),0),cursorLeftDown:pointer.primaryButtonIsDown),surfaceID:surfaceID,leavingSurface:leavingSurface)
+            surface:sceneScriptSurfaceInput(pointer:pointer,timing:timing,
+                dynamicValues:dynamicValues,worldFrames:worldFrames),surfaceID:surfaceID,leavingSurface:leavingSurface)
     }
 }
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptCursorProgram:SceneScriptCursorProgram }
@@ -55,10 +71,19 @@ final class SceneDesktopWallpaperSession {
             surface.metalView.events.append(.init(normalizedPosition:.init(x,0),isInside:id == inside,primaryButtonIsDown:down,timestamp:time))
         }
     }
-    func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false) -> SceneScriptCursorFrameBatch {
+    func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false,
+        puppetAttachmentFramesBySurface:[UInt32:ScenePuppetAttachmentFrameSnapshot]=[:]) -> SceneScriptCursorFrameBatch {
+        var worldFramesBySurface: [UInt32:[Int:simd_float4x4]] = [:]
+        return prepare(program,failed:failed,puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
+            worldFramesBySurface:&worldFramesBySurface)
+    }
+    func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false,
+        puppetAttachmentFramesBySurface:[UInt32:ScenePuppetAttachmentFrameSnapshot]=[:],
+        worldFramesBySurface:inout [UInt32:[Int:simd_float4x4]]) -> SceneScriptCursorFrameBatch {
         prepareSceneScriptCursorBatch(launchContext:.init(sceneScriptCursorProgram:program),
             timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1),
-            preliminaryForSceneScript:.empty(frameIndex:0),puppetAttachmentFrames:.empty,
+            preliminaryForSceneScript:.empty(frameIndex:0),puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
+            worldFramesBySurface:&worldFramesBySurface,
             layerSnapshotFailure:failed ? .invalidArgument("test") : nil)
     }
 }
@@ -99,6 +124,80 @@ CHECKS = r'''
         _ = entryHost.prepare(dense)
         out["outsideThenEntryResolves"] = entryHost.surfaces[10]!.metalView.worldResolveCount
         out["outsideThenEntryFrames"] = entryHost.surfaces[10]!.metalView.consumedFrameMarkers
+        let cameraHost = SceneDesktopWallpaperSession()
+        let camera10 = cameraHost.surfaces[10]!.metalView
+        let camera20 = cameraHost.surfaces[20]!.metalView
+        camera10.requiresSceneScriptCameraWorldFrames = true
+        camera20.requiresSceneScriptCameraWorldFrames = true
+        camera10.frameMarker = 71;camera20.frameMarker = 83
+        cameraHost.feed(5000,false,inside:10)
+        _ = dispatch(noOwners,cameraHost.prepare(noOwners).samples)
+        noOwners.finalizeLayerMutations(committing:true)
+        camera10.frameMarker = 97;camera20.frameMarker = 113
+        camera10.surfaceInputFrameMarkers = []
+        cameraHost.feed(5001,true,inside:20);cameraHost.feed(5002,false,inside:20)
+        let cameraFailed = cameraHost.prepare(noOwners,failed:true)
+        out["cameraFailedResolveCounts"] = [camera10.worldResolveCount,camera20.worldResolveCount]
+        out["cameraFailedHasNoSamples"] = cameraFailed.samples.isEmpty
+        let cameraBatch = cameraHost.prepare(noOwners)
+        out["cameraNoOwnerSurfaces"] = cameraBatch.samples.compactMap(\.surfaceID)
+        out["cameraNoOwnerWorldMarkers"] = cameraBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
+        out["cameraLeavingWorldMarkers"] = cameraBatch.samples.compactMap { $0.leavingSurface?.cursorWorldPosition.y }
+        out["cameraNoOwnerResolveCounts"] = [camera10.worldResolveCount,camera20.worldResolveCount]
+        out["cameraLeavingInputMarkers"] = camera10.surfaceInputFrameMarkers
+        out["cameraActiveInputMarkers"] = camera20.surfaceInputFrameMarkers
+        let attachmentHost = SceneDesktopWallpaperSession()
+        let (attachmentProgram,_) = try make([])
+        let attachment10 = attachmentHost.surfaces[10]!.metalView
+        let attachment20 = attachmentHost.surfaces[20]!.metalView
+        attachment10.requiresSceneScriptCameraWorldFrames = true
+        attachment20.requiresSceneScriptCameraWorldFrames = true
+        attachmentHost.feed(9000,false,inside:10)
+        let initialAttachmentBatch = attachmentHost.prepare(attachmentProgram,
+            puppetAttachmentFramesBySurface:[10:cursorAttachmentFrames(211),20:cursorAttachmentFrames(239)])
+        _ = dispatch(attachmentProgram,initialAttachmentBatch.samples)
+        attachmentProgram.finalizeLayerMutations(committing:true)
+        attachmentHost.feed(9001,true,inside:20);attachmentHost.feed(9002,false,inside:20)
+        let attachmentBatch = attachmentHost.prepare(attachmentProgram,
+            puppetAttachmentFramesBySurface:[10:cursorAttachmentFrames(251),20:cursorAttachmentFrames(277)])
+        out["surface10AttachmentMarkers"] = attachment10.resolvedAttachmentMarkers
+        out["surface20AttachmentMarkers"] = attachment20.resolvedAttachmentMarkers
+        out["attachmentActiveWorldMarkers"] = attachmentBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
+        out["attachmentLeavingWorldMarkers"] = attachmentBatch.samples.compactMap { $0.leavingSurface?.cursorWorldPosition.y }
+        out["attachmentResolveCounts"] = [attachment10.worldResolveCount,attachment20.worldResolveCount]
+        let seededHost = SceneDesktopWallpaperSession()
+        let (seedProgram,_) = try make([])
+        let seeded10 = seededHost.surfaces[10]!.metalView
+        let seeded20 = seededHost.surfaces[20]!.metalView
+        seeded10.requiresSceneScriptCameraWorldFrames = true
+        seeded20.requiresSceneScriptCameraWorldFrames = true
+        var phaseWorlds: [UInt32:[Int:simd_float4x4]] = [10:cursorWorldFrames(151),20:cursorWorldFrames(179)]
+        seededHost.feed(6000,true,inside:10);seededHost.feed(6001,false,inside:20)
+        let seededBatch = seededHost.prepare(seedProgram,worldFramesBySurface:&phaseWorlds)
+        out["seededWorldMarkers"] = seededBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
+        out["seededLeavingWorldMarkers"] = seededBatch.samples.compactMap { $0.leavingSurface?.cursorWorldPosition.y }
+        seeded10.frameMarker = 171;seeded20.frameMarker = 189
+        let samePhaseBatch = seededHost.prepare(seedProgram,worldFramesBySurface:&phaseWorlds)
+        out["samePhaseWorldMarkers"] = samePhaseBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
+        out["seededResolveCounts"] = [seeded10.worldResolveCount,seeded20.worldResolveCount]
+        seededHost.feed(6002,true,inside:10);seededHost.feed(6003,false,inside:20)
+        let refreshedBatch = seededHost.prepare(seedProgram)
+        out["refreshedWorldMarkers"] = refreshedBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
+        out["refreshedLeavingWorldMarkers"] = refreshedBatch.samples.compactMap { $0.leavingSurface?.cursorWorldPosition.y }
+        out["refreshedResolveCounts"] = [seeded10.worldResolveCount,seeded20.worldResolveCount]
+        let emptySeedHost = SceneDesktopWallpaperSession()
+        emptySeedHost.surfaces.removeValue(forKey:20)
+        emptySeedHost.surfaces[10]!.metalView.requiresSceneScriptCameraWorldFrames = true
+        var emptySeed: [UInt32:[Int:simd_float4x4]] = [10:[:]]
+        emptySeedHost.feed(7000,true,inside:10);emptySeedHost.feed(7001,false,inside:10)
+        let emptySeedBatch = emptySeedHost.prepare(seedProgram,worldFramesBySurface:&emptySeed)
+        out["emptySeedResolveCount"] = emptySeedHost.surfaces[10]!.metalView.worldResolveCount
+        out["emptySeedWorldMarkers"] = emptySeedBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
+        let noOwner2DHost = SceneDesktopWallpaperSession()
+        noOwner2DHost.feed(8000,false,inside:10);noOwner2DHost.feed(8001,false,inside:20)
+        let noOwner2DBatch = noOwner2DHost.prepare(seedProgram)
+        out["noOwner2DResolveCounts"] = noOwner2DHost.surfaces.keys.sorted().map { noOwner2DHost.surfaces[$0]!.metalView.worldResolveCount }
+        out["noOwner2DWorldMarkers"] = noOwner2DBatch.samples.compactMap { $0.surface?.cursorWorldPosition.y }
         let host = SceneDesktopWallpaperSession()
         let (multi,_) = try make([(.origin,script)])
         host.feed(1,true,inside:10);host.feed(2,false,inside:10)
@@ -211,6 +310,38 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['multiRapid'],[1,1,1])
         self.assertEqual(self.result['multiRapidSurfaces'],[10,10])
         self.assertEqual(self.result['secondSurface'],[2,2,2])
+
+    def test_native_camera_without_owners_resolves_active_and_leaving_surface_once(self):
+        self.assertEqual(self.result['cameraFailedResolveCounts'],[1,0])
+        self.assertTrue(self.result['cameraFailedHasNoSamples'])
+        self.assertEqual(self.result['cameraNoOwnerSurfaces'],[20,20])
+        self.assertEqual(self.result['cameraNoOwnerWorldMarkers'],[113,113])
+        self.assertEqual(self.result['cameraLeavingWorldMarkers'],[97])
+        self.assertEqual(self.result['cameraNoOwnerResolveCounts'],[2,1])
+        self.assertEqual(self.result['cameraLeavingInputMarkers'],[97])
+        self.assertEqual(self.result['cameraActiveInputMarkers'],[113,113])
+
+    def test_preseeded_phase_worlds_are_reused_and_next_phase_refreshes(self):
+        self.assertEqual(self.result['seededWorldMarkers'],[151,179])
+        self.assertEqual(self.result['seededLeavingWorldMarkers'],[151])
+        self.assertEqual(self.result['samePhaseWorldMarkers'],[179])
+        self.assertEqual(self.result['seededResolveCounts'],[0,0])
+        self.assertEqual(self.result['refreshedWorldMarkers'],[171,189])
+        self.assertEqual(self.result['refreshedLeavingWorldMarkers'],[171])
+        self.assertEqual(self.result['refreshedResolveCounts'],[1,1])
+        self.assertEqual(self.result['emptySeedResolveCount'],0)
+        self.assertEqual(self.result['emptySeedWorldMarkers'],[-1,-1])
+
+    def test_active_and_leaving_surface_resolvers_receive_their_current_attachments(self):
+        self.assertEqual(self.result['surface10AttachmentMarkers'],[211,251])
+        self.assertEqual(self.result['surface20AttachmentMarkers'],[277])
+        self.assertEqual(self.result['attachmentActiveWorldMarkers'],[277,277])
+        self.assertEqual(self.result['attachmentLeavingWorldMarkers'],[251])
+        self.assertEqual(self.result['attachmentResolveCounts'],[2,1])
+
+    def test_2d_without_owners_does_not_resolve_active_or_leaving_surface(self):
+        self.assertEqual(self.result['noOwner2DResolveCounts'],[0,0])
+        self.assertEqual(self.result['noOwner2DWorldMarkers'],[-1,-1])
 
     def test_single_surface_uses_same_click_route_without_duplicate_final_sample(self):
         self.assertEqual(self.result['singleRapid'],[1,1,1])

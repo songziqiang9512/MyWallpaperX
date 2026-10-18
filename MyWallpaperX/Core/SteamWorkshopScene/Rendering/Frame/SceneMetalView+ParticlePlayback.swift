@@ -28,7 +28,8 @@ extension SceneMetalView {
         let projection = renderer.resolveFrameWorldProjection(layerTopology: topology,
             dynamicValues: dynamicValues, puppetAttachmentFrames: attachments)
         let pointers = renderer.particlePointerLocalPositions(frameContext: context,
-            cameraFrame: renderer.makeCameraFrame(frameContext: context), frameProjection: projection,
+            cameraFrame: renderer.makeCameraFrame(frameContext: context,
+                worldFrames: projection.worldFrames), frameProjection: projection,
             demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs.intersection([layerID]))
         return try particlePlayback.emissionContext(layerID: layerID, dynamicValues: dynamicValues,
             pointerLocalPosition: pointers[layerID],
