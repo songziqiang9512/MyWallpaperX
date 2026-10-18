@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `fadd903bd93cc0c086df19c41951a23a5402212b8d5fda97283941dfb06f6876`。
-- 本页生成于 2026-10-18T11:05:03.090860+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `d21939cc93e956bbb1861a8647e1eec49c43470308489bd3fbba960c750cf112`。
+- 本页生成于 2026-10-18T12:19:14.907938+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -27,10 +27,10 @@
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 274 |
+| `unknown` | 271 |
 | `not-run` | 1 |
 | `blocked` | 0 |
-| `compared` | 27 |
+| `compared` | 30 |
 
 - 已裁决但缺观看者身份的条目：**19**；已裁决但缺截图/视频身份的条目：**19**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
@@ -199,8 +199,8 @@
 | `3563038726` | 【凡人修仙传】梅凝  乖巧可怜 | 7(0) bool 4 color 2 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3566880847` | 【凡人修仙传】紫灵 白色限定 | 7(0) bool 1 color 3 combo 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 48(33) bool 12 color 3 combo 1 group 4 slider 9 untyped 3 u… | `degraded-runtime` | `effect-execution / ResolvedMaterialExecution / effect-local-passthrough-material-dynamic-uniform-producer-unavailable / resolved-material-graph` | `effect-chain` | `unreviewed` 2026-10-17 | 10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出… |
-| `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 21(0) bool 8 color 4 slider 9 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 13(0) bool 6 color 4 slider 3 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 21(0) bool 8 color 4 slider 9 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实… |
+| `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 13(0) bool 6 color 4 slider 3 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定8.165s原图：上部/人物左上青绿扇状照明实际可辨，人物/水纹/右烟/头发高光保持，旧笼统缺光未重现。204有真实138/137批GPU完成，像素不独归… |
 | `3585875739` | Miku Monitoring | 6(0) bool 5 color 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3586705329` | [甜蜜女友3]柳木诗梦 | 46(5) bool 9 color 8 combo 3 scenetexture 8 slider 13 text … | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | 人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；view… |
 | `3587571382` | 【凡人修仙传】宋玉  璀璨夺目 | 15(0) bool 5 color 3 slider 7 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -209,7 +209,7 @@
 | `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立de… |
 | `3601801724` | ash一爪布鲁托 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3601964477` | 千咲 \|\| 鸣潮  \|\| 枫 \|\| 4K | 44(19) bool 19 color 5 group 3 slider 7 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
-| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：6… |
 | `3605502569` | 顾州-暗影魅眸｜Shadow · Charming Eyes | 33(21) bool 15 color 4 combo 1 group 3 slider 10 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3605722997` | [假装4K]魔王-追悼【可交互壁纸】（喜欢的点个赞呗） | 43(27) bool 22 color 4 combo 3 scenetexture 2 slider 9 text… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:visibility` | `scenescript` | `unreviewed` 2026-10-17 | 默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍… |
 | `3609108600` | 千咲 \|\| 鸣潮 \|\| 4K | 9(4) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

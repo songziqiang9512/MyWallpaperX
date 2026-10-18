@@ -121,8 +121,8 @@
       "bytes": 347375
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 368,
-      "bytes": 133633
+      "lines": 380,
+      "bytes": 136233
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 64782
+      "bytes": 65363
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 16871
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 201,
-      "bytes": 54406
+      "lines": 203,
+      "bytes": 55702
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1378,15 +1378,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "0f894ddfd0aad15b964092be3a9438cad9b32aedf217948983868b149eb7c4a9",
-      "after": "24237937277f8dd6f0b2c160db36169f70fcb22d2e1d59c62a28c6e710864ad3",
-      "owner": "scene-static-model-normal-coverage",
-      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
       "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
@@ -1405,30 +1396,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "90046bb5f870619a5f821a5307353af5c43f1b4c9bc493af577eb3051a3c11e4",
-      "after": "bf6b83ad0db067720d161332cd90e198894e0d585f6f6085ea4dc2b2a2a35655",
-      "owner": "scene-logical-macro-invocation",
-      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a7a5e985be229408c45e66d714ac935bad887a0c7c69b0833c5886424a386382",
-      "after": "83a18091ae54c7f684324ec9ab80ae818f151268cc7e4ee2dfc5b0a14523af61",
-      "owner": "scene-logical-macro-invocation",
-      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "01eb8e2d6d0724e178a1cadc1c62f7b8c1d30d1847d2d434829a48fb4fc99712",
       "after": "9c9dccc37549c0f1afb144862eaf61662afda3d4af33fceeb52ecf41d5f355b6",
       "owner": "scene-logical-macro-invocation",
       "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
       "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "bf6b83ad0db067720d161332cd90e198894e0d585f6f6085ea4dc2b2a2a35655",
+      "after": "1920a1b41611c824789e56beb7ebfa5b973bc5fdcac0d5d93ae6a1e22bb7f16b",
+      "owner": "scene-u02-current-qualification",
+      "reason": "Replace stale U02 not-fresh descriptions with actual source-bound observations and original failures; preserve unresolved colour/lighting and newly localized Blur admission.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "83a18091ae54c7f684324ec9ab80ae818f151268cc7e4ee2dfc5b0a14523af61",
+      "after": "7833d68f79a0beef98b726c839e773b4acadbff608a782536e443a1e107b0715",
+      "owner": "scene-u02-current-qualification",
+      "reason": "Replace stale U02 not-fresh descriptions with actual source-bound observations and original failures; preserve unresolved colour/lighting and newly localized Blur admission.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "24237937277f8dd6f0b2c160db36169f70fcb22d2e1d59c62a28c6e710864ad3",
+      "after": "bd538ebad6840d3098389fcc4a1e02f86c061039d5f40624f66e929edbae002c",
+      "owner": "scene-u02-current-qualification",
+      "reason": "Replace stale U02 not-fresh descriptions with actual source-bound observations and original failures; preserve unresolved colour/lighting and newly localized Blur admission.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018"
     }
   ]
 }

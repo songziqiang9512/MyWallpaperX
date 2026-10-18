@@ -768,6 +768,51 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png"
       ],
       "remainingDifferences": "70/202/228/229/591 native-world composition缺source；Rope未支持profile；顶面暗/贴片及完整音乐/phase/构图、属性交互未验。normal RGB误丢已退出。"
+    },
+    "3585542943": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent prepared_puppet_design_sol",
+      "officialComparison": "compared",
+      "note": "限定8.165s原图：上部/人物左上青绿扇状照明实际可辨，人物/水纹/右烟/头发高光保持，旧笼统缺光未重现。204有真实138/137批GPU完成，像素不独归它。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/358-rays-fresh-20261018/result.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/358-rays-fresh-20261018/independent-review.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/358-rays-fresh-20261018/results/3585542943/scene-series-0000-window.png"
+      ],
+      "remainingDifferences": "旧笼统缺光退出；精确光形/强度、全phase/viewport与全部属性交互未验，不新增假故障。"
+    },
+    "3581882134": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent prepared_puppet_design_sol",
+      "officialComparison": "compared",
+      "note": "限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实201/200批GPU完成不代像素合同。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/result.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png"
+      ],
+      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。"
+    },
+    "3603711180": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent prepared_puppet_design_sol",
+      "officialComparison": "compared",
+      "note": "限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png"
+      ],
+      "remainingDifferences": "666/effect2/672 Blur在作者[.99,0]采样量下被旧>=.01门拒，独立于旧照明反馈；完整phase/属性/交互和精确官方光形未验。"
     }
   }
 }

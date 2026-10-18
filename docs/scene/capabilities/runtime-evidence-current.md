@@ -948,3 +948,15 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 **独立原包与失败。** 同最终stage原3471294034，project=`71257d32…21e7`、pkg=`2cd8279e…b1a1`，默认10s/after7/resize/noPCM；根与独审另看原图，网格、人物、白色大字/红条、花瓣及底部频谱保持，49effects场景中31个Program subject取得GPU/下一帧观察，不能把49全部记为独立Program通过。ready60.549s后，原总70s watchdog在完整播放/停止前截断；exit-15、timeout及surface-not-released原FAIL保留，不重跑、不将未取得stop误称已验或直接判产品teardown故障。源与App无drift，正常停止/GPUdrain及整样本同phase/viewport未验；没有归因到本宏首错的真实作者样本，不改全样本verdict/台账。
 
 **验证、身份与保留。** 新6方法/41case及旧预处理3方法通过；改名/资源路径、等价表达、注释/quoted/inactive、裸名/未知调用、边界重定义、错参/未闭/递归、token分隔及紧预算均覆盖。首轮夹具缺nil参数的编译ERROR原样保留，修载体后40case绿；早拒5行delta后仅补跑新组41case（10.262s，1compile/1process、23Swift/28冻结文件无drift），旧组不重复。固定HEAD`1d0d11683`+两宏源的最终Debug40.704s/4312输入无drift、只同步1文件且其余mtime保持；exe=`834ae728…4365`、dylib=`e3c780ca…f64c`、CDHash=`397436eacabe1ae1dbdc37e005b5787f111b7366`，资源身份及签名通过。独审为有界GO并保独立样本watchdog限制。根`.artifacts/tmp/shader-macro-continuation-20261018/`保存红绿实际图、build-final、ROI/运行收据、独审与清理；测试冻结/首错误归相邻`shader-multiline-macro-qualification-20261018/tests/`。必要结果待正式库容量归档；保留单份迭代source/DerivedData与后继在用stage，清理仅停用的本轮输入/HOME/旧stage。没有同条件性能验收，不认领CPU/GPU、内存或启动收益。
+
+
+<a id="u02-three-lighting-fresh-20261018"></a>
+### 2026-10-18：U02剩余三包照明现况复验
+
+同一已签名App exe=`834ae728…4365`/dylib=`e3c780ca…f64c`，原包默认12s、neutral-center后outside0、series8/resize.3/noPCM；复用上一批最终stage，无重建/重试。三包均App0、surface1→0/GPUdrained、source/App无drift。358554的prepared120s不受现runner支持，Root在派发前明确更正为实际72s（duration+60），原计划保留。hover分支after是早帧，主图使用实际ready+8.165/8.150/8.498s的series0000，均908×590。官方目录截屏含VM边框且不同aspect、日期/phase/音源，不能裁精确光形/强度或整样本parity。
+
+**有界视觉。** 根与独审亲看三对原图：3585542943上部/人物左上青绿扇状照明可辨，人物/水纹/右烟/发光保持；3603711180左帘强光、青白发丝与肩光清楚，两者旧笼统缺光本窗未重现。3581882134人物/金带/背景健康，但官方左上暖亮、native冷暗的观感差仍在，无法与base/flare及状态分开，保留UNKNOWN，不能为清队列关账。
+
+**实际消费者与独立失败。** performance-particle为真实encode/CB完成观测：358554的204为138/137批、597/594实例；358188的113为201/200批、790/786实例；360的234与613各131/130批，实例457/454与321/318，failedFrames均0。它们不证明独占像素归属；preview current_nonempty只来自启动报告，不代GPU。358554背景17的五effect（含Godrays）也实际encoded。360原runner仍FAIL两项：666/effect2/672 Blur进入visual-failure-passthrough，后Opacity正常；实际诊断`source-proven-previous-blurred-composite-unowned`，不是新词法语法已证错误。666无子/依赖，Gaussian两pass的[.99,0]被GraphAdmission旧>=.01门挡住；只是最早可定位准入候选，不把它归缺光根因或未经验收就删guard。
+
+**身份与保留。** project/pkg：358554=`767455ce…20c2`/`09770fd1…6ece`；358188=`4ca743f3…a8c5`/原hash见输入收据；360同理逐file在冻结中，未覆盖旧归档人工verdict。三包仍unreviewed；当前记录只更新其限定反馈和实际运行。`.artifacts/tmp/358-rays-fresh-20261018/`及`u02-remaining-rays-fresh-20261018/`保输入身份、事前界限、原图、原FAIL、chain-observation与独审；只清本轮停用输入/HOME，继续留单份stage/迭代source/DD供后继。完整属性/互动、全随机周期及性能不在本次判断内。公共零轴准入门另沿[既有合同](previous-blurred-composite-admission.md)推进，不复跑旧光照矩阵。
