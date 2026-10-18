@@ -513,7 +513,7 @@
     },
     "3723344874": {
       "verdict": "unreviewed",
-      "note": "2026-10-17有界后验：source-proven numeric初始化与RGBA辅助carrier首帧前提已接通，effect3经GPU发布、末合成及后续帧；App0/VM0/stop1→0且GPU排空。根已对照old before/final after/目录官方图，仍未确认可归因烟雾或液体涡动恢复；U05保持OPEN，Dye非零内容UNKNOWN，不认整样本/官方parity或性能收益。正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-20261017/final/report.json；before/after、首失败和中性图链：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/u05-source-proven-signal-20261017/final/samples/3723344874/runtime_evidence.zip。"
+      "note": "2026-10-18有界内容资格：10-17 numeric/carrier首门保持；固定64d6ac8c2+临时DEBUG观察器的原包frame31实际双Dye.R/A各自有0..1内容、历史swap/copy和同CB格式sanity合格，排除该帧全零/纯alpha。根与独审实看after/目录官方，仍未确认烟雾/涡动恢复；U05 OPEN，空间形态、持续运动与官方同phase均未证，非整样本PASS或性能收益。App0/VM失败0/无漂移/stop1→0且GPU排空；原revision02因关闭effect2无JSON的STOP保留，method03只修观察配置复用同App。产品源码未改。必要证据待容量答复保本机 .artifacts/tmp/u05-fluid-content-qualification-20261018/native-method03/，内容JSON SHA a6d4b6960387f61121d9a399a906aef5b49b4589d6150065ddd66283e02bbfe7；旧source-proven-signal正式包仍保留。"
     },
     "3471294034": {
       "verdict": "unreviewed",

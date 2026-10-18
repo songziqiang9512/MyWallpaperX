@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 235,
-      "bytes": 101757
+      "lines": 241,
+      "bytes": 103283
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 63944
+      "bytes": 63940
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 51828
+      "bytes": 51850
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1383,15 +1383,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7dab113a7caf5585f7dcbbdd62d927cadb554968080844c8ea6cc6fcf97d889c",
-      "after": "be3b1faaf24a6dc8733cf4af0a7f293d989913ef6cd9f1ed716448bb565075aa",
-      "owner": "scene-puppet-source-depth",
-      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "db904ac3e5704a4d540a4cd6178880356fe29cc44184c35a1923745133f60726",
       "after": "35c3e70fcca6b16ba6ba41d5dc33c5ea2453482f581b899b8b03ad921c528e8a",
@@ -1401,12 +1392,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "be3b1faaf24a6dc8733cf4af0a7f293d989913ef6cd9f1ed716448bb565075aa",
+      "after": "66f5baed50c97303970e7f92851d061fabcdd3f6634c6442bcebe71a9e0dc52f",
+      "owner": "scene-fluid-content-qualification",
+      "reason": "Replace unmeasured Dye claims with qualified single-frame content and retain unresolved visible composition boundaries and first failed instrumentation attempt.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u05-fluid-content-20261018"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1f1e1207d7ff3ddf8656908f2d072db9dd2cbcda1873e37123a199b3c51b4f49",
-      "after": "24757c70b6cce715f5875ad95ac18e75d800847483697613dd39a15dc5249f55",
-      "owner": "scene-puppet-source-depth",
-      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
+      "before": "24757c70b6cce715f5875ad95ac18e75d800847483697613dd39a15dc5249f55",
+      "after": "3942f8c29f7d584736d56298dbda1ab83dc1d0d64ddd1cf222cff7e6eaa59e9d",
+      "owner": "scene-fluid-content-qualification",
+      "reason": "Replace unmeasured Dye claims with qualified single-frame content and retain unresolved visible composition boundaries and first failed instrumentation attempt.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u05-fluid-content-20261018"
     }
   ]
 }

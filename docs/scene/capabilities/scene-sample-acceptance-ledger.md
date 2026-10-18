@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `cdc1b4d528d93ee4d73fab06fa0e8a54da4945de40f6e9d85ae63c48860b9de1`。
-- 本页生成于 2026-10-18T03:35:17.455756+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `34494afe4a1ea165e4e5742999f601bd2dfb89c1d414c89adaa6195846f8d1fc`。
+- 本页生成于 2026-10-18T04:19:20.741907+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -244,7 +244,7 @@
 | `3719111841` | 【明日方舟/Arknights】凯尔希•思衡托——Kal'tsit·Esper… | 22(0) bool 13 color 3 combo 1 group 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3721456868` | 绯雪1 \|\| 鸣潮 | 44(17) bool 15 color 7 group 4 slider 6 text 10 textinput 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3722749868` | Porsche GT3 RS | 4(0) bool 3 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3723344874` | 【凡人修仙传】玄骨 借尸还魂 | 25(0) bool 7 color 4 slider 14 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-17有界后验：source-proven numeric初始化与RGBA辅助carrier首帧前提已接通，effect3经GPU发布、末合成及… |
+| `3723344874` | 【凡人修仙传】玄骨 借尸还魂 | 25(0) bool 7 color 4 slider 14 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18有界内容资格：10-17 numeric/carrier首门保持；固定64d6ac8c2+临时DEBUG观察器的原包frame31实际双D… |
 | `3738202317` | Albedo. | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3742133044` | 凌霄·双司镇命·无常<1>-[深空之眼] | 3(2) color 1 combo 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 本片未参与修法的独立回归：原perspective粒子196进入非空提交，实际雪花位置变化，人物/红月/花背景保持；只作基础构图对照，非完整官方parity。 |
 | `3743305891` | 战双 | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
