@@ -159,6 +159,24 @@
 
 ## 3. 证据包
 
+<a id="u27-lion-blink-qualification-20261018"></a>
+
+### U27蒙皮源深度与狮头眨眼（2026-10-18）
+
+通用修正是[蒙皮前保留作者源XYZ](advanced-object-coverage.md#puppet-bind-position-depth)：原Reader已保留Z，旧Evaluator却在prepared vertex归零且四influence省略第三基；655个非零Z顶点中，眼骨9/12各影响446/209个被实际索引引用的顶点。固定806姿态0/305、辅轨1035固定0，仅B→C将源Z清零的完整字节审查通过。固定官方2.8.0.42的B为棕橙眼片覆盖、C露黑白瞳；旧nativeB恰呈C型。新候选B恢复官方B型，头部参照未见整体重定位，独立审查亲看原图；这是局部输入因果，不还原官方内部公式或宣称像素parity。初诊34s未命中窄谷、旧A STOP及B2的10.2198935s超10s失败保持；新方法明确复用A2/B2完整原图的窄内容，以原40s整体资源watchdog替代固定TRS不需要的内层10s门，仅新增C3，没有追认旧PASS。
+
+唯一Evaluator准备XYZ、每个正权重完整affine求值后仍输出XY，原权重/采样/reference/attachment/资源及唯一compositor保持。删除无产品caller的三bounds方法、死测试与unused mesh，不新建extent/cap/3D输出。两个既有真实source harness一次22方法全通过，无skip/输入漂移；含手算正负Z/RxRy、非identity bind、四slot/归一混权/改名重排、Z0/平移/Rz邻例及最终XY溢出。原GPU publication门未重跑，仅复用未修改的失败/保留/恢复合同，不冒称其新构建GPU验收。一次固定cdb589571+Evaluator的Debug29.878s，4293输入漂移[]、签名0；候选App`f2630dbc…96a2f35`/dylib`062ecd88…920c020`/CDHash`f6670265…4c1ca2`。
+
+原3754630802保持44有效输入、无属性/pointer改写，一次14s运行实际看到两次开→闭→开：series0036/0038/0040与0042/0044。PNG完成对应最近骨骼sceneTime邻域约9.79/10.19/10.59/10.99/11.53s，只记相关、不冒精确encode帧。25的806/1035实际playing/visible并完成几何GPU/末合成；独立3264246690保原38有效输入、无属性覆盖，源Z全零的角色头/左肘/黑口罩实际组装保持；AA/警戒带旧观察不关闭。三次候选均App0/VM失败[]/漂移[]、stop1→0/GPU排空/进程组退出。原眨眼反馈有界关闭，完整30s、全部互动/MDL族、官方数值及性能仍未验；整样本保持unreviewed。
+
+输入、固定姿态控制/失败协议、原图、时序与新候选收据归`.artifacts/tmp/u27-source-z-fixed-pose-20261018/`，`final-summary.json`拥有旧实验，`tests/summary.json`与`build-final/receipt.json`拥有本批执行。必要结果暂保任务目录，未提高已授权正式库1792MiB上限；归档容量待用户答复不阻塞已验代码提交。旧75f stage已核无句柄清242,368,867B，源定位PNG清6,135,212B；保一份连续迭代构建缓存及新签名stage，无性能/物理磁盘回收声明。
+
+<a id="u26-source-resolution-20261018"></a>
+
+### U26白弧与source尺寸资格（2026-10-18）
+
+复用`75f12c51…4c3245`/`39922fd0…945c6b`签名App，原2849382252四输入仅一次10s/after7隔离运行；after三白弧、人物和背景实际呈现。138/103/59三链同Program`a5e3ea71…e4fcf6`的日志直接输入均2048²，各完成GPU、末合成及下一帧；App0/VM失败[]/漂移[]、stop1→0/GPU排空/进程组退出。source/target独审解释为childless/copyBackground=true的普通projected背景capture受通用standard2048工作上限约束；不属于empty透明源的author2000分支。输出attachment WH和encoded `g_Texture0Resolution`未直接导出，不据此补数值或判身份错配。仅180²作者GIF，缺同viewport官方清晰度ROI，保旧低清观察并停止当前修法，不调cap或新开矩阵；转下一已定位播放问题。原图/资格`.artifacts/tmp/u26-source-resolution-20261018/native/original-u26/visual-qualification.json`（5759B，SHAd6044fc3…77a33b9），独审`resolution-policy-qualification.json`（7824B，SHAf827ac8f…41f2a8）；已清own HOME/input42,466,689B，保必要结果/共享签名stage。非全样本、尺寸修复或性能结论。
+
 <a id="u25-u35-current-qualification-20261018"></a>
 
 ### U25/U35当前视觉资格（2026-10-18）

@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `8ce283a4b144cc2000a08a321e2497820f2c8ed6617542cf7b419e0695dca4b8`。
-- 本页生成于 2026-10-18T02:26:08.729163+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `cdc1b4d528d93ee4d73fab06fa0e8a54da4945de40f6e9d85ae63c48860b9de1`。
+- 本页生成于 2026-10-18T03:35:17.455756+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -113,7 +113,7 @@
 | `2824690710` | 麻匪 原神 雷电将军 Windows 16:9 21:9 | 36(18) bool 11 color 19 slider 4 text 1 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2834973884` | 麻匪 wlop-鬼刀 重置版 | 22(0) bool 5 color 3 slider 3 text 11 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2837223712` | 李擎洲：阿狸[4K] | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `2849382252` | 麻匪 死亡笔记  L·Lawliet | 16(0) bool 2 color 3 text 11 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `2849382252` | 麻匪 死亡笔记  L·Lawliet | 16(0) bool 2 color 3 text 11 | `not-run` | - | `not-run` | `unreviewed` | 10-18原包三白弧实际可见，138/103/59输入2048²且GPU/末合成/下一帧成功；无同viewport官方清晰度对照，旧低清仍保观察、STOP_U… |
 | `2877855240` | 麻匪 雷电将军 泳装 | 57(34) bool 13 color 20 combo 1 slider 12 text 3 textinput 8 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2884628849` | 麻匪 小姐姐 | 29(0) bool 4 color 4 combo 5 slider 4 text 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2887542690` | 麻匪 礼服斯卡蒂 3D版 | 28(0) bool 9 color 9 combo 1 slider 3 text 5 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -254,7 +254,7 @@
 | `3749463715` | 还能在大 ∑ 2 | 3(0) bool 1 color 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3750342273` | Night snowy mountains | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18缺席深度首门已修，原包山体视差恢复、零深度文字固定；精确响应及完整交互未验，整景未裁决。 |
 | `3750813609` | Asian Temple in the Mountains | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡 |
-| `3754630802` | WLOP [ChineseNewYear 7] | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3754630802` | WLOP [ChineseNewYear 7] | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18通用蒙皮源XYZ保真修正：官方固定姿态仅Z清零与旧native对应，候选固定闭眼恢复，原包一次14s实际两次开→闭→开；此前34s未命中与旧协议失败… |
 | `3754639143` | WLOP 银月 | 2(0) color 1 combo 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3754908581` | DJGun Making Noise!(Lite) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态… |
 | `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 3(0) bool 1 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

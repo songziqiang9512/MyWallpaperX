@@ -85,8 +85,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 365,
-      "bytes": 74533
+      "lines": 377,
+      "bytes": 76672
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 217,
-      "bytes": 97603
+      "lines": 235,
+      "bytes": 101757
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 63583
+      "bytes": 63944
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 50846
+      "bytes": 51828
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1230,15 +1230,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "e5434d43985df096ccabedde2aaec8bd392109d88d218eee73c8c01d5c4dfd21",
-      "after": "888ae8aa9612227319c7d1cfc20b84dcdfc7042e849bdf278f49ef90cd9a5137",
-      "owner": "scene-static-model-vertex-basis",
-      "reason": "Record the shared local vertex-basis contract, bounded361 native closure, open335 UI attribution and exact unreviewed runtime joins; preserve other feedback.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-vertex-basis"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "3b518eb6c02f52bdfc0bf81db688dfa336ea0072fd710f22a3293245058f4e94",
       "after": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
@@ -1302,24 +1293,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ef43c2c946fe8e8d4e9afc3ae990f0cd815704fcad2bfe09497f23f004a56d9e",
-      "after": "7dab113a7caf5585f7dcbbdd62d927cadb554968080844c8ea6cc6fcf97d889c",
-      "owner": "scene-script-module-initialization",
-      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "e1fdcb3d7adbf7372fa41764dea126a41301ded8c3aba907981e588d3c76ebaf",
-      "after": "db904ac3e5704a4d540a4cd6178880356fe29cc44184c35a1923745133f60726",
-      "owner": "scene-script-module-initialization",
-      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "2c8caea58f630b5411a6106f232a4c9908bbddcb04f6bbc96dd17f90b307c0cd",
       "after": "ebe4acefc3b6632fd853ad83a354ce6344136964ad0ced8a9a4955abc778257f",
@@ -1332,15 +1305,6 @@
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "5fa7b992f960c9aae98980ff982853d8a7441db6a0116d7057625480e9d2cda1",
       "after": "52b198e09dbb7947b7c7931aaa57763e2d3dcf73c8f80e3b2e191dfd7774f80d",
-      "owner": "scene-script-module-initialization",
-      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "adcb74896d5d18a5ecf27adb10cbf6c5c0f724266ed1e043b76ea71917229c17",
-      "after": "1f1e1207d7ff3ddf8656908f2d072db9dd2cbcda1873e37123a199b3c51b4f49",
       "owner": "scene-script-module-initialization",
       "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
@@ -1407,6 +1371,42 @@
       "owner": "playback-process-isolation",
       "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
       "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "888ae8aa9612227319c7d1cfc20b84dcdfc7042e849bdf278f49ef90cd9a5137",
+      "after": "8183c152cab8ffde0fbce258a1bd8fb6bfd764474e18aae9037cc634b86db9af",
+      "owner": "scene-puppet-source-depth",
+      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7dab113a7caf5585f7dcbbdd62d927cadb554968080844c8ea6cc6fcf97d889c",
+      "after": "be3b1faaf24a6dc8733cf4af0a7f293d989913ef6cd9f1ed716448bb565075aa",
+      "owner": "scene-puppet-source-depth",
+      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "db904ac3e5704a4d540a4cd6178880356fe29cc44184c35a1923745133f60726",
+      "after": "35c3e70fcca6b16ba6ba41d5dc33c5ea2453482f581b899b8b03ad921c528e8a",
+      "owner": "scene-puppet-source-depth",
+      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1f1e1207d7ff3ddf8656908f2d072db9dd2cbcda1873e37123a199b3c51b4f49",
+      "after": "24757c70b6cce715f5875ad95ac18e75d800847483697613dd39a15dc5249f55",
+      "owner": "scene-puppet-source-depth",
+      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
     }
   ]
 }

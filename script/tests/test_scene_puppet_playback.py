@@ -205,19 +205,9 @@ enum Harness {
                 skinMatricesScratch: &skinMatrixScratch
             )
         }
-        let expectedFrame1Bounds = frame1Positions.reduce(
-            into: SIMD2<Float>(repeating: 0)
-        ) { bounds, position in
-            bounds.x = max(bounds.x, abs(position.x))
-            bounds.y = max(bounds.y, abs(position.y))
-        }
         let singleSelection = ScenePuppetAnimationSelection(
             clips: [.init(layer: layer(), animation: animation)],
             composition: .singleAbsolute
-        )
-        let frame1Bounds = try evaluator.maxAbsDeformedPosition(
-            selection: singleSelection,
-            frameSamples: [.init(frameA: 1, frameB: 1)]
         )
         let localOverrideTransforms = try evaluator.boneTransforms(
             selection: singleSelection,
@@ -254,13 +244,6 @@ enum Harness {
             mesh: mesh,
             rig: rig,
             additiveAnimations: [animation, staticAnimation]
-        )
-        let conservativeBounds = try invariantEvaluator.conservativeMaxAbsDeformedPosition(
-            selection: singleSelection,
-            frameSamplesBatch: [
-                [.init(frameA: 0, frameB: 0)],
-                [.init(frameA: 1, frameB: 1)],
-            ]
         )
         let additiveSelection: ScenePuppetAnimationSelection
         switch ScenePuppetAnimationSelector.select(
@@ -427,13 +410,9 @@ enum Harness {
             "frame0": [frame0.x, frame0.y],
             "frame1": [frame1.x, frame1.y],
             "scratchFrame1": [scratchPositions[0].x, scratchPositions[0].y],
-            "frame1Bounds": [frame1Bounds.x, frame1Bounds.y],
-            "frame1BoundsMatch": frame1Bounds == expectedFrame1Bounds,
             "localOverrideChildX": localOverrideChildX,
             "localOverrideLocalX": localOverrideLocalX,
             "nonFiniteOverrideRejected": nonFiniteRejected,
-            "conservativeBoundsCover": conservativeBounds.x >= expectedFrame1Bounds.x
-                && conservativeBounds.y >= expectedFrame1Bounds.y,
             "dynamicAnimationTimeVarying": !invariantEvaluator.isTimeInvariant(animationID: 100),
             "staticAnimationTimeInvariant": invariantEvaluator.isTimeInvariant(animationID: 600),
             "additiveBoth": [additiveBoth.x, additiveBoth.y],
@@ -545,11 +524,6 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["localOverrideChildX"], 20)
         self.assertAlmostEqual(self.result["localOverrideLocalX"], 16)
         self.assertTrue(self.result["nonFiniteOverrideRejected"])
-
-    def test_bounds_only_reduction_matches_deformed_positions(self) -> None:
-        self.assertEqual(self.result["frame1Bounds"], [6, 4])
-        self.assertTrue(self.result["frame1BoundsMatch"])
-        self.assertTrue(self.result["conservativeBoundsCover"])
 
     def test_static_clip_signature_fact_is_conservative(self) -> None:
         self.assertTrue(self.result["dynamicAnimationTimeVarying"])

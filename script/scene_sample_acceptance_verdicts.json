@@ -662,6 +662,30 @@
       ],
       "remainingDifferences": "unknown",
       "officialComparison": "unknown"
+    },
+    "2849382252": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18原包三白弧实际可见，138/103/59输入2048²且GPU/末合成/下一帧成功；无同viewport官方清晰度对照，旧低清仍保观察、STOP_UNKNOWN当前修法，不记已修。见#u26-source-resolution-20261018。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
+    },
+    "3754630802": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "note": "10-18通用蒙皮源XYZ保真修正：官方固定姿态仅Z清零与旧native对应，候选固定闭眼恢复，原包一次14s实际两次开→闭→开；此前34s未命中与旧协议失败不追认为通过。仅眨眼反馈有界关闭，完整30s/全部互动/官方数值及性能未验，整样本仍unreviewed。见#u27-lion-blink-qualification-20261018。",
+      "reviewer": "unknown",
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "unknown",
+      "officialComparison": "unknown"
     }
   }
 }

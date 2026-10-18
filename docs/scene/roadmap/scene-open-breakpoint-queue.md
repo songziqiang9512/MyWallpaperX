@@ -101,7 +101,7 @@
 |---|---|
 | U01 · 3764725758 | ①左侧斜光；②眼睛飘动仍保留。10-18当前HEAD复验已证830/1706实际Program、GPU、末合成及next-frame，未见准入首拒；窗口与官方比例不同，未确定可归因光束ROI，不改增益/点位。眼部未作完整周期复验。[有界复验](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018)；后继成员源同最终App两组/上部构图保持，未关闭本行两项。[组源后验](../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018) |
 | U02 · 3549827466、3585542943、3581882134、3603711180 | 354于10-18当前HEAD复验：1226实际完成143批/672实例、无失败，主体/背景保持；尚无同viewport可归因缺光ROI，不按族名补算法。其余三包未随本次复验，仍分别核来源、geometry/coverage与最终ROI。[边界](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
-| U05 · 3723344874 | 人物背后烟雾/涡动仍开放。10-17初始化numeric自读与typed RGBA辅助carrier首门已退出，原包effect3实际17material/2swap、0rejected/GPU完成，经suffix末合成/下一帧；node19证明与node22metadata不再拒。根对照前后/官方原图仍未证明显烟雾恢复，Dye内容非零UNKNOWN；下一门应取可归因输入/内容，不再以准入、完成计数或盲加时/增益销账。[后验](../capabilities/runtime-evidence-current.md#u05-source-proven-signal-20261017) |
+| U05 · 3723344874 | 人物背后烟雾/涡动仍开放。10-17初始化numeric自读与typed RGBA辅助carrier首门已退出，原包effect3实际17material/2swap、0rejected/GPU完成，经suffix末合成/下一帧；node19证明与node22metadata不再拒。根对照前后/官方原图仍未证明显烟雾恢复，Dye内容非零UNKNOWN；现prepared载荷DYE与emitter size/位置非零，仍无实际POINTEMITTER uniform/像素。下一门取原commandbuffer中双Dye及前后级内容，保swap后的physical token/generation，不拿初始clear0解释持续无烟，不再以准入、完成计数或盲加时/增益销账。[后验](../capabilities/runtime-evidence-current.md#u05-source-proven-signal-20261017) |
 | U10 · 3793998447 | 音频光圈和部分属性疑似缺失；先列具体active属性与typed消费者，不能从面板有声明推全部失效 |
 | U11 · 3792249095 | 音频发光缺失、整体样式差异；先同声源定位驱动→effect/颜色/合成与具体构图ROI |
 | U13 · 3042492564 | 尺寸/显示比例、光束形状、封面右裁切/blur、布局及媒体交互分别保留待当前条件复验。10-16原包默认倍率0.73→1→0.73同窗可见，星芒/海平线/塔底恢复，官方同aspect主体尺度接近；这关闭旧倍率输入首门，不代替最新尺寸观察或其他ROI。1128非有限origin也已修；544作者ReferenceError:event不列host缺口。[camera边界](../history/default-2d-camera-inputs-2026-10-16.md)、[Vec证据](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md) |
@@ -110,8 +110,7 @@
 | U17 · 3233141951 | 同层平坦relative-transform Combined首门已退出；原20s face26/dragon266持续GPU输出，但头发逐帧值未导出，脸随头发/龙头准确轨迹未判同phase。403原请求513仍因当前数值污染Bool seed而拒；[单变量资格](../../../.artifacts/scene-evidence/runs/u17-animation513-qualification-20261017/manifest.json)仅把该visible改原literal true后，clip458实际播放/105份geometry已证，共享atlas及无UV证据使左侧黑形像素归属和可见收益仍UNKNOWN，已停止此修法；重启需可归因ROI或新producer证据。双色音频旧观察仍待同声源；无目录官方截屏，四项不记关闭。[Combined边界](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
 | U19 · 3807668787 | 主报告灰头冠/音频缺失已修；仅保10-11实测可见pointer轨迹958因alphatocoverage拒绝。现粒子blend/profile须取得同条件合同，不能猜替代混合。[最后证据](../history/independent-signal-producer-2026-10-11.md) |
 | U24 · 3420215721 | freeze/封面依赖首门已闭；中央环官方亮度具体差异待当前复验。349/409 circular_text默认hidden且无激活证据，不计缺字，不改作者alpha补偿。[关闭首门及边界](../history/terminal-attachment-desktop-freeze-2026-10-10.md#u24-cover-dependency) |
-| U26 · 2849382252 | 三条白色图形分辨率过低；核原资产、采样/target extent与几何，不先判压缩或任意加分辨率 |
-| U27 · 3754630802 | 狮子头眨眼异常；先固定clip/纹理序列与周期、关键帧再定位 |
+| U26 · 2849382252 | 10-18当前原包三白弧实际可见，三链输入2048²并完成Program/GPU/末合成/下一帧；旧“低清”仍无同viewport官方ROI。childless/copyBackground=true走projected背景capture与通用2048工作上限，未见尺寸身份错配；输入WH不冒称输出attachment或uniform实测。保旧观察、STOP_UNKNOWN此修法，不调cap/替换author尺寸或重复矩阵；有明确清晰度对照再开。[当前资格](../capabilities/runtime-evidence-current.md#u26-source-resolution-20261018) |
 | U28 · 2684431262 | 整体合成差异反馈仍待同状态官方ROI。10-18原包fresh已见倾斜青环/白盘、代码和洋红圆粒子，未见旧巨大紫块；139原色本为洋红，239/355/405实际Program/GPU/末合成/下一帧，不能按颜色判占位。250²作者GIF非同viewport/phase/音源参考，不据此关闭原反馈或改参数。[本次资格](../capabilities/runtime-evidence-current.md#u28-visual-qualification-20261018) |
 | U29 · 3470948192 | 默认35s已越过intro仍黑水滴、缺亮边/拖尾；115.scale非有限返回仍在，旧公式NaN不再开放。F5原型无可认收益已撤回；后继固定官方模型载体两OFF均未通过环境/健康正控，入口机械纠正也未闭合，反射空间/能量保持UNKNOWN，不重跑未资格载体或调距离/亮度追图。[原型停止](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018)、[后继资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U30 · 3750813609 | 旧观察①闪电缺失；②时钟颜色/发光不符；③雨弱，均待同phase复验。10-16原包身份复核：雷电为121→lightning2，普通Sphere/rate1，无periodic cap；旧405/412+cap32关联错误已删，它们属3749463715，能力缺口只归[静态审计](scene-full-sample-static-audit.md)。未找到121 root静态准入拒绝，不推断其视觉原因。 |
@@ -130,6 +129,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 3754630802 · 狮头眨眼反馈已闭 | 10-18官方固定姿态仅源Z清零对照与旧native对应定位蒙皮前丢Z；同一Evaluator完整XYZ→四influence→XY恢复固定闭眼，原包实际两次开→闭→开，头部未整体跳位。Z0/平移/Rz邻例与改名/重排、最终溢出已验；不认领完整30s、所有动画/互动、官方数值或性能，整样本仍unreviewed。[有界后验](../capabilities/runtime-evidence-current.md#u27-lion-blink-qualification-20261018) |
 | 2974757317 · 卡片下多余矩形反馈已闭 | 10-18原包两帧不再出现下方重复卡片矩形，主卡/title/artist/日期/背景保持；合法无回调Bool模块现留在最终共享域，三个origin首值保持作者屏外Y=-1850，旧376 invalidSource退出。官方同viewport原包与初始化标记实验、改名/等价式及失败域重建门分别支撑此链；独立3351163962布局保持。不修改AudioBars、mask或作者坐标，不认领全phase/音源、完整交互及整样本PASS。[有界后验](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | 3351163962 · 默认时钟布局反馈已核对 | 10-18原包默认、同908×590官方A两帧与当前native相对环心的hour/seconds/greeting最大单轴差1.643px，低于预锁4px门；时分秒均在环内，问候均跨圆右侧，bbox相同。旧GIF非同viewport，不能据此改anchor/相机；本条按同默认官方一致退出，不称引擎修复、全部属性或整样本PASS。[有界对照](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | 3802005866 · 蓝色越界/框外音频细线反馈已闭 | 10-18同22输入原包显示中蓝条、底部框外白细线消失，框内非零频谱保持；修复的是正交透明成员组的父本地源边界，无effect也沿原pool/compositor输出一次，白框不作clip声明。named enclosing采集、终端重放、尺寸cap与安全邻例已验，独立原U01有界保持、最终独审无阻断；整景/官方同phase与HDR未扩。[有界后验](../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018) |

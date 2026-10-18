@@ -35,10 +35,11 @@ func clip(_ id: Int = 1, reference: SceneMdlPuppetAnimation.Transform = pose(20)
 func columns(_ m: simd_float4x4) -> [Float] {
     (0..<4).flatMap { i in (0..<4).map { j in m[i][j] } }
 }
-func fixture(bindRotation: SIMD3<Float> = .zero, vertexX: Float = 2, bindScale: Float = 1)
+func fixture(bindRotation: SIMD3<Float> = .zero, vertexX: Float = 2, vertexZ: Float = 0,
+             bindScale: Float = 1)
     throws -> (SceneMdlPuppetMesh, SceneMdlPuppetRig) {
     let mesh = SceneMdlPuppetMesh(version: "MDLV0023", vertexStride: 80,
-        meshBlockOffset: 9, vertices: [.init(x: vertexX,y: 1,z: 0,u: 0,v: 0)], indices: [0,0,0])
+        meshBlockOffset: 9, vertices: [.init(x: vertexX,y: 1,z: vertexZ,u: 0,v: 0)], indices: [0,0,0])
     let rig = SceneMdlPuppetRig(bones: [
         .init(parentIndex: -1, bindLocalMatrixColumnMajor:
             columns(SceneMatrix.translation(SIMD3(4,0,0)) * SceneMatrix.eulerXYZ(bindRotation)
@@ -49,8 +50,8 @@ func fixture(bindRotation: SIMD3<Float> = .zero, vertexX: Float = 2, bindScale: 
 }
 func evaluate(_ weight: Double, additive: Bool = true, extra: Bool = false,
               animation: SceneMdlPuppetAnimation = clip(), bindRotation: SIMD3<Float> = .zero,
-              vertexX: Float = 2) throws -> [String: Any] {
-    let (mesh, rig) = try fixture(bindRotation: bindRotation, vertexX: vertexX)
+              vertexX: Float = 2, vertexZ: Float = 0) throws -> [String: Any] {
+    let (mesh, rig) = try fixture(bindRotation: bindRotation, vertexX: vertexX, vertexZ: vertexZ)
     let base = clip(2, reference: pose(9), held: pose(9))
     let clips: [ScenePuppetAnimationSelection.Clip] = (extra
         ? [.init(layer: layer(1,id: 2),animation: base)] : [])
@@ -76,6 +77,39 @@ func evaluate(_ weight: Double, additive: Bool = true, extra: Bool = false,
 }
 func rejected(_ operation: () throws -> [String: Any]) -> Bool {
     do { _ = try operation(); return false } catch { return true }
+}
+func depthProjection(_ vertex: SIMD3<Float>, rotations: [SIMD3<Float>],
+                     bindRotation: SIMD3<Float> = .zero,
+                     indices: SIMD4<UInt32> = SIMD4(repeating: 0),
+                     weights: SIMD4<Float> = SIMD4(1,0,0,0),
+                     tag: String = "depth", animationID: Int = 701) throws -> [String: Any] {
+    let bindPosition = SIMD3<Float>(4,0,2)
+    let mesh = SceneMdlPuppetMesh(version: "MDLV0023", vertexStride: 80,
+        meshBlockOffset: 9, vertices: [.init(x: vertex.x, y: vertex.y, z: vertex.z, u: 0, v: 0)],
+        indices: [0,0,0])
+    let bind = columns(SceneMatrix.translation(bindPosition) * SceneMatrix.eulerXYZ(bindRotation))
+    let rig = SceneMdlPuppetRig(bones: rotations.indices.map {
+        .init(name: "\(tag)-bone-\($0)", parentIndex: -1, bindLocalMatrixColumnMajor: bind)
+    }, vertexWeights: [.init(boneIndices: indices, boneWeights: weights)])
+    let animation = SceneMdlPuppetAnimation(id: animationID, name: tag, mode: "single",
+        framesPerSecond: 1, frameCount: 1, transformsByBone: rotations.map {
+            [.init(translation: bindPosition, rotation: bindRotation, scale: SIMD3(repeating: 1)),
+             .init(translation: SIMD3(10,0,0), rotation: $0, scale: SIMD3(repeating: 1))]
+        })
+    let selection = ScenePuppetAnimationSelection(clips: [
+        .init(layer: layer(1, additive: false, id: animationID), animation: animation)
+    ], composition: .singleAbsolute)
+    let evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig, additiveAnimations: [animation])
+    let samples: [ScenePuppetAnimationEvaluator.FrameSample?] = [.init(frameA: 1, frameB: 1)]
+    let points = try evaluator.deformedPositions(selection: selection, frameSamples: samples)
+    var written = [SIMD2<Float>](repeating: .zero, count: 1)
+    var locals = [simd_float4x4](repeating: matrix_identity_float4x4, count: rotations.count)
+    var skins = locals, worlds = locals
+    try written.withUnsafeMutableBufferPointer {
+        try evaluator.writeDeformedPositions(selection: selection, frameSamples: samples, into: $0,
+            localMatricesScratch: &locals, skinMatricesScratch: &skins, worldMatricesScratch: &worlds)
+    }
+    return ["point": [points[0].x, points[0].y], "written": [written[0].x, written[0].y]]
 }
 func referenceEvaluation(mesh: SceneMdlPuppetMesh, rig: SceneMdlPuppetRig,
                          weights: [Double], additive: [Bool], frames: [Int?]) throws -> [String: Any] {
@@ -192,6 +226,47 @@ func referenceEvaluation(mesh: SceneMdlPuppetMesh, rig: SceneMdlPuppetRig,
         } catch let failure as ScenePuppetAnimationEvaluationFailure {
             result["vertexOverflow"] = failure == .invalidDeformedVertex
         }
+        let rx = SIMD3<Float>(.pi/2,0,0), ry = SIMD3<Float>(0,.pi/2,0)
+        let rz = SIMD3<Float>(0,0,.pi/2)
+        for (name, sourceZ, rotation, bindRotation) in [
+            ("x-positive", Float(5), rx, SIMD3<Float>.zero), ("x-negative", -1, rx, .zero),
+            ("y-positive", 5, ry, .zero), ("y-negative", -1, ry, .zero),
+            ("zero-x", 0, rx, .zero), ("zero-y", 0, ry, .zero),
+            ("translation-positive", 5, .zero, .zero), ("translation-negative", -1, .zero, .zero),
+            ("z-rotation-positive", 5, rz, .zero), ("z-rotation-negative", -1, rz, .zero),
+            ("rotated-bind-x", 5, rx, ry), ("rotated-bind-y", 5, ry, ry)
+        ] {
+            result["depth-\(name)"] = try depthProjection(SIMD3(6,1,sourceZ),
+                rotations: [rotation], bindRotation: bindRotation)
+        }
+        let axes = [rx, -rx, ry, -ry]
+        for slot in 0..<4 {
+            var weights = SIMD4<Float>.zero
+            weights[slot] = 1
+            result["depth-slot-\(slot)"] = try depthProjection(SIMD3(6,1,5), rotations: axes,
+                indices: SIMD4(0,1,2,3), weights: weights)
+        }
+        let mixed = SIMD4<Float>(0.1,0.2,0.3,0.4)
+        result["depth-mixed"] = try depthProjection(SIMD3(6,1,5), rotations: axes,
+            indices: SIMD4(0,1,2,3), weights: mixed)
+        result["depth-mixed-negative"] = try depthProjection(SIMD3(6,1,-1), rotations: axes,
+            indices: SIMD4(0,1,2,3), weights: mixed)
+        result["depth-normalized"] = try depthProjection(SIMD3(6,1,5), rotations: axes,
+            indices: SIMD4(0,1,2,3), weights: mixed * Float(1.00005))
+        result["depth-slot-permutation"] = try depthProjection(SIMD3(6,1,5), rotations: axes,
+            indices: SIMD4(3,1,0,2), weights: SIMD4(0.4,0.2,0.1,0.3), tag: "slots-renamed", animationID: 917)
+        result["depth-bone-permutation"] = try depthProjection(SIMD3(6,1,5),
+            rotations: [axes[3],axes[0],axes[2],axes[1]], indices: SIMD4(1,3,2,0),
+            weights: mixed, tag: "renamed-κ", animationID: 827)
+        do {
+            // Direct-IR numeric defense: finite matrices and Z overflow only at projection.
+            // The wire reader's smaller authored limits are covered separately.
+            _ = try evaluate(1, animation: clip(held: pose(4, rotation: ry,
+                scaleXYZ: SIMD3(1,1,1e10))), vertexZ: 1e30)
+            result["depthVertexOverflow"] = false
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            result["depthVertexOverflow"] = failure == .invalidDeformedVertex
+        }
         print(String(data: try JSONSerialization.data(withJSONObject: result,options: [.sortedKeys]),encoding: .utf8)!)
     }
 }
@@ -267,6 +342,36 @@ class PuppetWeightTests(unittest.TestCase):
         self.assertEqual(self.result["invalidEvaluation"],[True] * 5)
         self.assertTrue(self.result["singularBindRejected"])
         self.assertTrue(self.result["vertexOverflow"])
+        self.assertTrue(self.result["depthVertexOverflow"])
+
+    def test_source_z_reaches_xy_after_bind_relative_cross_axis_rotation(self):
+        # Hand-derived from bind T(4,0,2), vertex (6,1,z), target T(10,0,0)R.
+        # Rotated-bind cases additionally undo bind Ry90 before the target rotation.
+        expected = {"x-positive": (12,-3), "x-negative": (12,3),
+                    "y-positive": (13,1), "y-negative": (7,1),
+                    "zero-x": (12,2), "zero-y": (8,1),
+                    "translation-positive": (12,1), "translation-negative": (12,1),
+                    "z-rotation-positive": (9,2), "z-rotation-negative": (9,2),
+                    "rotated-bind-x": (7,-2), "rotated-bind-y": (12,1)}
+        for name, wanted in expected.items():
+            with self.subTest(case=name):
+                actual = self.result[f"depth-{name}"]
+                self.assertEqual(actual["point"], actual["written"])
+                for value, target in zip(actual["point"], wanted):
+                    self.assertAlmostEqual(value, target, delta=1e-5)
+
+    def test_four_influence_slots_preserve_depth_and_normalized_mixture(self):
+        # Each independently exercised slot has a different analytic signed-Z response.
+        expected = {"slot-0": (12,-3), "slot-1": (12,3), "slot-2": (13,1), "slot-3": (7,1),
+                    "mixed": (10.3,1), "mixed-negative": (10.9,0.4),
+                    "normalized": (10.3,1), "slot-permutation": (10.3,1),
+                    "bone-permutation": (10.3,1)}
+        for name, wanted in expected.items():
+            with self.subTest(case=name):
+                actual = self.result[f"depth-{name}"]
+                self.assertEqual(actual["point"], actual["written"])
+                for value, target in zip(actual["point"], wanted):
+                    self.assertAlmostEqual(value, target, delta=1e-5)
 
     def test_finite_collapsed_near_zero_and_negative_forward_transforms_are_valid(self):
         for name, scale in (("zeroX", (0, 1, 1)), ("zeroY", (1, 0, 1)),

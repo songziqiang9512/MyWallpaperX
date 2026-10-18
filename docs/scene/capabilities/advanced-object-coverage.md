@@ -152,6 +152,18 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 
 真实准备门10项通过，含坏/缺省/未准备/选择拒绝、改名与骨索引等价重排、不同 reference、无 reference 与非法 rig/reference 反例、有效动画/default/reuse；原322默认侧脸主体组装恢复且仍报告 aux1412/1212 拒绝，独立379成功动画与实际画面、两包安全退出保持。若 reference 不合法、错误诊断丢失或成功动画/生命周期退化即撤回。中央颈块由同日[挂点后继](#puppet-attachment)修复；缺眼、手部、完整动画及官方逐值/全景与性能另列，不扩大本片结论。
 
+<a id="puppet-bind-position-depth"></a>
+
+### 3.2.2 蒙皮前保留源位置深度
+
+2026-10-18 已按本节先行设计修正：Reader 保留源 XYZ，旧 Evaluator 在顶点准备和四骨骼 affine 求值中提前丢弃 Z。固定官方姿态的源Z清零对照、旧native对应及候选闭眼/原包两次开闭复归定位并验证这一局部输入损失；[运行与边界](runtime-evidence-current.md#u27-lion-blink-qualification-20261018)拥有实际结果，不宣称全 MDL 或官方内部公式一致。
+
+- 由原 Evaluator 一次准备完整 `(x,y,z,1)`，各正权重 influence 使用原 skin matrix 的三个位置基与平移，再按原归一化权重合成 XY。bind inverse、角色 reference、TRS、采样及脚本 pose 保持原 owner；只撤销蒙皮前的 Z=0 投影，不新增解析、深度排序、三维输出或样本分派。
+- 动态顶点、GeometryProduct、裁剪 ROI 与唯一 compositor 继续消费原二维结果。静态 bind-only 几何仍直接投影 XY，它与 evaluated pose 是 LayerLoad 的互斥选择，不构成第二动画 owner。原 Z=0 及第三基不投影到 XY 的相邻输入保持原结果。
+- 最终 XY 非有限沿第3.2节拒绝/保留上一完整几何，不 clamp、不发布部分缓冲，不扩大 VM/geometry 原子性承诺。生命周期、资源回退、合法零/近零/负 forward scale 均保持。
+- 旧覆盖范围扫描已退出产品调用链；同片删除 Evaluator 三个无产品 caller 的 bounds 方法、对应死测试和未读取的 stored mesh，不扩展旧估算算法或调整 target/cap。删除引用不作为内存收益。
+- 验收沿实际 positions/writer 覆盖正负 Z、X/Y 旋转、非 identity bind、四 influence 与改名/等价重排、平面/纯平移/Rz反例及最终溢出；复用原首次失败/保留/恢复发布合同。一次 Debug、原包眨眼的实际 GPU/末合成及未参与修法的平面 Puppet 回归后才升级状态。若只见整体裁切/重定位、效果混淆、旧输入回退或需要新增输出 owner 则停止；不承诺全周期、全 MDL 族、官方内部公式、逐像素或性能一致性。
+
 ### 3.3 骨骼透明度动画
 
 目标是让含逐骨骼 alpha 轨道的 Puppet 动画进入真实合成，修复新版 MDLA reader 将 present flag 当全零字段的问题。官方 2.2 更新日志公开了 bone alpha animation；固定 2.8.0.42 客户端同帧原始/全零/全一控制的骨骼矩阵相同，全零隐藏、全一显示，全骨骼 0.5 显示半透明，排除运行时重复累乘 parent alpha。先行设计已实施；固定输入、官方观察与产品验证见[运行证据](runtime-evidence-current.md#e-2026-10-07-puppet-bone-alpha)。

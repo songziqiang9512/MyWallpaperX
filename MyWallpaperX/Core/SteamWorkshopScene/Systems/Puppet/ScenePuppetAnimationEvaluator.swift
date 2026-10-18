@@ -41,7 +41,6 @@ struct ScenePuppetAnimationEvaluator {
         let normalizedWeights: SIMD4<Float>
     }
 
-    private let mesh: SceneMdlPuppetMesh
     let rig: SceneMdlPuppetRig
     private let referenceLocalMatrices: [simd_float4x4]
     private let referencePoses: [Pose]
@@ -62,7 +61,6 @@ struct ScenePuppetAnimationEvaluator {
         guard mesh.vertices.count == rig.vertexWeights.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
-        self.mesh = mesh
         self.rig = rig
 
         var localMatrices: [simd_float4x4] = []
@@ -140,10 +138,9 @@ struct ScenePuppetAnimationEvaluator {
                 Float.leastNonzeroMagnitude
             )
             vertexData.append(.init(
-                // The animated skinning path intentionally keeps the
-                // historical 2D bind point (z=0,w=1); z from the MDL record
-                // is not part of the existing image-space contract.
-                bindPoint: SIMD4<Float>(vertex.x, vertex.y, 0, 1),
+                // Preserve source depth until skinning: X/Y bone rotation
+                // can project it into the final image-space position.
+                bindPoint: SIMD4<Float>(vertex.x, vertex.y, vertex.z, 1),
                 boneIndices: source.boneIndices,
                 normalizedWeights: SIMD4<Float>(
                     source.boneWeights.x / totalWeight,
@@ -429,92 +426,6 @@ struct ScenePuppetAnimationEvaluator {
             }
     }
 
-    /// Computes only the origin-centred extent needed by load-time target
-    /// sizing. Coverage callers do not need one temporary `SIMD2` per mesh
-    /// vertex for every sampled animation pose; keeping this reduction beside
-    /// the normal evaluator preserves the exact same skinning inputs while
-    /// avoiding that allocation and copy traffic.
-    func maxAbsDeformedPosition(
-        selection: ScenePuppetAnimationSelection,
-        frameSamples: [FrameSample?]
-    ) throws -> SIMD2<Float> {
-        try maxAbsDeformedPosition(
-            localMatrices: localMatrices(
-                selection: selection,
-                frameSamples: frameSamples
-            )
-        )
-    }
-
-    /// Returns a conservative extent for a batch of sampled poses.  The
-    /// previous load path reduced every sampled pose over every vertex, which
-    /// made a 35k vertex mesh spend seconds in repeated CPU skinning.  This
-    /// pass scans each sampled skeleton once, keeps per-bone row norms and
-    /// translations, then bounds all vertices with a weighted radius.  The
-    /// bound is intentionally over-approximated, so animation remains fully
-    /// inside the target even between samples.
-    func conservativeMaxAbsDeformedPosition(
-        selection: ScenePuppetAnimationSelection,
-        frameSamplesBatch: [[FrameSample?]]
-    ) throws -> SIMD2<Float> {
-        guard frameSamplesBatch.isEmpty == false else {
-            return try maxAbsDeformedPosition(
-                selection: selection,
-                frameSamples: selection.clips.map { _ in nil }
-            )
-        }
-        var rowNormX = Array(repeating: Float.zero, count: rig.bones.count)
-        var rowNormY = Array(repeating: Float.zero, count: rig.bones.count)
-        var translationX = Array(repeating: Float.zero, count: rig.bones.count)
-        var translationY = Array(repeating: Float.zero, count: rig.bones.count)
-        for frameSamples in frameSamplesBatch {
-            let matrices = try localMatrices(
-                selection: selection,
-                frameSamples: frameSamples
-            )
-            let skin = try skinMatrices(localMatrices: matrices)
-            for boneIndex in skin.indices {
-                let matrix = skin[boneIndex]
-                let normX = hypot(matrix[0].x, matrix[1].x)
-                let normY = hypot(matrix[0].y, matrix[1].y)
-                let tx = abs(matrix[3].x)
-                let ty = abs(matrix[3].y)
-                guard normX.isFinite, normY.isFinite,
-                      tx.isFinite, ty.isFinite else {
-                    throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
-                }
-                rowNormX[boneIndex] = max(rowNormX[boneIndex], normX)
-                rowNormY[boneIndex] = max(rowNormY[boneIndex], normY)
-                translationX[boneIndex] = max(translationX[boneIndex], tx)
-                translationY[boneIndex] = max(translationY[boneIndex], ty)
-            }
-        }
-
-        var maximum = SIMD2<Float>(repeating: 0)
-        for vertex in preparedVertices {
-            let radius = hypot(vertex.bindPoint.x, vertex.bindPoint.y)
-            guard radius.isFinite else {
-                throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
-            }
-            var bound = SIMD2<Float>.zero
-            let weights = vertex.normalizedWeights
-            let indices = vertex.boneIndices
-            for influence in 0..<4 {
-                let weight = weights[influence]
-                guard weight > 0 else { continue }
-                let boneIndex = Int(indices[influence])
-                guard rig.bones.indices.contains(boneIndex) else {
-                    throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
-                }
-                bound.x += weight * (rowNormX[boneIndex] * radius + translationX[boneIndex])
-                bound.y += weight * (rowNormY[boneIndex] * radius + translationY[boneIndex])
-            }
-            maximum.x = max(maximum.x, bound.x)
-            maximum.y = max(maximum.y, bound.y)
-        }
-        return maximum
-    }
-
     private func localMatrices(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?]
@@ -787,19 +698,6 @@ struct ScenePuppetAnimationEvaluator {
         }
     }
 
-    private func maxAbsDeformedPosition(
-        localMatrices: [simd_float4x4]
-    ) throws -> SIMD2<Float> {
-        let skinMatrices = try skinMatrices(localMatrices: localMatrices)
-        var maximum = SIMD2<Float>(repeating: 0)
-        for vertex in preparedVertices {
-            let point = try deformedPoint(vertex: vertex, skinMatrices: skinMatrices)
-            maximum.x = max(maximum.x, abs(point.x))
-            maximum.y = max(maximum.y, abs(point.y))
-        }
-        return maximum
-    }
-
     @inline(__always)
     private func deformedPoint(
         vertex: PreparedVertex,
@@ -808,36 +706,45 @@ struct ScenePuppetAnimationEvaluator {
         var point = SIMD2<Float>.zero
         let bindX = vertex.bindPoint.x
         let bindY = vertex.bindPoint.y
+        let bindZ = vertex.bindPoint.z
         let weight0 = vertex.normalizedWeights.x
         if weight0 > 0 {
             let matrix = skinMatrices[Int(vertex.boneIndices.x)]
             point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+                matrix[0].x * bindX + matrix[1].x * bindY
+                    + matrix[2].x * bindZ + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY
+                    + matrix[2].y * bindZ + matrix[3].y
             ) * weight0
         }
         let weight1 = vertex.normalizedWeights.y
         if weight1 > 0 {
             let matrix = skinMatrices[Int(vertex.boneIndices.y)]
             point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+                matrix[0].x * bindX + matrix[1].x * bindY
+                    + matrix[2].x * bindZ + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY
+                    + matrix[2].y * bindZ + matrix[3].y
             ) * weight1
         }
         let weight2 = vertex.normalizedWeights.z
         if weight2 > 0 {
             let matrix = skinMatrices[Int(vertex.boneIndices.z)]
             point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+                matrix[0].x * bindX + matrix[1].x * bindY
+                    + matrix[2].x * bindZ + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY
+                    + matrix[2].y * bindZ + matrix[3].y
             ) * weight2
         }
         let weight3 = vertex.normalizedWeights.w
         if weight3 > 0 {
             let matrix = skinMatrices[Int(vertex.boneIndices.w)]
             point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+                matrix[0].x * bindX + matrix[1].x * bindY
+                    + matrix[2].x * bindZ + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY
+                    + matrix[2].y * bindZ + matrix[3].y
             ) * weight3
         }
         guard point.x.isFinite, point.y.isFinite else {
