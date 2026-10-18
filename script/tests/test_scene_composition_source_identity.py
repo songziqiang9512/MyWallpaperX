@@ -442,6 +442,30 @@ enum CompositionSourceProbe {
             return
         }
         if CommandLine.arguments.contains("--empty-groups") {
+            var empty = SceneUtilityLayer(kind: .composition)
+            empty.copyBackground = false
+            var passing = empty; passing.passthrough = true
+            let effect = SceneRenderDescriptor.EffectDescriptor(
+                id: "own-source-filter", file: "effects/own-source-filter.json", visible: true, passes: [])
+            let descriptor = SceneRenderDescriptor(layers: [
+                .init(id: 1, contentKind: "composition", utilityLayer: empty,
+                    dependencyLayerIDs: [], childLayerIDs: [], visible: true, effects: [effect]),
+                .init(id: 2, contentKind: "composition", utilityLayer: passing,
+                    dependencyLayerIDs: [], childLayerIDs: [], visible: false, effects: [effect]),
+            ], renderOrderLayerIDs: [1, 2])
+            let plans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor,
+                resolvedMaterialLayerIDs: [1, 2])
+            let selected = SceneUtilityLayerRuntimePlanner.execution(in: descriptor, plans: plans)
+            let routeToEmptyGroup = [1, 2].allSatisfy {
+                plans[$0]?.disposition == .capture && plans[$0]?.isolatedGroupMembers?.isEmpty == true
+                    && selected.membersByRootID[$0]?.isEmpty == true
+            }
+            guard routeToEmptyGroup else {
+                print("{\"routeToEmptyGroup\":false}")
+                return
+            }
+            var members = selected.membersByRootID
+            members.merge([3: [], 4: [40], 5: [], 6: [], 7: [70], 8: []]) { current, _ in current }
             let pool = SceneOffscreenTexturePool(device: device, maxDimension: 64,
                 residentByteBudget: 3 * 512)
             let seedCommand = queue.makeCommandBuffer()!
@@ -459,7 +483,7 @@ enum CompositionSourceProbe {
             let runtime = SceneCompositionGroupFrameRuntime(parentPass: parent,
                 commandBuffer: command, offscreenTexturePool: pool,
                 memberRootsByLayerID: [40: 4, 70: 7],
-                membersByRootID: [1: [], 2: [], 3: [], 4: [40], 5: [], 6: [], 7: [70], 8: []],
+                membersByRootID: members,
                 viewportSize: CGSize(width: 16, height: 8), copyBackgroundRootIDs: [3, 8])
             func hiddenRejectedWithoutAllocation(_ root: Int, demanded: Bool) -> Bool {
                 let before = pool.residentByteCost
@@ -472,8 +496,8 @@ enum CompositionSourceProbe {
             let hiddenUndemanded = hiddenRejectedWithoutAllocation(6, demanded: false)
             let hiddenPopulated = hiddenRejectedWithoutAllocation(7, demanded: true)
             let hiddenBackground = hiddenRejectedWithoutAllocation(8, demanded: true)
-            runtime.reserveSources(orderedRootIDs: [1, 2, 3, 4, 5],
-                visibleLayerIDs: [1, 2, 3, 4], requiredExecutionLayerIDs: [5])
+            runtime.reserveSources(orderedRootIDs: selected.orderedRootIDs + [3, 4, 5],
+                visibleLayerIDs: [1, 3, 4], requiredExecutionLayerIDs: [2, 5])
             // Forward preparation reads before either empty root is visited.
             let first = runtime.preparedSource(forLayerID: 1, mainTarget: main)!
             let second = runtime.preparedSource(forLayerID: 2, mainTarget: main)!
@@ -531,6 +555,7 @@ enum CompositionSourceProbe {
             }
             pool.reset()
             print(String(decoding: try JSONSerialization.data(withJSONObject: [
+                "routeToEmptyGroup": routeToEmptyGroup,
                 "terminalReusesCompletedInput": terminalRed,
                 "transparentSharedInput": transparent, "backgroundRemainsIndependent": red,
                 "completedAndReleased": pool.residentByteCost == 0,
@@ -695,6 +720,7 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
         completed = subprocess.run([str(self.binary), "--empty-groups"], capture_output=True, text=True, timeout=20)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(json.loads(completed.stdout), {
+            "routeToEmptyGroup": True,
             "transparentSharedInput": True, "backgroundRemainsIndependent": True,
             "terminalReusesCompletedInput": True, "completedAndReleased": True,
             "hiddenDemandedSourceTransparent": True, "hiddenUndemandedAllocatesNothing": True,

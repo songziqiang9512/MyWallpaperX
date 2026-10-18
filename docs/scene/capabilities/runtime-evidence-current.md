@@ -235,6 +235,14 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 同一`16a80fc1`一次原3792249095默认属性、混合PCM，12s/after8：233/250两粒子层非空，各完成330帧GPU、0failed；254四effect实际Program/GPU，末级及下一帧参与合成。**254源alpha=0不等于关闭**，其CRT会独立增加输出alpha。根与独审看native ready/after及目录官方两图：外围暗紫圈仍在，但主亮内三角/亮点位于白月牙内侧，官方主亮大圈位于外侧；不能据此叫250半径缩小或全局相机错误。仅254-off、仅233-off的两派生均只在scene插入16B visible字段，其余39个PKG payload和21个输入保持；前者内三角仍在、外围圈/文字变亮，后者实际233 false且仅250非空，主体图案仍在。底图17本含图案，不按层名归因。三run均App0/无工具失败、漂移[]、stop1→0/GPU排空。音源/phase未同官方，不改作者半径、亮度或涡旋近似；独立标尺已证该基础square Sprite的half尺寸符合官方，退出全局×2修法。日夜覆盖值为0/12，晨/晚问候差符合输入；五个脚本未写17/233/250/254的颜色、尺寸或effect参数，不能用时间标签解释环差异。原图、派生proof、`source-qualification.json`与`input-state-qualification.json`保`.artifacts/tmp/u11-visible-ring-qualification-20261018/`；不是整样本、算法或性能验收。
 
+<a id="childless-passthrough-background-20261018"></a>
+
+### Childless passthrough尊重背景选择（2026-10-18）
+
+无子composition的显式copybackground=false不再被passthrough改为readable-main；原SourceRoute给唯一空源事实，原Planner保留初始hidden prepared计划，透明输入/extent/pool/pin/graph和最终compositor共用既有链。有子passthrough及其他未准profile不扩。固定官方2.8.0.42自有四卡：两copyfalse无背景贡献、两copytrue反色背景，两passthrough值各一，两个640×360原图的固定点/普通同shader/角点健康且逐字相同。R1错vertex顺序和fragment X3014、R2仍X3014均保STOP；R3仅改实际报错的三参构造后成立，不称产品失败或完整flag parity。
+
+原U15同16a80先复现竖块，仅387-off后竖块退出且151/clock/cat保持；修后首候选a58fcc90/88696ee0原包恢复作者visible=true、HDR与resize，387/3051仍Program/GPU/末合成+次帧，输入1920×1080透明源，原图竖块退出、邻层保持。独审发现后补的hidden-plan一处不改变此visible profile，复用首候选可见证据，不冒作最终App。最终隔离Debug33.376s/4312输入无漂移/签名0，App888bb91d/dylib76d8782e；仅补原347，368/371→373实际GPU/末合成/次帧及resize，人物两侧菱形网格、大字/红中横字、花瓣和底频谱保持。两run各一次、App0/工具失败[]/输入App无漂移、stop1→0/GPU排空。真实旧owner的CPU/Metal断言均红，修后最近CPU3及Metal空源/hidden供图2方法通过、各63输入无漂移；两个前置夹具编译错误另保留，不算产品失败。没有同输入多轮性能对照，不报CPU/GPU/启动收益，U15 hover及全样本/全部属性/官方同音源phase仍未验。已清四case输入/HOME、成功resize副产物及两旧stage（718750979逻辑B）；只留最终App与一份迭代cache。方法/实际原图/失败及独审保`.artifacts/tmp/u15-clock-rectangle-qualification-20261018/`及`childless-passthrough-background{,-r2,-r3}-20261018/`，必要证据待容量归档。
+
 <a id="particle-sprite-size-unit-20261018"></a>
 
 ### 基础方形Sprite的绝对尺寸标尺（2026-10-18）

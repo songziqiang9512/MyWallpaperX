@@ -150,11 +150,21 @@ enum Harness {
             result["renamed-\(ownerID)"] = route(renamed,
                 peers: [.init(id: providerID, visible: false, contentKind: "image")],
                 order: [providerID, ownerID])
+            renamed.utilityLayer = utility(passthrough: true)
+            result["renamed-passthrough-\(ownerID)"] = route(renamed,
+                peers: [.init(id: providerID, visible: false, contentKind: "image")],
+                order: [providerID, ownerID])
         }
         var background = both; background.utilityLayer = utility(copy: true)
         var passthrough = both; passthrough.utilityLayer = utility(passthrough: true)
+        var backgroundPass = both; backgroundPass.utilityLayer = utility(copy: true, passthrough: true)
+        var defaultPass = both
+        defaultPass.utilityLayer = SceneUtilityLayer.parse(imagePath: "models/util/composelayer.json",
+            object: ["config": ["passthrough": true]])!
         result["background"] = route(background, peers: [provider])
         result["passthrough"] = route(passthrough, peers: [provider])
+        result["background-passthrough"] = route(backgroundPass, peers: [provider])
+        result["default-passthrough"] = route(defaultPass, peers: [provider])
         for kind in ["project", "fullscreen"] {
             var other = both; other.contentKind = kind
             other.utilityLayer = utility("models/util/\(kind)layer.json")
@@ -163,6 +173,10 @@ enum Harness {
         let child = SceneRenderDescriptor.Layer(id: 21, parentID: plain.id, contentKind: "solid")
         var group = plain; group.childLayerIDs = [child.id]
         result["children"] = route(group, peers: [child, provider], order: [30, 21, 20])
+        for copy in [false, true] {
+            var passingGroup = group; passingGroup.utilityLayer = utility(copy: copy, passthrough: true)
+            result["passthrough-children-\(copy)"] = route(passingGroup, peers: [child])
+        }
         for (name, flatIDs, authoredValues) in [
             ("child-flat", [provider.id], [SceneObjectDependency]()),
             ("child-authored", [], authored.authoredDependencies),
@@ -174,6 +188,8 @@ enum Harness {
         }
         result["duplicate-id"] = route(both, peers: [provider, provider])
         result["duplicate-order"] = route(both, peers: [provider], order: [20, 20])
+        result["passthrough-duplicate-id"] = route(passthrough, peers: [provider, provider])
+        result["passthrough-duplicate-order"] = route(passthrough, peers: [provider], order: [20, 20])
         result["unlisted-child"] = route(both, peers: [child, provider])
         var missing = plain; missing.childLayerIDs = [99]
         result["missing-child"] = route(missing)
@@ -285,14 +301,20 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_named_sampler_dependencies_do_not_become_composition_main_source(self) -> None:
         routes = self.result["sourceRoutes"]
         for name, owner in (("empty", 20), ("flat", 20), ("authored", 20), ("both", 20),
-                            ("hidden-provider", 20),
-                            ("renamed-901", 901), ("renamed-73", 73)):
+                            ("hidden-provider", 20), ("passthrough", 20),
+                            ("renamed-901", 901), ("renamed-73", 73),
+                            ("renamed-passthrough-901", 901), ("renamed-passthrough-73", 73)):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"trigger": owner, "isolated": True,
                                                 "capturesSubtree": False, "members": []})
 
-    def test_background_passthrough_and_other_utilities_keep_readable_source(self) -> None:
-        for name in ("background", "passthrough", "project", "fullscreen"):
+    def test_background_choice_precedes_childless_passthrough(self) -> None:
+        routes = self.result["sourceRoutes"]
+        for name in ("empty", "passthrough"):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {"trigger": 20, "isolated": True,
+                                                "capturesSubtree": False, "members": []})
+        for name in ("background", "background-passthrough", "default-passthrough", "project", "fullscreen"):
             with self.subTest(route=name):
                 self.assertEqual(self.result["sourceRoutes"][name], {
                     "trigger": 20, "isolated": False, "capturesSubtree": False, "members": []})
@@ -303,7 +325,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
                                                "capturesSubtree": True, "members": [21]})
         for name in ("child-flat", "child-authored", "child-both", "duplicate-id",
                      "duplicate-order", "unlisted-child", "missing-child",
-                     "duplicate-child", "wrong-parent", "cycle"):
+                     "duplicate-child", "wrong-parent", "cycle",
+                     "passthrough-children-false", "passthrough-children-true",
+                     "passthrough-duplicate-id", "passthrough-duplicate-order"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
         self.assertEqual(routes["utility-kind"], {"failure": "utility-shape"})

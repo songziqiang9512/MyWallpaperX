@@ -51,7 +51,7 @@
 
 隐藏 composition 仍可作为可见 consumer 的已准入 graph provider，不能只按最终显隐决定其输入是否存在。组源预留从 `makeScenePass` 移至原 frame preflight，在既有 dependency demand 得出后、graph preparation 前执行一次；原 GroupRuntime 仅对被 demand 的**无成员、不复制背景的不可变透明源**补预留，其他隐藏组保原降级。显隐仍只决定 authored 最终合成，不新增 demand/资源/输出 owner，不使隐藏 provider 出现在主画面。pin、清空、取消与 GPU completion 沿原生命周期。
 
-验收包含改名后的透明源与 named sampler 共存、true/缺省与 passthrough 的主源反例、畸形成员拒绝、可见 consumer→隐藏透明 composition→named provider 的完整供图，以及未被 demand 的隐藏源不分配。真实335须保圆形文字/封面并恢复连续地面，独立347的缺省背景复制及网格保持。未取得这些结果前不记反馈关闭；不改四角、相机、作者位置或隐藏内容补画面。已取得源/几何修正的有界结果，实际图、分阶段门及仍开放文字精确对齐归[后验](../../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。两自有完整hidden App夹具未通过前置资格，保原失败、不算该链通过；已有demand/清空/pin门成立。该修正不是性能验收，也不扩有成员隐藏 provider、passthrough 或全部 composition parity。
+验收包含改名后的透明源与 named sampler 共存、true/缺省的主源反例（childless passthrough 的 false 优先修正见下节）、畸形成员拒绝、可见 consumer→隐藏透明 composition→named provider 的完整供图，以及未被 demand 的隐藏源不分配。真实335须保圆形文字/封面并恢复连续地面，独立347的缺省背景复制及网格保持。未取得这些结果前不记反馈关闭；不改四角、相机、作者位置或隐藏内容补画面。已取得源/几何修正的有界结果，实际图、分阶段门及仍开放文字精确对齐归[后验](../../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。两自有完整hidden App夹具未通过前置资格，保原失败、不算该链通过；已有demand/清空/pin门成立。该修正不是性能验收，也不扩有成员隐藏 provider、passthrough 或全部 composition parity。
 
 ## 有成员组合的局部源边界资格（2026-10-18）
 
@@ -63,15 +63,21 @@ U08 当前原包的无效果 composition 声明了本地尺寸，其蓝图与嵌
 
 首批范围由行为证据决定，不按样本、效果名或路径选择。必须保持父子顺序、变换、透明/PMA 与 HDR/SDR、背景选择、named publication、history 的 identity/generation、resize 在飞 pin、取消/隐藏及局部失败能力；缺失源空间事实局部拒绝，不能新增相机、graph、资源账本或 compositor。验收先比较有界源/非目标透传的实际像素和资源退出，再验 U08 真实蓝图/音频、变体及未参与修法的组景；无可归因画面收益即重新选题，不把 GPU 完成或更小分配写成正确性/性能收益。
 
+### 无子层 passthrough 的背景选择修正（2026-10-18）
+
+U15 原包的空组合显式 copybackground=false、passthrough=true，现 SourceRoute 却因 passthrough 走 readable-main，scroll 把背景小片重新滚动；仅关闭该层时竖块退出且时钟/频谱保持。固定官方2.8.0.42自有四卡已证：同一保alpha的RGB反色效果中，copy=false两卡均透明，copy=true两卡均读取背景，与 passthrough 值无关；两个原图及固定ROI健康，R1/R2夹具变换/构造语法失败另保留，不转记产品失败。
+
+只在现 SourceRoute 去掉 childless 的 passthrough 背景推断，并允许这类空组进入既有透明 source、extent、pool/pin及唯一 compositor；有子层 passthrough、perspective、依赖/身份安全和其他utility保持现边界。true/缺省仍读取背景，named sampler不决定主源；初始隐藏但已准备的新空组保留原capture计划，后续typed显隐及hidden供图不丢source身份。验收使用真实SourceRoute四flag/改名依赖与结构反例、实际Planner到共享透明输入/生命周期、一次隔离Debug构建、原U15 HDR/resize后无竖块且邻层保持，以及独立真实背景复制样本。无新增算法/资源owner；官方资格不外推成员、变换或全场景parity。若上述首错或健康门被反证，撤回本次route delta，不用改作者位置/增益补画面。
+
 ### 局部 source 实施决定
 
-首个交付闭环是正交、非 passthrough、透明背景且有成员的 composition：让 authored 宽高成为成员源边界，无效果与有图效果共用同一源。完整矩形是本项目对 authored 二维画布的实施策略，官方直接证明 X/Y 父局部可见边界及恒等、无效果中间组；真实 childless passthrough 的效果采集采用现 enclosing capture 路径，属于项目一致性实施，须以实际像素单独验收，不据边界推断 effect 内部实现。native/perspective 成员及需要重新投影背景的嵌套非 passthrough 背景组保留现行可执行 profile，不能在迁移中丢掉原内容；其余成员准入不因本决定自动扩大。
+首个交付闭环是正交、非 passthrough、透明背景且有成员的 composition：让 authored 宽高成为成员源边界，无效果与有图效果共用同一源。完整矩形是本项目对 authored 二维画布的实施策略，官方直接证明 X/Y 父局部可见边界及恒等、无效果中间组；真实 childless passthrough 的效果源也由 copybackground 决定：true/缺省读取 enclosing，false 复用共享透明空源；有子层 passthrough 仍不扩张，不据边界推断 effect 内部实现。native/perspective 成员及需要重新投影背景的嵌套非 passthrough 背景组保留现行可执行 profile，不能在迁移中丢掉原内容；其余成员准入不因本决定自动扩大。
 
 既有 SourceRoute 在 descriptor/topology revision 决定局部源资格、成员与唯一顺序；每帧仅对这些 root 用当前 world/camera 生成一次 typed 源几何，含逻辑 extent、attachment extent 与 global-clip→source-clip 映射。复用现可逆矩阵工具，不新增 camera、pointer 或 world owner。GroupFrameRuntime 在同一 pool/epoch 内按现 poolLimit 比例政策预留 attachment（普通尺寸精确，超上限画布保逻辑 extent 并等比限物理尺寸），把不可变映射交给 MainPass；MainPass 不推导作者几何。唯一 MainPassRenderer 在高级 blend/geometry prepare 之前映射 raster MVP，终端材质重放显式消费同一 raster 事实；named 发布到独立目标时保留原世界放置，不套当前 attachment 变换。cursor、effect projection、lighting/fog 始终用原 world MVP。
 
 CaptureGeometry 的源采样使用 enclosing attachment 的相同映射与实际 extent；局部组输入是完整本地 source，最终用 root world MVP 输出一次。合法无效果组也保留预留、clear、成员抑制与 root 输出，但直接复用原 compositor 的无 graph draw，不伪造 Program。source 几何不可逆、尺寸非法或分配失败时沿现 degraded group 拒绝整组最小不安全单元，禁止成员回漏到 parent。原 copy-background viewport 组、空透明组及 childless capture 的已证路径保持各自语义，替换 profile 退出旧 no-effect 直通/viewport 输出。
 
-验收必须实际执行 planner→membership、局部 source 的像素越界排除及最终单次输出，覆盖平移/旋转/非均匀 scale、改名换序、健康邻层、嵌套不同尺寸、效果采集、高级混合、终端重放、HDR/SDR、resize/在飞 pin 与取消。passthrough 后代由相应源/顺序资格决定：childless capture 继续读取 enclosing pass，不增 isolated root；不把删除类型 guard 当成全部 passthrough 语义已实现。真实 U08 与未参与修法的组景需要观察可见收益，CPU/GPU/内存收益另测，不能由目标尺寸推算。
+验收必须实际执行 planner→membership、局部 source 的像素越界排除及最终单次输出，覆盖平移/旋转/非均匀 scale、改名换序、健康邻层、嵌套不同尺寸、效果采集、高级混合、终端重放、HDR/SDR、resize/在飞 pin 与取消。passthrough 后代由相应源/顺序资格决定：childless copybackground=true/缺省继续读取 enclosing pass；false沿现空源 root，不因 passthrough 另建源 owner；不把删除类型 guard 当成全部 passthrough 语义已实现。真实 U08 与未参与修法的组景需要观察可见收益，CPU/GPU/内存收益另测，不能由目标尺寸推算。
 
 ## 现有资源合同与历史依据
 

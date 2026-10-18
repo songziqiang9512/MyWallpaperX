@@ -135,7 +135,7 @@ enum SceneUtilityLayerRuntimePlanner {
             let isolatedComposition = utility.kind == .composition
                 && sourceRoute?.usesIsolatedGroupTarget == true
             let preparedComposition = utility.kind == .composition
-                && !utility.passthrough && sourceRoute != nil
+                && (!utility.passthrough || isolatedComposition) && sourceRoute != nil
                 && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
                 && resolvedMaterialLayerIDs.contains(layer.id)
             let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]

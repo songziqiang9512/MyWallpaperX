@@ -2,7 +2,7 @@
 
 # Scene 静态审计：当前剩余问题
 
-> 2026-10-16 复核（代码起点 `680e54846`）；10-17按20份增量运行、目录官方截屏和相应owner作局部更新，未重审全部旧样本。本页只保留仍能定位的缺口，不维护旧243统计、完整/部分评分或修复数量。
+> 2026-10-16 复核（代码起点 `680e54846`）；10-17按增量运行、目录官方截屏和相应owner局部更新；10-18据neutral state1后验撤回其旧首门，未重审全部旧样本。本页只保留仍能定位的缺口，不维护旧243统计、完整/部分评分或修复数量。
 
 选序服从[兼容路线](scene-compatibility-roadmap.md)：**画面正常合成与播放 → 有证据的性能问题 → 属性调节热接入 → 其他能力**。[断点队列](scene-open-breakpoint-queue.md)拥有实际用户现象和运行待办；本页只补跨专题的静态首断点，不建立第二份样本状态。完整能力边界分别归[渲染图与 shader](../capabilities/render-graph-shader-coverage.md)、[粒子](../capabilities/particle-component-coverage.md)、[高级对象](../capabilities/advanced-object-coverage.md)和[SceneScript API](../capabilities/scenescript-api-coverage.md)。
 
@@ -17,7 +17,7 @@
 
 | 当前问题 | 现役首断点与已支持边界 | 最小验证/退出条件 |
 |---|---|---|
-| **现代MDLA dense track的state1未支持** | `SceneMdlPuppetAnimationReader`在track header只准入state0；3396722575的头发后/身体model含常量state1，因整个动画未准备而在后级getAnimationLayer报错。与下行auxiliary/scalar为不同首门，不应合并或放宽查询。 | 常量TRS不意味着state1可忽略：固定官方单header正反已改变局部眼部姿态，直接按state0读取已被证伪。先定义其参考姿态/变换消费，再补唯一reader/evaluator；[证据及停止边界](../capabilities/runtime-evidence-current.md#constant-dense-state1-20261018)。 |
+| **现代MDLA dense state1的非neutral profile仍未覆盖** | 原reader/evaluator已支持全帧常量、九lane齐全且与bind等价的neutral state1，339两model动画与查询首门已恢复，不再列其整个state1缺失。非neutral/非恒定或未证参考姿态仍拒绝；与下行auxiliary/scalar为不同首门。 | 不重开339已闭首门；只有新active非neutral消费者和可归因姿态ROI才续接参考姿态/变换合同。固定官方单header正反的局部眼部变化仍反证“把任意state1当state0”。[现役neutral资格及边界](../capabilities/runtime-evidence-current.md#constant-dense-state1-20261018)。 |
 | **Puppet动画auxiliary profile仍有拒绝面** | 多target裁剪已让357人物恢复；animation1678仍被固定tag门拒，伴MDMP与scalar依赖而保持bind-pose；四clip已逐record核完，均有79/80骨约0.7的非一alpha；1678/258另有非零逐骨scalar，混合规则未证。stride84 position.w的19个ordinal已证，旧参考reader多读4B已纠正；packed位移/第二通道及曲线混合仍未知。已支持LBS/挂点/clipping及其他版本动画不能一并报缺失；格式准入也不等于本条播放已修。 | 先做morph/scalar消费者与混合顺序设计，核准真实MDLA/auxiliary边界及producer语义，沿原evaluator/pose补通用profile；不可跳track、吞坏数据或另建变形器。须原包真实姿态推进及健康/失败邻例。 |
 | **prepared effect输入与source cohort仍有拒绝面** | 10-17的active consumer已定位：现纹理用途证明未接纳部分真实RGBA slot；358已核slot1读RGB颜色+A权重而slot2才读红mask，暂无可归因明显缺图ROI。357 effect/pass Combined仍超出现同层relative-transform组；10-18官方自有跨pass根动态正控失败，clock/alias保持UNKNOWN，不按同曲线选首root。Blur whole-stage的childless门仍限制带child的prepared输入，363765未取得可归因ROI。Program接受不等于producer/cohort执行；见[实际待办](scene-open-breakpoint-queue.md)。 | 分别证明值类别/纹理用途、时钟owner和来源闭包再扩准入，不按effect名称补参数或把RGBA统一转红mask；[本轮Combined资格](../capabilities/runtime-evidence-current.md#effect-combined-qualification-20261018)不放行原233。382 noise用途与需求链已[修复](../capabilities/runtime-evidence-current.md#sampler-presence-requirements-20261017)，不再列旧slot1首错。 |
 | **动态world-space完整affine与空间consumer仍有拒绝面** | 有界root origin-only普通Sprite已按[唯一合同](../capabilities/particle-component-coverage.md#root-world-translation)接通，296的准备/播放首门退出；Z/rotation/scale、parent/attachment/child、native/perspective、Trail/Rope及外部空间CP/force仍不进入新profile。旧static层未声明peer移动仍可能拖动旧粒子。359777 Bird的零origin world force已按[独立源空间合同](../capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离)接通；非零operator origin及鸟群可见结果仍未闭合。 | 先取实际active consumer与可归因ROI，沿现空间/出生/绘制owner扩展，不复制坐标链或只删guard；无新可行动证据时不惯性细化平移。 |

@@ -29,16 +29,17 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         // Background capture is an authored source choice. Named sampler
         // dependencies do not request a copy of the enclosing main target.
         if layer.childLayerIDs.isEmpty,
-           utility.kind != .composition || utility.copyBackground
-                || utility.passthrough {
+           utility.kind != .composition || utility.copyBackground {
             return .success(.init(
                 triggerLayerID: layer.id,
                 capturesCompositionSubtree: false,
                 orderedCompositionSubtreeLayerIDs: []
             ))
         }
+        // A childless passthrough has no members to pass through. Its explicit
+        // background choice still owns the effect input, including transparency.
         guard utility.kind == .composition,
-              !utility.passthrough,
+              !utility.passthrough || layer.childLayerIDs.isEmpty,
               layer.childLayerIDs.isEmpty
                 || (layer.dependencyLayerIDs.isEmpty
                     && layer.authoredDependencies.isEmpty) else {
