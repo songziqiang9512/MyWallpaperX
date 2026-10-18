@@ -274,11 +274,16 @@ typedef struct MWXSceneQuickJSAudioRegistration {
     JSValue average;
 } MWXSceneQuickJSAudioRegistration;
 
+typedef struct MWXSceneQuickJSTimerLifetime MWXSceneQuickJSTimerLifetime;
+typedef struct MWXSceneQuickJSTimerCancellation MWXSceneQuickJSTimerCancellation;
+
 typedef struct MWXSceneQuickJSTimerRecord {
     uint64_t identity;
     double remaining_seconds;
     double interval_seconds;
     JSValue callback;
+    JSValue cancellation;
+    MWXSceneQuickJSTimerCancellation *cancellation_token;
     bool repeating;
     bool active;
 } MWXSceneQuickJSTimerRecord;
@@ -557,6 +562,7 @@ struct MWXSceneQuickJSOwner {
     uint32_t effect_count;
     char **effect_names;
     size_t audio_registration_count;
+    MWXSceneQuickJSTimerLifetime *timer_lifetime;
     uint64_t next_timer_identity;
     double timer_runtime;
     bool timer_runtime_initialized;

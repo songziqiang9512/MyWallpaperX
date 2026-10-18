@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -51,6 +52,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             clang,
             "-std=c11",
             "-O0",
+            *(["-fsanitize=address", "-fno-omit-frame-pointer"]
+              if os.environ.get("MWX_SCENE_QUICKJS_ASAN") == "1" else []),
             "-I",
             str(VM),
             "-I",
@@ -107,6 +110,13 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             0,
             completed.stdout + completed.stderr,
         )
+        pressure_prefix = "MWX_TIMER_ALLOCATION_PRESSURE "
+        pressure = [json.loads(line[len(pressure_prefix):])
+                    for line in completed.stdout.splitlines()
+                    if line.startswith(pressure_prefix)]
+        self.assertEqual(len(pressure), 1, completed.stdout + completed.stderr)
+        for key in ("anchorFailures", "postAnchorFailures", "successes", "existingTimerPreserved"):
+            self.assertGreater(pressure[0][key], 0, pressure)
 
     def test_legacy_capture_allocation_and_gc(self) -> None:
         root = Path(self._temporary_directory.name)

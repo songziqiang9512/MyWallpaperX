@@ -6,11 +6,11 @@
 >
 > 本页只回答能力在何种输入、代码与产品身份下取得过哪一级证据；当前路线与能力等级分别由[执行路线](../roadmap/scene-compatibility-roadmap.md)和[能力台账](coverage-ledger.md#current-overview)拥有。旧包不自动成为当前 HEAD 的 fresh 复现。
 <a id="current-snapshot"></a>
-
 ## 1. 当前证据快照
 
 | 查询主题 | 本页证据入口 |
 |---|---|
+| 共享timer取消与面板hover | [跨owner取消、清理与原包验收](#shared-timer-cancellation-20261018)；官方正常/throw对照、最终C/ASan及原包首错分开记录，不认性能或完整API通过。 |
 | 2D缺席视差深度 | <a id="parallax-depth-omission-20261018"></a>[唯一合同](runtime-input-property-coverage.md#op-parallax-camera)由原`parseGeneral`确认authored正交profile，`parseObject`只为原声明真正缺席的`parallaxDepth`准备`1 1`；显式零/坏值/raw及initialConfiguration保持，renderer、parent source、clock与动态创建显式零不变，不扩原生透视/未知投影。修前App`7d715ca0…6548`的原375背景17/雪52解析为零，受控pointer下山体无位移；固定官方2.8.0.42原A与仅17加字符串深度B各一次，384×216/相同两对角点/hold1s，实际pointer/HWND/foreground及receiver校验通过；两山体ROI分别约`(-22,-9)`/`(-21,-9)`px、文字79零，A/B差0，通过事前±1.5px门。最终唯一产品源`0ae75c50…c851`，Debug4293+42输入无漂移/签名0，App`e3bfee07…9dfd`/dylib`12ebbce7…824d`；未改原包15文件，17/52prepared单位深度且原raw仍无键、79为零，实际两轴响应及回中心构图恢复。独立216三层显式`(0,1)`、横向静态背景与纵向响应保持；两run App0/observedVM0/无漂移/stop1→0/GPU排空/进程退出。最近30不同方法通过（solid22+保留parallax3/继承5），31Loader场景139事实均成立；旧solid缺现役粒子依赖的0断言编译ERROR、0compile的runner import错误及derived-harness SHA元数据更正保留，只修载体再跑solid，未重复8项。必要普通14天证据归`.artifacts/scene-evidence/runs/parallax-depth-omission-20261018/`，包`passed=null`，人工verdict不变。只证明该2D输入合同及可见恢复，其他profile默认、精确gain/delay/全轨迹/整景parity未验，无CPU/GPU/内存/启动收益。 |
 | 用户视觉反馈后继 | <a id="visual-feedback-followup-20261018"></a>复用最终App`e3bfee07…89dfd`，无新产品修改/构建。U36原378的55输入、10s短trajectory中，根与独审见276前摩托硬边/21人物移动，实际prepared缺席depth为1,1、显式879=1.91保持；source继承由原resolver推导，非逐帧worldMVP导出。事后ROI整数配准仅作诊断，capture02完成晚于设point03，不当锁相/settling/gain验收；旧完全固定反馈退出，旧脸部/动画/光照等保留。335原67输入普通46s中可见after2.387→末series41.236跨度38.849s，小于文字周期41.887899s；弧位白环内侧、字序变化，手遮/底裁切及动态distance(-12…-11.7894)阻止精确漂移判定。后继57s静音且普通after55时序合格，但103/21/393实际opacity均0、distance=-12，原同脚本明确无音频返回0；effective visibility仍true，图已完成但环不可见。两run不合拼周期PASS，停止此335资格、精确对齐仍partial。三run均App0/无VM失败/输入与App无漂移/stop1→0排空、进程组消失；resize阶段allocation-reprepare局部失败及随后GPU/末合成恢复保留。必要证据拟归`.artifacts/scene-evidence/runs/visual-feedback-followup-20261018/`，正式归档待当前容量授权；不认性能收益、官方精确一致或整样本通过。 |
 | U28旧合成反馈复验 | <a id="u28-visual-qualification-20261018"></a>同修前App`7d715ca0…6548`、未修改268原包短播，倾斜青环、白盘、左上代码与洋红圆粒子可见，未见旧巨大紫块；239/355/405实际Program/GPU/末合成及下一帧、0localFallback，App0/observedVM0/无漂移/正常排空退出。139作者色本为洋红；原250²GIF只能作未对齐构图参考。未额外指定audio fixture，但实际live provider有非零64band输入，不称静音或同音源对照。缺精确旧紫块ROI和同状态官方图，原合成反馈仍开放；中性记录与一张必要原图并入上列同包，不新增算法或性能结论。 |
@@ -158,6 +158,24 @@
 <a id="evidence-packages"></a>
 
 ## 3. 证据包
+
+<a id="shared-timer-cancellation-20261018"></a>
+
+### 共享timer取消与原包hover（2026-10-18）
+
+[D4合同](../roadmap/batch2/script-component-api-design.md#shared-timer-cancellation)沿原TimerHost数组/clock，用弱lifetime anchor和registration token保留创建者身份；同domain合法stateful peer可调用，外部已取消工作不被creator snapshot复活。同owner快照、单调ID、value-only与退休拒绝保持；destroy清理回调对旧cap幂等无操作，不能误删新timer。typed拒绝后的即时取消是项目调度政策，不冒充官方内部事务。
+
+固定官方2.8.0.42/exe`daac1ea7…bda07`：最小单timeout的KEEP两图FIRED1，BARE两图FIRED0/CANCEL1/ERR=OK，调用dt均小于0.001s且在事前[0,2.5)门内；两owner live与ordinary23/1健康。新NORMAL/THROW对照通过独立C observer确认CS1/TH0→CS1/TH1，两臂均FIRED0，A/C live健康；throw路径由冻结源与实际marker确认，没有独立host异常日志。只证正常裸调用及显式caller throw后该取消保持，不外推interval组合、typed拒绝或退休。原R1运输失败/不可读、R2 FREE0及CANCEL1/CROSS1不一致均保UNKNOWN，未改判。
+
+最终两产品`81d6a074…74275`/`f5bf364d…79128b`：真实QuickJS同一C方法normal与ASan各1PASS，62输入均无漂移，含改名/等价式、bare/member、caller失败、external snapshot/already-inactive、权限、ABA/GC；destroy数量0,0,1,1,0。每轮258个实际host内存预算点中5次anchor失败、71次后续失败、182次成功，33次失败后旧timer仍实际触发；未精确隔离late-finalizer或验独立LeakSanitizer。先前7项Swift身份/恢复/耗尽通过属更早候选，最终受影响边界由此C门再验，不合并为同身份全门。旧cap cleanup首FAIL促成真实产品纠正，callback外shared读回夹具FAIL与旧版本中间PASS完整保留。
+
+固定`c024f3189`加最终两产品的normal Debug增量13.603s，4311输入无漂移、签名0；App`a7e3e3f4…4bb73`/dylib`10c33038…e8cbf`、CDHash`10eb51873cb57af0e25cab1d6134fe9204873dea`。不含并行shader准备改动；前候选构建/签名记录保留，不以耗时作性能对照。
+
+U14基线以timer/VM/pointer链与HEAD同字节的旧App`5d0e0860…bfe94`、原52输入+441B自有封面、playing1/audio0和八点hover实际命中102/170/272；102与272均报cancel owner异常并disabled，封面/展开面板与人物背景实图在。startup38.337s加22s交互撞外60s watchdog，exit-15/进程组消失，正常stop/GPU drain未闭；仅认首错复现，不记完整PASS。
+
+最终App相同U14快速轨迹63.295s/App0，102/170/272实hit且无cancel异常或disabled，反复102事件继续、小幅运动后收回，旧卡住信息条消失；每点约0.6s不足作者1s完整展开，不据此冒认完整hover。另一次事前锁定持续inside→outside正控复用同App/输入，以同hit域相差0.0001的相邻点满足现parser合同，不改作者属性：原图03实际呈现展开条、标题/artist与左移封面，after完整收回；59.573s/App0。独立376原31输入39.861s/App0，人物、星空、烟花、时钟保持；后续16条单command及初始8条TextureAnimation提交可证实际消费，但aggregate不反指五个timeout各自执行。三run均VM失败0、输入/App无漂移、stop1→0/GPU排空/进程组消失。只关闭U14取消异常/交互停用首错，不关闭blur/精确spin、全媒体来源/官方phase或376旧云形反馈，不改整样本verdict。
+
+必要证据暂保`.artifacts/tmp/timer-cancel-owner-qualification-20261018/`，含R3/R4、旧60s失败、最终C/ASan、构建与三run原图/收据；正式库容量授权未落定前不超额归档。只留当前签名stage与原单份source/DerivedData迭代缓存，停止的输入/HOME/cache按精确manifest退出；VM与5924保运行。没有可比CPU/GPU、内存、启动或能耗测量，不报性能收益。
 
 <a id="particle-coverage-qualification-20261018"></a>
 

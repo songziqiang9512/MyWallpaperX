@@ -4,6 +4,41 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+struct MWXSceneQuickJSTimerLifetime {
+    JSRuntime *runtime;
+    MWXSceneQuickJSOwner *owner;
+    uint64_t owner_identity;
+    size_t references;
+};
+
+struct MWXSceneQuickJSTimerCancellation {
+    MWXSceneQuickJSTimerLifetime *lifetime;
+    uint64_t identity;
+    bool externally_cancelled;
+    bool *construction_finalized;
+};
+
+static void release_lifetime(MWXSceneQuickJSTimerLifetime *lifetime) {
+    if (--lifetime->references == 0) js_free_rt(lifetime->runtime, lifetime);
+}
+
+static void free_cancellation(void *opaque) {
+    MWXSceneQuickJSTimerCancellation *token = opaque;
+    MWXSceneQuickJSTimerLifetime *lifetime = token->lifetime;
+    if (token->construction_finalized != NULL)
+        *token->construction_finalized = true;
+    js_free_rt(lifetime->runtime, token);
+    release_lifetime(lifetime);
+}
+
+static bool belongs_to_owner(
+    const MWXSceneQuickJSTimerCancellation *token,
+    const MWXSceneQuickJSOwner *owner
+) {
+    return token != NULL && token->lifetime == owner->timer_lifetime &&
+        token->lifetime->owner == owner;
+}
+
 static MWXSceneQuickJSOwner *active_owner(JSContext *context) {
     MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
     if (domain == NULL || !domain->callback_active ||
@@ -31,7 +66,10 @@ static void deactivate_timer(
 ) {
     if (owner == NULL || timer == NULL || !timer->active) return;
     JS_FreeValue(owner->domain->context, timer->callback);
+    JS_FreeValue(owner->domain->context, timer->cancellation);
     timer->callback = JS_UNDEFINED;
+    timer->cancellation = JS_UNDEFINED;
+    timer->cancellation_token = NULL;
     timer->active = false;
     timer->identity = 0;
     timer->remaining_seconds = 0;
@@ -45,22 +83,33 @@ static JSValue cancel_timer(
     int argc,
     JSValueConst *argv,
     int magic,
-    JSValue *function_data
+    void *opaque
 ) {
     (void)this_value;
     (void)argc;
     (void)argv;
     (void)magic;
-    MWXSceneQuickJSOwner *owner = active_owner(context);
-    uint64_t owner_identity = 0;
-    uint64_t identity = 0;
-    if (owner == NULL ||
-        JS_ToIndex(context, &owner_identity, function_data[0]) < 0 ||
-        JS_ToIndex(context, &identity, function_data[1]) < 0 ||
-        owner_identity != owner->identity) {
+    MWXSceneQuickJSOwner *caller = active_owner(context);
+    MWXSceneQuickJSTimerCancellation *token = opaque;
+    MWXSceneQuickJSOwner *owner = token->lifetime->owner;
+    if (caller == NULL || caller->value_only ||
+        caller->domain->value_only_guard_active ||
+        caller->domain->runtime != token->lifetime->runtime) {
         return JS_ThrowTypeError(context, "timer cancel owner is unavailable");
     }
-    deactivate_timer(owner, timer_with_identity(owner, identity));
+    // Teardown clears timers before invoking destroy. The still-live creator
+    // may idempotently clear its old capability there; it cannot reach a new
+    // registration or lend this cleanup permission to a peer.
+    if (owner == NULL && caller->identity == token->lifetime->owner_identity)
+        return JS_UNDEFINED;
+    if (owner == NULL || owner->domain != caller->domain || owner->disabled) {
+        return JS_ThrowTypeError(context, "timer cancel owner is unavailable");
+    }
+    // This capability cancels its registration even if a local rollback has
+    // temporarily removed it. A later creator snapshot cannot undo a peer's
+    // completed scheduling action; same-owner snapshot semantics stay intact.
+    if (caller != owner) token->externally_cancelled = true;
+    deactivate_timer(owner, timer_with_identity(owner, token->identity));
     return JS_UNDEFINED;
 }
 
@@ -108,19 +157,49 @@ static JSValue register_timer(
     slot->remaining_seconds = milliseconds / 1000.0;
     slot->interval_seconds = milliseconds / 1000.0;
     slot->callback = JS_DupValue(context, argv[0]);
+    slot->cancellation = JS_UNDEFINED;
+    slot->cancellation_token = NULL;
     slot->repeating = magic != 0;
     slot->active = true;
-    JSValue function_data[2] = {
-        JS_NewInt64(context, (int64_t)owner->identity),
-        JS_NewInt64(context, (int64_t)slot->identity),
-    };
-    JSValue cancel = JS_NewCFunctionData(
-        context, cancel_timer, 0, 0, 2, function_data
-    );
-    JS_FreeValue(context, function_data[0]);
-    JS_FreeValue(context, function_data[1]);
-    if (JS_IsException(cancel)) {
+    if (owner->timer_lifetime == NULL) {
+        owner->timer_lifetime = js_mallocz(context, sizeof(*owner->timer_lifetime));
+        if (owner->timer_lifetime == NULL) {
+            deactivate_timer(owner, slot);
+            return JS_EXCEPTION;
+        }
+        *owner->timer_lifetime = (MWXSceneQuickJSTimerLifetime){
+            .runtime = JS_GetRuntime(context), .owner = owner,
+            .owner_identity = owner->identity, .references = 1,
+        };
+    }
+    MWXSceneQuickJSTimerCancellation *token = js_mallocz(context, sizeof(*token));
+    if (token == NULL) {
         deactivate_timer(owner, slot);
+        return JS_EXCEPTION;
+    }
+    token->lifetime = owner->timer_lifetime;
+    token->identity = slot->identity;
+    token->lifetime->references += 1;
+    bool finalized = false;
+    token->construction_finalized = &finalized;
+    JSValue cancel = JS_NewCClosure(
+        context, cancel_timer, "cancel", free_cancellation, 0, 0, token
+    );
+    // The VM can fail before taking opaque ownership, or during function
+    // property setup after installing its finalizer.
+    if (!JS_IsException(cancel) && JS_HasException(context)) {
+        JSValue exception = JS_GetException(context);
+        JS_FreeValue(context, cancel);
+        JS_Throw(context, exception);
+        cancel = JS_EXCEPTION;
+    }
+    if (JS_IsException(cancel)) {
+        if (!finalized) free_cancellation(token);
+        deactivate_timer(owner, slot);
+    } else {
+        token->construction_finalized = NULL;
+        slot->cancellation = JS_DupValue(context, cancel);
+        slot->cancellation_token = token;
     }
     return cancel;
 }
@@ -292,8 +371,13 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
             snapshot->timers[index].callback = JS_DupValue(
                 owner->domain->context, owner->timers[index].callback
             );
+            snapshot->timers[index].cancellation = JS_DupValue(
+                owner->domain->context, owner->timers[index].cancellation
+            );
         } else {
             snapshot->timers[index].callback = JS_UNDEFINED;
+            snapshot->timers[index].cancellation = JS_UNDEFINED;
+            snapshot->timers[index].cancellation_token = NULL;
         }
     }
     snapshot->puppet_animation_callback_count = owner->puppet_animation_callback_count;
@@ -319,13 +403,20 @@ bool mwx_scene_quickjs_owner_timer_restore(
         owner->domain->context == NULL) return false;
     for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
         deactivate_timer(owner, &owner->timers[index]);
-        owner->timers[index] = snapshot->timers[index];
-        if (snapshot->timers[index].active) {
+        const MWXSceneQuickJSTimerRecord *saved = &snapshot->timers[index];
+        if (saved->active && belongs_to_owner(saved->cancellation_token, owner) &&
+            !saved->cancellation_token->externally_cancelled) {
+            owner->timers[index] = *saved;
             owner->timers[index].callback = JS_DupValue(
-                owner->domain->context, snapshot->timers[index].callback
+                owner->domain->context, saved->callback
+            );
+            owner->timers[index].cancellation = JS_DupValue(
+                owner->domain->context, saved->cancellation
             );
         } else {
-            owner->timers[index].callback = JS_UNDEFINED;
+            owner->timers[index] = (MWXSceneQuickJSTimerRecord){
+                .callback = JS_UNDEFINED, .cancellation = JS_UNDEFINED,
+            };
         }
     }
     for (size_t i = 0; i < owner->puppet_animation_callback_count; i++)
@@ -368,6 +459,9 @@ void mwx_scene_quickjs_owner_timer_snapshot_destroy(
                 JS_FreeValue(
                     owner->domain->context, snapshot->timers[index].callback
                 );
+                JS_FreeValue(
+                    owner->domain->context, snapshot->timers[index].cancellation
+                );
             }
         }
     }
@@ -377,6 +471,14 @@ void mwx_scene_quickjs_owner_timer_snapshot_destroy(
 void mwx_scene_quickjs_destroy_timer_host(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL || owner->domain->context == NULL) {
         return;
+    }
+    // Escaping cancellation closures and snapshots must lose the owner before
+    // any callback or owner memory is released.
+    if (owner->timer_lifetime != NULL) {
+        MWXSceneQuickJSTimerLifetime *lifetime = owner->timer_lifetime;
+        lifetime->owner = NULL;
+        owner->timer_lifetime = NULL;
+        release_lifetime(lifetime);
     }
     for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
         deactivate_timer(owner, &owner->timers[index]);

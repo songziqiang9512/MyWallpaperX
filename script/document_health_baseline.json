@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 286,
-      "bytes": 114246
+      "lines": 304,
+      "bytes": 118397
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 113360
+      "bytes": 113662
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 574,
-      "bytes": 147168
+      "lines": 589,
+      "bytes": 151101
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 52984
+      "bytes": 53241
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1333,24 +1333,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "ebe4acefc3b6632fd853ad83a354ce6344136964ad0ced8a9a4955abc778257f",
-      "after": "62e7b70b4eb27055cf2911a88981d1f6fb50635af093170fb503fc7301804ecf",
-      "owner": "scene-asset-path-string-values",
-      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "52b198e09dbb7947b7c7931aaa57763e2d3dcf73c8f80e3b2e191dfd7774f80d",
-      "after": "0e5a580349607249b00aa9413c5af8685e843022444f4ff4823347197180c8b7",
-      "owner": "scene-asset-path-string-values",
-      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/technology-stack-boundaries.md",
       "before": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
       "after": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
@@ -1387,15 +1369,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "47166a96548a2509c046b39de17790c8793766a1db48674cbdad22f335caee37",
-      "after": "725a750bdea6471fdf10a0383cfd90a70357541075e3f8387924a7d2c79d9519",
-      "owner": "scene-particle-coverage-qualification",
-      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "a22471ac102eabab638692515fb999a810cff5430cbca35d61c2c3911598d6f0",
       "after": "9a2404ce873c8992da986a50aa765a84daba71c98591f1f0fc0c5da658241bca",
@@ -1414,12 +1387,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "725a750bdea6471fdf10a0383cfd90a70357541075e3f8387924a7d2c79d9519",
+      "after": "fecec80ab429c41480cbb13fb674d8ea9fd3f5b997aec6f4669a3fad4c9cebeb",
+      "owner": "scene-shared-timer-cancellation",
+      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "62e7b70b4eb27055cf2911a88981d1f6fb50635af093170fb503fc7301804ecf",
+      "after": "f84340965475672bdd7a53321dae3bf821da6ac6d1918937a8b66f3418cba395",
+      "owner": "scene-shared-timer-cancellation",
+      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "0e5a580349607249b00aa9413c5af8685e843022444f4ff4823347197180c8b7",
+      "after": "d7fdd908e8836d1aa26310dbc36990b3f82727190b10d5a9fd654cb219c25e19",
+      "owner": "scene-shared-timer-cancellation",
+      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c28d2d72bab5add17d3228d06dd89dab0f499e71f9b51cc2c904130e4d907303",
-      "after": "279ce091d2f6ebf0ee288da54d60b3726bd78dee23257f3797521bc61829049a",
-      "owner": "scene-particle-coverage-qualification",
-      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
+      "before": "279ce091d2f6ebf0ee288da54d60b3726bd78dee23257f3797521bc61829049a",
+      "after": "077e8640b52fdf669cdc97ea856b01c3d46ae76e900effded642696611321b33",
+      "owner": "scene-shared-timer-cancellation",
+      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
     }
   ]
 }

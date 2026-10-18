@@ -552,6 +552,21 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 
 **验收。** 真实VM的dt0→正dt负值/上界暂态后修正、同/下一callback raw读回、commit/discard与健康peer，含改名/等价表达式、finite极值、NaN/Infinity及真实异常；复用现显示归一门证明GPU输入有限。一次最终Debug，原322的38/4907实际控制及中央/两侧人物、同条件独立样本实图和GPU排空、独审通过后才关闭该首错。保留接线中间失败，不因候选数或App正常退出认整样本通过。
 
+<a id="shared-timer-cancellation"></a>
+## 共享 timer 取消能力（2026-10-18，有界已实施）
+
+**目标与证据。** `setTimeout/setInterval` 返回的取消函数可以经同一 Scene 的 `shared` 传给另一合法 stateful owner，再裸调用以停止创建者的工作；timer 仍由创建者持有和推进。旧实现把函数身份限定为当前 callback owner，真实媒体面板的 hover 会因此抛错并禁用脚本。固定官方 2.8.0.42 的单 timeout 对照已区分正常跨 owner 调用；另一组独立健康 observer 又确认取消成功后调用方立即显式 throw，原 timer 仍不触发。该证据不定义官方 typed badreturn、退休、所有 timer 组合或内部事务策略；输入、原图与失败记录归运行证据。
+
+**职责与数据流。** 沿原 `TimerHost` 的创建、owner timer 数组、唯一 SceneClock 和 callback 调度修正返回能力，不新增 timer registry、owner 索引或 clock。每个使用 timer 的 owner 懒建一个弱 lifetime anchor；每次 registration 的取消闭包持有 anchor、原单调 timer identity 与 `externally_cancelled` 状态。active record 和现有 timer snapshot 各持同一取消 JSValue，保证其 native token 存活。anchor/token 使用 VM 计费分配；owner 退休先将 anchor 的 owner 置空，再释放 callback 和 owner 引用，逃逸函数不保活或解引用已释放的 owner。旧两整数、仅从当前 owner 查找的取消路径退出。
+
+**调用及失败合同。** 取消是对创建者调度工作的即时能力调用，与调用方的 typed 值提交分开：合法调用成功后，调用方后续 throw、非法返回或 typed bundle 拒绝不撤回该次取消。显式 throw 有上述官方有界证据；typed 拒绝是本项目一致的调度政策，不冒充官方观察。调用方必须处于同 domain 的有效 callback，且不是 value-only 或嵌套 value-only guard；创建者必须存活、未禁用或退休。过期 timer identity 在存活 owner 下幂等无操作；非法上下文、受限调用方及退休能力继续安全拒绝，未取得官方陈旧调用合同。
+
+跨 owner 调用通过检查后，即使当前数组中该 identity 已 inactive，也将该 registration 标为 externally cancelled。创建者后续 init/Puppet/显式 snapshot 恢复跳过此标记及已失效 anchor，不能复活 peer 已取消的工作；snapshot 不复制或回退该标记。同 owner 取消沿原 snapshot 恢复合同，原单调 issuance counter 始终不回退，重试、slot 复用及 ABA 反例保持。teardown 在 destroy 前清 timer；仍存活的本 owner 清理回调调用旧取消函数须保持幂等无操作，凭 anchor 中不可变 owner identity 校验，不查新 slot 或解引用退休 owner，peer 不取得该权限。创建失败只撤销新 timer；CClosure 的 early OOM、late finalizer 和残留异常必须统一释放新 token，不影响已有工作。普通帧仍只遍历原有 timer 数组。
+
+**取舍与退出。** 不用全 domain owner 表查找，也不新增逐帧快照。caller cancellation journal 会改变到期前即时取消的时序，并为不存在的 caller-fate 回滚合同增加重放职责，故此片不采用；后继若取得相反目标证据，再修同一 owner。若原样本交互未获恢复，保留实际新首断点，不能以取消函数或执行计数通过记整景完成。
+
+**验收。** 复用真实 QuickJS 门验证裸/成员调用、改名和等价表达式、同 owner identity/restore、value-only、退休/ABA、创建者 snapshot 及 already-inactive 反例、调用方失败后健康 peer；补 OOM/GC/销毁顺序的内存安全门。固定源码 Debug build 后，以相同原包、受控媒体和 hover 序列比较故障与恢复，并跑一个未参与修法的真实样本。只认实际触达及可见/交互结果，不认领性能、完整 timer/API 或整样本 parity。
+
 <a id="combined-timeline-playback-owner"></a>
 ## Combined Timeline 的唯一播放状态（2026-10-17，有界已实施）
 

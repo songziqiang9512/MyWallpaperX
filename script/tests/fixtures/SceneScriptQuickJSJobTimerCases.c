@@ -1,8 +1,315 @@
 #include "SceneScriptQuickJSFixture.h"
+#include "SceneQuickJSInternal.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+
+static MWXSceneQuickJSDomain *timer_domain(MWXSceneScriptQuickJSFixture *fixture) {
+    MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000,
+        fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(domain != NULL, "timer domain", fixture->diagnostic);
+    return domain;
+}
+
+static MWXSceneQuickJSOwner *timer_owner(
+    MWXSceneScriptQuickJSFixture *fixture, MWXSceneQuickJSDomain *domain,
+    const char *source
+) {
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        domain, source, strlen(source), 71, fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(owner != NULL, "timer owner", fixture->diagnostic);
+    return owner;
+}
+
+static const char *shared_timer_source =
+    "let fired=0, cancel;"
+    "export function init(v){cancel=engine.setTimeout(()=>{fired++;},100);"
+    "shared.stop=cancel;return v;}"
+    "export function update(v){if(v===2)cancel();return v+fired;}"
+    "export function destroy(){shared.cleanupCounts=[timerActiveCount()];"
+    "cancel();shared.cleanupCounts.push(timerActiveCount());"
+    "const current=engine.setTimeout(()=>{},100);"
+    "shared.cleanupCounts.push(timerActiveCount());cancel();"
+    "shared.cleanupCounts.push(timerActiveCount());current();"
+    "shared.cleanupCounts.push(timerActiveCount());shared.destroyCancelled=true;}";
+
+static JSValue timer_active_count(JSContext *ctx, JSValueConst self,
+    int argc, JSValueConst *argv) {
+    (void)self; (void)argc; (void)argv;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(ctx);
+    return JS_NewUint32(ctx, mwx_scene_quickjs_owner_active_timer_count(domain->active_owner));
+}
+
+static void shared_cancel_outcomes(MWXSceneScriptQuickJSFixture *fixture) {
+    const char *creators[] = {
+        shared_timer_source,
+        "let total=0;export function init(v){shared.controls={halt:"
+        "engine.setTimeout(function(){total+=1;},25*4)};return v;}"
+        "export function update(v){return total+v;}",
+        shared_timer_source, shared_timer_source,
+    };
+    const char *callers[] = {
+        "export function update(v){shared.stop();return v;}",
+        "export function update(v){const finish=shared.controls.halt;finish();return v;}",
+        "export function update(v){const stop=shared.stop;stop();throw new Error('rejected');}",
+        "export function update(v){shared.stop();return {};}",
+    };
+    for (size_t variant = 0; variant < 4; ++variant) {
+        MWXSceneQuickJSDomain *domain = timer_domain(fixture);
+        if (domain == NULL) return;
+        MWXSceneQuickJSOwner *a = timer_owner(fixture, domain, creators[variant]);
+        MWXSceneQuickJSOwner *b = timer_owner(fixture, domain, callers[variant]);
+        if (a != NULL && b != NULL) {
+            fixture->failures += mwx_fixture_update_at(a, 71, 1, 0, 0,
+                MWX_SCENE_QUICKJS_OK, 1, "shared timer initialized");
+            mwx_scene_quickjs_owner_commit_layer_mutations(a);
+            MWXSceneQuickJSResult expected = variant == 2 ? MWX_SCENE_QUICKJS_EXCEPTION :
+                variant == 3 ? MWX_SCENE_QUICKJS_BAD_RETURN : MWX_SCENE_QUICKJS_OK;
+            fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, 0,
+                expected, 1, "shared bare/member cancel caller fate");
+            mwx_scene_quickjs_owner_discard_layer_mutations(b);
+            fixture->failures += mwx_fixture_check(
+                mwx_scene_quickjs_owner_active_timer_count(a) == 0,
+                "caller failure/discard does not undo foreign scheduling", "");
+            fixture->failures += mwx_fixture_update_at(a, 71, 1, .2, .2,
+                MWX_SCENE_QUICKJS_OK, 1, "cancelled work never fires in healthy creator");
+            if (variant < 2) fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, .2,
+                MWX_SCENE_QUICKJS_OK, 1, "inactive live capability is idempotent");
+        }
+        mwx_scene_quickjs_owner_destroy(b);
+        mwx_scene_quickjs_owner_destroy(a);
+        JS_RunGC(domain->runtime);
+        mwx_scene_quickjs_domain_destroy(domain);
+    }
+}
+
+static void shared_cancel_snapshots(MWXSceneScriptQuickJSFixture *fixture) {
+    for (int variant = 0; variant < 3; ++variant) {
+        MWXSceneQuickJSDomain *domain = timer_domain(fixture);
+        if (domain == NULL) return;
+        MWXSceneQuickJSOwner *a = timer_owner(fixture, domain, shared_timer_source);
+        MWXSceneQuickJSOwner *b = timer_owner(fixture, domain,
+            "export function update(v){shared.stop();return v;}");
+        if (a != NULL && b != NULL) {
+            fixture->failures += mwx_fixture_update_at(a, 71, 1, 0, 0,
+                MWX_SCENE_QUICKJS_OK, 1, "snapshot creator initialized");
+            mwx_scene_quickjs_owner_commit_layer_mutations(a);
+            MWXSceneQuickJSTimerFrameSnapshot *snapshot = mwx_scene_quickjs_owner_timer_snapshot(a);
+            fixture->failures += mwx_fixture_check(snapshot != NULL, "timer snapshot retained", "");
+            if (variant != 0) fixture->failures += mwx_fixture_update_at(a, 71, 2, 0, 0,
+                MWX_SCENE_QUICKJS_OK, 2, "same-owner cancel before restore");
+            if (variant != 2) fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, 0,
+                MWX_SCENE_QUICKJS_OK, 1, "foreign cancel active or already inactive registration");
+            fixture->failures += mwx_fixture_check(
+                mwx_scene_quickjs_owner_timer_restore(a, snapshot), "timer restore accepted", "");
+            fixture->failures += mwx_fixture_check(
+                mwx_scene_quickjs_owner_active_timer_count(a) == (variant == 2 ? 1 : 0),
+                "snapshot preserves external cancellation but restores local cancellation", "");
+            if (variant == 2) {
+                fixture->failures += mwx_fixture_update_at(a, 71, 2, 0, 0,
+                    MWX_SCENE_QUICKJS_OK, 2, "same capability can cancel restored registration");
+            } else {
+                fixture->failures += mwx_fixture_update_at(a, 71, 1, .2, .2,
+                    MWX_SCENE_QUICKJS_OK, 1, "external cancel survives creator snapshot and due time");
+            }
+            mwx_scene_quickjs_owner_timer_snapshot_destroy(snapshot, a);
+        }
+        mwx_scene_quickjs_owner_destroy(b);
+        mwx_scene_quickjs_owner_destroy(a);
+        JS_RunGC(domain->runtime);
+        mwx_scene_quickjs_domain_destroy(domain);
+    }
+}
+
+static void shared_cancel_permissions(MWXSceneScriptQuickJSFixture *fixture) {
+    MWXSceneQuickJSDomain *domain = timer_domain(fixture);
+    if (domain == NULL) return;
+    MWXSceneQuickJSOwner *a = timer_owner(fixture, domain, shared_timer_source);
+    const char *attempt = "export function update(v){try{shared.stop();return false;}"
+        "catch(e){return e instanceof TypeError;}}";
+    MWXSceneQuickJSResult created = MWX_SCENE_QUICKJS_OK;
+    MWXSceneQuickJSOwner *restricted = mwx_scene_quickjs_owner_create_value_only_with_budget(
+        domain, attempt, strlen(attempt), 71, 100000, &created,
+        fixture->diagnostic, sizeof(fixture->diagnostic));
+    MWXSceneQuickJSOwner *b = timer_owner(fixture, domain,
+        "export function update(v){try{shared.stop();return 0;}"
+        "catch(e){return e instanceof TypeError?1:2;}}");
+    fixture->failures += mwx_fixture_check(restricted != NULL, "value-only cancel observer", fixture->diagnostic);
+    if (a != NULL && b != NULL && restricted != NULL) {
+        fixture->failures += mwx_fixture_update_at(a, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "permissions creator initialized");
+        mwx_scene_quickjs_owner_commit_layer_mutations(a);
+        fixture->failures += mwx_fixture_update_bool(restricted, 71, 1,
+            MWX_SCENE_QUICKJS_OK, 1, "value-only caller cannot acquire scheduling power");
+        domain->value_only_guard_active = true;
+        fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "nested value-only guard blocks cancel");
+        domain->value_only_guard_active = false;
+        JSValue outside = JS_GetPropertyStr(domain->context, domain->shared_value, "stop");
+        JSValue result = JS_Call(domain->context, outside, JS_UNDEFINED, 0, NULL);
+        fixture->failures += mwx_fixture_check(JS_IsException(result),
+            "cancel requires active callback", "");
+        JS_FreeValue(domain->context, result);
+        JS_FreeValue(domain->context, outside);
+        JSValue error = JS_GetException(domain->context);
+        JSValue error_name = JS_GetPropertyStr(domain->context, error, "name");
+        const char *name = JS_ToCString(domain->context, error_name);
+        fixture->failures += mwx_fixture_check(name != NULL && strcmp(name, "TypeError") == 0,
+            "outside callback rejects at cancellation capability", name);
+        JS_FreeCString(domain->context, name);
+        JS_FreeValue(domain->context, error_name);
+        JS_FreeValue(domain->context, error);
+        fixture->failures += mwx_fixture_check(
+            mwx_scene_quickjs_owner_active_timer_count(a) == 1,
+            "all rejected permissions preserve creator work", "");
+        mwx_scene_quickjs_owner_invalidate(a);
+        fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "disabled creator rejects escaped capability");
+    }
+    mwx_scene_quickjs_owner_destroy(restricted);
+    mwx_scene_quickjs_owner_destroy(b);
+    mwx_scene_quickjs_owner_destroy(a);
+    JS_RunGC(domain->runtime);
+    mwx_scene_quickjs_domain_destroy(domain);
+}
+
+static void shared_cancel_retirement(MWXSceneScriptQuickJSFixture *fixture) {
+    MWXSceneQuickJSDomain *domain = timer_domain(fixture);
+    if (domain == NULL) return;
+    JSValue global = JS_GetGlobalObject(domain->context);
+    fixture->failures += mwx_fixture_check(JS_SetPropertyStr(domain->context, global,
+        "timerActiveCount", JS_NewCFunction(domain->context, timer_active_count,
+            "timerActiveCount", 0)) >= 0, "test-only native timer count observer", "");
+    JS_FreeValue(domain->context, global);
+    MWXSceneQuickJSOwner *a = timer_owner(fixture, domain, shared_timer_source);
+    MWXSceneQuickJSOwner *b = timer_owner(fixture, domain,
+        "export function update(v){try{shared.stop();return 0;}"
+        "catch(e){return e instanceof TypeError?1:2;}}");
+    MWXSceneQuickJSOwner *replacement = NULL;
+    if (a != NULL && b != NULL) {
+        fixture->failures += mwx_fixture_update_at(a, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "retirement creator initialized");
+        mwx_scene_quickjs_owner_commit_layer_mutations(a);
+        MWXSceneQuickJSTimerFrameSnapshot *snapshot = mwx_scene_quickjs_owner_timer_snapshot(a);
+        MWXSceneQuickJSFrameInput frame = {.runtime = .01, .frame_time = .01};
+        uint32_t invoked = 0;
+        MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_teardown(
+            a, 71, &frame, "", 0, "{}", 2, &invoked,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(result == MWX_SCENE_QUICKJS_OK && invoked == 1,
+            "destroy callback old-cap cleanup and current-cap cancellation", fixture->diagnostic);
+        JSValue counts = JS_GetPropertyStr(domain->context, domain->shared_value, "cleanupCounts");
+        JSValue completed = JS_GetPropertyStr(domain->context, domain->shared_value, "destroyCancelled");
+        const char *observed = JS_ToCString(domain->context, counts);
+        fixture->failures += mwx_fixture_check(observed != NULL &&
+            strcmp(observed, "0,0,1,1,0") == 0 && JS_ToBool(domain->context, completed) == 1,
+            "old cleanup capability is no-op and cannot cancel new destroy timer", observed);
+        JS_FreeCString(domain->context, observed);
+        JS_FreeValue(domain->context, completed);
+        JS_FreeValue(domain->context, counts);
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_timer_restore(a, snapshot) &&
+            mwx_scene_quickjs_owner_active_timer_count(a) == 0,
+            "retired anchor prevents snapshot resurrection", "");
+        mwx_scene_quickjs_owner_timer_snapshot_destroy(snapshot, a);
+        fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "retired creator capability rejects safely");
+        mwx_scene_quickjs_owner_destroy(a);
+        a = NULL;
+        JS_RunGC(domain->runtime);
+        replacement = timer_owner(fixture, domain,
+            "let fired=0;export function init(v){"
+            "shared.fresh=engine.setTimeout(()=>{fired++;},100);return v;}"
+            "export function update(v){return v+fired;}");
+        fixture->failures += mwx_fixture_update_at(replacement, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "replacement owner has fresh timer");
+        mwx_scene_quickjs_owner_commit_layer_mutations(replacement);
+        fixture->failures += mwx_fixture_update_at(b, 71, 1, 0, 0,
+            MWX_SCENE_QUICKJS_OK, 1, "old anchor cannot alias replacement owner");
+        fixture->failures += mwx_fixture_update_at(replacement, 71, 1, .2, .2,
+            MWX_SCENE_QUICKJS_OK, 2, "replacement timer fires despite stale cancel");
+    }
+    mwx_scene_quickjs_owner_destroy(replacement);
+    mwx_scene_quickjs_owner_destroy(b);
+    mwx_scene_quickjs_owner_destroy(a);
+    JS_RunGC(domain->runtime);
+    mwx_scene_quickjs_domain_destroy(domain);
+}
+
+static void timer_allocation_pressure(MWXSceneScriptQuickJSFixture *fixture) {
+    size_t anchor_failures = 0, later_failures = 0, successes = 0, preserved = 0;
+    /* Prebuild JS arguments and the actual installed host function. Restrict
+     * memory only around JS_Call so issuance proves failure reached TimerHost,
+     * rather than an unrelated frame-engine allocation. No allocator seam. */
+    for (int existing = 0; existing < 2; ++existing) {
+        for (size_t headroom = 0; headroom <= 1024; headroom += 8) {
+            MWXSceneQuickJSDomain *domain = timer_domain(fixture);
+            if (domain == NULL) return;
+            MWXSceneQuickJSOwner *owner = timer_owner(fixture, domain,
+                "export function update(v){return globalThis.pressureFired||0;}");
+            if (owner == NULL) { mwx_scene_quickjs_domain_destroy(domain); return; }
+            JSContext *ctx = domain->context;
+            JSValue engine = JS_NewObject(ctx);
+            fixture->failures += mwx_fixture_check(
+                mwx_scene_quickjs_install_timer_engine(owner, engine), "pressure actual timer engine", "");
+            JSValue timeout = JS_GetPropertyStr(ctx, engine, "setTimeout");
+            const char *body = "(()=>{globalThis.pressureFired=(globalThis.pressureFired||0)+1;})";
+            JSValue callback = JS_Eval(ctx, body, strlen(body), "pressure-callback", JS_EVAL_TYPE_GLOBAL);
+            JSValue args[2] = {callback, JS_NewInt32(ctx, 100)};
+            mwx_scene_quickjs_begin_callback(owner);
+            if (existing) {
+                JSValue first = JS_Call(ctx, timeout, engine, 2, args);
+                fixture->failures += mwx_fixture_check(!JS_IsException(first), "existing timer before pressure", "");
+                JS_FreeValue(ctx, first);
+            }
+            uint64_t before = owner->next_timer_identity;
+            JS_RunGC(domain->runtime);
+            JSMemoryUsage usage;
+            JS_ComputeMemoryUsage(domain->runtime, &usage);
+            JS_SetMemoryLimit(domain->runtime, (size_t)usage.malloc_size + headroom);
+            JSValue result = JS_Call(ctx, timeout, engine, 2, args);
+            bool rejected = JS_IsException(result);
+            JS_SetMemoryLimit(domain->runtime, 0);
+            bool issued = owner->next_timer_identity == before + 1;
+            uint32_t active = mwx_scene_quickjs_owner_active_timer_count(owner);
+            fixture->failures += mwx_fixture_check(issued && active == (uint32_t)(existing + !rejected),
+                "pressure failure rolls back only new registration", "");
+            if (rejected) {
+                if (owner->timer_lifetime == NULL) anchor_failures++; else later_failures++;
+                JSValue error = JS_GetException(ctx);
+                JS_FreeValue(ctx, error);
+            } else {
+                successes++;
+                fixture->failures += mwx_fixture_check(!JS_HasException(ctx),
+                    "successful cancellation construction leaves no exception", "");
+            }
+            JS_FreeValue(ctx, result);
+            mwx_scene_quickjs_end_callback(owner);
+            JS_FreeValue(ctx, callback);
+            JS_FreeValue(ctx, timeout);
+            JS_FreeValue(ctx, engine);
+            if (rejected && existing) {
+                fixture->failures += mwx_fixture_update_at(owner, 71, 0, 0, 0,
+                    MWX_SCENE_QUICKJS_OK, 0, "existing timer survives allocation failure");
+                mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+                fixture->failures += mwx_fixture_update_at(owner, 71, 0, .2, .2,
+                    MWX_SCENE_QUICKJS_OK, 1, "existing timer still executes after budget restored");
+                preserved++;
+            }
+            mwx_scene_quickjs_owner_destroy(owner);
+            JS_RunGC(domain->runtime);
+            mwx_scene_quickjs_domain_destroy(domain);
+        }
+    }
+    fixture->failures += mwx_fixture_check(anchor_failures > 0 && later_failures > 0 &&
+        successes > 0 && preserved > 0, "timer allocation pressure reaches host failure and success", "");
+    printf("MWX_TIMER_ALLOCATION_PRESSURE {\"anchorFailures\":%zu,\"postAnchorFailures\":%zu,"
+        "\"successes\":%zu,\"existingTimerPreserved\":%zu}\n",
+        anchor_failures, later_failures, successes, preserved);
+}
 
 void mwx_fixture_job_timer_cases(MWXSceneScriptQuickJSFixture *fixture) {
     const char *promise_source =
@@ -284,11 +591,11 @@ void mwx_fixture_job_timer_cases(MWXSceneScriptQuickJSFixture *fixture) {
     );
     fixture->failures += mwx_fixture_update_at(
         fixture->timer_cancel_intruder, 36, 1, 0, 0,
-        MWX_SCENE_QUICKJS_EXCEPTION, 0, "cross-owner timer cancel rejected"
+        MWX_SCENE_QUICKJS_OK, 1, "cross-owner timer cancel accepted"
     );
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_active_timer_count(fixture->timer_cancel_owner) == 1,
-        "cross-owner cancel preserves timer", ""
+        mwx_scene_quickjs_owner_active_timer_count(fixture->timer_cancel_owner) == 0,
+        "cross-owner cancel stops creator timer", ""
     );
 
     const char *invalid_timer_source =
@@ -347,4 +654,9 @@ void mwx_fixture_job_timer_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "timer exception preserves peer owner"
     );
 
+    shared_cancel_outcomes(fixture);
+    shared_cancel_snapshots(fixture);
+    shared_cancel_permissions(fixture);
+    shared_cancel_retirement(fixture);
+    timer_allocation_pressure(fixture);
 }
