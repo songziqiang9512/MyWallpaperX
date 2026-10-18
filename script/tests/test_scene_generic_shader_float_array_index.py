@@ -36,8 +36,14 @@ import Foundation
 private struct FloatArrayIndexHarness {
     static func main() throws {
         let arguments = CommandLine.arguments
-        let vertex = try String(contentsOfFile: arguments[1], encoding: .utf8)
-        let fragment = try String(contentsOfFile: arguments[2], encoding: .utf8)
+        let originalVertex = try String(contentsOfFile: arguments[1], encoding: .utf8)
+        let originalFragment = try String(contentsOfFile: arguments[2], encoding: .utf8)
+        let sources = arguments.contains("--through-shared-preparation")
+            ? SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: originalVertex, fragment: originalFragment
+            ) : .init(vertex: originalVertex, fragment: originalFragment)
+        let vertex = sources.vertex
+        let fragment = sources.fragment
         let frontend = SceneAuthoredShaderFrontend.compile(
             vertexSource: vertex, fragmentSource: fragment
         )
@@ -46,6 +52,12 @@ private struct FloatArrayIndexHarness {
             "boundedDiagnostics": frontend.diagnostics.map { $0.code.rawValue },
             "boundedMetal": frontend.program?.metalSource ?? "",
         ]
+        if arguments.contains("--through-shared-preparation") {
+            result["canonicalizationIsIdempotent"] =
+                SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                    vertex: sources.vertex, fragment: sources.fragment
+                ) == sources
+        }
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertex,
             fragmentSource: fragment,
@@ -103,7 +115,8 @@ class SceneGenericShaderFloatArrayIndexTests(unittest.TestCase):
 
         shutil.rmtree(cls.root, ignore_errors=True)
 
-    def _normalize(self, fragment: str, vertex: str | None = None) -> tuple[dict, Path]:
+    def _normalize(self, fragment: str, vertex: str | None = None, *,
+                   through_shared_preparation: bool = False) -> tuple[dict, Path]:
         vertex = vertex or """attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
 varying vec2 v_TexCoord;
@@ -122,6 +135,7 @@ void main() {
             [
                 str(self.binary), str(vertex_path), str(fragment_path),
                 str(output_vertex), str(output_fragment),
+                *(["--through-shared-preparation"] if through_shared_preparation else []),
             ],
             cwd=REPOSITORY_ROOT,
             capture_output=True,
@@ -156,6 +170,69 @@ void main() {
         self.assertFalse(result["boundedHasProgram"], result)
         linked = self._link(output)
         self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_shared_preparation_preserves_contiguous_audio_index_composition(self) -> None:
+        # Exercise the production ordering, including scalar remainder lowering.
+        for parameter, prefix, row, component in (
+            ("bin", "readBand", "bin / 4", "bin % 4"),
+            ("frequencyIndex", "renamedSignal", "((frequencyIndex) / (4.))", "((frequencyIndex) % (4.0))"),
+        ):
+            declarations, calls, expected = [], [], []
+            for count in (16, 32, 64):
+                for channel in ("Left", "Right"):
+                    name = f"g_AudioSpectrum{count}{channel}"
+                    helper = f"{prefix}{count}{channel}"
+                    declarations.append(
+                        f"uniform float {name}[{count}];\n"
+                        f"float {helper}(float {parameter}) {{ return {name}[{row}][{component}]; }}"
+                    )
+                    calls.append(f"value += {helper}(v_TexCoord.x * {count - 1}.);")
+                    expected.append(f"float {name}[{count}];")
+            with self.subTest(parameter=parameter, helper_prefix=prefix):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + "\n".join(declarations)
+                    + "\nvoid main() { float value = 0.;\n" + "\n".join(calls)
+                    + "\nfloat unrelatedRemainder = (v_TexCoord.y * 6.0) % 2.0;"
+                    + "gl_FragColor = vec4(value + unrelatedRemainder); }\n",
+                    through_shared_preparation=True,
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertTrue(result["canonicalizationIsIdempotent"], result)
+                normalized = output.read_text(encoding="utf-8")
+                for declaration in expected:
+                    self.assertIn(declaration, normalized)
+                self.assertNotIn("%", normalized)
+                linked = self._link(output)
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_shared_preparation_does_not_broaden_audio_double_index_contract(self) -> None:
+        for declaration, helper, main in (
+            (
+                "uniform float g_AudioSpectrum64Left[64];",
+                "",
+                "float bin = v_TexCoord.x * 63.;"
+                "gl_FragColor = vec4(g_AudioSpectrum64Left[bin / 4][bin % 4]);",
+            ),
+            (
+                "float ordinaryValues[64];",
+                "float readValue(float bin) { return ordinaryValues[bin / 4][bin % 4]; }",
+                "gl_FragColor = vec4(readValue(v_TexCoord.x * 63.));",
+            ),
+            (
+                "uniform float g_AudioSpectrum64Left[64];",
+                "float readValue(float bin) { bin += 0.5;"
+                " return g_AudioSpectrum64Left[bin / 4][bin % 4]; }",
+                "gl_FragColor = vec4(readValue(v_TexCoord.x * 63.));",
+            ),
+        ):
+            with self.subTest(declaration=declaration, helper=helper):
+                result, output = self._normalize(
+                    "varying vec2 v_TexCoord;\n" + declaration + "\n" + helper
+                    + "\nvoid main() { " + main + " }\n",
+                    through_shared_preparation=True,
+                )
+                self.assertTrue(result["ok"], result)
+                self.assertNotEqual(self._link(output).returncode, 0)
 
     def test_audio_helpers_accept_dynamic_bin_calls_without_a_loop(self) -> None:
         declarations, calls = [], []
@@ -762,10 +839,10 @@ void main() {
         )
         self.assertEqual(compiled.returncode, 0, compiled.stderr)
 
-    def test_vec3_return_inner_scope_and_same_function_shadow_stay_rejected(self) -> None:
-        for body in (
-            "{ vec4 col = vec4(0.5); } return col;",
-            "vec4 col = vec4(0.5); { vec3 col = vec3(0.25); } return col;",
+    def test_vec3_return_respects_expired_inner_scope_and_live_outer_binding(self) -> None:
+        for body, links in (
+            ("{ vec4 col = vec4(0.5); } return col;", False),
+            ("vec4 col = vec4(0.5); { vec3 col = vec3(0.25); } return col;", True),
         ):
             with self.subTest(body=body):
                 result, output = self._normalize(
@@ -773,8 +850,13 @@ void main() {
                     "void main() { vec3 col = computeColor(); gl_FragColor = vec4(col, 1.0); }\n"
                 )
                 self.assertTrue(result["ok"], result)
-                self.assertIn("return col;", output.read_text(encoding="utf-8"))
-                self.assertNotEqual(self._link(output).returncode, 0)
+                normalized = output.read_text(encoding="utf-8")
+                if links:
+                    self.assertIn("{ vec3 col = vec3(0.25); }", normalized)
+                else:
+                    self.assertIn("return col;", normalized)
+                linked = self._link(output)
+                self.assertEqual(linked.returncode == 0, links, linked.stdout + linked.stderr)
 
     def test_mix_unknown_vector_or_source_overload_weight_stays_rejected(self) -> None:
         for declarations, weight in (

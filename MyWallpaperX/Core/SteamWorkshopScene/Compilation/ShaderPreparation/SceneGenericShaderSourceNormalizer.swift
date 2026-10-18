@@ -555,6 +555,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     static func rewriteContiguousAudioIndices(
         _ source: String, stage: SceneShaderContract.StageKind
     ) -> String {
+        guard source.contains("g_AudioSpectrum"), source.contains("%") else { return source }
         let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage
         )

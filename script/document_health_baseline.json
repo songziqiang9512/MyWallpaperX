@@ -118,11 +118,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 347375
+      "bytes": 347457
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 136233
+      "bytes": 137669
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 65363
+      "bytes": 68073
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 16871
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 203,
-      "bytes": 55702
+      "lines": 216,
+      "bytes": 61861
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1387,15 +1387,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "07424c74f4ca4d49a866618540c187d56ce9060b4249c4e784785ccece26f6d3",
-      "after": "2adf3be1601e5fee43ffdbbd81eb3d8cbbd3a22b044b63a445c9f5a9accec73c",
-      "owner": "scene-logical-macro-invocation",
-      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "01eb8e2d6d0724e178a1cadc1c62f7b8c1d30d1847d2d434829a48fb4fc99712",
       "after": "9c9dccc37549c0f1afb144862eaf61662afda3d4af33fceeb52ecf41d5f355b6",
@@ -1405,30 +1396,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bf6b83ad0db067720d161332cd90e198894e0d585f6f6085ea4dc2b2a2a35655",
-      "after": "1920a1b41611c824789e56beb7ebfa5b973bc5fdcac0d5d93ae6a1e22bb7f16b",
-      "owner": "scene-u02-current-qualification",
-      "reason": "Replace stale U02 not-fresh descriptions with actual source-bound observations and original failures; preserve unresolved colour/lighting and newly localized Blur admission.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018"
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "2adf3be1601e5fee43ffdbbd81eb3d8cbbd3a22b044b63a445c9f5a9accec73c",
+      "after": "2336cf8c55e7c9da9fcf5340261dca54d2138e29b94e0ba54709d7be09d4ef81",
+      "owner": "scene-feedback-audio-order",
+      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "83a18091ae54c7f684324ec9ab80ae818f151268cc7e4ee2dfc5b0a14523af61",
-      "after": "7833d68f79a0beef98b726c839e773b4acadbff608a782536e443a1e107b0715",
-      "owner": "scene-u02-current-qualification",
-      "reason": "Replace stale U02 not-fresh descriptions with actual source-bound observations and original failures; preserve unresolved colour/lighting and newly localized Blur admission.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "1920a1b41611c824789e56beb7ebfa5b973bc5fdcac0d5d93ae6a1e22bb7f16b",
+      "after": "d66c9f8d6d32c691154ea8b6e78eaad6e9cb50fdd89a45c0c1e324ce0556ab77",
+      "owner": "scene-feedback-audio-order",
+      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "24237937277f8dd6f0b2c160db36169f70fcb22d2e1d59c62a28c6e710864ad3",
-      "after": "bd538ebad6840d3098389fcc4a1e02f86c061039d5f40624f66e929edbae002c",
-      "owner": "scene-u02-current-qualification",
-      "reason": "Replace stale U02 not-fresh descriptions with actual source-bound observations and original failures; preserve unresolved colour/lighting and newly localized Blur admission.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018"
+      "before": "bd538ebad6840d3098389fcc4a1e02f86c061039d5f40624f66e929edbae002c",
+      "after": "ade51948096b705c5523fd6ffd34b9c7a4e88a167b8d4f8b8ce276bc7cab92da",
+      "owner": "scene-feedback-audio-order",
+      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "7833d68f79a0beef98b726c839e773b4acadbff608a782536e443a1e107b0715",
+      "after": "9abb3a1f5d8e52c9e8d7ba48e2d799b3429fe4a10287b21c4ba9bfb0703a6ccc",
+      "owner": "scene-feedback-audio-order",
+      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
     }
   ]
 }

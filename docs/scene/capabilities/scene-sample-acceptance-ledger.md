@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `d21939cc93e956bbb1861a8647e1eec49c43470308489bd3fbba960c750cf112`。
-- 本页生成于 2026-10-18T12:19:14.907938+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `815b159562ae1c7e453d0892cda824691773a7fd81db334ab4b648440e8a1e4b`。
+- 本页生成于 2026-10-18T15:28:18.678910+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -62,7 +62,7 @@
 |---|---|---|---|---|---|---|---|
 | `1195626192` | Gaze | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `1300076567` | 阳光少女 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `1315486372` | 貂蝉拜月 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 水波位置不正确、光线贴图效果生硬 |
+| `1315486372` | 貂蝉拜月 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：光照差距大；旧水波/光线余项并入复验，旧载体/根旋转修复不关闭本观察。 旧记录：水波位置不正确、光线贴图效果生硬 |
 | `1439846152` | 腿 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `1480826543` | Emilia X-ray NSFW | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `1507413154` | 百褶裙 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -78,7 +78,7 @@
 | `2067939514` | Windows Visualizer | 34(27) bool 12 color 9 combo 5 scenetexture 2 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2069136288` | [R18] Lexaiduer DOA Nagisa x Tamaki X-R… | 3(0) color 1 combo 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2112262451` | [R18] Sakimi Chan Azur Lane Belfast X-R… | 4(0) color 1 combo 2 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `2131872317` | Night Market by 俊伦 何 in 4K | 7(0) bool 3 color 1 slider 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2131872317` | Night Market by 俊伦 何 in 4K | 7(0) bool 3 color 1 slider 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：蓝色爆炸烟花乱飘、轨迹不对；并入旧烟花观察，需同时间窗/随机输入区分。 |
 | `2134765860` | Bunk | 34(18) bool 14 color 7 combo 3 group 4 slider 5 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2163522240` | [18+] jk x-ray 🔞😍 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2179185481` | Azur Lane / 18+ X-ray NSFW & SFW (3 Ver… | 4(0) bool 3 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -96,7 +96,7 @@
 | `2524111047` | Liu Meryl Wei wei（被举报下架-重发） | 5(0) bool 4 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2607203340` | Tomb Raider +18 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2616828675` | 【R18】别看了，快点啦~#4K#动态#16:9 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
-| `2684431262` | 麻匪 炫酷音频律动 Windows | 28(0) bool 4 color 12 slider 1 text 11 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18原包可见斜盘、代码与洋红圆粒子，未见旧巨大紫块；缺同状态官方对照，合成反馈仍开放。 |
+| `2684431262` | 麻匪 炫酷音频律动 Windows | 28(0) bool 4 color 12 slider 1 text 11 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：官方略有发光；并入整体合成差异，不以旧巨大紫块本窗未见关闭发光观察。 旧记录：10-18原包可见斜盘、代码与洋… |
 | `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4(0) bool 1 color 1 combo 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 鼠标纵向与顶部边界已修，顶部极限仍露灰边；整样本未通过 |
 | `2776912698` | 麻匪 洛天依 Android | 29(0) bool 11 color 15 slider 1 text 1 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2780710296` | 麻匪 miku 初音ミク 初音未来 Windows | 27(0) bool 9 color 5 slider 1 text 11 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -123,7 +123,7 @@
 | `2913492057` | 麻匪 粒子音频互动 | 16(0) bool 5 color 3 text 8 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2917306763` | [4K/动态/R18/衣服透视可调]碧蓝航线-独角兽妹妹「天使的护理时间」-B… | 3(0) bool 1 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2932157836` | [4K \| 可自定义] 星浴 \| Hoshi-yoku | 123(101) bool 36 color 13 combo 1 slider 71 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `2932631210` | 欧派-音乐乱动 | 13(0) bool 8 color 3 combo 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2932631210` | 欧派-音乐乱动 | 13(0) bool 8 color 3 combo 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；旧人物缺失关闭证据保留，不关闭背景新范围。 |
 | `2938612768` | 麻匪 音频识别 Media Player | 79(35) bool 16 color 11 combo 5 scenetexture 4 slider 13 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2942486721` | R18 Ishtar And Ereshkigal / 遠坂  凛 Tohsa… | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2949019513` | [4K \| 可自定义] A.R.O.N.A.    (碧蓝档案) | 41(20) bool 23 color 3 slider 15 | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -134,17 +134,17 @@
 | `2981249186` | 4K SCI-FI Black Hole | 8(0) bool 5 color 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2983846453` | 麻匪 自定义双背景开关 - Customizable Day/Night Sw… | 40(15) bool 3 color 8 combo 2 scenetexture 2 slider 10 text… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2986218263` | Tokisaki Asaba & Tokisaki Mio │18+ X-Ra… | 6(0) bool 5 color 1 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
-| `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：重复拖动仍仅首次响应；与3749463715是否同一owner未证。 |
 | `3002649614` | 纯欲少女 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3021013015` | 赛博color-墨侠客行 | 2(0) color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3022080536` | 赛博color-宣纸国画-紫罗兰永恒花园 | 2(0) bool 1 color 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 10-17静态format9/20B mesh修正后，原包奶油纸底、书法与双红印已恢复，主体18旧52B动画保持；不再列背景灰底/装饰缺失。与目录官方仅基础构… |
 | `3025969015` | 黑龙闹海 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3028090166` | WLOP [Tian Nan2] | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3039882306` | 麻匪 音频识别 抽签 Media Player | 49(10) bool 11 color 9 combo 1 scenetexture 2 slider 2 text… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3042492564` | [4K \| Customizable] Hoshi-Tele \| 星屑テレ… | 249(203) bool 76 color 18 combo 8 slider 127 text 10 textin… | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3042492564` | [4K \| Customizable] Hoshi-Tele \| 星屑テレ… | 249(203) bool 76 color 18 combo 8 slider 127 text 10 textin… | `not-run` | - | `not-run` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 |
 | `3078285611` | 麻匪 金克丝 jinx 音频识别 Media Player | 53(13) bool 10 color 10 slider 11 text 22 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3088601835` | Winter Wanderer Xayah - League of Legen… | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3113287126` | Dome 4k {Artwork by WLOP} | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3113287126` | Dome 4k {Artwork by WLOP} | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：小提琴粒子方向有差异、数量偏少；旧琴/持弓手锚点修复仅关闭锚点，不关闭方向/数量。 |
 | `3113554287` | 【可随时间变化】窗旁の伊蕾娜   （优化版本） | 7(1) bool 3 color 3 combo 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3115163440` | Shadow Garden (X-Ray) | 4(0) bool 2 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3122339805` | Pixels | 39(0) bool 9 color 6 combo 1 scenetexture 3 slider 1 text 7… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:text:content` | `scenescript` | `unreviewed` |  |
@@ -154,11 +154,11 @@
 | `3167210190` | [Blue Archive] 奶牛装明日奈 | 7(0) bool 5 color 1 group 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3173418061` | Persona 5/女神异闻录5 音乐播放器 | 2(0) color 1 slider 1 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `unreviewed` 2026-10-17 | 已修mix首错：7条effect scale恢复；56标题按下/释放反馈可见，hover保持。主体与文字正常，其他播放/交互及官方同phase未验。 |
 | `3211615441` | 捆绑悬挂 \| Bind & Suspend [ 可交互/interactiv… | 26(12) bool 7 color 1 combo 5 group 4 slider 4 text 4 texti… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3219398263` | Acheron Black Hole (StarchaserArt) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3219398263` | Acheron Black Hole (StarchaserArt) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；并入旧方向疑似相反观察，不从单帧改符号。 |
 | `3221354414` | dynamic Ginka 神轿银花 [GINKA OST: 祭神纸偶与愿望 … | 2(0) color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 原包默认短播银白发侧脸、蓝眼/蓝饰与橙红背景呈现，亮波带/细斜纹亦见作者预览，不据此报缺陷；11effects两帧22GPU完成，仅2终级末合成，dust/r… |
 | `3226487183` | 麻匪 花火 五角色自定义 崩坏星穹铁道 Sparkle Honkai: Sta… | 55(9) bool 14 color 8 combo 1 slider 5 text 27 | `not-run` | - | `not-run` | `unreviewed` 2026-10-17 | 10-17最终原包4907点击后2522实际执行作者Program：白面具→整景RGB分离/重影→清晰黑面具，左右眼与脸颈/身体在。前序reference组装… |
 | `3232289987` | 【4k 高度自定义】流萤&萨姆  丝袜可更改——夜莺Night【崩坏星穹铁道】 | 116(60) bool 34 color 18 combo 4 scenetexture 2 slider 41 t… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura fa… | 67(0) bool 18 color 7 combo 3 group 1 scenetexture 1 slider… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 同层平坦relative-transform Combined的旧blanket拒绝已退出；共同播放/暂停/停止由自有实际图验收。原包默认20s实际face2… |
+| `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura fa… | 67(0) bool 18 color 7 combo 3 group 1 scenetexture 1 slider… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 2026-10-18用户补报（待当前身份复验）：龙头/小人/武士刀动画轨迹仍错；旧Combined首门退出不关闭准确轨迹。10-18只读目录根文件仅见prev… |
 | `3238423642` | Katana Girl with Hologram (Adjustable; … | 90(0) bool 35 color 25 combo 9 group 12 slider 8 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 头部错位已修，整体视觉与约 18.7 FPS 帧时间未验收 |
 | `3248220186` | 麻匪 音频粒子球 Audio Particle Ball 16:9 16:10… | 44(8) bool 6 color 6 combo 4 slider 7 text 19 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 70(21) bool 16 color 7 combo 2 slider 14 text 25 textinput 6 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `fail` 2026-09-08 | 人物左肘缺块；构图未验收 |
@@ -167,9 +167,9 @@
 | `3291326967` | 蒙眼少女 4K动态壁纸 | 18(0) bool 1 color 1 group 1 slider 15 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物、雪粒子、日期与频谱呈现；未定位大面积主体缺失，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状… |
 | `3299228616` | Lonely Cat: Audio visualizer , Clock , … | 64(60) bool 26 color 13 combo 13 slider 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-18 | 限定反馈后验：时钟上方滚动矩形已由childless copybackground=false优先修复；原包恢复387可见且scroll实际Program/G… |
 | `3323988600` | Hentai Goddess of Victory Nikke ANIMATE… | 9(0) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:1… | 82(59) bool 17 color 20 combo 6 scenetexture 1 slider 9 tex… | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定后验：显式normal的材质/纹理alpha0不再抹掉模型RGB与颜色深度；同原包758f9b实图蓝粉几何和粉色前面恢复、文字保留。顶面暗/贴片及五nat… |
+| `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:1… | 82(59) bool 17 color 20 combo 6 scenetexture 1 slider 9 tex… | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 2026-10-18用户补报（待当前身份复验）：盒子模型可透见背面似透明、背景全屏特效缺失；normal RGB修复不关闭新范围，未证与五native层缺so… |
 | `3341111071` | 麻匪 初音未来 MIKU 海边 32:9 21:9 16:9 16:10 | 32(8) bool 7 color 4 slider 2 text 18 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 187(154) bool 31 color 26 combo 22 scenetexture 4 slider 86… | `not-run` | - | `not-run` | `unreviewed` | 10-18同默认/908×590官方A两帧与native时钟相对布局差≤1.643px（门4px）；时分秒在环内、问候同跨环。U25该反馈按官方一致退出，非引… |
+| `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 187(154) bool 31 color 26 combo 22 scenetexture 4 slider 86… | `not-run` | - | `not-run` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：左上文字超出圆环，用户称官方在环内；确切文本/状态待确认。旧同viewport默认hour/seconds/g… |
 | `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:1… | 74(46) bool 13 color 9 combo 5 scenetexture 1 slider 12 tex… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18巨裂片/白环/2000²首门已闭；文字位置尺度/漂移partial。可见38.849s<T；静音opacity0不可测，不能合拼周期。 参考 doc… |
 | `3357627941` | 麻匪 开门见喜 鼠标交互 自定义本地文件 Windows door 16:9 … | 30(1) bool 4 color 2 combo 1 scenetexture 2 slider 1 text 20 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Ni… | 97(39) bool 28 color 15 combo 4 group 6 slider 33 text 8 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -180,7 +180,7 @@
 | `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 1… | 132(71) bool 22 color 17 combo 3 slider 47 text 40 textinpu… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` | 10-18原包modern dense常量中性轨道首错已闭：头发/身体nested lookup恢复，实际init stop→event play、目标帧推进… |
 | `3420215721` | 麻匪 圈 媒体识别交互壁纸 Circle Media Player | 87(21) bool 12 color 9 combo 3 scenetexture 1 slider 21 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3435573282` | 麻匪 巳蛇 自定义动画 音频识别 Media Player | 82(23) bool 14 color 10 combo 2 slider 16 text 39 textinput… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 日期时间恢复，cursor owner collision 未闭合 |
+| `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。 旧记录：日期时间恢复，cur… |
 | `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -194,12 +194,12 @@
 | `3507496797` | 麻匪 龙吟锦鲤赋 32:9 | 46(4) bool 10 color 4 combo 1 slider 1 text 30 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 233(2) bool 27 color 20 combo 3 group 21 scenetexture 1 sli… | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 开场/模拟画面不正常，坐标文字异常 |
 | `3549827466` | 【完美世界 火灵儿】盛典妆容 | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` | U02光束反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。 |
-| `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 35(16) bool 15 color 4 combo 1 group 5 slider 7 untyped 3 | `degraded-runtime` | `effect-admission / EffectStageAdmission / unified-capability-unavailable / backend:effect-family:blend` | `effect-chain` | `unreviewed` |  |
+| `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 35(16) bool 15 color 4 combo 1 group 5 slider 7 untyped 3 | `degraded-runtime` | `effect-admission / EffectStageAdmission / unified-capability-unavailable / backend:effect-family:blend` | `effect-chain` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光观察分开，需默认开场完整窗口复验。 |
 | `3562021804` | 【完美世界】石昊 以身为种 | 3(0) bool 1 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3563038726` | 【凡人修仙传】梅凝  乖巧可怜 | 7(0) bool 4 color 2 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3566880847` | 【凡人修仙传】紫灵 白色限定 | 7(0) bool 1 color 3 combo 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 48(33) bool 12 color 3 combo 1 group 4 slider 9 untyped 3 u… | `degraded-runtime` | `effect-execution / ResolvedMaterialExecution / effect-local-passthrough-material-dynamic-uniform-producer-unavailable / resolved-material-graph` | `effect-chain` | `unreviewed` 2026-10-17 | 10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出… |
-| `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 21(0) bool 8 color 4 slider 9 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实… |
+| `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 21(0) bool 8 color 4 slider 9 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧左上暖亮/冷暗观察分开，不以稳定帧照明关闭。 旧记录：限定8.150s原图：人物/金带/… |
 | `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 13(0) bool 6 color 4 slider 3 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定8.165s原图：上部/人物左上青绿扇状照明实际可辨，人物/水纹/右烟/头发高光保持，旧笼统缺光未重现。204有真实138/137批GPU完成，像素不独归… |
 | `3585875739` | Miku Monitoring | 6(0) bool 5 color 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3586705329` | [甜蜜女友3]柳木诗梦 | 46(5) bool 9 color 8 combo 3 scenetexture 8 slider 13 text … | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | 人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；view… |
@@ -209,7 +209,7 @@
 | `3599986633` | 麻匪 杉泽 观山海 | 28(2) bool 3 color 2 combo 1 slider 1 text 21 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立de… |
 | `3601801724` | ash一爪布鲁托 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3601964477` | 千咲 \|\| 鸣潮  \|\| 枫 \|\| 4K | 44(19) bool 19 color 5 group 3 slider 7 text 10 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
-| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：6… |
+| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 21(0) bool 8 color 5 slider 8 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光本窗未重现及Blur准入缺口分开。 旧记录：限定8.498s原图：左帘强光、青白发丝… |
 | `3605502569` | 顾州-暗影魅眸｜Shadow · Charming Eyes | 33(21) bool 15 color 4 combo 1 group 3 slider 10 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3605722997` | [假装4K]魔王-追悼【可交互壁纸】（喜欢的点个赞呗） | 43(27) bool 22 color 4 combo 3 scenetexture 2 slider 9 text… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:visibility` | `scenescript` | `unreviewed` 2026-10-17 | 默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍… |
 | `3609108600` | 千咲 \|\| 鸣潮 \|\| 4K | 9(4) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -247,13 +247,13 @@
 | `3723344874` | 【凡人修仙传】玄骨 借尸还魂 | 25(0) bool 7 color 4 slider 14 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18有界内容资格：10-17 numeric/carrier首门保持；固定64d6ac8c2+临时DEBUG观察器的原包frame31实际双D… |
 | `3738202317` | Albedo. | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3742133044` | 凌霄·双司镇命·无常<1>-[深空之眼] | 3(2) color 1 combo 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 本片未参与修法的独立回归：原perspective粒子196进入非空提交，实际雪花位置变化，人物/红月/花背景保持；只作基础构图对照，非完整官方parity。 |
-| `3743305891` | 战双 | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
+| `3743305891` | 战双 | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：频谱缺失、背景十字流星过大；分别验音频可见性与背景几何/phase。 |
 | `3747190633` | 【凡人修仙传】银月 惹人怜惜 | 16(0) bool 4 color 3 combo 1 slider 8 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Ev… | 67(33) bool 20 color 11 combo 1 group 6 scenetexture 4 slid… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过 |
-| `3748311238` | 大 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3749463715` | 还能在大 ∑ 2 | 3(0) bool 1 color 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3750342273` | Night snowy mountains | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18缺席深度首门已修，原包山体视差恢复、零深度文字固定；精确响应及完整交互未验，整景未裁决。 |
-| `3750813609` | Asian Temple in the Mountains | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡 |
+| `3748311238` | 大 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：频谱柱盖停在高处；柱体超cap仅用户猜测，根因unknown。旧人物恢复不关闭柱盖观察。 |
+| `3749463715` | 还能在大 ∑ 2 | 3(0) bool 1 color 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：观感帧率低，重复胸部拖动仍仅首次响应；交互与性能分开验，观感不等于已测FPS。 |
+| `3750342273` | Night snowy mountains | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：视差缺失；重新开放待验。旧山体两轴响应、文字固定与回中心构图的有界关闭保留。 旧记录：10-18缺席深度首门已… |
+| `3750813609` | Asian Temple in the Mountains | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：雨弱、时钟样式不对；可能缺雷电但用户不确定，保持不确定性，不认定当前已证缺失。 旧记录：山寺构图、雾与落叶与预… |
 | `3754630802` | WLOP [ChineseNewYear 7] | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18通用蒙皮源XYZ保真修正：官方固定姿态仅Z清零与旧native对应，候选固定闭眼恢复，原包一次14s实际两次开→闭→开；此前34s未命中与旧协议失败… |
 | `3754639143` | WLOP 银月 | 2(0) color 1 combo 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3754908581` | DJGun Making Noise!(Lite) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态… |
@@ -274,20 +274,20 @@
 | `3767343314` | Universe Abstract - By: CroSsHaiR-> | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3767460992` | Magic mushroom | 14(0) bool 9 color 3 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3768020435` | Silver Wolf with media integration | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3768229922` | 麻匪 赤芒 音频互动 | 34(0) bool 7 color 1 text 25 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3768229922` | 麻匪 赤芒 音频互动 | 34(0) bool 7 color 1 text 25 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 |
 | `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 23(1) bool 18 color 1 group 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3768903841` | Naha Gaze at Firework \| northway. | 10(0) bool 7 color 1 slider 1 text 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 6(0) bool 5 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-18 | 限定基本标量播放后验：原包默认59/effect173/pass1 rayintensity实际负→.4499919→负进入Program，五node GPU… |
 | `3769688830` | Spirit Blossom Springs Ahri (Adjustable… | 21(0) bool 13 color 3 group 3 scenetexture 1 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3769761761` | Yoru and Mitaka asa | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据… |
+| `3769761761` | Yoru and Mitaka asa | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：左侧向右下斜光仍缺；并入旧目标斜光观察，实际来源仍unknown。 |
+| `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 2026-10-18用户补报（待当前身份复验）：溅水滴为黑色、用户称应白色；混合模式仅用户猜测，根因unknown。旧短播保持不关闭此色彩观察。 旧记录：本批… |
 | `3770462923` | gt3rs@d4rk | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3777761326` | I do Anything | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 13(0) bool 4 color 1 group 2 slider 6 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-reference-error / target:layer:visibility` | `scenescript` | `unreviewed` |  |
 | `3779904456` | 尤诺2 \|\| 鸣潮 | 47(21) bool 15 color 7 group 4 slider 9 text 10 textinput 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
-| `3780119725` | in the rain V 31 | 13(0) bool 9 color 2 slider 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `fail` 2026-09-08 | 10-18摩托/人物pointer响应，原中层全固定反馈退出；旧脸部黑线/缺块、动画/光照/闪烁未同条件复验，旧fail与整包未闭。 旧“人物压缩已修”裁决保… |
+| `3780119725` | in the rain V 31 | 13(0) bool 9 color 2 slider 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：人物/地面/摩托中层仍不随鼠标、摩托发光过强；重新开放此范围。旧短pointer窗口前摩托/人物响应的有界证据… |
 | `3780391264` | Agnes Tachyon Umamusume Neon | 7(0) bool 6 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3780940857` | 枕澜 蒂法 电脑动态壁纸 最终幻想7 TIFA Final Fantasy V… | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3781307553` | Look this | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -313,7 +313,7 @@
 | `3790956325` | 骚暖暖 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3791905266` | Dohrn's  Vision | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3791967416` | 麻匪 虎符电竞 兰 16:9 21:9 | 55(5) bool 10 color 8 combo 1 slider 2 text 33 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3792249095` | Beth's Wallpaper | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3792249095` | Beth's Wallpaper | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：外圈样式差异大；并入旧U11，尚未锁同声源/phase，不直接改半径或相机。 |
 | `3792400801` | Girl \| Dark Background \| Dark / Color… | 9(0) bool 7 color 1 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3792817546` | 小羊不吃草 (地雷系)#滕子京大王 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3793328876` | 大凤Taihou&白凤Hakuhou-HanAI | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -339,7 +339,7 @@
 | `3806006894` | 三角洲行动露娜天际线_LUNA_4K动态初版FLYSMALLPIG | 2(0) bool 1 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3806016969` | 三角洲行动红狼蚀金玫瑰_黑金_动态版4K_FLYSMALLPIG | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3806202923` | Azur Lane 碧蓝航线光辉 | 6(0) bool 5 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3806337293` | 初音未来 hatsune miku 3d视差 4k | 17(0) bool 5 color 2 group 2 slider 8 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3806337293` | 初音未来 hatsune miku 3d视差 4k | 17(0) bool 5 color 2 group 2 slider 8 | `not-run` | - | `not-run` | `unreviewed` 2026-10-18 | 2026-10-18原包复现并修复灰斜面/过曝/缺环；双环与人物恢复。用户后补固定路径整体自转，静音多帧已复现，仍开放。 |
 | `3807013762` | Frieren | 7(0) bool 5 color 1 combo 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3807121855` | 鸣潮今汐-桃花鸢 | 10(0) color 2 group 1 scenetexture 1 slider 6 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3807151772` | MyGO 长崎素世 Soyo 鼠标互动 捧脸 | 4(0) bool 2 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |

@@ -11,7 +11,8 @@
     "1315486372": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "水波位置不正确、光线贴图效果生硬"
+      "note": "2026-10-18用户补报（待当前身份复验）：光照差距大；旧水波/光线余项并入复验，旧载体/根旋转修复不关闭本观察。 旧记录：水波位置不正确、光线贴图效果生硬",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：光照差距大；旧水波/光线余项并入复验，旧载体/根旋转修复不关闭本观察。"
     },
     "2775915974": {
       "verdict": "fail",
@@ -36,7 +37,8 @@
     "3437487219": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "日期时间恢复，cursor owner collision 未闭合"
+      "note": "2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。 旧记录：日期时间恢复，cursor owner collision 未闭合",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。"
     },
     "3448845950": {
       "verdict": "fail",
@@ -76,7 +78,8 @@
     "3750813609": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡"
+      "note": "2026-10-18用户补报（待当前身份复验）：雨弱、时钟样式不对；可能缺雷电但用户不确定，保持不确定性，不认定当前已证缺失。 旧记录：山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：雨弱、时钟样式不对；可能缺雷电但用户不确定，保持不确定性，不认定当前已证缺失。"
     },
     "3765760121": {
       "verdict": "fail",
@@ -91,7 +94,8 @@
     "3780119725": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "10-18摩托/人物pointer响应，原中层全固定反馈退出；旧脸部黑线/缺块、动画/光照/闪烁未同条件复验，旧fail与整包未闭。 旧“人物压缩已修”裁决保留。参考 docs/scene/capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018。"
+      "note": "2026-10-18用户补报（待当前身份复验）：人物/地面/摩托中层仍不随鼠标、摩托发光过强；重新开放此范围。旧短pointer窗口前摩托/人物响应的有界证据保留。 旧记录：10-18摩托/人物pointer响应，原中层全固定反馈退出；旧脸部黑线/缺块、动画/光照/闪烁未同条件复验，旧fail与整包未闭。 旧“人物压缩已修”裁决保留。参考 docs/scene/capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018。",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：人物/地面/摩托中层仍不随鼠标、摩托发光过强；重新开放此范围。旧短pointer窗口前摩托/人物响应的有界证据保留。"
     },
     "3787382101": {
       "verdict": "fail",
@@ -457,14 +461,14 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / sound_peak_probe_sol / dynamic_image_material_tests_sol",
-      "note": "同层平坦relative-transform Combined的旧blanket拒绝已退出；共同播放/暂停/停止由自有实际图验收。原包默认20s实际face26/dragon266各191个GPU几何，15–18s各28；头发52/482逐帧值及最终TimelineProgram未导出，不能认脸随头发或龙头准确轨迹已恢复。403 animation513仍因static visibility拒绝，不将其按名对应黑色小人。三次运行均exit0/无VM失败或漂移/stop1→0/GPU排空，无性能声明。",
+      "note": "2026-10-18用户补报（待当前身份复验）：龙头/小人/武士刀动画轨迹仍错；旧Combined首门退出不关闭准确轨迹。10-18只读目录根文件仅见preview.gif、无独立截屏图，用户所称新增官方图待定位，未作视觉结论。 旧记录：同层平坦relative-transform Combined的旧blanket拒绝已退出；共同播放/暂停/停止由自有实际图验收。原包默认20s实际face26/dragon266各191个GPU几何，15–18s各28；头发52/482逐帧值及最终TimelineProgram未导出，不能认脸随头发或龙头准确轨迹已恢复。403 animation513仍因static visibility拒绝，不将其按名对应黑色小人。三次运行均exit0/无VM失败或漂移/stop1→0/GPU排空，无性能声明。",
       "runs": [
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip"
       ],
-      "remainingDifferences": "脸与头发关系、龙头准确轨迹、黑色小人来源/动画及双色音频旧观察均未取得同状态关闭；目录无官方截屏，音频相位未锁。403拒绝是具体首owner候选，但可见ROI未知。完整属性、交互及Windows时序未验。",
+      "remainingDifferences": "脸与头发关系、龙头准确轨迹、黑色小人来源/动画及双色音频旧观察均未取得同状态关闭；旧记录的无目录截屏描述于10-18只读复核：根文件仅见preview.gif、无独立截屏图；用户所称新增官方图仍待定位，音频相位未锁。403拒绝是具体首owner候选，但可见ROI未知。完整属性、交互及Windows时序未验。 2026-10-18用户补报（待当前身份复验）：龙头/小人/武士刀动画轨迹仍错；旧Combined首门退出不关闭准确轨迹。10-18只读目录根文件仅见preview.gif、无独立截屏图，用户所称新增官方图待定位，未作视觉结论。",
       "officialComparison": "unknown"
     },
     "3742133044": {
@@ -485,8 +489,8 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root",
-      "note": "本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据。目录官方只作未控phase构图参考，不认完整动态、交互或同状态parity。",
-      "remainingDifferences": "完整动态、交互、作者参数与同状态官方parity未验收；本批仅为独立短窗视觉及生命周期回归，继续unreviewed。",
+      "note": "2026-10-18用户补报（待当前身份复验）：溅水滴为黑色、用户称应白色；混合模式仅用户猜测，根因unknown。旧短播保持不关闭此色彩观察。 旧记录：本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据。目录官方只作未控phase构图参考，不认完整动态、交互或同状态parity。",
+      "remainingDifferences": "完整动态、交互、作者参数与同状态官方parity未验收；本批仅为独立短窗视觉及生命周期回归，继续unreviewed。 2026-10-18用户补报（待当前身份复验）：溅水滴为黑色、用户称应白色；混合模式仅用户猜测，根因unknown。旧短播保持不关闭此色彩观察。",
       "officialComparison": "compared",
       "runs": [
         ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
@@ -611,25 +615,25 @@
     "3750342273": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "10-18缺席深度首门已修，原包山体视差恢复、零深度文字固定；精确响应及完整交互未验，整景未裁决。",
+      "note": "2026-10-18用户补报（待当前身份复验）：视差缺失；重新开放待验。旧山体两轴响应、文字固定与回中心构图的有界关闭保留。 旧记录：10-18缺席深度首门已修，原包山体视差恢复、零深度文字固定；精确响应及完整交互未验，整景未裁决。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "unknown",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：视差缺失；重新开放待验。旧山体两轴响应、文字固定与回中心构图的有界关闭保留。",
       "officialComparison": "unknown"
     },
     "2684431262": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "10-18原包可见斜盘、代码与洋红圆粒子，未见旧巨大紫块；缺同状态官方对照，合成反馈仍开放。",
+      "note": "2026-10-18用户补报（待当前身份复验）：官方略有发光；并入整体合成差异，不以旧巨大紫块本窗未见关闭发光观察。 旧记录：10-18原包可见斜盘、代码与洋红圆粒子，未见旧巨大紫块；缺同状态官方对照，合成反馈仍开放。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "unknown",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：官方略有发光；并入整体合成差异，不以旧巨大紫块本窗未见关闭发光观察。",
       "officialComparison": "unknown"
     },
     "3802005866": {
@@ -647,13 +651,13 @@
     "3351163962": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "10-18同默认/908×590官方A两帧与native时钟相对布局差≤1.643px（门4px）；时分秒在环内、问候同跨环。U25该反馈按官方一致退出，非引擎修复或整景PASS。见#u25-u35-current-qualification-20261018。",
+      "note": "2026-10-18用户补报（待当前身份复验）：左上文字超出圆环，用户称官方在环内；确切文本/状态待确认。旧同viewport默认hour/seconds/greeting裁决保留，新范围开放，不直接改anchor。 旧记录：10-18同默认/908×590官方A两帧与native时钟相对布局差≤1.643px（门4px）；时分秒在环内、问候同跨环。U25该反馈按官方一致退出，非引擎修复或整景PASS。见#u25-u35-current-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "unknown",
+      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：左上文字超出圆环，用户称官方在环内；确切文本/状态待确认。旧同viewport默认hour/seconds/greeting裁决保留，新范围开放，不直接改anchor。",
       "officialComparison": "unknown"
     },
     "2974757317": {
@@ -759,7 +763,7 @@
       "reviewedOn": "2026-10-18",
       "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
       "officialComparison": "compared",
-      "note": "限定后验：显式normal的材质/纹理alpha0不再抹掉模型RGB与颜色深度；同原包758f9b实图蓝粉几何和粉色前面恢复、文字保留。顶面暗/贴片及五native composition缺source、Rope余项仍在，runner FAIL，未达目录官方整幅效果；noPCM/提示/phase不同，不误记完整通过。 最终Bool接口仅移动等值比较，GPU复验及独审后复用758实图，不称最终binary重播。",
+      "note": "2026-10-18用户补报（待当前身份复验）：盒子模型可透见背面似透明、背景全屏特效缺失；normal RGB修复不关闭新范围，未证与五native层缺source同因。 旧记录：限定后验：显式normal的材质/纹理alpha0不再抹掉模型RGB与颜色深度；同原包758f9b实图蓝粉几何和粉色前面恢复、文字保留。顶面暗/贴片及五native composition缺source、Rope余项仍在，runner FAIL，未达目录官方整幅效果；noPCM/提示/phase不同，不误记完整通过。 最终Bool接口仅移动等值比较，GPU复验及独审后复用758实图，不称最终binary重播。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json"
       ],
@@ -767,7 +771,7 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png"
       ],
-      "remainingDifferences": "70/202/228/229/591 native-world composition缺source；Rope未支持profile；顶面暗/贴片及完整音乐/phase/构图、属性交互未验。normal RGB误丢已退出。"
+      "remainingDifferences": "70/202/228/229/591 native-world composition缺source；Rope未支持profile；顶面暗/贴片及完整音乐/phase/构图、属性交互未验。normal RGB误丢已退出。 2026-10-18用户补报（待当前身份复验）：盒子模型可透见背面似透明、背景全屏特效缺失；normal RGB修复不关闭新范围，未证与五native层缺source同因。"
     },
     "3585542943": {
       "verdict": "unreviewed",
@@ -789,7 +793,7 @@
       "reviewedOn": "2026-10-18",
       "reviewer": "Codex root; independent prepared_puppet_design_sol",
       "officialComparison": "compared",
-      "note": "限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实201/200批GPU完成不代像素合同。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "note": "2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧左上暖亮/冷暗观察分开，不以稳定帧照明关闭。 旧记录：限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实201/200批GPU完成不代像素合同。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/result.json"
       ],
@@ -797,14 +801,14 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png"
       ],
-      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。"
+      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧左上暖亮/冷暗观察分开，不以稳定帧照明关闭。"
     },
     "3603711180": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-18",
       "reviewer": "Codex root; independent prepared_puppet_design_sol",
       "officialComparison": "compared",
-      "note": "限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
+      "note": "2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光本窗未重现及Blur准入缺口分开。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json"
       ],
@@ -812,7 +816,179 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png"
       ],
-      "remainingDifferences": "666/effect2/672 Blur在作者[.99,0]采样量下被旧>=.01门拒，独立于旧照明反馈；完整phase/属性/交互和精确官方光形未验。"
+      "remainingDifferences": "666/effect2/672 Blur在作者[.99,0]采样量下被旧>=.01门拒，独立于旧照明反馈；完整phase/属性/交互和精确官方光形未验。 2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光本窗未重现及Blur准入缺口分开。"
+    },
+    "3806337293": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex 原包受控PCM与静音运行；非完整官方对照",
+      "note": "2026-10-18原包复现并修复灰斜面/过曝/缺环；双环与人物恢复。用户后补固定路径整体自转，静音多帧已复现，仍开放。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/baseline/report.json",
+        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/final/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "固定路径应只让条目移动；当前原包受控静音14s多帧椭圆主轴/轴比变化，运动仍开放。后补官方附件非同phase/viewport，不认整样本/全部交互、音源或性能通过。",
+      "officialComparison": "unknown"
+    },
+    "2932631210": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；旧人物缺失关闭证据保留，不关闭背景新范围。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。背景圆环/漩涡差异大；旧人物缺失关闭证据保留，不关闭背景新范围。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3219398263": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；并入旧方向疑似相反观察，不从单帧改符号。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。背景圆环/漩涡差异大；并入旧方向疑似相反观察，不从单帧改符号。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3113287126": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：小提琴粒子方向有差异、数量偏少；旧琴/持弓手锚点修复仅关闭锚点，不关闭方向/数量。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。小提琴粒子方向有差异、数量偏少；旧琴/持弓手锚点修复仅关闭锚点，不关闭方向/数量。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3748311238": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：频谱柱盖停在高处；柱体超cap仅用户猜测，根因unknown。旧人物恢复不关闭柱盖观察。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。频谱柱盖停在高处；柱体超cap仅用户猜测，根因unknown。旧人物恢复不关闭柱盖观察。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3749463715": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：观感帧率低，重复胸部拖动仍仅首次响应；交互与性能分开验，观感不等于已测FPS。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。观感帧率低，重复胸部拖动仍仅首次响应；交互与性能分开验，观感不等于已测FPS。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "2998757800": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：重复拖动仍仅首次响应；与3749463715是否同一owner未证。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。重复拖动仍仅首次响应；与3749463715是否同一owner未证。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3792249095": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：外圈样式差异大；并入旧U11，尚未锁同声源/phase，不直接改半径或相机。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。外圈样式差异大；并入旧U11，尚未锁同声源/phase，不直接改半径或相机。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "2131872317": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：蓝色爆炸烟花乱飘、轨迹不对；并入旧烟花观察，需同时间窗/随机输入区分。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。蓝色爆炸烟花乱飘、轨迹不对；并入旧烟花观察，需同时间窗/随机输入区分。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3743305891": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：频谱缺失、背景十字流星过大；分别验音频可见性与背景几何/phase。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。频谱缺失、背景十字流星过大；分别验音频可见性与背景几何/phase。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3768229922": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3554161528": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光观察分开，需默认开场完整窗口复验。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。开场镜头动画缺少；与旧缺光观察分开，需默认开场完整窗口复验。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3769761761": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：左侧向右下斜光仍缺；并入旧目标斜光观察，实际来源仍unknown。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。左侧向右下斜光仍缺；并入旧目标斜光观察，实际来源仍unknown。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
+    },
+    "3042492564": {
+      "verdict": "unreviewed",
+      "reviewedOn": "",
+      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
+      "note": "2026-10-18用户补报（待当前身份复验）：X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。",
+      "runs": [],
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "officialComparison": "unknown"
     }
   }
 }

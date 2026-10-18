@@ -421,6 +421,12 @@
       }
     },
     {
+      "path": "docs/scene/architecture/pkg-resource-read-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "retirementCondition": "有界包读取和资产准备筛选结束；接受的职责并入资源合同，未接受候选撤回并归档证据。"
+    },
+    {
       "path": "docs/scene/architecture/refactor-baseline.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/roadmap/engine-refactor-program.md",
@@ -662,10 +668,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6cad483e1d559dceba7270839c85b41dace70cb73f10109ea3dbedb28a995ba2",
+        "sourceSHA256": "8e401fab88172176d110c07858d384b0a32b611111127b6774757861f3fa626b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Single macro expansion owner, physical provenance/token separation and early line budget; controlled actual red/cyan-to-red/red and bounded real347 visual execution; original watchdog failure retained.",
-        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
+        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
+        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
       }
     },
     {
@@ -676,10 +682,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "df9866db68b09498a0d84b1e6f23d7f7b64fc7468061960bdc24e72570217f51",
+        "sourceSHA256": "93ea06c1abe9f48a5b17d3d207ed36dbd5a4ae43f2e1b7d4115ff46800849ad2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Three default original U02 lighting views and actual per-layer native GPU records; retire only2 coarse absence observations, preserve358188 lighting UNKNOWN and360 active Blur admission failure.",
-        "limitations": "Bounded default12s views at different official aspect/phase/audio; producer pixel attribution and precise lighting remain unknown; all3 whole-sample verdicts stay unreviewed, no performance claim."
+        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
+        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
       }
     },
     {
@@ -760,10 +766,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c9c141b20e7e76124488b9425f2b0cb0a823341491d4a5f63cbc362cfdc811d",
+        "sourceSHA256": "abd8181cb577f4a775e890182bacd1f1fc2c4c225c99bb70db9a6580bff05313",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Three default original U02 lighting views and actual per-layer native GPU records; retire only2 coarse absence observations, preserve358188 lighting UNKNOWN and360 active Blur admission failure.",
-        "limitations": "Bounded default12s views at different official aspect/phase/audio; producer pixel attribution and precise lighting remain unknown; all3 whole-sample verdicts stay unreviewed, no performance claim."
+        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
+        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
       }
     },
     {
@@ -3420,10 +3426,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "394fbb30f0d5d6a6ed66b32ea89a11c6691792f6adda673246d09a69c8470d8d",
+        "sourceSHA256": "439beb10a6af86be6f1cc93047800ed83e8460e55d06f3db9a028191416807f6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Three default original U02 lighting views and actual per-layer native GPU records; retire only2 coarse absence observations, preserve358188 lighting UNKNOWN and360 active Blur admission failure.",
-        "limitations": "Bounded default12s views at different official aspect/phase/audio; producer pixel attribution and precise lighting remain unknown; all3 whole-sample verdicts stay unreviewed, no performance claim."
+        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
+        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
       }
     },
     {
