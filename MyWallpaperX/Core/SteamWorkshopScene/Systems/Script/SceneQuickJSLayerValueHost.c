@@ -228,7 +228,7 @@ static JSValue layer_get(
             : (record->font == NULL ? "" : record->font);
         return font[0] == '\0'
             ? JS_UNDEFINED
-            : mwx_scene_quickjs_layer_make_asset_handle(context, handle->domain, font, strlen(font));
+            : JS_NewString(context, font);
     }
     case LAYER_ID: return JS_NewInt64(context, record->layer_id);
     case LAYER_NAME: return JS_NewString(context, record->name == NULL ? "" : record->name);
@@ -573,13 +573,9 @@ static JSValue layer_set(
             return JS_ThrowTypeError(
                 context, "layer font mutation target is not a text layer"
             );
-        const char *value = mwx_scene_quickjs_layer_registered_asset_path(handle->domain, argv[0]);
-        const size_t length = value == NULL ? 0 : strlen(value);
-        if (!mwx_scene_quickjs_layer_valid_asset_path(value, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) ||
-            length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT)
-            return JS_ThrowTypeError(
-                context, "layer font expects a registered asset handle"
-            );
+        size_t length = 0;
+        const char *value = mwx_scene_quickjs_layer_read_font_path(context, argv[0], &length);
+        if (value == NULL) return JS_EXCEPTION;
         const char *current = authored_target
             ? authored_font_value(
                 mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index),
@@ -587,10 +583,14 @@ static JSValue layer_set(
                 record
             )
             : (record->font == NULL ? "" : record->font);
-        if (strcmp(current, value) == 0) break;
+        if (strcmp(current, value) == 0) {
+            JS_FreeCString(context, value);
+            break;
+        }
         char *copy = malloc(length + 1);
-        if (copy == NULL) return JS_EXCEPTION;
-        memcpy(copy, value, length + 1);
+        if (copy != NULL) memcpy(copy, value, length + 1);
+        JS_FreeCString(context, value);
+        if (copy == NULL) return JS_ThrowOutOfMemory(context);
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
                 mwx_scene_quickjs_stage_authored_mutation(owner, record_index);

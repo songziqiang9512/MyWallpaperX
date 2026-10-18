@@ -166,7 +166,6 @@ static bool text_identity_unchanged(JSContext *context, MWXSceneQuickJSDomain *d
 
 static bool read_optional_font(
     JSContext *context,
-    MWXSceneQuickJSDomain *domain,
     JSValueConst object,
     char **output
 ) {
@@ -174,18 +173,20 @@ static bool read_optional_font(
     if (JS_IsUndefined(value)) {
         JS_FreeValue(context, value);
         *output = calloc(1, 1);
+        if (*output == NULL) JS_ThrowOutOfMemory(context);
         return *output != NULL;
     }
-    const char *path = mwx_scene_quickjs_layer_registered_asset_path(domain, value);
-    const size_t length = path == NULL ? 0 : strlen(path);
-    if (!mwx_scene_quickjs_layer_valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) ||
-        length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT) {
+    size_t length = 0;
+    const char *path = mwx_scene_quickjs_layer_read_font_path(context, value, &length);
+    if (path == NULL) {
         JS_FreeValue(context, value);
         return false;
     }
     *output = malloc(length + 1);
     if (*output != NULL) memcpy(*output, path, length + 1);
+    JS_FreeCString(context, path);
     JS_FreeValue(context, value);
+    if (*output == NULL) JS_ThrowOutOfMemory(context);
     return *output != NULL;
 }
 
@@ -375,18 +376,12 @@ static JSValue create_layer(
     uint32_t perspective = 2;
     bool visible = true;
     bool solid = true;
-    const char *registered_asset = mwx_scene_quickjs_layer_registered_asset_path(domain, argv[0]);
-    if (JS_IsString(argv[0]) || registered_asset != NULL) {
+    if (JS_IsString(argv[0])) {
         size_t length = 0;
-        const char *path = registered_asset;
-        if (path != NULL) {
-            length = strlen(path);
-        } else {
-            path = JS_ToCStringLen(context, &length, argv[0]);
-        }
+        const char *path = JS_ToCStringLen(context, &length, argv[0]);
+        if (path == NULL) return JS_EXCEPTION;
         if (!mwx_scene_quickjs_layer_valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) {
-            if (registered_asset == NULL && path != NULL)
-                JS_FreeCString(context, path);
+            JS_FreeCString(context, path);
             return JS_ThrowTypeError(context, "dynamic layer asset path is invalid");
         }
         asset_path = malloc(length + 1);
@@ -394,14 +389,14 @@ static JSValue create_layer(
         if (asset_path != NULL) {
             memcpy(asset_path, path, length); asset_path[length] = '\0';
         }
-        if (registered_asset == NULL) JS_FreeCString(context, path);
+        JS_FreeCString(context, path);
         if (asset_path == NULL || text == NULL || font == NULL || name == NULL) {
             free(asset_path); free(text); free(font); free(name);
-            return JS_EXCEPTION;
+            return JS_ThrowOutOfMemory(context);
         }
     } else {
         if (!read_optional_text(context, domain, argv[0], &text, &text_template_identity) ||
-            !read_optional_font(context, domain, argv[0], &font) ||
+            !read_optional_font(context, argv[0], &font) ||
             !read_optional_string(context, argv[0], "name", MWX_SCENE_QUICKJS_MAX_LAYER_NAME, &name) ||
             !read_optional_asset_path(context, argv[0], &asset_path) ||
             !read_optional_vec3(context, argv[0], "origin", origin, origin) ||

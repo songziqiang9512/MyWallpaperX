@@ -4,7 +4,201 @@
 #include <stdio.h>
 #include <string.h>
 
+static MWXSceneQuickJSDomain *font_contract_domain(MWXSceneScriptQuickJSFixture *fixture) {
+    MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(domain != NULL, "font path domain", fixture->diagnostic);
+    if (domain == NULL) return NULL;
+    fixture->failures += mwx_fixture_configure_layers(domain);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    const double scale[3] = {1, 1, 1}, angles[3] = {0, 0, 0}, color[3] = {1, 1, 1};
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_begin_layer_snapshot(
+        domain, 2, 0, fixture->diagnostic, sizeof(fixture->diagnostic));
+    if (result == MWX_SCENE_QUICKJS_OK)
+        result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
+            domain, 0, scale, angles, 0, 1, 1, 0, 1, "baseline", 8,
+            "fonts/Baseline.ttf", strlen("fonts/Baseline.ttf"), 32, color,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+    if (result == MWX_SCENE_QUICKJS_OK)
+        result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+            domain, 1, fixture->diagnostic, sizeof(fixture->diagnostic));
+    if (result == MWX_SCENE_QUICKJS_OK)
+        result = mwx_scene_quickjs_domain_commit_layer_snapshot(
+            domain, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(result == MWX_SCENE_QUICKJS_OK,
+        "font path committed baseline", fixture->diagnostic);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    return domain;
+}
+
+static void font_path_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    int positive[2] = {0, 0}, no_op[2] = {0, 0}, invalid = 0, rollback = 0;
+    size_t unicode_bytes = 0;
+    for (size_t variant = 0; variant < 2; ++variant) {
+        MWXSceneQuickJSDomain *domain = font_contract_domain(fixture);
+        if (domain == NULL) continue;
+        const char *registered = variant ? "fonts/Renamed-Registered.ttf" : "fonts/Registered.ttf";
+        const char *variable = variant ? "selectedFace" : "registeredFace";
+        const char *target = variant ? "targetLayer" : "peer";
+        const char *path = variant ? "'fonts/'+'Renamed-Regular.ttf'" : "'fonts/Probe-Regular.ttf'";
+        char source[2048];
+        snprintf(source, sizeof(source),
+            "const %s=engine.registerAsset('%s');"
+            "if(typeof %s!=='string'||%s!=='%s')throw new Error('registerAsset path');"
+            "let clone;export function update(v){const %s=thisScene.getLayerByID(%s);"
+            "if(v===1){const next=%s;thisLayer.font=next;"
+            "if(typeof thisLayer.font!=='string'||thisLayer.font!==next||%s.font!==next)"
+            "throw new Error('font same callback read');"
+            "clone=thisScene.createLayer({text:'owned probe',font:thisLayer.font});"
+            "if(typeof clone.font!=='string'||clone.font!==next)throw new Error('font clone');"
+            "clone.font=%s;%s.font=%s;"
+            "if(clone.font!=='%s'||thisLayer.font!=='%s')throw new Error('registered path reuse');}"
+            "if(v===2){thisLayer.font=%s;clone.font=%s;}return thisScene.getLayerCount();}",
+            variable, registered, variable, variable, registered, target,
+            variant ? "8+9" : "17", path, target, variable, target, variable,
+            registered, registered, variable, variable);
+        const int before = fixture->failures;
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            domain, source, strlen(source), 900, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, "font String owner", fixture->diagnostic);
+        fixture->failures += mwx_fixture_configure_owner_layer(owner, 17, "font String target");
+        fixture->failures += mwx_fixture_update(owner, 900, 1, MWX_SCENE_QUICKJS_OK, 3,
+            "String getter setter clone and registerAsset strict equality");
+        size_t authored = 0, created = 0;
+        char committed_font[1025] = {0};
+        const size_t count = mwx_scene_quickjs_owner_layer_mutation_count(owner);
+        for (size_t index = 0; index < count; ++index) {
+            MWXSceneQuickJSLayerMutation mutation = {0};
+            MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_layer_mutation_at(
+                owner, index, &mutation, fixture->diagnostic, sizeof(fixture->diagnostic));
+            const int matches = result == MWX_SCENE_QUICKJS_OK && mutation.font != NULL
+                && strcmp(mutation.font, registered) == 0;
+            authored += matches && !mutation.dynamic && mutation.layer_id == 17
+                && (mutation.fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0;
+            created += matches && mutation.dynamic && strcmp(mutation.text, "owned probe") == 0;
+            if (matches && !mutation.dynamic && mutation.layer_id == 17)
+                memcpy(committed_font, mutation.font, strlen(mutation.font) + 1);
+        }
+        fixture->failures += mwx_fixture_check(count == 2 && authored == 1 && created == 1,
+            "executed font paths reach authored and created mutation payloads", fixture->diagnostic);
+        positive[variant] = fixture->failures == before;
+        mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+        const int before_no_op = fixture->failures;
+        // The host consumes authored mutations, then publishes the next frame's
+        // runtime snapshot. Committing the C journal alone does not apply them.
+        const double scale[3] = {1, 1, 1}, angles[3] = {0, 0, 0}, color[3] = {1, 1, 1};
+        MWXSceneQuickJSResult snapshot = mwx_scene_quickjs_domain_begin_layer_snapshot(
+            domain, 3, 0, fixture->diagnostic, sizeof(fixture->diagnostic));
+        if (snapshot == MWX_SCENE_QUICKJS_OK)
+            snapshot = mwx_scene_quickjs_domain_update_layer_runtime_fields(
+                domain, 0, scale, angles, 0, 1, 1, 0, 1, "baseline", 8,
+                committed_font, strlen(committed_font), 32, color,
+                fixture->diagnostic, sizeof(fixture->diagnostic));
+        if (snapshot == MWX_SCENE_QUICKJS_OK)
+            snapshot = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+                domain, 1, fixture->diagnostic, sizeof(fixture->diagnostic));
+        if (snapshot == MWX_SCENE_QUICKJS_OK)
+            snapshot = mwx_scene_quickjs_domain_commit_layer_snapshot(
+                domain, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(snapshot == MWX_SCENE_QUICKJS_OK,
+            "consumed authored font reaches next runtime snapshot", fixture->diagnostic);
+        mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+        fixture->failures += mwx_fixture_update(owner, 900, 2, MWX_SCENE_QUICKJS_OK, 3,
+            "same font String assignment after commit");
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
+            "same font String emits no mutation", fixture->diagnostic);
+        no_op[variant] = fixture->failures == before_no_op;
+        mwx_scene_quickjs_owner_destroy(owner);
+        mwx_scene_quickjs_domain_destroy(domain);
+    }
+
+    MWXSceneQuickJSDomain *domain = font_contract_domain(fixture);
+    if (domain != NULL) {
+        const int before = fixture->failures;
+        const char *source =
+            "export function update(v){const layer=thisLayer;"
+            "const boundary='fonts/'+'é'.repeat(509);layer.font=boundary;"
+            "const child=thisScene.createLayer({text:'boundary',font:boundary});"
+            "if(layer.font!==boundary||child.font!==boundary)throw new Error('Unicode1024');"
+            "let coercions=0;const forged={toString(){coercions++;return 'fonts/forged.ttf';}};"
+            "const bad=['/fonts/absolute.ttf','../fonts/escape.ttf','fonts/../escape.ttf',"
+            "'fonts\\\\bad.ttf','fonts/a\\0.ttf','fonts/'+'é'.repeat(510),forged,{path:'fonts/x.ttf'}];"
+            "for(const path of bad){let a=false,b=false;try{layer.font=path;}catch(e){a=true;}"
+            "try{thisScene.createLayer({text:'bad',font:path});}catch(e){b=true;}"
+            "if(!a||!b||layer.font!==boundary||thisScene.getLayerCount()!==3)"
+            "throw new Error('invalid font accepted');}"
+            "let originalException=false;try{thisScene.createLayer({text:'bad getter',"
+            "get font(){throw new Error('font accessor sentinel');}});}"
+            "catch(e){originalException=e.message==='font accessor sentinel';}"
+            "let nontext=false;try{thisScene.getLayerByID(42).font=boundary;}catch(e){nontext=true;}"
+            "if(coercions!==0||!nontext||!originalException||thisScene.getLayerCount()!==3)"
+            "throw new Error('font coercion target or original exception');return bad.length*2;}";
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            domain, source, strlen(source), 901, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_configure_owner_layer(owner, 17, "font invalid input target");
+        fixture->failures += mwx_fixture_update(owner, 901, 1, MWX_SCENE_QUICKJS_OK, 16,
+            "font setter and creator reject unsafe paths and forged objects without coercion");
+        char boundary[1025];
+        memcpy(boundary, "fonts/", 6);
+        for (size_t index = 6; index < 1024; index += 2) {
+            boundary[index] = (char)0xc3; boundary[index + 1] = (char)0xa9;
+        }
+        boundary[1024] = '\0';
+        size_t exact_paths = 0;
+        const size_t count = mwx_scene_quickjs_owner_layer_mutation_count(owner);
+        for (size_t index = 0; index < count; ++index) {
+            MWXSceneQuickJSLayerMutation mutation = {0};
+            MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_layer_mutation_at(
+                owner, index, &mutation, fixture->diagnostic, sizeof(fixture->diagnostic));
+            if (result == MWX_SCENE_QUICKJS_OK && mutation.font != NULL
+                && strcmp(mutation.font, boundary) == 0) {
+                ++exact_paths;
+                unicode_bytes = strlen(mutation.font);
+            }
+        }
+        fixture->failures += mwx_fixture_check(count == 2 && exact_paths == 2 && unicode_bytes == 1024,
+            "UTF8 byte boundary preserved in real font mutation payloads", fixture->diagnostic);
+        invalid = fixture->failures == before;
+        mwx_scene_quickjs_owner_destroy(owner);
+        mwx_scene_quickjs_domain_destroy(domain);
+    }
+
+    domain = font_contract_domain(fixture);
+    if (domain != NULL) {
+        const int before = fixture->failures;
+        const char *source =
+            "const face=engine.registerAsset('fonts/Registered.ttf');"
+            "export function update(v){thisLayer.font='fonts/Transient.ttf';thisLayer.text='partial';"
+            "const born=thisScene.createLayer({text:'partial child',font:thisLayer.font});"
+            "born.font=face;throw new Error('deliberate font bundle failure');}";
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            domain, source, strlen(source), 902, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_configure_owner_layer(owner, 17, "font rollback target");
+        fixture->failures += mwx_fixture_update(owner, 902, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+            "font text and birth bundle throws");
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
+            "failed font bundle has no pending mutation", fixture->diagnostic);
+        const char *observer_source =
+            "export function update(v){return thisLayer.font==='fonts/Baseline.ttf'&&"
+            "thisLayer.text==='baseline'&&thisScene.getLayerCount()===2?1:0;}";
+        MWXSceneQuickJSOwner *observer = mwx_scene_quickjs_owner_create(
+            domain, observer_source, strlen(observer_source), 903,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_configure_owner_layer(observer, 17, "font rollback observer");
+        fixture->failures += mwx_fixture_update(observer, 903, 1, MWX_SCENE_QUICKJS_OK, 1,
+            "independent observer sees complete previous font text and catalog");
+        rollback = fixture->failures == before;
+        mwx_scene_quickjs_owner_destroy(observer);
+        mwx_scene_quickjs_owner_destroy(owner);
+        mwx_scene_quickjs_domain_destroy(domain);
+    }
+    printf("MWX_FONT_PATH_CONTRACT {\"positive\":%d,\"renamed\":%d,\"sameValueNoMutation\":%d,"
+        "\"invalidInputs\":%d,\"unicodeBytes\":%zu,\"rollback\":%d}\n",
+        positive[0], positive[1], no_op[0] && no_op[1], invalid, unicode_bytes, rollback);
+}
+
 void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    font_path_contract_cases(fixture);
     fixture->static_setter = mwx_scene_quickjs_owner_create(
         fixture->domain,
         "export function update(value){thisLayer.origin=new Vec3(1,2,3);return value;}",
@@ -205,7 +399,7 @@ void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fix
         "layer.visible!==false||layer.text!=='~'||layer.pointsize!==99)"
         "throw new Error('authored peer read-your-writes');"
         "let forgedFontRejected=false,readonlySizeRejected=false;"
-        "try{layer.font='replacement';}catch(error){forgedFontRejected=true;}"
+        "try{layer.font='../replacement';}catch(error){forgedFontRejected=true;}"
         "try{layer.size=new Vec2(1,2);}catch(error){readonlySizeRejected=true;}"
         "if(!forgedFontRejected||!readonlySizeRejected||"
         "typeof layer.alpha!=='number'||typeof layer.solid!=='boolean')"

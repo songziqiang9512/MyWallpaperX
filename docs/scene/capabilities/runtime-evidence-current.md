@@ -159,11 +159,32 @@
 
 ## 3. 证据包
 
+<a id="asset-path-string-values-20261018"></a>
+
+### 资产路径String与字体回调（2026-10-18）
+
+[唯一合同](../roadmap/batch2/script-component-api-design.md#asset-path-string-values)让公开资产值保String，退出私有asset opaque class/finalizer及解包分支；字体setter与创建配置共用原AssetHost严格路径/UTF-8校验，沿原journal→typed font→CoreText→唯一compositor。相同路径在stage/dirty和项目路径复制前返回，不声称VM字符串转换零分配或性能收益。固定官方2.8.0.42自有两stock字体板完整health/phase3/END，实际注册返回与非空getter均为String，直接路径及注册返回值两种赋值成功，同回调/下一回调值保持。旧native同scene/project、仅以scene.pkg承载的对应板实际H/G为Object、String转换与直接路径赋值TypeError；健康文字和注册返回值赋值仍成功。官方两张原始GDI与旧native两raw分别由根与独审查阅，均只证明限定API行为，不推出注册副作用、预缓存、任意路径、空值或字体glyph parity。
+
+冻结5个C/header源，64输入真实QuickJS执行的新事实含类型/值、改名/等价式、getter→createLayer、同值下一snapshot零mutation、UTF-8 1024接受/1026拒绝、NUL/非法路径/伪对象与throw整包回滚。首轮夹具漏下一snapshot发布而多2项失败保留；修载体后新增事实成立，但整个既有方法仍有7项旧Bool断言失败，未修改或隐藏，不报全门PASS。真实stock时钟仅核读源getter转交及C行为，不冒称其App画面。一次固定64d6ac8c2+5源正常Debug59.913s，4301输入无漂移/签名0；App`5d0e0860…bfe94`/dylib`bf230283…29b1`，无临时观察器。独立静态审查无阻断，code/design/defense最近门通过；无全工作区混合构建结论。
+
+最终同一夹具native-after单次7s/after4s，H/G均String、两种赋值成功，G2/G4跨回调的路径与比较结果均同官方板；实际health/phase3/END完整、live计数64→246，根与独审亲看原图。App0/无观察VM失败/输入及App漂移[]、stop1→0/GPU排空、进程组退出。两种字体在相邻callback间切回，未取稳定中间glyph帧，因此不把API板算字体形状/布局parity。
+独立原3396722575复用同一候选App，仅隔离3原输入/HOME/cache运行一次；人物、蓝紫背景、后方brush文字及运动前景字实际呈现，120的LeviBrush与843/1794的SourceHanSans-Heavy均embedded，3个text callback completed，textScriptDiagnosticCount0/missingResources0。App0/无漂移/stop1→0排空退出；仍有2265→2269、2248→2252两条getAnimationLayer prepared-nested-owner异常，旧同现UNKNOWN，严格零VM门FAIL保留，不记整样本/字体切换parity或启动性能。相关Puppet入口不在本次5产品源内；不以无font错误掩盖其他异常。
+证据与首失败保`.artifacts/tmp/font-value-type-official-20261018/`，真实C收据保`.artifacts/tmp/font-string-abi-behavior-20261018/execution/`。官方首次派发前VM suspended/0张输出为环境STOP；恢复既有VM后只更新receiver/执行namespace再做一次语义实验，不改原场景。旧native loose-only载体因无packageReport未ready，补单entry容器后形成有效对照，不是字体故障。两类STOP、容器同字节证明和首测试失败不覆盖；正式证据归档仍待现有容量答复，VM保持运行。修前/修后板的停止input/HOME已清，旧f263 stage完成对照后按manifest/无句柄清244,050,803逻辑B；保一个正常候选stage与连续迭代构建缓存，不报物理磁盘释放或性能收益。
+
+<a id="ring-motion-qualification-20261018"></a>
+
+### 文字环与挂点运动资格（2026-10-18）
+
+未改产品、未新增App运行。3351179520的碟片21、白环103和文字393在4785下各有独立TRS/Spin，393消费333文字provider；缺作者Atami走stock PoppinsMedium合法替代。字体raster尺寸可能影响CircularText自动尺度，但没有同帧raster/slot1/最终MVP，不能据此解释固定文字的周期漂移；原可见跨度不足整周期、静音opacity为零的STOP保持。3769688830的47黄球有合法单向UV Spin，同时从Puppet父21取得世界挂点运动；目录预览只见头肩，不够定位用户“玩偶”ROI/运动。两项均不改作者速度/中心、不认已修或作者设计，后继先取得可区分的实际consumer/目标ROI。中性收据分别保`.artifacts/tmp/335-text-ring-owner-qualification-20261018/qualification.json`与`.artifacts/tmp/u33-rotation-qualification-20261018/qualification.json`，无性能或整样本结论。
+
 <a id="u05-fluid-content-20261018"></a>
 
 ### U05流体单帧内容资格（2026-10-18）
 
 未改产品，固定`64d6ac8c2`加两文件临时DEBUG观察器，沿原executor/stage边界在同commandbuffer附加blit，原owner提交；一次Debug74.129s、4301输入无漂移/签名0，诊断App`d0fdfed2…3e2c`/dylib`b7a96262…7bff`。首revision02强制纳入原本`visible=false`的effect2，故无JSON、STOP_UNKNOWN；method03只修观察配置，复用同App单次原包运行，不补作者参数。实际frame31/epoch15、sceneTime1.134s，effect3/5输出2048×1117、双Dye1024×558均BGRA8；同CB格式零/已知色sanity通过，非有限值0。双Dye的R与A各自范围0..1、非零计数15360/15011（逐通道，非交集）；postswap物理token/generation一致，history copy5/discard=false且无Dye初始化。effect3/5虽同物理纹理，阶段generation及快照hash不同。App0/观察VM失败0/无漂移/stop1→0排空退出；根与独审看after及目录官方，人物/蓝环健康，**只排除该帧Dye全零/纯alpha，不证空间梯度、持续运动或烟雾恢复**，U05保持开放。必要JSON`a6d4b696…fe7`、双raw、首次STOP与独审保`.artifacts/tmp/u05-fluid-content-qualification-20261018/`，正式归档待容量答复；两轮临时input/HOME及probe stage均已清，隔离源码恢复、观察器不进产品。22,872,704B仅为诊断分配，非内存或性能收益；无整样本/官方同phase验收。
+
+
+后继只读核实际末combine节点22在tail24交换前消费Dye2（token31:9/gen260，交换后名Dye1），MSL按R采gradient、A乘gradient A后feather/opacity并加previous，原UV/transfer未见额外变换。stock gradient A全255；这不是GPU上传读回。点发射位置/尺寸及原UV有定义依据，但mask/历史平流可在别处产生内容，不以单一bbox/质心作全局期望。未证consumer缺陷；下一门仅在有合格同帧空间分布、实际uniform及可归因ROI时续接，不重复Dye非零或绑定检查。
 
 <a id="u27-lion-blink-qualification-20261018"></a>
 

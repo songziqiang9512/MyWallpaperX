@@ -8,20 +8,6 @@
 #include <string.h>
 #include <strings.h>
 
-typedef struct MWXSceneQuickJSAssetHandle {
-    char *path;
-} MWXSceneQuickJSAssetHandle;
-
-void mwx_scene_quickjs_layer_finalize_asset_handle(JSRuntime *runtime, JSValue value) {
-    (void)runtime;
-    MWXSceneQuickJSAssetHandle *handle = JS_GetOpaque(
-        value, JS_GetClassID(value)
-    );
-    if (handle == NULL) return;
-    free(handle->path);
-    free(handle);
-}
-
 bool mwx_scene_quickjs_layer_valid_asset_path(const char *path, size_t length, size_t maximum_length) {
     if (path == NULL || length == 0 ||
         length > maximum_length ||
@@ -41,41 +27,25 @@ bool mwx_scene_quickjs_layer_valid_asset_path(const char *path, size_t length, s
     return true;
 }
 
-JSValue mwx_scene_quickjs_layer_make_asset_handle(
-    JSContext *context,
-    MWXSceneQuickJSDomain *domain,
-    const char *path,
-    size_t length
+const char *mwx_scene_quickjs_layer_read_font_path(
+    JSContext *context, JSValueConst value, size_t *length
 ) {
-    if (!mwx_scene_quickjs_layer_valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) return JS_UNDEFINED;
-    MWXSceneQuickJSAssetHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return JS_EXCEPTION;
-    handle->path = malloc(length + 1);
-    if (handle->path == NULL) {
-        free(handle);
-        return JS_EXCEPTION;
+    // A configuration property's getter can already have thrown. Preserve that
+    // exception for the enclosing create transaction.
+    if (JS_IsException(value)) return NULL;
+    if (!JS_IsString(value)) {
+        JS_ThrowTypeError(context, "layer font expects a path String");
+        return NULL;
     }
-    memcpy(handle->path, path, length);
-    handle->path[length] = '\0';
-    JSValue value = JS_NewObjectClass(context, domain->asset_handle_class_id);
-    if (JS_IsException(value) || JS_SetOpaque(value, handle) < 0) {
-        free(handle->path);
-        free(handle);
-        JS_FreeValue(context, value);
-        return JS_EXCEPTION;
+    const char *path = JS_ToCStringLen(context, length, value);
+    if (path == NULL) return NULL;
+    if (!mwx_scene_quickjs_layer_valid_asset_path(
+            path, *length, MWX_SCENE_QUICKJS_MAX_LAYER_FONT)) {
+        JS_FreeCString(context, path);
+        JS_ThrowTypeError(context, "layer font path is invalid");
+        return NULL;
     }
-    return value;
-}
-
-const char *mwx_scene_quickjs_layer_registered_asset_path(
-    MWXSceneQuickJSDomain *domain,
-    JSValueConst value
-) {
-    if (domain == NULL || !JS_IsObject(value)) return NULL;
-    MWXSceneQuickJSAssetHandle *handle = JS_GetOpaque(
-        value, domain->asset_handle_class_id
-    );
-    return handle == NULL ? NULL : handle->path;
+    return path;
 }
 
 static JSValue register_asset(
@@ -96,11 +66,14 @@ static JSValue register_asset(
     if (argc == 2 && JS_ToBool(context, argv[1]) < 0) return JS_EXCEPTION;
     size_t length = 0;
     const char *path = JS_ToCStringLen(context, &length, argv[0]);
+    if (path == NULL) return JS_EXCEPTION;
     if (!mwx_scene_quickjs_layer_valid_asset_path(path, length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH)) {
-        if (path != NULL) JS_FreeCString(context, path);
+        JS_FreeCString(context, path);
         return JS_ThrowTypeError(context, "registerAsset path is invalid");
     }
-    JSValue result = mwx_scene_quickjs_layer_make_asset_handle(context, owner->domain, path, length);
+    // The public asset value is the path itself. Prepared resources and their
+    // authority remain with the existing catalog, not a private JS wrapper.
+    JSValue result = JS_DupValue(context, argv[0]);
     JS_FreeCString(context, path);
     return result;
 }

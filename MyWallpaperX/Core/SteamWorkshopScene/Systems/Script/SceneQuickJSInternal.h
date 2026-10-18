@@ -390,7 +390,6 @@ struct MWXSceneQuickJSDomain {
     size_t user_properties_json_length;
     bool user_properties_snapshot_valid;
     JSClassID layer_handle_class_id;
-    JSClassID asset_handle_class_id;
     MWXSceneQuickJSParticleEmission particle_emission;
     MWXSceneQuickJSParticleBoundary particle_boundary;
     void *particle_emission_opaque;
@@ -834,7 +833,6 @@ void mwx_scene_quickjs_layer_discard_last_dynamic_layer_topology_operation(
 bool mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(
     MWXSceneQuickJSOwner *owner
 );
-void mwx_scene_quickjs_layer_finalize_asset_handle(JSRuntime *runtime, JSValue value);
 bool mwx_scene_quickjs_layer_journal_dynamic_layer_creation(
     MWXSceneQuickJSOwner *owner,
     uint32_t layer_index
@@ -842,12 +840,6 @@ bool mwx_scene_quickjs_layer_journal_dynamic_layer_creation(
 bool mwx_scene_quickjs_layer_journal_dynamic_layer_value(
     MWXSceneQuickJSOwner *owner,
     uint32_t layer_index
-);
-JSValue mwx_scene_quickjs_layer_make_asset_handle(
-    JSContext *context,
-    MWXSceneQuickJSDomain *domain,
-    const char *path,
-    size_t length
 );
 JSValue mwx_scene_quickjs_layer_make_layer_handle(
     JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t index, bool persistent
@@ -861,10 +853,10 @@ bool mwx_scene_quickjs_layer_read_vec3(
     JSContext *context, JSValueConst value, double output[3],
     bool *numeric_nonfinite
 );
-const char *mwx_scene_quickjs_layer_registered_asset_path(
-    MWXSceneQuickJSDomain *domain,
-    JSValueConst value
-);
+// Returns a validated UTF-8 conversion. Release with JS_FreeCString after use,
+// including an unchanged-value fast exit. NULL retains a pending exception.
+const char *mwx_scene_quickjs_layer_read_font_path(
+    JSContext *context, JSValueConst value, size_t *length);
 MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_resolve_layer_argument(
     JSContext *context, MWXSceneQuickJSOwner *owner, JSValueConst value
 );

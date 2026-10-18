@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 241,
-      "bytes": 103283
+      "lines": 262,
+      "bytes": 108475
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 112754
+      "bytes": 113360
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 560,
-      "bytes": 144600
+      "lines": 574,
+      "bytes": 147168
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 52,
-      "bytes": 16098
+      "lines": 51,
+      "bytes": 14989
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 201,
-      "bytes": 51850
+      "lines": 200,
+      "bytes": 52106
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1293,24 +1293,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "2c8caea58f630b5411a6106f232a4c9908bbddcb04f6bbc96dd17f90b307c0cd",
-      "after": "ebe4acefc3b6632fd853ad83a354ce6344136964ad0ced8a9a4955abc778257f",
-      "owner": "scene-script-module-initialization",
-      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "5fa7b992f960c9aae98980ff982853d8a7441db6a0116d7057625480e9d2cda1",
-      "after": "52b198e09dbb7947b7c7931aaa57763e2d3dcf73c8f80e3b2e191dfd7774f80d",
-      "owner": "scene-script-module-initialization",
-      "reason": "Bound module lifetime and failure-domain responsibility with actual candidate tests, qualified official marker and original/heldout visual evidence; replace superseded U25/U35 observations and preserve explicit claim limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "1919d78624fcce550f95ae3fa3f2e6baae980bacb24752c46dde71582026397b",
@@ -1393,20 +1375,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "be3b1faaf24a6dc8733cf4af0a7f293d989913ef6cd9f1ed716448bb565075aa",
-      "after": "66f5baed50c97303970e7f92851d061fabcdd3f6634c6442bcebe71a9e0dc52f",
-      "owner": "scene-fluid-content-qualification",
-      "reason": "Replace unmeasured Dye claims with qualified single-frame content and retain unresolved visible composition boundaries and first failed instrumentation attempt.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u05-fluid-content-20261018"
+      "before": "66f5baed50c97303970e7f92851d061fabcdd3f6634c6442bcebe71a9e0dc52f",
+      "after": "47166a96548a2509c046b39de17790c8793766a1db48674cbdad22f335caee37",
+      "owner": "scene-asset-path-string-values",
+      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "ebe4acefc3b6632fd853ad83a354ce6344136964ad0ced8a9a4955abc778257f",
+      "after": "62e7b70b4eb27055cf2911a88981d1f6fb50635af093170fb503fc7301804ecf",
+      "owner": "scene-asset-path-string-values",
+      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "52b198e09dbb7947b7c7931aaa57763e2d3dcf73c8f80e3b2e191dfd7774f80d",
+      "after": "0e5a580349607249b00aa9413c5af8685e843022444f4ff4823347197180c8b7",
+      "owner": "scene-asset-path-string-values",
+      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "24757c70b6cce715f5875ad95ac18e75d800847483697613dd39a15dc5249f55",
-      "after": "3942f8c29f7d584736d56298dbda1ab83dc1d0d64ddd1cf222cff7e6eaa59e9d",
-      "owner": "scene-fluid-content-qualification",
-      "reason": "Replace unmeasured Dye claims with qualified single-frame content and retain unresolved visible composition boundaries and first failed instrumentation attempt.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u05-fluid-content-20261018"
+      "before": "3942f8c29f7d584736d56298dbda1ab83dc1d0d64ddd1cf222cff7e6eaa59e9d",
+      "after": "c28d2d72bab5add17d3228d06dd89dab0f499e71f9b51cc2c904130e4d907303",
+      "owner": "scene-asset-path-string-values",
+      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
     }
   ]
 }

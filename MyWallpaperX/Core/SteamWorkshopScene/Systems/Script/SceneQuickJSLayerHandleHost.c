@@ -46,25 +46,15 @@ JSValue mwx_scene_quickjs_create_owner_layer_handle(MWXSceneQuickJSOwner *owner)
 
 bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain) {
     if (domain == NULL || domain->runtime == NULL ||
-        domain->layer_handle_class_id != JS_INVALID_CLASS_ID ||
-        domain->asset_handle_class_id != JS_INVALID_CLASS_ID) return false;
+        domain->layer_handle_class_id != JS_INVALID_CLASS_ID) return false;
     static const JSClassDef layer_definition = {
         .class_name = "SceneLayerHandle",
         .finalizer = finalize_layer_handle,
     };
-    static const JSClassDef asset_definition = {
-        .class_name = "SceneAssetHandle",
-        .finalizer = mwx_scene_quickjs_layer_finalize_asset_handle,
-    };
     JS_NewClassID(domain->runtime, &domain->layer_handle_class_id);
-    JS_NewClassID(domain->runtime, &domain->asset_handle_class_id);
     return domain->layer_handle_class_id != JS_INVALID_CLASS_ID &&
-        domain->asset_handle_class_id != JS_INVALID_CLASS_ID &&
         JS_NewClass(
             domain->runtime, domain->layer_handle_class_id, &layer_definition
-        ) >= 0 &&
-        JS_NewClass(
-            domain->runtime, domain->asset_handle_class_id, &asset_definition
         ) >= 0;
 }
 

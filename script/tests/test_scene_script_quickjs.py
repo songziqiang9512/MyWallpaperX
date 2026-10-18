@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -80,13 +81,32 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         completed = subprocess.run(
             [str(self._binary)], cwd=ROOT, capture_output=True, text=True
         )
+        if completed.stdout:
+            print(completed.stdout, end="")
+        prefix = "MWX_FONT_PATH_CONTRACT "
+        font_results = [
+            json.loads(line[len(prefix):])
+            for line in completed.stdout.splitlines()
+            if line.startswith(prefix)
+        ]
+        self.assertEqual(len(font_results), 1, completed.stdout + completed.stderr)
+        self.assertEqual(
+            font_results[0],
+            {
+                "positive": 1,
+                "renamed": 1,
+                "sameValueNoMutation": 1,
+                "invalidInputs": 1,
+                "unicodeBytes": 1024,
+                "rollback": 1,
+            },
+            completed.stdout + completed.stderr,
+        )
         self.assertEqual(
             completed.returncode,
             0,
             completed.stdout + completed.stderr,
         )
-        if completed.stdout:
-            print(completed.stdout, end="")
 
     def test_legacy_capture_allocation_and_gc(self) -> None:
         root = Path(self._temporary_directory.name)

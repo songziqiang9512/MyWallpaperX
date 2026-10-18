@@ -28,6 +28,20 @@ direct user zoom 复用原 extractor、property Program、live 准入与事务�
 
 验收从自有改名输入的真实 parser/extractor→property/Vector C owner→definition 合并/resolver→cameraTransform/投影走通：init 产生区别于 seed 的 origin，direct zoom 默认与两次热改保留该 current origin；静态 path、原 Combined Timeline、坏返回/非法 zoom、同名非 camera、重复 path/native/冲突来源为相邻反例。Swift 产品做一次有效 Debug build，304 原包实图对照并核实际相机输入，未参与修法样本真实回归；169 只按其独立证据裁决。正确接线不自动等于完整官方画面、跨比例、全部相机 API 或性能收益。失败保原局部回退，保暂停、取消、同 generation 与资源释放。
 
+<a id="asset-path-string-values"></a>
+
+## 资产路径值与字体入口（2026-10-18，有界已实施）
+
+目标是让公开资产值可直接读写、比较并传入文字创建配置，不因项目私有对象包装中断作者回调。固定官方2.8.0.42的自有文字载体已观察到：`registerAsset`返回路径String，非空`font` getter也是String；合法stock路径直接赋值与注册返回值赋值均成功，同回调及下一回调读回保持。只限定所测路径值行为，不裁决资源预加载、路径规范化、空字体或字体像素一致性；具体身份与实测归运行证据。
+
+唯一值入口为原AssetHost：保留module-only、参数与安全相对路径校验，注册结果直接返回原路径String。退出旧asset opaque class、finalizer、domain字段及借该class取得路径的分支，不增加registry或新资源授权。现有准备期资源需求、owner alias、typed mutation与资源consumer仍保各自职责；合法String不能证明文件存在或已准备。
+
+字体getter、setter与`createLayer({font: ...})`使用同一String路径合同；后两者复用AssetHost的严格primitive String解码和真实UTF-8长度校验，不调用任意对象的coercion。短生命周期UTF-8视图必须在每条退出路径释放；setter先比较当前路径，相同即结束，不额外复制、stage或dirty；变化后才沿原authored baseline/mutation或dynamic journal复制并提交。构造器在释放配置值前取得持久副本。空getter保现undefined，省略构造font保原默认；不借此开放未知空值写入。
+
+失败继续进入同一callback事务，后续throw不得留下font、text或动态birth的部分结果。typed `.text(.font)`、descriptor、CoreText、last-ready source、graph和最终合成不新建owner，取消、退休与资源释放保持。
+
+验收复用现QuickJS门的真实C执行：注册结果/String getter的类型与值、同回调读写及下一回调、getter转交创建、改名与等价表达式；非法相对路径、NUL、UTF-8上限、伪对象/coercion及整笔回滚为反例。真实stock时钟的getter传递由读源与该C行为门限定，不能冒称时钟App实图验收。一次Debug、同载体修前/修后实图及独立作者样本的执行结果归[运行证据](../../capabilities/runtime-evidence-current.md#asset-path-string-values-20261018)。已有层引用、topology和typed字体发布门只补受影响范围；声明、build或CPU通过均不代替画面，未测完整字体/parity或性能不得升级。
+
 <a id="text-layer-pointsize-setter"></a>
 
 ## Text layer pointsize setter（2026-10-16，有界已实施）
