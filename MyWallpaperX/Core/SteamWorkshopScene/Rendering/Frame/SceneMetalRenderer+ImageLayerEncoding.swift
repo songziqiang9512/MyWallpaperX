@@ -99,7 +99,12 @@ extension SceneMetalRenderer {
             modelViewProjection: mvp
         )
         let effectSourceExtent: SceneLayerEffectSourceExtent?
-        if layer.contentKind == "solid" {
+        if layer.contentKind == "solid", let resolvedFramePlan {
+            let extent = resolvedFramePlan.allocation.graphPlan.fullFramePair.descriptor.extent
+            effectSourceExtent = SceneLayerEffectSourceExtent(pixelSize: CGSize(
+                width: extent.width, height: extent.height
+            ))
+        } else if layer.contentKind == "solid" {
             effectSourceExtent = SceneCaptureGeometryResolver
                 .projectedPixelSize(
                     layerMVP: mvp,

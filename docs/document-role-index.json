@@ -421,12 +421,6 @@
       }
     },
     {
-      "path": "docs/scene/architecture/pkg-resource-read-design.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "retirementCondition": "有界包读取和资产准备筛选结束；接受的职责并入资源合同，未接受候选撤回并归档证据。"
-    },
-    {
       "path": "docs/scene/architecture/refactor-baseline.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/roadmap/engine-refactor-program.md",
@@ -448,10 +442,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7656b1c8ba718837cac1ea6c82555def6cefa4b2eff82595330a99747f89778f",
+        "sourceSHA256": "64a12f33043350ff2666b3f43922994afab1de7bdf5b4dd489c008a19b9f34b9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile typed normal model coverage, bounded RGB/depth and original/heldout visual results; retain native composition, Rope and other material-state gaps.",
-        "limitations": "No whole-sample, exact official phase, arbitrary RT alpha/alphaWriting, new shadow semantics or performance claim."
+        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
+        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
       }
     },
     {
@@ -682,10 +676,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "93ea06c1abe9f48a5b17d3d207ed36dbd5a4ae43f2e1b7d4115ff46800849ad2",
+        "sourceSHA256": "0edac2a754f8ac66d4aa3e755b7374bf34300270234d2c4ab6b259c1838bd5c9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
-        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
+        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
+        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
       }
     },
     {
@@ -766,10 +760,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "abd8181cb577f4a775e890182bacd1f1fc2c4c225c99bb70db9a6580bff05313",
+        "sourceSHA256": "03c5a4ee16770cecfbdef5b772d47e8be8d5f54d66dae3293f52a57109889207",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
-        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
+        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
+        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
       }
     },
     {
@@ -1995,6 +1989,18 @@
         "limitations": "No all-sample, official parity, stable end-to-end startup, HDR history or long switching acceptance"
       },
       "lastReviewed": "2026-10-13"
+    },
+    {
+      "path": "docs/scene/history/pkg-startup-screen-2026-10-18.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "AGENTS.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/architecture/scene-resource-admission.md",
+        "docs/scene/architecture/runtime-as-built-map.md"
+      ]
     },
     {
       "path": "docs/scene/history/prepared-empty-composition-2026-10-15.md",
@@ -3346,7 +3352,15 @@
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。"
+      "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
+      "lastReviewed": "2026-10-18",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "664fb78198cff87f6909aba85941e99a7efb61bcafaea7f5581ec5dc692bb8b0",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
+        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
+      }
     },
     {
       "path": "docs/scene/roadmap/engine-refactor-program.md",
@@ -3426,10 +3440,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "439beb10a6af86be6f1cc93047800ed83e8460e55d06f3db9a028191416807f6",
+        "sourceSHA256": "e2dd17f08d0a6430f8accfdc5bd2b387d2eef696dc5131e16e213c504fd2fc33",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile 26 user observations without erasing historical bounded closures; actual original audio-index preparation-order failure and recovery, heldout view and new ring-motion remainder.",
-        "limitations": "Only source-order and observed windows are fresh; ring-path motion remains open, remaining25 observations await targeted verification. No full corpus, official phase parity or performance claim."
+        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
+        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
       }
     },
     {

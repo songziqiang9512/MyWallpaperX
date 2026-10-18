@@ -305,8 +305,7 @@ extension SceneMetalRenderer {
                 if !cameraFrame.resolvesPerspective(for: layer),
                    ((layer.colorBlendMode ?? 0) == 0 && claim.supportsTerminalMaterialReplay)
                     || ((layer.colorBlendMode ?? 0) != 0 && claim.supportsSourceSizedSolidEffects
-                        && claim.dependencyOwnership == .none
-                        && selectedSource.candidate != nil),
+                        && claim.dependencyOwnership == .none),
                    frameVisibleLayerIDs.contains(layerID),
                    !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
                    let authoredSize = layer.renderSizeWH,
@@ -314,7 +313,7 @@ extension SceneMetalRenderer {
                    let solidExtent = SceneLayerEffectSourceExtent.resolveSolid(
                        authoredRenderSizeWH: authoredSize
                    ) {
-                    // The real source owns intermediate sampling density. A
+                    // A texture or authored solid owns its local source extent. A
                     // normal terminal material draws at placement density;
                     // advanced blending consumes the existing graph texture.
                     desiredSize = selectedSource.candidate?.mappedSize ?? solidExtent.pixelSize

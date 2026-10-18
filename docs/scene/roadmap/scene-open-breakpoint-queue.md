@@ -99,7 +99,6 @@
 
 | 样本 | 用户观察 / 下一关闭门 |
 |---|---|
-| 3806337293 · 环形路径整体自转 | 10-18原HEAD已复现灰斜面/过曝；共享准备顺序修后双环/人物恢复，见[限定后验](../capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018)。用户23:14官方无音频截图及动态观察补充：条目应沿固定路径移动、环形本身不转；最终App原包14s受控静音序列已见椭圆主轴/轴比变化。两环静态1024²、angles/scale无动态writer；最早候选是advanced无Candidate源把投影bbox作局部effect域，尚待修后反证，不改Spin速度/符号或冻结clock。后继须同时验路径稳定与条目继续运动，官方附件未锁同phase/viewport；该运动不由本次灰层修复关闭。 |
 | 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 巨大斜片、白环贴合与空透明源2000²首门已闭；文字精确对齐仍partial。最长可见跨度38.849s仍短于41.888s周期。恒定PCM后继短门已证三路opacity与稳定distance、可读文字；人工复核写回超时使控制器终止，不能拼接或认整周期。碟片/两环有独立TRS/Spin，缺字体走合法替代；不强制同速同心、不从glyph包围框判漂移。待取得同帧slot1/最终几何及可归因ROI，不重复静音或人工短期限载体；[最近资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018)，[已闭源语义](../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。 |
 
 <a id="qv-cccea6c-user-report"></a>
@@ -162,7 +161,8 @@
 | 3747190633 /3807151772 /3782740481 · 原缺条反馈退出 | 前两者[原条带可见并经GPU/末合成](../capabilities/runtime-evidence-current.md#e-2026-10-08-localized-graph-input)；3782740481在[16秒受控非零输入](../history/named-timeline-interaction-2026-10-10.md)三环均可见，原完全缺失未复现。仅此输入范围，不记外部音源/幅度parity。 |
 | 3765760121 /3788734811 · 原倒置反馈已闭 | [退役用户反馈的实际截图裁决](../capabilities/scene-sample-debug-ledger.md#用户可见失败待办按当前复现更新不以公共修复代替逐项验收)分别确认默认鱼眼及perspective卡片恢复正向；整体验收原值不变。 |
 | 3787382101 · 原mask反馈已闭 | [六组同构A/B](../capabilities/runtime-evidence-current.md#2026-09-13-3787382101-water-waves-作者-mask-同构-ab)证Water Waves只作用于对应mask；旧“影响人物全身”裁决已过时，不改整样本verdict为PASS。 |
-| 3796588443 /3804441338 /3806337293 · 所列旧现象已闭 | 分别为[异常强网点/混合与频谱](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)、[镂空两框及时间日期](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)、[灰叠层/过曝与两环](../history/shared-shader-type-compatibility-2026-10-09.md#u21-音频索引后继)的实际关闭；380633灰叠层后继已再次实际恢复，但环形路径整体自转仍在上表开放，不能称其全部反馈已闭。受控输入不升级整景/外部音源。 |
+| 3796588443 /3804441338 · 所列旧现象已闭 | 分别为[异常强网点/混合与频谱](../history/shared-shader-type-compatibility-2026-10-09.md#solid源尺寸后继)、[镂空两框及时间日期](../capabilities/runtime-evidence-current.md#e-2026-10-08-frame-declaration)的实际关闭；受控输入不升级整景/外部音源。 |
+| 3806337293 · 灰层/过曝/缺环及路径自转反馈已闭 | 10-18当前原包先重现首段索引编译拒绝，修共享准备顺序后双环/人物恢复；用户后补官方无音频固定路径观察，原App静音14s多相位仍轴向变化。后继只修无Candidate程序化solid源域，保作者1024²，3/6/12s实图椭圆轴稳定、点列继续移动；非零PCM条目响应保持，两个末段GPU/末合成与下一帧、独立381实图及正常stop均成立。仅关闭所列反馈，非官方精确速度/幅度/同aspect全图或整样本PASS，见[原索引与后继源域证据](../capabilities/runtime-evidence-current.md#procedural-solid-local-source-20261018)。 |
 | 1695673397 · 同aspect已解释 | [原生75px与官方约35–37px灰带](../history/default-2d-camera-inputs-2026-10-16.md#169露底资格与正常比例差异)在二倍尺寸同aspect下占比差不超过预设1个百分点；该比例非独有缺陷，不拉伸遮边，不推广所有比例。 |
 | 3226487183 /3264246690 /3807668787 · partial | 322眼球/默认动画、侧脸脸颈及点击色散已由上方实际后验关闭，手部仍在；326旧头/左肘与口罩已闭，保AA/警戒带；380766头冠/音频已闭，保958 pointer轨迹准入。不能标这些样本全部反馈已闭。 |
 | 3509243656 · 关闭裁决待补身份 | [旧用户反馈表](../capabilities/scene-sample-debug-ledger.md#用户可见失败待办按当前复现更新不以公共修复代替逐项验收)写“当前渲染正常、实机确认，旧记录过期”；具体App/输入/图片身份弱，先补链，不从旧fail重开开场/模拟画面或坐标文字故障，也不记HEAD通过。 |

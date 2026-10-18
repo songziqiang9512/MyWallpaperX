@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 126824
+      "bytes": 127221
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 137669
+      "bytes": 138762
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68073
+      "bytes": 68086
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -217,8 +217,8 @@
       "bytes": 9910
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 34,
-      "bytes": 5767
+      "lines": 46,
+      "bytes": 8473
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 216,
-      "bytes": 61861
+      "bytes": 61571
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1360,15 +1360,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "27f8aa232ec0861bf279a1da1bc22fac27e3332e2682f07e93e555b5ab28c434",
-      "after": "571332967c413a761d3d219b2d7dccc10f40291bdc6c8971de6ab7ef4e9c5766",
-      "owner": "scene-static-model-normal-coverage",
-      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "4bf5de52992ecd3e15bd000ade8078a8549599f6268d8774920aba5b357c0b39",
       "after": "c45d8a575a49a01f682350bd086c1b7faf9a3e65d3139e97deebb57fb35aa21d",
@@ -1405,30 +1396,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "571332967c413a761d3d219b2d7dccc10f40291bdc6c8971de6ab7ef4e9c5766",
+      "after": "42d19de4b3543bd8fb81d88671ccf2bfd8dc16c6be00b3a610f72c1ea836c2f9",
+      "owner": "scene-procedural-solid-local-source",
+      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "before": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
+      "after": "47d74e31ee09f3d3ad8fec4cea4b257587978b63745cbf1a9c6a5ad9ca8e8121",
+      "owner": "scene-procedural-solid-local-source",
+      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1920a1b41611c824789e56beb7ebfa5b973bc5fdcac0d5d93ae6a1e22bb7f16b",
-      "after": "d66c9f8d6d32c691154ea8b6e78eaad6e9cb50fdd89a45c0c1e324ce0556ab77",
-      "owner": "scene-feedback-audio-order",
-      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
+      "before": "d66c9f8d6d32c691154ea8b6e78eaad6e9cb50fdd89a45c0c1e324ce0556ab77",
+      "after": "235b448991a7de6cce3c499879fd228ab1d6f95252476fd936a97473719771fa",
+      "owner": "scene-procedural-solid-local-source",
+      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "bd538ebad6840d3098389fcc4a1e02f86c061039d5f40624f66e929edbae002c",
-      "after": "ade51948096b705c5523fd6ffd34b9c7a4e88a167b8d4f8b8ce276bc7cab92da",
-      "owner": "scene-feedback-audio-order",
-      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7833d68f79a0beef98b726c839e773b4acadbff608a782536e443a1e107b0715",
-      "after": "9abb3a1f5d8e52c9e8d7ba48e2d799b3429fe4a10287b21c4ba9bfb0703a6ccc",
-      "owner": "scene-feedback-audio-order",
-      "reason": "Deduplicate new user reports while preserving narrow historical verdicts; record one real source-order regression and bounded recovery, retain newly reproduced ring motion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#audio-index-preparation-order-20261018"
+      "before": "ade51948096b705c5523fd6ffd34b9c7a4e88a167b8d4f8b8ce276bc7cab92da",
+      "after": "7fe2cbdf8c6ba603a20adf8b6653423353dc93fe1cf142d38c0c846074e166f7",
+      "owner": "scene-procedural-solid-local-source",
+      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
     }
   ]
 }

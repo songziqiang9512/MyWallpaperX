@@ -32,3 +32,15 @@
 ## 验收
 
 真实 GPU 正反例：末段 active / inactive / 局部失败，细线密度、精确输入颜色、一次必要 copy、无冲突零 copy、同 buffer / stale / one-shot 守恒与完成前 pin。文字补充正负倾斜越界像素、identity 与 alpha、动态日期/时间末字边缘，停用回原 graph 路线。Debug build；原生同一官方自有尺寸及条纹输入对照；原始真实样本短跑与截图。外部依赖、全样本、桌面产品入口、长期性能不得由这些门代替。实现结果与剩余边界归现有队列；完成过程归档，稳定职责归运行架构。
+
+<a id="procedural-solid-local-source"></a>
+
+## 无静态纹理的程序化 solid 源域（2026-10-18，有界已实施）
+
+目标是让局部 effect 的采样域独立于最终放置，关闭固定路径被显示比例带动旋转的问题。新片限定原 capturedLayer 的普通正交可见 solid、无真实 texture Candidate、显式合法作者尺寸；须同时满足现 prepared source-sized simple color claim、dependency.none、非 graph-output provider、无显式 RT/history/function/copy/swap/compose。上述资格在原准备/计划 owner 确定一次，draw/scratch 消费同一选择，不能仅据 layer 类型与 nil Candidate 各自判定。复用原 `SceneLayerEffectSourceExtent.resolveSolid` 作为作者源尺寸权威，graph preflight、draw request 和 scratch reservation 消费同一结果。现投影 AABB 两轴分别取大污染了局部宽高比，该分支退出；不另造密度算法或尺寸缓存。作者尺寸缺席时保原投影 fallback，显式非法在预留前局部拒绝，不能降级绕过；新早分支保原正尺寸资格；0→1像素仍留原 fallback/resolveSolid 边界，不扩大该早分支。真实 Candidate、精确 atlas、native/perspective、外部 provider 与显式 FBO 保各自原来源和资源门。
+
+高级混合仍按完整 graph-final → 原 compositor 输出，不新增 terminal replay、不伪造 Candidate 或 `g_TextureNResolution`。graph publication 继续以真实 descriptor 和实际 UV 发布 physical/mapped；固定作者源域经原等比预算处理，最终 canonical world/MVP 独占显示的 scale/angle。保旧普通 source-over、局部失败/停用末段、graph/history/resize、取消与 completion pin；若需新的 logical/physical 类型、采样质量策略或跨图来源，停在相应合同，不借本片改 metadata 含义。
+
+最低验收：自有局部圆与沿环标记，静态非等比外部放置，多个时间点的主轴/轴比保持而标记继续移动；改名及等价变体、viewport/世界scale变化、合法矩形源和缺席/非法尺寸反例。沿实际 preflight→graph descriptor→uniform→GPU→末合成验证，不能只断言helper或冻结clock。原380受控静音多相位对照用户固定路径观察，再用未参与修法的真实样本检查输出/退出；一次有效Debug及独审。不承诺全样本、精确官方音频/相位或性能收益，成本变化另遵循性能卡。
+
+实际原包静音三相位、非零PCM与独立样本后验归[运行证据](../../capabilities/runtime-evidence-current.md#procedural-solid-local-source-20261018)；只关闭固定路径自转反馈，不认完整官方相位/速度、音频幅度或性能通过。

@@ -821,17 +821,20 @@
     "3806337293": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-18",
-      "reviewer": "Codex 原包受控PCM与静音运行；非完整官方对照",
-      "note": "2026-10-18原包复现并修复灰斜面/过曝/缺环；双环与人物恢复。用户后补固定路径整体自转，静音多帧已复现，仍开放。",
+      "reviewer": "Codex 原包受控PCM/静音多相位与独立审查；非完整官方对照",
+      "note": "2026-10-18灰层/过曝/缺环及后补路径整体自转已分别真实复现并修正；固定椭圆路径与条目移动保持，非完整样本/官方相位验收。",
       "runs": [
         ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/baseline/report.json",
-        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/final/report.json"
+        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/final/report.json",
+        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/before/report.json",
+        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/after/report.json",
+        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/pcm/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "remainingDifferences": "固定路径应只让条目移动；当前原包受控静音14s多帧椭圆主轴/轴比变化，运动仍开放。后补官方附件非同phase/viewport，不认整样本/全部交互、音源或性能通过。",
+      "remainingDifferences": "所报灰层/过曝/缺环与固定路径整体自转均有界关闭；官方同phase/aspect、精确速度/音频幅度、完整交互及整样本未验，不据此改整样本verdict或造新可见缺陷。",
       "officialComparison": "unknown"
     },
     "2932631210": {
