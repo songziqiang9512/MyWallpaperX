@@ -731,6 +731,23 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u15-clock-rectangle-qualification-20261018/native-after/original-u15/results/3299228616/scene-after-window.png"
       ],
       "remainingDifferences": "hover水波弱、完整交互/全部属性/精确字体音频与官方同phase未验；时钟矩形反馈已闭。"
+    },
+    "3769364482": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
+      "officialComparison": "compared",
+      "note": "限定基本标量播放后验：原包默认59/effect173/pass1 rayintensity实际负→.4499919→负进入Program，五node GPU/末合成+次帧成立；三原图呈青rim暗态→头胸双臂红晕→回暗，人物/拳火/火花保持。退出基本loop未播候选，不补作者未声明的alpha动画。三Shake Breathing/发光风格、完整属性交互与官方同phase仍未验；右Date已执行且大部越当前cover边界，官方有效viewport未齐，不列缺Date/背景消费者。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u37-scalar-loop-qualification-20261018/result.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u37-scalar-loop-qualification-20261018/independent-qualification.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u37-scalar-loop-qualification-20261018/results/3769364482/scene-ready-window.png",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u37-scalar-loop-qualification-20261018/results/3769364482/scene-after-window.png",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u37-scalar-loop-qualification-20261018/results/3769364482/scene-series-0000-window.png"
+      ],
+      "remainingDifferences": "三Shake Breathing/发光风格及完整样本/属性/交互与官方同phase未验；基本scalar loop已证执行，不再作为缺失排期。"
     }
   }
 }

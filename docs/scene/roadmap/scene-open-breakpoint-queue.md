@@ -118,7 +118,7 @@
 | U32 · 2131872317 | 烟花种类/效果不足、爆开乱飘；先核root/child准入、力/速度/空间/随机序列，固定dt/seed可区分轨迹 |
 | U33 · 3769688830 | 玩偶应左右循环转而现单向转的反馈保留。47黄球有合法单向Spin，同时从Puppet父21继承挂点运动；目录预览未覆盖黄球，当前目标ROI及整段运动尚未资格。须先分清内部UV转动与世界挂点往复，不能以Spin单向证明作者设计或新造摆动；不重开已STOP的aux morph载体。[最近资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018) |
 | U36 · 3780119725旧视觉余项 | 10-18缺席深度公共修复后，原包短pointer轨迹已见前摩托与人物响应，旧“中层完全固定”退出；21/276及附属层prepared1,1，显式879=1.91保持。只证基本可见响应，不判delay2/gain、同phase/viewport或整景一致；脸部黑线/缺块、动画、光照/闪烁的旧观察仍待当前条件复验。[实际后验](../capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018) |
-| U37 · 3769364482 | 发光突现/缺呼吸的旧视觉反馈待当前完整周期复验。10-18定义复核无layer alpha Timeline；Blink实际控制59/effect173/pass1的rayintensity循环，Breathing控制三条Shake，不按“缺opacity动画”修。尚无当前标量Timeline拒绝证据，先区分这两实际消费者及可归因ROI。[资格](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
+| U37 · 3769364482 | 只保三Shake的Breathing及发光突现风格待可归因复验。10-18原包完整窗内rayintensity实编码负→0.45→负且红晕亮起/回落，五node GPU/末合成正常，退出基本loop/opacity缺失候选；常驻青Shine与人物不应随负信号消失。[实际资格](../capabilities/runtime-evidence-current.md#u37-scalar-loop-20261018) |
 | U39 · 3219398263 | 漩涡方向疑似相反；固定时间/角度/UV/空间后裁决，不凭单帧改符号 |
 
 低优先旧观察仍记录：3028090166光束、2419444134白点数量/密度、3113554287顿挫、2304304373雾气叠加，以及尚缺唯一sampleID的一般烟花/洋红/拖尾。按可见收益与可区分输入依次复验，不把旧观察无条件写成当前缺陷。3088601835雪雾用户已认为较正常、官方也过曝，保此降低优先级的反馈；没有新的具体差异不补调色修法，也不记全条件通过。[原用户观察与身份](../capabilities/runtime-evidence-current.md#e-2026-09-27-user-retest-priorities)

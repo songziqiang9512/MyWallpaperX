@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 336,
-      "bytes": 125773
+      "lines": 342,
+      "bytes": 126828
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 64413
+      "bytes": 64556
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 54147
+      "bytes": 54091
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1396,15 +1396,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d3df073a078c30718676ab9bfb6fb934aa5fdcf2966e9708ba6cc8815bb98a86",
-      "after": "365a4a7f773aa2c261d650b13d6dd933893cda9dbd2552e759139abd717771ec",
-      "owner": "scene-childless-background-source",
-      "reason": "Bounded authored source-priority contract and actual public fix with hidden preparation and per-sample evidence; replaced stale claims and retained failures, without broader capability promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#无子层-passthrough-的背景选择修正2026-10-18"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "d9a24595a4525799e092e97146abd1b3877fdef82b12269744261fe1fda0820a",
       "after": "2bfa9f3acddddcf99ebcad76c561597d8e9fee9ca5e7f4c16900dba3328c3920",
@@ -1423,12 +1414,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "365a4a7f773aa2c261d650b13d6dd933893cda9dbd2552e759139abd717771ec",
+      "after": "4d22a3d8def134c42e75ea053017e552eb862f48949e9560246c953508dee554",
+      "owner": "scene-scalar-loop-qualification",
+      "reason": "Bounded actual encoded scalar and visible red-glow cycle replace a stale missing-loop candidate; retain remaining feedback without a product capability promotion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u37-scalar-loop-20261018"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "e3d6fde293af9c77cac682971cb100ce45677425074b5d0b29f6ad816300a8c3",
-      "after": "9fedd1c5b09bdf105361a53960381e21761ce85cd8eeeed13f38d2009477e5e4",
-      "owner": "scene-childless-background-source",
-      "reason": "Bounded authored source-priority contract and actual public fix with hidden preparation and per-sample evidence; replaced stale claims and retained failures, without broader capability promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#无子层-passthrough-的背景选择修正2026-10-18"
+      "before": "9fedd1c5b09bdf105361a53960381e21761ce85cd8eeeed13f38d2009477e5e4",
+      "after": "0f894ddfd0aad15b964092be3a9438cad9b32aedf217948983868b149eb7c4a9",
+      "owner": "scene-scalar-loop-qualification",
+      "reason": "Bounded actual encoded scalar and visible red-glow cycle replace a stale missing-loop candidate; retain remaining feedback without a product capability promotion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u37-scalar-loop-20261018"
     }
   ]
 }

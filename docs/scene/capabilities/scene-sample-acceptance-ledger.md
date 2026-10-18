@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `8a8eaf20a8c937f85c14a6ed0a5202e64c74b717d17adaa897498d17cba18655`。
-- 本页生成于 2026-10-18T10:02:05.210296+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `a489d45da3a412a8c52f45f6e36cf05bdb543fa3ffd1e94d7fc41483929667f7`。
+- 本页生成于 2026-10-18T10:30:53.944294+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -27,10 +27,10 @@
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 277 |
+| `unknown` | 276 |
 | `not-run` | 1 |
 | `blocked` | 0 |
-| `compared` | 24 |
+| `compared` | 25 |
 
 - 已裁决但缺观看者身份的条目：**19**；已裁决但缺截图/视频身份的条目：**19**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
@@ -277,7 +277,7 @@
 | `3768229922` | 麻匪 赤芒 音频互动 | 34(0) bool 7 color 1 text 25 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 23(1) bool 18 color 1 group 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3768903841` | Naha Gaze at Firework \| northway. | 10(0) bool 7 color 1 slider 1 text 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 6(0) bool 5 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 6(0) bool 5 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-18 | 限定基本标量播放后验：原包默认59/effect173/pass1 rayintensity实际负→.4499919→负进入Program，五node GPU… |
 | `3769688830` | Spirit Blossom Springs Ahri (Adjustable… | 21(0) bool 13 color 3 group 3 scenetexture 1 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3769761761` | Yoru and Mitaka asa | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 本批未参与修法的原包短播保人物脸眼、伸手、荷叶、鱼、水与root/child/refraction，非空GPU工作完成并正常退出/drain；保留上批原包证据… |

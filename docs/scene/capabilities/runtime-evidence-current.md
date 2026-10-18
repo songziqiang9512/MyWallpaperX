@@ -221,6 +221,12 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 恒定1500Hz PCM后继复用签名App`16a80fc1`（固定87a5bb加五个Puppet源，非整个be349/并行改动），原67输入未改；ready后短门取得可读文字、三路足额opacity、至少0.5s稳定distance及实际Program/GPU/末合成。根亲看原图，但写回超过预设16s期限，控制器仅终止本轮进程；exit−15、进程组已退、无观察VM失败/身份漂移，无正常stop/GPU排空。实际after→series仅4.379s，**不是完整周期或产品退出故障**；不与此前两轮合拼，不关闭原对齐反馈，也不再重试同载体。失败/原图/晚decision及独审保`.artifacts/tmp/335-tone-visible-cycle-20261018/native/original335/`；停止input/HOME已按manifest核验清理，借用App/构建缓存和VM保留。
 
+<a id="u37-scalar-loop-20261018"></a>
+
+### U37实际标量循环资格（2026-10-18）
+
+复用已提交b142的888bb91d/76d8782e，原3769364482默认一次13s、无PCM/属性覆盖，4raw未超预算；59/173/pass1 rayintensity→g_Intensity实际472条编码记录跨13.461s，负值保留、峰0.4499919、非正→正→非正，五material/0reject/GPU完成/末合成及次帧成立。根与独审亲看ready/after/series：暗态青rim→头胸双臂红晕→回暗，人物/拳火/火花保持。退出“基本loop未播/需补opacity”候选；作者并无alpha Timeline，负强度只令末层信号alpha为0，前级常驻青Shine不应熄灭。App0/工具失败[]/输入App无漂移，stop1→0/GPU排空；未裁精确PNG sceneTime、官方波形、Shake Breathing风格或整样本。右侧Date已有实际消费者，当前cover边界及官方有效viewport未齐，不新增缺字/缺背景层结论。必要原图/trace/独审保`.artifacts/tmp/u37-scalar-loop-qualification-20261018/`；没有产品变更、新构建或性能结论。
+
 <a id="u10-active-ring-20261018"></a>
 
 ### U10默认音频细环资格（2026-10-18）
