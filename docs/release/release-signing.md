@@ -92,10 +92,10 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 
 1. 检查输入版本、正式日志、重复/倒退版本及已有 Release 草稿。
 2. 准备锁定的 Python/NuGet 依赖，运行 `--scope release` 的安装包与核心链路检查；首次失败立即打印详情并取消未开始的模块。检查代码健康，再构建 arm64 Release。
-3. 检查 bundle 内容；由内到外签署 SteamService、Scene 工具、WallpaperDaemon、Sparkle
-   和主 App，再验证完整签名。SteamService 保留 JIT 权限，Sparkle Downloader 保留 sandbox 权限。
+3. 检查 bundle，逐层签署 SteamService、Scene 工具、WallpaperDaemon、Sparkle、主 App；
+   校验全包同 Team 的 Developer ID、runtime、时间戳及 App Apple Events、Steam JIT、Sparkle sandbox 权限。
 4. 公证并 staple App，使用保留符号链接的 `ditto` 装入 DMG；签署、公证、staple 并校验 DMG。
-5. 生成带 EdDSA 下载签名和同一份日志的 Sparkle appcast；打包 dSYM、计算最终 DMG 的 SHA-256。
+5. 生成含 EdDSA 签名与日志的 appcast；合包 App/WallpaperDaemon dSYM，计算 DMG SHA-256。
 6. 保存 Actions artifacts；将 DMG、SHA-256、dSYM 和 appcast 上传到 Release 草稿，上传完成后
    发布为正式 Latest。公开版本不使用 `--clobber` 覆盖安装包。
 7. 正式 Release 可下载后，才替换 `update-feed/appcast.xml`。已安装版本每天检查一次，也可以手动

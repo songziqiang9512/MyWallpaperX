@@ -148,13 +148,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_daemon_client_wiring.py",
-      "scope": "SceneDaemonClientWiringTests.test_scene_events_are_request_filtered_before_ui_projection",
-      "method": "assertIn",
-      "literal": "guard pendingRequestID == requestID else { return }",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_daemon_protocol.py",
       "scope": "SceneDaemonProtocolTests.test_daemon_mode_skips_main_ui_and_reports_property_results",
       "method": "assertIn",
@@ -1440,13 +1433,6 @@
       "scope": "SceneTimelineEvaluatorTests.test_long_lanes_use_binary_span_search",
       "method": "assertIn",
       "literal": "var upper = lane.count",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_timeline_runtime.py",
-      "scope": "SceneTimelineRuntimeTests.test_playback_projection_reuses_authored_order_and_elapsed_value",
-      "method": "assertIn",
-      "literal": "let elapsed = elapsedFrames(",
       "count": 1
     },
     {

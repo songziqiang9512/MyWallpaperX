@@ -3,11 +3,15 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import os
+import sys
 import subprocess
 import textwrap
 import unittest
 import json
 import tempfile
+import plistlib
+import zipfile
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +70,12 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             self.assertEqual(observer_call[observer_call.index("--options") + 1], "runtime")
             self.assertEqual(observer_call[observer_call.index("--sign") + 1], identity)
             self.assertTrue(all("--deep" not in call for call in signatures))
+            app_call = signatures[signed_paths.index(str(app))]
+            self.assertEqual(app_call[app_call.index("--entitlements") + 1],
+                             "MyWallpaperX/HardenedRuntime.entitlements")
+            with (ROOT / app_call[app_call.index("--entitlements") + 1]).open('rb') as stream:
+                self.assertIs(plistlib.load(stream)['com.apple.security.automation.apple-events'], True)
+
 
     def test_bundle_rejects_development_residue_but_keeps_licenses(self):
         validator = load_validator()
@@ -156,6 +166,125 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 Path("Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle")
             )
         )
+
+
+    def test_signed_permission_audit_rejects_missing_permissions_and_wrong_identity(self):
+        validator = load_validator()
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary) / 'Test.app'
+            for relative in validator.REQUIRED_BUNDLE_EXECUTABLES:
+                path = app / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'\xcf\xfa\xed\xfe' + b'fixture')
+                path.chmod(0o755)
+            downloader = app / 'Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'
+            downloader.mkdir(parents=True)
+            permissions = {
+                str(app): {'com.apple.security.automation.apple-events': True},
+                str(app / 'Contents/Resources/SteamService/SteamService'): {'com.apple.security.cs.allow-jit': True},
+                str(downloader): {'com.apple.security.app-sandbox': True},
+            }
+            details = ('Authority=Developer ID Application: Fixture (TEAM)\n'
+                       'TeamIdentifier=TEAM\nCodeDirectory v=20500 flags=0x10000(runtime)\nTimestamp=fixture\n')
+            calls = []
+            def invoke(command, **kwargs):
+                calls.append((command, kwargs))
+                if command[0] == 'file': return 'Mach-O arm64 executable'
+                if '--entitlements' in command:
+                    return plistlib.dumps(permissions[command[-1]]).decode()
+                if '--display' in command: return details
+                return ''
+            with mock.patch.object(validator, 'run_checked', side_effect=invoke):
+                validator.validate_codesign(app, 'TEAM')
+                for path, values in permissions.items():
+                    key = next(iter(values))
+                    values[key] = False
+                    with self.subTest(path=path), self.assertRaisesRegex(RuntimeError, 'Required signed entitlement'):
+                        validator.validate_codesign(app, 'TEAM')
+                    values[key] = True
+                permissions[str(app)]['com.apple.security.get-task-allow'] = True
+                with self.assertRaisesRegex(RuntimeError, 'Development debugging'):
+                    validator.validate_codesign(app, 'TEAM')
+                del permissions[str(app)]['com.apple.security.get-task-allow']
+                for invalid in [details.replace('TeamIdentifier=TEAM', 'TeamIdentifier=OTHER'),
+                                details.replace('Authority=Developer ID Application:', 'Authority=Apple Development:'),
+                                details.replace('(runtime)', '()'), details.replace('Timestamp=fixture', '')]:
+                    original = details
+                    details = invalid
+                    with self.assertRaisesRegex(RuntimeError, 'Incomplete Developer ID signature'):
+                        validator.validate_codesign(app, 'TEAM')
+                    details = original
+            metadata_calls = [kwargs for command, kwargs in calls if '--verbose=4' in command]
+            self.assertTrue(metadata_calls)
+            self.assertTrue(all(row.get('include_stderr') for row in metadata_calls))
+
+    def test_signature_cli_does_not_repeat_unsigned_preparation(self):
+        validator = load_validator()
+        with mock.patch.object(sys, 'argv', ['validator', '--app', '/fixture/Test.app',
+                                            '--signatures-only', '--expected-team-id', 'TEAM']), \
+             mock.patch.object(validator, 'validate_codesign') as signed, \
+             mock.patch.object(validator, 'validate_project') as project, \
+             mock.patch.object(validator, 'validate_bundle') as bundle:
+            self.assertEqual(validator.main(), 0)
+            signed.assert_called_once_with(Path('/fixture/Test.app'), 'TEAM')
+            project.assert_not_called()
+            bundle.assert_not_called()
+        with mock.patch.object(sys, 'argv', ['validator', '--app', '/fixture/Test.app', '--signatures-only']):
+            with self.assertRaises(SystemExit): validator.main()
+
+    def test_entitlement_reader_uses_the_actual_mach_o_signature(self):
+        validator = load_validator()
+        with tempfile.TemporaryDirectory(prefix='mwx-signed-permission-') as raw:
+            directory = Path(raw)
+            binary = directory / 'fixture'
+            subprocess.run(['xcrun', 'clang', '-x', 'c', '-', '-o', str(binary)],
+                           input='int main(void) { return 0; }', text=True, check=True,
+                           capture_output=True)
+            entitlement = directory / 'permissions.plist'
+            key = 'com.apple.security.automation.apple-events'
+            entitlement.write_bytes(plistlib.dumps({key: True}))
+            subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none',
+                            '--entitlements', str(entitlement), str(binary)],
+                           check=True, capture_output=True)
+            # Editing the source plist cannot alter the already signed claim.
+            entitlement.write_bytes(plistlib.dumps({key: False}))
+            self.assertIs(validator.signed_entitlements(binary)[key], True)
+            subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(binary)],
+                           check=True, capture_output=True)
+            with self.assertRaisesRegex(RuntimeError, 'Signed entitlements are missing'):
+                validator.signed_entitlements(binary)
+
+    def test_symbols_archive_contains_app_and_daemon_and_rejects_missing_daemon(self):
+        workflow = (ROOT / '.github/workflows/build.yml').read_text()
+        step = workflow.split('      - name: Archive release artifacts\n', 1)[1].split('      - name:', 1)[0]
+        commands = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        for include_daemon in [True, False]:
+            with self.subTest(include_daemon=include_daemon), tempfile.TemporaryDirectory() as raw:
+                directory = Path(raw)
+                products = directory / 'derived/Build/Products/Release'
+                names = ['MyWallpaperX.app.dSYM'] + (['MyWallpaperXWallpaperDaemon.dSYM'] if include_daemon else [])
+                for name in names:
+                    dwarf = products / name / 'Contents/Resources/DWARF'
+                    dwarf.mkdir(parents=True)
+                    (dwarf / 'symbol').write_text(name)
+                dist = directory / 'dist'; dist.mkdir()
+                (dist / 'package.dmg').write_bytes(b'dmg fixture')
+                env = os.environ.copy()
+                env.update(DERIVED_DATA_PATH=str(directory / 'derived'), CONFIGURATION='Release',
+                           DIST_DIR=str(dist), PACKAGE_NAME='package', APP_NAME='MyWallpaperX',
+                           RUNNER_TEMP=str(directory))
+                result = subprocess.run(['/bin/bash', '-euo', 'pipefail', '-c', commands], env=env,
+                                        capture_output=True, text=True)
+                archive = dist / 'package.dSYM.zip'
+                if include_daemon:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    with zipfile.ZipFile(archive) as zipped:
+                        files = zipped.namelist()
+                    for name in names:
+                        self.assertTrue(any('/' + name + '/Contents/Resources/DWARF/symbol' in path for path in files))
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(archive.exists())
 
 
 if __name__ == "__main__":

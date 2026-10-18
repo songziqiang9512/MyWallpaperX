@@ -131,6 +131,15 @@ HARNESS = r'''
         client.activeIntent = .init(recordID:"old");client.activeRequestID=oldID
         client.pendingIntent = .init(recordID:"new");client.pendingRequestID=id
         client.pendingSwitchTicket=ticket
+        client.handleLaunchState(["phase":"accepted","requestID":UUID().uuidString,
+                                  "recordID":"new","message":"accepted"])
+        client.handleLaunchState(["phase":"accepted","requestID":id.uuidString,
+                                  "recordID":"old","message":"accepted"])
+        precondition(client.launchState == nil && client.pendingRequestID == id,
+                     "wrong request or record must not publish launch state")
+        client.handleLaunchState(["phase":"accepted","requestID":id.uuidString,
+                                  "recordID":"new","message":"accepted"])
+        precondition(client.launchState?.phase == .accepted && client.launchState?.recordID == "new")
         var endpoint:PlaybackSwitchEndpoint?
         var observed=0
         client.switchPrepared={observed += 1;precondition($0 == ticket);endpoint=$1}
@@ -146,6 +155,10 @@ HARNESS = r'''
         client.pendingPresentationRequestID=id
         var visible=0
         client.switchVisible={precondition($0 == ticket && $1 == first.id);visible += 1}
+        client.handleFirstFrame(["requestID":UUID().uuidString,"recordID":"new","uptimeMs":1.0])
+        precondition(visible == 0 && client.activeRequestID == oldID
+            && client.pendingRequestID == id && client.sent.count == 1,
+            "wrong request must not publish candidate visibility")
         client.handleFirstFrame(["requestID":id.uuidString,"recordID":"new","uptimeMs":1.0])
         precondition(visible == 1 && client.activeRequestID == oldID && client.sent.count == 1,
                      "drawable proof reports visibility but cannot commit/finalize product state")

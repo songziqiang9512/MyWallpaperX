@@ -37,6 +37,9 @@ TESTS_DIRECTORY = REPOSITORY_ROOT / "script/tests"
 # or an explicitly requested full suite, not every signing/upload attempt.
 RELEASE_MODULES = frozenset({
     "test_apple_silicon_release_contract",
+    "test_steam_helper_signing",
+    "test_release_diagnostic_isolation",
+    "test_ci_release_routing",
     "test_release_version",
     "test_validate_release_notes",
     "test_publish_release",
@@ -60,6 +63,7 @@ RELEASE_MODULES = frozenset({
     "test_scene_script_quickjs",
     "test_scene_test_runner",
     "test_verify_scene_change",
+    "test_verify_scene_capability_routing",
 })
 
 

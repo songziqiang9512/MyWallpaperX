@@ -111,7 +111,8 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CompileProfile.swift",
-          "SceneRenderTargetVocabulary.swift"
+          "SceneRenderTargetVocabulary.swift",
+          "ScenePreparedImageMaterialCatalog.swift"
         ],
         "responsibility": "Material: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
       },
@@ -593,7 +594,8 @@
           "SceneDaemonMediaProtocol.swift",
           "SceneDaemonMediaReceiver.swift",
           "SceneDaemonProtocol.swift",
-          "SceneDaemonRuntime.swift"
+          "SceneDaemonRuntime.swift",
+          "SceneDaemonClient+SwitchEndpoint.swift"
         ],
         "responsibility": "IPC: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       },

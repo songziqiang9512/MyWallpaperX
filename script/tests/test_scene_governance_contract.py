@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,14 +47,6 @@ SOURCE_CLASSES = {
     "MyWallpaperX-current-evidence",
     "MyWallpaperX-strategy",
 }
-RESEARCH_ONLY_DOCUMENTS = (
-    ROOT / "docs/scene/development/reference/client-changelog-forensics.md",
-    ROOT / "docs/scene/development/reference/client-runtime-static-forensics.md",
-    ROOT / "docs/scene/development/reference/editor-string-table-forensics.md",
-    ROOT / "docs/scene/development/reference/scenescript-binding-target-forensics.md",
-    ROOT / "docs/scene/capabilities/scenescript-runtime-implementation-contract.md",
-    ROOT / "docs/scene/capabilities/shader-prelude-and-backend-abstraction.md",
-)
 
 ALLOWED_FAST_SUITE_LANES = {"V0", "V1", "V2", "V3"}
 REQUIRED_EVIDENCE = {
@@ -218,27 +210,16 @@ class SceneGovernanceContractTests(unittest.TestCase):
         self.assertIn("仓库忽略的本机证据缓存", evidence)
         self.assertNotIn("](../evidence/", evidence)
 
-        evidence_root = SCENE_EVIDENCE.resolve()
-        for path in (ROOT / "docs").rglob("*.md"):
-            if "history" in path.parts or evidence_root in path.resolve().parents:
-                continue
-            text = path.read_text(encoding="utf-8")
-            for match in re.finditer(r"\]\(([^)]+)\)", text):
-                raw_target = match.group(1).strip()
-                if raw_target.startswith("<") and raw_target.endswith(">"):
-                    raw_target = raw_target[1:-1]
-                else:
-                    raw_target = raw_target.split(maxsplit=1)[0]
-                parsed = urlsplit(raw_target)
-                if parsed.scheme or parsed.netloc or not parsed.path:
-                    continue
-                target = (path.parent / unquote(parsed.path)).resolve()
-                with self.subTest(
-                    document=path.relative_to(ROOT).as_posix(),
-                    target=raw_target,
-                ):
-                    self.assertNotEqual(target, evidence_root)
-                    self.assertNotIn(evidence_root, target.parents)
+        relative = SCENE_EVIDENCE.relative_to(ROOT).as_posix()
+        ignored_path = subprocess.run(
+            ["git", "check-ignore", "--no-index", relative + "/proof.json"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(ignored_path.returncode, 0, ignored_path.stderr)
+        tracked = subprocess.check_output(
+            ["git", "ls-files", "--", ".artifacts/scene-evidence"], cwd=ROOT, text=True,
+        )
+        self.assertEqual(tracked.strip(), "", "local evidence must not become tracked payload")
 
     def test_named_source_taxonomy_is_single_and_complete(self) -> None:
         rules = AGENT_RULES.read_text(encoding="utf-8")
@@ -286,51 +267,22 @@ class SceneGovernanceContractTests(unittest.TestCase):
             used_levels.update(re.findall(r"\bS\d+\b", path.read_text(encoding="utf-8")))
         self.assertLessEqual(used_levels, defined_levels)
 
-    def test_static_forensics_remain_research_only(self) -> None:
-        forbidden_product_directives = (
-            r"MyWallpaperX\s+(?:应|必须|不得)",
-            r"MyWallpaperX 的 [^，。；\n]{0,60}(?:应|必须|不得)",
-            r"项目(?:公共 API| fixture)?\s*(?:应|必须|不得)",
-            r"实现规格",
-            r"这些结果证明项目",
-            r"实现时(?:不能|应|必须|不得)",
-            r"足以约束项目[^。\n]{0,80}实现",
-            r"(?:允许|支持)项目建立",
-            r"跨平台应",
-            r"纳入项目 typed declaration",
-        )
-        for path in RESEARCH_ONLY_DOCUMENTS:
-            with self.subTest(path=path.relative_to(ROOT).as_posix()):
-                text = path.read_text(encoding="utf-8")
-                self.assertIn("research-context-only", text)
-                self.assertRegex(text, r"implementation agent|fresh context|实现代理")
-                for pattern in forbidden_product_directives:
-                    self.assertNotRegex(text, pattern)
-
-        scene_script_forensics = RESEARCH_ONLY_DOCUMENTS[4].read_text(
-            encoding="utf-8"
-        )
-        self.assertNotIn("以下当前状态只作导航", scene_script_forensics)
-        self.assertNotRegex(scene_script_forensics, r"MyWallpaperX[^。\n]*仍为 `L0`")
-
-    def test_static_research_isolation_tracks_raw_detail_and_responsibility_overlap(
-        self,
-    ) -> None:
+    def test_research_allows_reading_and_requires_independent_implementation(self) -> None:
         workflow = RESEARCH_WORKFLOW.read_text(encoding="utf-8")
+        rules = AGENT_RULES.read_text(encoding="utf-8")
         for phrase in (
-            "静态研究任务不得修改产品代码",
-            "fresh_implementation_task_or_context_id",
-            "did-not-receive-raw-static-output",
-            "新任务或新上下文",
-            "完整继承研究对话",
-            "不得宽泛检索或预读标为 `research-context-only`",
-            "历史摘要、旧计划",
-            "立即停止该职责的产品写入",
-            "能够明确证明与当前纵向切片无关时",
-            "一次偶遇不把整个任务",
+            "可阅读作者脚本、shader、参考源码及反编译资料研究行为",
+            "阅读本身不要求停工、更换 Agent 或隔离上下文",
+            "不直接复制、照译或移植参考实现",
         ):
-            with self.subTest(phrase=phrase):
-                self.assertIn(phrase, workflow)
+            self.assertIn(phrase, rules)
+        for phrase in (
+            "阅读或意外导出源码本身不触发停工",
+            "不得直接复制、照译或移植",
+            "独立实现",
+            "正反例和实际运行",
+        ):
+            self.assertIn(phrase, workflow)
 
 
 if __name__ == "__main__":

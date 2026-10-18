@@ -348,7 +348,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
 
         for required_contract in (
             "不得把“每做一项功能都先反编译”设成前置仪式",
-            "反编译输出不能进入产品实现",
+            "不得直接复制、照译或移植参考实现",
             "固定控制变量",
             "预先声明比较方法",
             "官方客户端对照未运行",

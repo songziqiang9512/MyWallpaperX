@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import plistlib
 import re
 import stat
 import subprocess
@@ -20,6 +21,7 @@ REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/Helpers/glslang"),
     Path("Contents/Helpers/spirv-cross"),
     Path("Contents/Resources/SteamService/SteamService"),
+    Path("Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"),
 )
 THIRD_PARTY_HELPERS = {
     Path("Contents/Helpers/glslang"),
@@ -29,7 +31,9 @@ SYSTEM_DEPENDENCY_PREFIXES = ("/usr/lib/", "/System/Library/")
 SAFE_RPATH_PREFIXES = ("@executable_path/", "@loader_path/")
 
 
-def run_checked(command: list[str], *, cwd: Path | None = None) -> str:
+def run_checked(
+    command: list[str], *, cwd: Path | None = None, include_stderr: bool = False
+) -> str:
     completed = subprocess.run(
         command,
         cwd=cwd,
@@ -40,7 +44,7 @@ def run_checked(command: list[str], *, cwd: Path | None = None) -> str:
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
         raise RuntimeError(f"{' '.join(command)} failed: {detail}")
-    return completed.stdout
+    return completed.stdout + completed.stderr if include_stderr else completed.stdout
 
 
 def parse_build_settings(output: str) -> dict[str, str]:
@@ -206,7 +210,23 @@ def validate_steam_helper(helper: Path) -> None:
         raise RuntimeError("SteamService dependency licenses are missing")
 
 
-def validate_codesign(app: Path) -> None:
+def signed_entitlements(path: Path) -> dict:
+    output = run_checked([
+        "/usr/bin/codesign", "--display", "--entitlements", "-", "--xml", str(path)
+    ])
+    try:
+        result = plistlib.loads(output.encode())
+    except (ValueError, plistlib.InvalidFileException) as error:
+        raise RuntimeError(f"Signed entitlements are missing or invalid: {path}") from error
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Signed entitlements are not a dictionary: {path}")
+    return result
+
+
+def validate_codesign(app: Path, expected_team_id: str | None = None) -> None:
+    for relative in REQUIRED_BUNDLE_EXECUTABLES:
+        if not (app / relative).is_file():
+            raise RuntimeError(f"Required signed executable is missing: {relative}")
     # arm64 requires all executable code in the bundle to be signed. .NET PE
     # assemblies cannot carry signatures, so the embed step must demote them
     # to resources (no exec bits) — this probe fails if that regresses.
@@ -223,21 +243,61 @@ def validate_codesign(app: Path) -> None:
                 raise RuntimeError(
                     f"Executable non-Mach-O file inside Contents (cannot be signed): {relative}"
                 )
-    run_checked(["/usr/bin/codesign", "--verify", "--strict", str(app)])
+    run_checked(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)])
+    if expected_team_id is not None:
+        for path in executable_candidates(app):
+            if path.is_symlink() or not path.is_file():
+                continue
+            if "Mach-O" not in run_checked(["file", "-b", str(path)]):
+                continue
+            run_checked(["/usr/bin/codesign", "--verify", "--strict", str(path)])
+            details = run_checked(
+                ["/usr/bin/codesign", "--display", "--verbose=4", str(path)],
+                include_stderr=True,
+            )
+            lines = details.splitlines()
+            if (f"TeamIdentifier={expected_team_id}" not in lines
+                    or not any(line.startswith("Authority=Developer ID Application:") for line in lines)
+                    or not re.search(r"flags=0x[0-9a-fA-F]+\([^\n)]*\bruntime\b", details)
+                    or not any(line.startswith("Timestamp=") for line in lines)):
+                raise RuntimeError(f"Incomplete Developer ID signature: {path.relative_to(app)}")
+
+    for path, key in (
+        (app, "com.apple.security.automation.apple-events"),
+        (app / "Contents/Resources/SteamService/SteamService", "com.apple.security.cs.allow-jit"),
+        (app / "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc",
+         "com.apple.security.app-sandbox"),
+    ):
+        entitlements = signed_entitlements(path)
+        if entitlements.get(key) is not True:
+            raise RuntimeError(f"Required signed entitlement is missing: {path} -> {key}")
+        if entitlements.get("com.apple.security.get-task-allow") is True:
+            raise RuntimeError(f"Development debugging entitlement in release: {path}")
+    print("Signed permissions: Apple Events, Steam JIT and Sparkle sandbox verified")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project", type=Path, required=True)
+    parser.add_argument("--project", type=Path)
     parser.add_argument("--app", type=Path, required=True)
+    parser.add_argument("--signatures-only", action="store_true",
+                        help="check final signed code and permissions without repeating build-setting probes")
+    parser.add_argument("--expected-team-id",
+                        help="require timestamped hardened Developer ID signatures from this team")
     parser.add_argument("--skip-codesign", action="store_true",
                         help="skip signature verification (unsigned local builds)")
     args = parser.parse_args()
+    if args.signatures_only:
+        if args.skip_codesign or not args.expected_team_id or not args.expected_team_id.strip():
+            parser.error("--signatures-only requires --expected-team-id and cannot skip codesign")
+    elif not args.project:
+        parser.error("--project is required unless --signatures-only is selected")
     try:
-        validate_project(args.project.resolve())
-        validate_bundle(args.app.resolve())
+        if not args.signatures_only:
+            validate_project(args.project.resolve())
+            validate_bundle(args.app.resolve())
         if not args.skip_codesign:
-            validate_codesign(args.app.resolve())
+            validate_codesign(args.app.resolve(), args.expected_team_id)
     except RuntimeError as error:
         parser.error(str(error))
     return 0

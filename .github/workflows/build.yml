@@ -228,10 +228,19 @@ jobs:
             --force \
             --timestamp \
             --options runtime \
+            --entitlements MyWallpaperX/HardenedRuntime.entitlements \
             --sign "$DEVELOPER_ID_APPLICATION" \
             "$APP_PATH"
 
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+      - name: Verify distribution signatures and permissions
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
+          python3 script/validate_apple_silicon_release.py \
+            --app "$APP_PATH" --signatures-only --expected-team-id "$APPLE_TEAM_ID"
 
       - name: Package app
         run: |
@@ -373,8 +382,14 @@ jobs:
       - name: Archive release artifacts
         run: |
           (cd "$DIST_DIR" && shasum -a 256 "$PACKAGE_NAME.dmg" > "$PACKAGE_NAME.dmg.sha256")
-          DSYM_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app.dSYM"
-          ditto -c -k --keepParent "$DSYM_PATH" "$DIST_DIR/$PACKAGE_NAME.dSYM.zip"
+          SYMBOLS_DIR="$RUNNER_TEMP/$PACKAGE_NAME-symbols"
+          mkdir -p "$SYMBOLS_DIR"
+          for bundle in "$APP_NAME.app.dSYM" "${APP_NAME}WallpaperDaemon.dSYM"; do
+            SOURCE="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$bundle"
+            test -d "$SOURCE"
+            ditto "$SOURCE" "$SYMBOLS_DIR/$bundle"
+          done
+          ditto -c -k --keepParent "$SYMBOLS_DIR" "$DIST_DIR/$PACKAGE_NAME.dSYM.zip"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4

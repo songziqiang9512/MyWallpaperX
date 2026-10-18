@@ -364,13 +364,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4e479d3f30f3c63dd8155551c6dcdb00e4698ccddf2c9cc61e2adb158b6c372e",
+        "sourceSHA256": "36a749c54e45434f4b2f96fa17ee459a7328de93f6803c8b86ad3cd6ca725124",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本地helper时间戳策略与原身份/runtime/JIT/strict verify边界；非发布或全合同产品复验",
-        "limitations": "仅本批文档职责与导航；不冒充全样本、动态整图、完整CLI生命周期、性能或发布验收。"
+        "scope": "复核文档角色、入口与当前权威链接；发布页同步签名权限及双dSYM归档合同。",
+        "limitations": "仅导航与发布静态合同复核；不代表本轮完整产品运行、正式签名、公证或发布验收。"
       }
     },
     {
@@ -916,10 +916,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0575b393cbbc1c9fea5891619510beb6dbcb0154213c069ca1e060f583da3af2",
+        "sourceSHA256": "aaa50f4e83df4fa820d04a188fc64be695c73c68fc494dda200157b1921f8239",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
-        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+        "scope": "补齐linked stage启动收敛及粒子覆盖材质资格的历史入口，核对当前权威集合；保留已有历史条目。",
+        "limitations": "仅历史索引与链接集合复核；不改写历史产品、运行或性能结论。"
       }
     },
     {
@@ -1070,6 +1070,7 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-16",
@@ -1670,7 +1671,7 @@
     {
       "path": "docs/scene/history/linked-stage-startup-convergence-2026-10-18.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/performance-convergence-card.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "AGENTS.md",
@@ -1923,7 +1924,7 @@
     {
       "path": "docs/scene/history/particle-material-coverage-qualification-2026-10-18.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "cutoffDate": "2026-10-18",
       "currentAuthorities": [
@@ -3534,12 +3535,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-08-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
-        "kind": "git-document-change",
-        "revision": "848b1c9c930342b396571d00fad8cc1b0707f34d",
-        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
-        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+        "kind": "navigation-audit",
+        "sourceSHA256": "ab014a5496b2fc282a2e8934022d3d610684f4a299107572f259f104912d6ddc",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "复核稳定合同角色、Web入口及current-state权威链接；核对原始project保留与descriptor/runtime/context分层的导航。",
+        "limitations": "仅文档职责与导航复核；未重新验收Web兼容、作者效果、真实运行或启动性能。"
       }
     },
     {
@@ -3547,12 +3549,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-08-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
-        "kind": "git-document-change",
-        "revision": "848b1c9c930342b396571d00fad8cc1b0707f34d",
-        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
-        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+        "kind": "navigation-audit",
+        "sourceSHA256": "bda6c8c13ff330f1260028c6e360563532b09ebea94e6a8d5320a991df221563",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "复核稳定合同角色、Web入口及current-state权威链接；核对原始project保留与descriptor/runtime/context分层的导航。",
+        "limitations": "仅文档职责与导航复核；未重新验收Web兼容、作者效果、真实运行或启动性能。"
       }
     },
     {
@@ -3560,12 +3563,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-08-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
-        "kind": "git-document-change",
-        "revision": "848b1c9c930342b396571d00fad8cc1b0707f34d",
-        "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
-        "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
+        "kind": "navigation-audit",
+        "sourceSHA256": "7006b970be21757d0eee88a4ec407fe5b9d576dd9b8ecd4d77aa7313b29a800d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "复核稳定合同角色、Web入口及current-state权威链接；核对原始project保留与descriptor/runtime/context分层的导航。",
+        "limitations": "仅文档职责与导航复核；未重新验收Web兼容、作者效果、真实运行或启动性能。"
       }
     },
     {

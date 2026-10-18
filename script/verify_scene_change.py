@@ -173,7 +173,7 @@ def mapped_tests(
             modules.add("test_document_role_index")
         if path in {"script/build_and_run.sh", "script/run_checkpoint_build.sh"}:
             groups.add("build-entrypoint-governance")
-            modules.add("test_verify_scene_change")
+            modules.update({"test_verify_scene_change", "test_verify_scene_capability_routing"})
             if path == "script/run_checkpoint_build.sh":
                 modules.add("test_checkpoint_build")
         if path.startswith(".agents/skills/mywallpaperx-maintainer/"):
@@ -385,7 +385,8 @@ def build_plan(
     if deleted_test:
         # Retiring a test changes discovery/registry wiring, not every product
         # behavior. Keep affected groups and validate that wiring explicitly.
-        modules.update({'test_scene_test_runner', 'test_verify_scene_change'})
+        modules.update({'test_scene_test_runner', 'test_verify_scene_change',
+                        'test_verify_scene_capability_routing'})
     focused = focused_test_command(modules, keywords)
     test_scope = getattr(args, "test_scope", "changed")
     if test_scope != "changed":
