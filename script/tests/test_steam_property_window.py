@@ -155,6 +155,34 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         detail.removeFromSuperview()
         main.orderOut(nil)
         precondition(panel.isVisible, "property window must outlive the detail/main presentation")
+        // The production status presentation keeps titles at the top and
+        // centers natural-height text within the entire panel, including its header.
+        var messageCases = 0
+        for dark in [false, true] {
+            panel.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            for (index, text) in ["正在准备 Scene 属性…",
+                "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"].enumerated() {
+                owner.showMessage(title: "Scene 属性调节", subtitle: "无可调节项的作品", message: text)
+                let message = descendants(panel.contentView!, NSTextField.self).first { $0.stringValue == text }!
+                panel.contentView!.layoutSubtreeIfNeeded()
+                checkHeader(panel.contentView as! InspectorHostCardView)
+                let close = descendants(panel.contentView!, NSButton.self).first { $0.toolTip == "关闭详情" }!
+                let header = panel.contentView!.convert(close.bounds, from: close)
+                let messageRect = panel.contentView!.convert(message.bounds, from: message)
+                precondition(header.maxY > panel.frame.height - 80, "empty/loading header must stay at panel top")
+                let viewport = message.superview!
+                precondition(viewport.frame.height > 500, "message viewport must receive spare height")
+                let panelRect = panel.contentView!.bounds
+                precondition(abs(messageRect.midY - panelRect.midY) < 0.5,
+                             "status text must stay vertically centered in the entire panel")
+                precondition(abs(messageRect.midX - panelRect.midX) < 0.5 && message.alignment == .center,
+                             "status text must stay horizontally centered")
+                precondition(message.frame.height < 100, "short status text must not fill the editor viewport")
+                (panel.contentView as! InspectorHostCardView).refreshAppearance()
+                capture(panel.contentView!, "message-\(index)-\(dark ? "dark" : "light")")
+                messageCases += 1
+            }
+        }
         let traversal = TraversalView()
         owner.show(title: "属性调节", subtitle: "测试", content: traversal)
         panel.contentView!.layoutSubtreeIfNeeded()
@@ -173,6 +201,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         precondition(traversal.directions == [false, true], "closed presentation must drop key traversal")
         precondition(owner.presentationID == nil)
         print("Shared inspector header cases PASS", headerCases)
+        print("Property window loading/unavailable cases PASS", messageCases)
         print("Property window ownership and geometry PASS")
     }
 }
@@ -191,6 +220,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
             for message in ['Unable to simultaneously satisfy constraints', 'Conflicting constraints detected']:
                 self.assertNotIn(message, result.stdout + result.stderr)
             self.assertIn('Shared inspector header cases PASS 24', result.stdout)
+            self.assertIn('Property window loading/unavailable cases PASS 4', result.stdout)
             print(result.stdout, end="")
             proof = os.environ.get('MWX_PROPERTY_WINDOW_PROOF_DIR')
             if proof:

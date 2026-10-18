@@ -47,14 +47,23 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
     }
     required init?(coder: NSCoder) { nil }
     @discardableResult
-    func show(title: String, subtitle: String, content: NSView, retaining controller: AnyObject? = nil) -> UUID {
+    func showMessage(title: String, subtitle: String, message: String, retaining controller: AnyObject? = nil) -> UUID {
+        let label = NSTextField(wrappingLabelWithString: message)
+        label.alignment = .center
+        return show(title: title, subtitle: subtitle, content: label, centersContent: true, retaining: controller)
+    }
+    @discardableResult
+    func show(title: String, subtitle: String, content: NSView, centersContent: Bool = false, retaining controller: AnyObject? = nil) -> UUID {
         let id = UUID()
         presentationID = id
         retainedController = controller
         (window as? PropertyPanel)?.keyTraversal = content as? WorkshopPropertyKeyTraversal
         let body = NSStackView()
         body.orientation = .vertical
-        body.distribution = .fill
+        // The body absorbs spare height instead of stretching the header.
+        // Keep the work title above either an editor or a centered message.
+        body.distribution = .gravityAreas
+        body.setHuggingPriority(.defaultLow, for: .vertical)
         body.alignment = .leading
         body.spacing = 6
         let itemTitle = NSTextField(wrappingLabelWithString: subtitle)
@@ -65,13 +74,30 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         itemTitle.setContentHuggingPriority(.required, for: .vertical)
         itemTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         body.addArrangedSubview(itemTitle)
-        body.addArrangedSubview(content)
-        for child in [itemTitle, content] {
+        let contentHost: NSView
+        if centersContent {
+            contentHost = NSView()
+            content.translatesAutoresizingMaskIntoConstraints = false
+            contentHost.addSubview(content)
+        } else {
+            contentHost = content
+        }
+        body.addArrangedSubview(contentHost)
+        for child in [itemTitle, contentHost] {
             child.translatesAutoresizingMaskIntoConstraints = false
             child.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
         }
         card.headerTitleOverride = title
         card.configure(request: InspectorHostRequest(token: InspectorCardToken(module: .steamWorkshop, cardID: "properties"), title: title, subtitle: subtitle, chromeStyle: .infoPanel), hostedContentView: body)
+        if centersContent {
+            NSLayoutConstraint.activate([
+                content.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+                content.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+                content.widthAnchor.constraint(equalTo: contentHost.widthAnchor),
+                content.topAnchor.constraint(greaterThanOrEqualTo: contentHost.topAnchor),
+                content.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor)
+            ])
+        }
         guard let window else { return id }
         window.title = title
         if !window.isVisible {

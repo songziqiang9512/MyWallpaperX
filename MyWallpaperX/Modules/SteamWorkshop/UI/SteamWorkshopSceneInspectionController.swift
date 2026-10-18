@@ -290,8 +290,8 @@ final class SteamWorkshopSceneInspectionController {
     }
 
     private func preparePropertyEditor(for record: SteamWorkshopDownloadRecord) {
-        let loading = NSTextField(wrappingLabelWithString: "正在准备 Scene 属性…")
-        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: loading, retaining: self)
+        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: "Scene 属性调节", subtitle: record.title,
+            message: "正在准备 Scene 属性…", retaining: self)
         let identity = inspectionIdentity(for: record)
         presentedIdentity = identity
         propertyMessage = nil
@@ -438,8 +438,8 @@ final class SteamWorkshopSceneInspectionController {
         guard let propertyPanelToken,
               SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else { return }
         propertyMessage = "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"
-        self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title,
-            content: NSTextField(wrappingLabelWithString: propertyMessage!), retaining: self)
+        self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: "Scene 属性调节", subtitle: record.title,
+            message: propertyMessage!, retaining: self)
     }
 
     private func refreshPropertyProjection() {

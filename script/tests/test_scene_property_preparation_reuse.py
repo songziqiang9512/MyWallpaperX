@@ -145,7 +145,7 @@ struct SteamWorkshopScenePropertyContext {
     let window = NSObject()
     var presentationID: UUID?
     var loadingShows = 0
-    @discardableResult func show(title: String, subtitle: String, content: Any, retaining: AnyObject? = nil) -> UUID {
+    @discardableResult func showMessage(title: String, subtitle: String, message: String, retaining: AnyObject? = nil) -> UUID {
         loadingShows += 1
         let id = UUID(); presentationID = id; return id
     }

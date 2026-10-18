@@ -520,7 +520,7 @@ extension NSCollectionView {
         let pickerTable = descendants(pickerEditor, NSCollectionView.self).first!
         func chooseImage(_ index: Int = 1) {
             let row = pickerTable.realizedCell(index)
-            descendants(row, NSButton.self).first { $0.title == "选择图像" }!.performClick(nil)
+            descendants(row, NSButton.self).first { $0.action == NSSelectorFromString("chooseTexture:") }!.performClick(nil)
         }
         func textureStatus(_ view: NSView) -> NSTextField? {
             descendants(view, NSTextField.self).first { $0.accessibilityIdentifier() == "scene-texture-update-status" }
