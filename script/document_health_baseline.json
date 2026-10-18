@@ -62,7 +62,7 @@
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
       "lines": 203,
-      "bytes": 20062
+      "bytes": 19747
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -245,8 +245,8 @@
       "bytes": 55702
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
-      "lines": 45,
-      "bytes": 6163
+      "lines": 43,
+      "bytes": 5192
     },
     "docs/web/cross-origin-reply-delivery-design.md": {
       "lines": 50,

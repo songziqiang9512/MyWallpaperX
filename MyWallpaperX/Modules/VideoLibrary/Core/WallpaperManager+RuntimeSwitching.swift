@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 extension WallpaperManager {
     enum RuntimeSwitchSelection {
@@ -196,13 +197,23 @@ extension WallpaperManager {
                 endpoint.activate()
             case let .commit(selection, recovery): commitSwitch(selection, recovery: recovery)
             case let .finalize(selection):
-                if let id = selection.executionID { switchEndpoints[id]?.finalize() }
+                if let id = selection.executionID, let endpoint = switchEndpoints[id] {
+                    endpoint.finalize()
+                    // commit 的 @Published 投影早于异步旧端退休；网格、详情
+                    // 还读取引擎的执行事实。finalize 同步采纳这些事实后再
+                    // 统一通知现有观察者，不能让它们停在上一张的播放状态。
+                    objectWillChange.send()
+                }
             case let .retire(barrier, selection):
                 let done = { [weak self] in
                     guard let self else { return }
                     if let id = selection.executionID { self.switchEndpoints.removeValue(forKey: id) }
                     self.pruneSwitchSelection(selection.ticket)
                     self.runSwitchEffects(self.playbackSwitch.retired(barrier))
+                    // Stop / 输出丢失没有后继 finalize；实际退出清空执行
+                    // 事实后，也要让现有 UI 观察者撤掉最后一张播放标记。
+                    // 已有后继提交时，交给其 finalize 发布完整投影。
+                    if self.playbackSwitch.committed == nil { self.objectWillChange.send() }
                 }
                 if let id = selection.executionID, let endpoint = switchEndpoints[id] { endpoint.retire(done) }
                 else { done() }

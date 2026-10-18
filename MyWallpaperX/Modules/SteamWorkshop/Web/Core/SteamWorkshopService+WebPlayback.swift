@@ -92,8 +92,8 @@ extension SteamWorkshopService {
         }
 
         if record.contentType == .web {
-            // Web 分支：缓存读盘/签名扫描/写盘在后台执行（点击热路径不做
-            // 文件 IO），解析完成后回主线程发布启动通知；失败走同一早退出口。
+            // Web preparation reads/scans in the background and returns the
+            // same descriptor used to prepare the playback properties.
             // 代际校验：窗口内有更新的点击时本请求整体退役——成功通知与
             // 失败出口都不得覆盖新点击的 pending / 状态 / 最终壁纸。
             processPreparationTransferred = true
@@ -105,7 +105,7 @@ extension SteamWorkshopService {
                     }
                 }
                 guard let self else { return }
-                let playbackContext = await self.resolvedWebPlaybackContext(for: record)
+                let preparation = await self.prepareWebPlaybackContext(for: record)
                 guard launchGeneration == self.webLaunchIntentGeneration else {
                     // 更新的点击已在 setAsWallpaper 入口同步 mark 过 pending
                     //（或已随早退自行清除），退役请求不触碰任何共享状态——
@@ -116,12 +116,13 @@ extension SteamWorkshopService {
                     self.clearLaunchPending(matching: record.id)
                     return
                 }
-                guard let playbackContext else {
+                guard let preparation else {
                     self.clearLaunchPending(matching: record.id)
                     self.downloadError = "没有找到可播放的 HTML 入口文件。"
                     return
                 }
-                let runtimeProfile = self.recommendedWebRuntimeProfile(for: record)
+                let playbackContext = preparation.context
+                let runtimeProfile = self.recommendedWebRuntimeProfile(for: preparation.descriptor)
                 NotificationCenter.default.post(
                     name: .steamWorkshopWebWallpaperReadyToPlay,
                     object: nil,
@@ -202,20 +203,4 @@ extension SteamWorkshopService {
         }
     }
 
-    func recommendedWebRuntimeProfile(for record: SteamWorkshopDownloadRecord) -> WallpaperEngine.WebRuntimeProfile {
-        guard let model = resolvedWebRuntimeModel(for: record) else {
-            return .standard
-        }
-        let flags = Set(model.runtimeRiskFlags)
-        let requiresOriginCompatibility = flags.contains(.serviceWorkerRegistration)
-            || flags.contains(.esModuleDependency)
-            || flags.contains(.wasmStreamingUsage)
-            || flags.contains(.customSchemeSensitiveWebGL)
-            || flags.contains(.iframeCrossFrameAccess)
-            || flags.contains(.truncatedStaticAnalysis)
-        if requiresOriginCompatibility {
-            return .highCompatibility
-        }
-        return .standard
-    }
 }

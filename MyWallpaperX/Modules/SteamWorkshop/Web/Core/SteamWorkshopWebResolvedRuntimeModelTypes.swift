@@ -290,6 +290,12 @@ nonisolated struct ResolvedWebPlaybackContext: Equatable {
     let language: String
 }
 
+/// Playback and profile selection consume the same prepared descriptor.
+struct ResolvedWebPlaybackPreparation {
+    let context: ResolvedWebPlaybackContext
+    let descriptor: ResolvedWebProjectDescriptor
+}
+
 struct ResolvedWebRuntimePrecondition: Codable, Equatable, Hashable {
     enum Kind: String, Codable, Equatable, Hashable {
         case file

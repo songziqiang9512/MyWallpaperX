@@ -3,43 +3,41 @@
 
 # Web 冷路径 descriptor 解析后台下沉
 
-> 复核基线：2026-10-09，工作树（批二 dcca8d64 / 批四 07704a86 之后）。本文是设计裁决，不是当前能力或运行验收。
+> 设计复核：2026-10-18。当前实现与验证结果分别以源码、最终运行证据为准；本设计不单独证明启动收益。
 
-## 目标合同与设计判据
+## 目标与取舍
 
-点击播放的冷路径（分析缓存未命中）在主线程做完整 descriptor 解析：project.json 多次读盘、入口 HTML 与依赖 JS/CSS 的 BFS 静态扫描（`resolvedWebStaticContentSummary`）、目录 listing（`webSampleStructure`）、预设绑定的候选根 stat。批二已把运行时清单的读盘/校验/写盘下沉；批四的记忆缓存把重复调用面归零后，首个未命中冷解析成为主线程最后一个重 IO 残留。横切 SteamWorkshopService 解析链与启动主链=是；触碰唯一权威合同（descriptor 单一构造源）=是；判据成立，先设计后实施。
+用户点击播放后，主 actor 只收集记录/属性状态、必要的轻量入口事实和书签副作用；项目全量解析、HTML/JS/CSS 依赖扫描、缓存读写在后台执行。保持唯一 descriptor 构造核，播放不依赖完整属性面板或样本诊断。
 
-## 当前事实与证据
+选择解析核 nonisolated 化、播放编排 async 化；同步属性面板仍使用同一核与 memo。将所有 descriptor API 改为 async 会扩大 UI 状态机改动；另建播放解析器则会产生第二解释权威，均不采用。不增加预热容量、周期任务或 Release 诊断。
 
-- 冷解析入口 `computeResolvedWebProjectDescriptor`（`SteamWorkshopWebResolvedRuntimeModels.swift`）：`webPropertyDefinitionSourceRecord`（读记录存储=actor）→ 链式调用解析 helpers。
-- 解析链 actor 访问面终审：唯一直接 actor 读是 `webPropertyDefinitionSourceRecord`；书签解析（`resolvedBookmarkedWebPropertyURL`）有副作用（security scope 管理、陈旧书签回写）必须留主线程，但**解析链只消费 preset 绑定**（`definition==nil` → kind 为 pathlikePreset 或提前返回），从不触书签分支；其余全部为纯 record+URL+FS（loadWebProjectRoot/declaredEntry/webPresetValues/sampleStructure/staticContentSummary 的 BFS/riskFlags/presetBindings/candidateRoots/existingWebResourceURL）。
-- 间接 actor 读藏在三个 helper 内部：`webPropertyDefinitions`/`webSampleStructure` 内部各自再调 `webPropertyDefinitionSourceRecord`；`resolvedWebStaticContentSummary` 内部再调 `webPropertyDefinitions`；`resolvedWebStructuralRiskFlags` 内部再调两者。这是拆分的全部动因——不是它们需要 actor 状态，而是调用形状没把已解析的输入传下去。
-- 同步调用面（属性面板 rebuild/详情页/诊断/宿主桥闭包）在批四已定型为保持同步 API；descriptor 全异步化是 UI 状态机重构，不在本设计范围。
+## 职责与数据流
 
-## owner
+- `SteamWorkshopService` 主 actor 快照 `webPropertyDefinitionSourceRecord`、有效属性与书签状态，拥有现有 memo 和失效钩子。
+- `parseWebProjectDescriptorCore` 是共享解析核，显式消费 record、属性来源、entry/root；静态摘要、目录结构与结构风险 helpers 不回读 actor 状态。
+- 主 actor 的 `assembleResolvedWebProjectDescriptor` 收尾 baseline 可见性、preset 资源绑定与 preconditions。书签解析及陈旧书签回写继续留在原 owner；没有新增书签解析实现。
+- `prepareWebPlaybackContext` 返回不可变的 `context + descriptor`。产品切换只消费入口、root、属性 JSON、语言和同次 descriptor 的兼容档位，不构造完整 runtime model。
 
-- 解析核（nonisolated 纯函数族）：SteamWorkshopService Web Core——单一实现，主线程与后台段共用。
-- 启动冷路径编排：`resolvedWebPlaybackContext`（批二已 async）——actor 快照 → 后台段。
-- 记忆缓存/失效钩子：批四的 `webProjectDescriptorCache` 不变，两条编排共享。
+播放链按以下次序执行：
 
-## 方案设计与选型
+1. `setAsWallpaper` 的入口准入只检查实际/声明入口及依赖可用事实；不调用 descriptor，从而避免后台准备之前先在主线程扫描项目。
+2. async 准备在后台读取/校验 execution cache；同时经共享 descriptor memo、分析缓存或解析核取得同一项目解释，主 actor 完成装配。
+3. 冷路径生成有效属性 payload，保持原有 `await saveWebRuntimeCache` 完成时序；同步 UI 与后台编排共用同一解析与缓存实现。
+4. 产品接纳返回值前复核 launch generation 和进程准备身份；档位只检查 descriptor 中 service worker、ES module、WASM streaming、敏感 WebGL、iframe 和截断扫描六类风险。完整面板模型额外产生的文件/目录缺失标记不参与档位选择。
+5. 通过现役 ready-to-play 通知进入唯一切换事务；快照准备、媒体 ACK、可见确认、失败保留旧输出均不缩减。兼容接口 `resolvedWebPlaybackContext` 委托同一准备流程，供现有 preload/Debug 调用者使用。
 
-选 **(a) 解析核 nonisolated 化 + 启动编排后台化**。候选 (b) descriptor 整体 async 化被批四否决（同步 UI 表面涟漪）；候选 (c) 维持现状（批四已把重复面归零，冷解析有界一次每 mtime 态）不满足启动主链零重 IO 的既定方向。
+## 缓存候选与失败退出
 
-1. **拆分而非复制**：四个内部再解析的 helper 各拆为「主线程 wrapper（保留原签名，快照 actor 输入后调核）+ nonisolated 静态核（显式收 sourceRecord/definitions 等参数）」。wrapper 是既有调用方（属性面板/校验报告等）的唯一入口，核是两段执行的同一实现——无第二链路。
-2. **书签分支外提**：`resolvedWebResourceBinding` 拆为 nonisolated 核（收 `bookmarkedURL: URL?` 参数）+ 主线程 wrapper（usesBookmarks 且非 pathlike 时先解析书签再调核）。preset 路径（解析链唯一消费者）传 nil——与现状等价（该路径从不触书签）。
-3. **启动冷路径编排**（`resolvedWebPlaybackContext` 内）：主线程 memo 检查 → `webPropertyDefinitionSourceRecord` 快照 → 后台段（分析缓存读盘+校验扫描（含批四会话新鲜快速路径，校验器镜像批二 isRuntimeManifestValid 形态）→ 未命中则解析核全量构造 descriptor）→ 主线程 memo 存 + 批二后台双清单写盘。
-4. **同步路径不变**：`computeResolvedWebProjectDescriptor`（memo → 同步分析缓存读 → 同步解析核 → 同步保存）保持批四形态，服务同步 UI 表面；其成本已由 memo 有界。
+“先交付播放、后持久化”候选已撤回。真实清单的 Swift 动态 Codable 屏选中，可后移的编码加双原子写盘中位约 0.9–4.5ms，不能支撑约 200 行新增排序、代际和 metadata 重核。该屏选不是 App 收益或数学上界；原保存 owner、等待语义与失效边界保留，不新增缓存或保存队列。
 
-## 失败与退出
+缺失入口/根目录走原失败反馈；后台解析失败不发布播放。较新选择使旧请求退休，迟到完成不得清除新请求 pending 或替换当前输出。取消、预备进程释放和资源 lifetime 仍归现役请求 owner。解析和签名的现有 mtime/依赖校验边界保持，本批不宣称提供原子文件系统快照。
 
-- 后台解析与主线程快照间记录状态漂移：与既有 mtime 键纪律同级（批四已论证），无新增弱化。
-- 后台段异常/超时无兜底需求：解析核全部 `try?`/可选语义，失败返回 nil → 启动走「没有找到可播放的 HTML 入口文件」既有失败出口。
-- 退出条件：若解析核 nonisolated 化引入行为回归（审查或门禁红），回退本设计并维持批四形态；wrapper/核双签名长期并存即技术债，归档时必须已无 wrapper 直接调用方新增。
+## 验收与停止条件
 
-## 验收
+入口行为门覆盖首次与重复校验、缺失声明入口、依赖宿主 fallback、入口删除及正常错误反馈；测试不提供完整 descriptor 实现。档位门编译真实风险 owner，覆盖六类风险、非消费风险与组合，不提供完整 runtime model 实现。
 
-- 焦点模块与 `web_property_persistence_gate` 全绿（启动冷路径行为不变——三 App 启动、A→B→A、缓存冷写热校验；空 HOME 首阶段即无任何清单的冷启动场景）。
-- 后台段封闭性的机器证据：default-MainActor 项目里 nonisolated 函数回读 MainActor 成员是编译错误——解析核全部 nonisolated 且构建通过，等价于「后台段零 actor 回读」的编译期断言（强于运行期抽样探针）。
-- 独立子代理审查：拆分等价性（核与原实现逐行）、书签相邻段（preconditions/presetBindings，经 resolvedWebResourceBinding 触 security scope 与陈旧书签回写）确实留在主线程收尾、同步路径零改动、两编排共享 memo/装载器/解析核无重复实现。
-- 实施偏差记录：设计初稿第 2 点拟以 bookmarkedURL 参数外提书签分支；实施发现解析链的 preset 绑定从不进入书签分支（definition==nil → kind 恒为 pathlikePreset 或提前返回），且 preconditions 的 definition 变体活触书签——两者一并留在主线程收尾段（assembleResolvedWebProjectDescriptor），比参数外提更短且不触碰书签副作用语义。
+真实产品入口验证冷/完整暖应用缓存、属性/书签跨进程恢复与清空、快速连续选择、失败保留和退出；以 matching request 的提交为计时边界，同安装路径、配置和输入交替比较。Release 不编入测量入口。收益未达门或出现功能回退则撤回相应候选，不以跳过资源/可见检查、增加 timeout 或减少作者内容换速度。
+
+## 2026-10-18 验证边界
+
+独立局部五对在优化 Debug、固定作品 1509243786、关闭可选预加载且内存 memo 为空时，直接测得真实 `setAsWallpaper` 同步主线程 CPU 中位 461.18→4.07ms，基线噪声 2.93%；仅验收未预热入口的同步减工。暖 CPU 噪声 8.19% 不认稳定收益，暖完整提交未见回退。另一次保留自然预加载的整体启动五对，冷基线噪声 34.09% 超门、暖配对改善仅 3.50%，整体启动收益为 NO-GO。同次 descriptor/context 编排只作为数据流收敛保留；局部结果不证明档位选择或普通 Release 的耗时收益。临时计时及禁预加载 hook 只在隔离验证副本，最终源码与 Release 无此改动；原属性门的九项退役日志观测失败保留，实际值、书签、host 顺序和精确进程退出另行补测。

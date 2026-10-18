@@ -20,8 +20,10 @@ extension SteamWorkshopService {
         // it was a nonfatal precondition in the development report as well.
         if case .missing = record.dependencyStatus,
            record.isDependencyBackedWeb, !record.hasPlayableDependencyWebHost { return true }
-        let descriptor = resolvedWebProjectDescriptor(for: record)
-        guard let entryURL = descriptor?.resolvedEntryURL ?? record.webEntryURL else { return false }
+        // Admission needs the entry only. Resolving a descriptor here would
+        // synchronously parse the project and scan dependencies before the
+        // asynchronous launch preparation gets a chance to run.
+        guard let entryURL = record.webEntryURL else { return false }
         if !record.isDependencyBackedWeb,
            let declared = declaredWebEntryRelativePath(for: record) {
             let declaredURL = record.folderURL.appendingPathComponent(declared)

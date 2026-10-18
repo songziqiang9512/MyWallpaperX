@@ -1,6 +1,27 @@
 import Foundation
 
 extension SteamWorkshopService {
+    /// Profile selection consumes authored compatibility facts only. Runtime
+    /// property visibility, bookmark bindings and inspector projections cannot
+    /// change this choice and must not be rebuilt just to select an origin.
+    func recommendedWebRuntimeProfile(for record: SteamWorkshopDownloadRecord) -> WallpaperEngine.WebRuntimeProfile {
+        guard let descriptor = resolvedWebProjectDescriptor(for: record) else {
+            return .standard
+        }
+        return recommendedWebRuntimeProfile(for: descriptor)
+    }
+
+    func recommendedWebRuntimeProfile(for descriptor: ResolvedWebProjectDescriptor) -> WallpaperEngine.WebRuntimeProfile {
+        let flags = Set(descriptor.runtimeRiskFlags)
+        let requiresOriginCompatibility = flags.contains(.serviceWorkerRegistration)
+            || flags.contains(.esModuleDependency)
+            || flags.contains(.wasmStreamingUsage)
+            || flags.contains(.customSchemeSensitiveWebGL)
+            || flags.contains(.iframeCrossFrameAccess)
+            || flags.contains(.truncatedStaticAnalysis)
+        return requiresOriginCompatibility ? .highCompatibility : .standard
+    }
+
     func resolvedWebStructuralRiskFlags(
         for record: SteamWorkshopDownloadRecord,
         sampleStructure: SteamWorkshopWebSampleStructure? = nil

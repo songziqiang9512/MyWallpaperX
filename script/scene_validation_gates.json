@@ -482,14 +482,19 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModels.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeRiskFlags.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation*.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/WebStaticFileSignalScanner.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/WebStaticFileSignalScanner.swift",
+        "script/tests/test_web_launch_profile.py",
+        "script/tests/fixtures/WebLaunchProfileChecks.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModelTypes.swift"
       ],
       "modules": [
         "test_web_compat_parity",
         "test_web_display_conditions",
         "test_web_navigation_policy",
         "test_web_response_transformer",
-        "test_web_static_content_signals"
+        "test_web_static_content_signals",
+        "test_web_launch_profile"
       ]
     },
     {
@@ -3476,7 +3481,9 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift",
         "script/tests/test_playback_*",
         "script/tests/test_daemon_process_lifetime.py",
-        "script/tests/fixtures/playback-lifecycle/**"
+        "script/tests/fixtures/playback-lifecycle/**",
+        "script/tests/test_grid_playback_publication.py",
+        "script/tests/fixtures/GridPlaybackPublicationChecks.swift"
       ],
       "modules": [
         "test_daemon_process_lifetime",
@@ -3486,7 +3493,8 @@
         "test_playback_visibility",
         "test_scene_switch_endpoint",
         "test_video_preparation_cancellation",
-        "test_playback_policy_delivery"
+        "test_playback_policy_delivery",
+        "test_grid_playback_publication"
       ]
     },
     {
@@ -3540,7 +3548,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneCapabilityProfile.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceReferenceIndex.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompiler.swift",
+        "script/tests/test_scene_compiler_release_evidence.py"
       ],
       "modules": [
         "test_release_diagnostic_isolation",
@@ -3551,7 +3561,8 @@
         "test_steam_helper_signing",
         "test_scene_property_preparation_reuse",
         "test_scene_graph_execution_telemetry",
-        "test_scene_effect_execution_telemetry"
+        "test_scene_effect_execution_telemetry",
+        "test_scene_compiler_release_evidence"
       ]
     }
   ],

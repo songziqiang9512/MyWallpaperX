@@ -146,7 +146,8 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
 
     def test_release_web_admission_keeps_entry_checks_without_sample_scan(self):
         # Compile the real Release service owner. The leaf doubles supply only
-        # record/descriptor facts; local file existence and caching are real.
+        # record facts; local file existence and caching are real. No descriptor
+        # implementation is provided: even the first admission must stay narrow.
         harness = r'''
         import Foundation
         enum Dependency { case none, missing(String) }
@@ -158,22 +159,16 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
             var webEntryURL: URL?
             var folderURL: URL
         }
-        struct Descriptor { let resolvedEntryURL: URL }
         struct Eligibility { let signature: String; let isValid: Bool }
         final class SteamWorkshopService {
             var webLaunchEligibilityCache: [String: Eligibility] = [:]
             var generation = 0
-            var descriptorCalls = 0
             var declared: String?
             var lastWebPlaybackFailureRecordID: String?
             var lastWebPlaybackFailureMessage: String?
             var lastWebPlaybackFailurePath: String?
             func webProjectDescriptorSignature(for record: SteamWorkshopDownloadRecord) -> String {
                 String(generation)
-            }
-            func resolvedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> Descriptor? {
-                descriptorCalls += 1
-                return record.webEntryURL.map(Descriptor.init)
             }
             func declaredWebEntryRelativePath(for record: SteamWorkshopDownloadRecord) -> String? { declared }
         }
@@ -185,8 +180,7 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 var record = SteamWorkshopDownloadRecord(webEntryURL: entry, folderURL: folder)
                 let service = SteamWorkshopService()
                 precondition(service.webLaunchEntryIsValid(for: record))
-                let calls = service.descriptorCalls
-                precondition(service.webLaunchEntryIsValid(for: record) && service.descriptorCalls == calls)
+                precondition(service.webLaunchEntryIsValid(for: record))
                 service.declared = "missing.html"; service.generation += 1
                 precondition(!service.webLaunchEntryIsValid(for: record), "missing declared entry admitted")
                 record.isDependencyBackedWeb = true; service.generation += 1

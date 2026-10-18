@@ -308,9 +308,13 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(root / "shader-cache")
         environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
+        sources = list(dict.fromkeys([
+            *SWIFT_SOURCES,
+            SCENE_ROOT / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
+        ]))
         compilation = subprocess.run([
             "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", str(support),
-            *(str(path) for path in SWIFT_SOURCES),
+            *(str(path) for path in sources),
             str(SCENE_ROOT / "Resources/Providers/SceneStockNoiseTextureStore.swift"), str(harness),
             "-framework", "Metal", "-framework", "CoreGraphics", "-framework", "ImageIO",
             "-module-cache-path", str(root / "module-cache"), "-o", str(binary)],

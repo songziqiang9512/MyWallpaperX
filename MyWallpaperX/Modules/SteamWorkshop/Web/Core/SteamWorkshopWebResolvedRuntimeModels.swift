@@ -290,18 +290,18 @@ extension SteamWorkshopService {
         )
     }
 
-    /// 缓存命中的读盘/校验扫描与冷路径的解析/写盘都在内部后台段执行；
-    /// 冷路径解析核与同步表面共享同一 nonisolated 实现（见
-    /// resolvedWebProjectDescriptorForLaunch）。
+    /// Compatibility surface for callers that need only the playback payload.
     func resolvedWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackContext? {
+        await prepareWebPlaybackContext(for: record)?.context
+    }
+
+    /// Runtime profile selection consumes this same descriptor rather than
+    /// reconstructing a property-panel model after preparation has finished.
+    /// The optional disk cache retains its existing awaited save semantics.
+    func prepareWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackPreparation? {
         if let cachedPlaybackContext = await loadCachedWebPlaybackContext(for: record) {
-            // 磁盘命中路径同时预热 descriptor memo：否则回主线程后
-            // recommendedWebRuntimeProfile → resolvedWebRuntimeModel 的两级
-            // memo 全冷，analysis 清单读盘+解码（跨会话清单还有 BFS 签名
-            // 扫描）落回主线程，违反「点击热路径不做文件 IO」契约。预热在
-            // 后台段完成后返回；model 构造自此是纯计算。
-            _ = await resolvedWebProjectDescriptorForLaunch(for: record)
-            return cachedPlaybackContext
+            guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else { return nil }
+            return ResolvedWebPlaybackPreparation(context: cachedPlaybackContext, descriptor: descriptor)
         }
 
         guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else {
@@ -314,13 +314,14 @@ extension SteamWorkshopService {
             valuesOverride: effectiveValues
         )
         await saveWebRuntimeCache(descriptor: descriptor, propertyPayloadJSON: propertyPayloadJSON, for: record)
-        return ResolvedWebPlaybackContext(
+        let context = ResolvedWebPlaybackContext(
             recordID: record.id,
             effectiveEntryURL: descriptor.resolvedEntryURL,
             effectiveRootURL: descriptor.effectiveRootURL,
             propertyPayloadJSON: propertyPayloadJSON,
             language: Self.resolvedWebWallpaperLanguage()
         )
+        return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor)
     }
 
     func resolvedWebRuntimeModel(for record: SteamWorkshopDownloadRecord) -> ResolvedWebRuntimeModel? {

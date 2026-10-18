@@ -484,9 +484,9 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "527cac9d8127675b9db240b1ea2f67e850f8f1bf300925d588a8f2162ff1073d",
+        "sourceSHA256": "6586d44de237ce6d3cc99c9ebc935cd37053fd2edae3246beaf377ee6364a4b8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对Release诊断入口/实现、属性面板样本报告、Web Inspector编译隔离；产品入口准入与作者属性编辑保持独立。",
+        "scope": "去除重复说明，核对shader证据导出的Debug边界及产品准入、属性准备职责。",
         "limitations": "导航与职责审查，不代替实际Release运行、全量兼容或正式性能验收"
       }
     },

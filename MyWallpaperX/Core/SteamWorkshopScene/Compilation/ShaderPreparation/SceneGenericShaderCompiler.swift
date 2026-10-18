@@ -130,6 +130,7 @@ nonisolated enum SceneGenericShaderCompiler {
         case let .success(value): compiled = value
         case let .failure(failure): return .failure(failure)
         }
+#if DEBUG
         if let evidenceDirectory = debugEvidenceDirectory() {
             for stage in compiled {
                 try? stage.msl.write(
@@ -141,6 +142,7 @@ nonisolated enum SceneGenericShaderCompiler {
                 )
             }
         }
+#endif
         func build(
             _ stages: [CompiledStage],
             loopGuardCap: Int?
@@ -372,6 +374,7 @@ nonisolated enum SceneGenericShaderCompiler {
         return data
     }
 
+#if DEBUG
     private static func debugEvidenceDirectory() -> URL? {
         let arguments = ProcessInfo.processInfo.arguments
         guard let index = arguments.firstIndex(of: "--mwx-debug-scene-evidence-dir"),
@@ -380,6 +383,7 @@ nonisolated enum SceneGenericShaderCompiler {
         guard !path.isEmpty else { return nil }
         return URL(fileURLWithPath: path, isDirectory: true)
     }
+#endif
 
     private static func validOutput(_ url: URL, maximumBytes: Int) -> Bool {
         boundedFile(url, maximumBytes: maximumBytes) != nil
