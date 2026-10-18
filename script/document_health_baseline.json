@@ -106,7 +106,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 448,
-      "bytes": 151911
+      "bytes": 152063
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 15,
@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 262,
-      "bytes": 108475
+      "lines": 286,
+      "bytes": 114246
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 63940
+      "bytes": 64286
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 51,
-      "bytes": 14989
+      "lines": 53,
+      "bytes": 16181
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 200,
-      "bytes": 52106
+      "lines": 201,
+      "bytes": 52984
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1216,15 +1216,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "c559261c24aa5c0765314b8f631cfd8f951e97d20739cb00a2a4af3f5abdc919",
-      "after": "a8d9061f2acea08460970338c893a7e44fb014758fc85c8d73812fb702b68936",
-      "owner": "scene-cp-force-source-space",
-      "reason": "Keep one CP source/default contract and bounded outcome; retire obsolete missing-threshold/flags blanket while retaining nonzero world origin, Bird UNKNOWN, unqualified trajectory and honest denominator.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "7a21727815c2fe21e39b4cb43fde470960c380b4a52c7dc37b0dca2125e3b0f2",
       "after": "2b68a0e04a6a0ccf2d11c0efa8f49a3d2c82ddd8e92652d6ceef3e1634a29941",
@@ -1258,15 +1249,6 @@
       "owner": "scene-model-reflection-qualification",
       "reason": "Record failed visual prototype and rollback, preserve necessary evidence, retire stale NaN status and unqualified micro-optimization; no capability claim.",
       "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-scene-reflection"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "ec47eb4832a128b4e52f48bc91da21fe1c672bae22a33331a1ccf96d6ec66447",
-      "after": "d47afd883d6b2ccc93c32f3f17348c20261970d441d83ab7079d652bd4c9e6b2",
-      "owner": "scene-single-timeline-response-fallback",
-      "reason": "Replace frozen known curves with a declared bounded Single fallback; synchronize real playback qualification, remaining observations and generated ledger source without changing manual verdicts.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
@@ -1351,24 +1333,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "db904ac3e5704a4d540a4cd6178880356fe29cc44184c35a1923745133f60726",
-      "after": "35c3e70fcca6b16ba6ba41d5dc33c5ea2453482f581b899b8b03ad921c528e8a",
-      "owner": "scene-puppet-source-depth",
-      "reason": "Preserve the shared XYZ skinning contract and qualified source/official/original/heldout evidence, replace stale U27 observations and retain U26 UNKNOWN.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-bind-position-depth"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "66f5baed50c97303970e7f92851d061fabcdd3f6634c6442bcebe71a9e0dc52f",
-      "after": "47166a96548a2509c046b39de17790c8793766a1db48674cbdad22f335caee37",
-      "owner": "scene-asset-path-string-values",
-      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "ebe4acefc3b6632fd853ad83a354ce6344136964ad0ced8a9a4955abc778257f",
       "after": "62e7b70b4eb27055cf2911a88981d1f6fb50635af093170fb503fc7301804ecf",
@@ -1381,15 +1345,6 @@
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "52b198e09dbb7947b7c7931aaa57763e2d3dcf73c8f80e3b2e191dfd7774f80d",
       "after": "0e5a580349607249b00aa9413c5af8685e843022444f4ff4823347197180c8b7",
-      "owner": "scene-asset-path-string-values",
-      "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3942f8c29f7d584736d56298dbda1ab83dc1d0d64ddd1cf222cff7e6eaa59e9d",
-      "after": "c28d2d72bab5add17d3228d06dd89dab0f499e71f9b51cc2c904130e4d907303",
       "owner": "scene-asset-path-string-values",
       "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
@@ -1420,6 +1375,51 @@
       "owner": "playback-lifecycle-transaction",
       "reason": "Record the common actual-exit owner, bounded native visibility and media ownership barriers, and the single product switch reducer; replace superseded handoff claims.",
       "decision": "docs/architecture/playback-lifecycle-transaction-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "a8d9061f2acea08460970338c893a7e44fb014758fc85c8d73812fb702b68936",
+      "after": "bc9e0544da270b3b51dc1407d483c2c90d84e683a6a1c5719ff996ace82cd27a",
+      "owner": "scene-particle-coverage-qualification",
+      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "47166a96548a2509c046b39de17790c8793766a1db48674cbdad22f335caee37",
+      "after": "725a750bdea6471fdf10a0383cfd90a70357541075e3f8387924a7d2c79d9519",
+      "owner": "scene-particle-coverage-qualification",
+      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "a22471ac102eabab638692515fb999a810cff5430cbca35d61c2c3911598d6f0",
+      "after": "9a2404ce873c8992da986a50aa765a84daba71c98591f1f0fc0c5da658241bca",
+      "owner": "scene-particle-coverage-qualification",
+      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "ab67e98c441f96bf549c717c35cb14e445f96cb2881955239725d93f65371936",
+      "after": "454a394073103eb8e6862b09c6c59aff61815a33e09dd1b88b8dd6551b2aaa38",
+      "owner": "scene-particle-coverage-qualification",
+      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c28d2d72bab5add17d3228d06dd89dab0f499e71f9b51cc2c904130e4d907303",
+      "after": "279ce091d2f6ebf0ee288da54d60b3726bd78dee23257f3797521bc61829049a",
+      "owner": "scene-particle-coverage-qualification",
+      "reason": "Evidence-bounded withdrawal, remaining state1/static-projection gaps and preserved actual failures; no unsupported-product or complete-sample claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018"
     }
   ]
 }

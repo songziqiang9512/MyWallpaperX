@@ -686,6 +686,34 @@
       ],
       "remainingDifferences": "unknown",
       "officialComparison": "unknown"
+    },
+    "3396722575": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18原包短播放：人物/背景/文字可见，字体回调健康；头发后与身体动画仍未准备，2248→2252/2265→2269异常首因已锁MDLA0006 dense state1拒绝。常量state1直接当0的捷径被独立官方单header眼部对照否定，不放宽lookup、不记整样本PASS。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/font-value-type-official-20261018/native-heldout-3396722575/original-3396722575/execution.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/339-nested-animation-qualification-20261018/qualification.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/constant-dense-state1-20261018/official/qualification.json"
+      ],
+      "remainingDifferences": "头发/身体动画state1语义与播放未闭合；完整交互/同phase官方合成未验。",
+      "officialComparison": "unknown"
+    },
+    "3807668787": {
+      "verdict": "unreviewed",
+      "note": "2026-10-18头冠/音频原反馈保持已闭；958 A2C候选虽实际GPU绘制，未确认原包拖尾恢复。官方连续pointer末点短白线也未唯一归958；原型已撤回，当前保持材质局部拒绝，不把执行计数记为画面完成。",
+      "runs": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u19-alpha-to-coverage-current-20261018/native/original-u19/execution.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u19-alpha-to-coverage-current-20261018/native-after/original-u19/execution.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u19-alpha-to-coverage-current-20261018/native-after/actual-native-observations.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u19-alpha-to-coverage-current-20261018/official-pointer/qualification.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u19-alpha-to-coverage-current-20261018/prototype-withdrawal/receipt.json"
+      ],
+      "remainingDifferences": "pointer958仍为能力首门/视觉UNKNOWN，需唯一可归因目标及实际几何/采样与输入时序；无整样本或性能结论。",
+      "officialComparison": "unknown"
     }
   }
 }

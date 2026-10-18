@@ -617,13 +617,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "351c0e07c43b5736c30687d79afe82c863bd9b0a591c5b0857626a73a9782ac8",
+        "sourceSHA256": "fe6a1db7f94605432a6dffabc0b984f96f6ebead80e06bc29e24b3bf51e78b0b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CP force source/default contract, final CPU and Runtime counterexamples, fixed official controls, native owned eight-card and actual Bird/heldout followup; retire only qualified default/world guard.",
-        "limitations": "Bird remains visually UNKNOWN with no nonempty270 in this window; nonzero world origin and5 blackbox parity remain open. Before/after not single-variable, no full sample or performance gain. Other topics not revalidated."
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "83422222a40f355ccf64bca01ea2a972ec474bfe92070b8e15ac31957a348569",
+        "sourceSHA256": "5b5ae359661b9378d78c7d39327c490ac3a465a472b2984e4236d31e4f2ee3f4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire the private asset Object ABI and document strict public path String values across registerAsset, font get/set and creation; remove the solved public gap. Preserve qualified Fluid consumer and ring-motion unknowns without reopening closed feedback.",
-        "limitations": "One bounded official/native API board and an independent real sample; seven preexisting Bool assertions remain failed. No stable intermediate glyph parity, arbitrary registration/precache, complete-sample, or performance conclusion. Formal promotion remains pending existing capacity authorization."
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45885af1ff9100ee34fec163bfc05f29ac09e0b1cf1457d2b59508a2cc00f219",
+        "sourceSHA256": "a2fc8a23277fdb26bf20b365bed99cbdc9f094ea83de2a0e83c3b87c0cd42276",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record qualified actual single-frame Fluid Dye R/A content, physical swap identities and stage snapshots; retain old disabled-stage STOP and open visible smoke feedback. Qualify flat sourceZ of the adjacent 322 hand without claiming its visual repair.",
-        "limitations": "Diagnostic-only App and one actual frame; no spatial gradient, sustained motion, same-phase official parity, complete-sample or performance conclusion. No product source change. Formal evidence promotion remains pending capacity authorization."
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
       }
     },
     {
@@ -1908,6 +1908,27 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/particle-material-coverage-qualification-2026-10-18.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
+      "commandPolicy": "historical-only",
+      "cutoffDate": "2026-10-18",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "uniqueValue": "未采纳粒子覆盖材质的实施前职责/采样取舍、公开响应资格、真实原包未恢复与精确撤回停止依据。",
+      "lastReviewed": "2026-10-18",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e901d0e4221b54faf8298a6081d4ac595be214511f2cf51f801eaa607457ca6c",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
+      }
     },
     {
       "path": "docs/scene/history/particle-scalar-remap-implementation-2026-10-05.md",
@@ -3188,7 +3209,15 @@
       "path": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "role": "navigation",
       "entrypoint": "docs/README.md",
-      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
+      "lastReviewed": "2026-10-18",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "fa235d868958586aadc2150a5f983bacb1e3b52474f5e44ec5d7bbc3fbe7c5bb",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
+      }
     },
     {
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
@@ -3366,10 +3395,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "65d88ec1496b306c8e4ed45c92a91df453570a63902840ee9b7aee8905c95fcd",
+        "sourceSHA256": "f418832f2e1fd9225b134bebb4ed58480ca0db899ae5df977d0ef21eb488e2da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire the private asset Object ABI and document strict public path String values across registerAsset, font get/set and creation; remove the solved public gap. Preserve qualified Fluid consumer and ring-motion unknowns without reopening closed feedback.",
-        "limitations": "One bounded official/native API board and an independent real sample; seven preexisting Bool assertions remain failed. No stable intermediate glyph parity, arbitrary registration/precache, complete-sample, or performance conclusion. Formal promotion remains pending existing capacity authorization."
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
       }
     },
     {
@@ -3380,10 +3409,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a0f49a48baa49540edc0fcd7b5a022e878286f146f37258cf7e2ce3e14a1bf46",
+        "sourceSHA256": "837159af5d518e2f0ca04581e6281450e63cd7db6a15a5e50a0e4c96455289e1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire the private asset Object ABI and document strict public path String values across registerAsset, font get/set and creation; remove the solved public gap. Preserve qualified Fluid consumer and ring-motion unknowns without reopening closed feedback.",
-        "limitations": "One bounded official/native API board and an independent real sample; seven preexisting Bool assertions remain failed. No stable intermediate glyph parity, arbitrary registration/precache, complete-sample, or performance conclusion. Formal promotion remains pending existing capacity authorization."
+        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
+        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
       }
     },
     {

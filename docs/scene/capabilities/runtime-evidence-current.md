@@ -159,16 +159,40 @@
 
 ## 3. 证据包
 
+<a id="particle-coverage-qualification-20261018"></a>
+
+### 粒子覆盖材质：原型未采纳（2026-10-18）
+
+原U19的958仍由`alphatocoverage`材质首拒。固定官方2.8.0.42自有Sprite/Rope板的几何、运动、透明/不透明正控成立，三个半透明档与translucent响应不同；本机Apple M4/macOS27的独立Metal板也证sample1硬件A2C+alphaToOne有效。这些只证明所测覆盖响应，不定义统一阈值、边缘、隐藏combo、官方MSAA数或跨设备等价。原型沿既有材质/准备/几何/取样/Metal/唯一输出链，无额外MSAA或全屏资源；有界Sprite/Rope、两种depth attachment、旧PMA邻例和缺可选PSO局部退化的44向量实际像素误差0。材质5方法、87profile及真实Runtime的零粒子/隐藏/未出生child需求门最终通过；前两次新Runtime夹具分别错常量键、给无发射child，首失败及更正均保留，不冒称一路全绿。独审两项DTO/诊断问题补审后无静态阻断。
+
+候选正常Debug为固定6cfa807e+九源，45.119s/4311输入无漂移/签名0，App`f1c354e7…83ceb`、dylib`d07d5e53…0fb68`。旧5d0e基线同四点离散pointer因材质拒绝，无958几何；候选原包同协议取得958的145 completed batches/28,721 instances/0 failed，但根与独审看两张对角图仍未辨认可归因拖尾。未输出逐实例位置/投影/采样alpha，不据计数关闭。独立原347同候选的网格、人物、文字及普通粒子保持；两run均App0、VM[]、drift[]、stop1→0/GPU排空。不同App基底、现场负载和时序不作性能对照。
+
+CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip，loader没有额外生成。实例alpha上界约.52，fade从半life后衰减，不能静态推全部片元均被覆盖测试丢弃；真实LOD/过滤/UV与几何位置仍UNKNOWN。随后原包官方908×590、两次49点连续移动与逐点读回均成立，主体/冠/剑/羽/时钟健康；两张末点附近的细白双线未唯一归958。官方连续输入与原生离散输入不是同条件像素对照，“青色”只是先前initializer推测，不能用它定义官方目标或缺图。
+
+原型因此**未进入产品**：共享blend/准备/Shader/PSO及专用测试/登记全部精确撤回，保原局部拒绝；已通过硬件门不冒称真实画面修复。原设计与退出依据[归档](../history/particle-material-coverage-qualification-2026-10-18.md)。后继须先取得唯一目标、有效输入时序与实际几何/采样，或另一真实受益消费者，不重跑同矩阵或调作者参数救图。未接通的scriptSource静态投影反例也不记已修。
+
+原型与全部首失败保`.artifacts/tmp/u19-alpha-to-coverage-official-20261018/`，真实前后/官方原图、撤回源码与收据保`.artifacts/tmp/u19-alpha-to-coverage-current-20261018/`。官方语义仅一次14.699s/exit0/无漂移；此前VM suspended的IO_STOPPED及恢复后旧运输Invalid argument均在派发前停止，0窗口/0语义；原脚本EncodedCommand纯运输后成功。自有窗口已闭、guest副本已删、receiver身份保持，VM运行。native input/HOME/cache、原型stage与官方测试副本共删除404,531,711逻辑B，保旧正常5d0e stage及唯一source/DD迭代缓存；必要原图/失败/身份未删，正式归档待既有容量答复。没有物理释放或性能收益结论。
+
+<a id="constant-dense-state1-20261018"></a>
+
+### 现代dense动画state1：首错与已否定修法（2026-10-18）
+
+原3396722575在字体独立样本运行中有2248「头发后」→2252、2265「身体」→2269两条nested-owner异常。按原输入回源，首错是MDLV0023/MDLA0006的dense track header state1被reader拒绝，未生成prepared animation；共同parent2243与查询脚本不是新增lookup缺口。头发首clip390/bone0 offset125135、身体clip322/bone0 offset235314；两文件分别2/15条state1 track均为有限常量TRS。条件字节诊断若假定1可读为0，两MDLA均可到exact end，但该诊断不能定义语义或授权放宽。
+
+固定官方2.8.0.42两臂各一次：A0复用已健康的U27固定305闭包，B1只把clip806/bone9的header 0→1，901份非bind常量TRS、XYZ及其余44文件/159项全部保持。每臂两张原始GDI：A0均为棕色闭眼片，B1同区域均出现白/黑眼部；周围头部landmark、人、灯笼与背景健康，没有整头重定位或裁切解释该局部变化。只证明这条state1具有行为意义，**否定按0等价处理**；ignored/reference-relative/static及变化track规则仍UNKNOWN，不改产品、不松lookup、不再补无区分矩阵。
+
+原始资格`.artifacts/tmp/339-nested-animation-qualification-20261018/qualification.json`与官方两臂`.artifacts/tmp/constant-dense-state1-20261018/official/qualification.json`（SHA`48ea414f…fcdac`）保留。每臂preflight/dispatch0，输入无漂移，关闭自有窗口后才运输并删guest stage；四raw共5,234,794B保留。host88份输入在manifest/无句柄核对后清162,748,734逻辑B；VM/receiver保持运行，正式归档待既有容量答复。无native实现/新App运行、官方内部时钟或GPU计数、完整样本一致性结论。
+
 <a id="asset-path-string-values-20261018"></a>
 
 ### 资产路径String与字体回调（2026-10-18）
 
 [唯一合同](../roadmap/batch2/script-component-api-design.md#asset-path-string-values)让公开资产值保String，退出私有asset opaque class/finalizer及解包分支；字体setter与创建配置共用原AssetHost严格路径/UTF-8校验，沿原journal→typed font→CoreText→唯一compositor。相同路径在stage/dirty和项目路径复制前返回，不声称VM字符串转换零分配或性能收益。固定官方2.8.0.42自有两stock字体板完整health/phase3/END，实际注册返回与非空getter均为String，直接路径及注册返回值两种赋值成功，同回调/下一回调值保持。旧native同scene/project、仅以scene.pkg承载的对应板实际H/G为Object、String转换与直接路径赋值TypeError；健康文字和注册返回值赋值仍成功。官方两张原始GDI与旧native两raw分别由根与独审查阅，均只证明限定API行为，不推出注册副作用、预缓存、任意路径、空值或字体glyph parity。
 
-冻结5个C/header源，64输入真实QuickJS执行的新事实含类型/值、改名/等价式、getter→createLayer、同值下一snapshot零mutation、UTF-8 1024接受/1026拒绝、NUL/非法路径/伪对象与throw整包回滚。首轮夹具漏下一snapshot发布而多2项失败保留；修载体后新增事实成立，但整个既有方法仍有7项旧Bool断言失败，未修改或隐藏，不报全门PASS。真实stock时钟仅核读源getter转交及C行为，不冒称其App画面。一次固定64d6ac8c2+5源正常Debug59.913s，4301输入无漂移/签名0；App`5d0e0860…bfe94`/dylib`bf230283…29b1`，无临时观察器。独立静态审查无阻断，code/design/defense最近门通过；无全工作区混合构建结论。
+冻结5个C/header源，64输入真实QuickJS执行的新事实含类型/值、改名/等价式、getter→createLayer、同值下一snapshot零mutation、UTF-8 1024接受/1026拒绝、NUL/非法路径/伪对象与throw整包回滚。首轮夹具漏下一snapshot发布而多2项失败保留；修载体后新增事实成立，但整个既有方法仍有7项旧Bool断言失败，未修改或隐藏，不报全门PASS。真实stock时钟仅核读源getter转交及C行为，不冒称其App画面。一次固定64d6ac8c2+5源正常Debug59.913s，4301输入无漂移/签名0；App`5d0e0860…bfe94`/dylib`bf230283…29b1`，无临时观察器。独立静态审查无阻断，code/design/defense最近门通过；无全工作区混合构建结论。后继`6cfa807e`按既有10-16官方Bool合同纠正两份C fixture：非Bool合法返回保seed及正常副作用，真实throw才验证EXCEPTION/整journal撤销/owner熔断，随后正常重建的健康owner保host seed。未改产品或放松门；同一真实QuickJS方法单次1/1 PASS、62输入无漂移，旧7项FAIL仍为原批历史，不再误报为当前未修产品失败。收据`.artifacts/tmp/quickjs-bool-fixture-convergence-20261018/final-receipt.json`。
 
 最终同一夹具native-after单次7s/after4s，H/G均String、两种赋值成功，G2/G4跨回调的路径与比较结果均同官方板；实际health/phase3/END完整、live计数64→246，根与独审亲看原图。App0/无观察VM失败/输入及App漂移[]、stop1→0/GPU排空、进程组退出。两种字体在相邻callback间切回，未取稳定中间glyph帧，因此不把API板算字体形状/布局parity。
-独立原3396722575复用同一候选App，仅隔离3原输入/HOME/cache运行一次；人物、蓝紫背景、后方brush文字及运动前景字实际呈现，120的LeviBrush与843/1794的SourceHanSans-Heavy均embedded，3个text callback completed，textScriptDiagnosticCount0/missingResources0。App0/无漂移/stop1→0排空退出；仍有2265→2269、2248→2252两条getAnimationLayer prepared-nested-owner异常，旧同现UNKNOWN，严格零VM门FAIL保留，不记整样本/字体切换parity或启动性能。相关Puppet入口不在本次5产品源内；不以无font错误掩盖其他异常。
+独立原3396722575复用同一候选App，仅隔离3原输入/HOME/cache运行一次；人物、蓝紫背景、后方brush文字及运动前景字实际呈现，120的LeviBrush与843/1794的SourceHanSans-Heavy均embedded，3个text callback completed，textScriptDiagnosticCount0/missingResources0。App0/无漂移/stop1→0排空退出；仍有2265→2269、2248→2252两条getAnimationLayer prepared-nested-owner异常，旧同现UNKNOWN，严格零VM门FAIL保留，不记整样本/字体切换parity或启动性能。相关Puppet入口不在本次5产品源内；后继已定位为更早的[MDLA state1拒绝](#constant-dense-state1-20261018)，不以无font错误掩盖其他异常。
 证据与首失败保`.artifacts/tmp/font-value-type-official-20261018/`，真实C收据保`.artifacts/tmp/font-string-abi-behavior-20261018/execution/`。官方首次派发前VM suspended/0张输出为环境STOP；恢复既有VM后只更新receiver/执行namespace再做一次语义实验，不改原场景。旧native loose-only载体因无packageReport未ready，补单entry容器后形成有效对照，不是字体故障。两类STOP、容器同字节证明和首测试失败不覆盖；正式证据归档仍待现有容量答复，VM保持运行。修前/修后板的停止input/HOME已清，旧f263 stage完成对照后按manifest/无句柄清244,050,803逻辑B；保一个正常候选stage与连续迭代构建缓存，不报物理磁盘释放或性能收益。
 
 <a id="ring-motion-qualification-20261018"></a>

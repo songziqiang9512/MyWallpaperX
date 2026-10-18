@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `34494afe4a1ea165e4e5742999f601bd2dfb89c1d414c89adaa6195846f8d1fc`。
-- 本页生成于 2026-10-18T04:19:20.741907+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `d7f27e1d259d5fa5096229b08973a27d8db31829db1dd8802f1b0d38a13a1feb`。
+- 本页生成于 2026-10-18T06:19:14.884913+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -177,7 +177,7 @@
 | `3389974179` | 落日与白皙的大腿 | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3395392965` | 请叫我帅锅-小姨定制 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3395777145` | 麻匪 光 音频识别 Media Player 16:9 16:10 21:9 | 74(26) bool 14 color 10 combo 5 scenetexture 1 slider 11 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 1… | 132(71) bool 22 color 17 combo 3 slider 47 text 40 textinpu… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
+| `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 1… | 132(71) bool 22 color 17 combo 3 slider 47 text 40 textinpu… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` | 2026-10-18原包短播放：人物/背景/文字可见，字体回调健康；头发后与身体动画仍未准备，2248→2252/2265→2269异常首因已锁MDLA000… |
 | `3420215721` | 麻匪 圈 媒体识别交互壁纸 Circle Media Player | 87(21) bool 12 color 9 combo 3 scenetexture 1 slider 21 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3435573282` | 麻匪 巳蛇 自定义动画 音频识别 Media Player | 82(23) bool 14 color 10 combo 2 slider 16 text 39 textinput… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 日期时间恢复，cursor owner collision 未闭合 |
@@ -346,7 +346,7 @@
 | `3807239614` | 清霄&心 | 4(0) bool 2 color 1 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3807436394` | Ronova | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3807553861` | Albedo - After the bath | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3807668787` | 霜翼剑使 | 2(0) color 1 text 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3807668787` | 霜翼剑使 | 2(0) color 1 text 1 | `not-run` | - | `not-run` | `unreviewed` | 2026-10-18头冠/音频原反馈保持已闭；958 A2C候选虽实际GPU绘制，未确认原包拖尾恢复。官方连续pointer末点短白线也未唯一归958；原型已… |
 | `3807861954` | 鬼方 カヨコ | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3809034761` | 白丝·斜身侧立[4K] | 24(19) bool 10 color 3 group 2 slider 9 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3809541486` | Moon Princess | 6(0) bool 5 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
