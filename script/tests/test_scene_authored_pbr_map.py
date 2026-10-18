@@ -10,6 +10,12 @@ def map_vectors():
               emission=[.25,.5,1,2],intensity=1,opacity=1,tint=[1,1,1],light=[0,0,1],normal=[0,0,1])
     specs=[('rg',{}),('metal',dict(bits=1)),('rough',dict(bits=2)),
            ('zero-metal',dict(bits=1,rgba=[0,128,77,128])),('zero-rough',dict(bits=2,rgba=[192,0,77,128])),
+           ('polished-alloy',dict(bits=2,rgba=[192,0,77,128],material=[1,.8],emission=None)),
+           ('renamed-silver-surface',dict(bits=2,rgba=[192,0,77,128],material=[1,.8],emission=None)),
+           ('polished-dielectric',dict(bits=2,rgba=[192,0,77,128],material=[0,.8],emission=None)),
+           ('small-positive-roughness',dict(bits=2,rgba=[192,1,77,128],material=[1,.8],emission=None)),
+           ('zero-map-component-disabled',dict(bits=2,allowed=0,rgba=[192,0,77,128],material=[1,.5],emission=None)),
+           ('zero-scalar-preserved-without-roughness-map',dict(bits=8,material=[1,0],emission=None)),
            ('emission-only-preserves-mr',dict(bits=8)),('all-three',dict(bits=11)),
            ('components-disabled',dict(bits=11,allowed=0)),
            ('no-header',dict(bits=0)),
@@ -52,11 +58,14 @@ def map_oracle(v):
         albedo=source[c]/source[3] if source[3]>0 else 0
         fresnel=.04*(1-m)+min(1,max(0,albedo))*m;spec=0
         if nl>0 and nv>0:
-            h=unit([a+b for a,b in zip(l,view)]);nh=max(0,min(1,dot(n,h)));a=max(.01,r*r)
-            D=a*a/(math.pi*(1+(a*a-1)*nh*nh)**2)
-            lam=lambda x:(math.sqrt(1+a*a*(1-x*x)/(x*x))-1)/2
-            G=1/(1+lam(nl)+lam(nv));fresnel+=(1-fresnel)*(1-max(0,min(1,dot(view,h))))**5
-            spec=math.pi*D*G*fresnel/(4*nl*nv)*nl
+            h=unit([a+b for a,b in zip(l,view)])
+            fresnel+=(1-fresnel)*(1-max(0,min(1,dot(view,h))))**5
+            if r>0:
+                nh=max(0,min(1,dot(n,h)));a=max(.01,r*r)
+                D=a*a/(math.pi*(1+(a*a-1)*nh*nh)**2)
+                lam=lambda x:(math.sqrt(1+a*a*(1-x*x)/(x*x))-1)/2
+                G=1/(1+lam(nl)+lam(nv))
+                spec=math.pi*D*G*fresnel/(4*nl*nv)*nl
         direct=((1-m)*(1-fresnel)*albedo*nl+spec)*source[3]*f(v['intensity'])*1.85*falloff
         emission=sample[3]*f(v['emission'][c])*f(v['emission'][3])*source[c] if bits&8 and v['emission'] else 0
         result.append(min(65504,max(0,(direct+emission)*f(v['tint'][c])*f(v['opacity']))))

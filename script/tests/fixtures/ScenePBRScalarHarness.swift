@@ -71,21 +71,34 @@ import simd
             check("material-\(m)-\(r)",metal:m,rough:r,source:SIMD4(0.5,0.25,0.125,1))
         }}
         for coverage:Float in [0,0.25,1] { for count in [1,4] {
-            check("half-domain-\(coverage)-\(count)",metal:1,rough:0,source:SIMD4(repeating:coverage),intensity:30,count:count)
+            check("half-domain-\(coverage)-\(count)",metal:1,rough:0.1,source:SIMD4(repeating:coverage),intensity:30,count:count)
         }}
-        check("extreme-finite-factors",metal:1,rough:0,intensity:1e38,tint:1e-20,opacity:1e-18)
-        check("zero-opacity",metal:1,rough:0,intensity:Float.greatestFiniteMagnitude,opacity:0)
-        check("zero-tint",metal:1,rough:0,intensity:Float.greatestFiniteMagnitude,tint:0)
+        check("extreme-finite-factors",metal:1,rough:0.1,intensity:1e38,tint:1e-20,opacity:1e-18)
+        check("zero-opacity",metal:1,rough:0.1,intensity:Float.greatestFiniteMagnitude,opacity:0)
+        check("zero-tint",metal:1,rough:0.1,intensity:Float.greatestFiniteMagnitude,tint:0)
         check("dielectric-black-specular",metal:0,rough:0.5,source:SIMD4(0,0,0,1))
         check("hdr-source-reflectance-bound",metal:0.5,rough:0.5,source:SIMD4(8,4,2,1))
         check("legacy-ambient-metal",metal:1,rough:0.5,source:SIMD4(8,4,2,1),intensity:0,ambient:0.5)
-        check("nonaxis-aligned-peak",metal:1,rough:0,light:SIMD3(0.6,0,0.8),view:SIMD4(0.6,0,0.8,0),normal:SIMD3(0.6,0,0.8))
+        check("nonaxis-aligned-peak",metal:1,rough:0.1,light:SIMD3(0.6,0,0.8),view:SIMD4(0.6,0,0.8,0),normal:SIMD3(0.6,0,0.8))
         check("coincident-light",metal:0,rough:0,light:.zero)
         check("tilted",metal:0.35,rough:0.42,light:SIMD3(0.3,0.2,1),view:SIMD4(-0.4,0.2,1,1),normal:SIMD3(0.6,0,0.8))
         check("perspective-eye",metal:0.35,rough:0.42,view:SIMD4(1,0,1,1))
         check("backside-view",metal:0,rough:0.1,view:SIMD4(0,0,-1,1))
         check("zero-view",metal:0,rough:0,view:.zero)
         check("grazing",metal:0.4,rough:0.3,light:SIMD3(1,0,0.001),view:SIMD4(-1,0,0.001,1))
+        func pixel(metal: Float, rough: Float) -> [Float] {
+            records.first { ($0["material"] as! [Float]) == [metal, rough] }!["actual"] as! [Float]
+        }
+        let zeroMetal = pixel(metal: 1, rough: 0), dielectric = pixel(metal: 0, rough: 0)
+        let diffuse = [Float(0.5), 0.25, 0.125].map { Float(Float16($0 * 0.96 * 1.85)) }
+        let contracts = [
+            "exactZeroMetalHasNoFiniteDirectLobe": zeroMetal == [0, 0, 0, 1],
+            "exactZeroDielectricRetainsDiffuse": zip(dielectric.prefix(3), diffuse).allSatisfy { pair in
+                abs(pair.0-pair.1) <= max(Float(Float16(pair.1).ulp), 0.002)
+            },
+            "positiveRoughnessStillHasFiniteSpecular": pixel(metal: 1, rough: 0.1).prefix(3).allSatisfy { $0 > 0 }
+        ]
+        precondition(contracts.values.allSatisfy { $0 }, "\(contracts)")
         var timing:[String:Any]=[:]
         if ProcessInfo.processInfo.environment["MWX_PBR_TIMING"] != nil {
             let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba16Float,width:256,height:256,mipmapped:false)
@@ -114,6 +127,6 @@ import simd
                 timing["legacyDiffuseMilliseconds"]=measure(old)
             }
         }
-        print(String(decoding:try JSONSerialization.data(withJSONObject:["cases":records,"count":records.count,"timing":timing],options:[.sortedKeys]),as:UTF8.self))
+        print(String(decoding:try JSONSerialization.data(withJSONObject:["cases":records,"count":records.count,"contracts":contracts,"timing":timing],options:[.sortedKeys]),as:UTF8.self))
     }
 }

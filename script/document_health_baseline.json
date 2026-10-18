@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 127722
+      "bytes": 128041
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 139888
+      "bytes": 140082
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68384
+      "bytes": 68396
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -165,8 +165,8 @@
       "bytes": 17214
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 536,
-      "bytes": 119798
+      "lines": 545,
+      "bytes": 122319
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 92,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 62718
+      "bytes": 62807
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1360,15 +1360,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "42d19de4b3543bd8fb81d88671ccf2bfd8dc16c6be00b3a610f72c1ea836c2f9",
-      "after": "ef9404b681e63e3d3cb1c78c1a0c03b9e2f27ddbab215eada8a0cb3bf53a8f14",
-      "owner": "scene-static-model-depth-pending",
-      "reason": "Record bounded typed depth-pool failure and one frame owner defer/cancel contract, real pending red/green and native observations with preserved failures; retain local self-capacity failures and open343 lighting/causal limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#mandatory-model-depth-pending"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
       "after": "47d74e31ee09f3d3ad8fec4cea4b257587978b63745cbf1a9c6a5ad9ca8e8121",
@@ -1396,33 +1387,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a4bc57c6c6357aae725aae1d49f0a73efebf8bb010f124c7c4257b980251310b",
-      "after": "e9cf77f36997fe4a49039d1f876e39b3933b055357f1fb855d2fc3b37c946b62",
-      "owner": "scene-lit-image-emission-albedo",
-      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "e8fd044e458d542329139f3a8a8382a76fd877dcd5c18f54eaf07b97e3d2e7b1",
-      "after": "d64244a9ef7c2bae0ffb5696eefdcd74ba960ddb2cc3de64b2e23673154baba7",
-      "owner": "scene-lit-image-emission-albedo",
-      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "a148eebe4ba7b38cb98146202fbae9b543788b21e7f96375b17e8eaf7d425b26",
-      "after": "950551e6d8bd494dfa43afdd9683eeaecf631e42a1b27c893d08dd278930d885",
-      "owner": "scene-lit-image-emission-albedo",
-      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "bd3d94b57bda8e7e18ad8be6756965b252f63fdc860879478825b654aeaf2a93",
       "after": "bfdc2834836b29f6540b57163eca0fd46232d64fc9bdc1ae1d8ed83b7971614e",
@@ -1432,12 +1396,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ef9404b681e63e3d3cb1c78c1a0c03b9e2f27ddbab215eada8a0cb3bf53a8f14",
+      "after": "8104b791432d7650c01bb46fef872f67d1d621925213136a19626adad8c6a541",
+      "owner": "scene-surface-zero-roughness",
+      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "e9cf77f36997fe4a49039d1f876e39b3933b055357f1fb855d2fc3b37c946b62",
+      "after": "248346deed886b0808149364a1137970a4d602a849d6f141b4cc62524564b624",
+      "owner": "scene-surface-zero-roughness",
+      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "d64244a9ef7c2bae0ffb5696eefdcd74ba960ddb2cc3de64b2e23673154baba7",
+      "after": "7bd957d28c44b578d64ce5972bf57a0d6c8bfa53d10b3bf0650d9fec633eb6f2",
+      "owner": "scene-surface-zero-roughness",
+      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "950551e6d8bd494dfa43afdd9683eeaecf631e42a1b27c893d08dd278930d885",
+      "after": "6c5bc0c21848d704e97732ed356dbebe5513175646d1f0d750fd51cd8615a3b0",
+      "owner": "scene-surface-zero-roughness",
+      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "aabcd77268905823df0f79774003c513a37920bda77368aa209c3f12508409ba",
-      "after": "b90a71764fffccee269acd7ae7b9e174026e704071cd81897f85f67a1ac5bd56",
-      "owner": "scene-lit-image-emission-albedo",
-      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
+      "before": "b90a71764fffccee269acd7ae7b9e174026e704071cd81897f85f67a1ac5bd56",
+      "after": "e15cd066cc1ae9dda948effd594558baa4ddfc9849b58944dae3e4dc33bfb764",
+      "owner": "scene-surface-zero-roughness",
+      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
     }
   ]
 }

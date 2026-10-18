@@ -37,8 +37,8 @@
     "3437487219": {
       "verdict": "fail",
       "reviewedOn": "2026-10-19",
-      "note": "10-19 2D emission基色修正使银河恢复橙调；Earth白热点/暗侧、偶发闪烁及collision仍开放，整样本fail保持。详见本条evidence后继。 2026-10-18用户补报（待当前身份复验）：地球高频闪烁；与旧cursor owner collision分开，尚未证同因。 旧记录：日期时间恢复，cursor owner collision 未闭合 10-19用户确认小窗不闪/全屏闪且颜色光影不同，随后确认最新depth候选全屏不闪；自有GPU门已闭他帧占槽导致局部漏画机制，原生候选两短窗不关闭偶发343。所有App0/正常stop/GPU排空，snapshot superseded原FAIL保留。",
-      "remainingDifferences": "Earth generic4颜色/光影与官方差异仍开放；Cloud并非已观察白热点的必要条件，Chroma字段缺口不等于已证根因。全屏间歇闪烁保时序/负载复验，最新候选用户无闪观察不等于永不再现。旧collision反馈独立保留，不由资源或2D emission修正关闭。",
+      "note": "10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail保持。前批2D emission已恢复银河橙调。 旧反馈与资源后验：2026-10-18用户补报地球高频闪烁，与cursor owner collision分开，未证同因；10-19先确认小窗不闪/全屏闪，后确认depth候选全屏不闪，不能据短窗闭偶发。日期时间恢复及pending漏画修正各保原范围，原snapshot superseded FAIL照保。",
+      "remainingDifferences": "圆白热点已由共享零端点策略在原包与独审有界退出；Earth夜侧仍偏亮、颜色/光影与目录官方有差异，VM Date/作者phase及HDR域未同条件资格。全屏间歇闪烁保时序/负载复验，旧collision独立保留；不因零端点、资源或2D emission修正关闭。",
       "reviewer": "Codex 原包屏幕帧短窗、用户目视反馈与独立资源审查；非完整官方对照",
       "runs": [
         ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/small/report.json",
@@ -48,7 +48,8 @@
       ],
       "evidence": [
         "docs/scene/history/static-model-depth-pending-2026-10-19.md",
-        "docs/scene/history/lit-image-emission-albedo-2026-10-19.md"
+        "docs/scene/history/lit-image-emission-albedo-2026-10-19.md",
+        "docs/scene/history/surface-zero-roughness-2026-10-19.md"
       ]
     },
     "3448845950": {

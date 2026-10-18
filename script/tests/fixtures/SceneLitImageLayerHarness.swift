@@ -107,14 +107,18 @@ enum Harness {
             var f = f0, spec = 0.0
             if nl > 0 && nv > 0 {
                 let h = simd_normalize(l+v), nh = max(0,simd_dot(n,h))
-                let a = max(0.01,roughness*roughness), a2 = a*a
-                let d = a2 / (Double.pi*pow(1+(a2-1)*nh*nh,2))
-                func lambda(_ cosine: Double) -> Double {
-                    (sqrt(1+a2*(1-cosine*cosine)/(cosine*cosine))-1)/2
-                }
-                let g = 1/(1+lambda(nl)+lambda(nv))
                 f = f0+(1-f0)*pow(1-max(0,min(1,simd_dot(v,h))),5)
-                spec = Double.pi*d*g*f/(4*nl*nv)*nl
+                // Exact zero has no finite raster specular sample. Its
+                // independently defined Fresnel/diffuse split still applies.
+                if roughness > 0 {
+                    let a = max(0.01,roughness*roughness), a2 = a*a
+                    let d = a2 / (Double.pi*pow(1+(a2-1)*nh*nh,2))
+                    func lambda(_ cosine: Double) -> Double {
+                        (sqrt(1+a2*(1-cosine*cosine)/(cosine*cosine))-1)/2
+                    }
+                    let g = 1/(1+lambda(nl)+lambda(nv))
+                    spec = Double.pi*d*g*f/(4*nl*nv)*nl
+                }
             }
             result[c] = Float(((1-metallic)*(1-f)*base*nl+spec)*Double(source.w))
         }

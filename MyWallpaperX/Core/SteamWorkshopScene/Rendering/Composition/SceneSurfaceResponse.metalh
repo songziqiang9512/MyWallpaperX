@@ -30,31 +30,35 @@ static SceneSurfaceWeights sceneSurfaceResponse(float3 normal, float3 view,
             const float3 halfway = normalize(light + view);
             const float noH = clamp(dot(normal, halfway), 0.0, 1.0);
             const float voH = clamp(dot(view, halfway), 0.0, 1.0);
-            const float slope = max(0.01, roughness * roughness);
-            const float a2 = slope * slope;
-            const float h2 = noH * noH;
-            const float distributionDenominator = (1.0 - h2) + a2 * h2;
-            const float scaledDistribution = a2 /
-                (distributionDenominator * distributionDenominator);
-            float weightedVisibility;
-            if (visibility == SceneSurfaceCorrelatedSmith) {
-                // Preserve the existing image arithmetic order exactly.
-                const float visibilityScale = max(noL, noV);
-                const float l = noL / visibilityScale, v = noV / visibilityScale;
-                const float visibilityDenominator = l * sqrt(a2 + (1.0-a2)*noV*noV)
-                    + v * sqrt(a2 + (1.0-a2)*noL*noL);
-                weightedVisibility = 0.5 * l / visibilityDenominator;
-            } else {
-                // Published analytic-light Schlick-Smith remap, fixed policy:
-                // k=(r+1)^2/8. GGX still uses alpha=r^2 above.
-                const float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-                const float l = noL * (1.0-k) + k;
-                const float v = noV * (1.0-k) + k;
-                weightedVisibility = noL / (4.0 * l * v);
-            }
             const float grazing = pow(1.0 - voH, 5.0);
             fresnel = f0 + (1.0 - f0) * grazing;
-            specularWeight = fresnel * (scaledDistribution * weightedVisibility);
+            // Exact zero describes a delta reflection, not a finite direct
+            // highlight. Retain its Fresnel/diffuse split at this raster owner.
+            if (roughness > 0.0) {
+                const float slope = max(0.01, roughness * roughness);
+                const float a2 = slope * slope;
+                const float h2 = noH * noH;
+                const float distributionDenominator = (1.0 - h2) + a2 * h2;
+                const float scaledDistribution = a2 /
+                    (distributionDenominator * distributionDenominator);
+                float weightedVisibility;
+                if (visibility == SceneSurfaceCorrelatedSmith) {
+                    // Preserve the existing image arithmetic order exactly.
+                    const float visibilityScale = max(noL, noV);
+                    const float l = noL / visibilityScale, v = noV / visibilityScale;
+                    const float visibilityDenominator = l * sqrt(a2 + (1.0-a2)*noV*noV)
+                        + v * sqrt(a2 + (1.0-a2)*noL*noL);
+                    weightedVisibility = 0.5 * l / visibilityDenominator;
+                } else {
+                    // Published analytic-light Schlick-Smith remap, fixed policy:
+                    // k=(r+1)^2/8. GGX still uses alpha=r^2 above.
+                    const float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+                    const float l = noL * (1.0-k) + k;
+                    const float v = noV * (1.0-k) + k;
+                    weightedVisibility = noL / (4.0 * l * v);
+                }
+                specularWeight = fresnel * (scaledDistribution * weightedVisibility);
+            }
         }
         diffuseWeight = (1.0-metallic) * (1.0-fresnel) * noL;
     }

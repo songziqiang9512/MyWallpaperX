@@ -174,6 +174,42 @@ def surface_storage_vectors() -> list[dict]:
         for profile, brightness, tint in itertools.product([False, True], [1, 100000], [1, 100000])]
 
 
+def zero_surface_vectors() -> list[dict]:
+    # Exact-zero direct specular is a delta, not a finite raster lobe. The
+    # remaining expectation uses only independent Fresnel, diffuse and lamp
+    # geometry; it contains no GGX distribution or visibility expression.
+    base = {key: value for key, value in surface_vectors()[0].items() if key != "expectedByte"}
+    rows = []
+    for lamp, metallic in itertools.product(["point", "spot", "directional"], [0, 1]):
+        rows.append(dict(base, name=f"polished-{lamp}-{metallic}", lamp=lamp,
+            surface=[metallic, 0], albedo=[.5, .25, .125], tint=[1, 1, 1],
+            lightIntensity=1.28 if lamp == "directional" else 2))
+    rows.append(dict(rows[0], name="renamed-angled-mineral", lightPosition=[.9, 0, .6],
+        cameraPosition=[-.9, 0, .6]))
+    rows.append(dict(rows[1], name="polished-metal-keeps-covered-ambient-emission",
+        opacity=.25, ambient=[.4, .6, .8], hasMask=True, maskAlpha=.5,
+        emissiveColor=[.25, .5, 1], brightness=2))
+    for row in rows:
+        toward_light = ([0, 0, 1] if row["lamp"] == "directional" else
+                        [x-y for x, y in zip(row["lightPosition"], [0, 0, .5])])
+        toward_view = [x-y for x, y in zip(row["cameraPosition"], [0, 0, .5])]
+        length = math.sqrt(sum(x*x for x in toward_light))
+        unit = lambda v: [x/math.sqrt(sum(y*y for y in v)) for x in v]
+        light, view = unit(toward_light), unit(toward_view)
+        halfway = unit([x+y for x, y in zip(light, view)])
+        voh = max(0, min(1, sum(x*y for x, y in zip(view, halfway))))
+        no_l = max(0, light[2])
+        attenuation = 1 if row["lamp"] == "directional" else max(0, 1-length/10)**2
+        metallic = row["surface"][0]
+        row["zeroDirect"] = []
+        for color in row["albedo"]:
+            f0 = .04*(1-metallic)+color*metallic
+            fresnel = f0+(1-f0)*(1-voh)**5
+            row["zeroDirect"].append(color*(1-metallic)*(1-fresnel)*no_l
+                * row["lightIntensity"]*attenuation/math.pi)
+    return rows
+
+
 def expected_pixel(vector: dict) -> list[float]:
     # The additive material contract was established by controlled official
     # renders; known-normal cases carry measured response weights independently.
@@ -188,6 +224,7 @@ def expected_pixel(vector: dict) -> list[float]:
             vector["albedo"], vector["ambient"], vector.get("skylight", [0, 0, 0]), vector["emissiveColor"]
         )
     ]
+    radiance = [value+direct for value, direct in zip(radiance, vector.get("zeroDirect", [0, 0, 0]))]
     density = vector.get("expectedFogDensity", vector.get("fogDensity"))
     if density is not None:
         radiance = [lit * (1.0 - density) + fog * density
@@ -360,7 +397,8 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
             SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
             SCENE / "Resources/Textures/SceneResourceBudget.swift",
         ]
-        cls.vectors = emission_vectors() + ambient_vectors() + distance_fog_vectors() + surface_vectors() + surface_storage_vectors()
+        cls.vectors = (emission_vectors() + ambient_vectors() + distance_fog_vectors()
+                       + surface_vectors() + surface_storage_vectors() + zero_surface_vectors())
         cls.report = run_swift(
             sources, "import Foundation\nimport Metal\nimport simd\n" + model_fixture.LIGHTING_STUB + PIXEL_MAIN,
             label="model-emission", metal_sources=[model_fixture.METAL_SOURCE], input_value=cls.vectors,

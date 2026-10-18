@@ -118,7 +118,7 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **相机与方向。** 接入已有SceneParticleCameraFrame，按现resolvesPerspective判定每层投影。透视从同帧eye与真实world receiver求view；正交沿SceneCameraProjection当前固定朝-Z视图取平行toward-viewer，不受native perspective basis或虚构有限eye干扰。位置继续完整model；normal继续size-free作者world basis；图片固有尺寸不得改变normal方向。相机平移、视场与resize沿当前frame owner更新，普通帧不解析JSON。
 
-**独立方案及备选。** 采用公开microfacet模型的GGX分布、Smith可见性和Schlick角度反射行为，由本项目独立编写；公开理论入口[Filament材质模型](https://google.github.io/filament/main/filament.html#materialsystem/specularbrdf)，不复制源码或私有数学。粗糙度决定高光宽度，金属度改变漫反射份额和镜面颜色；具体作者系数合成由N1/N2约束。选择height-correlated Smith可见性，包含其分母职责，受光余弦只乘一次。既有漫反射没有标准化因子，镜面项在原灯单位中对应校正一次，不能把旧灯强度改成另一套单位。微表面粗糙度下限为0.01，对应感知粗糙度不超过0.1的有限光斑；这是作者零值的项目数值策略，endpoint必须实际验证，不冒称官方。灯距离、强度和spot锥体保留既有owner。本片不改全局颜色政策。介电正对反射率采用项目固定0.04，金属镜面颜色由straight albedo混合；direct漫反射同时按非金属份额和该角度未被反射的能量份额减少，镜面响应单独累加（沿实施前独立方案，不保留纯diffuse的双计能量）；只有作为反射率输入的albedo限制在0…1，原diffuse/ambient的HDR源亮度不因该局部域截断，属于项目HDR扩展而非全链能量守恒声明。ambient保持旧近似，不随金属度压制、不当IBL。背向view或light、eye/light与receiver重合形成零方向时，镜面贡献为零，无法定义半向量时以正对反射率分配可定义的direct漫反射，ambient与normal保留，不拒整层。备选全屏后处理缺材质normal/enable/coverage；另建deferred或PBR框架增加无消费者职责，均不采用。环境资源只在后继有明确typed输入时引入。
+**独立方案及备选。** 采用公开microfacet模型的GGX分布、Smith可见性和Schlick角度反射行为，由本项目独立编写；公开理论入口[Filament材质模型](https://google.github.io/filament/main/filament.html#materialsystem/specularbrdf)，不复制源码或私有数学。粗糙度决定高光宽度，金属度改变漫反射份额和镜面颜色；具体作者系数合成由N1/N2约束。选择height-correlated Smith可见性，包含其分母职责，受光余弦只乘一次。既有漫反射没有标准化因子，镜面项在原灯单位中对应校正一次，不能把旧灯强度改成另一套单位。正粗糙度继续采用微表面粗糙度下限0.01的既有有限光斑数值策略；effective typed roughness为零时按下文[共享零端点](#surface-zero-roughness)处理，不再由该下限产生有限宽镜面高光。正值小于0.1的行为尚未取得官方对照，不据零端点实验更改。灯距离、强度和spot锥体保留既有owner。本片不改全局颜色政策。介电正对反射率采用项目固定0.04，金属镜面颜色由straight albedo混合；direct漫反射同时按非金属份额和该角度未被反射的能量份额减少，镜面响应单独累加（沿实施前独立方案，不保留纯diffuse的双计能量）；只有作为反射率输入的albedo限制在0…1，原diffuse/ambient的HDR源亮度不因该局部域截断，属于项目HDR扩展而非全链能量守恒声明。ambient保持旧近似，不随金属度压制、不当IBL。背向view或light、eye/light与receiver重合形成零方向时，镜面贡献为零，无法定义半向量时以正对反射率分配可定义的direct漫反射，ambient与normal保留，不拒整层。备选全屏后处理缺材质normal/enable/coverage；另建deferred或PBR框架增加无消费者职责，均不采用。环境资源只在后继有明确typed输入时引入。
 
 **alpha/HDR。** 当前source为premultiplied颜色；材质运算需要straight albedo时在非零coverage下取回，输出再覆盖一次，透明texel输出精确零。tint/作者opacity只施加一次。普通高于1的结果保留至既有D2映射。仅最终含coverage、tint和opacity的非负通道写入值超出RGBA16F有限域时饱和至65504，这是本producer的存储表示域裁决，不是clamp1或新增tonemap；不在乘coverage之前夹裸radiance。零贡献在可能溢出乘法之前成为零，稳定计算须区分正溢出与真正非法值，不能把NaN当亮值。RGBA16F溢出会在既有D2非finite处理变黑，是本裁决的实际风险产生者。独立oracle包含正对最光滑金属、近距离强度30的单灯及四灯、alpha0/0.25/1、零tint/opacity和finite极端强度配低coverage；禁止降低灯强使门变绿。无map builtin的旧纯diffuse由上述有效默认接管；Lighting0/custom/未准入route保留原行为。normal方向、格式、逐槽frame和尺寸独立性测试保留，新亮度须由独立材质oracle解释，不靠放宽容差迁就。
 
@@ -150,6 +150,15 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 **范围与验收。** 上述六产品职责外，`SceneMaterialPropertyBindingCompiler`以完整scalar的显式选项验证新profile，旧调用默认不变。材质值对象整体搬出，pipeline从959行降至833行，不制造wrapper。复用最近typed profile/copy/ABI、2D PBR scalar/normal/HDR门；隔离Debug及GPU由统一运行owner验证H1–H10、灰纹理pair、旧directional/legacy/shadow及2D不回退，独审后才能声明本片验收。缺optional profile不夺整层；原资源安全边界不放松。稳定职责已移交[运行时架构](../../architecture/runtime-architecture.md)，窄登记退役；[实现与有界验证](../../history/static-model-light-input-semantics-2026-10-06.md#model-surface-response)归历史，未证范围保留。
 
 **2026-10-10方向光消费补接（实施前决策）。** 同几何、相机、实际作者方向与强度的官方四法线黑盒对照中，唯一改变metallic从0到0.14，正受光面由238降至190；Native保持229，证明已准入profile在directional consumer被绕过。沿现有typed material及point/spot共用表面求值接入directional，删除该分量对已准入profile的旧旁路，不新建材质或光照算法。nil profile保持legacy；作者override、非法或动态MR保持既有准入/局部退出，不扩大shader准入。world/normal、shadow可见因子、ambient/emission、资源及唯一输出不迁移。验证限定同输入官方pair、无profile旧输出、point/spot及unlit/emission反例，再做冻结App的土星有影无Bloom与原完整包；若共享求值不能解释对照，停止该候选并继续定位，不用gain拟合。方向光新增消费与完整PBR/全样本parity分别验收。
+
+<a id="surface-zero-roughness"></a>
+### 共享表面零粗糙度端点（2026-10-19实施前决策）
+
+**问题与选择。** 343 Earth的已准入generic4静态MR为0/0、slot2只有emission；现`max(.01,r*r)`给零值生成有限宽高光。合法自有3D平面在官方2.8.0.42、同camera/light/metallic1下，只改roughness .5→0，两侧预登记非中心ROI从255降至0，plane与blue clear保持。Parallels原生窗口截图已通过正控；此前CLI全黑取图保留为失效捕获边界，不再推断渲染失败。实验只支持这个零端点，不证明精确NoH=1、亚像素镜面、HDR、环境反射、其它正粗糙度或真实Earth归因。
+
+**唯一职责与范围。** `SceneSurfaceResponse.metalh`继续是两类caller的唯一数学owner。只对已准入material的effective typed roughness==0定义有限像素direct specular为零；标量、合法2D map采样零值及原准备阶段已夹至零的有限负值遵守同一规则，不新增flag、ABI或caller分叉。合法NoL/NoV下仍计算现Schlick Fresnel，保持`(1-metallic)*(1-F)*NoL`漫反射，不能提前return整表面或把零改成default。只有GGX分布/visibility和镜面乘积位于正粗糙度分支，正值保既有floor与算序。缺profile/未受光、ambient/emission/reflection、coverage/tint、光单位/阴影、资源失败/取消和最终output不迁移。精确镜面delta在有限采样直接灯路径中取零是本项目明确数值策略，不声称测得官方奇点处理。
+
+**取舍、失败与验收。** 调灯强度、gain、normal或仅按模型分流无法保零值语义；为零另造全屏反射/面积灯积分没有当前输入与资源owner，均不采用。正值floor的进一步数值重构留待独立证据，不因本批扩大。最近2D/3D实际GPU消费者门先形成零镜面反例，再覆盖非金属漫反射、无profile/unlit、正粗糙度宽度和原HDR压力；原roughness0压力向量改用正.1并保独立zero断言，避免把变暗误记HDR修复。一次冻结Debug及原343实图检查是否消除热点、是否保地球/云层/银河，另用未参与修法的真实材质运行；若不能解释热点，保端点结果和余项，不调参拟合。独立审查、现役队列与能力证据同步后该职责由既有owner接管，不新增长期旁路；间歇闪烁与完整官方parity继续单独验收。
 
 ## F3 — slot2材质贴图与静态自发光（独立设计审查已批准）
 

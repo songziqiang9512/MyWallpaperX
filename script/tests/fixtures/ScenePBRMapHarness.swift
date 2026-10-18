@@ -32,7 +32,7 @@ import simd
             if let value { let raw=value.map(Float16.init);raw.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:8)} }
             return t
         }
-        func render(_ map:Capture.TextureInput,allowed:UInt32=11,material:SIMD2<Float> = SIMD2(0.2,0.8),
+        func render(_ map:Capture.TextureInput,allowed:UInt32=11,material:SIMD2<Float>? = SIMD2(0.2,0.8),
                     emission:SIMD4<Float>? = SIMD4(0.25,0.5,1,2),source:[Float] = [0.5,0.25,0.125,1],
                     intensity:Float=0,light:SIMD3<Float> = SIMD3(0,0,1),normal:SIMD3<Float> = SIMD3(0,0,1),
                     tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false)->[Float] {
@@ -68,6 +68,25 @@ import simd
             records.append(["name":v["name"]!,"actual":actual,"expected":expected,"pixelFormat":c.pixelFormat.rawValue])
         }
         var contracts:[String:Bool]=[:]
+        let zeroRoughTexel:[UInt8]=[192,0,77,128]
+        let zeroRoughBytes=Array(repeating:zeroRoughTexel,count:16).flatMap{$0}
+        let polished=load("polished-stone",tex(zeroRoughBytes,flags:UInt32(2)<<20))
+        let samePolished=load("independent-resource-name",tex(zeroRoughBytes,flags:UInt32(2)<<20))
+        let polishedInput=Capture.TextureInput.resolve(polished,kind:.materialMap)
+        let metalBlack=render(polishedInput,material:SIMD2(1,0.8),emission:nil,intensity:1)
+        contracts["zeroRoughMapMetalIsFiniteBlack"]=metalBlack == [0,0,0,1]
+        contracts["zeroRoughMapResourceRenameIsEquivalent"]=render(.resolve(samePolished,kind:.materialMap),material:SIMD2(1,0.8),emission:nil,intensity:1)==metalBlack
+        let matte=render(polishedInput,allowed:0,material:SIMD2(1,0.5),emission:nil,intensity:1)
+        contracts["disabledRoughnessComponentKeepsPositiveScalar"]=matte.prefix(3).allSatisfy{$0>0}
+        let dielectric=render(polishedInput,material:SIMD2(0,0.8),emission:nil,intensity:1)
+        let diffuseSource:[Float]=[0.5,0.25,0.125]
+        let zeroDiffuse=diffuseSource.map{Float(Float16($0*0.96*1.85))}
+        contracts["zeroRoughMapKeepsDielectricDiffuse"]=zip(dielectric.prefix(3),zeroDiffuse).allSatisfy { pair in
+            abs(pair.0-pair.1) <= 0.002
+        }
+        let legacy=render(polishedInput,material:nil,emission:nil,intensity:1)
+        contracts["legacySurfaceIgnoresZeroMap"]=legacy==render(.disabled,material:nil,emission:nil,intensity:1)
+            && zip(legacy.prefix(3),diffuseSource).allSatisfy{abs($0.0-Float(Float16($0.1*1.85)))<=0.002}
         let flags=UInt32(11)<<20
         let rgba=[UInt8(255),128,77,128]
         let valid=load("valid",tex(Array(repeating:rgba,count:16).flatMap{$0},flags:flags))

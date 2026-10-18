@@ -442,10 +442,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "54af8eabd67cc20f4046888dda59e908c933c7ddd8b6eedd154df5692464a67f",
+        "sourceSHA256": "44bace63d32d48c6bf4291987a7893b668b1c40ba0dc80d1aac11149490779d0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind bounded mandatory model-depth pending ownership, typed pool failures and unsubmitted-frame cancellation to F6; route mechanical red/green, preserved fixture failures, native343 observations and independent361 to their current authorities.",
-        "limitations": "Navigation and source receipt only; no full Host forced-busy execution, actual343 causal closure, lighting repair, official phase parity, complete compatibility or performance claim."
+        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
+        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "14af5811b02587e75cbf138e4eb3c072b70fc7f77e0173aa3ee03fa758a8be59",
+        "sourceSHA256": "c40c25ef9410b38198b564db9188e43a5b91dc169917217374e831c2504e2915",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
-        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
+        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
+        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "664ecc44b4404349e3e47cdc3f6a442fd6013aa62bb52011d222ff0e5c0b0865",
+        "sourceSHA256": "79f95314fb1d0a3dc7278bf07ce37f8e94d92f3421efe4fbdffd74c8e0ae8ce8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
-        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
+        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
+        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
       }
     },
     {
@@ -916,10 +916,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "243ede061a49c61c575ca949fbf14a6d46508feaf659f95f8962d3368d724352",
+        "sourceSHA256": "23f573176f7ce974ed99f17e525ebf0e018534efd1a2053b255219d6ceda5379",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
-        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
+        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
+        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
       }
     },
     {
@@ -3071,6 +3071,20 @@
       "cutoffDate": "2026-10-15"
     },
     {
+      "path": "docs/scene/history/surface-zero-roughness-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "官方native有正控的有界zero roughness端点、共享数学owner与三真实GPU consumer红绿；保类型夹具失败、原343圆白热点退出及夜侧余项、361 after-only和清理身份边界。"
+    },
+    {
       "path": "docs/scene/history/system-media-live-supply-verification-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3251,10 +3265,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "07f1a253dcb4d00e1ea445742a5e73f104ca0f4e4869d917efdbeae836d3109d",
+        "sourceSHA256": "a627477723485679a7544cb19cc3ea4f08cc6a7d12cab142bf2265a3042e014e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
-        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
+        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
+        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
       }
     },
     {
@@ -3475,10 +3489,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6e17b282cbb3f3f1bc6064f53e0c8217ab6fd95f056479e3cf262642dd4525f6",
+        "sourceSHA256": "e446967e93409848c4358e2a86b2bdec9edc8dfbb3b782040884cd2b0f064a9b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
-        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
+        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
+        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
       }
     },
     {
