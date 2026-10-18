@@ -121,8 +121,8 @@
       "bytes": 346842
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 308,
-      "bytes": 120016
+      "lines": 320,
+      "bytes": 122060
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 201,
-      "bytes": 53102
+      "bytes": 53768
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 45,
@@ -1406,11 +1406,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fecec80ab429c41480cbb13fb674d8ea9fd3f5b997aec6f4669a3fad4c9cebeb",
-      "after": "c016f17b18bdb270815aacfac82236613d3196b873de6ca40db647d0d1feaf36",
-      "owner": "scene-puppet-dense-reference-tracks",
-      "reason": "Bounded neutral-track design and actual original/heldout playback evidence; obsolete open first fault retired, full-sample verdict preserved.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-dense-reference-tracks"
+      "before": "c016f17b18bdb270815aacfac82236613d3196b873de6ca40db647d0d1feaf36",
+      "after": "88f232073b7d997c2aca7cea8de9ba08ee850e5b44261065092d7f9b7beb89a0",
+      "owner": "scene-visible-ring-qualification",
+      "reason": "Three bounded actual source/visibility qualifications replace stale conclusions; prior dense counters condensed and full raw/STOP/independent evidence retained. No authority or runtime scope expansion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u11-visible-ring-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "43aa50f055e12e822650ed5e618951ce6db07a603021af1ebd7a9c888223f4cb",
+      "after": "bec0de7a37b5b07fb554b0c9887f2e8f14dc27f72f145eeaecbad4d29d3d2d25",
+      "owner": "scene-visible-ring-qualification",
+      "reason": "Three bounded actual source/visibility qualifications replace stale conclusions; prior dense counters condensed and full raw/STOP/independent evidence retained. No authority or runtime scope expansion.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#u11-visible-ring-20261018"
     }
   ]
 }

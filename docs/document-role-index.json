@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e76c4253885794ef33f6ae8ffff7ac010b4bfdff417a434c59a41c9bb6de329b",
+        "sourceSHA256": "9becdf99816ebd00a2b2ad0616e18371208cc53031ced188ca32d15b4df36c75",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Maintain bounded modern neutral-track contract, actual original and heldout evidence, retired first fault and generated unreviewed sample note. Existing authority and archive navigation retained.",
-        "limitations": "Navigation and current bounded-result maintenance; no full sample, arbitrary state1, exact official phase or performance claim."
+        "scope": "Maintain actual335 STOP, U10 visible-ring qualification and U11 source-isolation boundaries; condense duplicate prior dense counters with original evidence retained.",
+        "limitations": "No full sample, exact audio/phase/viewport parity, authored Sprite unit conclusion or performance claim."
       }
     },
     {
@@ -3409,10 +3409,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "12d86351d154abc492d48d65895dcd3a6737f2c9c3f6600f70337519274bde7a",
+        "sourceSHA256": "255ff26147f6ef0dbf6578f9608b7e593790d258a39fc7fd5923e8f7f5641183",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Maintain bounded modern neutral-track contract, actual original and heldout evidence, retired first fault and generated unreviewed sample note. Existing authority and archive navigation retained.",
-        "limitations": "Navigation and current bounded-result maintenance; no full sample, arbitrary state1, exact official phase or performance claim."
+        "scope": "Maintain actual335 STOP, U10 visible-ring qualification and U11 source-isolation boundaries; condense duplicate prior dense counters with original evidence retained.",
+        "limitations": "No full sample, exact audio/phase/viewport parity, authored Sprite unit conclusion or performance claim."
       }
     },
     {

@@ -87,7 +87,7 @@
 
 | 样本 | 用户观察 / 下一关闭门 |
 |---|---|
-| 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 巨大斜片、白环贴合与空透明源2000²首门已闭；文字精确对齐仍partial。可见跨度38.849s短于41.888s周期，静音又使三路opacity=0，不能合拼。读源确认碟片/两环为同parent下独立TRS/Spin，不能强制同速同心；缺作者字体走stock合法替代，尚无同帧raster/slot尺寸证据，不能把字体差异当漂移根因。后继须有可见、稳定输入、有效时序及实际consumer几何；[最近资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018)，[已闭源语义](../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。 |
+| 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 巨大斜片、白环贴合与空透明源2000²首门已闭；文字精确对齐仍partial。最长可见跨度38.849s仍短于41.888s周期。恒定PCM后继短门已证三路opacity与稳定distance、可读文字；人工复核写回超时使控制器终止，不能拼接或认整周期。碟片/两环有独立TRS/Spin，缺字体走合法替代；不强制同速同心、不从glyph包围框判漂移。待取得同帧slot1/最终几何及可归因ROI，不重复静音或人工短期限载体；[最近资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018)，[已闭源语义](../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。 |
 
 <a id="qv-cccea6c-user-report"></a>
 
@@ -102,8 +102,8 @@
 | U01 · 3764725758 | ①左侧斜光；②眼睛飘动仍保留。10-18当前HEAD复验已证830/1706实际Program、GPU、末合成及next-frame，未见准入首拒；窗口与官方比例不同，未确定可归因光束ROI，不改增益/点位。眼部未作完整周期复验。[有界复验](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018)；后继成员源同最终App两组/上部构图保持，未关闭本行两项。[组源后验](../capabilities/runtime-evidence-current.md#composition-member-bounds-20261018) |
 | U02 · 3549827466、3585542943、3581882134、3603711180 | 354于10-18当前HEAD复验：1226实际完成143批/672实例、无失败，主体/背景保持；尚无同viewport可归因缺光ROI，不按族名补算法。其余三包未随本次复验，仍分别核来源、geometry/coverage与最终ROI。[边界](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
 | U05 · 3723344874 | 人物背后烟雾/涡动仍开放。10-18单帧双Dye的R/A有效、历史copy/交换及后级读回成立；后继静态核实际末combine消费交换前Dye版本、R取gradient+A作权重、原UV与transfer，未发现绑定首错，stock gradient本身A全满。下一门须以合格同帧空间分布、实际uniform与可归因ROI区分；mask/历史可在发射区外贡献，不能凭一个预期质心判错。不重查是否生成、重复绑定审查或盲加时/增益。[内容及消费边界](../capabilities/runtime-evidence-current.md#u05-fluid-content-20261018) |
-| U10 · 3793998447 | 音频光圈和部分属性疑似缺失；先列具体active属性与typed消费者，不能从面板有声明推全部失效 |
-| U11 · 3792249095 | 音频发光缺失、整体样式差异；先同声源定位驱动→effect/颜色/合成与具体构图ROI |
+| U10 · 3793998447 | 默认头外白细环缺失在10-18原包混合PCM复验未再现，23/25与20/51已实际Program/GPU/末合成及下一帧。旧音频响应与具体属性差异仍待同输入定位；七项有源绑定不等于已验编辑，低频总量不代64[0]。不再排“整环Program不支持”；[当前资格](../capabilities/runtime-evidence-current.md#u10-active-ring-20261018)。 |
+| U11 · 3792249095 | 10-18原包主亮内三角在白月牙内侧，官方主亮圈在外侧，外围暗圈仍在。254-off与233-off均未去掉主体图案，前者改变全景亮度；底图本含图案，alpha0亦不等于关闭。三run实际执行/正常排空，但音源/phase未齐，不据此改相机、半径或涡旋系数；公共Sprite size单位另作独立资格，非既定根因。[当前资格](../capabilities/runtime-evidence-current.md#u11-visible-ring-20261018)。 |
 | U13 · 3042492564 | 尺寸/显示比例、光束形状、封面右裁切/blur、布局及媒体交互分别保留待当前条件复验。10-16原包默认倍率0.73→1→0.73同窗可见，星芒/海平线/塔底恢复，官方同aspect主体尺度接近；这关闭旧倍率输入首门，不代替最新尺寸观察或其他ROI。1128非有限origin也已修；544作者ReferenceError:event不列host缺口。[camera边界](../history/default-2d-camera-inputs-2026-10-16.md)、[Vec证据](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md) |
 | U14 · 2932157836 | 封面、时钟及named-user旋转首门已闭；10-18原包102/272跨owner取消异常及后续disabled也已退出。同媒体/八点快速轨迹继续接收事件并回收，另一次持续hover正控实际展开标题条、离开后收回，正常排空；不是完整来源/官方phase验收。这里只保旧blur/精确spin样式及媒体来源仲裁差异，不重修timer身份门。[取消后验](../capabilities/runtime-evidence-current.md#shared-timer-cancellation-20261018)、[named-user证据](../history/named-user-pass-scalar-2026-10-16.md) |
 | U15 · 3299228616 | ①hover水波弱；②时钟上方矩形独立运动。分别核pointer输入与graph/变换/相机/合成空间，不抬gain掩盖 |

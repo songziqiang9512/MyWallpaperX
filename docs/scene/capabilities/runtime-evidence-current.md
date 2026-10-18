@@ -195,15 +195,11 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 ### 现代dense常量参考轨道：有界准备与播放（2026-10-18）
 
-原339的2248→2252、2265→2269 lookup异常首错在更早MDLV0023/MDLA0006逐骨state1拒绝。旧字节诊断只证exact end，旧固定官方单header两臂的眼部变化否定“1直接当0”；原资格、四raw与失败保在`.artifacts/tmp/constant-dense-state1-20261018/official/`及原339资格，不改判全格式语义。后继两模型五clip共38条state1均为常量、矩阵与bind最大差7.45e-8，只是输入事实。
+原339的2248→2252、2265→2269 lookup异常首错是MDLV0023/MDLA0006逐骨state1拒绝。两模型五clip的38条state1为常量、与bind矩阵最大差7.45e-8；输入事实不能定义全格式语义。固定官方2.8.0.42 A0/B1只改骨9 header，其origin/Mat4.translation从(57.1123,11.2236,0)变为(116.7366,122.9255,0)，骨0/12保持、眼由棕片闭合到露出，排除整clip重置；误差≤0.00004805、健康live/两帧及118输入无漂移成立。七行panel超预计ROI，只读完整raw，没有重拟合。此结果仅支持逐轨reference-like；其他初始参考、assembled reference及变化payload仍unknown，B1非bind payload不在产品准入内。
 
-新固定官方2.8.0.42 A0/B1各一次，以同一只读observer显示实际local origin及Mat4.translation：A0骨9为(57.1123,11.2236,0)，0/12分别(703.8498,-754.0087,0)/(39.8333,112.6611,0)；B1只改9 header后其两getter均为(116.7366,122.9255,0)，0/12保持。N13、live49→77/103→133与两帧健康成立，数值误差≤0.00004805，小于预锁.01；眼由棕片闭合到露出，排除本输入整clip重置。七行实际y204..324超预计panel，按完整raw读取，没有移动或重拟合，不称固定ROI全覆盖。118执行输入无漂移、自有窗口close0后运输/guest清理/receiver5924保持；summary SHA`530d05d6…effc84`。只证逐轨reference-like，bind与接近的其他初始参考、独立assembled reference、变化payload仍未区分；B1非bind payload本身不在产品准入内。
+[唯一中性profile合同](advanced-object-coverage.md#puppet-dense-reference-tracks)复用Reader→显式IR→Evaluator/Playback。三最近门80PASS/1旧realcache缺席skip、24输入/14Swift无漂移；首controller import错误发生于0编译/0测试并保留。固定87a5bb128加五产品源normal Debug35.371s/4311输入无漂移/签名0，App`16a80fc1…6b4a2`/dylib`2bbdfeff…41b6b`，不含并行shader/cache改动，独审GO。原339三输入19s/after16实际骨5/20准备、四init stop→四event play，含2252/2269，目标frame推进/loop；两层各144份geometry/GPU完成、无失败，末effect3/5及下一帧合成成立。根亲看三raw：人物/头发/身体、背景/运动字保持，旧lookup首错退出。旧5d0e只复用同Puppet源的首错证明，非整App或性能基线。独立原322同App、48输入10s/after7，侧眼、中央脸颈/身体、mask/背景保持，不关闭旧手部或同phase/viewport余项。两run均App0/无观察VM失败或身份漂移、stop1→0/GPU排空/进程组退出，不记整样本/全部参数通过。
 
-[唯一中性profile合同](advanced-object-coverage.md#puppet-dense-reference-tracks)复用Reader→显式IR→唯一Evaluator/Playback；五产品freeze`47404778…c981`。最近reader/weights/playback三门80PASS/1旧realcache缺席skip，24输入/14Swift/三次编译无漂移，预启动controller import错误发生于0编译/0测试并保留；无产品失败。固定87a5bb128加五产品的一次normal Debug35.371s/4311输入无漂移/签名0，只同步5文件并保4306mtime；App`16a80fc1…6b4a2`/dylib`2bbdfeff…41b6b`/CDHash`4a0b44218d5cbab3d29d86b8c277520f5a28ace4`。不含并行shader/cache改动，独审GO，无性能比较。
-
-原339未改三输入，19s/after16/series10实际两层prepared骨5/20；frame0四init stop、frame15四event play含2252/2269，后续各目标currentFrame推进/loop。两层各144个不同geometry digest、144GPU completed/0failed，末effect3/5在frame0/1及后期实际compositorConsumed=true；根亲看三raw及旧静态图，人物/头发/身体、背景/运动字保持，旧lookup异常退出。67.090s/App0/VM失败0。旧5d0e失败仅复用20个相同Puppet源与三原输入的首错证明，不作整App或性能基线。独立原322的48输入同App10s/after7，侧眼、中央脸颈/身体与mask/背景保持，63.193s/App0/VM失败0；不同viewport/phase不认官方精确parity，不关闭旧手部余项。两run均无身份漂移、stop1→0/GPU排空/进程组消失；controller0之外另按日志、pose、GPU和原图裁决，不记整样本/全部参数验收。
-
-必要原图、首失败、冻结/构建/最终收据保`.artifacts/tmp/constant-dense-state1-20261018/`，Swift测试收据归`.artifacts/tmp/puppet-dense-reference-tracks-20261018/tests/attempt01/`。官方88份host副本162716194B及停止的native输入/HOME和旧a7e3 stage625350903B已按manifest/零句柄清理；保唯一16a80fc1 stage与原单份source/DerivedData缓存，VM保持运行，正式归档待既有容量答复。没有CPU/GPU、内存、启动或能耗收益结论。
+官方原图、首失败、冻结/构建/最终收据保`.artifacts/tmp/constant-dense-state1-20261018/`，observer summary SHA`530d05d6…effc84`；Swift收据保`.artifacts/tmp/puppet-dense-reference-tracks-20261018/tests/attempt01/`。官方副本及停止native输入/HOME/旧a7e3 stage已按manifest/零句柄清理，保唯一16a80fc1 stage、单份source/DerivedData缓存与运行VM；正式归档待既有容量答复。无CPU/GPU、内存、启动或能耗收益结论。
 
 <a id="asset-path-string-values-20261018"></a>
 
@@ -221,7 +217,23 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 ### 文字环与挂点运动资格（2026-10-18）
 
-未改产品、未新增App运行。3351179520的碟片21、白环103和文字393在4785下各有独立TRS/Spin，393消费333文字provider；缺作者Atami走stock PoppinsMedium合法替代。字体raster尺寸可能影响CircularText自动尺度，但没有同帧raster/slot1/最终MVP，不能据此解释固定文字的周期漂移；原可见跨度不足整周期、静音opacity为零的STOP保持。3769688830的47黄球有合法单向UV Spin，同时从Puppet父21取得世界挂点运动；目录预览只见头肩，不够定位用户“玩偶”ROI/运动。两项均不改作者速度/中心、不认已修或作者设计，后继先取得可区分的实际consumer/目标ROI。中性收据分别保`.artifacts/tmp/335-text-ring-owner-qualification-20261018/qualification.json`与`.artifacts/tmp/u33-rotation-qualification-20261018/qualification.json`，无性能或整样本结论。
+首次只读资格未改产品：3351179520的碟片21、白环103和文字393在4785下各有独立TRS/Spin，393消费333文字provider；缺作者Atami走stock PoppinsMedium合法替代。字体raster尺寸可能影响CircularText自动尺度，但没有同帧raster/slot1/最终MVP，不能据此解释固定文字的周期漂移；原可见跨度不足整周期、静音opacity为零的STOP保持。3769688830的47黄球有合法单向UV Spin，同时从Puppet父21取得世界挂点运动；目录预览只见头肩，不够定位用户“玩偶”ROI/运动。两项均不改作者速度/中心、不认已修或作者设计，后继先取得可区分的实际consumer/目标ROI。中性收据分别保`.artifacts/tmp/335-text-ring-owner-qualification-20261018/qualification.json`与`.artifacts/tmp/u33-rotation-qualification-20261018/qualification.json`，无性能或整样本结论。
+
+恒定1500Hz PCM后继复用签名App`16a80fc1`（固定87a5bb加五个Puppet源，非整个be349/并行改动），原67输入未改；ready后短门取得可读文字、三路足额opacity、至少0.5s稳定distance及实际Program/GPU/末合成。根亲看原图，但写回超过预设16s期限，控制器仅终止本轮进程；exit−15、进程组已退、无观察VM失败/身份漂移，无正常stop/GPU排空。实际after→series仅4.379s，**不是完整周期或产品退出故障**；不与此前两轮合拼，不关闭原对齐反馈，也不再重试同载体。失败/原图/晚decision及独审保`.artifacts/tmp/335-tone-visible-cycle-20261018/native/original335/`；停止input/HOME已按manifest核验清理，借用App/构建缓存和VM保留。
+
+<a id="u10-active-ring-20261018"></a>
+
+### U10默认音频细环资格（2026-10-18）
+
+未改产品，复用同一`16a80fc1`及现有`run_sample`，原3793998447默认属性、混合PCM一次8s/after5s；23/25与20/51实际Program/GPU/末合成和下一帧成立。根对照原after与目录官方截屏，两者头部左上白细环均清楚，人物/背景/底部字保持；默认“完全缺环”未再现，不重开整环shader准入。App0、无工具失败/输入或App漂移，stop1→0/GPU排空；工具PASS只属本次资格，整样本verdict不改、无性能结论。
+
+源定义七项各有绑定：环的亮度/半径/抑制/频率两界/颜色及Iris速度；这些默认值推导不是实际编辑验收，schemecolor无Scene消费者不计丢失。实际typed事件记录左64档uniform的第0格0.00214334042进入frame8；这是一次真实非零消费，不能由此或left64LowSum认定完整音频响应。旧响应/具体属性差异与同viewport/phase仍未验。原图/结果与源资格保`.artifacts/tmp/u10-active-ring-qualification-20261018/`，必要产物限量暂存任务目录。
+
+<a id="u11-visible-ring-20261018"></a>
+
+### U11亮紫能量与形态落点资格（2026-10-18）
+
+同一`16a80fc1`一次原3792249095默认属性、混合PCM，12s/after8：233/250两粒子层非空，各完成330帧GPU、0failed；254四effect实际Program/GPU，末级及下一帧参与合成。**254源alpha=0不等于关闭**，其CRT会独立增加输出alpha。根与独审看native ready/after及目录官方两图：外围暗紫圈仍在，但主亮内三角/亮点位于白月牙内侧，官方主亮大圈位于外侧；不能据此叫250半径缩小或全局相机错误。仅254-off、仅233-off的两派生均只在scene插入16B visible字段，其余39个PKG payload和21个输入保持；前者内三角仍在、外围圈/文字变亮，后者实际233 false且仅250非空，主体图案仍在。底图17本含图案，不按层名归因。三run均App0/无工具失败、漂移[]、stop1→0/GPU排空。音源/phase未同官方，不改作者半径、亮度或涡旋近似；公共Sprite绝对size单位另用独立标尺资格，非既定根因。原图、派生proof和`source-qualification.json`保`.artifacts/tmp/u11-visible-ring-qualification-20261018/`；不是整样本、算法或性能验收。
 
 <a id="u05-fluid-content-20261018"></a>
 
