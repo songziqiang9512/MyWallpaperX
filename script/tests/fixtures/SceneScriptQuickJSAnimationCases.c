@@ -589,15 +589,18 @@ void mwx_fixture_effect_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     );
     mwx_scene_quickjs_owner_destroy(seed_false_owner);
 
-    // Effect visibility participates in the same frame commit/discard as
-    // layer mutations, including callbacks that return a recoverable error.
+    // Effect visibility participates in the same frame commit/discard as layer
+    // mutations. Per e-2026-10-16-bool-return, normal non-Bool returns keep the
+    // journal; an actual throw discards it and disables that owner. Successful
+    // callbacks rejected by the host remain the separate recoverable case.
     const char *visibility_transaction_sources[] = {
         "export function update(value) { thisObject.visible = !thisObject.visible; return value; }",
-        "let first=true; export function update(value) { if(first) { first=false; thisObject.visible=false; return 'bad'; } return thisObject.visible; }",
+        "export function update(value) { thisObject.visible=false; throw new Error('visibility callback failure'); }",
         "export function mediaThumbnailChanged(event) { thisObject.visible = !thisObject.visible; }",
         "let first=true; export function update(value) { if(first) { first=false; return false; } return thisObject.visible; }",
+        "export function update(value) { thisObject.visible = !thisObject.visible; return 'normal non-Bool'; }",
     };
-    for (size_t test = 0; test < 4; ++test) {
+    for (size_t test = 0; test < 5; ++test) {
         const char *source = visibility_transaction_sources[test];
         MWXSceneQuickJSResult visibility_creation = MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
         MWXSceneQuickJSOwner *visibility_owner =
@@ -615,9 +618,33 @@ void mwx_fixture_effect_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
         );
         if (test == 1) {
             fixture->failures += mwx_fixture_update_effectful_bool(visibility_owner, 149, 1,
-                MWX_SCENE_QUICKJS_BAD_RETURN, 0, "visibility failed write");
+                MWX_SCENE_QUICKJS_EXCEPTION, 0, "visibility failed write throws");
+            fixture->failures += mwx_fixture_check(
+                !mwx_scene_quickjs_owner_has_staged_effect_visibility(visibility_owner) &&
+                    mwx_scene_quickjs_owner_layer_mutation_count(visibility_owner) == 0,
+                "visibility failure exposes no journal", fixture->diagnostic
+            );
             fixture->failures += mwx_fixture_update_effectful_bool(visibility_owner, 149, 1,
-                MWX_SCENE_QUICKJS_OK, 1, "visibility failed write discarded on retry");
+                MWX_SCENE_QUICKJS_DISABLED, 0, "visibility throw disables the failed owner");
+            mwx_scene_quickjs_owner_destroy(visibility_owner);
+            const char *healthy_source =
+                "export function update(value) { return thisObject.visible; }";
+            visibility_owner = mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+                fixture->domain, healthy_source, strlen(healthy_source), 149, 100000,
+                &visibility_creation, fixture->diagnostic, sizeof(fixture->diagnostic)
+            );
+            fixture->failures += mwx_fixture_check(visibility_owner != NULL,
+                "visibility healthy successor compile", fixture->diagnostic);
+            if (visibility_owner == NULL) continue;
+            fixture->failures += mwx_fixture_configure_owner_layer(visibility_owner, 17,
+                "visibility healthy successor identity");
+            fixture->failures += mwx_fixture_check(
+                mwx_scene_quickjs_owner_configure_effect_visibility_target(
+                    visibility_owner, 17, 2, true, fixture->diagnostic, sizeof(fixture->diagnostic)
+                ) == MWX_SCENE_QUICKJS_OK, "visibility healthy successor target", fixture->diagnostic
+            );
+            fixture->failures += mwx_fixture_update_effectful_bool(visibility_owner, 149, 1,
+                MWX_SCENE_QUICKJS_OK, 1, "visibility healthy successor reads the uncommitted original seed");
         } else {
             if (test == 2) fixture->failures += mwx_fixture_media_thumbnail(visibility_owner, 149, 1,
                 MWX_SCENE_QUICKJS_OK, "visibility event toggles authored seed");

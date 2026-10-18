@@ -617,9 +617,9 @@ void mwx_fixture_owner_failure_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "bad return retries instead of disabling"
     );
 
-    // Author scripts return numbers from Boolean property updates (corpus:
-    // 3662790108 layers 859/860 pump shared state through visible updates);
-    // JS assignment semantics coerce by truthiness, NaN -> false.
+    // The 10-16 fixed official Bool-return contract accepts only Boolean values:
+    // runtime-evidence-current.md#e-2026-10-16-bool-return. Other normal returns
+    // preserve the input; they are neither truthiness coercions nor failures.
     const char *number_return_source =
         "export function update(value) { return value ? 0 : 0.75; }";
     MWXSceneQuickJSResult number_return_result = MWX_SCENE_QUICKJS_OK;
@@ -635,12 +635,12 @@ void mwx_fixture_owner_failure_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "number return compile", fixture->diagnostic
     );
     fixture->failures += mwx_fixture_update_bool(
-        fixture->number_return, 15, 1, MWX_SCENE_QUICKJS_OK, 0,
-        "number return 0 coerces to false"
+        fixture->number_return, 15, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "number return 0 preserves true input"
     );
     fixture->failures += mwx_fixture_update_bool(
-        fixture->number_return, 15, 0, MWX_SCENE_QUICKJS_OK, 1,
-        "number return 0.75 coerces to true"
+        fixture->number_return, 15, 0, MWX_SCENE_QUICKJS_OK, 0,
+        "number return 0.75 preserves false input"
     );
 
     const char *nan_return_source =
@@ -657,12 +657,12 @@ void mwx_fixture_owner_failure_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "NaN return compile", fixture->diagnostic
     );
     fixture->failures += mwx_fixture_update_bool(
-        fixture->nan_return, 16, 1, MWX_SCENE_QUICKJS_OK, 0,
-        "NaN return coerces to false"
+        fixture->nan_return, 16, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "NaN return preserves true input"
     );
     fixture->failures += mwx_fixture_update_bool(
-        fixture->nan_return, 16, 0, MWX_SCENE_QUICKJS_OK, 1,
-        "Infinity return coerces to true"
+        fixture->nan_return, 16, 0, MWX_SCENE_QUICKJS_OK, 0,
+        "Infinity return preserves false input"
     );
 
     const char *string_return_source =
@@ -679,8 +679,12 @@ void mwx_fixture_owner_failure_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "string return compile", fixture->diagnostic
     );
     fixture->failures += mwx_fixture_update_bool(
-        fixture->string_return, 17, 1, MWX_SCENE_QUICKJS_BAD_RETURN, 0,
-        "string return still rejected for Boolean owner"
+        fixture->string_return, 17, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "string return preserves true input"
+    );
+    fixture->failures += mwx_fixture_update_bool(
+        fixture->string_return, 17, 0, MWX_SCENE_QUICKJS_OK, 0,
+        "string return preserves false input"
     );
 
     fixture->budget = mwx_scene_quickjs_owner_create(
