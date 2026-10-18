@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import Metal
 
 /// Immutable launch-prepared resources for direct `objects[].model` layers.
@@ -10,7 +9,6 @@ struct ScenePreparedStaticModelResources {
         let modelPath: String
         let materialPath: String
         let dynamicMaterialPath: String
-        let geometryIdentity: String
         let mesh: SceneStaticModelMesh
         let albedo: SceneTextureCandidate?
         let namedAlbedo: SceneNamedTextureReference?
@@ -55,7 +53,6 @@ struct ScenePreparedStaticModelResources {
 
         struct PreparedGeometry {
             let materialPath: String
-            let geometryIdentity: String
             let mesh: SceneStaticModelMesh
         }
 
@@ -96,7 +93,7 @@ struct ScenePreparedStaticModelResources {
                     ) else { return nil }
                     return PreparedGeometry(
                         materialPath: part.materialPath,
-                        geometryIdentity: geometryIdentity(part), mesh: mesh
+                        mesh: mesh
                     )
                 }
                 geometryByPath[modelIdentity] = preparedGeometries
@@ -159,7 +156,6 @@ struct ScenePreparedStaticModelResources {
                     modelPath: modelPath,
                     materialPath: preparedGeometry.materialPath,
                     dynamicMaterialPath: identity(preparedGeometry.materialPath),
-                    geometryIdentity: preparedGeometry.geometryIdentity,
                     mesh: preparedGeometry.mesh,
                     albedo: albedo,
                     namedAlbedo: namedAlbedo,
@@ -181,43 +177,6 @@ struct ScenePreparedStaticModelResources {
     private static func identity(_ path: String) -> String {
         path.replacingOccurrences(of: "\\", with: "/")
             .localizedLowercase
-    }
-
-    private static func geometryIdentity(
-        _ model: SceneMdlStaticModel
-    ) -> String {
-        // Preserve the canonical words without duplicating an entire large
-        // model while its decoded geometry and GPU buffers are still live.
-        var hasher = SHA256()
-        var data = Data()
-        let chunkSize = 64 * 1_024
-        data.reserveCapacity(chunkSize)
-        func appendWord(_ word: UInt32) {
-            var value = word.littleEndian
-            withUnsafeBytes(of: &value) { data.append(contentsOf: $0) }
-            if data.count == chunkSize {
-                hasher.update(data: data)
-                data.removeAll(keepingCapacity: true)
-            }
-        }
-        for vertex in model.vertices {
-            for value in [
-                vertex.position.x, vertex.position.y, vertex.position.z,
-                vertex.normal.x, vertex.normal.y, vertex.normal.z,
-                vertex.tangent.x, vertex.tangent.y,
-                vertex.tangent.z, vertex.tangent.w,
-                vertex.uv.x, vertex.uv.y,
-            ] {
-                appendWord(value.bitPattern)
-            }
-        }
-        for index in model.indices {
-            appendWord(index)
-        }
-        hasher.update(data: data)
-        return hasher.finalize().map {
-            String(format: "%02x", $0)
-        }.joined()
     }
 
     private static func writesDepth(_ value: String?) -> Bool {

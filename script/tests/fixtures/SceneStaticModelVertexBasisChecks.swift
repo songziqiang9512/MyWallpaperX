@@ -206,7 +206,7 @@ enum SceneStaticModelVertexBasisChecks {
         let texture = target(device), cb = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: texture,
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
-        let state = SceneMetalRenderer.StaticModelFrame()
+        let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         var leases: [SceneParticleDepthTargetLease] = []
         if actual {
             _ = renderer.drawStaticModel(layer: layer, state: state, worldFrames: worldFrames,
@@ -261,7 +261,7 @@ enum SceneStaticModelVertexBasisChecks {
         let cb = queue.makeCommandBuffer()!, texture = target(device)
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: texture,
             clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
-        let state = SceneMetalRenderer.StaticModelFrame()
+        let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
             residentByteBudget: 64 * 1024 * 1024)
         var leases: [SceneParticleDepthTargetLease] = []

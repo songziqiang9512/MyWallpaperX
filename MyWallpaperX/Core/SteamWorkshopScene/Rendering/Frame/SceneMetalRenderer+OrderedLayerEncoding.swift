@@ -62,7 +62,8 @@ extension SceneMetalRenderer {
         let hubLayerLoopStart = ProcessInfo.processInfo.systemUptime
 #endif
         frameLayers: for layer in orderedLayers {
-            if stopsAfterClaimedFailure || modelFrame.depthDeferralReason != nil { break frameLayers }
+            if stopsAfterClaimedFailure || modelFrame.depthDeferralReason != nil
+                || modelFrame.sceneDepthFailureReason != nil { break frameLayers }
             defer {
                 if !stopsAfterClaimedFailure,
                    !renderUtilityPlans(triggeredBy: layer.id,
@@ -363,14 +364,14 @@ extension SceneMetalRenderer {
         // render encoder per command buffer.
         compositionGroupRuntime?.closeAllGroupEncoders()
 
+        if let reason = modelFrame.sceneDepthFailureReason {
+            mainPass.closeForOffscreen()
+            return .dropped(reasonCode: reason)
+        }
+
         if let reason = modelFrame.depthDeferralReason {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
-        }
-
-        if let reason = modelFrame.terminalDepthFailureReason {
-            mainPass.closeForOffscreen()
-            return .dropped(reasonCode: reason)
         }
 
         let mainEncoded = mainPass.finishEnsuringClear()

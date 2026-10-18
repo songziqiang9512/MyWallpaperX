@@ -12,118 +12,125 @@ extension SceneMetalRenderer {
         let world: simd_float4x4
         let material: SceneStaticModelMaterial
         let alpha: Float
-        var depth: StaticModelFrame.Depth?
-        var partIndex: Int = 0
     }
 
-    /// One frame's original model depth plan, optionally prepared ahead of shadow.
-    /// A failed prepared lease remains a failed draw, rather than requesting twice.
+    /// Pass-scoped scene depth in one command buffer. Models and qualified
+    /// terminals share first-clear/resource decisions, including failed leases.
     final class StaticModelFrame {
         struct Depth {
             let acquisition: SceneParticleDepthTargetPool.Acquisition
+            /// Particle depth retains its original independent clear policy.
             let clears: Bool
-            var shared: Bool = false
 
             var lease: SceneParticleDepthTargetLease? {
                 if case let .acquired(lease) = acquisition { return lease }
                 return nil
             }
         }
-        var plan = SceneStaticModelDepthPlan()
-        private var sharedAcquisition: SceneParticleDepthTargetPool.Acquisition?
-        private weak var sharedPass: SceneMainPassEncoder?
-        private var sharedCommandBuffer: MTLCommandBuffer?
+        private final class SceneDepthDomain {
+            let pass: SceneMainPassEncoder
+            let acquisition: SceneParticleDepthTargetPool.Acquisition
+            var wasCleared = false
+
+            init(pass: SceneMainPassEncoder, acquisition: SceneParticleDepthTargetPool.Acquisition) {
+                self.pass = pass
+                self.acquisition = acquisition
+            }
+            var lease: SceneParticleDepthTargetLease? {
+                if case let .acquired(lease) = acquisition { return lease }
+                return nil
+            }
+        }
+        private let commandBuffer: MTLCommandBuffer
+        private var sceneDepthByPass: [ObjectIdentifier: SceneDepthDomain] = [:]
         private var acceptsDepthBindings = true
         private(set) var depthDeferralReason: String?
-        var sharedLease: SceneParticleDepthTargetLease? {
-            if case let .acquired(lease)? = sharedAcquisition { return lease }
-            return nil
-        }
-        var sharedWasCleared = false
-        // Draw payloads may be rebuilt after late publication or an ordered
-        // prepass exit. Depth selection/results outlive those payloads in this
-        // same frame owner, including failed attempts that must not retry.
-        private var modelDepthByLayerID: [Int: [Int: Depth]] = [:]
+        // Late publication refreshes draw payloads, never a domain's resource
+        // decision (including a failed acquisition) or first-clear ownership.
         var prepared: [Int: [StaticModelDraw]]?
         var particleDepth: [Int: Depth] = [:]
         var plainLighting: [Int: SceneLitCapturePayloadResolution] = [:]
         var imageMaterialStates: [Int: SceneMaterialRenderState] = [:]
         var unavailableImageMaterialLayerIDs: Set<Int> = []
-        var terminalDepthFailureReason: String?
+        var sceneDepthFailureReason: String?
         var shadows: [SceneStaticModelShadow] = []
         var pins: [SceneGraphRenderTargetResidencyPin] = []
 
-        func depth(for draw: StaticModelDraw, layerID: Int? = nil, pass: SceneMainPassEncoder,
-                   pool: SceneParticleDepthTargetPool, device: MTLDevice,
-                   commandBuffer: MTLCommandBuffer,
-                   leases: inout [SceneParticleDepthTargetLease]) -> Depth {
-            if let layerID, let existing = modelDepthByLayerID[layerID]?[draw.partIndex] {
-                return existing
-            }
-            let target = plan.target(geometryIdentity: draw.entry.geometryIdentity, modelMatrix: draw.world)
-            let extent = pass.targetExtent
-            let acquisition: SceneParticleDepthTargetPool.Acquisition
-            let shared: Bool
-            switch target {
-            case .shared:
-                acquisition = sharedDepth(pass: pass, pool: pool, device: device,
-                    commandBuffer: commandBuffer, leases: &leases).acquisition
-                shared = true
-            case .isolated:
-                acquisition = pool.acquire(device: device, width: extent.width,
-                    height: extent.height, on: commandBuffer)
-                if case let .acquired(lease) = acquisition { leases.append(lease) }
-                shared = false
-            }
-            if case .busyOtherFrame = acquisition {
-                depthDeferralReason = "static-model-depth-in-flight"
-            }
-            let depth = Depth(acquisition: acquisition, clears: true, shared: shared)
-            if let layerID { modelDepthByLayerID[layerID, default: [:]][draw.partIndex] = depth }
-            return depth
+        init(commandBuffer: MTLCommandBuffer) {
+            self.commandBuffer = commandBuffer
         }
 
         func sharedDepth(pass: SceneMainPassEncoder, pool: SceneParticleDepthTargetPool,
                          device: MTLDevice, commandBuffer: MTLCommandBuffer,
                          leases: inout [SceneParticleDepthTargetLease]) -> Depth {
-            if let sharedAcquisition {
-                return Depth(acquisition: sharedAcquisition, clears: true, shared: true)
+            guard acceptsDepthBindings else { return Depth(acquisition: .allocationFailed, clears: true) }
+            guard self.commandBuffer === commandBuffer, pass.belongs(to: commandBuffer) else {
+                sceneDepthFailureReason = "scene-depth-command-buffer-mismatch"
+                return Depth(acquisition: .allocationFailed, clears: true)
+            }
+            let key = ObjectIdentifier(pass)
+            if let domain = sceneDepthByPass[key] {
+                return Depth(acquisition: domain.acquisition, clears: true)
             }
             let extent = pass.targetExtent
             let acquisition = pool.acquire(device: device, width: extent.width,
                 height: extent.height, on: commandBuffer)
-            sharedAcquisition = acquisition
-            sharedPass = pass
-            sharedCommandBuffer = commandBuffer
+            sceneDepthByPass[key] = SceneDepthDomain(pass: pass, acquisition: acquisition)
             if case let .acquired(lease) = acquisition { leases.append(lease) }
             if case .busyOtherFrame = acquisition {
                 depthDeferralReason = "static-model-depth-in-flight"
             }
-            return Depth(acquisition: acquisition, clears: true, shared: true)
+            return Depth(acquisition: acquisition, clears: true)
+        }
+
+        private func qualifiedSceneDepthDomain(pass: SceneMainPassEncoder,
+                                               commandBuffer: MTLCommandBuffer) -> SceneDepthDomain? {
+            guard acceptsDepthBindings else { return nil }
+            guard self.commandBuffer === commandBuffer, pass.belongs(to: commandBuffer) else {
+                sceneDepthFailureReason = "scene-depth-command-buffer-mismatch"
+                return nil
+            }
+            guard let domain = sceneDepthByPass[ObjectIdentifier(pass)],
+                  let lease = domain.lease else { return nil }
+            let texture = lease.texture
+            let extent = pass.targetExtent
+            guard domain.pass === pass, texture.pixelFormat == .depth32Float,
+                  texture.sampleCount == 1, texture.width == extent.width,
+                  texture.height == extent.height else {
+                sceneDepthFailureReason = "scene-depth-domain-identity-mismatch"
+                return nil
+            }
+            return domain
+        }
+
+        func sceneDepthEncoder(pass: SceneMainPassEncoder,
+                               commandBuffer: MTLCommandBuffer) -> MTLRenderCommandEncoder? {
+            guard let domain = qualifiedSceneDepthDomain(pass: pass, commandBuffer: commandBuffer),
+                  let texture = domain.lease?.texture,
+                  let encoder = pass.encoder(depthTexture: texture,
+                      clearsDepth: !domain.wasCleared, clearDepth: 0) else { return nil }
+            domain.wasCleared = true
+            return encoder
         }
 
         func terminalDepthBinding(pass: SceneMainPassEncoder,
                                   commandBuffer: MTLCommandBuffer) -> SceneImageLayerTerminalDepthBinding? {
-            guard acceptsDepthBindings, sharedPass === pass,
-                  sharedCommandBuffer === commandBuffer, pass.belongs(to: commandBuffer),
-                  let lease = sharedLease else { return nil }
-            let texture = lease.texture
-            let extent = pass.targetExtent
-            guard texture.pixelFormat == .depth32Float, texture.sampleCount == 1,
-                  texture.width == extent.width, texture.height == extent.height else { return nil }
+            guard qualifiedSceneDepthDomain(pass: pass, commandBuffer: commandBuffer) != nil else { return nil }
             return .init { [weak self, weak pass] actualPass in
-                guard let self, let pass, self.acceptsDepthBindings,
-                      actualPass === pass, self.sharedPass === pass,
-                      self.sharedCommandBuffer === commandBuffer, pass.belongs(to: commandBuffer),
-                      self.sharedLease?.texture === texture,
-                      let encoder = pass.encoder(depthTexture: texture,
-                          clearsDepth: !self.sharedWasCleared, clearDepth: 0) else { return nil }
-                self.sharedWasCleared = true
-                return encoder
+                guard let self, let pass else { return nil }
+                guard actualPass === pass else {
+                    self.sceneDepthFailureReason = "scene-depth-terminal-pass-mismatch"
+                    return nil
+                }
+                return self.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer)
             }
         }
 
         func arm(on commandBuffer: MTLCommandBuffer) {
+            guard self.commandBuffer === commandBuffer else {
+                sceneDepthFailureReason = "scene-depth-command-buffer-mismatch"
+                return
+            }
             acceptsDepthBindings = false
             let submitted = pins
             commandBuffer.addCompletedHandler { _ in submitted.forEach { $0.release() } }
@@ -152,7 +159,7 @@ extension SceneMetalRenderer {
         // collecting depth leases, shadow bounds or casters for this layer.
         guard SceneStaticModelPipeline.normalMatrix(for: world) != nil else { return [] }
         var hasMissingInput = false
-        let draws: [StaticModelDraw] = parts.enumerated().compactMap { partIndex, entry in
+        let draws: [StaticModelDraw] = parts.compactMap { entry in
             let texture: MTLTexture
             let frame: SceneTextureUVTransform
             let sampling: SceneTextureSampling
@@ -181,7 +188,7 @@ extension SceneMetalRenderer {
                 sampling: sampling, premultiplied: premultiplied,
                 world: world, material: material,
                 alpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
-                    authoredValue: layer.alpha, snapshot: snapshot)), partIndex: partIndex)
+                    authoredValue: layer.alpha, snapshot: snapshot)))
         }
         return requiresCompleteNamedInputs && hasMissingInput ? nil : draws
     }
@@ -196,14 +203,10 @@ extension SceneMetalRenderer {
             ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues) ?? []
         var encodedLit = false
         for draw in draws {
-            let depth = draw.depth ?? state.depth(for: draw, layerID: layer.id, pass: pass,
-                pool: staticModelDepthTargetPool, device: device,
-                commandBuffer: commandBuffer, leases: &leases)
-            if state.depthDeferralReason != nil { return encodedLit }
-            guard case let .acquired(lease) = depth.acquisition, let encoder = pass.encoder(
-                depthTexture: lease.texture, clearsDepth: depth.shared ? !state.sharedWasCleared : depth.clears,
-                clearDepth: 0) else { continue }
-            if depth.shared { state.sharedWasCleared = true }
+            _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
+                device: device, commandBuffer: commandBuffer, leases: &leases)
+            if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return encodedLit }
+            guard let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer) else { continue }
             let encoded = pipeline.draw(mesh: draw.entry.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: draw.premultiplied,
                 emissiveMask: draw.entry.emissiveMask?.texture,
@@ -219,6 +222,18 @@ extension SceneMetalRenderer {
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
 #if DEBUG
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2 {
+                let w = draw.world
+                let world = [w.columns.0.x, w.columns.0.y, w.columns.0.z, w.columns.0.w,
+                    w.columns.1.x, w.columns.1.y, w.columns.1.z, w.columns.1.w,
+                    w.columns.2.x, w.columns.2.y, w.columns.2.z, w.columns.2.w,
+                    w.columns.3.x, w.columns.3.y, w.columns.3.z, w.columns.3.w]
+                    .map { String($0) }.joined(separator: ",")
+                NSLog("MWX Scene model-depth frame=%llu layer=%d material=%@ domain=scene pass=%@ command=%@ encoded=%@ world=[%@]",
+                    frameContext.frameIndex, layer.id, draw.entry.materialPath,
+                    String(describing: ObjectIdentifier(pass)),
+                    String(describing: ObjectIdentifier(commandBuffer)), String(encoded), world)
+            }
             if encoded, draw.material.receivesLighting,
                SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2 {
                 for shadow in state.shadows {
@@ -361,24 +376,16 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         leases: inout [SceneParticleDepthTargetLease]
     ) -> Bool {
-        var prepared = state.prepared ?? candidates
+        let prepared = state.prepared ?? candidates
+        state.prepared = prepared
         var complete = true
         for layer in orderedLayers where visible.contains(layer.id) {
             guard let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) else { continue }
-            if staticModelResources.pipeline != nil, var draws = prepared[layer.id] {
-                for index in draws.indices {
-                    let depth = draws[index].depth ?? state.depth(for: draws[index], layerID: layer.id, pass: pass,
-                        pool: staticModelDepthTargetPool, device: device,
-                        commandBuffer: commandBuffer, leases: &leases)
-                    draws[index].depth = depth
-                    complete = complete && depth.lease != nil
-                    if state.depthDeferralReason != nil {
-                        prepared[layer.id] = draws
-                        state.prepared = prepared
-                        return false
-                    }
-                }
-                prepared[layer.id] = draws
+            if staticModelResources.pipeline != nil, let draws = prepared[layer.id], !draws.isEmpty {
+                let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
+                    device: device, commandBuffer: commandBuffer, leases: &leases)
+                complete = complete && depth.lease != nil
+                if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return false }
             }
             if let particlePipeline, let layerBatches = batches[layer.id],
                layerBatches.contains(where: { $0.renderState.requiresDepthAttachment }) {
@@ -430,12 +437,12 @@ extension SceneMetalRenderer {
         guard let candidates = shadowDrawCandidates(orderedLayers: orderedLayers, visible: visible,
             worldFrames: worldFrames, snapshot: snapshot, groups: groups) else { return consumers }
         // Ordinary failed model parts keep their existing local failure. Once
-        // their allocation attempts have priority, a valid shared lease remains
-        // usable even if an isolated part could not obtain its own depth.
+        // their allocation attempts have priority; a valid scene-domain lease
+        // remains usable if another mandatory resource could not be acquired.
         _ = prepareMandatoryDepth(state: state, candidates: candidates, orderedLayers: orderedLayers,
             visible: visible, batches: batches, particlePipeline: particlePipeline,
             mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases)
-        if state.depthDeferralReason != nil { return consumers }
+        if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return consumers }
         _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
             device: device, commandBuffer: commandBuffer, leases: &leases)
         return state.terminalDepthBinding(pass: mainPass, commandBuffer: commandBuffer) == nil
@@ -493,15 +500,12 @@ extension SceneMetalRenderer {
                 }
                 if visible.contains(layer.id) {
                     if layer.contentKind == "model" {
-                        guard var draws = staticModelDraws(layer: layer, worldFrames: worldFrames,
+                        guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames,
                             snapshot: frameContext.dynamicValues, requiresCompleteNamedInputs: true) else { return nil }
                         state.prepared?[layer.id] = draws
-                        for index in draws.indices {
-                            let depth = state.depth(for: draws[index], layerID: layer.id,
-                                pass: pass, pool: staticModelDepthTargetPool,
+                        if !draws.isEmpty {
+                            let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                                 device: device, commandBuffer: commandBuffer, leases: &leases)
-                            draws[index].depth = depth
-                            state.prepared?[layer.id] = draws
                             guard depth.lease != nil else { return nil }
                         }
                     }

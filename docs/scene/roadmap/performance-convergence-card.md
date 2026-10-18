@@ -24,6 +24,8 @@
 
 **10-19粒子phase cosine缓存筛选：STOP。** 原343的Debug instrumented `particle-advance`约15ms仅为局部阶段，不能当整进程CPU或Release成本。隔离副本在原phase cache存Double baseline，真实Runtime→Simulator→instance链按5000+75星、`-O/WMO`前后各编译一次，预登记六进程三组AB的优化链计时窗CPU中位**增加0.979%**，无稳定收益，未实施产品。实际cache值stride96→128，5000项多156.25KiB值载荷；不是RAM footprint，字典容量/开销未据此推算。所测数值/RNG/快照取消恢复指纹一致仅限已覆盖字段，有限筛选结束不扩试；[最小收据](../../../.artifacts/tmp/343-model-lighting-20261019/particle-phase-cache-stop.json)。
 
+**10-19模型场景深度域：仅资源需求观察。** 正确性重构退休隐式私有隔离及其专用几何hash。原343同3024×1964/30FPS的单次Debug对照，目标池采样峰331659520→307902976B，差23756544B恰一张depth32；GPU allocated812515328→787873792B，但进程footprint峰1075135904→1131480480B。只有一次诊断短窗、截图请求有superseded/teardown，非三对普通稳态，不认整体内存、CPU/GPU、启动或能耗稳定收益，不因删除hash推算耗时。必要原数与后继边界归[有界记录](../history/model-scene-depth-domain-2026-10-19.md)，无新热栈/普通成本信号时继续画面队列。
+
 **已接受结果只作前驱。** [BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX](../history/tex-request-local-convergence-2026-10-13.md)、[区域复制](../history/color-blend-region-convergence-2026-10-13.md)、[属性异常恢复](../history/property-callback-recovery-2026-10-14.md)、[resident查询](../history/graph-residency-query-convergence-2026-10-14.md)、[完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)的实际收益和非目标回退按各自冻结记录，不扩成整体GPU/能耗或全专项完成。面板准备/列表成本归属性卡，正确性修复不计性能。
 
 <a id="sampler-seed-preparation"></a>

@@ -156,7 +156,7 @@ class SceneSnapshotCapacityTests(unittest.TestCase):
         parent=Path(os.environ.get('MWX_SNAPSHOT_EVIDENCE','/private/tmp/mwx-rf12'));parent.mkdir(parents=True,exist_ok=True)
         cls.identity={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),*SOURCES]}
         root=Path(tempfile.mkdtemp(prefix='snapshot-test-identity-',dir=parent));(root/'sources.json').write_text(json.dumps(cls.identity,indent=2))
-        cls.result=run_swift(SOURCES,HARNESS,label='snapshot-capacity')
+        cls.result=run_swift(SOURCES,HARNESS,label='snapshot-capacity',swift_flags=('-DDEBUG',))
         assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in cls.identity.items()),'source identity drift'
 
     def test_capacity_is_not_content_and_each_consumer_gets_current_pixels(self):
@@ -190,6 +190,8 @@ FRAME_SOURCES=list(dict.fromkeys([*frame_fixture.SOURCES,
  SCENE/'Rendering/Composition/SceneBlendModeShaderSource.swift']))
 FRAME_SHELL=frame_fixture.SHELL.replace(
  'enum SceneLayerColorBlendRenderer {static func supports(_ mode:Int)->Bool {fatalError("unused snapshot-demand shell")}}','')
+FRAME_SHELL=FRAME_SHELL.replace('var anglesXYZ:[Float]? = nil',
+ 'var imageMaterialRenderState:SceneMaterialRenderState? = nil;var anglesXYZ:[Float]? = nil')
 FRAME_SHELL=FRAME_SHELL.replace('let imageCompositor=SceneImageLayerCompositor()',
  'let imageCompositor:SceneImageLayerCompositor')
 FRAME_SHELL=FRAME_SHELL.replace('self.device=device;staticModelResources=resources',
@@ -248,7 +250,7 @@ FRAME_MAIN=r'''
   }
   let mesh=model.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
   let material=SceneStaticModelMaterial(color:SIMD3(1,0,0),opacity:1,receivesLighting:true,textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,brightness:1,usesHDRBrightness:false,viewTint:nil)
-  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"self",dynamicMaterialPath:"",geometryIdentity:"quad",mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
+  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"self",dynamicMaterialPath:"",mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))
   let utility=mode=="utility-trigger",hidden=mode=="hidden-no-demand"
   let layers=[SceneRenderDescriptor.Layer(id:1),.init(id:6,contentKind:"image",colorBlendMode:1),.init(id:42,contentKind:"particle"),.init(id:7,contentKind:"utility",colorBlendMode:1),.init(id:8,visible:false,contentKind:"trigger")]
@@ -267,7 +269,7 @@ FRAME_MAIN=r'''
   let light=SceneLightSnapshot.Directional(layerID:9,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0.5)
   let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),skylight: .zero,directional:[light],point:[],spot:[],overflowCount:0)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
-  let state=SceneMetalRenderer.StaticModelFrame();var leases:[SceneParticleDepthTargetLease]=[]
+  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
   var held=0
   if mode=="optional-quota" {
    let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:64,height:64,mipmapped:false);td.storageMode = .private;td.usage = .renderTarget
@@ -314,7 +316,7 @@ class SceneSnapshotFrameOwnerTests(unittest.TestCase):
         parent=Path(os.environ.get('MWX_SNAPSHOT_EVIDENCE','/private/tmp/mwx-rf12'));parent.mkdir(parents=True,exist_ok=True)
         work=Path(tempfile.mkdtemp(prefix='snapshot-frame-identity-',dir=parent));(work/'sources.json').write_text(json.dumps(identity,indent=2))
         cls.result=run_swift(FRAME_SOURCES,FRAME_HARNESS.replace('__FOG_HEADER_PATH__',json.dumps(str(FOG_HEADER))),label='snapshot-frame-owner',
-                            metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
+                            metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'],swift_flags=('-DDEBUG',))
         assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in identity.items()),'source identity drift'
         cls.rows={row['mode']:row for row in cls.result['rows']}
 

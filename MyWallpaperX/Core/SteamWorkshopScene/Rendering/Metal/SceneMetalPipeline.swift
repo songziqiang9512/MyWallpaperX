@@ -50,6 +50,7 @@ struct SceneImageLayerPipeline {
     }
     private let depthState: MTLRenderPipelineState?
     private let depthStencilStates: [DepthMode: MTLDepthStencilState]
+    private let disabledDepthStencilState: MTLDepthStencilState
     private let supportsTranslucentMaterialState: Bool
     var supportsReadOnlyDepth: Bool {
         supportsTranslucentMaterialState && depthState != nil
@@ -97,8 +98,16 @@ struct SceneImageLayerPipeline {
         descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
         descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
-        guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else { return nil }
+        // Metal API validation requires an explicit state even without a depth
+        // attachment. Match the model pipeline's no-test/no-write reset.
+        let disabledDepthDescriptor = MTLDepthStencilDescriptor()
+        disabledDepthDescriptor.depthCompareFunction = .always
+        disabledDepthDescriptor.isDepthWriteEnabled = false
+        guard let state = try? device.makeRenderPipelineState(descriptor: descriptor),
+              let disabledDepthState = device.makeDepthStencilState(descriptor: disabledDepthDescriptor)
+        else { return nil }
         self.state = state
+        disabledDepthStencilState = disabledDepthState
         self.pixelFormat = pixelFormat
         supportsTranslucentMaterialState = blendMode == .sourceOver
         if preparesDepth {
@@ -139,7 +148,7 @@ struct SceneImageLayerPipeline {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
         encoder.setRenderPipelineState(state)
-        encoder.setDepthStencilState(nil)
+        encoder.setDepthStencilState(disabledDepthStencilState)
         encoder.setFrontFacing(.counterClockwise)
         encoder.setCullMode(.none)
         Self.bindQuad(encoder: encoder)

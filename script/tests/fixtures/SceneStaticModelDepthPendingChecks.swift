@@ -1,8 +1,5 @@
 import Dispatch
 
-// This prepared-input fixture has no descriptor framebuffer-source role.
-extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool { false } }
-
 @main enum PendingDepthProbe {
  struct Frame {
   let command: MTLCommandBuffer
@@ -38,7 +35,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    white.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
                  withBytes: $0.baseAddress!, bytesPerRow: 4)
   }
-  // Owned symmetric geometry. Both entries share the exact mesh and identity;
+  // Owned symmetric geometry. Both entries share the exact mesh;
   // there is no corpus geometry, cull experiment, property VM or App admission.
   let vertices = [SIMD3<Float>(-0.15, -0.15, 0), SIMD3(0.15, -0.15, 0),
                   SIMD3(0.15, 0.15, 0), SIMD3(-0.15, 0.15, 0)].map {
@@ -53,7 +50,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
     usesHDRBrightness: false, viewTint: nil)
    material.cullMode = .none
    return .init(materialPath: "owned-pending-depth", dynamicMaterialPath: "",
-    geometryIdentity: "owned-same-unit-quad", mesh: mesh,
+    mesh: mesh,
     albedo: PreparedTexture(texture: white), material: material,
     writesDepth: true, materialBlending: .normal)
   }
@@ -81,7 +78,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
     mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 64 * 4) }
    let pass = SceneMainPassEncoder(commandBuffer: command, target: output,
     clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
-   let state = SceneMetalRenderer.StaticModelFrame()
+   let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: command)
    var leases: [SceneParticleDepthTargetLease] = []
    renderer.dependencyRuntime.encoded.removeAll()
    if usePreparation {
@@ -123,41 +120,43 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   // a valid reproduction because firstStillPending is part of the result.
   defer { gate.signaledValue = 1 }
   DispatchQueue.global().asyncAfter(deadline: .now() + 5) { gate.signaledValue = 1 }
-  let first = encode(true)
+  let held = (0..<3).map { _ in encode(true) }
   let firstDone = DispatchSemaphore(value: 0)
-  first.command.addCompletedHandler { _ in firstDone.signal() }
-  first.command.commit()
-  let second = encode(false)
-  let firstStillPending = first.command.status != .completed && gate.signaledValue == 0
+  for frame in held {
+   frame.command.addCompletedHandler { _ in firstDone.signal() }
+   frame.command.commit()
+  }
+  let first = held[0], second = encode(false)
+  let firstStillPending = held.allSatisfy { $0.command.status != .completed } && gate.signaledValue == 0
   // The frame owner has classified busy. Cancel the unsubmitted candidate;
   // the production propagation to FrameOutcome is separately exercised by App.
   second.state.cancel(); second.leases.forEach { $0.cancel() }
   let pendingBytes = renderer.staticModelDepthTargetPool.residentByteCost
   gate.signaledValue = 1
-  first.command.waitUntilCompleted()
-  let completionsObserved = firstDone.wait(timeout: .now() + 10) == .success
+  held.forEach { $0.command.waitUntilCompleted() }
+  let completionsObserved = (0..<3).allSatisfy { _ in firstDone.wait(timeout: .now() + 10) == .success }
   let recovered = encode(false)
   let recoveredDone = DispatchSemaphore(value: 0)
   recovered.command.addCompletedHandler { _ in recoveredDone.signal() }
   recovered.command.commit(); recovered.command.waitUntilCompleted()
   let recoveredCompletion = recoveredDone.wait(timeout: .now() + 10) == .success
-  let rows = [observation("first-held", first), observation("second-while-first-pending", second),
+  let rows = [observation("three-submissions-held", first), observation("candidate-while-three-pending", second),
               observation("after-completion", recovered)]
   let firstRGB = rgb(first), secondRGB = rgb(second), recoveredRGB = rgb(recovered)
   var checks: [String: Bool] = [
-   "actual-first-submission-held": firstStillPending,
-   "first-two-leases-and-both-draws": first.leases.count == 2
-    && first.encoded[1] == true && first.encoded[2] == true,
-   "second-busy-is-owned-frame-decision": second.leases.count == 1
+   "actual-three-submissions-held": firstStillPending,
+   "pending-frames-each-use-one-domain": held.allSatisfy {
+    $0.leases.count == 1 && $0.encoded[1] == true && $0.encoded[2] == true },
+   "second-busy-is-owned-frame-decision": second.leases.isEmpty
     && second.deferral == "static-model-depth-in-flight",
    "second-remains-unsubmitted": second.command.status == .notEnqueued,
    "cancelled-pixels-untouched": secondRGB == [17, 17, 17, 17],
-   "completion-restores-both-draws": recovered.leases.count == 2
+   "completion-restores-both-draws": recovered.leases.count == 1
     && recovered.deferral == nil && recovered.encoded[1] == true && recovered.encoded[2] == true,
    "pixel-recovers-without-partial-presentation": firstRGB == [0, 255, 0, 255]
     && recoveredRGB == firstRGB,
    "actual-completion-callbacks-observed": completionsObserved && recoveredCompletion,
-   "submitted-gpu-completed": [first, recovered].allSatisfy {
+   "submitted-gpu-completed": (held + [recovered]).allSatisfy {
     $0.command.status == .completed && $0.command.error == nil },
    "no-resident-growth-after-completion": pendingBytes
     == renderer.staticModelDepthTargetPool.residentByteCost
@@ -168,7 +167,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   let intrinsicCB = queue.makeCommandBuffer()!
   let intrinsicPass = SceneMainPassEncoder(commandBuffer: intrinsicCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
-  let intrinsicState = SceneMetalRenderer.StaticModelFrame()
+  let intrinsicState = SceneMetalRenderer.StaticModelFrame(commandBuffer: intrinsicCB)
   var intrinsicLeases: [SceneParticleDepthTargetLease] = []
   let intrinsicWorld = Dictionary(uniqueKeysWithValues: (1...4).map { id in
    (id, SceneMatrix.translation(SIMD3(32, 32, 0))
@@ -183,57 +182,114 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   precondition(intrinsicPass.finishEnsuringClear())
   intrinsicLeases.forEach { $0.arm(on: intrinsicCB) }
   intrinsicState.arm(on: intrinsicCB); intrinsicCB.commit(); intrinsicCB.waitUntilCompleted()
-  checks["own-four-draws-do-not-defer"] = intrinsicLeases.count == 3
-   && intrinsicState.depthDeferralReason == nil && intrinsic.dependencyRuntime.encoded[4] != true
-   && (1...3).allSatisfy { intrinsic.dependencyRuntime.encoded[$0] == true }
+  checks["four-same-pass-models-use-one-domain"] = intrinsicLeases.count == 1
+   && intrinsicState.depthDeferralReason == nil
+   && (1...4).allSatisfy { intrinsic.dependencyRuntime.encoded[$0] == true }
    && intrinsicCB.status == .completed && intrinsicCB.error == nil
-   && rgb(first) == [0, 0, 255, 255]
-  // Actual shared owner, with no model writer: reservation is idempotent and
-  // first clear belongs to a successful final encoder, not source capture.
+   && rgb(first) == [255, 255, 0, 255]
+  // Read actual depth attachment bytes. A color encoder interruption must
+  // preserve a prior successful depth clear; each pass has its own first clear.
+  func snapshotDepth(_ texture: MTLTexture, _ pass: SceneMainPassEncoder,
+                     _ cb: MTLCommandBuffer) -> MTLBuffer {
+   pass.closeForOffscreen()
+   let buffer = device.makeBuffer(length: 256, options: .storageModeShared)!
+   let blit = cb.makeBlitCommandEncoder()!
+   blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: 0,y: 0,z: 0),
+    sourceSize: .init(width: 1,height: 1,depth: 1), to: buffer, destinationOffset: 0,
+    destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+   blit.endEncoding(); return buffer
+  }
+  func depthValue(_ buffer: MTLBuffer) -> Float {
+   buffer.contents().bindMemory(to: Float.self, capacity: 1).pointee
+  }
   let terminalPool = SceneParticleDepthTargetPool()
   let terminalCB = queue.makeCommandBuffer()!
   let terminalPass = SceneMainPassEncoder(commandBuffer: terminalCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let terminalState = SceneMetalRenderer.StaticModelFrame()
+  let terminalState = SceneMetalRenderer.StaticModelFrame(commandBuffer: terminalCB)
   var terminalLeases: [SceneParticleDepthTargetLease] = []
   let a = terminalState.sharedDepth(pass: terminalPass, pool: terminalPool, device: device,
    commandBuffer: terminalCB, leases: &terminalLeases)
   let b = terminalState.sharedDepth(pass: terminalPass, pool: terminalPool, device: device,
    commandBuffer: terminalCB, leases: &terminalLeases)
   checks["terminal-reserve-is-one-lease"] = terminalLeases.count == 1
-   && a.lease?.texture === b.lease?.texture && !terminalState.sharedWasCleared
-  let wrongCB = queue.makeCommandBuffer()!
-  let wrongPass = SceneMainPassEncoder(commandBuffer: terminalCB, target: first.output,
-   clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  checks["terminal-binding-rejects-other-pass-and-cb"] =
-   terminalState.terminalDepthBinding(pass: wrongPass, commandBuffer: terminalCB) == nil
-   && terminalState.terminalDepthBinding(pass: terminalPass, commandBuffer: wrongCB) == nil
+   && a.lease?.texture === b.lease?.texture
   let binding = terminalState.terminalDepthBinding(pass: terminalPass, commandBuffer: terminalCB)!
-  checks["terminal-binding-rechecks-consumer"] = binding.encoder(wrongPass) == nil
-   && !terminalState.sharedWasCleared
-  checks["terminal-first-real-encoder-clears"] = binding.encoder(terminalPass) != nil
-   && terminalState.sharedWasCleared
+  checks["terminal-first-real-encoder-exists"] = binding.encoder(terminalPass) != nil
+  let initialDepth = snapshotDepth(a.lease!.texture, terminalPass, terminalCB)
+  precondition(terminalPass.encoder(depthTexture: a.lease!.texture, clearsDepth: true, clearDepth: 0.625) != nil)
+  terminalPass.closeForOffscreen()
   checks["terminal-color-pass-preserves-owner"] = terminalPass.withReadableTarget { _, _ in true } == true
    && binding.encoder(terminalPass) != nil && terminalLeases.count == 1
+  let resumedDepth = snapshotDepth(a.lease!.texture, terminalPass, terminalCB)
+  let groupDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+   pixelFormat: .rgba16Float, width: 32, height: 32, mipmapped: false)
+  groupDescriptor.storageMode = .private; groupDescriptor.usage = .renderTarget
+  let groupTarget = device.makeTexture(descriptor: groupDescriptor)!
+  let groupPass = SceneMainPassEncoder(commandBuffer: terminalCB, target: groupTarget,
+   clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+  let groupDepth = terminalState.sharedDepth(pass: groupPass, pool: terminalPool, device: device,
+   commandBuffer: terminalCB, leases: &terminalLeases)
+  checks["terminal-distinct-hdr-pass-has-independent-domain"] = terminalLeases.count == 2
+   && groupDepth.lease!.texture !== a.lease!.texture
+   && groupDepth.lease!.texture.width == 32 && groupDepth.lease!.texture.height == 32
+  precondition(terminalState.sceneDepthEncoder(pass: groupPass, commandBuffer: terminalCB) != nil)
+  let groupInitialDepth = snapshotDepth(groupDepth.lease!.texture, groupPass, terminalCB)
+  let pinPool = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
+   residentByteBudget: 1024 * 1024)
+  let pinned = pinPool.reserveModelShadow(slot: 0, width: 16, height: 16, commandBuffer: terminalCB)!
+  terminalState.pins.append(pinned.pin); pinPool.reset()
+  let pinBytes = pinPool.residentByteCost, wrongArmCB = queue.makeCommandBuffer()!
+  terminalState.arm(on: wrongArmCB); wrongArmCB.commit(); wrongArmCB.waitUntilCompleted()
+  checks["terminal-wrong-arm-keeps-binding-and-shadow-pin"] = pinBytes > 0
+   && pinPool.residentByteCost == pinBytes && terminalState.pins.count == 1
+   && binding.encoder(terminalPass) != nil
+   && terminalState.sceneDepthFailureReason == "scene-depth-command-buffer-mismatch"
   terminalPass.closeForOffscreen()
   terminalLeases.forEach { $0.arm(on: terminalCB) }; terminalState.arm(on: terminalCB)
   checks["terminal-binding-expires-at-submission"] = binding.encoder(terminalPass) == nil
+  let terminalDone = DispatchSemaphore(value: 0)
+  terminalCB.addCompletedHandler { _ in terminalDone.signal() }
   terminalCB.commit(); terminalCB.waitUntilCompleted()
+  checks["terminal-correct-arm-releases-shadow-pin-on-completion"] =
+   terminalDone.wait(timeout: .now() + 10) == .success && pinPool.residentByteCost == 0
+  checks["terminal-first-real-encoder-clears-zero"] = depthValue(initialDepth) == 0
+  checks["terminal-reopen-loads-existing-depth"] = depthValue(resumedDepth) == 0.625
+  checks["terminal-hdr-pass-first-clear-is-independent"] = depthValue(groupInitialDepth) == 0
   checks["terminal-empty-writer-frame-completes"] = terminalCB.status == .completed && terminalCB.error == nil
-  // A finished pass cannot consume the binding or advance first-clear state.
+  // Invalid consumers are isolated from the healthy encoder/readback above.
+  let negativeCB = queue.makeCommandBuffer()!, wrongCB = queue.makeCommandBuffer()!
+  let negativePass = SceneMainPassEncoder(commandBuffer: negativeCB, target: first.output,
+   clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
+  let wrongPass = SceneMainPassEncoder(commandBuffer: negativeCB, target: first.output,
+   clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
+  let negativeState = SceneMetalRenderer.StaticModelFrame(commandBuffer: negativeCB)
+  var negativeLeases: [SceneParticleDepthTargetLease] = []
+  _ = negativeState.sharedDepth(pass: negativePass, pool: terminalPool, device: device,
+   commandBuffer: negativeCB, leases: &negativeLeases)
+  let negativeBinding = negativeState.terminalDepthBinding(pass: negativePass, commandBuffer: negativeCB)!
+  checks["terminal-binding-rechecks-consumer"] = negativeBinding.encoder(wrongPass) == nil
+   && negativeState.sceneDepthFailureReason == "scene-depth-terminal-pass-mismatch"
+  checks["terminal-binding-rejects-other-pass-and-cb"] =
+   negativeState.terminalDepthBinding(pass: wrongPass, commandBuffer: negativeCB) == nil
+   && negativeState.terminalDepthBinding(pass: negativePass, commandBuffer: wrongCB) == nil
+   && negativeState.sceneDepthFailureReason == "scene-depth-command-buffer-mismatch"
+  negativeState.cancel(); negativeLeases.forEach { $0.cancel() }
   let canceledCB = queue.makeCommandBuffer()!
   let canceledPass = SceneMainPassEncoder(commandBuffer: canceledCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let canceledState = SceneMetalRenderer.StaticModelFrame()
+  let canceledState = SceneMetalRenderer.StaticModelFrame(commandBuffer: canceledCB)
   var canceledLeases: [SceneParticleDepthTargetLease] = []
   _ = canceledState.sharedDepth(pass: canceledPass, pool: terminalPool, device: device,
    commandBuffer: canceledCB, leases: &canceledLeases)
   let canceledBinding = canceledState.terminalDepthBinding(pass: canceledPass, commandBuffer: canceledCB)!
+  let cancelPin = pinPool.reserveModelShadow(slot: 0, width: 16, height: 16, commandBuffer: canceledCB)!
+  canceledState.pins.append(cancelPin.pin); pinPool.reset()
   precondition(canceledPass.finishEnsuringClear())
-  checks["terminal-failed-encoder-does-not-clear"] = canceledBinding.encoder(canceledPass) == nil
-   && !canceledState.sharedWasCleared
+  checks["terminal-finished-pass-rejects-encoder"] = canceledBinding.encoder(canceledPass) == nil
   canceledState.cancel(); canceledLeases.forEach { $0.cancel() }
   checks["terminal-binding-expires-on-cancel"] = canceledBinding.encoder(canceledPass) == nil
+   && pinPool.residentByteCost == 0
   // Direct pool facts exercise current-frame excess versus another owner,
   // owner-matched arm/cancel, invalid extent and physical-budget failure.
   let pool = SceneParticleDepthTargetPool()
@@ -252,7 +308,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   } else { checks["other-owner-is-busy"] = false }
   let busyPass = SceneMainPassEncoder(commandBuffer: other, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let busyState = SceneMetalRenderer.StaticModelFrame()
+  let busyState = SceneMetalRenderer.StaticModelFrame(commandBuffer: other)
   var busyLeases: [SceneParticleDepthTargetLease] = []
   _ = busyState.sharedDepth(pass: busyPass, pool: pool, device: device,
    commandBuffer: other, leases: &busyLeases)
@@ -265,7 +321,26 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
                                         on: queue.makeCommandBuffer()!) {
    checks["wrong-cb-cannot-release-reservation"] = true
   } else { checks["wrong-cb-cannot-release-reservation"] = false }
-  own.forEach { $0.cancel() }
+  let capacityPass = SceneMainPassEncoder(commandBuffer: owner, target: first.output,
+   clearColor: MTLClearColorMake(0, 1, 0, 1), clearEnabled: true)
+  let capacityState = SceneMetalRenderer.StaticModelFrame(commandBuffer: owner)
+  var capacityLeases: [SceneParticleDepthTargetLease] = []
+  let refused = capacityState.sharedDepth(pass: capacityPass, pool: pool, device: device,
+   commandBuffer: owner, leases: &capacityLeases)
+  own[0].cancel()
+  let stillRefused = capacityState.sharedDepth(pass: capacityPass, pool: pool, device: device,
+   commandBuffer: owner, leases: &capacityLeases)
+  if case .currentFrameCapacityExceeded = refused.acquisition,
+     case .currentFrameCapacityExceeded = stillRefused.acquisition {
+   checks["terminal-current-frame-capacity-is-sticky"] = capacityLeases.isEmpty
+    && capacityState.depthDeferralReason == nil
+    && capacityState.sceneDepthEncoder(pass: capacityPass, commandBuffer: owner) == nil
+  } else { checks["terminal-current-frame-capacity-is-sticky"] = false }
+  own.forEach { $0.cancel() }; busyState.cancel()
+  precondition(capacityPass.finishEnsuringClear())
+  capacityState.arm(on: owner); owner.commit(); owner.waitUntilCompleted()
+  checks["terminal-capacity-failure-keeps-healthy-color"] = owner.status == .completed
+   && owner.error == nil && rgb(first) == [0, 255, 0, 255]
   let recoveredOwner = queue.makeCommandBuffer()!
   var restored: [SceneParticleDepthTargetLease] = []
   for _ in 0..<3 {
@@ -283,7 +358,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   let sourceCB = queue.makeCommandBuffer()!
   let sourcePass = SceneMainPassEncoder(commandBuffer: sourceCB, target: first.output,
    clearColor: MTLClearColorMake(0, 1, 0, 1), clearEnabled: true)
-  let sourceState = SceneMetalRenderer.StaticModelFrame()
+  let sourceState = SceneMetalRenderer.StaticModelFrame(commandBuffer: sourceCB)
   var sourceLeases: [SceneParticleDepthTargetLease] = []
   precondition(SceneResourceBudget.shared.reserve(quota, kind: .gpu))
   let emptyPool = SceneParticleDepthTargetPool()
@@ -308,7 +383,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   let sourceRecoveryCB = queue.makeCommandBuffer()!
   let sourceRecoveryPass = SceneMainPassEncoder(commandBuffer: sourceRecoveryCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let sourceRecoveryState = SceneMetalRenderer.StaticModelFrame()
+  let sourceRecoveryState = SceneMetalRenderer.StaticModelFrame(commandBuffer: sourceRecoveryCB)
   var sourceRecoveryLeases: [SceneParticleDepthTargetLease] = []
   let recoveredExclusion = sourceRenderer.unavailableSharedTerminalDepthLayers([20], state: sourceRecoveryState,
    orderedLayers: [], ordinaryLayerIDs: [21], visible: [20, 21], worldFrames: [:], snapshot: dynamic,
@@ -319,13 +394,17 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    && sourceRecoveryLeases.count == 1
   checks["source-next-frame-recovers-without-writer"] = recoveredExclusion.isEmpty
    && sourceRecoveryLeases.count == 1 && recoveredBinding != nil
-   && !sourceRecoveryState.sharedWasCleared
-  checks["source-recovery-clears-at-terminal-encoder"] = recoveredBinding?.encoder(sourceRecoveryPass) != nil
-   && sourceRecoveryState.sharedWasCleared
+
+  checks["source-recovery-has-real-terminal-encoder"] = recoveredBinding?.encoder(sourceRecoveryPass) != nil
+  let sourceDepth = sourceRecoveryState.sharedDepth(pass: sourceRecoveryPass,
+   pool: sourceRenderer.staticModelDepthTargetPool, device: device,
+   commandBuffer: sourceRecoveryCB, leases: &sourceRecoveryLeases)
+  let sourceDepthReadback = snapshotDepth(sourceDepth.lease!.texture, sourceRecoveryPass, sourceRecoveryCB)
   sourceRecoveryPass.closeForOffscreen()
   sourceRecoveryLeases.forEach { $0.arm(on: sourceRecoveryCB) }; sourceRecoveryState.arm(on: sourceRecoveryCB)
   sourceRecoveryCB.commit(); sourceRecoveryCB.waitUntilCompleted()
   checks["source-recovery-completes"] = sourceRecoveryCB.status == .completed && sourceRecoveryCB.error == nil
+  checks["source-recovery-clears-at-terminal-encoder"] = depthValue(sourceDepthReadback) == 0
   let sourceBusyOwner = queue.makeCommandBuffer()!
   var heldSourceLeases: [SceneParticleDepthTargetLease] = []
   for _ in 0..<3 {
@@ -336,7 +415,7 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   let sourceBusyCB = queue.makeCommandBuffer()!
   let sourceBusyPass = SceneMainPassEncoder(commandBuffer: sourceBusyCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let sourceBusyState = SceneMetalRenderer.StaticModelFrame()
+  let sourceBusyState = SceneMetalRenderer.StaticModelFrame(commandBuffer: sourceBusyCB)
   var sourceBusyLeases: [SceneParticleDepthTargetLease] = []
   _ = sourceRenderer.unavailableSharedTerminalDepthLayers([20], state: sourceBusyState,
    orderedLayers: [], ordinaryLayerIDs: [21], visible: [20, 21], worldFrames: [:], snapshot: dynamic,
@@ -345,31 +424,34 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
   checks["source-busy-defers-before-admission"] = sourceBusyState.depthDeferralReason == "static-model-depth-in-flight"
    && sourceBusyLeases.isEmpty && sourceBusyCB.status == .notEnqueued
   sourceBusyState.cancel(); sourceBusyPass.closeForOffscreen(); heldSourceLeases.forEach { $0.cancel() }
-  // A source authored before near-coincident models must not change their
-  // original shared/isolated classification or consume a fourth pool slot.
+  // Source and all model parts reserve the same scene pass domain, regardless
+  // of authored order. One physical depth allocation is enough for every part.
   let priorityRenderer = SceneMetalRenderer(device: device, resources: .init(pipeline: pipeline,
    entries: [1: [entry(SIMD3(1, 0, 0)), entry(SIMD3(0, 1, 0)), entry(SIMD3(0, 0, 1))]]))
   let priorityCB = queue.makeCommandBuffer()!
   let priorityPass = SceneMainPassEncoder(commandBuffer: priorityCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let priorityState = SceneMetalRenderer.StaticModelFrame()
+  let priorityState = SceneMetalRenderer.StaticModelFrame(commandBuffer: priorityCB)
   var priorityLeases: [SceneParticleDepthTargetLease] = []
   let priorityExclusion = priorityRenderer.unavailableSharedTerminalDepthLayers([20], state: priorityState,
    orderedLayers: [.init(id: 20, contentKind: "composition"), .init(id: 1)], visible: [1, 20],
    worldFrames: world, snapshot: dynamic, batches: [:], particlePipeline: nil,
    mainPass: priorityPass, groups: nil, commandBuffer: priorityCB, leases: &priorityLeases)
   let priorityDraws = priorityState.prepared?[1] ?? []
-  checks["source-model-priority-and-isolation-preserved"] = priorityExclusion.isEmpty
-   && priorityLeases.count == 3 && priorityDraws.map(\.partIndex) == [0, 1, 2]
-   && priorityDraws.map { $0.depth?.shared } == [true, false, false]
-   && priorityState.sharedLease?.texture === priorityDraws.first?.depth?.lease?.texture
+  let priorityDepth = priorityState.sharedDepth(pass: priorityPass,
+   pool: priorityRenderer.staticModelDepthTargetPool, device: device,
+   commandBuffer: priorityCB, leases: &priorityLeases)
+  checks["source-and-all-model-parts-share-pass-domain"] = priorityExclusion.isEmpty
+   && priorityLeases.count == 1 && priorityDraws.count == 3
+   && priorityDepth.lease?.texture === priorityLeases.first?.texture
+   && priorityState.terminalDepthBinding(pass: priorityPass, commandBuffer: priorityCB) != nil
   priorityState.cancel(); priorityPass.closeForOffscreen(); priorityLeases.forEach { $0.cancel() }
   let partialRenderer = SceneMetalRenderer(device: device, resources: .init(pipeline: pipeline,
    entries: [1: [entry(SIMD3(1, 0, 0)), entry(SIMD3(0, 1, 0))]]))
   let partialCB = queue.makeCommandBuffer()!
   let partialPass = SceneMainPassEncoder(commandBuffer: partialCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let partialState = SceneMetalRenderer.StaticModelFrame()
+  let partialState = SceneMetalRenderer.StaticModelFrame(commandBuffer: partialCB)
   var partialLeases: [SceneParticleDepthTargetLease] = []
   let partialDepthDescriptor = MTLTextureDescriptor.texture2DDescriptor(
    pixelFormat: .depth32Float, width: 64, height: 64, mipmapped: false)
@@ -383,21 +465,20 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    commandBuffer: partialCB, leases: &partialLeases)
   SceneResourceBudget.shared.release(partialQuota, kind: .gpu)
   let partialDraws = partialState.prepared?[1] ?? []
-  checks["source-isolated-refusal-keeps-valid-shared-depth"] = partialExclusion.isEmpty
+  checks["source-one-depth-budget-admits-every-model-part"] = partialExclusion.isEmpty
    && partialLeases.count == 1 && partialDraws.count == 2
-   && partialDraws[0].depth?.lease != nil && partialDraws[1].depth?.lease == nil
    && partialState.terminalDepthBinding(pass: partialPass, commandBuffer: partialCB) != nil
    && partialState.depthDeferralReason == nil
   partialState.cancel(); partialPass.closeForOffscreen(); partialLeases.forEach { $0.cancel() }
   var namedEntry = entry(SIMD3(1, 0, 0))
   namedEntry = .init(materialPath: namedEntry.materialPath, dynamicMaterialPath: "",
-   geometryIdentity: namedEntry.geometryIdentity, mesh: namedEntry.mesh,
+   mesh: namedEntry.mesh,
    albedo: nil, namedAlbedo: "owned-late-provider", material: namedEntry.material)
   let lateRenderer = SceneMetalRenderer(device: device, resources: .init(pipeline: pipeline, entries: [1: [namedEntry]]))
   let lateCB = queue.makeCommandBuffer()!
   let latePass = SceneMainPassEncoder(commandBuffer: lateCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
-  let lateState = SceneMetalRenderer.StaticModelFrame()
+  let lateState = SceneMetalRenderer.StaticModelFrame(commandBuffer: lateCB)
   var lateLeases: [SceneParticleDepthTargetLease] = []
   let lateExclusion = lateRenderer.unavailableSharedTerminalDepthLayers([20], state: lateState,
    orderedLayers: [.init(id: 1)], visible: [1, 20], worldFrames: world, snapshot: dynamic,
@@ -407,62 +488,32 @@ extension SceneRenderDescriptor.Layer { var hasFramebufferMaterialSource: Bool {
    && lateState.prepared == nil && lateLeases.isEmpty && lateState.depthDeferralReason == nil
    && lateRenderer.staticModelDepthTargetPool.residentByteCost == 0
   lateState.cancel(); latePass.closeForOffscreen()
-  // Early qualification owns a complete depth schedule, but the ordered
-  // shadow walk exits at the fourth near-coincident part. A later independent
-  // shared-depth draw must refresh its payload and retain its original slot.
-  let suffixEntry = ScenePreparedStaticModelResources.Entry(materialPath: "owned-independent-suffix",
-   dynamicMaterialPath: "", geometryIdentity: "owned-independent-suffix-geometry", mesh: mesh,
-   albedo: PreparedTexture(texture: white), material: entry(SIMD3(1, 0, 1)).material,
-   writesDepth: true, materialBlending: .normal)
-  let exitRenderer = SceneMetalRenderer(device: device, resources: .init(pipeline: pipeline,
-   entries: [1: [entry(SIMD3(1, 0, 0))], 2: [entry(SIMD3(0, 1, 0))],
-    3: [entry(SIMD3(0, 0, 1))], 4: [entry(SIMD3(1, 1, 0))], 5: [suffixEntry]]))
-  let exitLayers = (1...5).map { SceneRenderDescriptor.Layer(id: $0) }
-  let exitWorld = Dictionary(uniqueKeysWithValues: (1...5).map { id in (id, world[1]!) })
-  let exitCB = queue.makeCommandBuffer()!
-  let exitPass = SceneMainPassEncoder(commandBuffer: exitCB, target: first.output,
+  // Refresh late draw payloads through their original owner without changing
+  // the already reserved pass domain or acquiring a second model texture.
+  let freshCB = queue.makeCommandBuffer()!
+  let freshPass = SceneMainPassEncoder(commandBuffer: freshCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
-  let exitState = SceneMetalRenderer.StaticModelFrame()
-  var exitLeases: [SceneParticleDepthTargetLease] = []
-  let exitExclusion = exitRenderer.unavailableSharedTerminalDepthLayers([20], state: exitState,
-   orderedLayers: exitLayers, visible: [1, 2, 3, 4, 5, 20], worldFrames: exitWorld, snapshot: dynamic,
-   batches: [:], particlePipeline: nil, mainPass: exitPass, groups: nil,
-   commandBuffer: exitCB, leases: &exitLeases)
-  let earlySuffixDepth = exitState.prepared?[5]?.first?.depth?.lease?.texture
-  let exitPool = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
-   residentByteBudget: 8 * 1024 * 1024)
-  let exitReason = exitRenderer.prepareOrderedModelShadow(state: exitState, lights: [], lighting: lighting,
-   orderedLayers: exitLayers, visible: [1, 2, 3, 4, 5], activeNamedModels: [], forwardGraphProviders: [],
-   framePlans: [:], imageTextures: .init(), imagePipeline: .init(),
-   frameContext: .init(dynamicValues: dynamic), worldFrames: exitWorld, cameraFrame: camera,
-   parallax: .init(), viewportSize: CGSize(width: 64, height: 64), batches: [:], particlePipeline: nil,
-   mainPass: exitPass, groups: nil, utilityExecution: exitRenderer.utilityExecution, pool: exitPool,
-   commandBuffer: exitCB, leases: &exitLeases, terminalCapacity: { true }, recordsEvidence: false)
-  let freshSuffix = exitRenderer.staticModelDraws(layer: exitLayers[4], worldFrames: exitWorld, snapshot: dynamic)![0]
-  let lateSuffixDepth = exitState.depth(for: freshSuffix, layerID: 5, pass: exitPass,
-   pool: exitRenderer.staticModelDepthTargetPool, device: device, commandBuffer: exitCB, leases: &exitLeases)
-  checks["source-ordered-exit-keeps-suffix-reservation"] = exitExclusion.isEmpty && exitReason == nil
-   && exitState.prepared?[5] == nil && freshSuffix.texture === white
-   && earlySuffixDepth != nil && lateSuffixDepth.lease?.texture === earlySuffixDepth
-   && lateSuffixDepth.shared && exitLeases.count == 3
-  // Releasing a slot after the original refusal must not make the same failed
-  // part retry. The original result is immutable for this frame identity.
-  exitLeases[2].cancel()
-  let failedDraw = exitRenderer.staticModelDraws(layer: exitLayers[3], worldFrames: exitWorld, snapshot: dynamic)![0]
-  let stillFailed = exitState.depth(for: failedDraw, layerID: 4, pass: exitPass,
-   pool: exitRenderer.staticModelDepthTargetPool, device: device, commandBuffer: exitCB, leases: &exitLeases)
-  if case .currentFrameCapacityExceeded = stillFailed.acquisition {
-   checks["source-ordered-exit-does-not-retry-failed-part"] = exitLeases.count == 3
-  } else { checks["source-ordered-exit-does-not-retry-failed-part"] = false }
-  _ = exitRenderer.drawStaticModel(layer: exitLayers[4], state: exitState, worldFrames: exitWorld,
+  let freshState = SceneMetalRenderer.StaticModelFrame(commandBuffer: freshCB)
+  var freshLeases: [SceneParticleDepthTargetLease] = []
+  let freshExclusion = intrinsic.unavailableSharedTerminalDepthLayers([20], state: freshState,
+   orderedLayers: (1...4).map { .init(id: $0) }, visible: [1, 2, 3, 4, 20], worldFrames: intrinsicWorld,
+   snapshot: dynamic, batches: [:], particlePipeline: nil, mainPass: freshPass, groups: nil,
+   commandBuffer: freshCB, leases: &freshLeases)
+  let reserved = freshState.sharedDepth(pass: freshPass, pool: intrinsic.staticModelDepthTargetPool,
+   device: device, commandBuffer: freshCB, leases: &freshLeases)
+  freshState.prepared = nil
+  _ = intrinsic.drawStaticModel(layer: .init(id: 4), state: freshState, worldFrames: intrinsicWorld,
    frameContext: .init(dynamicValues: dynamic), cameraFrame: camera, lighting: lighting,
-   pass: exitPass, commandBuffer: exitCB, leases: &exitLeases)
-  precondition(exitPass.finishEnsuringClear())
-  exitLeases.forEach { $0.arm(on: exitCB) }; exitState.arm(on: exitCB)
-  exitCB.commit(); exitCB.waitUntilCompleted()
-  checks["source-ordered-exit-suffix-draws-with-fresh-payload"] = exitLeases.count == 3
-   && exitRenderer.dependencyRuntime.encoded[5] == true
-   && exitCB.status == .completed && exitCB.error == nil && rgb(first) == [255, 0, 255, 255]
+   pass: freshPass, commandBuffer: freshCB, leases: &freshLeases)
+  let refreshed = freshState.sharedDepth(pass: freshPass, pool: intrinsic.staticModelDepthTargetPool,
+   device: device, commandBuffer: freshCB, leases: &freshLeases)
+  precondition(freshPass.finishEnsuringClear())
+  freshLeases.forEach { $0.arm(on: freshCB) }; freshState.arm(on: freshCB)
+  freshCB.commit(); freshCB.waitUntilCompleted()
+  checks["source-fresh-payload-keeps-original-scene-domain"] = freshExclusion.isEmpty
+   && freshLeases.count == 1 && reserved.lease?.texture === refreshed.lease?.texture
+   && intrinsic.dependencyRuntime.encoded[4] == true
+   && freshCB.status == .completed && freshCB.error == nil && rgb(first) == [255, 255, 0, 255]
   let result: [String: Any] = ["checks": checks, "rows": rows,
    "passed": checks.values.allSatisfy { $0 }, "prepared": usePreparation,
    "boundary": "Actual StaticModelFrame depth qualifier/shared reserve/binding, pool, model draw, main encoder and Metal; prepared-input shell only. Healthy suffix here is a real color-pass clear, not a claimed graph layer. Explicit local cancellation after the real frame-owner busy decision; no source Program/App/corpus/VM/full admission/graph-ledger/flicker-cause claim."]

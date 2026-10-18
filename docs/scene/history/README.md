@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-19 | 模型/深度 | 公共语义修复 | [模型共享场景域](model-scene-depth-domain-2026-10-19.md) | 单位变换公共红绿、近共面透明壳与真实在飞压力；333/343余项保持 | [F6](../roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain)、[运行架构](../architecture/runtime-architecture.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 原生平面/深度 | 公共语义修复 | [普通image显式状态](ordinary-native-image-depth-2026-10-19.md) | 前后像素红绿、共享lease/读写/剔除及DTO职责分离；333和默认text仍开放 | [D1](../roadmap/batch2/composition-render-target-design.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 共享表面/光照 | 正确性修复 | [Roughness零端点](surface-zero-roughness-2026-10-19.md) | 官方native有效端点、三consumer红绿与原343热点消失；保正值floor、夜侧余项与361 after-only边界 | [F3零端点](../roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness)、[运行架构](../architecture/runtime-architecture.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 2D材质/发光 | 正确性修复 | [Emission原图基色](lit-image-emission-albedo-2026-10-19.md) | 黑基色GPU反例、PMA/HDR与原343银河恢复；保Cloud/官方资格失败和Earth余项 | [F3 emission](../roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo)、[运行证据](../capabilities/runtime-evidence-current.md#lit-image-emission-albedo-20261019)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

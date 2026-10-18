@@ -37,19 +37,21 @@
     "3437487219": {
       "verdict": "fail",
       "reviewedOn": "2026-10-19",
-      "note": "10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail保持。前批2D emission已恢复银河橙调。 旧反馈与资源后验：2026-10-18用户补报地球高频闪烁，与cursor owner collision分开，未证同因；10-19先确认小窗不闪/全屏闪，后确认depth候选全屏不闪，不能据短窗闭偶发。日期时间恢复及pending漏画修正各保原范围，原snapshot superseded FAIL照保。",
+      "note": "10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail保持。前批2D emission已恢复银河橙调。 旧反馈与资源后验：2026-10-18用户补报地球高频闪烁，与cursor owner collision分开，未证同因；10-19先确认小窗不闪/全屏闪，后确认depth候选全屏不闪，不能据短窗闭偶发。日期时间恢复及pending漏画修正各保原范围，原snapshot superseded FAIL照保。 10-19模型隔离退休后修前/候选原包after均保地表、云、蓝边与银河，候选前三帧Earth/Cloud两实例实际同passCB。夜侧仍偏亮；截图序列superseded/teardown失败原样保留，不记GPUframe错误或闭闪烁。单次目标池需求减少不认稳定性能。",
       "remainingDifferences": "圆白热点已由共享零端点策略在原包与独审有界退出；Earth夜侧仍偏亮、颜色/光影与目录官方有差异，VM Date/作者phase及HDR域未同条件资格。全屏间歇闪烁保时序/负载复验，旧collision独立保留；不因零端点、资源或2D emission修正关闭。",
       "reviewer": "Codex 原包屏幕帧短窗、用户目视反馈与独立资源审查；非完整官方对照",
       "runs": [
         ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/small/report.json",
         ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/before/report.json",
         ".artifacts/scene-evidence/runs/static-model-depth-after-20261019/after/report.json",
-        ".artifacts/scene-evidence/runs/static-model-depth-repeat-20261019/repeat/report.json"
+        ".artifacts/scene-evidence/runs/static-model-depth-repeat-20261019/repeat/report.json",
+        ".artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json"
       ],
       "evidence": [
         "docs/scene/history/static-model-depth-pending-2026-10-19.md",
         "docs/scene/history/lit-image-emission-albedo-2026-10-19.md",
-        "docs/scene/history/surface-zero-roughness-2026-10-19.md"
+        "docs/scene/history/surface-zero-roughness-2026-10-19.md",
+        "docs/scene/history/model-scene-depth-domain-2026-10-19.md"
       ]
     },
     "3448845950": {
@@ -778,23 +780,25 @@
     "3337494481": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
-      "reviewer": "Codex root; independent camera/cursor reviewers",
+      "reviewer": "Codex root; independent shared-depth owner and four-image review",
       "officialComparison": "compared",
-      "note": "10-19相机后继：原生default相机和父层typed TRS接入同阶段world；自有双深度标记红绿成立。原包同非中心pointer两arm视角改变，但after精确矩阵/官方同phase未对齐，扁盒归因未闭。五层source旧缺口保持退出；本批真实两arm均exit0/无漂移/stop排空，effect CPU、229 Program fallback、Rope三FAIL保持。正面仍透见背面文字，背景仍缺，整样本unreviewed。 10-19普通image显式深度自有App红绿成立，但本包普通正例隐藏或关闭depth；R1实际复验反向文字仍穿透、原三FAIL保持，不记本包受益。text默认官方载体STOP_UNKNOWN，转查模型实例隔离。",
+      "note": "10-19模型场景深度域退休geometry/单位相关隔离；公共App两单位遮挡红绿及旋转/改名/近共面壳/前景occluder均通过。原包同输入before/candidate均App0、无漂移、stop排空，候选前三帧18实例actual world/encoded/同passCB已核；实图倒向文字、粉顶/扁盒及黑背景仍在，原effect CPU、229 fallback、Rope三FAIL保持，不认本包受益或关闭。五层source与typed相机旧首错保持退出，默认text正控仍UNKNOWN。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-camera-frame-transforms-20261019/native/report.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md"
       ],
-      "remainingDifferences": "盒体前后遮挡/跨面文字穿叠；顶面构图须对齐camera37实际姿态与输入；全屏背景、Rope profile、229首Program fallback与完整音乐/属性/交互、同状态官方parity。五层source-not-ready及camera静态world误接已退出。"
+      "remainingDifferences": "倒向日期/文字跨面透见、顶面构图/扁盒、全屏背景；default text遮挡及同phase相机姿态仍待资格，229首Program fallback、effect CPU及Rope保持；完整音乐/属性/交互和官方parity未验。"
     },
     "3585542943": {
       "verdict": "unreviewed",

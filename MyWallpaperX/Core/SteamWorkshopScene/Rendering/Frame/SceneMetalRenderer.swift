@@ -122,7 +122,7 @@ struct SceneMetalRenderer {
         // Submitted candidates remain provisional until the host barrier.
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []
         defer { if !didTransferFrameOwnership { frameDepthLeases.forEach { $0.cancel() } } }
-        let modelFrame = StaticModelFrame()
+        let modelFrame = StaticModelFrame(commandBuffer: commandBuffer)
         defer { if !didTransferFrameOwnership { modelFrame.cancel() } }
         // M2 Patch A：effect 执行证据链（每帧 trace + SHA256 cohort）只属于
         // 诊断/基准模式（runtime-architecture §5.5）；正常播放为 nil，

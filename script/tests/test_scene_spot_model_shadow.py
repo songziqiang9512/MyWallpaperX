@@ -38,6 +38,14 @@ def run_spot(source_paths, support, **kwargs):
         if after!=identity:raise AssertionError(f'test/helper source changed: {root}')
 
 
+def alpha_builder_support(builder):
+    """Use the builder fixture's actual data-only environment declaration."""
+    force=(builder.SOURCE_ROOT/'Systems/Particles/SceneParticleControlPointForce.swift').read_text()
+    start=force.index('nonisolated struct SceneParticleControlPointForceEnvironment:')
+    environment=force[start:force.index('\n}',start)+2]
+    return environment+'\n'+builder.HARNESS_SOURCE.split('@main',1)[0]
+
+
 def _sub(a, b):
     return [x-y for x, y in zip(a, b)]
 
@@ -639,13 +647,13 @@ FRAME_FLIGHT=r'''
    defer {event.signaledValue=1}
    let pending=cb.status != .completed && cb.status != .error
    pool.reset();let retained=pool.residentByteCost
-   // Only one real model is needed for B. A holds two model-depth slots;
-   // using a third preserves the real three-slot admission limit.
+   // A holds one model pass domain. B uses a different CB/pass and target;
+   // it must obtain a distinct lease without inventing a near-mesh domain.
    let resizedDescriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:128,height:128,mipmapped:false)
    resizedDescriptor.usage=[.renderTarget,.shaderRead];resizedDescriptor.storageMode = .shared
    let resized=device.makeTexture(descriptor:resizedDescriptor)!,nextCB=queue.makeCommandBuffer()!
    let nextPass=SceneMainPassEncoder(commandBuffer:nextCB,target:resized,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-   let nextLayers=[layers[0]],nextState=SceneMetalRenderer.StaticModelFrame()
+   let nextLayers=[layers[0]],nextState=SceneMetalRenderer.StaticModelFrame(commandBuffer:nextCB)
    var nextLeases:[SceneParticleDepthTargetLease]=[],nextMandatory=0
    let nextCandidates=renderer.shadowDrawCandidates(orderedLayers:nextLayers,visible:[1],worldFrames:world,snapshot:dynamic,groups:nil)!
    renderer.prepareModelShadow(state:nextState,candidates:nextCandidates,lights:lighting.shadowLights,
@@ -679,7 +687,7 @@ FRAME_FLIGHT=r'''
    recoveryDescriptor.usage=[.renderTarget,.shaderRead];recoveryDescriptor.storageMode = .shared
    let recoveryOutput=device.makeTexture(descriptor:recoveryDescriptor)!
    let recoveryPass=SceneMainPassEncoder(commandBuffer:recoveryCB,target:recoveryOutput,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-   let recoveryState=SceneMetalRenderer.StaticModelFrame(),recoveryLayers=[layers[0]]
+   let recoveryState=SceneMetalRenderer.StaticModelFrame(commandBuffer:recoveryCB),recoveryLayers=[layers[0]]
    var recoveryLeases:[SceneParticleDepthTargetLease]=[],recoveryMandatory=0
    let recoveryCandidates=renderer.shadowDrawCandidates(orderedLayers:recoveryLayers,visible:[1],worldFrames:world,snapshot:dynamic,groups:nil)!
    renderer.prepareModelShadow(state:recoveryState,candidates:recoveryCandidates,lights:lighting.shadowLights,
@@ -723,7 +731,7 @@ def frame_owner_main():
   let shadowBytes=device.heapTextureSizeAndAlign(descriptor:shadowDescriptor).size
   if mode.hasPrefix("quota") {
    let maps=Int(mode.suffix(1))!
-   let capacity=3*depthBytes+maps*shadowBytes
+   let capacity=2*depthBytes+maps*shadowBytes
    held=SceneResourceBudget.shared.maximumBytes-SceneResourceBudget.shared.snapshot.residentBytes-capacity
    precondition(SceneResourceBudget.shared.reserve(held,kind:.gpu))
   }
@@ -750,11 +758,11 @@ def assert_frame_owner_rows(test, rows):
         test.assertTrue(r['completed']);test.assertEqual(r['mapIDs'],expected[mode]);test.assertTrue(r['mapUnique'])
         test.assertEqual(r['pixels'],cases['original']['pixels'])
         test.assertEqual(r['mandatoryCalls'],0 if mode=='original' else 1)
-        test.assertEqual(r['after'],3);test.assertEqual(r['particleDraws'],1)
+        test.assertEqual(r['after'],2);test.assertEqual(r['modelDepthCount'],1);test.assertEqual(r['particleDraws'],1)
         for k in ['model1','model2','model3']:test.assertTrue(r[k],(mode,k))
         if mode!='original':
-            test.assertEqual(r['before'],3)
-            for k in ['sharedIdentity','isolatedIdentity','particleIdentity','allocationsStable','noRetry']:
+            test.assertEqual(r['before'],2)
+            for k in ['sharedIdentity','particleDomainSeparate','particleIdentity','allocationsStable','noRetry']:
                 test.assertTrue(r[k],(mode,k))
             test.assertEqual(r['shadowBytesPrepared'],len(expected[mode])*1024*1024*4)
     g=cases['gap']['gap'];test.assertTrue(g['laterUsesSlot3'] and g['slot2WasDistinct']);test.assertEqual(g['extraSlotBytes'],1024*1024*4)
@@ -773,7 +781,7 @@ def assert_frame_owner_rows(test, rows):
 
 class SceneSpotModelShadowFrameOwnerTests(unittest.TestCase):
     def test_real_mandatory_once_quota_stable_slots_and_pending_lifecycle(self):
-        report=run_spot(f.SOURCES,frame_owner_harness(),label='spot-frame-owner',metal_sources=[model.METAL_SOURCE])
+        report=run_spot(f.SOURCES,frame_owner_harness(),label='spot-frame-owner',metal_sources=[model.METAL_SOURCE],swift_flags=('-DDEBUG',))
         assert_frame_owner_rows(self,report['rows'])
 
 
@@ -811,9 +819,9 @@ def partial_frame_harness(alpha):
     s=f.MAIN.replace('["original", "prepared", "optional-quota", "mandatory-quota"]','["partial"]')
     s=s.replace('func material(_ color:SIMD3<Float>)->SceneStaticModelMaterial {','func material(_ color:SIMD3<Float>,_ opacity:Float = 1)->SceneStaticModelMaterial {')
     s=s.replace('.init(color:color,opacity:1,receivesLighting:true','.init(color:color,opacity:opacity,receivesLighting:true')
-    s=s.replace('func entry(_ mesh:SceneStaticModelMesh,_ identity:String,_ color:SIMD3<Float>)->ScenePreparedStaticModelResources.Entry {','func entry(_ mesh:SceneStaticModelMesh,_ identity:String,_ color:SIMD3<Float>,_ opacity:Float = 1)->ScenePreparedStaticModelResources.Entry {')
+    s=s.replace('func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>)->ScenePreparedStaticModelResources.Entry {','func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>,_ opacity:Float = 1)->ScenePreparedStaticModelResources.Entry {')
     s=s.replace('material:material(color))','material:material(color,opacity))')
-    s=s.replace('2:[entry(meshA,"one-geometry",SIMD3(0,1,0))]',f'2:[entry(meshA,"one-geometry",SIMD3(0,1,0),Float(Double({alpha!r})))]')
+    s=s.replace('2:[entry(meshA,SIMD3(0,1,0))]',f'2:[entry(meshA,SIMD3(0,1,0),Float(Double({alpha!r})))]')
     s=s.replace('.init(id:3),.init(id:4,contentKind:"particle")','.init(id:4,contentKind:"particle")')
     a=s.index('  let light=SceneLightSnapshot.Directional');b=s.index('  let instances=',a)
     s=s[:a]+r'''
@@ -897,11 +905,11 @@ class SceneSpotModelShadowPartialFailureTests(unittest.TestCase):
  }
 }
 '''
-        producer=run_spot(builder.SWIFT_SOURCES,builder.HARNESS_SOURCE.split('@main',1)[0]+main,
+        producer=run_spot(builder.SWIFT_SOURCES,alpha_builder_support(builder)+main,
                           label='spot-overflow-producer',input_value=str(root))
         self.assertTrue(producer['doubleFinite']);self.assertFalse(producer['floatFinite'])
         # Real CPU builder -> typed descriptor value -> prepared material boundary.
         # The GPU resource builder itself is outside this harness, not duplicated.
         report=run_spot(f.SOURCES,partial_frame_harness(producer['descriptorAlpha']),label='spot-partial-map',
-                        metal_sources=[model.METAL_SOURCE],input_value=producer)
+                        metal_sources=[model.METAL_SOURCE],input_value=producer,swift_flags=('-DDEBUG',))
         assert_partial_frame_report(self,report)

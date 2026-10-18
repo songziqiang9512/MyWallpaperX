@@ -423,8 +423,8 @@ POINT_FRAME_LIGHTS=r'''
   let directionalLayer=SceneRenderDescriptor.Layer(id:7,directionalLight:.init(colorRGB:[1,1,1],intensity:0,shadowCastIntent:.enabled),contentKind:"light")
   let lightLayers:[SceneRenderDescriptor.Layer]
   if mode=="four-points" || mode=="flight" {lightLayers=[pointLayer(8),pointLayer(9),pointLayer(10),pointLayer(11)]}
-  else if mode=="gap" {lightLayers=[directionalLayer,spotLayer(8,90),spotLayer(9,Float.leastNonzeroMagnitude),pointLayer(10)]}
-  else {lightLayers=[directionalLayer,spotLayer(8,90),pointLayer(9),pointLayer(10)]}
+  else if mode=="gap" {lightLayers=[directionalLayer,spotLayer(8,45),spotLayer(9,Float.leastNonzeroMagnitude),pointLayer(10)]}
+  else {lightLayers=[directionalLayer,spotLayer(8,45),pointLayer(9),pointLayer(10)]}
   var lightWorld=SceneMatrix.eulerXYZ(SIMD3(0, .pi/2, 0));lightWorld.columns.3=SIMD4(32,32,40,1)
   let lightDescriptor=SceneRenderDescriptor(lighting:.init(ambientColorRGB:[0.5,0.5,0.5],skylightColorRGB:nil),layers:lightLayers,renderOrderLayerIDs:lightLayers.map(\.id))
   let lighting=SceneLightSnapshot.make(descriptor:lightDescriptor,worldFramesByLayerID:Dictionary(uniqueKeysWithValues:lightLayers.map{($0.id,lightWorld)}))
@@ -443,7 +443,7 @@ def point_frame_harness():
   let atlasBytes=device.heapTextureSizeAndAlign(descriptor:atlasDescriptor).size
   if mode.hasPrefix("quota") {
    let maps=''')
-    s=s.replace('let capacity=3*depthBytes+maps*shadowBytes','let capacity=3*depthBytes+(maps<3 ? maps*shadowBytes : 2*shadowBytes+atlasBytes)')
+    s=s.replace('let capacity=2*depthBytes+maps*shadowBytes','let capacity=2*depthBytes+(maps<3 ? maps*shadowBytes : 2*shadowBytes+atlasBytes)')
     s=s.replace('slot:3,width:1024,height:1024','slot:3,width:3072,height:2048').replace('slot:2,width:1024,height:1024','slot:2,width:3072,height:2048')
     # Actual typed record dimensions ensure the published point is a six-face
     # atlas, while original directional/spot remain their single-face targets.
@@ -460,11 +460,11 @@ def assert_point_frame_rows(test,rows):
         test.assertTrue(r['completed']);test.assertEqual(r['mapIDs'],expected[mode]);test.assertTrue(r['mapUnique'])
         test.assertEqual(r['pixels'],cases['original']['pixels'])
         test.assertEqual(r['mandatoryCalls'],0 if mode=='original' else 1)
-        test.assertEqual(r['after'],3);test.assertEqual(r['particleDraws'],1)
+        test.assertEqual(r['after'],2);test.assertEqual(r['modelDepthCount'],1);test.assertEqual(r['particleDraws'],1)
         for k in ['model1','model2','model3']:test.assertTrue(r[k],(mode,k))
         if mode!='original':
-            test.assertEqual(r['before'],3)
-            for k in ['sharedIdentity','isolatedIdentity','particleIdentity','allocationsStable','noRetry']:test.assertTrue(r[k],(mode,k))
+            test.assertEqual(r['before'],2)
+            for k in ['sharedIdentity','particleDomainSeparate','particleIdentity','allocationsStable','noRetry']:test.assertTrue(r[k],(mode,k))
         test.assertEqual(r['shadowBytesPrepared'],costs[mode]*1024*1024)
         extent=[[3072,2048] if mode in ('four-points','flight') or i>=9 else [1024,1024] for i in expected[mode]]
         test.assertEqual(r['atlasExtents'],extent)
@@ -481,7 +481,7 @@ def assert_point_frame_rows(test,rows):
 
 class ScenePointModelShadowFrameOwnerTests(unittest.TestCase):
  def test_actual_priority_quota_six_face_publication_and_pending_lifecycle(self):
-  report=run_point(spot.f.SOURCES,point_frame_harness(),label='point-frame-owner',metal_sources=[model.METAL_SOURCE])
+  report=run_point(spot.f.SOURCES,point_frame_harness(),label='point-frame-owner',metal_sources=[model.METAL_SOURCE],swift_flags=('-DDEBUG',))
   assert_point_frame_rows(self,report['rows'])
 
 
@@ -536,13 +536,13 @@ class ScenePointModelShadowPartialFailureTests(unittest.TestCase):
  }
 }
 '''
-        producer=run_point(builder.SWIFT_SOURCES,builder.HARNESS_SOURCE.split('@main',1)[0]+main,
+        producer=run_point(builder.SWIFT_SOURCES,spot.alpha_builder_support(builder)+main,
                           label='point-overflow-producer',input_value=str(root))
         self.assertTrue(producer['doubleFinite']);self.assertFalse(producer['floatFinite'])
         # Real CPU builder -> typed descriptor value -> prepared material boundary.
         # The GPU resource builder itself is outside this harness, not duplicated.
         report=run_point(spot.f.SOURCES,partial_point_harness(producer['descriptorAlpha']),label='point-partial-map',
-                        metal_sources=[model.METAL_SOURCE],input_value=producer)
+                        metal_sources=[model.METAL_SOURCE],input_value=producer,swift_flags=('-DDEBUG',))
         assert_partial_point_report(self,report)
 
 

@@ -265,7 +265,7 @@ DEPENDENCY_SOURCES = list(dict.fromkeys([
     dependency_fixture.AGGREGATE_VALIDATION_RUNTIME_SOURCE,
     dependency_fixture.GEOMETRY_RUNTIME_SOURCE,
     dependency_fixture.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE,
-    SCENE/'Rendering/Dependencies/SceneNamedRenderTargetPool.swift',
+    SCENE/'Rendering/Dependencies/SceneNamedRenderTargetPool.swift', SCENE/'Rendering/Dependencies/SceneDependencyCaptureFault.swift',
     SCENE/'Rendering/Metal/SceneMetalPipeline.swift',
     SCENE/'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',
     SCENE/'Rendering/Composition/SceneMainPassEncoder.swift',
@@ -347,7 +347,7 @@ def ordered_support():
     descriptor=frame_fixture.SHELL.split('struct SceneLayerDisplayScriptOwnership',1)[1].split('struct SceneFrameContext',1)[0]
     descriptor='struct SceneLayerDisplayScriptOwnership'+descriptor
     descriptor=descriptor.replace('var utilityLayer:Bool? = false','var utilityLayer:SceneUtilityLayer? = nil')
-    descriptor=descriptor.replace('var colorBlendMode:Int? = nil','var colorBlendMode:Int? = nil\n  var colorRGB:[Double]? = nil; var clampUVs:Bool? = nil; var noInterpolation:Bool? = nil\n  struct Effect {let visible:Bool?}; var effects:[Effect]=[]')
+    descriptor=descriptor.replace('var colorBlendMode:Int? = nil','var colorBlendMode:Int? = nil;var imageMaterialRenderState:SceneMaterialRenderState? = nil\n  var colorRGB:[Double]? = nil; var clampUVs:Bool? = nil; var noInterpolation:Bool? = nil\n  struct Effect {let visible:Bool?}; var effects:[Effect]=[]')
     descriptor=descriptor.replace(' let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]',
         ' struct ColorTargetFormat {let metalPixelFormat:MTLPixelFormat = .bgra8Unorm}\n'
         ' let colorTargetFormat=ColorTargetFormat();var lighting:LightingDescriptor? = nil\n'
@@ -393,7 +393,7 @@ def typecheck_ordered_probe():
     parent=os.environ.get('MWX_NAMED_MODEL_SHADOW_EVIDENCE')
     work=Path(tempfile.mkdtemp(prefix='named-ordered-probe-typecheck-',dir=parent))
     source=work/'Harness.swift';source.write_text(ordered_support()+ORDERED_MAIN)
-    result=subprocess.run(['xcrun','swiftc','-typecheck','-module-cache-path',str(work/'cache'),
+    result=subprocess.run(['xcrun','swiftc','-DDEBUG','-typecheck','-module-cache-path',str(work/'cache'),
                            *map(str,ORDERED_SOURCES),str(source)],capture_output=True,text=True)
     (work/'compile.log').write_text(result.stdout+result.stderr)
     print(work,flush=True);print(result.stderr)
@@ -406,7 +406,7 @@ class SceneNamedModelShadowOrderedOwnerTests(unittest.TestCase):
         from script.tests.test_scene_directional_shadow import run_swift
         cls.identity=sha(__file__)
         report=run_swift(ADMISSION_SOURCES,admission_support()+ORDERED_MAIN,label='rf13-ordered',
-            metal_sources=[SCENE/'Rendering/Composition/SceneImageLayer.metal',SCENE/'Rendering/Composition/SceneStaticModel.metal',SCENE/'Rendering/Composition/SceneLitImageLayer.metal'])
+            metal_sources=[SCENE/'Rendering/Composition/SceneImageLayer.metal',SCENE/'Rendering/Composition/SceneStaticModel.metal',SCENE/'Rendering/Composition/SceneLitImageLayer.metal'],swift_flags=('-DDEBUG',))
         if sha(__file__)!=cls.identity: raise AssertionError('test changed during execution')
         cls.rows={row['mode']:row for row in report['rows']}
 
@@ -415,7 +415,7 @@ class SceneNamedModelShadowOrderedOwnerTests(unittest.TestCase):
             with self.subTest(name=name):
                 row=self.rows[name]
                 self.assertEqual(row['preparedIDs'],[1]);self.assertTrue(row['namedUnvisited'])
-                self.assertEqual(row['depthStates'],['ready']);self.assertEqual(row['prefixLeases'],1)
+                self.assertEqual(row['preparedPartCount'],1);self.assertTrue(row['sceneDepthReady']);self.assertEqual(row['prefixLeases'],1)
                 self.assertEqual(row['physicalRejections'],1);self.assertFalse(row['shadow'])
                 self.assertEqual(row['capturesPrepared'],0);self.assertEqual(row['capturesTotal'],1)
                 self.assertEqual(row['pixels'],[[128,0,0,255],[0,128,0,255]])
@@ -430,12 +430,12 @@ class SceneNamedModelShadowOrderedOwnerTests(unittest.TestCase):
         self.assertTrue(row['currentIdentity'] and row['completed'])
         self.assertEqual(row['pixels'],[[128,0,0,255],[0,128,0,255]])
 
-    def test_partial_model_distinguishes_failed_attempt_from_unvisited_mesh(self):
+    def test_one_scene_domain_keeps_all_parts_when_only_one_depth_target_fits(self):
         row=self.rows['partial-mesh']
-        self.assertEqual(row['depthStates'],['ready','failed','unvisited'])
+        self.assertEqual(row['preparedPartCount'],3);self.assertTrue(row['sceneDepthReady'])
         self.assertEqual(row['physicalRejections'],1);self.assertFalse(row['shadow'])
         self.assertEqual((row['prefixLeases'],row['beforeDrawLeases'],row['afterDrawLeases']),(1,1,1))
-        self.assertEqual(row['pixels'],[[128,0,0,255],[0,0,128,255]])
+        self.assertEqual(row['pixels'],[[0,128,0,255],[0,0,128,255]])
         self.assertTrue(row['completed']);self.assertIsNone(row['typedInvalid'])
 
 ADMISSION_SOURCES=list(dict.fromkeys([*ORDERED_SOURCES,
@@ -444,7 +444,7 @@ ADMISSION_SOURCES=list(dict.fromkeys([*ORDERED_SOURCES,
  SCENE/'Rendering/Metal/SceneLitImageLayerPipeline.swift',
  SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
  SCENE/'Compilation/Material/SceneBaseMaterialLightingProfile.swift',
- SCENE/'Rendering/Geometry/SceneCaptureGeometry.swift',
+ SCENE/'Rendering/Geometry/SceneCaptureGeometry.swift', SCENE/'Rendering/Geometry/SceneLayerCursorGeometry.swift',
  SCENE/'Rendering/Composition/SceneLayerColorBlendPipeline.swift',
  SCENE/'Rendering/Composition/SceneBlendModeShaderSource.swift']))
 
@@ -485,7 +485,7 @@ def typecheck_admission_support():
     parent=os.environ.get('MWX_NAMED_MODEL_SHADOW_EVIDENCE')
     work=Path(tempfile.mkdtemp(prefix='named-admission-typecheck-',dir=parent))
     source=work/'Harness.swift';source.write_text(admission_support()+'\n@main enum Probe {static func main(){}}\n')
-    result=subprocess.run(['xcrun','swiftc','-typecheck','-module-cache-path',str(work/'cache'),
+    result=subprocess.run(['xcrun','swiftc','-DDEBUG','-typecheck','-module-cache-path',str(work/'cache'),
                            *map(str,ADMISSION_SOURCES),str(source)],capture_output=True,text=True)
     (work/'compile.log').write_text(result.stdout+result.stderr)
     print(work,flush=True);print(result.stderr)
@@ -505,13 +505,13 @@ def admission_main():
   let pool=SceneOffscreenTexturePool''')
     s=s.replace('let sources=SceneBaseImageTextureSnapshot(sources:partial ? [:]:[11:source(green)])',
         'let blue=texture(d,size,[0,0,64,255])\n   let sources=SceneBaseImageTextureSnapshot(sources:[8:source(blue),11:source(green)])')
-    s=s.replace('let state=SceneMetalRenderer.StaticModelFrame();var leases:', '''var plainRequest=SceneImageLayerDrawRequest(layer:plain,dynamicValues:frame.dynamicValues)
+    s=s.replace('let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:', '''var plainRequest=SceneImageLayerDrawRequest(layer:plain,dynamicValues:frame.dynamicValues)
    var environmentCalls=0
    renderer.preparePlainSourceLighting(request:&plainRequest,snapshot:lighting,model:matrix_identity_float4x4,
     worldFrame:matrix_identity_float4x4,cameraFrame:camera,usesPerspective:false,
     environmentSource:{_ in environmentCalls += 1;return nil})
    let payloadMiss=plainRequest.sourceLighting == nil
-   let state=SceneMetalRenderer.StaticModelFrame();var leases:''')
+   let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:''')
     s=s.replace('// Replay only the original consumer calls.', '''var screen=matrix_identity_float4x4;screen.columns.0.x=2;screen.columns.1.y=2
    let plainDrawn=SceneLayerColorBlendRenderer.draw(texture:blue,mvp:screen,uniforms:.neutral(),dependencyTexture:nil,layer:plain,pipeline:image,colorBlendPipeline:nil,mainPass:pass)
    // Replay only the original consumer calls.''')
@@ -527,7 +527,7 @@ class SceneNamedModelShadowLightingAdmissionTests(unittest.TestCase):
         report=run_swift(ADMISSION_SOURCES,admission_support()+admission_main(),label='rf13-admission',
             metal_sources=[SCENE/'Rendering/Composition/SceneImageLayer.metal',
                            SCENE/'Rendering/Composition/SceneStaticModel.metal',
-                           SCENE/'Rendering/Composition/SceneLitImageLayer.metal'])
+                           SCENE/'Rendering/Composition/SceneLitImageLayer.metal'],swift_flags=('-DDEBUG',))
         if sha(__file__)!=identity: raise AssertionError('test changed during execution')
         cls.rows={row['mode']:row for row in report['rows']}
 
@@ -538,7 +538,7 @@ class SceneNamedModelShadowLightingAdmissionTests(unittest.TestCase):
                 self.assertTrue(row['payloadMiss'] and row['completed'])
                 self.assertEqual(row['environmentCalls'],0)
                 self.assertEqual(row['plainDrawn'],name!='unsupported-blend')
-                self.assertEqual(row['depthStates'],['ready'])
+                self.assertEqual(row['preparedPartCount'],1);self.assertTrue(row['sceneDepthReady'])
                 self.assertEqual(row['pixels'],[[128,0,0,255],[0,128,0,255]])
                 self.assertEqual((row['capturesPrepared'],row['capturesTotal']),(0,1))
                 self.assertEqual((row['beforeDrawLeases'],row['afterDrawLeases']),(1,1))
@@ -554,7 +554,7 @@ PUBLICATION_FUNCTIONS=r'''
   let consumer=SceneRenderDescriptor.Layer(id:2)
   var provider=SceneRenderDescriptor.Layer(id:11,visible:false,contentKind:"image")
   let descriptor=SceneRenderDescriptor(layers:[provider,consumer],renderOrderLayerIDs:[11,2],staticModelConsumerProviders:[2:11])
-  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",geometryIdentity:"quad",mesh:mesh,albedo:nil,namedAlbedo:named,material:material(SIMD3(repeating:1)))
+  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",mesh:mesh,albedo:nil,namedAlbedo:named,material:material(SIMD3(repeating:1)))
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[2:[entry]]),descriptor:descriptor)
   let camera=SceneParticleCameraFrame(camera:descriptor.camera,viewportSize:CGSize(width:64,height:64))
   let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:1),skylight:.zero,directional:[],point:[],spot:[],overflowCount:0)
@@ -578,7 +578,7 @@ PUBLICATION_FUNCTIONS=r'''
    precondition(capture(index==1 ? green:blue) == .published)
    let draws=renderer.staticModelDraws(layer:consumer,worldFrames:[:],snapshot:frame.dynamicValues,requiresCompleteNamedInputs:true)!
    let same=draws.count==1 && draws[0].texture === current && draws[0].premultiplied
-   let state=SceneMetalRenderer.StaticModelFrame();var leases:[SceneParticleDepthTargetLease]=[]
+   let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
    _=renderer.drawStaticModel(layer:consumer,state:state,worldFrames:[:],frameContext:frame,cameraFrame:camera,lighting:lighting,pass:pass,commandBuffer:cb,leases:&leases)
    precondition(pass.finishEnsuringClear());for lease in leases {lease.arm(on:cb)}
    let readback=texture(d,64,[0,0,0,0]),blit=cb.makeBlitCommandEncoder()!
@@ -613,7 +613,7 @@ PUBLICATION_FUNCTIONS=r'''
   func paint(_ texture:MTLTexture) {let e=pass.encoder()!;image.bind(encoder:e);image.drawLayer(texture:texture,mvp:screen,uniforms:.neutral(),encoder:e)}
   let epoch=renderer.textureRegistry.beginFrame(frameIndex:1,layerSources:[:]),ref=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
   let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:1,generation:1)),sources=SceneBaseImageTextureSnapshot(sources:[:])
-  let state=SceneMetalRenderer.StaticModelFrame(),pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
+  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb),pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
   var leases:[SceneParticleDepthTargetLease]=[]
   paint(red);let before=captures()
   let invalid=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:[provider,second],visible:[],activeNamedModels:[],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,frameContext:frame,worldFrames:[11:screen,12:screen],cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:64,height:64),batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,terminalCapacity:{true},recordsEvidence:false)
@@ -658,7 +658,7 @@ class SceneNamedModelShadowPublicationTests(unittest.TestCase):
         identity=sha(__file__)
         cls.report=run_swift(ADMISSION_SOURCES,admission_support()+publication_main(),label='rf13-publication',
             metal_sources=[SCENE/'Rendering/Composition'/name for name in
-                ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal']])
+                ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal']],swift_flags=('-DDEBUG',))
         if sha(__file__)!=identity: raise AssertionError('test changed during execution')
 
     def test_same_current_alpha_once_next_frame_and_cancel_do_not_leak(self):
@@ -769,7 +769,7 @@ class SceneNamedModelShadowMixedOwnerTests(unittest.TestCase):
         identity=sha(__file__)
         cls.report=run_swift([*ADMISSION_SOURCES,SCENE/'Rendering/Composition/SceneBloomPostProcess.swift'],mixed_support()+mixed_main(),label='rf13-mixed',
             metal_sources=[SCENE/'Rendering/Composition'/name for name in
-                ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal','SceneBloomPostProcess.metal']])
+                ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal','SceneBloomPostProcess.metal']],swift_flags=('-DDEBUG',))
         if sha(__file__)!=identity: raise AssertionError('test changed during execution')
         cls.rows={row['mode']:row for row in cls.report['rows']}
 
@@ -828,13 +828,13 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   let layers=[caster,provider,receiverA,receiverB]
   let descriptor=SceneRenderDescriptor(layers:layers,renderOrderLayerIDs:layers.map(\.id),staticModelConsumerProviders:[2:11,3:11])
   let white=texture(d,1,[255,255,255,255])
-  func entry(_ mesh:SceneStaticModelMesh,_ key:String,_ isNamed:Bool)->ScenePreparedStaticModelResources.Entry {
-   .init(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",geometryIdentity:key,mesh:mesh,
+  func entry(_ mesh:SceneStaticModelMesh,_ isNamed:Bool)->ScenePreparedStaticModelResources.Entry {
+   .init(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",mesh:mesh,
     albedo:isNamed ? nil:PreparedTexture(texture:white),namedAlbedo:isNamed ? reference:nil,material:material(SIMD3(repeating:1)))
   }
-  let entries=[1:[entry(quad(20,20,16,24,10),"caster",false)],
-               2:[entry(quad(0,0,64,32,0),"receiver-a",true)],
-               3:[entry(quad(0,32,64,32,0),"receiver-b",true)]]
+  let entries=[1:[entry(quad(20,20,16,24,10),false)],
+               2:[entry(quad(0,0,64,32,0),true)],
+               3:[entry(quad(0,32,64,32,0),true)]]
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:entries),descriptor:descriptor)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:16*1024*1024)
   let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(1,0,1),color:SIMD3(repeating:1),intensity:0.5)
@@ -847,7 +847,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   let cb=q.makeCommandBuffer()!,event=d.makeSharedEvent()!
   if mode=="flight" {cb.encodeWaitForEvent(event,value:1)}
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-  let state=SceneMetalRenderer.StaticModelFrame();var leases:[SceneParticleDepthTargetLease]=[]
+  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
   let before=captures()
   let invalid=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,
    visible:[1,2,3],activeNamedModels:[2,3],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,
@@ -892,7 +892,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
    let cancelledPass=SceneMainPassEncoder(commandBuffer:cancelledCB,target:newOutput,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
    let nextEpoch=renderer.textureRegistry.beginFrame(frameIndex:2,layerSources:[:])
    let nextFrame=SceneFrameContext(dynamicValues:.empty(frameIndex:2,generation:1))
-   let nextState=SceneMetalRenderer.StaticModelFrame();var nextLeases:[SceneParticleDepthTargetLease]=[]
+   let nextState=SceneMetalRenderer.StaticModelFrame(commandBuffer:cancelledCB);var nextLeases:[SceneParticleDepthTargetLease]=[]
    let nextSources=SceneBaseImageTextureSnapshot(sources:[11:source(blue)])
    let nextInvalid=renderer.prepareOrderedModelShadow(state:nextState,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,
     visible:[1,2,3],activeNamedModels:[2,3],forwardGraphProviders:[],framePlans:[:],imageTextures:nextSources,imagePipeline:image,
@@ -907,7 +907,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
    nextState.cancel();nextState.prepared=nil;nextLeases.forEach{$0.cancel()}
    renderer.textureRegistry.discardFramePublication();pool.reset()
    let afterCancel=pool.residentByteCost
-   guard case let .acquired(reused)=renderer.staticModelDepthTargetPool.acquire(device:d,width:size,height:size,on:queue.makeCommandBuffer()!) else {preconditionFailure("cancelled depth")}
+   guard case let .acquired(reused)=renderer.staticModelDepthTargetPool.acquire(device:d,width:size,height:size,on:q.makeCommandBuffer()!) else {preconditionFailure("cancelled depth")}
    let cancelledDepthReusable=reused.texture === cancelledDepth;reused.cancel()
    flight=["pending":pending,"originalShadowBytes":originalShadowBytes,"retainedAfterReset":retainedAfterReset,
     "retainedAfterCancel":afterCancel,"nextInvalid":nextInvalid as Any? ?? NSNull(),"nextShadow":newShadow,
@@ -928,7 +928,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   }
   if mode=="flight" {
    flight["residentAfterCompletion"]=pool.residentByteCost
-   guard case let .acquired(completedLease)=renderer.staticModelDepthTargetPool.acquire(device:d,width:64,height:64,on:queue.makeCommandBuffer()!) else {preconditionFailure("completed depth")}
+   guard case let .acquired(completedLease)=renderer.staticModelDepthTargetPool.acquire(device:d,width:64,height:64,on:q.makeCommandBuffer()!) else {preconditionFailure("completed depth")}
    flight["completedDepthReusable"]=completedLease.texture === oldDepth;completedLease.cancel()
   }
   return ["mode":mode,"invalid":invalid as Any? ?? NSNull(),"shadow":shadowCreated,"sameCurrent":sharedCurrent,
@@ -993,7 +993,7 @@ class SceneNamedModelShadowReceiverLifecycleTests(unittest.TestCase):
         identity=sha(__file__)
         cls.report=run_swift(ADMISSION_SOURCES,admission_support()+named_receivers_main(),label='rf13-named-receivers',
             metal_sources=[SCENE/'Rendering/Composition'/name for name in
-                ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal']])
+                ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal']],swift_flags=('-DDEBUG',))
         if sha(__file__)!=identity: raise AssertionError('test changed during execution')
 
     def test_two_cast_false_named_receivers_and_blocked_submission_resize_cancel(self):

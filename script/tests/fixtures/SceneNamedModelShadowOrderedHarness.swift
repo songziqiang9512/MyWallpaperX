@@ -1,4 +1,10 @@
 
+// This probe declares no authored framebuffer-source material role.
+extension SceneUtilityLayer { var framebufferSource: Bool? { nil } }
+// Transport only; production StaticModelFrame owns binding qualification.
+struct SceneImageLayerTerminalDepthBinding {
+ let encoder:(SceneMainPassEncoder)->MTLRenderCommandEncoder?
+}
 nonisolated enum SceneResolvedMaterialExecutionCapabilityCatalog {struct Token:Hashable {}}
 struct FixtureSource {let texture:MTLTexture;let candidate:SceneTextureCandidate;var usesAuthoredLayerColor:Bool=true}
 struct SceneLayerParallax {struct Configuration {}}
@@ -88,16 +94,16 @@ final class SceneMetalRenderer {
    return pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
   }
   let a=quad(4),b=quad(36),reference=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
-  func entry(_ mesh:SceneStaticModelMesh,_ key:String,_ color:SIMD3<Float>,named:Bool=false)->ScenePreparedStaticModelResources.Entry {
-   .init(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",geometryIdentity:key,mesh:mesh,
+  func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>,named:Bool=false)->ScenePreparedStaticModelResources.Entry {
+   .init(materialPath:"materials/unseen/runtime.json",dynamicMaterialPath:"",mesh:mesh,
     albedo:named ? nil:PreparedTexture(texture:white),namedAlbedo:named ? reference:nil,material:material(color))
   }
   let partial=mode=="partial-mesh"
   let provider=SceneRenderDescriptor.Layer(id:11,visible:false,contentKind:"image")
   let layers:[SceneRenderDescriptor.Layer]=partial ? [.init(id:1)] : [.init(id:1),provider,.init(id:2)]
   let entries:[Int:[ScenePreparedStaticModelResources.Entry]]=partial
-   ? [1:[entry(a,"same",SIMD3(1,0,0)),entry(a,"same",SIMD3(0,1,0)),entry(b,"other",SIMD3(0,0,1))]]
-   : [1:[entry(a,"healthy",SIMD3(1,0,0))],2:[entry(b,"named",SIMD3(repeating:1),named:true)]]
+   ? [1:[entry(a,SIMD3(1,0,0)),entry(a,SIMD3(0,1,0)),entry(b,SIMD3(0,0,1))]]
+   : [1:[entry(a,SIMD3(1,0,0))],2:[entry(b,SIMD3(repeating:1),named:true)]]
   let descriptor=SceneRenderDescriptor(layers:layers,renderOrderLayerIDs:layers.map(\.id),staticModelConsumerProviders:partial ? [:]:[2:11])
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:pipeline,entries:entries),descriptor:descriptor)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:16*1024*1024)
@@ -113,7 +119,7 @@ final class SceneMetalRenderer {
    let sources=SceneBaseImageTextureSnapshot(sources:partial ? [:]:[11:source(green)])
    let epoch=renderer.textureRegistry.beginFrame(frameIndex:UInt64(size),layerSources:[:])
    let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:UInt64(size),generation:1))
-   let state=SceneMetalRenderer.StaticModelFrame();var leases:[SceneParticleDepthTargetLease]=[]
+   let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
    let pressured=size==256 && mode != "cold-full"
    let dd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:size,height:size,mipmapped:false)
    dd.storageMode = .private;dd.usage = .renderTarget
@@ -132,10 +138,11 @@ final class SceneMetalRenderer {
     terminalCapacity:{true},recordsEvidence:false)
    let capturePrepared=captures()-captureStart,published = !state.shadows.isEmpty
    let preparedIDs=state.prepared?.keys.sorted() ?? []
-   let depthStates=(state.prepared?[1] ?? []).map { draw->String in
-    guard let depth=draw.depth else {return "unvisited"};return depth.lease == nil ? "failed":"ready"
-   }
-   let prefixCount=leases.count,rejections=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionStart
+   let preparedPartCount=state.prepared?[1]?.count ?? 0
+   let prefixCount=leases.count
+   let sceneDepthReady=state.sharedDepth(pass:pass,pool:renderer.staticModelDepthTargetPool,
+    device:d,commandBuffer:cb,leases:&leases).lease != nil && leases.count==prefixCount
+   let rejections=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionStart
    let namedAbsent=state.prepared?[2] == nil
    if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
    // Replay only the original consumer calls. Ordering and stopped-prefix
@@ -162,7 +169,7 @@ final class SceneMetalRenderer {
    output.getBytes(&bytes,bytesPerRow:size*4,from:MTLRegionMake2D(0,0,size,size),mipmapLevel:0)
    func pixel(_ x:Int,_ y:Int)->[Int] {let i=((y*size/64)*size+x*size/64)*4;return [Int(bytes[i+2]),Int(bytes[i+1]),Int(bytes[i]),Int(bytes[i+3])]}
    final=["mode":mode,"extent":size,"typedInvalid":error as Any? ?? NSNull(),"preparedIDs":preparedIDs,
-    "depthStates":depthStates,"namedUnvisited":namedAbsent,"prefixLeases":prefixCount,"beforeDrawLeases":beforeDraw,
+    "preparedPartCount":preparedPartCount,"sceneDepthReady":sceneDepthReady,"namedUnvisited":namedAbsent,"prefixLeases":prefixCount,"beforeDrawLeases":beforeDraw,
     "afterDrawLeases":afterDraw,"capturesPrepared":capturePrepared,"capturesTotal":totalCaptures,
     "physicalRejections":rejections,"shadow":published,"currentIdentity":currentIdentity,
     "pixels":[pixel(12,12),pixel(44,12)],"completed":true,"nativeDepthBytes":nativeDepth]

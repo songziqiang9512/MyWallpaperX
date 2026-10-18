@@ -21,6 +21,7 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
         if not shutil.which("swiftc") or not shutil.which("xcrun"):
             raise unittest.SkipTest("Swift/Metal toolchain unavailable")
         cls.compile_only = os.environ.get("MWX_IMAGE_TERMINAL_COMPILE_ONLY") == "1"
+        require_validation = os.environ.get("MWX_IMAGE_TERMINAL_METAL_VALIDATION") == "1" and not cls.compile_only
         output = Path(os.environ.get("MWX_IMAGE_TERMINAL_EVIDENCE", "/private/tmp/mwx-image-terminal"))
         output.mkdir(parents=True, exist_ok=True)
         paths = [Path(__file__), shared.HARNESS, shared.PROJECTION_SOURCE, *shared.SOURCES,
@@ -40,14 +41,25 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
                 commands += [["xcrun", "--sdk", "macosx", "metal", "-c", str(shared.SHADER), "-o", str(air)],
                              ["xcrun", "--sdk", "macosx", "metallib", str(air), "-o", str(library)],
                              [str(binary), str(library), "--terminal-finite-only"]]
-            outputs = []
+            outputs, command_logs = [], []
             for command in commands:
-                ran = subprocess.run(command, capture_output=True, text=True, timeout=180)
+                environment = dict(os.environ)
+                if require_validation and command[0] == str(binary):
+                    environment["MTL_DEBUG_LAYER"] = "1"
+                ran = subprocess.run(command, capture_output=True, text=True, timeout=180, env=environment)
                 outputs.append(ran.stdout + ran.stderr)
+                command_logs.append({"command": command, "exitCode": ran.returncode,
+                                     "stdout": ran.stdout, "stderr": ran.stderr})
+                (output / "command-log.json").write_text(json.dumps(command_logs, indent=2))
                 if ran.returncode:
                     (output / "first-failure.log").write_text("\n".join(outputs))
                     raise AssertionError(ran.stdout + ran.stderr)
-            cls.result = json.loads(outputs[-1])
+            validation_observed = "Metal API Validation Enabled" in outputs[-1]
+            (output / "validation.json").write_text(json.dumps({
+                "requested": require_validation, "observed": validation_observed,
+                "actualMarker": "Metal API Validation Enabled" if validation_observed else None}, indent=2))
+            assert not require_validation or validation_observed, "Metal API validation was not observed"
+            cls.result = json.loads(ran.stdout)
         assert identity == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}, "source identity drift"
         (output / "source-identity.json").write_text(json.dumps(identity, indent=2))
         (output / "report.json").write_text(json.dumps(cls.result, indent=2))

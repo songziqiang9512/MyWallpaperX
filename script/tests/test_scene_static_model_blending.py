@@ -16,9 +16,10 @@ SOURCES = parts.NATIVE_SOURCES
 
 def cases():
     def case(name, blend="normal", alpha=1, texture_alpha=255, layer_alpha=1,
-             far=True, near=True, renamed=False):
+             far=True, near=True, renamed=False, near_writes_depth=True):
         return dict(name=name, blend=blend, alpha=alpha, textureAlpha=texture_alpha,
-                    layerAlpha=layer_alpha, far=far, near=near, renamed=renamed)
+                    layerAlpha=layer_alpha, far=far, near=near, renamed=renamed,
+                    nearWritesDepth=near_writes_depth)
 
     return [
         case("near-only", far=False), case("far-only", near=False),
@@ -35,6 +36,8 @@ def cases():
         case("translucent-half", blend="translucent", alpha=.5, far=False),
         case("legacy-nil-zero", blend=None, alpha=0),
         case("legacy-unknown-zero", blend="not-a-mode", alpha=0),
+        case("normal-write-disabled-alone", far=False, near_writes_depth=False),
+        case("normal-write-disabled-far", near_writes_depth=False),
     ]
 
 
@@ -44,16 +47,17 @@ def prepare_fixture(root, rows):
         (directory / "models").mkdir(parents=True)
         (directory / "materials").mkdir()
         names = ["red", "blue"] if not row["renamed"] else ["ember_surface", "sky_surface"]
-        for stem, z, rgba, blend, alpha in [
-            (names[0], 10, [255, 0, 0, row["textureAlpha"]], row["blend"], row["alpha"]),
-            (names[1], -10, [0, 0, 255, 255], "normal", 1),
+        for stem, z, rgba, blend, alpha, writes_depth in [
+            (names[0], 10, [255, 0, 0, row["textureAlpha"]], row["blend"], row["alpha"], row["nearWritesDepth"]),
+            (names[1], -10, [0, 0, 255, 255], "normal", 1, True),
         ]:
             material = f"materials/{stem}.json"
             (directory / f"models/{stem}.mdl").write_bytes(parts.quad(8, 56, 8, 56, z, material))
             (directory / f"materials/{stem}.rgba").write_bytes(bytes(rgba))
             (directory / f"materials/{stem}.png").write_bytes(parts.png(rgba))
             render_pass = dict(shader="generic4", textures=[f"materials/{stem}.png"],
-                               combos={"LIGHTING": 0}, cullmode="nocull", depthwrite="enabled",
+                               combos={"LIGHTING": 0}, cullmode="nocull",
+                               depthwrite="enabled" if writes_depth else "disabled",
                                constantshadervalues={"alpha": alpha})
             if blend is not None:
                 render_pass["blending"] = blend
@@ -113,6 +117,24 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
             self.assertAlmostEqual(self.rows[name]["depth"], self.rows["near-only"]["depth"], delta=.000001)
         self.assert_pixel(self.rows["clear-only"], [0, 0, 0, 0])
         self.assertEqual(self.rows["clear-only"]["depth"], 0)
+
+    def test_disabled_near_writer_keeps_color_but_allows_later_far_model(self):
+        alone = self.rows["normal-write-disabled-alone"]
+        layered = self.rows["normal-write-disabled-far"]
+        far = self.rows["far-only"]
+        enabled = self.rows["normal-one"]
+        for row in [alone, layered]:
+            self.assertEqual(row["preparedWritesDepth"], [False, True])
+            self.assertTrue(row["prepared"] and row["encoded"] and row["completed"])
+            self.assertEqual(row["leases"], 1)
+        self.assert_pixel(alone, [255, 0, 0, 255])
+        self.assertEqual(alone["depth"], 0)
+        self.assert_pixel(far, [0, 0, 255, 255])
+        self.assertEqual(layered["rgba"], far["rgba"])
+        self.assertEqual(layered["depth"], far["depth"])
+        self.assertGreater(far["depth"], 0)
+        self.assert_pixel(enabled, [255, 0, 0, 255])
+        self.assertGreater(enabled["depth"], far["depth"])
 
     def test_real_shared_depth_completion_and_transparent_attachment_controls(self):
         for row in self.rows.values():

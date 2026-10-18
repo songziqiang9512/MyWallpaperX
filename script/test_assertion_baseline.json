@@ -1334,13 +1334,6 @@
       "path": "script/tests/test_scene_static_model_rendering.py",
       "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
       "method": "assertIn",
-      "literal": "let geometryIdentity: String",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_static_model_rendering.py",
-      "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
-      "method": "assertIn",
       "literal": "let material: SceneStaticModelMaterial",
       "count": 1
     },
@@ -1363,13 +1356,6 @@
       "scope": "SceneStaticModelRenderingTests.test_preparation_reuses_typed_texture_and_device_resource_owners",
       "method": "assertIn",
       "literal": "var preparedLayerIDs: [Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_static_model_rendering.py",
-      "scope": "SceneStaticModelRenderingTests.test_renderer_uses_existing_main_pass_and_surface_route",
-      "method": "assertIn",
-      "literal": "case .isolated:",
       "count": 1
     },
     {

@@ -62,6 +62,7 @@ struct SceneRenderDescriptor {
   var utilityLayer:Bool? = false;var usesPerspective:Bool? = false
   // This shadow fixture has ordinary model/image receivers, no composition.
   var hasPerspectiveGeometryConsumer:Bool {utilityLayer == nil}
+  var hasFramebufferMaterialSource:Bool {utilityLayer?.framebufferSource != nil}
   var alpha:Double? = 1;var contentKind:String = "model"
   var modelShadowCastIntent:SceneShadowCastIntent? = nil;var colorBlendMode:Int? = nil
   var anglesXYZ:[Float]? = nil
@@ -75,6 +76,19 @@ struct SceneRenderDescriptor {
  var camera:CameraDescriptor = CameraDescriptor(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)
 }
 struct SceneFrameContext { let dynamicValues:SceneDynamicSnapshot }
+extension SceneFrameContext { var frameIndex:UInt64 {0} }
+#if DEBUG
+enum SceneDesktopWallpaperHost {static let usesDebugEvidenceWindow=false}
+// Timestamp requests are outside this resource/pixel fixture. With none
+// selected, the leaf performs the same real Metal encoder creation.
+enum SceneGPUStageTimestampHook {
+ static func render(_ buffer:MTLCommandBuffer,_ descriptor:MTLRenderPassDescriptor,
+                    role:String)->MTLRenderCommandEncoder? {buffer.makeRenderCommandEncoder(descriptor:descriptor)}
+ static func blit(_ buffer:MTLCommandBuffer,role:String)->MTLBlitCommandEncoder? {buffer.makeBlitCommandEncoder()}
+ static func drew(_ encoder:MTLRenderCommandEncoder) {}
+ static func endedMain(_ encoder:MTLRenderCommandEncoder) {}
+}
+#endif
 struct SceneParticlePerformanceObservation { let layerID:Int;let instanceCount:Int;let isRefraction:Bool }
 struct SceneParticleDrawBatch {
  let layerID:Int;let texture:MTLTexture;let colorUVScale:SIMD2<Float>;let colorSampling:SceneParticleTextureSampling
@@ -88,7 +102,7 @@ struct PreparedTexture {
 }
 struct ScenePreparedStaticModelResources {
  struct Entry {
-  let materialPath:String;let dynamicMaterialPath:String;let geometryIdentity:String;let mesh:SceneStaticModelMesh
+  let materialPath:String;let dynamicMaterialPath:String;let mesh:SceneStaticModelMesh
   let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var emissiveMask:PreparedTexture? = nil
   let material:SceneStaticModelMaterial;var writesDepth:Bool = true
   var materialBlending:SceneMaterialRenderState.Blending? = nil
@@ -257,15 +271,15 @@ MAIN = r'''
    .init(color:color,opacity:1,receivesLighting:true,textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,
          emissiveColor:.zero,emissiveBrightness:0,brightness:1,usesHDRBrightness:false,viewTint:nil)
   }
-  func entry(_ mesh:SceneStaticModelMesh,_ identity:String,_ color:SIMD3<Float>)->ScenePreparedStaticModelResources.Entry {
-   .init(materialPath:"self-authored",dynamicMaterialPath:"",geometryIdentity:identity,mesh:mesh,
+  func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>)->ScenePreparedStaticModelResources.Entry {
+   .init(materialPath:"self-authored",dynamicMaterialPath:"",mesh:mesh,
          albedo:PreparedTexture(texture:white),material:material(color))
   }
   let renderer=SceneMetalRenderer(device:device,resources:.init(pipeline:pipeline,entries:[
-   1:[entry(meshA,"one-geometry",SIMD3(1,0,0))],
-   2:[entry(meshA,"one-geometry",SIMD3(0,1,0))],
-   3:[entry(meshB,"other-geometry",SIMD3(0,0,1))],
-   5:[entry(meshA,"singular",SIMD3(1,1,0))]
+   1:[entry(meshA,SIMD3(1,0,0))],
+   2:[entry(meshA,SIMD3(0,1,0))],
+   3:[entry(meshB,SIMD3(0,0,1))],
+   5:[entry(meshA,SIMD3(1,1,0))]
   ]))
   let layers=[SceneRenderDescriptor.Layer(id:1),.init(id:2),.init(id:3),.init(id:4,contentKind:"particle"),.init(id:5)]
   // Legacy canonical-down quad carrier: express its author Y reflection.
@@ -283,14 +297,14 @@ MAIN = r'''
   let cb=queue.makeCommandBuffer()!
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0.05,0.1,0.15,1),clearEnabled:true)
   let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
-  let state=SceneMetalRenderer.StaticModelFrame()
+  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb)
   var leases:[SceneParticleDepthTargetLease]=[]
   var held=0
   let depthDescriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:64,height:64,mipmapped:false)
   depthDescriptor.storageMode = .private;depthDescriptor.usage = .renderTarget
   let depthBytes=device.heapTextureSizeAndAlign(descriptor:depthDescriptor).size
   if mode.hasSuffix("quota") {
-   let capacity=mode=="mandatory-quota" ? depthBytes : 3*depthBytes
+   let capacity=mode=="mandatory-quota" ? depthBytes : 2*depthBytes
    held=SceneResourceBudget.shared.maximumBytes-SceneResourceBudget.shared.snapshot.residentBytes-capacity
    precondition(SceneResourceBudget.shared.reserve(held,kind:.gpu))
   }
@@ -307,9 +321,10 @@ MAIN = r'''
       leases:&leases,mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
   }
   let before=leases.count
-  let shared=state.prepared?[1]?.first?.depth?.lease
-  let isolated=state.prepared?[2]?.first?.depth?.lease
-  let other=state.prepared?[3]?.first?.depth?.lease
+  // Read the real prepared pass domain; this is a cached acquisition, not a
+  // per-mesh depth reservation. The original path acquires during actual draw.
+  let shared=state.prepared == nil ? nil : state.sharedDepth(pass:pass,
+      pool:renderer.staticModelDepthTargetPool,device:device,commandBuffer:cb,leases:&leases).lease
   let preparedParticle=state.particleDepth[4]?.lease
   let published = !state.shadows.isEmpty
   let modelBytesBefore=renderer.staticModelDepthTargetPool.residentByteCost
@@ -327,6 +342,11 @@ MAIN = r'''
       viewportSize:SIMD2(64,64),mainPass:pass,commandBuffer:cb,preparedDepth:state.particleDepth[4],performanceObservations:&observations)
   if mode=="original",let usedParticle {leases.append(usedParticle)}
   let after=leases.count
+  let consumedModel=state.sharedDepth(pass:pass,pool:renderer.staticModelDepthTargetPool,
+      device:device,commandBuffer:cb,leases:&leases).lease
+  precondition(leases.count==after) // No observation may allocate another domain.
+  let modelDepthCount=after-(usedParticle == nil ? 0:1)
+  let separateParticle=usedParticle == nil || consumedModel?.texture !== usedParticle?.texture
   let sameParticle=(usedParticle == nil && preparedParticle == nil) || (usedParticle === preparedParticle)
   let allocationsStable=modelBytesBefore==renderer.staticModelDepthTargetPool.residentByteCost && particleBytesBefore==particles.renderTargetResidentByteCost
   let noRetry=SceneResourceBudget.shared.snapshot.rejectionCount==rejectionsBefore
@@ -338,8 +358,8 @@ MAIN = r'''
   output.getBytes(&bytes,bytesPerRow:64*4,from:MTLRegionMake2D(0,0,64,64),mipmapLevel:0)
   func rgb(_ x:Int,_ y:Int)->[UInt8] {let i=(y*64+x)*4;return [bytes[i+2],bytes[i+1],bytes[i],bytes[i+3]]}
   return ["mode":mode,"before":before,"after":after,"shadow":published,"completed":true,
-      "sharedIdentity":shared != nil && shared?.texture === other?.texture,
-      "isolatedIdentity":isolated != nil && shared?.texture !== isolated?.texture,
+      "sharedIdentity":shared != nil && shared?.texture === consumedModel?.texture,
+      "modelDepthCount":modelDepthCount,"particleDomainSeparate":separateParticle,
       "particleIdentity":sameParticle,"allocationsStable":allocationsStable,"noRetry":noRetry,
       "model1":renderer.dependencyRuntime.encoded[1] ?? false,"model2":renderer.dependencyRuntime.encoded[2] ?? false,
       "model3":renderer.dependencyRuntime.encoded[3] ?? false,"particleDraws":observations?.count ?? 0,
@@ -394,7 +414,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,
    brightness:1,usesHDRBrightness:false,viewTint:nil)
   material.cullMode=noCull ? .none:.back
-  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"own-cull",dynamicMaterialPath:"",geometryIdentity:"quad",
+  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"own-cull",dynamicMaterialPath:"",
    mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
   var entries=[1:[entry]]
   var layers=[layer]
@@ -404,7 +424,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    let peerMesh=pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
    var peerMaterial=material;peerMaterial.cullMode = .back
    for id in [2,3] {
-    entries[id]=[.init(materialPath:"own-peer",dynamicMaterialPath:"",geometryIdentity:"peer",
+    entries[id]=[.init(materialPath:"own-peer",dynamicMaterialPath:"",
       mesh:peerMesh,albedo:PreparedTexture(texture:white),material:peerMaterial)]
    }
    layers += [.init(id:2,utilityLayer:nil,usesPerspective:false),.init(id:3,utilityLayer:true,usesPerspective:true)]
@@ -426,7 +446,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let output=device.makeTexture(descriptor:outDesc)!,cb=queue.makeCommandBuffer()!
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
   let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:32*1024*1024)
-  let state=SceneMetalRenderer.StaticModelFrame(),dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
+  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb),dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
   var worlds=[1:world]
   for (id,x) in [(2,Float(3)),(3,Float(-3))] where entries[id] != nil {
    worlds[id]=world*SceneMatrix.translation(SIMD3(x,0,0))
@@ -509,13 +529,15 @@ class SceneDirectionalShadowFrameOwnerTests(unittest.TestCase):
     def setUpClass(cls):
         # run_swift expects a JSON object; the probe returns mode-keyed results.
         report = shadow_fixture.run_swift(SOURCES, HARNESS, label='frame-owner',
-                         metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
+                         metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'],
+                         swift_flags=('-DDEBUG',))
         cls.rows = {row['mode']: row for row in report['rows']}
 
     def test_prepared_depth_is_consumed_once_by_both_actual_frame_owners(self):
         row = self.rows['prepared']
-        self.assertTrue(row['shadow']);self.assertEqual((row['before'],row['after']),(3,3))
-        for key in ['sharedIdentity','isolatedIdentity','particleIdentity','allocationsStable','noRetry','completed','model1','model2','model3']:
+        self.assertTrue(row['shadow']);self.assertEqual((row['before'],row['after']),(2,2))
+        self.assertEqual(row['modelDepthCount'],1)
+        for key in ['sharedIdentity','particleDomainSeparate','particleIdentity','allocationsStable','noRetry','completed','model1','model2','model3']:
             self.assertTrue(row[key], key)
         self.assertEqual(row['pixels'][2],[255,0,255,255])
         self.assertEqual([row['pixels'][0][0],row['pixels'][0][2]],[0,0])
@@ -526,8 +548,9 @@ class SceneDirectionalShadowFrameOwnerTests(unittest.TestCase):
     def test_optional_physical_quota_failure_preserves_original_model_and_particle_pixels(self):
         row = self.rows['optional-quota']
         self.assertFalse(row['shadow']);self.assertEqual(row['shadowResident'],0)
-        self.assertEqual((row['before'],row['after']),(3,3))
-        for key in ['sharedIdentity','isolatedIdentity','particleIdentity','allocationsStable','noRetry','model1','model2','model3']:
+        self.assertEqual((row['before'],row['after']),(2,2))
+        self.assertEqual(row['modelDepthCount'],1)
+        for key in ['sharedIdentity','particleDomainSeparate','particleIdentity','allocationsStable','noRetry','model1','model2','model3']:
             self.assertTrue(row[key],key)
         self.assertEqual(row['pixels'][2],[255,0,255,255])
         self.assertEqual(row['pixels'],self.rows['original']['pixels'])
@@ -536,10 +559,10 @@ class SceneDirectionalShadowFrameOwnerTests(unittest.TestCase):
     def test_failed_mandatory_lease_is_not_retried_after_budget_recovers(self):
         row=self.rows['mandatory-quota']
         self.assertFalse(row['shadow']);self.assertEqual((row['before'],row['after']),(1,1))
-        self.assertTrue(row['model1']);self.assertTrue(row['model3']);self.assertFalse(row['model2'])
+        self.assertTrue(row['model1']);self.assertTrue(row['model2']);self.assertTrue(row['model3'])
+        self.assertEqual(row['modelDepthCount'],1)
         self.assertEqual(row['pixels'][2],[13,26,38,255])
-        self.assertEqual(row['pixels'][0][1:3],[0,0])
-        self.assertGreater(row['pixels'][0][0],0)
+        self.assertEqual(row['pixels'][0],self.rows['original']['pixels'][0])
         self.assertTrue(row['allocationsStable']);self.assertTrue(row['noRetry']);self.assertTrue(row['particleIdentity'])
         self.assertEqual(row['pixels'][1],self.rows['original']['pixels'][1])
 

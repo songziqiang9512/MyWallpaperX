@@ -510,10 +510,10 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 depth target 进入原 `SceneOffscreenTexturePool`/allocation cache，独立 key 与 depth32Float 实际 4-byte 成本；复用现 generation、submission pin、retired 和 reset/completion 边界，不建 shadow pool/registry。原相机 `SceneParticleDepthTargetPool` 只有 renderTarget usage，不能直接当 shaderRead 灯深度。depth publication 至少绑定同一 frame epoch、light identity、投影、allocation generation 和实际 texture；receiver 不消费 stale/alias/range-invalid map。
 
-**optional 不能抢原画面。** 已有 graph/history/group/scene-color 先准备；实际必需 plain/HDR scratch 复用 F5 的原子预留。静态模型共享/隔离相机 depth 与需 depth 的粒子仍在 loop 晚分配，必须沿原 depth-plan/pool 把本帧实际需要的 leases 提前取得并交回原 draw 消费，再尝试 shadow。只估成本、固定余量或新增 shadow 专用 depth slot 均不成立。前移不得增加重复深度资源，也不得改变原 shared/isolated 或粒子清深度时序；无 shadow 场景沿原需求路径。mandatory 预留失败时关闭本次 optional 尝试；非 pending 压力的原路径保留原失败半径，pending 压力按下述裁决交由唯一 frame owner 处理。已取得的必需 lease 继续被原 draw 消费或安全取消，不能再次申请造成假耗尽。原模型分支的 named albedo 依赖 `SceneMetalRenderer.swift:757–770` 在 late draw 读取当前 registry，准备时尚未 ready 的合法 provider 会使实际 draw 集合及 shared/isolated depth 顺序不能准确前移：这种帧本片关闭 shadow optional，model/particle draw 保持原申请和消费路径，不提前占槽也不重算第二次 plan。只有实际 mandatory draw 集合可在首次 shadow 分配前确定时才前移；不得仅按静态model数量预占或把 pending 当 absent。其它无法确定的真实晚分配生产者同样不获本片 shadow 准入，须先补确定性 owner 后另扩设计。
+**optional 不能抢原画面。** 已有graph/history/group/scene-color先准备；plain/HDR scratch复用F5原子预留。mandatory模型场景域与独立粒子depth沿原pool/frame owner预留并交原draw，再尝试shadow；不估固定余量、不增专用槽、不重复申请。准备失败关闭本次optional；非pending保原局部失败半径，busy交唯一frame取消/延后。named albedo未ready不当absent、不写空draw集合或抢先capture；原作者序provider恢复后再取真实payload，域申请/失败保持memo，不另建depth plan。真实mandatory集合或晚分配需求尚不可确定的帧不获shadow准入；后继扩展须先闭原确定性owner。模型域以[现役决定](#model-scene-depth-domain)替代旧shared/isolated推断，粒子清深度时序不变。
 
 <a id="mandatory-model-depth-pending"></a>
-**2026-10-19 模型 mandatory depth 的 pending 压力（有界已实施）。** 目标是其他帧持有深度槽时不呈现只画出部分模型的当前帧，同时本帧自身需求超过容量不能无限 defer。冻结现役 `StaticModelFrame.depth → SceneParticleDepthTargetPool → drawStaticModel → MainPassEncoder → Metal` 的自有输入门已取得：首帧 pending 时两租约/两 draw/绿色，第二帧一租约/一 draw/红色，completion 后恢复两租约/两 draw/绿色；9项机制检查通过。此证据不等于真实 `3437487219` 闪烁归因；原生候选全屏已有用户不闪目视反馈，但偶发时序及光影仍保[队列](../scene-open-breakpoint-queue.md)，不因短窗关闭。扩大槽数不能纠正失败分类，预建完整需求或第二个 depth plan 又会改变 late named 时序；本片选择在现 pool/唯一 frame owner 补 typed 失败与未提交取消，不改三槽容量、near-coincident、shared/isolated、clear/compare、cull 或 HDR。
+**模型 mandatory depth 的 pending 压力。** 原三槽池只把其他在飞CB持槽判为busy，当前候选defer并取消未提交资源，保持前一成功画面；本帧自身超额/非法extent/分配失败局部拒绝，不无限等下一帧。退休私有隔离后，同pass多个模型只占一槽，压力门使用三个真实pending CB及同CB独立申请耗尽容量，不能继续用第二同形mesh制造假需求。lease/pin只由匹配CB completion释放，wrong arm不转交；late named刷新不重试失败域。前驱两租约/partial漏画与旧隔离计数仅归[历史证据](../../history/static-model-depth-pending-2026-10-19.md)，当前域与验收归[后继](../../history/model-scene-depth-domain-2026-10-19.md)。343偶发闪烁与光色仍归队列，不据短窗关闭。
 
 **pool 只裁资源事实。** 单一 acquire 入口用实际 command buffer 身份标记槽的 reservation owner，成功返回 lease；失败至少区分 `busyOtherFrame`、`currentFrameCapacityExceeded`、非法 extent 和实际分配失败。满槽时，仍有别的 owner 占用且当前 owner 尚未用满三槽才是可等待的 busy；三个槽均属本 owner 则是本帧自身超额，不得 defer。空闲槽替换纹理失败及预算拒绝也不能伪装成 busy。lease 的 cancel/completion 只归还匹配 owner 的槽，不提前释放其他在飞帧。模型和粒子仍各用原 pool 实例；粒子 acquire 调用须显式消费 typed 结果并保留其原局部失败策略，本片不顺带扩展粒子 defer。
 
@@ -528,6 +528,17 @@ depth target 进入原 `SceneOffscreenTexturePool`/allocation cache，独立 key
 另有真实晚分配：`Rendering/Frame/SceneMetalRenderer+Particles.swift:56–61` 的已准备 refraction batch，以及 `Rendering/Composition/SceneLayerColorBlendPipeline.swift:205–212` 的非零 color-blend consumer，经同 `SceneFramebufferSnapshot` 临时分配当前背景。首片遇实际可绘制消费者存在这些未预留需求时，关闭本帧 shadow optional，沿原输出路径，不对全部粒子或所有非零但未参与绘制的层泛化拒绝。后继须在现 snapshot owner 补实际 target 容量预留后撤掉这项边界；是否需要同帧多 extent 先由真实消费者证明，不能把 source crop 当成背景尺寸，不能永久把缺方法列为不支持。`SceneBloomPostProcess.swift:120–128,189` 的末尾 intermediate 分配则沿该原 owner 增加有真实调用的容量准备：使用当帧 resolved bloom 配置和实际终端 source extent/format，取得原缓存的两张实际纹理后才准入 shadow；末尾只沿原 encode 复用，计算与显示顺序不变。准备失败本帧无 shadow，原 bloom 仍保留其既有局部失败与重试合同，不复制 bloom cache/算法。
 
 任何已追加 GPU 访问的 map/pin 随 command buffer 所有权：未提交 cancel 释放，提交后仅 actual completion 释放；receiver 后续失败也不能提前回收 map。不同在飞 command buffer 不覆盖旧 map；resize/reset 保留 retired 成本至完成。target 分配、预算或 encode 失败拒绝该 optional shadow，保留原模型/灯与健康邻层，不发布半成品、不改 history。非法 GPU range、epoch/generation/alias 拒最小 unsafe 绑定；不能拿局部 fallback 吞掉主图或主资源错误。
+
+<a id="model-scene-depth-domain"></a>
+### 模型实例的场景深度域（2026-10-19）
+
+目标是合法前后模型按同一场景遮挡，且整体单位变换不改变结果。旧near-coincident规则将geometry hash相同、轴长近似且距离小于固定下限1的实例分配空private depth；原selector CPU已证全场×10即换域。自有App R2载体已通过近绿/远红、边缘、overlay及背景正控：原单位远红错误覆盖近绿，模型/相机/clip整体×10后才近绿，支持退休该推断；首轮overlay裁剪和材质颜色诊断的失败记录保留，不将颜色fallback误记模型缺失。尚不作333归因；既有343闪烁缓解记录没有shared/private单变量对照，不能把旧sphere测试当作隔离合同。
+
+采用退休无authored依据的隔离推断，而非把距离常数换成另一阈值。细化bounds/旋转仍不能证明叠层意图；private复制scene depth增加copy且不能独立说明后继遮挡，只有真实叠层反例证明确需独立self-depth时才另设计。全部模型仍按既有prepared材质、world、reverse-Z及write/cull消费；不改作者顺序、透明覆盖、模型材质准入或shader。退出selector时同步删除只服务该推断的prepared geometry hash及旧消费，不留fallback owner。
+
+StaticModelFrame继续独占资源，深度域绑定实际MainPassEncoder与command buffer身份；同域模型、普通平面及framebuffer-source共用一份lease/首次clear，不能按相同extent、HDR格式或全frame默认混用另一个pass。mandatory准备、晚named与实际draw复用同一申请结果，含失败；busy仍沿唯一frame取消/延后，已提交仅completion释放。粒子保原独立pool、lessEqual/clear1策略，不能并入模型reverse-Z域；group对模型/粒子的现有准入不扩。
+
+最低验收为两个不接触的同形闭合opaque cube前后顺序、全场/相机/clip×10等价、重合与嵌套translucent shell、前方独立occluder、write关闭及健康overlay；资源/对象改名、几何UV变体不能决定depth语义。保无先行writer、错pass/取消/resize、late named和shadow准备优先。旧利用私有隔离制造压力的测试改用真实在飞command buffer或独立domain耗尽三槽，不扩大pool、不削弱pending/本帧超额反例。随后冻结Debug核333当前world/domain/实际draw与画面，独立343保Earth/Cloud合成及已有光影/偶发边界；诊断仅Debug显式证据，普通帧不做整图扫描。正控失败、真实叠层回退或无可归因收益即停止扩策略，不以扩大容量、改变材质/位置/cull追图；完整盒体与默认text仍分别验收。
 
 ### 纠正门、备选与退役
 

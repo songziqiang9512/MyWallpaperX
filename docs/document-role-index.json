@@ -442,10 +442,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "44bace63d32d48c6bf4291987a7893b668b1c40ba0dc80d1aac11149490779d0",
+        "sourceSHA256": "252ad2c8a84509635ca0a347c2440a784f61a3a61fdc9981ea17b64bc8ad0bf2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
-        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
+        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
+        "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
       }
     },
     {
@@ -1797,6 +1797,20 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/model-scene-depth-domain-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/roadmap/performance-convergence-card.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "模型域不随几何/单位改变的公共App红绿、真实在飞压力/叠层与错CB生命周期反例；333/343视觉余项及单次资源需求边界。"
     },
     {
       "path": "docs/scene/history/named-input-desktop-startup-2026-10-10.md",
@@ -3304,10 +3318,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a627477723485679a7544cb19cc3ea4f08cc6a7d12cab142bf2265a3042e014e",
+        "sourceSHA256": "8334a90a46a3167bc2346d4060323fae6cd155458581ff29af64149431a15910",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind one shared surface zero-roughness policy to qualified native endpoint evidence, preserved red/green GPU failures and frozen343 hotspot removal; retain positive roughness, Fresnel/diffuse and broader lighting/flicker limits,361 after-only boundaries and unchanged sample/archive counts. Correct the stale prior 2D emission sentence to its existing F3 albedo authority.",
-        "limitations": "Navigation and source identities only; no exact NoH1/IBL/positive-endpoint official inference, full343 or361 compatibility, phase/HDR parity, flicker closure or performance benefit."
+        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
+        "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
       }
     },
     {
@@ -3472,10 +3486,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "092b942e4d61db93cbd82085f5ea1eb76d8f7a26554bfe863a4a05c95d4f016f",
+        "sourceSHA256": "189eaf2420b82e42a38683fbc73aac7682a16d5789a9d023ac3428b8be3aba20",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind F3 2D emission albedo consumption to frozen GPU/App evidence and preserved fixture/official failures; retain343 Earth/flicker/collision, isolated366 and281 layout limits, unchanged verdict/archive counts, and the optimized particle-cache STOP.",
-        "limitations": "Navigation and source identity only; no official phase parity, whole-sample acceptance, new performance benefit, complete366 ready,281 paired appearance or closure of Earth lighting/flicker."
+        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
+        "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
       }
     },
     {
@@ -3514,10 +3528,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7e58b68b34672e2fa6b5d2730d86d9a56663e2a854cebc6e671aca2a7617dac7",
+        "sourceSHA256": "eaaf64bcc9ecfb7555f80a1b0746c208c69e8f65960772989cdab2099c1a47f0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile explicit ordinary native image terminal depth, DTO/compiler ownership and live code links; keep real333 occlusion, text defaults and exact real358 benefit open.",
-        "limitations": "Bounded authored-state and visible regression evidence only. No whole-sample, default text, replay, official parity or performance claim."
+        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
+        "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
       }
     },
     {
@@ -3528,10 +3542,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b3b0b6230f94c042d8d33a77626ed974584066f5f7a5fa0e2082e7925138953",
+        "sourceSHA256": "1a2a186231b6855447ceb6d0094b76a8f713e1be034b6c57df1005b46852d73e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile explicit ordinary native image terminal depth, DTO/compiler ownership and live code links; keep real333 occlusion, text defaults and exact real358 benefit open.",
-        "limitations": "Bounded authored-state and visible regression evidence only. No whole-sample, default text, replay, official parity or performance claim."
+        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
+        "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
       }
     },
     {

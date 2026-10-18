@@ -71,7 +71,7 @@
         let output = device.makeTexture(descriptor: td)!, cb = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: output,
             clearColor: MTLClearColorMake(0,0,0,0), clearEnabled: true)
-        let state = SceneMetalRenderer.StaticModelFrame()
+        let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         var leases: [SceneParticleDepthTargetLease] = []
         let selected = [(0, input["near"] as! Bool), (1, input["far"] as! Bool)]
         for (index, enabled) in selected where enabled {
@@ -81,14 +81,13 @@
         }
         // Empty control still uses the actual frame depth owner, then clears it
         // through MainPassEncoder exactly as a normal first model would.
-        if leases.isEmpty {
-            let draw = renderer.staticModelDraws(layer: layers[0], worldFrames: worlds, snapshot: dynamic)![0]
-            let depth = state.depth(for: draw, pass: pass, pool: renderer.staticModelDepthTargetPool,
-                device: device, leases: &leases)
-            precondition(pass.encoder(depthTexture: depth.lease!.texture, clearsDepth: true, clearDepth: 0) != nil)
+        let preparedDepth = state.sharedDepth(pass: pass, pool: renderer.staticModelDepthTargetPool,
+            device: device, commandBuffer: cb, leases: &leases)
+        if selected.allSatisfy({ !$0.1 }) {
+            precondition(state.sceneDepthEncoder(pass: pass, commandBuffer: cb) != nil)
         }
         precondition(pass.finishEnsuringClear())
-        let depth = state.sharedLease!.texture
+        let depth = preparedDepth.lease!.texture
         let buffer = device.makeBuffer(length: 256, options: .storageModeShared)!
         let blit = cb.makeBlitCommandEncoder()!
         blit.copy(from: depth, sourceSlice: 0, sourceLevel: 0,
@@ -107,9 +106,10 @@
         return ["name": name, "prepared": resources[ids[0]]?.count == 1 && resources[ids[1]]?.count == 1,
             "preparedBlend": resources[ids[0]]![0].materialBlending?.rawValue ?? "unresolved",
             "opacity": resources[ids[0]]![0].material.opacity,
+            "preparedWritesDepth": ids.map { resources[$0]![0].writesDepth },
             "rgba": rgba(32,32), "outside": rgba(1,1),
             "depth": buffer.contents().bindMemory(to: Float.self, capacity: 1).pointee,
-            "leases": leases.count, "sharedDepth": state.sharedLease != nil,
+            "leases": leases.count, "sharedDepth": preparedDepth.lease != nil,
             "encoded": selected.allSatisfy { index, enabled in
                 !enabled || renderer.dependencyRuntime.encoded[ids[index]] == true
             }, "completed": true]

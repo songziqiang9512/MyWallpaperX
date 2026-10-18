@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 128041
+      "bytes": 128267
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68439
+      "bytes": 68443
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -165,8 +165,8 @@
       "bytes": 18384
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 545,
-      "bytes": 122319
+      "lines": 556,
+      "bytes": 124116
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 120,
@@ -225,8 +225,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 53,
-      "bytes": 13569
+      "lines": 55,
+      "bytes": 14234
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 40,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 54,
-      "bytes": 16864
+      "bytes": 17053
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 216,
-      "bytes": 62391
+      "bytes": 62442
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1315,15 +1315,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "4bf5de52992ecd3e15bd000ade8078a8549599f6268d8774920aba5b357c0b39",
-      "after": "c45d8a575a49a01f682350bd086c1b7faf9a3e65d3139e97deebb57fb35aa21d",
-      "owner": "scene-static-model-normal-coverage",
-      "reason": "Record one bounded material coverage owner correction, required pixel/real-scene acceptance and remaining failures in their canonical authorities.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#static-model-normal-coverage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
       "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
@@ -1357,33 +1348,6 @@
       "owner": "scene-default-camera-single",
       "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "bd3d94b57bda8e7e18ad8be6756965b252f63fdc860879478825b654aeaf2a93",
-      "after": "bfdc2834836b29f6540b57163eca0fd46232d64fc9bdc1ae1d8ed83b7971614e",
-      "owner": "scene-lit-image-emission-albedo",
-      "reason": "Record the bounded existing-owner emission correction and preserved counterexamples, honest real-asset/neighbor observations and particle-cache STOP; retain complete-sample and official/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#lit-image-emission-albedo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ef9404b681e63e3d3cb1c78c1a0c03b9e2f27ddbab215eada8a0cb3bf53a8f14",
-      "after": "8104b791432d7650c01bb46fef872f67d1d621925213136a19626adad8c6a541",
-      "owner": "scene-surface-zero-roughness",
-      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "950551e6d8bd494dfa43afdd9683eeaecf631e42a1b27c893d08dd278930d885",
-      "after": "6c5bc0c21848d704e97732ed356dbebe5513175646d1f0d750fd51cd8615a3b0",
-      "owner": "scene-surface-zero-roughness",
-      "reason": "Record the bounded shared zero-roughness policy and qualified GPU/native outcomes while retaining positive arithmetic and open lighting/flicker limits; correct the stale2D emission sentence to its existing authority and preserve verdict/archive counts.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#surface-zero-roughness"
     },
     {
       "section": "bodies",
@@ -1450,15 +1414,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "fd51e22cdfc34739f7dbdd113267fcd8e7f4959a896255be9e70a3168ab0b44c",
-      "after": "be84ee9ae4efd9622bf3f864faf6a22abc9411c92fe678fb7b71cb2f686179df",
-      "owner": "scene-ordinary-native-image-depth",
-      "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "2165041e26d0f54aaceb03e721dd6ba863ce3b8c587552ef1a335f7eab85971f",
       "after": "b582e739152be66dde52fd59c66ef565022f4c38afc71309651b429dc199d456",
@@ -1468,12 +1423,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "8104b791432d7650c01bb46fef872f67d1d621925213136a19626adad8c6a541",
+      "after": "77faac9d99482b4873b330b400f2a1f06705f3a87c601ffe69c3a3a2f8464270",
+      "owner": "scene-model-scene-depth-domain",
+      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "6c5bc0c21848d704e97732ed356dbebe5513175646d1f0d750fd51cd8615a3b0",
+      "after": "fb895891b4a9bacad043211fe9223e53342ee927c6b69856876cfbc8a0d99607",
+      "owner": "scene-model-scene-depth-domain",
+      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "bfdc2834836b29f6540b57163eca0fd46232d64fc9bdc1ae1d8ed83b7971614e",
+      "after": "94a98965c5ddda1b25111ebfb799474672ac34f2125624d5e7cdb8ff42a3cd9a",
+      "owner": "scene-model-scene-depth-domain",
+      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "6530656ba3c086888ad340d77e016cf6de8bf5fc16b1007ece82a4916f05a834",
+      "after": "d35d7ed5766dad55fb3c6edcaa890da5987e4b94f33250f8f5ae05c339026233",
+      "owner": "scene-model-scene-depth-domain",
+      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "bc827a0a051455efd4fcb573a5a6f928256bed34c3d462a7f40eda1d4758b0e2",
-      "after": "01c7d72b6188d54cae44edee47b5f814d019e0aaa061800751825c3ff342a60d",
-      "owner": "scene-ordinary-native-image-depth",
-      "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
+      "before": "01c7d72b6188d54cae44edee47b5f814d019e0aaa061800751825c3ff342a60d",
+      "after": "b147730e2c031be9a022849864b2fa7f4c843d058549c3bb82b6a04f9f72dbfe",
+      "owner": "scene-model-scene-depth-domain",
+      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "be84ee9ae4efd9622bf3f864faf6a22abc9411c92fe678fb7b71cb2f686179df",
+      "after": "c40b28fee3d0e056f1fbf041bf2925e2f4102d2deab0423abb003b1a1e5a11d9",
+      "owner": "scene-model-scene-depth-domain",
+      "reason": "Regenerate the same302-sample ledger after precise real333/343 residual and evidence references; no sample verdict closes.",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
     }
   ]
 }

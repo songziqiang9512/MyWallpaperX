@@ -44,27 +44,6 @@ def join_parts(blobs):
     return bytes(result) + b'\0'*7
 
 
-def canonical_geometry_digest(model):
-    """Independent oracle: raw Float32 words followed by widened LE indices.
-
-    The fixture is one complete MDLV0023 part. This hashes the authored words
-    directly, without reproducing the product's chunking or Swift SIMD padding.
-    """
-    material_end = model.index(b'\0', 21)
-    header = material_end + 1
-    flag = struct.unpack_from('<I', model, header)[0]
-    vertex_bytes = struct.unpack_from('<I', model, header + 32)[0]
-    vertex_start = header + 36
-    index_header = vertex_start + vertex_bytes
-    index_bytes = struct.unpack_from('<I', model, index_header)[0]
-    element_size = 4 if flag else 2
-    indices = struct.unpack_from(f'<{index_bytes // element_size}{"I" if flag else "H"}',
-                                 model, index_header + 4)
-    digest = hashlib.sha256(model[vertex_start:index_header])
-    digest.update(struct.pack(f'<{len(indices)}I', *indices))
-    return digest.hexdigest()
-
-
 def native_fixture(count, *, bad=False, overlap=False):
     entries = {}
     parts = []
@@ -87,8 +66,7 @@ def native_fixture(count, *, bad=False, overlap=False):
             'constantshadervalues':{'alpha': .5 if overlap else 1},
             'blending':'translucent' if overlap else 'normal',
             'depthwrite':'disabled' if overlap else 'enabled'}]}).encode()
-        expected.append({'material':path,'point':[x,y],'rgba':rgba,
-                         'geometryIdentity':canonical_geometry_digest(geometry)})
+        expected.append({'material':path,'point':[x,y],'rgba':rgba})
     model = join_parts(parts)
     if bad:
         model = model[:-13]
@@ -150,35 +128,6 @@ def blending_fixture():
     peer = json.loads(entries['materials/peer.json'])
     peer['passes'][0]['constantshadervalues'] = {'alpha': 0}
     entries['materials/peer.json'] = json.dumps(peer).encode()
-    return entries, expected
-
-
-def identity_chunk_fixture():
-    """Cross a hash chunk in vertex words, narrow indices and wide indices."""
-    entries, expected = native_fixture(3)
-    parts = []
-    for i, (vertex_count, indices, index_flag) in enumerate([
-        (1368, (0, 2, 1, 0, 3, 2), 0),
-        (4, (0, 2, 1, 0, 3, 2) * 3000, 0),
-        (65540, (65536, 65538, 65537, 65536, 65539, 65538), 1),
-    ]):
-        x, y = expected[i]['point']
-        base = [((float(px), float(py), 0.), (0., 0., 1.), (1., 0., 0., 1.), uv)
-                for px, py, uv in [(x-5,y-5,(0.,0.)), (x+5,y-5,(1.,0.)),
-                                  (x+5,y+5,(1.,1.)), (x-5,y+5,(0.,1.))]]
-        vertices = base * (vertex_count // 4)
-        # The tail includes an authored sign bit and tangent sign, so channel
-        # loss or a canonical-word change cannot hide behind repeated positions.
-        position, normal, _, uv = vertices[-1]
-        vertices[-1] = (position, normal, (1., 0., 0., -1.), (-0.0, uv[1]))
-        model = reader.build_model(material=expected[i]['material'].encode(),
-            vertices=vertices, indices=indices, index_flag=index_flag,
-            bounds=(x-5,y-5,0,x+5,y+5,0))
-        parts.append(model)
-        expected[i].update(geometryIdentity=canonical_geometry_digest(model),
-                           canonicalBytes=vertex_count * 48 + len(indices) * 4,
-                           indexCount=len(indices))
-    entries['models/parts.mdl'] = join_parts(parts)
     return entries, expected
 
 
@@ -270,7 +219,10 @@ BUILDER_MAIN=r'''
 def builder_support():
     s=builder.HARNESS_SOURCE.split('@main',1)[0]
     start=s.index('enum SceneMdlStaticModelReader {');end=s.index('nonisolated struct SceneScriptScalarProgram',start)
-    return s[:start]+s[end:]+BUILDER_MAIN
+    force=(builder.SOURCE_ROOT/'Systems/Particles/SceneParticleControlPointForce.swift').read_text()
+    environment_start=force.index('nonisolated struct SceneParticleControlPointForceEnvironment:')
+    environment=force[environment_start:force.index('\n}',environment_start)+2]
+    return environment+'\n'+s[:start]+s[end:]+BUILDER_MAIN
 
 
 class SceneModelPartsDependencyTests(unittest.TestCase):
@@ -395,7 +347,7 @@ NATIVE_MAIN=r'''
   var rows:[[String:Any]]=[]
   for (name,fixture) in [("parts5","parts5"),("parts8","parts8"),("parts64","parts64"),
                           ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("overlap","overlap"),
-                          ("defaults","defaults"),("emission","emission"),("identities","identities"),
+                          ("defaults","defaults"),("emission","emission"),
                           ("blends","blends"),("blends-false","blends") ] {
    let before=SceneResourceBudget.shared.snapshot.residentBytes
    var row=try autoreleasepool {try run(name,root.appendingPathComponent(fixture),device,queue)}
@@ -465,7 +417,8 @@ NATIVE_MAIN=r'''
     if kind=="directional" {light = .directional(.init(layerID:7,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:1))}
     else if kind=="spot" {light = .spot(.init(layerID:7,castsShadow:true,position:SIMD3(40,8,100),directionFromLight:SIMD3(0,0,-1),color:SIMD3(repeating:1),intensity:1,radius:200,innerConeCosine:0.9,outerConeCosine:cos(.pi/4),outerConeDegrees:45))}
     else {light = .point(.init(layerID:7,castsShadow:true,position:SIMD3(40,8,100),color:SIMD3(repeating:1),intensity:1,radius:200))}
-    let cb=queue.makeCommandBuffer()!,state=SceneMetalRenderer.StaticModelFrame()
+    let cb=queue.makeCommandBuffer()!
+    let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb)
     let pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
     let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:64*1024*1024)
     var leases:[SceneParticleDepthTargetLease]=[]
@@ -499,7 +452,7 @@ NATIVE_MAIN=r'''
   for _ in 0..<2 {
    let cb=queue.makeCommandBuffer()!
    let pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-   let state=SceneMetalRenderer.StaticModelFrame();var leases:[SceneParticleDepthTargetLease]=[]
+   let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
    for layer in layers {
     _=renderer.drawStaticModel(layer:layer,state:state,worldFrames:world,frameContext:.init(dynamicValues:dynamic),cameraFrame:camera,
        lighting:lighting,pass:pass,commandBuffer:cb,leases:&leases)
@@ -514,7 +467,7 @@ NATIVE_MAIN=r'''
    pixels.append(rgba(146,10));pixels.append(rgba(32,32));frames.append(pixels)
   }
   let parts=resources[2] ?? []
-  let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),"identities":parts.map(\.geometryIdentity),
+  let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),
       "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
       "materialBlending":parts.map{$0.materialBlending?.rawValue ?? "unresolved"},"shadowDepths":shadowDepths,
       "textureIDs":parts.map{String(describing:$0.albedo!.identity)},
@@ -590,7 +543,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         cls.root=freeze_inputs('native',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
             'defaults':default_albedo_fixture(),'emission':emission_mask_fixture(),
-            'identities':identity_chunk_fixture(),'blends':blending_fixture(),
+            'blends':blending_fixture(),
             'basis':vertex_basis_fixture(),'basis-renamed':vertex_basis_fixture(True)})
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
@@ -618,8 +571,6 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         for count in [5,8,64]:
             row=self.rows[f'parts{count}'];expected=native_fixture(count)[1]
             self.assertEqual(row['parts'],[p['material'] for p in expected])
-            self.assertEqual(row['identities'],[p['geometryIdentity'] for p in expected])
-            self.assertEqual(len(set(row['identities'])),count)
             self.assertEqual(len(set(row['textureIDs'])),count)
             self.assertEqual(row['meshIndexCounts'],[6]*count)
             self.assertTrue(row['encoded']);self.assertTrue(row['completed'])
@@ -641,18 +592,6 @@ class SceneModelPartsNativeTests(unittest.TestCase):
             self.assertTrue(all(depths[i] < 1 for i in [0, 2, 3, 4]), depths)
         self.assertEqual(len(enabled['shadowDepths']), 3)
         self.assertEqual(disabled['shadowDepths'], [[1] * 5] * 3)
-
-    def test_actual_prepared_identity_preserves_canonical_words_across_hash_chunks(self):
-        row = self.rows['identities']; expected = identity_chunk_fixture()[1]
-        self.assertEqual(row['parts'], [p['material'] for p in expected])
-        self.assertEqual(row['identities'], [p['geometryIdentity'] for p in expected])
-        self.assertEqual(row['meshIndexCounts'], [p['indexCount'] for p in expected])
-        self.assertTrue(all(p['canonicalBytes'] > 64 * 1024 for p in expected))
-        self.assertTrue(row['encoded']); self.assertTrue(row['completed'])
-        for actual, want in zip(row['frames'][0], expected):
-            for a, b in zip(actual, want['rgba']): self.assertLessEqual(abs(a-b), 1)
-        self.assertEqual(row['frames'][0], row['frames'][1])
-        self.assertEqual(row['budgetBefore'], row['budgetAfter'])
 
     def test_later_native_quota_failure_preserves_prefix_peer_and_new_load_recovers(self):
         row=self.rows['quota'];full=self.rows['recovery']

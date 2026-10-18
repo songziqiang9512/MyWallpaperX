@@ -87,7 +87,7 @@ extension SceneMetalRenderer {
                 pass: layerMainPass, commandBuffer: commandBuffer) else {
                 // Qualification already reserved this exact frame/pass. Losing
                 // it now is an identity/lifecycle failure, not a visual fallback.
-                modelFrame.terminalDepthFailureReason = "image-terminal-depth-binding-invalid"
+                modelFrame.sceneDepthFailureReason = "image-terminal-depth-binding-invalid"
                 return (true, nil)
             }
             terminalDepth = binding

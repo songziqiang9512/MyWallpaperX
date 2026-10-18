@@ -204,6 +204,11 @@ extension SceneMetalRenderer {
             .union(unavailableDepthConsumers.intersection(requestedFramebufferSources))
         let unavailableTerminalLayers = unavailableFramebufferSources
             .union(modelFrame.unavailableImageMaterialLayerIDs)
+        if let reason = modelFrame.sceneDepthFailureReason {
+            compositionGroupRuntime?.closeAllGroupEncoders()
+            mainPass.closeForOffscreen()
+            return .dropped(reasonCode: reason)
+        }
         if let reason = modelFrame.depthDeferralReason {
             compositionGroupRuntime?.closeAllGroupEncoders()
             mainPass.closeForOffscreen()

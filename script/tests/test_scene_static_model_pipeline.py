@@ -65,6 +65,7 @@ struct SceneRenderDescriptor {
 
     struct CameraDescriptor {
         let orthoHeight: Float?
+        var default2DOriginInputLayerID: Int? = nil
     }
 
     struct Layer {
@@ -661,120 +662,6 @@ enum MaterialHarness {
             )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
-    def test_depth_plan_isolates_only_near_coincident_same_geometry(self) -> None:
-        swiftc = shutil.which("swiftc")
-        if swiftc is None:
-            self.skipTest("swiftc is unavailable")
-        harness_source = r'''
-import simd
-
-@main
-enum DepthPlanHarness {
-    static func matrix(
-        scale: Float,
-        translation: SIMD3<Float> = .zero
-    ) -> simd_float4x4 {
-        simd_float4x4(columns: (
-            SIMD4(scale, 0, 0, 0),
-            SIMD4(0, scale, 0, 0),
-            SIMD4(0, 0, scale, 0),
-            SIMD4(translation.x, translation.y, translation.z, 1)
-        ))
-    }
-
-    static func main() {
-        var shellPlan = SceneStaticModelDepthPlan()
-        precondition(shellPlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(scale: 65)
-        ) == .shared)
-        precondition(shellPlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(scale: 65.1)
-        ) == .isolated)
-
-        var identityPlan = SceneStaticModelDepthPlan()
-        _ = identityPlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(scale: 65)
-        )
-        precondition(identityPlan.target(
-            geometryIdentity: "cube",
-            modelMatrix: matrix(scale: 65.1)
-        ) == .shared)
-
-        var distancePlan = SceneStaticModelDepthPlan()
-        _ = distancePlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(scale: 65)
-        )
-        precondition(distancePlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(
-                scale: 65.1,
-                translation: SIMD3(20, 0, 0)
-            )
-        ) == .shared)
-
-        var scalePlan = SceneStaticModelDepthPlan()
-        _ = scalePlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(scale: 65)
-        )
-        precondition(scalePlan.target(
-            geometryIdentity: "sphere",
-            modelMatrix: matrix(scale: 70)
-        ) == .shared)
-    }
-}
-'''
-        with tempfile.TemporaryDirectory(prefix="mwx-model-depth-plan-") as tmp:
-            root = Path(tmp)
-            lighting_stub = root / "LightingStub.swift"
-            harness = root / "DepthPlanHarness.swift"
-            executable = root / "DepthPlanHarness"
-            lighting_stub.write_text(LIGHTING_STUB, encoding="utf-8")
-            harness.write_text(harness_source, encoding="utf-8")
-            environment = os.environ.copy()
-            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-modules")
-            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-modules")
-            compiled = subprocess.run(
-                [
-                    swiftc,
-                    str(MODEL_SOURCE),
-                    str(SAMPLING_SOURCE),
-                    str(UV_TRANSFORM_SOURCE),
-                    str(DIRECTIONAL_LIGHT_SOURCE),
-                    str(POINT_LIGHT_SOURCE),
-                    str(SPOT_LIGHT_SOURCE),
-                    str(lighting_stub),
-                    str(LIGHT_SOURCE),
-                    str(VISIBILITY_SOURCE),
-                    str(DYNAMIC_SNAPSHOT_SOURCE),
-                    str(DYNAMIC_LAYER_VALUES_SOURCE),
-                    str(PERFORMANCE_COUNTER_SOURCE),
-                    str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
-                    str(BINDINGS_SOURCE),
-                    str(MATERIAL_SOURCE),
-                    str(PIPELINE_SOURCE),
-                    str(SHADOW_SOURCE),
-                    str(harness),
-                    "-framework", "Metal",
-                    "-o", str(executable),
-                ],
-                capture_output=True,
-                text=True,
-                env=environment,
-            )
-            self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            completed = subprocess.run(
-                [str(executable)],
-                capture_output=True,
-                text=True,
-                env=environment,
-            ) if compiled.returncode == 0 else compiled
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-
     def test_pipeline_uses_fixed_depth_blend_and_slots(self) -> None:
         source = PIPELINE_SOURCE.read_text(encoding="utf-8")
         self.assertIn("material.usesHDRBrightness", source)
@@ -797,9 +684,6 @@ enum DepthPlanHarness {
             "emissiveMaskTextureFrame: SceneTextureUVTransform?",
             "emissiveMaskSampling: SceneTextureSampling?",
             "lighting: SceneLightSnapshot",
-            "struct SceneStaticModelDepthPlan",
-            "case isolated",
-            "lhs.geometryIdentity == rhs.geometryIdentity",
             "encoder.setFragmentBytes(",
             "sampling.isResolvedForMaterialProgram",
             "!sampling.usesClampBorderFallback",

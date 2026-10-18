@@ -41,12 +41,28 @@ class SceneStaticModelDepthPendingTests(unittest.TestCase):
         self.assertEqual(report['rows'][1]['encodedLayerIDs'], [])
         self.assertEqual(report['rows'][1]['centerRGBA'], [17, 17, 17, 17])
 
-    def test_terminal_shared_depth_binding_has_one_frame_lifetime(self):
+    def test_terminal_domains_preserve_depth_and_exact_submission_lifetime(self):
+        required = [
+            'terminal-first-real-encoder-clears-zero',
+            'terminal-reopen-loads-existing-depth',
+            'terminal-distinct-hdr-pass-has-independent-domain',
+            'terminal-hdr-pass-first-clear-is-independent',
+            'terminal-binding-rechecks-consumer',
+            'terminal-binding-rejects-other-pass-and-cb',
+            'terminal-wrong-arm-keeps-binding-and-shadow-pin',
+            'terminal-correct-arm-releases-shadow-pin-on-completion',
+            'terminal-binding-expires-at-submission',
+            'terminal-binding-expires-on-cancel',
+        ]
         for report in self.cases.values():
-            checks = {key: value for key, value in report['checks'].items()
-                      if key.startswith('terminal-')}
-            self.assertGreaterEqual(len(checks), 9)
-            self.assertTrue(all(checks.values()), checks)
+            self.assertTrue(all(report['checks'][key] for key in required), report)
+
+    def test_actual_current_frame_excess_remains_sticky_and_color_stays_usable(self):
+        for report in self.cases.values():
+            for key in ['four-same-pass-models-use-one-domain',
+                        'terminal-current-frame-capacity-is-sticky',
+                        'terminal-capacity-failure-keeps-healthy-color']:
+                self.assertTrue(report['checks'][key], report)
 
     def test_optional_source_depth_failure_is_qualified_before_graph_candidate(self):
         for report in self.cases.values():
