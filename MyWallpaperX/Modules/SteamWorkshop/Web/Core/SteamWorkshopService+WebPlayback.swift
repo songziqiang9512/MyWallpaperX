@@ -165,8 +165,10 @@ extension SteamWorkshopService {
     /// identity 贯穿导入链，所以保留一次性兜底，且不让无归属旧通知
     /// 清除更新的点击。
     private func scheduleLaunchPendingFallbackClear(recordID: String) {
+        let generation = webLaunchIntentGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.clearLaunchPending(matching: recordID)
+            guard let self, self.webLaunchIntentGeneration == generation else { return }
+            self.clearLaunchPending(matching: recordID)
         }
     }
 

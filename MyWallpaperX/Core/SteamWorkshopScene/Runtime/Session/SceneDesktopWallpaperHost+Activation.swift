@@ -149,7 +149,21 @@ extension SceneDesktopWallpaperHost {
         if let previous = promotion.previous { retire(previous) }
     }
 
-    func cancelCandidate(requestID: UUID) {
+    func retireOutput(requestID: UUID) -> Bool {
+        if let previous = unconfirmedPromotion?.previous, previous.launchRequestID == requestID {
+            unconfirmedPromotion?.previous = nil
+            retire(previous)
+        } else if let activeSession, activeSession.launchRequestID == requestID {
+            self.activeSession = nil
+            retire(activeSession)
+        }
+        reconcileAudioDemand()
+        return activeSession?.launchRequestID != requestID
+            && unconfirmedPromotion?.previous?.launchRequestID != requestID
+    }
+
+    @discardableResult
+    func cancelCandidate(requestID: UUID) -> Bool {
         if unconfirmedPromotion?.requestID == requestID {
             let recordID = activeSession?.activeRecordID
             rollbackUnconfirmedPromotion()
@@ -158,6 +172,9 @@ extension SceneDesktopWallpaperHost {
         } else if launchState?.requestID == requestID {
             cancelPendingLaunch()
         }
+        return activeSession?.launchRequestID != requestID
+            && candidateSession?.launchRequestID != requestID
+            && candidatePromotion?.requestID != requestID
     }
 
     func rollbackUnconfirmedPromotion() {
@@ -201,7 +218,7 @@ extension SceneDesktopWallpaperHost {
     }
 
     func reconcileAudioDemand() {
-        let sessions = [activeSession, candidateSession].compactMap { $0 }
+        let sessions = [activeSession, candidateSession].compactMap { $0 }.filter(\.isOutputActive)
         SceneAudioSpectrumInbox.shared.setDemand(
             sessions.contains { $0.audioDemand.spectrum },
             requiresCurrentProcessAudioCapture: sessions.contains { $0.audioDemand.currentProcess }

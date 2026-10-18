@@ -21,8 +21,8 @@
       "bytes": 4438
     },
     "docs/architecture/technology-stack-boundaries.md": {
-      "lines": 257,
-      "bytes": 26072
+      "lines": 259,
+      "bytes": 26517
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -286,7 +286,11 @@
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 72,
-      "bytes": 13368
+      "bytes": 13711
+    },
+    "docs/architecture/playback-lifecycle-transaction-design.md": {
+      "lines": 47,
+      "bytes": 6779
     }
   },
   "archives": [
@@ -1293,27 +1297,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/dedicated-host-process-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "1919d78624fcce550f95ae3fa3f2e6baae980bacb24752c46dde71582026397b",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
       "after": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "ba100120dba89209bfe6e4b74b69947aa76819704ff4f69f4a040c47e37c77c5",
-      "after": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
       "owner": "playback-process-isolation",
       "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
       "decision": "docs/web/dedicated-host-process-design.md"
@@ -1407,6 +1393,33 @@
       "owner": "scene-asset-path-string-values",
       "reason": "Replace the incorrect opaque asset contract with bounded String API evidence; remove the solved gap while retaining unresolved visual feedback, actual failures and resource-admission limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#asset-path-string-values-20261018"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
+      "after": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
+      "owner": "playback-lifecycle-transaction",
+      "reason": "Record the common actual-exit owner, bounded native visibility and media ownership barriers, and the single product switch reducer; replace superseded handoff claims.",
+      "decision": "docs/architecture/playback-lifecycle-transaction-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "23dcc50cc46e055e4e80984ff48aa857f071b47cbb1cc44be955b43b6786fbb4",
+      "owner": "playback-lifecycle-transaction",
+      "reason": "Record the common actual-exit owner, bounded native visibility and media ownership barriers, and the single product switch reducer; replace superseded handoff claims.",
+      "decision": "docs/architecture/playback-lifecycle-transaction-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "1919d78624fcce550f95ae3fa3f2e6baae980bacb24752c46dde71582026397b",
+      "after": "9678f7bc05abbec7e49caf377be1377dbe282fee741deed5c3d76d8f2705b6ed",
+      "owner": "playback-lifecycle-transaction",
+      "reason": "Record the common actual-exit owner, bounded native visibility and media ownership barriers, and the single product switch reducer; replace superseded handoff claims.",
+      "decision": "docs/architecture/playback-lifecycle-transaction-design.md"
     }
   ]
 }

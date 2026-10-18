@@ -3456,6 +3456,31 @@
         "test_scene_capture_geometry",
         "test_scene_dynamic_layer_values"
       ]
+    },
+    {
+      "id": "playback-switch-lifecycle",
+      "patterns": [
+        "MyWallpaperX/Core/DaemonKit/DaemonParentLifetime.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackSwitchTransaction.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+SwitchExecution.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonHostAdapter+SwitchExecution.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift",
+        "script/tests/test_playback_*",
+        "script/tests/test_daemon_process_lifetime.py",
+        "script/tests/fixtures/playback-lifecycle/**"
+      ],
+      "modules": [
+        "test_daemon_process_lifetime",
+        "test_daemon_process_transport",
+        "test_playback_switch_transaction",
+        "test_playback_switch_endpoints",
+        "test_playback_visibility",
+        "test_scene_switch_endpoint",
+        "test_video_preparation_cancellation",
+        "test_playback_policy_delivery"
+      ]
     }
   ],
   "method_gates": {

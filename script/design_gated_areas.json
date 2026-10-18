@@ -728,6 +728,22 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "playback-lifecycle-transaction",
+      "title": "三引擎退出、可见交接与唯一产品事务",
+      "owner": "WallpaperManager product transaction / DaemonKit physical lifecycle",
+      "status": "approved",
+      "designDoc": "docs/architecture/playback-lifecycle-transaction-design.md",
+      "design_notes": "保留进程与作者样式；按退出、可见性、唯一事务迁移。显式退役Shell handoff及引擎跨类型产品提交分支，保留资源/首帧执行owner；精确身份、回滚和真实退出验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/DaemonKit/DaemonParentLifetime.swift",
+        "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackSwitchTransaction.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

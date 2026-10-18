@@ -17,11 +17,15 @@ extension WallpaperDaemon {
             contentKind: contentKind
         )
 
+        write(event)
+    }
+
+    func write(_ event: DaemonEvent) {
         do {
             let data = try DaemonNewlineJSON.encode(event)
             FileHandle.standardOutput.write(data)
         } catch {
-            daemonLog("failed to emit event \(type): \(error.localizedDescription)")
+            daemonLog("failed to emit event \(event.type): \(error.localizedDescription)")
         }
     }
 }

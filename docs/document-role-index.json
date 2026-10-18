@@ -3,6 +3,7 @@
   "discovery": {
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
+      "docs/architecture/playback-lifecycle-transaction-design.md",
       "docs/architecture/steam-workshop-acquisition-contract.md",
       "docs/architecture/system-audio-spectrum-design.md",
       "docs/architecture/technology-stack-boundaries.md",
@@ -117,6 +118,20 @@
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
     },
     {
+      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "三引擎退出、可见交接与唯一产品事务实施且有界验收完成，稳定合同接管后归档。",
+      "lastReviewed": "2026-10-18",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "206a463e1f3bc5781b407a2406a5fb93acecebec29cb105cc8f7f04a01266832",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
+        "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
+      }
+    },
+    {
       "path": "docs/architecture/repository-map.md",
       "role": "current-state",
       "entrypoint": "docs/README.md",
@@ -158,10 +173,10 @@
       "lastReviewed": "2026-10-18",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "628532316e427e85e732e506399ec6c4974d7d3cbeee959132bb7862692db45b",
+        "sourceSHA256": "ed4180fc3b29018a03f82f9fdf2b5ce648fe15edfeaadb17acee41e820632990",
         "method": "document_registry --audit + document_health --check",
-        "scope": "统一三引擎控制面/播放面隔离与后台频谱投递；普通 XPC 不拥有桌面窗口；保留既有渲染 owner，现役证据归 Web 当前状态。",
-        "limitations": "只审本批进程/生命周期边界；不是全作者兼容、发布、系统 Space 零暂停或长稳性能证明。"
+        "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
+        "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
       }
     },
     {
@@ -3411,7 +3426,15 @@
       "path": "docs/web/dedicated-host-process-design.md",
       "role": "active-plan",
       "entrypoint": "docs/web/README.md",
-      "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。"
+      "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。",
+      "lastReviewed": "2026-10-18",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "19a4dbc763c22ae200210cf5ca17d5f01e5321b179b66d78191ca238840edfe3",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
+        "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
+      }
     },
     {
       "path": "docs/web/mediaremote-nowplaying-design.md",
@@ -3862,7 +3885,8 @@
       ],
       "documents": [
         "docs/architecture/repository-map.md",
-        "docs/scene/roadmap/engine-refactor-program.md"
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/architecture/playback-lifecycle-transaction-design.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/PlaybackControl",

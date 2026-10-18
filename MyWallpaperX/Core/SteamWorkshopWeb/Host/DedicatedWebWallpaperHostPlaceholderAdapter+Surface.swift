@@ -62,7 +62,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 source: Self.webCompatibilityScript(
                     for: request,
                     generalPropertiesJSON: currentGeneralPropertiesJSON(for: screen, screenID: screenID),
-                    volume: currentVolume,
+                    volume: effectiveVolume,
                     playbackRate: currentPlaybackRate,
                     paused: paused
                 ),
@@ -114,7 +114,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         configuration.websiteDataStore = websiteDataStore(for: request, screenID: screenID)
         configuration.setURLSchemeHandler(schemeHandler, forURLScheme: WebWallpaperHostSupport.localScheme)
         let webView = WKWebView(frame: contentView.bounds, configuration: configuration)
-        webView.setAllMediaPlaybackSuspended(paused, completionHandler: nil)
+        let mediaPlaybackGate = WebMediaPlaybackGate { [weak webView] suspended, completion in
+            guard let webView else { completion(); return }
+            webView.setAllMediaPlaybackSuspended(suspended, completionHandler: completion)
+        }
+        mediaPlaybackGate.setSuspended(effectiveMediaSuspended)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
@@ -124,6 +128,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         contentView.addSubview(webView)
         return HostSurface(
+            mediaPlaybackGate: mediaPlaybackGate,
             screenID: screenID,
             window: window,
             contentView: contentView,
@@ -174,6 +179,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         navigationOwnershipByScreen.removeValue(forKey: screenID)
         setAudioSpectrumDemand(false, for: screenID)
         guard let surface = surfaces[screenID] else { return }
+        surface.mediaPlaybackGate.invalidate()
+        presentationInvalidationHandler?()
         resetWebContentRecoveryState(for: screenID)
         resetInteractionState(for: screenID)
         #if DEBUG
@@ -258,6 +265,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func setTransientMouseCaptureEnabled(_ enabled: Bool, for surface: HostSurface) {
+        let enabled = enabled && outputActivityAllowed && !defersPresentation
         surface.window.ignoresMouseEvents = !enabled
         surface.contentView.blocksUnderlyingMouseInput = enabled
     }

@@ -164,6 +164,9 @@ final class SceneDaemonRuntime {
     }
 
     func configure() {
+        DaemonParentLifetime.shared.setShutdownHandler { [weak self] in
+            MainActor.assumeIsolated { self?.shutdown(exitCode: 0) }
+        }
         NSApplication.shared.setActivationPolicy(.accessory)
         host.requestResourcesReleasedHandler = { [weak self] requestID in
             self?.emitRequestResourcesReleased(requestID)
@@ -215,9 +218,7 @@ final class SceneDaemonRuntime {
                     break
                 }
             }
-            DispatchQueue.main.async { [weak self] in
-                self?.shutdown(exitCode: 0)
-            }
+            DaemonParentLifetime.shared.requestShutdown()
         }
     }
 
@@ -322,8 +323,25 @@ final class SceneDaemonRuntime {
             host.commitCandidate(requestID: requestID)
         case let .finalizeCandidate(requestID):
             host.finalizeCandidate(requestID: requestID)
-        case let .cancelCandidate(requestID):
-            host.cancelCandidate(requestID: requestID)
+        case let .cancelCandidate(requestID, operationID):
+            let windows = host.outputWindows(requestID: requestID)
+            let accepted = host.cancelCandidate(requestID: requestID)
+            if let operationID {
+                confirmOutputWithdrawal(windows: windows) { [weak self] hidden in
+                    self?.emitSwitchControlResult(requestID: requestID, operationID: operationID,
+                                                  accepted: accepted && hidden)
+                }
+            }
+        case let .setOutputActive(requestID, operationID, active):
+            let accepted = host.setOutputActive(active, requestID: requestID)
+            emitSwitchControlResult(requestID: requestID, operationID: operationID, accepted: accepted)
+        case let .retireOutput(requestID, operationID):
+            let windows = host.outputWindows(requestID: requestID)
+            let accepted = host.retireOutput(requestID: requestID)
+            confirmOutputWithdrawal(windows: windows) { [weak self] hidden in
+                self?.emitSwitchControlResult(requestID: requestID, operationID: operationID,
+                                              accepted: accepted && hidden)
+            }
         case let .setDisplayConfiguration(topology):
             NSLog(
                 "MWX SCENE DAEMON: phase=display-configuration screens=%d",
@@ -406,6 +424,35 @@ final class SceneDaemonRuntime {
         let demand = SceneSystemMediaDemandRegistry.shared.demand
         systemMediaReceiver.setDemand(demand)
         emitSystemMediaEvent("systemMediaDemandChanged", frame: demand)
+    }
+
+    private func emitSwitchControlResult(requestID: UUID, operationID: UUID, accepted: Bool) {
+        emit(["v": SceneDaemonProtocol.version, "event": "switchControlResult",
+              "requestID": requestID.uuidString, "operationID": operationID.uuidString,
+              "accepted": accepted])
+    }
+
+    /// Cancellation/retirement ACK means the exact old windows are withdrawn,
+    /// not merely removed from a Swift dictionary. Failure makes the parent
+    /// terminate this child and wait for physical exit before releasing its barrier.
+    private func confirmOutputWithdrawal(windows: [NSWindow], completion: @escaping (Bool) -> Void) {
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        let outputs = windows.map { (window: $0, number: UInt32(exactly: $0.windowNumber) ?? 0) }
+        func check() {
+            guard !isShuttingDown else { return }
+            let hidden = outputs.allSatisfy { output in
+                guard !output.window.isVisible || output.window.alphaValue <= 0.01 else { return false }
+                guard output.number > 0,
+                      let info = (CGWindowListCopyWindowInfo(.optionIncludingWindow, output.number)
+                        as? [[String: Any]])?.first else { return true }
+                return (info[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == false
+                    || ((info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) <= 0.01
+            }
+            if hidden { completion(true) }
+            else if ProcessInfo.processInfo.systemUptime >= deadline { completion(false) }
+            else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.025, execute: check) }
+        }
+        check()
     }
 
     private func acknowledgeSystemMedia(_ result: SceneDaemonMediaReceiver.Result) {
@@ -589,6 +636,7 @@ final class SceneDaemonRuntime {
     }
 
     private func shutdown(exitCode: Int32) {
+        DaemonParentLifetime.shared.requestShutdown()
         guard !isShuttingDown else { return }
         isShuttingDown = true
         SceneAudioSpectrumInbox.shared.setDemandObserver(nil)

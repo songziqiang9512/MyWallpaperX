@@ -37,6 +37,7 @@ final class SceneDesktopWallpaperSession {
     var launchRequestID:UUID?
     var activeRecordID:String? { nil }
     var audioDemand = (spectrum:false,currentProcess:false)
+    var isOutputActive = true
     var visible = false
     var paused = false
     var stopped = false

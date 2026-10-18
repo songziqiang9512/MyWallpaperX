@@ -21,7 +21,9 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case cancelLaunch(recordID: String)
     case commitCandidate(requestID: UUID)
     case finalizeCandidate(requestID: UUID)
-    case cancelCandidate(requestID: UUID)
+    case cancelCandidate(requestID: UUID, operationID: UUID? = nil)
+    case setOutputActive(requestID: UUID, operationID: UUID, active: Bool)
+    case retireOutput(requestID: UUID, operationID: UUID)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
     /// Normalized master volume (0...1) applied after authored/user volume.
@@ -180,8 +182,32 @@ nonisolated enum SceneDaemonProtocol {
             switch action {
             case "commitCandidate": return .success(.commitCandidate(requestID: requestID))
             case "finalizeCandidate": return .success(.finalizeCandidate(requestID: requestID))
-            default: return .success(.cancelCandidate(requestID: requestID))
+            default:
+                let operationID: UUID?
+                if let raw = payload["operationID"] {
+                    guard let string = raw as? String, let parsed = UUID(uuidString: string) else {
+                        return .failure(.invalidPayload(action))
+                    }
+                    operationID = parsed
+                } else { operationID = nil }
+                return .success(.cancelCandidate(requestID: requestID, operationID: operationID))
             }
+        case "setOutputActive":
+            guard let rawRequest = payload["requestID"] as? String,
+                  let requestID = UUID(uuidString: rawRequest),
+                  let rawOperation = payload["operationID"] as? String,
+                  let operationID = UUID(uuidString: rawOperation),
+                  let active = boolean(payload["active"]) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setOutputActive(requestID: requestID, operationID: operationID, active: active))
+        case "retireOutput":
+            guard let raw = payload["requestID"] as? String, let requestID = UUID(uuidString: raw),
+                  let rawOperation = payload["operationID"] as? String,
+                  let operationID = UUID(uuidString: rawOperation) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.retireOutput(requestID: requestID, operationID: operationID))
         case "setDisplayConfiguration":
             guard let topology = displayConfiguration(payload["screens"]) else {
                 return .failure(.invalidPayload(action))

@@ -3,7 +3,7 @@ import Foundation
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func startSyntheticInputForwardingIfNeeded() {
-        guard !defersPresentation else { return }
+        guard !defersPresentation, outputActivityAllowed else { return }
         // 转发是全局监听而非每页资源；dom.ready/didFinish/空间切换/应用
         // 激活都会调到这里。全运行时跳过——重启会取消其他屏在途的已承认
         // 桌面手势、清全局悬停态并重开 0.45s 预热窗（窗口内 down/up 全被

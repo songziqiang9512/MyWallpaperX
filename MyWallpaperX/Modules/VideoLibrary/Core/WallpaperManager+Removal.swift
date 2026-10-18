@@ -208,7 +208,7 @@ extension WallpaperManager {
             if let nextWallpaper = nextPlaybackWallpaperID.flatMap({ nextWallpaperAfterRemoval(withID: $0) }) {
                 setAsWallpaper(nextWallpaper)
             } else {
-                WallpaperEngine.shared.stopPlayback()
+                stopCurrentPlayback()
             }
         }
     }
@@ -324,6 +324,9 @@ extension WallpaperManager {
         stopAutoSwitchTimer()
         WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())
         WallpaperEngine.shared.stopPlayback()
+        SceneDaemonClient.shared.stop()
+        switchDeadline?.cancel()
+        pendingSystemWallpaperSyncWorkItem?.cancel()
         isPlaying = false
     }
 

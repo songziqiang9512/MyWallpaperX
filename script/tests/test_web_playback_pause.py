@@ -19,7 +19,23 @@ enum WebWallpaperHostSupport {
         String(data: try! JSONEncoder().encode(value), encoding: .utf8)!
     }
 }
-final class Adapter {
+@MainActor final class Adapter {
+    var effectiveMediaSuspended = true
+    var gates: [ObjectIdentifier: WebMediaPlaybackGate] = [:]
+    func mediaPlaybackGate(for view: WKWebView) -> WebMediaPlaybackGate? {
+        let key = ObjectIdentifier(view)
+        if let gate = gates[key] { return gate }
+        let gate = WebMediaPlaybackGate { [weak view] suspended, done in
+            guard let view else { done(); return }
+            view.setAllMediaPlaybackSuspended(suspended, completionHandler: done)
+        }
+        gates[key] = gate
+        return gate
+    }
+    func updatePaused(_ paused: Bool, to view: WKWebView) {
+        effectiveMediaSuspended = paused
+        applyPausedState(paused, to: view)
+    }
     func applyGeneralProperties(to webView: WKWebView) {}
     func refreshSystemMediaSubscription() {}
     /// D5：与产品 adapter 同名的 frame endpoint 登记桩（同表面），供提取出的
@@ -203,7 +219,7 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
                 let initial = try await counters(allowUnresolvedAnimations: true)
                 precondition(initial[0] == 0 && initial[1] == 0 && initial[2] == 0)
                 precondition(initial[6] == 0 && initial[7] == 0, "Initially paused iframe ran")
-                adapter.applyPausedState(false, to: view)
+                adapter.updatePaused(false, to: view)
                 try await wait(0.6)
                 let running = try await counters()
                 precondition(running[0] > 3 && running[1] > 3 && running[2] == 1 && running[3] == 0)
@@ -212,7 +228,7 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
                 precondition(running[8] > 0.1, "Native WebKit media did not start")
                 let callbackSemantics = try await js("correctThis") as? Int
                 precondition(callbackSemantics == 2, "Native callback this/arguments semantics changed")
-                adapter.applyPausedState(true, to: view)
+                adapter.updatePaused(true, to: view)
                 try await wait(0.15) // Child postMessage and compositor settle.
                 let frozen = try await counters()
                 try await wait(0.4)
@@ -224,7 +240,7 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
                 let held = try await counters()
                 precondition(held[2] == 1)
                 precondition(abs(held[8] - still[8]) < 0.01, "Media restarted while native gate was suspended")
-                adapter.applyPausedState(false, to: view)
+                adapter.updatePaused(false, to: view)
                 var resumed = try await counters()
                 for _ in 0..<20 where resumed[8] <= held[8] + 0.05 {
                     try await wait(0.1)
@@ -274,7 +290,7 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
                 // 暂停快照按「回合」记录：同一暂停被重复应用（种子期、dom.ready、
                 // DCL/load 重放、applyPausedState）后，宿主自身的 suspend 不得被
                 // 记成作者挂起，恢复时必须 resume 可恢复的 AudioContext。
-                adapter.applyPausedState(true, to: view)
+                adapter.updatePaused(true, to: view)
                 var audioState = try await js("__mwxAudio.state") as? String
                 for _ in 0..<20 where audioState != "suspended" {
                     try await wait(0.1)
@@ -282,9 +298,9 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
                 }
                 precondition(audioState == "suspended", "宿主暂停未挂起 AudioContext：\(audioState ?? "nil")")
                 let resumeCallsBeforeRepeat = try await js("__mwxAudio.resumeCalls") as? Int ?? -1
-                adapter.applyPausedState(true, to: view) // 同一暂停回合的重复应用
+                adapter.updatePaused(true, to: view) // 同一暂停回合的重复应用
                 try await wait(0.2)
-                adapter.applyPausedState(false, to: view)
+                adapter.updatePaused(false, to: view)
                 var resumedAudioState = try await js("__mwxAudio.state") as? String
                 for _ in 0..<20 where resumedAudioState != "running" {
                     try await wait(0.1)
@@ -330,7 +346,7 @@ class WebPlaybackPauseTests(unittest.TestCase):
             harness = HARNESS.replace("// ADAPTER_METHODS", adapter).replace("__MEDIA__", base64.b64encode(audio.getvalue()).decode())
             (path / "Harness.swift").write_text(harness)
             source = host / "WebWallpaperPlaybackScript.swift"
-            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(source),
+            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(source), str(host / "WebMediaPlaybackGate.swift"),
                 *map(str, sorted(host.glob("DedicatedWebWallpaperHostCompatibilityScript+*.swift"))),
                 str(path / "Harness.swift"), "-o", str(path / "harness")],
                 capture_output=True, text=True, timeout=90)

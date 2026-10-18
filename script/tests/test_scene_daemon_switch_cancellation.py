@@ -20,6 +20,7 @@ SUPPORT = r'''
 import Foundation
 struct ScenePlaybackLoadRequest { let recordID:String?;var rootURL=URL(fileURLWithPath:"/version") }
 final class PlaybackResourceLifetime {}
+final class DaemonProcessTransport {var isRunning=true;func terminate(){}}
 struct Reachability {}
 struct SceneWallpaperLaunchState {
     enum Phase { case cancelled }
@@ -43,6 +44,18 @@ enum SceneDaemonProtocol { static let version=1 }
     struct Facts { let transportGeneration:UInt64;let requestID:UUID;let recordID:String?;let reachability:Reachability }
     var activeIntent:ScenePlaybackLoadRequest?
     var pendingIntent:ScenePlaybackLoadRequest?
+    var activeSwitchTicket:PlaybackSwitchTicket?
+    var pendingSwitchTicket:PlaybackSwitchTicket?
+    var activeSwitchExecution:SwitchExecution?
+    var pendingSwitchExecution:SwitchExecution?
+    var switchControls:[UUID:SwitchControl]=[:]
+    var queuedSwitchPreparation:QueuedSwitchPreparation?
+    var committedSwitchRecovery:CommittedSwitchRecovery?
+    var switchPrepared:((PlaybackSwitchTicket,PlaybackSwitchEndpoint)->Void)?
+    var switchVisible:((PlaybackSwitchTicket,UUID)->Void)?
+    var switchFailed:((PlaybackSwitchTicket,String)->Void)?
+    var switchLost:((PlaybackSwitchTicket,String)->Void)?
+    var transport:DaemonProcessTransport?
     var activeResourceLifetime:Lifetime?
     var pendingResourceLifetime:Lifetime?
     var activeRecordID:String?
@@ -77,6 +90,10 @@ enum SceneDaemonProtocol { static let version=1 }
     func fallbackReplayIntent(requestID:UUID)->ScenePlaybackLoadRequest? { nil }
     func ensureSession()->Bool {false}
     func replayPendingIntent() {}
+    func retainResourceLifetime(_ value:PlaybackResourceLifetime?,rootURL:URL,recordID:String?) {
+        pendingResourceLifetime=value.map{Lifetime(lifetime:$0,recordID:recordID)}
+    }
+    func flushDeferredDisplayConfigurationUpdate() {}
     func resumeDeferredTextureUpdates(recordID:String?,requestID:UUID) { resumed.append(requestID) }
     static func double(_ raw:Any?)->Double? { raw as? Double }
 '''
@@ -136,6 +153,20 @@ TAIL = r'''
         var foreign=ScenePlaybackLoadRequest(recordID:"C");foreign.rootURL=URL(fileURLWithPath:"/foreign")
         client.requestLaunch(foreign)
         checks["foreignVersionDoesNotBorrowActiveLease"] = client.pendingResourceLifetime == nil
+        let visibleTicket=PlaybackSwitchTicket(epoch:5,id:UUID(),runtime:.scene)
+        let newerTicket=PlaybackSwitchTicket(epoch:6,id:UUID(),runtime:.scene)
+        let queuedClient=SceneDaemonClient();queuedClient.endpointReady=true
+        queuedClient.transport=DaemonProcessTransport()
+        queuedClient.activeIntent = .init(recordID:"A");queuedClient.activeSwitchTicket=visibleTicket
+        queuedClient.pendingIntent = .init(recordID:"B");queuedClient.pendingSwitchTicket=visibleTicket
+        queuedClient.pendingRequestID=b
+        let execution=SceneDaemonClient.SwitchExecution(ticket:visibleTicket,requestID:b,
+            generation:queuedClient.sessionGeneration,transport:queuedClient.transport!)
+        execution.presented=true;queuedClient.pendingSwitchExecution=execution
+        queuedClient.prepareSwitch(.init(recordID:"C"),ticket:newerTicket,resourceLifetime:nil)
+        queuedClient.requestLaunch(.init(recordID:"B"))
+        checks["internalRebuildCannotOverwriteNewerQueuedProduct"] = queuedClient.queuedSwitchPreparation?.ticket == newerTicket
+            && queuedClient.queuedSwitchPreparation?.request.recordID == "C" && queuedClient.pendingRequestID == b
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:.sortedKeys),encoding:.utf8)!)
     }
 }
@@ -149,6 +180,7 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
         methods = [
             method(client, "func cancelPreparationForRuntimeSwitch()"),
             method(client, "func requestLaunch(_ request: ScenePlaybackLoadRequest)"),
+            method(client, "func startLaunch(_ request: ScenePlaybackLoadRequest, ticket: PlaybackSwitchTicket?)"),
             method(events, "private func handleCandidatePrepared(_ payload: [String: Any])"),
             method(events, "private func handleFirstFrame(_ payload: [String: Any])"),
         ]
@@ -157,8 +189,15 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
             source = root / "Harness.swift"
             source.write_text(SUPPORT + "\n".join(methods) + TAIL)
             binary = root / "harness"
+            shared = []
+            for name in ("WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift"):
+                path = root / name
+                path.write_bytes((ROOT / "MyWallpaperX/Core/PlaybackControl" / name).read_bytes())
+                shared.append(str(path))
             compilation = subprocess.run(
-                ["xcrun", "swiftc", "-parse-as-library", str(source), "-o", str(binary)],
+                ["xcrun", "swiftc", "-D", "DEBUG", "-parse-as-library",
+                 *shared,
+                 str(IPC / "SceneDaemonClient+SwitchEndpoint.swift"), str(source), "-o", str(binary)],
                 capture_output=True, text=True, timeout=60,
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)

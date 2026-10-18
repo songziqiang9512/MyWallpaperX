@@ -85,15 +85,11 @@ enum DebugWebRuntimeSwitchRunner {
 
             logAction("web")
             engine.setSystemAudioSpectrumEnabled(false)
-            engine.setWebWallpaper(
-                entryURL: context.effectiveEntryURL,
-                rootURL: context.effectiveRootURL,
-                propertiesJSON: context.propertyPayloadJSON,
-                recordID: record.id,
-                language: context.language,
-                runtimeProfile: service.recommendedWebRuntimeProfile(for: record),
-                multiDisplayEnabled: false
-            )
+            NotificationCenter.default.post(name: .steamWorkshopWebWallpaperReadyToPlay, object: nil,
+                userInfo: ["requestID": UUID(), "entryURL": context.effectiveEntryURL,
+                    "rootURL": context.effectiveRootURL, "propertiesJSON": context.propertyPayloadJSON,
+                    "recordID": record.id, "language": context.language,
+                    "runtimeProfile": service.recommendedWebRuntimeProfile(for: record)])
             logCheckpoint("web-requested")
 
             logAction("video2")
@@ -131,7 +127,7 @@ enum DebugWebRuntimeSwitchRunner {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 6.5) {
                 logAction("stop")
-                engine.stopPlayback()
+                WallpaperManager.shared.stopCurrentPlayback()
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 7.8) {
                 logCheckpoint("stopped")
@@ -156,12 +152,9 @@ enum DebugWebRuntimeSwitchRunner {
         settings.pauseWhenUnplugged = false
         settings.pauseWhenIdle = false
         PlaybackPolicyController.shared.updateSettings(settings)
-        engine.setWallpaper(
-            VideoWallpaper(title: title, path: url.path),
-            multiDisplayEnabled: false,
-            videoFillMode: VideoFillMode.aspectFill.ipcValue,
-            shouldLoopCurrentItem: true
-        )
+        WallpaperManager.shared.settings.multiDisplayEnabled = false
+        WallpaperManager.shared.setAsWallpaper(VideoWallpaper(title: title, path: url.path),
+            recordHistory: false, updateRecentList: false)
     }
 
     private static func logPreconditionFailure(_ reason: String) {

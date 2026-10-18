@@ -44,17 +44,7 @@ extension WallpaperManager {
             updateRecentWallpapers(wallpaper)
         }
 
-        // 实际播放逻辑：使用WallpaperEngine设置壁纸
-        // E2a-1: 切换入口先推进产品意图纪元并注入引擎（只读注入，
-        // 提交点不变）。
-        WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent(runtime: .video))
-        WallpaperEngine.shared.setWallpaper(
-            wallpaper,
-            multiDisplayEnabled: settings.multiDisplayEnabled,
-            videoFillMode: settings.videoFillMode.ipcValue,
-            shouldLoopCurrentItem: shouldLoopCurrentItemInEngine()
-        )
-        isPlaying = WallpaperEngine.shared.isPlaying()
+        prepareVideoSwitch(wallpaper)
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
         applySystemAudioSpectrumToEngine()
@@ -69,16 +59,7 @@ extension WallpaperManager {
             playbackSourceContext = currentSelectionContext
         }
 
-        // 同步改变系统壁纸
-        pendingSystemWallpaperSyncWorkItem?.cancel()
-        pendingSystemWallpaperSyncWorkItem = nil
-        if settings.syncSystemWallpaper {
-            let syncWorkItem = DispatchWorkItem { [weak self] in
-                self?.syncSystemWallpaper(with: wallpaper)
-            }
-            pendingSystemWallpaperSyncWorkItem = syncWorkItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: syncWorkItem)
-        }
+
     }
 
     func requestSetAsWallpaper(_ wallpaper: VideoWallpaper) {
@@ -162,7 +143,8 @@ extension WallpaperManager {
         return true
     }
 
-    private func syncSystemWallpaper(with wallpaper: VideoWallpaper) {
+    func syncSystemWallpaper(with wallpaper: VideoWallpaper) {
+        let committedExecution = playbackSwitch.committed
         // 同步系统壁纸优先用已缓存静帧，只有缓存存在时才写系统桌面图。
         if let staticFramePath = wallpaper.staticFramePath,
            pathExists(staticFramePath) {
@@ -181,7 +163,8 @@ extension WallpaperManager {
         generateStaticFrameIfNeeded(for: url) { [weak self] path in
             guard let self, let path else { return }
             // 确认用户当前壁纸未切走
-            guard self.effectiveCurrentWallpaper?.path == wallpaper.path,
+            guard self.playbackSwitch.committed == committedExecution,
+                  self.currentWallpaper?.path == wallpaper.path,
                   self.settings.syncSystemWallpaper else { return }
             self.applySystemWallpaperSync(from: path)
         }
@@ -275,9 +258,11 @@ extension WallpaperManager {
         pendingSystemWallpaperSyncWorkItem?.cancel()
         pendingSystemWallpaperSyncWorkItem = nil
         guard settings.syncSystemWallpaper else { return }
+        let committedExecution = playbackSwitch.committed
         let workItem = DispatchWorkItem { [weak self] in
             guard let self,
                   self.settings.syncSystemWallpaper,
+                  self.playbackSwitch.committed == committedExecution,
                   self.activeRuntimeMatchesFrameSyncTarget(kind, recordID: recordID)
             else { return }
             switch kind {
@@ -285,7 +270,8 @@ extension WallpaperManager {
                 WallpaperEngine.shared.captureWebWallpaperFrame { [weak self] image in
                         guard let self,
                               self.settings.syncSystemWallpaper,
-                              self.activeRuntimeMatchesFrameSyncTarget(
+                              self.playbackSwitch.committed == committedExecution,
+                  self.activeRuntimeMatchesFrameSyncTarget(
                                   kind,
                                   recordID: recordID
                               ),
@@ -308,7 +294,8 @@ extension WallpaperManager {
                             DispatchQueue.main.async { [weak self] in
                                 guard let self,
                                       self.settings.syncSystemWallpaper,
-                                      self.activeRuntimeMatchesFrameSyncTarget(
+                                      self.playbackSwitch.committed == committedExecution,
+                  self.activeRuntimeMatchesFrameSyncTarget(
                                           kind,
                                           recordID: recordID
                                       ) else {
@@ -324,7 +311,8 @@ extension WallpaperManager {
                     // 守卫失败也清掉 daemon 侧临时帧，避免 /private/tmp 残留。
                     defer { try? FileManager.default.removeItem(at: frameURL) }
                     guard self.settings.syncSystemWallpaper,
-                          self.activeRuntimeMatchesFrameSyncTarget(
+                          self.playbackSwitch.committed == committedExecution,
+                  self.activeRuntimeMatchesFrameSyncTarget(
                               kind,
                               recordID: recordID
                           ) else {

@@ -83,6 +83,19 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
+    var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
+    var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
+    var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?
+    var switchLost: ((PlaybackSwitchTicket, String) -> Void)?
+    var stopPlaybackRequested: (() -> Void)?
+    var activeSwitchTicket: PlaybackSwitchTicket?
+    var pendingSwitchTicket: PlaybackSwitchTicket?
+    var activeSwitchExecution: SwitchExecution?
+    var pendingSwitchExecution: SwitchExecution?
+    var switchControls: [UUID: SwitchControl] = [:]
+    var queuedSwitchPreparation: QueuedSwitchPreparation?
+    var committedSwitchRecovery: CommittedSwitchRecovery?
+    var deferredDisplayConfigurationUpdate = false
     var activeRequestID: UUID?
     struct ActiveCallbackPropertyFacts: Equatable {
         let transportGeneration: UInt64
@@ -125,7 +138,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var lastPropertyRevision: UInt64 = 0
     private var performanceProfile = PlaybackPerformanceProfile.current
     private var isPaused = false
-    private var runtimeSwitchObserver: NSObjectProtocol?
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     var displayConfiguration = SceneScreenTopology.capture() {
@@ -140,21 +152,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var multiDisplayEnabled = true
 
     var isPlaying: Bool {
-        activeIntent != nil && transport?.isRunning == true && !isPaused
+        activeIntent != nil && activeRequestID != nil && transport?.isRunning == true
+            && !isPaused && activeSwitchExecution?.outputActive != false
     }
 
     private init() {
-        runtimeSwitchObserver = NotificationCenter.default.addObserver(
-            forName: .wallpaperRuntimeWillSwitch,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            MainActor.assumeIsolated {
-                guard notification.userInfo?["kind"] as? String
-                        != WallpaperRuntimeKind.scene.rawValue else { return }
-                self?.stop()
-            }
-        }
         screenParametersObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -169,9 +171,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     deinit {
-        if let runtimeSwitchObserver {
-            NotificationCenter.default.removeObserver(runtimeSwitchObserver)
-        }
         if let screenParametersObserver {
             NotificationCenter.default.removeObserver(screenParametersObserver)
         }
@@ -238,7 +237,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         case .stop:
             // E2a-2: user-requested stop reports completion so the
             // selection authority recycles its truth.
-            stop(postsLaunchState: true)
+            if let stopPlaybackRequested { stopPlaybackRequested() }
+            else { stop(postsLaunchState: true) }
             return true
         case .switchNext:
             return false
@@ -278,12 +278,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         }
     }
 
-    func discardPendingResourceLifetime(rootURL: URL, recordID: String?) {
-        guard pendingResourceLifetime?.recordID == recordID,
-              pendingResourceLifetime?.rootURL
-                == rootURL.resolvingSymlinksInPath().standardizedFileURL else { return }
-        pendingResourceLifetime = nil
-    }
 
 #if DEBUG
     var debugProcessIdentifier: Int32? {
@@ -309,6 +303,10 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// starts preparing. Keep a committed Scene, including its version lease.
     func cancelPreparationForRuntimeSwitch() {
         guard let pending = pendingIntent else { return }
+        if let ticket = pendingSwitchTicket {
+            cancelSwitch(ticket: ticket, completion: {})
+            return
+        }
         let requestID = pendingRequestID
         finishPendingTextureUpdates(.superseded)
         if activeIntent == nil {
@@ -368,10 +366,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         completions.forEach { $0(nil) }
     }
 
-    /// E2a-2: the `.stop` command path reports completion so the selection
-    /// authority can recycle its truth. Runtime-switch observers call the
-    /// plain `stop()` and stay silent — an incoming runtime's commit must
-    /// not race a stale recycle.
+    /// Internal execution teardown stays silent. A standalone command stop may
+    /// publish its state; product command stops first enter stopPlaybackRequested.
     func stop(postsLaunchState: Bool) {
         finishPendingTextureUpdates(.superseded)
         let stoppedRequestID = activeRequestID ?? pendingRequestID
@@ -388,6 +384,12 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         activeResourceLifetime = nil
         pendingIntent = nil
         activeIntent = nil
+        pendingSwitchTicket = nil
+        activeSwitchTicket = nil
+        pendingSwitchExecution = nil
+        activeSwitchExecution = nil
+        queuedSwitchPreparation = nil
+        committedSwitchRecovery = nil
         pendingRequestID = nil
         pendingPresentationRequestID = nil
         pendingPresentationReachability = nil
@@ -422,20 +424,28 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         expectedTerminationGenerations.insert(generation)
         retiringTransports[generation] = transport
         self.transport = nil
-        if transport.isRunning,
-           let data = try? DaemonNewlineJSON.encodeJSONObject([
-                "v": SceneDaemonProtocol.version,
-                "cmd": "shutdown"
-           ], options: [.sortedKeys]) {
-            transport.send(data)
-            transport.closeInput()
-        } else {
-            transport.terminate()
-        }
-        transport.scheduleForcedTermination(after: 2)
+        let shutdownData = try? DaemonNewlineJSON.encodeJSONObject([
+            "v": SceneDaemonProtocol.version, "cmd": "shutdown"
+        ], options: [.sortedKeys])
+        transport.requestGracefulStop(shutdownData)
     }
 
     func requestLaunch(_ request: ScenePlaybackLoadRequest) {
+        let sameVersion: (ScenePlaybackLoadRequest?) -> Bool = {
+            $0?.recordID == request.recordID
+                && $0?.rootURL.standardizedFileURL == request.rootURL.standardizedFileURL
+        }
+        // A property fallback for the committed version cannot replace a newer
+        // product selection. Internal rebuilds retain the accepted product ticket.
+        if pendingSwitchTicket != nil, pendingSwitchTicket != activeSwitchTicket,
+           sameVersion(activeIntent), !sameVersion(pendingIntent) { return }
+        let ticket = sameVersion(pendingIntent) ? pendingSwitchTicket
+            : (sameVersion(activeIntent) ? activeSwitchTicket : nil)
+        if let queued = queuedSwitchPreparation, queued.ticket != ticket { return }
+        startLaunch(request, ticket: ticket)
+    }
+
+    func startLaunch(_ request: ScenePlaybackLoadRequest, ticket: PlaybackSwitchTicket?) {
         // retainResourceLifetime already installed this incoming request's token.
         // Property/texture rebuilds of the active immutable version reuse its
         // lease; releasing the previous session must not unpin the replacement.
@@ -443,12 +453,19 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         let incomingLifetime = [pendingResourceLifetime, activeResourceLifetime].compactMap { $0 }.first {
             $0.rootURL == normalizedRoot && $0.recordID == request.recordID
         }
+        if let ticket, pendingSwitchExecution?.presented == true {
+            queuedSwitchPreparation = .init(request: request, ticket: ticket,
+                                             resourceLifetime: incomingLifetime?.lifetime)
+            return
+        }
         cancelPreparationForRuntimeSwitch()
         pendingResourceLifetime = incomingLifetime
         finishPendingTextureUpdates(.superseded)
         latestTextureRevisions.removeAll(keepingCapacity: true)
         warmSessionPending = false
         pendingIntent = request
+        pendingSwitchTicket = ticket
+        pendingSwitchExecution = nil
         pendingRequestID = nil
         pendingPresentationRequestID = nil
         pendingPresentationReachability = nil
@@ -516,6 +533,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     private func spawnSession(silentHandshakeFailure: Bool) -> Bool {
+        guard DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses else { return false }
         guard let executableURL = Bundle.main.executableURL else {
             guard !silentHandshakeFailure else { return false }
             scheduleRestart(reason: "missing-main-executable")
@@ -540,7 +558,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 #endif
         let transport = DaemonProcessTransport(
             executableURL: executableURL,
-            arguments: daemonArguments
+            arguments: daemonArguments,
+            playbackRenderer: true
         )
         transport.onOutput = { [weak self] data in
             self?.consumeOutput(data, generation: generation)

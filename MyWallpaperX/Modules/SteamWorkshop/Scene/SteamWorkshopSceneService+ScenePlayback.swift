@@ -6,11 +6,14 @@ struct SteamWorkshopScenePlaybackRequest {
     let userPropertyTextures: [String: ScenePlaybackTextureReference]
     let recordID: String
     let resourceLifetime: PlaybackResourceLifetime?
+    var intentEpoch: UInt64? = nil
 }
 
 extension SteamWorkshopService {
-    func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {
+    func requestSceneRender(_ record: SteamWorkshopDownloadRecord, newSelection: Bool = true) {
         guard record.contentType == .scene else { return }
+        let intent = prepareScenePlaybackIntent?(record.id, newSelection)
+        if prepareScenePlaybackIntent != nil && intent == nil { return }
 
         // Every load, including texture-property reloads, owns the concrete files
         // until the daemon releases them. Callers cannot bypass lease admission.
@@ -18,13 +21,16 @@ extension SteamWorkshopService {
         do {
             resourceLifetime = try libraryVersionLifetime(for: record)
         } catch {
+            intent?.cancel()
             clearLaunchPending(matching: record.id)
             downloadError = error.localizedDescription
             return
         }
 
         let propertyOverrides = scenePropertyOverrides(for: record)
-        withResolvedSceneTexturePropertyReferences(for: record) { references in
+        let generation = webLaunchIntentGeneration
+        withResolvedSceneTexturePropertyReferences(for: record) { [weak self] references in
+            guard let self, self.webLaunchIntentGeneration == generation, intent?.isCurrent() != false else { return }
             NotificationCenter.default.post(
                 name: .steamWorkshopSceneReadyToRender,
                 object: nil,
@@ -34,7 +40,8 @@ extension SteamWorkshopService {
                         propertyOverrides: propertyOverrides,
                         userPropertyTextures: references,
                         recordID: record.id,
-                        resourceLifetime: resourceLifetime
+                        resourceLifetime: resourceLifetime,
+                        intentEpoch: intent?.intentEpoch
                     )
                 ]
             )

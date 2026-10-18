@@ -59,6 +59,10 @@ nonisolated enum WebDaemonCommand: Codable {
 #endif
     case captureFrame(UUID)
     case commit(UInt64)
+    case activate(WebDaemonActivationRequest)
+    case finalize(WebDaemonActivationIdentity)
+    case cancelActivation(WebDaemonActivationIdentity)
+    case setOutputActivity(Bool, UUID)
     case shutdown
 
     var isLatestValue: Bool {
@@ -79,6 +83,12 @@ nonisolated enum WebDaemonEvent: Codable {
     case capturedFrame(UUID, Data?)
     case prepared(UInt64)
     case committed(UInt64)
+    case preparationCohort(WebDaemonPreparedCohort)
+    case activationConfirmed(WebDaemonActivationIdentity, [PlaybackSurfaceVisibility.Evidence])
+    case activationDeferred(WebDaemonActivationIdentity, String)
+    case activationFailed(WebDaemonActivationIdentity, String)
+    case activationCancelled(WebDaemonActivationIdentity)
+    case outputActivityChanged(UUID, Bool)
     case mediaDemand(Bool?)
     case mediaReplayRequested
     case usage([UUID])
@@ -146,4 +156,26 @@ nonisolated struct WebDaemonHostObservation: Codable {
     let surfaces: Int
     let watchTimer: Int
     let watchers: Int
+}
+
+nonisolated struct WebDaemonSurfaceIdentity: Codable, Equatable, Sendable {
+    let displayID: UInt32
+    let surfaceID: UUID
+    let navigationGeneration: UInt64
+    let windowID: UInt32
+}
+
+nonisolated struct WebDaemonPreparedCohort: Codable, Equatable, Sendable {
+    let generation: UInt64
+    let surfaces: [WebDaemonSurfaceIdentity]
+}
+
+nonisolated struct WebDaemonActivationIdentity: Codable, Equatable, Sendable {
+    let generation: UInt64
+    let activationID: UUID
+}
+
+nonisolated struct WebDaemonActivationRequest: Codable, Equatable, Sendable {
+    let identity: WebDaemonActivationIdentity
+    let surfaces: [WebDaemonSurfaceIdentity]
 }

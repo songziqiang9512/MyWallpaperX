@@ -70,7 +70,9 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Core/DaemonKit/DaemonNewlineJSON.swift,
+				Core/DaemonKit/DaemonParentLifetime.swift,
 				Core/Playback/DaemonProtocol.swift,
+				Core/PlaybackControl/PlaybackSurfaceVisibility.swift,
 			);
 			target = A10000412F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */;
 		};

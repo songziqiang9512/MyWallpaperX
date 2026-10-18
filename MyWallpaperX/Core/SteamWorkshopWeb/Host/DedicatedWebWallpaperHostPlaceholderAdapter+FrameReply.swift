@@ -24,7 +24,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let generalPropertiesJSON = currentGeneralPropertiesJSON(for: screen, screenID: screenID)
         let escapedProperties = WebWallpaperHostSupport.javaScriptQuotedString(propertiesJSON)
         let escapedGeneralProperties = WebWallpaperHostSupport.javaScriptQuotedString(generalPropertiesJSON)
-        let volumeLiteral = String(format: "%.6f", currentVolume)
+        let volumeLiteral = String(format: "%.6f", effectiveVolume)
         let playbackRateLiteral = String(format: "%.6f", currentPlaybackRate)
         let pausedLiteral = paused ? "true" : "false"
         let spectrumLiteral: String

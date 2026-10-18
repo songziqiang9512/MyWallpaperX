@@ -1,299 +1,365 @@
 #!/usr/bin/env python3
-
+"""Run current product transaction, timer, termination and deferred EOF owners."""
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from script.tests.test_steam_library_interactions import method
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
-GATE_SOURCES = [
-    REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
-    REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
-    REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
-]
+CONTROL = REPO_ROOT / "MyWallpaperX/Core/PlaybackControl"
+MANAGER = REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core"
+GATE_SOURCES = [CONTROL / name for name in (
+    "PlaybackResourceLifetime.swift", "ImportedVideoAutoplayGate.swift", "WallpaperRuntimeSwitch.swift",
+)]
+
+# Storage, persistence, native endpoint actions and process IPC are leaves.
+# Selection, commit, failure, timer policy and EOF delivery are production code.
+SUPPORT = r'''
+import Foundation
+import Combine
+@MainActor enum Trace {static var values:[String]=[]}
+struct VideoWallpaper {let path:String}
+@MainActor final class PlaybackCommandMultiplexer {
+    static let shared=PlaybackCommandMultiplexer();var isPlaybackPaused=false
+}
+@MainActor final class WebDaemonHostAdapter {var hasPendingRequest=false}
+@MainActor final class SceneDaemonClient {
+    static let shared=SceneDaemonClient()
+    func cancelSwitch(ticket:PlaybackSwitchTicket,completion:@escaping()->Void){completion()}
+}
+@MainActor final class WallpaperEngine {
+    static let shared=WallpaperEngine()
+    static let playbackFailedNotification=Notification.Name("failed")
+    static let playbackEndedNotification=Notification.Name("ended")
+    static let playbackReadyNotification=Notification.Name("legacy-ready")
+    enum Kind {case video,web}
+    struct Active {let id=UUID();let path:String}
+    struct Execution {let id:UUID;let ticket:PlaybackSwitchTicket}
+    var activeVideoPlayback:Active?
+    var activeVideoExecution:Execution?
+    var videoEndState:(playbackID:UUID,delivered:Bool)?
+    var videoEndDeliveryAdmission:(()->Bool)?
+    var currentPlaybackContentKind:Kind = .video
+    var currentContentPath:String?
+    var videoCandidate:Int?
+    let dedicatedWebHostAdapter:Any=WebDaemonHostAdapter()
+    var lastPreparedVideoTicket:PlaybackSwitchTicket?
+    var videoPreparations=0
+    var epoch:UInt64=0,cleanups=0
+    var cancellation:((PlaybackSwitchTicket)->Void)?
+    func prepareVideoSwitch(_ wallpaper:VideoWallpaper,ticket:PlaybackSwitchTicket,
+        multiDisplayEnabled:Bool,videoFillMode:String,shouldLoopCurrentItem:Bool) {
+        lastPreparedVideoTicket=ticket;videoPreparations += 1
+    }
+    func cancelSwitch(ticket:PlaybackSwitchTicket,completion:@escaping()->Void) {
+        Trace.values.append("cancelEndpoint");cancellation?(ticket);completion()
+    }
+    func adoptIntentEpoch(_ value:UInt64){epoch=value;Trace.values.append("adopt")}
+    func cleanup(){cleanups += 1;Trace.values.append("cleanup")}
+    // ENGINE_METHOD
+}
+extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-failed")}
+@MainActor final class WallpaperManager {
+    static let shared=WallpaperManager()
+    init() { WallpaperEngine.shared.videoEndDeliveryAdmission = { [weak self] in self?.admitsDeferredVideoEnd() ?? false } }
+    // SELECTION
+    struct Settings {
+        enum Unit {case seconds;var secondsValue:Int{1}}
+        enum Fill {case fill;var ipcValue:String{"fill"}}
+        var autoSwitchEnabled=true,randomInterval=3600,syncSystemWallpaper=false,multiDisplayEnabled=true
+        var timeUnit=Unit.seconds,videoFillMode=Fill.fill
+    }
+    var settings=Settings()
+    var playbackSwitch=PlaybackSwitchTransaction()
+    var switchEndpoints:[UUID:PlaybackSwitchEndpoint]=[:]
+    var switchSelections:[UUID:RuntimeSwitchSelection]=[:]
+    var switchDeadline:DispatchWorkItem?,pendingSystemWallpaperSyncWorkItem:DispatchWorkItem?
+    var switchEffectQueue:[PlaybackSwitchTransaction.Effect]=[]
+    var drainingSwitchEffects=false
+    var playbackIntentEpoch:UInt64{playbackSwitch.epoch}
+    var requestedRuntime:WallpaperRuntimeKind?{playbackSwitch.requestedRuntime}
+    var pendingWallpaper:VideoWallpaper?,currentWallpaper:VideoWallpaper?
+    var effectiveCurrentWallpaper:VideoWallpaper?{pendingWallpaper ?? currentWallpaper}
+    var activeWallpaperRuntime=WallpaperRuntimeKind.video
+    var lastWorkshopPlaybackRecordID:String?
+    var isPlaying=false
+    var wallpapers=[VideoWallpaper(path:"/old-video"),VideoWallpaper(path:"/new-video")]
+    var autoSwitchTimer:Timer?
+    var timerFires=0,snapshots=0
+    var endedPaths:[String]=[],failedPaths:[String]=[]
+    var onFlush:(()->Void)?
+    func isSwitchingPlaybackMode()->Bool{true}
+    func shouldLoopCurrentItemInEngine()->Bool{true}
+    func normalizedPath(_ path:String)->String{path}
+    func timerDidFire(){timerFires += 1}
+    func persistCurrentWallpaperSnapshot(){snapshots += 1}
+    func syncSystemWallpaper(with wallpaper:VideoWallpaper){}
+    func scheduleRuntimeFrameSystemWallpaperSync(kind:WallpaperRuntimeKind,recordID:String){}
+    func handlePlaybackEnded(forPath path:String){endedPaths.append(path)}
+    func handlePlaybackFailure(forPath path:String){failedPaths.append(path)}
+    func flushPersistentState(){onFlush?();Trace.values.append("flush")}
+    // MANAGER_METHODS
+}
+@MainActor final class NativeEndpoint {
+    let id=UUID(),ticket:PlaybackSwitchTicket
+    var activations=0,finalizations=0,cancellations=0,retirements=0
+    var onCancel:(()->Void)?,onFinalize:(()->Void)?
+    init(_ ticket:PlaybackSwitchTicket){self.ticket=ticket}
+    var endpoint:PlaybackSwitchEndpoint {
+        .init(id:id,activate:{[self] in activations += 1},finalize:{[self] in
+            finalizations += 1;onFinalize?()
+        },cancel:{[self] done in cancellations += 1;onCancel?();done()},
+        setOutputActive:{_,done in done(true)},retire:{[self] done in retirements += 1;done()})
+    }
+    func show(_ manager:WallpaperManager){manager.switchVisible(ticket,executionID:id)}
+}
+@MainActor func candidate(_ manager:WallpaperManager,_ runtime:WallpaperRuntimeKind,
+                          path:String="/new-video")->NativeEndpoint {
+    let ticket:PlaybackSwitchTicket
+    if runtime == .video {
+        manager.pendingWallpaper = .init(path:path)
+        manager.prepareVideoSwitch(.init(path:path))
+        ticket=WallpaperEngine.shared.lastPreparedVideoTicket!
+    } else {
+        _=manager.beginPlaybackIntent(runtime:runtime)
+        ticket=manager.playbackSwitch.pending!.selection.ticket
+        if runtime == .web {manager.switchSelections[ticket.id] = .web("web")}
+        else {manager.switchSelections[ticket.id] = .scene("scene")}
+    }
+    let native=NativeEndpoint(ticket)
+    if runtime == .video {
+        native.onFinalize={
+            let engine=WallpaperEngine.shared
+            engine.activeVideoPlayback = .init(path:path)
+            engine.activeVideoExecution = .init(id:native.id,ticket:ticket)
+            engine.videoEndState=nil;engine.currentPlaybackContentKind = .video;engine.currentContentPath=path
+        }
+    }
+    manager.switchPrepared(ticket,endpoint:native.endpoint)
+    return native
+}
+@MainActor func drainMainQueue() async {
+    await withCheckedContinuation{continuation in DispatchQueue.main.async{continuation.resume()}}
+}
+'''
+
+
+def product_harness():
+    manager = (MANAGER / "WallpaperManager.swift").read_text()
+    routing = (MANAGER / "WallpaperManager+RuntimeSwitching.swift").read_text()
+    settings = (MANAGER / "WallpaperManager+PlaybackSettings.swift").read_text()
+    events = (MANAGER / "WallpaperManager+PlaybackEvents.swift").read_text()
+    methods = [method(manager, signature) for signature in (
+        "func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64",
+        "func restoreCommittedPlaybackIntent()",
+    )]
+    methods += [method(routing, signature) for signature in (
+        "func admitsDeferredVideoEnd(", "func prepareVideoSwitch(", "func switchPrepared(", "func switchVisible(", "func switchFailed(",
+        "func scheduleSwitchDeadline(", "func runSwitchEffects(", "private func commitSwitch(",
+        "private func pruneSwitchSelection(",
+    )]
+    methods += [method(settings, signature) for signature in (
+        "func shouldRunAutoSwitchTimer()", "func startAutoSwitchTimer()", "func stopAutoSwitchTimer()",
+        "func refreshAutoSwitchTimerIfNeeded(",
+    )]
+    methods += [method(events, signature) for signature in (
+        "func observePlaybackEvents(", "private func handleEnginePlaybackFailure(",
+    )]
+    engine = (REPO_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift").read_text()
+    return SUPPORT.replace("// SELECTION", method(routing, "enum RuntimeSwitchSelection")) \
+        .replace("// MANAGER_METHODS", "\n".join(methods)) \
+        .replace("// ENGINE_METHOD", method(engine, "func replayDeferredVideoEndIfNeeded()"))
 
 
 class ImportedVideoAutoplayGateTests(unittest.TestCase):
-    def test_preparation_revoke_and_failed_intent_restore(self) -> None:
-        manager = (REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift").read_text()
-        support = r'''
-        import Foundation
-        final class SceneDaemonClient {
-            static let shared = SceneDaemonClient()
-            var cancellation: (() -> Void)?
-            func cancelPreparationForRuntimeSwitch() { cancellation?() }
-        }
-        final class WallpaperEngine {
-            static let shared = WallpaperEngine()
-            func replayDeferredVideoEndIfNeeded() {}
-        }
-        final class WallpaperManager {
-            var playbackIntentEpochCounter = PlaybackIntentEpoch()
-            var requestedRuntime: WallpaperRuntimeKind? = .video
-            var pendingWallpaper: Int? = 1
-            var activeWallpaperRuntime = WallpaperRuntimeKind.video
-            var timerRunning = true
-            var wallpapers = [1]
-            var effectiveCurrentWallpaper: Int? = 1
-            struct Settings { var autoSwitchEnabled = true }
-            var settings = Settings()
-            func isSwitchingPlaybackMode() -> Bool { true }
-            func stopAutoSwitchTimer() { timerRunning = false }
-            func refreshAutoSwitchTimerIfNeeded() { timerRunning = true }
-            // METHODS
-        }
-        @main enum Check {
-            static func main() {
-                let manager = WallpaperManager()
-                manager.pendingWallpaper = nil
-                let oldAutoplay = ImportedVideoAutoplayGate.shared.claim()
-                var cancelledAfterNewIdentity = false
-                SceneDaemonClient.shared.cancellation = {
-                    cancelledAfterNewIdentity = manager.requestedRuntime == .web
-                        && manager.playbackIntentEpochCounter.value == 1
-                }
-                precondition(manager.shouldRunAutoSwitchTimer())
-                let epoch = manager.beginPlaybackIntent(runtime: .web)
-                precondition(!manager.shouldRunAutoSwitchTimer(), "settings must not restart the old timer during Web preparation")
-                precondition(epoch == 1 && cancelledAfterNewIdentity)
-                precondition(!ImportedVideoAutoplayGate.shared.isCurrent(oldAutoplay))
-                precondition(manager.pendingWallpaper == nil && !manager.timerRunning)
-                manager.restoreCommittedPlaybackIntent() // Web validation failed.
-                precondition(manager.requestedRuntime == .video && manager.timerRunning)
-                precondition(manager.shouldRunAutoSwitchTimer())
-                manager.pendingWallpaper = 2
-                precondition(!manager.shouldRunAutoSwitchTimer(), "pending Video must keep its own selection")
-                manager.pendingWallpaper = nil
-                precondition(manager.playbackIntentEpochCounter.value == epoch)
-                manager.activeWallpaperRuntime = .scene
-                manager.restoreCommittedPlaybackIntent()
-                precondition(manager.requestedRuntime == .scene && !manager.timerRunning)
-                print("preparation-intent-restore-pass")
-            }
-        }
-        '''
-        methods = "\n".join(method(manager, signature) for signature in [
-            "func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64",
-            "func restoreCommittedPlaybackIntent()",
-        ])
-        methods += "\n" + method((REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift").read_text(), "func shouldRunAutoSwitchTimer()")
-        with tempfile.TemporaryDirectory(prefix="mwx-preparation-intent-") as directory:
-            source = Path(directory) / "Harness.swift"
-            binary = Path(directory) / "harness"
-            source.write_text(support.replace("// METHODS", methods))
-            compiled = subprocess.run(["xcrun", "swiftc", "-parse-as-library",
-                *(str(p) for p in GATE_SOURCES),
-                str(REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackIntentEpoch.swift"),
-                str(source), "-o", str(binary)], capture_output=True, text=True, timeout=60)
-            self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("preparation-intent-restore-pass", result.stdout)
+    def run_product_harness(self, program, expected):
+        with tempfile.TemporaryDirectory(prefix="mwx-autoplay-transaction-") as directory:
+            folder=Path(directory)
+            source,binary=folder / "Harness.swift",folder / "harness"
+            source.write_text(product_harness() + program)
+            # Snapshot shared sources so another lane's integration save cannot
+            # invalidate an in-progress Swift compilation.
+            sources=[]
+            for original in [*GATE_SOURCES, CONTROL / "PlaybackSwitchTransaction.swift"]:
+                copy=folder / original.name
+                copy.write_bytes(original.read_bytes());sources.append(str(copy))
+            built=subprocess.run(["xcrun","swiftc","-swift-version","5","-parse-as-library",
+                *sources,str(source),"-o",str(binary)],capture_output=True,text=True,timeout=60)
+            self.assertEqual(built.returncode,0,built.stdout+built.stderr)
+            result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=10)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn(expected,result.stdout)
 
-    def test_termination_revokes_delayed_web_completion_before_cleanup(self) -> None:
-        manager = (REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift").read_text()
-        service = (REPO_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift").read_text()
-        web = (REPO_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift").read_text()
-        delegate = (REPO_ROOT / "MyWallpaperX/App/AppDelegate.swift").read_text()
-        guards = web[web.index("                guard launchGeneration == self.webLaunchIntentGeneration"):
-                     web.index("                guard let playbackContext else")]
-        harness = r'''
-        import Foundation
-        final class SceneDaemonClient {
-            static let shared = SceneDaemonClient()
-            func cancelPreparationForRuntimeSwitch() {}
-        }
-        final class WallpaperManager {
-            static let shared = WallpaperManager()
-            var playbackIntentEpochCounter = PlaybackIntentEpoch()
-            var playbackIntentEpoch: UInt64 { playbackIntentEpochCounter.value }
-            var requestedRuntime: WallpaperRuntimeKind? = .video
-            var pendingWallpaper: Int? = 1
-            func stopAutoSwitchTimer() {}
-            func flushPersistentState() { precondition(requestedRuntime == nil) }
-            // MANAGER
-        }
-        final class WallpaperEngine {
-            static let shared = WallpaperEngine()
-            var epoch: UInt64 = 0
-            var cleanups = 0
-            func adoptIntentEpoch(_ value: UInt64) { epoch = value }
-            func cleanup() { cleanups += 1 }
-        }
-        struct Preparation { var isCurrent: () -> Bool }
-        struct Record { let id = "fixture" }
-        final class SteamWorkshopService {
-            static let shared = SteamWorkshopService()
-            var webLaunchIntentGeneration: UInt64 = 0
-            var cancelWebProcessPreparation: (() -> Void)?
-            var launches = 0
-            func clearLaunchPending(matching: String) {}
-            // SERVICE
-            func complete(_ launchGeneration: UInt64, _ processPreparation: Preparation?) {
-                let record = Record()
-                // GUARDS
-                launches += 1
-            }
-        }
-        final class AppDelegate {
-            var didPrepareProductTermination = false
-            var pendingInitialWindowOpen: DispatchWorkItem?
-            var statusBarController: Int?
-            // DELEGATE
-        }
-        @main enum Check {
-            @MainActor static func main() async {
-                let manager = WallpaperManager.shared
-                let service = SteamWorkshopService.shared
-                var epoch = manager.beginPlaybackIntent(runtime: .web)
-                var generation = service.advanceWebLaunchIntentGeneration()
-                service.complete(generation, .init(isCurrent: { manager.playbackIntentEpoch == epoch }))
-                precondition(service.launches == 1, "current completion should launch normally")
-                epoch = manager.beginPlaybackIntent(runtime: .web)
-                generation = service.advanceWebLaunchIntentGeneration()
-                let pendingEpoch = epoch, pendingGeneration = generation
-                let preparation = Preparation(isCurrent: { manager.playbackIntentEpoch == pendingEpoch })
-                var cancellations = 0
-                service.cancelWebProcessPreparation = {
-                    precondition(manager.playbackIntentEpoch != pendingEpoch,
-                        "cancel restored an intent during termination")
-                    cancellations += 1
-                }
-                let ticket = ImportedVideoAutoplayGate.shared.claim()
-                let deferred = Task { @MainActor in
-                    await Task.yield()
-                    service.complete(pendingGeneration, preparation)
-                }
-                let delegate = AppDelegate()
-                delegate.prepareProductTermination()
-                await deferred.value
-                precondition(service.launches == 1 && cancellations == 1,
-                    "delayed Web completion escaped termination")
-                precondition(!ImportedVideoAutoplayGate.shared.isCurrent(ticket))
-                precondition(WallpaperEngine.shared.epoch == manager.playbackIntentEpoch)
-                delegate.prepareProductTermination()
-                precondition(WallpaperEngine.shared.cleanups == 1 && cancellations == 1,
-                    "termination must remain idempotent")
-                print("termination-revoke-pass")
-            }
-        }
-        '''
-        harness = harness.replace("// MANAGER", method(manager, "func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64"))
-        harness = harness.replace("// SERVICE", method(service, "func advanceWebLaunchIntentGeneration() -> UInt64"))
-        harness = harness.replace("// GUARDS", guards)
-        harness = harness.replace("// DELEGATE", method(delegate, "private func prepareProductTermination()").replace("private func", "func", 1))
-        with tempfile.TemporaryDirectory(prefix="mwx-termination-revoke-") as directory:
-            source, binary = Path(directory) / "Harness.swift", Path(directory) / "harness"
-            source.write_text(harness)
-            compiled = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, GATE_SOURCES),
-                str(REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackIntentEpoch.swift"),
-                str(source), "-o", str(binary)], capture_output=True, text=True, timeout=60)
-            self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("termination-revoke-pass", result.stdout)
+    def test_preparation_revoke_and_failed_intent_restore(self):
+        self.run_product_harness(r'''
+@main enum Check {
+    @MainActor static func main() {
+        let manager=WallpaperManager()
+        let committed=candidate(manager,.video,path:"/old-video");committed.show(manager)
+        precondition(manager.shouldRunAutoSwitchTimer() && manager.autoSwitchTimer != nil)
+        let scene=candidate(manager,.scene)
+        let oldAutoplay=ImportedVideoAutoplayGate.shared.claim(),oldEpoch=manager.playbackIntentEpoch
+        var installedBeforeCancel=false
+        scene.onCancel={installedBeforeCancel=manager.requestedRuntime == .web
+            && manager.playbackIntentEpoch == oldEpoch+1}
+        let epoch=manager.beginPlaybackIntent(runtime:.web)
+        precondition(epoch == oldEpoch+1 && installedBeforeCancel && scene.cancellations == 1)
+        precondition(!ImportedVideoAutoplayGate.shared.isCurrent(oldAutoplay))
+        precondition(manager.pendingWallpaper == nil && manager.autoSwitchTimer == nil)
+        manager.refreshAutoSwitchTimerIfNeeded()
+        precondition(!manager.shouldRunAutoSwitchTimer() && manager.autoSwitchTimer == nil,
+            "settings refresh cannot restart retained Video timer while Web is pending")
+        manager.restoreCommittedPlaybackIntent()
+        precondition(manager.requestedRuntime == .video && manager.activeWallpaperRuntime == .video
+            && manager.currentWallpaper?.path == "/old-video" && manager.autoSwitchTimer != nil)
+        let failedVideo=candidate(manager,.video)
+        manager.refreshAutoSwitchTimerIfNeeded()
+        precondition(!manager.shouldRunAutoSwitchTimer() && manager.autoSwitchTimer == nil)
+        manager.switchFailed(failedVideo.ticket,reason:"video failed")
+        precondition(manager.pendingWallpaper == nil && manager.autoSwitchTimer != nil
+            && manager.currentWallpaper?.path == "/old-video")
+        let committedScene=candidate(manager,.scene);committedScene.show(manager)
+        _=manager.beginPlaybackIntent(runtime:.web);manager.restoreCommittedPlaybackIntent()
+        precondition(manager.requestedRuntime == .scene && manager.autoSwitchTimer == nil)
+        manager.stopAutoSwitchTimer()
+        print("preparation-intent-restore-pass")
+    }
+}
+''', "preparation-intent-restore-pass")
 
-    def test_video_ready_rearms_timer_after_candidate_commits(self) -> None:
-        events = (REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackEvents.swift").read_text()
-        harness = r'''
-        import Foundation
-        import Combine
-        enum Kind { case video, web, scene }
-        final class PlaybackPolicyController {
-            static let shared = PlaybackPolicyController()
-            func refresh() {}
+    def test_termination_revokes_delayed_web_completion_before_cleanup(self):
+        service=(REPO_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift").read_text()
+        web=(REPO_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift").read_text()
+        delegate=(REPO_ROOT / "MyWallpaperX/App/AppDelegate.swift").read_text()
+        guards=web[web.index("                guard launchGeneration == self.webLaunchIntentGeneration"):
+                   web.index("                guard let playbackContext else")]
+        program=r'''
+struct Preparation {var isCurrent:()->Bool}
+struct Record {let id="fixture"}
+@MainActor final class SteamWorkshopService {
+    static let shared=SteamWorkshopService()
+    var webLaunchIntentGeneration:UInt64=0
+    var cancelWebProcessPreparation:(()->Void)?
+    var launches=0,cleared=0
+    func clearLaunchPending(matching:String){cleared += 1}
+    // SERVICE
+    func complete(_ launchGeneration:UInt64,_ processPreparation:Preparation?) {
+        let record=Record()
+        // GUARDS
+        launches += 1
+    }
+}
+@MainActor final class AppDelegate {
+    var didPrepareProductTermination=false
+    var pendingInitialWindowOpen:DispatchWorkItem?,statusBarController:Int?
+    // DELEGATE
+}
+@main enum Check {
+    @MainActor static func main() async {
+        let manager=WallpaperManager.shared,service=SteamWorkshopService.shared,engine=WallpaperEngine.shared
+        let currentEpoch=manager.beginPlaybackIntent(runtime:.web)
+        let currentGeneration=service.advanceWebLaunchIntentGeneration()
+        service.complete(currentGeneration,.init(isCurrent:{manager.playbackIntentEpoch == currentEpoch}))
+        precondition(service.launches == 1,"current completion positive control")
+        service.complete(currentGeneration,.init(isCurrent:{false}))
+        precondition(service.launches == 1 && service.cleared == 1,"same generation still needs current product intent")
+        let pendingEpoch=manager.beginPlaybackIntent(runtime:.web)
+        let pendingGeneration=service.advanceWebLaunchIntentGeneration()
+        let preparation=Preparation(isCurrent:{manager.playbackIntentEpoch == pendingEpoch})
+        let importToken=ImportedVideoAutoplayGate.shared.claim()
+        var cancellations=0
+        Trace.values=[]
+        engine.cancellation={_ in precondition(manager.playbackIntentEpoch > pendingEpoch
+            && manager.requestedRuntime == nil,"stop must install revoked epoch before endpoint cancellation")}
+        service.cancelWebProcessPreparation={
+            precondition(manager.playbackIntentEpoch > pendingEpoch && manager.requestedRuntime == nil)
+            precondition(!ImportedVideoAutoplayGate.shared.isCurrent(importToken))
+            Trace.values.append("steamCancel");cancellations += 1
         }
-        struct Wallpaper { let path: String }
-        final class WallpaperEngine {
-            static let playbackFailedNotification = Notification.Name("failed")
-            static let playbackEndedNotification = Notification.Name("ended")
-            static let playbackReadyNotification = Notification.Name("ready")
-            static let shared = WallpaperEngine()
-            var replays = 0
-            func replayDeferredVideoEndIfNeeded() { replays += 1 }
-            struct Active { let id = UUID(); let path: String }
-            var videoEndState: (playbackID: UUID, delivered: Bool)?
-            var prepared = 0
-            var activeVideoPlayback: Active? = .init(path: "/new-video")
-            var currentPlaybackContentKind: Kind = .video
-            var pendingWebRetirementOnVideoReady = false
-            var runtimeCommitAdmission: ((Kind) -> Bool)? = { _ in true }
-            func reuse() {
-                let incomingNormalizedPath = "/new-video"
-                let isSameWallpaperRequest = true, isConfigurationUnchanged = true
-                let noObsoleteDisplaySessions = true, targetSessionsReady = true
-                // REUSE
-                prepared += 1
-            }
+        manager.onFlush={precondition(cancellations == 1 && service.webLaunchIntentGeneration > pendingGeneration
+            && manager.requestedRuntime == nil,"flush follows product and asynchronous Steam revocation")}
+        let deferred=Task{@MainActor in await Task.yield();service.complete(pendingGeneration,preparation)}
+        let app=AppDelegate();app.prepareProductTermination();await deferred.value
+        precondition(service.launches == 1 && cancellations == 1 && engine.epoch == manager.playbackIntentEpoch)
+        precondition(Trace.values == ["cancelEndpoint","adopt","steamCancel","flush","cleanup"])
+        app.prepareProductTermination()
+        precondition(engine.cleanups == 1 && cancellations == 1 && Trace.values.count == 5)
+        print("termination-revoke-pass")
+    }
+}
+'''
+        program=program.replace("// SERVICE",method(service,"func advanceWebLaunchIntentGeneration() -> UInt64"))
+        program=program.replace("// GUARDS",guards)
+        program=program.replace("// DELEGATE",method(delegate,"private func prepareProductTermination()"))
+        self.run_product_harness(program,"termination-revoke-pass")
+
+    def test_video_ready_rearms_timer_after_candidate_commits(self):
+        self.run_product_harness(r'''
+@main enum Check {
+    @MainActor static func main() async {
+        let manager=WallpaperManager(),engine=WallpaperEngine.shared
+        var cancellables=Set<AnyCancellable>();manager.observePlaybackEvents(storeIn:&cancellables)
+        let web=candidate(manager,.web);web.show(manager)
+        let video=candidate(manager,.video)
+        precondition(video.activations == 1 && manager.currentWallpaper == nil
+            && manager.activeWallpaperRuntime == .web && manager.autoSwitchTimer == nil)
+        NotificationCenter.default.post(name:WallpaperEngine.playbackReadyNotification,
+            object:nil,userInfo:["videoPath":"/new-video"])
+        manager.switchVisible(video.ticket,executionID:UUID())
+        precondition(manager.autoSwitchTimer == nil,"legacy ready and wrong native identity cannot commit")
+        let installVideo=video.onFinalize
+        video.onFinalize={
+            precondition(manager.playbackSwitch.committed?.ticket == video.ticket
+                && manager.currentWallpaper?.path == "/new-video" && manager.pendingWallpaper == nil
+                && manager.autoSwitchTimer != nil,"product commit and timer rearm precede native finalize")
+            installVideo?()
         }
-        final class WallpaperManager {
-            var requestedRuntime: Kind? = .video
-            var activeWallpaperRuntime: Kind = .web
-            var currentWallpaper: Wallpaper?
-            var pendingWallpaper: Wallpaper? = .init(path: "/new-video")
-            var lastWorkshopPlaybackRecordID: String? = "old-web"
-            var timerRunning = false
-            var resets = 0
-            func normalizedPath(_ path: String) -> String { path }
-            func handleEnginePlaybackFailure(_ notification: Notification) {}
-            func handlePlaybackEnded(forPath: String) {}
-            func refreshAutoSwitchTimerIfNeeded(forceRestart: Bool) {
-                precondition(forceRestart && requestedRuntime == .video
-                    && activeWallpaperRuntime == .video && pendingWallpaper == nil)
-                resets += 1; timerRunning = true
-            }
-            // OBSERVE
-        }
-        let manager = WallpaperManager()
-        var cancellables = Set<AnyCancellable>()
-        manager.observePlaybackEvents(storeIn: &cancellables)
-        NotificationCenter.default.post(name: WallpaperEngine.playbackReadyNotification,
-            object: nil, userInfo: ["videoPath": "/old-video"])
-        precondition(!manager.timerRunning && manager.resets == 0)
-        NotificationCenter.default.post(name: WallpaperEngine.playbackReadyNotification,
-            object: nil, userInfo: ["videoPath": "/new-video"])
-        precondition(manager.timerRunning && manager.resets == 1
-            && manager.currentWallpaper?.path == "/new-video"
-            && WallpaperEngine.shared.replays == 1)
-        NotificationCenter.default.post(name: WallpaperEngine.playbackReadyNotification,
-            object: nil, userInfo: ["videoPath": "/new-video"])
-        precondition(manager.resets == 1, "duplicate ready restarted timer again")
-        manager.pendingWallpaper = .init(path: "/new-video")
-        manager.timerRunning = false
-        let engine = WallpaperEngine()
-        engine.runtimeCommitAdmission = { _ in false }
-        engine.reuse()
-        precondition(!manager.timerRunning && manager.pendingWallpaper != nil)
-        engine.runtimeCommitAdmission = { _ in true }
-        engine.reuse()
-        precondition(manager.timerRunning && manager.pendingWallpaper == nil && manager.resets == 2
-            && WallpaperEngine.shared.replays == 2,
-            "same finalized Video reuse did not settle selection and rearm the timer")
-        manager.pendingWallpaper = .init(path: "/new-video")
-        engine.videoEndState = (engine.activeVideoPlayback!.id, true)
-        engine.reuse()
-        precondition(engine.prepared == 1 && manager.pendingWallpaper != nil,
-            "ended Video must prepare a new playback rather than reuse an EOF slot")
-        engine.videoEndState = (engine.activeVideoPlayback!.id, false)
-        engine.reuse()
-        precondition(engine.prepared == 2, "an explicit same-Video choice must replace its deferred terminal")
+        video.show(manager)
+        let timer=manager.autoSwitchTimer!
+        precondition(video.finalizations == 1 && web.retirements == 1 && manager.snapshots == 2)
+        video.show(manager)
+        NotificationCenter.default.post(name:WallpaperEngine.playbackReadyNotification,
+            object:nil,userInfo:["videoPath":"/new-video"])
+        precondition(manager.autoSwitchTimer === timer && video.finalizations == 1,
+            "duplicate proof cannot restart committed Video timer")
+        let retainedID=engine.activeVideoPlayback!.id
+        let pendingWeb=candidate(manager,.web)
+        let adapter=engine.dedicatedWebHostAdapter as! WebDaemonHostAdapter
+        adapter.hasPendingRequest=true
+        pendingWeb.onCancel={adapter.hasPendingRequest=false}
+        engine.videoEndState=(retainedID,false);engine.replayDeferredVideoEndIfNeeded()
+        await drainMainQueue()
+        precondition(manager.endedPaths.isEmpty && engine.videoEndState?.delivered == false,
+            "retained Video EOF cannot steal pending Web selection")
+        manager.switchFailed(pendingWeb.ticket,reason:"web preparation failed")
+        await drainMainQueue()
+        precondition(manager.requestedRuntime == .video && manager.autoSwitchTimer != nil
+            && manager.endedPaths == ["/new-video"] && engine.videoEndState?.delivered == true)
+        engine.replayDeferredVideoEndIfNeeded();await drainMainQueue()
+        precondition(manager.endedPaths.count == 1,"deferred EOF must be delivered once")
+        manager.endedPaths=[]
+        let pendingScene=candidate(manager,.scene)
+        engine.videoEndState=(retainedID,false);engine.replayDeferredVideoEndIfNeeded()
+        await drainMainQueue()
+        precondition(manager.endedPaths.isEmpty && engine.videoEndState?.delivered == false,
+            "Scene preparation consumed an EOF that the product owner cannot accept")
+        manager.switchFailed(pendingScene.ticket,reason:"scene preparation failed")
+        await drainMainQueue()
+        precondition(manager.endedPaths == ["/new-video"] && engine.videoEndState?.delivered == true,
+            "Scene rollback lost retained Video EOF")
+        let previousPreparations=engine.videoPreparations
+        let explicitSameVideo=candidate(manager,.video)
+        precondition(explicitSameVideo.ticket != video.ticket && engine.videoPreparations == previousPreparations+1
+            && manager.pendingWallpaper != nil,"same URL is a new typed execution, including an ended slot")
+        explicitSameVideo.show(manager)
+        precondition(manager.pendingWallpaper == nil && manager.autoSwitchTimer != nil
+            && engine.activeVideoPlayback?.id != retainedID && engine.videoEndState == nil)
+        manager.stopAutoSwitchTimer()
         print("video-ready-timer-pass")
-        '''
-        harness = harness.replace("// OBSERVE", method(events, "func observePlaybackEvents(storeIn cancellables: inout Set<AnyCancellable>)"))
-        from script.tests.test_web_compat_parity import source_block
-        engine = (REPO_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine.swift").read_text()
-        harness = harness.replace("// REUSE", source_block(engine, "        if currentPlaybackContentKind == .video\n            && !pendingWebRetirementOnVideoReady"))
-        with tempfile.TemporaryDirectory(prefix="mwx-ready-timer-") as directory:
-            source, binary = Path(directory) / "main.swift", Path(directory) / "harness"
-            source.write_text(harness)
-            compiled = subprocess.run(["xcrun", "swiftc", str(source), "-o", str(binary)],
-                capture_output=True, text=True, timeout=60)
-            self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("video-ready-timer-pass", result.stdout)
+    }
+}
+''',"video-ready-timer-pass")
 
     def test_latest_runtime_intent_controls_autoplay(self) -> None:
         program = """

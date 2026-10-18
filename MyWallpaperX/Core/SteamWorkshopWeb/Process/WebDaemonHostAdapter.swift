@@ -6,9 +6,27 @@ import Foundation
 /// Web processes; every WKWebView and desktop window lives beyond this boundary.
 final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     var eventHandler: ((WallpaperEngine.WebWallpaperHostEvent) -> Void)?
+    var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
+    var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
+    var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?
+    var switchLost: ((PlaybackSwitchTicket, String) -> Void)?
     var allowedNetworkBridgeHostsResolver: ((String) -> Set<String>)?
 
-    private final class Session {
+    final class Session {
+        let ticket: PlaybackSwitchTicket
+        let executionID = UUID()
+        var preparedCohort: WebDaemonPreparedCohort?
+        var minimumPreparationGeneration: UInt64 = 1
+        var activationIdentity: WebDaemonActivationIdentity?
+        var didObserveExit = false
+        var isCancelling = false
+        var shouldRecoverOnExit = false
+        var visibilityConfirmed = false
+        var activationSent = false
+        var cancelCompletions: [() -> Void] = []
+        var retirementCompletions: [() -> Void] = []
+        var outputActivityAwaitingExit: Set<UUID> = []
+        var outputActivityCompletions: [UUID: (desired: Bool, completion: (Bool) -> Void)] = [:]
         let request: WallpaperEngine.WebWallpaperLaunchRequest
         let transport: DaemonProcessTransport
         let mediaConsumer = UUID()
@@ -34,7 +52,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
 
         init(request: WallpaperEngine.WebWallpaperLaunchRequest,
              state: WallpaperEngine.WebWallpaperRuntimeState,
-             transport: DaemonProcessTransport, recoveryAttempt: Int) {
+             transport: DaemonProcessTransport, recoveryAttempt: Int, ticket: PlaybackSwitchTicket) {
+            self.ticket = ticket
             self.request = request; self.state = state; self.transport = transport
             propertiesJSON = request.propertiesJSON
             multiDisplayEnabled = request.multiDisplayEnabled
@@ -50,7 +69,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         }
     }
 
-    private let spectrumDelivery: PlaybackSpectrumDelivery
+    let spectrumDelivery: PlaybackSpectrumDelivery
 
     init(spectrumDelivery: PlaybackSpectrumDelivery) {
         self.spectrumDelivery = spectrumDelivery
@@ -64,20 +83,34 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     }
 
     deinit {
-        memoryPressure.cancel(); idlePreparationWorkItem?.cancel()
-        preparedProcess?.timeout?.cancel(); preparedProcess?.transport.terminate()
+        memoryPressure.cancel(); idlePreparationWorkItem?.cancel(); recoveryWorkItem?.cancel()
+        for prepared in [preparedProcess].compactMap({ $0 }) + Array(retiringPrepared.values) {
+            prepared.timeout?.cancel()
+            prepared.transport.requestGracefulStop()
+        }
+        for session in [active, candidate].compactMap({ $0 }) + Array(standby.values) + Array(cancelling.values) + Array(retiring.values) {
+            session.transport.requestGracefulStop()
+        }
     }
 
-    private func updateSpectrumTargets() {
-        spectrumDelivery.setWebTargets([active, candidate].compactMap { session in
-            guard let session, session.hello, !session.isRetiring else { return nil }
+    func updateSpectrumTargets() {
+        spectrumDelivery.setWebTargets(([active, candidate].compactMap { $0 } + Array(standby.values)).compactMap { session in
+            guard session.hello, !session.isRetiring, !session.isCancelling else { return nil }
             return .init(requestID: session.request.id, transport: session.transport)
         })
     }
 
-    private var active: Session?
-    private var candidate: Session?
-    private final class PreparedProcess {
+    var active: Session?
+    var candidate: Session?
+    var deferredPreparation: DeferredWebSwitchPreparation?
+    // A changed target cohort keeps its original endpoint alive until exact
+    // physical exit, then rebuilds this still-current ticket in a new session.
+    var displayRebuildSource: Session?
+    var pendingRecovery: (session: Session, attempt: Int)?
+    var recoveryWorkItem: DispatchWorkItem?
+    var standby: [ObjectIdentifier: Session] = [:]
+    var cancelling: [ObjectIdentifier: Session] = [:]
+    final class PreparedProcess {
         let requestID: UUID
         let transport: DaemonProcessTransport
         var frames = DaemonNewlineFrameBuffer()
@@ -88,14 +121,16 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             self.requestID = requestID; self.transport = transport; self.isIdle = isIdle
         }
     }
-    private var preparedProcess: PreparedProcess?
+    var preparedProcess: PreparedProcess?
+    var retiringPrepared: [ObjectIdentifier: PreparedProcess] = [:]
     // Keep immutable version leases until the actual child has exited.
-    private var retiring: [ObjectIdentifier: Session] = [:]
-    private var lastAudioDemand = false
-    private var recoveryGeneration: UInt64 = 0
-    private let memoryPressure: DispatchSourceMemoryPressure
-    private var memoryPressureAllowsPreparation = true
-    private var idlePreparationWorkItem: DispatchWorkItem?
+    var retiring: [ObjectIdentifier: Session] = [:]
+    var lastAudioDemand = false
+    var lastAudioDemandRequestID: UUID?
+    var recoveryGeneration: UInt64 = 0
+    let memoryPressure: DispatchSourceMemoryPressure
+    var memoryPressureAllowsPreparation = true
+    var idlePreparationWorkItem: DispatchWorkItem?
 
     /// This UUID becomes the next content request's original identity, never
     /// a rewritten identity on a process that has already loaded author content.
@@ -110,7 +145,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         startPreparedProcess(requestID: UUID(), isIdle: true)
     }
 
-    private func scheduleIdlePreparation() {
+    func scheduleIdlePreparation() {
         idlePreparationWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
@@ -122,7 +157,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
     }
 
-    private func cancelIdlePreparation() {
+    func cancelIdlePreparation() {
         idlePreparationWorkItem?.cancel(); idlePreparationWorkItem = nil
         if preparedProcess?.isIdle == true { discardPreparedProcess() }
     }
@@ -141,7 +176,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         startPreparedProcess(requestID: requestID, isIdle: false)
     }
 
-    private func startPreparedProcess(requestID: UUID, isIdle: Bool) {
+    func startPreparedProcess(requestID: UUID, isIdle: Bool) {
         guard let transport = makeTransport(requestID: requestID) else { return }
         let prepared = PreparedProcess(requestID: requestID, transport: transport, isIdle: isIdle)
         preparedProcess = prepared
@@ -160,16 +195,24 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                 self.cancelPreparedProcess(requestID: requestID)
             }
         }
-        transport.onTermination = { [weak self] _ in self?.cancelPreparedProcess(requestID: requestID) }
+        transport.onTermination = { [weak self, weak prepared] _ in
+            guard let self, let prepared else { return }
+            prepared.timeout?.cancel()
+            if self.preparedProcess === prepared { self.preparedProcess = nil }
+            self.retiringPrepared.removeValue(forKey: ObjectIdentifier(prepared))
+            prepared.transport.closeIO()
+        }
         armPreparationTimeout(prepared, after: isIdle ? 30 : 15)
         do { try transport.start() }
         catch { cancelPreparedProcess(requestID: requestID) }
     }
 
-    private func armPreparationTimeout(_ prepared: PreparedProcess, after seconds: TimeInterval) {
+    func armPreparationTimeout(_ prepared: PreparedProcess, after seconds: TimeInterval) {
         prepared.timeout?.cancel()
-        let requestID = prepared.requestID
-        let timeout = DispatchWorkItem { [weak self] in self?.cancelPreparedProcess(requestID: requestID) }
+        let timeout = DispatchWorkItem { [weak self, weak prepared] in
+            guard let self, let prepared, self.preparedProcess === prepared else { return }
+            self.discardPreparedProcess()
+        }
         prepared.timeout = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: timeout)
     }
@@ -179,20 +222,24 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         discardPreparedProcess()
     }
 
-    private func discardPreparedProcess() {
+    func discardPreparedProcess() {
         let prepared = preparedProcess
         preparedProcess = nil
-        prepared?.timeout?.cancel()
-        prepared?.transport.terminate()
+        guard let prepared else { return }
+        prepared.timeout?.cancel()
+        if prepared.transport.isRunning {
+            retiringPrepared[ObjectIdentifier(prepared)] = prepared
+        }
+        let data = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(
+            requestID: prepared.requestID, payload: WebDaemonCommand.shutdown))
+        prepared.transport.requestGracefulStop(data, gracePeriod: 1)
     }
 
     var observation: WebDaemonHostObservation? { (candidate ?? active)?.observation }
     var liveProcessIdentifiers: [Int32] {
         let playback = liveSessions.filter { $0.transport.isRunning }.map { $0.transport.process.processIdentifier }
-        if let preparedProcess, preparedProcess.transport.isRunning {
-            return playback + [preparedProcess.transport.process.processIdentifier]
-        }
-        return playback
+        let prepared = [preparedProcess].compactMap { $0 } + Array(retiringPrepared.values)
+        return playback + prepared.filter { $0.transport.isRunning }.map { $0.transport.process.processIdentifier }
     }
 #if DEBUG
     var debugContinuityHandler: (([String: Double]?) -> Void)?
@@ -214,7 +261,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     }
 #endif
 
-    var hasPendingRequest: Bool { candidate != nil || preparedProcess?.isIdle == false }
+    var hasLivePlayback: Bool { !liveSessions.isEmpty }
+    var hasPendingRequest: Bool { candidate != nil || displayRebuildSource != nil || preparedProcess?.isIdle == false }
     var activeRequest: WallpaperEngine.WebWallpaperLaunchRequest? { active?.executionRequest }
     var activeRecordIDs: Set<String> {
         Set(liveSessions.compactMap { $0.request.recordID })
@@ -222,33 +270,50 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     var inUsePersistentDataStoreIdentifiers: Set<UUID> {
         liveSessions.reduce(into: Set<UUID>()) { $0.formUnion($1.usage) }
     }
-    private var liveSessions: [Session] {
-        [active, candidate].compactMap { $0 } + Array(retiring.values)
+    var liveSessions: [Session] {
+        var seen: Set<ObjectIdentifier> = []
+        return ([active, candidate].compactMap { $0 } + Array(standby.values)
+            + Array(cancelling.values) + Array(retiring.values))
+            .filter { seen.insert(ObjectIdentifier($0)).inserted }
     }
 
     func launch(_ request: WallpaperEngine.WebWallpaperLaunchRequest,
                 runtimeState: WallpaperEngine.WebWallpaperRuntimeState) {
-        recoveryGeneration &+= 1
-        launch(request, state: runtimeState, recoveryAttempt: 0)
+        prepareSwitch(ticket: .init(epoch: 0, id: UUID(), runtime: .web),
+            request: request, runtimeState: runtimeState)
     }
 
-    private func launch(_ request: WallpaperEngine.WebWallpaperLaunchRequest,
-                        state: WallpaperEngine.WebWallpaperRuntimeState, recoveryAttempt: Int) {
+    func prepareSwitch(ticket: PlaybackSwitchTicket,
+                       request: WallpaperEngine.WebWallpaperLaunchRequest,
+                       runtimeState: WallpaperEngine.WebWallpaperRuntimeState) {
+        if let candidate, candidate.ticket.epoch > ticket.epoch { return }
+        if let active, active.ticket.epoch > ticket.epoch { return }
+        displayRebuildSource = nil
+        recoveryGeneration &+= 1
+        launch(request, state: runtimeState, recoveryAttempt: 0, ticket: ticket)
+    }
+
+    func launch(_ request: WallpaperEngine.WebWallpaperLaunchRequest,
+                state: WallpaperEngine.WebWallpaperRuntimeState, recoveryAttempt: Int,
+                ticket: PlaybackSwitchTicket) {
+        if let candidate, candidate.visibilityConfirmed, !candidate.isCancelling {
+            deferredPreparation = .init(request: request, state: state,
+                recoveryAttempt: recoveryAttempt, ticket: ticket)
+            return
+        }
         idlePreparationWorkItem?.cancel(); idlePreparationWorkItem = nil
-        if let candidate { retire(candidate, gracefully: false) }
+        if let candidate { cancelSession(candidate, completion: {}) }
         candidate = nil
         let prepared = preparedProcess
         let reusable = prepared?.requestID == request.id && prepared?.transport.isRunning == true
-        if reusable {
-            preparedProcess = nil
-            prepared?.timeout?.cancel()
-        } else {
-            discardPreparedProcess()
-        }
+        if reusable { preparedProcess = nil; prepared?.timeout?.cancel() }
+        else { discardPreparedProcess() }
         guard let transport = reusable ? prepared?.transport : makeTransport(requestID: request.id) else {
+            switchFailed?(ticket, "Web 宿主可执行文件不可用")
             eventHandler?(.failed(message: "Web 宿主可执行文件不可用", requestID: request.id)); return
         }
-        let session = Session(request: request, state: state, transport: transport, recoveryAttempt: recoveryAttempt)
+        let session = Session(request: request, state: state, transport: transport,
+            recoveryAttempt: recoveryAttempt, ticket: ticket)
         if reusable, let prepared { session.frames = prepared.frames }
         candidate = session
         transport.onOutput = { [weak self, weak session] data in
@@ -259,12 +324,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             guard let self, let session else { return }
             self.didExit(session)
         }
-        let timeout = DispatchWorkItem { [weak self, weak session] in
-            guard let self, let session, self.candidate === session else { return }
-            self.fail(session, message: "Web 壁纸准备超时，保留原壁纸")
-        }
-        session.timeout = timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 45, execute: timeout)
+        armSessionTimeout(session, after: 45, message: "Web 壁纸准备超时，保留原壁纸")
         publishAudioDemand(force: true)
         if reusable {
             if prepared?.hello == true { receive(.hello, from: session) }
@@ -274,8 +334,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         }
     }
 
-    private func makeTransport(requestID: UUID) -> DaemonProcessTransport? {
-        guard let executable = Bundle.main.executableURL else { return nil }
+    func makeTransport(requestID: UUID) -> DaemonProcessTransport? {
+        guard DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses,
+              let executable = Bundle.main.executableURL else { return nil }
         var arguments = [WebDaemonProtocol.flag, requestID.uuidString]
 #if DEBUG
         let inherited = ProcessInfo.processInfo.arguments
@@ -285,7 +346,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             }
         }
 #endif
-        let transport = DaemonProcessTransport(executableURL: executable, arguments: arguments)
+        let transport = DaemonProcessTransport(executableURL: executable, arguments: arguments,
+                                               playbackRenderer: true)
         transport.onError = { text in NSLog("MWX WEB HOST: %@", String(text.prefix(2000))) }
         return transport
     }
@@ -294,8 +356,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         recoveryGeneration &+= 1
         idlePreparationWorkItem?.cancel(); idlePreparationWorkItem = nil
         if preparedProcess?.requestID != preservingPreparedRequestID { discardPreparedProcess() }
-        if let candidate { retire(candidate, gracefully: false) }
-        candidate = nil
+        if deferredPreparation?.request.id != preservingPreparedRequestID { deferredPreparation = nil }
+        if displayRebuildSource?.request.id != preservingPreparedRequestID { displayRebuildSource = nil }
+        if let candidate, !candidate.visibilityConfirmed { cancelSession(candidate, completion: {}) }
         publishAudioDemand(force: true)
     }
 
@@ -310,7 +373,12 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     }
 
     func updateDisplayConfiguration(multiDisplayEnabled: Bool) {
-        for session in [active, candidate].compactMap({ $0 }) {
+        displayRebuildSource?.multiDisplayEnabled = multiDisplayEnabled
+        if let candidate, candidate.multiDisplayEnabled != multiDisplayEnabled {
+            candidate.multiDisplayEnabled = multiDisplayEnabled
+            rebuildCandidateSession(candidate)
+        }
+        for session in [active, candidate].compactMap({ $0 }) + Array(standby.values) {
             session.multiDisplayEnabled = multiDisplayEnabled
             if session.hello { send(.displays(multiDisplayEnabled), to: session) }
         }
@@ -321,15 +389,20 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             recoveryGeneration &+= 1
             idlePreparationWorkItem?.cancel(); idlePreparationWorkItem = nil
             discardPreparedProcess()
+            deferredPreparation = nil
+            displayRebuildSource = nil
+            pendingRecovery = nil; recoveryWorkItem?.cancel(); recoveryWorkItem = nil
             let id = candidate?.request.id ?? active?.request.id
-            for session in [candidate, active].compactMap({ $0 }) { retire(session) }
-            candidate = nil; active = nil
+            for session in liveSessions { retire(session) }
+            candidate = nil; active = nil; standby.removeAll(); cancelling.removeAll()
             updateSpectrumTargets()
             lastAudioDemand = false
             if let id { eventHandler?(.stopped(requestID: id)) }
             return
         }
-        for session in [active, candidate].compactMap({ $0 }) {
+        var policySessions = [active, candidate].compactMap { $0 } + Array(standby.values)
+        if let displayRebuildSource { policySessions.append(displayRebuildSource) }
+        for session in policySessions {
             switch command {
             case .pause:
                 session.state = .init(paused: true, volume: session.state.volume,
@@ -347,7 +420,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                 session.state = .init(paused: session.state.paused, volume: session.state.volume,
                     playbackRate: session.state.playbackRate, spectrumLevels: levels)
             case let .applyProperties(json):
-                guard candidate == nil || candidate === session else { continue }
+                guard active === session else { continue }
                 session.propertiesJSON = json
             case .stop: break
             }
@@ -355,8 +428,10 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         }
     }
 
-    private func consume(_ data: Data, from session: Session) {
-        guard !session.isRetiring, active === session || candidate === session else { return }
+    func consume(_ data: Data, from session: Session) {
+        guard !session.isRetiring,
+              active === session || candidate === session || standby[ObjectIdentifier(session)] != nil
+                || cancelling[ObjectIdentifier(session)] != nil else { return }
         for frame in session.frames.append(data) {
             guard frame.count <= WebDaemonProtocol.maximumFrameBytes,
                   let envelope = try? JSONDecoder().decode(WebDaemonEnvelope<WebDaemonEvent>.self, from: frame),
@@ -371,7 +446,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         }
     }
 
-    private func receive(_ event: WebDaemonEvent, from session: Session) {
+    func receive(_ event: WebDaemonEvent, from session: Session) {
         switch event {
         case let .observation(value): session.observation = value
 #if DEBUG
@@ -400,31 +475,38 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             }
         case let .capturedFrame(id, data):
             session.captures.removeValue(forKey: id)?(data.flatMap(NSImage.init(data:)))
-        case let .prepared(generation):
-#if DEBUG
-            NSLog("MWX WEB STARTUP request=%@ stage=prepared elapsedMs=%.1f", session.request.id.uuidString,
-                  (ProcessInfo.processInfo.systemUptime - session.startedAt) * 1_000)
-#endif
-            guard candidate === session, generation > (session.preparationGeneration ?? 0) else { return }
-            session.preparationGeneration = generation
-            send(.commit(generation), to: session)
-        case let .committed(generation):
-            guard candidate === session else { return }
-            guard session.preparationGeneration == generation else {
-                fail(session, message: "Web 宿主确认了陈旧的准备代际"); return
-            }
-            let previous = active
-            active = session; candidate = nil
-            session.committedAt = ProcessInfo.processInfo.systemUptime
-#if DEBUG
-            NSLog("MWX WEB STARTUP request=%@ stage=committed elapsedMs=%.1f", session.request.id.uuidString,
-                  (ProcessInfo.processInfo.systemUptime - session.startedAt) * 1_000)
-#endif
+        case .prepared, .committed:
+            break // Legacy observations cannot authorize an activation.
+        case let .preparationCohort(cohort): receivePreparedCohort(cohort, from: session)
+        case let .activationConfirmed(identity, evidence):
+            guard candidate === session, !session.isCancelling, !session.visibilityConfirmed,
+                  session.activationIdentity == identity,
+                  let cohort = session.preparedCohort,
+                  evidence.count == cohort.surfaces.count, !evidence.isEmpty,
+                  Set(evidence.map(\.displayID)).count == evidence.count,
+                  evidence.allSatisfy({ value in
+                      value.expectedPID == session.transport.process.processIdentifier
+                        && cohort.surfaces.contains { $0.displayID == value.displayID && $0.windowID == value.windowID }
+                        && PlaybackSurfaceVisibility.evaluate(value) == .confirmed
+                  }) else { return }
+            session.visibilityConfirmed = true
             session.timeout?.cancel(); session.timeout = nil
-            if let previous { retire(previous) }
-            eventHandler?(.ready(requestID: session.request.id))
-            if active === session { scheduleIdlePreparation() }
-            publishAudioDemand(force: true)
+            if let switchVisible { switchVisible(session.ticket, session.executionID) }
+            else { finalizeSession(session, identity: identity) }
+        case let .activationDeferred(identity, _):
+            guard session.activationIdentity == identity else { return }
+        case let .activationFailed(identity, message):
+            guard session.activationIdentity == identity else { return }
+            fail(session, message: message)
+        case let .activationCancelled(identity):
+            guard session.isCancelling, !session.isRetiring,
+                  session.activationIdentity == identity else { return }
+            finishSessionCancellation(session)
+            retire(session)
+        case let .outputActivityChanged(id, actual):
+            guard !session.outputActivityAwaitingExit.contains(id),
+                  let pending = session.outputActivityCompletions.removeValue(forKey: id) else { return }
+            pending.completion(actual == pending.desired)
         case let .usage(ids): session.usage = Set(ids)
         case .mediaReplayRequested:
             guard session.mediaNeedsContent != nil else { return }
@@ -451,23 +533,31 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         }
     }
 
-    private func sendMedia(_ snapshot: SystemMediaSnapshot, to session: Session) {
+    func sendMedia(_ snapshot: SystemMediaSnapshot, to session: Session) {
         let web = WebDaemonMediaSnapshot(snapshot, previous: session.lastMediaArtworkKey)
         session.lastMediaArtworkKey = web.artworkKey
         send(.media(web), to: session)
     }
 
-    private func publishAudioDemand(force: Bool = false) {
+    var audioSpectrumRequested: Bool {
+        [active, candidate].compactMap { $0 }.contains {
+            $0.audioDemand && !$0.isRetiring && !$0.isCancelling && $0.transport.isRunning
+        }
+    }
+
+    func publishAudioDemand(force: Bool = false) {
         updateSpectrumTargets()
-        let sessions = [active, candidate].compactMap { $0 }
-        let demanded = sessions.contains { $0.audioDemand }
-        guard let requestID = candidate?.request.id ?? active?.request.id,
-              force || demanded != lastAudioDemand else { return }
+        let demanded = audioSpectrumRequested
+        guard force || demanded != lastAudioDemand,
+              let requestID = candidate?.request.id ?? active?.request.id ?? lastAudioDemandRequestID else { return }
         lastAudioDemand = demanded
+        // Removing the last uncommitted candidate must still withdraw its
+        // aggregate demand; no committed session will emit stopped for it.
+        lastAudioDemandRequestID = demanded ? requestID : nil
         eventHandler?(.audioSpectrumDemandChanged(demanded, requestID: requestID))
     }
 
-    private func send(_ command: WebDaemonCommand, to session: Session) {
+    func send(_ command: WebDaemonCommand, to session: Session) {
         guard !session.isRetiring else { return }
         guard let data = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(requestID: session.request.id, payload: command)),
               data.count <= WebDaemonProtocol.maximumFrameBytes else {
@@ -477,18 +567,36 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         if !sent { fail(session, message: "Web 宿主命令通道不可用") }
     }
 
-    private func fail(_ session: Session, message: String) {
-        guard !session.isRetiring else { return }
+    func fail(_ session: Session, message: String) {
+        guard !session.isRetiring, !session.isCancelling else { return }
         let requestID = session.request.id
+        if active === session {
+            session.shouldRecoverOnExit = true
+            switchFailed?(session.ticket, message)
+            retire(session)
+            return
+        }
         if candidate === session { candidate = nil }
         if active === session { active = nil }
-        retire(session)
+        if session.recoveryAttempt > 0 || session.visibilityConfirmed {
+            eventHandler?(.stopped(requestID: session.request.id))
+            switchLost?(session.ticket, message)
+        } else { switchFailed?(session.ticket, message) }
+        cancelSession(session, completion: {})
         eventHandler?(.failed(message: message, requestID: requestID))
         publishAudioDemand(force: true)
+        runDeferredPreparationIfPossible()
     }
 
-    private func retire(_ session: Session, gracefully: Bool = true) {
-        guard !session.isRetiring else { return }
+    func retire(_ session: Session) {
+        guard !session.didObserveExit else { return }
+        // Establish physical retention before consulting Process.isRunning or
+        // withdrawing logical references; the exit callback may already be queued.
+        retiring[ObjectIdentifier(session)] = session
+        guard !session.isRetiring else {
+            if !session.transport.isRunning { didExit(session) }
+            return
+        }
         session.timeout?.cancel(); session.timeout = nil
         let captures = session.captures.values
         session.captures.removeAll()
@@ -496,25 +604,34 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         SystemMediaService.shared.unsubscribe(session.mediaConsumer)
         session.isRetiring = true
         updateSpectrumTargets()
-        if !session.transport.isRunning { session.transport.closeIO(); return }
-        retiring[ObjectIdentifier(session)] = session
-        if !gracefully { session.transport.terminate(); return }
-        if let data = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(requestID: session.request.id, payload: WebDaemonCommand.shutdown)) {
-            session.transport.sendRequired(data)
-        }
-        session.transport.closeInput()
-        session.transport.scheduleForcedTermination(after: 1)
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3) {
-            if session.transport.isRunning { kill(session.transport.process.processIdentifier, SIGKILL) }
-        }
+        if !session.transport.isRunning { didExit(session); return }
+        standby.removeValue(forKey: ObjectIdentifier(session))
+        cancelling.removeValue(forKey: ObjectIdentifier(session))
+        let data = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(
+            requestID: session.request.id, payload: WebDaemonCommand.shutdown))
+        session.transport.requestGracefulStop(data, gracePeriod: 1)
     }
 
-    private func didExit(_ session: Session) {
+    func didExit(_ session: Session) {
+        guard !session.didObserveExit else { return }
+        session.didObserveExit = true
         session.timeout?.cancel()
         SystemMediaService.shared.unsubscribe(session.mediaConsumer)
         session.transport.closeIO()
+        if session.isRetiring, !session.shouldRecoverOnExit, session.committedAt != nil {
+            eventHandler?(.stopped(requestID: session.request.id))
+        }
+        finishSessionCancellation(session)
+        let retirements = session.retirementCompletions
+        session.retirementCompletions.removeAll()
+        retirements.forEach { $0() }
+        let outputCallbacks = session.outputActivityCompletions.values
+        session.outputActivityCompletions.removeAll()
+        outputCallbacks.forEach { $0.completion(!$0.desired) }
+        standby.removeValue(forKey: ObjectIdentifier(session))
+        cancelling.removeValue(forKey: ObjectIdentifier(session))
         retiring.removeValue(forKey: ObjectIdentifier(session))
-        if session.isRetiring { return }
+        if session.isRetiring && !session.shouldRecoverOnExit { return }
         if candidate === session { fail(session, message: "Web 壁纸准备进程意外退出"); return }
         guard active === session else { return }
         active = nil
@@ -522,14 +639,13 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         let attempt = session.committedAt.map {
             ProcessInfo.processInfo.systemUptime - $0 >= 15 ? 0 : session.recoveryAttempt
         } ?? session.recoveryAttempt
-        guard candidate == nil, attempt < 2 else {
-            if candidate == nil { eventHandler?(.failed(message: "Web 宿主反复退出", requestID: session.request.id)) }
+        guard attempt < 2 else {
+            eventHandler?(.stopped(requestID: session.request.id))
+            switchLost?(session.ticket, "Web 宿主反复退出")
+            eventHandler?(.failed(message: "Web 宿主反复退出", requestID: session.request.id))
             return
         }
-        let generation = recoveryGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25 * Double(attempt + 1)) { [weak self] in
-            guard let self, self.recoveryGeneration == generation, self.active == nil, self.candidate == nil else { return }
-            self.launch(session.executionRequest, state: session.state, recoveryAttempt: attempt + 1)
-        }
+        pendingRecovery = (session, attempt + 1)
+        schedulePendingRecoveryIfPossible()
     }
 }

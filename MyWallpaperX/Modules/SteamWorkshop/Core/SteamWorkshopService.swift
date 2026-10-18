@@ -63,6 +63,8 @@ final class SteamWorkshopService: ObservableObject {
     /// App composition injects a cancellable, request-scoped renderer preparation.
     var prepareWebPlaybackProcess: (() -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64))?
     var cancelWebProcessPreparation: (() -> Void)?
+    /// Claims the product selection before asynchronous Scene resource lookup.
+    var prepareScenePlaybackIntent: ((String, Bool) -> (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
 
     /// 递增点击代际并返回新值（仅 setAsWallpaper 入口调用；跨文件扩展
     /// 不能直接写 private(set) 字段）。

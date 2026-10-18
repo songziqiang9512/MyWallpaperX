@@ -19,7 +19,8 @@ extension WallpaperDaemon {
         activeSlot = activeSlot == .primary ? .secondary : .primary
         currentVideoPath = videoPath
         currentRequestID = requestID
-        window.level = WallpaperDaemon.desktopWindowLevel
+        currentVideoCohortID = preparation.cohortID
+        window.level = PlaybackSurfaceVisibility.activationLevel(normal: Self.desktopWindowLevel)
         window.orderFrontRegardless()
 
         let cleanupOutgoing: () -> Void = { [weak self] in
@@ -29,7 +30,7 @@ extension WallpaperDaemon {
         guard !isFirstPlay else {
             currentVideoPath = videoPath
             currentRequestID = requestID
-            window.level = WallpaperDaemon.desktopWindowLevel
+            window.level = PlaybackSurfaceVisibility.activationLevel(normal: Self.desktopWindowLevel)
             window.orderFrontRegardless()
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -37,7 +38,7 @@ extension WallpaperDaemon {
             outgoingLayer.opacity = 0
             fallbackLayer.opacity = 0
             CATransaction.commit()
-            emit(type: "ready", requestID: requestID, message: nil, videoPath: videoPath, contentKind: "video")
+            confirmVideoActivationWhenVisible(requestID: requestID)
             DispatchQueue.main.asyncAfter(deadline: .now() + crossfadeDuration, execute: cleanupOutgoing)
             return
         }
@@ -69,7 +70,7 @@ extension WallpaperDaemon {
             outgoingLayer.opacity = 0
             CATransaction.commit()
 
-            self.emit(type: "ready", requestID: requestID, message: nil, videoPath: videoPath, contentKind: "video")
+            self.confirmVideoActivationWhenVisible(requestID: requestID)
             DispatchQueue.main.asyncAfter(deadline: .now() + self.crossfadeDuration, execute: cleanupOutgoing)
         }
 
@@ -165,7 +166,7 @@ extension WallpaperDaemon {
 
         currentVideoPath = videoPath
         currentRequestID = requestID
-        emit(type: "ready", requestID: requestID, message: nil, videoPath: videoPath, contentKind: "video")
+        confirmVideoActivationWhenVisible(requestID: requestID)
         DispatchQueue.main.asyncAfter(deadline: .now() + animDuration) { [weak self] in
             guard let self, self.switchToken == token,
                   self.videoPreparation?.token == token else { return }
@@ -183,8 +184,10 @@ extension WallpaperDaemon {
     func clearLooper(for slot: Slot) {
         switch slot {
         case .primary:
+            primaryLooper?.disableLooping()
             primaryLooper = nil
         case .secondary:
+            secondaryLooper?.disableLooping()
             secondaryLooper = nil
         }
     }

@@ -294,7 +294,11 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
 @MainActor enum DebugWebPlaybackRunner {static let runsIsolatedWebWorkshopSample=false}
 @MainActor final class SceneDaemonClient {
     static let shared=SceneDaemonClient()
-    func shutdown(_ completion:()->Void) {completion()}
+    func shutdown() {}
+}
+@MainActor final class WallpaperEngine {
+    static let shared=WallpaperEngine()
+    func cleanup() {}
 }
 @MainActor final class ProbeApplication:NSApplication {
     override func reply(toApplicationShouldTerminate shouldTerminate:Bool) {
@@ -451,7 +455,8 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
             delegate = (ROOT / "MyWallpaperX/App/AppDelegate.swift").read_text()
             runner = (ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift").read_text()
             source = APPKIT_TEMPLATE.replace("// PRODUCTION_TERMINATION_METHOD", production_method(
-                delegate, " func applicationShouldTerminate(_ sender: NSApplication)").replace("func applicationShouldTerminate(", "func ownedApplicationShouldTerminate("))
+                delegate, " func applicationShouldTerminate(_ sender: NSApplication)").replace("func applicationShouldTerminate(", "func ownedApplicationShouldTerminate(") + "\n" + production_method(
+                delegate, " private func replyAfterPlaybackProcessesExit(_ sender: NSApplication)"))
             source = source.replace("// PRODUCTION_RUNNER_TERMINATION", production_method(
                 runner, "    static func terminate(after delay: TimeInterval)"))
             performance = (ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Performance.swift").read_text()
@@ -460,7 +465,8 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
             harness = directory / "AppKit.swift"
             harness.write_text(source)
             binary = directory / "appkit"
-            sources = ["Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
+            sources = ["Core/DaemonKit/DaemonProcessTransport.swift",
+                       "Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
                        "Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
                        "Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
                        "App/Debug/DebugScenePlaybackRunner+HostOwnership.swift"]

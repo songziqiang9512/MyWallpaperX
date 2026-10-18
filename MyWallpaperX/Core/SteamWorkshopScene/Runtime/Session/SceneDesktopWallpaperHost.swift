@@ -79,8 +79,28 @@ final class SceneDesktopWallpaperHost {
     }
 
     func setMuted(_ muted: Bool) {
-        activeSession?.soundPlaybackRegistry?.setMuted(muted)
+        if let activeSession {
+            activeSession.soundPlaybackRegistry?.setMuted(muted || !activeSession.isOutputActive)
+        }
         // The candidate has no audible output until promotion.
+    }
+
+    /// Handoff activity is independent of user/system pause. Keep the frozen
+    /// frame visible while revoking audio, input and media subscription.
+    func setOutputActive(_ active: Bool, requestID: UUID) -> Bool {
+        let sessions = [activeSession, candidateSession, unconfirmedPromotion?.previous].compactMap { $0 }
+        guard let session = sessions.first(where: { $0.launchRequestID == requestID }) else { return false }
+        session.setOutputActive(active, playbackPaused: playbackPaused)
+        reconcileAudioDemand()
+        return true
+    }
+
+    func outputWindows(requestID: UUID) -> [NSWindow] {
+        let sessions = [activeSession, candidateSession, unconfirmedPromotion?.previous].compactMap { $0 }
+            + Array(retiringSessions.values)
+        return sessions.filter { $0.launchRequestID == requestID }.flatMap {
+            Array($0.surfaces.values) + Array($0.retiringSurfaces.values)
+        }.map(\.window)
     }
 
     @discardableResult

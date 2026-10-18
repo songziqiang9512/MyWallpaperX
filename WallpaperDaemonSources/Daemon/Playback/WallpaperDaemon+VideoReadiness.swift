@@ -31,14 +31,13 @@ extension WallpaperDaemon {
                     self.pendingDisplayFallbackWorkItem?.cancel()
                     self.pendingDisplayFallbackWorkItem = nil
                     guard finished else {
-                        self.cancelVideoPreparation(requestID: requestID)
-                        self.emit(type: "failed", requestID: requestID, message: "video_seek_failed", videoPath: videoPath, contentKind: "video")
+                        self.failVideoPreparation(token: token, requestID: requestID, message: "video_seek_failed")
                         return
                     }
                     self.videoPreparation?.targetFrame = targetFrame
                     self.videoPreparation?.isSeekingToStart = false
                     self.videoPreparation?.isPrepared = true
-                    self.emit(type: "prepared", requestID: requestID, message: nil, videoPath: videoPath, contentKind: "video")
+                    self.emitVideoPreparation(type: "prepared")
                 }
             }
         }
@@ -46,8 +45,7 @@ extension WallpaperDaemon {
         let fallbackWorkItem = DispatchWorkItem { [weak self] in
             guard let self, self.switchToken == token,
                   self.videoPreparation?.isPrepared == false else { return }
-            self.cancelVideoPreparation(requestID: requestID)
-            self.emit(type: "failed", requestID: requestID, message: "video_frame_timeout", videoPath: videoPath, contentKind: "video")
+            self.failVideoPreparation(token: token, requestID: requestID, message: "video_frame_timeout")
         }
         pendingDisplayFallbackWorkItem = fallbackWorkItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: fallbackWorkItem)

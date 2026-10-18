@@ -16,6 +16,9 @@ enum MyWallpaperXApplication {
 
     @MainActor
     static func main() {
+        if WebDaemonRuntime.isRequested || SceneDaemonRuntime.isRequested {
+            _ = DaemonParentLifetime.shared
+        }
         let app = NSApplication.shared
         if WebDaemonRuntime.isRequested {
             guard let runtime = WebDaemonRuntime() else { return }
@@ -33,15 +36,15 @@ enum MyWallpaperXApplication {
         let delegate = AppDelegate()
         app.delegate = delegate
 #if DEBUG
-        let usesDirectPlaybackHarness = DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample
+        let usesDirectPlaybackHarness = (DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample
+            && !ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-process-isolation-report")
+            && !ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-runtime-switch-sequence"))
+            || (DebugScenePlaybackRunner.runsIsolatedSceneSample && !DebugSceneDaemonClientRunner.requiresProductCoordinator)
+            || (DebugSceneDaemonClientRunner.isRequested && !DebugSceneDaemonClientRunner.requiresProductCoordinator)
+            || DebugSystemMediaRunner.isRequested
 #else
         let usesDirectPlaybackHarness = false
 #endif
-        if !usesDirectPlaybackHarness {
-            WallpaperEngine.shared.runtimeCommitAdmission = {
-                WallpaperManager.shared.requestedRuntime == $0
-            }
-        }
         let videoPlaybackHandler = VideoPlaybackCommandHandler()
         PlaybackCommandMultiplexer.shared.register(videoPlaybackHandler)
         // E2c: web 与 video 共享 WallpaperEngine 执行端（按活跃 kind 路由），
@@ -67,7 +70,6 @@ enum MyWallpaperXApplication {
             as? WebDaemonHostAdapter {
             SteamWorkshopService.shared.prepareWebPlaybackProcess = { [weak adapter] in
                 let id = adapter?.availablePreparedRequestID ?? UUID()
-                WallpaperEngine.shared.cancelPreparationRetainingActivePlayback(preservingPreparedRequestID: id)
                 let epoch = WallpaperManager.shared.beginPlaybackIntent(runtime: .web)
                 WallpaperEngine.shared.adoptIntentEpoch(epoch)
                 adapter?.prepareProcess(requestID: id)
@@ -76,7 +78,7 @@ enum MyWallpaperXApplication {
                     cancel: { [weak adapter] in
                         adapter?.cancelPreparedProcess(requestID: id)
                         if WallpaperManager.shared.playbackIntentEpoch == epoch,
-                           WallpaperEngine.shared.currentWebRequestID != id {
+                           !WallpaperManager.shared.hasTransferredWebPreparation(epoch: epoch) {
                             WallpaperManager.shared.restoreCommittedPlaybackIntent()
                         }
                     },
@@ -92,6 +94,14 @@ enum MyWallpaperXApplication {
                 return Set(descriptor.staticContentSummary.externalDependencyHosts
                     .compactMap(DedicatedWebWallpaperHostPlaceholderAdapter.normalizedNetworkBridgeHost))
             }
+        }
+        SteamWorkshopService.shared.prepareScenePlaybackIntent = { recordID, newSelection in
+            let manager = WallpaperManager.shared
+            guard let ticket = manager.claimScenePlaybackIntent(recordID: recordID, newSelection: newSelection) else { return nil }
+            return (intentEpoch: ticket.epoch,
+                isCurrent: { manager.playbackSwitch.pending?.selection.ticket == ticket
+                    || (!newSelection && manager.playbackSwitch.committed?.ticket == ticket && manager.playbackSwitch.pending == nil) },
+                cancel: { manager.switchFailed(ticket, reason: "Scene 资源准备失败") })
         }
         // 工坊 web 记录删除/退订后回收其持久化 WKWebsiteDataStore：装配层把
         // downloads 投影与模块自身的删除意图一同翻译成 Host 事实（Host 不直呼
@@ -135,6 +145,7 @@ enum MyWallpaperXApplication {
 #else
         MainWindowCoordinator.configure(with: WallpaperManager.shared)
 #endif
+        if !usesDirectPlaybackHarness { WallpaperManager.shared.configureRuntimeSwitching() }
         app.run()
     }
 

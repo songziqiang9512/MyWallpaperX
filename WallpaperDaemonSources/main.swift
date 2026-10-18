@@ -13,6 +13,7 @@ func parseDisplayID() -> CGDirectDisplayID? {
     return CGDirectDisplayID(value)
 }
 
+let parentLifetime = DaemonParentLifetime.shared
 let app = NSApplication.shared
 app.setActivationPolicy(.prohibited)
 
@@ -25,6 +26,7 @@ guard let daemon = WallpaperDaemon(displayID: displayID) else {
     exit(2)
 }
 
+parentLifetime.setShutdownHandler { daemon.shutdown() }
 let reader = CommandReader(daemon: daemon)
 reader.start()
 RunLoop.main.run()

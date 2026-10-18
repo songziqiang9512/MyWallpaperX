@@ -151,9 +151,9 @@ extension WallpaperEngine {
         let captureAllowed = !PlaybackCommandMultiplexer.shared.isPlaybackPaused
         let overlayCaptureRequested = captureAllowed && currentSystemAudioSpectrumEnabled
             && displaySessions.values.contains { $0.process.isRunning }
-        let webCaptureRequested = captureAllowed
-            && currentWebRequestID != nil
-            && currentWebAudioSpectrumRequested
+        // The Web adapter owns live request/surface demand, including a
+        // prepared successor. UI adoption must not restart the shared tap.
+        let webCaptureRequested = captureAllowed && currentWebAudioSpectrumRequested
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         let debugScenePCMOwnsInbox = arguments.contains(

@@ -20,9 +20,8 @@ final class CommandReader {
             guard let self else { return }
             let data = handle.availableData
             if data.isEmpty {
-                DispatchQueue.main.async {
-                    self.daemon.shutdown()
-                }
+                handle.readabilityHandler = nil
+                DaemonParentLifetime.shared.requestShutdown()
                 return
             }
 
@@ -34,8 +33,10 @@ final class CommandReader {
         for line in frames.append(data) {
             do {
                 let command = try decoder.decode(DaemonCommand.self, from: line)
-                DispatchQueue.main.async {
-                    self.daemon.handle(command)
+                if command.action == "stop" {
+                    DaemonParentLifetime.shared.requestShutdown()
+                } else {
+                    DispatchQueue.main.async { self.daemon.handle(command) }
                 }
             } catch {
                 daemonLog("failed to decode command \(error.localizedDescription)")

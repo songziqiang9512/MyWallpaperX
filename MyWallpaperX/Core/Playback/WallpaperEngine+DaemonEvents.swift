@@ -49,135 +49,46 @@ extension WallpaperEngine {
     }
 
     private func handleDaemonEvent(_ event: DaemonEvent, for session: DisplayDaemonSession) {
-        let restoresCommittedVideo = pendingVideoIsRetainedRecovery
-            && videoPreparationIntentEpoch == playbackIntentEpoch
-            && activeVideoPlayback?.path == currentContentPath
         switch event.type {
-        case "launched":
-            session.launched = true
+        case "launched": session.launched = true
         case "accepted":
-            guard event.requestID == nil
-                    || event.requestID == session.latestRequestedPlayRequestID else { return }
-            session.latestAcceptedPlayRequestID = event.requestID
-        case "prepared":
-            guard let requestID = event.requestID,
-                  requestID == session.latestRequestedPlayRequestID,
-                  pendingVideoDisplayIDs.contains(session.displayID),
-                  currentPlaybackContentKind == .video,
-                  event.videoPath.map(normalizedPath) == currentContentPath,
-                  runtimeCommitAdmission?(.video) != false || restoresCommittedVideo else { return }
-            session.latestPreparedPlayRequestID = requestID
-            let targets = pendingVideoDisplayIDs.compactMap { displaySessions[$0] }
-            guard targets.count == pendingVideoDisplayIDs.count,
-                  targets.allSatisfy({ $0.latestRequestedPlayRequestID != nil
-                      && $0.latestPreparedPlayRequestID == $0.latestRequestedPlayRequestID }),
-                  targets.contains(where: { $0.latestCommittedPlayRequestID != $0.latestRequestedPlayRequestID }) else { return }
-            for target in targets {
-                guard let id = target.latestRequestedPlayRequestID else { continue }
-                target.latestCommittedPlayRequestID = id
-                sendVideoPreparationCommand("commitVideo", requestID: id, to: target)
+            if event.requestID == session.latestRequestedPlayRequestID {
+                session.latestAcceptedPlayRequestID = event.requestID
             }
-        case "ready":
-            guard let requestID = event.requestID,
-                  requestID == session.latestRequestedPlayRequestID,
-                  requestID == session.latestCommittedPlayRequestID,
-                  pendingVideoDisplayIDs.contains(session.displayID) else { return }
-            session.latestReadyPlayRequestID = requestID
-            let targets = pendingVideoDisplayIDs.compactMap { displaySessions[$0] }
-            if currentPlaybackContentKind == .video,
-               event.videoPath.map(normalizedPath) == currentContentPath,
-               targets.count == pendingVideoDisplayIDs.count,
-               targets.allSatisfy({
-                   $0.latestRequestedPlayRequestID != nil
-                       && $0.latestReadyPlayRequestID == $0.latestRequestedPlayRequestID
-               }), runtimeCommitAdmission?(.video) != false || restoresCommittedVideo {
-                for target in targets {
-                    guard let id = target.latestRequestedPlayRequestID else { continue }
-                    target.latestFinalizedPlayRequestID = id
-                    sendVideoPreparationCommand("finalizeVideo", requestID: id, to: target)
-                }
-                if let wallpaper = currentWallpaper, let path = currentContentPath {
-                    activeVideoPlayback = .init(wallpaper: wallpaper, path: path,
-                        multiDisplayEnabled: currentMultiDisplayEnabled)
-                }
-                let obsolete = Set(displaySessions.keys).subtracting(pendingVideoDisplayIDs)
-                pendingVideoDisplayIDs.removeAll()
-                pendingVideoIsRetainedRecovery = false
-                for displayID in obsolete { terminateSession(for: displayID) }
-                if restoresCommittedVideo {
-                    for target in targets { displayCrashCounts[target.displayID] = 0 }
-                    return
-                }
-                postWallpaperRuntimeWillSwitch(to: .video)
-                if pendingWebRetirementOnVideoReady {
-                    pendingWebRetirementOnVideoReady = false
-                    currentWebRequestID = nil
-                    dispatchWebRuntimeCommand(.stop)
-                    setWebAudioSpectrumRequested(false)
-                    currentWebRecordID = nil
-                    currentWebPropertiesJSON = nil
-                }
-                lastFailureVideoPath = nil
-                lastFailureAt = 0
-                displayCrashCounts[session.displayID] = 0
-                // E2a-3: the committed selection may land now — the daemon
-                // confirmed this exact content is playing.
-                NotificationCenter.default.post(
-                    name: Self.playbackReadyNotification,
-                    object: self,
-                    userInfo: [
-                        "videoPath": currentContentPath as Any
-                    ]
-                )
-            }
+        case "prepared": videoDidPrepare(event, session: session)
+        case "ready": videoDidBecomeVisible(event, session: session)
+        case "cancelled": videoDidCancel(event, session: session)
+        case "outputActivityChanged": videoDidChangeOutputActivity(event, session: session)
         case "failed":
-            handlePlaybackFailureEvent(event, for: session)
-        case "ended":
-            handlePlaybackEndedEvent(event, for: session)
-        case "stopped":
-            break
-        default:
-            break
+            guard let execution = videoExecution(for: event, session: session),
+                  !execution.cancelling, !execution.retired else { return }
+            if execution.finalized {
+                switchLost?(execution.ticket, event.message ?? "Video playback failed")
+            } else { switchFailed?(execution.ticket, event.message ?? "Video playback failed") }
+            if !execution.finalized { cancelVideoExecution(execution, completion: {}) }
+        case "ended": handlePlaybackEndedEvent(event, for: session)
+        default: break
         }
-    }
-
-    private func handlePlaybackFailureEvent(_ event: DaemonEvent, for session: DisplayDaemonSession) {
-        guard let reportedPath = event.videoPath else { return }
-        let failedPath = normalizedPath(reportedPath)
-        guard
-              failedPath == currentContentPath,
-              event.requestID == nil || event.requestID == session.latestRequestedPlayRequestID else {
-            return
-        }
-
-        reportVideoPlaybackFailure(path: failedPath, message: event.message ?? "unknown")
     }
 
     func reportVideoPlaybackFailure(path failedPath: String, message: String) {
-        let now = CACurrentMediaTime()
-        if lastFailureVideoPath == failedPath && now - lastFailureAt < 1.0 {
-            return
+        if let execution = videoCandidate, execution.path == failedPath {
+            switchFailed?(execution.ticket, message)
+            cancelVideoExecution(execution, completion: {})
         }
-
-        lastFailureVideoPath = failedPath
-        lastFailureAt = now
-        if pendingVideoIsRetainedRecovery { activeVideoPlayback = nil }
-        if !rollbackVideoPreparationToWeb() {
-            cancelVideoPreparationRetainingActivePlayback()
-        }
-
-        NotificationCenter.default.post(
-            name: Self.playbackFailedNotification,
-            object: self,
-            userInfo: [
-                "videoPath": failedPath,
-                "message": message,
-                "contentKind": PlaybackContentKind.video.rawValue
-            ]
-        )
+        NotificationCenter.default.post(name: Self.playbackFailedNotification,
+            object: self, userInfo: ["videoPath": failedPath, "message": message,
+                                    "contentKind": PlaybackContentKind.video.rawValue])
     }
 
     private func handlePlaybackEndedEvent(_ event: DaemonEvent, for session: DisplayDaemonSession) {
+        if let candidate = videoCandidate, candidate.activated, !candidate.cancelling,
+           candidate.sessions[session.displayID] === session,
+           candidate.requests[session.displayID] == event.requestID,
+           event.videoPath.map(normalizedPath) == candidate.path {
+            candidate.ended = true
+            return
+        }
         guard let active = activeVideoPlayback, let path = event.videoPath,
               normalizedPath(path) == active.path,
               let requestID = event.requestID,
@@ -198,11 +109,14 @@ extension WallpaperEngine {
                   active.id == end.playbackID,
                   self.currentPlaybackContentKind == .video,
                   self.currentContentPath == active.path,
-                  self.pendingVideoDisplayIDs.isEmpty,
-                  self.runtimeCommitAdmission?(.video) != false else { return }
+                  self.videoEndDeliveryAdmission?() != false,
+                  self.videoCandidate == nil,
+                  (self.dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasPendingRequest != true else { return }
             self.videoEndState = (active.id, true)
             NotificationCenter.default.post(name: Self.playbackEndedNotification,
-                object: self, userInfo: ["videoPath": active.path, "contentKind": "video"])
+                object: self, userInfo: ["videoPath": active.path, "contentKind": "video",
+                    "executionID": self.activeVideoExecution?.id as Any,
+                    "ticket": self.activeVideoExecution?.ticket as Any])
         }
     }
 

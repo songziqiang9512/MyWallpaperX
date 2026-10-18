@@ -108,6 +108,8 @@ XPC 或 bundled helper 只有在需要隔离不可信代码、编译器崩溃、
 
 Video、Web、Scene 采用一致的控制面/播放面隔离：主 App 管用户意图、设置、唯一共享采集与异步会话控制；独立后台 AppKit 播放进程管桌面窗口、时钟、输入和渲染，不依赖主界面逐帧驱动。高频音频经后台有界单向投递，控制和目标身份变化仍由各会话 owner 串行裁决；新输出就绪后才退休旧输出。普通 XPC service 不承担桌面窗口或 WindowServer UI 所有权，窗口 renderer 使用 App 包内的独立 AppKit 入口。[Designing Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html)
 
+产品切换事务由 WallpaperManager 的唯一意图权威持有；引擎只报告身份化准备/可交接事实并执行授权的激活、回滚和退休。正常退出等待三类型精确播放进程的实际退出，父死亡兜底独立于子主循环；Web/Video窗口可见确认与Scene实际presented保持不同证据等级。迁移职责与旧分支退出见[播放生命周期设计](playback-lifecycle-transaction-design.md)。
+
 ### 3.6 迁移 owner 必须显式路由
 
 每个被通用执行器替代的旧 owner 必须登记以下 route state，不允许从调用顺序猜产品权威：

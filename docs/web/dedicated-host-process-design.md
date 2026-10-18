@@ -27,8 +27,8 @@
 - 主 App 只拥有用户意图、设置、共享采集、异步控制与状态投影。Video、Web、Scene 子进程各自拥有窗口、播放时钟、渲染、输入及本地暂停状态；持续播放不需要主 App 心跳或逐帧许可。
 - 唯一共享音频采集在后台通过带身份的线程安全投递端直接写入有界 transport，不经过 AppKit 主队列。控制面只更新投递目标与需求；Scene 保留 capture scope 与 daemon generation 校验，旧端点在停止/替换时撤权。系统歌曲信息按事件传完整快照，不能阻塞子进程播放。
 - 三者沿用同一个 DaemonProcessTransport 的有序控制、最新值合并、EOF 与退出合同。引擎专属协议/首帧判据保留，避免通用包装抹掉实际就绪语义。
-- 暂停或撤销频谱需求时，投递端先向旧合法 Video/Web 端点发送一次有序静音屏障，再拒绝迟到采集；不能只清父端快照而让子端保留旧柱高。Video 子端旧 CommandReader 仍逐条投递主队列，入站合并与父死亡硬截止期是待收敛边界，不能据父 transport 有界宣称三类型全部端到端有界。
-- 跨引擎准备期间保留旧输出。Web 在 snapshot preparation 后 commit 确认；Video 在 AVPlayerLayer 就绪提交；Scene 在实际 first-frame-presented 后，主 App 才撤下旧引擎。系统 Space/WindowServer/WebKit 本身调度仍可能带来短停顿，进程隔离不声称消除系统级暂停。
+- 暂停或撤销频谱需求时，投递端先向旧合法 Video/Web 端点发送一次有序静音屏障，再拒绝迟到采集；不能只清父端快照而让子端保留旧柱高。Video 子端 CommandReader 仍逐条投递主队列；父死亡/EOF 已有共同后台硬截止期，入站合并仍为待收敛边界。
+- 跨引擎准备期间保留旧输出。Web 在 snapshot 后补齐媒体 completion 和 WindowServer 确认，Video 在 AVPlayerLayer 就绪后补齐逐屏窗口确认，Scene 保留实际 first-frame-presented。唯一产品交接由 [播放生命周期与切换事务](../architecture/playback-lifecycle-transaction-design.md) 约束，主 App 确认旧输出退休后才 finalize 新输出。系统 Space/WindowServer/WebKit 本身调度仍可能带来短停顿，进程隔离不声称消除系统级暂停。
 
 ## 启动身份与 Dock
 
@@ -41,13 +41,13 @@ Web/Scene 复用主可执行文件，应用包默认以 `LSUIElement=YES` 的后
 - 至多一个活跃 Web 子进程与一个候选。新请求取消旧候选，保留旧活跃画面；失败或超时仅结束候选。显式停止/跨引擎停止撤销两者和所有订阅。
 - 点击后的异步作品准备与同 UUID 的空宿主启动并行；预备宿主尚不读取作品、不创建窗口或订阅采集。完成后将同一 transport 原子交给候选 Session，未完成的 hello/协议帧继续由新 Session 消费。新选择、准备失败、显式停止或 15s 未采用会结束请求预备进程；异步完成另以主 App 唯一产品意图 epoch 的只读快照拒绝迟到发布。预备与候选共用一个名额。
 - 候选窗口先位于活动壁纸之下，不在 HTML 导航完成时覆盖旧画面。导航 ready 后对当前每屏 WebView 执行一次原生 snapshot preparation；成功只说明可生成当前渲染内容，不冒充物理显示呈现时间。
-- 父 adapter 发送 commit，候选提升到正常壁纸层级并确认，然后才结束旧 Web。候选准备期间静音且不接管桌面输入，交接时应用当前音量并启用输入，避免两份作者音频重叠。显示拓扑改变会撤销旧准备代际，不能用旧 snapshot 的确认提交新 surface 集。
-- Web 入场时的跨引擎退休通知延后到可显示确认；Video/Scene 准备链继续由原 owner 管理。审查所有方向的现有 ready/retire 时机，只有实际通过的方向可声明视觉连续；不以 `didFinish`、process alive 或 `.launched` 名称替代首帧证据。
+- 父 adapter 只报告准备/可见事实；WallpaperManager 事务授权激活，候选暂升 desktop + 2，旧输出确认撤下后 finalize 恢复常规层级。候选准备期间静音且不接管桌面输入，交接时应用当前音量并启用输入，避免两份作者音频重叠。显示拓扑改变会撤销旧准备代际，不能用旧 snapshot 的确认提交新 surface 集。
+- 跨引擎退休由唯一产品事务下达，运行时通知仅投影提交事实；Video/Scene 的原生准备和资源链仍归执行端。审查所有方向的现有 ready/retire 时机，只有实际通过的方向可声明视觉连续；不以 `didFinish`、process alive 或 `.launched` 名称替代首帧证据。
 - 接受新意图时立即撤销旧导入的自动播放票据与过期候选，不能依赖延后的可见交接通知。撤销准备同时恢复实际 active 的请求投影；坏 Video、准备失败及验证早退不留下虚假的 kind/path 或继续启动的候选进程。
 - Scene 沿用现有 Host 唯一输出 owner，跨进程首帧事务补齐 prepared → commit → first-frame → finalize。最终确认前保留旧 Scene standby；新意图撤销时可以回滚已准备或尚未 finalize 的候选。commit 后另设 5s 实际呈现截止期，daemon 收到同请求 presented 即撤计时，仍等父 finalize 退休旧输出；无 presented 则回滚并报失败，父主线程阻塞不造成已呈现候选误超时。版本租约保留到对应准备/GPU 使用结束确认或进程真实退出，不在父端撤销身份时提前释放。此扩展只管启动交接，稳态渲染不等待父进程逐帧许可。
 - Video 保留既有双 AVPlayer slot，以 prepared → commit → ready → finalize 约束显示与旧 slot 释放；取消只撤未确认请求，保留已提交 slot。多屏须全部目标准备、确认后才退休旧显示集；延迟淡入和清理绑定请求代际，不能清掉后续新 slot。
-- 失败回到保留 Video 时复用同一恢复入口，重建全部或部分缺失的目标 helper。已提交 Video 的 ended 按播放 UUID 暂存，新意图准备期间不抢播；回滚到相同播放代际才消费一次，重新提交同路径或停止即撤销旧终态。自动切换 timer 只为已提交且当前意图仍为 Video、没有新候选的播放启用。
-- WebContent 自身崩溃沿原页面恢复机制；宿主进程退出通过当前 request 的有界重试恢复。新选择、停止和退出使旧重试失效。准备失败保留旧安全画面，父 App 退出先推进产品意图与异步解析代际，再关闭 stdin 并终止精确子进程，不能在等待 Scene 回收期间重新创建 Web。
+- 失败时事务撤销候选并恢复已提交端点活动权；Video helper 缺失时以同产品票据的新执行代际恢复。已提交 Video 的 ended 按播放 UUID 暂存，新意图准备期间不抢播；回滚到相同播放代际才消费一次，重新提交同路径或停止即撤销旧终态。自动切换 timer 只为已提交且当前意图仍为 Video、没有新候选的播放启用。
+- WebContent 自身崩溃沿原页面恢复机制；宿主进程退出通过当前 request 的有界重试恢复。新选择、停止和退出使旧重试失效。准备失败保留旧安全画面，父 App 退出先关闭共同进程登记的准入、推进产品意图与异步解析代际，再正常关闭 stdin 并有界回收所有精确进程，等待实际退出，不能在等待 Scene 回收期间重新创建 Web。
 
 ## 启动优化：有界空宿主与最小首帧探测
 

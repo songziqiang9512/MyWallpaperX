@@ -22,6 +22,16 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     private var preparationGeneration: UInt64 = 0
     private var didPrepare = false
     private var committed = false
+    private var finalized = false
+    private var preparedSurfaces: [WebDaemonSurfaceIdentity] = []
+    private var preparationSnapshotReady = false
+    private var activation: WebDaemonActivationRequest?
+    private var activationMediaReady = false
+    private var mediaConfirmationRevision: UInt64 = 0
+    private var activityID: UUID?
+    private var pendingCancellation: WebDaemonActivationIdentity?
+    private var activationDeadline: DispatchWorkItem?
+    private var activationPoll: DispatchWorkItem?
     private var stopping = false
 #if DEBUG
     var debugFailureCount = 0
@@ -50,12 +60,23 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.prohibited)
 #endif
         NSApp.delegate = self
+        DaemonParentLifetime.shared.setShutdownHandler { [weak self] in
+            MainActor.assumeIsolated { self?.shutdown() }
+        }
         host.defersPresentation = true
+        host.outputActivityAllowed = false
         host.presentationInvalidationHandler = { [weak self] in
-            guard let self, !self.committed, !self.stopping else { return }
+            guard let self, !self.finalized, !self.stopping else { return }
+            if let activation = self.activation {
+                self.failActivation(activation.identity, reason: "web-presentation-invalidated")
+            }
             self.preparationGeneration &+= 1
             self.didPrepare = false
-            if self.host.phase == .ready { self.preparePresentation() }
+            self.preparationSnapshotReady = false
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.host.phase == .ready else { return }
+                self.preparePresentation()
+            }
         }
         host.systemMediaDemandHandler = { [weak self] needsMedia, _ in
             self?.mediaReplayPending = false
@@ -95,10 +116,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                 }
                 return frames.pendingByteCount <= WebDaemonProtocol.maximumFrameBytes
             }
-            DispatchQueue.main.async { self?.shutdown() }
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3) {
-                Darwin.kill(Darwin.getpid(), SIGTERM)
-            }
+            DaemonParentLifetime.shared.requestShutdown()
         }
         emit(.hello)
     }
@@ -130,6 +148,15 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                     if !committed { continue }
                 }
                 host.handle(command)
+                switch command {
+                case .pause, .resume:
+                    mediaConfirmationRevision &+= 1
+                    if activation != nil { confirmActivationMedia() }
+                    else if preparationSnapshotReady && !committed { confirmPreparationMedia() }
+                    if let identity = pendingCancellation { confirmCancellation(identity) }
+                    if let id = activityID { confirmOutputActivity(host.outputActivityAllowed, id: id) }
+                default: break
+                }
             case let .displays(enabled): host.updateDisplayConfiguration(multiDisplayEnabled: enabled)
             case let .media(value):
                 guard host.systemMediaSubscriptionNeedsContent != nil else { continue }
@@ -146,7 +173,12 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             case .debugExerciseFailure: exerciseDebugFailure()
 #endif
             case let .captureFrame(id): captureFrame(id)
-            case let .commit(generation): commit(generation: generation)
+            case let .commit(generation):
+                activate(.init(identity: .init(generation: generation, activationID: UUID()), surfaces: preparedSurfaces))
+            case let .activate(request): activate(request)
+            case let .finalize(identity): finalizeActivation(identity)
+            case let .cancelActivation(identity): cancelActivation(identity)
+            case let .setOutputActivity(active, id): setOutputActivity(active, id: id)
             case .shutdown: shutdown()
             }
         }
@@ -166,10 +198,12 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     }
 
     private func preparePresentation() {
-        guard host.phase == .ready, !host.surfaces.isEmpty else { return }
+        guard host.phase == .ready, !host.surfaces.isEmpty, activation == nil, !committed else { return }
         preparationGeneration &+= 1
         let generation = preparationGeneration
         didPrepare = false
+        preparationSnapshotReady = false
+        preparedSurfaces = host.presentationSurfaceIdentities
         let surfaces = Array(host.surfaces.values)
         var remaining = surfaces.count
         var failed = false
@@ -181,27 +215,169 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             surface.webView.takeSnapshot(with: configuration) { [weak self] image, error in
                 guard let self, !self.stopping, !self.committed,
                       self.preparationGeneration == generation,
-                      self.host.surfaces[surface.screenID]?.webView === surface.webView else { return }
+                      self.host.presentationSurfaceIdentities == self.preparedSurfaces else { return }
                 failed = failed || error != nil || image == nil
                 remaining -= 1
                 guard remaining == 0 else { return }
-                if failed { self.emit(.error("web-presentation-preparation-failed")) }
-                else { self.didPrepare = true; self.emitUsage(); self.emitObservation(); self.emit(.prepared(generation)) }
+                if failed { self.emit(.error("web-presentation-preparation-failed")); return }
+                self.preparationSnapshotReady = true
+                self.host.setOutputActivity(false) { _ in }
+                self.confirmPreparationMedia()
             }
         }
     }
 
-    private func commit(generation: UInt64) {
-        guard didPrepare, preparationGeneration == generation, !committed, host.phase == .ready else { return }
-        committed = true
+    private func confirmPreparationMedia() {
+        let generation = preparationGeneration
+        host.awaitNativeMediaPolicy { [weak self] accepted in
+            guard let self, accepted, !self.stopping, !self.committed, self.activation == nil,
+                  self.preparationGeneration == generation, self.preparationSnapshotReady,
+                  self.host.presentationSurfaceIdentities == self.preparedSurfaces else { return }
+            guard !self.didPrepare else { return }
+            self.didPrepare = true
+            self.emitUsage(); self.emitObservation()
+            self.emit(.preparationCohort(.init(generation: generation, surfaces: self.preparedSurfaces)))
+            self.emit(.prepared(generation))
+        }
+    }
+
+    private func activate(_ request: WebDaemonActivationRequest) {
+        guard didPrepare, preparationGeneration == request.identity.generation,
+              request.surfaces == preparedSurfaces,
+              request.surfaces == host.presentationSurfaceIdentities,
+              !committed, host.phase == .ready, activation == nil else {
+            emit(.activationFailed(request.identity, "web-activation-identity-mismatch")); return
+        }
+        pendingCancellation = nil
+        activityID = nil
+        activation = request
+        activationMediaReady = false
+        finalized = false
         host.defersPresentation = false
+        host.usesActivationWindowLevel = true
         host.reassertSurfaceVisibilityAndRuntimeState(orderFront: true)
         host.handle(.setVolume(desiredVolume))
+        host.setOutputActivity(true) { _ in }
         CATransaction.flush()
-        DispatchQueue.main.async { [weak self] in
-            guard let self, !self.stopping else { return }
-            self.emitObservation()
-            self.emit(.committed(generation))
+        let identity = request.identity
+        let timeout = DispatchWorkItem { [weak self] in
+            guard let self, self.activation?.identity == identity, !self.committed else { return }
+            self.failActivation(identity, reason: "web-activation-timeout")
+        }
+        activationDeadline = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: timeout)
+        confirmActivationMedia()
+        checkActivationVisibility(identity)
+    }
+
+    private func confirmActivationMedia() {
+        guard let identity = activation?.identity, !committed else { return }
+        mediaConfirmationRevision &+= 1
+        let revision = mediaConfirmationRevision
+        activationMediaReady = false
+        host.awaitNativeMediaPolicy { [weak self] accepted in
+            guard let self, accepted, !self.stopping, self.activation?.identity == identity,
+                  self.mediaConfirmationRevision == revision,
+                  self.host.presentationSurfaceIdentities == self.preparedSurfaces else { return }
+            self.activationMediaReady = true
+            self.checkActivationVisibility(identity)
+        }
+    }
+
+    private func checkActivationVisibility(_ identity: WebDaemonActivationIdentity) {
+        guard !stopping, !committed, activation?.identity == identity else { return }
+        activationPoll?.cancel(); activationPoll = nil
+        guard preparationGeneration == identity.generation,
+              host.presentationSurfaceIdentities == preparedSurfaces, host.phase == .ready else {
+            failActivation(identity, reason: "web-activation-cohort-changed"); return
+        }
+        let evidence = host.surfaces.values.sorted { $0.screenID < $1.screenID }.map {
+            PlaybackSurfaceVisibility.observe(window: $0.window, displayID: $0.screenID,
+                                               expectedLevel: host.surfaceWindowLevel.rawValue)
+        }
+        if evidence.contains(where: { PlaybackSurfaceVisibility.evaluate($0) == .deferredOffSpace }) {
+            failActivation(identity, reason: "inactive-space", deferred: true); return
+        }
+        if host.outputActivityAllowed && activationMediaReady && evidence.allSatisfy({ PlaybackSurfaceVisibility.evaluate($0) == .confirmed }) {
+            committed = true
+            activationDeadline?.cancel(); activationDeadline = nil
+            emitObservation()
+            emit(.activationConfirmed(identity, evidence))
+            emit(.committed(identity.generation))
+            return
+        }
+        let poll = DispatchWorkItem { [weak self] in self?.checkActivationVisibility(identity) }
+        activationPoll = poll
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: poll)
+    }
+
+    private func finalizeActivation(_ identity: WebDaemonActivationIdentity) {
+        guard committed, activation?.identity == identity, !finalized else { return }
+        finalized = true
+        host.usesActivationWindowLevel = false
+        host.reassertSurfaceVisibilityAndRuntimeState(orderFront: false)
+        CATransaction.flush()
+    }
+
+    private func stopActivationWork() {
+        activationDeadline?.cancel(); activationDeadline = nil
+        activationPoll?.cancel(); activationPoll = nil
+        mediaConfirmationRevision &+= 1
+        activationMediaReady = false
+    }
+
+    private func failActivation(_ identity: WebDaemonActivationIdentity, reason: String, deferred: Bool = false) {
+        guard activation?.identity == identity else { return }
+        stopActivationWork()
+        activation = nil; committed = false
+        host.defersPresentation = true
+        host.usesActivationWindowLevel = false
+        host.setOutputActivity(false) { _ in }
+        host.reassertSurfaceVisibilityAndRuntimeState(orderFront: false)
+        if deferred { emit(.activationDeferred(identity, reason)) }
+        else { emit(.activationFailed(identity, reason)); emit(.error(reason)) }
+    }
+
+    private func cancelActivation(_ identity: WebDaemonActivationIdentity) {
+        guard preparationGeneration == identity.generation, !finalized,
+              activation == nil || activation?.identity == identity else { return }
+        stopActivationWork()
+        activation = nil; committed = false
+        didPrepare = false; preparationSnapshotReady = false
+        host.defersPresentation = true
+        host.usesActivationWindowLevel = false
+        for surface in host.surfaces.values { surface.window.orderOut(nil) }
+        pendingCancellation = identity
+        activityID = nil
+        host.setOutputActivity(false) { _ in }
+        confirmCancellation(identity)
+    }
+
+    private func confirmCancellation(_ identity: WebDaemonActivationIdentity) {
+        host.awaitNativeMediaPolicy { [weak self] accepted in
+            guard let self, accepted, !self.stopping,
+                  self.pendingCancellation == identity,
+                  self.preparationGeneration == identity.generation, self.activation == nil else { return }
+            self.pendingCancellation = nil
+            self.emit(.activationCancelled(identity))
+        }
+    }
+
+    private func setOutputActivity(_ active: Bool, id: UUID) {
+        // A staged candidate can only acquire activity through activate().
+        guard !active || committed || activation != nil else { return }
+        activityID = id
+        if !active { activationMediaReady = false }
+        host.setOutputActivity(active) { _ in }
+        confirmOutputActivity(active, id: id)
+    }
+
+    private func confirmOutputActivity(_ active: Bool, id: UUID) {
+        host.awaitNativeMediaPolicy { [weak self] accepted in
+            guard let self, accepted, !self.stopping, self.activityID == id,
+                  self.host.outputActivityAllowed == active else { return }
+            self.activityID = nil
+            self.emit(.outputActivityChanged(id, active))
         }
     }
 
@@ -258,8 +434,10 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     }
 
     private func shutdown() {
+        DaemonParentLifetime.shared.requestShutdown()
         guard !stopping else { return }
         stopping = true
+        stopActivationWork()
         inbox.close()
         host.handle(.stop)
         if let diagnosticObserver { NotificationCenter.default.removeObserver(diagnosticObserver) }

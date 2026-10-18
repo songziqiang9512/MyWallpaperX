@@ -7,29 +7,34 @@ import Darwin
 import UniformTypeIdentifiers
 
 extension WallpaperDaemon {
-    func play(videoPath: String, framePath: String?, fillMode: String, shouldLoopCurrentItem: Bool, requestID: Int?) {
+    func play(videoPath: String, framePath: String?, fillMode: String, shouldLoopCurrentItem: Bool, requestID: Int?, cohortID: UUID? = nil) {
         cancelVideoPreparation()
+        switchToken += 1
+        let token = switchToken
+        // Even a request rejected before AVFoundation work has a preparation
+        // identity, so its failure and later cancellation remain correlated.
+        videoPreparation = VideoPreparation(token: token, requestID: requestID,
+            videoPath: videoPath, incomingSlot: inactiveSlot, previousSlot: activeSlot,
+            previousVideoPath: currentVideoPath, previousRequestID: currentRequestID,
+            previousFillMode: currentFillMode)
+        videoPreparation?.cohortID = cohortID
+        videoPreparation?.previousCohortID = currentVideoCohortID
+        pendingStatusObservation = nil
         guard FileManager.default.fileExists(atPath: videoPath) else {
             daemonLog("video not found \(videoPath)")
-            emit(type: "failed", requestID: requestID, message: "video_not_found", videoPath: videoPath, contentKind: "video")
+            failVideoPreparation(token: token, requestID: requestID, message: "video_not_found")
             return
         }
 
         guard let screen = WallpaperDaemon.screen(for: displayID) else {
             daemonLog("screen disappeared \(displayID)")
-            emit(type: "failed", requestID: requestID, message: "screen_not_found", videoPath: videoPath, contentKind: "video")
+            failVideoPreparation(token: token, requestID: requestID, message: "screen_not_found")
             shutdown()
             return
         }
 
 
-        switchToken += 1
-        let token = switchToken
-        videoPreparation = VideoPreparation(token: token, requestID: requestID,
-            videoPath: videoPath, incomingSlot: inactiveSlot, previousSlot: activeSlot,
-            previousVideoPath: currentVideoPath, previousRequestID: currentRequestID,
-            previousFillMode: currentFillMode)
-        pendingStatusObservation = nil
+        videoPreparation?.targetScreenFrame = screen.frame
 
         configureWindowForVideoRendering()
         window.setFrame(screen.frame, display: true)
@@ -50,10 +55,10 @@ extension WallpaperDaemon {
         showFallback(framePath: framePath, gravity: fallbackGravity, fillMode: fillMode)
 
         let incomingPlayer = inactivePlayer
+        clearLooper(for: inactiveSlot)
         incomingPlayer.pause()
         incomingPlayer.removeAllItems()
         incomingPlayer.actionAtItemEnd = shouldLoopCurrentItem ? .advance : .none
-        setInactiveLooper(nil)
         clearPlaybackObservers(for: inactiveSlot)
 
         let item = AVPlayerItem(url: URL(fileURLWithPath: videoPath))

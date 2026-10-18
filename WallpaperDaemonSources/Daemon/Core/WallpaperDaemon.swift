@@ -31,6 +31,11 @@ final class WallpaperDaemon: NSObject {
         var isCommitted = false
         var isFinalized = false
         var transitionComplete = false
+        var activationID: UUID? = nil
+        var cohortID: UUID? = nil
+        var targetScreenFrame: CGRect? = nil
+        var previousCohortID: UUID? = nil
+        var visibilityConfirmed = false
     }
 
     let displayID: CGDirectDisplayID
@@ -53,9 +58,15 @@ final class WallpaperDaemon: NSObject {
     var pendingDisplayObservation: NSKeyValueObservation?
     var pendingDisplayFallbackWorkItem: DispatchWorkItem?
     var currentVideoPath: String?
+    var currentVideoCohortID: UUID?
     var currentRequestID: Int?
     var activeSlot: Slot = .primary
     var switchToken: Int = 0
+    var activationVisibilityWorkItem: DispatchWorkItem?
+    var activationVisibilityDeadline: DispatchWorkItem?
+    var outputActivityAllowed = true
+    var currentActivityID: UUID?
+    var lastVideoCancellation: DaemonCommand?
     var currentVolume: Float = 0.5
     var playbackRate: Float = 1.0
     var paused = false
@@ -98,7 +109,7 @@ final class WallpaperDaemon: NSObject {
         )
         window.level = NSWindow.Level(rawValue: WallpaperDaemon.desktopWindowLevel.rawValue - 2)
         window.backgroundColor = .black
-        window.ignoresMouseEvents = false
+        window.ignoresMouseEvents = true
         window.acceptsMouseMovedEvents = true
         window.isOpaque = true
         window.hasShadow = false

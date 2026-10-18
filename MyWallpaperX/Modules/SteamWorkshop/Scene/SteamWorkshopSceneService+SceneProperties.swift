@@ -233,7 +233,7 @@ extension SteamWorkshopService {
         guard scenePropertyOverrides(for: record) == overrides else {
             return false
         }
-        requestSceneRender(record)
+        requestSceneRender(record, newSelection: false)
         return true
     }
 #endif
@@ -435,7 +435,7 @@ extension SteamWorkshopService {
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled,
                   SceneDaemonClient.shared.hasIntent(for: record.id) else { return }
-            self?.requestSceneRender(record)
+            self?.requestSceneRender(record, newSelection: false)
         }
     }
 

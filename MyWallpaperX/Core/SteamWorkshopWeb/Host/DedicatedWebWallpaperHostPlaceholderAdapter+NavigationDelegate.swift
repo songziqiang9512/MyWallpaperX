@@ -200,6 +200,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
               let requestID = currentRequest?.id else {
             return
         }
+        phase = .launching
+        invalidatePresentation(on: surface)
         setAudioSpectrumDemand(false, for: screenID)
 
         recordDiagnostic(

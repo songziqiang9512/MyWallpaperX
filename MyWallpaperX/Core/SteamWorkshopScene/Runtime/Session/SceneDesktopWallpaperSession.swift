@@ -44,6 +44,7 @@ final class SceneDesktopWallpaperSession {
     let lifecycleID = UUID()
     var retiringSurfaces: [ObjectIdentifier: Surface] = [:]
     var isVisible = false
+    var isOutputActive = true
     var audioDemand = (spectrum: false, currentProcess: false)
     var onAudioDemandChanged: (() -> Void)?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
@@ -206,7 +207,7 @@ final class SceneDesktopWallpaperSession {
             usesSystemMedia = false
         }
 #endif
-        if usesSystemMedia, let requestID = firstPresentation?.requestID {
+        if usesSystemMedia, isOutputActive, let requestID = firstPresentation?.requestID ?? launchRequestID {
             SceneSystemMediaDemandRegistry.shared.acquire(lifecycleID, requestID: requestID)
         }
         firstFramePresentationRegistration = firstPresentation
@@ -217,8 +218,8 @@ final class SceneDesktopWallpaperSession {
             surface.window.alphaValue = 1
             surface.window.orderFrontRegardless()
         }
-        soundPlaybackRegistry?.setMuted(PlaybackMuteState.shared.isMuted)
-        if !sceneClock.isPaused { soundPlaybackRegistry?.resume() }
+        soundPlaybackRegistry?.setMuted(!isOutputActive || PlaybackMuteState.shared.isMuted)
+        if isOutputActive, !sceneClock.isPaused { soundPlaybackRegistry?.resume() }
         installPointerEventMonitorsIfNeeded()
         // A paused candidate already rendered its frame while transparent.
         // Present it once visibly without rerunning its simulation.
@@ -234,6 +235,22 @@ final class SceneDesktopWallpaperSession {
         soundPlaybackRegistry?.setMuted(true)
         setPlaybackPaused(true)
         removePointerEventMonitors()
+        SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
+    }
+
+    func setOutputActive(_ active: Bool, playbackPaused: Bool) {
+        isOutputActive = active
+        setPlaybackPaused(playbackPaused || !active)
+        soundPlaybackRegistry?.setMuted(!active || !isVisible || PlaybackMuteState.shared.isMuted)
+        if active, isVisible {
+            installPointerEventMonitorsIfNeeded()
+            if launchContext?.requiresSystemMedia == true, let launchRequestID {
+                SceneSystemMediaDemandRegistry.shared.acquire(lifecycleID, requestID: launchRequestID)
+            }
+        } else {
+            removePointerEventMonitors()
+            SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
+        }
     }
 
 

@@ -27,6 +27,7 @@ extension SceneDaemonClient {
             guard let event = payload["event"] as? String else { continue }
             switch event {
             case "candidatePrepared": handleCandidatePrepared(payload)
+            case "switchControlResult": handleSwitchControlResult(payload, generation: generation)
             case "launchResourcesReleased":
                 if let raw = payload["requestID"] as? String, let requestID = UUID(uuidString: raw) {
                     requestResourceLifetimes.removeValue(forKey: requestID)
@@ -68,8 +69,12 @@ extension SceneDaemonClient {
         guard let raw = payload["requestID"] as? String,
               let requestID = UUID(uuidString: raw),
               requestID == pendingRequestID, pendingIntent != nil else { return }
+        if reportPreparedSwitch(requestID: requestID) { return }
+#if DEBUG
+        guard switchPrepared == nil else { return }
         send(["v": SceneDaemonProtocol.version, "cmd": "commitCandidate",
               "requestID": requestID.uuidString])
+#endif
     }
 
     private func handleFrameCaptured(_ payload: [String: Any]) {
@@ -131,13 +136,23 @@ extension SceneDaemonClient {
             pendingPresentationRequestID = requestID
             pendingPresentationReachability = reachability
         } else if phase == .cancelled || phase == .failed {
+            let ticket = pendingSwitchTicket
             pendingIntent = nil
             pendingResourceLifetime = nil
             pendingRequestID = nil
             pendingPresentationRequestID = nil
             pendingPresentationReachability = nil
+            pendingSwitchTicket = nil
+            pendingSwitchExecution = nil
             finishTextureReload(recordID: recordID,
                 outcome: phase == .cancelled ? .superseded : .failed(message))
+            if let ticket {
+                if activeIntent == nil, committedSwitchRecovery?.ticket == ticket {
+                    committedSwitchRecovery = nil
+                    switchLost?(ticket, message)
+                } else { switchFailed?(ticket, message) }
+            }
+            resumeCommittedSwitchRecoveryIfPossible(after: ticket)
         }
         NotificationCenter.default.post(
             name: .sceneWallpaperLaunchStateDidChange,
@@ -151,31 +166,24 @@ extension SceneDaemonClient {
               let uptimeMs = Self.double(payload["uptimeMs"]),
               uptimeMs >= 0 else { return }
         if requestID == pendingPresentationRequestID, requestID == pendingRequestID, pendingIntent != nil {
-            let fallback = fallbackReplayIntent(requestID: requestID)
-            if let fallback, let accepted = activeIntent,
-               accepted.recordID == fallback.recordID,
-               accepted.rootURL.standardizedFileURL == fallback.rootURL.standardizedFileURL {
-                // A texture rebuild commits its own key below. Independently
-                // acknowledged keys/scalars still belong to the previous
-                // accepted version and must survive the presentation boundary.
-                activeIntent = accepted
-            } else { activeIntent = fallback ?? pendingIntent }
-            activeResourceLifetime = pendingResourceLifetime
-            activeRecordID = pendingIntent?.recordID
-            activeRequestID = requestID
-            pendingIntent = nil
-            pendingResourceLifetime = nil
-            pendingRequestID = nil
-            activeCallbackPropertyFacts = pendingPresentationReachability.map {
-                .init(transportGeneration: sessionGeneration, requestID: requestID,
-                      recordID: activeRecordID, reachability: $0)
+            if let execution = pendingSwitchExecution, let visible = switchVisible {
+                guard execution.generation == sessionGeneration,
+                      execution.requestID == requestID, execution.activated,
+                      !execution.presented else { return }
+                execution.presented = true
+                visible(execution.ticket, execution.id)
+            } else {
+#if DEBUG
+                guard switchPrepared == nil else { return }
+                commitPresentedScene(requestID: requestID)
+#else
+                return
+#endif
             }
-            pendingPresentationRequestID = nil
-            pendingPresentationReachability = nil
-            send(["v": SceneDaemonProtocol.version, "cmd": "finalizeCandidate",
-                  "requestID": requestID.uuidString])
         } else if requestID != activeRequestID { return }
-        resumeDeferredTextureUpdates(recordID: activeIntent?.recordID, requestID: requestID)
+        if requestID == activeRequestID {
+            resumeDeferredTextureUpdates(recordID: activeIntent?.recordID, requestID: requestID)
+        }
         restartBackoff.reset()
         let presentation = SceneFramePresentation(
             requestID: requestID,
@@ -324,6 +332,9 @@ extension SceneDaemonClient {
     }
 
     func handleTermination(status: Int32, generation: UInt64) {
+        // Control completions run after this termination has invalidated every
+        // execution below; a synchronous product callback may start a new child.
+        defer { finishSwitchControlsAfterExit(generation: generation) }
         if let retiring = retiringTransports.removeValue(forKey: generation) {
             retiring.closeIO()
             retiringResourceLifetimes.removeValue(forKey: generation)
@@ -341,15 +352,11 @@ extension SceneDaemonClient {
         transport = nil
         endpointReady = false
         latestFrameStats = nil
-        // 非预期退出：在途自截帧请求的 requestID 对重启后的新 daemon 无效，
-        // 且旧代事件会被 admission 拒收——立即以 nil 结清等待方。
-        failPendingFrameCaptures()
-        finishPendingTextureUpdates(.failed("Scene daemon disconnected"))
-        revokeAudioSpectrumDemand(generation: generation)
-        revokeSystemMediaDemand(generation: generation)
-
+        rememberCommittedSwitchForRecovery()
+        adoptQueuedSwitchPreparationForRecovery()
         let recoveryUsesPendingIntent = pendingIntent != nil
         let recoveryIntent = pendingIntent ?? activeIntent
+        let recoveryTicket = recoveryUsesPendingIntent ? pendingSwitchTicket : activeSwitchTicket
         let recoveryResourceLifetime = recoveryUsesPendingIntent
             ? pendingResourceLifetime
             : activeResourceLifetime
@@ -358,15 +365,23 @@ extension SceneDaemonClient {
         activeResourceLifetime = nil
         activeRecordID = nil
         activeRequestID = nil
-        activeCallbackPropertyFacts = nil
+        activeSwitchExecution = nil
+        pendingSwitchExecution = nil
         pendingRequestID = nil
         pendingPresentationRequestID = nil
         pendingPresentationReachability = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
-        guard let recoveryIntent else { return }
         pendingIntent = recoveryIntent
+        pendingSwitchTicket = recoveryTicket
         pendingResourceLifetime = recoveryResourceLifetime
-        scheduleRestart(reason: "daemon-exited-\(status)")
+        activeCallbackPropertyFacts = nil
+        if recoveryIntent != nil { scheduleRestart(reason: "daemon-exited-\(status)") }
+        // Notify external completions only after recovery facts are coherent;
+        // they may synchronously request a newer product selection.
+        failPendingFrameCaptures()
+        finishPendingTextureUpdates(.failed("Scene daemon disconnected"))
+        revokeAudioSpectrumDemand(generation: generation)
+        revokeSystemMediaDemand(generation: generation)
     }
 
     private var activeEventAdmission: SceneDaemonEventAdmission {
@@ -392,14 +407,24 @@ extension SceneDaemonClient {
                 message: "Scene daemon 连续启动失败，已停止自动重试"
             )
             launchState = state
+            let ticket = pendingSwitchTicket
             pendingIntent = nil
             pendingResourceLifetime = nil
             pendingRequestID = nil
+            pendingSwitchTicket = nil
+            pendingSwitchExecution = nil
             NotificationCenter.default.post(
                 name: .sceneWallpaperLaunchStateDidChange,
                 object: state
             )
             publishFailure(code: "restart-exhausted", message: reason)
+            if let ticket {
+                if committedSwitchRecovery?.ticket == ticket {
+                    committedSwitchRecovery = nil
+                    switchLost?(ticket, state.message)
+                } else { switchFailed?(ticket, state.message) }
+            }
+            resumeCommittedSwitchRecoveryIfPossible(after: ticket)
             return
         }
         let delay = restartBackoff.nextDelay()

@@ -90,30 +90,40 @@ class WallpaperManager: ObservableObject {
     // E2a-1: requested 层的产品级意图纪元——唯一选择权威在每次切换入口
     // 递增；runtime adapter 以单调采纳作为执行事实镜像（只读注入，
     // 不改变任何提交点）。
-    private var playbackIntentEpochCounter = PlaybackIntentEpoch()
-    var playbackIntentEpoch: UInt64 { playbackIntentEpochCounter.value }
-    private(set) var requestedRuntime: WallpaperRuntimeKind? = .video
+    var playbackSwitch = PlaybackSwitchTransaction()
+    var switchEndpoints: [UUID: PlaybackSwitchEndpoint] = [:]
+    var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
+    var switchDeadline: DispatchWorkItem?
+    var switchEffectQueue: [PlaybackSwitchTransaction.Effect] = []
+    var drainingSwitchEffects = false
+    var runtimeSwitchingConfigured = false
+    var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
+    var requestedRuntime: WallpaperRuntimeKind? { playbackSwitch.requestedRuntime }
 
     @discardableResult
     func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64 {
-        let epoch = playbackIntentEpochCounter.begin()
-        requestedRuntime = runtime
+        let epoch: UInt64
+        if let runtime {
+            let result = playbackSwitch.begin(runtime)
+            epoch = result.0.epoch
+            runSwitchEffects(result.1)
+            scheduleSwitchDeadline(result.0)
+        } else {
+            let effects = playbackSwitch.stop()
+            epoch = playbackSwitch.epoch
+            runSwitchEffects(effects)
+        }
         ImportedVideoAutoplayGate.shared.invalidate()
         if runtime != .video {
             pendingWallpaper = nil
             stopAutoSwitchTimer()
         }
-        if runtime != .scene {
-            SceneDaemonClient.shared.cancelPreparationForRuntimeSwitch()
-        }
         return epoch
     }
 
     func restoreCommittedPlaybackIntent() {
-        requestedRuntime = WallpaperRuntimeKind(rawValue: activeWallpaperRuntime.rawValue)
-        if activeWallpaperRuntime == .video { refreshAutoSwitchTimerIfNeeded() }
-        else { stopAutoSwitchTimer() }
-        WallpaperEngine.shared.replayDeferredVideoEndIfNeeded()
+        guard let ticket = playbackSwitch.pending?.selection.ticket else { return }
+        runSwitchEffects(playbackSwitch.failed(ticket, reason: "已取消壁纸准备"))
     }
     
     // 标签管理
@@ -232,10 +242,8 @@ class WallpaperManager: ObservableObject {
         loadSavedState()
         loadPerSelectionSortStates()
         gridZoomOffset = UserDefaults.standard.object(forKey: "gridZoomOffset") as? Int ?? 0
-        refreshAutoSwitchTimerIfNeeded()
-        seedEngineProjectionFromPersistedSettings()
-        restorePlaybackState()
-        restorePersistedSystemAudioSpectrumIfNeeded()
+        // Actual playback starts after App has installed the three endpoints.
+        // Loading persisted selection must not race their commit callbacks.
 
         // 后台扫描缺失的视频元数据（时长、分辨率等）
         scanForMissingMetadata()
@@ -282,15 +290,17 @@ class WallpaperManager: ObservableObject {
         // 监听播放状态变化，自动保存
         $isPlaying
         .dropFirst()
-        .sink {[weak self] _ in
-            self?.savePlaybackState()
+        .sink {[weak self] value in
+            guard let self else { return }
+            self.defaults.set(value, forKey: self.playbackStateKey)
         }
         .store(in: &cancellables)
 
         $activeWallpaperRuntime
         .dropFirst()
-        .sink { [weak self] _ in
-            self?.saveActiveWallpaperRuntime()
+        .sink { [weak self] value in
+            guard let self else { return }
+            self.saveCodableValue(value, forKey: self.activeWallpaperRuntimeKey)
         }
         .store(in: &cancellables)
 
@@ -300,7 +310,7 @@ class WallpaperManager: ObservableObject {
         lastAppliedHotkeySettings = HotkeySettingsSnapshot(settings: settings)
     }
 
-    private func restorePersistedSystemAudioSpectrumIfNeeded() {
+    func restorePersistedSystemAudioSpectrumIfNeeded() {
         guard settings.systemAudioSpectrumEnabled else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self, self.settings.systemAudioSpectrumEnabled else { return }

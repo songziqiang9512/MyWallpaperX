@@ -356,9 +356,11 @@ final class WallpaperEngine {
         session.process.isRunning = false; e.refreshVideoSpectrumTargets()
         precondition(!output.overlay, "dead Video target must not retain capture")
         session.process.isRunning = true
-        e.currentWebRequestID = UUID(); e.currentWebAudioSpectrumRequested = true
+        e.currentWebAudioSpectrumRequested = true
         e.refreshVideoSpectrumTargets()
-        precondition(output.overlay && output.web, "retained Video and preparing Web both receive music")
+        precondition(e.currentWebRequestID == nil && output.overlay && output.web,
+            "preparing Web demand must not wait for product adoption")
+        e.currentWebRequestID = UUID()
         e.displaySessions.removeAll(); e.refreshVideoSpectrumTargets()
         precondition(!output.overlay && output.web, "Video retirement must retain Web demand")
         e.currentWebAudioSpectrumRequested = false
@@ -403,6 +405,7 @@ final class WallpaperEngine {
                 "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift",
                 "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift",
                 "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift",
+                "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
                 "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonIO.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
             ]

@@ -235,9 +235,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         default:
             switch command {
             case .pause:
+                outputActivityRevision &+= 1
                 paused = true
                 forEachWebView { self.applyPausedState(true, to: $0) }
             case let .resume(playbackRate):
+                outputActivityRevision &+= 1
                 paused = false
                 currentPlaybackRate = playbackRate
                 forEachWebView {

@@ -20,7 +20,7 @@ extension SceneDesktopWallpaperSession {
 
     func installPointerEventMonitorsIfNeeded() {
         removePointerEventMonitors()
-        guard isVisible else { return }
+        guard isVisible, isOutputActive else { return }
         guard launchContext?.sceneScriptCursorProgram.ownerCount ?? 0 > 0 else {
             return
         }
@@ -52,6 +52,7 @@ extension SceneDesktopWallpaperSession {
     }
 
     private func capturePointerEvent(_ event: NSEvent) {
+        guard isVisible, isOutputActive else { return }
 #if DEBUG
         guard debugPointerOverride == nil else { return }
 #endif

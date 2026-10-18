@@ -71,25 +71,23 @@ public final class WallpaperEngine: NSObject {
         }
     }
     var videoEndState: (playbackID: UUID, delivered: Bool)?
-    var pendingVideoDisplayIDs: Set<CGDirectDisplayID> = []
-    var pendingVideoIsRetainedRecovery = false
-    var videoPreparationIntentEpoch: UInt64 = 0
+    var videoEndDeliveryAdmission: (() -> Bool)?
+    var videoOutputAcknowledgements: [UUID: VideoOutputAcknowledgement] = [:]
+    var pendingVideoRecovery: VideoSwitchExecution?
+    var deferredVideoPreparation: DeferredVideoSwitchPreparation?
+    var videoCandidate: VideoSwitchExecution?
+    var videoExecutions: [UUID: VideoSwitchExecution] = [:]
     var currentWallpaper: VideoWallpaper?
     var currentContentPath: String?
     var currentPlaybackContentKind: PlaybackContentKind?
     var currentWebPropertiesJSON: String?
     var currentWebRecordID: String?
     var currentWebRequestID: UUID?
-    /// E2a-4: a web launch is preparing over a still-running video runtime —
-    /// the video sessions retire only on web `.ready`, and a web `.failed`
-    /// restores the video kind so the old visible output is retained.
-    var pendingVideoRetirementOnWebReady = false
-    var pendingWebRetirementOnVideoReady = false
-    var runtimeCommitAdmission: ((WallpaperRuntimeKind) -> Bool)?
-    /// E2a-4: video truth retained while a web launch prepares over it.
-    var retainedVideoWallpaper: VideoWallpaper?
-    var retainedVideoContentPath: String?
-    var retainedVideoMultiDisplayEnabled: Bool?
+    var activeVideoExecution: VideoSwitchExecution?
+    var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
+    var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
+    var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?
+    var switchLost: ((PlaybackSwitchTicket, String) -> Void)?
     var playbackIntentEpoch: UInt64 = 0
     lazy var dedicatedWebHostAdapter: WebWallpaperHostAdapter = WebDaemonHostAdapter(spectrumDelivery: spectrumDelivery)
     var displayIDs: [CGDirectDisplayID] = []
@@ -134,6 +132,7 @@ public final class WallpaperEngine: NSObject {
                 }
             }
         }
+        configureWebSwitchCallbacks()
         systemAudioSpectrumService = makeSystemAudioSpectrumService(barCount: WallpaperEngine.defaultSpectrumBarCount)
         observeSceneAudioSpectrumDemand()
         NotificationCenter.default.addObserver(self, selector: #selector(handleScreenParametersChanged),
@@ -147,96 +146,23 @@ public final class WallpaperEngine: NSObject {
         videoFillMode: String,
         shouldLoopCurrentItem: Bool
     ) {
-        // 对外统一入口接收每个合法切换；交互去抖由调用层负责。
         beginPlaybackIntent()
-        cancelPreparationRetainingActivePlayback()
-        applyWallpaper(
-            wallpaper,
-            multiDisplayEnabled: multiDisplayEnabled,
-            videoFillMode: videoFillMode,
-            shouldLoopCurrentItem: shouldLoopCurrentItem
-        )
+        prepareVideoSwitch(wallpaper,
+            ticket: .init(epoch: playbackIntentEpoch, id: UUID(), runtime: .video),
+            multiDisplayEnabled: multiDisplayEnabled, videoFillMode: videoFillMode,
+            shouldLoopCurrentItem: shouldLoopCurrentItem)
     }
 
-    func applyWallpaper(
-        _ wallpaper: VideoWallpaper,
-        multiDisplayEnabled: Bool,
-        videoFillMode: String,
-        shouldLoopCurrentItem: Bool,
-        retainedVideoRecovery: Bool = false
-    ) {
-        let previousNormalizedPath = currentWallpaper.map { normalizedPath($0.path) }
-        let incomingNormalizedPath = normalizedPath(wallpaper.path)
-        let previousVideoFillMode = currentVideoFillMode
-        let previousMultiDisplayEnabled = currentMultiDisplayEnabled
-        let previousShouldLoopCurrentItem = currentShouldLoopCurrentItem
-
-        if currentPlaybackContentKind == .web {
-            (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.cancelPreparation()
-            pendingWebRetirementOnVideoReady = true
-        }
-
-        // 先更新内存态，再决定是否复用现有 daemon session 或下发新的 play 命令。
-        currentWallpaper = wallpaper
-        currentContentPath = incomingNormalizedPath
-        currentPlaybackContentKind = .video
-        currentVideoFillMode = videoFillMode
-        currentMultiDisplayEnabled = multiDisplayEnabled
-        currentShouldLoopCurrentItem = shouldLoopCurrentItem
-
-        scanDisplays()
-        let targetDisplayIDs = multiDisplayEnabled ? displayIDs : [displayIDs.first].compactMap { $0 }
-        let existingDisplayIDs = Set(displaySessions.keys)
-        let targetDisplayIDSet = Set(targetDisplayIDs)
-        let noObsoleteDisplaySessions = existingDisplayIDs.isSubset(of: targetDisplayIDSet)
-        let targetSessionsReady = !targetDisplayIDs.isEmpty
-            && targetDisplayIDs.allSatisfy { displaySessions[$0]?.process.isRunning == true }
-
-        let isSameWallpaperRequest = previousNormalizedPath == incomingNormalizedPath
-        let isConfigurationUnchanged =
-            previousVideoFillMode == videoFillMode
-            && previousMultiDisplayEnabled == multiDisplayEnabled
-            && previousShouldLoopCurrentItem == shouldLoopCurrentItem
-
-        // 同一壁纸、同一配置且 session 仍然有效时，直接刷新播放状态，不重建播放链路。
-        if currentPlaybackContentKind == .video
-            && !pendingWebRetirementOnVideoReady
-            && isSameWallpaperRequest
-            && isConfigurationUnchanged
-            && noObsoleteDisplaySessions
-            && targetSessionsReady
-            && activeVideoPlayback?.path == incomingNormalizedPath
-            && videoEndState?.playbackID != activeVideoPlayback?.id {
-            PlaybackPolicyController.shared.refresh()
-            if activeVideoPlayback?.path == incomingNormalizedPath,
-               runtimeCommitAdmission?(.video) != false {
-                // Reusing a finalized slot still settles the new selection.
-                NotificationCenter.default.post(name: Self.playbackReadyNotification,
-                    object: self, userInfo: ["videoPath": incomingNormalizedPath])
-            }
-            return
-        }
-
-        pendingVideoDisplayIDs = targetDisplayIDSet
-        pendingVideoIsRetainedRecovery = retainedVideoRecovery
-        videoPreparationIntentEpoch = playbackIntentEpoch
-
-        for displayID in targetDisplayIDs {
-            guard let session = ensureSession(for: displayID) else {
-                reportVideoPlaybackFailure(path: incomingNormalizedPath,
-                    message: "无法启动视频播放进程")
-                return
-            }
-            sendPlayCommand(
-                for: incomingNormalizedPath,
-                framePath: wallpaper.staticFramePath,
-                fillMode: videoFillMode,
-                shouldLoopCurrentItem: shouldLoopCurrentItem,
-                to: session
-            )
-        }
-
-        PlaybackPolicyController.shared.refresh()
+    /// Rebuilds an execution of the committed ticket without inventing a new
+    /// product selection. The Manager still chooses whether it may activate.
+    func applyWallpaper(_ wallpaper: VideoWallpaper, multiDisplayEnabled: Bool,
+                        videoFillMode: String, shouldLoopCurrentItem: Bool) {
+        guard videoCandidate == nil else { return }
+        let ticket = activeVideoExecution?.ticket
+            ?? .init(epoch: playbackIntentEpoch, id: UUID(), runtime: .video)
+        prepareVideoSwitch(wallpaper, ticket: ticket,
+            multiDisplayEnabled: multiDisplayEnabled, videoFillMode: videoFillMode,
+            shouldLoopCurrentItem: shouldLoopCurrentItem)
     }
 
     func normalizedPath(_ path: String) -> String {
@@ -261,15 +187,16 @@ public final class WallpaperEngine: NSObject {
 
     public func stopPlayback() {
         beginPlaybackIntent()
-        (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.cancelPreparation()
-        pendingWebRetirementOnVideoReady = false
-        pendingVideoDisplayIDs.removeAll()
-        pendingVideoIsRetainedRecovery = false
+        deferredVideoPreparation = nil
+        pendingVideoRecovery = nil
+        (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.handle(.stop)
+        for execution in Array(videoExecutions.values) {
+            if execution.finalized { execution.retired = true; videoExecutions.removeValue(forKey: execution.id) }
+            else { cancelVideoExecution(execution, completion: {}) }
+        }
+        videoCandidate = nil
+        activeVideoExecution = nil
         activeVideoPlayback = nil
-        pendingVideoRetirementOnWebReady = false
-        retainedVideoWallpaper = nil
-        retainedVideoContentPath = nil
-        retainedVideoMultiDisplayEnabled = nil
         // Reclaim the actual owned sessions even when a cancelled transition
         // has already restored the active Web projection.
         for displayID in Array(displaySessions.keys) {
@@ -315,7 +242,7 @@ public final class WallpaperEngine: NSObject {
         currentVolumeNormalized = normalizedVolume
         let effectiveVolume = PlaybackMuteState.shared.isMuted ? 0 : normalizedVolume
 
-        if currentWebRequestID != nil {
+        if (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasLivePlayback == true {
             dispatchWebRuntimeCommand(.setVolume(effectiveVolume))
         }
         // A preparing Web surface may still retain the previous video sessions.
@@ -329,6 +256,7 @@ public final class WallpaperEngine: NSObject {
         // 同步镜像：屏幕参数变化/daemon 崩溃恢复重发 play 时读取的是
         // 引擎镜像，不更新会把填充模式回跳到上一次装载时的值。
         currentVideoFillMode = fillMode
+        updateVideoExecutionPolicies(fillMode: fillMode)
         for session in displaySessions.values where session.process.isRunning {
             send(DaemonCommand(action: "setFillMode", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: fillMode, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
@@ -338,6 +266,7 @@ public final class WallpaperEngine: NSObject {
         // 只更新循环状态，不重载视频，避免切换自动切换开关时画面闪烁。
         // 不做去重，确保每次开关操作都能可靠送达 daemon。
         currentShouldLoopCurrentItem = shouldLoop
+        updateVideoExecutionPolicies(shouldLoop: shouldLoop)
         for session in displaySessions.values where session.process.isRunning {
             send(DaemonCommand(action: "setLoop", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: shouldLoop, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
@@ -347,7 +276,7 @@ public final class WallpaperEngine: NSObject {
         // Web 宿主可独立调整速率，不能为了调速而意外恢复已经暂停的页面。
         let clampedRate = max(0.25, min(2.0, rate))
         targetPlaybackRate = clampedRate
-        if currentWebRequestID != nil {
+        if (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasLivePlayback == true {
             dispatchWebRuntimeCommand(.setPlaybackRate(clampedRate))
         }
         guard !playbackPaused else { return }
@@ -365,7 +294,8 @@ public final class WallpaperEngine: NSObject {
             return currentContentPath != nil
         }
 
-        return displaySessions.values.contains { $0.process.isRunning }
+        guard let active = activeVideoExecution, active.finalized, !active.retired else { return false }
+        return active.sessions.values.contains { $0.process.isRunning }
     }
 
     public func togglePlayback() {

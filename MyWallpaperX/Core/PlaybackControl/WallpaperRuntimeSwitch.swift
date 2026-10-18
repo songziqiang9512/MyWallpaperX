@@ -1,6 +1,6 @@
 import Foundation
 
-enum WallpaperRuntimeKind: String {
+nonisolated enum WallpaperRuntimeKind: String, Hashable, Sendable {
     case video
     case web
     case scene

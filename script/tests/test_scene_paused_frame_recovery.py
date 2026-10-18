@@ -127,6 +127,7 @@ final class Window {
     func close() { closes += 1 }
 }
 final class VideoProviders {
+    func discardPreparedFrame() {}
     func pause(sceneTime: Double, hostTime: Double) {}
     func resume(sceneTime: Double, hostTime: Double) {}
     func commitPreparedFrame() {}
@@ -188,6 +189,8 @@ final class SceneDesktopWallpaperSession {
     var videoTextureSourceRegistry: VideoProviders?
     var soundPlaybackRegistry: SoundProviders?
     var isVisible = true
+    var isOutputActive = true
+    var initialUserVideoPreparation: WorkItem?
     var performanceProfile = PlaybackPerformanceProfile()
     var screenReconciliationWorkItem: WorkItem?
     var screenTopology: [Int] = [], rebuiltTopology: [Int] = []

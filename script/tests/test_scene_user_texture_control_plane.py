@@ -33,6 +33,8 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
             handlers += "\n" + scalar.replace("private func", "func", 1)
             handlers += "\n" + method_body(CLIENT.read_text(), "func stop(postsLaunchState:")
             handlers += "\n" + method_body(CLIENT.read_text(), "func requestLaunch(")
+            handlers += "\n" + method_body(CLIENT.read_text(), "func startLaunch(")
+            handlers += "\n" + method_body((EVENTS.parent / "SceneDaemonClient+SwitchEndpoint.swift").read_text(), "func commitPresentedScene(")
             handlers += "\n" + method_body(CLIENT.read_text(), "func cancelPreparationForRuntimeSwitch(")
             probe = work / "Probe.swift"
             probe.write_text((ROOT / "script/tests/fixtures/SceneUserTextureControlChecks.swift").read_text()
@@ -49,7 +51,7 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
                 SCENE / "Runtime/IPC/SceneDaemonMediaProtocol.swift",
                 SCENE / "Runtime/IPC/SceneDaemonProtocol.swift", TEXTURES, probe,
             ]
-            result = subprocess.run(["swiftc", *map(str, sources), "-enable-upcoming-feature", "MemberImportVisibility", "-module-cache-path", str(work / "cache"),
+            result = subprocess.run(["swiftc", "-D", "DEBUG", *map(str, sources), "-enable-upcoming-feature", "MemberImportVisibility", "-module-cache-path", str(work / "cache"),
                 "-o", str(work / "control")], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(work / "control")], capture_output=True, text=True, timeout=10)

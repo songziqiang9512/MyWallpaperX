@@ -71,6 +71,117 @@ nonisolated struct DaemonCommandBuffer<Control, Droppable> {
     }
 }
 
+/// Physical renderer ownership survives logical active/candidate/idle retirement.
+/// Only explicitly marked playback transports enter this registry.
+nonisolated final class DaemonPlaybackProcessRegistry: @unchecked Sendable {
+    static let shared = DaemonPlaybackProcessRegistry()
+
+    struct ShutdownResult: Sendable {
+        let remainingProcessIdentifiers: [Int32]
+        var allExited: Bool { remainingProcessIdentifiers.isEmpty }
+    }
+
+    private let lock = NSRecursiveLock()
+    private let queue = DispatchQueue(label: "com.mywallpaperx.playback-process-exit")
+    private var transports: [ObjectIdentifier: DaemonProcessTransport] = [:]
+    private var admissionClosed = false
+    private var result: ShutdownResult?
+    typealias Completion = @MainActor @Sendable (ShutdownResult) -> Void
+    private var completions: [Completion] = []
+    private let gracePeriod: TimeInterval
+    private let terminatePeriod: TimeInterval
+    private let killPeriod: TimeInterval
+
+    init(gracePeriod: TimeInterval = 2, terminatePeriod: TimeInterval = 1,
+         killPeriod: TimeInterval = 1) {
+        self.gracePeriod = gracePeriod
+        self.terminatePeriod = terminatePeriod
+        self.killPeriod = killPeriod
+    }
+
+    var acceptsNewProcesses: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !admissionClosed
+    }
+
+    var liveProcessIdentifiers: [Int32] {
+        lock.lock(); defer { lock.unlock() }
+        return transports.values.map { $0.process.processIdentifier }.sorted()
+    }
+
+    func start(_ transport: DaemonProcessTransport, launch: () throws -> Void) throws {
+        lock.lock(); defer { lock.unlock() }
+        guard !admissionClosed else {
+            throw NSError(domain: "DaemonPlaybackProcessRegistry", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Playback process admission is closed"])
+        }
+        let id = ObjectIdentifier(transport)
+        transports[id] = transport
+        do { try launch() }
+        catch {
+            if !transport.isRunning { transports.removeValue(forKey: id) }
+            throw error
+        }
+    }
+
+    func didExit(_ transport: DaemonProcessTransport) {
+        lock.lock()
+        transports.removeValue(forKey: ObjectIdentifier(transport))
+        if admissionClosed, transports.isEmpty { finishLocked() }
+        lock.unlock()
+    }
+
+    /// Starts the common wall-clock deadline before any engine teardown work.
+    func closeAdmission() {
+        lock.lock()
+        guard !admissionClosed else { lock.unlock(); return }
+        admissionClosed = true
+        let start = DispatchTime.now()
+        queue.asyncAfter(deadline: start + gracePeriod) { [self] in
+            for transport in snapshot() { transport.terminate() }
+        }
+        queue.asyncAfter(deadline: start + gracePeriod + terminatePeriod) { [self] in
+            for transport in snapshot() { transport.killIfRunning() }
+        }
+        queue.asyncAfter(deadline: start + gracePeriod + terminatePeriod + killPeriod) { [self] in
+            lock.lock(); finishLocked(); lock.unlock()
+        }
+        if transports.isEmpty { finishLocked() }
+        lock.unlock()
+    }
+
+    func waitForExit(completion: @escaping Completion) {
+        closeAdmission()
+        lock.lock()
+        if let result { Self.deliver(result, to: [completion]) }
+        else { completions.append(completion) }
+        lock.unlock()
+    }
+
+    private func snapshot() -> [DaemonProcessTransport] {
+        lock.lock(); defer { lock.unlock() }
+        return Array(transports.values)
+    }
+
+    private func finishLocked() {
+        guard result == nil || (transports.isEmpty && result?.allExited == false) else { return }
+        let value = ShutdownResult(remainingProcessIdentifiers:
+            transports.values.map { $0.process.processIdentifier }.sorted())
+        result = value
+        let callbacks = completions
+        completions.removeAll()
+        Self.deliver(value, to: callbacks)
+    }
+
+    private static func deliver(_ result: ShutdownResult, to callbacks: [Completion]) {
+        guard !callbacks.isEmpty else { return }
+        RunLoop.main.perform(inModes: [.common, .init("NSModalPanelRunLoopMode")]) {
+            MainActor.assumeIsolated { callbacks.forEach { $0(result) } }
+        }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+}
+
 /// One child process wired to stdin/stdout/stderr pipes. Protocol payloads,
 /// session identity, and restart decisions stay with the owning engine client.
 nonisolated final class DaemonProcessTransport: @unchecked Sendable {
@@ -84,6 +195,11 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
     var onTermination: ((Int32) -> Void)?
 
     private(set) var hasStarted = false
+    private let playbackRegistry: DaemonPlaybackProcessRegistry?
+    private let lifetimeLock = NSLock()
+    private var physicalExitRecorded = false
+    private var terminationDeadline: DispatchTime?
+    private let terminationQueue = DispatchQueue(label: "com.mywallpaperx.daemon-stop-deadline")
     private let inputStateLock = NSLock()
     private let inputWriteQueue = DispatchQueue(
         label: "com.mywallpaperx.daemon-input-writer",
@@ -122,13 +238,20 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
     private static let maximumErrorBytes = 2 * 1_024 * 1_024
     private static let maximumReceivedChunks = 1_024
 
-    init(executableURL: URL, arguments: [String]) {
+    init(executableURL: URL, arguments: [String], playbackRenderer: Bool = false,
+         playbackRegistry: DaemonPlaybackProcessRegistry = .shared) {
+        self.playbackRegistry = playbackRenderer ? playbackRegistry : nil
         let process = Process()
         let inputPipe = Pipe()
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         process.executableURL = executableURL
         process.arguments = arguments
+        if playbackRenderer {
+            var environment = ProcessInfo.processInfo.environment
+            environment["MWX_PLAYBACK_PARENT_PID"] = String(getpid())
+            process.environment = environment
+        }
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
         process.standardError = errorPipe
@@ -148,14 +271,22 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
             F_SETNOSIGPIPE,
             1
         )
-        process.terminationHandler = { [weak self] process in
-            self?.recordExit(process.terminationStatus)
+        // Keep the transport alive even after its engine removes a logical
+        // session. The cycle ends only after Foundation observes actual exit.
+        process.terminationHandler = { [self] process in
+            recordExit(process.terminationStatus)
+            process.terminationHandler = nil
         }
         do {
-            try process.run()
+            if let playbackRegistry {
+                try playbackRegistry.start(self) { try process.run() }
+            } else {
+                try process.run()
+            }
             try startReader(outputPipe.fileHandleForReading, stream: .output)
             try startReader(errorPipe.fileHandleForReading, stream: .error)
         } catch {
+            if !process.isRunning { process.terminationHandler = nil }
             terminate()
             throw error
         }
@@ -297,6 +428,12 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
     }
 
     private func recordExit(_ status: Int32) {
+        lifetimeLock.lock()
+        physicalExitRecorded = true
+        lifetimeLock.unlock()
+        // This precedes protocol-tail delivery and never depends on main being
+        // available. Output EOF is a separate protocol concern.
+        playbackRegistry?.didExit(self)
         receiveLock.lock()
         exitStatus = status
         scheduleReceiveDrainLocked()
@@ -325,16 +462,13 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
         // No truncated protocol stream is presented as a successful endpoint.
         // The explicit failure is delivered before the termination callback.
         terminate()
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 1) { [weak self] in
-            guard let self, self.process.isRunning else { return }
-            _ = Darwin.kill(self.process.processIdentifier, SIGKILL)
-        }
+        terminationQueue.asyncAfter(deadline: .now() + 1) { [weak self] in self?.killIfRunning() }
     }
 
     private func scheduleReceiveDrainLocked() {
         guard !receiveDrainScheduled else { return }
         receiveDrainScheduled = true
-        RunLoop.main.perform(inModes: [.common]) { [weak self] in self?.drainReceived() }
+        RunLoop.main.perform(inModes: [.common, .init("NSModalPanelRunLoopMode")]) { [weak self] in self?.drainReceived() }
         CFRunLoopWakeUp(CFRunLoopGetMain())
     }
 
@@ -380,10 +514,27 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
     }
 
     func terminate() {
-        if process.isRunning {
-            process.terminate()
-        }
+        lifetimeLock.lock()
+        if !physicalExitRecorded, process.isRunning { process.terminate() }
+        lifetimeLock.unlock()
         closeIO()
+        if playbackRegistry != nil {
+            terminationQueue.asyncAfter(deadline: .now() + 1) { [weak self] in self?.killIfRunning() }
+        }
+    }
+
+    func killIfRunning() {
+        lifetimeLock.lock(); defer { lifetimeLock.unlock() }
+        guard !physicalExitRecorded, process.isRunning else { return }
+        _ = Darwin.kill(process.processIdentifier, SIGKILL)
+    }
+
+    /// Preserve ordered shutdown controls before EOF. An unresponsive reader
+    /// cannot extend the process-specific TERM/KILL deadline.
+    func requestGracefulStop(_ command: Data? = nil, gracePeriod: TimeInterval = 2) {
+        if let command { _ = send(command) }
+        closeInput()
+        scheduleForcedTermination(after: gracePeriod)
     }
 
     private func enqueueInput(_ data: Data, droppable: Bool) -> Bool {
@@ -502,12 +653,15 @@ nonisolated final class DaemonProcessTransport: @unchecked Sendable {
     }
 
     func scheduleForcedTermination(after delay: TimeInterval) {
-        DispatchQueue.global(qos: .utility).asyncAfter(
-            deadline: .now() + delay
-        ) { [weak self] in
-            guard let self, self.process.isRunning else { return }
-            self.terminate()
+        let deadline = DispatchTime.now() + max(0, delay)
+        lifetimeLock.lock()
+        guard !physicalExitRecorded,
+              terminationDeadline == nil || deadline < terminationDeadline! else {
+            lifetimeLock.unlock(); return
         }
+        terminationDeadline = deadline
+        lifetimeLock.unlock()
+        terminationQueue.asyncAfter(deadline: deadline) { [weak self] in self?.terminate() }
     }
 }
 

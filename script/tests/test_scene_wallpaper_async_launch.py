@@ -104,36 +104,23 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.shader_reachability = SHADER_REACHABILITY.read_text(encoding="utf-8")
         cls.variant_cache = VARIANT_CACHE.read_text(encoding="utf-8")
 
-    def test_product_request_uses_daemon_command_and_switches_on_real_presentation(self) -> None:
-        observer = function_body(
-            self.coordinator,
-            "private static func observeSteamWorkshopSceneReadyToRender()",
-        )
-        self.assertIn("PlaybackCommandMultiplexer.shared.dispatch(", observer)
-        self.assertIn(".loadScene(.init(", observer)
-        self.assertIn("to: .scene", observer)
-        self.assertNotIn("SceneDesktopWallpaperHost.shared", observer)
-        commit_observer = function_body(
-            self.coordinator,
-            "private static func observeSceneFirstFrameCommit()",
-        )
-        self.assertIn("sceneWallpaperFirstFrameDidPresent", commit_observer)
-        self.assertIn("postWallpaperRuntimeWillSwitch", commit_observer)
-        self.assertIn("WallpaperEngine.shared.stopPlayback()", commit_observer)
+    def test_product_request_uses_single_transaction_and_native_presentation(self) -> None:
+        configure = function_body(self.coordinator, "static func configure(")
+        self.assertIn("manager.setSceneWallpaper(", configure)
+        self.assertNotIn("SceneDesktopWallpaperHost.shared", configure)
+        self.assertNotIn("sceneHandoff", self.coordinator)
+        self.assertNotIn("postWallpaperRuntimeWillSwitch", self.coordinator)
+        owner = (ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift").read_text()
+        self.assertIn("SceneDaemonClient.shared.prepareSwitch(", owner)
+        self.assertIn("playbackSwitch.visible(ticket, executionID:", owner)
+        self.assertIn("postWallpaperRuntimeWillSwitch", function_body(owner, "private func commitSwitch("))
 
     def test_main_window_projects_central_launch_state(self) -> None:
         configure = function_body(self.coordinator, "static func configure(")
-        observer = function_body(
-            self.coordinator,
-            "private static func observeSceneWallpaperLaunchState()",
-        )
-        self.assertIn("observeSceneWallpaperLaunchState()", configure)
-        self.assertIn("sceneWallpaperLaunchStateDidChange", observer)
-        self.assertIn("SteamWorkshopService.shared.statusMessage", observer)
-        self.assertIn("当前壁纸会继续播放", observer)
-        self.assertIn("正在等待首帧显示", observer)
-
-
+        self.assertIn(".sceneWallpaperLaunchStateDidChange", configure)
+        self.assertIn("SteamWorkshopService.shared.statusMessage", configure)
+        self.assertIn("当前壁纸会继续播放", configure)
+        self.assertIn("正在等待首帧显示", configure)
 
     def test_progress_uses_truthful_indeterminate_stages(self) -> None:
         prepare = function_body(self.launch, "private static func prepareLaunch(")
@@ -258,7 +245,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             harness.write_text(source)
             binary = path / "harness"
             compilation = subprocess.run([
-                "xcrun", "swiftc", "-swift-version", "5", "-parse-as-library",
+                "xcrun", "swiftc", "-D", "DEBUG", "-swift-version", "5", "-parse-as-library",
                 str(LAUNCH.with_name("SceneDesktopWallpaperLaunchModels.swift")),
                 str(harness), "-o", str(binary),
             ], capture_output=True, text=True, timeout=60)
@@ -297,12 +284,14 @@ def property_launch_harness(host_source: str) -> str:
     textures = (ipc / "SceneDaemonClient+UserTextures.swift").read_text()
     client_methods = "\n".join([
         method(client, "func requestLaunch("),
+        method(client, "func startLaunch("),
         method(client, "func cancelPreparationForRuntimeSwitch("),
         method(client, "private func applyPropertyValues("),
         method(client, "func hasIntent("),
         method(events, "private func handlePropertyUpdateResult("),
         method(events, "private func handleLaunchState("),
         method(events, "private func handleFirstFrame("),
+        method((ipc / "SceneDaemonClient+SwitchEndpoint.swift").read_text(), "func commitPresentedScene("),
         method(client, "func preparedCallbackPropertyKeys("),
     ] + [method(textures, signature) for signature in [
         "func applyUserTextureUpdate(", "func reloadUserTextureUpdate(",
@@ -438,7 +427,27 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
 }
 
 @MainActor final class SceneDaemonClient {
-    struct Lifetime { let rootURL: URL; let recordID: String? }
+    typealias PlaybackSwitchTicket = Int
+    final class SwitchExecution {
+        let generation:UInt64=0,requestID=UUID(),id=UUID(),ticket=0
+        var activated=false,presented=false
+    }
+    var pendingSwitchTicket:Int?,activeSwitchTicket:Int?
+    var pendingSwitchExecution:SwitchExecution?,activeSwitchExecution:SwitchExecution?
+    struct QueuedSwitchPreparation {
+        let request:ScenePlaybackLoadRequest;let ticket:Int;let resourceLifetime:Int?
+    }
+    var queuedSwitchPreparation:QueuedSwitchPreparation?
+    struct CommittedSwitchRecovery {let ticket:Int}
+    var committedSwitchRecovery:CommittedSwitchRecovery?
+    var switchPrepared:Bool?
+    var switchVisible:((Int,UUID)->Void)?
+    var switchFailed:((Int,String)->Void)?
+    var switchLost:((Int,String)->Void)?
+    func cancelSwitch(ticket:Int,completion:()->Void){completion()}
+    func resumeCommittedSwitchRecoveryIfPossible(after ticket:Int?){}
+    func reportPreparedSwitch(requestID:UUID)->Bool{false}
+    struct Lifetime { let rootURL: URL; let recordID: String?;var lifetime:Int? = nil }
     final class Transport { var isRunning = true }
     __PENDING_TEXTURE_UPDATE__
     let host: SceneDesktopWallpaperHost

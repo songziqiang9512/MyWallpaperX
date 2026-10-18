@@ -80,7 +80,7 @@ def main() -> int:
         finally:
             terminate_process(process)
     verify_staged_app(identity)
-    expected = 30 if args.scene_root else 23
+    expected = 33 if args.scene_root else 25
     outcome = native_outcome(result, expected) if failure is None else "failed"
     passed = outcome == "passed"
     if passed:

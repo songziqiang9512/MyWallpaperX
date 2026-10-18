@@ -5,10 +5,19 @@ import QuartzCore
 extension WallpaperDaemon {
     /// The previous slot remains recoverable until the parent acknowledges
     /// this exact visual commit. A newer intent can cancel even after ready.
-    func commitVideoPreparation(requestID: Int?) {
+    func commitVideoPreparation(requestID: Int?, activationID: UUID? = nil,
+                                generation: UInt64? = nil, cohortID: UUID? = nil) {
         guard let preparation = videoPreparation,
               preparation.requestID == requestID, preparation.isPrepared,
-              !preparation.isCommitted else { return }
+              !preparation.isCommitted,
+              generation == nil || generation == UInt64(preparation.token),
+              cohortID == nil || cohortID == preparation.cohortID else { return }
+        if cohortID != nil {
+            guard generation == UInt64(preparation.token), activationID != nil,
+                  cohortID == preparation.cohortID else { return }
+        }
+        videoPreparation?.activationID = activationID ?? UUID()
+        outputActivityAllowed = true
         videoPreparation?.isCommitted = true
         activePlayer.volume = 0
         inactivePlayer.volume = currentVolume
@@ -29,7 +38,9 @@ extension WallpaperDaemon {
         guard let preparation = videoPreparation,
               preparation.requestID == requestID, preparation.isCommitted,
               !preparation.isFinalized else { return }
+        guard preparation.visibilityConfirmed else { return }
         videoPreparation?.isFinalized = true
+        window.level = Self.desktopWindowLevel
         if preparation.transitionComplete { completeVideoTransition(token: preparation.token) }
     }
 
@@ -45,11 +56,13 @@ extension WallpaperDaemon {
     func cancelVideoPreparation(requestID: Int? = nil) {
         guard let preparation = videoPreparation,
               requestID == nil || preparation.requestID == requestID else { return }
+        stopActivationVisibilityCheck()
         switchToken += 1
         pendingStatusObservation = nil
         pendingDisplayObservation = nil
         pendingDisplayFallbackWorkItem?.cancel()
         pendingDisplayFallbackWorkItem = nil
+        rememberCancelledPreparation(preparation)
         videoPreparation = nil
         if preparation.isFinalized {
             clearVideoSlot(preparation.previousSlot)
@@ -65,8 +78,11 @@ extension WallpaperDaemon {
             activeSlot = preparation.previousSlot
             currentVideoPath = preparation.previousVideoPath
             currentRequestID = preparation.previousRequestID
+            currentVideoCohortID = preparation.previousCohortID
         }
         currentFillMode = preparation.previousFillMode
+        window.alphaValue = 1
+        if let screen = Self.screen(for: displayID) { window.setFrame(screen.frame, display: true) }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for layer in [primaryLayer, secondaryLayer] {
@@ -81,8 +97,8 @@ extension WallpaperDaemon {
         fallbackLayer.opacity = 0
         CATransaction.commit()
         clearVideoSlot(preparation.incomingSlot)
-        activePlayer.volume = currentVolume
-        if paused { activePlayer.pause() }
+        activePlayer.volume = outputActivityAllowed ? currentVolume : 0
+        if paused || !outputActivityAllowed { activePlayer.pause() }
         else { activePlayer.rate = playbackRate }
         window.level = currentVideoPath == nil
             ? NSWindow.Level(rawValue: Self.desktopWindowLevel.rawValue - 2)
@@ -92,12 +108,12 @@ extension WallpaperDaemon {
     func clearVideoSlot(_ slot: Slot) {
         let player = slot == .primary ? primaryPlayer : secondaryPlayer
         let layer = slot == .primary ? primaryLayer : secondaryLayer
+        clearLooper(for: slot)
         player.pause()
         player.removeAllItems()
         player.volume = 0
         layer.removeAllAnimations()
         layer.opacity = 0
-        clearLooper(for: slot)
         clearPlaybackObservers(for: slot)
     }
 

@@ -69,6 +69,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         stopCurrent: Bool,
         completion: @escaping (Bool) -> Void
     ) {
+        invalidatePresentation(on: surface)
         navigationOwnershipByScreen.removeValue(forKey: surface.screenID)
         if stopCurrent {
             surface.webView.stopLoading()
@@ -87,13 +88,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             }
             self.navigationOwnershipByScreen[surface.screenID] = NavigationOwnership(
                 requestID: request.id,
-                navigation: navigation
+                navigation: navigation,
+                generation: self.advanceNavigationGeneration()
             )
             completion(true)
         }
     }
 
     func reloadTrackedNavigation(on surface: HostSurface, requestID: UUID) -> Bool {
+        invalidatePresentation(on: surface)
         navigationOwnershipByScreen.removeValue(forKey: surface.screenID)
         guard let navigation = surface.webView.reload() else { return false }
         guard currentRequest?.id == requestID,
@@ -102,7 +105,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         navigationOwnershipByScreen[surface.screenID] = NavigationOwnership(
             requestID: requestID,
-            navigation: navigation
+            navigation: navigation,
+            generation: advanceNavigationGeneration()
         )
         return true
     }
@@ -124,7 +128,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         guard let requestID = currentRequest?.id,
               let navigation,
               let screenID = screenID(for: webView),
-              surfaces[screenID]?.webView === webView else {
+              let surface = surfaces[screenID], surface.webView === webView else {
             return nil
         }
         if let ownership = navigationOwnershipByScreen[screenID],
@@ -136,9 +140,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
               readyScreenIDs.contains(screenID) else {
             return nil
         }
+        invalidatePresentation(on: surface)
         navigationOwnershipByScreen[screenID] = NavigationOwnership(
             requestID: requestID,
-            navigation: navigation
+            navigation: navigation,
+            generation: advanceNavigationGeneration()
         )
         readyScreenIDs.remove(screenID)
         phase = .launching

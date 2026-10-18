@@ -276,10 +276,16 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var systemMediaDemandHandler: ((Bool?, UUID) -> Void)?
     var presentationInvalidationHandler: (() -> Void)?
     var defersPresentation = false
+    var usesActivationWindowLevel = false
+    var outputActivityAllowed = true
+    var requiresMediaSuspension = false
+    var outputActivityRevision: UInt64 = 0
+    var effectiveVolume: Float { outputActivityAllowed ? currentVolume : 0 }
+    var effectiveMediaSuspended: Bool { paused || requiresMediaSuspension }
     var surfaceWindowLevel: NSWindow.Level {
         defersPresentation
             ? NSWindow.Level(rawValue: Self.webWindowLevel.rawValue - 2)
-            : Self.webWindowLevel
+            : (usesActivationWindowLevel ? PlaybackSurfaceVisibility.activationLevel(normal: Self.webWindowLevel) : Self.webWindowLevel)
     }
     enum Phase: String {
         case idle
@@ -319,6 +325,8 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     }
 
     struct HostSurface {
+        let id = UUID()
+        let mediaPlaybackGate: WebMediaPlaybackGate
         let screenID: CGDirectDisplayID
         let window: NSWindow
         let contentView: HostContentView
@@ -333,6 +341,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     struct NavigationOwnership {
         let requestID: UUID
         let navigation: WKNavigation
+        let generation: UInt64
     }
 
     struct DirectorySnapshot {
@@ -446,6 +455,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var didEmitReadyEventForCurrentRequest = false
     var audioSpectrumDemandScreenIDs = Set<CGDirectDisplayID>()
     var surfaces: [CGDirectDisplayID: HostSurface] = [:]
+    var navigationGeneration: UInt64 = 0
     var navigationOwnershipByScreen: [CGDirectDisplayID: NavigationOwnership] = [:]
     var loopbackServers: [CGDirectDisplayID: WebWallpaperLoopbackServer] = [:]
     var directorySnapshotsByProperty: [String: DirectorySnapshot] = [:]

@@ -77,12 +77,15 @@ enum DebugWebProcessIsolationRunner {
         let engine = WallpaperEngine.shared
         guard DebugWebPlaybackRunner.hasUsableWorkshopRoot,
               let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
+        let originalSettings = WallpaperManager.shared.settings
+        defer { WallpaperManager.shared.settings = originalSettings }
         var settings = WallpaperSettings()
         settings.pauseWhenOtherAppFocused = false
         settings.pauseWhenOtherAppFullscreen = false
         settings.pauseWhenUnplugged = false
         settings.pauseWhenIdle = false
-        PlaybackPolicyController.shared.updateSettings(settings)
+        WallpaperManager.shared.settings = settings
+        PlaybackCommandMultiplexer.shared.dispatch(.resume)
         let service = SteamWorkshopService.shared
         service.reloadInstalledItems()
         guard let record = await DebugWebPlaybackRunner.awaitInstalledRecord(itemID, using: service),
@@ -116,10 +119,13 @@ enum DebugWebProcessIsolationRunner {
                 rows.append(["index": index, "failed": true]); break
             }
             try? await Task.sleep(for: .seconds(3))
+            rows[rows.count - 1]["realMusicObserved"] = engine.spectrumDelivery.currentWebLevels.contains { $0 > 0.001 }
         }
-        engine.stopPlayback()
+        WallpaperManager.shared.stopCurrentPlayback()
         let result: [String: Any] = ["rows": rows, "itemID": itemID,
-            "passed": rows.count == 7 && rows.allSatisfy { $0["failed"] == nil },
+            "passed": rows.count == 7 && rows.allSatisfy {
+                $0["failed"] == nil && $0["realMusicObserved"] as? Bool == true
+            },
             "timingBoundary": "Steam selection entry to matching committed Web request; up to 20ms polling"]
         do {
             let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
@@ -150,15 +156,17 @@ enum DebugWebProcessIsolationRunner {
         defer { ProcessInfo.processInfo.endActivity(activity) }
         let engine = WallpaperEngine.shared
         guard let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
+        let originalSettings = WallpaperManager.shared.settings
         let root = reportURL.deletingLastPathComponent().appendingPathComponent("fixture")
         var checks: [String: Bool] = [:]
         var metrics: [String: Double] = [:]
         var failureFacts: [String: String] = [:]
         var notCovered: [String: String] = [:]
         var pids: [Int32] = []
-        var expectedChecks = 23
+        var expectedChecks = 25
         defer {
-            engine.stopPlayback()
+            WallpaperManager.shared.stopCurrentPlayback()
+            WallpaperManager.shared.settings = originalSettings
             let complete = checks.count + notCovered.count == expectedChecks
             let outcome = !complete || checks.values.contains(false) ? "failed"
                 : notCovered.isEmpty ? "passed" : "incomplete"
@@ -182,7 +190,10 @@ enum DebugWebProcessIsolationRunner {
         settings.pauseWhenOtherAppFullscreen = false
         settings.pauseWhenUnplugged = false
         settings.pauseWhenIdle = false
-        PlaybackPolicyController.shared.updateSettings(settings)
+        // Install the complete public policy so a later spectrum-only edit
+        // cannot reintroduce persisted pause conditions into this music test.
+        WallpaperManager.shared.settings = settings
+        PlaybackCommandMultiplexer.shared.dispatch(.resume)
         host.prepareIdleProcess()
         let idleID = host.availablePreparedRequestID
         let idlePIDs = host.liveProcessIdentifiers
@@ -208,7 +219,7 @@ enum DebugWebProcessIsolationRunner {
                 notCovered[name] = "precondition-idle-process-not-created: \(host.debugPreparationFacts)"
             }
         }
-        engine.stopPlayback()
+        WallpaperManager.shared.stopCurrentPlayback()
         guard await waitUntil({ host.liveProcessIdentifiers.isEmpty }) else { return }
         NSLog("MWX DEBUG IDLE: before-expiry-test %@", host.debugPreparationFacts)
         host.prepareIdleProcess()
@@ -257,6 +268,7 @@ enum DebugWebProcessIsolationRunner {
         // continuity only after the real producer has actually supplied music.
         guard await waitUntil({ engine.spectrumDelivery.currentWebLevels.contains { $0 > 0.001 } }) else {
             checks["realMusicContinued"] = false
+            failureFacts["realMusicContinued"] = "paused=\(PlaybackCommandMultiplexer.shared.isPlaybackPaused) userPaused=\(PlaybackCommandMultiplexer.shared.isUserPaused) demand=\(host.audioSpectrumRequested) engineDemand=\(engine.currentWebAudioSpectrumRequested) capture=\(engine.systemAudioSpectrumService.debugHasCaptureResources) peak=\(engine.spectrumDelivery.currentWebLevels.max() ?? 0)"
             return
         }
         host.debugContinuityStartedHandler = { Thread.sleep(forTimeInterval: 1.25) }
@@ -323,6 +335,9 @@ enum DebugWebProcessIsolationRunner {
                 && host.activeRequest?.id != retainedWebID
                 && supersededVideoPIDs.allSatisfy { kill($0, 0) != 0 && errno == ESRCH }
         }
+        // The Video overlay is an independent, default-off public setting.
+        // Web listener demand must not accidentally satisfy this assertion.
+        WallpaperManager.shared.settings.systemAudioSpectrumEnabled = true
         WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
         checks["webToVideo"] = await waitUntil {
             WallpaperManager.shared.activeWallpaperRuntime == .video
@@ -331,8 +346,23 @@ enum DebugWebProcessIsolationRunner {
                     $0.latestReadyPlayRequestID != nil && $0.latestReadyPlayRequestID == $0.latestRequestedPlayRequestID
                 }
         }
+        if let alternateURL = BundledVideoLibrary.videoURL(named: "Video3") {
+            let alternate = VideoWallpaper(title: "Alternate isolation video", path: alternateURL.path)
+            let oldPlayback = engine.activeVideoPlayback?.id
+            WallpaperManager.shared.setAsWallpaper(alternate, userInitiated: true)
+            let replaced = await waitUntil { engine.currentWallpaper?.path == alternate.path
+                && WallpaperManager.shared.pendingWallpaper == nil && engine.activeVideoPlayback?.id != oldPlayback }
+            WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
+            checks["videoToVideo"] = await waitUntil { replaced && engine.currentWallpaper?.path == video.path
+                && WallpaperManager.shared.pendingWallpaper == nil }
+        } else { checks["videoToVideo"] = false }
         checks["videoOverlayCaptureRestored"] = await waitUntil {
-            engine.spectrumDelivery.currentOverlayLevels.contains { $0 > 0.001 }
+            engine.currentSystemAudioSpectrumEnabled
+                && engine.systemAudioSpectrumService.debugHasCaptureResources
+                && engine.spectrumDelivery.currentOverlayLevels.contains { $0 > 0.001 }
+        }
+        if checks["videoOverlayCaptureRestored"] != true {
+            failureFacts["videoOverlayCaptureRestored"] = "enabled=\(engine.currentSystemAudioSpectrumEnabled) capture=\(engine.systemAudioSpectrumService.debugHasCaptureResources) sessions=\(engine.displaySessions.count) peak=\(engine.spectrumDelivery.currentOverlayLevels.max() ?? 0)"
         }
         // This must reach AVPlayer failure, rather than missing-file admission.
         let originalLibrary = WallpaperManager.shared.wallpapers
@@ -358,7 +388,7 @@ enum DebugWebProcessIsolationRunner {
         }
         let args = ProcessInfo.processInfo.arguments
         if let index = args.firstIndex(of: "--mwx-debug-isolation-scene-root"), args.indices.contains(index + 1) {
-            expectedChecks = 30
+            expectedChecks = 33
             let sceneRoot = URL(fileURLWithPath: args[index + 1])
             func postScene() {
                 NotificationCenter.default.post(name: .steamWorkshopSceneReadyToRender, object: nil,
@@ -374,8 +404,7 @@ enum DebugWebProcessIsolationRunner {
             WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
             let cancelledVideoPIDs = engine.displaySessions.values.map { $0.process.processIdentifier }
             postScene()
-            checks["webVideoSceneCancelledCandidate"] = engine.displaySessions.isEmpty
-                && engine.currentPlaybackContentKind == .web
+            checks["webVideoSceneCancelledCandidate"] = engine.currentPlaybackContentKind == .web
             checks["webToScene"] = await waitUntil(sceneCommitted, attempts: 600)
             checks["webVideoSceneCancelledCandidate"] = checks["webVideoSceneCancelledCandidate"] == true
                 && cancelledVideoPIDs.allSatisfy { kill($0, 0) != 0 && errno == ESRCH }
@@ -405,6 +434,11 @@ enum DebugWebProcessIsolationRunner {
             }
             postScene()
             checks["videoToScene"] = await waitUntil(sceneCommitted, attempts: 600)
+            let previousScene = SceneDaemonClient.shared.activeRequestID
+            postScene()
+            checks["sceneToScene"] = await waitUntil {
+                sceneCommitted() && SceneDaemonClient.shared.activeRequestID != previousScene
+            }
             postWeb(root: root)
             checks["sceneToWeb"] = await waitUntil {
                 WallpaperManager.shared.activeWallpaperRuntime == .web
@@ -426,7 +460,15 @@ enum DebugWebProcessIsolationRunner {
                 && host.liveProcessIdentifiers.count == 1
                 && host.liveProcessIdentifiers.first == nextPID
         }
-        engine.stopPlayback()
+        let stoppedRequest = host.activeRequest?.id
+        WallpaperManager.shared.stopCurrentPlayback()
+        postWeb(root: root)
+        checks["stopThenImmediateRestart"] = await waitUntil {
+            host.activeRequest != nil && host.activeRequest?.id != stoppedRequest
+                && host.activeRequest?.id == engine.currentWebRequestID
+                && WallpaperManager.shared.playbackSwitch.retirements.isEmpty
+        }
+        WallpaperManager.shared.stopCurrentPlayback()
         // A cancelled delayed warmup must not resurrect a renderer after stop.
         try? await Task.sleep(for: .seconds(3))
         checks["stoppedAllProcesses"] = await waitUntil {

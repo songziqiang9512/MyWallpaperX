@@ -2,6 +2,7 @@ import QuartzCore
 
 extension SceneDesktopWallpaperSession {
     func setPlaybackPaused(_ paused: Bool) {
+        let paused = paused || !isOutputActive
         let hostTime = CACurrentMediaTime()
         if paused != sceneClock.isPaused {
             pausedFrameRetryDeadline = nil

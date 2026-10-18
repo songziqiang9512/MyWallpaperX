@@ -47,6 +47,23 @@ extension Notification.Name {
     static let steamWorkshopSceneReadyToRender = Notification.Name("render")
 }
 @MainActor final class SceneDaemonClient {
+    var pendingSwitchTicket: Int?, activeSwitchTicket: Int?
+    var queuedSwitchPreparation: Int?
+    struct CommittedSwitchRecovery { let ticket: Int }
+    var committedSwitchRecovery: CommittedSwitchRecovery?
+    final class SwitchExecution {
+        let generation: UInt64 = 0, requestID = UUID(), id = UUID(), ticket = 0
+        var activated = false, presented = false
+    }
+    var pendingSwitchExecution: SwitchExecution?, activeSwitchExecution: SwitchExecution?
+    var switchPrepared: Bool?
+    var switchVisible: ((Int, UUID) -> Void)?
+    var switchFailed: ((Int, String) -> Void)?
+    var switchLost: ((Int, String) -> Void)?
+    func finishSwitchControlsAfterExit(generation: UInt64) {}
+    func rememberCommittedSwitchForRecovery(){}
+    func adoptQueuedSwitchPreparationForRecovery(){}
+    func resumeCommittedSwitchRecoveryIfPossible(after ticket:Int?){}
     var transport: DaemonProcessTransport?
     var retiringTransports: [UInt64: DaemonProcessTransport] = [:]
     var sessionGeneration: UInt64 = 0
@@ -108,7 +125,7 @@ extension Notification.Name {
         )) + '\n' + '\n'.join(method(events, signature) for signature in (
             '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(',
             '    func finishShutdownIfPossible(',
-        )) + r'''
+        )) + '\n' + method((ipc / 'SceneDaemonClient+SwitchEndpoint.swift').read_text(), '    func commitPresentedScene(') + r'''
     func startProcess() throws {
         sessionGeneration += 1
         let generation = sessionGeneration
@@ -140,6 +157,8 @@ struct SteamWorkshopDownloadRecord {
     let dependencyHostFolderURL: URL? = nil
 }
 @MainActor final class SteamWorkshopService {
+    var prepareScenePlaybackIntent:((String,Bool)->(intentEpoch:UInt64,isCurrent:()->Bool,cancel:()->Void)?)?
+    var webLaunchIntentGeneration: UInt64 = 0
     var removingDownloadIDs: Set<String> = []
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
     let steamDownloadLibraryRootURL: URL
@@ -224,7 +243,7 @@ struct SteamWorkshopDownloadRecord {
             source = folder / 'Harness.swift'
             source.write_text(harness)
             binary = folder / 'test'
-            subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES),
+            subprocess.run(['xcrun', 'swiftc', '-D', 'DEBUG', '-parse-as-library', *map(str, SOURCES),
                             str(scene), str(source), '-o', str(binary)], check=True, timeout=120)
             result = subprocess.run([str(binary), str(folder / 'library')], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

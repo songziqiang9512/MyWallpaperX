@@ -186,25 +186,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  if DebugScenePlaybackRunner.isFinished { return .terminateNow }
  guard !terminationReplyPending else { return .terminateLater }
  terminationReplyPending = true
- DebugScenePlaybackRunner.finish { _ in
- // terminateLater enters AppKit's modal run loop, possibly inside a main
- // dispatch block. Reply through that run loop after the delegate returns.
- RunLoop.main.perform(inModes: [.common, .modalPanel]) {
- MainActor.assumeIsolated { sender.reply(toApplicationShouldTerminate: true) }
- }
+ DaemonPlaybackProcessRegistry.shared.closeAdmission()
+ DebugScenePlaybackRunner.finish { [weak self] _ in
+ self?.replyAfterPlaybackProcessesExit(sender)
  }
  return .terminateLater
  }
- if DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample { return .terminateNow }
+ if DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample {
+ guard !terminationReplyPending else { return .terminateLater }
+ terminationReplyPending = true
+ DaemonPlaybackProcessRegistry.shared.closeAdmission()
+ WallpaperEngine.shared.cleanup()
+ SceneDaemonClient.shared.shutdown()
+ replyAfterPlaybackProcessesExit(sender)
+ return .terminateLater
+ }
  }
 #endif
  guard !terminationReplyPending else { return .terminateLater }
  terminationReplyPending = true
+ DaemonPlaybackProcessRegistry.shared.closeAdmission()
  prepareProductTermination()
- SceneDaemonClient.shared.shutdown {
- sender.reply(toApplicationShouldTerminate: true)
- }
+ SceneDaemonClient.shared.shutdown()
+ replyAfterPlaybackProcessesExit(sender)
  return .terminateLater
+ }
+
+ // The registry delivers in common/modal modes after actual process exit,
+ // independently of protocol EOF and dictionaries removed by engine cleanup.
+ private func replyAfterPlaybackProcessesExit(_ sender: NSApplication) {
+ DaemonPlaybackProcessRegistry.shared.waitForExit { [weak self] result in
+ MainActor.assumeIsolated {
+ if !result.allExited {
+ NSLog("MWX playback termination deadline exceeded; remaining pids=%@",
+       result.remainingProcessIdentifiers.description)
+ self?.terminationReplyPending = false
+ }
+ sender.reply(toApplicationShouldTerminate: result.allExited)
+ }
+ }
  }
 
  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -217,6 +237,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  }
 
  func applicationWillTerminate(_ notification: Notification) {
+ DaemonPlaybackProcessRegistry.shared.closeAdmission()
 #if DEBUG
  if DebugSceneDaemonClientRunner.isRequested {
  SceneDaemonClient.shared.shutdown()

@@ -17,6 +17,7 @@ final class WallpaperManager {
     func stopCurrentPlayback() {}
     func setMuted(_ value: Bool) {}
 }
+final class WebDaemonHostAdapter { var hasLivePlayback = false }
 final class WallpaperEngine {
     static let shared = WallpaperEngine()
     struct RunningProcess { var isRunning = true }
@@ -31,7 +32,8 @@ final class WallpaperEngine {
     }
     var playbackPaused = false
     var currentPlaybackContentKind: ContentKind = .video
-    var currentWebRequestID: UUID?
+    let dedicatedWebHostAdapter: AnyObject = WebDaemonHostAdapter()
+    var currentWebRequestID: UUID? { didSet { (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.hasLivePlayback = currentWebRequestID != nil } }
     struct SpectrumDelivery { var currentOverlayLevels: [Float] = [] }
     var spectrumDelivery = SpectrumDelivery()
     var targetPlaybackRate: Float = 1.5
@@ -60,7 +62,9 @@ struct PlaybackPerformanceProfile {
 enum SceneDaemonProtocol { static let version = 1 }
 final class SceneDaemonClient: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind = .scene
+    var stopPlaybackRequested: (() -> Void)?
     var isPaused = false, endpointReady = false
+    var localStops=0
     var isPlaying: Bool { activeIntent != nil && !isPaused }
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var pendingRequestID: UUID?
@@ -74,7 +78,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     func requestLaunch(_ request: ScenePlaybackLoadRequest) { pendingIntent = request }
     func applyPropertyValues(_ values: [String: SceneUserPropertyValue], revision: UInt64, recordID: String) -> Bool { false }
     func cancelPendingLaunch(recordID: String) -> Bool { false }
-    func stop(postsLaunchState: Bool) {}
+    func stop(postsLaunchState: Bool) {localStops += 1}
     // SCENE_METHODS
 }
 @main enum Harness {
@@ -88,10 +92,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         mux.dispatch(.pause)
         precondition(session.commands.last?.action == "pause")
         precondition(scene.isPaused && scene.commands.isEmpty)
-        // New and restarted Video sessions inherit manual pause.
-        engine.sendPlayCommand(for: "/fixture.mp4", framePath: nil,
-            fillMode: "aspectFill", shouldLoopCurrentItem: true, to: session)
-        precondition(session.commands.suffix(2).map(\.action) == ["play", "pause"])
+        // Actual prepareVideoSwitch + sendPlaybackPaused replay is covered by
+        // test_playback_switch_endpoints; this harness keeps multiplexer and
+        // Scene pre-handshake/restart delivery at their real production owners.
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
@@ -118,6 +121,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         mux.setSystemPaused(false)
         precondition(session.commands.last?.action == "resume")
         precondition(scene.commands.last?["cmd"] as? String == "resume")
+        var productStops=0
+        scene.stopPlaybackRequested={productStops += 1}
+        mux.dispatch(.stop,to:.scene)
+        precondition(productStops == 1 && scene.localStops == 0,
+            "directed Scene stop must recycle product selection through its owner")
+        scene.stopPlaybackRequested=nil
+        mux.dispatch(.stop,to:.scene)
+        precondition(scene.localStops == 1,"standalone Scene keeps its local stop fallback")
         print("delivery-pass: Video/Web/Scene, retained surfaces, pre-ready/restart replay")
     }
 }
@@ -159,6 +170,7 @@ final class Sounds {
 final class Host {
     var sceneClock = Clock()
     var isVisible = true
+    var isOutputActive = true
     var launchContext: Int? = 1
     var videoTextureSourceRegistry: Providers?
     var soundPlaybackRegistry: Sounds?
@@ -225,11 +237,9 @@ final class Host {
 
     def test_production_handlers_and_replay(self):
         video = (CORE / "Playback/WallpaperEngine+PlaybackControl.swift").read_text()
-        session = (CORE / "Playback/WallpaperEngine+DaemonSessionLifecycle.swift").read_text()
         scene = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift").read_text()
         harness = HARNESS.replace("// VIDEO_METHODS", "\n".join([
             method(video, "func applyPlaybackPaused("), method(video, "func sendPlaybackPaused("),
-            method(session, "func sendPlayCommand("),
         ])).replace("// SCENE_METHODS", "\n".join([
             method(scene, "func handle("), method(scene, "func replayPendingIntent("),
             method(scene, "private func sendSimpleCommand("),
@@ -238,6 +248,7 @@ final class Host {
             path = Path(directory)
             (path / "Harness.swift").write_text(harness)
             sources = [CORE / "Playback/DaemonProtocol.swift",
+                CORE / "PlaybackControl/PlaybackSurfaceVisibility.swift",
                 CORE / "SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
                 ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
                 *[CORE / "PlaybackControl" / name for name in ["WallpaperEngineCommand.swift",

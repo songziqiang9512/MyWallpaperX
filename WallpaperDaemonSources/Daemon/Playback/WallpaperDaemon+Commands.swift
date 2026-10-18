@@ -9,9 +9,14 @@ import UniformTypeIdentifiers
 extension WallpaperDaemon {
     func handle(_ command: DaemonCommand) {
         switch command.action {
-        case "commitVideo": commitVideoPreparation(requestID: command.requestID)
-        case "finalizeVideo": finalizeVideoPreparation(requestID: command.requestID)
-        case "cancelVideoPreparation": cancelVideoPreparation(requestID: command.requestID)
+        case "commitVideo":
+            commitVideoPreparation(requestID: command.requestID, activationID: command.activationID,
+                generation: command.preparationGeneration, cohortID: command.cohortID)
+        case "finalizeVideo":
+            guard matchesVideoPreparation(command) else { return }
+            finalizeVideoPreparation(requestID: command.requestID)
+        case "cancelVideoPreparation": cancelVideoPreparationCommand(command)
+        case "setOutputActivity": setOutputActivity(command)
         case "play":
             guard let videoPath = command.videoPath else { return }
             emit(type: "accepted", requestID: command.requestID, message: nil, videoPath: videoPath, contentKind: "video")
@@ -33,7 +38,8 @@ extension WallpaperDaemon {
                 framePath: command.framePath,
                 fillMode: command.fillMode ?? "aspectFill",
                 shouldLoopCurrentItem: command.shouldLoopCurrentItem ?? false,
-                requestID: command.requestID
+                requestID: command.requestID,
+                cohortID: command.cohortID
             )
         case "pause":
             paused = true
@@ -45,17 +51,17 @@ extension WallpaperDaemon {
             if let playbackRate = command.playbackRate {
                 self.playbackRate = max(playbackRate, 0.1)
             }
-            activePlayer.rate = playbackRate
+            if outputActivityAllowed { activePlayer.rate = playbackRate }
         case "setVolume":
             if let volume = command.volume {
                 currentVolume = min(max(volume, 0), 1)
-                activePlayer.volume = currentVolume
+                activePlayer.volume = outputActivityAllowed ? currentVolume : 0
                 inactivePlayer.volume = 0
             }
         case "setPlaybackRate":
             if let playbackRate = command.playbackRate {
                 self.playbackRate = max(playbackRate, 0.1)
-                if !paused {
+                if !paused && outputActivityAllowed {
                     activePlayer.rate = self.playbackRate
                 }
             }
@@ -68,36 +74,7 @@ extension WallpaperDaemon {
                 fallbackLayer.contentsGravity = fallbackGravity
             }
         case "setLoop":
-            if let shouldLoop = command.shouldLoopCurrentItem {
-                if shouldLoop {
-                    if loopEndObservation == nil, let item = activePlayer.currentItem {
-                        loopEndObservation = NotificationCenter.default.addObserver(
-                            forName: .AVPlayerItemDidPlayToEndTime,
-                            object: item,
-                            queue: .main
-                        ) { [weak self] _ in
-                            guard let self, self.activePlayer.currentItem === item else { return }
-                            self.activePlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
-                            self.activePlayer.rate = self.playbackRate
-                        }
-                        if let obs = pendingEndObservation {
-                            NotificationCenter.default.removeObserver(obs)
-                            pendingEndObservation = nil
-                        }
-                    }
-                } else {
-                    if let obs = loopEndObservation {
-                        NotificationCenter.default.removeObserver(obs)
-                        loopEndObservation = nil
-                    }
-                    if pendingEndObservation == nil,
-                       let item = activePlayer.currentItem,
-                       let videoPath = currentVideoPath {
-                        observePlaybackEnd(for: item, requestID: currentRequestID, videoPath: videoPath)
-                    }
-                    activePlayer.actionAtItemEnd = .pause
-                }
-            }
+            if let shouldLoop = command.shouldLoopCurrentItem { updateVideoLoopPolicy(shouldLoop) }
         case "setSpectrumEnabled":
             applySpectrumConfiguration(from: command)
             if let spectrumEnabled = command.spectrumEnabled {
@@ -129,12 +106,15 @@ extension WallpaperDaemon {
     }
 
     func shutdown() {
+        stopActivationVisibilityCheck()
         pendingStatusObservation = nil
         clearPlaybackObservers(for: .primary)
         clearPlaybackObservers(for: .secondary)
         pendingDisplayObservation = nil
         pendingDisplayFallbackWorkItem?.cancel()
         pendingDisplayFallbackWorkItem = nil
+        clearLooper(for: .primary)
+        clearLooper(for: .secondary)
         for player in players {
             player.pause()
             player.removeAllItems()

@@ -10,16 +10,6 @@ DAEMON = ROOT / "WallpaperDaemonSources"
 ENGINE = ROOT / "MyWallpaperX/Core/Playback"
 
 
-def method(source: str, name: str) -> str:
-    start = source.index(f"    func {name}(") if f"    func {name}(" in source else source.index(f"    private func {name}(")
-    opening = source.index("{", start)
-    depth = 1
-    end = opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end].replace("private func", "func", 1)
-
 
 HELPER_HARNESS = r'''
 import AppKit
@@ -49,6 +39,13 @@ import Darwin
             daemon.videoPreparation?.isPrepared = true
             daemon.inactivePlayer.insert(item(), after: nil)
         }
+        // This gate isolates two-slot ownership. Native visibility acceptance
+        // is exercised separately by the real visibility harness; fake items
+        // need an explicit confirmed fact before testing slot finalization.
+        func finalizeSlot(_ id: Int) {
+            daemon.videoPreparation?.visibilityConfirmed = true
+            daemon.finalizeVideoPreparation(requestID: id)
+        }
         let original = item()
         daemon.primaryPlayer.insert(original, after: nil)
         daemon.currentVideoPath = "A"; daemon.currentRequestID = 1
@@ -67,7 +64,7 @@ import Darwin
         prepare(3, path: "C")
         let tokenC = daemon.switchToken
         daemon.commitVideoPreparation(requestID: 3)
-        daemon.finalizeVideoPreparation(requestID: 3)
+        finalizeSlot(3)
         prepare(4, path: "D")
         let itemD = daemon.primaryPlayer.currentItem
         precondition(itemD != nil)
@@ -90,7 +87,7 @@ import Darwin
 
         prepare(6, path: "confirmed")
         daemon.commitVideoPreparation(requestID: 6)
-        daemon.finalizeVideoPreparation(requestID: 6)
+        finalizeSlot(6)
         daemon.completeVideoTransition(token: daemon.switchToken)
         daemon.cancelVideoPreparation(requestID: 6)
         precondition(daemon.currentVideoPath == "confirmed" && daemon.activePlayer.currentItem != nil)
@@ -175,7 +172,7 @@ import Darwin
         }
         precondition(daemon.videoPreparation?.isPrepared == true)
         daemon.commitVideoPreparation(requestID: 9)
-        daemon.finalizeVideoPreparation(requestID: 9)
+        finalizeSlot(9)
         daemon.completeVideoTransition(token: daemon.switchToken)
         let committedItem = daemon.activePlayer.currentItem
         let corrupt = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -186,12 +183,26 @@ import Darwin
         let emitted = Pipe()
         let originalStdout = dup(STDOUT_FILENO)
         precondition(originalStdout >= 0 && dup2(emitted.fileHandleForWriting.fileDescriptor, STDOUT_FILENO) >= 0)
+        let corruptCohort = UUID()
         daemon.play(videoPath: corrupt.path, framePath: nil, fillMode: "aspectFill",
-            shouldLoopCurrentItem: false, requestID: 10)
+            shouldLoopCurrentItem: false, requestID: 10, cohortID: corruptCohort)
         let failureDeadline = Date().addingTimeInterval(9)
         while daemon.videoPreparation != nil && Date() < failureDeadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
         }
+        func cancelFailed(_ requestID: Int, cohortID: UUID) -> UUID {
+            let activationID = UUID()
+            let json = """
+                {"action":"cancelVideoPreparation","requestID":\(requestID),"cohortID":"\(cohortID.uuidString)","activationID":"\(activationID.uuidString)"}
+                """
+            daemon.handle(try! JSONDecoder().decode(DaemonCommand.self, from: Data(json.utf8)))
+            return activationID
+        }
+        let corruptCancellation = cancelFailed(10, cohortID: corruptCohort)
+        let missingCohort = UUID()
+        daemon.play(videoPath: "/mwx-no-such-typed-video", framePath: nil,
+            fillMode: "aspectFill", shouldLoopCurrentItem: false, requestID: 11, cohortID: missingCohort)
+        let missingCancellation = cancelFailed(11, cohortID: missingCohort)
         fflush(stdout)
         precondition(dup2(originalStdout, STDOUT_FILENO) >= 0)
         close(originalStdout)
@@ -201,274 +212,23 @@ import Darwin
             try? JSONDecoder().decode(DaemonEvent.self, from: Data($0))
         }
         precondition(failures.contains { $0.type == "failed" && $0.requestID == 10
-            && $0.videoPath == corrupt.path }, "existing corrupt video produced no correlated failed event")
+            && $0.videoPath == corrupt.path && $0.cohortID == corruptCohort
+            && $0.preparationGeneration != nil && $0.activationID == nil },
+            "existing corrupt video lost its typed preparation identity")
+        precondition(failures.contains { $0.type == "failed" && $0.requestID == 11
+            && $0.message == "video_not_found" && $0.cohortID == missingCohort
+            && $0.preparationGeneration != nil && $0.activationID == nil },
+            "pre-readiness file rejection lost its typed preparation identity")
+        for (requestID, cohort, activation) in [(10, corruptCohort, corruptCancellation), (11, missingCohort, missingCancellation)] {
+            precondition(failures.contains { $0.type == "cancelled" && $0.requestID == requestID
+                && $0.cohortID == cohort && $0.activationID == activation && $0.preparationGeneration == nil },
+                "failed candidate did not ACK the parent's exact pre-readiness cancellation")
+        }
         precondition(!failures.contains { $0.type == "prepared" || $0.type == "ready" })
         precondition(daemon.videoPreparation == nil && daemon.currentVideoPath == fixture.path
             && daemon.currentRequestID == 9 && daemon.activePlayer.currentItem === committedItem,
             "corrupt existing candidate replaced or damaged committed A")
         print("video-slot-cancellation-pass")
-    }
-}
-'''
-
-
-PARENT_STUB = r'''
-final class WebDaemonHostAdapter { var activeRequest: String? }
-import Foundation
-import QuartzCore
-enum WallpaperRuntimeKind { case video, web, scene }
-var runtimeSwitchCount = 0
-func postWallpaperRuntimeWillSwitch(to: WallpaperRuntimeKind, recordID: String? = nil) { runtimeSwitchCount += 1 }
-final class WallpaperEngine {
-    enum PlaybackContentKind: String { case video, web }
-    enum WebWallpaperRuntimeCommand { case stop, pause }
-    enum WebWallpaperHostEvent { case accepted(UUID), ready(UUID), audioSpectrumDemandChanged(Bool, UUID), failed(message: String, requestID: UUID), stopped(UUID) }
-    final class DisplayDaemonSession {
-        final class ProcessState { var isRunning = true }
-        let process = ProcessState()
-        let displayID: UInt32
-        var launched = false
-        var latestRequestedPlayRequestID: Int?
-        var latestAcceptedPlayRequestID: Int?
-        var latestPreparedPlayRequestID: Int?
-        var latestCommittedPlayRequestID: Int?
-        var latestReadyPlayRequestID: Int?
-        var latestFinalizedPlayRequestID: Int?
-        init(_ id: UInt32, requested: Int, finalized: Int?) {
-            displayID = id; latestRequestedPlayRequestID = requested
-            latestFinalizedPlayRequestID = finalized
-        }
-    }
-    struct ActiveVideoPlayback { let id = UUID(); let wallpaper: String; let path: String; let multiDisplayEnabled: Bool }
-    var activeVideoPlayback: ActiveVideoPlayback? {
-        didSet { if activeVideoPlayback?.id != oldValue?.id { videoEndState = nil } }
-    }
-    var videoEndState: (playbackID: UUID, delivered: Bool)?
-    var retainedVideoWallpaper: String?, retainedVideoContentPath: String?
-    var retainedVideoMultiDisplayEnabled: Bool?
-    var dedicatedWebHostAdapter: Any = WebDaemonHostAdapter()
-    var playbackPaused = false
-    func restoreActiveWebRequest(_ request: String) {}
-    func beginPlaybackIntent() { playbackIntentEpoch += 1 }
-    var pendingVideoDisplayIDs: Set<UInt32> = []
-    var pendingVideoIsRetainedRecovery = false
-    var videoPreparationIntentEpoch: UInt64 = 0
-    var playbackIntentEpoch: UInt64 = 0
-    var pendingVideoRetirementOnWebReady = false
-    var displaySessions: [UInt32: DisplayDaemonSession] = [:]
-    var currentPlaybackContentKind: PlaybackContentKind? = .video
-    var currentWallpaper: String? = "/B", currentContentPath: String? = "/B"
-    var currentMultiDisplayEnabled = true
-    var pendingWebRetirementOnVideoReady = false
-    var currentWebRequestID: UUID?
-    var currentWebRecordID: String?, currentWebPropertiesJSON: String?
-    var lastFailureVideoPath: String?, lastFailureAt: Double = 0
-    var displayCrashCounts: [UInt32: Int] = [:]
-    var admitted = true
-    var runtimeCommitAdmission: ((WallpaperRuntimeKind) -> Bool)?
-    var commands: [(String, UInt32, Int)] = []
-    var displayIDs: [UInt32] = [1, 2]
-    var currentVideoFillMode = "aspectFill", currentShouldLoopCurrentItem = true
-    var recoveryApplies = 0
-    static let webPlaybackReadyNotification = Notification.Name("web-ready")
-    static let playbackEndedNotification = Notification.Name("ended")
-    static let playbackReadyNotification = Notification.Name("ready")
-    static let playbackFailedNotification = Notification.Name("failed")
-    func sendVideoPreparationCommand(_ action: String, requestID: Int, to session: DisplayDaemonSession) {
-        commands.append((action, session.displayID, requestID))
-    }
-    func terminateSession(for id: UInt32) {
-        displaySessions.removeValue(forKey: id)
-        if displaySessions.isEmpty, currentPlaybackContentKind != .video,
-           !pendingVideoRetirementOnWebReady { activeVideoPlayback = nil }
-    }
-    func dispatchWebRuntimeCommand(_ command: WebWallpaperRuntimeCommand) {}
-    func setWebAudioSpectrumRequested(_ requested: Bool) {}
-    func rollbackVideoPreparationToWeb() -> Bool { false }
-    func scanDisplays() {}
-    func applyWallpaper(_ wallpaper: String, multiDisplayEnabled: Bool,
-        videoFillMode: String, shouldLoopCurrentItem: Bool, retainedVideoRecovery: Bool = false) {
-        precondition(retainedVideoRecovery)
-        recoveryApplies += 1
-        pendingVideoIsRetainedRecovery = true
-        videoPreparationIntentEpoch = playbackIntentEpoch
-        pendingVideoDisplayIDs = [1, 2]
-        displaySessions = [1: .init(1, requested: 10, finalized: nil), 2: .init(2, requested: 10, finalized: nil)]
-    }
-}
-'''
-
-
-PARENT_HARNESS = r'''
-@main enum Harness {
-    static func main() {
-        func make(_ hasActive: Bool = true) -> WallpaperEngine {
-            let engine = WallpaperEngine()
-            engine.displaySessions = [1: .init(1, requested: 2, finalized: hasActive ? 1 : nil),
-                                      2: .init(2, requested: 3, finalized: hasActive ? 1 : nil)]
-            engine.pendingVideoDisplayIDs = [1, 2]
-            if hasActive { engine.activeVideoPlayback = .init(wallpaper: "/A", path: "/A", multiDisplayEnabled: true) }
-            engine.runtimeCommitAdmission = { [weak engine] _ in engine?.admitted == true }
-            return engine
-        }
-        func deliver(_ engine: WallpaperEngine, _ type: String, _ display: UInt32, _ id: Int, path: String = "/B") {
-            guard let session = engine.displaySessions[display] else { return }
-            engine.handleDaemonEvent(.init(type: type, displayID: display, requestID: id,
-                message: "bad-video", videoPath: path, contentKind: "video"), for: session)
-        }
-        let cancelled = make()
-        deliver(cancelled, "prepared", 1, 2)
-        precondition(cancelled.commands.isEmpty, "one screen prematurely committed")
-        deliver(cancelled, "prepared", 2, 3)
-        precondition(cancelled.commands.filter { $0.0 == "commitVideo" }.count == 2)
-        deliver(cancelled, "ready", 1, 2)
-        cancelled.admitted = false
-        cancelled.cancelVideoPreparationRetainingActivePlayback()
-        deliver(cancelled, "ready", 2, 3)
-        precondition(cancelled.commands.filter { $0.0 == "finalizeVideo" }.isEmpty)
-        precondition(cancelled.commands.filter { $0.0 == "cancelVideoPreparation" }.count == 2)
-        precondition(cancelled.currentContentPath == "/A" && cancelled.displaySessions.count == 2)
-
-        let noActive = make(false)
-        noActive.cancelVideoPreparationRetainingActivePlayback()
-        precondition(noActive.displaySessions.isEmpty && noActive.currentContentPath == nil)
-        let failed = make()
-        deliver(failed, "failed", 1, 2)
-        precondition(failed.currentContentPath == "/A" && failed.currentWallpaper == "/A")
-        let identityRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try! FileManager.default.createDirectory(at: identityRoot, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: identityRoot) }
-        let resource = identityRoot.appendingPathComponent("renamed-resource.mov")
-        let alias = identityRoot.appendingPathComponent("selected-alias.mov")
-        try! Data("fixture".utf8).write(to: resource)
-        try! FileManager.default.createSymbolicLink(at: alias, withDestinationURL: resource)
-        let aliasFailure = make()
-        aliasFailure.currentContentPath = aliasFailure.normalizedPath(resource.path)
-        deliver(aliasFailure, "failed", 1, 2, path: alias.path)
-        precondition(aliasFailure.currentContentPath == "/A", "alias failure lost rollback authority")
-        let unrelatedFailure = make()
-        unrelatedFailure.currentContentPath = unrelatedFailure.normalizedPath(resource.path)
-        deliver(unrelatedFailure, "failed", 1, 2, path: identityRoot.appendingPathComponent("other.mov").path)
-        precondition(unrelatedFailure.commands.isEmpty, "different resource gained failure authority")
-        let aliasReady = make()
-        aliasReady.currentContentPath = aliasReady.normalizedPath(resource.path)
-        deliver(aliasReady, "prepared", 1, 2, path: alias.path)
-        deliver(aliasReady, "prepared", 2, 3, path: resource.path)
-        deliver(aliasReady, "ready", 1, 2, path: resource.path)
-        deliver(aliasReady, "ready", 2, 3, path: alias.path)
-        precondition(aliasReady.commands.filter { $0.0 == "finalizeVideo" }.count == 2,
-            "equivalent resource spelling could not finalize")
-        let dead = make()
-        for session in dead.displaySessions.values { session.process.isRunning = false }
-        dead.cancelVideoPreparationRetainingActivePlayback()
-        precondition(dead.displaySessions.isEmpty && dead.currentContentPath == "/A",
-            "the committed A identity needed for recovery was discarded")
-
-        let committed = make()
-        deliver(committed, "prepared", 1, 2); deliver(committed, "prepared", 2, 3)
-        deliver(committed, "ready", 1, 2)
-        precondition(committed.commands.filter { $0.0 == "finalizeVideo" }.isEmpty)
-        deliver(committed, "ready", 2, 3)
-        precondition(committed.commands.filter { $0.0 == "finalizeVideo" }.count == 2)
-        precondition(committed.activeVideoPlayback?.path == "/B")
-        committed.cancelVideoPreparationRetainingActivePlayback()
-        precondition(committed.displaySessions.count == 2 && committed.currentContentPath == "/B")
-
-        let recovery = make()
-        recovery.currentContentPath = "/A"; recovery.currentWallpaper = "/A"
-        recovery.pendingVideoIsRetainedRecovery = true
-        recovery.admitted = false // A is retained while product prepares Web.
-        let switchesBeforeRecovery = runtimeSwitchCount
-        deliver(recovery, "prepared", 1, 2, path: "/A")
-        deliver(recovery, "prepared", 2, 3, path: "/A")
-        precondition(recovery.commands.filter { $0.0 == "commitVideo" }.count == 2)
-        deliver(recovery, "ready", 1, 2, path: "/A")
-        deliver(recovery, "ready", 2, 3, path: "/A")
-        precondition(recovery.commands.filter { $0.0 == "finalizeVideo" }.count == 2)
-        precondition(recovery.activeVideoPlayback?.path == "/A" && runtimeSwitchCount == switchesBeforeRecovery,
-            "retained recovery either stalled or stole the new runtime intent")
-
-        let staleRecovery = make()
-        staleRecovery.currentContentPath = "/A"; staleRecovery.currentWallpaper = "/A"
-        staleRecovery.pendingVideoIsRetainedRecovery = true
-        staleRecovery.admitted = false
-        staleRecovery.playbackIntentEpoch = 1
-        deliver(staleRecovery, "prepared", 1, 2, path: "/A")
-        deliver(staleRecovery, "prepared", 2, 3, path: "/A")
-        precondition(staleRecovery.commands.isEmpty, "stale recovery epoch bypassed intent admission")
-
-        let rolledBack = make()
-        rolledBack.displaySessions.removeAll()
-        rolledBack.currentPlaybackContentKind = .web
-        rolledBack.currentContentPath = "pending-Web"
-        rolledBack.admitted = false
-        rolledBack.pendingVideoDisplayIDs.removeAll()
-        rolledBack.pendingVideoRetirementOnWebReady = true
-        rolledBack.retainedVideoWallpaper = "/A"; rolledBack.retainedVideoContentPath = "/A"
-        rolledBack.retainedVideoMultiDisplayEnabled = true
-        let failedWeb = UUID(); rolledBack.currentWebRequestID = failedWeb
-        rolledBack.handleWebHostEvent(.failed(message: "timeout", requestID: failedWeb))
-        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        precondition(rolledBack.recoveryApplies == 1 && rolledBack.pendingVideoIsRetainedRecovery)
-        deliver(rolledBack, "prepared", 1, 10, path: "/A")
-        deliver(rolledBack, "prepared", 2, 10, path: "/A")
-        precondition(rolledBack.commands.filter { $0.0 == "commitVideo" }.count == 2)
-
-        let partial = make()
-        partial.pendingVideoDisplayIDs.removeAll()
-        partial.displaySessions = [1: .init(1, requested: 1, finalized: 1)]
-        partial.currentPlaybackContentKind = .web; partial.currentContentPath = "pending-Web"
-        partial.pendingVideoRetirementOnWebReady = true
-        partial.retainedVideoWallpaper = "/A"; partial.retainedVideoContentPath = "/A"
-        let partialWeb = UUID(); partial.currentWebRequestID = partialWeb
-        partial.handleWebHostEvent(.failed(message: "late-old", requestID: UUID()))
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        precondition(partial.recoveryApplies == 0 && partial.currentPlaybackContentKind == .web)
-        partial.handleWebHostEvent(.failed(message: "natural-failure", requestID: partialWeb))
-        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        precondition(partial.recoveryApplies == 1, "healthy remaining display masked the missing helper")
-
-        let ended = make()
-        ended.pendingVideoDisplayIDs.removeAll()
-        ended.currentContentPath = "/A"; ended.currentWallpaper = "/A"
-        ended.displaySessions = [1: .init(1, requested: 2, finalized: 1)]
-        ended.admitted = false // Web is still parsing, before Engine kind changes.
-        var endedNotifications = 0
-        let endedObserver = NotificationCenter.default.addObserver(forName: WallpaperEngine.playbackEndedNotification,
-            object: nil, queue: nil) { _ in endedNotifications += 1 }
-        defer { NotificationCenter.default.removeObserver(endedObserver) }
-        ended.handleDaemonEvent(.init(type: "ended", displayID: 1, requestID: nil,
-            message: nil, videoPath: "/A", contentKind: "video"), for: ended.displaySessions[1]!)
-        precondition(ended.videoEndState == nil, "uncorrelated terminal was admitted")
-        deliver(ended, "ended", 1, 99, path: "/A")
-        precondition(ended.videoEndState == nil, "stale helper request became a terminal")
-        deliver(ended, "ended", 1, 1, path: "/A")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        precondition(endedNotifications == 0 && ended.videoEndState?.delivered == false)
-        ended.admitted = true
-        ended.replayDeferredVideoEndIfNeeded()
-        ended.replayDeferredVideoEndIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        precondition(endedNotifications == 1, "rollback lost or duplicated the retained terminal")
-        deliver(ended, "ended", 1, 1, path: "/A")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        precondition(endedNotifications == 1, "multi-display duplicate consumed twice")
-        ended.activeVideoPlayback = .init(wallpaper: "/A", path: "/A", multiDisplayEnabled: true)
-        ended.admitted = false; ended.currentPlaybackContentKind = .web
-        deliver(ended, "ended", 1, 1, path: "/A")
-        ended.currentPlaybackContentKind = .video; ended.admitted = true
-        ended.replayDeferredVideoEndIfNeeded()
-        ended.activeVideoPlayback = .init(wallpaper: "/A", path: "/A", multiDisplayEnabled: true)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        precondition(endedNotifications == 1, "old terminal crossed same-path replay identity")
-
-        let superseded = make()
-        superseded.displaySessions.removeAll()
-        superseded.cancelVideoPreparationRetainingActivePlayback()
-        superseded.playbackIntentEpoch += 1
-        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        precondition(superseded.recoveryApplies == 0, "old deferred recovery crossed a new epoch")
-        print("video-parent-cancellation-pass")
     }
 }
 '''
@@ -490,19 +250,14 @@ class VideoPreparationCancellationTests(unittest.TestCase):
 
     def test_helper_retains_previous_slot_until_finalized(self) -> None:
         sources = list((DAEMON / "Daemon").rglob("*.swift"))
-        sources += [ENGINE / "DaemonProtocol.swift", ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift"]
+        sources += [ENGINE / "DaemonProtocol.swift", ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
+                    ROOT / "MyWallpaperX/Core/DaemonKit/DaemonParentLifetime.swift",
+                    ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift"]
         self.compile_run(sources, HELPER_HARNESS, "video-slot-cancellation-pass")
 
-    def test_parent_cancels_exact_requests_and_restores_active_video(self) -> None:
-        events = (ENGINE / "WallpaperEngine+DaemonEvents.swift").read_text()
-        lifecycle = (ENGINE / "WallpaperEngine+DaemonSessionLifecycle.swift").read_text()
-        functions = [method((ENGINE / "WallpaperEngine.swift").read_text(), "normalizedPath")]
-        functions += [method(events, name) for name in ["handleDaemonEvent", "handlePlaybackFailureEvent", "reportVideoPlaybackFailure", "handlePlaybackEndedEvent", "replayDeferredVideoEndIfNeeded"]]
-        functions += [method(lifecycle, "cancelVideoPreparationRetainingActivePlayback")]
-        functions += [method(lifecycle, "scheduleRetainedVideoRecoveryIfNeeded")]
-        functions += [method((ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift").read_text(), "handleWebHostEvent")]
-        harness = PARENT_STUB + "\nextension WallpaperEngine {\n" + "\n".join(functions) + "\n}\n" + PARENT_HARNESS
-        self.compile_run([ENGINE / "DaemonProtocol.swift"], harness, "video-parent-cancellation-pass")
+    # Parent transaction/cancellation/retirement now executes the actual typed
+    # owners in test_playback_switch_endpoints.py. The removed extracted fixture
+    # encoded the retired cross-engine rollback and auto-commit authority.
 
 
 if __name__ == "__main__":

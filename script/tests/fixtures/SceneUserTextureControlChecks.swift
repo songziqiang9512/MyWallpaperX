@@ -4,6 +4,30 @@ import Foundation
 // Only transport and unrelated notification storage are leaves. The test
 // compiles the real Client texture extension and real launch/event handlers.
 @MainActor final class SceneDaemonClient {
+    // This legacy texture harness has no product callbacks. Native endpoints
+    // and their exact ticket/receipt behavior execute in test_scene_switch_endpoint.
+    typealias PlaybackSwitchTicket = Int
+    final class SwitchExecution {
+        let generation: UInt64 = 0, requestID = UUID(), id = UUID(), ticket = 0
+        var activated = false, presented = false
+    }
+    var pendingSwitchTicket: Int?, activeSwitchTicket: Int?
+    var pendingSwitchExecution: SwitchExecution?, activeSwitchExecution: SwitchExecution?
+    struct QueuedSwitchPreparation {
+        let request:ScenePlaybackLoadRequest;let ticket:Int;let resourceLifetime:Int?
+    }
+    var queuedSwitchPreparation:QueuedSwitchPreparation?
+    struct CommittedSwitchRecovery {let ticket:Int}
+    var committedSwitchRecovery:CommittedSwitchRecovery?
+    var switchPrepared: Bool?
+    var switchVisible: ((Int, UUID) -> Void)?
+    var switchFailed: ((Int, String) -> Void)?
+    var switchLost: ((Int, String) -> Void)?
+    func cancelSwitch(ticket: Int, completion: () -> Void) { completion() }
+    func finishSwitchControlsAfterExit(generation: UInt64) {}
+    func rememberCommittedSwitchForRecovery(){}
+    func adoptQueuedSwitchPreparationForRecovery(){}
+    func resumeCommittedSwitchRecoveryIfPossible(after ticket:Int?){}
     struct Transport {
         var isRunning = true
         func send(_ data: Data) {}
@@ -11,6 +35,7 @@ import Foundation
         func closeIO() {}
         func terminate() {}
         func scheduleForcedTermination(after seconds: Double) {}
+        func requestGracefulStop(_ data: Data?) {}
     }
     struct ResourceLifetime {
         let lifetime: Int
@@ -229,6 +254,43 @@ extension Notification.Name {
             launch(c, id: candidate, phase: phase)
             checks[phase == "cancelled" ? "cancelled_launch_supersedes" : "failed_launch_remains_failure"] =
                 result == (phase == "cancelled" ? .superseded : .failed("own")) && c.activeIntent == intent()
+        }
+        for pendingTicket in [11, 22] {
+            let c = client(), candidate = UUID()
+            c.activeSwitchTicket = 11
+            c.pendingIntent = intent()
+            c.pendingRequestID = candidate
+            c.pendingSwitchTicket = pendingTicket
+            c.committedSwitchRecovery = .init(ticket: 11)
+            var failures: [Int] = [], losses: [Int] = []
+            c.switchFailed = { ticket, _ in failures.append(ticket) }
+            c.switchLost = { ticket, _ in losses.append(ticket) }
+            launch(c, id: candidate, phase: "failed")
+            checks["healthy_active_survives_failed_ticket_\(pendingTicket)"] =
+                c.activeIntent == intent() && failures == [pendingTicket] && losses.isEmpty
+                && c.committedSwitchRecovery?.ticket == 11
+        }
+        do {
+            let c = client(), candidate = UUID()
+            c.activeIntent = nil
+            c.activeRecordID = nil
+            c.activeRequestID = nil
+            c.pendingIntent = intent()
+            c.pendingRequestID = candidate
+            c.pendingSwitchTicket = 11
+            c.committedSwitchRecovery = .init(ticket: 11)
+            var failures: [Int] = [], losses: [Int] = []
+            c.switchFailed = { ticket, _ in failures.append(ticket) }
+            c.switchLost = { ticket, _ in losses.append(ticket) }
+            launch(c, id: UUID(), phase: "failed")
+            checks["stale_failure_cannot_lose_recovery"] = c.pendingRequestID == candidate
+                && c.committedSwitchRecovery?.ticket == 11 && failures.isEmpty && losses.isEmpty
+            launch(c, id: candidate, phase: "failed")
+            checks["failed_committed_recovery_reports_loss_once"] = c.activeIntent == nil
+                && c.pendingIntent == nil && c.committedSwitchRecovery == nil
+                && failures.isEmpty && losses == [11]
+            launch(c, id: candidate, phase: "failed")
+            checks["duplicate_recovery_failure_is_terminal"] = failures.isEmpty && losses == [11]
         }
         do {
             let c = client(); var results: [ScenePlaybackTextureUpdateOutcome] = []

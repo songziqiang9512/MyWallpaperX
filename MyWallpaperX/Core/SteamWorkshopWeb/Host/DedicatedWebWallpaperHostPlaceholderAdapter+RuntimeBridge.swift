@@ -268,7 +268,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             "fps": resolvedGeneralFPSValue(for: targetScreen),
             "language": currentRequest?.language ?? "en-us",
             "paused": ["value": paused],
-            "volume": ["value": currentVolume],
+            "volume": ["value": effectiveVolume],
             "display": [
                 "value": screenID.map { "Monitor\($0)" } ?? "Monitor0",
                 "width": Int(frame.width),
@@ -457,7 +457,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     func applyPausedState(_ paused: Bool, to webView: WKWebView) {
         // 原生媒体挂起覆盖 webView 全部 frame；JS 侧页面通知走定向推送。
-        webView.setAllMediaPlaybackSuspended(paused, completionHandler: nil)
+        mediaPlaybackGate(for: webView)?.setSuspended(effectiveMediaSuspended)
         let pausedLiteral = paused ? "true" : "false"
         deliverStatePush(to: webView) { endpoint in
             sequencedPushScript(
@@ -508,7 +508,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func applyVolume(_ volume: Float, to webView: WKWebView) {
-        let volumeLiteral = String(format: "%.6f", volume)
+        let volumeLiteral = String(format: "%.6f", outputActivityAllowed ? volume : 0)
         deliverStatePush(to: webView) { endpoint in
             sequencedPushScript(
                 """

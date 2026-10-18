@@ -29,6 +29,12 @@ struct DaemonCommand: Codable {
     let spectrumOffsetY: Float?
     let spectrumPeakCapsEnabled: Bool?
     let requestID: Int?
+    var activationID: UUID? = nil
+    var preparationGeneration: UInt64? = nil
+    var cohortID: UUID? = nil
+    var visibility: [PlaybackSurfaceVisibility.Evidence]? = nil
+    var outputActive: Bool? = nil
+    var activityID: UUID? = nil
 }
 
 struct DaemonEvent: Codable {
@@ -38,4 +44,10 @@ struct DaemonEvent: Codable {
     let message: String?
     let videoPath: String?
     let contentKind: String?
+    var activationID: UUID? = nil
+    var preparationGeneration: UInt64? = nil
+    var cohortID: UUID? = nil
+    var visibility: [PlaybackSurfaceVisibility.Evidence]? = nil
+    var outputActive: Bool? = nil
+    var activityID: UUID? = nil
 }

@@ -135,7 +135,8 @@ import Foundation
             switch decode(["v": 1, "cmd": command, "requestID": candidateID.uuidString]) {
             case let .success(.commitCandidate(requestID)): return command == "commitCandidate" && requestID == candidateID
             case let .success(.finalizeCandidate(requestID)): return command == "finalizeCandidate" && requestID == candidateID
-            case let .success(.cancelCandidate(requestID)): return command == "cancelCandidate" && requestID == candidateID
+            case let .success(.cancelCandidate(requestID, operationID)):
+                return command == "cancelCandidate" && requestID == candidateID && operationID == nil
             default: return false
             }
         }
@@ -145,6 +146,29 @@ import Foundation
                 return false
             }
         }
+        let operationID = UUID()
+        let cancelReceiptValid: Bool
+        if case .success(.cancelCandidate(requestID: candidateID, operationID: operationID)) = decode([
+            "v": 1, "cmd": "cancelCandidate", "requestID": candidateID.uuidString,
+            "operationID": operationID.uuidString
+        ]) { cancelReceiptValid = true } else { cancelReceiptValid = false }
+        let outputActivityValid: Bool
+        if case .success(.setOutputActive(requestID: candidateID, operationID: operationID, active: false)) = decode([
+            "v": 1, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
+            "operationID": operationID.uuidString, "active": false
+        ]) { outputActivityValid = true } else { outputActivityValid = false }
+        let malformedOutputActivityRejected = ["" as Any, "bad", 1, NSNull()].allSatisfy { value in
+            if case .failure(.invalidPayload("setOutputActive")) = decode([
+                "v": 1, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
+                "operationID": value, "active": false
+            ]) { return true }
+            return false
+        }
+        let numericOutputActivityRejected: Bool
+        if case .failure(.invalidPayload("setOutputActive")) = decode([
+            "v": 1, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
+            "operationID": operationID.uuidString, "active": 1
+        ]) { numericOutputActivityRejected = true } else { numericOutputActivityRejected = false }
         let displayValid: Bool
         if case let .success(.setDisplayConfiguration(screens)) = decode([
             "v": 1, "cmd": "setDisplayConfiguration", "screens": [[
@@ -287,6 +311,10 @@ import Foundation
             "volumeOutOfRangeRejected": volumeOutOfRangeRejected,
             "cancelValid": cancelValid,
             "candidateControlsValid": candidateControlsValid,
+            "cancelReceiptValid": cancelReceiptValid,
+            "outputActivityValid": outputActivityValid,
+            "malformedOutputActivityRejected": malformedOutputActivityRejected,
+            "numericOutputActivityRejected": numericOutputActivityRejected,
             "malformedCandidateControlsRejected": malformedCandidateControlsRejected,
             "displayValid": displayValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
