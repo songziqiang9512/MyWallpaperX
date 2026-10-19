@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
 import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,11 +15,151 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_wallpaper_benchmark as benchmark
+import scene_wallpaper_sample_run as sample_run
+import web_benchmark_capture as capture
+from scene_preview_visual_evidence import _write_rgb_png
 from script.tests.scene_wallpaper_benchmark_test_support import effect_execution_log
-from script.tests.scene_wallpaper_sample_fixture import run_sample_fixture
+from script.tests.scene_wallpaper_sample_fixture import run_sample_fixture, write_png
+
+
+WINDOW_FIELDS = (
+    "ready_non_black", "hover_non_black", "after_non_black", "flat_border_ratio",
+    "motion", "hover_motion", "pointer_trajectory_non_black",
+    "pointer_trajectory_motion", "puppet_interaction", "preview_visual",
+)
+
+
+def collect_window_evidence(root, *, hover=True, trajectory_count=7, sample=None):
+    """Execute the actual caller's post-process block without launching a process."""
+    function = ast.parse(inspect.getsource(sample_run.run_sample)).body[0]
+    def assigns(node, name):
+        return isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name for target in node.targets
+        )
+    start = next(i for i, node in enumerate(function.body) if assigns(node, "initial_reason"))
+    end = next(i for i, node in enumerate(function.body) if assigns(node, "runtime_evidence_path"))
+    namespace = dict(vars(sample_run), result_dir=root, runtime_sample=root / "source",
+                     hover_pointer=(0.5, 0.5) if hover else None,
+                     pointer_trajectory=[(0.1, 0.2)] * trajectory_count or None,
+                     sample=sample or {}, log_text="")
+    exec(compile(ast.Module(body=function.body[start:end], type_ignores=[]),
+                 sample_run.__file__, "exec"), namespace)
+    return {field: namespace[field] for field in WINDOW_FIELDS}
+
+
+def write_window_inputs(root, trajectory_count=7):
+    source = root / "source"
+    source.mkdir()
+    (source / "project.json").write_text(json.dumps({"preview": "own.png"}))
+    write_png(source / "own.png")
+    names = ["ready", "before", "hover", "after", "drag-held", "spring-after"]
+    names += [f"pointer-trajectory-{index:02d}" for index in range(trajectory_count)]
+    for index, name in enumerate(names):
+        write_png(root / f"scene-{name}-window.png", shifted=bool(index % 2))
+
+
+def reference_window_evidence(root, *, hover=True, trajectory_count=7):
+    """The report's existing public metrics, independent of caller scheduling."""
+    ready = root / f"scene-{'before' if hover else 'ready'}-window.png"
+    after, hovered = root / "scene-after-window.png", root / "scene-hover-window.png"
+    trajectory = [root / f"scene-pointer-trajectory-{index:02d}-window.png"
+                  for index in range(trajectory_count)]
+    return {
+        "ready_non_black": capture.png_has_non_black_pixel(ready),
+        "hover_non_black": capture.png_has_non_black_pixel(hovered) if hover else None,
+        "after_non_black": capture.png_has_non_black_pixel(after),
+        "flat_border_ratio": {"ready": capture.png_flat_border_ratio(ready),
+                              "after": capture.png_flat_border_ratio(after),
+                              **({"hover": capture.png_flat_border_ratio(hovered)} if hover else {})},
+        "motion": capture.png_motion_metrics(ready, after),
+        "hover_motion": {"before_to_hover": capture.png_motion_metrics(ready, hovered),
+                         "hover_to_after": capture.png_motion_metrics(hovered, after)} if hover else None,
+        "pointer_trajectory_non_black": [capture.png_has_non_black_pixel(path) for path in trajectory],
+        "pointer_trajectory_motion": sample_run.pointer_trajectory_motion_metrics(ready, trajectory),
+        "puppet_interaction": None,
+        "preview_visual": sample_run.collect_preview_visual_evidence(root / "source", after, root),
+    }
 
 
 class SceneWallpaperSampleRunTests(unittest.TestCase):
+    def setUp(self):
+        capture._decode_png_rows_cached.cache_clear()
+        capture._png_rgb_pixels_cached.cache_clear()
+        self.addCleanup(capture._decode_png_rows_cached.cache_clear)
+        self.addCleanup(capture._png_rgb_pixels_cached.cache_clear)
+
+    def test_window_schedule_preserves_all_fields_and_bounds_decode_misses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_window_inputs(root)
+            expected = reference_window_evidence(root)
+            montage = (root / "preview-comparison.png").read_bytes()
+            capture._decode_png_rows_cached.cache_clear()
+            capture._png_rgb_pixels_cached.cache_clear()
+            actual = collect_window_evidence(root)
+            self.assertEqual(actual, expected)
+            self.assertEqual((root / "preview-comparison.png").read_bytes(), montage)
+            self.assertLessEqual(capture._decode_png_rows_cached.cache_info().misses, 12)
+            self.assertEqual(capture._decode_png_rows_cached.cache_info().maxsize, 4)
+
+    def test_window_schedule_preserves_missing_bad_and_shape_mismatch_results(self):
+        for failure in ("missing", "bad", "shape"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                write_window_inputs(root)
+                path = root / "scene-before-window.png"
+                if failure == "missing":
+                    path.unlink()
+                elif failure == "bad":
+                    path.write_bytes(b"not a PNG")
+                else:
+                    _write_rgb_png(path, 4, 8, [bytes((50, 60, 70)) * 4] * 8)
+                self.assertEqual(collect_window_evidence(root), reference_window_evidence(root))
+
+    def test_window_schedule_keeps_empty_trajectory_and_no_hover_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_window_inputs(root, 0)
+            self.assertEqual(collect_window_evidence(root, hover=False, trajectory_count=0),
+                             reference_window_evidence(root, hover=False, trajectory_count=0))
+
+    def test_window_schedule_preserves_roi_errors_and_missing_decode_precedence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_window_inputs(root, 0)
+            valid = collect_window_evidence(root, trajectory_count=0, sample={
+                "cursor_drag_response": "spring-return", "cursor_interaction_roi": (0, 0, .5, 1)})
+            self.assertEqual(valid["hover_motion"]["before_to_drag"], capture.png_motion_metrics(
+                root / "scene-before-window.png", root / "scene-drag-held-window.png",
+                region=(0, 0, .5, 1)))
+            for roi in ((-1, 0, 1, 1), (0, 0, 0.01, 1), (0, 0, float("nan"), 1)):
+                with self.subTest(roi=roi), self.assertRaises(ValueError):
+                    collect_window_evidence(root, trajectory_count=0, sample={
+                        "cursor_drag_response": "spring-return", "cursor_interaction_roi": roi})
+            (root / "scene-before-window.png").unlink()
+            result = collect_window_evidence(root, trajectory_count=0, sample={
+                "cursor_drag_response": "spring-return", "cursor_interaction_roi": (-1, 0, 1, 1)})
+            self.assertIsNone(result["hover_motion"]["before_to_drag"])
+            self.assertIsNone(result["hover_motion"]["before_to_spring_after"])
+
+    def test_window_schedule_observes_rewrite_and_deletion_after_cached_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_window_inputs(root, 0)
+            path = root / "scene-after-window.png"
+            first = collect_window_evidence(root, trajectory_count=0)
+            stat = path.stat()
+            write_png(path, black=True)
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
+            second = collect_window_evidence(root, trajectory_count=0)
+            self.assertTrue(first["after_non_black"])
+            self.assertFalse(second["after_non_black"])
+            self.assertNotEqual(first["motion"], second["motion"])
+            path.unlink()
+            third = collect_window_evidence(root, trajectory_count=0)
+            self.assertFalse(third["after_non_black"])
+            self.assertIsNone(third["motion"])
+
     def test_complete_collected_result_preserves_frozen_public_report(self) -> None:
         expected = json.loads((SCRIPT_DIR / (
             "tests/fixtures/scene_wallpaper_sample_report_golden.json"

@@ -552,22 +552,17 @@ def run_sample(
         else []
     )
     ready_non_black = png_has_non_black_pixel(ready_snapshot)
+    flat_border_ratio = {"ready": png_flat_border_ratio(ready_snapshot)}
+    after_non_black = png_has_non_black_pixel(after_snapshot)
+    flat_border_ratio["after"] = png_flat_border_ratio(after_snapshot)
+    motion = png_motion_metrics(ready_snapshot, after_snapshot)
     hover_non_black = (
         png_has_non_black_pixel(hover_snapshot)
         if hover_pointer is not None
         else None
     )
-    after_non_black = png_has_non_black_pixel(after_snapshot)
-    pointer_trajectory_non_black = [
-        png_has_non_black_pixel(path) for path in pointer_trajectory_snapshots
-    ]
-    flat_border_ratio = {
-        "ready": png_flat_border_ratio(ready_snapshot),
-        "after": png_flat_border_ratio(after_snapshot),
-    }
     if hover_pointer is not None:
         flat_border_ratio["hover"] = png_flat_border_ratio(hover_snapshot)
-    motion = png_motion_metrics(ready_snapshot, after_snapshot)
     hover_motion = (
         {
             "before_to_hover": png_motion_metrics(ready_snapshot, hover_snapshot),
@@ -575,10 +570,6 @@ def run_sample(
         }
         if hover_pointer is not None
         else None
-    )
-    pointer_trajectory_motion = pointer_trajectory_motion_metrics(
-        ready_snapshot,
-        pointer_trajectory_snapshots,
     )
     puppet_interaction = None
     response = sample.get("cursor_drag_response", "hold")
@@ -597,6 +588,15 @@ def run_sample(
         after_snapshot,
         result_dir,
     )
+    # Consume each completed snapshot while its rows are in the bounded PNG cache.
+    pointer_trajectory_non_black = []
+    pointer_trajectory_motion = [] if pointer_trajectory_snapshots else None
+    previous_snapshot = ready_snapshot
+    for path in pointer_trajectory_snapshots:
+        pointer_trajectory_non_black.append(png_has_non_black_pixel(path))
+        pointer_trajectory_motion.extend(
+            pointer_trajectory_motion_metrics(previous_snapshot, [path]))
+        previous_snapshot = path
     runtime_evidence_path = (
         Path(runtime_evidence_match.group("path").strip())
         if runtime_evidence_match is not None
