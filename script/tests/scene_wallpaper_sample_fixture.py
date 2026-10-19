@@ -157,6 +157,8 @@ def run_sample_fixture(
 
             def wait(self, timeout: float) -> int:
                 self.wait_count += 1
+                if "observed_wait_timeouts" in control:
+                    control["observed_wait_timeouts"].append(timeout)
                 if control.get("timeout") and self.wait_count == 1:
                     raise subprocess.TimeoutExpired(observed_command, timeout)
                 return control.get("exit_code", 0)
@@ -178,5 +180,6 @@ def run_sample_fixture(
                 performance_fps=60,
                 after_snapshot_delay=None,
                 no_execution_observations=no_execution_observations,
+                startup_timeout_allowance=control.get("startup_timeout_allowance", 60),
             )
         return normalize_fixture_paths(result, root), normalize_fixture_paths(observed_command, root)

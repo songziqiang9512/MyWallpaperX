@@ -148,7 +148,12 @@ def run_sample(
     require_graph_execution: bool = False,
     require_cursor_ripple_persistence: bool = False,
     no_execution_observations: bool = False,
+    startup_timeout_allowance: float = 60,
 ) -> dict[str, Any]:
+    # Playback duration starts after preparation; cold shader/resource work
+    # needs its own bounded allowance in the supervising process.
+    if not math.isfinite(startup_timeout_allowance) or startup_timeout_allowance <= 0:
+        raise ValueError("startup_timeout_allowance must be finite and positive")
     execution_observations_enabled = not no_execution_observations
     validate_execution_observation_policy(
         execution_observations_enabled=execution_observations_enabled,
@@ -332,7 +337,7 @@ def run_sample(
             text=True,
         )
         try:
-            exit_code = process.wait(timeout=duration + 60)
+            exit_code = process.wait(timeout=duration + startup_timeout_allowance)
         except subprocess.TimeoutExpired:
             timed_out = True
             process.terminate()
@@ -969,4 +974,6 @@ def run_sample(
         visible_graph_output_publication_execution=visible_graph_output_publication_execution,
     ))
     result["passed"] = not failures
+    if startup_timeout_allowance != 60:
+        result["startup_timeout_allowance"] = startup_timeout_allowance
     return result

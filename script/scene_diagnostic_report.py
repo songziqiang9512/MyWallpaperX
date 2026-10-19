@@ -22,7 +22,12 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
-from scene_capability_census_io import is_sample_directory_name
+from scene_diagnostic_report_io import (
+    DiagnosticReportError,
+    PREVIEW_ORACLE_REGISTRY_PATH,
+    load_preview_oracle_registry,
+    load_report as _load_report,
+)
 
 
 SCHEMA_VERSION = 1
@@ -57,53 +62,6 @@ SCENE_SCRIPT_EFFECT_FAILURE_RE = re.compile(
     r"passIndex: \d+, name: \"[^\"]+\"\) failure=(?P<failure>.*?) "
     r"code=(?P<code>\S+) fallback=(?P<fallback>\S+)"
 )
-
-
-class DiagnosticReportError(ValueError):
-    """Raised when an input is not a benchmark report shape."""
-
-
-PREVIEW_ORACLE_REGISTRY_PATH = (
-    Path(__file__).resolve().parent / "scene_sample_preview_oracle_registry.json"
-)
-
-
-def load_preview_oracle_registry(
-    path: Path | None = None,
-) -> dict[str, str]:
-    """Load sample_id -> reason_code for samples whose flat authored preview
-    cannot serve as a spatial-similarity oracle (time-dependent content and
-    similar). Malformed registries fail closed with a typed error; an absent
-    file means no registration."""
-    registry_path = path or PREVIEW_ORACLE_REGISTRY_PATH
-    if not registry_path.is_file():
-        return {}
-    payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise DiagnosticReportError(
-            "preview oracle registry root is not an object"
-        )
-    uncontrolled = payload.get("uncontrolled")
-    if not isinstance(uncontrolled, dict):
-        raise DiagnosticReportError(
-            "preview oracle registry uncontrolled is not an object"
-        )
-    reasons: dict[str, str] = {}
-    for sample_id, entry in sorted(uncontrolled.items()):
-        if not isinstance(sample_id, str) or not is_sample_directory_name(sample_id):
-            raise DiagnosticReportError(
-                "preview oracle registry has an invalid sample id: "
-                + repr(sample_id)
-            )
-        if not isinstance(entry, dict) or not isinstance(
-            entry.get("reason_code"), str
-        ) or not entry["reason_code"]:
-            raise DiagnosticReportError(
-                "preview oracle registry entry needs a reason_code string: "
-                + sample_id
-            )
-        reasons[sample_id] = entry["reason_code"]
-    return reasons
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -405,6 +363,8 @@ def _output_events(
     registered_reason = (preview_oracle_uncontrolled or {}).get(
         str(sample.get("id"))
     )
+    # Availability and similarity alone do not qualify a spatial oracle;
+    # audio, pointer and phase can make an advisory preview diverge normally.
     if (
         isinstance(ready_border, (int, float))
         and not isinstance(ready_border, bool)
@@ -413,6 +373,8 @@ def _output_events(
         and ready_border >= 0.999
         and after_border >= 0.999
         and preview.get("status") == "available"
+        and preview.get("gating") is True
+        and preview.get("advisory") is False
         and isinstance(spatial_similarity, (int, float))
         and not isinstance(spatial_similarity, bool)
         and spatial_similarity < 0.9
@@ -983,18 +945,6 @@ def normalize_reports(
         "samples": samples,
         "clusters": _clusters(cluster_inputs),
     }
-
-
-def _load_report(path: Path) -> Mapping[str, Any]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as error:
-        raise DiagnosticReportError(f"cannot read {path}: {error}") from error
-    except json.JSONDecodeError as error:
-        raise DiagnosticReportError(f"invalid JSON in {path}: {error}") from error
-    if not isinstance(payload, Mapping):
-        raise DiagnosticReportError(f"{path} does not contain a JSON object")
-    return payload
 
 
 def _parser() -> argparse.ArgumentParser:

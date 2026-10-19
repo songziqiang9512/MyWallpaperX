@@ -1081,6 +1081,356 @@
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
+    },
+    "2507971256": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "两侧主体、黑白拼图和斜分隔可见；音频/视差输入未锁，未见主构图缺层。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2507971256/runtime_evidence.zip"
+      ]
+    },
+    "2731896598": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "五竖卡及五圆头像可见；中央粒子点簇颜色/位置只作未控pointer、音频与phase观察，不判故障。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2731896598/runtime_evidence.zip"
+      ]
+    },
+    "2735160334": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "雪山、云湖、两侧树与蓝光可见；未控相位/视差差异不判缺陷。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2735160334/runtime_evidence.zip"
+      ]
+    },
+    "2787219305": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "女像、玫瑰、左钟与青横线可见；横线/谱高度依赖音频，不据静音窗判缺失。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2787219305/runtime_evidence.zip"
+      ]
+    },
+    "2814167871": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "白发人物、蓝底、水果与右钟可见；有短暂typed非零音频，但未与图精确关联，不据频谱高度判缺失。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2814167871/runtime_evidence.zip"
+      ]
+    },
+    "2821634935": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "沙发人物、笔电、蛋糕与手机钟可见；三环/频谱未同音频资格，不判合成错误。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2821634935/runtime_evidence.zip"
+      ]
+    },
+    "2831174267": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "红底双人物、枪花、标题日期可见；ready提示在after已消失；底谱未锁音频，不判缺失。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2831174267/runtime_evidence.zip"
+      ]
+    },
+    "2835398595": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "中央白框人物、樱花与右钟可见；框齿/频谱差异未与音频/phase对齐。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2835398595/runtime_evidence.zip"
+      ]
+    },
+    "2850139759": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex camera_cursor_phase_sol（代理原图审查）",
+      "note": "红白衣人物、灰底横线、文字与雪粒可见；光线形状/强度未控输入，不判故障。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2850139759/runtime_evidence.zip"
+      ]
+    },
+    "2871552691": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "白字可见，参考亮环在静音窗未见；advisory预览不能作为compositor阻断依据，旧自动误标已按通用oracle资格修正。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2871552691/runtime_evidence.zip"
+      ]
+    },
+    "2877499944": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "三联视频主体/街景可见且两图有帧变化；频谱未与音频对齐，不判未执行。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2877499944/runtime_evidence.zip"
+      ]
+    },
+    "2969308380": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "人物、粒子、时钟可见；日期右端裁切和STANDBY保留视口/媒体状态未知，不作适配根因。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2969308380/runtime_evidence.zip"
+      ]
+    },
+    "2972071249": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "主体与刀可见；effect313的dependency-stage-reference-unavailable保留为执行缺口，白波纹与其因果未证。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2972071249/runtime_evidence.zip"
+      ]
+    },
+    "3027068980": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "人物、星与白细环可见；216/328准备和命名target链有拒绝，不将参考环高差直接归因，音频未锁。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip"
+      ]
+    },
+    "3039704323": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "米白水墨人物、竖字及双弧可见；主构图保持，完整动态/输入未验收。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3039704323/runtime_evidence.zip"
+      ]
+    },
+    "3087231311": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "荧绿人物、灰白斜条、文字与粒子可见；未见主构图缺层，不外推完整播放。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3087231311/runtime_evidence.zip"
+      ]
+    },
+    "3292370168": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
+      "note": "骨架29默认/实际active却未prepare，direct-model header/资源入口拒绝已证；彩环粒子有GPU回执，截图轨迹/背景差异仍有音频、pointer及phase边界。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3292370168/runtime_evidence.zip"
+      ]
+    },
+    "3325624777": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "主体、金环、金纹与字阵可见；原包字阵默认绿色，官方金色未锁属性，不记颜色故障。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3325624777/runtime_evidence.zip"
+      ]
+    },
+    "3383535304": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "酒吧人物、挂饰、枪酒杯与前景杯可见；effect306动态producer回退已记录，具体可见损失未归因。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3383535304/runtime_evidence.zip"
+      ]
+    },
+    "3436945972": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "补足启动余量后已见开场过渡及双人物桥景；旧70s工具超时保留，不判主体缺失。冷启动单次64.8s，非性能收益。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3436945972/runtime_evidence.zip"
+      ]
+    },
+    "3745828537": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "人物与中央花枝可见；active Sprite51/65在A2C材质准入被拒，早于模拟；外围密花差异因果仍未知，1028 radial blur是独立拒绝。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip"
+      ]
+    },
+    "3746422401": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "人物、剑、水流、圆环与竖排日期可见；另有typed VM TypeError，host/作者归因待查；字体、时间和视差未作同状态裁决。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3746422401/runtime_evidence.zip"
+      ]
+    },
+    "3773747576": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "黑白主体、黑柱图标、圆与碎片可见；四个procedural noise在Metal mix向量宽度处编译失败，星芒/音频差异未直接定因。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3773747576/runtime_evidence.zip"
+      ]
+    },
+    "3779107475": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "NF墨框、二胡驴、中文、纸纹与飞墨可见；主构图保持，完整动态未验收。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3779107475/runtime_evidence.zip"
+      ]
+    },
+    "3808922316": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root（原图审查）",
+      "note": "红发人物、彩翼、三球与背景可见；有typed VM InternalError待判，球环形变/透明差异未锁音频、pointer和phase。",
+      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3808922316/runtime_evidence.zip"
+      ]
     }
   }
 }

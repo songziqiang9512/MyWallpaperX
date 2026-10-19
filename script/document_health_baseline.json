@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 142331
+      "bytes": 142135
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -141,8 +141,8 @@
       "bytes": 74762
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 364,
-      "bytes": 68593
+      "lines": 389,
+      "bytes": 77176
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 54,
-      "bytes": 17053
+      "lines": 56,
+      "bytes": 18286
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 214,
-      "bytes": 62427
+      "lines": 217,
+      "bytes": 64253
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1379,11 +1379,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "6530656ba3c086888ad340d77e016cf6de8bf5fc16b1007ece82a4916f05a834",
-      "after": "d35d7ed5766dad55fb3c6edcaa890da5987e4b94f33250f8f5ae05c339026233",
-      "owner": "scene-model-scene-depth-domain",
-      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+      "before": "d35d7ed5766dad55fb3c6edcaa890da5987e4b94f33250f8f5ae05c339026233",
+      "after": "7cfccfe8acadc095eefea09d63cb0e71e71eea899e4182e8c230ed05f0e2b7df",
+      "owner": "scene-new25-runtime-audit",
+      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
     },
     {
       "section": "bodies",
@@ -1424,11 +1424,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "c95c0450370122be2b6b0080cd87ae545c0ddd18510ca7613f3b6fc2c48f875b",
-      "after": "6d88a4b34d5e959057eff60ef2faf1c7c1211bdbc4a771cb4bc6f1919878741c",
-      "owner": "scene-mixed-layer-timeline",
-      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+      "before": "6d88a4b34d5e959057eff60ef2faf1c7c1211bdbc4a771cb4bc6f1919878741c",
+      "after": "6c186b7f4db2e54ae8b919b3762e6dc4661f1f5de374ff13fd223e74962e8f32",
+      "owner": "scene-new25-runtime-audit",
+      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
     },
     {
       "section": "bodies",
@@ -1442,11 +1442,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "564ce347153caad52a4e103cdd11bd12260a743c05cfa45e7c669440124a650b",
-      "after": "998502f4e8f53382823ee071da08786f58e01817dc0c3f904c7ef5e29fce6371",
-      "owner": "scene-mixed-layer-timeline",
-      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+      "before": "8c4a527b17d6e0659a58a357e5709b612822b2fdaa7bc877ba27ddf9efa6e285",
+      "after": "5bb6ec30aa1b622e502693a8a792389c708cd68319ea0783dff10bba3b48f614",
+      "owner": "scene-new25-runtime-audit",
+      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
     },
     {
       "section": "bodies",

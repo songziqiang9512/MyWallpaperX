@@ -171,6 +171,24 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         self.assertEqual(command[1], "--mwx-debug-scene-root")
         self.assertEqual(actual["runtime"]["runtime_evidence"]["visible_layer_ids"], [1])
 
+    def test_cold_start_allowance_preserves_bounded_timeout_and_report(self) -> None:
+        waits = []
+        result, _ = run_sample_fixture(benchmark, control={
+            "startup_timeout_allowance": 180, "observed_wait_timeouts": waits,
+            "timeout": True,
+        })
+        self.assertEqual(waits, [187, 5])
+        self.assertEqual(result["startup_timeout_allowance"], 180)
+        self.assertTrue(result["timed_out"])
+        self.assertIn("process timeout", result["failures"])
+
+    def test_invalid_start_allowance_rejected_before_launch(self) -> None:
+        for allowance in (0, -1, float("inf"), float("nan")):
+            with self.subTest(allowance=allowance), self.assertRaisesRegex(
+                ValueError, "startup_timeout_allowance"
+            ):
+                run_sample_fixture(benchmark, control={"startup_timeout_allowance": allowance})
+
     def test_default_observations_and_explicit_disabled_request(self) -> None:
         strict, strict_command = run_sample_fixture(benchmark)
         disabled, disabled_command = run_sample_fixture(

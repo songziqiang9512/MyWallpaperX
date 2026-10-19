@@ -233,26 +233,91 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         self.assertEqual(observation["basicDisplayStatus"], "degraded")
 
     def test_flat_output_diverging_from_preview_is_a_terminal_blocker(self) -> None:
-        flat = sample("flat-output")
-        flat["evidence"]["flat_border_ratio"] = {
-            "ready": 1.0,
-            "after": 1.0,
-        }
-        flat["evidence"]["preview_visual"]["metrics"][
-            "spatial_color_similarity"
-        ] = 0.2
+        fixtures = []
+        for sample_id, layer_id in [("flat-output", 1), ("renamed-input", 29)]:
+            flat = sample(sample_id, layer_id=layer_id)
+            flat["evidence"]["flat_border_ratio"] = {
+                "ready": 1.0, "after": 1.0,
+            }
+            flat["evidence"]["preview_visual"].update(
+                gating=True, advisory=False,
+                metrics={"spatial_color_similarity": 0.2},
+            )
+            fixtures.append(flat)
 
-        result = diagnostic.normalize_reports([report(flat)])
-        observation = result["samples"][0]
+        result = diagnostic.normalize_reports([report(*fixtures)])
+        for observation in result["samples"]:
+            with self.subTest(sample_id=observation["sampleId"]):
+                self.assertEqual(
+                    observation["firstBreakpoint"]["reasonCode"],
+                    "terminal-output-flat-preview-divergence",
+                )
+                self.assertEqual(observation["basicDisplayStatus"], "blocked")
+                self.assertEqual(
+                    observation["evidenceSummary"]["afterFlatBorderRatio"], 1.0
+                )
+                self.assertEqual(
+                    observation["evidenceSummary"][
+                        "previewSpatialColorSimilarityAdvisory"
+                    ], 0.2,
+                )
 
+    def test_unknown_or_advisory_preview_never_qualifies_spatial_blocking(self) -> None:
+        qualifications = [
+            {}, {"gating": True}, {"advisory": False},
+            {"gating": False, "advisory": True},
+            {"gating": True, "advisory": True},
+            {"gating": False, "advisory": False},
+            {"gating": None, "advisory": False},
+            {"gating": True, "advisory": None},
+            {"gating": 1, "advisory": False},
+            {"gating": True, "advisory": 0},
+            {"gating": "true", "advisory": "false"},
+        ]
+        for index, qualification in enumerate(qualifications):
+            with self.subTest(qualification=qualification):
+                fixture = sample(f"uncontrolled-{index}", layer_id=index + 10)
+                evidence = fixture["evidence"]
+                evidence["flat_border_ratio"] = {"ready": 1.0, "after": 1.0}
+                evidence["preview_visual"].update(
+                    qualification, metrics={"spatial_color_similarity": 0.2}
+                )
+                before = json.dumps(fixture, sort_keys=True)
+                observation = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                self.assertIsNone(observation["firstBreakpoint"])
+                self.assertEqual(observation["secondaryEvents"], [])
+                self.assertEqual(observation["basicDisplayStatus"], "terminal-chain-complete")
+                self.assertEqual(observation["evidenceSummary"]["afterFlatBorderRatio"], 1.0)
+                self.assertEqual(
+                    observation["evidenceSummary"]["previewSpatialColorSimilarityAdvisory"],
+                    0.2,
+                )
+                self.assertEqual(json.dumps(fixture, sort_keys=True), before)
+
+    def test_advisory_spatial_preview_preserves_black_and_gpu_failures(self) -> None:
+        black = sample("advisory-black")
+        black["evidence"]["after_non_black"] = False
+        missing_gpu = sample("advisory-gpu")
+        missing_gpu["runtime"]["resolved_material_graph_execution"]["layer_routes"][
+            "missing_gpu_completed_layer_ids"
+        ] = [1]
+        for fixture in [black, missing_gpu]:
+            fixture["evidence"]["flat_border_ratio"] = {"ready": 1.0, "after": 1.0}
+            fixture["evidence"]["preview_visual"].update(
+                gating=False, advisory=True,
+                metrics={"spatial_color_similarity": 0.2},
+            )
+        observations = diagnostic.normalize_reports([report(black, missing_gpu)])["samples"]
+        by_id = {item["sampleId"]: item for item in observations}
         self.assertEqual(
-            observation["firstBreakpoint"]["reasonCode"],
-            "terminal-output-flat-preview-divergence",
+            by_id["advisory-black"]["firstBreakpoint"]["reasonCode"],
+            "terminal-output-non-black-missing",
         )
-        self.assertEqual(observation["basicDisplayStatus"], "blocked")
         self.assertEqual(
-            observation["evidenceSummary"]["afterFlatBorderRatio"], 1.0
+            by_id["advisory-gpu"]["firstBreakpoint"]["reasonCode"],
+            "gpu-completion-missing",
         )
+        self.assertTrue(all(item["basicDisplayStatus"] == "blocked" for item in observations))
 
     def test_particle_admission_history_does_not_require_nonempty_batches(self) -> None:
         runtime = {
@@ -375,6 +440,13 @@ class SceneDiagnosticReportTests(unittest.TestCase):
                 )
                 fixture = sample(sample_id, layer_id=layer_id)
                 fixture["evidence"]["app_log"] = str(app_log)
+                fixture["evidence"]["flat_border_ratio"] = {
+                    "ready": 1.0, "after": 1.0,
+                }
+                fixture["evidence"]["preview_visual"].update(
+                    gating=False, advisory=True,
+                    metrics={"spatial_color_similarity": 0.2},
+                )
                 fixtures.append(fixture)
 
             result = diagnostic.normalize_reports([report(*fixtures)])
@@ -549,13 +621,15 @@ class SceneDiagnosticReportTests(unittest.TestCase):
     def test_registered_preview_oracle_skips_flat_preview_divergence(self) -> None:
         """A registered time-dependent sample must not earn a blocking
         terminal breakpoint from the flat-preview spatial comparison; an
-        unregistered sample with identical metrics still fails closed."""
+        explicitly qualified unregistered spatial oracle can still block."""
         divergent_evidence = {
             "ready_non_black": True,
             "after_non_black": True,
             "flat_border_ratio": {"ready": 1.0, "after": 1.0},
             "preview_visual": {
                 "status": "available",
+                "gating": True,
+                "advisory": False,
                 "metrics": {"spatial_color_similarity": 0.4},
             },
         }
@@ -582,6 +656,19 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             by_id["1111111111"]["firstBreakpoint"]["reasonCode"],
             "terminal-output-flat-preview-divergence",
         )
+
+    def test_report_io_reexports_typed_errors_and_preserves_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "report.json"
+            with self.assertRaisesRegex(diagnostic.DiagnosticReportError, "cannot read"):
+                diagnostic._load_report(path)
+            for invalid, message in [("{", "invalid JSON"), ("[]", "JSON object")]:
+                path.write_text(invalid, encoding="utf-8")
+                with self.assertRaisesRegex(diagnostic.DiagnosticReportError, message):
+                    diagnostic._load_report(path)
+            payload = report(sample("io-renamed"))
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            self.assertEqual(diagnostic._load_report(path), payload)
 
     def test_cli_emits_stable_sorted_json(self) -> None:
         payload = report(sample("healthy"))
