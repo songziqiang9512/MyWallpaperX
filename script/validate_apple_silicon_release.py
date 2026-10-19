@@ -185,6 +185,11 @@ def validate_bundle(app: Path) -> None:
 
 def validate_resource_hygiene(app: Path) -> None:
     resources = app / "Contents/Resources"
+    for name in ("LICENSE", "NOTICE.md"):
+        bundled = resources / name
+        source = Path(__file__).resolve().parents[1] / name
+        if not bundled.is_file() or bundled.read_bytes() != source.read_bytes():
+            raise RuntimeError(f"Project license material is missing or stale: {name}")
     for path in resources.rglob("*"):
         if (path.name == ".mimosa" or path.suffix in (".source", ".pdb")
                 or (path.name.startswith("sess_") and path.suffix == ".json")):

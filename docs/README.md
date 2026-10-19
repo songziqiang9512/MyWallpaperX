@@ -32,7 +32,7 @@
 
 ## App、Web 与发布
 
-- [2.10.1 待发布更新说明](releases/2.10.1.md)；[2.10.0 发布记录](releases/2.10.0.md)。说明文件不代表已发布，实际状态以正式 Release 为准。
+- [2.11.0 更新说明](releases/2.11.0.md)；历史说明：[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。

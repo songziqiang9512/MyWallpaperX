@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F80000012F810001005688A8 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
+		F80000022F810001005688A8 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
 		A10000012F6B0001005688A8 /* MyWallpaperXWallpaperDaemon in CopyFiles */ = {isa = PBXBuildFile; fileRef = A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A10000022F6B0001005688A8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000122F6B0001005688A8 /* AppKit.framework */; };
 		A10000032F6B0001005688A8 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000132F6B0001005688A8 /* AVFoundation.framework */; };
@@ -17,7 +19,7 @@
 		A20000022F800002005688A8 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000122F800002005688A8 /* AppIntents.framework */; };
 		A30000012F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A30000022F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		F70000012F810001005688A8 /* SceneDistanceFog.metalh in Resources */ = {isa = PBXBuildFile; fileRef = F70000112F810001005688A8 /* SceneDistanceFog.metalh */; };
+		F70000012F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh in Resources */ = {isa = PBXBuildFile; fileRef = F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -36,6 +38,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F80000112F810001005688A8 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
+		F80000122F810001005688A8 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = SOURCE_ROOT; };
 		98CED6392F6AF877005688A8 /* MyWallpaperX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyWallpaperX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MyWallpaperXWallpaperDaemon; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000122F6B0001005688A8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -45,7 +49,7 @@
 		A20000122F800002005688A8 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
 		A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"; sourceTree = SOURCE_ROOT; };
-		F70000112F810001005688A8 /* SceneDistanceFog.metalh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh; sourceTree = SOURCE_ROOT; };
+		F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -53,8 +57,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh,
-				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
 				Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m,
+				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
 				Info.plist,
 				Modules/OnlineLibrary/AGENTS.md,
 				Modules/StaticImageLibrary/AGENTS.md,
@@ -127,6 +131,8 @@
 		98CED6302F6AF877005688A8 = {
 			isa = PBXGroup;
 			children = (
+				F80000112F810001005688A8 /* LICENSE */,
+				F80000122F810001005688A8 /* NOTICE.md */,
 				98E9DA272F786FCC00C96FC7 /* MyWallpaperXHelp */,
 				98CED63B2F6AF877005688A8 /* MyWallpaperX */,
 				A10000212F6B0001005688A8 /* WallpaperDaemonSources */,
@@ -148,7 +154,7 @@
 		98FCEC7930718F89009B3931 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				F70000112F810001005688A8 /* SceneDistanceFog.metalh */,
+				F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */,
 				A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */,
 				A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */,
 			);
@@ -266,8 +272,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F80000012F810001005688A8 /* LICENSE in Resources */,
+				F80000022F810001005688A8 /* NOTICE.md in Resources */,
 				A10000062F6B0001005688A8 /* MyWallpaperXHelp in Resources */,
-				F70000012F810001005688A8 /* SceneDistanceFog.metalh in Resources */,
+				F70000012F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -309,7 +317,8 @@
 		A40000032F810003005688A8 /* Build Scene media observer */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (
+			);
 			inputPaths = (
 				"$(SRCROOT)/script/build-scene-media-observer.sh",
 				"$(SRCROOT)/MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
@@ -326,10 +335,15 @@
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ("$(SRCROOT)/script/generate_scene_shader_cache_identity.py", );
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/script/generate_scene_shader_cache_identity.py",
+			);
 			name = "Generate Scene shader cache identity";
-			outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SceneShaderCacheIdentity.json", );
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SceneShaderCacheIdentity.json",
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/usr/bin/python3 -B \"$SRCROOT/script/generate_scene_shader_cache_identity.py\" --root \"$SRCROOT\" --output \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SceneShaderCacheIdentity.json\"\n";
@@ -492,7 +506,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 280;
+				CURRENT_PROJECT_VERSION = 283;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
@@ -519,7 +533,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.10.0;
+				MARKETING_VERSION = 2.11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -545,7 +559,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 280;
+				CURRENT_PROJECT_VERSION = 283;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
@@ -572,7 +586,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.10.0;
+				MARKETING_VERSION = 2.11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -592,10 +606,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 283;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 2.11.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -608,10 +624,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 283;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 2.11.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;

@@ -61,7 +61,8 @@ def publish(version: str, test_scope: str = "release") -> None:
     require_newer(expected_version, published)
     paths = ["MyWallpaperX.xcodeproj/project.pbxproj", f"docs/releases/{version}.md"]
     run("git", "add", "--", *paths)
-    run("git", "commit", "--only", "-m", f"Prepare MyWallpaperX {version} release and notes", "--", *paths)
+    if run("git", "diff", "--cached", "--name-only", "--", *paths):
+        run("git", "commit", "--only", "-m", f"Prepare MyWallpaperX {version} release and notes", "--", *paths)
     sha = run("git", "rev-parse", "HEAD")
     run("git", "push", "origin", "HEAD:refs/heads/main")
     remote = run("git", "ls-remote", "origin", "refs/heads/main").split()

@@ -83,7 +83,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             app = Path(temporary)
             resources = app / "Contents/Resources"
             resources.mkdir(parents=True)
-            (resources / "LICENSE").write_text("license")
+            for name in ("LICENSE", "NOTICE.md"):
+                (resources / name).write_bytes((ROOT / name).read_bytes())
             validator.validate_resource_hygiene(app)
             for name in ("session.source", "sess_abc.json", "SteamService.pdb", "README.md"):
                 path = resources / name
@@ -91,6 +92,28 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     validator.validate_resource_hygiene(app)
                 path.unlink()
+
+    def test_bundle_rejects_missing_or_stale_project_license_material(self):
+        validator = load_validator()
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary)
+            resources = app / "Contents/Resources"
+            resources.mkdir(parents=True)
+            for name in ("LICENSE", "NOTICE.md"):
+                (resources / name).write_bytes((ROOT / name).read_bytes())
+            validator.validate_resource_hygiene(app)
+            for name in ("LICENSE", "NOTICE.md"):
+                path = resources / name
+                expected = path.read_bytes()
+                for content in (None, b"", b"outdated license material"):
+                    with self.subTest(name=name, content=content):
+                        if content is None:
+                            path.unlink()
+                        else:
+                            path.write_bytes(content)
+                        with self.assertRaisesRegex(RuntimeError, name):
+                            validator.validate_resource_hygiene(app)
+                        path.write_bytes(expected)
 
     def test_helper_is_required_self_contained_and_embedded_by_xcode(self):
         validator = load_validator()

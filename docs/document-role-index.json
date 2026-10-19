@@ -22,6 +22,7 @@
       "docs/scene/architecture/variant-analysis-cache-contract.md",
       "docs/scene/capabilities/alpha-display-fallback-design.md",
       "docs/scene/capabilities/direct-model-bind-geometry.md",
+      "docs/scene/capabilities/direct-model-skeletal-animation.md",
       "docs/scene/capabilities/material-video-assets.md",
       "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "docs/scene/capabilities/puppet-clipping-design.md",
@@ -60,8 +61,7 @@
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
-      "docs/web/web-wallpaper-benchmark-standard.md",
-      "docs/scene/capabilities/direct-model-skeletal-animation.md"
+      "docs/web/web-wallpaper-benchmark-standard.md"
     ],
     "managedRoot": "docs",
     "policy": "Git tracked and nonignored untracked Markdown; missing tracked files are excluded as deletions. Ignored evidence/cache is not documentation authority.",
@@ -387,13 +387,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "36a749c54e45434f4b2f96fa17ee459a7328de93f6803c8b86ad3cd6ca725124",
+        "sourceSHA256": "d520972e76c7fa2c7dd6005e0362146dfca06054e4582b3e1c0a24434a1815f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核文档角色、入口与当前权威链接；发布页同步签名权限及双dSYM归档合同。",
-        "limitations": "仅导航与发布静态合同复核；不代表本轮完整产品运行、正式签名、公证或发布验收。"
+        "scope": "Prepared release version/build reuse, no-op commit handling and retained online version/build rejection; source and targeted test review.",
+        "limitations": "Static contract review only; signed release and public artifact checks are performed by the release workflow."
       }
     },
     {
@@ -408,6 +408,13 @@
       "role": "reference",
       "entrypoint": "docs/README.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
+      "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/releases/2.11.0.md",
+      "role": "reference",
+      "entrypoint": "docs/README.md",
+      "purpose": "2.11.0 用户更新说明，仅记录相对上一正式版本的变化；正式状态以 GitHub Release 为准。",
       "commandPolicy": "reference-only"
     },
     {
@@ -629,6 +636,22 @@
         "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
         "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
       }
+    },
+    {
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
+      "lastReviewed": "2026-10-20",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "8d75008be299c24736a1c1541351a1ca2dddff9589bc80ca89e1197c31490c0d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+      },
+      "title": "Direct model的骨骼动画合同",
+      "authority": "advanced-object-animation-design"
     },
     {
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
@@ -3724,22 +3747,6 @@
         "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
         "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
       }
-    },
-    {
-      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/capabilities/README.md",
-      "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-20",
-      "reviewBasis": {
-        "kind": "navigation-audit",
-        "sourceSHA256": "8d75008be299c24736a1c1541351a1ca2dddff9589bc80ca89e1197c31490c0d",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
-      },
-      "title": "Direct model的骨骼动画合同",
-      "authority": "advanced-object-animation-design"
     }
   ],
   "taskRoutes": [

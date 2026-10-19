@@ -196,6 +196,32 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
 
+    def test_prepared_2110_build_283_is_unchanged_across_repeated_preparation(self):
+        target = "2.11.0"
+        (self.root / f"docs/releases/{target}.md").write_text(NOTES.replace(VERSION, target))
+        self.project.write_text(f"MARKETING_VERSION = {target};\nCURRENT_PROJECT_VERSION = 283;\n")
+        self.git("add", "MyWallpaperX.xcodeproj/project.pbxproj", f"docs/releases/{target}.md")
+        self.git("commit", "-qm", "Prepared release")
+        head, original = self.git("rev-parse", "HEAD"), self.project.read_bytes()
+        for _ in range(2):
+            result = self.run_shell(f"bash script/prepare_release_version.sh {target} 282")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(self.project.read_bytes(), original)
+            self.assertEqual(self.git("status", "--porcelain", "--", "MyWallpaperX.xcodeproj", "docs/releases"), "")
+            self.assertEqual(self.git("rev-parse", "HEAD"), head)
+
+    def test_prepared_build_not_above_online_is_rejected_without_mutation(self):
+        self.project.write_text(f"MARKETING_VERSION = {VERSION};\nCURRENT_PROJECT_VERSION = 282;\n")
+        self.git("add", "MyWallpaperX.xcodeproj/project.pbxproj")
+        self.git("commit", "-qm", "Stale prepared build")
+        original = self.project.read_bytes()
+        for published in (282, 283):
+            result = self.run_shell(f"bash script/prepare_release_version.sh {VERSION} {published}")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("higher than the published", result.stderr)
+            self.assertEqual(self.project.read_bytes(), original)
+            self.assertEqual(self.git("status", "--porcelain", "--", "MyWallpaperX.xcodeproj", "docs/releases"), "")
+
     def test_workflow_preflight_copies_exact_notes_and_rejects_mismatch_or_draft(self):
         self.project.write_text(f"MARKETING_VERSION = {VERSION};\nCURRENT_PROJECT_VERSION = 2;\n")
         shell = workflow_shell("Validate version and authored release notes")

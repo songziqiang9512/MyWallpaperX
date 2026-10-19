@@ -35,6 +35,7 @@ class PublishReleaseTests(unittest.TestCase):
         self.failure = None
         self.feed = feed_xml(VERSION, 279)
         self.release_feed = feed_xml(VERSION, 279)
+        self.previous_feed = feed_xml("2.0.9", 278)
         self.remote_project = None
         self.project = self.root / "MyWallpaperX.xcodeproj/project.pbxproj"
         self.project.parent.mkdir()
@@ -53,6 +54,7 @@ class PublishReleaseTests(unittest.TestCase):
             raise subprocess.CalledProcessError(1, args)
         if args[:3] == ("git", "branch", "--show-current"): return self.branch
         if args[:3] == ("git", "diff", "HEAD"): return self.dirty
+        if args[:4] == ("git", "diff", "--cached", "--name-only"): return self.dirty
         if args[:2] == ("git", "rev-parse"): return SHA
         if args[:2] == ("git", "show"): return self.remote_project or self.project.read_text()
         if args[:3] == ("git", "remote", "get-url"): return "https://github.com/fixture/MyWallpaperX.git"
@@ -68,7 +70,7 @@ class PublishReleaseTests(unittest.TestCase):
             directory = Path(args[args.index("--dir") + 1])
             directory.mkdir(exist_ok=True)
             (directory / "appcast.xml").write_bytes(
-                (feed_xml("2.0.9", 278) if directory.name.startswith("mwx-release-version-") else self.feed) if args[3] == "update-feed" else self.release_feed)
+                (self.previous_feed if directory.name.startswith("mwx-release-version-") else self.feed) if args[3] == "update-feed" else self.release_feed)
         return ""
 
     def publish(self, watch_failure=False, test_scope="release"):
@@ -104,6 +106,29 @@ class PublishReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.publish(test_scope="skip")
         self.assertEqual(self.calls, [])
+
+    def test_committed_prepared_build_publishes_without_an_empty_version_commit(self):
+        self.dirty = ""
+        self.project.write_text(f"MARKETING_VERSION = {VERSION};\nCURRENT_PROJECT_VERSION = 283;\n")
+        self.previous_feed = feed_xml("2.0.9", 282)
+        self.release_feed = self.feed = feed_xml(VERSION, 283)
+        self.publish()
+        self.assertFalse(any(command[:2] == ("git", "commit") for command in self.calls))
+        self.assertIn(("bash", "script/prepare_release_version.sh", VERSION, "282"), self.calls)
+        self.assertIn(("git", "push", "origin", "HEAD:refs/heads/main"), self.calls)
+        dispatch = next(command for command in self.calls if command[:4] == ("gh", "api", "--method", "POST"))
+        self.assertIn(f"inputs[source_sha]={SHA}", dispatch)
+        self.assertIn("CURRENT_PROJECT_VERSION = 283;", self.project.read_text())
+
+    def test_prepared_version_and_build_must_both_exceed_the_online_feed(self):
+        for version, build in ((VERSION, 278), ("2.0.9", 279), ("2.0.11", 280)):
+            with self.subTest(version=version, build=build):
+                self.previous_feed = feed_xml(version, build)
+                self.calls.clear()
+                with self.assertRaisesRegex(ValueError, "both increase"):
+                    self.publish()
+                self.assertFalse(any(command[:2] in (("git", "commit"), ("git", "push"), ("gh", "api"))
+                                     for command in self.calls))
 
     def test_parallel_edits_and_wrong_branch_do_not_push_or_dispatch(self):
         for attribute, value in (("dirty", "unrelated.swift"), ("branch", "feature")):

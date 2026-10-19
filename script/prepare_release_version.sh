@@ -15,15 +15,20 @@ cd "$ROOT_DIR"
 git diff --exit-code -- MyWallpaperX.xcodeproj/project.pbxproj
 git diff --cached --exit-code -- MyWallpaperX.xcodeproj/project.pbxproj
 python3 script/validate_release_notes.py "$MARKETING_VERSION" --check-tags
-BUILD_VERSION="$(python3 - "${2:-0}" <<'PYTHON'
+BUILD_VERSION="$(python3 - "${2:-0}" "$MARKETING_VERSION" <<'PYTHON'
 from pathlib import Path
 import sys
 from script.release_version import PROJECT, project_version
 published = sys.argv[1]
 if not published.isascii() or not published.isdecimal():
     raise SystemExit("Published build version must be numeric")
-_, current = project_version(Path(PROJECT).read_text())
-print(max(current, int(published)) + 1)
+current_version, current = project_version(Path(PROJECT).read_text())
+if current_version == sys.argv[2]:
+    if current <= int(published):
+        raise SystemExit("Prepared build must be higher than the published build")
+    print(current)
+else:
+    print(max(current, int(published)) + 1)
 PYTHON
 )"
 script/update_project_version.sh "$MARKETING_VERSION" "$BUILD_VERSION"
