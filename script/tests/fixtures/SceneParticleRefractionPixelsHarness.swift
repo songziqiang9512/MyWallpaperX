@@ -319,6 +319,8 @@ enum Harness {
             amount: 1, loader: loader, device: device)
         let result: [String: Any] = [
             "available": true,
+            "displacementProfiles": try displacementProfiles(device: device,
+                loader: loader, directory: directory, colorURL: opaqueURL),
             "sourceFormatPixels": sourceFormatPixels,
             "absentPixels": absentPixels,
             "explicitNeutral": try draw(device: device, refraction: explicitNeutral,
@@ -452,7 +454,23 @@ enum Harness {
         blendMode: SceneParticlePipelineBlendMode,
         gradientBackground: Bool
     ) throws -> [Int] {
-        let size = 32
+        let pixels = try drawPixels(device: device, refraction: refraction,
+            particleAlpha: particleAlpha, blendMode: blendMode,
+            gradientBackground: gradientBackground)
+        let offset = (16 * 32 + 16) * 4
+        return pixels[offset ..< offset + 4].map(Int.init)
+    }
+
+    private static func drawPixels(
+        device: MTLDevice,
+        refraction: SceneParticleRefractionTextureLoader.Loaded,
+        particleAlpha: Float,
+        blendMode: SceneParticlePipelineBlendMode,
+        gradientBackground: Bool,
+        size: Int = 32,
+        instance: SceneParticleGPUInstance? = nil,
+        uniforms: SceneParticleLayerUniforms? = nil
+    ) throws -> [UInt8] {
         guard let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
               let command = queue.makeCommandBuffer() else {
@@ -475,8 +493,8 @@ enum Harness {
             for x in 0 ..< size {
                 let offset = (y * size + x) * 4
                 if gradientBackground {
-                    backgroundBytes[offset] = UInt8(20 + x * 5)
-                    backgroundBytes[offset + 1] = UInt8(30 + y * 3)
+                    backgroundBytes[offset] = UInt8(20 + x * (size == 32 ? 5 : 1))
+                    backgroundBytes[offset + 1] = UInt8(30 + y * (size == 32 ? 3 : 1))
                     backgroundBytes[offset + 2] = 40
                 } else {
                     backgroundBytes[offset] = 200
@@ -500,7 +518,7 @@ enum Harness {
         }
         let instances = SceneParticleMetalInstanceBuffer()
         guard instances.update(device: device, instances: [
-            SceneParticleGPUInstance(
+            instance ?? SceneParticleGPUInstance(
                 position: .zero,
                 size: 2,
                 rotation: .zero,
@@ -520,12 +538,12 @@ enum Harness {
         ) else {
             throw HarnessError.gpu
         }
-        pipeline.drawRefraction(
+        let encoded = pipeline.drawRefraction(
             texture: refraction.color,
             binding: refraction.binding,
             background: captured,
             instances: instances,
-            uniforms: SceneParticleLayerUniforms(
+            uniforms: uniforms ?? SceneParticleLayerUniforms(
                 viewProjection: SceneMatrix.identity(),
                 layerModel: SceneMatrix.identity(),
                 basis: SceneParticleOrientation.screen.basis(
@@ -544,7 +562,7 @@ enum Harness {
             encoder: encoder
         )
         encoder.endEncoding()
-        guard instances.markSubmitted(on: command) else {
+        guard encoded, instances.markSubmitted(on: command) else {
             throw HarnessError.gpu
         }
         command.commit()
@@ -552,14 +570,98 @@ enum Harness {
         guard command.status == .completed else {
             throw HarnessError.gpu
         }
-        var pixel = [UInt8](repeating: 0, count: 4)
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
         target.getBytes(
-            &pixel,
+            &pixels,
             bytesPerRow: size * 4,
-            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
+            from: MTLRegionMake2D(0, 0, size, size),
             mipmapLevel: 0
         )
-        return pixel.map(Int.init)
+        return pixels
+    }
+
+    /// Same world centerline in two local frames. No width solver is copied:
+    /// a flat view-plane ribbon is the reference, while the ordinary local
+    /// plane is exactly edge-on and must retain its different geometry.
+    private static func displacementProfiles(device: MTLDevice, loader: SceneTextureLoader,
+                                             directory: URL, colorURL: URL) throws -> [[String: Any]] {
+        let size = 128
+        let palette: [[UInt8]] = [[255, 64, 0, 192], [255, 192, 0, 224],
+                                  [255, 224, 0, 64], [255, 32, 0, 96]]
+        var payload = Data()
+        for y in 0..<8 { for x in 0..<8 {
+            payload.append(contentsOf: palette[(y / 4) * 2 + x / 4])
+        } }
+        let url = directory.appendingPathComponent("asymmetric-direction-field.tex")
+        try makeTex(format: 0, textureWidth: 8, textureHeight: 8,
+                    imageWidth: 8, imageHeight: 8, payload: payload).write(to: url)
+        let refract = try refraction(colorURL: colorURL, normalURL: url,
+            amount: 0.125, loader: loader, device: device)
+        let roll = SceneMatrix.rotationZ(.pi / 6)
+        let right = SIMD3(roll.columns.0.x, roll.columns.0.y, roll.columns.0.z)
+        let up = SIMD3(roll.columns.1.x, roll.columns.1.y, roll.columns.1.z)
+        let view = SceneMatrix.lookAt(eye: .zero, center: SIMD3(0, 0, -1), up: up)
+        let vp = SceneMatrix.perspectiveRHMetal(fovYRadians: .pi / 2,
+            aspect: 1, near: 0.1, far: 100) * view
+        let endpoints = [SIMD4<Float>(-5, -5, -10, 1), SIMD4<Float>(5, -5, -10, 1)]
+            .map { roll * $0 }
+        let probes = [(48, 92), (80, 92), (48, 100), (80, 100)]
+        var rows: [[String: Any]] = []
+        for displacement in [true, false] {
+            for tilted in [false, true] {
+                let model = roll * (tilted ? SceneMatrix.rotationX(atan(Float(2)))
+                    : SceneMatrix.identity()) * SceneMatrix.scale(SIMD3(repeating: 0.2))
+                let inverse = simd_inverse(model)
+                let first = inverse * endpoints[0], last = inverse * endpoints[1]
+                let center = (first + last) * 0.5, delta = last - first
+                let instance = SceneParticleGPUInstance(
+                    position: SIMD3(center.x, center.y, center.z), size: 20,
+                    rotation: .zero, color: SIMD3(repeating: 1), alpha: 1,
+                    velocity: SIMD3(delta.x, delta.y, delta.z), trailStretch: 5,
+                    trailUVRange: SIMD2(0, 1), usesTrailDisplacement: displacement,
+                    trailHeadDirection: displacement ? SIMD3(delta.x, delta.y, delta.z) : nil,
+                    trailTailDirection: displacement ? SIMD3(delta.x, delta.y, delta.z) : nil,
+                    trailEndpointSizes: displacement ? SIMD2(20, 20) : nil)
+                let basis = SceneParticleOrientationBasis(
+                    right: simd_normalize(SIMD3(model.columns.0.x, model.columns.0.y, model.columns.0.z)),
+                    up: simd_normalize(SIMD3(model.columns.1.x, model.columns.1.y, model.columns.1.z)),
+                    localTrailNormal: SIMD3(0, 0, 1))
+                let uniforms = SceneParticleLayerUniforms(viewProjection: vp, layerModel: model,
+                    basis: basis, viewportSize: SIMD2(repeating: Float(size)),
+                    viewBasis: .init(right: right, up: up))
+                let pixels = try drawPixels(device: device, refraction: refract, particleAlpha: 1,
+                    blendMode: .translucent, gradientBackground: true, size: size,
+                    instance: instance, uniforms: uniforms)
+                var visible = 0, outside = 0
+                var bounds = [size, size, -1, -1]
+                // 90-degree projection: endpoints (32,96)/(96,96), width 12.8px.
+                // One-pixel raster pad; the original plane has zero projected area.
+                for y in 0..<size { for x in 0..<size {
+                    guard pixels[(y * size + x) * 4 + 3] > 20 else { continue }
+                    visible += 1
+                    bounds = [min(bounds[0], x), min(bounds[1], y),
+                              max(bounds[2], x), max(bounds[3], y)]
+                    if x < 31 || x > 96 || y < 88 || y > 103 { outside += 1 }
+                } }
+                let projected = endpoints.map { point -> [Float] in
+                    let clip = vp * point
+                    return [(clip.x / clip.w + 1) * 64, (1 - clip.y / clip.w) * 64]
+                }
+                let clipRight = vp * SIMD4(right, 0), clipUp = vp * SIMD4(up, 0)
+                rows.append(["name": (displacement ? "displacement" : "ordinary")
+                    + (tilted ? "-tilted" : "-flat"), "completed": true,
+                    "inputFinite": instance.isFinite, "anchorPixels": projected,
+                    "usesDisplacement": instance.frame1B.z > 0.5,
+                    "joined": instance.frame1B.w > 0.5,
+                    "viewRightProjection": [clipRight.x, clipRight.y, clipRight.w],
+                    "viewUpProjection": [clipUp.x, clipUp.y, clipUp.w],
+                    "visiblePixels": visible, "outsidePixels": outside, "bounds": bounds,
+                    "probes": probes.map { x, y in
+                        Array(pixels[(y * size + x) * 4 ..< (y * size + x) * 4 + 4]).map(Int.init)
+                    }])
+            }
+        }
+        return rows
     }
 
     private static func refraction(

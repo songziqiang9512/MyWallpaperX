@@ -123,21 +123,27 @@ vertex Varyings sceneParticleVert(
             }
         }
         float2 rightPixel = particlePixelDirection(projectedStart, uniforms.basisRight.xyz, uniforms);
-        float2 upPixel = particlePixelDirection(projectedStart, uniforms.basisUp.xyz, uniforms);
-        float determinant = rightPixel.x * upPixel.y - rightPixel.y * upPixel.x;
+        // Displacement ribbons define a screen-space perpendicular. Solve in
+        // the selected camera plane: a tilted layer plane can become edge-on,
+        // amplifying a finite width until its corners cross the eye plane.
+        float3 widthRight = usesDisplacement ? uniforms.viewRight.xyz : uniforms.basisRight.xyz;
+        float3 widthUp = usesDisplacement ? uniforms.viewUp.xyz : uniforms.basisUp.xyz;
+        float2 widthRightPixel = usesDisplacement
+            ? particlePixelDirection(projectedStart, widthRight, uniforms) : rightPixel;
+        float2 upPixel = particlePixelDirection(projectedStart, widthUp, uniforms);
+        float determinant = widthRightPixel.x * upPixel.y - widthRightPixel.y * upPixel.x;
         float2 acrossCoefficients = perpendicular;
         if (abs(determinant) > 0.00001) {
             float2 targetPixel = perpendicular * max(length(rightPixel), 0.00001);
             acrossCoefficients = float2(
                 (targetPixel.x * upPixel.y - targetPixel.y * upPixel.x)
                     / determinant,
-                (rightPixel.x * targetPixel.y - rightPixel.y * targetPixel.x)
+                (widthRightPixel.x * targetPixel.y - widthRightPixel.y * targetPixel.x)
                     / determinant
             );
         }
         trailAcrossWorld = (
-            uniforms.basisRight.xyz * acrossCoefficients.x
-                + uniforms.basisUp.xyz * acrossCoefficients.y
+            widthRight * acrossCoefficients.x + widthUp * acrossCoefficients.y
         ) * (joined ? endpointJoin.w : particle.positionAndSize.w) * layerScale.x;
         if (!usesDisplacement && uniforms.trailLocalNormal.w > 0.5) {
             // Orient the width before the layer transform. Reconstructing a

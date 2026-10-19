@@ -105,8 +105,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 457,
-      "bytes": 154253
+      "lines": 466,
+      "bytes": 155818
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 379,
-      "bytes": 149209
+      "bytes": 150498
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77275
+      "bytes": 77473
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 56,
-      "bytes": 18126
+      "bytes": 18150
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 222,
-      "bytes": 66006
+      "lines": 221,
+      "bytes": 65402
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -302,7 +302,7 @@
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 62,
-      "bytes": 11147
+      "bytes": 11237
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 338,
@@ -1412,15 +1412,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "f2c90070c585ec7e1c4e3b5065d8ddd21b7949f6f4882fc629443343fee70baa",
-      "after": "d9dba8c2820bbd242d5f3cf00632ed7872c83afdc95c796971fae5763d5f8e54",
-      "owner": "generic-shader-value-preparation",
-      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
-      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/web-project-json-localization.md",
       "before": "d3a0a3c7915d2689d8ad5be0cd3e62983bece75c47fc3ee4be7f667bd06864c5",
       "after": "5a565ee9c5cde9152162fcbd714c96c9fce264e00e286518f71ba157b9c91d23",
@@ -1445,15 +1436,6 @@
       "owner": "direct-model-bind-geometry",
       "reason": "保存严格bind几何合同及有界实图证据，退出旧首拒并保留默认动画/漩涡反馈；不扩大运行快照行上限。",
       "decision": "docs/scene/capabilities/direct-model-bind-geometry.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "430adf12f1d8cc3ba916d6e6dd12b6a44969c1f6956293b071d4cfa148ed210f",
-      "after": "7245f42c5e55118d0c8a3f770f23f94933bd73898cd56adc43e3d97274d32b90",
-      "owner": "native-rope-camera",
-      "reason": "共享相机合同与有界实图结果替换旧角落首断；保动画及相位边界，不扩大快照行数。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#native-rope-camera"
     },
     {
       "section": "bodies",
@@ -1493,45 +1475,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "cb2890265d256f38ddb77633c8e3c8777c44f2b1eba9cce955acaae402219d54",
-      "owner": "direct-model-skeletal-animation",
-      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cf72cf7311730f124bad8f38e959b9eece98ed9f883c8ad255701e6894780217",
-      "after": "7643ef3a685bb91931022ac9193e599071f07ae8821478c8084d95d4acab8aa8",
-      "owner": "direct-model-skeletal-animation",
-      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "1b8da6adccccdbd666812b91cec20d0f6af0978dea88ea5e6c491c502c88515a",
       "after": "c9d08fcb995b944ee7210f04c7cc4ec8fa56724de897f19db29562a4290fbec7",
-      "owner": "direct-model-skeletal-animation",
-      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "7aaea93106dce7e0cba760a7a3d5184e961914f7ecec3676b0c3766c2b8c4e23",
-      "after": "2f5e8d4d938b5ca5b847399a0e75329c3243da45b71125d3bb7ab5cd2fade592",
-      "owner": "direct-model-skeletal-animation",
-      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1148241d5ae78b44669e142581a96076a8f0ab1d78af29a960c24950601d0f7f",
-      "after": "e8ac8298cccd0fcaf3dfa58c451bda1a383956d704fdf791ce5c7ae2c03784f2",
       "owner": "direct-model-skeletal-animation",
       "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
@@ -1544,6 +1490,51 @@
       "owner": "apple-silicon-optimization-research",
       "reason": "用户要求形成跨模块Apple官方指导、24项可执行候选与分阶段验证计划；新增唯一研究方案，不扩产品权限或重复Scene当前状态。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#交付记录与退役"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "before": "cb2890265d256f38ddb77633c8e3c8777c44f2b1eba9cce955acaae402219d54",
+      "after": "cdcbe7c081e7d3bd51f898c2fbc5a81884b1f9cc2f988de45b12fcbee1f47d24",
+      "owner": "screen-displacement-ribbon",
+      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "7245f42c5e55118d0c8a3f770f23f94933bd73898cd56adc43e3d97274d32b90",
+      "after": "2968b128662349ee2c26d833656994f398f8728d2834ea253a4ecf2e317a56a8",
+      "owner": "screen-displacement-ribbon",
+      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7643ef3a685bb91931022ac9193e599071f07ae8821478c8084d95d4acab8aa8",
+      "after": "f7e02d8fb25d113ae678382b10e12b155ef516777af22e9e6c9cb75643aaae72",
+      "owner": "screen-displacement-ribbon",
+      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "d9dba8c2820bbd242d5f3cf00632ed7872c83afdc95c796971fae5763d5f8e54",
+      "after": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
+      "owner": "screen-displacement-ribbon",
+      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "2f5e8d4d938b5ca5b847399a0e75329c3243da45b71125d3bb7ab5cd2fade592",
+      "after": "ff6512a25ce9baba916f807da5a0969832d2ca8f6a27fc5c95bb3d1d00d137c4",
+      "owner": "screen-displacement-ribbon",
+      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
     }
   ]
 }

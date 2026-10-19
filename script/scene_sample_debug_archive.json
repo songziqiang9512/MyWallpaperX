@@ -3286,7 +3286,7 @@
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-17T03:20:28.462529+00:00",
+  "generatedAtUtc": "2026-10-19T16:28:28.546328+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -25553,9 +25553,19 @@
           "sha256": "0c428f4e06f7acb7cff50b0942fd5375426c86da8edd822422317de8520c5a2a",
           "crc32": "92d15256",
           "status": "retained-byte-verified"
+        },
+        "screenDisplacementQualification": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/screen-displacement-ribbon-20261020/current/samples/3292370168/runtime_evidence.zip",
+          "containerSha256": "c7a81183f73662a39179313f1b9ecd9921bacaae0b8ec1bd1bcba1496b1ba393",
+          "member": "qualification.json",
+          "bytes": 4269,
+          "sha256": "9190413e88df4f2e2bef4f978e74e182579e5e8815066b4d75ef2e58d5815c46",
+          "crc32": "b1791a45",
+          "status": "retained-byte-verified"
         }
       },
-      "nextAction": "默认34沿共享3D骨架链已恢复盒顶区域舞姿，完整视频/盒体/漩涡保留；用户Release确认大角度边缘半透明多色大片，优先定位。音频rate与对象条件选择未接入，437数组可见/其余utility和graph失败仍开放；整体unreviewed。",
+      "nextAction": "默认34共享XYZ动画与大角度边缘大片均已分别修复；真实鼠标旧版复现、候选细轨迹保留且用户确认。音频rate/对象条件、437数组可见和其余utility/graph仍开放；整体unreviewed。",
       "history": [
         {
           "importedAt": "2026-10-19T13:20:39.358681+00:00",

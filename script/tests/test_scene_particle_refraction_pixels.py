@@ -220,6 +220,42 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
             )), 2)
             self.assertLess(expected_error, double_error)
 
+    def test_tilted_displacement_keeps_view_plane_width_and_normal_uv_direction(self) -> None:
+        self.require_metal()
+        rows = {row["name"]: row for row in self.result["displacementProfiles"]}
+        self.assertEqual(set(rows), {"displacement-flat", "displacement-tilted",
+                                    "ordinary-flat", "ordinary-tilted"})
+        for row in rows.values():
+            self.assertTrue(row["completed"] and row["inputFinite"], row)
+            self.assertEqual(row["usesDisplacement"], row["name"].startswith("displacement"))
+            self.assertEqual(row["joined"], row["usesDisplacement"])
+            for actual, expected in zip(row["anchorPixels"], ([32, 96], [96, 96])):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b, delta=0.001)
+            for actual, expected in ((row["viewRightProjection"], [1, 0, 0]),
+                                     (row["viewUpProjection"], [0, 1, 0])):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b, delta=0.0001)
+        # BGRA gradient B=20+x, G=30+y. The asymmetric normal quadrants
+        # deliberately distinguish head/tail, across UV and A/G packing.
+        # A moves +screenY and G moves -screenX in the established flat basis;
+        # these signed offsets do not depend on the candidate width solver.
+        points = [(48, 92), (80, 92), (48, 100), (80, 100)]
+        packed = [(224, 64), (64, 192), (32, 96), (192, 224)]  # (G, A)
+        expected = [[20+x-(2*g/255-1)*16, 30+y+(2*a/255-1)*16, 40, 255]
+                    for (x, y), (g, a) in zip(points, packed)]
+        reference = rows["displacement-flat"]
+        for name in ("displacement-flat", "displacement-tilted", "ordinary-flat"):
+            row = rows[name]
+            self.assertGreater(row["visiblePixels"], 600, row)
+            self.assertLess(row["visiblePixels"], 1000, row)
+            self.assertEqual(row["outsidePixels"], 0, row)
+            for actual, want in zip(row["probes"], expected):
+                for a, b in zip(actual, want): self.assertAlmostEqual(a, b, delta=2)
+            for a, b in zip(row["bounds"], reference["bounds"]):
+                self.assertLessEqual(abs(a-b), 1, row)
+        # A real local plane seen edge-on stays collapsed. Extending the new
+        # displacement policy to ordinary affine Trail would make it visible.
+        self.assertLess(rows["ordinary-tilted"]["visiblePixels"], 10)
+
 
 # The loader double changes source identity exactly between metadata and upload.
 # Only I/O is doubled; the production refraction preparation and binding execute.

@@ -57,6 +57,6 @@ lease 精确关联 layer/surface 和 command buffer，覆盖所有 encoder 直�
 
 最近Reader门覆盖旧版本/纯零/full合同、新bounds/派生引用/双身份/mode、改名与坏后记录；原329的17 records/16 clips和34单独资格不靠跳记录或截取源take。自有双层输入检查同MDL不同clip/phase的pose隔离；共享XYZ/N/T、镜像/非均匀/奇异、旧image XY、3slot容量/取消/迟到completion及附件失败沿最近门验证。实际运行与门的精确覆盖只由[运行证据](runtime-evidence-current.md#direct-model-skeletal-animation-20261019)登记，不把fake GPU、编译或自有primitive通过算作原包输出。
 
-原329已实看默认34脚部回到盒顶区域并有动作，视频、立方场及既有主体保持；细节不扩大为所有clip/channel、完整音频/条件选择、轨迹/密度、官方同相位或性能结论。用户新增边缘多色块反馈仍OPEN。音频、pointer和时刻未对齐时不据截图差异另判缺陷。
+原329已实看默认34脚部回到盒顶区域并有动作，视频、立方场及既有主体保持；细节不扩大为所有clip/channel、完整音频/条件选择、轨迹/密度、官方同相位或性能结论。边缘多色块已由[公共截面后继](runtime-evidence-current.md#screen-displacement-ribbon-20261020)另行关闭具体反馈。音频、pointer和时刻未对齐时不据截图差异另判缺陷。
 
 任何后继输入的格式、reference、channel、N/T或stream生命周期先决失败，沿上述typed bind/最小draw拒绝退出，保留原因；不丢作者channel，不补origin或旧pose。若需要平行clock/LBS/renderer才可推进，须修订本设计，不累积补偿。

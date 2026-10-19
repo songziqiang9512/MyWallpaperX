@@ -435,8 +435,35 @@ enum Harness {
             "ineligibleStaysFlat": ropeUniforms(nativeFrame, inheritedLayer, eligible: false).viewProjection
                 == nativeFrame.orthographicViewProjection,
         ]
+        let rolled = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport,
+            nativePerspectiveOverride: .init(worldFrame: SceneMatrix.rotationX(.pi / 3)
+                * SceneMatrix.rotationZ(.pi / 4), fovDegrees: 60))
+        let axisCases: [(String, SceneParticleCameraFrame, Bool, Bool)] = [
+            ("native-slant-flat", nativeFrame, false, false), ("native-roll-flat", rolled, false, false),
+            ("native-inherited", rolled, false, true), ("native-flag4", rolled, true, false),
+            ("canvas-flag4", frame, true, false), ("canvas-flat", frame, false, false)]
+        let selectedVPAxes = axisCases.map { name, camera, flag, native -> [String: Any] in
+            let uniforms = ropeUniforms(camera, native ? inheritedLayer : scriptedLayer, flag: flag)
+            let perspective = flag || native
+            let right = perspective ? camera.cameraRight : SIMD3<Float>(1, 0, 0)
+            let up = perspective ? camera.cameraUp * (native ? 1 : -1) : SIMD3<Float>(0, -1, 0)
+            let r = uniforms.viewProjection * uniforms.viewRight, u = uniforms.viewProjection * uniforms.viewUp
+            let sprite = ropeUniforms(camera, scriptedLayer, flag: flag, eligible: false)
+            let geometry = camera.basis(for: .screen, layerModel: sprite.layerModel).localGeometry!
+            let upSign: Float = perspective && camera.defaultsToPerspective && !native ? -1 : 1
+            return ["name": name, "axes": uniforms.viewRight == SIMD4(right, 0)
+                && uniforms.viewUp == SIMD4(up, 0),
+                "projection": uniforms.viewProjection == camera.viewProjection(usesPerspective: perspective),
+                "plane": abs(r.z) < 0.00001 && abs(r.w) < 0.00001
+                    && abs(u.z) < 0.00001 && abs(u.w) < 0.00001,
+                "signedXY": r.x > 0 && abs(r.y) < 0.00001 && abs(u.x) < 0.00001 && u.y * upSign > 0,
+                "spriteGeometry": sprite.spriteRight == SIMD4(geometry.columns.0, 0)
+                    && sprite.spriteUp == SIMD4(geometry.columns.1, 0)
+                    && sprite.spriteForward == SIMD4(geometry.columns.2, 0)]
+        }
         let result: [String: Any] = [
             "ropeCameraPolicy": ropePolicy,
+            "selectedVPAxes": selectedVPAxes,
             "defaultProjectionRows": defaultProjectionRows,
             "invalidFOVRows": invalidFOVRows,
             "dynamicFOVRows": dynamicFOVRows,
@@ -857,6 +884,13 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         for key, value in policy.items():
             with self.subTest(policy=key):
                 self.assertTrue(value)
+
+    def test_view_axes_follow_selected_projection_without_changing_sprite_geometry(self):
+        self.assertEqual(len(self.result["selectedVPAxes"]), 6)
+        for row in self.result["selectedVPAxes"]:
+            for key in ("axes", "projection", "plane", "signedXY", "spriteGeometry"):
+                with self.subTest(case=row["name"], field=key):
+                    self.assertTrue(row[key], row)
 
     def test_typed_perspective_uses_one_immutable_camera_policy(self) -> None:
         for key in ("typedPerspectiveMatrixMatchesStatic", "typedFlatMatrixMatchesStatic",

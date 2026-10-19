@@ -127,6 +127,24 @@ class SceneParticleCameraRenderingTests(unittest.TestCase):
         self.assertGreater(rows[0]["bounds"][2] - rows[0]["bounds"][0],
                            (rows[2]["bounds"][2] - rows[2]["bounds"][0]) * 1.4)
 
+    def test_native_rope_screen_width_stays_local_near_basis_projection_singularity(self) -> None:
+        rows = self.result["ropeProjectionConditioning"]
+        self.assertEqual(len(rows), 8, "Real production camera/shader/Metal readback is required")
+        for row in rows:
+            with self.subTest(case=row.get("name")):
+                self.assertTrue(row["completed"], row)
+                self.assertEqual(row["instanceCount"], 1)
+                self.assertTrue(row["inputFinite"], row)
+                self.assertTrue(row["preservesWorldModel"], row)
+                for anchor_w in row["anchorW"]:
+                    self.assertAlmostEqual(anchor_w, 10, places=4)
+                # A singular width solution may decline this unsafe quad;
+                # it must not paint unrelated pixels across the viewport.
+                self.assertEqual(row["outsidePixels"], 0, row)
+                if row["name"].startswith("safe-"):
+                    self.assertGreater(row["visiblePixels"], 5, row)
+                    self.assertAlmostEqual(row["maximumAlpha"], 128, delta=1)
+
 
 
 if __name__ == "__main__":

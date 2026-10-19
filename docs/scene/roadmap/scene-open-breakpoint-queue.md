@@ -13,7 +13,6 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| native相机边缘色块闪烁 · 3292370168 | 10-19用户Release实测及23.24.58/23.25.56两截屏已确认：鼠标任意方向到边缘、镜头很大角度时，背景出现不断变化的半透明多色大片/矩形，静音同样出现。疑上一批漩涡修复但根因未定；Root前快速轨迹/左上短窗未覆盖此大角度，不能据未见关闭。无产品修法。 | 以这两张用户截图为可见症状，复用当前身份核source/clip/depth/composition；native Rope扩宽逆投影有数学病态候选，但尚未GPU/原包因果资格。唯一薄研究`.artifacts/tmp/direct-model-animation-329-20261019/edge-flash/`，实验仅prepared/未执行；不据此调相机角度、阈值或混合。 |
 | particle A2C材质准入 · 3745828537 | active Sprite51/65的alphatocoverage经compileBlending返回nil，AssetGraph无pipelineState，Runtime在simulation/prewarm前拒绝；七个默认hidden花层不算当前缺失，背景花image末effect已有真实GPU/末合成。外圈稀疏/偏白与这两层的精确因果未证。 | 沿唯一typed material→粒子pipeline明确coverage/alpha与sample-count合同，再验证有源Sprite和normal/translucent邻例；不改blend猜恢复、不用starttime或数量扩容绕准入。真实出生/ROI正控未成立即STOP。[首诊](../capabilities/runtime-evidence-current.md#intake-20261019)。 |
 | generic varying数组 · 3292370168 | 原generic normalizer的16元素门拒绝默认同形float[32]。窄候选已严格link/SPIR-V/MSL、Metal动态读取及实际437 Program/GPU/末合成，但同非零PCM/中心pointer的4/8s原图尚无可确认白波形，暂未交付；默认条带与后画视频上沿重叠，alpha/精确phase尚未读回。 | 先取得可归因波形ROI，不以Program关闭画面单；不造project property映射、不改作者参数或alpha追图。bounded原门与64等更宽选项不外推。 |
 | forward copy-background composition · 2972071249 | 313引用后置隐藏composition234，首拒在dependency stage order；234隐式copyBackground使全局prepass不具作者顺序独立性。白色波形未归因234，不能据此闭合可见缺口。 | 先资格consumer边界prefix及跨consumer身份，再复用原graph执行/发布；官方自有单board的静态蓝slot1正控呈黄黑checker，已STOP_UNKNOWN，不能将其余两卡当语义结论，也不重复未资格载体。证据归[运行记录](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)。 |
@@ -29,7 +28,7 @@
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
 
-329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围，音频rate与条件选择归属性卡，437数组/原graph余项、边缘多色大片仍开放，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
+329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围，音频rate与条件选择归属性卡，437数组/原graph余项仍开放；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
 
 322的2522色散首门已退出：共享词法绑定及浮点公共宽度转换让原包点击后的非零Alpha进入作者Program，实际GPU/末合成与瞬态RGB分离、回清晰黑面具均已取得；局部vec4遮蔽不同类型global不再误拒。原命名点击、左眼/默认动画与脸颈组装修复保持；手部旧观察仍归第2节，完整同phase/viewport与全部互动不记通过。见[有界后验](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)。
 

@@ -316,15 +316,22 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         // before both its center and its local billboard axes consume it.
         let model = nativeCoordinates
             ? layerModel * SceneMatrix.scale(SIMD3(1, -1, 1)) : layerModel
+        let selectedPerspective = usesPerspective || nativeCoordinates
+        // The orthographic projection is canvas-aligned even when the scene
+        // also owns a tilted native camera. View axes must describe this VP,
+        // independently of the particle's authored geometry orientation.
+        let viewBasis = selectedPerspective
+            ? basis(for: .screen, nativeSpriteCoordinates: nativeCoordinates)
+            : SceneParticleOrientationBasis(right: SIMD3(1, 0, 0), up: SIMD3(0, -1, 0))
         return SceneParticleLayerUniforms(
-            viewProjection: viewProjection(usesPerspective: usesPerspective || nativeCoordinates),
+            viewProjection: viewProjection(usesPerspective: selectedPerspective),
             layerModel: model,
             basis: basis(for: orientation, layerModel: model,
                          orientationAxis: orientationAxis ?? SIMD3(0, 0, 1),
                          nativeSpriteCoordinates: nativeCoordinates),
             viewportSize: viewportSize,
             sizeIsWorldSpace: sizeIsWorldSpace,
-            viewBasis: basis(for: .screen, nativeSpriteCoordinates: nativeCoordinates)
+            viewBasis: viewBasis
         )
     }
 

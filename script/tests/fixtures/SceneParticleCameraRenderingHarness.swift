@@ -31,6 +31,7 @@ enum SceneParticleCameraRenderingHarness {
             "depthAndOverbrightPixel": depthAndOverbrightPixel(),
             "projectedSpriteProfiles": projectedSpriteProfiles(),
             "nativeRopeProfiles": nativeRopeProfiles(),
+            "ropeProjectionConditioning": ropeProjectionConditioningProfiles(),
             "depthTargetLease": depthTargetLeaseContract(),
             "cullContract": cullContract(),
         ]
@@ -327,6 +328,132 @@ enum SceneParticleCameraRenderingHarness {
                 "visiblePixels": count, "redPixels": red, "bluePixels": blue,
                 "bounds": bounds, "expectedBounds": [expected.map(\.x).min()!,
                     expected.map(\.y).min()!, expected.map(\.x).max()!, expected.map(\.y).max()!],
+                "pixelSHA256": SHA256.hash(data: Data(pixels)).map { String(format: "%02x", $0) }.joined()
+            ])
+        }
+        return rows
+    }
+
+    static func ropeProjectionConditioningProfiles() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue() else { return [] }
+        let extent = 256
+        let camera = SceneParticleCameraFrame(camera: .init(
+            eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+            orthoWidth: nil, orthoHeight: nil, fovDegrees: 90,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.1, farZ: 100),
+            viewportSize: CGSize(width: CGFloat(extent), height: CGFloat(extent)))
+        let sourceDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
+        sourceDescriptor.storageMode = .shared
+        sourceDescriptor.usage = .shaderRead
+        guard let source = device.makeTexture(descriptor: sourceDescriptor) else { return [] }
+        var magenta: [UInt8] = [255, 0, 255, 255]
+        source.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                       withBytes: &magenta, bytesPerRow: 4)
+        let definition = SceneParticleDefinitionParser().parse(root: [
+            "maxcount": 1, "material": "materials/conditioning-card.json", "flags": 0,
+            "renderer": [["id": 73, "name": "ropetrail", "length": 1,
+                          "segments": 2, "subdivision": 0]]])
+        guard let renderer = definition.renderers.first,
+              let plan = SceneParticleRopeTrailPlan(renderer: renderer,
+                rendererCount: 1, maximumParticleCount: 1) else { return [] }
+        let layer = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: nil)
+        // Independent authored geometry: a one-unit horizontal centerline at
+        // depth ten, packed world width .05, all anchors inside a 90-degree frustum.
+        // The tilted basis plane approaches edge-on to the endpoint's ray;
+        // anchor w remains ten throughout. No author script or random seed.
+        let criticalY = -10 / sqrt(Float(3))
+        let cases: [(String, Float, Float)] = [
+            ("safe-before", 0, -5.8203125 - criticalY),
+            ("safe-after", 0, -5.7421875 - criticalY),
+            ("tilted-before-0.1", .pi / 3, -0.1),
+            ("tilted-before-0.01", .pi / 3, -0.01),
+            ("tilted-before-0.001", .pi / 3, -0.001),
+            ("tilted-after-0.001", .pi / 3, 0.001),
+            ("tilted-after-0.01", .pi / 3, 0.01),
+            ("tilted-after-0.1", .pi / 3, 0.1),
+        ]
+        var rows: [[String: Any]] = []
+        for (name, tilt, deltaY) in cases {
+            let world = SceneMatrix.rotationX(tilt)
+                * SceneMatrix.scale(SIMD3<Float>(repeating: 0.1))
+            let inverse = simd_inverse(world)
+            let endpoints = [SIMD3<Float>(-0.5, criticalY + deltaY, -10),
+                             SIMD3<Float>(0.5, criticalY + deltaY, -10)]
+            var history = SceneParticleRopeTrailHistory(plan: plan)
+            var values: [SceneParticleGPUInstance] = []
+            for (index, point) in endpoints.enumerated() {
+                let local = inverse * SIMD4(point, 1)
+                values = history.advance(by: index == 0 ? 0 : 0.5, particles: [
+                    .init(id: 1, position: SIMD3(local.x, local.y, local.z),
+                          size: 1, color: SIMD3(repeating: 1), alpha: 0.5)
+                ], layerAlpha: 1)
+            }
+            let uniforms = camera.particleUniforms(
+                layerModel: SceneParticleCameraFrame.particleLayerModel(
+                    worldFrame: world, parallaxOffset: .zero),
+                orientation: .screen, orientationAxis: nil, usesPerspective: false,
+                usesSceneCamera: false, inheritsNativeSceneCamera: true,
+                layerUsesPerspective: camera.resolvesPerspective(for: layer),
+                viewportSize: SIMD2(repeating: Float(extent)), sizeIsWorldSpace: false)
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm, width: extent, height: extent, mipmapped: false)
+            descriptor.storageMode = .shared
+            descriptor.usage = .renderTarget
+            guard let output = device.makeTexture(descriptor: descriptor),
+                  let command = queue.makeCommandBuffer() else { return [] }
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = output
+            pass.colorAttachments[0].loadAction = .clear
+            pass.colorAttachments[0].storeAction = .store
+            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+            let buffer = SceneParticleMetalInstanceBuffer()
+            guard buffer.update(device: device, instances: values),
+                  let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+            let encoded = pipeline.draw(texture: source, instances: buffer,
+                uniforms: uniforms, renderState: .init(blendMode: .additive, cullMode: .none),
+                colorSampling: .directImageFallback, encoder: encoder)
+            encoder.endEncoding()
+            let completed = encoded && buffer.markSubmitted(on: command)
+                && SceneParticleOffscreenReadbackHarness.commitAndWait(command)
+            guard completed else { return [["name": name, "completed": false]] }
+            var pixels = [UInt8](repeating: 0, count: extent * extent * 4)
+            output.getBytes(&pixels, bytesPerRow: extent * 4,
+                            from: MTLRegionMake2D(0, 0, extent, extent), mipmapLevel: 0)
+            // Analytic 90-degree projection, independent of the shader width
+            // solver. Packed width .05 at depth ten is .64px; even the established
+            // fourfold miter bound fits a four-pixel pad including rasterization.
+            let projected = endpoints.map { point in
+                SIMD2((point.x / 10 + 1) * 128, (1 - point.y / 10) * 128)
+            }
+            let allowed = [Int(floor(projected[0].x)) - 4,
+                           Int(floor(projected[0].y)) - 4,
+                           Int(ceil(projected[1].x)) + 4,
+                           Int(ceil(projected[1].y)) + 4]
+            var visible = 0, outside = 0, maximumAlpha = 0
+            var bounds = [extent, extent, -1, -1]
+            for y in 0..<extent { for x in 0..<extent {
+                let alpha = Int(pixels[(y * extent + x) * 4 + 3])
+                maximumAlpha = max(maximumAlpha, alpha)
+                guard alpha >= 20 else { continue }
+                visible += 1
+                bounds = [min(bounds[0], x), min(bounds[1], y),
+                          max(bounds[2], x), max(bounds[3], y)]
+                if x < allowed[0] || y < allowed[1] || x > allowed[2] || y > allowed[3] {
+                    outside += 1
+                }
+            } }
+            rows.append(["name": name, "completed": completed,
+                "instanceCount": values.count, "inputFinite": values.allSatisfy(\.isFinite),
+                "anchorW": endpoints.map { point in
+                    (camera.perspectiveViewProjection * SIMD4(point, 1)).w
+                }, "preservesWorldModel": uniforms.layerModel == world,
+                "basisRight": [uniforms.basisRight.x, uniforms.basisRight.y, uniforms.basisRight.z],
+                "basisUp": [uniforms.basisUp.x, uniforms.basisUp.y, uniforms.basisUp.z],
+                "allowedBounds": allowed, "bounds": bounds, "visiblePixels": visible,
+                "outsidePixels": outside, "maximumAlpha": maximumAlpha,
                 "pixelSHA256": SHA256.hash(data: Data(pixels)).map { String(format: "%02x", $0) }.joined()
             ])
         }

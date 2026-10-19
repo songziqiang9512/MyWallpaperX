@@ -662,13 +662,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5bd7997adc9ad3a768ab2c411355c45310f09c68307b3e78622d531f3b4fcdfd",
+        "sourceSHA256": "6f4d3e2ebeca2fba6d9fb24f4accddfdd4f1f4babe961cd611d4e0971878f95b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Native admitted root RopeTrail canonical camera and real329/ortho374 bounded visual result.",
-        "limitations": "No fullsample/officialsamephase/prewarm/animation/HDR/performance claim."
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
     {
@@ -718,13 +718,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7cbb3b12d475bed3aefc4092dafbb9516c0df8cf9a4a1f81e06ba5bbc7ceca3a",
+        "sourceSHA256": "d8c5d4b90a96c34e1d9c7222b5dc12c5872774c432626a22e0e359b1ce2f9b21",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
     {
@@ -802,13 +802,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "06e0011339b066b48250c01ff0a52de727547cdec87c6daa5975687e7411daa1",
+        "sourceSHA256": "fb176ea0c70df4636175b112ef04b3e27d77db99791c353c4b0a8cc144f950d1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
-        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
     {
@@ -3585,13 +3585,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "对旧静态审计逐项复核后仍可定位的首owner缺口/状态反例；不维护旧样本评分，不代替实际运行故障或队列选序。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c31533d543ec3f3446b4785536d8da9bf9364d15caecc8786ccedea2a925aba4",
+        "sourceSHA256": "f855399b414e932f9524a0d914b5a53630cdb5a7bfb8268c7073efd2de557f1e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
     {
@@ -3599,13 +3599,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7394bda5f9f6db5c96b329151c9095c78b5b264cfeef46c9b9043123415063c4",
+        "sourceSHA256": "f041cbef663634df1dfa6517cf5b911e0b1b5967b1e2b86c77844b3fbc89dcb4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
     {
@@ -3730,13 +3730,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9976a57d7096b7038e891a7967a1ed9d7883d220e85d6517ad4b3b0927134822",
+        "sourceSHA256": "8d75008be299c24736a1c1541351a1ca2dddff9589bc80ca89e1197c31490c0d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       },
       "title": "Direct model的骨骼动画合同",
       "authority": "advanced-object-animation-design"

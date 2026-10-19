@@ -309,6 +309,15 @@ atlas 子集限定 General/renderer flags0、Sequence（含缺省）、sequenceM
 
 验收复用现camera CPU及CameraRendering GPU载体：native nil/静态false/typed false、flags4、正交、已有Sprite，非对称三维弯折/双深度/接缝/Y方向及改名等价变体。实际原包以同PCM/中心pointer和实际4/8s截图验证root绘制完成且摆脱角落缩聚，另验未参与修法的旧正交RopeTrail。错误基/接缝、旧相机或局部安全反例回退即停止或撤回；不把扩大覆盖当作完整漩涡轨迹、预热、官方同phase/HDR或性能收益。26个camera CPU方法、7个真实Metal方法与原329/独立374实际画面已在[运行证据](runtime-evidence-current.md#native-rope-camera-20261019)限定验收；顺序归队列。
 
+<a id="screen-displacement-ribbon"></a>
+### Screen displacement ribbon 的扩宽平面
+
+目标是让已准入 Rope/RopeTrail 的屏幕垂直截面在大视角仍保持局部细线，避免倾斜 layer 平面接近视线时的逆投影把宽轴放大到跨越眼平面。History、中心线与作者宽度不变；CameraFrame 是实际所选 VP 及 view axes 的唯一 owner，现 particle vertex shader 是截面和 miter 的唯一 owner。
+
+方案仅对已有 `usesDisplacement` 事实使用所选相机的 view plane 反解原有屏幕目标宽轴；保留原 basisRight 投影宽度、size/endpoint width、layer scale、对称 miter、UV 与折射 packing。透视消费已有带符号 view axes；正交 VP 固定轴对齐，不能误用 native camera 的倾斜轴。普通 local-affine Trail 继续先在本地构造宽轴再消费完整仿射变换，Sprite geometry basis 不迁移。不提高求逆阈值、不限制相机、不按样本或音乐状态隐藏粒子；旧倾斜平面求逆仅在 displacement 路径退出。
+
+验收为病态平面两侧的真实 Metal 局部覆盖、安全可见正控、选中 VP/视轴一致、普通 affine Trail 与非对称折射邻例，以及原包大角度播放和独立样本。任一宽度/UV/接缝或相邻路径回退即撤回候选。当前端点自身跨 near/eye 的历史线段、官方逐像素相等及性能收益不由这次扩宽修正证明；真实样本与反例验收归[有界后验](runtime-evidence-current.md#screen-displacement-ribbon-20261020)，不以有限输入或测试通过代替。
+
 ## 8. Control Points
 
 官方入口：[Control Point](https://docs.wallpaperengine.io/en/scene/particles/component/control_point.html)。官方索引范围为 0...7。

@@ -844,17 +844,18 @@
     },
     {
       "id": "scene-native-rope-camera",
-      "title": "已准入RopeTrail复用native layer相机",
+      "title": "已准入Rope相机与screen displacement截面",
       "owner": "Scene prepared particle geometry / existing CameraFrame",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "#native-rope-camera先保存；唯一CameraFrame选择native VP与Y-up，保旧flags4/Sprite/ortho，当前只补root RopeTrail省略默认。",
+      "design_notes": "#native-rope-camera先保存；唯一CameraFrame选择native VP与Y-up，保旧flags4/Sprite/ortho，当前只补root RopeTrail省略默认。 2026-10-20 #screen-displacement-ribbon：displacement扩宽从倾斜layer逆J迁移到实际VP的view plane，原屏幕目标宽/UV/miter与普通local-affine Trail保持；原中心线跨near独立，真实大角度及折射邻例另验。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Particles.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift"
       ],
       "contentPatterns": []
     },
