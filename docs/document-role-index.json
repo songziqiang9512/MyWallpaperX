@@ -7,6 +7,7 @@
       "docs/architecture/steam-workshop-acquisition-contract.md",
       "docs/architecture/system-audio-spectrum-design.md",
       "docs/architecture/technology-stack-boundaries.md",
+      "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/repository-workflow.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
@@ -181,6 +182,12 @@
         "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
         "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
       }
+    },
+    {
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "本轮24项跨模块候选均已保留、停止或转入原专题，或用户结束专项后归档；不维护第二份Scene长期选序和当前能力台账。"
     },
     {
       "path": "docs/development/repository-improvement.md",

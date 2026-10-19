@@ -303,6 +303,10 @@
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 62,
       "bytes": 11147
+    },
+    "docs/development/apple-silicon-optimization-plan.md": {
+      "lines": 338,
+      "bytes": 49246
     }
   },
   "archives": [
@@ -1531,6 +1535,15 @@
       "owner": "direct-model-skeletal-animation",
       "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "2086d705dea9fe72cab71986a7a7c56f641cc30cf164b07b2cdd3ad1b2ac4e04",
+      "owner": "apple-silicon-optimization-research",
+      "reason": "用户要求形成跨模块Apple官方指导、24项可执行候选与分阶段验证计划；新增唯一研究方案，不扩产品权限或重复Scene当前状态。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#交付记录与退役"
     }
   ]
 }
