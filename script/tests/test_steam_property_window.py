@@ -57,8 +57,14 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
             precondition(abs(closeRect.width - 32) < 0.5, "close button width must remain unchanged")
             precondition(row.bounds.contains(closeRect), "close button escaped the header")
             precondition(row.frame.height < 64, "header must not absorb spare panel height")
-            precondition(abs(closeRect.midY - row.bounds.midY) < 0.5,
-                         "close button must stay centered: close=\(closeRect), row=\(row.bounds), " +
+            // An odd-height row at 1x cannot center an even-height button at
+            // an integral pixel origin. Compare to AppKit's exact native
+            // pixel alignment rather than widening the point-space tolerance.
+            let idealClose = NSRect(x: closeRect.minX, y: row.bounds.midY - closeRect.height / 2,
+                                    width: closeRect.width, height: closeRect.height)
+            let centeredClose = row.backingAlignedRect(idealClose, options: .alignAllEdgesNearest)
+            precondition(closeRect.midY == centeredClose.midY,
+                         "close button must stay centered: close=\(closeRect), expected=\(centeredClose), row=\(row.bounds), " +
                          "parent=\(type(of: row)), insets=\(close.alignmentRectInsets), " +
                          "scale=\(row.window?.backingScaleFactor ?? 0), compact=\(card.compactHeader)")
             for image in icons where !image.isHidden {
