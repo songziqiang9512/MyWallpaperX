@@ -2006,12 +2006,14 @@
         "script/tests/test_scene_particle_rendering.py",
         "script/tests/test_scene_particle_affine_trail.py",
         "script/tests/fixtures/SceneParticleAffineTrailHarness.swift",
-        "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift"
+        "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift",
+        "script/tests/test_scene_particle_camera_rendering.py"
       ],
       "modules": [
         "test_scene_particle_rendering",
         "test_scene_particle_affine_trail",
-        "test_scene_particle_camera_frame"
+        "test_scene_particle_camera_frame",
+        "test_scene_particle_camera_rendering"
       ]
     },
     {

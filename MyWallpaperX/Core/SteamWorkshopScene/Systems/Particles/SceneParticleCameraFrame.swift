@@ -299,25 +299,32 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         orientationAxis: SIMD3<Float>?,
         usesPerspective: Bool,
         usesSceneCamera: Bool,
+        inheritsNativeSceneCamera: Bool = false,
+        layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
         sizeIsWorldSpace: Bool
     ) -> SceneParticleLayerUniforms {
         let nativeSprite = defaultsToPerspective && usesSceneCamera
             && (orientation == .screen || orientation == .worldScreen)
+        // Root RopeTrail inherits only the native scene default. A definition's
+        // explicit perspective bit keeps its previous projection/basis path.
+        let nativeRope = defaultsToPerspective && inheritsNativeSceneCamera
+            && !usesPerspective && layerUsesPerspective
+        let nativeCoordinates = nativeSprite || nativeRope
         // The incoming particle model includes the canvas Y conversion.
-        // Native Sprite geometry is authored Y-up, so remove that conversion
+        // Native geometry is authored Y-up, so remove that conversion
         // before both its center and its local billboard axes consume it.
-        let model = nativeSprite
+        let model = nativeCoordinates
             ? layerModel * SceneMatrix.scale(SIMD3(1, -1, 1)) : layerModel
         return SceneParticleLayerUniforms(
-            viewProjection: viewProjection(usesPerspective: usesPerspective || nativeSprite),
+            viewProjection: viewProjection(usesPerspective: usesPerspective || nativeCoordinates),
             layerModel: model,
             basis: basis(for: orientation, layerModel: model,
                          orientationAxis: orientationAxis ?? SIMD3(0, 0, 1),
-                         nativeSpriteCoordinates: nativeSprite),
+                         nativeSpriteCoordinates: nativeCoordinates),
             viewportSize: viewportSize,
             sizeIsWorldSpace: sizeIsWorldSpace,
-            viewBasis: basis(for: .screen, nativeSpriteCoordinates: nativeSprite)
+            viewBasis: basis(for: .screen, nativeSpriteCoordinates: nativeCoordinates)
         )
     }
 

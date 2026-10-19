@@ -95,6 +95,7 @@ struct SceneParticleDrawBatch {
  let refraction:SceneParticleRefractionBinding?;let renderState:SceneParticlePipelineRenderState
  let instanceBuffer:SceneParticleMetalInstanceBuffer;let orientation:SceneParticleOrientation
  let orientationAxis:SIMD3<Float>?;let usesPerspective:Bool;var sizeIsWorldSpace:Bool = false
+ var inheritsNativeSceneCamera:Bool = false
 }
 struct PreparedTexture {
  let texture:MTLTexture;var uvTransform:SceneTextureUVTransform = .identity

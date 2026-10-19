@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Metal
 import simd
 
@@ -29,6 +30,7 @@ enum SceneParticleCameraRenderingHarness {
             ) == SceneMatrix.identity(),
             "depthAndOverbrightPixel": depthAndOverbrightPixel(),
             "projectedSpriteProfiles": projectedSpriteProfiles(),
+            "nativeRopeProfiles": nativeRopeProfiles(),
             "depthTargetLease": depthTargetLeaseContract(),
             "cullContract": cullContract(),
         ]
@@ -206,6 +208,129 @@ enum SceneParticleCameraRenderingHarness {
             }
         }
         return ["rows": rows]
+    }
+
+    static func nativeRopeProfiles() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue() else { return [] }
+        let sourceDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 2, height: 1, mipmapped: false)
+        sourceDescriptor.storageMode = .shared
+        sourceDescriptor.usage = .shaderRead
+        guard let source = device.makeTexture(descriptor: sourceDescriptor) else { return [] }
+        var sides: [UInt8] = [255, 0, 0, 255, 0, 0, 255, 255]
+        source.replace(region: MTLRegionMake2D(0, 0, 2, 1), mipmapLevel: 0,
+                       withBytes: &sides, bytesPerRow: 8)
+        let extent = 256
+        let viewport = SIMD2<Float>(repeating: Float(extent))
+        let camera = SceneParticleCameraFrame(camera: .init(
+            eye: [0.8, 0.6, 1], center: [0, 0, -8], up: [0.2, 1, 0.1],
+            orthoWidth: nil, orthoHeight: nil, fovDegrees: 60,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.1, farZ: 1000),
+            viewportSize: CGSize(width: CGFloat(extent), height: CGFloat(extent)))
+        let layer = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: nil)
+        let points: [SIMD3<Float>] = [SIMD3(-1.5, -0.8, 0.3),
+                                     SIMD3(0, 0.6, 0), SIMD3(1.7, -0.3, -0.8)]
+        var rows: [[String: Any]] = []
+        for (name, depth, identifier, material) in [
+            ("native-parent-near", Float(-8), 1, "materials/card.json"),
+            ("renamed-equivalent", Float(-8), 71, "materials/renamed-ribbon.json"),
+            ("native-parent-far", Float(-14), 1, "materials/card.json")
+        ] {
+            let definition = SceneParticleDefinitionParser().parse(root: [
+                "maxcount": 1, "material": material, "flags": 0,
+                "renderer": [["id": identifier, "name": "ropetrail", "length": 1,
+                              "segments": 2, "subdivision": 0]]])
+            guard let renderer = definition.renderers.first,
+                  let plan = SceneParticleRopeTrailPlan(renderer: renderer,
+                    rendererCount: definition.renderers.count, maximumParticleCount: 1)
+            else { return [["name": name, "completed": false, "reason": "plan"]] }
+            var history = SceneParticleRopeTrailHistory(plan: plan)
+            var values: [SceneParticleGPUInstance] = []
+            for (index, point) in points.enumerated() {
+                values = history.advance(by: index == 0 ? 0 : 0.5,
+                    particles: [.init(id: 1, position: point, size: 0.6,
+                                      color: SIMD3(repeating: 1), alpha: 0.5)], layerAlpha: 1)
+            }
+            let parent = SceneMatrix.translation(SIMD3<Float>(0.3, -0.2, 0))
+                * SceneMatrix.rotationZ(0.27) * SceneMatrix.scale(SIMD3(1, 0.75, 1))
+            let world = parent * SceneMatrix.translation(SIMD3<Float>(0, 0, depth))
+                * SceneMatrix.rotationY(0.16)
+            let model = SceneParticleCameraFrame.particleLayerModel(
+                worldFrame: world, parallaxOffset: .zero)
+            let uniforms = camera.particleUniforms(layerModel: model, orientation: .screen,
+                orientationAxis: nil, usesPerspective: definition.flags.usesPerspective,
+                usesSceneCamera: false, inheritsNativeSceneCamera: true,
+                layerUsesPerspective: camera.resolvesPerspective(for: layer),
+                viewportSize: viewport, sizeIsWorldSpace: false)
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm, width: extent, height: extent, mipmapped: false)
+            descriptor.storageMode = .shared
+            descriptor.usage = .renderTarget
+            guard let target = device.makeTexture(descriptor: descriptor),
+                  let command = queue.makeCommandBuffer() else { return [] }
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = target
+            pass.colorAttachments[0].loadAction = .clear
+            pass.colorAttachments[0].storeAction = .store
+            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+            let buffer = SceneParticleMetalInstanceBuffer()
+            guard buffer.update(device: device, instances: values),
+                  let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+            let encoded = pipeline.draw(texture: source, instances: buffer, uniforms: uniforms,
+                renderState: .init(blendMode: .translucent, cullMode: .none),
+                colorSampling: .init(texFlags: 3), encoder: encoder)
+            encoder.endEncoding()
+            let completed = encoded && buffer.markSubmitted(on: command)
+                && SceneParticleOffscreenReadbackHarness.commitAndWait(command)
+            guard completed else { return [["name": name, "completed": false, "reason": "GPU"]] }
+            var pixels = [UInt8](repeating: 0, count: extent * extent * 4)
+            target.getBytes(&pixels, bytesPerRow: extent * 4,
+                            from: MTLRegionMake2D(0, 0, extent, extent), mipmapLevel: 0)
+            // Expected positions use authored world + native VP, independently
+            // of the particle uniform selection and its incoming canvas flip.
+            func project(_ point: SIMD3<Float>) -> SIMD2<Float> {
+                let clip = camera.perspectiveViewProjection * world * SIMD4(point, 1)
+                return SIMD2((clip.x / clip.w + 1) * 0.5,
+                             (1 - clip.y / clip.w) * 0.5) * viewport
+            }
+            let expected = points.map(project)
+            let probes = [points[0] * 0.8 + points[1] * 0.2, points[1],
+                          points[1] * 0.2 + points[2] * 0.8].map(project)
+            let pathAlpha = probes.map { probe -> Int in
+                let x = Int(probe.x.rounded()), y = Int(probe.y.rounded())
+                return ((y - 1)...(y + 1)).flatMap { row in
+                    ((x - 1)...(x + 1)).map { column -> Int in
+                        guard (0..<extent).contains(row), (0..<extent).contains(column)
+                        else { return 0 }
+                        return Int(pixels[(row * extent + column) * 4 + 3])
+                    }
+                }.max() ?? 0
+            }
+            var bounds = [extent, extent, -1, -1]
+            var count = 0, maximumAlpha = 0, red = 0, blue = 0
+            for y in 0..<extent { for x in 0..<extent {
+                let offset = (y * extent + x) * 4
+                let alpha = Int(pixels[offset + 3])
+                maximumAlpha = max(maximumAlpha, alpha)
+                guard alpha >= 20 else { continue }
+                count += 1
+                bounds = [min(bounds[0], x), min(bounds[1], y),
+                          max(bounds[2], x), max(bounds[3], y)]
+                if pixels[offset + 2] > 20 && pixels[offset] < 10 { red += 1 }
+                if pixels[offset] > 20 && pixels[offset + 2] < 10 { blue += 1 }
+            } }
+            rows.append(["name": name, "completed": completed,
+                "instanceCount": values.count, "preservesWorldModel": uniforms.layerModel == world,
+                "pathAlpha": pathAlpha, "maximumAlpha": maximumAlpha,
+                "visiblePixels": count, "redPixels": red, "bluePixels": blue,
+                "bounds": bounds, "expectedBounds": [expected.map(\.x).min()!,
+                    expected.map(\.y).min()!, expected.map(\.x).max()!, expected.map(\.y).max()!],
+                "pixelSHA256": SHA256.hash(data: Data(pixels)).map { String(format: "%02x", $0) }.joined()
+            ])
+        }
+        return rows
     }
 
     static func depthTargetLeaseContract() -> [String: Bool] {

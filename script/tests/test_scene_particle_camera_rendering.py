@@ -8,10 +8,22 @@ from script.tests.scene_particle_render_test_support import run_particle_harness
 from script.tests.test_scene_particle_rendering import HARNESS_SOURCE, SWIFT_SOURCES
 
 
+# Reuse the maintained DTO preamble and source set, running only camera probes.
+CAMERA_HARNESS_SOURCE = HARNESS_SOURCE.split("@main", 1)[0] + r'''
+@main enum CameraHarness {
+    static func main() throws {
+        let result = SceneParticleCameraRenderingHarness.run()
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
 class SceneParticleCameraRenderingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.result = run_particle_harness(tuple(SWIFT_SOURCES), HARNESS_SOURCE)
+        cls.result = run_particle_harness(tuple(SWIFT_SOURCES), CAMERA_HARNESS_SOURCE)
 
     def test_metal_right_handed_perspective_matches_scene_camera(self) -> None:
         self.assertAlmostEqual(self.result["nearNDC"][2], 0, places=5)
@@ -95,6 +107,25 @@ class SceneParticleCameraRenderingTests(unittest.TestCase):
                     self.assertEqual(pixel[3], 255)
                     self.assertGreater(pixel[color_channel], 200)
                     self.assertLess(pixel[opposite], 55)
+
+    def test_native_rope_history_keeps_3d_endpoints_joins_and_texture_sides(self) -> None:
+        rows = self.result["nativeRopeProfiles"]
+        self.assertEqual(len(rows), 3, rows)
+        for row in rows:
+            with self.subTest(case=row.get("name")):
+                self.assertTrue(row["completed"], row)
+                self.assertEqual(row["instanceCount"], 2)
+                self.assertTrue(row["preservesWorldModel"])
+                self.assertGreater(row["visiblePixels"], 70)
+                self.assertLessEqual(row["maximumAlpha"], 129)
+                self.assertTrue(all(alpha >= 100 for alpha in row["pathAlpha"]), row)
+                self.assertGreater(row["redPixels"], 15)
+                self.assertGreater(row["bluePixels"], 15)
+                for actual, expected in zip(row["bounds"], row["expectedBounds"], strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=8)
+        self.assertEqual(rows[0]["pixelSHA256"], rows[1]["pixelSHA256"])
+        self.assertGreater(rows[0]["bounds"][2] - rows[0]["bounds"][0],
+                           (rows[2]["bounds"][2] - rows[2]["bounds"][0]) * 1.4)
 
 
 

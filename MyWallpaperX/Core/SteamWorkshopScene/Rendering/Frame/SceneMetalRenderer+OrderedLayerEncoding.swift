@@ -337,6 +337,7 @@ extension SceneMetalRenderer {
                     pipeline: particlePipeline,
                     model: model,
                     cameraFrame: cameraFrame,
+                    layerUsesPerspective: cameraFrame.resolvesPerspective(for: layer),
                     viewportSize: SIMD2(
                         Float(viewportSize.width),
                         Float(viewportSize.height)

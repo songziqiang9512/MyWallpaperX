@@ -1313,16 +1313,18 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex native_camera_app_sol（代理原图审查）",
-      "note": "10-19 strict80B direct bind几何恢复完整紫蓝骷髅；默认clip/reference/动画未资格，左上角漩涡及其余utility/graph失败仍开放，整体视觉继续unreviewed。",
+      "note": "10-19 native root RopeTrail相机恢复大范围弧线，完整紫骷髅保留；用户确认应站盒顶+动画动作，defaultclip/reference尚未资格。其他utility/graph与数组可见门仍开放，整体unreviewed。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
-        ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/report.json"
+        ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/report.json",
+        ".artifacts/scene-evidence/runs/native-rope-camera-20261019/current/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3292370168/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/samples/3292370168/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/samples/3292370168/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/native-rope-camera-20261019/current/samples/3292370168/runtime_evidence.zip"
       ]
     },
     "3325624777": {

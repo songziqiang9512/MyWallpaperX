@@ -635,6 +635,7 @@ final class SceneParticleRuntime {
                 orientation: root.orientation,
                 orientationAxis: root.orientationAxis,
                 usesPerspective: root.usesPerspective,
+                inheritsNativeSceneCamera: root.ropeTrailHistory != nil,
                 referenceWorldFrame: root.simulator.rootWorldTranslation?.referenceWorldFrame,
                 sizeIsWorldSpace: root.definition.flags.isWorldSpace
             ))

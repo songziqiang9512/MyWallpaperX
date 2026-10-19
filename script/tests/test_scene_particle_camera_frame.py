@@ -392,7 +392,51 @@ enum Harness {
         let hiddenCamera = SceneParticleCameraFrame.nativePerspectiveOverride(
             descriptor: cameraDescriptor, layersByID: [7: cameraLayer],
             worldFrames: [7: cameraWorld], dynamicValues: .empty(frameIndex: 0))
+        let parentWorld = SceneMatrix.translation(SIMD3<Float>(1, 2, -8))
+            * SceneMatrix.rotationZ(0.3) * SceneMatrix.scale(SIMD3(2, 0.5, 1))
+        let ropeWorld = parentWorld * SceneMatrix.translation(SIMD3(0.2, -0.1, -3))
+        let ropeModel = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: ropeWorld, parallaxOffset: .zero)
+        func ropeUniforms(_ camera: SceneParticleCameraFrame,
+                          _ layer: SceneRenderDescriptor.Layer,
+                          flag: Bool = false, eligible: Bool = true,
+                          sprite: Bool = false) -> SceneParticleLayerUniforms {
+            camera.particleUniforms(layerModel: ropeModel, orientation: .screen,
+                orientationAxis: nil, usesPerspective: flag, usesSceneCamera: sprite,
+                inheritsNativeSceneCamera: eligible,
+                layerUsesPerspective: camera.resolvesPerspective(for: layer),
+                viewportSize: SIMD2(Float(viewport.width), Float(viewport.height)),
+                sizeIsWorldSpace: false)
+        }
+        func sameCoordinates(_ a: SceneParticleLayerUniforms,
+                             _ b: SceneParticleLayerUniforms) -> Bool {
+            a.viewProjection == b.viewProjection && a.layerModel == b.layerModel
+                && a.basisRight == b.basisRight && a.basisUp == b.basisUp
+                && a.viewRight == b.viewRight && a.viewUp == b.viewUp
+        }
+        let nativeRope = ropeUniforms(nativeFrame, inheritedLayer)
+        let ropePolicy = [
+            "nativeProjection": nativeRope.viewProjection == nativeFrame.perspectiveViewProjection,
+            "parentWorldPreserved": nativeRope.layerModel == ropeWorld,
+            "nativeViewUp": nativeRope.viewUp == SIMD4(nativeFrame.cameraUp, 0),
+            "authoredSeedInherits": sameCoordinates(nativeRope, ropeUniforms(nativeInheritedFrame, inheritedLayer)),
+            "staticFalseKeepsLegacy": sameCoordinates(ropeUniforms(nativeFrame, scriptedLayer),
+                ropeUniforms(nativeFrame, scriptedLayer, eligible: false)),
+            "typedFalseKeepsLegacy": sameCoordinates(ropeUniforms(nativeFlatFrame, inheritedLayer),
+                ropeUniforms(nativeFlatFrame, inheritedLayer, eligible: false)),
+            "flags4KeepsLegacy": sameCoordinates(ropeUniforms(nativeFrame, scriptedLayer, flag: true),
+                ropeUniforms(nativeFrame, scriptedLayer, flag: true, eligible: false)),
+            "orthoKeepsLegacy": sameCoordinates(ropeUniforms(frame, inheritedLayer),
+                ropeUniforms(frame, inheritedLayer, eligible: false)),
+            "canvasFlags4KeepsLegacy": sameCoordinates(ropeUniforms(frame, inheritedLayer, flag: true),
+                ropeUniforms(frame, inheritedLayer, flag: true, eligible: false)),
+            "spriteKeepsLegacy": sameCoordinates(ropeUniforms(nativeFlatFrame, inheritedLayer, sprite: true),
+                ropeUniforms(nativeFlatFrame, inheritedLayer, eligible: false, sprite: true)),
+            "ineligibleStaysFlat": ropeUniforms(nativeFrame, inheritedLayer, eligible: false).viewProjection
+                == nativeFrame.orthographicViewProjection,
+        ]
         let result: [String: Any] = [
+            "ropeCameraPolicy": ropePolicy,
             "defaultProjectionRows": defaultProjectionRows,
             "invalidFOVRows": invalidFOVRows,
             "dynamicFOVRows": dynamicFOVRows,
@@ -806,6 +850,13 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertTrue(self.result["imageProjectionMatchesModel"])
         self.assertFalse(self.result["nativeExplicitOrtho"])
         self.assertFalse(self.result["orthoDefaultsToPerspective"])
+
+    def test_root_rope_camera_inherits_only_the_native_default(self) -> None:
+        policy = self.result["ropeCameraPolicy"]
+        self.assertEqual(len(policy), 11)
+        for key, value in policy.items():
+            with self.subTest(policy=key):
+                self.assertTrue(value)
 
     def test_typed_perspective_uses_one_immutable_camera_policy(self) -> None:
         for key in ("typedPerspectiveMatrixMatchesStatic", "typedFlatMatrixMatchesStatic",

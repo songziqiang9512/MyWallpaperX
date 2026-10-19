@@ -633,13 +633,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cf700bd901089a9314a7385ea8b5613acc003890946ac8d33e021953b5546120",
+        "sourceSHA256": "5bd7997adc9ad3a768ab2c411355c45310f09c68307b3e78622d531f3b4fcdfd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record the official/native size80 unrotated opaque square Sprite qualification and its limits; retire the global-times-two candidate and reconcile the U11 time writer input.",
-        "limitations": "Only the qualified simple Sprite input. No other size, parent, Trail/Rope, full U11, exact audio/phase or performance conclusion."
+        "scope": "Native admitted root RopeTrail canonical camera and real329/ortho374 bounded visual result.",
+        "limitations": "No fullsample/officialsamephase/prewarm/animation/HDR/performance claim."
       }
     },
     {
@@ -692,10 +692,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3aa65afefbfcde65e588827fa79c5697984cf8b8dd764bb542365b16929bfcba",
+        "sourceSHA256": "be3ccdbc3d8a506298a09515d754091d68b648e382761099a32a5fe4f7204670",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
-        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
+        "scope": "Native admitted root RopeTrail canonical camera and real329/ortho374 bounded visual result.",
+        "limitations": "No fullsample/officialsamephase/prewarm/animation/HDR/performance claim."
       }
     },
     {
@@ -3573,10 +3573,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "350f4fe7c9fc453b91b9381a018ebe42f1bf332b2e5f1eec32962e7f23a4ef75",
+        "sourceSHA256": "53b867cce535ce8bf342879cdd192811d3c5d1cc41c8c825cec98aaf3c496a38",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
-        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
+        "scope": "Native admitted root RopeTrail canonical camera and real329/ortho374 bounded visual result.",
+        "limitations": "No fullsample/officialsamephase/prewarm/animation/HDR/performance claim."
       }
     },
     {

@@ -55,6 +55,8 @@ struct SceneParticleDrawBatch {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
+    /// Existing root RopeTrail admission, independent of Sprite material state.
+    var inheritsNativeSceneCamera: Bool = false
     var referenceWorldFrame: simd_float4x4? = nil
     var sizeIsWorldSpace: Bool = false
 }

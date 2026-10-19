@@ -105,8 +105,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 448,
-      "bytes": 152071
+      "lines": 457,
+      "bytes": 154253
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 146328
+      "bytes": 147396
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -241,8 +241,8 @@
       "bytes": 18009
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 220,
-      "bytes": 65690
+      "lines": 219,
+      "bytes": 65411
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1278,15 +1278,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "bc9e0544da270b3b51dc1407d483c2c90d84e683a6a1c5719ff996ace82cd27a",
-      "after": "430adf12f1d8cc3ba916d6e6dd12b6a44969c1f6956293b071d4cfa148ed210f",
-      "owner": "scene-sprite-size-qualification",
-      "reason": "Bounded official/native size-unit result replaces an unqualified implementation statement; necessary raw proof and failure boundaries stay in local evidence. No product scope expansion.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-sprite-size-unit-20261018"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
       "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
@@ -1494,21 +1485,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "affb3378186114711a6276d46ff0e029bddd7aef52afdd58dbc041988d2cb8ee",
-      "after": "05dbec6c64324924663b93bb00e2516b2ff3db953b271b4515780e7d959be54c",
-      "owner": "direct-model-bind-geometry",
-      "reason": "保存严格bind几何合同及有界实图证据，退出旧首拒并保留默认动画/漩涡反馈；不扩大运行快照行上限。",
-      "decision": "docs/scene/capabilities/direct-model-bind-geometry.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "b0105c9f02838bd5128d8a4f286d42c0105c201a273c92ba6673deae2ef36f16",
       "after": "e28733f461bff5be8bb2f9926489821a29b2cec18634d907213c48a0c1a73d9a",
       "owner": "direct-model-bind-geometry",
       "reason": "保存严格bind几何合同及有界实图证据，退出旧首拒并保留默认动画/漩涡反馈；不扩大运行快照行上限。",
       "decision": "docs/scene/capabilities/direct-model-bind-geometry.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "430adf12f1d8cc3ba916d6e6dd12b6a44969c1f6956293b071d4cfa148ed210f",
+      "after": "7245f42c5e55118d0c8a3f770f23f94933bd73898cd56adc43e3d97274d32b90",
+      "owner": "native-rope-camera",
+      "reason": "共享相机合同与有界实图结果替换旧角落首断；保动画及相位边界，不扩大快照行数。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#native-rope-camera"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "05dbec6c64324924663b93bb00e2516b2ff3db953b271b4515780e7d959be54c",
+      "after": "cf72cf7311730f124bad8f38e959b9eece98ed9f883c8ad255701e6894780217",
+      "owner": "native-rope-camera",
+      "reason": "共享相机合同与有界实图结果替换旧角落首断；保动画及相位边界，不扩大快照行数。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#native-rope-camera"
     }
   ]
 }

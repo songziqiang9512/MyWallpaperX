@@ -7,6 +7,7 @@ extension SceneMetalRenderer {
         pipeline: SceneParticleMetalPipeline,
         model: simd_float4x4,
         cameraFrame: SceneParticleCameraFrame,
+        layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
@@ -52,6 +53,8 @@ extension SceneMetalRenderer {
                 orientationAxis: batch.orientationAxis,
                 usesPerspective: batch.usesPerspective,
                 usesSceneCamera: batch.renderState.usesSceneCamera,
+                inheritsNativeSceneCamera: batch.inheritsNativeSceneCamera,
+                layerUsesPerspective: layerUsesPerspective,
                 viewportSize: viewportSize,
                 sizeIsWorldSpace: batch.sizeIsWorldSpace
             )
