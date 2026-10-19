@@ -959,3 +959,17 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 **实际消费者与独立失败。** performance-particle为真实encode/CB完成观测：358554的204为138/137批、597/594实例；358188的113为201/200批、790/786实例；360的234与613各131/130批，实例457/454与321/318，failedFrames均0。它们不证明独占像素归属；preview current_nonempty只来自启动报告，不代GPU。358554背景17的五effect（含Godrays）也实际encoded。360原runner仍FAIL两项：666/effect2/672 Blur进入visual-failure-passthrough，后Opacity正常；实际诊断`source-proven-previous-blurred-composite-unowned`，不是新词法语法已证错误。666无子/依赖，Gaussian两pass的[.99,0]被GraphAdmission旧>=.01门挡住；这是该次保留的旧首拒证据，10-19[零轴后继](../history/previous-blurred-composite-admission-2026-10-12.md#zero-axis-followup-20261019)已将666转四Program/GPU执行、修后FAIL[]；无child不等于透明源，默认copyBackground/passthrough捕获背景，后画615遮住大部细条，未辨独立视觉收益，不归缺光根因。
 
 **身份与保留。** project/pkg：358554=`767455ce…20c2`/`09770fd1…6ece`；358188=`4ca743f3…a8c5`/原hash见输入收据；360同理逐file在冻结中，未覆盖旧归档人工verdict。三包仍unreviewed；当前记录只更新其限定反馈和实际运行。`.artifacts/tmp/358-rays-fresh-20261018/`及`u02-remaining-rays-fresh-20261018/`保输入身份、事前界限、原图、原FAIL、chain-observation与独审；只清本轮停用输入/HOME，继续留单份stage/迭代source/DD供后继。完整属性/互动、全随机周期及性能不在本次判断内。旧零轴数值首拒已沿[既有合同](previous-blurred-composite-admission.md)退出，旧光照观察仍保其范围，不复跑以追未定parity。
+
+
+<a id="sprite-alpha-coverage-20261020"></a>
+## 2026-10-20 普通 Sprite coverage：外围花簇恢复
+
+通用语义沿共享材质枚举、原准入 compiler、准备期 root/child 模板需求和唯一 particle pipeline 接入 `alphatocoverage`，限定范围归[粒子合同](particle-component-coverage.md#sprite-alpha-to-coverage)。不把 coverage 当 translucent 或 alpha cutoff；普通 PMA、refraction 与最终输出 owner 保持。静态 overbright 只准原始数值、exact value-only 或合法 null-user wrapper，拒空 String、未消费的 user 对象、script、animation 及未知字段。
+
+真实 `3745828537` 的默认花簇51/65原先在模拟前被拒；同原包/默认属性、静音fixture、从启动保持中心pointer、ready后9秒窗口，基线加载2/4，最终4/4且无unavailable。最终3024×1964原图可见左右/四角由大片近白空区恢复为白/浅蓝花簇，人物脸、发、举臂、衣褶及原前景保持；独审已实际查看基线、最终图及目录官方截图。新图的外围填充与官方参考方向一致，但官方viewport/phase未锁，不认像素parity或整样本通过。七个默认hidden系统仍不算缺失；requested200秒预热仍只运行344步约4.586667秒，未为本片改参数或扩大预算。
+
+最终正常签名Debug arm64构建通过、产品输入无漂移；主程序SHA `072887e13e14c0ff224dba6649cf373c6aaf269d7aee84e521a738b6b736392b`，debug dylib `487a456d35afdb039c3bd59dad89632acf6b74cb5d599f4832286b898179e6b2`。4个CPU方法覆盖49材质profile、27真实Runtime准备场景；改名、等价blend/renderer表达、静态常量及动态/未知wrapper、root零粒子与dormant child需求、健康peer成立，108输入无漂移且上传队列创建0。6个新Metal方法/22读回对照闭合透明/不透明/半alpha、straight RGB、旧PMA、缺需求PSO局部拒绝和共享depth格式；原37个粒子渲染方法同轮通过。旧probe依赖替换生产return文本的setup失败已改为直接读取生产公共顶点函数，保旧几何断言；不是产品shader编译失败。独立 `3471294034` 真实播放particle10/10、网格/人物/文字/红粒子可见，两包均退出至0 surface且gpuDrained。
+
+本片关闭普通Sprite材质首断点；Rope/Trail、其他combo/alpha/depth/cull、HDR、MSAA与跨设备覆盖响应保持边界。旧10-18无可见拖尾收益的撤回结论不改写。基线冷准备75.742秒、最终84.732秒只属这两个Debug取证窗，不构成性能收益；首个监督60秒额度不足的超时亦保留为取证失败，延等待不是引擎优化。
+
+必要证据由仓库主checkout正式库保存于 `.artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/samples/3745828537/runtime_evidence.zip`，117641B，SHA `625c515d39ca1cd14d37e91103071d8b067eaf90dc7712b00d4943a5adbe2a69`。内含有损审阅缩图及原图hash、App/源码身份、真实运行摘录、CPU/GPU原始读回与独审；无损原图已实际查看，缩图不承担像素等价断言。维持已授权1792MiB临时总限、单包32MiB和14天规则；本轮已结束执行副本与重试输出清理，连续迭代仅保隔离worktree一份 `.build-cache/scene-playback-debug`。

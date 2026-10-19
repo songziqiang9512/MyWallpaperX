@@ -63,11 +63,11 @@ float2 particlePixelDirection(float4 clipPosition, float3 worldDirection,
         * max(uniforms.viewportSize, float2(1.0));
 }
 
-vertex Varyings sceneParticleVert(
-    uint vertexID [[vertex_id]], uint instanceID [[instance_id]],
-    constant QuadVertex *quad [[buffer(0)]],
-    device const ParticleInstance *instances [[buffer(1)]],
-    constant LayerUniforms &uniforms [[buffer(2)]]) {
+Varyings particleVertex(
+    uint vertexID, uint instanceID,
+    constant QuadVertex *quad,
+    device const ParticleInstance *instances,
+    constant LayerUniforms &uniforms, bool straightTint) {
     QuadVertex quadVertex = quad[vertexID];
     ParticleInstance particle = instances[instanceID];
     float4 center = uniforms.layerModel * float4(particle.positionAndSize.xyz, 1.0);
@@ -193,7 +193,8 @@ vertex Varyings sceneParticleVert(
     out.uv1 = particle.frame1A.xy + quadVertex.texcoord.x * particle.frame1A.zw
             + quadVertex.texcoord.y * particle.frame1B.xy;
     float alpha = saturate(particle.rotationAndAlpha.w);
-    out.tint = float4(max(particle.colorAndFrameMix.xyz, 0.0) * alpha, alpha);
+    float3 color = max(particle.colorAndFrameMix.xyz, 0.0);
+    out.tint = float4(straightTint ? color : color * alpha, alpha);
     out.frameBlend = saturate(particle.colorAndFrameMix.w);
     float3 tangentWorldX;
     float3 tangentWorldY;
@@ -225,14 +226,27 @@ vertex Varyings sceneParticleVert(
     return out;
 }
 
+vertex Varyings sceneParticleVert(
+    uint vertexID [[vertex_id]], uint instanceID [[instance_id]],
+    constant QuadVertex *quad [[buffer(0)]],
+    device const ParticleInstance *instances [[buffer(1)]],
+    constant LayerUniforms &uniforms [[buffer(2)]]) {
+    return particleVertex(vertexID, instanceID, quad, instances, uniforms, false);
+}
+
+float4 particleColorSample(
+    Varyings in, texture2d<float> texture, sampler colorSampler, float2 uvScale) {
+    float4 first = texture.sample(colorSampler, in.uv0 * uvScale);
+    float4 second = texture.sample(colorSampler, in.uv1 * uvScale);
+    return mix(first, second, in.frameBlend);
+}
+
 fragment float4 sceneParticleFrag(
     Varyings in [[stage_in]],
     texture2d<float> texture [[texture(0)]],
     sampler colorSampler [[sampler(0)]],
     constant float4 &parameters [[buffer(0)]]) {
-    float4 first = texture.sample(colorSampler, in.uv0 * parameters.xy);
-    float4 second = texture.sample(colorSampler, in.uv1 * parameters.xy);
-    float4 texel = mix(first, second, in.frameBlend);
+    float4 texel = particleColorSample(in, texture, colorSampler, parameters.xy);
     float4 result = texel * in.tint;
     // in.tint already includes particle alpha. Apply texture coverage only
     // after filtering/interpolation, retaining authored RGB at zero alpha.
@@ -250,9 +264,7 @@ fragment float4 sceneParticleRefractFrag(
     constant float4 &parameters [[buffer(0)]],
     constant float4 &uvScales [[buffer(1)]]) {
     constexpr sampler backgroundSampler(filter::linear, address::clamp_to_edge);
-    float4 colorFirst = colorTexture.sample(colorSampler, in.uv0 * uvScales.xy);
-    float4 colorSecond = colorTexture.sample(colorSampler, in.uv1 * uvScales.xy);
-    float4 albedo = mix(colorFirst, colorSecond, in.frameBlend);
+    float4 albedo = particleColorSample(in, colorTexture, colorSampler, uvScales.xy);
     if (parameters.z > 0.5) {
         albedo = float4(albedo.r, albedo.r, albedo.r, albedo.g);
     }
@@ -281,5 +293,27 @@ fragment float4 sceneParticleRefractFrag(
     float3 straightTint = in.tint.a > 0.0 ? in.tint.rgb / in.tint.a : float3(0.0);
     float3 source = background * albedo.rgb * straightTint * parameters.y;
     return float4(source * coverage, coverage);
+}
+"""
+
+/// Added to the same library only for prepared coverage consumers. The old
+/// fragment entries retain their premultiplied tint and output operations.
+let sceneParticleCoverageShaderSource = """
+vertex Varyings sceneParticleCoverageVert(
+    uint vertexID [[vertex_id]], uint instanceID [[instance_id]],
+    constant QuadVertex *quad [[buffer(0)]],
+    device const ParticleInstance *instances [[buffer(1)]],
+    constant LayerUniforms &uniforms [[buffer(2)]]) {
+    return particleVertex(vertexID, instanceID, quad, instances, uniforms, true);
+}
+
+fragment float4 sceneParticleCoverageFrag(
+    Varyings in [[stage_in]],
+    texture2d<float> texture [[texture(0)]],
+    sampler colorSampler [[sampler(0)]],
+    constant float4 &parameters [[buffer(0)]]) {
+    float4 color = particleColorSample(in, texture, colorSampler, parameters.xy) * in.tint;
+    color.rgb *= parameters.z;
+    return color;
 }
 """

@@ -2152,6 +2152,22 @@
       ]
     },
     {
+      "id": "particle-material-coverage",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",
+        "script/tests/test_scene_particle_material_coverage.py",
+        "script/tests/fixtures/SceneParticleMaterialCoverageHarness.swift",
+        "script/tests/fixtures/SceneParticleRuntimeHarness.swift",
+        "script/tests/test_scene_particle_coverage_rendering.py",
+        "script/tests/fixtures/SceneParticleCoverageRenderingHarness.swift"
+      ],
+      "modules": [
+        "test_scene_particle_material_coverage",
+        "test_scene_particle_coverage_rendering"
+      ]
+    },
+    {
       "id": "scene-debug-runner",
       "patterns": [
         "MyWallpaperX/App/*DebugScenePlaybackRunner*.swift"

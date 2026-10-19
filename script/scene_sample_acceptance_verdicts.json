@@ -1375,18 +1375,20 @@
     },
     "3745828537": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-19",
-      "reviewer": "Codex root（原图审查）",
-      "note": "径向模糊1042已由透传恢复真实Program，静音/中心pointer原图外围花朵柔化、主体保持；A2C51/65及其他fallback、完整画面仍未验收。",
-      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "reviewedOn": "2026-10-20",
+      "reviewer": "Codex root与独立Sol审查（最终原图/限定准入；非完整官方同状态）",
+      "note": "径向模糊1042保原恢复；10-20普通Sprite coverage准入后，51/65实际花簇恢复至左右/四角，人物与原花层保持，默认particle4/4。旧归档首拒已退出；整体裁决仍unreviewed。",
+      "remainingDifferences": "预热requested200仍仅344步约4.586667秒，未改数量/分布；音频、视差、phase、属性、viewport与官方未同状态，HDR/完整播放交互未验。旧Rope profile保持拒绝。",
       "officialComparison": "compared",
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
-        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json"
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json",
+        ".artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/samples/3745828537/runtime_evidence.zip"
       ]
     },
     "3746422401": {

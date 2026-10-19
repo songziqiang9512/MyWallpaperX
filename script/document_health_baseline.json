@@ -105,8 +105,8 @@
       "bytes": 1695
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 466,
-      "bytes": 155818
+      "lines": 479,
+      "bytes": 158516
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 379,
-      "bytes": 150498
+      "lines": 393,
+      "bytes": 153728
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77473
+      "bytes": 77464
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 56,
-      "bytes": 18150
+      "lines": 55,
+      "bytes": 17557
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 221,
-      "bytes": 65365
+      "bytes": 65190
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1502,24 +1502,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "7245f42c5e55118d0c8a3f770f23f94933bd73898cd56adc43e3d97274d32b90",
-      "after": "2968b128662349ee2c26d833656994f398f8728d2834ea253a4ecf2e317a56a8",
-      "owner": "screen-displacement-ribbon",
-      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7643ef3a685bb91931022ac9193e599071f07ae8821478c8084d95d4acab8aa8",
-      "after": "f7e02d8fb25d113ae678382b10e12b155ef516777af22e9e6c9cb75643aaae72",
-      "owner": "screen-displacement-ribbon",
-      "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "d9dba8c2820bbd242d5f3cf00632ed7872c83afdc95c796971fae5763d5f8e54",
       "after": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
@@ -1544,6 +1526,24 @@
       "owner": "release",
       "reason": "User-requested durable one-command release method: explicit authorization, previous-release notes, prepared-version reuse, branch integration and end-to-end public verification.",
       "decision": "docs/release/release-signing.md#agent-一句话发布"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "2968b128662349ee2c26d833656994f398f8728d2834ea253a4ecf2e317a56a8",
+      "after": "ebd594fc23f9cd86f1271890cddd8b5052e1e2f77bc82a79178a3bceafe5a6a7",
+      "owner": "scene-particle-material",
+      "reason": "新增已验普通Sprite coverage的唯一合同、root/child准备需求及失败边界，并保真实外围花簇前后/独立样本/旧原型撤回界线；无样本调参或重复运行状态权威。队列与静态审计同步删除已修首断点并下调预算。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#sprite-alpha-to-coverage"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f7e02d8fb25d113ae678382b10e12b155ef516777af22e9e6c9cb75643aaae72",
+      "after": "ff7685120fc98d524c3f8058ac5b3abc18ebe1928e9806e8b6e82e677c3a612b",
+      "owner": "scene-particle-material",
+      "reason": "新增已验普通Sprite coverage的唯一合同、root/child准备需求及失败边界，并保真实外围花簇前后/独立样本/旧原型撤回界线；无样本调参或重复运行状态权威。队列与静态审计同步删除已修首断点并下调预算。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#sprite-alpha-to-coverage"
     }
   ]
 }

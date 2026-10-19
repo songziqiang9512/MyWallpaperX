@@ -3,6 +3,7 @@ import simd
 nonisolated enum SceneParticlePipelineBlendMode: String, Equatable, Sendable {
     case translucent
     case additive
+    case alphaToCoverage = "alphatocoverage"
 }
 
 nonisolated enum SceneParticlePipelineCullMode: String, Equatable, Sendable {

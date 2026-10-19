@@ -11,19 +11,27 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         guard [.unspecified, .default].contains(state.alphaWriting),
               let overbright = overbright(in: materialPass) else { return nil }
 
+        let spriteProfile = supportsSpriteStateProfile(
+            definition: definition, materialPass: materialPass
+        )
         let blendMode: SceneParticlePipelineBlendMode
         switch state.blending {
         case .translucent: blendMode = .translucent
         case .additive: blendMode = .additive
+        case .alphaToCoverage:
+            guard spriteProfile, let materialPass, materialPass.passIndex == 0,
+                  materialPass.constantValues.keys.allSatisfy({
+                      $0 == "ui_editor_properties_overbright"
+                  }),
+                  state.cullMode == .noCull, state.depthTest == .disabled,
+                  state.depthWrite == .disabled else { return nil }
+            blendMode = .alphaToCoverage
         case .normal: return nil
         }
 
         let needsSpriteStateProfile = state.cullMode == .normal
             || state.depthTest == .enabled
             || state.depthWrite == .enabled
-        let spriteProfile = supportsSpriteStateProfile(
-            definition: definition, materialPass: materialPass
-        )
         if needsSpriteStateProfile, !spriteProfile {
             return nil
         }
