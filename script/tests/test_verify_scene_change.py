@@ -107,6 +107,32 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_every_registry_path_group_references_existing_modules(self) -> None:
         self.assertEqual(missing_registry_modules(self.registry, SCRIPT_ROOT / 'tests'), [])
 
+    def test_release_license_and_extracted_fixtures_select_their_consumers(self) -> None:
+        cases = {
+            'LICENSE': 'test_apple_silicon_release_contract',
+            'NOTICE.md': 'test_apple_silicon_release_contract',
+            'script/scene_diagnostic_report_io.py': 'test_scene_diagnostic_report',
+            'script/tests/fixtures/GridViewportSizingHarness.swift': 'test_steam_grid_updates',
+            'script/tests/fixtures/SteamBrowserContainerHarness.swift': 'test_steam_grid_updates',
+            'script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c': 'test_scene_script_quickjs',
+            'script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift': 'test_scene_inherited_parallax_geometry',
+            'script/tests/fixtures/SceneNamedProviderColorBoundaryProbe.swift': 'test_scene_background_generic_color_abi',
+            'script/tests/fixtures/ScenePBRMapHarness.swift': 'test_scene_authored_pbr_map',
+            'script/tests/fixtures/ScenePBRScalarHarness.swift': 'test_scene_pbr_scalar',
+            'script/tests/fixtures/SceneParticleOffscreenReadbackHarness.swift': 'test_scene_particle_rendering',
+            'script/tests/fixtures/ScenePropertyPresentationChecks.swift': 'test_scene_native_property_list',
+            'script/tests/fixtures/WebPropertyPresentationChecks.swift': 'test_scene_native_property_list',
+            'script/tests/fixtures/SceneTerminalMaterialReplayProbe.swift': 'test_scene_resolved_material_pass_encoder',
+            'script/tests/scene_particle_render_test_support.py': 'test_scene_particle_camera_rendering',
+            'script/tests/scene_wallpaper_graph_output_test_support.py': 'test_scene_wallpaper_graph_terminals',
+        }
+        for path, consumer in cases.items():
+            with self.subTest(path=path):
+                gates, _ = verify.build_plan([path], arguments(), self.registry)
+                self.assertNotIn('unmapped-change', [gate.gate_id for gate in gates])
+                focused = next(gate for gate in gates if gate.gate_id == 'focused-tests')
+                self.assertIn(consumer, focused.command)
+
     def test_deleted_test_audit_rejects_stale_reference_in_unmatched_group(self) -> None:
         registry = copy.deepcopy(self.registry)
         registry['path_groups'].append({

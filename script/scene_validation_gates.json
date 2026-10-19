@@ -178,7 +178,9 @@
         "script/copy-scene-stock-assets.sh",
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
         "docs/releases/**",
-        "docs/release/**"
+        "docs/release/**",
+        "LICENSE",
+        "NOTICE.md"
       ],
       "modules": [
         "test_validate_release_notes",
@@ -339,7 +341,8 @@
         "script/tests/test_scene_script_quickjs.py",
         "script/tests/test_scene_quickjs_numeric_boundaries.py",
         "script/tests/fixtures/SceneScriptQuickJS*.c",
-        "script/tests/fixtures/SceneScriptQuickJSFixture.h"
+        "script/tests/fixtures/SceneScriptQuickJSFixture.h",
+        "script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c"
       ],
       "modules": [
         "test_scene_script_layer_order",
@@ -1384,7 +1387,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVisualFailureTopology.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVisualFailureTopology.swift",
+        "script/tests/fixtures/SceneTerminalMaterialReplayProbe.swift"
       ],
       "modules": [
         "test_scene_graph_resource_pass_encoder",
@@ -1788,7 +1792,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
-        "script/tests/test_scene_background_generic_color_abi.py"
+        "script/tests/test_scene_background_generic_color_abi.py",
+        "script/tests/fixtures/SceneNamedProviderColorBoundaryProbe.swift"
       ],
       "modules": [
         "test_scene_background_generic_color_abi"
@@ -2007,7 +2012,10 @@
         "script/tests/test_scene_particle_affine_trail.py",
         "script/tests/fixtures/SceneParticleAffineTrailHarness.swift",
         "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift",
-        "script/tests/test_scene_particle_camera_rendering.py"
+        "script/tests/test_scene_particle_camera_rendering.py",
+        "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift",
+        "script/tests/fixtures/SceneParticleOffscreenReadbackHarness.swift",
+        "script/tests/scene_particle_render_test_support.py"
       ],
       "modules": [
         "test_scene_particle_rendering",
@@ -2199,7 +2207,9 @@
         "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift",
         "MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json",
         "script/tests/test_workshop_property_display_localization.py",
-        "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift"
+        "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift",
+        "script/tests/fixtures/ScenePropertyPresentationChecks.swift",
+        "script/tests/fixtures/WebPropertyPresentationChecks.swift"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -2341,7 +2351,8 @@
         "script/tests/test_scene_product_entry_audio_baseline.py",
         "script/tests/scene_wallpaper_benchmark_test_support.py",
         "script/tests/scene_wallpaper_sample_fixture.py",
-        "script/tests/fixtures/scene_wallpaper_sample_report_golden.json"
+        "script/tests/fixtures/scene_wallpaper_sample_report_golden.json",
+        "script/tests/scene_wallpaper_graph_output_test_support.py"
       ],
       "modules": [
         "test_scene_matrix_contract",
@@ -2636,7 +2647,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneStaticModelMaterialBindings.swift",
         "script/tests/test_scene_material_user_emission.py",
         "script/tests/test_scene_material_user_emission_arguments.py",
-        "script/tests/test_scene_image_material_alpha.py"
+        "script/tests/test_scene_image_material_alpha.py",
+        "script/tests/fixtures/ScenePBRMapHarness.swift",
+        "script/tests/fixtures/ScenePBRScalarHarness.swift"
       ],
       "modules": [
         "test_scene_authored_pbr_map",
@@ -3109,7 +3122,8 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneLayerParallax.swift",
-        "script/tests/test_scene_inherited_parallax_geometry.py"
+        "script/tests/test_scene_inherited_parallax_geometry.py",
+        "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift"
       ],
       "modules": [
         "test_scene_inherited_parallax_geometry",
@@ -3249,7 +3263,9 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopGridLayoutSupport.swift",
         "script/tests/fixtures/SteamQueryHarness.swift",
-        "script/tests/fixtures/SteamGridUpdateHarness.swift"
+        "script/tests/fixtures/SteamGridUpdateHarness.swift",
+        "script/tests/fixtures/GridViewportSizingHarness.swift",
+        "script/tests/fixtures/SteamBrowserContainerHarness.swift"
       ],
       "modules": [
         "test_steam_queries",
@@ -3840,6 +3856,16 @@
         "test_scene_puppet_direct_skinning",
         "test_scene_puppet_direct_playback",
         "test_scene_static_model_vertex_stream"
+      ]
+    },
+    {
+      "id": "diagnostic-report-io",
+      "patterns": [
+        "script/scene_diagnostic_report_io.py"
+      ],
+      "modules": [
+        "test_scene_diagnostic_report",
+        "test_scene_sample_debug_archive"
       ]
     }
   ],
