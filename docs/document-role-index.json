@@ -153,10 +153,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "217004d0848669ff0b7dc12e94dcdfafa0249ee4cc2eac63591944cff0356cf4",
+        "sourceSHA256": "d8de2b55d47d7b5859f22faf8a39108ceea8a2c84f953ec97517cc5a7100481d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核浏览与订阅快照新鲜度、账号和订阅失效、作者返回、原生网格可视宽度、最小卡宽与缩放命令的唯一职责。",
-        "limitations": "本轮有界原生测试、隔离Debug和可控响应App操作另行留证；不代表真实Steam账号网络、全部作品、长时多窗口或Release验收。"
+        "scope": "复核详情缓存静默刷新、原始获取时间及即时复用、预览独立加载、作者返回来源与列表状态；保留账号和分页唯一职责。",
+        "limitations": "有界离线响应、原生网格测试与隔离 Debug 构建另行留证；不代表真实账号网络、全部作品、长时或 Release 验收。"
       }
     },
     {

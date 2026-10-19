@@ -14,7 +14,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 16770
+      "bytes": 17498
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 34,
@@ -1342,15 +1342,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "2b68a0e04a6a0ccf2d11c0efa8f49a3d2c82ddd8e92652d6ceef3e1634a29941",
-      "after": "8f4b677fc4e30982ce929ab47ae2667cd709e0cb1f8052bc872b0ceef2acd642",
-      "owner": "steam-browse-grid",
-      "reason": "补充用户授权的双入口快照新鲜度、账号与订阅失效，以及Flow真实宽度和缩放协调合同；不增加第二分页owner或后台轮询。",
-      "decision": "docs/architecture/steam-workshop-acquisition-contract.md#3-浏览缓存与-ui-投影"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-dependency-boundaries.md",
       "before": "7e35972189bb6f1ee8a8407db9b7bb2c2c0cb07fdfac647a71c8882ba04a98be",
       "after": "8e862f5d5c11d27b25024de1c452864fb98fc3f1c35c5fed4bff578cbc01a53e",
@@ -1465,6 +1456,15 @@
       "owner": "scene-mixed-layer-timeline",
       "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "8f4b677fc4e30982ce929ab47ae2667cd709e0cb1f8052bc872b0ceef2acd642",
+      "after": "ece660ca6b5aabfaf83f079b76f48c6fe8ce613cb7373bb7738d654fbfe58276",
+      "owner": "steam-detail-navigation",
+      "reason": "补充授权的过期详情静默更新、缓存即时复用及作者工坊返回来源合同；复用现有请求、metadata 与分页 owner，不添加轮询或第二缓存。",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md#3-浏览缓存与-ui-投影"
     }
   ]
 }

@@ -11,6 +11,7 @@ typealias SteamWorkshopDownloadRecord = GridEntry
     var isLoadingMoreBrowserItems = false
     var hasMoreBrowserItems = false
     @Published var pendingBrowserScrollRestoreOffset: CGFloat?
+    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var displayedDownloads: [GridEntry] = []
     var selectedDownloadID: String?
     var selectedDownloadIDs: Set<String> = []
@@ -250,6 +251,22 @@ final class GridCell: NSCollectionViewItem {
         _ = pump { idle() }
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         checks["directClearRetiresDeferredSelection"] = downloads.service.selectedDownloadID == nil && downloads.service.selectedDownloadIDs.isEmpty
+        downloads.service.selectDownload(itemID: "21")
+        downloads.keyboardFocusedID = nil
+        let beforeReattachScrolls = downloads.focusScrolls
+        downloads.ensureKeyboardFocus()
+        checks["reattachPreservesSelectionWithoutScrollingToFirst"] = downloads.keyboardFocusedID == "21"
+            && downloads.service.selectedDownloadID == "21" && downloads.focusScrolls == beforeReattachScrolls
+        downloads.scrollView.automaticallyAdjustsContentInsets = false
+        downloads.scrollView.contentInsets = NSEdgeInsets(top: 52, left: 0, bottom: 17, right: 0)
+        downloads.service.pendingDownloadsScrollRestoreOffsetY = -52
+        downloads.restoreAuthorReturnScrollIfNeeded()
+        checks["authorReturnRestoresNativeInsetTop"] = abs(downloads.scrollView.contentView.bounds.minY + 52) < 0.5
+            && downloads.service.pendingDownloadsScrollRestoreOffsetY == nil
+        downloads.service.pendingDownloadsScrollRestoreOffsetY = 99999
+        downloads.restoreAuthorReturnScrollIfNeeded()
+        checks["authorReturnClampsToNativeBottom"] = downloads.scrollView.contentView.bounds.maxY
+            <= downloads.collectionView.bounds.height + 17.5
         browser.service.hasMoreBrowserItems = true
         update([])
         checks["emptyFeedCanShowContinuationFooter"] = pump { idle() && browser.dataSource.snapshot().itemIdentifiers == [SteamWorkshopBrowserFooterSupport.itemID] }

@@ -32,12 +32,13 @@ class SteamQueryTests(unittest.TestCase):
         fetching = (CORE / 'SteamWorkshopService+BrowseFetching.swift').read_text()
         restoration += '\n' + method(fetching, '    func prepareForBrowserEntry(') + '\n' + method(fetching, '    func refresh(')
         models = (CORE / 'SteamWorkshopAPIModels.swift').read_text()
-        snapshot = models[models.index('enum SteamWorkshopBrowseSection'):models.index('nonisolated struct SteamWorkshopDetailCacheSnapshot')]
+        snapshot = method(models, 'enum SteamWorkshopAuthorReturnDestination') + '\n' + models[models.index('enum SteamWorkshopBrowseSection'):models.index('nonisolated struct SteamWorkshopDetailCacheSnapshot')]
 
         service = (CORE / 'SteamWorkshopService.swift').read_text()
         start = service.index('        store.didReconcileWrite =')
         hook = service[start:service.index('        return store', start)]
         fixture = '''import Foundation
+extension Notification.Name { static let appKitSelectItemRequested = Notification.Name("select") }
 @MainActor final class Projection {
  let steamKitBrowseStore: SteamKitBrowseStore
  var personalSort = SteamWorkshopPersonalSort.fileSize
@@ -71,6 +72,9 @@ class SteamQueryTests(unittest.TestCase):
  var navigationVersion = 0
  var suppressAutomaticBrowseNavigation = false
  var retainedBrowseSections: [SteamWorkshopBrowseSection: SteamWorkshopDiscoveryBrowseSnapshot] = [:]
+ var authorWorkshopReturnDestination: SteamWorkshopAuthorReturnDestination?
+ var currentDownloadsScrollOffsetY: CGFloat = 0
+ var pendingDownloadsScrollRestoreOffsetY: CGFloat?
  var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
  var savedDiscoveryQueryBeforeAuthorBrowse: String?
  func dismissItemDetail() { selectedBrowserItem = nil }

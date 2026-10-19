@@ -88,8 +88,10 @@ final class AppKitMainSplitViewController: NSSplitViewController {
     }
 
     private func setSelectedItem(_ newValue: SelectedItem, preservingSteamBrowseContext: Bool = false) {
-        guard selectedItem != newValue else { return }
+        // Re-selecting Workshop is an explicit exit from its author subpage.
+        // Context-preserving author/Back notifications still remain idempotent.
         prepareSteamBrowseSelection(newValue, preservingContext: preservingSteamBrowseContext)
+        guard selectedItem != newValue else { return }
         selectedItem = newValue
         update(wallpaperManager: wallpaperManager, selectedItem: selectedItem)
         syncManagerSelection(from: newValue)
@@ -145,7 +147,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         case "steamSubscribed":
             setSelectedItem(.steamSubscribed, preservingSteamBrowseContext: notification.userInfo?["preserveSteamBrowseContext"] as? Bool == true)
         case "steamDownloads":
-            setSelectedItem(.steamDownloads)
+            setSelectedItem(.steamDownloads, preservingSteamBrowseContext: notification.userInfo?["preserveSteamBrowseContext"] as? Bool == true)
         case "onlineLibrary":
             setSelectedItem(.onlineLibrary)
         case "onlineDownloads":

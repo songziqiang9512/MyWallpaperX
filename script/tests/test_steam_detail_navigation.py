@@ -25,7 +25,14 @@ class SteamDetailNavigationTests(unittest.TestCase):
                 'nonisolated enum SteamWorkshopPreviewAssetKind',
                 'nonisolated struct SteamWorkshopDetailField', 'nonisolated struct SteamWorkshopBrowserItem']]
             fragments += [method(api, start) for start in ['enum SteamWorkshopBrowseContext',
-                'struct SteamWorkshopDiscoveryBrowseSnapshot']]
+                'struct SteamWorkshopDiscoveryBrowseSnapshot', 'enum SteamWorkshopAuthorReturnDestination',
+                'nonisolated struct SteamWorkshopDetailCacheSnapshot']]
+            cache = (CORE/'SteamWorkshopService+LibraryRecords.swift').read_text()
+            fragments.append('enum DiskCacheProbe {\n'
+                'enum Constants { static let detailCacheTTL: TimeInterval = 86400 }\n'
+                'static func detailCacheFileURL(id: String) -> URL { URL(fileURLWithPath: ProcessInfo.processInfo.environment["HOME"]!).appendingPathComponent(id + ".json") }\n'
+                + method(cache, '    nonisolated static func loadDetailCache(') + '\n'
+                + method(cache, '    nonisolated static func loadDetailCacheSnapshot(') + '\n}')
             wire = (ROOT / 'script/tests/fixtures/SteamQueryHarness.swift').read_text()
             fragments.append(method(wire, 'final class QueryTransport'))
             fragments.append(browse[browse.index('@MainActor\nfinal class SteamKitBrowseStore'):])
@@ -36,10 +43,11 @@ class SteamDetailNavigationTests(unittest.TestCase):
                 *[method(detail, start) for start in ['    func presentItemDetail(',
                     '    func dismissItemDetail(', '    func cancelSelectedItemDetailRefresh(',
                     '    func refreshSelectedDownloadInspectorDetailIfNeeded(',
-                    '    private func persistRefreshedDownloadMetadata(',
+                    '    func persistRefreshedDownloadMetadata(',
                     '    private func refreshSelectedBrowserItemDetailIfNeeded(']],
                 *[method(nav, start) for start in ['    func showAuthorWorkshop(',
-                    '    func returnToDiscoveryBrowse(', '    func updateDisplayedBrowserItems(',
+                    '    func returnToDiscoveryBrowse(', '    func requestSteamWorkshopBrowserSelection(',
+                    '    func updateDisplayedBrowserItems(',
                     '    func makeDiscoveryBrowseSnapshot(', '    func restoreDiscoveryBrowseSnapshot(']],
                 method((CORE/'SteamWorkshopService+BrowseHydration.swift').read_text(), '    func mergeBrowserItem('),
                 *[method((CORE/'SteamWorkshopService+BrowseFetching.swift').read_text(), start)

@@ -391,12 +391,10 @@ extension SteamWorkshopService {
                 code: "unsupportedContent", message: "作品不存在或当前账号无权访问。")
         }
         let detailed = SteamWorkshopBrowserItem.makeDetailed(from: item, fallback: fallback)
-        let enriched = try await Self.maybeEnrichPreviewKind(
-            for: detailed,
-            requestPriority: .userInitiated
-        )
-        Self.saveDetailCache(item: enriched)
-        return enriched
+        // Preview decoding has its own cache/loader. A MIME probe must not
+        // delay semantic details or the author navigation button.
+        Self.saveDetailCache(item: detailed)
+        return detailed
     }
 
     private func appendSteamKitPartialNotice() {

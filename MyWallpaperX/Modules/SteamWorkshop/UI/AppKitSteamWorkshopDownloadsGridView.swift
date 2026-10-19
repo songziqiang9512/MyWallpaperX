@@ -129,6 +129,29 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         updateLayoutItemSize()
         super.layout()
         updateLayoutItemSize()
+        restoreAuthorReturnScrollIfNeeded()
+    }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow == nil, window != nil {
+            service.currentDownloadsScrollOffsetY = scrollView.contentView.bounds.minY
+        }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    private func restoreAuthorReturnScrollIfNeeded() {
+        guard window != nil, !isApplyingRecords, !orderedIDs.isEmpty,
+              scrollView.contentView.bounds.height > 0,
+              let offset = service.pendingDownloadsScrollRestoreOffsetY else { return }
+        collectionView.layoutSubtreeIfNeeded()
+        var proposed = scrollView.contentView.bounds
+        proposed.origin = NSPoint(x: 0, y: offset)
+        // AppKit includes the automatic titlebar/content insets in its bounds
+        // constraint; clamping to zero shifts a list that was at its true top.
+        let constrained = scrollView.contentView.constrainBoundsRect(proposed)
+        service.pendingDownloadsScrollRestoreOffsetY = nil
+        scrollView.contentView.setBoundsOrigin(constrained.origin)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     override func viewDidMoveToWindow() {
@@ -315,6 +338,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             self.isApplyingRecords = false
             if !changedIDs.isEmpty { self.refreshVisibleDownloadItems(for: changedIDs) }
             self.ensureKeyboardFocus()
+            self.restoreAuthorReturnScrollIfNeeded()
             self.applyPendingRecords()
         }
     }
@@ -404,6 +428,11 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         }
         if let focusedID = keyboardFocusedID, orderedIDs.contains(focusedID) {
             reloadKeyboardFocus(previous: nil, next: focusedID)
+            return
+        }
+        if let selectedID = service.selectedDownloadID, orderedIDs.contains(selectedID) {
+            keyboardFocusedID = selectedID
+            reloadKeyboardFocus(previous: nil, next: selectedID)
             return
         }
         focusItem(at: 0)

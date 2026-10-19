@@ -448,7 +448,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let hasName = SteamWorkshopDetailRefreshSupport.hasAuthorName(currentItem)
         let author = footerButton(title: hasName ? currentItem.author : (isRefreshingDetail ? "正在获取作者…" : "作者名称暂不可用"), symbolName: "person.crop.circle", kind: .secondary, target: self, action: #selector(openAuthorWorkshop))
         author.toolTip = hasName ? "查看 \(currentItem.author) 的工坊" : "查看作者工坊"
-        author.isEnabled = !isRefreshingDetail && (service.selectedDownloadInspectorItem?.id == currentItem.id || SteamWorkshopService.resolvedAuthorWorkshopURL(for: currentItem) != nil)
+        author.isEnabled = SteamWorkshopService.resolvedAuthorWorkshopURL(for: currentItem) != nil
+            || (!isRefreshingDetail && service.selectedDownloadInspectorItem?.id == currentItem.id)
         author.heightAnchor.constraint(equalToConstant: 36).isActive = true
         author.layer?.cornerRadius = 18
         return author

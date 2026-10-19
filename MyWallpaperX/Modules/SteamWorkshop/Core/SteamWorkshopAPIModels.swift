@@ -1,6 +1,26 @@
 import Foundation
 import CoreGraphics
 
+enum SteamWorkshopAuthorReturnDestination {
+    case discovery, personal, downloads
+
+    var selectionKey: String {
+        switch self {
+        case .discovery: return "steamWorkshop"
+        case .personal: return "steamSubscribed"
+        case .downloads: return "steamDownloads"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .discovery: return "返回创意工坊"
+        case .personal: return "返回我的订阅"
+        case .downloads: return "返回已下载"
+        }
+    }
+}
+
 enum SteamWorkshopBrowseContext: Equatable {
     case discovery
     case authorWorkshop(authorName: String, workshopURL: URL)

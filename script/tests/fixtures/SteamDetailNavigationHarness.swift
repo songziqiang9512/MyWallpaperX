@@ -1,3 +1,4 @@
+extension Notification.Name { static let appKitSelectItemRequested = Notification.Name("select") }
 import AppKit
 import Foundation
 
@@ -11,6 +12,8 @@ import Foundation
     var browserContentMode = SteamWorkshopBrowserContentMode.video
     var facetFilters = SteamWorkshopBrowseFacetFilters.none
     var source = SteamWorkshopSource.featured
+    var shouldUseSteamKitPersonal: Bool { source.isPersonal && !browseContext.isAuthorWorkshop }
+    var shouldUseSteamKitStructuredBrowse: Bool { !shouldUseSteamKitPersonal }
     var trendingWindow = SteamWorkshopTrendingWindow.week
     var personalSort = SteamWorkshopPersonalSort.subscriptionDate
     var browserState = SteamWorkshopBrowserLoadState.loaded
@@ -26,6 +29,9 @@ import Foundation
     var inFlightDetailItemID: String?
     var navigationVersion = 0
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
+    var authorWorkshopReturnDestination: SteamWorkshopAuthorReturnDestination?
+    var currentDownloadsScrollOffsetY: CGFloat = 0
+    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var savedDiscoveryQueryBeforeAuthorBrowse: String?
     var suppressAutomaticBrowseNavigation = false
     var currentBrowserScrollOffsetY: CGFloat = 0
@@ -41,20 +47,28 @@ import Foundation
     lazy var steamSubscriptions = SteamWorkshopSubscriptionStore(
         identity: { 1 }, read: { _ in false }, write: { _, _ in })
     enum Status { case ready }
-    struct Record { let status = Status.ready; let folderURL = URL(fileURLWithPath: "/isolated") }
-    var records: [String: Record] = [:]
+    struct Record {
+        var id = "3221354414"
+        let status = Status.ready
+        let folderURL = URL(fileURLWithPath: "/isolated")
+        var browserItem: SteamWorkshopBrowserItem?
+    }
+    var downloads: [Record] = []
+    var records: [String: Record] = [:] { didSet { downloads = Array(records.values) } }
     init(_ query: SteamWorkshopQueryClient) {
         steamWorkshopQueryClient = query
         steamKitBrowseStore = SteamKitBrowseStore(queryClient: query)
     }
-    func latestDownloadRecord(for id: String) -> Record? { records[id] }
-    func persistDownloadMetadata(item: SteamWorkshopBrowserItem, id: String, targetURL: URL) {
+    func latestDownloadRecord(for id: String) -> Record? { downloads.first { $0.id == id } }
+    func persistDownloadMetadata(item: SteamWorkshopBrowserItem, id: String, targetURL: URL, fetchedAt: Date = Date()) {
+        metadata[id] = Snapshot(fetchedAt: fetchedAt, item: item)
         publications += 1
         savedItem = try! JSONEncoder().encode(item)
     }
     func reloadInstalledItems() {}
-    struct Snapshot { let fetchedAt = Date() }
-    func managedDownloadSnapshots(matchingItemID: String) -> [String: Snapshot] { [matchingItemID: Snapshot()] }
+    struct Snapshot { let fetchedAt: Date; let item: SteamWorkshopBrowserItem }
+    var metadata: [String: Snapshot] = [:]
+    func managedDownloadSnapshots(matchingItemID: String) -> [String: Snapshot] { metadata }
     func setBrowserQuery(_ value: String) { browserQuery = value; updateDisplayedBrowserItems() }
     func fetchBrowserItems(forceRefresh: Bool = false) {
         fetches += 1
@@ -64,18 +78,21 @@ import Foundation
             browserItems = []
         }
     }
-    func requestSteamWorkshopBrowserSelection() { focusRequests += 1 }
     func loadMoreBrowserItemsIfNeeded() { continuationRequests += 1 }
     nonisolated static func workshopItemIDSearchID(from query: String) -> String? { nil }
     nonisolated static func resolvedAuthorWorkshopURL(for item: SteamWorkshopBrowserItem) -> URL? { item.authorWorkshopURL }
     nonisolated static func saveDetailCache(item: SteamWorkshopBrowserItem) {}
-    enum Priority { case userInitiated }
-    nonisolated static func maybeEnrichPreviewKind(for item: SteamWorkshopBrowserItem,
-                                                 requestPriority: Priority) async throws -> SteamWorkshopBrowserItem { item }
+    nonisolated(unsafe) static var detailCaches: [String: SteamWorkshopDetailCacheSnapshot] = [:]
+    nonisolated static func loadDetailCache(id: String) -> SteamWorkshopBrowserItem? { loadDetailCacheSnapshot(id: id)?.item }
+    nonisolated static func loadDetailCacheSnapshot(id: String) -> SteamWorkshopDetailCacheSnapshot? { detailCaches[id] }
+
 }
 
 @MainActor final class GridProbe {
     let service: SteamWorkshopService
+    var window: NSWindow? = NSWindow()
+    var isApplyingSnapshot = false, isItemsApplyScheduled = false
+    var pendingItems: [SteamWorkshopBrowserItem]?
     var orderedIDs = ["matching-card"]
     let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
     init(_ service: SteamWorkshopService) {
@@ -116,10 +133,67 @@ import Foundation
         precondition(!SteamWorkshopDetailRefreshSupport.needsRefresh(detailed), "optional missing fields are final values")
         precondition(service.browserItems.isEmpty, "download detail refresh cannot add cards to another feed")
         let persisted = try JSONDecoder().decode(SteamWorkshopBrowserItem.self, from: service.savedItem!)
-        service.selectedDownloadInspectorItem = persisted
+        precondition(service.latestDownloadRecord(for: brief.id)?.browserItem == persisted,
+            "accepted details are immediately reusable before any library scan")
+        service.dismissDownloadInspector()
+        service.openDownload(service.latestDownloadRecord(for: brief.id)!.browserItem!)
         let sends = wire.sends
         service.refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: false)
         precondition(wire.sends == sends && service.publications == 1, "reopening repaired metadata performs no query")
+
+        // Execute the actual disk-cache reader, including identity and age checks.
+        let cacheURL = DiskCacheProbe.detailCacheFileURL(id: brief.id)
+        try JSONEncoder().encode(SteamWorkshopDetailCacheSnapshot(fetchedAt: Date(), item: detailed)).write(to: cacheURL)
+        precondition(DiskCacheProbe.loadDetailCache(id: brief.id) == detailed)
+        try JSONEncoder().encode(SteamWorkshopDetailCacheSnapshot(fetchedAt: Date().addingTimeInterval(-86401), item: detailed)).write(to: cacheURL)
+        precondition(DiskCacheProbe.loadDetailCache(id: brief.id) == nil, "expired shared cache is not adopted as fresh")
+        try JSONEncoder().encode(SteamWorkshopDetailCacheSnapshot(fetchedAt: Date(), item: detailed))
+            .write(to: DiskCacheProbe.detailCacheFileURL(id: "different"))
+        precondition(DiskCacheProbe.loadDetailCache(id: "different") == nil, "cache identity must match its requested ID")
+        try Data("invalid".utf8).write(to: cacheURL)
+        precondition(DiskCacheProbe.loadDetailCache(id: brief.id) == nil)
+
+        // Expiration is a quiet refresh, not an explicit user retry.
+        let quiet = SteamWorkshopService(query)
+        quiet.records[brief.id] = .init(browserItem: detailed)
+        quiet.metadata[brief.id] = .init(fetchedAt: Date().addingTimeInterval(-73 * 3600), item: detailed)
+        wire.holdsResponses = true
+        quiet.openDownload(detailed)
+        precondition(quiet.selectedDownloadDetailItem == detailed && !quiet.isRefreshingSelectedDownloadDetailItem)
+        let quietTask = quiet.selectedItemDetailTask!
+        quiet.refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: false, metadataIsStale: true)
+        precondition(quiet.selectedItemDetailTask != nil && !quietTask.isCancelled, "quiet refresh deduplicates")
+        while wire.deferredResponses.isEmpty { await Task.yield() }
+        wire.flushResponses()
+        await quietTask.value
+        precondition(quiet.selectedDownloadDetailError == nil && quiet.publications == 1)
+        wire.holdsResponses = false
+        reply = page(0, [])
+        quiet.refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: false, metadataIsStale: true)
+        await quiet.selectedItemDetailTask?.value
+        precondition(quiet.selectedDownloadDetailError == nil && quiet.selectedDownloadDetailItem != nil,
+            "quiet network failure keeps visible cached data without an error notice")
+        quiet.refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: true)
+        precondition(quiet.isRefreshingSelectedDownloadDetailItem, "manual retry remains visible")
+        await quiet.selectedItemDetailTask?.value
+        precondition(quiet.selectedDownloadDetailError != nil, "manual retry still reports a real failure")
+        reply = page(0, [value(brief.id)])
+        // A fresh shared detail cache repairs older local metadata without another query.
+        let cached = SteamWorkshopService(query)
+        cached.records[brief.id] = .init(browserItem: brief)
+        cached.metadata[brief.id] = .init(fetchedAt: Date(), item: brief)
+        let cacheDate = Date().addingTimeInterval(-3600)
+        SteamWorkshopService.detailCaches[brief.id] = .init(fetchedAt: cacheDate, item: detailed)
+        let beforeCache = wire.sends
+        cached.openDownload(brief)
+        precondition(cached.selectedDownloadDetailItem == detailed && cached.selectedItemDetailTask == nil)
+        precondition(cached.metadata[brief.id]?.fetchedAt == cacheDate && cached.publications == 1,
+            "cache adoption preserves original age rather than extending it")
+        precondition(wire.sends == beforeCache, "cache reuse performs no helper or preview request")
+        cached.dismissDownloadInspector()
+        cached.openDownload(detailed)
+        precondition(cached.publications == 1, "equal cache timestamp does not republish")
+        SteamWorkshopService.detailCaches = [:]
 
         let failed = SteamWorkshopService(query)
         failed.records[brief.id] = .init()
@@ -249,10 +323,52 @@ import Foundation
         service.showAuthorWorkshop(for: detailed)
         service.returnToDiscoveryBrowse()
         precondition(service.fetches == 3, "an interrupted discovery load is restarted on return")
+        service.steamKitBrowseStore.resetFor(key: discoveryKey)
+        reply = page(1, [])
+        _ = try await service.steamKitBrowseStore.fetch(page: 1, generation: service.steamKitBrowseStore.bumpGeneration())
         service.browserState = .loaded
         service.browserItems = []
         service.prepareForBrowserEntry()
         precondition(service.fetches == 3, "a valid empty result must not reload whenever its view reattaches")
+        // Downloads is the first origin even when a personal browser feed is retained.
+        let downloadOrigin = SteamWorkshopService(query)
+        downloadOrigin.source = .mySubscriptions
+        downloadOrigin.selectedDownloadInspectorItem = detailed
+        downloadOrigin.currentDownloadsScrollOffsetY = 780
+        downloadOrigin.browserState = .loading
+        var selectedRoute: String?
+        let observer = NotificationCenter.default.addObserver(forName: .appKitSelectItemRequested,
+            object: nil, queue: nil) { note in
+                MainActor.assumeIsolated { selectedRoute = note.userInfo?["selectedItem"] as? String }
+            }
+        downloadOrigin.showAuthorWorkshop(for: detailed)
+        precondition(downloadOrigin.authorWorkshopReturnDestination == .downloads && selectedRoute == "steamWorkshop",
+            "Downloads entered after Subscriptions still hosts author pages in Workshop")
+        downloadOrigin.browserState = .loaded
+        downloadOrigin.showAuthorWorkshop(for: detailed)
+        precondition(downloadOrigin.authorWorkshopReturnDestination == .downloads,
+            "same-author reentry must preserve initial Downloads origin")
+        let authorFetches = downloadOrigin.fetches
+        downloadOrigin.isLoadingMoreBrowserItems = true
+        downloadOrigin.isRefreshingBrowserFeed = true
+        downloadOrigin.returnToDiscoveryBrowse()
+        precondition(!downloadOrigin.isLoadingMoreBrowserItems && !downloadOrigin.isRefreshingBrowserFeed)
+        precondition(selectedRoute == "steamDownloads" && downloadOrigin.pendingDownloadsScrollRestoreOffsetY == 780)
+        precondition(downloadOrigin.fetches == authorFetches && downloadOrigin.browserState == .idle,
+            "returning to Downloads does not load an interrupted invisible browser page")
+        downloadOrigin.selectedDownloadInspectorItem = detailed
+        downloadOrigin.showAuthorWorkshop(for: detailed)
+        selectedRoute = nil
+        downloadOrigin.returnToDiscoveryBrowse(selectOrigin: false)
+        precondition(selectedRoute == nil && downloadOrigin.authorWorkshopReturnDestination == nil,
+            "explicit sidebar navigation must not bounce to an old origin")
+        downloadOrigin.source = .mySubscriptions
+        downloadOrigin.showAuthorWorkshop(for: detailed)
+        precondition(selectedRoute == "steamWorkshop" && downloadOrigin.authorWorkshopReturnDestination == .personal,
+            "a direct subscription author entry uses Workshop but remembers subscription origin")
+        downloadOrigin.returnToDiscoveryBrowse()
+        precondition(selectedRoute == "steamSubscribed", "Back returns to Subscriptions independently of the author host")
+        NotificationCenter.default.removeObserver(observer)
         print("detail/navigation PASS: full metadata repair, optional fields, sharing, filter isolation, idempotency and restoration")
         await client.stop(shutdownTimeout: 0.1)
     }

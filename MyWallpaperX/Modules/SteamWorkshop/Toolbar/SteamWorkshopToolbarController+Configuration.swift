@@ -111,7 +111,7 @@ extension SteamWorkshopToolbarController {
         authorBackButton.isEnabled = isBrowsingAuthorWorkshop
         authorBackButton.alphaValue = isBrowsingAuthorWorkshop ? 1.0 : 0.45
         authorBackButton.toolTip = isBrowsingAuthorWorkshop
-            ? "返回创意工坊首页"
+            ? (SteamWorkshopService.shared.authorWorkshopReturnDestination?.title ?? "返回创意工坊")
             : "当前不在作者工坊模式"
         authorBackToolbarItem.toolTip = authorBackButton.toolTip
     }

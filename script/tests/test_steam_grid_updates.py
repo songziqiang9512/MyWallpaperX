@@ -27,7 +27,7 @@ class SteamGridUpdateTests(unittest.TestCase):
             if index == 0:
                 signatures += ['    private func calculateColumnCount(']
             classes.append(f'final class P{index}: Probe {{\n' + '\n'.join(
-                method(source, signature) for signature in signatures) + '\n}')
+                method(source, signature) for signature in signatures) + ('\nfunc restoreAuthorReturnScrollIfNeeded() {}' if index == 1 else '') + '\n}')
         template = (ROOT / 'script/tests/fixtures/GridViewportSizingHarness.swift').read_text()
         with tempfile.TemporaryDirectory(prefix='mwx-grid-viewport-', dir='/private/tmp') as folder:
             work = Path(folder)
@@ -84,7 +84,8 @@ class SteamGridUpdateTests(unittest.TestCase):
             '    private func restorePendingScrollOffsetIfReady('])
         download_methods = '\n'.join(method(downloads, signature) for signature in [
             '    private func applyRecords(', '    private func applyPendingRecords(',
-            '    private func commitRecords(', '    private func ensureKeyboardFocus('])
+            '    private func commitRecords(', '    private func ensureKeyboardFocus(',
+            '    private func restoreAuthorReturnScrollIfNeeded('])
         core = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
         selection = (core / 'SteamWorkshopService+DownloadSelection.swift').read_text()
         filtering = (core / 'SteamWorkshopService+DownloadFiltering.swift').read_text()

@@ -156,13 +156,18 @@ extension SteamWorkshopService {
     }
 
     nonisolated static func loadDetailCache(id: String) -> SteamWorkshopBrowserItem? {
+        loadDetailCacheSnapshot(id: id)?.item
+    }
+
+    nonisolated static func loadDetailCacheSnapshot(id: String) -> SteamWorkshopDetailCacheSnapshot? {
         let url = detailCacheFileURL(id: id)
         guard let data = try? Data(contentsOf: url),
               let snapshot = try? JSONDecoder().decode(SteamWorkshopDetailCacheSnapshot.self, from: data),
+              snapshot.item.id == id,
               Date().timeIntervalSince(snapshot.fetchedAt) < Constants.detailCacheTTL else {
             return nil
         }
-        return snapshot.item
+        return snapshot
     }
 
     nonisolated static func saveDetailCache(item: SteamWorkshopBrowserItem) {

@@ -556,6 +556,11 @@ final class AppKitSidebarContainerView: NSView {
               let selected = node.selectedItem else {
             return
         }
+        // The author subpage shares Workshop's sidebar identity. A repeated
+        // click must reach Shell navigation before the usual scroll-to-top.
+        if selected == .steamWorkshop, SteamWorkshopService.shared.isBrowsingAuthorWorkshop {
+            selectedItemSetter?(selected)
+        }
         NotificationCenter.default.post(
             name: .appKitRequestScrollToTopForCurrentSelection,
             object: selected.selectionContext.scrollPersistenceKey

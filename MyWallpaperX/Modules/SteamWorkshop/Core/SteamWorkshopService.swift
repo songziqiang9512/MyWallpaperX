@@ -391,6 +391,9 @@ final class SteamWorkshopService: ObservableObject {
     /// detail-panel re-opens re-fetched the same SteamKit details each time).
     var inFlightDetailItemID: String?
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
+    var authorWorkshopReturnDestination: SteamWorkshopAuthorReturnDestination?
+    var currentDownloadsScrollOffsetY: CGFloat = 0
+    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var retainedBrowseSections: [SteamWorkshopBrowseSection: SteamWorkshopDiscoveryBrowseSnapshot] = [:]
     var currentBrowserScrollOffsetY: CGFloat = 0
     var savedDiscoveryQueryBeforeAuthorBrowse: String?

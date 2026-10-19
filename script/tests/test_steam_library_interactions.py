@@ -21,6 +21,7 @@ class SteamLibraryInteractionTests(unittest.TestCase):
         navigation = (CORE / 'SteamWorkshopService+BrowseNavigation.swift').read_text()
         shell = (ROOT / 'MyWallpaperX/Shell/AppKitMainSplitView.swift').read_text()
         selection = (ROOT / 'MyWallpaperX/Shell/AppKitMainSplitView+SteamSelection.swift').read_text()
+        sidebar = (ROOT / 'MyWallpaperX/Shell/SidebarViews.swift').read_text()
         records = (CORE / 'SteamWorkshopService+LibraryRecords.swift').read_text()
         downloads = (CORE / 'SteamWorkshopService+Downloads.swift').read_text()
         harness = r'''
@@ -31,9 +32,11 @@ enum Choice { case all, none }
 enum SteamWorkshopBrowseSection { case personal, discovery }
 enum SelectedItem {
     case steamWorkshop, steamSubscribed, steamDownloads, onlineLibrary, onlineDownloads, staticImageLibrary
+    struct Context { var scrollPersistenceKey = "steam" }
+    var selectionContext: Context { Context() }
     var isInSteamWorkshopContext: Bool { self == .steamWorkshop || self == .steamSubscribed }
 }
-extension Notification.Name { static let appKitSelectItemRequested = Notification.Name("select") }
+extension Notification.Name { static let appKitSelectItemRequested = Notification.Name("select"); static let appKitRequestScrollToTopForCurrentSelection = Notification.Name("top") }
 @MainActor final class SteamWorkshopService {
     static var current: SteamWorkshopService!
     static var shared: SteamWorkshopService { current! }
@@ -43,14 +46,17 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     var downloadError: String?
     var retried: [String] = []
     var source = Source.featured
+    var browserEntryChecks = 0
+    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var isBrowsingAuthorWorkshop = true
     var suppressAutomaticBrowseNavigation = false
     var browserContentMode = Choice.all
     var facetFilters = Choice.none
     init(_ root: URL) { downloadJobStore = SteamDownloadJobStore(persistenceURL: root.appendingPathComponent("jobs.json")) }
-    func returnToDiscoveryBrowse() { isBrowsingAuthorWorkshop = false }
+    func returnToDiscoveryBrowse(selectOrigin: Bool = true) { isBrowsingAuthorWorkshop = false }
     func enterBrowseSection(_ section: SteamWorkshopBrowseSection) { source = section == .personal ? .mySubscriptions : .featured }
     func setBrowserQuery(_ query: String) {}
+    func prepareForBrowserEntry() { browserEntryChecks += 1 }
     func removeTransientRecord(id: String) {}
     func scheduleTerminalDownloadCleanup() {}
     func downloadWorkshopItem(id: String, pageTitle: String) { retried.append(id) }
@@ -65,12 +71,23 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
 ''' + method(ui, '    @objc private func handleClearAll(') + '\n' + method(ui, '    private func configureRetry(') + r'''
 }
 @MainActor final class AppKitMainSplitViewController {
-    var selected = SelectedItem.steamDownloads
-    func setSelectedItem(_ value: SelectedItem, preservingSteamBrowseContext: Bool = false) {
-        prepareSteamBrowseSelection(value, preservingContext: preservingSteamBrowseContext)
-        selected = value
-    }
-''' + method(shell, '    private func handleSelectItemRequest(') + '\n' + method(selection, '    func prepareSteamBrowseSelection(') + r'''
+    var selectedItem = SelectedItem.steamDownloads
+    var selected: SelectedItem { selectedItem }
+    let wallpaperManager = NSObject()
+    func update(wallpaperManager: NSObject, selectedItem: SelectedItem) {}
+    func syncManagerSelection(from item: SelectedItem) {}
+''' + method(shell, '    private func setSelectedItem(') + '\n' + method(shell, '    private func handleSelectItemRequest(') + '\n' + method(selection, '    func prepareSteamBrowseSelection(') + r'''
+}
+@MainActor final class SidebarNode { var selectedItem: SelectedItem? = .steamWorkshop }
+@MainActor final class OutlineStub {
+    let numberOfRows = 1
+    let node = SidebarNode()
+    func item(atRow row: Int) -> Any? { node }
+}
+@MainActor final class SidebarProbe {
+    let outlineView = OutlineStub()
+    var selectedItemSetter: ((SelectedItem) -> Void)?
+''' + method(sidebar, '    private func handleSameSelectionClick(') + r'''
 }
 @main struct Harness {
     @MainActor static func main() throws {
@@ -118,9 +135,14 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         precondition(shell.selected == .steamWorkshop && service.isBrowsingAuthorWorkshop)
         service.source = .mySubscriptions
         service.requestSteamWorkshopBrowserSelection()
-        precondition(shell.selected == .steamSubscribed && service.isBrowsingAuthorWorkshop)
-        shell.setSelectedItem(.steamWorkshop)
-        precondition(!service.isBrowsingAuthorWorkshop && service.source == .featured)
+        precondition(shell.selected == .steamWorkshop && service.isBrowsingAuthorWorkshop)
+        let sidebar = SidebarProbe()
+        sidebar.selectedItemSetter = { shell.setSelectedItem($0) }
+        sidebar.handleSameSelectionClick(at: 0)
+        precondition(!service.isBrowsingAuthorWorkshop && service.source == .featured && service.browserEntryChecks == 1,
+            "reselecting the current author host must exit author mode and prepare the visible browser")
+        sidebar.handleSameSelectionClick(at: 0)
+        precondition(service.browserEntryChecks == 1, "ordinary same-row clicks keep their scroll-to-top behavior")
         NotificationCenter.default.removeObserver(observer)
 
         let content = root.appendingPathComponent("Scene/123456")

@@ -49,7 +49,11 @@ extension SteamWorkshopService {
             selectedDownloadInspectorItem = nil
             selectedDownloadDetailItem = nil
         }
-        let resolvedItem = browserItems.first(where: { $0.id == item.id }) ?? item
+        let listedItem = browserItems.first(where: { $0.id == item.id }) ?? item
+        let cachedItem = SteamWorkshopDetailRefreshSupport.needsRefresh(listedItem)
+            ? Self.loadDetailCache(id: item.id) : nil
+        let resolvedItem = cachedItem.flatMap { SteamWorkshopDetailRefreshSupport.needsRefresh($0) ? nil : $0 } ?? listedItem
+        if resolvedItem != listedItem { mergeBrowserItem(resolvedItem) }
         selectedBrowserItem = resolvedItem
         selectedBrowserItemError = nil
         currentWorkshopItemID = resolvedItem.id
@@ -89,11 +93,11 @@ extension SteamWorkshopService {
         refreshSelectedBrowserItemDetailIfNeeded(forceRefresh: true)
     }
 
-    func refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: Bool) {
+    func refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: Bool, metadataIsStale: Bool = false) {
         guard let item = selectedDownloadInspectorItem else { return }
-        if !forceRefresh && !SteamWorkshopDetailRefreshSupport.needsRefresh(item) {
-            return
-        }
+        let needsDetails = SteamWorkshopDetailRefreshSupport.needsRefresh(item)
+        guard forceRefresh || needsDetails || metadataIsStale else { return }
+        let showsProgress = forceRefresh || needsDetails
         if let selectedItemDetailTask, !selectedItemDetailTask.isCancelled,
            inFlightDetailItemID == item.id, !forceRefresh {
             return
@@ -101,10 +105,10 @@ extension SteamWorkshopService {
 
         selectedItemDetailTask?.cancel()
         inFlightDetailItemID = item.id
-        isRefreshingSelectedDownloadDetailItem = true
+        isRefreshingSelectedDownloadDetailItem = showsProgress
         selectedDownloadDetailError = nil
 
-        selectedItemDetailTask = Task(priority: .userInitiated) { [weak self] in
+        selectedItemDetailTask = Task(priority: showsProgress ? .userInitiated : .utility) { [weak self] in
             do {
                 guard let self else { return }
                 let refreshed = try await self.fetchWorkshopItemViaSteamKit(
@@ -131,16 +135,21 @@ extension SteamWorkshopService {
                     if self.inFlightDetailItemID == item.id { self.inFlightDetailItemID = nil }
                     guard self.selectedDownloadInspectorItem?.id == item.id else { return }
                     self.isRefreshingSelectedDownloadDetailItem = false
-                    self.selectedDownloadDetailError = error.localizedDescription
+                    self.selectedDownloadDetailError = showsProgress ? error.localizedDescription : nil
                 }
             }
         }
     }
 
-    private func persistRefreshedDownloadMetadata(_ item: SteamWorkshopBrowserItem) {
+    func persistRefreshedDownloadMetadata(_ item: SteamWorkshopBrowserItem, fetchedAt: Date = Date()) {
         guard let record = latestDownloadRecord(for: item.id),
               record.status == .ready else { return }
-        persistDownloadMetadata(item: item, id: item.id, targetURL: record.folderURL)
+        persistDownloadMetadata(item: item, id: item.id, targetURL: record.folderURL, fetchedAt: fetchedAt)
+        // Reopening before the asynchronous library scan finishes must already
+        // see the accepted detail result. Keep all local storage fields intact.
+        if let index = downloads.firstIndex(where: { $0.id == item.id }) {
+            downloads[index].browserItem = item
+        }
         reloadInstalledItems()
         if selectedDownloadInspectorItem?.id == item.id {
             selectedDownloadInspectorItem = item

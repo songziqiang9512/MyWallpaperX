@@ -512,9 +512,9 @@ extension SteamWorkshopService {
         downloadJobStore.reconcileInterruptedCommits(published: published)
     }
 
-    func persistDownloadMetadata(item: SteamWorkshopBrowserItem, id: String, targetURL: URL) {
-        if let current = managedDownloadSnapshots()[id], let commit = current.commit {
-            var updated = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: Date(), item: item,
+    func persistDownloadMetadata(item: SteamWorkshopBrowserItem, id: String, targetURL: URL, fetchedAt: Date = Date()) {
+        if let current = managedDownloadSnapshots(matchingItemID: id)[id], let commit = current.commit {
+            var updated = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: fetchedAt, item: item,
                 sourceVideoRelativePath: current.sourceVideoRelativePath, previewRelativePath: current.previewRelativePath,
                 exportedVideoURL: current.exportedVideoURL, legacyFolderURL: current.legacyFolderURL)
             updated.commit = commit
@@ -528,16 +528,16 @@ extension SteamWorkshopService {
         if let record = latestDownloadRecord(for: id),
            record.contentType == .video,
            let videoURL = record.exportedVideoURL ?? record.sourceVideoURL {
-            persistVideoDownloadMetadata(item: item, videoURL: videoURL)
+            persistVideoDownloadMetadata(item: item, videoURL: videoURL, fetchedAt: fetchedAt)
             return
         }
-        persistProjectDownloadMetadata(item: item, id: id, targetURL: targetURL)
+        persistProjectDownloadMetadata(item: item, id: id, targetURL: targetURL, fetchedAt: fetchedAt)
     }
 
-    private func persistVideoDownloadMetadata(item: SteamWorkshopBrowserItem, videoURL: URL) {
+    private func persistVideoDownloadMetadata(item: SteamWorkshopBrowserItem, videoURL: URL, fetchedAt: Date = Date()) {
         try? FileManager.default.createDirectory(at: downloadMetadataIndexDirectoryURL(), withIntermediateDirectories: true)
         var snapshot = SteamWorkshopDownloadMetadataSnapshot(
-            fetchedAt: Date(),
+            fetchedAt: fetchedAt,
             item: item,
             sourceVideoRelativePath: nil,
             previewRelativePath: nil,
@@ -548,7 +548,7 @@ extension SteamWorkshopService {
         writeDownloadMetadataSnapshot(snapshot, to: downloadMetadataFileURL(forVideoURL: videoURL))
     }
 
-    private func persistProjectDownloadMetadata(item: SteamWorkshopBrowserItem?, id: String, targetURL: URL) {
+    private func persistProjectDownloadMetadata(item: SteamWorkshopBrowserItem?, id: String, targetURL: URL, fetchedAt: Date = Date()) {
         guard let item = item ?? browserItemForDownload(id: id) else { return }
         let project = Self.loadWorkshopProject(from: targetURL.appendingPathComponent("project.json"))
         try? FileManager.default.createDirectory(at: downloadMetadataIndexDirectoryURL(), withIntermediateDirectories: true)
@@ -563,7 +563,7 @@ extension SteamWorkshopService {
             return url.lastPathComponent
         }
         var snapshot = SteamWorkshopDownloadMetadataSnapshot(
-            fetchedAt: Date(),
+            fetchedAt: fetchedAt,
             item: item,
             sourceVideoRelativePath: sourceVideoRelativePath,
             previewRelativePath: previewRelativePath,

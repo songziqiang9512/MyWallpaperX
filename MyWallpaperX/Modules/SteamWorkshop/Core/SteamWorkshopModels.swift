@@ -158,7 +158,7 @@ nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
     let updatedAt: Date
     let sizeText: String
     let status: Status
-    let browserItem: SteamWorkshopBrowserItem?
+    var browserItem: SteamWorkshopBrowserItem?
     let contentType: SteamWorkshopDownloadContentType
     let dependencyItemID: String?
     let dependencyStatus: SteamWorkshopWebDependencyStatus

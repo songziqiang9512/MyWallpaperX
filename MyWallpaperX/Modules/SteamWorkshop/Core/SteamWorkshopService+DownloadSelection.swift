@@ -82,7 +82,7 @@ extension SteamWorkshopService {
 
     func presentSelectedDownloadInfo() {
         guard let record = selectedDownloadRecord else { return }
-        let item = record.displayItemForToolbar
+        let item = resolvedDownloadInspectorItem(for: record)
         if selectedDownloadInspectorItem?.id == item.id {
             dismissDownloadInspector()
         } else {
@@ -179,15 +179,26 @@ extension SteamWorkshopService {
             cancelSelectedItemDetailRefresh()
             selectedBrowserItem = nil
         }
-        selectedDownloadInspectorItem = item
-        selectedDownloadDetailItem = item
-        selectedDownloadDetailError = nil
-        currentWorkshopItemID = item.id
-        currentPageTitle = item.title
-        statusMessage = "已加载 \(item.title)"
         let metadataSnapshot = managedDownloadSnapshots(matchingItemID: item.id)[item.id]
+        var resolvedItem = metadataSnapshot?.item ?? item
+        var fetchedAt = metadataSnapshot?.fetchedAt
+        if let cached = Self.loadDetailCacheSnapshot(id: item.id),
+           !SteamWorkshopDetailRefreshSupport.needsRefresh(cached.item),
+           SteamWorkshopDetailRefreshSupport.needsRefresh(resolvedItem)
+            || cached.fetchedAt > (fetchedAt ?? .distantPast) {
+            resolvedItem = cached.item
+            fetchedAt = cached.fetchedAt
+            persistRefreshedDownloadMetadata(resolvedItem, fetchedAt: cached.fetchedAt)
+        }
+        selectedDownloadInspectorItem = resolvedItem
+        selectedDownloadDetailItem = resolvedItem
+        selectedDownloadDetailError = nil
+        currentWorkshopItemID = resolvedItem.id
+        currentPageTitle = resolvedItem.title
+        statusMessage = "已加载 \(resolvedItem.title)"
         refreshSelectedDownloadInspectorDetailIfNeeded(
-            forceRefresh: SteamWorkshopDetailRefreshSupport.isDownloadedMetadataStale(fetchedAt: metadataSnapshot?.fetchedAt)
+            forceRefresh: false,
+            metadataIsStale: SteamWorkshopDetailRefreshSupport.isDownloadedMetadataStale(fetchedAt: fetchedAt)
         )
     }
 

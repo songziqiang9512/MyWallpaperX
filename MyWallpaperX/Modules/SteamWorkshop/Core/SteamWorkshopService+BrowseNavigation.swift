@@ -57,6 +57,12 @@ extension SteamWorkshopService {
 
     func showAuthorWorkshop(for item: SteamWorkshopBrowserItem) {
         guard let workshopURL = Self.resolvedAuthorWorkshopURL(for: item) else { return }
+        // Capture the visible consumer before dismissing it. Browser source is
+        // retained while Downloads is visible, so source alone is not an origin.
+        if !browseContext.isAuthorWorkshop {
+            authorWorkshopReturnDestination = selectedDownloadInspectorItem != nil
+                ? .downloads : (source.isPersonal ? .personal : .discovery)
+        }
         dismissItemDetail()
         dismissDownloadInspector()
         if case let .authorWorkshop(_, currentURL) = browseContext,
@@ -87,25 +93,41 @@ extension SteamWorkshopService {
         requestSteamWorkshopBrowserSelection()
     }
 
-    func returnToDiscoveryBrowse() {
+    func returnToDiscoveryBrowse(selectOrigin: Bool = true) {
         guard browseContext.isAuthorWorkshop else { return }
         browserFetchTask?.cancel()
         browserFetchTask = nil
         dismissItemDetail()
         dismissDownloadInspector()
         navigationVersion += 1
+        isLoadingMoreBrowserItems = false
+        isRefreshingBrowserFeed = false
+        browserLoadMoreFailureMessage = nil
+        browserLoadMoreRetryAfter = .distantPast
+        consecutiveEmptyLoadMorePages = 0
+        let destination = authorWorkshopReturnDestination ?? (source.isPersonal ? .personal : .discovery)
+        authorWorkshopReturnDestination = nil
         let restoredQuery = savedDiscoveryQueryBeforeAuthorBrowse ?? ""
         savedDiscoveryQueryBeforeAuthorBrowse = nil
         browseContext = .discovery
         if let snapshot = discoveryBrowseSnapshot {
-            restoreDiscoveryBrowseSnapshot(snapshot, restoredQuery: restoredQuery)
+            restoreDiscoveryBrowseSnapshot(snapshot, restoredQuery: restoredQuery, resumeInterruptedLoad: false)
         } else {
             setBrowserQuery(restoredQuery)
-            navigateToBrowse()
+            browserItems = []
+            steamKitBrowseStore.clear()
+            browserState = .idle
         }
         discoveryBrowseSnapshot = nil
         suppressAutomaticBrowseNavigation = false
-        prepareForBrowserEntry()
+        guard selectOrigin else { return }
+        if destination == .downloads {
+            pendingDownloadsScrollRestoreOffsetY = currentDownloadsScrollOffsetY
+        } else {
+            prepareForBrowserEntry()
+        }
+        NotificationCenter.default.post(name: .appKitSelectItemRequested, object: nil,
+            userInfo: ["selectedItem": destination.selectionKey, "preserveSteamBrowseContext": true])
     }
 
     func handleBrowserQueryChanged() {
@@ -213,7 +235,8 @@ extension SteamWorkshopService {
 
     func restoreDiscoveryBrowseSnapshot(
         _ snapshot: SteamWorkshopDiscoveryBrowseSnapshot,
-        restoredQuery: String
+        restoredQuery: String,
+        resumeInterruptedLoad: Bool = true
     ) {
         let savedKey = snapshot.steamKitBrowseSnapshot.key
         let personalSnapshotIsCurrent = !source.isPersonal || (
@@ -223,16 +246,13 @@ extension SteamWorkshopService {
                 window: trendingWindow, personalSort: personalSort))
         // A detail lookup has no personal key; reload it through the normal
         // route rather than restoring account-unscoped cached personal content.
-        guard snapshot.browserContentMode == browserContentMode, personalSnapshotIsCurrent else {
+        guard snapshot.browserContentMode == browserContentMode, personalSnapshotIsCurrent,
+              snapshot.browserState == .loaded else {
             setBrowserQuery(restoredQuery)
-            navigateToBrowse()
-            return
-        }
-        guard snapshot.browserState == .loaded else {
-            // The request captured before entering an author page was
-            // invalidated. Restoring its spinner cannot resume that request.
-            setBrowserQuery(restoredQuery)
-            navigateToBrowse()
+            steamKitBrowseStore.clear()
+            browserItems = []
+            browserState = .idle
+            if resumeInterruptedLoad { navigateToBrowse() }
             return
         }
         setBrowserQuery(restoredQuery)
@@ -270,7 +290,9 @@ extension SteamWorkshopService {
         NotificationCenter.default.post(
             name: .appKitSelectItemRequested,
             object: nil,
-            userInfo: ["selectedItem": source.isPersonal ? "steamSubscribed" : "steamWorkshop",
+            // Author results always belong to Workshop. The independent return
+            // destination retains Downloads/Subscriptions without changing this host.
+            userInfo: ["selectedItem": "steamWorkshop",
                        "preserveSteamBrowseContext": true]
         )
     }
