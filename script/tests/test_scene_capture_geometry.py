@@ -199,6 +199,7 @@ enum Harness {
         ]
         let result: [String: Any] = [
             "compositionLocalSource": SceneCompositionLocalSourceChecks.run(),
+            "backgroundCopyAxes": backgroundCopyAxes(),
             "collapsedProjectedSize": {
                 let size = SceneCaptureGeometryResolver.projectedPixelSize(
                     layerMVP: SceneMatrix.scale(SIMD3<Float>(0, 0, 0)),
@@ -299,6 +300,79 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func backgroundCopyAxes() -> [String: Any] {
+        let viewport = CGSize(width: 800, height: 800)
+        let turn = simd_float4x4(SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
+                                SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1))
+        let flat = SceneMatrix.scale(SIMD3<Float>(1, 0.25, 1))
+        let rotated = turn * flat
+        let renamedUtility = SceneUtilityLayer.parse(
+            imagePath: "MODELS/UTIL/COMPOSELAYER.JSON",
+            object: ["id": 9012, "name": "Renamed composition input", "copybackground": true])!
+        let arbitrary = simd_float4x4(
+            SIMD4(0.375, 0.5, 0, 0), SIMD4(-0.125, 0.09375, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0.125, -0.25, 0, 1))
+        let parent = SceneMatrix.translation(SIMD3<Float>(0.125, -0.25, 0))
+            * SceneMatrix.scale(SIMD3<Float>(-1.5, 0.5, 1))
+        let child = simd_float4x4(
+            SIMD4(0.1875, 0.25, 0, 0), SIMD4(-0.125, 0.09375, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0.25, 0.125, 0, 1))
+        var constantW = rotated
+        constantW.columns.3.w = 2
+        var negativeW = rotated
+        negativeW.columns.3.w = -2
+        let projective = simd_float4x4(
+            SIMD4(1, 0, 0, 0.6), SIMD4(0, 1, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0.1, -0.2, 0.4, 1))
+        var tinyProjective = rotated
+        tinyProjective.columns.0.w = 0.00001
+        func resolve(_ mvp: simd_float4x4, kind: SceneUtilityLayer.Kind = .composition,
+                     size: CGSize = viewport, capture: simd_float4x4? = nil,
+                     members: [Int]? = nil, authored: [Float]? = nil,
+                     material: Bool = false) -> SceneCaptureGeometry? {
+            SceneCaptureGeometryResolver.resolve(
+                kind: kind, layerMVP: mvp, viewportSize: size, captureMVP: capture,
+                compositionSourceMemberLayerIDs: members, authoredRenderSizeWH: authored,
+                usesMaterialSource: material)
+        }
+        var nonfinite = flat
+        nonfinite.columns.0.x = .nan
+        var zeroW = flat
+        zeroW.columns.3.w = 0
+        let invalid: [String: Bool] = [
+            "nonfiniteAxis": resolve(nonfinite) == nil,
+            "zeroW": resolve(zeroW) == nil,
+            "finiteIntOverflow": resolve(SceneMatrix.scale(SIMD3<Float>(1e20, 1, 1))) == nil,
+            "viewportProductOverflow": resolve(flat,
+                size: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 800)) == nil,
+            "zeroViewport": resolve(flat, size: CGSize(width: 800, height: 0)) == nil,
+            "nonfiniteViewport": resolve(flat, size: CGSize(width: CGFloat.nan, height: 800)) == nil,
+        ]
+        return [
+            "quarterTurn": geometry(resolve(rotated)!),
+            "renamedInput": geometry(resolve(rotated, kind: renamedUtility.kind,
+                members: renamedUtility.copyBackground ? nil : [])!),
+            "reverseTurn": geometry(resolve(turn.transpose * flat)!),
+            "arbitraryAngle": geometry(resolve(arbitrary)!),
+            "nonSquareViewport": geometry(resolve(arbitrary,
+                size: CGSize(width: 1024, height: 512))!),
+            "mirroredParent": geometry(resolve(parent * child)!),
+            "constantW": geometry(resolve(constantW)!),
+            "negativeConstantW": geometry(resolve(negativeW)!),
+            "flatCaptureProjectiveOutput": geometry(resolve(projective, capture: rotated)!),
+            "projective": geometry(resolve(projective)!),
+            "tinyProjective": geometry(resolve(tinyProjective)!),
+            "project": geometry(resolve(rotated, kind: .project)!),
+            "fullscreen": geometry(resolve(rotated, kind: .fullscreen)!),
+            "members": geometry(resolve(rotated, members: [9001])!),
+            "emptyAuthored": geometry(resolve(rotated, members: [], authored: [665, 151])!),
+            "emptyNoAuthored": geometry(resolve(rotated, members: [])!),
+            "materialSource": geometry(resolve(rotated, authored: [665, 151], material: true)!),
+            "collapsedAxis": geometry(resolve(SceneMatrix.scale(SIMD3<Float>(0, 0.25, 1)))!),
+            "invalid": invalid,
+        ]
     }
 
     static func vector(_ value: SIMD2<Float>) -> [Float] { [value.x, value.y] }
@@ -408,7 +482,8 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertEqual(self.result["authoredParent"], dict(parent, pixelSize=[2000, 2000]))
         # nil is the readable/copy-background route; it must not take an
         # empty transparent source's authored-size privilege.
-        self.assertEqual(self.result["nilSourceWithAuthoredSize"], parent)
+        self.assertEqual(self.result["nilSourceWithAuthoredSize"],
+                         dict(parent, pixelSize=[135, 40]))
         tilted = self.result["authoredSquare"]
         self.assertEqual(tilted["pixelSize"], [2000, 2000])
         self.assertEqual(tilted["sourceUV"], self.result["replaySource"])
@@ -474,6 +549,64 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertEqual(self.result["projectYAxis"], [0, 0.25])
         self.assertEqual(self.result["projectSize"], [500, 200])
         self.assertEqual(self.result["projectOutput"], self.result["localOutput"])
+
+    def test_background_copy_keeps_local_axes_under_positive_and_negative_quarter_turns(self) -> None:
+        cases = self.result["backgroundCopyAxes"]
+        self.assertEqual(cases["quarterTurn"]["pixelSize"], [400, 100])
+        self.assertEqual(cases["renamedInput"], cases["quarterTurn"])
+        self.assertEqual(cases["reverseTurn"]["pixelSize"], [400, 100])
+        self.assertEqual(cases["quarterTurn"]["sourceUV"],
+                         [[0.4375, 0.75], [0, -0.5], [0.125, 0]])
+        self.assertEqual(cases["reverseTurn"]["sourceUV"],
+                         [[0.5625, 0.25], [0, 0.5], [-0.125, 0]])
+
+    def test_background_copy_measures_arbitrary_angle_and_non_square_viewport_vectors(self) -> None:
+        cases = self.result["backgroundCopyAxes"]
+        self.assertEqual(cases["arbitraryAngle"]["pixelSize"], [250, 63])
+        self.assertEqual(cases["nonSquareViewport"]["pixelSize"], [231, 69])
+        self.assertEqual(cases["arbitraryAngle"]["sourceUV"],
+                         cases["nonSquareViewport"]["sourceUV"])
+        self.assertEqual(cases["arbitraryAngle"]["outputMVP"],
+                         cases["nonSquareViewport"]["outputMVP"])
+
+    def test_background_copy_preserves_mirrored_nonuniform_parent_axis_lengths(self) -> None:
+        result = self.result["backgroundCopyAxes"]["mirroredParent"]
+        self.assertEqual(result["pixelSize"], [124, 78])
+        self.assertEqual(result["sourceUV"],
+                         [[0.4921875, 0.61328125], [-0.140625, -0.0625],
+                          [-0.09375, 0.0234375]])
+
+    def test_background_copy_divides_by_constant_nonunit_homogeneous_w(self) -> None:
+        cases = self.result["backgroundCopyAxes"]
+        for name in ("constantW", "negativeConstantW"):
+            self.assertEqual(cases[name]["pixelSize"], [200, 50], name)
+        self.assertEqual(cases["constantW"]["outputMVP"][-1], 2)
+        self.assertEqual(cases["negativeConstantW"]["outputMVP"][-1], -2)
+        self.assertEqual(cases["flatCaptureProjectiveOutput"]["pixelSize"], [400, 100])
+        self.assertEqual(cases["flatCaptureProjectiveOutput"]["sourceUV"],
+                         cases["quarterTurn"]["sourceUV"])
+        self.assertEqual(cases["flatCaptureProjectiveOutput"]["outputMVP"],
+                         cases["projective"]["outputMVP"])
+
+    def test_background_copy_does_not_change_projective_or_other_source_routes(self) -> None:
+        cases = self.result["backgroundCopyAxes"]
+        self.assertEqual(cases["projective"]["pixelSize"], [414, 572])
+        # Float corner division may round the subpixel Y expansion away.
+        self.assertIn(cases["tinyProjective"]["pixelSize"], ([101, 400], [101, 401]))
+        self.assertEqual(cases["project"]["pixelSize"], [100, 400])
+        for name in ("fullscreen", "members"):
+            self.assertEqual(cases[name]["pixelSize"], [800, 800], name)
+            self.assertEqual(cases[name]["sourceUV"], [[0, 0], [1, 0], [0, 1]], name)
+        for name in ("emptyAuthored", "materialSource"):
+            self.assertEqual(cases[name]["pixelSize"], [665, 151], name)
+        self.assertEqual(cases["emptyNoAuthored"]["pixelSize"], [100, 400])
+
+    def test_background_copy_rejects_invalid_and_overflowing_dimensions_locally(self) -> None:
+        cases = self.result["backgroundCopyAxes"]
+        self.assertEqual(cases["invalid"], dict.fromkeys([
+            "nonfiniteAxis", "zeroW", "finiteIntOverflow", "viewportProductOverflow",
+            "zeroViewport", "nonfiniteViewport"], True))
+        self.assertEqual(cases["collapsedAxis"]["pixelSize"], [1, 100])
 
     def test_degenerate_viewport_is_rejected(self) -> None:
         self.assertTrue(self.result["invalidIsNil"])
@@ -558,7 +691,7 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertEqual(result["fullscreen"], full)
         projected = {"sourceUV": [[0.53125, 0.65625], [0, -0.375], [0.0625, 0]],
                      "outputMVP": result["rootMVP"], "pixelSize": [40, 135]}
-        self.assertEqual(result["nilMembers"], projected)
+        self.assertEqual(result["nilMembers"], dict(projected, pixelSize=[135, 40]))
         self.assertEqual(result["project"], projected)
         self.assertEqual(result["empty"], dict(projected, pixelSize=[80, 40]))
 

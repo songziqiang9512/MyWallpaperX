@@ -579,10 +579,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "34f58bfc845c3f10fb5c3f40675017477937b7d64caf681055b5de84446578f9",
+        "sourceSHA256": "254f29ea13f49fbe942987c417413366ef4cb979dbc5d3976233f30edf099b53",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
-        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
+        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
+        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "41d1a79559d14ef40ba175d096cbe156f54db896345abc4667dac43f930d6219",
+        "sourceSHA256": "2e127b154514790904c160c38d065615e71b06457e230940faad7b4ce178ba05",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
-        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
+        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
+        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
       }
     },
     {
@@ -3352,10 +3352,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b7a1f9417d1274cd11cf7c4731f734631073d8c7c4edd91e6a818ffaf500b8bc",
+        "sourceSHA256": "594e487081ee2221376c5b3495d40cb3becc43acfcb1535f2df7b24f8426ed7e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile explicit ordinary native image terminal depth, DTO/compiler ownership and live code links; keep real333 occlusion, text defaults and exact real358 benefit open.",
-        "limitations": "Bounded authored-state and visible regression evidence only. No whole-sample, default text, replay, official parity or performance claim."
+        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
+        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
       }
     },
     {
@@ -3542,10 +3542,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9afced446aea846ca1a5a896b7b2a5eea08fe14d7951511a58898a79f68b63e8",
+        "sourceSHA256": "970136adf351c6504a4eb899c769e877f6968e026bb9a689a43b9e2d4e565378",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
-        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
+        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
+        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
       }
     },
     {

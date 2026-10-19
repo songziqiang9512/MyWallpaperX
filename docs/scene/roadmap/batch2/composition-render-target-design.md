@@ -75,7 +75,7 @@ StaticModelFrame继续独占共享depth申请、首次clear、busy/完成与取�
 
 `copybackground=false` 的无子层 composition 使用透明源；另一个 sampler 的 named provider 不构成复制 enclosing 背景的请求。现 SourceRoute 因声明依赖而改走 readable-main，真实393随后把背景与文字一起变形。修正只在原 SourceRoute 分离这两种输入职责；named 解析、准入、预留、publication 与 epoch 仍归现有 dependency/graph owner。有子层且带外部依赖的未知形态不借此开放，唯一身份、父子索引和无环检查保持。
 
-透明源不等于整屏输出：无成员 composition 的 effect extent、source UV 与最终 quad 必须沿原 CaptureGeometry 使用 layer/parent 的 authored model；只有已绘成员的 viewport source 才按 1:1 回绘，避免二次变换。原 resolver 统一接收静态成员事实，preflight 与 utility encode 共用，不以隔离纹理存在与否选择几何。空透明纹理可复用原 viewport 分配，但有合法 authored size 时 procedural effect 的语义 extent 取该本地尺寸，不取屏幕投影包围盒；缺尺寸保既有投影回退、明确非法尺寸局部拒绝。否则正方形输入会因父倾角或非方窗口变成非方 effect 源，后续圆心/旋转可偏心。named sampler 的独立坐标保持；不新增相机、重采样算法或逐帧成员分析。局部/父级变换、非方窗口、带成员反例及真实环/碟连续帧是验收边界。
+无成员 composition 的 source UV 与最终 quad 归原 CaptureGeometry，沿当前 layer/parent model；有成员的 viewport source 才按 1:1 回绘。preflight 与 encode 共用同一几何，不据纹理是否隔离选择坐标。空透明源有合法 authored size 时取本地 extent；缺尺寸保原回退，非法尺寸局部拒绝。复制背景的无成员 affine quad 则沿各自局部 X/Y 投影边长分配像素，不能用屏幕 AABB 将旋转变成输入轴交换；原 enclosing 背景采样、最终变换、pool/graph 与失败职责保持，projective quad、有成员组、fullscreen/project、材质源及 named 坐标不借此扩张。沿唯一尺寸 owner 验改名、旋转/镜像/父scale、非法数、非affine/有成员反例、原374831与独立真实样本。清晰度、遮罩与停止/取消保持，不从分配尺寸认性能收益。
 
 隐藏 composition 仍可作为可见 consumer 的已准入 graph provider，不能只按最终显隐决定其输入是否存在。组源预留从 `makeScenePass` 移至原 frame preflight，在既有 dependency demand 得出后、graph preparation 前执行一次；原 GroupRuntime 仅对被 demand 的**无成员、不复制背景的不可变透明源**补预留，其他隐藏组保原降级。显隐仍只决定 authored 最终合成，不新增 demand/资源/输出 owner，不使隐藏 provider 出现在主画面。pin、清空、取消与 GPU completion 沿原生命周期。
 

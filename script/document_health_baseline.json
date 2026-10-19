@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175213
+      "bytes": 175099
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 143207
+      "bytes": 143196
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 120,
-      "bytes": 28119
+      "bytes": 28088
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 62505
+      "bytes": 62504
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,

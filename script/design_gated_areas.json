@@ -106,12 +106,13 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "design_notes": "D1为唯一设计：已限定的parent成员/根顺序/copybackground、透明本地源及native framebuffer source沿原prepared graph/pool/StaticModelFrame/唯一compositor；特殊或未知profile不扩。2026-10-19普通native平面显式render state后继复用原MaterialRenderState、共享depth首次clear/lease/取消与terminal reverse-depth，source/effect不改坐标/颜色ABI；text及省略默认等待官方资格，solid材料漏收回原catalog修。实施须通过写/读/剔除、disabled/overlay、pending/陈旧资源及真实画面正反验收。approved仅限定设计，不代表已实现、整景parity或性能收益。",
+      "design_notes": "D1为唯一设计：parent成员/根顺序/copybackground、透明本地源及native framebuffer source沿原prepared graph/pool/StaticModelFrame/唯一compositor。affine无成员背景采集按局部X/Y投影边长分配，保原sourceUV/output；projective、有成员和其他源不借此扩。普通native平面显式render state复用原MaterialRenderState、共享depth首次clear/lease/取消与terminal reverse-depth；text及省略默认待官方资格，solid材料漏收回原catalog修。实施验读写/剔除、disabled/overlay、陈旧资源及真实画面；approved不代表实现、整景parity或性能收益。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ImageLayerEncoding.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift"
       ],
       "contentPatterns": [
         "SceneCompositionRenderTarget",

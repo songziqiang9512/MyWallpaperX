@@ -195,6 +195,19 @@ enum SceneCaptureGeometryResolver {
             ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
                Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
             pixelSize = extent.pixelSize
+        } else if kind == .composition, compositionSourceMemberLayerIDs == nil,
+                  sourceMVP.columns.0.w == 0, sourceMVP.columns.1.w == 0 {
+            // An affine background copy preserves the quad's local pixel axes.
+            // Screen AABB sizing would exchange them under a quarter turn.
+            let viewport = SIMD2(Double(viewportSize.width), Double(viewportSize.height))
+            let xAxis = SIMD2(Double(topRight.x) - Double(topLeft.x),
+                              Double(topRight.y) - Double(topLeft.y)) * viewport
+            let yAxis = SIMD2(Double(bottomLeft.x) - Double(topLeft.x),
+                              Double(bottomLeft.y) - Double(topLeft.y)) * viewport
+            let width = max(1, ceil(CGFloat(simd_length(xAxis))))
+            let height = max(1, ceil(CGFloat(simd_length(yAxis))))
+            guard Int(exactly: width) != nil, Int(exactly: height) != nil else { return nil }
+            pixelSize = CGSize(width: width, height: height)
         } else {
             guard let projected = projectedPixelSize(
                 layerMVP: sourceMVP, viewportSize: viewportSize
