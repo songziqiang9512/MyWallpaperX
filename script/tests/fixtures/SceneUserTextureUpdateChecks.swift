@@ -244,6 +244,9 @@ final class SceneDesktopWallpaperSession {
     let userTexturePreparationQueue = DispatchQueue(label: "fixture.resource.worker")
     var surfaces: [UInt64: Surface] = [1: .init(), 2: .init()]
     func unavailableLiveConsumerTargets(in context: SceneDesktopWallpaperLaunchContext) -> Set<SceneDynamicTarget> { [] }
+    // This fixture has no authored script callback hosts to retire.
+    func retiredPropertyCallbackTargets(in context: SceneDesktopWallpaperLaunchContext,
+        propertyKeys: Set<String>) -> Set<SceneDynamicTarget> { [] }
     init() {
         let identities: Set<SceneUserPropertyTextureIdentity> = [.init(propertyKey: "photo", purpose: .preservedChannels)!,
             .init(propertyKey: "photo", purpose: .mask)!, .init(propertyKey: "photo", purpose: .normal)!]

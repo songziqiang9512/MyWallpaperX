@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""inline alpha 第二级显示权释放的行为级 builder fixture（d86e9013 checkpoint 欠账）。
+"""inline alpha 显示权释放的共享原生 builder 回归。
 
 真编译 harness（test_scene_solid_layers.py 形态）：磁盘 fixture（project.json +
 scene.json）经 SceneProjectLoader/SceneDocumentLoader/SceneAssetCatalogLoader/
@@ -614,6 +614,13 @@ def layer_result(payload: dict, layer_id: int) -> dict:
     return matches[0]
 
 
+# Every consumer of this shared builder needs the same real data-only leaf.
+# Particle simulation remains outside this solid/text preparation fixture.
+_force_source = (SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift").read_text()
+_environment_start = _force_source.index("nonisolated struct SceneParticleControlPointForceEnvironment:")
+HARNESS_SOURCE = _force_source[_environment_start:_force_source.index("\n}", _environment_start) + 2] + "\n" + HARNESS_SOURCE
+
+
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
     def test_prepared_geometry_is_shared_by_actual_descriptor_input_and_cursor_consumers(self) -> None:
         geometry = self.result["preparedGeometry"]
@@ -689,12 +696,7 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
                              "pair": {"width": 80, "height": 40}}.items():
             (scene_root / "models" / f"field-presence-{name}.json").write_text(json.dumps({"material": "materials/field-presence.json", **fields}))
         harness = directory / "Harness.swift"
-        # Link the actual data-only particle environment leaf; this solid/text
-        # builder fixture does not execute particle simulation.
-        force = (SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift").read_text()
-        start = force.index("nonisolated struct SceneParticleControlPointForceEnvironment:")
-        environment = force[start:force.index("\n}", start) + 2]
-        harness.write_text(environment + "\n" + HARNESS_SOURCE, encoding="utf-8")
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-alpha-display-builder"
         compilation = subprocess.run(
             [

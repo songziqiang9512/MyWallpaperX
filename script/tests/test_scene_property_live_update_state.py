@@ -30,7 +30,6 @@ SWIFT_SOURCES = [
     TARGET_MAPPING_SOURCE,
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift",
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift",
 ]
 
 HARNESS = r'''
@@ -828,7 +827,9 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "scene-property-live-update-state"
         compilation = subprocess.run(
-            ["swiftc", *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(binary)],
+            ["swiftc", *(str(path) for path in SWIFT_SOURCES),
+             str(REPOSITORY_ROOT / "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift"),
+             str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )

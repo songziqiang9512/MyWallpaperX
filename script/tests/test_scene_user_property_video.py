@@ -33,7 +33,7 @@ class SceneUserPropertyVideoGPUTests(unittest.TestCase):
             "Resources/Textures/SceneBaseImageTextureCandidateSupport.swift", "Resources/Textures/SceneBaseMaterialTextureResolver.swift",
             "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift", "Compilation/Material/SceneEffectTextureInput.swift",
             "Systems/Properties/SceneDynamicSnapshot.swift", "Rendering/Frame/SceneMetalRenderer+BaseMaterialColor.swift",
-            "Rendering/Metal/SceneMetalPipeline.swift", "Format/SceneWebMContainer.swift",
+            "Rendering/Metal/SceneMetalPipeline.swift", "Runtime/Frame/SceneMaterialRenderState.swift", "Format/SceneWebMContainer.swift",
             "Rendering/Composition/SceneImageLayerDrawRequest.swift", "Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift",
             "Rendering/Composition/SceneBlendModeShaderSource.swift",
             "Resources/Providers/SceneVideoPayloadPreparation.swift", "Resources/Providers/SceneVideoProviderLifecycleState.swift",

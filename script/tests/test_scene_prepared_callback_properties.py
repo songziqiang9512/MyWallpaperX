@@ -137,6 +137,7 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
         var isRunning = true
         func closeIO() {}; func send(_ data: Data) {}; func closeInput() {}
         func terminate() {}; func scheduleForcedTermination(after: Double) {}
+        func requestGracefulStop(_ data: Data?) { isRunning = false }
     }
     struct Lifetime { let lifetime: Int }
     struct Backoff { mutating func reset() {} }
@@ -151,6 +152,17 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     var activeRecordID: String?, activeRequestID: UUID?, pendingRequestID: UUID?
     var pendingPresentationRequestID:UUID?
     var pendingPresentationReachability:ScenePreparedCallbackPropertyReachability?
+    // The supported DEBUG client path has no product switch coordinator here.
+    final class Execution {
+        let generation: UInt64 = 0; let requestID = UUID(); let id = UUID(); let ticket = 0
+        var activated = false; var presented = false
+    }
+    struct Recovery { let ticket: Int }
+    var pendingSwitchTicket: Int?, activeSwitchTicket: Int?
+    var pendingSwitchExecution: Execution?, activeSwitchExecution: Execution?
+    var queuedSwitchPreparation: Any?, committedSwitchRecovery: Recovery?
+    var switchPrepared: Any?, switchVisible: ((Int, UUID) -> Void)?
+    var switchLost: ((Int, String) -> Void)?, switchFailed: ((Int, String) -> Void)?
     var requestResourceLifetimes:[UUID:Int]=[:]
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var handshakeWorkItem: DispatchWorkItem?, restartWorkItem: DispatchWorkItem?
@@ -173,6 +185,10 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     func publishFailure(code: String, message: String) { preconditionFailure(code + message) }
     func sendDisplayConfiguration() {}; func sendSimpleCommand(_ value: String) {}
     func send(_ payload: [String: Any]) { sent.append(payload) }
+    func finishSwitchControlsAfterExit(generation: UInt64) { precondition(activeSwitchExecution == nil) }
+    func rememberCommittedSwitchForRecovery() { precondition(activeSwitchTicket == nil) }
+    func adoptQueuedSwitchPreparationForRecovery() { precondition(queuedSwitchPreparation == nil) }
+    func resumeCommittedSwitchRecoveryIfPossible(after ticket: Int?) { precondition(committedSwitchRecovery == nil) }
     static func double(_ raw:Any?)->Double? {raw as? Double}
     __CLIENT_METHODS__
 }
@@ -262,7 +278,7 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
             probe = work / 'Probe.swift'
             probe.write_text(source)
             binary = work / 'probe'
-            build = subprocess.run(['swiftc', '-swift-version', '5', '-parse-as-library',
+            build = subprocess.run(['swiftc', '-swift-version', '5', '-parse-as-library', '-D', 'DEBUG',
                 *map(str, sources), str(probe), '-module-cache-path', str(work / 'cache'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=90)
             self.assertEqual(build.returncode, 0, build.stderr)
@@ -276,10 +292,7 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
     def test_prepared_cohort_and_existing_live_authority(self) -> None:
         session = SCENE / 'Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift'
         source = PROJECTION.replace('__PROJECTION__', method_body(session.read_text(), '    func preparedCallbackPropertyKeys('))
-        # The neighbouring gate's retired-callback fixture extends its own
-        # Harness. This probe supplies its own main and only needs product types.
-        self.run_probe(source, [p for p in SWIFT_SOURCES
-            if p.name != 'SceneRetiredCallbackLiveUpdateChecks.swift'])
+        self.run_probe(source, SWIFT_SOURCES)
 
     def test_active_facts_request_source_stop_and_restart(self) -> None:
         client, events = CLIENT.read_text(), EVENTS.read_text()
@@ -290,6 +303,8 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
         source = '\n'.join([event_types, notification_name, source])
         methods = [method_body(client, signature) for signature in [
             '    func preparedCallbackPropertyKeys(', '    func stop(postsLaunchState:', '    func replayPendingIntent()']]
+        endpoint = (SCENE / 'Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift').read_text()
+        methods.append(method_body(endpoint, '    func commitPresentedScene('))
         methods += [method_body(events, signature) for signature in [
             '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(']]
         source = source.replace('__CLIENT_METHODS__', '\n'.join(methods).replace('private ', ''))

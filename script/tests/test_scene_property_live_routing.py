@@ -59,6 +59,9 @@ extension Notification.Name {
     var scenePropertyEditRevisions: [String: UInt64] = [:]
     var pendingSceneTextureProperties: [String: SceneTexturePropertyPending] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
+    var webLaunchIntentGeneration: UInt64 = 0
+    var prepareScenePlaybackIntent: ((String, Bool) ->
+        (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
     init() { defaults = UserDefaults(suiteName: suiteName)! }
     func cleanup() { defaults.removePersistentDomain(forName: suiteName); defaults.synchronize() }
     func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? { nil }
@@ -380,6 +383,8 @@ import Combine
 // GPU resource storage and unrelated product command routing.
 enum SceneTextureProviderIdentity: Hashable {
     case mediaThumbnailCurrent, mediaThumbnailPrevious
+    case videoUserProperty(property: SceneUserPropertyTextureIdentity,
+                           sourceIncarnation: UUID, lifecycleEpoch: UInt64)
 }
 enum SceneTextureResourceIdentity: Hashable {
     case file, provider(SceneTextureProviderIdentity)
@@ -403,7 +408,7 @@ struct SteamWorkshopDownloadRecord {
     var scenePropertyCommandRevision: UInt64 = 0
     var scenePropertyEditRevisions: [String: UInt64] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
-    func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {}
+    func requestSceneRender(_ record: SteamWorkshopDownloadRecord, newSelection: Bool = true) {}
     func resetSceneTextureProperties(for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
         completion: @escaping @MainActor (Set<String>, ScenePlaybackTextureUpdateOutcome) -> Void) {}
@@ -854,6 +859,8 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift",
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader+Resample.swift",
             SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
+            SCENE_ROOT / "Resources/Providers/SceneVideoPayloadPreparation.swift",
+            SCENE_ROOT / "Format/SceneWebMContainer.swift",
             TEXTURE_SOURCE, PLAYBACK_SOURCE, harness,
         ]
         binary = cls.work / "selection"

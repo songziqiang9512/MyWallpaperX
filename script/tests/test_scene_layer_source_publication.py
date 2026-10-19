@@ -50,6 +50,7 @@ struct SceneScriptLayerTopologySnapshot {
         let contentKind: String
         let imagePath: String?
         let renderSizeWH: [Float]?
+        var puppetMeshPath: String? = nil
     }
     let topologyRevision: UInt64
     let dynamicLayers: [Layer]
@@ -248,12 +249,15 @@ enum Harness {
         let imageTopology = SceneScriptLayerTopologySnapshot(topologyRevision: 1, dynamicLayers: [
             .init(id: -2, contentKind: "image", imagePath: "MODELS/RENAMED.JSON", renderSizeWH: [200, 100]),
             .init(id: -3, contentKind: "image", imagePath: "models/missing.json", renderSizeWH: [200, 100]),
-            .init(id: -4, contentKind: "text", imagePath: nil, renderSizeWH: [200, 100])])
+            .init(id: -4, contentKind: "text", imagePath: nil, renderSizeWH: [200, 100]),
+            .init(id: -5, contentKind: "image", imagePath: "models/renamed.json", renderSizeWH: [200, 100],
+                  puppetMeshPath: "models/puppet.mdl")])
         let createdImage = imageProvider.snapshot(topology: imageTopology)
         guard createdImage.layerSources[-2]?.renderSizeWH == [200, 100],
               createdImage.layerSources[-2]?.publication.texture === texture,
               createdImage.pendingLayerSourceIDs == [-3],
               createdImage.layerSources[-4] == nil,
+              createdImage.layerSources[-5] == nil,
               createdImage.layerSources[-2]?.isComplete(layerID: -2, matching: texture) == true,
               imageProvider.snapshot(topology: imageTopology).layerSources[-2]?.renderSizeWH == [200, 100]
         else { fatalError("created image publication lost logical geometry or candidate identity") }
@@ -278,7 +282,7 @@ class SceneLayerSourcePublicationTests(unittest.TestCase):
             harness = root / "Harness.swift"
             binary = root / "layer-source-publication"
             harness.write_text(HARNESS_SOURCE, encoding="utf-8")
-            subprocess.run(
+            compilation = subprocess.run(
                 [
                     "xcrun",
                     "--sdk",
@@ -290,10 +294,11 @@ class SceneLayerSourcePublicationTests(unittest.TestCase):
                     str(binary),
                 ],
                 cwd=REPOSITORY_ROOT,
-                check=True,
+                check=False,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
                 [str(binary)],
                 cwd=REPOSITORY_ROOT,

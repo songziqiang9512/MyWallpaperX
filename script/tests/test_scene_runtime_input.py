@@ -139,6 +139,19 @@ enum SceneDirectBoolEffectVisibilityRouteAdmission {
     }
 }
 
+// Camera admission is exercised by test_scene_default_2d_camera_inputs. This
+// leaf makes the RuntimeInput delegation observable without another camera IR.
+enum SceneDefault2DCameraInputProfile {
+    nonisolated(unsafe) static var receivedEntryPath: String?
+    nonisolated(unsafe) static var receivedTimelineTargets: Set<SceneDynamicTarget> = []
+    static func definitions(descriptor: SceneRenderDescriptor,
+                            timelineTargets: Set<SceneDynamicTarget>) -> [SceneDynamicTargetDefinition] {
+        receivedEntryPath = descriptor.entryPath
+        receivedTimelineTargets = timelineTargets
+        return [.init(target: .camera(.zoom), valueType: .scalar, authoredValue: .scalar(2))]
+    }
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -218,7 +231,13 @@ enum Harness {
                 scriptOwnedVisibilityTarget, sentinelScriptTarget,
             ]
         )
+        let cameraTimelineTargets: Set<SceneDynamicTarget> = [.camera(.origin)]
+        let cameraDefinitions = input.default2DCameraDefinitions(timelineTargets: cameraTimelineTargets)
         var payload: [String: Any] = [
+            "cameraDelegation": cameraDefinitions == [
+                .init(target: .camera(.zoom), valueType: .scalar, authoredValue: .scalar(2))]
+                && SceneDefault2DCameraInputProfile.receivedEntryPath == "scene.json"
+                && SceneDefault2DCameraInputProfile.receivedTimelineTargets == cameraTimelineTargets,
             "layerVisibilityCandidatesForwarded": SceneDirectBoolEffectVisibilityRouteAdmission.receivedLayerTargets == [layerVisibilityTarget],
             "entryPath": input.renderDescriptor.entryPath,
             "authoredPlanCount": input.authoredEffectRenderPlans.count,
@@ -342,6 +361,7 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertTrue(self.result["preparedGeometryRetainsContract"])
 
     def test_runtime_input_retains_complete_in_memory_contract(self) -> None:
+        self.assertTrue(self.result["cameraDelegation"])
         self.assertEqual(self.result["entryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRetained"])

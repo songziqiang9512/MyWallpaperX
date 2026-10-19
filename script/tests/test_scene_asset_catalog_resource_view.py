@@ -104,8 +104,8 @@ enum Harness {
             "materialPath": model?.materialPath ?? "missing",
             "modelDeclaredSizeWH": model?.declaredSizeWH ?? [],
             "barDeclaredSizeWH": barModel?.declaredSizeWH ?? [],
-            "materialCatalogCount": catalog.materials.count,
-            "shaderContractCount": catalog.shaderContracts.count,
+            "materialCatalogPaths": catalog.materials.map(\.relativePath).sorted(),
+            "shaderContractIdentities": catalog.shaderContracts.map(\.identity).sorted(),
             "tintScript": tint?.scriptSource ?? "missing",
             "tintBindingKeys": tint?.bindingKeys ?? [],
             "tintRainbow": tint?.scriptProperties?["rainbow"]?.boolValue
@@ -199,6 +199,11 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         )
         stock_vertex.write_text("void main() {}", encoding="utf-8")
         stock_fragment.write_text("void main() {}", encoding="utf-8")
+        unused = stock / "materials/unreferenced/spurious.json"
+        unused.parent.mkdir(parents=True)
+        unused.write_text(json.dumps({"passes": [{"shader": "spurious"}]}))
+        for suffix in ("vert", "frag"):
+            (stock / f"shaders/spurious.{suffix}").write_text("void main() {}")
 
         harness = root / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
@@ -234,8 +239,9 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             self.result["materialPath"],
             "materials/util/solidlayer_depthtest.json",
         )
-        self.assertEqual(self.result["materialCatalogCount"], 1)
-        self.assertEqual(self.result["shaderContractCount"], 1)
+        self.assertEqual(self.result["materialCatalogPaths"], [
+            "materials/util/solidlayer_depthtest.json", "materials/workshop/bar.json"])
+        self.assertEqual(self.result["shaderContractIdentities"], ["flat", "workshop/tint"])
 
     def test_model_declared_size_parses_from_scalar_width_height(self) -> None:
         # bar.json declares scalar width/height → the model asset carries the
