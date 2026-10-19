@@ -482,16 +482,17 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root / native_camera_app_sol",
-      "note": "10-19当前原包20s实际Program选中六个头发/相邻变换binding，十帧surface输入均timeline并回作者基值；最早输入缺失未复现，无新视觉修复。头发/脸、龙头/小人/刀轨迹仍待pose/world和官方同phase。新旁路只DEBUG显式启用，旧403拒绝、242混合组及双色音频余项保留。",
+      "note": "10-19 mixed公共组后继：absolute alpha与relative origin/scale复用原owner，旧新原包各28s/native/默认，Program11→14、242三拒绝→0；25s肩颈火焰从旧常驻恢复按段淡出。观察器仅两transform四帧timeline，未导出alpha；不据此关闭脸/龙/小人/刀轨迹或双色音频。此前六binding输入资格保留。",
       "runs": [
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/report.json",
-        ".artifacts/scene-evidence/runs/timeline-frame-input-20261019/native/report.json"
+        ".artifacts/scene-evidence/runs/timeline-frame-input-20261019/native/report.json",
+        ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip",
         "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "脸/头发、龙头/小人/刀准确轨迹与双色音频旧观察仍开放；六个变换值已到实际surface，不再按Timeline发布缺失修。当前原目录46文件无PNG/JPEG，preview非官方同phase金图。403 literal-true资格仍STOP_UNKNOWN，不按名称认ROI；242三条Combined拒绝的视觉影响待资格，非小人/刀根因。",
+      "remainingDifferences": "脸/头发、龙头/小人/刀准确轨迹与双色音频仍开放；403 literal-true资格仍STOP_UNKNOWN。242只闭混合组首拒与本淡出窗口；零key锚点不等于曲线静止，旧推断撤销。原目录无官方同phase截屏；不认整样本通过。",
       "officialComparison": "unknown"
     },
     "3742133044": {
@@ -1065,6 +1066,20 @@
       "runs": [],
       "evidence": [
         "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md"
+      ]
+    },
+    "3448877775": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex root",
+      "note": "mixed组未参与修法原包独立8s/native/默认：人物、帘、城市、时钟实际呈现，App0、正常stop/GPU排空、输入/App无漂移。1733 alpha-root的origin四次实际输入为timeline；双script/parent的完整可见收益未资格，不据此认领月亮或昼夜修好。",
+      "remainingDifferences": "完整昼夜周期、同phase/viewport官方对照及全部参数/交互未验；不把未覆盖当新增故障。",
+      "officialComparison": "unknown",
+      "runs": [
+        ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     }
   }

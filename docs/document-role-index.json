@@ -576,13 +576,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1959fe671002612b2f67dadfaed60bf93cfb149418d15299030e169d2aaeef70",
+        "sourceSHA256": "4adc66170fc088a335d4a76c38c378c970ad22a31d4d677c158b48d7d571f086",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Composition source selection, local geometry/extent and bounded335/347 latest evidence; exact archive joins.",
-        "limitations": "335 text precise official position/scale and complete rotation remain unverified; hidden App carrier unqualified; no full-sample/HDR/performance claim."
+        "scope": "Update only bounded Combined inventory to relative-transform/absolute-alpha; preserve generic Timeline, unsupported API and sample-wide gaps.",
+        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "377511c87297ec0a056e262e75b20399af012bcdcbf1d2b2840c8e0d9ab95380",
+        "sourceSHA256": "8f4d457475f8ac4749c865b6f64042bbbaa75832a8c791b6172e1d28a9c64e15",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded DEBUG actual Timeline Program and selected surface inputs; detailed design belongs to existing on-demand diagnostic contract and323 trajectory stays open.",
-        "limitations": "CPU parser/DTO/runtime/resolver only; native qualifies actual Program. No pose/world, exact PNG frame join, same-phase parity, visual fix or performance claim."
+        "scope": "Consolidate Combined current evidence: official mixed/root-swap qualitative controls,18-method actual compiler chain, original323 shoulder fade and bounded self/heldout inputs; retain prior evidence links.",
+        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
       }
     },
     {
@@ -690,10 +690,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "25c5dfb52233bfb8076b5e1da1a3f417c71b99747a2614d5215bbd79d1e73218",
+        "sourceSHA256": "4c44c4d7294549ba5aba41080c6c359aab782fe6d230b2e335d650bcc5324cdb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile native camera current-world input, same-phase per-surface reuse and qualified typed/App counterexamples; retain real333 occlusion and original sample failure boundaries.",
-        "limitations": "Bounded routing/input review with actual pixels recorded; no whole-sample, official phase, multi-screen/HDR App parity or measured performance claim."
+        "scope": "Reconcile mixed Combined typed admission, actual compiler/playback/resolver gate and bounded original323 fade; retain unsupported groups and residual trajectory limits.",
+        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
       }
     },
     {
@@ -760,10 +760,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "de08e050065ef2222bdf9907ffa9080edcb57d8372d63c61e0186950cfaebcca",
+        "sourceSHA256": "e40cb202269ee31ac3ab83d7145a550bd2b04bce1fa4fa51227b2aede2e66f6f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded DEBUG actual Timeline Program and selected surface inputs; detailed design belongs to existing on-demand diagnostic contract and323 trajectory stays open.",
-        "limitations": "CPU parser/DTO/runtime/resolver only; native qualifies actual Program. No pose/world, exact PNG frame join, same-phase parity, visual fix or performance claim."
+        "scope": "Reconcile generated323 reason with qualified mixed-group/fade evidence and unchanged sample verdict; retain remaining trajectory/source limits.",
+        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
       }
     },
     {
@@ -3430,10 +3430,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4cb48f466b8537f4bde7c7fa2be5493bfa2830e2921c9d233b10f64c34b1602e",
+        "sourceSHA256": "74a87194c457da98ee5cbc29a0e4df4fb418b5cf8b1aaf0913c55b9d3d050f46",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile bounded neutral perspective material proof, unified dynamic resource catalog and real374330 PCM recovery; retain independent360 full-source and open cross/text limitations.",
-        "limitations": "Navigation and bounded source/actual image observations only. No full sample, same-phase official parity, default-text, general perspective Program or performance claim."
+        "scope": "Reconcile bounded same-layer relative-transform/absolute-alpha Combined admission, either root and existing playback owner; preserve finite/topology/response and wrap boundaries.",
+        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
       }
     },
     {
@@ -3542,10 +3542,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e6a57e6f77f5ec08f0ba763a2b7979484f44d16835a866614257965494e8f513",
+        "sourceSHA256": "2b05faa0a305af24162d206f1ec90f39b3154b9297db41edea89e58107aee3bf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded DEBUG actual Timeline Program and selected surface inputs; detailed design belongs to existing on-demand diagnostic contract and323 trajectory stays open.",
-        "limitations": "CPU parser/DTO/runtime/resolver only; native qualifies actual Program. No pose/world, exact PNG frame join, same-phase parity, visual fix or performance claim."
+        "scope": "Reconcile323 layer242 first-guard exit and visible shoulder fade while retaining face/dragon/person/sword trajectory,403 and audio residuals; withdraw zero-key-anchor inference.",
+        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
       }
     },
     {

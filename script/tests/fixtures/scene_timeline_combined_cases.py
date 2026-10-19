@@ -1,5 +1,7 @@
 """Authored Combined Timeline inputs shared by compiler and playback gates."""
 
+import copy
+
 
 def combined_scene(*, renamed=False, response=(None, None)):
     def key(frame, value):
@@ -94,4 +96,101 @@ def rejected_combined_scenes():
         scene = combined_scene()
         scene["objects"][0]["origin"]["animation"]["options"][field] = value
         cases[f"invalid-{field}-{value}"] = scene
+    return cases
+
+
+def mixed_combined_scenes():
+    """Linear authored inputs with independent scalar/vector output oracles."""
+    cases = {}
+    first = [[10, 20, 30], [2, 3, 4], [0.25]]
+    middle = [[12, 24, 36], [2.25, 3.5, 4.75], [0.5]]
+    last = [[14, 28, 42], [2.5, 4, 5.5], [0.75]]
+    for mode, wraps in (("single", False), ("loop", False), ("loop", True)):
+        for root in ("origin", "alpha"):
+            for renamed in (False, True):
+                layer_id = 703 if renamed else 401
+                numeric = float if renamed else int
+                options = {"fps": numeric(10), "length": numeric(40), "mode": mode,
+                           "startpaused": True, "wraploop": wraps, "name": "mixed cohort"}
+                group = {"id": layer_id, "name": "other" if renamed else "mixed",
+                         "image": "models/renamed.json" if renamed else "models/mixed.json"}
+                for host, base, endpoints in (("origin", "10 20 30", [4, 8, 12]),
+                                               ("scale", "2 3 4", [0.5, 1, 1.5]),
+                                               ("alpha", 0.375, [0.75])):
+                    animation = {f"c{i}": [{"frame": numeric(10), "value": 0.25 if host == "alpha" else 0},
+                                            {"frame": numeric(30), "value": end}]
+                                 for i, end in enumerate(endpoints)}
+                    animation["relative"] = host != "alpha"
+                    animation["options"] = dict(options) if host == root else {
+                        "fps": 3, "length": 2, "mode": "mirror", "wraploop": True,
+                        "startpaused": False, "smoothing": 0.4, "name": "child ignored",
+                        "parent": {"key": root}}
+                    group[host] = {"value": base, "animation": animation}
+                children = [host for host in ("origin", "scale", "alpha") if host != root]
+                group[root]["animation"]["options"]["children"] = [
+                    {"key": host} for host in (reversed(children) if renamed else children)]
+                if renamed:
+                    group = dict(reversed(list(group.items())))
+                scene = {"version": 3, "objects": [group, combined_scene()["objects"][1]]}
+                initial = middle if wraps else first
+                final = last if mode == "single" else initial
+                expected = {"groupCount": 3, "samples": [initial, first, middle, middle, initial],
+                            "curve": [initial, first, middle, last, final, first if mode == "loop" else last]}
+                cases[f"{mode}-wrap-{wraps}-{root}-renamed-{renamed}"] = (scene, expected)
+
+    base = cases["loop-wrap-True-origin-renamed-False"][0]
+    outside = copy.deepcopy(base)
+    alpha = outside["objects"][0]["alpha"]["animation"]["c0"]
+    alpha[0]["value"], alpha[1]["value"] = -0.25, 1.25
+    expected = copy.deepcopy(cases["loop-wrap-True-origin-renamed-False"][1])
+    expected["samples"][1][2] = [-0.25]
+    expected["curve"][1][2] = expected["curve"][5][2] = [-0.25]
+    expected["curve"][3][2] = [1.25]
+    cases["finite-alpha-outside-unit"] = (outside, expected)
+
+    for label in ("relative-alpha", "absolute-transform", "unknown-host", "missing-member",
+                  "missing-parent", "duplicate-child", "cycle", "nested", "second-root",
+                  "cross-layer", "components", "nonfinite-lane", "overflow-control",
+                  "wrap-closing-control", "wrap-range", "wrap-single", "response-loop"):
+        scene = copy.deepcopy(base)
+        group = scene["objects"][0]
+        root_options = group["origin"]["animation"]["options"]
+        if label == "relative-alpha":
+            group["alpha"]["animation"]["relative"] = True
+        elif label == "absolute-transform":
+            group["scale"]["animation"]["relative"] = False
+        elif label == "unknown-host":
+            group["color"] = group.pop("alpha")
+            root_options["children"][-1] = {"key": "color"}
+        elif label == "missing-member":
+            del group["alpha"]
+        elif label == "missing-parent":
+            group["alpha"]["animation"]["options"]["parent"] = {"key": "absent"}
+        elif label == "duplicate-child":
+            root_options["children"].append({"key": "alpha"})
+        elif label == "cycle":
+            root_options["parent"] = {"key": "alpha"}
+            group["alpha"]["animation"]["options"]["children"] = [{"key": "origin"}]
+        elif label == "nested":
+            group["scale"]["animation"]["options"]["children"] = [{"key": "alpha"}]
+            group["alpha"]["animation"]["options"]["parent"] = {"key": "scale"}
+        elif label == "second-root":
+            del group["alpha"]["animation"]["options"]["parent"]
+        elif label == "cross-layer":
+            scene["objects"].append({"id": 704, "image": "models/peer.json", "alpha": group.pop("alpha")})
+        elif label == "components":
+            del group["scale"]["animation"]["c2"]
+        elif label == "nonfinite-lane":
+            group["alpha"]["animation"]["c0"][0]["value"] = "NaN"
+        elif label in ("overflow-control", "wrap-closing-control"):
+            lane = group["alpha"]["animation"]["c0"]
+            key = lane[0 if label == "overflow-control" else -1]
+            key.update(value=1e308, front={"enabled": True, "x": 0.5, "y": 1e308})
+        elif label == "wrap-range":
+            root_options["length"] = 30
+        elif label == "wrap-single":
+            root_options["mode"] = "single"
+        elif label == "response-loop":
+            root_options["smoothing"] = 0.4
+        cases["reject-" + label] = (scene, {"groupCount": 0})
     return cases

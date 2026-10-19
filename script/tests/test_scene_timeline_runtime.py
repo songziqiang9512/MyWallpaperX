@@ -18,11 +18,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes
+from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, mixed_combined_scenes
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PLAYBACK_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift"
 GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
@@ -80,6 +79,15 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderContract.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
 ]
 
 
@@ -287,6 +295,7 @@ struct SceneMdlPuppetAttachment {
 struct SceneAssetCatalog {
     struct ModelAsset {
         var declaredSizeWH: [Float]? { nil }
+        var passthrough: Bool? = nil
         let relativePath: String
         let materialPath: String?
         let cropOffsetXY: [Float]?
@@ -319,7 +328,7 @@ struct SceneAssetCatalog {
     let effectDefinitions: [SceneEffectDefinition]
     let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
-    var shaderContracts: [Never] { [] }
+    var shaderContracts: [SceneShaderContract] { [] }
     let textureReferences: [String]
 }
 struct SceneResourceReferenceIndex {
@@ -328,13 +337,6 @@ struct SceneResourceReferenceIndex {
     let runtimeProvidedReferenceCount: Int
 }
 struct SceneCapabilityProfile { let firstStageRendererGaps: [String] }
-struct SceneDiagnosticsReport {
-    let project: SceneProject?
-    let sceneDocument: SceneDocument?
-    let assetCatalog: SceneAssetCatalog?
-    let resourceReferences: SceneResourceReferenceIndex?
-    let capabilityProfile: SceneCapabilityProfile?
-}
 
 enum HarnessError: Error { case missingFixture, descriptorRejected }
 
@@ -464,8 +466,11 @@ enum Harness {
             throw HarnessError.descriptorRejected
         }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
-        if CommandLine.arguments.last == "combined" {
-            var result = try SceneTimelineCombinedPlaybackChecks.run(program)
+        if ["combined", "mixed"].contains(CommandLine.arguments.last ?? "") {
+            var result: [String: Any]
+            if CommandLine.arguments.last == "mixed" {
+                result = try SceneTimelineCombinedPlaybackChecks.mixed(program, descriptor: descriptor)
+            } else { result = try SceneTimelineCombinedPlaybackChecks.run(program) }
             result["responseOptions"] = program.bindings.filter { $0.playbackOwner != nil }.map {
                 binding -> [Any] in
                 [binding.animation.options.smoothing.map { $0 as Any } ?? NSNull(),
@@ -704,6 +709,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         scene = directory / "scene.json"
         scene.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
         binary = directory / "scene-timeline-runtime"
+        cls.binary = binary
         compilation = subprocess.run(
             [
                 "swiftc", "-module-cache-path", str(directory / "module-cache"),
@@ -798,6 +804,18 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
                 self.assertEqual(result["responseOptions"], [response] * 3)
                 self.assertEqual(result["diagnostics"], [] if response == [None, None]
                                  else [f"layer {layer_id} {root}: responseOptionsUnmodeled"])
+
+    def test_mixed_groups_compile_and_share_typed_playback(self) -> None:
+        for label, (fixture, expected) in mixed_combined_scenes().items():
+            with self.subTest(variant=label):
+                entry = Path(self.temporary_directory.name) / f"mixed-{label}.json"
+                entry.write_text(json.dumps(fixture), encoding="utf-8")
+                completed = subprocess.run([str(self.binary), str(entry), "mixed"],
+                                           check=True, capture_output=True, text=True)
+                result = json.loads(completed.stdout)
+                for key, value in expected.items():
+                    self.assertEqual(result[key], value, key)
+                self.assertTrue(all(result["facts"].values()), result["facts"])
 
     def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
         for label in ("t0", "half", "closing", "late"):

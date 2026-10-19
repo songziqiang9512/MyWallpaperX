@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175267
+      "bytes": 175282
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,11 +122,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 143467
+      "bytes": 143264
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 200206
+      "bytes": 200528
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68468
+      "bytes": 68593
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -210,7 +210,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 599,
-      "bytes": 155636
+      "bytes": 156316
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 62872
+      "bytes": 63017
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1198,15 +1198,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "a209d12eaf3a4fa105b44a38816069ed99ed8ff82e8e6a95fec5caa6e501c01a",
-      "after": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
-      "owner": "scene-native-framebuffer-source",
-      "reason": "Bounded native framebuffer source Program and readonly shared-depth contract, actual lower audio-bar result and remaining occlusion queue; required capability/acceptance authorities updated once, obsolete source-missing state retired. No broad capability or performance promotion.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#有序-framebuffer-source-program-后继2026-10-19"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
       "after": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
@@ -1324,15 +1315,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "4af2468be768f27d1daa6830622c1784ee1dfc469754a20b6959a42dfc244769",
-      "after": "59338bfd78b249d317da2e3bd93e01e14cb7d0f5c8555a2cb1e389823a020930",
-      "owner": "scene-default-camera-single",
-      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "before": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
       "after": "fa17a1e9d415ae9ad367a8d3d951d987b79f51d47b2691c546ff98d7621634cb",
@@ -1423,15 +1405,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "db3361e504d0c8054ed2ce1f9d7e0c8926884ae2a7f40e586a413e7051bc9235",
-      "after": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
-      "owner": "scene-perspective-neutral-tint",
-      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "5575046d22eef5af2d43cb0750c7e9abf79d1e5ef316663e96220666297451c6",
       "after": "11b2af29d99b024b5b91d6226082d582a3628ff6547d1aa76c8f00da3453415b",
@@ -1450,21 +1423,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8dcc1458a34a200c56e4a4e158847eef80641373c7780d6ca6a0017031378822",
-      "after": "e5568098e74fc74e8a541c1aa60ae8942c569196f066c6399658a9a503e66084",
-      "owner": "scene-diagnostics",
-      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
+      "after": "40651bf6bd8ae2b51527f732146ceb4cc4d6bdc5eed13572208bbe2951d571d5",
+      "owner": "scene-mixed-layer-timeline",
+      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "feb21d09d40b20adeefc99060e40e63d5d884c32276fb9a7f00d422cc2d22faa",
+      "after": "2e8fcb90a8280cb65b3c34f6e5ec29e8593643f75270926318d6fc7f11c6249f",
+      "owner": "scene-mixed-layer-timeline",
+      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "c95c0450370122be2b6b0080cd87ae545c0ddd18510ca7613f3b6fc2c48f875b",
+      "after": "6d88a4b34d5e959057eff60ef2faf1c7c1211bdbc4a771cb4bc6f1919878741c",
+      "owner": "scene-mixed-layer-timeline",
+      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
+      "after": "9341aeaf02fa66541dcc190ff8edfd4ba9203f2d0e0b7cf2c11e84e43aafa97e",
+      "owner": "scene-mixed-layer-timeline",
+      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ff3de60c624f03d0008405a1844aed69fe829dd80bd21eededa6eb259bdeba7d",
-      "after": "564ce347153caad52a4e103cdd11bd12260a743c05cfa45e7c669440124a650b",
-      "owner": "scene-diagnostics",
-      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
+      "before": "564ce347153caad52a4e103cdd11bd12260a743c05cfa45e7c669440124a650b",
+      "after": "998502f4e8f53382823ee071da08786f58e01817dc0c3f904c7ef5e29fce6371",
+      "owner": "scene-mixed-layer-timeline",
+      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
     }
   ]
 }

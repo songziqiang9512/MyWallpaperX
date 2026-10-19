@@ -55,7 +55,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         case unsupportedScriptSource
         /// 当前只为 layer transform 定标了作者基值加动画偏移；其他 relative 仍拒绝。
         case relativeUnsupported
-        /// Only complete flat transform groups and the bounded camera pair are admitted.
+        /// Flat relative-transform/absolute-alpha groups and the bounded camera pair only.
         case combinedAnimationUnsupported
         /// The admitted Single group plays its authored curves without response filtering.
         case responseOptionsUnmodeled
@@ -230,7 +230,9 @@ nonisolated enum SceneTimelineTargetCompiler {
                       let timeline = timelines[member]
                       let transform = timeline.host == .origin || timeline.host == .angles
                           || timeline.host == .scale
-                      return transform && timeline.animation.isRelative
+                      let admitted = transform && timeline.animation.isRelative
+                          || timeline.host == .alpha && !timeline.animation.isRelative
+                      return admitted
                           && (member == rootIndex || (
                               timeline.animation.options.parent?.key == root.host.rawValue
                                   && timeline.animation.options.children.isEmpty
@@ -301,8 +303,8 @@ nonisolated enum SceneTimelineTargetCompiler {
             return
         }
         if playbackOwner != nil {
-            guard case let .vector3(x, y, z) = resolved.authoredValue,
-                  [x, y, z].allSatisfy(\.isFinite),
+            guard resolved.authoredValue.valueType == resolved.valueType,
+                  resolved.authoredValue.isFinite,
                   timeline.animation.lanes.allSatisfy({ lane in
                       timeline.animation.consumedControlValues(in: lane).allSatisfy(\.isFinite)
                   }) else {

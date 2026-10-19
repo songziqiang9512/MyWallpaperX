@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `010cf334196dde425e75ebfbfac60a4cf65d8b41e702a0f7d43e0daaed16326b`。
-- 本页生成于 2026-10-19T01:11:17.833892+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `13b8e8864cda66edc753b7b3b60e3532428cb5c311ec91f9963c105c5bb7c2e1`。
+- 本页生成于 2026-10-19T01:48:52.689577+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -158,7 +158,7 @@
 | `3221354414` | dynamic Ginka 神轿银花 [GINKA OST: 祭神纸偶与愿望 … | 2(0) color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 原包默认短播银白发侧脸、蓝眼/蓝饰与橙红背景呈现，亮波带/细斜纹亦见作者预览，不据此报缺陷；11effects两帧22GPU完成，仅2终级末合成，dust/r… |
 | `3226487183` | 麻匪 花火 五角色自定义 崩坏星穹铁道 Sparkle Honkai: Sta… | 55(9) bool 14 color 8 combo 1 slider 5 text 27 | `not-run` | - | `not-run` | `unreviewed` 2026-10-17 | 10-17最终原包4907点击后2522实际执行作者Program：白面具→整景RGB分离/重影→清晰黑面具，左右眼与脸颈/身体在。前序reference组装… |
 | `3232289987` | 【4k 高度自定义】流萤&萨姆  丝袜可更改——夜莺Night【崩坏星穹铁道】 | 116(60) bool 34 color 18 combo 4 scenetexture 2 slider 41 t… | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura fa… | 67(0) bool 18 color 7 combo 3 group 1 scenetexture 1 slider… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 10-19当前原包20s实际Program选中六个头发/相邻变换binding，十帧surface输入均timeline并回作者基值；最早输入缺失未复现，无新… |
+| `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura fa… | 67(0) bool 18 color 7 combo 3 group 1 scenetexture 1 slider… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 10-19 mixed公共组后继：absolute alpha与relative origin/scale复用原owner，旧新原包各28s/native/默… |
 | `3238423642` | Katana Girl with Hologram (Adjustable; … | 90(0) bool 35 color 25 combo 9 group 12 slider 8 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 头部错位已修，整体视觉与约 18.7 FPS 帧时间未验收 |
 | `3248220186` | 麻匪 音频粒子球 Audio Particle Ball 16:9 16:10… | 44(8) bool 6 color 6 combo 4 slider 7 text 19 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 70(21) bool 16 color 7 combo 2 slider 14 text 25 textinput 6 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `fail` 2026-09-08 | 人物左肘缺块；构图未验收 |
@@ -183,7 +183,7 @@
 | `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-10-19 | 10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail… |
 | `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
-| `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | mixed组未参与修法原包独立8s/native/默认：人物、帘、城市、时钟实际呈现，App0、正常stop/GPU排空、输入/App无漂移。1733 alp… |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 仍黑水滴/缺亮边拖尾；旧NaN已修，反射原型已撤回；115.scale首个非有限返回仍在。 |
 | `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 86(44) bool 10 color 21 combo 4 slider 7 text 37 textinput 7 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。sh… |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
