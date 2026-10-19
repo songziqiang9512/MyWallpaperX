@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 128443
+      "bytes": 128588
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -61,8 +61,8 @@
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 203,
-      "bytes": 19747
+      "lines": 212,
+      "bytes": 21940
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 142561
+      "bytes": 143467
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68486
+      "bytes": 68468
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 62735
+      "bytes": 62872
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1288,15 +1288,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "7627faff8c1b009b3f81fd0a46dc5beac0eb3de2687bb4170997e131f458f452",
-      "after": "14c7506455f028f9ff070b7715a9fd6cce5aea9dd5dcb2e7df884983ddd02256",
-      "owner": "release-diagnostic-exclusion",
-      "reason": "发布构建移除诊断入口、实现、样本扫描与缓存及Web Inspector；保留窄的产品启动准入、正常错误及作者属性。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#30-发布构建的诊断边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "8183c152cab8ffde0fbce258a1bd8fb6bfd764474e18aae9037cc634b86db9af",
       "after": "d681c1db704a85c26c1b2688dc91138711d28f6bcf4e57ac21d070cef05d7e29",
@@ -1432,15 +1423,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "77faac9d99482b4873b330b400f2a1f06705f3a87c601ffe69c3a3a2f8464270",
-      "after": "5575046d22eef5af2d43cb0750c7e9abf79d1e5ef316663e96220666297451c6",
-      "owner": "scene-perspective-neutral-tint",
-      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "db3361e504d0c8054ed2ce1f9d7e0c8926884ae2a7f40e586a413e7051bc9235",
       "after": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
@@ -1450,12 +1432,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "5575046d22eef5af2d43cb0750c7e9abf79d1e5ef316663e96220666297451c6",
+      "after": "11b2af29d99b024b5b91d6226082d582a3628ff6547d1aa76c8f00da3453415b",
+      "owner": "scene-diagnostics",
+      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "b45772be3ed810169f0ace2591a8703893eb7a8a35fffd47af9dd3962be68908",
+      "after": "6aa2744c72543945739b58eb1fc647e08d312c5624f6d99e27bf9bd502e77c49",
+      "owner": "scene-diagnostics",
+      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e3e06ba92ae6ec594cfddce66a00bbb8a18161737bc733f2a85ba269e1553968",
-      "after": "8dcc1458a34a200c56e4a4e158847eef80641373c7780d6ca6a0017031378822",
-      "owner": "scene-evidence",
-      "reason": "Replace stale375 reopen status with current bounded normalized-input qualification; preserve131 visible light feedback and unknown water domain. No new product fix or whole-sample claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#light-water-current-20261019"
+      "before": "8dcc1458a34a200c56e4a4e158847eef80641373c7780d6ca6a0017031378822",
+      "after": "e5568098e74fc74e8a541c1aa60ae8942c569196f066c6399658a9a503e66084",
+      "owner": "scene-diagnostics",
+      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "ff3de60c624f03d0008405a1844aed69fe829dd80bd21eededa6eb259bdeba7d",
+      "after": "564ce347153caad52a4e103cdd11bd12260a743c05cfa45e7c669440124a650b",
+      "owner": "scene-diagnostics",
+      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
     }
   ]
 }

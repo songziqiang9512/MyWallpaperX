@@ -3746,6 +3746,17 @@
         "test_scene_default_2d_camera_inputs",
         "test_scene_cursor_surface_routing"
       ]
+    },
+    {
+      "id": "timeline-frame-input-evidence",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneTimelineFrameEvidence.swift",
+        "script/tests/test_scene_timeline_frame_evidence.py",
+        "script/tests/fixtures/SceneTimelineFrameEvidenceHarness.swift"
+      ],
+      "modules": [
+        "test_scene_timeline_frame_evidence"
+      ]
     }
   ],
   "method_gates": {

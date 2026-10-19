@@ -26,6 +26,8 @@ class SceneMetalView: NSView {
 #if DEBUG
     var recordedPuppetPoseLayerIDs: Set<Int> = []
     var debugDrawableUnavailableFrameCount: UInt64 = 0
+    private let timelineFrameEvidence = SceneTimelineFrameEvidence.make(
+        evidenceWindow: SceneDesktopWallpaperHost.usesDebugEvidenceWindow)
 #endif
     var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
     var puppetResourceView: SceneResourceView?
@@ -775,6 +777,10 @@ class SceneMetalView: NSView {
                 cameraParallaxMouseInfluence: savedContext.cameraParallaxMouseInfluence,
                 materialFunctionMutations: [], audioSpectrum: savedContext.audioSpectrum)
         } else { frameContext = savedContext }
+#if DEBUG
+        timelineFrameEvidence?.record(streamID: presentationStreamID,
+            frameIndex: frameContext.frameIndex, sceneTime: frameContext.sceneTime, snapshot: frameContext.dynamicValues)
+#endif
         let dynamicValues = frameContext.dynamicValues
         let frameProjection = simulationFrame.projection
         let cameraFrame = savedContext.screenSize == frameContext.screenSize

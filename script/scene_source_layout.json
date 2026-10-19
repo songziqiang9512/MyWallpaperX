@@ -1467,7 +1467,8 @@
         "SceneGraphExecutionTelemetry.swift",
         "ScenePerformanceCounterHub.swift",
         "ScenePerformanceHUD.swift",
-        "SceneSignposts.swift"
+        "SceneSignposts.swift",
+        "SceneTimelineFrameEvidence.swift"
       ],
       "responsibility": "Explicit diagnostics, observation and evidence export; no product submission authority."
     },

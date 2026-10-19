@@ -334,6 +334,10 @@ extension SceneDesktopWallpaperHost {
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
+#if DEBUG
+        SceneTimelineFrameEvidence.recordProgram(timelineProgram,
+            evidenceWindow: SceneDesktopWallpaperHost.usesDebugEvidenceWindow)
+#endif
         let propertyVectorNonPassTargets = model.propertyVectorProjection.nonPassTargets
         let propertyVectorPassCandidateTargets = model.propertyVectorProjection.passTargets
         let propertyVectorScriptTargets = propertyVectorNonPassTargets

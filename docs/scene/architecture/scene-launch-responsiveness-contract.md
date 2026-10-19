@@ -63,6 +63,15 @@ idle
 - 诊断失败只影响诊断区，不能改变下载记录、属性值、运行缓存或当前壁纸；
 - UI 更新回到 MainActor/AppKit owner，文件、解析和 hash 工作不得占用主线程。
 
+<a id="timeline-frame-input-observation"></a>
+### 3.3 有界 Timeline 帧输入观测
+
+配置入口为`MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE`的JSON对象，完整字段为`layerIDs/sceneTimeWindow/interval/maxSamples`。为区分作者动画未准备、typed发布缺席及后继几何问题，仅DEBUG且显式opt-in、使用现有证据窗口时，允许旁路读取当前launch实际TimelineProgram与实际surface的SceneFrameContext。原compiler、PlaybackRuntime、Resolver、clock和提交保持唯一权威；observer不调用compile/values/apply、不改snapshot或播放状态，不在通用makeFrameContext重复采集。普通播放关闭时无逐帧投影、编码或分配。
+
+launch仅一次投影选层binding的target/type、authored base、composition、playback owner、播放选项及lane/keyframe计数，不导出整段曲线、脚本或整图；最多8层、24 bindings、64 diagnostics及64KiB，截断必须标incomplete。renderFrame选定实际context后，只取这些层origin/angles/scale的resolved value/type/source与authoredValue，并携既有presentationStreamID、frameIndex、sceneTime、snapshot frame/generation；missing与非有限值明确记录，不补零或伪称timeline。该输入观察不证明GPU完成、pose/world或截图同帧。
+
+配置须完整合法：sceneTime窗不超过10秒、interval至少0.2秒、每surface最多32次，同stream/frame去重，最多8 streams且总输出不超过512KiB；非法、溢出、身份不一致或无窗口样本使本次资格不完整，不改产品行为、不自动重试。逐surface计数随原view退休；进程预算只保累计streams/bytes标量，退休不退款，避免反复launch绕过上限；不持有Scene、Program或资源。此处采用选层数值旁路，避免新建完整trace框架；取得缺口数据后据实选下一owner，不扩成常驻全图诊断。最近真实parser→生产Program DTO→runtime/resolver门验证过滤/改ID、来源/missing、frame原样、限额、disabled和观测无副作用，不外推compiler准入；Swift修改补一次固定源Debug及一份原包实际Program/目标窗资格，无新产品正确性或性能收益预支。
+
 ## 4. 壁纸启动事务
 
 ### 4.1 唯一请求与准备 owner
