@@ -1820,7 +1820,8 @@
       "id": "shader-frontend",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/**",
-        "script/tests/fixtures/SceneScalarVectorBuiltInHarness.swift"
+        "script/tests/fixtures/SceneScalarVectorBuiltInHarness.swift",
+        "script/tests/fixtures/SceneVaryingValueParameterPrefixHarness.swift"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -3769,6 +3770,16 @@
       "modules": [
         "test_scene_authored_shader_same_pixel_source",
         "test_scene_generic_shader_attachment_read"
+      ]
+    },
+    {
+      "id": "shader-runtime-constants",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
+        "script/tests/test_scene_uniform_invariant_shader_constants.py"
+      ],
+      "modules": [
+        "test_scene_uniform_invariant_shader_constants"
       ]
     }
   ],

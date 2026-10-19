@@ -241,6 +241,7 @@
         "Compilation/ShaderPreparation/SceneGenericShaderPreviousBlurredCompositeLowering.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderRGBBlendScalarAlphaLowering.swift",
+        "Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderSameSlotCarrierBlendLowering.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",

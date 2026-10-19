@@ -34,7 +34,7 @@
 | 主题 | 当前权威 | 适用场景 |
 | --- | --- | --- |
 | Effect | [effect-execution-coverage.md](effect-execution-coverage.md) | effect 分类、执行 owner、fallback 和迁移状态 |
-| Graph / Shader | [render-graph-shader-coverage.md](render-graph-shader-coverage.md) | Program、pass、FBO、history、target、shader primitive |
+| Graph / Shader | [render-graph-shader-coverage.md](render-graph-shader-coverage.md)、[uniform 派生常量合同](uniform-invariant-shader-constants.md) | Program、pass、FBO、history、target、shader primitive |
 | SceneScript | [scenescript-api-coverage.md](scenescript-api-coverage.md) | ECMAScript、host API、handle、event、timer |
 | Particle | [particle-component-coverage.md](particle-component-coverage.md) | component 组合、实例生命周期、预算和局部失败 |
 | Input / Provider | [runtime-input-property-coverage.md](runtime-input-property-coverage.md) | Timeline、property、pointer、audio、media、text、provider |

@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（327 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `61bc602e27c0fd1edf91893347e5efb4e65efdab353f1af02763cb54d9edea20`（生成于 2026-10-17T03:20:28.462529+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `6fd622bf0dd645c6e1ce6856a62049234fb13cb6c11857a245af253835141cf7`。
-- 本页生成于 2026-10-19T10:35:29.182737+00:00。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `2433915024c666df664554fae317f2e706e51f22829a950c32d8d03eedec0172`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `606d03dcae3f280a9f7d3f4dd7955ff2aa9c6664ad8d5d22dfcf06fac6dfeace`。
+- 本页生成于 2026-10-19T11:49:16.023112+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -41,16 +41,16 @@
 | `texture-load` | 基础图片纹理加载 | 6 |
 | `scenescript` | SceneScript 异常 | 15 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 164 |
-| `not-run` | 未关联本归档运行证据 | 116 |
+| `visual-review` | 结构链完整，待视觉验收 | 165 |
+| `not-run` | 未关联本归档运行证据 | 115 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
 | `degraded-runtime` | 46 |
-| `not-run` | 116 |
+| `not-run` | 115 |
 | `runtime-evidence-incomplete` | 1 |
-| `structural-chain-complete-visual-review` | 162 |
+| `structural-chain-complete-visual-review` | 163 |
 
 作者参数：248 个样本声明了 schemecolor 之外的用户参数，共 8106 项，其中 2734 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -121,7 +121,7 @@
 | `2834973884` | 麻匪 wlop-鬼刀 重置版 | 22(0) bool 5 color 3 slider 3 text 11 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2835398595` | 麻匪 碧蓝航线 独角兽 Windows | 31(11) bool 4 color 13 combo 2 text 10 textinput 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 中央白框人物、樱花与右钟可见；框齿/频谱差异未与音频/phase对齐。 |
 | `2837223712` | 李擎洲：阿狸[4K] | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `2849382252` | 麻匪 死亡笔记  L·Lawliet | 16(0) bool 2 color 3 text 11 | `not-run` | - | `not-run` | `unreviewed` | 10-18原包三白弧实际可见，138/103/59输入2048²且GPU/末合成/下一帧成功；无同viewport官方清晰度对照，旧低清仍保观察、STOP_U… |
+| `2849382252` | 麻匪 死亡笔记  L·Lawliet | 16(0) bool 2 color 3 text 11 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-19原生attachment后继已闭三白弧低清（见#background-terminal-density-20261019）；本次独立原包非零PCM+… |
 | `2850139759` | 麻匪 血妖姬  16:9 / 21:9 | 24(0) bool 6 color 4 combo 2 text 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 红白衣人物、灰底横线、文字与雪粒可见；光线形状/强度未控输入，不判故障。 |
 | `2871552691` | 麻匪 操 | 16(0) bool 1 color 4 text 11 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 白字可见，参考亮环在静音窗未见；advisory预览不能作为compositor阻断依据，旧自动误标已按通用oracle资格修正。 |
 | `2877499944` | 麻匪 做什么壁纸？看美女不香？ | 19(0) bool 3 color 3 scenetexture 1 text 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 三联视频主体/街景可见且两图有帧变化；频谱未与音频对齐，不判未执行。 |
@@ -268,7 +268,7 @@
 | `3738202317` | Albedo. | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3742133044` | 凌霄·双司镇命·无常<1>-[深空之眼] | 3(2) color 1 combo 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 本片未参与修法的独立回归：原perspective粒子196进入非空提交，实际雪花位置变化，人物/红月/花背景保持；只作基础构图对照，非完整官方parity。 |
 | `3743305891` | 战双 | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` 2026-10-19 | 10-19透视neutral材质证明接通统一动态模板：同PCM非零阶段从无频谱恢复底部白条，后续静音收回，63动态层实际发布/绘制；频谱缺失首门退出，背景十字… |
-| `3745828537` | 麻匪 xraypad-眠 | 76(45) bool 7 color 11 combo 4 slider 11 text 37 textinput 6 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` 2026-10-19 | 人物与中央花枝可见；active Sprite51/65在A2C材质准入被拒，早于模拟；外围密花差异因果仍未知，1028 radial blur是独立拒绝。 |
+| `3745828537` | 麻匪 xraypad-眠 | 76(45) bool 7 color 11 combo 4 slider 11 text 37 textinput 6 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` 2026-10-19 | 径向模糊1042已由透传恢复真实Program，静音/中心pointer原图外围花朵柔化、主体保持；A2C51/65及其他fallback、完整画面仍未验收。 |
 | `3746422401` | 麻匪 泠泠泉心 21:9 16:9 | 43(8) bool 5 color 3 combo 1 slider 6 text 28 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:visibility` | `scenescript` | `unreviewed` 2026-10-19 | 人物、剑、水流、圆环与竖排日期可见；另有typed VM TypeError，host/作者归因待查；字体、时间和视差未作同状态裁决。 |
 | `3747190633` | 【凡人修仙传】银月 惹人怜惜 | 16(0) bool 4 color 3 combo 1 slider 8 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Ev… | 67(33) bool 20 color 11 combo 1 group 6 scenetexture 4 slid… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过 |

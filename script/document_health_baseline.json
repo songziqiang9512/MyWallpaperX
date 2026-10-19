@@ -118,11 +118,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 348420
+      "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 143345
+      "bytes": 144473
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77213
+      "bytes": 77275
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 56,
-      "bytes": 18302
+      "bytes": 18172
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 64104
+      "bytes": 64037
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -291,6 +291,10 @@
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 47,
       "bytes": 6779
+    },
+    "docs/scene/capabilities/uniform-invariant-shader-constants.md": {
+      "lines": 23,
+      "bytes": 3517
     }
   },
   "archives": [
@@ -1424,38 +1428,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8c4a527b17d6e0659a58a357e5709b612822b2fdaa7bc877ba27ddf9efa6e285",
-      "after": "5bb6ec30aa1b622e502693a8a792389c708cd68319ea0783dff10bba3b48f614",
-      "owner": "scene-new25-runtime-audit",
-      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
+      "before": "cc1c9f5f878d43d58895b4f4deebc6299c312227f2047e7f5e4a1a4c352df10f",
+      "after": "bd2f011fb1c34faf23132ae6ac8e44838d227ed5f1b71330aa1573fc1df4b227",
+      "owner": "generic-shader-value-preparation",
+      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
+      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "901415581235c989e9efd3ebe5105d5dcf5dac64e65ae8994d874edf6b45ea01",
-      "after": "8ccf58a01085d9f8bfa7c354f013ca00fbc7cbb1d524868e1f65994f50822149",
-      "owner": "mixed-vector-mix",
-      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+      "before": "8ccf58a01085d9f8bfa7c354f013ca00fbc7cbb1d524868e1f65994f50822149",
+      "after": "7b32a41481ae8e2166ed8b4d32fcc0784a13f893f3941cfd0a77cbbf2e7d0fa3",
+      "owner": "generic-shader-value-preparation",
+      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
+      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4c3287956ac334d47c684074ec9e1779a1d52c87f7774c35c9bbfcdc86feca3a",
-      "after": "ed5a7ca8abd68b85750716f526bfa2115928684f9e65c631c0eae4d489d5db46",
-      "owner": "mixed-vector-mix",
-      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+      "before": "ed5a7ca8abd68b85750716f526bfa2115928684f9e65c631c0eae4d489d5db46",
+      "after": "affb3378186114711a6276d46ff0e029bddd7aef52afdd58dbc041988d2cb8ee",
+      "owner": "generic-shader-value-preparation",
+      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
+      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "6c186b7f4db2e54ae8b919b3762e6dc4661f1f5de374ff13fd223e74962e8f32",
-      "after": "f2c90070c585ec7e1c4e3b5065d8ddd21b7949f6f4882fc629443343fee70baa",
-      "owner": "mixed-vector-mix",
-      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+      "before": "f2c90070c585ec7e1c4e3b5065d8ddd21b7949f6f4882fc629443343fee70baa",
+      "after": "d9dba8c2820bbd242d5f3cf00632ed7872c83afdc95c796971fae5763d5f8e54",
+      "owner": "generic-shader-value-preparation",
+      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
+      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
     },
     {
       "section": "bodies",
@@ -1483,6 +1487,15 @@
       "owner": "workshop-property-presentation",
       "reason": "用户要求Web与Scene展示细节一致；复用共享原生布局/滚动条，保留Web条件label和value的既有身份，只新增展示文本。",
       "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/uniform-invariant-shader-constants.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "df88577984a1de6c5a81328eec4064147020cddaa1c28b8c53f9669891d64b1f",
+      "owner": "generic-shader-value-preparation",
+      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
+      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
     }
   ]
 }

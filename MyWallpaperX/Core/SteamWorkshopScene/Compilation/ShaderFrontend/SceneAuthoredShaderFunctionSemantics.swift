@@ -19,6 +19,42 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
         }
     }
 
+    /// Resolve one source definition without treating prototypes or value/member
+    /// shadows as calls. Consumers retain their own allowed-reference domain.
+    static func uniqueUnshadowedSourceFunction(
+        named name: String,
+        tokens: [SceneAuthoredShaderToken],
+        functions: [SceneAuthoredShaderSyntaxUnit.Function],
+        permitsReference: (Int) -> Bool = { _ in true }
+    ) -> SceneAuthoredShaderSyntaxUnit.Function? {
+        let definitions = functions.filter { $0.name == name }
+        guard definitions.count == 1, let function = definitions.first,
+              tokens.indices.allSatisfy({ index in
+                  guard tokens[index].text == name else { return true }
+                  if index == function.headerRange.lowerBound + 1 { return true }
+                  return index + 1 < tokens.count && tokens[index + 1].text == "("
+                      && (index == 0 || tokens[index - 1].text != ".")
+                      && (index == 0 || tokens[index - 1].kind != .identifier
+                          || tokens[index - 1].text == "return")
+                      && permitsReference(index)
+              }) else { return nil }
+        return function
+    }
+
+    /// Non-array value inputs are copies. Whether a const-qualified formal is
+    /// admitted belongs to the consumer; out/inout and unknown forms stay nil.
+    static func valueInputType(
+        in parameter: Range<Int>,
+        tokens: [SceneAuthoredShaderToken],
+        permitsConst: Bool = false
+    ) -> SceneAuthoredShaderValueType? {
+        var start = parameter.lowerBound
+        if permitsConst, start < parameter.upperBound, tokens[start].text == "const" { start += 1 }
+        if start < parameter.upperBound, tokens[start].text == "in" { start += 1 }
+        guard start + 2 == parameter.upperBound, tokens[start + 1].kind == .identifier else { return nil }
+        return SceneAuthoredShaderValueType(authoredName: tokens[start].text)
+    }
+
     static func diagnostics(
         for unit: SceneAuthoredShaderSyntaxUnit
     ) -> [SceneAuthoredShaderFrontendDiagnostic] {

@@ -27,6 +27,7 @@
       "docs/scene/capabilities/sampler-alias-precedence.md",
       "docs/scene/capabilities/scalar-mask-data-purpose.md",
       "docs/scene/capabilities/static-source-draw-only-degradation.md",
+      "docs/scene/capabilities/uniform-invariant-shader-constants.md",
       "docs/scene/development/development-workflow.md",
       "docs/scene/development/official-client-behavior-research-workflow.md",
       "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
@@ -662,10 +663,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5420b00471685a06dcb092ae0fa05742037ff5d19f8453cce0de8064f74b008b",
+        "sourceSHA256": "ab1b7649a4525017d31e6d315bd54b8a731117c761488442857cabad427b1a98",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Mixed-width mix/lerp bounded type contract, actual four-noise generic execution and independent real heldout; retire only the proven preparation failures from active queue/static audit and refresh two runtime observations.",
-        "limitations": "No whole-sample verdict, matched audio/pointer/phase official pixels, actual dynamicLoop bounded fallback or stable performance gain."
+        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
+        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
       }
     },
     {
@@ -676,10 +677,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "583a0061ab01777115d7121151ab82dfbd1883d4478a4b27255cb159a4414260",
+        "sourceSHA256": "e2cc2f38cad7d6bfc92c2c66ce965abb57f8361fc9c01df69ea1f02279fa0f9a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Mixed-width mix/lerp bounded type contract, actual four-noise generic execution and independent real heldout; retire only the proven preparation failures from active queue/static audit and refresh two runtime observations.",
-        "limitations": "No whole-sample verdict, matched audio/pointer/phase official pixels, actual dynamicLoop bounded fallback or stable performance gain."
+        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
+        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
       }
     },
     {
@@ -760,10 +761,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "21c1b4b932b95abec801721a5bca29901e2aef29bb4efad27238d235d49eb5b0",
+        "sourceSHA256": "06e0011339b066b48250c01ff0a52de727547cdec87c6daa5975687e7411daa1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Mixed-width mix/lerp bounded type contract, actual four-noise generic execution and independent real heldout; retire only the proven preparation failures from active queue/static audit and refresh two runtime observations.",
-        "limitations": "No whole-sample verdict, matched audio/pointer/phase official pixels, actual dynamicLoop bounded fallback or stable performance gain."
+        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
+        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
       }
     },
     {
@@ -812,6 +813,21 @@
       "entrypoint": "docs/scene/development/source-index.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
       "commandPolicy": "reference-only"
+    },
+    {
+      "path": "docs/scene/capabilities/uniform-invariant-shader-constants.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "限定uniform派生只读global的generic初始化职责、准入、局部失败与验收；不拥有当前运行状态或选序。",
+      "lastReviewed": "2026-10-19",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "8e62685c5ab487650742d60ff4172fbefeaeee9d8f7f89cb44573a13de3b60d9",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
+        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
+      },
+      "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
       "path": "docs/scene/development/development-workflow.md",
@@ -3528,10 +3544,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ca2c7de93c796814fde61dcb656c8e384e4e066832872499dc3bfa13f236f805",
+        "sourceSHA256": "e2f5ed671aae94703896eb77a690452964e4a234a582e94f3469e2bd8d55980d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Mixed-width mix/lerp bounded type contract, actual four-noise generic execution and independent real heldout; retire only the proven preparation failures from active queue/static audit and refresh two runtime observations.",
-        "limitations": "No whole-sample verdict, matched audio/pointer/phase official pixels, actual dynamicLoop bounded fallback or stable performance gain."
+        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
+        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
       }
     },
     {
@@ -3542,10 +3558,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3df7acf8467d14d098d60f6798f4ec607797f7cc4efe8667c4c5a85eeeb25f72",
+        "sourceSHA256": "606ced731cb3d65dd4344208d27b978a3a422c9520df76f2fbd6bb978c04e318",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Mixed-width mix/lerp bounded type contract, actual four-noise generic execution and independent real heldout; retire only the proven preparation failures from active queue/static audit and refresh two runtime observations.",
-        "limitations": "No whole-sample verdict, matched audio/pointer/phase official pixels, actual dynamicLoop bounded fallback or stable performance gain."
+        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
+        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
       }
     },
     {
@@ -3749,7 +3765,8 @@
         "docs/scene/architecture/shader-metadata-failure-contract.md",
         "docs/scene/roadmap/scene-compatibility-roadmap.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-        "docs/scene/roadmap/scene-full-sample-static-audit.md"
+        "docs/scene/roadmap/scene-full-sample-static-audit.md",
+        "docs/scene/capabilities/uniform-invariant-shader-constants.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

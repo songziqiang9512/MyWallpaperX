@@ -2800,11 +2800,6 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             """,
             """
             varying vec2 linkedValue;
-            vec2 unknownHelper(vec2 value) { return value; }
-            void main() { gl_FragColor = vec4(unknownHelper(linkedValue.xy), 0.0, 1.0); }
-            """,
-            """
-            varying vec2 linkedValue;
             vec2 escapingHelper() { return linkedValue.xy; }
             void main() { gl_FragColor = vec4(escapingHelper(), 0.0, 1.0); }
             """,

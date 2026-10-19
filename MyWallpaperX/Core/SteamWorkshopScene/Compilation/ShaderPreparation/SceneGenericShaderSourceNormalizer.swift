@@ -96,7 +96,11 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     stage: .fragment
                 ), stage: .fragment
             )
-            let fragmentSourceForParsing = rewriteFragmentDerivativeCalls(typedFragmentSource)
+            let storageVertexSource = SceneGenericShaderRuntimeConstantNormalizer.rewrite(
+                typedVertexSource, stage: .vertex)
+            let storageFragmentSource = SceneGenericShaderRuntimeConstantNormalizer.rewrite(
+                typedFragmentSource, stage: .fragment)
+            let fragmentSourceForParsing = rewriteFragmentDerivativeCalls(storageFragmentSource)
             let parsedFragment = try parse(fragmentSourceForParsing, stage: "fragment")
             // Use the same deduplicated interface and unchanged body as stage
             // conversion. Identical fragment declarations are already allowed
@@ -115,7 +119,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             let fragmentReferenceUnit = fragmentReferenceAnalysis.diagnostics.isEmpty
                 ? fragmentReferenceAnalysis.unit : nil
             var parsed: [String: ParsedStage] = [
-                "vertex": try parse(typedVertexSource, stage: "vertex"),
+                "vertex": try parse(storageVertexSource, stage: "vertex"),
                 "fragment": parsedFragment,
             ]
             var uniforms: [String: Shape] = [:]

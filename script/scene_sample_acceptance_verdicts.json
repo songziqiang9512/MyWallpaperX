@@ -707,11 +707,14 @@
     "2849382252": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "10-18原包三白弧实际可见，138/103/59输入2048²且GPU/末合成/下一帧成功；无同viewport官方清晰度对照，旧低清仍保观察、STOP_UNKNOWN当前修法，不记已修。见#u26-source-resolution-20261018。",
+      "note": "10-19原生attachment后继已闭三白弧低清（见#background-terminal-density-20261019）；本次独立原包非零PCM+中心pointer复验，三条连续白弧/人物保持，Program/GPU/末合成及次帧成立。完整音源/相位/同状态官方样式仍未验。",
       "reviewer": "unknown",
-      "runs": [],
+      "runs": [
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json"
+      ],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip"
       ],
       "remainingDifferences": "unknown",
       "officialComparison": "unknown"
@@ -1366,14 +1369,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root（原图审查）",
-      "note": "人物与中央花枝可见；active Sprite51/65在A2C材质准入被拒，早于模拟；外围密花差异因果仍未知，1028 radial blur是独立拒绝。",
+      "note": "径向模糊1042已由透传恢复真实Program，静音/中心pointer原图外围花朵柔化、主体保持；A2C51/65及其他fallback、完整画面仍未验收。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip"
       ]
     },
     "3746422401": {

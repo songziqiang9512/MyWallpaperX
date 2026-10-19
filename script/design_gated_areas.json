@@ -812,6 +812,20 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-uniform-invariant-shader-constants",
+      "title": "uniform派生只读global的generic初始化",
+      "owner": "Scene existing shader preparation / generic compiler",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/uniform-invariant-shader-constants.md",
+      "design_notes": "先保存窄合同；只对唯一只读、uniform-invariant浮点scalar/vector global使用现编译器每invocation初始化，不新context/getter/Host uniform。广播沿原type-only分析；批准不代表实现或实际画面资格。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

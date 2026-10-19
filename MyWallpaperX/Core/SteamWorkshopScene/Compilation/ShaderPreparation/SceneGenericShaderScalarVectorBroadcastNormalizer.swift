@@ -19,7 +19,7 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
             line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
                 ? "" : line
         }.joined(separator: "\n")
-        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: analysisSource,
                 stage: stage

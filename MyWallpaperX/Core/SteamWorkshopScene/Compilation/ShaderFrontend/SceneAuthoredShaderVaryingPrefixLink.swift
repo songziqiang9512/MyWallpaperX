@@ -52,7 +52,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             fragmentMain: fragment.functions.first { $0.name == "main" }?
                 .bodyRange,
             fragmentFunctionBodies: fragment.functions.map(\.bodyRange),
-            fragmentFunctionNames: Set(fragment.functions.map(\.name))
+            fragmentFunctions: fragment.functions
         )
     }
 
@@ -78,9 +78,9 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             vertexFunctionBodies: functionBodies(in: vertex.tokens),
             fragmentTokens: fragment.tokens,
             fragmentMain: fragmentFunctions.first { $0.name == "main" }?
-                .body,
-            fragmentFunctionBodies: fragmentFunctions.map(\.body),
-            fragmentFunctionNames: Set(fragmentFunctions.map(\.name))
+                .bodyRange,
+            fragmentFunctionBodies: fragmentFunctions.map(\.bodyRange),
+            fragmentFunctions: fragmentFunctions
         )
     }
 
@@ -169,8 +169,9 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         fragmentTokens: [SceneAuthoredShaderToken],
         fragmentMain: Range<Int>?,
         fragmentFunctionBodies: [Range<Int>],
-        fragmentFunctionNames: Set<String>
+        fragmentFunctions: [SceneAuthoredShaderSyntaxUnit.Function]
     ) -> Fact? {
+        let fragmentFunctionNames = Set(fragmentFunctions.map(\.name))
         guard let vertexMain, (2 ... 4).contains(vertexWidth),
               (2 ... 4).contains(fragmentWidth), vertexWidth <= 4 else {
             return nil
@@ -200,6 +201,56 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         let required = String("xyzw".prefix(fragmentWidth))
         let publishedComponents = Set("xyzw".prefix(vertexWidth))
 
+        // Vertex side: every component the fragment reads must be written
+        // exactly once, unconditionally, at main's top level.  A whole-value
+        // assignment covers the published width; authored shaders may instead
+        // partition it across component assignments (`v_TexCoord.xy = ...`
+        // then `v_TexCoord.zw = ...`), the same shape the fragment-wider proof
+        // accepts.  A declaration wider than the initialized set stays legal as
+        // long as no live fragment read reaches the uninitialized part.
+        var depth = 0
+        var assignments = 0
+        var initializedComponents: Set<Character> = []
+        for index in vertexMain {
+            let text = vertexTokens[index].text
+            if text == "{" { depth += 1 }
+            defer { if text == "}" { depth -= 1 } }
+            guard text == name else { continue }
+            guard !isLocalDeclaration(index, tokens: vertexTokens) else { return nil }
+            let assigned: Set<Character>
+            if index + 1 < vertexMain.upperBound,
+               vertexTokens[index + 1].text == "=" {
+                assigned = publishedComponents
+            } else if index + 3 < vertexMain.upperBound,
+                      vertexTokens[index + 1].text == ".",
+                      vertexTokens[index + 2].kind == .identifier,
+                      vertexTokens[index + 3].text == "=" {
+                let swizzle = vertexTokens[index + 2].text
+                guard !swizzle.isEmpty, swizzle.count <= 4 else { return nil }
+                let components = Set(swizzle.map(canonicalComponent))
+                guard components.count == swizzle.count,
+                      components.isSubset(of: publishedComponents) else { return nil }
+                assigned = components
+            } else {
+                return nil
+            }
+            guard depth == 1,
+                  isUnconditionalVertexAssignment(
+                      index,
+                      tokens: vertexTokens,
+                      body: vertexMain
+                  ),
+                  initializedComponents.isDisjoint(with: assigned) else {
+                return nil
+            }
+            initializedComponents.formUnion(assigned)
+            assignments += 1
+        }
+        // Only the new helper-value route requires authored initialization;
+        // existing built-in reads retain their separate zero-fill promise.
+        let valueParameters = Set(required).isSubset(of: initializedComponents)
+            ? sourceValueParameterWidths(in: fragmentFunctions, tokens: fragmentTokens) : [:]
+
         var whole: Set<SceneAuthoredShaderToken> = []
         var readComponents: Set<Character> = []
         for body in fragmentFunctionBodies {
@@ -225,7 +276,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                               index,
                               tokens: fragmentTokens,
                               body: body,
-                              functionNames: fragmentFunctionNames
+                              functionNames: fragmentFunctionNames,
+                              valueParameters: valueParameters, prefix: required
                           ) else { return nil }
                     let swizzle = fragmentTokens[index + 2]
                         .text.map(canonicalComponent)
@@ -276,7 +328,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                         index,
                         tokens: fragmentTokens,
                         body: body,
-                        functionNames: fragmentFunctionNames
+                        functionNames: fragmentFunctionNames,
+                        valueParameters: valueParameters, prefix: required
                     ) else { return nil }
                     whole.insert(fragmentTokens[index])
                     readComponents.formUnion(required)
@@ -284,51 +337,6 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             }
         }
 
-        // Vertex side: every component the fragment reads must be written
-        // exactly once, unconditionally, at main's top level.  A whole-value
-        // assignment covers the published width; authored shaders may instead
-        // partition it across component assignments (`v_TexCoord.xy = ...`
-        // then `v_TexCoord.zw = ...`), the same shape the fragment-wider proof
-        // accepts.  A declaration wider than the initialized set stays legal as
-        // long as no live fragment read reaches the uninitialized part.
-        var depth = 0
-        var assignments = 0
-        var initializedComponents: Set<Character> = []
-        for index in vertexMain {
-            let text = vertexTokens[index].text
-            if text == "{" { depth += 1 }
-            defer { if text == "}" { depth -= 1 } }
-            guard text == name else { continue }
-            guard !isLocalDeclaration(index, tokens: vertexTokens) else { return nil }
-            let assigned: Set<Character>
-            if index + 1 < vertexMain.upperBound,
-               vertexTokens[index + 1].text == "=" {
-                assigned = publishedComponents
-            } else if index + 3 < vertexMain.upperBound,
-                      vertexTokens[index + 1].text == ".",
-                      vertexTokens[index + 2].kind == .identifier,
-                      vertexTokens[index + 3].text == "=" {
-                let swizzle = vertexTokens[index + 2].text
-                guard !swizzle.isEmpty, swizzle.count <= 4 else { return nil }
-                let components = Set(swizzle.map(canonicalComponent))
-                guard components.count == swizzle.count,
-                      components.isSubset(of: publishedComponents) else { return nil }
-                assigned = components
-            } else {
-                return nil
-            }
-            guard depth == 1,
-                  isUnconditionalVertexAssignment(
-                      index,
-                      tokens: vertexTokens,
-                      body: vertexMain
-                  ),
-                  initializedComponents.isDisjoint(with: assigned) else {
-                return nil
-            }
-            initializedComponents.formUnion(assigned)
-            assignments += 1
-        }
         // Reads beyond the initialized set are admitted under a zero-fill
         // promise: the Fact names exactly the unwritten components and the
         // consuming backend must append their zero assignments (see
@@ -589,6 +597,49 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         return false
     }
 
+    /// A uniquely resolved source definition supplies only by-value parameter
+    /// facts. Prototypes, overloads, value/member shadows and unknown parameter
+    /// shapes cannot provide an alias-free prefix consumer in either entry.
+    private static func sourceValueParameterWidths(
+        in functions: [SceneAuthoredShaderSyntaxUnit.Function],
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [String: [Int?]] {
+        var result: [String: [Int?]] = [:]
+        for name in Set(functions.map(\.name)) {
+            guard let function = SceneAuthoredShaderFunctionSemantics.uniqueUnshadowedSourceFunction(
+                    named: name, tokens: tokens, functions: functions),
+                  let parameters = SceneAuthoredShaderTokenScanner.argumentRanges(
+                    in: function.parameterRange, tokens: tokens) else { continue }
+            result[name] = parameters.map { parameter in
+                guard let type = SceneAuthoredShaderFunctionSemantics.valueInputType(
+                    in: parameter, tokens: tokens) else { return nil }
+                switch type {
+                case .float2: return 2
+                case .float3: return 3
+                case .float4: return 4
+                default: return nil
+                }
+            }
+        }
+        return result
+    }
+
+    private static func isExactPrefixArgument(
+        _ argument: Range<Int>, at index: Int, prefix: String,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Bool {
+        var range = argument
+        while range.count >= 2, tokens[range.lowerBound].text == "(",
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                tokens: tokens, opening: range.lowerBound) == range.upperBound - 1 {
+            range = (range.lowerBound + 1)..<(range.upperBound - 1)
+        }
+        guard range.lowerBound == index else { return false }
+        if range.count == 1 { return true }
+        return range.count == 3 && tokens[index + 1].text == "."
+            && String(tokens[index + 2].text.map(canonicalComponent)) == prefix
+    }
+
     /// Prefix reads in either direction may occur in unshadowed constructors,
     /// pure arithmetic built-ins, or the exact coordinate argument of texture
     /// samples already proven value-only by the shared emitter contract. Every
@@ -598,7 +649,9 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         _ index: Int,
         tokens: [SceneAuthoredShaderToken],
         body: Range<Int>,
-        functionNames: Set<String>
+        functionNames: Set<String>,
+        valueParameters: [String: [Int?]] = [:],
+        prefix: String? = nil
     ) -> Bool {
         let constructors: Set<String> = [
             "float", "vec2", "vec3", "vec4",
@@ -641,6 +694,21 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             if ["if", "for", "while", "switch"].contains(function) { continue }
             if !functionNames.contains(function),
                constructors.contains(function) || pureBuiltins.contains(function) {
+                continue
+            }
+            if !constructors.contains(function), !pureBuiltins.contains(function),
+               opening < 2 || tokens[opening - 2].text != ".",
+               let prefix, let parameters = valueParameters[function],
+               let closing = SceneAuthoredShaderTokenScanner
+                    .matchingParenthesis(tokens: tokens, opening: opening),
+               closing < body.upperBound,
+               let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
+                    in: (opening + 1)..<closing, tokens: tokens),
+               arguments.count == parameters.count,
+               let argument = arguments.firstIndex(where: { $0.contains(index) }),
+               parameters[argument] == prefix.count,
+               isExactPrefixArgument(arguments[argument], at: index,
+                    prefix: prefix, tokens: tokens) {
                 continue
             }
             guard let expectedArgumentCount = SceneAuthoredShaderMetalEmitter
@@ -714,13 +782,13 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
     private static func functionBodies(
         in tokens: [SceneAuthoredShaderToken]
     ) -> [Range<Int>] {
-        functionDefinitions(in: tokens).map(\.body)
+        functionDefinitions(in: tokens).map(\.bodyRange)
     }
 
     private static func functionDefinitions(
         in tokens: [SceneAuthoredShaderToken]
-    ) -> [(name: String, body: Range<Int>)] {
-        var result: [(name: String, body: Range<Int>)] = []
+    ) -> [SceneAuthoredShaderSyntaxUnit.Function] {
+        var result: [SceneAuthoredShaderSyntaxUnit.Function] = []
         var index = 0
         while index + 4 < tokens.count {
             guard tokens[index].kind == .identifier,
@@ -753,7 +821,11 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 }
             }
             guard let end else { return [] }
-            result.append((tokens[index + 1].text, (close + 1)..<(end + 1)))
+            result.append(.init(
+                name: tokens[index + 1].text, returnType: tokens[index].text,
+                headerRange: index..<(close + 1), parameterRange: (index + 3)..<close,
+                bodyRange: (close + 1)..<(end + 1), line: tokens[index].line
+            ))
             index = end + 1
         }
         return result

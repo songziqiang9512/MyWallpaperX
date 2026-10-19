@@ -3215,6 +3215,23 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": null
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "0d160d95ee2127e1c981b8d3c59d23adb225d88d",
+      "short_version": "2.10.0",
+      "bundle_version": "280",
+      "executable_sha256": "da72888cd6d2ac73382b0f42a5f5ef693d77f5588bc8255a8c5d0ee62b0b2e6f",
+      "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/generic-varying-first-gate-20261019/final-app/runtime-app-96046-1792409958793956000",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/shader-float2-consumer-width-20261017/isolation/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/generic-varying-first-gate-20261019/final-app/runtime-app-96046-1792409958793956000/MyWallpaperX.app",
+      "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/generic-varying-first-gate-20261019/final-app/runtime-app-96046-1792409958793956000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_retained": true,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": null
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
@@ -4918,6 +4935,40 @@
       "sampleCount": 1,
       "importedSampleIDs": [
         "3779107475"
+      ]
+    },
+    {
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+      "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+      "member": "runs/final374/report.json",
+      "bytes": 1814550,
+      "sha256": "541fbbee6b90e94a43a2cbb6306033feb0f6dac26d36e1b6d11b71f3b27d33a7",
+      "crc32": "93f2ebe3",
+      "status": "retained-byte-verified",
+      "sampleIndex": 0,
+      "jsonPointer": "/samples/0",
+      "matrix": null,
+      "sampleCount": 1,
+      "importedSampleIDs": [
+        "3745828537"
+      ]
+    },
+    {
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+      "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+      "member": "runs/heldout284/report.json",
+      "bytes": 206024,
+      "sha256": "7f3925888e0e850753fddebf06b8d3561962054080b79804d5ef1e31d48b7b72",
+      "crc32": "a8071411",
+      "status": "retained-byte-verified",
+      "sampleIndex": 0,
+      "jsonPointer": "/samples/0",
+      "matrix": null,
+      "sampleCount": 1,
+      "importedSampleIDs": [
+        "2849382252"
       ]
     }
   ],
@@ -25952,150 +26003,91 @@
       "runtime": {
         "status": "degraded-runtime",
         "firstBreakpoint": {
-          "stage": "resource-load",
+          "capabilityProfileOrAuthoredShape": "particle-layer",
+          "evidenceBasis": "runtime.loaded_particle_layers/particle_candidates",
+          "failureRadius": "scene",
+          "fallbackPreservedTerminalCompositor": null,
           "owner": "ParticleRuntime",
           "reasonCode": "particle-layer-load-incomplete",
-          "capabilityProfileOrAuthoredShape": "particle-layer",
-          "failureRadius": "scene",
           "severity": "degraded",
+          "stage": "resource-load",
           "unit": {
             "kind": "scene"
-          },
-          "fallbackPreservedTerminalCompositor": null,
-          "evidenceBasis": "runtime.loaded_particle_layers/particle_candidates"
+          }
         },
         "secondaryEvents": [
           {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
             "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
             "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 1028,
-              "effectIndex": 0,
-              "descriptorId": "1028#effect#1042"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 1087,
-              "effectIndex": 0,
-              "descriptorId": "1087#effect#1095"
-            },
             "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
+            "owner": "EffectStageAdmission",
+            "reasonCode": "admitted-fallback",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "1087#effect#1095",
+              "effectIndex": 0,
+              "kind": "effect",
+              "layerId": 1087
+            }
           },
           {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "unified-capability-unavailable",
             "capabilityProfileOrAuthoredShape": "backend:effect-family:circular_text",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
             "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 1165,
-              "effectIndex": 0,
-              "descriptorId": "1165#effect#1172"
-            },
             "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "effect-admission",
             "owner": "EffectStageAdmission",
             "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "1165#effect#1172",
+              "effectIndex": 0,
+              "kind": "effect",
+              "layerId": 1165
+            }
+          },
+          {
             "capabilityProfileOrAuthoredShape": "backend:effect-family:spin",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
             "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 1165,
-              "effectIndex": 1,
-              "descriptorId": "1165#effect#3001"
-            },
             "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "effect-execution",
-            "owner": "ResolvedMaterialExecution",
-            "reasonCode": "effect-local-passthrough-material-generic-owner-revoked",
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "failureRadius": "effect",
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
             "severity": "degraded",
+            "stage": "effect-admission",
             "unit": {
+              "descriptorId": "1165#effect#3001",
+              "effectIndex": 1,
               "kind": "effect",
-              "layerId": 1028,
-              "effectIndex": 0,
-              "descriptorId": "1028#effect#1042"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.effect_execution.cpu_invocations"
-          },
-          {
-            "stage": "graph-execution",
-            "owner": "GraphExecutor",
-            "reasonCode": "material-generic-owner-revoked",
-            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 1028,
-              "effectIndex": 0,
-              "descriptorId": "1028#effect#1042"
-            },
-            "fallbackPreservedTerminalCompositor": true,
-            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
+              "layerId": 1165
+            }
           }
         ],
         "evidenceSummary": {
-          "surfaceCount": 1,
-          "readyNonBlackObserved": true,
-          "afterNonBlackObserved": true,
-          "readyFlatBorderRatio": 0.7189682379801235,
-          "afterFlatBorderRatio": 0.7188423314531291,
-          "previewSpatialColorSimilarityAdvisory": 0.9814,
-          "graphEvidenceObserved": true,
           "acceptedGraphLayerCount": 152,
-          "terminalCompositorLayerCount": 75,
-          "nextFrameLayerCount": 75
+          "afterFlatBorderRatio": 0.7159632688691915,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 75,
+          "previewSpatialColorSimilarityAdvisory": 0.9816,
+          "readyFlatBorderRatio": 0.7163074133763094,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 75
         },
         "benchmarkResultIgnored": {
+          "failureCount": 1,
           "passed": null,
-          "failureCount": 3,
           "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
         },
         "intakeLifecycle": {
           "exitCode": 0,
           "timedOut": false,
-          "ready": {
-            "surfaces": 1,
-            "startup_ready_ms": 81653.387,
-            "layers": 214,
-            "effects": 176
-          },
-          "stop": {
-            "line": "2026-10-19 16:47:39.665 MyWallpaperX[54329:1896568] MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true",
-            "surfacesBefore": 1,
-            "surfacesAfter": 0,
-            "gpuDrained": true
-          },
+          "stop": "2026-10-19 19:40:55.268 MyWallpaperX[96055:2265735] MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true",
           "lifecycleQualified": true,
-          "processGroup": "UNKNOWN: existing run_sample creates no independent PGID receipt",
+          "processGroup": "UNKNOWN",
           "sourceDrift": false,
           "appVerifiedAfter": true
         },
@@ -26104,83 +26096,322 @@
       "evidence": {
         "report": {
           "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-          "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-          "member": "native/report.json",
-          "bytes": 1819575,
-          "sha256": "56855ab6447d1054ea214ca61bf30c918c256fd40fc6234ac25f3923cb2138e8",
-          "crc32": "cd48f871",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "runs/final374/report.json",
+          "bytes": 1814550,
+          "sha256": "541fbbee6b90e94a43a2cbb6306033feb0f6dac26d36e1b6d11b71f3b27d33a7",
+          "crc32": "93f2ebe3",
           "status": "retained-byte-verified",
           "sampleIndex": 0,
           "jsonPointer": "/samples/0"
         },
         "runSummary": {
           "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-          "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-          "member": "native/summary.json",
-          "bytes": 1231043,
-          "sha256": "6b62f94dbde718f5772b17e27ccd8c37e21caa7e62d432045023e1629a05d865",
-          "crc32": "07e10ca6",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "runs/final374/result.json",
+          "bytes": 1738,
+          "sha256": "c4a68ecb47d58af69a50f8bd5aaaf50e4a8ae23c10cd8e7e32f0b4c5c13ca231",
+          "crc32": "6510f16b",
           "status": "retained-byte-verified"
         },
         "sampleEvidencePaths": {
           "app_log": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-            "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-            "member": "native/app.log",
-            "bytes": 890418,
-            "sha256": "ae7c3b4e360c11c55084691d7ac3839950abbd347e5454116bc63f1ec0675d38",
-            "crc32": "6a70e8a9",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/final374/results/3745828537/app.log",
+            "bytes": 924873,
+            "sha256": "4057962f6aafc04cf7f0ef4deab4e5a60cd890be5a478f229f7ce08970605e46",
+            "crc32": "7e0c7b99",
             "status": "retained-byte-verified"
           },
           "preview_log": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-            "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-            "member": "native/scene-preview.log",
-            "bytes": 296660,
-            "sha256": "597be9e647414996c2b8735944fdd25e6a1b75a7deed5e092b0c830d0ea64f3b",
-            "crc32": "7af32054",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/final374/results/3745828537/scene-preview.log",
+            "bytes": 294476,
+            "sha256": "897b1a1f054d27040f0bfac9c223c397c9d5685f44eaad6e0c91949ef6e54c91",
+            "crc32": "03dd6ff3",
             "status": "retained-byte-verified"
           },
           "runtime_evidence": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-            "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-            "member": "native/scene-runtime-evidence.json",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/final374/results/3745828537/scene-runtime-evidence.json",
             "bytes": 3545124,
-            "sha256": "6b97fc9c1861fcc5f6cc44a10a43c3de40dd34ed319bd62d947fcf58237a6ea2",
-            "crc32": "59bf123b",
+            "sha256": "43746e81fc760b7f9f848926a88fc6b54b7156a66f431f95665d56050f3144de",
+            "crc32": "7ab972c1",
             "status": "retained-byte-verified"
           },
-          "after_snapshot": {
+          "periodic_snapshot": {
             "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-            "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-            "member": "raw/scene-after-window.png",
-            "bytes": 4161294,
-            "sha256": "927d37192c849f017cc4be6106655a679ec69ddfd316f92f35b29d784336d6b6",
-            "crc32": "5886b909",
-            "status": "retained-byte-verified"
-          },
-          "retention_omissions": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
-            "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
-            "member": "retention-omissions.json",
-            "bytes": 748,
-            "sha256": "ed1f0e8e7c8069d64e309c3ba18f36f24790c26a72a06b7d127e3e37c841f435",
-            "crc32": "261f63d4",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/final374/results/3745828537/scene-series-0000-window.png",
+            "bytes": 4157971,
+            "sha256": "643d38bc94b53123460ab349d2ca168fbcfc67d390c8d6f92abb61f1dbc389f2",
+            "crc32": "a5a29824",
             "status": "retained-byte-verified"
           }
         },
         "unretainedEvidenceKeys": [
-          "ready_snapshot"
-        ]
+          "ready_snapshot",
+          "after_snapshot"
+        ],
+        "qualification": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "execution-receipt.json",
+          "bytes": 26080,
+          "sha256": "09907a8fc18d18a0900e4847d312f8b1c2f6fd23eed855e3d791b2bdd8c20af6",
+          "crc32": "2627c84d",
+          "status": "retained-byte-verified"
+        }
       },
-      "nextAction": "inspect-fallback-and-authored-visual-ROI"
+      "nextAction": "1042 radial blur Program and visible outer softness recovered; A2C51/65, other independently admitted fallbacks, full modes/official parity remain open.",
+      "history": [
+        {
+          "importedAt": "2026-10-19T11:48:46.103515+00:00",
+          "reason": "Prior diagnostic retained; only source-proven1042 shader gates closed, full sample unreviewed.",
+          "runtime": {
+            "status": "degraded-runtime",
+            "firstBreakpoint": {
+              "stage": "resource-load",
+              "owner": "ParticleRuntime",
+              "reasonCode": "particle-layer-load-incomplete",
+              "capabilityProfileOrAuthoredShape": "particle-layer",
+              "failureRadius": "scene",
+              "severity": "degraded",
+              "unit": {
+                "kind": "scene"
+              },
+              "fallbackPreservedTerminalCompositor": null,
+              "evidenceBasis": "runtime.loaded_particle_layers/particle_candidates"
+            },
+            "secondaryEvents": [
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "admitted-fallback",
+                "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 1028,
+                  "effectIndex": 0,
+                  "descriptorId": "1028#effect#1042"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "admitted-fallback",
+                "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 1087,
+                  "effectIndex": 0,
+                  "descriptorId": "1087#effect#1095"
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "unified-capability-unavailable",
+                "capabilityProfileOrAuthoredShape": "backend:effect-family:circular_text",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 1165,
+                  "effectIndex": 0,
+                  "descriptorId": "1165#effect#1172"
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "effect-admission",
+                "owner": "EffectStageAdmission",
+                "reasonCode": "unified-capability-unavailable",
+                "capabilityProfileOrAuthoredShape": "backend:effect-family:spin",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 1165,
+                  "effectIndex": 1,
+                  "descriptorId": "1165#effect#3001"
+                },
+                "fallbackPreservedTerminalCompositor": null,
+                "evidenceBasis": "runtime.effect_stage_admission.records"
+              },
+              {
+                "stage": "effect-execution",
+                "owner": "ResolvedMaterialExecution",
+                "reasonCode": "effect-local-passthrough-material-generic-owner-revoked",
+                "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 1028,
+                  "effectIndex": 0,
+                  "descriptorId": "1028#effect#1042"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.effect_execution.cpu_invocations"
+              },
+              {
+                "stage": "graph-execution",
+                "owner": "GraphExecutor",
+                "reasonCode": "material-generic-owner-revoked",
+                "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
+                "failureRadius": "effect",
+                "severity": "degraded",
+                "unit": {
+                  "kind": "effect",
+                  "layerId": 1028,
+                  "effectIndex": 0,
+                  "descriptorId": "1028#effect#1042"
+                },
+                "fallbackPreservedTerminalCompositor": true,
+                "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
+              }
+            ],
+            "evidenceSummary": {
+              "surfaceCount": 1,
+              "readyNonBlackObserved": true,
+              "afterNonBlackObserved": true,
+              "readyFlatBorderRatio": 0.7189682379801235,
+              "afterFlatBorderRatio": 0.7188423314531291,
+              "previewSpatialColorSimilarityAdvisory": 0.9814,
+              "graphEvidenceObserved": true,
+              "acceptedGraphLayerCount": 152,
+              "terminalCompositorLayerCount": 75,
+              "nextFrameLayerCount": 75
+            },
+            "benchmarkResultIgnored": {
+              "passed": null,
+              "failureCount": 3,
+              "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+            },
+            "intakeLifecycle": {
+              "exitCode": 0,
+              "timedOut": false,
+              "ready": {
+                "surfaces": 1,
+                "startup_ready_ms": 81653.387,
+                "layers": 214,
+                "effects": 176
+              },
+              "stop": {
+                "line": "2026-10-19 16:47:39.665 MyWallpaperX[54329:1896568] MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true",
+                "surfacesBefore": 1,
+                "surfacesAfter": 0,
+                "gpuDrained": true
+              },
+              "lifecycleQualified": true,
+              "processGroup": "UNKNOWN: existing run_sample creates no independent PGID receipt",
+              "sourceDrift": false,
+              "appVerifiedAfter": true
+            },
+            "visualVerdict": "unreviewed"
+          },
+          "evidence": {
+            "report": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+              "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+              "member": "native/report.json",
+              "bytes": 1819575,
+              "sha256": "56855ab6447d1054ea214ca61bf30c918c256fd40fc6234ac25f3923cb2138e8",
+              "crc32": "cd48f871",
+              "status": "retained-byte-verified",
+              "sampleIndex": 0,
+              "jsonPointer": "/samples/0"
+            },
+            "runSummary": {
+              "format": "zip-member",
+              "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+              "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+              "member": "native/summary.json",
+              "bytes": 1231043,
+              "sha256": "6b62f94dbde718f5772b17e27ccd8c37e21caa7e62d432045023e1629a05d865",
+              "crc32": "07e10ca6",
+              "status": "retained-byte-verified"
+            },
+            "sampleEvidencePaths": {
+              "app_log": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+                "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+                "member": "native/app.log",
+                "bytes": 890418,
+                "sha256": "ae7c3b4e360c11c55084691d7ac3839950abbd347e5454116bc63f1ec0675d38",
+                "crc32": "6a70e8a9",
+                "status": "retained-byte-verified"
+              },
+              "preview_log": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+                "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+                "member": "native/scene-preview.log",
+                "bytes": 296660,
+                "sha256": "597be9e647414996c2b8735944fdd25e6a1b75a7deed5e092b0c830d0ea64f3b",
+                "crc32": "7af32054",
+                "status": "retained-byte-verified"
+              },
+              "runtime_evidence": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+                "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+                "member": "native/scene-runtime-evidence.json",
+                "bytes": 3545124,
+                "sha256": "6b97fc9c1861fcc5f6cc44a10a43c3de40dd34ed319bd62d947fcf58237a6ea2",
+                "crc32": "59bf123b",
+                "status": "retained-byte-verified"
+              },
+              "after_snapshot": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+                "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+                "member": "raw/scene-after-window.png",
+                "bytes": 4161294,
+                "sha256": "927d37192c849f017cc4be6106655a679ec69ddfd316f92f35b29d784336d6b6",
+                "crc32": "5886b909",
+                "status": "retained-byte-verified"
+              },
+              "retention_omissions": {
+                "format": "zip-member",
+                "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
+                "containerSha256": "11b78c64bc8900ff13f9ce26abe2fc28d03221fffb21e4c6960867df6d96714d",
+                "member": "retention-omissions.json",
+                "bytes": 748,
+                "sha256": "ed1f0e8e7c8069d64e309c3ba18f36f24790c26a72a06b7d127e3e37c841f435",
+                "crc32": "261f63d4",
+                "status": "retained-byte-verified"
+              }
+            },
+            "unretainedEvidenceKeys": [
+              "ready_snapshot"
+            ]
+          },
+          "nextAction": "inspect-fallback-and-authored-visual-ROI"
+        }
+      ]
     },
     {
       "id": "3746422401",
@@ -27182,12 +27413,145 @@
         ]
       },
       "nextAction": "inspect-fallback-and-authored-visual-ROI"
+    },
+    {
+      "id": "2849382252",
+      "title": "麻匪 死亡笔记 L·Lawliet",
+      "authored": {
+        "projectSha256": "d466d48ee794beeb7f5a975dc80c028729f5c3a87b0f9aee3078c793527b86e5",
+        "packageSha256": "d925888a0de49cbe756f290f907347ddc1721539edb9eb28f82005649a340c40",
+        "parseState": "parsed",
+        "objectCount": 18,
+        "occurrenceCount": 481,
+        "visibleOccurrenceCount": 328,
+        "effectInstanceCount": 17,
+        "particleLayerCount": 9,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 17,
+          "timeline_wrappers": 0,
+          "user_bindings": 8
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 7,
+          "afterFlatBorderRatio": 0.2226950711791566,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 6,
+          "previewSpatialColorSimilarityAdvisory": 0.7642,
+          "readyFlatBorderRatio": 0.2387187751813054,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 6
+        },
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": null,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "intakeLifecycle": {
+          "exitCode": 0,
+          "timedOut": false,
+          "stop": "2026-10-19 19:42:19.596 MyWallpaperX[96930:2270877] MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true",
+          "lifecycleQualified": true,
+          "processGroup": "UNKNOWN",
+          "sourceDrift": false,
+          "appVerifiedAfter": true
+        },
+        "visualVerdict": "unreviewed"
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "runs/heldout284/report.json",
+          "bytes": 206024,
+          "sha256": "7f3925888e0e850753fddebf06b8d3561962054080b79804d5ef1e31d48b7b72",
+          "crc32": "a8071411",
+          "status": "retained-byte-verified",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
+        },
+        "runSummary": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "runs/heldout284/result.json",
+          "bytes": 1700,
+          "sha256": "27fd84bb918d995e90112a5fe3094cb81adc642013907c3faa61426ad3376e22",
+          "crc32": "a245cf6e",
+          "status": "retained-byte-verified"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/heldout284/results/2849382252/app.log",
+            "bytes": 818950,
+            "sha256": "fd23faecc3a9292621a94f77ce02dc023b332ac8038b8d31ada23f5ed4c362e1",
+            "crc32": "b754e723",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/heldout284/results/2849382252/scene-preview.log",
+            "bytes": 20564,
+            "sha256": "1ced7d7aa14e22c21917858816caeeb9e670f663e0241dd5b7ac57569b847c7d",
+            "crc32": "44df1040",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/heldout284/results/2849382252/scene-runtime-evidence.json",
+            "bytes": 648430,
+            "sha256": "29d8f4a235278dae98ccd128598e6765c5835714920eed1f510910bbc28ae4fe",
+            "crc32": "16771d28",
+            "status": "retained-byte-verified"
+          },
+          "periodic_snapshot": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+            "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+            "member": "runs/heldout284/results/2849382252/scene-series-0000-window.png",
+            "bytes": 6419106,
+            "sha256": "d01f445190c6c3048fdd2cca82263ccf6ce962d005e18e9bad6f650f177e9dfa",
+            "crc32": "32ed5d23",
+            "status": "retained-byte-verified"
+          }
+        },
+        "unretainedEvidenceKeys": [
+          "ready_snapshot",
+          "after_snapshot"
+        ],
+        "qualification": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "execution-receipt.json",
+          "bytes": 26080,
+          "sha256": "09907a8fc18d18a0900e4847d312f8b1c2f6fd23eed855e3d791b2bdd8c20af6",
+          "crc32": "2627c84d",
+          "status": "retained-byte-verified"
+        }
+      },
+      "nextAction": "Independent heldout: three native-detail arcs/subject remain; old low-resolution failure closed by existing attachment contract, full audio/phase/official style unreviewed."
     }
   ],
   "schemaVersion": 1,
   "source": {
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene",
-    "sampleCount": 211,
+    "sampleCount": 212,
     "sampleIdManifestSha256": "c15d3e0ab52a1c06fd48374e9def9f9a5d99e37472eb175510912d8fae101c81",
     "currentDirectoryCount": 327,
     "completeSceneInputPairCount": 326,
@@ -27278,7 +27642,7 @@
       "sha256": "b86322c623c2190f13e27a90261b38e1355929825a4e718db4f711bdb29a18cf",
       "registeredSampleCount": 1
     },
-    "membershipBoundary": "159 selected historical runtime rows plus20 new associations relative to prior census+10-11 baseline; not a current300-member static census or fresh run of279 existing inputs.169 is earlier documented/run input, this row is补登/回归; no gray-band defect reopening.",
+    "membershipBoundary": "212 linked runtime rows from bounded historical/current intakes;327 current numeric sample directories, no claim of a fresh full-corpus run. generic shader recovery updates374 and adds independent284; other210 runtime rows unchanged.",
     "candidateOnly": true,
     "evidencePathRetentionBoundary": "Twenty delta rows reference promoted ZIP members with actual container and member hashes. Four report references preserve original five-sample group report bytes, not the single-sample formal/report.json projection. Unselected ready snapshots and full runtime JSON are historical-not-retained. Original159 rows and paths remain unchanged historical records.",
     "promotionMap": {
@@ -27716,17 +28080,36 @@
           "status": "retained-byte-verified"
         },
         "staticCensusRefreshed": false
+      },
+      {
+        "importedAtUtc": "2026-10-19T11:48:46.103515+00:00",
+        "sampleIDs": [
+          "2849382252",
+          "3745828537"
+        ],
+        "reason": "Readonly uniform constants/by-value varying recovery; independent heldout native detail preserved.",
+        "qualification": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+          "containerSha256": "0b393a331bc02c8c7970ce4f1d182a3f47fc8265e7c615eb5e22798b3ed69e49",
+          "member": "execution-receipt.json",
+          "bytes": 26080,
+          "sha256": "09907a8fc18d18a0900e4847d312f8b1c2f6fd23eed855e3d791b2bdd8c20af6",
+          "crc32": "2627c84d",
+          "status": "retained-byte-verified"
+        },
+        "staticCensusRefreshed": false
       }
     ]
   },
   "summary": {
-    "sampleCount": 211,
-    "reportedSampleCount": 211,
+    "sampleCount": 212,
+    "reportedSampleCount": 212,
     "statusCounts": {
       "blocked": 2,
       "degraded-runtime": 46,
       "runtime-evidence-incomplete": 1,
-      "structural-chain-complete-visual-review": 162
+      "structural-chain-complete-visual-review": 163
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 6,
