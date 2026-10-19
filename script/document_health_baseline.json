@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 128418
+      "bytes": 128136
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175097
+      "bytes": 175094
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 142343
+      "bytes": 142331
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -217,8 +217,8 @@
       "bytes": 9910
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 66,
-      "bytes": 12047
+      "lines": 72,
+      "bytes": 14124
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 62502
+      "bytes": 62427
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1307,11 +1307,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "47d74e31ee09f3d3ad8fec4cea4b257587978b63745cbf1a9c6a5ad9ca8e8121",
-      "after": "16c5238aa006446f68d28c92bd41114ef7308e42b01098bc6ebe18f2790785e7",
-      "owner": "scene-terminal-additive-density",
-      "reason": "Bind actual boundedmode31 terminal design and withdrawn284 prototype/same-pixel successor to existingD1. No body ceiling change; all other owned authority bodies shrink.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#additive-terminal-density"
+      "before": "16c5238aa006446f68d28c92bd41114ef7308e42b01098bc6ebe18f2790785e7",
+      "after": "ba84a9b85e0166d93fa5b1b84af5d305e7e76d6d1fe21dfca30f2c5646987308",
+      "owner": "scene-terminal-background-density",
+      "reason": "Bind bounded capturedMain source proof, reflected optional attachment entry, shared-sampler/cache cost and same-pass typed terminal to existing D1. Original284/heldout374/293 qualify only the visible slice; ordinary authorities shrink,600/150 ceilings unchanged.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#background-terminal-density"
     },
     {
       "section": "bodies",

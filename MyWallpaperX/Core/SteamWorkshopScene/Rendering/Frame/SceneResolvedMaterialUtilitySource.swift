@@ -8,6 +8,27 @@ struct SceneResolvedMaterialUtilitySource {
     let geometry: SceneCaptureGeometry
     let material: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
 
+    /// The captured source and this pass must name the same current pixels.
+    /// A utility can otherwise use a flat capture with a perspective output.
+    func permitsAttachmentRead(
+        layer: SceneRenderDescriptor.Layer,
+        alpha: Float,
+        cameraFrame: SceneParticleCameraFrame,
+        viewportSize: CGSize,
+        groups: SceneCompositionGroupFrameRuntime?,
+        memberLayerIDs: [Int]?
+    ) -> Bool {
+        guard let utility = layer.utilityLayer, utility.kind == .composition,
+              utility.copyBackground, utility.framebufferSource == nil,
+              memberLayerIDs == nil, layer.childLayerIDs.isEmpty,
+              material == nil, alpha == 1, !cameraFrame.resolvesPerspective(for: layer),
+              (layer.colorBlendMode ?? 0) == 0 else { return false }
+        return geometry.sourceMatchesOutputPixels(
+            rasterOutputMVP: groups?.rasterModelViewProjection(
+                forLayerID: layer.id, worldMVP: geometry.outputMVP) ?? geometry.outputMVP,
+            viewportSize: groups?.enclosingTargetSize(forLayerID: layer.id) ?? viewportSize)
+    }
+
     static func prepare(
         layer: SceneRenderDescriptor.Layer,
         unitModelMatrix: simd_float4x4,

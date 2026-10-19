@@ -25,6 +25,11 @@ extension SceneResolvedMaterialPassEncoder {
             passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
             device: MTLDevice
         ) {
+            if passRole.readsCurrentAttachment {
+                guard SceneResolvedMaterialProgramIdentity.supportsAttachmentReadTarget(
+                    pixelFormat: pixelFormat, sampleCount: sampleCount, device: device
+                ) else { return nil }
+            }
             guard !identity.isEmpty, !preparedKey.isEmpty,
                   let key = SceneResolvedMaterialProgramIdentity.metalCompileStateKey(
                       frontend: frontend,

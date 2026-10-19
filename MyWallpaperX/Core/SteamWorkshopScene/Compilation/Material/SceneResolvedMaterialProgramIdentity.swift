@@ -238,13 +238,21 @@ nonisolated extension SceneResolvedMaterialProgram {
         case offscreenOverwrite
         case terminalSourceOver
         case terminalStraightSourceOver
+        case terminalAttachmentSourceOver
+        case terminalAttachmentStraightSourceOver
         case terminalAdditive
         case terminalStraightAdditive
+
+        var readsCurrentAttachment: Bool {
+            self == .terminalAttachmentSourceOver
+                || self == .terminalAttachmentStraightSourceOver
+        }
 
         var terminalReplayBlendMode: Int? {
             switch self {
             case .offscreenOverwrite: nil
-            case .terminalSourceOver, .terminalStraightSourceOver: 0
+            case .terminalSourceOver, .terminalStraightSourceOver,
+                 .terminalAttachmentSourceOver, .terminalAttachmentStraightSourceOver: 0
             case .terminalAdditive, .terminalStraightAdditive: 31
             }
         }
@@ -258,6 +266,23 @@ nonisolated extension SceneResolvedMaterialProgram {
         let sampleCount: Int
         let colorWriteMaskRawValue: UInt
         let deviceRegistryID: UInt64
+        let attachmentReadMetalSourceSHA256: String?
+
+        init(
+            passRole: PassRole, shader: ShaderSemanticIdentity,
+            renderState: RenderStateIdentity, attachmentPixelFormatRawValue: UInt,
+            sampleCount: Int, colorWriteMaskRawValue: UInt, deviceRegistryID: UInt64,
+            attachmentReadMetalSourceSHA256: String? = nil
+        ) {
+            self.passRole = passRole
+            self.shader = shader
+            self.renderState = renderState
+            self.attachmentPixelFormatRawValue = attachmentPixelFormatRawValue
+            self.sampleCount = sampleCount
+            self.colorWriteMaskRawValue = colorWriteMaskRawValue
+            self.deviceRegistryID = deviceRegistryID
+            self.attachmentReadMetalSourceSHA256 = attachmentReadMetalSourceSHA256
+        }
     }
 }
 
@@ -535,6 +560,12 @@ nonisolated extension SceneResolvedMaterialProgram {
               }) else {
             return nil
         }
+        if passRole.readsCurrentAttachment {
+            guard frontendProgram.attachmentReadVariant != nil,
+                  SceneResolvedMaterialProgramIdentity.supportsAttachmentReadTarget(
+                    pixelFormat: attachmentPixelFormat, sampleCount: sampleCount,
+                    device: device) else { return nil }
+        }
         return .init(
             passRole: passRole,
             shader: semanticIdentity.shader,
@@ -542,12 +573,21 @@ nonisolated extension SceneResolvedMaterialProgram {
             attachmentPixelFormatRawValue: attachmentPixelFormat.rawValue,
             sampleCount: sampleCount,
             colorWriteMaskRawValue: colorWriteMask.rawValue,
-            deviceRegistryID: device.registryID
+            deviceRegistryID: device.registryID,
+            attachmentReadMetalSourceSHA256: passRole.readsCurrentAttachment
+                ? frontendProgram.attachmentReadVariant?.metalSourceSHA256 : nil
         )
     }
 }
 
 nonisolated extension SceneResolvedMaterialProgramIdentity {
+    static func supportsAttachmentReadTarget(
+        pixelFormat: MTLPixelFormat, sampleCount: Int, device: MTLDevice
+    ) -> Bool {
+        device.supportsFamily(.apple2) && sampleCount == 1
+            && (pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float)
+    }
+
     static func metalCompileStateKey(
         frontend: SceneAuthoredShaderProgram,
         renderState: SceneMaterialRenderState,
@@ -567,6 +607,12 @@ nonisolated extension SceneResolvedMaterialProgramIdentity {
               SceneResolvedMaterialProgramDerivation.uniqueAndValid(
                   frontend.uniformLayout
               ) else { return nil }
+        if passRole.readsCurrentAttachment {
+            guard frontend.attachmentReadVariant != nil, sampleCount == 1,
+                  attachmentPixelFormatRawValue == MTLPixelFormat.bgra8Unorm.rawValue
+                    || attachmentPixelFormatRawValue == MTLPixelFormat.rgba16Float.rawValue
+            else { return nil }
+        }
         return .init(
             passRole: passRole,
             shader: shader(frontend, schemaVersion: frontendSchemaVersion),
@@ -574,7 +620,9 @@ nonisolated extension SceneResolvedMaterialProgramIdentity {
             attachmentPixelFormatRawValue: attachmentPixelFormatRawValue,
             sampleCount: sampleCount,
             colorWriteMaskRawValue: colorWriteMaskRawValue,
-            deviceRegistryID: deviceRegistryID
+            deviceRegistryID: deviceRegistryID,
+            attachmentReadMetalSourceSHA256: passRole.readsCurrentAttachment
+                ? frontend.attachmentReadVariant?.metalSourceSHA256 : nil
         )
     }
 }

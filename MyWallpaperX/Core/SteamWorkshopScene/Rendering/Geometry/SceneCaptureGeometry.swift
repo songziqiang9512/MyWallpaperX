@@ -5,6 +5,56 @@ struct SceneCaptureGeometry {
     let sourceUV: SceneTextureUVTransform
     let outputMVP: simd_float4x4
     let pixelSize: CGSize
+
+    /// The caller supplies the output matrix after the actual enclosing pass's
+    /// raster transform, and that attachment's pixel extent, not the graph size.
+    /// This qualifies geometry only; shader/source and attachment contracts stay
+    /// with their existing preparation and compositor owners.
+    nonisolated func sourceMatchesOutputPixels(
+        rasterOutputMVP: simd_float4x4,
+        viewportSize: CGSize
+    ) -> Bool {
+        guard viewportSize.width.isFinite, viewportSize.width > 0,
+              viewportSize.height.isFinite, viewportSize.height > 0,
+              sourceUV.origin.x.isFinite, sourceUV.origin.y.isFinite,
+              sourceUV.xAxis.x.isFinite, sourceUV.xAxis.y.isFinite,
+              sourceUV.yAxis.x.isFinite, sourceUV.yAxis.y.isFinite,
+              rasterOutputMVP.columns.0.w == 0,
+              rasterOutputMVP.columns.1.w == 0,
+              rasterOutputMVP.columns.3.w != 0 else { return false }
+        for column in 0..<4 {
+            for row in 0..<4 where !rasterOutputMVP[column][row].isFinite { return false }
+        }
+        // A fixed fraction of a target pixel never grows with an offscreen UV.
+        // Double comparison retains small disagreements between large Float
+        // coordinates; Float checks also reject arithmetic the GPU cannot hold.
+        let maximumPixelError = 1.0 / 16.0
+        for uv in [SIMD2<Float>(0, 0), SIMD2(1, 0), SIMD2(0, 1), SIMD2(1, 1)] {
+            let local = SIMD4<Float>(uv.x - 0.5, 0.5 - uv.y, 0, 1)
+            let clip = rasterOutputMVP * local
+            let sampled = sourceUV.origin + sourceUV.xAxis * uv.x + sourceUV.yAxis * uv.y
+            guard clip.x.isFinite, clip.y.isFinite, clip.z.isFinite, clip.w.isFinite,
+                  (clip.x / clip.w).isFinite, (clip.y / clip.w).isFinite,
+                  sampled.x.isFinite, sampled.y.isFinite else { return false }
+            let x = Double(rasterOutputMVP.columns.0.x) * Double(local.x)
+                + Double(rasterOutputMVP.columns.1.x) * Double(local.y)
+                + Double(rasterOutputMVP.columns.3.x)
+            let y = Double(rasterOutputMVP.columns.0.y) * Double(local.x)
+                + Double(rasterOutputMVP.columns.1.y) * Double(local.y)
+                + Double(rasterOutputMVP.columns.3.y)
+            let w = Double(rasterOutputMVP.columns.3.w)
+            let outputUV = SIMD2((x / w + 1) * 0.5, (1 - y / w) * 0.5)
+            let inputUV = SIMD2(Double(sourceUV.origin.x), Double(sourceUV.origin.y))
+                + SIMD2(Double(sourceUV.xAxis.x), Double(sourceUV.xAxis.y)) * Double(uv.x)
+                + SIMD2(Double(sourceUV.yAxis.x), Double(sourceUV.yAxis.y)) * Double(uv.y)
+            let error = (inputUV - outputUV)
+                * SIMD2(Double(viewportSize.width), Double(viewportSize.height))
+            guard error.x.isFinite, error.y.isFinite,
+                  abs(error.x) <= maximumPixelError,
+                  abs(error.y) <= maximumPixelError else { return false }
+        }
+        return true
+    }
 }
 
 /// One composition source's attachment coordinates. World placement remains

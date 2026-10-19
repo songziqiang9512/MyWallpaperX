@@ -3757,6 +3757,19 @@
       "modules": [
         "test_scene_timeline_frame_evidence"
       ]
+    },
+    {
+      "id": "scene-same-pixel-source-attachment",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSamePixelSourceAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderAttachmentReadLowering.swift",
+        "script/tests/test_scene_authored_shader_same_pixel_source.py",
+        "script/tests/test_scene_generic_shader_attachment_read.py"
+      ],
+      "modules": [
+        "test_scene_authored_shader_same_pixel_source",
+        "test_scene_generic_shader_attachment_read"
+      ]
     }
   ],
   "method_gates": {

@@ -5,6 +5,12 @@ nonisolated extension SceneShaderCacheCost {
     mutating func program(_ program: SceneAuthoredShaderProgram) {
         add(256)
         string(program.metalSource)
+        if let variant = program.attachmentReadVariant {
+            add(64)
+            string(variant.metalSource)
+            string(variant.metalSourceSHA256)
+            slots(variant.physicalTextureSlots.count)
+        }
         string(program.vertexFunctionName)
         string(program.fragmentFunctionName)
         add(64)

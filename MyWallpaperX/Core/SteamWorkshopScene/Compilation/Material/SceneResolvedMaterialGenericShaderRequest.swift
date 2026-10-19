@@ -39,7 +39,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         boundTextureSlots: Set<Int> = []
     ) -> String {
         var data = Data()
-        for value in [
+        var values = [
             // v34 retires artifacts/failures with the old numeric output-use proof.
             "mwx-generic-shader-request-v34",
             SceneShaderCacheIdentity.semantics,
@@ -56,7 +56,16 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
             colorBoundary?.cacheKey ?? "-",
             boundTextureSlots.sorted().map(String.init).joined(separator: ","),
             "{}",
-        ] {
+        ]
+        // Retire only artifacts whose authored pair can gain this optional
+        // entry. Unrelated ordinary shaders retain their existing cache key.
+        if outputSemantics == .color,
+           let fact = SceneAuthoredShaderSamePixelSourceAnalyzer.analyze(
+               vertexSource: vertexSource, fragmentSource: fragmentSource),
+           fact.positionMatrixUniformName == "g_ModelViewProjectionMatrix" {
+            values.append("same-pixel-source0-attachment-v1")
+        }
+        for value in values {
             let encoded = Data(value.utf8)
             var length = UInt64(encoded.count).bigEndian
             withUnsafeBytes(of: &length) { data.append(contentsOf: $0) }

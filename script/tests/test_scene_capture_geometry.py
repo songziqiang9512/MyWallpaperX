@@ -200,6 +200,7 @@ enum Harness {
         let result: [String: Any] = [
             "compositionLocalSource": SceneCompositionLocalSourceChecks.run(),
             "backgroundCopyAxes": backgroundCopyAxes(),
+            "samePixelSource": samePixelSource(),
             "collapsedProjectedSize": {
                 let size = SceneCaptureGeometryResolver.projectedPixelSize(
                     layerMVP: SceneMatrix.scale(SIMD3<Float>(0, 0, 0)),
@@ -302,6 +303,112 @@ enum Harness {
         print(String(decoding: data, as: UTF8.self))
     }
 
+    static func samePixelSource() -> [String: [String: Bool]] {
+        let viewport = CGSize(width: 1024, height: 512)
+        let full = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
+        let quarterTurn = simd_float4x4(SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
+                                      SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1))
+        let offscreen = SceneMatrix.translation(SIMD3<Float>(65536, -32768, 0)) * full
+        func capture(_ source: simd_float4x4, output: simd_float4x4? = nil) -> SceneCaptureGeometry {
+            SceneCaptureGeometryResolver.resolve(kind: .composition,
+                layerMVP: output ?? source, viewportSize: viewport, captureMVP: source)!
+        }
+        func matches(_ geometry: SceneCaptureGeometry, _ output: simd_float4x4,
+                     size: CGSize = viewport) -> Bool {
+            geometry.sourceMatchesOutputPixels(rasterOutputMVP: output, viewportSize: size)
+        }
+        var constantW = quarterTurn * SceneMatrix.scale(SIMD3<Float>(1.5, 0.25, 1))
+        constantW.columns.3.w = 2
+        var negativeW = constantW
+        negativeW.columns.3.w = -2
+        let rotated = SceneMatrix.translation(SIMD3<Float>(0.125, -0.25, 0))
+            * SceneMatrix.rotationZ(.pi / 5) * SceneMatrix.scale(SIMD3<Float>(-3, 0.5, 1))
+        let accepted = [
+            "identity": matches(capture(full), full),
+            "quarterTurnNonuniform": matches(capture(constantW), constantW),
+            "negativeConstantW": matches(capture(negativeW), negativeW),
+            "rotationMirroring": matches(capture(rotated), rotated),
+            "offscreen": matches(capture(offscreen), offscreen),
+            "collapsedAffine": matches(capture(SceneMatrix.scale(SIMD3<Float>(0, 0, 1))),
+                                       SceneMatrix.scale(SIMD3<Float>(0, 0, 1))),
+        ]
+        var projective = full
+        projective.columns.0.w = 0.25
+        var tinyProjective = full
+        tinyProjective.columns.1.w = Float.leastNormalMagnitude
+        var shiftedOffscreen = offscreen
+        shiftedOffscreen.columns.3.x += 0.25
+        // All three basis points differ by <=3/64 pixel. Their fourth corner
+        // differs by3/32 pixel, so a three-point tolerance alone is insufficient.
+        let delta: Float = 3 / 65536
+        var fourthCorner = full
+        fourthCorner.columns.0.x += 2 * delta
+        fourthCorner.columns.1.x = -2 * delta
+        fourthCorner.columns.3.x = 2 * delta
+        let mismatches = [
+            "zoom": !matches(capture(full), SceneMatrix.scale(SIMD3<Float>(2.25, 2, 1))),
+            "translation": !matches(capture(full), SceneMatrix.translation(SIMD3<Float>(0.25, 0, 0)) * full),
+            "flatCapturePerspectiveOutput": !matches(capture(full, output: projective), projective),
+            "projectiveEvenAtTinyWVariation": !matches(capture(full), tinyProjective),
+            "largeOffscreenPixelDisagreement": !matches(capture(offscreen), shiftedOffscreen),
+            "fourthCorner": !matches(capture(full), fourthCorner),
+        ]
+        // The same normalized displacement is1/32 pixel here and1/8 pixel
+        // on the larger target. Its tolerance cannot follow object magnitude.
+        var subpixel = full
+        subpixel.columns.3.x = 1 / 16384
+        let pixelLimits = [
+            "withinFixedPixelError": matches(capture(full), subpixel),
+            "largerTargetRejectsSameUVError": !matches(capture(full), subpixel,
+                size: CGSize(width: 4096, height: 2048)),
+        ]
+        let rootMVP = SceneMatrix.translation(SIMD3<Float>(0.25, -0.125, 0))
+            * quarterTurn * SceneMatrix.scale(SIMD3<Float>(0.5, 0.25, 1))
+        let enclosing = SceneCompositionSourceGeometry(authoredRenderSizeWH: [80, 40],
+                                                       worldMVP: rootMVP)!
+        let raster = enclosing.rasterModelViewProjection(rootMVP)
+        let enclosedCapture = capture(raster, output: rootMVP)
+        let enclosingChecks = [
+            "actualRasterMatches": matches(enclosedCapture, raster, size: enclosing.pixelSize),
+            "rawWorldMatrixRejected": !matches(enclosedCapture, rootMVP, size: enclosing.pixelSize),
+        ]
+        var zeroW = full
+        zeroW.columns.3.w = 0
+        var nan = full
+        nan.columns.2.z = .nan
+        var infinite = full
+        infinite.columns.0.x = .infinity
+        var overflow = full
+        overflow.columns.0.x = .greatestFiniteMagnitude
+        overflow.columns.3.x = .greatestFiniteMagnitude
+        var divisionOverflow = full
+        divisionOverflow.columns.3.x = 16
+        divisionOverflow.columns.3.w = Float.leastNormalMagnitude
+        let invalidUV = SceneCaptureGeometry(sourceUV: .init(origin: SIMD2(.nan, 0),
+            xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1)), outputMVP: full, pixelSize: viewport)
+        let overflowingUV = SceneCaptureGeometry(sourceUV: .init(
+            origin: SIMD2(Float.greatestFiniteMagnitude, 0),
+            xAxis: SIMD2(Float.greatestFiniteMagnitude, 0), yAxis: SIMD2(0, 1)),
+            outputMVP: full, pixelSize: viewport)
+        let invalid = [
+            "zeroW": !matches(capture(full), zeroW),
+            "nanMatrix": !matches(capture(full), nan),
+            "infiniteMatrix": !matches(capture(full), infinite),
+            "floatClipOverflow": !matches(capture(full), overflow),
+            "floatDivisionOverflow": !matches(capture(full), divisionOverflow),
+            "nanSourceUV": !matches(invalidUV, full),
+            "sourceUVCornerOverflow": !matches(overflowingUV, full),
+            "zeroViewport": !matches(capture(full), full, size: CGSize(width: 0, height: 512)),
+            "negativeViewport": !matches(capture(full), full, size: CGSize(width: 1024, height: -1)),
+            "nanViewport": !matches(capture(full), full, size: CGSize(width: CGFloat.nan, height: 512)),
+            "infiniteViewport": !matches(capture(full), full, size: CGSize(width: 1024, height: CGFloat.infinity)),
+            "pixelErrorOverflow": !matches(capture(full), SceneMatrix.translation(SIMD3<Float>(8, 0, 0)) * full,
+                size: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 512)),
+        ]
+        return ["accepted": accepted, "mismatches": mismatches,
+                "pixelLimits": pixelLimits, "enclosing": enclosingChecks, "invalid": invalid]
+    }
+
     static func backgroundCopyAxes() -> [String: Any] {
         let viewport = CGSize(width: 800, height: 800)
         let turn = simd_float4x4(SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
@@ -393,6 +500,28 @@ enum Harness {
 
 
 class SceneCaptureGeometryTests(unittest.TestCase):
+    def test_same_pixel_source_accepts_affine_rotation_nonuniform_and_offscreen_maps(self) -> None:
+        self.assertEqual(self.result["samePixelSource"]["accepted"], dict.fromkeys([
+            "identity", "quarterTurnNonuniform", "negativeConstantW", "rotationMirroring",
+            "offscreen", "collapsedAffine"], True))
+
+    def test_same_pixel_source_rejects_divergent_projection_and_fourth_corner(self) -> None:
+        self.assertEqual(self.result["samePixelSource"]["mismatches"], dict.fromkeys([
+            "zoom", "translation", "flatCapturePerspectiveOutput", "projectiveEvenAtTinyWVariation",
+            "largeOffscreenPixelDisagreement", "fourthCorner"], True))
+
+    def test_same_pixel_source_uses_target_pixels_and_actual_enclosing_raster(self) -> None:
+        self.assertEqual(self.result["samePixelSource"]["pixelLimits"], {
+            "withinFixedPixelError": True, "largerTargetRejectsSameUVError": True})
+        self.assertEqual(self.result["samePixelSource"]["enclosing"], {
+            "actualRasterMatches": True, "rawWorldMatrixRejected": True})
+
+    def test_same_pixel_source_rejects_nonfinite_or_overflowing_inputs(self) -> None:
+        self.assertEqual(self.result["samePixelSource"]["invalid"], dict.fromkeys([
+            "zeroW", "nanMatrix", "infiniteMatrix", "floatClipOverflow", "floatDivisionOverflow",
+            "nanSourceUV", "sourceUVCornerOverflow", "zeroViewport", "negativeViewport",
+            "nanViewport", "infiniteViewport", "pixelErrorOverflow"], True))
+
     def test_collapsed_quad_projection_keeps_minimum_pixel_allocation(self) -> None:
         self.assertEqual(self.result["collapsedProjectedSize"], [1, 1])
 

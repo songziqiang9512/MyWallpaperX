@@ -139,7 +139,8 @@
         "Compilation/ShaderFrontend/SceneAuthoredShaderSourceCarriedRGBAAnalyzer+GeneratedCarrierProof.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderSourceCarriedRGBAAnalyzer+GeneratedCarrierControlFlow.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
-        "Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
+        "Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "Compilation/ShaderFrontend/SceneAuthoredShaderSamePixelSourceAnalyzer.swift"
       ]
     },
     "authored_shader_frontend_core": {
@@ -256,8 +257,8 @@
         "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderTernaryScalarConditionNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
-        "Compilation/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift"
-
+        "Compilation/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
+        "Compilation/ShaderPreparation/SceneGenericShaderAttachmentReadLowering.swift"
       ]
     },
     "resolved_material_program_model": {

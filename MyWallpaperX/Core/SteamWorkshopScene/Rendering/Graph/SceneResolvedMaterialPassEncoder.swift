@@ -131,12 +131,14 @@ final class SceneResolvedMaterialPassEncoder {
             program.outputContract,
             attachmentStorage: attachmentStorage
         ) else { return .failure(.fragmentOutputRejected) }
-        if (role == .terminalSourceOver || role == .terminalAdditive),
+        if (role == .terminalSourceOver || role == .terminalAdditive
+                || role == .terminalAttachmentSourceOver),
            output.colorRepresentation != .premultipliedAlpha,
            output.colorRepresentation != .opaque {
             return .failure(.fragmentOutputRejected)
         }
-        if (role == .terminalStraightSourceOver || role == .terminalStraightAdditive),
+        if (role == .terminalStraightSourceOver || role == .terminalStraightAdditive
+                || role == .terminalAttachmentStraightSourceOver),
            output.colorRepresentation != .straightAlpha {
             return .failure(.fragmentOutputRejected)
         }
@@ -153,6 +155,10 @@ final class SceneResolvedMaterialPassEncoder {
         guard let bindings = validatedBindings(program, target: target) else {
             return .failure(.bindingsRejected)
         }
+        // Keep logical source resources and samplers: another physical texture
+        // may share source0's sampler after its texture read becomes color(0).
+        let physicalBindings = role.readsCurrentAttachment
+            ? bindings.filter { $0.slot != 0 } : bindings
         #if SCENE_GRAPH_TESTING
         if let failure = withLock({
             testingPreparationFailuresByPreparedKey[program.preparedShader.cacheKey]
@@ -195,8 +201,8 @@ final class SceneResolvedMaterialPassEncoder {
         return .success(PreparedPass(
             fragmentOutput: output.colorRepresentation,
             storedContent: storedContent,
-            bindingSlots: bindings.map(\.slot),
-            bindingSamplings: bindings.map(\.sampling),
+            bindingSlots: physicalBindings.map(\.slot),
+            bindingSamplings: physicalBindings.map(\.sampling),
             uniformByteCount: program.uniformBytes.count,
             role: role,
             ownerToken: ownerToken,
@@ -213,9 +219,11 @@ final class SceneResolvedMaterialPassEncoder {
         program: SceneResolvedMaterialProgram,
         target: MTLTexture,
         unitModelViewProjection: simd_float4x4,
-        blendMode: Int = 0
+        blendMode: Int = 0,
+        readsCurrentAttachment: Bool = false
     ) -> Result<PreparedPass, PreparationFailure> {
-        guard blendMode == 0 || blendMode == 31 else {
+        guard (blendMode == 0 || blendMode == 31),
+              !readsCurrentAttachment || blendMode == 0 else {
             return .failure(.renderStateRejected)
         }
         guard validUniforms(program),
@@ -225,7 +233,10 @@ final class SceneResolvedMaterialPassEncoder {
         let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
             program.outputContract, attachmentStorage: .color)
         let role: SceneResolvedMaterialProgram.PassRole
-        if blendMode == 31 {
+        if readsCurrentAttachment {
+            role = output?.colorRepresentation == .straightAlpha
+                ? .terminalAttachmentStraightSourceOver : .terminalAttachmentSourceOver
+        } else if blendMode == 31 {
             role = output?.colorRepresentation == .straightAlpha
                 ? .terminalStraightAdditive : .terminalAdditive
         } else {
@@ -354,9 +365,11 @@ final class SceneResolvedMaterialPassEncoder {
             }
         }
         for binding in pass.bindings {
-            encoder.setVertexTexture(binding.texture, index: binding.slot)
+            if !pass.role.readsCurrentAttachment || binding.slot != 0 {
+                encoder.setVertexTexture(binding.texture, index: binding.slot)
+                encoder.setFragmentTexture(binding.texture, index: binding.slot)
+            }
             encoder.setVertexSamplerState(binding.sampler, index: binding.slot)
-            encoder.setFragmentTexture(binding.texture, index: binding.slot)
             encoder.setFragmentSamplerState(binding.sampler, index: binding.slot)
         }
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -554,8 +567,20 @@ final class SceneResolvedMaterialPassEncoder {
         guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
             return .failure(.renderStateRejected)
         }
+        let metalSource: String
+        if passRole.readsCurrentAttachment {
+            guard SceneResolvedMaterialProgramIdentity.supportsAttachmentReadTarget(
+                pixelFormat: pixelFormat, sampleCount: sampleCount, device: device
+            ) else { return .failure(.targetRejected) }
+            guard let variant = frontend.attachmentReadVariant else {
+                return .failure(.compileStateKeyRejected)
+            }
+            metalSource = variant.metalSource
+        } else {
+            metalSource = frontend.metalSource
+        }
         let library: MTLLibrary
-        switch metalLibrary(for: frontend.metalSource) {
+        switch metalLibrary(for: metalSource) {
         case let .success(value): library = value
         case let .failure(failure): return .failure(failure)
         }
@@ -580,6 +605,7 @@ final class SceneResolvedMaterialPassEncoder {
             let additive = passRole.terminalReplayBlendMode == 31
             let straight = passRole == .terminalStraightSourceOver
                 || passRole == .terminalStraightAdditive
+                || passRole == .terminalAttachmentStraightSourceOver
             descriptor.colorAttachments[0].rgbBlendOperation = .add
             descriptor.colorAttachments[0].sourceRGBBlendFactor =
                 straight ? .sourceAlpha : .one

@@ -325,7 +325,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               ticket.finalTextureIdentity == ObjectIdentifier(ledger.prepared.finalTexture),
               ticket.finalContent == ledger.prepared.finalResource.publication.candidate.content,
               ticket.hasTerminalMaterialReplay == (ledger.prepared.terminalMaterialReplay != nil),
-              ticket.terminalReplayBlendMode == ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode else {
+              ticket.terminalReplayBlendMode == ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode,
+              ticket.terminalReadsCurrentAttachment == (ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true) else {
             return fail("terminal-material-replay-ticket-mismatch")
         }
         guard ticket.hasTerminalMaterialReplay else {

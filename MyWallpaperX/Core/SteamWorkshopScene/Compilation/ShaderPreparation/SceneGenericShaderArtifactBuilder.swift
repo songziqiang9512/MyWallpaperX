@@ -319,6 +319,25 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     throw Failure.loopBudget
                 }
             }
+            let attachmentRead: SceneAuthoredShaderProgram.AttachmentReadVariant?
+            if outputSemantics == .color,
+               let fact = SceneAuthoredShaderSamePixelSourceAnalyzer.analyze(
+                   vertexSource: vertexStage.authoredSource,
+                   fragmentSource: fragmentStage.authoredSource),
+               fact.positionMatrixUniformName == "g_ModelViewProjectionMatrix",
+               let name = reflectedTextureNames[fact.textureSlot],
+               let terminalSource = SceneGenericShaderAttachmentReadLowering.lower(
+                   metalSource: metalSource, fragmentFunctionName: "mwxGenericFragment",
+                   sourceTextureName: name, sourceSampleCallCount: fact.sampleCallCount),
+               terminalSource.utf8.count <= maximumArtifactBytes {
+                attachmentRead = .init(schemaVersion: 1, sourceSlot: fact.textureSlot,
+                    metalSource: terminalSource,
+                    metalSourceSHA256: SceneGenericShaderProgramArtifact.sha256(
+                        Data(terminalSource.utf8)),
+                    physicalTextureSlots: bindings.map(\.slot).filter { $0 != fact.textureSlot }.sorted())
+            } else {
+                attachmentRead = nil
+            }
             let program = SceneGenericShaderProgramArtifact.Program(
                 metalSource: metalSource,
                 metalSourceSHA256: SceneGenericShaderProgramArtifact.sha256(
@@ -339,7 +358,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 colorBoundary: colorBoundary,
                 colorTransfer: color.transfer,
                 fragmentOutputChannelUse: outputChannelUse.rawValue,
-                vertexPositionInput: vertexPositionInput?.rawValue
+                vertexPositionInput: vertexPositionInput?.rawValue,
+                attachmentReadVariant: attachmentRead
             )
             return .success(.init(
                 backendID: backendID,

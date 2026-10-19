@@ -278,11 +278,16 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                 renderStateIdentity.alphaWriting.rawValue,
             ].joined(separator: "|")
         )
-        digest.append(
-            SceneGenericShaderProgramArtifact.sha256(
-                Data(frontend.metalSource.utf8)
+        if passRole.readsCurrentAttachment {
+            guard let variant = frontend.attachmentReadVariant else { return nil }
+            digest.append(variant.metalSourceSHA256)
+        } else {
+            digest.append(
+                SceneGenericShaderProgramArtifact.sha256(
+                    Data(frontend.metalSource.utf8)
+                )
             )
-        )
+        }
         return digest.sha256Hex()
     }
 

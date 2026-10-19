@@ -203,18 +203,16 @@ extension SceneMetalRenderer {
             } else {
                 selectedMainSource = mainTarget
             }
+            let effectDrawAlpha = SceneDynamicLayerValues.alpha(
+                layerID: layerID,
+                authoredValue: layer.alpha,
+                snapshot: frameContext.dynamicValues
+            )
             let desiredSize: CGSize
-            var terminalReplayTarget: MTLTexture? =
-                claim.supportsTerminalMaterialReplay && claim.admittedGraphs.count == 1
-                    && claim.dependencyOwnership == .none
-                    && ((layer.contentKind == "solid" && cameraFrame.defaultsToPerspective
-                            && cameraFrame.resolvesPerspective(for: layer))
-                        || (layer.contentKind == "text" && frameVisibleLayerIDs.contains(layerID)
-                            && !cameraFrame.resolvesPerspective(for: layer)))
-                    && (layer.colorBlendMode ?? 0) == 0
-                    && imageTextures.geometryProducts[layerID] == nil
-                    && !dependencyRuntime.requiresGraphOutputCapture(for: layerID)
-                    ? selectedMainSource : nil
+            var terminalReplayTarget = initialResolvedTerminalReplayTarget(
+                claim: claim, layer: layer, cameraFrame: cameraFrame,
+                imageTextures: imageTextures, isVisible: frameVisibleLayerIDs.contains(layerID),
+                mainSource: selectedMainSource)
             let effectSourceExtentContract = imageTextures.geometryProducts[
                 layerID
             ]?.effectSourceExtentContract ?? .scalableStandard
@@ -319,9 +317,8 @@ extension SceneMetalRenderer {
                    let solidExtent = SceneLayerEffectSourceExtent.resolveSolid(
                        authoredRenderSizeWH: authoredSize
                    ) {
-                    // A texture or authored solid owns its local source extent. A
-                    // normal terminal material draws at placement density;
-                    // advanced blending consumes the existing graph texture.
+                    // The texture or authored solid owns its source extent;
+                    // qualified normal/additive terminals draw at placement density.
                     desiredSize = selectedSource.candidate?.mappedSize ?? solidExtent.pixelSize
                     if claim.supportsTerminalMaterialReplay,
                        (layer.colorBlendMode ?? 0) == 0 || layer.colorBlendMode == 31 {
@@ -399,6 +396,14 @@ extension SceneMetalRenderer {
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
                 desiredSize = source.geometry.pixelSize
+                if claim.supportsTerminalMaterialReplay,
+                   frameVisibleLayerIDs.contains(layerID),
+                   !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
+                   source.permitsAttachmentRead(layer: layer, alpha: effectDrawAlpha, cameraFrame: cameraFrame,
+                       viewportSize: viewportSize, groups: compositionGroupRuntime,
+                       memberLayerIDs: utilityExecution.membersByRootID[layer.id]) {
+                    terminalReplayTarget = selectedMainSource
+                }
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       case .authoredCanvasDirectDraw =
@@ -797,11 +802,6 @@ extension SceneMetalRenderer {
             let previousCursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.previous,
                 modelViewProjection: effectProjectionMVP
-            )
-            let effectDrawAlpha = SceneDynamicLayerValues.alpha(
-                layerID: layerID,
-                authoredValue: layer.alpha,
-                snapshot: frameContext.dynamicValues
             )
             let effectDrawColor = SceneDynamicLayerValues.color(
                 layerID: layerID,

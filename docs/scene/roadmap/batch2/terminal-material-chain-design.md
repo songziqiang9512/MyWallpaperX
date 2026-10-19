@@ -47,11 +47,17 @@
 
 <a id="background-terminal-density"></a>
 
-## 无成员背景采集的终端密度（2026-10-19，原型停止）
+## 无成员背景采集的终端密度（2026-10-19，有界实现）
 
-目标是避免把巨大屏外画布压到工作纹理后放大。保持原 source UV/2048预算、仅将末材质按屏幕密度重放的原型，实际284三层虽都完成终端回执，只有末弧清楚；后继背景 capture 又低清了先前弧。因此已撤回其产品准入，不能从单pass细线或执行计数认三弧修好。[失败与原图身份](../../../../.artifacts/tmp/arc-ring-sharpness-20261019/research/284-prototype-stop.json)保留，不重复同原型。
+目标是避免把巨大屏外画布压到工作纹理后放大。原型只按屏幕密度重放末材质，实际284仅末弧清楚，后继背景capture仍低清先前弧，已撤回；[必要证据](../../../../.artifacts/scene-evidence/runs/arc-density-qualification-20261019/current/report.json)保留，不从单pass或回执计数认三弧修好。
 
-后继必须沿现 Compiler/ArtifactBuilder→Program→pool/GraphExecutor→唯一MainPass，同时保住背景与新生成细节。优先研究编译期同pixel证明：顶点仅canonical quad经原MVP、原UV分量无改写、slot0每次普通2D采样都对应当前背景pixel，才可让实际generic产物的可选终端入口消费color attachment；未知坐标/offset/LOD/helper/vertex warp退回原纹理路径。targetPixels或prefix-link单独不足以证明，不只修boundedEmitter，不伪造Candidate/Resolution，不以不同extent纹理偷换同descriptor副本。需要SDR/HDR实际PSO资格、三层非平凡背景与细线、改名/等价变体和相邻反例、原284三弧与独立样本；未完成前保持原graph路线，不认性能收益。
+后继沿现 Compiler/ArtifactBuilder→Program→pool/GraphExecutor→唯一MainPass保住背景与新细节。共享SyntaxUnit/binding facts证明canonical quad仅经原MVP、原UV的xy无改写、slot0全部普通2D采样读取原xy；改名、括号与恒等向量构造不改变资格。未知坐标/offset/LOD/helper传递/条件改写/vertex warp拒绝可选入口；targetPixels及prefix-link不能替代证明。先限单个resolved color stage、无成员capturedMain、普通正交、无provider/依赖/显式FBO、最终alpha=1及原完整输出合同；slot0精确ingress复用现capturedMainTargetSourceSlot，不以node.bindings遗漏合法材质alias。不能用当前背景偷换前序active效果，未准入的多段链保原图。
+
+选择在现ArtifactBuilder完成普通MSL、反射、uniform布局和颜色lowering后结构化派生可选完整terminal MSL：精确反射binding0→fragment entry参数，inventory其全部使用，仅允许entry内普通两参数sample，以避冲突的color(0)参数替换完整sample子表达式；外围输入/输出颜色转换及作者运算逐字保留。复用现token/call边界，不以作者源码或生成函数形状匹配算法。未知helper/alias/其他method/参数/资源使用令变体缺席，普通artifact不变。另编GLSL subpass会增加link/反射并重复颜色边界，SPIR-V改写需新工具依赖，均不作为本片路径。
+
+同一artifact/frontend/Program携带版本化proof、可选source SHA/入口与物理texture槽；普通逻辑slot0/Resolution仍来自真实graph descriptor，terminal仅省texture0，保其它槽共享的sampler0及原资源pin。遵循既有build producer identity，同producer请求只给合资格源追加能力版本；变体源计入原缓存预算，PSO/archive均区分变体SHA。launch按实际资格预热，普通帧不分析或编译。现CaptureGeometry比较sourceUV与经实际enclosing-pass raster变换的outputMVP：有限且w恒定非零，四角误差每轴不超1/16目标像素，不随屏外坐标放宽。坐标/目标/PSO不支持保原graph-final；typed role/ticket核对一次消费、当前目标及completion pin，仍用原颜色表示的混合合同。不直接采样正在写的纹理、不放宽framebufferOnly、不增输出owner。
+
+先以自有非平凡alpha背景及连续三draw实际验证BGRA8/RGBA16Float attachment读取、普通冻结texture反例；本机signed cross的MSL2.0拒fetch、2.3才产生color(0)，不能声称原后端版本无条件支持。随后验共享proof改名/等价及邻反例、ordinary artifact不变、颜色转换一次、物理绑定/映射拒绝、停用/失败/stale/重复消费，再用原284三弧与独立样本实际出图。可选能力失败只保原图；如任一前弧再次低清，撤回route，不以末弧或回执计数结案。保2048预算、原uniform及UV，不伪造Candidate/Resolution、不偷换不同extent副本；未覆盖组合及整体性能仍开放。
 
 <a id="additive-terminal-density"></a>
 

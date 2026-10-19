@@ -293,6 +293,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             )
             supportsSourceSizedSolidEffects = solidSizing.intermediates
             supportsTerminalMaterialReplay = solidSizing.terminal
+                || Self.backgroundAttachmentReplaySupported(
+                    admitted: admitted, stages: stages, materials: materials,
+                    dependencyOwnership: dependencyOwnership,
+                    sceneBackgroundRequirement: sceneBackgroundRequirement)
             terminalReplayBlendMode = admitted.terminalReplayBlendMode
         }
 

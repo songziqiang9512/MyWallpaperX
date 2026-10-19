@@ -557,7 +557,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let admittedProducts: [AdmittedProduct]
         let stages: [StageCapability]
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
-        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        var sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         var supportsTerminalMaterialReplay = false
         var supportsSourceSizedSolidEffects = false
         var terminalReplayBlendMode = 0
@@ -868,18 +868,13 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
         pointerMovement: 0,
         primaryButtonIsDown: false,
         layerModelMatrix: .init(diagonal: .init(repeating: 1)),
-        effectOutputModelViewProjection: .init(
-            diagonal: .init(repeating: 1)
-        ),
-        effectTextureProjectionMatrixInverse: .init(
-            diagonal: .init(repeating: 1)
-        ),
+        effectOutputModelViewProjection: .init(diagonal: .init(repeating: 1)),
+        effectTextureProjectionMatrixInverse: .init(diagonal: .init(repeating: 1)),
         frameTime: 1 / 60,
         time: 0,
         audioSpectrum: .init(),
         dependencyEffects: []
     )
-
     func replacingDependencyEffects(
         _ dependencyEffects: [SceneDependencyEffectInput]
     ) -> Self {
@@ -931,7 +926,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let discardedPersistentTargetState: Bool
     }
     struct PreparedTerminalPass {
-        struct Role { let terminalReplayBlendMode: Int? }
+        struct Role { let terminalReplayBlendMode: Int?; var readsCurrentAttachment = false }
         let role: Role
     }
     struct PreparedGraph {
@@ -947,11 +942,12 @@ final class SceneResolvedMaterialGraphExecutor {
     static var preparedByToken: [Int: PreparedGraph] = [:]
     static var preparedDependencyTextureByToken: [Int: ObjectIdentifier] = [:]
     static var encodeSucceeds = false
+    private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     init?(
         device: MTLDevice,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
         capturesExecutionDiagnostics: Bool = true
-    ) {}
+    ) { self.capabilities = capabilities }
     func prepare(
         token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
         leases: [SceneGraphRenderTargetLease],
@@ -982,7 +978,11 @@ final class SceneResolvedMaterialGraphExecutor {
         }
         guard var prepared = Self.preparedByToken[token.value] else { return .failure(.unavailable) }
         if prepared.terminalMaterialReplay != nil {
-            prepared.terminalMaterialReplay = .init(role: .init(terminalReplayBlendMode: terminalReplayBlendMode))
+            var role = PreparedTerminalPass.Role(terminalReplayBlendMode: terminalReplayBlendMode)
+            if case .capturedMainTargetTexture? = capabilities.capabilitiesByLayerID[token.value]?.sourceRoute {
+                role.readsCurrentAttachment = true
+            }
+            prepared.terminalMaterialReplay = .init(role: role)
         }
         return .success(prepared)
     }

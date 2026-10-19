@@ -92,6 +92,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let colorTransfer: ColorTransfer
         let fragmentOutputChannelUse: String
         var vertexPositionInput: String? = nil
+        var attachmentReadVariant: SceneAuthoredShaderProgram.AttachmentReadVariant? = nil
     }
 
     let schemaVersion: Int
@@ -320,6 +321,17 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         guard outputChannelContractSatisfied else {
             return nil
         }
+        // A damaged optional derivative cannot revoke the ordinary artifact.
+        // Its bounded ABI and digest are checked before it grants a new read.
+        let attachmentRead = raw.attachmentReadVariant.flatMap { value in
+            value.schemaVersion == 1 && value.sourceSlot == 0
+                && expectedOutputSemantics == .color
+                && !value.metalSource.isEmpty
+                && value.metalSource.utf8.count <= 1_024 * 1_024
+                && Self.sha256(Data(value.metalSource.utf8)) == value.metalSourceSHA256
+                && value.physicalTextureSlots == bindings.map(\.slot).filter { $0 != 0 }.sorted()
+                ? value : nil
+        }
         return .init(
             metalSource: raw.metalSource,
             vertexFunctionName: raw.vertexFunctionName,
@@ -333,7 +345,8 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             backend: .genericCompilerArtifact,
             vertexPositionInput: raw.vertexPositionInput.flatMap {
                 SceneAuthoredShaderProgram.VertexPositionInput(rawValue: $0)
-            }, colorBoundary: raw.colorBoundary
+            }, colorBoundary: raw.colorBoundary,
+            attachmentReadVariant: attachmentRead
         )
     }
 

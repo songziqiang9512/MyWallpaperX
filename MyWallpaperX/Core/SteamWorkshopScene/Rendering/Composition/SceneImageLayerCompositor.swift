@@ -394,7 +394,12 @@ struct SceneImageLayerCompositor {
                ticket.hasTerminalMaterialReplay {
                 guard request.terminalMaterialState == nil,
                       resolvedMaterialGraphOutputPublisher == nil,
-                      (request.layer.contentKind == "solid" || request.layer.contentKind == "text"),
+                      (ticket.terminalReadsCurrentAttachment
+                        ? request.layer.utilityLayer?.kind == .composition
+                            && request.layer.utilityLayer?.copyBackground == true
+                            && request.layer.childLayerIDs.isEmpty && request.requiresSourceCopy
+                            && !hasDependencyInput && request.terminalDepth == nil
+                        : request.layer.contentKind == "solid" || request.layer.contentKind == "text"),
                       request.geometryProduct == nil,
                       ticket.consumesExternalPrimaryDependency == hasDependencyInput,
                       !request.requiresDependencyEffect || ticket.consumesExternalPrimaryDependency,

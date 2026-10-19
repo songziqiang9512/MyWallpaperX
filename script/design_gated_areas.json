@@ -462,12 +462,15 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "design_notes": "冻结Program及真实源extent，沿唯一graph/PassEncoder/submission/MainPass按放置密度输出；有覆盖才精确copy。普通solid/text与已准入只读依赖保持原范围。加法后继仅模式31：typed terminal role按真实straight/PMA直接硬件加法、保背景alpha；原frame request/ticket携模式，launch仅预热实际资格，不增scratch/fetch/graph尺寸。其余blend保旧路；验实际293清晰度与正反例。284 capturedMain原型只末弧清楚已撤回，后继需同pixel源证明及实际generic/SDR资格，不自动扩大准入。批准不代表运行收益或完整兼容。",
+      "design_notes": "沿唯一Program/graph/PassEncoder/submission/MainPass保源域与终端密度。普通solid/text和限定加法31保现有typed角色；capturedMain后继仅共享AST中性顶点/identity source0证明+当前实际仿射同pixel映射+单有效color stage，ArtifactBuilder完成颜色lowering后结构派生可选attachment入口/物理槽；未知使用/目标/PSO保原graph。保持真实Resolution/预算/颜色与一次消费，launch预热，无帧内解析。原284三弧/独立样本通过前不认收益；批准非运行验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSamePixelSourceAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderAttachmentReadLowering.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift"
       ],
       "contentPatterns": []
     },

@@ -77,13 +77,51 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
                     $0.frontendProgram.supportsTerminalMaterialReplay
                 }
         }
-        // Advanced blending retains its existing source-sized eligibility.
-        // Only normal source-over can replay an earlier surviving material.
+        // Source sizing and terminal replay are separate capabilities; the
+        // pass role supplies normal or admitted additive final blending.
         let lastEffect = stages.last?.product.graph.effects.first?.key
         let lastMaterial = materials.values.first { $0.key.effect == lastEffect }
         let intermediates = materials.count == stages.count && stages.allSatisfy {
             if case .resolved = $0 { return true }; return false
         } && lastMaterial.map(supportsReplay) == true
         return (intermediates, materials.values.allSatisfy(supportsReplay))
+    }
+
+    /// One source-preserving material may read the current attachment instead
+    /// of resampling a captured background. Earlier active stages cannot be
+    /// replaced by the original background, so this cohort has one stage.
+    static func backgroundAttachmentReplaySupported(
+        admitted: SceneResolvedMaterialAdmittedLayer,
+        stages: [SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability],
+        materials: [SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey:
+            SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability],
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        sceneBackgroundRequirement: SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
+    ) -> Bool {
+        guard admitted.isVisibleExecutionRoot, !admitted.isGraphOutputProvider,
+              !admitted.requiresGraphOutputProvider,
+              admitted.sourceRoute == .capturedMainTargetTexture,
+              admitted.terminalReplayBlendMode == 0,
+              dependencyOwnership == .none, sceneBackgroundRequirement == nil,
+              stages.count == 1, materials.count == 1,
+              case let .resolved(product, _, _) = stages[0],
+              product.clearFunctions.functions.isEmpty,
+              product.graph.renderTargets.isEmpty,
+              product.graph.effects.count == 1,
+              product.graph.nodes.count == 1,
+              let node = product.graph.nodes.first,
+              node.kind == .material, node.compose == nil,
+              node.target == product.graph.effects[0].output,
+              let material = materials.values.first,
+              material.attachmentStorage == .color,
+              material.template.graphRole.effectInput == .layerSource,
+              material.variants.capturedMainTargetSourceSlot(
+                  node: node, effect: product.graph.effects[0]) == 0 else { return false }
+        let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
+        return snapshot.allEntriesReady && !snapshot.variants.isEmpty
+            && snapshot.variants.allSatisfy {
+                $0.frontendProgram.supportsTerminalMaterialReplay
+                    && $0.frontendProgram.attachmentReadVariant != nil
+            }
     }
 }

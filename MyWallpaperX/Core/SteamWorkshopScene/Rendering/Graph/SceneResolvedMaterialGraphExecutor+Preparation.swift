@@ -438,11 +438,18 @@ extension SceneResolvedMaterialGraphExecutor {
                         unitModelViewProjection:
                             frameInputs.terminalReplayModelViewProjection
                                 ?? frameInputs.effectOutputModelViewProjection,
-                        blendMode: terminalReplayBlendMode
+                        blendMode: terminalReplayBlendMode,
+                        readsCurrentAttachment: capability.sourceRoute == .capturedMainTargetTexture
                     ) {
                     case let .success(replay):
                         terminalMaterialReplay = replay
                     case let .failure(failure):
+                        if capability.sourceRoute == .capturedMainTargetTexture {
+                            // This optional density entry must not revoke the
+                            // already-prepared ordinary graph on unsupported PSO/ABI.
+                            terminalMaterialReplay = nil
+                            break
+                        }
                         return .materialPassPreparationRejected(
                             stageIndex: stageIndex,
                             nodeIndex: nodeIndex,

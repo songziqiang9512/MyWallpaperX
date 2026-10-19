@@ -2,6 +2,28 @@ import Metal
 import simd
 
 extension SceneMetalRenderer {
+    /// Initial image/text terminal admission. Utility sources are evaluated
+    /// after their actual capture and enclosing-target geometry is available.
+    func initialResolvedTerminalReplayTarget(
+        claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
+        layer: SceneRenderDescriptor.Layer,
+        cameraFrame: SceneParticleCameraFrame,
+        imageTextures: SceneBaseImageTextureSnapshot,
+        isVisible: Bool,
+        mainSource: MTLTexture
+    ) -> MTLTexture? {
+        claim.supportsTerminalMaterialReplay && claim.admittedGraphs.count == 1
+            && claim.dependencyOwnership == .none
+            && ((layer.contentKind == "solid" && cameraFrame.defaultsToPerspective
+                    && cameraFrame.resolvesPerspective(for: layer))
+                || (layer.contentKind == "text" && isVisible
+                    && !cameraFrame.resolvesPerspective(for: layer)))
+            && (layer.colorBlendMode ?? 0) == 0
+            && imageTextures.geometryProducts[layer.id] == nil
+            && !dependencyRuntime.requiresGraphOutputCapture(for: layer.id)
+            ? mainSource : nil
+    }
+
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],

@@ -77,6 +77,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let effectFailures: [EffectFailure]
         let hasTerminalMaterialReplay: Bool
         let terminalReplayBlendMode: Int?
+        let terminalReadsCurrentAttachment: Bool
 
         init(identity: UInt64, epoch: UInt64,
              finalTextureIdentity: ObjectIdentifier,
@@ -84,7 +85,8 @@ final class SceneResolvedMaterialRuntimeBridge {
              consumesExternalPrimaryDependency: Bool,
              effectFailures: [EffectFailure],
              hasTerminalMaterialReplay: Bool = false,
-             terminalReplayBlendMode: Int = 0) {
+             terminalReplayBlendMode: Int = 0,
+             terminalReadsCurrentAttachment: Bool = false) {
             self.identity = identity
             self.epoch = epoch
             self.finalTextureIdentity = finalTextureIdentity
@@ -93,6 +95,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.effectFailures = effectFailures
             self.hasTerminalMaterialReplay = hasTerminalMaterialReplay
             self.terminalReplayBlendMode = hasTerminalMaterialReplay ? terminalReplayBlendMode : nil
+            self.terminalReadsCurrentAttachment = hasTerminalMaterialReplay && terminalReadsCurrentAttachment
         }
     }
 

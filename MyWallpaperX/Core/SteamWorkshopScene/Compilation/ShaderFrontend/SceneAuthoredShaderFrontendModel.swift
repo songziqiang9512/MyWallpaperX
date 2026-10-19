@@ -366,6 +366,17 @@ nonisolated struct SceneShaderColorBoundary: Codable, Hashable, Sendable {
 }
 
 nonisolated struct SceneAuthoredShaderProgram: Codable {
+    /// Optional derivative of the validated ordinary compiler artifact. The
+    /// logical input/Resolution ABI stays on the ordinary Program; this list
+    /// describes only the texture reads of the attachment entry.
+    struct AttachmentReadVariant: Codable, Equatable, Sendable {
+        let schemaVersion: Int
+        let sourceSlot: Int
+        let metalSource: String
+        let metalSourceSHA256: String
+        let physicalTextureSlots: [Int]
+    }
+
     enum VertexPositionInput: String, Codable, Hashable, Sendable {
         case clipSpace, targetPixels
     }
@@ -418,6 +429,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
     let backend: Backend
     /// Missing in older artifacts: absence never authorizes terminal replay.
     let vertexPositionInput: VertexPositionInput?
+    let attachmentReadVariant: AttachmentReadVariant?
 
     var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
 
@@ -437,7 +449,8 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         fragmentOutputChannelUse: FragmentOutputChannelUse = .unproven,
         backend: Backend = .boundedSwift,
         vertexPositionInput: VertexPositionInput? = nil,
-        colorBoundary: SceneShaderColorBoundary? = nil
+        colorBoundary: SceneShaderColorBoundary? = nil,
+        attachmentReadVariant: AttachmentReadVariant? = nil
     ) {
         self.metalSource = metalSource
         self.vertexFunctionName = vertexFunctionName
@@ -451,6 +464,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         self.fragmentOutputChannelUse = fragmentOutputChannelUse
         self.backend = backend
         self.vertexPositionInput = vertexPositionInput
+        self.attachmentReadVariant = attachmentReadVariant
     }
 
     func offscreenSize(viewportSize: CGSize) -> CGSize? {
