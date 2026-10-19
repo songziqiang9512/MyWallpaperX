@@ -33,6 +33,10 @@
 
 [详情失效收敛](../history/property-detail-invalidation-convergence-2026-10-15.md)与[迟到回执](../history/property-callback-recovery-2026-10-14.md#delayed-launched-intent)的过滤/epoch合同保持；SourceMaterials→RuntimeCatalog旧职责边由[依赖边界](../architecture/scene-dependency-boundaries.md)跟踪，不为属性项扩大baseline。文字maxwidth脚本的旧293资格缺文字可达正控，仍STOP/unknown；不要据静态接线缺口强开visible或另造文字owner。
 
+<a id="authored-property-presentation"></a>
+
+**作者展示维护。** 属性身份、原始值/选项及条件表达式保持原样，翻译只作用于展示。Scene 标题/说明保留完整段落，不能借 Web 摘要前两段裁掉作者中文；作者自己合写的双语原文保留，不猜测、拆译或静默删除其中一种语言。标准 `ui_*` 词由自有有限词表补齐，作者查表优先。声明文字但省略类型的元数据按只读说明展示；未知显式类型仍明确只读，不凭控件出现宣称消费能力。现有可调属性可达性和隐藏条件不扩域。面板以长标题完整换行、Bool/颜色对齐、Slider/文本输入/Combo/资源上下排列，统一测量与实际宽度，保虚拟化、编辑会话、重置及键盘路径。验收覆盖参数多的真实 metadata 展示与正反 fixture；展示测试不代替真实引擎属性生效。
+
 **验收。** 同条件记录打开/滚动/编辑响应与engine重建/资源更新事实，验证实际画面立即/下一帧变化、连续多次编辑、关闭重开及保存恢复。资源替换还须检查取消、缺失/坏资源与旧画面保留；条件显示、重置、依赖属性、脚本回调及多个surface保持一致。不能只断言未重建：值和事件必须真实到达consumer。
 
 热更新与缺口按通用property语义修复，变量/属性键/资源改名和相邻不应命中反例加入验证；不按样本ID或固定作者键选择行为。测量面板响应时保播放与诊断条件一致，不以隐藏控件、丢定义、关闭特效或合并应独立的事件换顺滑。

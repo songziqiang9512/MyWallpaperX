@@ -90,11 +90,20 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             let font = NSFont.systemFont(ofSize: isLabel ? 12 : 13,
                 weight: kind == .group ? .semibold : .regular)
             let rect = (title as NSString).boundingRect(
-                with: NSSize(width: isLabel ? max(1, width - 8) : 112, height: .greatestFiniteMagnitude),
+                with: NSSize(width: Self.titleWidth(for: kind, rowWidth: width), height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: font])
-            heights[index] = max(kind == .sceneTexture ? 68 : 40, ceil(rect.height) + 18)
+            let controlsHeight: CGFloat = switch kind {
+            case .slider, .textInput, .combo: 34
+            case .sceneTexture: 62
+            default: 0
+            }
+            heights[index] = max(isLabel ? 30 : 40, ceil(rect.height) + 18 + controlsHeight)
         }
         flowLayout.invalidateLayout()
+    }
+
+    private static func titleWidth(for kind: SceneUserPropertyKind, rowWidth: CGFloat) -> CGFloat {
+        max(1, rowWidth - ((kind == .bool || kind == .color) ? 68 : 8))
     }
 
     private func setupList() {
@@ -123,8 +132,11 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
+        let scroller = PropertyScroller()
+        scroller.isHidden = true
+        scrollView.verticalScroller = scroller
         scrollView.hasHorizontalScroller = false
-        flowLayout.minimumLineSpacing = 0
+        flowLayout.minimumLineSpacing = 6
         flowLayout.minimumInteritemSpacing = 0
         flowLayout.scrollDirection = .vertical
         list.collectionViewLayout = flowLayout
@@ -163,7 +175,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 guard let text = displayText(displayResolver.string(definition.title)) else { continue }
                 titles[index] = text
             } else {
-                titles[index] = displayText(displayResolver.string(definition.title)) ?? definition.key
+                titles[index] = displayText(displayResolver.string(definition.title)) ?? "未命名属性"
             }
             optionLabels[index] = definition.options.map {
                 displayText(displayResolver.string($0.label)) ?? $0.label
@@ -220,8 +232,12 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         let old = visibleRows
         let origin = scrollView.contentView.bounds.origin
         let anchor = list.indexPathsForVisibleItems().min { $0.item < $1.item }?.item ?? -1
-        let anchorID = old.indices.contains(anchor) ? old[anchor] : nil
-        let offset = old.indices.contains(anchor) ? origin.y - (flowLayout.layoutAttributesForItem(at: IndexPath(item: anchor, section: 0))?.frame.minY ?? origin.y) : 0
+        var editingView = ((window?.firstResponder as? NSTextView)?.delegate as? NSTextField) as NSView?
+        while editingView != nil && !(editingView is PropertyCell) { editingView = editingView?.superview }
+        let editingIndex = (editingView as? PropertyCell)?.definitionIndex
+        let anchorID = editingIndex ?? (old.indices.contains(anchor) ? old[anchor] : nil)
+        let anchorRow = anchorID.flatMap { old.firstIndex(of: $0) }
+        let offset = anchorRow.map { origin.y - (flowLayout.layoutAttributesForItem(at: IndexPath(item: $0, section: 0))?.frame.minY ?? origin.y) } ?? 0
         project(indices: affected)
         let oldIDs = Set(old), newIDs = Set(visibleRows)
         let removed = IndexSet(old.indices.filter { !newIDs.contains(old[$0]) })
@@ -235,6 +251,15 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             ((list.item(at: IndexPath(item: row, section: 0)) as? PropertyItem)?.cell)?.cancelEditing()
         }
         if !removed.isEmpty || !inserted.isEmpty {
+            if let editingIndex, let oldRow = old.firstIndex(of: editingIndex),
+               let newRow = visibleRows.firstIndex(of: editingIndex) {
+                let height: (Int) -> CGFloat = { (self.heights[$0] ?? 40) + self.flowLayout.minimumLineSpacing }
+                let delta = visibleRows.prefix(newRow).reduce(CGFloat(0)) { $0 + height($1) }
+                    - old.prefix(oldRow).reduce(CGFloat(0)) { $0 + height($1) }
+                // Move the viewport with an insertion before AppKit realizes
+                // its new cells, so a focused field never temporarily falls out.
+                if delta > 0 { scrollView.contentView.setBoundsOrigin(NSPoint(x: origin.x, y: origin.y + delta)) }
+            }
             list.performBatchUpdates({
                 list.deleteItems(at: Set(removed.map { IndexPath(item: $0, section: 0) }))
                 list.insertItems(at: Set(inserted.map { IndexPath(item: $0, section: 0) }))
@@ -494,17 +519,33 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                     title.centerYAnchor.constraint(equalTo: centerYAnchor)])
             } else {
                 addSubview(content)
+                let inline = kind == .bool || kind == .color
                 NSLayoutConstraint.activate([
                     title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-                    title.widthAnchor.constraint(equalToConstant: 112),
-                    title.centerYAnchor.constraint(equalTo: centerYAnchor),
-                    content.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 16),
-                    content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-                    content.centerYAnchor.constraint(equalTo: centerYAnchor)])
+                    content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4)])
+                if inline {
+                    NSLayoutConstraint.activate([
+                        title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -64),
+                        title.centerYAnchor.constraint(equalTo: centerYAnchor),
+                        content.widthAnchor.constraint(equalToConstant: 44),
+                        content.centerYAnchor.constraint(equalTo: centerYAnchor)])
+                } else {
+                    NSLayoutConstraint.activate([
+                        title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+                        title.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+                        content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+                        content.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
+                        content.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8)])
+                }
                 setupControl()
             }
         }
         required init?(coder: NSCoder) { nil }
+
+        override func layout() {
+            title.preferredMaxLayoutWidth = SteamWorkshopScenePropertyEditorView.titleWidth(for: kind, rowWidth: bounds.width)
+            super.layout()
+        }
 
         override func viewWillMove(toWindow newWindow: NSWindow?) {
             if window != nil && newWindow == nil { cancelEditing() }
@@ -526,6 +567,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 let control = WorkshopPropertySlider(value: 0, minValue: 0, maxValue: 1,
                     target: self, action: #selector(sliderChanged))
                 control.isContinuous = true
+                control.setContentHuggingPriority(.defaultLow, for: .horizontal)
                 control.onTrackingBegan = { [weak self] _ in
                     guard let self, let index = self.index else { return }
                     self.sliderSession = Session(index: index, generation: self.generation)
@@ -561,6 +603,8 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 colorWell = well
             case .combo:
                 let control = NSPopUpButton()
+                control.lineBreakMode = .byTruncatingTail
+                control.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                 control.target = self
                 control.action = #selector(comboChanged)
                 content.addArrangedSubview(control)
@@ -763,18 +807,17 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     }
 
     private func displayText(_ rawText: String) -> String? {
-        let withLineBreaks = rawText.replacingOccurrences(
-            of: "(?i)<br(?:\\s|/|&nbsp;)*?>",
-            with: "\n",
-            options: .regularExpression
-        )
-        let withoutTags = withLineBreaks.replacingOccurrences(
-            of: "<[^>]+>",
-            with: " ",
-            options: .regularExpression
-        )
-        let text = SteamWorkshopService.normalizedWebPropertyTitleText(withoutTags)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : text
+        WorkshopPropertyDisplayResolver.plainText(rawText)
+    }
+
+    private final class PropertyScroller: NSScroller {
+        override class var isCompatibleWithOverlayScrollers: Bool { true }
+        override class func scrollerWidth(for controlSize: NSControl.ControlSize, scrollerStyle: NSScroller.Style) -> CGFloat { 0 }
+        // Keep vertical scrolling enabled for NSCollectionView's content sizing,
+        // but never let its scrollbar cover the trailing property controls.
+        override var isHidden: Bool {
+            get { super.isHidden }
+            set { super.isHidden = true }
+        }
     }
 }

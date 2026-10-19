@@ -113,7 +113,9 @@ class WorkshopPropertyDisplayLocalizationTests(unittest.TestCase):
         self.assertEqual(resource['schemaVersion'], 1)
         self.assertEqual(set(resource['languages']), {'en-us', 'zh-chs', 'zh-cht'})
         english = resource['languages']['en-us']
-        self.assertEqual(len(english), 15)
+        self.assertGreaterEqual(len(english), 15)
+        self.assertEqual(resource['languages']['zh-chs']['ui_editor_properties_pivot_offset_x'], '水平轴心偏移')
+        self.assertEqual(resource['languages']['zh-chs']['ui_editor_properties_proportional_size'], '保持宽高比')
         for language, entries in resource['languages'].items():
             self.assertEqual(set(entries), set(english), language)
             for token, text in entries.items():

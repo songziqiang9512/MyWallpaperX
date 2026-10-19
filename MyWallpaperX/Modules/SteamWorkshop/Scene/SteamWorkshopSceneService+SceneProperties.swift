@@ -68,7 +68,9 @@ struct SteamWorkshopScenePropertyContext {
             pending.append(index)
         }
         for (index, definition) in definitions.enumerated() {
-            if definition.kind == .unsupported || (actionableKeys.contains(definition.key)
+            if definition.kind == .unsupported
+                || (definition.kind == .text && definition.runtimeType.isEmpty)
+                || (actionableKeys.contains(definition.key)
                 && (supportsEditorControl(definition.kind) || definition.kind == .text)) {
                 include(index)
             }
@@ -79,7 +81,8 @@ struct SteamWorkshopScenePropertyContext {
             let index = pending[cursor]
             cursor += 1
             let definition = definitions[index]
-            if supportsEditorControl(definition.kind) || definition.kind == .unsupported {
+            if supportsEditorControl(definition.kind) || definition.kind == .unsupported
+                || (definition.kind == .text && definition.runtimeType.isEmpty) {
                 if let group = groups[index] { include(group) }
                 for neighbor in [index - 1, index + 1]
                 where definitions.indices.contains(neighbor) && definitions[neighbor].kind == .text {

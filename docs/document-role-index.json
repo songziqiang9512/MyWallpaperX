@@ -3497,13 +3497,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1e74695da48a42e17bdd444058644ec60f837349d1155fbb9e2412a27808b1b0",
+        "sourceSHA256": "5a6475cd01c67f4921ef524feefb089f6d5c5513359e7f9d074dfb9214b9e6d5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "永久删除callback的D4限定合同、原包/自有编辑与独立画面后验导航；只退出已证误拒，native composition及其余旧项保留。",
-        "limitations": "只核本批变更、链接、anchor及权威，不代表完整面板/保存恢复、其余能力/整样本/性能重新验收。"
+        "scope": "作者展示维护：完整段落、只读隐式文字与未知类型、标准词表及原生窄面板布局；不扩运行消费能力。",
+        "limitations": "作者metadata与有界原生fixture展示、编辑回归及Debug构建另行留证；不代表全属性运行或官方画面一致。"
       }
     },
     {

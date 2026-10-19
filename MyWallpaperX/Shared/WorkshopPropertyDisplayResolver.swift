@@ -117,6 +117,36 @@ nonisolated struct WorkshopPropertyDisplayResolver {
         authorStrings[raw] ?? standardStrings[raw] ?? raw
     }
 
+    /// Plain native presentation only: preserve every authored paragraph and
+    /// never load HTML resources or turn translated labels into runtime input.
+    static func plainText(_ raw: String) -> String? {
+        var text = raw.replacingOccurrences(of: "(?is)<(script|style)\\b[^>]*>.*?</\\1\\s*>",
+            with: "", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?i)<br\\s*/?>|</(?:p|div|h[1-6])\\s*>|<hr\\s*/?>",
+            with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "</?[A-Za-z][^>]*>", with: "", options: .regularExpression)
+        // Decode after removing markup, so encoded '<' and '>' stay literal.
+        let entities = ["&nbsp;": " ", "&quot;": "\"", "&apos;": "'", "&lt;": "<", "&gt;": ">", "&amp;": "&"]
+        for key in entities.keys.sorted() where key != "&amp;" {
+            text = text.replacingOccurrences(of: key, with: entities[key]!)
+        }
+        text = text.replacingOccurrences(of: "&amp;", with: "&")
+        if let regex = try? NSRegularExpression(pattern: "&#(x[0-9a-fA-F]+|[0-9]+);") {
+            for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
+                guard let tokenRange = Range(match.range(at: 1), in: text),
+                      let fullRange = Range(match.range, in: text) else { continue }
+                let token = String(text[tokenRange])
+                let number = token.hasPrefix("x") ? UInt32(token.dropFirst(), radix: 16) : UInt32(token)
+                if let number, let scalar = UnicodeScalar(number) { text.replaceSubrange(fullRange, with: String(scalar)) }
+            }
+        }
+        let result = text.components(separatedBy: .newlines).map {
+            $0.replacingOccurrences(of: "[\\t ]+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+        }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return result.isEmpty ? nil : result
+    }
+
     static var languageVersion: [String] {
         preferredLanguageKeys(preferredLanguages: Locale.preferredLanguages,
             currentIdentifier: Locale.current.identifier,

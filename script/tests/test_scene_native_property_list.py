@@ -846,6 +846,9 @@ LOCALIZATION_HARNESS = r'''
 
 
 class NativeScenePropertyListTests(unittest.TestCase):
+    def test_authored_paragraphs_types_and_narrow_layout(self):
+        self.run_probe((ROOT / "script/tests/fixtures/ScenePropertyPresentationChecks.swift").read_text())
+
     def test_localized_display_and_unchanged_hidden_values(self):
         self.run_probe(LOCALIZATION_HARNESS)
 

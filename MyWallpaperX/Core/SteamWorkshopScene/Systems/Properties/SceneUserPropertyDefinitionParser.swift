@@ -25,14 +25,17 @@ nonisolated struct SceneUserPropertyDefinitionParser {
         property: [String: Any]
     ) -> SceneUserPropertyDefinition {
         let runtimeType = Self.trimmedString(property["type"] as? String)?.lowercased() ?? ""
+        // Authors also use text-only metadata without a type. This is a
+        // display declaration, never evidence of a new editable/runtime type.
+        let implicitText = property["type"] == nil && property["text"] is String
         let kind: SceneUserPropertyKind = switch runtimeType {
         case "texture", "scenetexture": .sceneTexture
-        default: SceneUserPropertyKind(rawValue: runtimeType) ?? .unsupported
+        default: implicitText ? .text : (SceneUserPropertyKind(rawValue: runtimeType) ?? .unsupported)
         }
         let rawTitle = Self.trimmedString(property["text"] as? String)
         return SceneUserPropertyDefinition(
             key: key,
-            title: rawTitle ?? key.replacingOccurrences(of: "_", with: " "),
+            title: rawTitle ?? (kind == .text ? "" : key.replacingOccurrences(of: "_", with: " ")),
             kind: kind,
             runtimeType: runtimeType,
             order: Self.integer(property["order"]) ?? Self.integer(property["index"]) ?? 0,

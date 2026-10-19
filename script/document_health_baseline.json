@@ -229,8 +229,8 @@
       "bytes": 14234
     },
     "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 40,
-      "bytes": 7285
+      "lines": 44,
+      "bytes": 8193
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
@@ -1162,15 +1162,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "6fee82ee343499173fe21ed3a48804737a3b50bf87b130d6150573b86ab90386",
-      "after": "1a2e1721b08a2514b5d899ddc174cc4c260c4c20d345c2e810cf8ad909bba747",
-      "owner": "scene-property-callback-lifecycle",
-      "reason": "已提交永久删除只退出事件消费者；D4合同及原包/自有/独立证据分归现权威，保显式typed输入与未覆盖生命周期边界。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#retired-property-callback-consumers"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
       "before": "cda08e94ead5b9a140711dde115b2661830f9f03f39bf29c4d753f45059edaf8",
       "after": "56bacd95d3482fc3a8ed2c29e1dc13804886f3655c09a20d30ce033a879f7931",
@@ -1465,6 +1456,15 @@
       "owner": "steam-detail-navigation",
       "reason": "补充授权的过期详情静默更新、缓存即时复用及作者工坊返回来源合同；复用现有请求、metadata 与分页 owner，不添加轮询或第二缓存。",
       "decision": "docs/architecture/steam-workshop-acquisition-contract.md#3-浏览缓存与-ui-投影"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "1a2e1721b08a2514b5d899ddc174cc4c260c4c20d345c2e810cf8ad909bba747",
+      "after": "aae1f1f3aca73878b5e83423f6cdc920c0ff6984b8671423304d3832cd2fcfef",
+      "owner": "scene-property-presentation",
+      "reason": "记录用户要求的Scene作者属性展示维护，保留现有可达性/条件/value owner，不新增引擎能力。",
+      "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
     }
   ]
 }
