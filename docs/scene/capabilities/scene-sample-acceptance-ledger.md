@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（302 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `51b1f3e219e09438e1c98ea2ea8aba3748392241a36077e25943c8361fd34212`（生成于 2026-10-17T03:20:28.462529+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `c6f3f4a6a16590518221eae32f4344aea983bcedd9e68d2dc37cee8a3b72cdaf`。
-- 本页生成于 2026-10-19T00:07:45.374066+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `7222fde792c054655c1ea24d1fa5d1aed633086034fe0b3645c37b30c03b8bd0`。
+- 本页生成于 2026-10-19T00:37:37.998863+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -32,7 +32,7 @@
 | `blocked` | 0 |
 | `compared` | 30 |
 
-- 已裁决但缺观看者身份的条目：**18**；已裁决但缺截图/视频身份的条目：**18**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
+- 已裁决但缺观看者身份的条目：**18**；已裁决但缺截图/视频身份的条目：**17**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
 | 归档首断点集群 | 含义 | 样本数 |
 |---|---|---:|
@@ -62,7 +62,7 @@
 |---|---|---|---|---|---|---|---|
 | `1195626192` | Gaze | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `1300076567` | 阳光少女 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `1315486372` | 貂蝉拜月 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：光照差距大；旧水波/光线余项并入复验，旧载体/根旋转修复不关闭本观察。 旧记录：水波位置不正确、光线贴图效果生硬 |
+| `1315486372` | 貂蝉拜月 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 10-19当前原包短播及独审，顶部/中段光束仍比官方宽软；52光卡、117雾与12水纹均实际执行。水纹大体限盆内，旧gross错位未定位。相位/viewpor… |
 | `1439846152` | 腿 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `1480826543` | Emilia X-ray NSFW | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `1507413154` | 百褶裙 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -252,7 +252,7 @@
 | `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Ev… | 67(33) bool 20 color 11 combo 1 group 6 scenetexture 4 slid… | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过 |
 | `3748311238` | 大 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：频谱柱盖停在高处；柱体超cap仅用户猜测，根因unknown。旧人物恢复不关闭柱盖观察。 |
 | `3749463715` | 还能在大 ∑ 2 | 3(0) bool 1 color 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：观感帧率低，重复胸部拖动仍仅首次响应；交互与性能分开验，观感不等于已测FPS。 |
-| `3750342273` | Night snowy mountains | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：视差缺失；重新开放待验。旧山体两轴响应、文字固定与回中心构图的有界关闭保留。 旧记录：10-18缺席深度首门已… |
+| `3750342273` | Night snowy mountains | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-19当前0ea907d9a对应App原包全尺寸七点受控输入，山体左右/上下响应并回中心、零深度文字固定，独审一致；完全缺渲染视差未复现，无新产品修复。真… |
 | `3750813609` | Asian Temple in the Mountains | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：雨弱、时钟样式不对；可能缺雷电但用户不确定，保持不确定性，不认定当前已证缺失。 旧记录：山寺构图、雾与落叶与预… |
 | `3754630802` | WLOP [ChineseNewYear 7] | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18通用蒙皮源XYZ保真修正：官方固定姿态仅Z清零与旧native对应，候选固定闭眼恢复，原包一次14s实际两次开→闭→开；此前34s未命中与旧协议失败… |
 | `3754639143` | WLOP 银月 | 2(0) color 1 combo 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

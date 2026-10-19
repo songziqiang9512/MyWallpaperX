@@ -11,8 +11,15 @@
     "1315486372": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "2026-10-18用户补报（待当前身份复验）：光照差距大；旧水波/光线余项并入复验，旧载体/根旋转修复不关闭本观察。 旧记录：水波位置不正确、光线贴图效果生硬",
-      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：光照差距大；旧水波/光线余项并入复验，旧载体/根旋转修复不关闭本观察。"
+      "note": "10-19当前原包短播及独审，顶部/中段光束仍比官方宽软；52光卡、117雾与12水纹均实际执行。水纹大体限盆内，旧gross错位未定位。相位/viewport与实际slot域未齐，公共错误owner未知；旧fail保留，无新修复。",
+      "remainingDifferences": "顶部/中段光束宽软、亮根/渐隐仍有外观差异；水波旧位置反馈未获同状态关闭，不按物理padding或观感推根因。",
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json"
+      ],
+      "runs": [
+        ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json"
+      ]
     },
     "2775915974": {
       "verdict": "fail",
@@ -634,13 +641,16 @@
     "3750342273": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "note": "2026-10-18用户补报（待当前身份复验）：视差缺失；重新开放待验。旧山体两轴响应、文字固定与回中心构图的有界关闭保留。 旧记录：10-18缺席深度首门已修，原包山体视差恢复、零深度文字固定；精确响应及完整交互未验，整景未裁决。",
+      "note": "10-19当前0ea907d9a对应App原包全尺寸七点受控输入，山体左右/上下响应并回中心、零深度文字固定，独审一致；完全缺渲染视差未复现，无新产品修复。真实鼠标/桌面路由、多屏、精确官方响应及整景未验，保持unreviewed。",
       "reviewer": "unknown",
-      "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
+      "runs": [
+        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
       ],
-      "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：视差缺失；重新开放待验。旧山体两轴响应、文字固定与回中心构图的有界关闭保留。",
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
+      ],
+      "remainingDifferences": "尚无当前受控输入缺视差证据；真实鼠标/桌面路由、多屏及官方精确gain/delay未验，不自动认定新缺陷。",
       "officialComparison": "unknown"
     },
     "2684431262": {

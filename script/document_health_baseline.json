@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 141884
+      "bytes": 142561
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68516
+      "bytes": 68486
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 17053
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 216,
-      "bytes": 62904
+      "lines": 215,
+      "bytes": 62735
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1441,24 +1441,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e31d3599e2cd82944023fd8709920fae04760ec435b036fcd76ae8b4a73fe4ab",
-      "after": "e3e06ba92ae6ec594cfddce66a00bbb8a18161737bc733f2a85ba269e1553968",
-      "owner": "scene-perspective-neutral-tint",
-      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "c40b28fee3d0e056f1fbf041bf2925e2f4102d2deab0423abb003b1a1e5a11d9",
-      "after": "10e8de37cc0fe6f28396c19c2c5739677db4e630609f9663a0b695676623e8bc",
-      "owner": "scene-perspective-neutral-tint",
-      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "db3361e504d0c8054ed2ce1f9d7e0c8926884ae2a7f40e586a413e7051bc9235",
       "after": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
@@ -1468,12 +1450,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b147730e2c031be9a022849864b2fa7f4c843d058549c3bb82b6a04f9f72dbfe",
-      "after": "b99f53e4be8cbf04ca70d369a19b13563a55783d5473613c283380c74e68c5d9",
-      "owner": "scene-perspective-neutral-tint",
-      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "e3e06ba92ae6ec594cfddce66a00bbb8a18161737bc733f2a85ba269e1553968",
+      "after": "8dcc1458a34a200c56e4a4e158847eef80641373c7780d6ca6a0017031378822",
+      "owner": "scene-evidence",
+      "reason": "Replace stale375 reopen status with current bounded normalized-input qualification; preserve131 visible light feedback and unknown water domain. No new product fix or whole-sample claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#light-water-current-20261019"
     }
   ]
 }
