@@ -1266,6 +1266,18 @@
       ]
     },
     {
+      "id": "compiler-fixture-trust",
+      "patterns": [
+        "script/tests/scene_compiler_fixture.py",
+        "script/tests/test_scene_compiler_fixture.py"
+      ],
+      "modules": [
+        "test_scene_compiler_fixture",
+        "test_scene_generic_shader_texture_transform_compiler",
+        "test_scene_previous_composite_scale"
+      ]
+    },
+    {
       "id": "authored-fallback-owner-revocation",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",

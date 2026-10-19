@@ -7,8 +7,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import plistlib
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -27,6 +25,10 @@ from script.tests.test_scene_material_texture_transform import (
     source_hashes,
 )
 from scene_swift_source_sets import scene_swift_sources
+from script.tests.scene_compiler_fixture import (
+    compiler_bundle as fixture_compiler_bundle,
+    fixture_sources,
+)
 
 
 GENERIC_SOURCES = list(dict.fromkeys([
@@ -91,32 +93,12 @@ HARNESS = COORDINATE_HARNESS + r'''
 
 
 def compiler_bundle(root: Path) -> Path:
-    """Copy and sign only temporary helpers, preserving the real resolver checks."""
-    resources = REPOSITORY_ROOT / "MyWallpaperX/Resources"
-    bundle = root / "Compiler.bundle"
-    contents = bundle / "Contents"
-    (contents / "Resources").mkdir(parents=True)
-    (contents / "Helpers").mkdir()
-    (contents / "Info.plist").write_bytes(plistlib.dumps({
-        "CFBundleIdentifier": "org.mywallpaperx.self-authored-coordinate-test",
-        "CFBundlePackageType": "BNDL", "CFBundleVersion": "1",
-    }))
-    shutil.copytree(resources / "SceneShaderCompilerLicenses.bundle",
-                    contents / "Resources/SceneShaderCompilerLicenses.bundle")
+    """Legacy distribution-authority probes; portable probes use the pinned fixture."""
     signing_identity = os.environ.get(
         "MWX_SCENE_TEST_SIGNING_IDENTITY",
         "Developer ID Application: Ziqiang Song (H9QWU9XN8R)",
     )
-    for name in ("glslang", "spirv-cross"):
-        target = contents / "Helpers" / name
-        shutil.copy2(resources / "SceneShaderCompilerTools" / name, target)
-        signed = subprocess.run([
-            "/usr/bin/codesign", "--force", "--sign", signing_identity,
-            "--timestamp=none", str(target),
-        ], capture_output=True, text=True, timeout=30)
-        if signed.returncode:
-            raise RuntimeError("Temporary product helper signing failed: " + signed.stderr)
-    return bundle
+    return fixture_compiler_bundle(root, signing_identity=signing_identity)
 
 
 class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
@@ -125,16 +107,17 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-generic-coordinate-")
         cls.addClassCleanup(cls.temporary_directory.cleanup)
         root = Path(cls.temporary_directory.name)
-        bundle = compiler_bundle(root)
+        bundle = fixture_compiler_bundle(root)
+        sources = fixture_sources(root, bundle, GENERIC_SOURCES)
         support, harness, binary = root / "Support.swift", root / "Harness.swift", root / "probe"
         support.write_text(SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
-        inputs = [*GENERIC_SOURCES, support, harness,
+        inputs = [*sources, support, harness,
             *(path for path in bundle.rglob("*") if path.is_file())]
         before = source_hashes(inputs)
         command = [
             "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-            str(support), *map(str, GENERIC_SOURCES), str(harness),
+            str(support), *map(str, sources), str(harness),
             "-framework", "Metal", "-framework", "CoreGraphics", "-framework", "Security",
             "-module-cache-path", str(root / "module-cache"), "-o", str(binary),
         ]

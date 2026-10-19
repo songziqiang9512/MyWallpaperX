@@ -19,13 +19,13 @@ class ScenePreviousCompositeScaleTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-own-scale-ruler-")
         cls.addClassCleanup(cls.temporary.cleanup)
         root = Path(cls.temporary.name)
-        bundle = compiler.compiler_bundle(root)
+        bundle = compiler.fixture_compiler_bundle(root)
         support = root / "Support.swift"
         support.write_text(material.SUPPORT)
         fixture = Path(__file__).with_name("fixtures") / "ScenePreviousCompositeScaleHarness.swift"
         harness = root / "RulerHarness.swift"
         harness.write_text(material.COORDINATE_HARNESS + fixture.read_text())
-        sources = [*compiler.GENERIC_SOURCES, support, harness]
+        sources = [*compiler.fixture_sources(root, bundle, compiler.GENERIC_SOURCES), support, harness]
         before = material.source_hashes(sources)
         environment = material.fixture_environment(root)
         command = ["swiftc", "-parse-as-library", *map(str, sources), "-module-cache-path",
