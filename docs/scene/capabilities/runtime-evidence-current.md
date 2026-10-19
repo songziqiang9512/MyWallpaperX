@@ -60,7 +60,7 @@
 | 标量数据遮罩 | [用途协调后验](../history/scalar-mask-data-purpose-2026-10-12.md)：二维数据红通道保原用途；296目标节点恢复GPU并经后继末合成，23→24材质、8→7拒绝；独立213画面保持。后继Blur见下行；整样本验收开放。 |
 | 前级与模糊结果合成 | <a id="gaussian-zero-axis-20261019"></a>[零轴后继](../history/previous-blurred-composite-admission-2026-10-12.md#zero-axis-followup-20261019)沿原owner接非负有限采样量：11准入方法及四App/GPU模式通过，原360整段拒绝→四Program；细条被后画UI覆盖，未辨独立视觉收益。213原包候选after主体可见，均不升整样本/官方parity。旧[默认mask后验](../history/previous-blurred-composite-admission-2026-10-12.md#default-mask-followup)保其原范围。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
-| Prepared文字实例 | [独立状态与真实shadow](../history/prepared-text-clones-2026-10-15.md)：时钟/user clone同窗口热更、creator事务与quiescent退出已证；特殊clone、字体/布局及全样本parity保留，无性能收益声明。 |
+| Prepared文字实例 | [clone/user热更及退休](../history/prepared-text-clones-2026-10-15.md)已证；特殊clone、字体/布局/parity开放。<a id="clock-color-current-20261019"></a>375时钟差异已确认，首错未证，STOP_UNKNOWN，证据不足未改产品；雨弱/雷电开放。[必要证据](../../../.artifacts/scene-evidence/runs/clock-color-current-20261019/current/report.json)。 |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
 | 普通静态图片尺寸 | [自动尺寸](../history/static-image-autosize-2026-10-12.md)：原资源头部尺寸经同一prepared sizeWH供getter/cursor/绘制，TEX/改名PNG及model宽高共24格首/后帧实际像素已验；原延迟加载保留。两份独立原包未见布局回归，不计全样本parity。 |
 | 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态9格、String/Vec2与省略尺寸实际输出已验；原自然尺寸/资源映射复用，特殊资源与完整wrapper仍开放。 |
@@ -80,7 +80,7 @@
 | 动态图片默认材质 | <a id="e-2026-10-16-dynamic-image-material"></a>[限定后验](../history/dynamic-image-default-material-2026-10-16.md)：原289三null退出、六图片owner完成，literal/间接/register实例与静态参考的三ROI像素相同，red override与unlit邻例保持；官方alpha-sensitive目标仅资格genericimage2 lit default，完整Program/lowering与builtin fact同join发布。独立326实图正常，hidden作者异常、1px放大质量、完整阴影/HDR/多屏与性能收益不据此关闭。 |
 | OGG Sound平台格式 | [资源级后验](../history/sound-script-control-2026-10-12.md#sound-ogg-native)：真实915音频与自有OGG经原Program/Registry ready、时钟、命令及退休，坏文件/WAV peer分验；完整366冷启动120秒未ready，原包声音/画面未证，独立314实图保持，无性能或听感/parity结论。 |
 | Vec3/Vec2混合算术 | [缺维保留后验](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)：固定官方24case、真实VM与原包1128非有限首错消失分列；两次属性热改同窗口，原包保owner-executed、位置motion未直接观测，独立314实图保持；保layer544作者异常及光束/封面余项，无性能或整样本结论。 |
-| 文字handle字号setter | [pointsize限定记录](../history/text-layer-pointsize-setter-2026-10-16.md)：213同媒体基线→候选首错消失，原字号/文字typed链与真实标题换词可见；两层为主要文字/阴影，artist仅输入，独立314实图保持。非面板新能力，不销右黑块或全部媒体/字体parity，无性能结论。 |
+| 文字handle字号setter | [213 typed换词/314保持](../history/text-layer-pointsize-setter-2026-10-16.md)；非面板新能力，右黑块、完整媒体/字体parity及性能未验。 |
 | 连续Puppet拖动资格 | [U40唯一记录](../history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation)区分原三轮故障、早期载体失败与后继有效官方观察；不能用早期STOP概括query/render结果。释放依赖及重复交互仍未闭合，无性能结论。 |
 | 视频用户纹理 | [U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
 | 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343恢复21目标/20层；余407/3226属性关闭、529作者隐藏，未证新编译缺口。独立376保持；激活后、全景及性能未验。 |
