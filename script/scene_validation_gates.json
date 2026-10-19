@@ -1852,7 +1852,8 @@
         "test_scene_smoothstep_vector_broadcast",
         "test_scene_direct_function_scalar_conversion",
         "test_scene_swift_source_sets",
-        "test_scene_shader_scalar_remainder"
+        "test_scene_shader_scalar_remainder",
+        "test_scene_frontend_expression_semantics"
       ]
     },
     {
@@ -3894,6 +3895,17 @@
       "modules": [
         "test_scene_resolved_material_program_finalizer",
         "test_scene_background_material_provider"
+      ]
+    },
+    {
+      "id": "frontend-expression-harness",
+      "patterns": [
+        "script/tests/scene_authored_shader_frontend_harness.py",
+        "script/tests/fixtures/SceneShaderExpressionProbe.swift"
+      ],
+      "modules": [
+        "test_scene_authored_shader_frontend",
+        "test_scene_frontend_expression_semantics"
       ]
     }
   ],
