@@ -569,7 +569,7 @@ final class SceneResolvedMaterialPassEncoder {
         }
         let metalSource: String
         if passRole.readsCurrentAttachment {
-            guard SceneResolvedMaterialProgramIdentity.supportsAttachmentReadTarget(
+            guard SceneResolvedMaterialProgram.PassRole.supportsAttachmentReadTarget(
                 pixelFormat: pixelFormat, sampleCount: sampleCount, device: device
             ) else { return .failure(.targetRejected) }
             guard let variant = frontend.attachmentReadVariant else {

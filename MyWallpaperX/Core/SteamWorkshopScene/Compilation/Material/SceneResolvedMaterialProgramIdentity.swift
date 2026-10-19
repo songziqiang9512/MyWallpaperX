@@ -243,6 +243,13 @@ nonisolated extension SceneResolvedMaterialProgram {
         case terminalAdditive
         case terminalStraightAdditive
 
+        static func supportsAttachmentReadTarget(
+            pixelFormat: MTLPixelFormat, sampleCount: Int, device: MTLDevice
+        ) -> Bool {
+            device.supportsFamily(.apple2) && sampleCount == 1
+                && (pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float)
+        }
+
         var readsCurrentAttachment: Bool {
             self == .terminalAttachmentSourceOver
                 || self == .terminalAttachmentStraightSourceOver
@@ -562,7 +569,7 @@ nonisolated extension SceneResolvedMaterialProgram {
         }
         if passRole.readsCurrentAttachment {
             guard frontendProgram.attachmentReadVariant != nil,
-                  SceneResolvedMaterialProgramIdentity.supportsAttachmentReadTarget(
+                  PassRole.supportsAttachmentReadTarget(
                     pixelFormat: attachmentPixelFormat, sampleCount: sampleCount,
                     device: device) else { return nil }
         }
@@ -581,13 +588,6 @@ nonisolated extension SceneResolvedMaterialProgram {
 }
 
 nonisolated extension SceneResolvedMaterialProgramIdentity {
-    static func supportsAttachmentReadTarget(
-        pixelFormat: MTLPixelFormat, sampleCount: Int, device: MTLDevice
-    ) -> Bool {
-        device.supportsFamily(.apple2) && sampleCount == 1
-            && (pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float)
-    }
-
     static func metalCompileStateKey(
         frontend: SceneAuthoredShaderProgram,
         renderState: SceneMaterialRenderState,

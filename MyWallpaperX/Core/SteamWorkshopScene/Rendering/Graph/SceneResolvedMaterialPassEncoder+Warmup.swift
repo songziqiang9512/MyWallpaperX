@@ -26,7 +26,7 @@ extension SceneResolvedMaterialPassEncoder {
             device: MTLDevice
         ) {
             if passRole.readsCurrentAttachment {
-                guard SceneResolvedMaterialProgramIdentity.supportsAttachmentReadTarget(
+                guard SceneResolvedMaterialProgram.PassRole.supportsAttachmentReadTarget(
                     pixelFormat: pixelFormat, sampleCount: sampleCount, device: device
                 ) else { return nil }
             }

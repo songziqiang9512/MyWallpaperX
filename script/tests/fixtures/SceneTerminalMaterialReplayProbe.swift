@@ -209,7 +209,20 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
         frontend: material.frontendProgram, renderState: material.renderState,
         pixelFormat: .bgra8Unorm, sampleCount: 1, writeMask: .all,
         passRole: .terminalSourceOver, device: device)
+    typealias PassRole = SceneResolvedMaterialProgram.PassRole
+    let supportedAttachmentFormats = [MTLPixelFormat.bgra8Unorm, .rgba16Float].allSatisfy {
+        PassRole.supportsAttachmentReadTarget(pixelFormat: $0, sampleCount: 1, device: device)
+            == device.supportsFamily(.apple2)
+    }
+    let rejectedAttachmentFormats = [MTLPixelFormat.invalid, .r8Unorm, .rgba8Unorm].allSatisfy {
+        !PassRole.supportsAttachmentReadTarget(pixelFormat: $0, sampleCount: 1, device: device)
+    }
+    let rejectedAttachmentSamples = [0, 2, 4].allSatisfy {
+        !PassRole.supportsAttachmentReadTarget(pixelFormat: .bgra8Unorm, sampleCount: $0, device: device)
+    }
     return [
+        "attachmentReadTargetCapability": supportedAttachmentFormats
+            && rejectedAttachmentFormats && rejectedAttachmentSamples,
         "terminalColdCacheRejectsWithoutFrameCompilation": coldRejected && coldAttempts == 0,
         "terminalRolesAndFormatsWarmSeparately": report.uniqueKeyCount == 3 && report.readyKeyCount == 3,
         "terminalNoFrameCompilation": beforeStraightWarmup

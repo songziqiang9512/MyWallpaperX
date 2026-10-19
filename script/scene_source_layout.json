@@ -465,7 +465,8 @@
           "SceneMetalPipeline.swift",
           "SceneStaticModelMaterial.swift",
           "SceneStaticModelPipeline.swift",
-          "SceneStaticModelShadow.swift"
+          "SceneStaticModelShadow.swift",
+          "SceneStaticModelVertexStream.swift"
         ],
         "responsibility": "Metal: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
@@ -779,7 +780,9 @@
           "ScenePuppetMeshGeometry.swift",
           "ScenePuppetPlaybackState.swift",
           "ScenePuppetSkinMatrixProjection.swift",
-          "ScenePuppetTranslationMotion.swift"
+          "ScenePuppetTranslationMotion.swift",
+          "ScenePuppetAnimationEvaluator+Skinning.swift",
+          "ScenePuppetPlaybackState+DirectModel.swift"
         ],
         "responsibility": "Puppet: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
       },
