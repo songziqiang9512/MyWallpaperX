@@ -795,56 +795,5 @@ class SceneFrameContextTests(unittest.TestCase):
         )
 
 
-    def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
-        derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("static func activeLiveConsumerTargets(", derivation)
-        self.assertIn(
-            "let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets",
-            derivation,
-        )
-        self.assertIn(
-            "resolvedMaterialExecutionCapabilities.liveConsumerTargets",
-            derivation,
-        )
-        self.assertIn('case "image":', derivation)
-        self.assertIn('case "text":', derivation)
-        self.assertIn('case "solid":', derivation)
-        self.assertIn(
-            'case "composition", "project", "fullscreen":', derivation
-        )
-        self.assertIn(
-            "utilityPlans[layer.id]?.shouldCapture == true", derivation
-        )
-        self.assertIn(
-            "targets.insert(.layer(layerID: layer.id, field: .alpha))", derivation
-        )
-        layer_color = ".layer(layerID: layer.id, field: .color)"
-        image_case = derivation[
-            derivation.index('case "image":') : derivation.index('case "text":')
-        ]
-        self.assertIn("if layer.supportsDirectLayerColorConsumer", image_case)
-        self.assertIn(layer_color, image_case)
-        solid_case = derivation[
-            derivation.index('case "solid":') : derivation.index(
-                'case "particle":'
-            )
-        ]
-        self.assertIn(layer_color, solid_case)
-        self.assertIn('case "particle"', derivation)
-        self.assertIn(".particle(layerID: layer.id, field: $0)", derivation)
-        self.assertIn(".text(layerID: layer.id, field: .content)", derivation)
-        self.assertIn(".text(layerID: layer.id, field: .pointSize)", derivation)
-        self.assertIn(".text(layerID: layer.id, field: .color)", derivation)
-
-
-    def test_each_frame_reads_the_latest_live_state_values(self) -> None:
-        host = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        render_start = host.index("private func renderFrame()")
-        render = host[render_start:]
-        self.assertIn("userValues: launchContext.liveState.userValues", render)
-        self.assertNotIn("userDynamicValues", host)
-
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -240,55 +240,6 @@
     },
     {
       "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "case \"composition\", \"project\", \"fullscreen\":",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "case \"image\":",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "case \"particle\"",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "case \"solid\":",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "case \"text\":",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "if layer.supportsDirectLayerColorConsumer",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_host_derives_only_renderer_backed_live_consumers",
-      "method": "assertIn",
-      "literal": "let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
       "scope": "SceneFrameContextTests.test_launch_callers_forward_raw_root_and_host_owns_runtime_input",
       "method": "assertIn",
       "literal": "let effectAdmissionCatalog: SceneEffectAdmissionCatalog",

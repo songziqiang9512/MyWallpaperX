@@ -15,6 +15,7 @@ VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 
 SWIFT_SOURCES = [
+    SCENE / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE / "Rendering/Composition/SceneUtilityLayer.swift",
     SCENE / "Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
     SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
