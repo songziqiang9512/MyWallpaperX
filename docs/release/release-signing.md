@@ -99,7 +99,7 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 1. 检查输入版本、正式日志、重复/倒退版本及已有 Release 草稿。
 2. 准备锁定的 Python/NuGet 依赖，运行 `--scope release` 的安装包与核心链路检查；首次失败立即打印详情并取消未开始的模块。检查代码健康，再构建 arm64 Release。
 3. 检查 bundle，逐层签署 SteamService、Scene 工具、WallpaperDaemon、Sparkle、主 App；
-   校验全包同 Team 的 Developer ID、runtime、时间戳及 App Apple Events、Steam JIT、Sparkle sandbox 权限。
+   校验全包同 Team 的 Developer ID、runtime、时间戳，App Apple Events、Steam JIT，以及 逐项匹配 Sparkle 2.9.2 原包权限；禁止注入 sandbox/JIT/调试权限（[上游合同](https://sparkle-project.org/documentation/sandboxing/)）。
 4. 公证并 staple App，使用保留符号链接的 `ditto` 装入 DMG；签署、公证、staple 并校验 DMG。
 5. 生成含 EdDSA 签名与日志的 appcast；合包 App/WallpaperDaemon dSYM，计算 DMG SHA-256。
 6. 保存 Actions artifacts；将 DMG、SHA-256、dSYM 和 appcast 上传到 Release 草稿，上传完成后
@@ -112,7 +112,7 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 普通 CI 手动运行可以通过 `base_ref` 指定验证起点；省略时检查前一个提交，避免把 HEAD 与自己比较而空跑。`test_scope` 默认 `changed`，也可选 `release` 或 `all`，只验证而不发布；显式范围替代定向测试，不叠加重复执行。
 CI 同样在首次失败后取消未开始的测试。删除测试触发全仓回归时，全量门替代已覆盖的定向测试，避免同一批模块重复运行。
 
-发布默认检查清单由 `script/run_scene_tests.py` 的 `RELEASE_MODULES` 唯一维护，覆盖版本与日志、发布脚本、资源打包、Steam helper/协议/下载/入库、共享播放策略、Web 暂停以及 Scene 进程、纹理上传、帧资源和脚本 VM。日常 CI 继续按代码改动选择回归门；详细 shader、effect、particle 和 corpus 验证不在每次签名上传前无条件重跑。
+`script/run_scene_tests.py` 的 `RELEASE_MODULES` 维护发布回归，覆盖版本、日志、脚本、包体、Steam、播放策略、Web 暂停及 Scene 生命周期。日常 CI 按改动选择回归；详细 Scene/corpus 验证按影响面运行。
 
 需要完整回归时，为 Agent 发布命令追加 `--test-scope all`，或将发布工作流的 `test_scope` 显式设为 `all`；不发布时可单独执行 `python3.12 -B script/run_scene_tests.py --scope all --jobs 4 --fail-fast`。缩小默认测试范围不会跳过 Release 构建、包体检查、签名验证、公证或发布结果核验；核心检查通过不等于所有 Scene 能力或真实样本通过。
 

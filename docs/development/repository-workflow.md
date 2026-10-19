@@ -65,7 +65,7 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 - 按真实行为写产品测试；静态治理可检查文件、索引与结构，但不冒充产品行为。源码字符串断言的存量冻结只覆盖检测器明示的范围，不能据此宣称测试已经行为化。
 - 先保留当前正确行为，再按职责拆解。新增抽象必须有实际消费者与生命周期；共享 owner 变更检查迟到事件、取消、重入、释放及下一次操作，不用多一层 wrapper 掩盖错误 owner。
 - 文档角色在 `docs/document-role-index.json` 唯一登记。导航只提供链接；当前状态拥有当前事实；参考资料不决定产品行为；稳定合同和计划分别拥有目标与顺序。所有非忽略 docs Markdown（包括未提交新文件）都被检查，未声明角色不会逃过发现。
-- 当前文档正文默认受 `document_health` 只降预算约束。新增权威或合理扩展、移动、合并或退役由 owner、reason 与仓库内 decision（决策文档或本节锚点）说明，在原 baseline 的 `adjustments` 精确登记 section/path 及变更前后规范 JSON 的 SHA256；仅匹配当次变更的记录放行，其他变更不获豁免。`--check` 报告所需调整身份供填写；下一批可替换过期记录，不累计第二台账。实际正文、归档载荷和锚点、索引及硬预算校验仍执行；机器只核登记和内容一致，不确认设计已获人工批准。稳定合同的lastReviewed绑定可核验Git维护日期或hash导航审计，不能借刷新日期宣称重新验证运行能力。
+- 当前文档正文默认受 `document_health` 只降预算约束。新增权威或合理扩展、移动、合并或退役由 owner、reason 与仓库内 decision（决策文档或本节锚点）说明，在原 baseline 的 `adjustments` 精确登记 section/path 及变更前后规范 JSON 的 SHA256；仅匹配当次变更的记录放行，其他变更不获豁免。`--check` 报告所需调整身份供填写；下一批可替换过期记录，不累计第二台账。实际正文、归档载荷和锚点、索引及硬预算校验仍执行；机器只核登记和内容一致，不确认设计已获人工批准。lastReviewed统一UTC+08日期，绑定Git维护或hash导航审计；日期更新不代表运行复验。
 - `check_test_assertions.py --census-expressions` 输出v1之外的字面量membership断言及operand供溯源；里面包含合法行为检查，不能整体算作源码形状债或直接扩正则执法。
 - 运行前选定必要报告、失败证据和截图；静态身份只留一份，不重复生成同类摘要。每轮清理本轮已结束的可重建执行环境，最终证据按[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)限量留存；`promote_scene_evidence.py --prune-expired`清理工具登记的到期包，唯一失败证据可明确保护。旧材料归档不代表磁盘空间已释放。
 - 结束前核对实际 diff、行为结果、未覆盖风险与其他会话改动。独立审查绑定具体内容；“无发现”不替代执行证据。提交、推送和发布状态分别报告，不能把它们合成“完成”。

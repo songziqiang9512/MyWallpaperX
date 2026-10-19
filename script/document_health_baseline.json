@@ -26,7 +26,7 @@
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
-      "bytes": 14166
+      "bytes": 14139
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -34,7 +34,7 @@
     },
     "docs/release/release-signing.md": {
       "lines": 164,
-      "bytes": 12942
+      "bytes": 12912
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,

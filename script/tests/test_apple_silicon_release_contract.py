@@ -10,6 +10,7 @@ import unittest
 import json
 import tempfile
 import plistlib
+import shutil
 import zipfile
 from unittest import mock
 
@@ -27,6 +28,75 @@ def load_validator():
 
 
 class AppleSiliconReleaseContractTests(unittest.TestCase):
+    def test_workflow_and_permission_gate_use_actual_signed_nested_bundles(self):
+        validator = load_validator()
+        workflow = (ROOT / '.github/workflows/build.yml').read_text()
+        step = workflow.split('      - name: Sign app\n', 1)[1].split('      - name:', 1)[0]
+        commands = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory(prefix='mwx-real-release-signing-') as raw:
+            root = Path(raw)
+            binary = root / 'fixture'
+            subprocess.run(['xcrun', 'clang', '-x', 'c', '-', '-o', str(binary)],
+                           input='int main(void) { return 0; }', text=True, check=True, capture_output=True)
+            products = root / 'products'
+            app = products / 'Build/Products/Release/MyWallpaperX.app'
+
+            def bundle(path, executable, package):
+                info = path / 'Contents/Info.plist'
+                info.parent.mkdir(parents=True, exist_ok=True)
+                info.write_bytes(plistlib.dumps({'CFBundleIdentifier': f'test.mwx.{executable}',
+                    'CFBundleExecutable': executable, 'CFBundlePackageType': package}))
+                target = path / 'Contents/MacOS' / executable
+                target.parent.mkdir()
+                shutil.copy2(binary, target)
+
+            bundle(app, 'MyWallpaperX', 'APPL')
+            for relative in validator.REQUIRED_BUNDLE_EXECUTABLES:
+                target = app / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(binary, target)
+            helper_runtime = app / 'Contents/Resources/SteamService/libcoreclr.dylib'
+            shutil.copy2(binary, helper_runtime)
+            framework = app / 'Contents/Frameworks/Sparkle.framework'
+            sparkle = framework / 'Versions/B'
+            (sparkle / 'Resources').mkdir(parents=True)
+            (sparkle / 'Resources/Info.plist').write_bytes(plistlib.dumps({
+                'CFBundleIdentifier': 'org.sparkle-project.Sparkle', 'CFBundleExecutable': 'Sparkle',
+                'CFBundlePackageType': 'FMWK', 'CFBundleShortVersionString': '2.9.2'}))
+            shutil.copy2(binary, sparkle / 'Sparkle')
+            (framework / 'Versions/Current').symlink_to('B')
+            for name in ('Sparkle', 'Resources'):
+                (framework / name).symlink_to(f'Versions/Current/{name}')
+            for relative, expected in validator.SPARKLE_SIGNED_ENTITLEMENTS.items():
+                target = sparkle / relative
+                if target.suffix in ('.xpc', '.app'):
+                    bundle(target, target.stem, 'XPC!' if target.suffix == '.xpc' else 'APPL')
+                else:
+                    shutil.copy2(binary, target)
+                entitlements = root / 'stock.plist'
+                entitlements.write_bytes(plistlib.dumps(expected))
+                subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none',
+                                '--entitlements', str(entitlements), str(target)],
+                               check=True, capture_output=True)
+            env = os.environ | {'DERIVED_DATA_PATH': str(products), 'CONFIGURATION': 'Release',
+                                'APP_NAME': 'MyWallpaperX', 'DEVELOPER_ID_APPLICATION': '-'}
+            subprocess.run(['/bin/bash', '-eu', '-c', commands], cwd=ROOT, env=env,
+                           check=True, capture_output=True, text=True)
+            # Ad-hoc signing tests actual entitlement/inside-out behavior only;
+            # Developer ID, timestamp and Team ID remain separate mandatory gates.
+            validator.validate_codesign(app)
+            entitlements.write_bytes(plistlib.dumps({'com.apple.security.app-sandbox': True}))
+            downloader = sparkle / 'XPCServices/Downloader.xpc'
+            subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none',
+                            '--entitlements', str(entitlements), str(downloader)],
+                           check=True, capture_output=True)
+            # Reseal the parents so rejection proves the permission audit,
+            # rather than only detecting an invalid nested-code seal.
+            subprocess.run(['/bin/bash', '-eu', '-c', commands], cwd=ROOT, env=env,
+                           check=True, capture_output=True, text=True)
+            with self.assertRaisesRegex(RuntimeError, 'Unexpected Sparkle signed entitlements'):
+                validator.validate_codesign(app)
+
     def test_release_workflow_signs_media_observer_before_the_outer_app(self):
         workflow = (ROOT / ".github/workflows/build.yml").read_text()
         sign_step = workflow.split("      - name: Sign app\n", 1)[1].split("      - name:", 1)[0]
@@ -206,13 +276,19 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'\xcf\xfa\xed\xfe' + b'fixture')
                 path.chmod(0o755)
-            downloader = app / 'Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'
-            downloader.mkdir(parents=True)
+            sparkle = app / 'Contents/Frameworks/Sparkle.framework/Versions/B'
+            metadata = sparkle / 'Resources/Info.plist'
+            metadata.parent.mkdir(parents=True)
+            metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.9.2'}))
             permissions = {
                 str(app): {'com.apple.security.automation.apple-events': True},
                 str(app / 'Contents/Resources/SteamService/SteamService'): {'com.apple.security.cs.allow-jit': True},
-                str(downloader): {'com.apple.security.app-sandbox': True},
             }
+            for relative, expected in validator.SPARKLE_SIGNED_ENTITLEMENTS.items():
+                target = sparkle / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.touch()
+                permissions[str(target)] = dict(expected)
             details = ('Authority=Developer ID Application: Fixture (TEAM)\n'
                        'TeamIdentifier=TEAM\nCodeDirectory v=20500 flags=0x10000(runtime)\nTimestamp=fixture\n')
             calls = []
@@ -225,7 +301,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 return ''
             with mock.patch.object(validator, 'run_checked', side_effect=invoke):
                 validator.validate_codesign(app, 'TEAM')
-                for path, values in permissions.items():
+                for path in (str(app), str(app / 'Contents/Resources/SteamService/SteamService')):
+                    values = permissions[path]
                     key = next(iter(values))
                     values[key] = False
                     with self.subTest(path=path), self.assertRaisesRegex(RuntimeError, 'Required signed entitlement'):
@@ -235,6 +312,26 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'Development debugging'):
                     validator.validate_codesign(app, 'TEAM')
                 del permissions[str(app)]['com.apple.security.get-task-allow']
+                # Compare stock claims exactly; reject injected App privileges,
+                # debugging and accidental sandboxing alike.
+                for relative, expected in validator.SPARKLE_SIGNED_ENTITLEMENTS.items():
+                    for key in ('com.apple.security.app-sandbox', 'com.apple.security.get-task-allow',
+                                'com.apple.security.cs.allow-jit', 'unexpected-entitlement'):
+                        target = str(sparkle / relative)
+                        permissions[target] = expected | {key: True}
+                        with self.subTest(target=target, key=key), self.assertRaisesRegex(
+                                RuntimeError, 'Unexpected Sparkle signed entitlements'):
+                            validator.validate_codesign(app, 'TEAM')
+                        permissions[target] = dict(expected)
+                autoupdate = str(sparkle / 'Autoupdate')
+                permissions[autoupdate] = {}
+                with self.assertRaisesRegex(RuntimeError, 'Unexpected Sparkle signed entitlements'):
+                    validator.validate_codesign(app, 'TEAM')
+                permissions[autoupdate] = dict(validator.SPARKLE_SIGNED_ENTITLEMENTS['Autoupdate'])
+                metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.10.0'}))
+                with self.assertRaisesRegex(RuntimeError, 'Sparkle version changed'):
+                    validator.validate_codesign(app, 'TEAM')
+                metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.9.2'}))
                 for invalid in [details.replace('TeamIdentifier=TEAM', 'TeamIdentifier=OTHER'),
                                 details.replace('Authority=Developer ID Application:', 'Authority=Apple Development:'),
                                 details.replace('(runtime)', '()'), details.replace('Timestamp=fixture', '')]:
@@ -280,8 +377,26 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             self.assertIs(validator.signed_entitlements(binary)[key], True)
             subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(binary)],
                            check=True, capture_output=True)
-            with self.assertRaisesRegex(RuntimeError, 'Signed entitlements are missing'):
+            self.assertEqual(validator.signed_entitlements(binary), {})
+            subprocess.run(['codesign', '--remove-signature', str(binary)],
+                           check=True, capture_output=True)
+            with self.assertRaisesRegex(RuntimeError, 'not signed'):
                 validator.signed_entitlements(binary)
+
+    def test_sparkle_permission_contract_tracks_the_pinned_distribution(self):
+        validator = load_validator()
+        package = ROOT / 'MyWallpaperX.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'
+        pins = json.loads(package.read_text())['pins']
+        sparkle = next(pin for pin in pins if pin['identity'] == 'sparkle')
+        self.assertEqual(validator.SPARKLE_RELEASE_VERSION, sparkle['state']['version'])
+
+    def test_entitlement_reader_rejects_invalid_metadata_on_verified_code(self):
+        validator = load_validator()
+        for output in ('not plist', plistlib.dumps(['unexpected']).decode()):
+            with self.subTest(output=output), mock.patch.object(
+                    validator, 'run_checked', side_effect=['', output]):
+                with self.assertRaisesRegex(RuntimeError, 'Signed entitlements are'):
+                    validator.signed_entitlements(Path('/fixture/binary'))
 
     def test_symbols_archive_contains_app_and_daemon_and_rejects_missing_daemon(self):
         workflow = (ROOT / '.github/workflows/build.yml').read_text()

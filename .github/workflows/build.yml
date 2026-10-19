@@ -214,7 +214,7 @@ jobs:
               --sign "$DEVELOPER_ID_APPLICATION" "$APP_PATH/Contents/Helpers/$helper"
           done
 
-          # Sign Sparkle inside-out; Downloader must retain its sandbox entitlement.
+          # Sign Sparkle inside-out; preserve the stock distribution's entitlements.
           SPARKLE_FRAMEWORK="$APP_PATH/Contents/Frameworks/Sparkle.framework"
           SPARKLE_VERSION_DIR="$SPARKLE_FRAMEWORK/Versions/B"
           for nested in XPCServices/Installer.xpc XPCServices/Downloader.xpc Autoupdate Updater.app; do

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -226,7 +226,8 @@ def review_errors(root: Path, document: dict, today: date, max_age: int) -> list
 
 
 def validate(root: Path, index: dict, baseline: dict, today: date | None = None) -> list[str]:
-    today = today or date.today()
+    # Review receipts use the repository's UTC+08 calendar, not the runner's TZ.
+    today = today or datetime.now(timezone(timedelta(hours=8))).date()
     errors = schema_errors(baseline)
     if errors:
         return errors

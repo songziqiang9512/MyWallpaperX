@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import io
 from contextlib import redirect_stderr, redirect_stdout
@@ -199,6 +199,26 @@ class DocumentHealthTests(unittest.TestCase):
         self.assertTrue(any('future' in e for e in review_errors(self.root, document, date(2026, 7, 1), 60)))
         document['reviewBasis']['sourceSHA256'] = 'invented'
         self.assertTrue(any('receipt' in e for e in review_errors(self.root, document, date(2026, 9, 1), 60)))
+
+    def test_default_review_day_is_independent_of_runner_timezone(self):
+        document = self.index['documents'][0]
+        document.update(role='stable-contract', lastReviewed='2026-10-20', reviewBasis={
+            'kind': 'navigation-audit', 'sourceSHA256': hashlib.sha256(self.body.encode()).hexdigest(),
+            'method': 'document_registry --audit + document_health --check',
+            'scope': 'navigation only', 'limitations': 'not runtime validation'})
+        for instant, expected in (
+            (datetime(2026, 10, 19, 17, 57, tzinfo=timezone.utc), date(2026, 10, 20)),
+            (datetime(2026, 10, 20, 0, 1, tzinfo=timezone.utc), date(2026, 10, 20)),
+        ):
+            with self.subTest(instant=instant), patch('script.document_health.datetime') as clock:
+                clock.now.side_effect = lambda tz: instant.astimezone(tz)
+                self.assertEqual(validate(self.root, self.index, self.baseline), [])
+                clock.now.assert_called_once_with(timezone(timedelta(hours=8)))
+                document['lastReviewed'] = '2026-10-21'
+                self.assertTrue(any('future' in e for e in validate(self.root, self.index, self.baseline)))
+                document['lastReviewed'] = '2026-08-20'
+                self.assertTrue(any('stale' in e for e in validate(self.root, self.index, self.baseline)))
+                document['lastReviewed'] = str(expected)
 
     def test_nonfinite_boolean_and_malformed_budgets_cannot_bypass_comparisons(self):
         for number in (float('nan'), float('inf'), -1, True, False, 3.5, '4', None):

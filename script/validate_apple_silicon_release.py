@@ -29,6 +29,16 @@ THIRD_PARTY_HELPERS = {
 }
 SYSTEM_DEPENDENCY_PREFIXES = ("/usr/lib/", "/System/Library/")
 SAFE_RPATH_PREFIXES = ("@executable_path/", "@loader_path/")
+# Stock Sparkle 2.9.2 has no sandboxed Downloader. Custom sandboxing needs a
+# source build and bundle ID, per https://sparkle-project.org/documentation/sandboxing/.
+# These exact claims were read from the checksum-pinned SPM distribution.
+SPARKLE_RELEASE_VERSION = "2.9.2"
+SPARKLE_SIGNED_ENTITLEMENTS = {
+    "XPCServices/Installer.xpc": {},
+    "XPCServices/Downloader.xpc": {},
+    "Autoupdate": {"com.apple.application-identifier": "org.sparkle-project.Sparkle.Autoupdate"},
+    "Updater.app": {},
+}
 
 
 def run_checked(
@@ -221,9 +231,14 @@ def validate_steam_helper(helper: Path) -> None:
 
 
 def signed_entitlements(path: Path) -> dict:
+    # A valid signature may have no entitlement blob. Do not confuse that with
+    # unsigned code (which codesign --display alone can also describe).
+    run_checked(["/usr/bin/codesign", "--verify", "--strict", str(path)])
     output = run_checked([
         "/usr/bin/codesign", "--display", "--entitlements", "-", "--xml", str(path)
     ])
+    if not output.strip():
+        return {}
     try:
         result = plistlib.loads(output.encode())
     except (ValueError, plistlib.InvalidFileException) as error:
@@ -275,15 +290,24 @@ def validate_codesign(app: Path, expected_team_id: str | None = None) -> None:
     for path, key in (
         (app, "com.apple.security.automation.apple-events"),
         (app / "Contents/Resources/SteamService/SteamService", "com.apple.security.cs.allow-jit"),
-        (app / "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc",
-         "com.apple.security.app-sandbox"),
     ):
         entitlements = signed_entitlements(path)
         if entitlements.get(key) is not True:
             raise RuntimeError(f"Required signed entitlement is missing: {path} -> {key}")
         if entitlements.get("com.apple.security.get-task-allow") is True:
             raise RuntimeError(f"Development debugging entitlement in release: {path}")
-    print("Signed permissions: Apple Events, Steam JIT and Sparkle sandbox verified")
+    sparkle = app / "Contents/Frameworks/Sparkle.framework/Versions/B"
+    try:
+        metadata = plistlib.loads((sparkle / "Resources/Info.plist").read_bytes())
+    except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        raise RuntimeError("Sparkle release metadata is missing or invalid") from error
+    if not isinstance(metadata, dict) or metadata.get("CFBundleShortVersionString") != SPARKLE_RELEASE_VERSION:
+        raise RuntimeError("Sparkle version changed; review its signed permission contract")
+    for relative, expected in SPARKLE_SIGNED_ENTITLEMENTS.items():
+        path = sparkle / relative
+        if signed_entitlements(path) != expected:
+            raise RuntimeError(f"Unexpected Sparkle signed entitlements: {path}")
+    print("Signed permissions: Apple Events, Steam JIT and stock Sparkle helpers verified")
 
 
 def main() -> int:

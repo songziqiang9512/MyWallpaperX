@@ -200,12 +200,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e27b53803933cddb9b936893ab26b1767dbee707f4bd62c54af7ef9c2ae094e9",
+        "sourceSHA256": "986dfa69edb9fc2b4eb98da78d401c4bef4eb5d138b8664417547916ed8e1e2b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
+        "scope": "CI/release audit: fixed UTC+08 review dates and checksum-pinned Sparkle signed permission contract; no distribution or runtime readiness claim.",
         "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
@@ -390,9 +390,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6d331d2c99da181f38bf81c9a9f434ee93c7c46644055acf93fe17d6e2734e4b",
+        "sourceSHA256": "498af77fb450862db728bd5180b2f502857692a8a53f6589fb00d64f523072d1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "User-requested one-command release routing, branch integration, previous-release-only notes, idempotent prepared versions and public artifact verification; source and 41 targeted release tests reviewed.",
+        "scope": "CI/release audit: fixed UTC+08 review dates and checksum-pinned Sparkle signed permission contract; no distribution or runtime readiness claim.",
         "limitations": "Static contract review only; signed release and public artifact checks are performed by the release workflow."
       }
     },
