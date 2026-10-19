@@ -433,6 +433,8 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 
 **失败与退出。** canonical source不符、没有完整材质fact、上传失败或未完成时，原catalog不发布该资源，C与Swift都沿原局部拒绝；健康资源及当前画面继续。创建、晚拒绝、owner throw、destroy、旧generation与Session退出沿既有topology事务、GPU completion及launch资源退休，不缓存新layerID或给旧handle复活能力。移除原plain专用资格分支后由同一builtin材质准备入口接管；未证明的source Program范围不随本次迁移扩大。
 
+**10-19透视neutral lowering设计。** 当前原包374330在非零PCM下频谱不可见，原source材质因透视不准入，统一catalog又正确拒绝只有纹理、没有完整材质事实的动态模板。选择扩现有neutral-tint证明，保留唯一catalog；不恢复旧纹理旁路，也不开放完整source Program的透视范围。只有既有quad attribute、无作者覆盖的host MVP、原UV、单straight-color采样及RGB/Alpha乘法已证，Bright/Power精确1、scroll0、无effects且每个显式消费者均有direct color consumer时，透视标记才不再拒绝lowering；最终位置继续由各自实例的既有world/MVP决定。非中性scalar的透视、任一未证兄弟/隐藏/named/依赖/特殊源、未知shader或状态仍局部拒绝。原binding在launch准备一次，经原typed material target和model表进入source uniforms；普通帧与资源/取消/退休owner不变。验收用变量/资源/等价表达式变体、透视与非透视同model、非中性/错误MVP/UV/兄弟反例及原包静音→PCM→静音实图，另取未参与修法样本；若频谱未真实恢复或引入相邻错误则撤回本扩域，不以Program命中关闭反馈。流星尺寸和同声源官方幅度另保开放，无性能收益声明。
+
 **必要验收与停止。** 自有同model静态/动态lit消费者验证光照、材质常量及各自变换，变量/资源改名、等价构造、literal/间接/register入口与plain、完整source Program邻例；覆盖override污染、未知状态/常量、坏上传、失败撤回和退役。真实原包默认输入证明三条null消失及实际旋转，shadow模块默认Off不能误判缺影；开启Static/Perspective只在隔离声明输入变体中验实际边缘ROI，另取未参与修法样本实图。若现owner不能闭合材质执行或关键状态仍unknown，停在资格而不删guard；没有同条件测量不报性能收益。
 
 ## Sound 播放控制接入（2026-10-12）

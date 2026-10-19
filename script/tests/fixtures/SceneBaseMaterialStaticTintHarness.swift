@@ -324,6 +324,69 @@ private typealias Descriptor = SceneRenderDescriptor
         results["sharedFragmentScalarUniform"] = output(base, shader: contract(fragment: sharedScalars))
         value = base; value.layers[0].visible = false; results["hidden"] = output(value)
         value = base; value.layers[0].usesPerspective = true; results["perspective"] = output(value)
+        let perspective = value
+        results["perspectiveScriptDynamic"] = output({
+            var candidate = descriptor(script)
+            candidate.layers[0].usesPerspective = true
+            return candidate
+        }(), dynamic: ["models/unseen/tint.json"])
+        for (name, key, number) in [
+            ("perspectiveBrightnessTwo", "gain-key", 2.0),
+            ("perspectivePowerHalf", "power-key", 0.5),
+        ] {
+            value = perspective
+            value.materialPasses[0].constantShaderValues[key] = .init(
+                rawValue: String(number), components: [number])
+            results[name] = output(value)
+        }
+        value = perspective; value.layers[0].effects = [1]
+        results["perspectiveEffects"] = output(value)
+        value = perspective; value.materialPasses[0].depthTest = "enabled"
+        results["perspectiveDepthTest"] = output(value)
+        value = perspective; value.materialPasses[0].depthWrite = "enabled"
+        results["perspectiveDepthWrite"] = output(value)
+        results["perspectiveCustomMVP"] = output(perspective,
+            shader: contract(vertex: vertex.replacingOccurrences(
+                of: "g_ModelViewProjectionMatrix", with: "g_UnprovenMatrix")))
+        results["perspectiveOffsetUV"] = output(perspective,
+            shader: contract(fragment: fragment.replacingOccurrences(
+                of: "sampleUV.xy)", with: "sampleUV.xy + vec2(0.1))")))
+
+        var renamedVertex = vertex
+        var renamedFragment = fragment
+        for (old, fresh) in [("slideX", "driftU"), ("slideY", "driftV"),
+                             ("shift", "neutralDrift"), ("sampleUV", "paintUV"),
+                             ("gain", "radianceWeight"), ("opacity", "coverageRatio"),
+                             ("exponent", "gammaPower"), ("surfaceColor", "inkTint"),
+                             ("colorCarrier", "sampleColor")] {
+            renamedVertex = renamedVertex.replacingOccurrences(of: old, with: fresh)
+            renamedFragment = renamedFragment.replacingOccurrences(of: old, with: fresh)
+        }
+        renamedVertex = renamedVertex.replacingOccurrences(of: "1.0)", with: "1e0)")
+            .replacingOccurrences(of: "CAST2(2.0)", with: "vec2(2e0)")
+        renamedFragment = renamedFragment.replacingOccurrences(of: "paintUV.xy)", with: "paintUV)")
+            .replacingOccurrences(of: "CAST3(gammaPower)", with: "vec3(gammaPower)")
+            .replacingOccurrences(of: "surface-key", with: "pigment-key")
+        value = perspective
+        value.layers[0].imagePath = "models/independent/paint.json"
+        value.modelMaterialLinks = [.init(modelPath: "models/independent/paint.json",
+            materialPath: "materials/independent/paint.json")]
+        value.materialPasses[0].materialPath = "materials/independent/paint.json"
+        value.materialPasses[0].shaderPath = "independent/paint-source"
+        value.materialPasses[0].textureSlots = ["independent/paint-source"]
+        value.materialPasses[0].texturePaths = ["independent/paint-source"]
+        value.materialPasses[0].constantShaderValues = ["pigment-key": nonwhite]
+        results["perspectiveRenamedEquivalent"] = output(value,
+            shader: contract(vertex: renamedVertex, fragment: renamedFragment,
+                             identity: "independent/paint-source"))
+
+        value = perspective; var mixedSibling = value.layers[0]
+        mixedSibling.id = 58; mixedSibling.usesPerspective = false
+        value.layers.append(mixedSibling)
+        results["mixedPerspectiveConsumers"] = output(value)
+        value.layers.reverse()
+        results["reversedMixedPerspectiveConsumers"] = output(value)
+        results["perspectiveUnadmittedSibling"] = output(value, consumers: [57])
         value = base; value.layers[0].puppetMeshPath = "models/puppet.mdl"; results["puppet"] = output(value)
         value = base; var sibling = value.layers[0]; sibling.id = 58; value.layers.append(sibling)
         results["multipleConsumers"] = output(value)
@@ -334,9 +397,9 @@ private typealias Descriptor = SceneRenderDescriptor
         value.layers.reverse()
         results["hiddenLastConsumer"] = output(value)
         value.layers[1].visible = true
-        value.layers[1].usesPerspective = true
+        value.layers[1].staticModelPath = "models/unsupported-sibling.mdl"
         results["unsupportedSibling"] = output(value)
-        value.layers[1].usesPerspective = false
+        value.layers[1].staticModelPath = nil
         value.layers[1].id = 59
         results["unadmittedSibling"] = output(value)
         value = base; value.layers[0].effects = [1]; results["effects"] = output(value)

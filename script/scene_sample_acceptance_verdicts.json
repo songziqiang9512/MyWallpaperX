@@ -969,14 +969,16 @@
     },
     "3743305891": {
       "verdict": "unreviewed",
-      "reviewedOn": "",
-      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：频谱缺失、背景十字流星过大；分别验音频可见性与背景几何/phase。",
-      "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "reviewedOn": "2026-10-19",
+      "reviewer": "Codex 同原包PCM前后原图与独立审查；非完整官方对照",
+      "note": "10-19透视neutral材质证明接通统一动态模板：同PCM非零阶段从无频谱恢复底部白条，后续静音收回，63动态层实际发布/绘制；频谱缺失首门退出，背景十字流星过大仍开放。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/perspective-neutral-tint-20261019/native/report.json"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。频谱缺失、背景十字流星过大；分别验音频可见性与背景几何/phase。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "evidence": [
+        "docs/scene/history/source-material-entry-2026-10-08.md"
+      ],
+      "remainingDifferences": "背景十字流星尺寸仍待同phase可归属几何/遮罩正控；world父/local子已有独立scale，未证重复乘，不改作者参数。未验真实系统音频、完整属性/交互/HDR及官方parity。",
       "officialComparison": "unknown"
     },
     "3768229922": {

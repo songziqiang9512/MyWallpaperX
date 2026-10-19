@@ -24,6 +24,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 FIXTURE = Path(__file__).with_name("fixtures") / "SceneBaseMaterialStaticTintHarness.swift"
 SOURCES = list(dict.fromkeys([
     *schema_fixture.SWIFT_SOURCES,
+    SCENE / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
     SCENE / "Compilation/Material/SceneEffectTextureInput.swift",
     SCENE / "Systems/Properties/SceneUserProperty.swift",
     SCENE / "Systems/Properties/SceneUserPropertyBindings.swift",
@@ -277,14 +278,39 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["count"], 0)
 
     def test_unsupported_consumer_shape_and_untyped_color_key_are_rejected(self) -> None:
-        for name in ["hidden", "perspective", "puppet", "hiddenFirstConsumer",
+        for name in ["hidden", "puppet", "hiddenFirstConsumer",
                      "hiddenLastConsumer", "unsupportedSibling", "unadmittedSibling",
                      "effects", "wrongColorKey"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 0)
 
+    def test_neutral_perspective_uses_the_existing_compositor_lowering(self) -> None:
+        for name in ["perspective", "perspectiveScriptDynamic", "perspectiveRenamedEquivalent"]:
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["count"], 1)
+                self.assertTrue(row["canLower"])
+                self.assertEqual(row["context"], 57)
+                self.assertEqual(row["color"], [0.2, 0.4, 0.6])
+                self.assertEqual(row["alpha"], 1)
+        self.assertTrue(self.result["perspectiveScriptDynamic"]["hasScript"])
+        self.assertEqual(self.result["perspectiveRenamedEquivalent"]["model"],
+                         "models/independent/paint.json")
+        self.assertEqual(self.result["perspectiveRenamedEquivalent"]["material"],
+                         "materials/independent/paint.json")
+        self.assertEqual(self.result["perspectiveRenamedEquivalent"]["key"], "pigment-key")
+
+    def test_perspective_keeps_nonneutral_and_unproved_consumers_unadmitted(self) -> None:
+        for name in ["perspectiveBrightnessTwo", "perspectivePowerHalf", "perspectiveEffects",
+                     "perspectiveDepthTest", "perspectiveDepthWrite", "perspectiveCustomMVP",
+                     "perspectiveOffsetUV", "perspectiveUnadmittedSibling"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 0)
+
     def test_shared_material_has_one_binding_in_first_authored_context(self) -> None:
-        for name, context in [("multipleConsumers", 57), ("reversedConsumers", 58)]:
+        for name, context in [("multipleConsumers", 57), ("reversedConsumers", 58),
+                              ("mixedPerspectiveConsumers", 57),
+                              ("reversedMixedPerspectiveConsumers", 58)]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 1)
                 self.assertEqual(self.result[name]["context"], context)

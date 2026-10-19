@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 128267
+      "bytes": 128443
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 141682
+      "bytes": 141884
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 364,
-      "bytes": 68443
+      "bytes": 68516
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 597,
-      "bytes": 154359
+      "lines": 599,
+      "bytes": 155636
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 216,
-      "bytes": 62442
+      "bytes": 62904
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1333,15 +1333,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "d7fdd908e8836d1aa26310dbc36990b3f82727190b10d5a9fd654cb219c25e19",
-      "after": "db3361e504d0c8054ed2ce1f9d7e0c8926884ae2a7f40e586a413e7051bc9235",
-      "owner": "scene-default-camera-single",
-      "reason": "Extend the existing camera input owner to independent Single and settled visibility, preserve malformed declared peers, and record bounded real opening outcomes without full parity or performance claims.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "4af2468be768f27d1daa6830622c1784ee1dfc469754a20b6959a42dfc244769",
       "after": "59338bfd78b249d317da2e3bd93e01e14cb7d0f5c8555a2cb1e389823a020930",
@@ -1405,30 +1396,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b5485f1e9cdd61380becf6f3cb0667b0639efcc036d2e9bbece29a2cecce93a1",
-      "after": "e31d3599e2cd82944023fd8709920fae04760ec435b036fcd76ae8b4a73fe4ab",
-      "owner": "scene-ordinary-native-image-depth",
-      "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "2165041e26d0f54aaceb03e721dd6ba863ce3b8c587552ef1a335f7eab85971f",
       "after": "b582e739152be66dde52fd59c66ef565022f4c38afc71309651b429dc199d456",
       "owner": "scene-ordinary-native-image-depth",
       "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8104b791432d7650c01bb46fef872f67d1d621925213136a19626adad8c6a541",
-      "after": "77faac9d99482b4873b330b400f2a1f06705f3a87c601ffe69c3a3a2f8464270",
-      "owner": "scene-model-scene-depth-domain",
-      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
     },
     {
       "section": "bodies",
@@ -1459,21 +1432,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "01c7d72b6188d54cae44edee47b5f814d019e0aaa061800751825c3ff342a60d",
-      "after": "b147730e2c031be9a022849864b2fa7f4c843d058549c3bb82b6a04f9f72dbfe",
-      "owner": "scene-model-scene-depth-domain",
-      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "77faac9d99482b4873b330b400f2a1f06705f3a87c601ffe69c3a3a2f8464270",
+      "after": "5575046d22eef5af2d43cb0750c7e9abf79d1e5ef316663e96220666297451c6",
+      "owner": "scene-perspective-neutral-tint",
+      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "e31d3599e2cd82944023fd8709920fae04760ec435b036fcd76ae8b4a73fe4ab",
+      "after": "e3e06ba92ae6ec594cfddce66a00bbb8a18161737bc733f2a85ba269e1553968",
+      "owner": "scene-perspective-neutral-tint",
+      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "be84ee9ae4efd9622bf3f864faf6a22abc9411c92fe678fb7b71cb2f686179df",
-      "after": "c40b28fee3d0e056f1fbf041bf2925e2f4102d2deab0423abb003b1a1e5a11d9",
-      "owner": "scene-model-scene-depth-domain",
-      "reason": "Regenerate the same302-sample ledger after precise real333/343 residual and evidence references; no sample verdict closes.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
+      "before": "c40b28fee3d0e056f1fbf041bf2925e2f4102d2deab0423abb003b1a1e5a11d9",
+      "after": "10e8de37cc0fe6f28396c19c2c5739677db4e630609f9663a0b695676623e8bc",
+      "owner": "scene-perspective-neutral-tint",
+      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "db3361e504d0c8054ed2ce1f9d7e0c8926884ae2a7f40e586a413e7051bc9235",
+      "after": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
+      "owner": "scene-perspective-neutral-tint",
+      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b147730e2c031be9a022849864b2fa7f4c843d058549c3bb82b6a04f9f72dbfe",
+      "after": "b99f53e4be8cbf04ca70d369a19b13563a55783d5473613c283380c74e68c5d9",
+      "owner": "scene-perspective-neutral-tint",
+      "reason": "Qualify neutral perspective lowering through existing host MVP/color proof and unified resource catalog; record real374330 PCM recovery, heldout360 non-neutral source, still-open cross/text/intro limits. No new algorithm, sample pass or performance claim.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
     }
   ]
 }

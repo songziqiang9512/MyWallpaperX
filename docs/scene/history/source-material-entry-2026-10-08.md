@@ -171,3 +171,19 @@ Resolver/TemplateCompiler共用槽覆盖、uniform投影和ShaderSchema；source
 边界：其他source层320/323/328仍`render-state-unsupported`，媒体黑色占位与完整交互、整样本官方视觉未闭；0–1之外Alpha、perspective、multi-pass/provider、首作者引用销毁后的官方续跑合同继续开放。360整样本仅粗估约85%，非统计正确率；本片共享颜色/Alpha/副本主链已实际进入最终显示。失败尝试（sampler purpose拒绝、松散fixture缓存不可用、identity丢失）保留诊断收据，均不计通过。后继顺序归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
 
 结构门6/8通过；已有HEAD的Web `DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift` 1008行及未知归属Scene `.mimosa`残留使两个全局门失败，均保留、不算本片通过。文档健康通过；全库导航仍有两个并行Web设计缺少入口反链，Scene本片链接无新增失败。ProviderBinding fixture已补入原验证映射，不增runner。
+
+<a id="perspective-neutral-tint-20261019"></a>
+
+## 透视neutral材质与动态频谱恢复（2026-10-19）
+
+3743305891原包同PCM的非零阶段无频谱，112初始化因createLayer返回null而写alignment失败。source材质的透视shape拒绝在10-16健康运行也存在，不是新增根因：当时动态模板只凭纹理成功发布；后继统一catalog正确要求完整材质事实，暴露neutral证明过早拒绝透视的缺口。本片保留统一catalog，沿原证明把透视限制移至Bright/Power判定后；仅精确1、scroll0、host MVP/原quad和UV、单straight-color采样及乘色/Alpha、无effects且全部direct消费者成立时降低到原compositor。非中性透视与其他未证形态仍拒绝，不开完整source Program透视或恢复纹理旁路。
+
+同原包/3024×1964/30FPS/默认属性/12s，录制控制PCM为0–3s静音、3–8s八频、8–12s静音；修前series0002无条，候选series0002恢复底部白条，series0004静音收回。112初始化及63动态层publication/encode、GPU completion实际执行；两run退出0、无输入/App漂移、surface1→0且GPU drained。pointer路径的after实际早于6s，只以带时间戳的series作音频阶段证据。没有把视频/Date/private phase锁定为同相位，也未关闭十字流星尺寸、真实系统音频或整样本parity。
+
+最近CPU门24方法通过，含透视/脚本/混合正交实例、变量/资源/等价表达式变体及非中性、effect、depth、MVP、UV和未准入兄弟反例；首轮缺CacheIdentity真实依赖只到setUp，补源清单后一次编译/执行通过，原失败保留。独立3601964477仍用Power=.99完整source Program：149实际64消费者、独立materialConstant颜色与非零PCM执行，原图保彩色细柱、人物、枫叶和栏杆；退出0、无漂移、正常排空。逐图独审确认频谱恢复及边界，无新增算法或owner。
+
+候选为固定7720625a4加单产品文件overlay，Debug33.548s/4314输入及外部输入无漂移、验签0；freeze `965d5e49cddeb12fef3692017b8ccdd05902e5d36f5d6a8055fabba1f3273ce1`，exe `4bc9ec6adde5ef5ff3a7e15096b110957d3781f1ba8d2e318f0b426a40743683`。与复用修前App相比，Scene语义差异仅本compiler，另有已独审的两行模型注释及同期UI提交；不宣称严格单文件App消融或性能收益。PID及运行路径无残留，原runner未保存former PGID，不声称进程组资格。
+
+本轮另做一次官方text Q1 hidden基础资格：官方身份/800×450 client成立，H尺寸位置及后方MDL标记偏离预登记投影，STOP_UNKNOWN，未组装present或改变产品默认深度。两次CUA inline图仅定性观察，不裁定默认text读/写/剔除；333穿透余项保持。Q1已用精确标题CLI关闭并核metadata为0，VM和主客户端保留；旧R1不重试。
+
+必要对照原图、日志、输入/构建身份、CPU失败及独审收据归14天包`.artifacts/scene-evidence/runs/perspective-neutral-tint-20261019/`；任务`.artifacts/tmp/374330-current-qualification-20261019/`只留续接候选App及轻量收据，共享构建缓存沿原路径复用。普通帧、取消/退休和HDR/SDR合成owner未改，更广材质状态与生命周期故障注入未扩验。

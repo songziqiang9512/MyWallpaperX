@@ -105,7 +105,6 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                 && layer.puppetMeshPath == nil
                 && layer.staticModelPath == nil
                 && layer.staticBaseTexturePath == nil
-                && layer.usesPerspective != true
                 && layer.dependencyLayerIDs.isEmpty
                 && layer.authoredDependencies.isEmpty
                 && layer.parentID == nil
@@ -202,6 +201,12 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         }
         let canLowerToCompositor = brightness.bitPattern == Double(1).bitPattern
             && power.bitPattern == Double(1).bitPattern
+        // The proven host MVP and unmodified quad/UV use each instance's
+        // existing projection in the direct compositor. A complete source
+        // Program still has its narrower, non-perspective preparation domain.
+        guard canLowerToCompositor || sourceLayers.allSatisfy({
+            $0.usesPerspective != true
+        }) else { return reject(modelPath, "source-layer-consumer") }
         // A lowered tint needs the direct compositor consumer. A full source
         // Program publishes before each layer's independent effect suffix.
         guard !canLowerToCompositor || sourceLayers.allSatisfy({
