@@ -390,9 +390,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d520972e76c7fa2c7dd6005e0362146dfca06054e4582b3e1c0a24434a1815f5",
+        "sourceSHA256": "6d331d2c99da181f38bf81c9a9f434ee93c7c46644055acf93fe17d6e2734e4b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Prepared release version/build reuse, no-op commit handling and retained online version/build rejection; source and targeted test review.",
+        "scope": "User-requested one-command release routing, branch integration, previous-release-only notes, idempotent prepared versions and public artifact verification; source and 41 targeted release tests reviewed.",
         "limitations": "Static contract review only; signed release and public artifact checks are performed by the release workflow."
       }
     },

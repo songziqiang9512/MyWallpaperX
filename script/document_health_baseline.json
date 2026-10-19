@@ -33,8 +33,8 @@
       "bytes": 4128
     },
     "docs/release/release-signing.md": {
-      "lines": 158,
-      "bytes": 12011
+      "lines": 164,
+      "bytes": 12942
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,
@@ -1535,6 +1535,15 @@
       "owner": "screen-displacement-ribbon",
       "reason": "实际大角度AB关闭特定闪块并保存唯一截面合同；保其他样本和未完成能力。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#screen-displacement-ribbon"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "4025b98b8bbef50c6e21b00be89f8a690b753dd08ec6b52da3f671e8cfde73c4",
+      "after": "0ac2e496107cdf2370f54b4e6b62e591e4202d1f4db53661722a219414bdbabd",
+      "owner": "release",
+      "reason": "User-requested durable one-command release method: explicit authorization, previous-release notes, prepared-version reuse, branch integration and end-to-end public verification.",
+      "decision": "docs/release/release-signing.md#agent-一句话发布"
     }
   ]
 }
