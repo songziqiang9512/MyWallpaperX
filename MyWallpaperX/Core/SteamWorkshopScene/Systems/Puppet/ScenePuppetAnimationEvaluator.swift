@@ -489,25 +489,27 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         }), selection.clips.reduce(0, { $0 + ($1.layer.additive == false ? 1 : 0) }) > 1 {
             throw ScenePuppetAnimationEvaluationFailure.unsupportedReferenceComposition
         }
-        switch selection.composition {
-        case .singleAbsolute:
-            guard selection.clips.count == 1,
-                  let frameSample = frameSamples[0] else {
+        // Preparation may retain future-visible peers. A single actual opaque
+        // sample must use the same full pose and interpolation regardless of
+        // that immutable resource set's size.
+        let absoluteIndex = Self.singleAbsoluteClipIndex(
+            selection: selection, frameSamples: frameSamples)
+        if let clipIndex = absoluteIndex {
+            guard let frameSample = frameSamples[clipIndex] else {
                 for boneIndex in rig.bones.indices {
                     output[boneIndex] = referenceLocalMatrices[boneIndex]
                 }
                 return
             }
-            let animation = selection.clips[0].animation
-            guard animation.transformsByBone.count == rig.bones.count else {
-                throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+            let animation = selection.clips[clipIndex].animation
+            guard let prepared = preparedAnimations[animation.id] else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA)
             }
             for boneIndex in rig.bones.indices {
-                guard let sampled = Self.pose(from: try Self.sample(
-                    animation.transformsByBone[boneIndex], frameSample: frameSample
-                )) else { throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA) }
-                let weight = blends?[0] ?? selection.clips[0].layer.blend ?? 1
-                if preparedAnimations[animation.id]?.referenceBones.contains(boneIndex) == true {
+                let sampled = try Self.sample(
+                    prepared.posesByBone[boneIndex], frameSample: frameSample)
+                let weight = blends?[clipIndex] ?? selection.clips[clipIndex].layer.blend ?? 1
+                if prepared.referenceBones.contains(boneIndex) {
                     guard weight.isFinite, weight >= 0, Float(weight).isFinite else {
                         throw ScenePuppetAnimationEvaluationFailure.invalidBlend
                     }
@@ -520,7 +522,11 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 ))
             }
 
-        case .layered:
+        } else if selection.composition == .singleAbsolute {
+            for boneIndex in rig.bones.indices {
+                output[boneIndex] = referenceLocalMatrices[boneIndex]
+            }
+        } else {
             for boneIndex in rig.bones.indices {
                 var pose = referencePoses[boneIndex]
                 // Preserve the first opaque owner; every additive shares the rig reference.
@@ -560,6 +566,21 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 output[boneIndex] = Self.matrix(from: pose)
             }
         }
+    }
+
+    private static func singleAbsoluteClipIndex(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?]
+    ) -> Int? {
+        if selection.composition == .singleAbsolute {
+            return selection.clips.count == 1 && frameSamples[0] != nil ? 0 : nil
+        }
+        var selected: Int?
+        for index in frameSamples.indices where frameSamples[index] != nil {
+            guard selected == nil, selection.clips[index].layer.additive == false else { return nil }
+            selected = index
+        }
+        return selected
     }
 
     private static func prepare(
@@ -638,7 +659,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         frameSample: FrameSample
     ) throws -> [simd_float4x4] {
         let prepared = try Self.prepare(animation: animation, rig: rig)
-        return try animation.transformsByBone.enumerated().map { boneIndex, track in
+        return try prepared.posesByBone.enumerated().map { boneIndex, track in
             let sampled = try Self.sample(track, frameSample: frameSample)
             return prepared.referenceBones.contains(boneIndex)
                 ? referenceLocalMatrices[boneIndex] : Self.matrix(from: sampled)
@@ -666,27 +687,6 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         return Pose(
             translation: a.translation + (b.translation - a.translation) * t,
             rotation: rotation,
-            scale: a.scale + (b.scale - a.scale) * t
-        )
-    }
-
-    private static func sample(
-        _ transforms: [SceneMdlPuppetAnimation.Transform],
-        frameSample: FrameSample
-    ) throws -> SceneMdlPuppetAnimation.Transform {
-        guard transforms.indices.contains(frameSample.frameA),
-              transforms.indices.contains(frameSample.frameB),
-              frameSample.fraction.isFinite,
-              frameSample.fraction >= 0,
-              frameSample.fraction <= 1 else {
-            throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA)
-        }
-        let a = transforms[frameSample.frameA]
-        let b = transforms[frameSample.frameB]
-        let t = frameSample.fraction
-        return .init(
-            translation: a.translation + (b.translation - a.translation) * t,
-            rotation: a.rotation + (b.rotation - a.rotation) * t,
             scale: a.scale + (b.scale - a.scale) * t
         )
     }

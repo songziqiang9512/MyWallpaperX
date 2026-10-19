@@ -31,9 +31,24 @@ record ordinal 是源引用身份，exported animation ID 是作者层选择身�
 
 ## 默认选择、时间与站位
 
-AnimationSelector 与 AnimationPlaybackRuntime 继续拥有 authored layers、顺序、additive/blend/rate及已支持的 visibility/property/script 选择；可动态显现的合法 binding 也须准备，不能以初始不可见排除。原329虽有8个动画层请求，本轮实际只准入固定 true 的34；`user:{name,condition}` 条件对象尚未进入 String-only visibility binding，其他请求的条件选择及热更新仍开放，不能把16条可寻址 clips记成8条已准备。原 Rig 无 reference pose；后继 referenceCandidate仍过constant/bind-equivalence门。play/pause/seek/setRate、事件、bone override与多surface顺序沿原链，不另算elapsed time。
+AnimationSelector 与 AnimationPlaybackRuntime 继续拥有 authored layers、顺序、additive/blend/rate及已支持的 visibility/property/script 选择；可动态显现的合法 binding 也须准备，不能以初始不可见排除。原329的8个条件动画现由成功Bool Program投影动态准备来源，实际全部准备；同session模式1→2→1已消费具体34→35→34并改变模型姿态，沿原clock与surface私有stream，不重建窗口。该条件对象增量限direct model；image对象条件未开放，旧String/image合同保持。不能把16条可寻址clips外推成全部已播放，实际后验见[条件热切换](runtime-evidence-current.md#conditional-model-animation-20261020)。原 Rig 无 reference pose；后继 referenceCandidate仍过constant/bind-equivalence门。play/pause/seek/setRate、事件、bone override与多surface顺序沿原链，不另算elapsed time。
 
 原329的rate wrapper含音频脚本，当前未消费且保留诊断；`.setRate` API存在不等于该来源已接通。实际恢复限静态fallback rate=1的连续TRS。音频rate后继须沿script binding → typed animation control → PlaybackRuntime接入并补来源/失败合同，不以新clock或复制脚本替代。
+
+<a id="conditional-animation-properties"></a>
+### 条件动画的准备与热切换
+
+准备集合不决定当前pose算法。若当前只有一个实际采样的非additive clip，Evaluator必须保留single-absolute完整骨贡献，使用该clip实际blend；额外准备的隐藏clip保持中性。时间采样统一消费准备期Pose：translation/scale线性插值，rotation沿现有四元数最短弧采样，不直接线性插值Euler分量；角度跨±π或等价角度表示不能使相邻姿态绕远路。原始角度与Reader保持不变，legacy便利入口也归同一Pose采样owner。合法sampled identity是作者的绝对骨姿态，不能因多准备clip而退回bind。零active、多active和additive继续原reference/合成合同，不借本片扩大多层规则。正反例须验证隐藏peer加入前后的XYZ/N/T一致、跨界旋转连续及整数端点，不能以旧Euler数值为目标；真实画面仍须验左臂闪动、骨盆与上下身。
+
+新增条件准备也不得撤销此前健康的默认动画。投影器为本片新补的object来源保留可缺省的prepared provenance；旧String/script的required资格不改。Direct资源owner在已完整读取/验证的同一动画集上先尝试完整选择与Evaluator；仅当新增的当前隐藏需求触发selection/evaluation资格失败时，沿同一Selector/Evaluator重试移除这些新增隐藏需求的集合，并保留typed原因。Reader、rig/附件结构、取消或其他失败不重试，不跳坏record或重读资源。保留clip的DTO/顺序/identity不变，使原完整authoredLayers注册仍匹配；未资格target不进入active集合，整key热改仍拒绝。新object来源缺当前合法Bool时保原resolved visible值，旧String缺值仍隐藏/冻结。缺clip、未资格reference、无当前typed值、旧String和结构错误须有正反例；后继CPU及完整构建见[运行证据](runtime-evidence-current.md#conditional-model-animation-20261020)，新回退分支的真实运行仍待验，不据此升级样本状态。
+
+已支持的属性条件沿原Program选择direct model作者动画并在同一session热切换；不新增image对象条件资格。首个有界正控为既有八选一请求的模式1→2→1；验收须同时确认具体 animation-layer/clip identity、typed Bool、姿态与实际模型画面，不能只看某处运动。条件、Combo完整域及整key原子更新仍归现 BindingProgram/LiveState，pose/phase只归原 PlaybackRuntime。
+
+采用 `现 parser/report → 编译成功的 Bool Program → prepared animation metadata → 原 Selector/资源/PlaybackState → typed snapshot → 原 pose/stream`。仅解析到object引用会把无producer的fallback误隐藏，按当前条件或startupValuePaths准备又会漏掉以后可选动画，因此两者均不作资格。RuntimeModel在唯一Program产生后，按该Program的definition/instruction与原report精确核parent、animation索引/ID、path、property key/condition，排除整key仍需重建的输入，再为direct model现DTO补动态来源标记；不重解析wrapper、不在Format复制条件算法。无成功producer保旧resolved fallback；旧String绑定缺typed值时仍隐藏/冻结。该投影只在准备期发生，原始SceneDocument保持作者事实。属性context复用同Compiler/投影判定可展示项；真实正常App已显示原生String动作Combo并完成保存/重开/reset，确切身份与用户画面反馈归运行证据；不外推App重启持久化或全模式。
+
+Host候选仅来自成功的direct动画selection/evaluator、可绘制Entry和原pipeline；沿现direct channel资格，不把有mesh或一般prepared layer当可消费动画。Session继续在同一live-state入口扣除unavailable targets：要求完整surface集合、同generation，每个view都持有成功构造且注册至原clock的direct playback state和准确动画身份，并扣除现topology已提交删除的parent。复用同一channel判定，unsupported alpha/aux不能冒充可热改；短暂GPU slot busy/奇异帧沿旧局部fallback，不重置clock或抹掉准备资格。不建立第二份availability registry。
+
+验收复用现Document/PropertyProgram/Selector/PlaybackRuntime/DirectModel门：改名与等价条件、missing catalog/非法条件保fallback、合法producer当前无效值后恢复、path/index/ID错配及冲突、完整八目标原子切换、准备/注册/缺surface/旧generation失败、健康image邻例。真实原包同session1→2→1应有对应clip/姿态和画面收益，不能有重建或新clock；未知clip、多alpha/reference composition等原门不放宽，音频rate独立保留。若需跳坏clip、猜phase/参数、旁路surface失败或新建动画执行链才能出图，停止并保旧能力；无实际切换收益则撤回候选。
 
 站位只能由 qualified34当前 pose、完整 XYZ bind mesh、Rig hierarchy/inverse-bind/weights 和原 layer world 共同得到；root/bone translation、inverse-bind、layer world 各只施加一次，保留 author root motion。clip28 bounds、足骨 local translation 或 raw bind 最低点不能代替当前蒙皮足部位置。当前原图及重复运行支持脚部位于盒顶区域和姿态变化；未捕获同帧model world/盒顶的数值join，不宣称双脚全相位精确接触，不能以新AABB调origin、culling或pose。
 
@@ -57,6 +72,6 @@ lease 精确关联 layer/surface 和 command buffer，覆盖所有 encoder 直�
 
 最近Reader门覆盖旧版本/纯零/full合同、新bounds/派生引用/双身份/mode、改名与坏后记录；原329的17 records/16 clips和34单独资格不靠跳记录或截取源take。自有双层输入检查同MDL不同clip/phase的pose隔离；共享XYZ/N/T、镜像/非均匀/奇异、旧image XY、3slot容量/取消/迟到completion及附件失败沿最近门验证。实际运行与门的精确覆盖只由[运行证据](runtime-evidence-current.md#direct-model-skeletal-animation-20261019)登记，不把fake GPU、编译或自有primitive通过算作原包输出。
 
-原329已实看默认34脚部回到盒顶区域并有动作，视频、立方场及既有主体保持；细节不扩大为所有clip/channel、完整音频/条件选择、轨迹/密度、官方同相位或性能结论。边缘多色块已由[公共截面后继](runtime-evidence-current.md#screen-displacement-ribbon-20261020)另行关闭具体反馈。音频、pointer和时刻未对齐时不据截图差异另判缺陷。
+原329已实看默认34脚部回到盒顶区域并有动作，立方场及既有主体保持；视频及其音频条的当前反馈按[运行证据](runtime-evidence-current.md#conditional-model-animation-20261020)单独核实。细节不扩大为所有clip/channel、完整音频/条件选择、轨迹/密度、官方同相位或性能结论。边缘多色块已由[公共截面后继](runtime-evidence-current.md#screen-displacement-ribbon-20261020)另行关闭具体反馈。音频、pointer和时刻未对齐时不据截图差异另判缺陷。
 
 任何后继输入的格式、reference、channel、N/T或stream生命周期先决失败，沿上述typed bind/最小draw拒绝退出，保留原因；不丢作者channel，不补origin或旧pose。若需要平行clock/LBS/renderer才可推进，须修订本设计，不累积补偿。

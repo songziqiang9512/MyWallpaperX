@@ -1312,23 +1312,31 @@
     "3292370168": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-20",
-      "reviewer": "用户大角度AB + Codex原图复核",
-      "note": "默认34共享XYZ动画恢复盒顶舞姿；大角度背景大片已修，真实鼠标旧版复现、候选细轨迹保留并获用户确认。音频rate/对象条件、437数组/原graph余项保留，整体unreviewed。",
-      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "reviewer": "用户反馈定位 + Codex与独立代理原图复核",
+      "note": "默认34与大角度背景有界修复保留；条件8请求准备、实际动作Combo恢复，用户确认切换动作生效及默认1未再见异常骨段。Root非默认2保存/重开与reset回1已验；先前普通Release视频/音频正常。仅关闭上述反馈，整体unreviewed。",
+      "remainingDifferences": "音频rate、437数组/原graph余项、全部8模式逐一实机、多surface、App重启持久化、完整同输入phase/viewport/HDR仍未闭；新增隐藏需求失败分支仅CPU反例。旧Debug重负载Source query迟到单独保留，不标普通Release播放故障。",
       "officialComparison": "compared",
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/report.json",
         ".artifacts/scene-evidence/runs/native-rope-camera-20261019/current/report.json",
         ".artifacts/scene-evidence/runs/direct-model-skeletal-animation-20261019/current/report.json",
-        ".artifacts/scene-evidence/runs/screen-displacement-ribbon-20261020/current/report.json"
+        ".artifacts/scene-evidence/runs/screen-displacement-ribbon-20261020/current/report.json",
+        ".artifacts/scene-evidence/runs/conditional-model-animation-20261020/final/report.json",
+        ".artifacts/scene-evidence/runs/conditional-model-animation-fallback-20261020/cpu/report.json",
+        ".artifacts/scene-evidence/runs/scene-video-stale-query-329-20261020/diagnosis/report.json",
+        ".artifacts/scene-evidence/runs/conditional-model-rotation-panel-20261020/current/report.json"
       ],
       "evidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3292370168/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/samples/3292370168/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/native-rope-camera-20261019/current/samples/3292370168/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/direct-model-skeletal-animation-20261019/current/samples/3292370168/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/screen-displacement-ribbon-20261020/current/samples/3292370168/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/screen-displacement-ribbon-20261020/current/samples/3292370168/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/conditional-model-animation-20261020/final/samples/3292370168/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/conditional-model-animation-fallback-20261020/cpu/samples/3292370168/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/scene-video-stale-query-329-20261020/diagnosis/samples/3292370168/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/conditional-model-rotation-panel-20261020/current/samples/3292370168/runtime_evidence.zip"
       ]
     },
     "3325624777": {

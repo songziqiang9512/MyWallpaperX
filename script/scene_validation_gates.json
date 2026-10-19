@@ -3973,6 +3973,27 @@
         "test_scene_stock_material_asset_publication",
         "test_scene_stock_noise_texture_store"
       ]
+    },
+    {
+      "id": "conditional-direct-model-animation-properties",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift",
+        "script/tests/test_scene_puppet_animation_property_preparation.py",
+        "script/tests/test_scene_direct_model_animation_live_consumers.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
+        "script/tests/test_scene_puppet_active_composition.py",
+        "script/tests/test_scene_direct_model_animation_preparation_fallback.py"
+      ],
+      "modules": [
+        "test_scene_puppet_animation_property_preparation",
+        "test_scene_direct_model_animation_live_consumers",
+        "test_scene_puppet_active_composition",
+        "test_scene_direct_model_animation_preparation_fallback"
+      ]
     }
   ],
   "method_gates": {

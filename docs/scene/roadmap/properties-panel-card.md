@@ -26,7 +26,7 @@
 | 余项 | 已知边界与最小下一步 |
 |---|---|
 | 定义/条件/type | 未知或缺类型已只读显示，不等于支持运行类型。按实际缺失定义、条件controller与typed consumer核可达性，再复用现解析/控件/store；无consumer且只有声明的项不伪造运行能力。 |
-| 动画层条件/速率输入 | 329的8个visible.user为`{name,condition}`，AnimationLayer当前仅接String，故只按原value播放34；rate wrapper的音频script也仅保存在presence事实，未进入typed播放控制。这是已证消费者缺口。先复用既有条件/属性与script→animation control→PlaybackRuntime，实际切换选项及画面、无重建、保存/reset同验；不只扩DTO或复制作者脚本。 |
+| 动画层余下输入 | direct model条件对象已沿成功Bool Program准备8请求；旧Service筛选丢动作Combo已修，正常App原生“视差”1…8出现，用户确认动作切换有效。Root实际选2保存/关闭重开仍2、reset回1并删除override；旧内部1→2→1与当前正常面板证据分列。音频rate脚本仍须沿script→typed control→原PlaybackRuntime续接；image对象条件、App重启持久化、全部8模式与多surface实际画面尚未验。见[条件合同与有界后验](../capabilities/direct-model-skeletal-animation.md#conditional-animation-properties)。 |
 | 原生编辑闭环 | effectful图片Color的完整原生调色板、更多Combo/字体/离散选项及部分失败后的reset仍缺对应验收；原生clock颜色或CLI热改不替代这些consumer。先锁一项实际画面/存储差异，保关闭重开/reset。 |
 | 本地化与访问 | 作者查表优先和有限标准词回退已存在；其他token/locale与语言切换、完整系统键盘chrome及长Combo显示尚未系统复核。只按真实显示反例补共享展示层，不猜英文语义或把未知token删掉。 |
 | 资源/组合更新 | 已验证单资源换图、全reset和有界本地视频；更多slot/purpose/alpha/format、deferred组合及多surface仍未覆盖。先证明原typed resource/variant链首错，保坏资源、取消、迟到回执及旧画面。 |

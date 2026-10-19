@@ -11,11 +11,14 @@ nonisolated struct ScenePuppetAnimationLayer: Codable, Equatable {
     let blendTime: Double?
     let rate: Double?
     let visible: Bool?
-    let visibilityBinding: String?
+    var visibilityBinding: String?
     // Optional for decoding older prepared descriptors; only true adds a script owner.
     var hasVisibilityScript: Bool? = nil
     var rateBinding: String? = nil
     var hasRateScript: Bool? = nil
+    // Preparation provenance, never inferred from raw author keys. Missing in
+    // older descriptors and on legacy String/script visibility inputs.
+    var hasPreparedVisibilityProperty: Bool? = nil
 
     nonisolated static func parse(_ value: Any?) -> [ScenePuppetAnimationLayer] {
         (value as? [[String: Any]] ?? []).map { root in

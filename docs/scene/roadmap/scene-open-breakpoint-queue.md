@@ -27,7 +27,9 @@
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
 
-329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围，音频rate与条件选择归属性卡，437数组/原graph余项仍开放；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
+329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围，音频rate与其余面板验收归属性卡；direct条件选择已由[同session热切换后继](../capabilities/runtime-evidence-current.md#conditional-model-animation-20261020)关闭有界首门，437数组/原graph余项仍开放；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
+
+329默认单臂闪骨与动作控件缺失已退出：公共prepared Pose统一四元数时间采样，保完整骨贡献/identity/reference/blend；真实80采样与当前App原图、用户默认1连续观察均通过对应范围。成功条件Program进入实际Service筛选，原生“视差”1…8下拉框出现，用户确认动作更新；Root选2保存/重开和reset回1已验。普通Release视频/音频反馈亦已正常，不再列为播放回归；旧Debug负载时序、rate/437/graph及全模式/官方时相仍保边界，不计整样本通过。见[当前有界后验](../capabilities/runtime-evidence-current.md#puppet-rotation-continuity-20261020)。
 
 322的2522色散首门已退出：共享词法绑定及浮点公共宽度转换让原包点击后的非零Alpha进入作者Program，实际GPU/末合成与瞬态RGB分离、回清晰黑面具均已取得；局部vec4遮蔽不同类型global不再误拒。原命名点击、左眼/默认动画与脸颈组装修复保持；手部旧观察仍归第2节，完整同phase/viewport与全部互动不记通过。见[有界后验](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)。
 

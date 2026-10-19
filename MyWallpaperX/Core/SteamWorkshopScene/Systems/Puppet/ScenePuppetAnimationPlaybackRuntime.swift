@@ -65,9 +65,11 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                   let resolved = snapshot[ScenePuppetAnimationPropertyTarget.visibility(
                       layerID: layerID, animationLayerID: id
                   )], case let .bool(visible) = resolved.value else {
-                // Script presence is not admission: unsupported candidates have
-                // no published target and retain their authored visual fallback.
-                return layer.visibilityBinding == nil && layer.visible == true
+                // Scripts and newly prepared object properties retain the
+                // resolved fallback without a typed value; legacy String
+                // bindings still require their published Bool.
+                return (layer.visibilityBinding == nil || layer.hasPreparedVisibilityProperty == true)
+                    && layer.visible == true
             }
             return visible
         }

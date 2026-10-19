@@ -594,13 +594,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "908e4af263b78970c2b49143f3b622650ff5ceba06d94d22788501394fa0dae1",
+        "sourceSHA256": "a47d720a417dc4ccd273141aa24262c7c0690671dabf7aabf1efe4c364e880e5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
     {
@@ -645,10 +645,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8d75008be299c24736a1c1541351a1ca2dddff9589bc80ca89e1197c31490c0d",
+        "sourceSHA256": "07ab5d7488a8d39c42af270947e78f9aa2bc31cec261cafe3f0b78133209faf1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       },
       "title": "Direct model的骨骼动画合同",
       "authority": "advanced-object-animation-design"
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a299f7f8018c40d00986b775fe4e7759d8afb45a308b332af41d646e9b92ceb3",
+        "sourceSHA256": "57bce3add7c86d68bbd46498a51e184eb435259469a85f095b7a1ef84a3faa9a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Merged CI literal evidence-link audit with bounded Sprite coverage and final374/heldout347 runtime navigation; retained withdrawn Rope path and whole-sample limits. Navigation merge only; earlier product entries not rerun.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
     {
@@ -828,10 +828,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fb176ea0c70df4636175b112ef04b3e27d77db99791c353c4b0a8cc144f950d1",
+        "sourceSHA256": "9f8d4f6859d1d18255bc1f54f17b4274af22f5dcd25c17e0e0e18d3fbb44acf6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
     {
@@ -3580,13 +3580,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a577948b9ea501431317bbf9d53e2ee059378ee07fa54230ada7479d4aa0ac97",
+        "sourceSHA256": "dfd8b2de3b35b1813cc36f11b520183c09c722492b4dd8685a3fe1e7fdd253ba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
     {
@@ -3611,10 +3611,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f855399b414e932f9524a0d914b5a53630cdb5a7bfb8268c7073efd2de557f1e",
+        "sourceSHA256": "ccbe065483d7f0ed817b9ce0c7db78f6990d9201292805407927c44d6582e28a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
     {
@@ -3625,10 +3625,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "162c78160df52bc5e404cf91cbbee9b142eed63879d6fcab54bc22273b51a8e3",
+        "sourceSHA256": "9b8872f646fb0e5b3e369e5f1bdfeeab12158f5ddbb897d7a2f801ea2d920861",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
     {

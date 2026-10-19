@@ -5,6 +5,11 @@ import Metal
 /// Geometry production joins the existing renderer/main pass; this type owns
 /// no command queue, frame target, compositor, or mutable playback state.
 struct ScenePreparedStaticModelResources {
+    enum FutureVisibilityFailure: Equatable {
+        case selection(ScenePuppetAnimationSelectionFailure)
+        case evaluation(ScenePuppetAnimationEvaluationFailure)
+    }
+
     /// Immutable preparation shared by instances. Playback and vertex storage
     /// are allocated by the existing surface-owned Puppet state.
     struct Animation {
@@ -13,6 +18,7 @@ struct ScenePreparedStaticModelResources {
         let evaluator: ScenePuppetAnimationEvaluator
         let attachments: [SceneMdlPuppetAttachment]
         let initialBones: ScenePuppetLayerLoad.BoneConfiguration?
+        let futureVisibilityFailure: FutureVisibilityFailure?
     }
 
     private struct AnimationAsset {
@@ -74,6 +80,15 @@ struct ScenePreparedStaticModelResources {
 
     var isEmpty: Bool { entriesByLayerID.isEmpty }
     var preparedLayerIDs: [Int] { entriesByLayerID.keys.sorted() }
+    var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> {
+        guard pipeline != nil else { return [] }
+        return animationsByLayerID.reduce(into: []) { targets, entry in
+            guard entriesByLayerID[entry.key]?.count == 1,
+                  entry.value.attachments.isEmpty else { return }
+            targets.formUnion(ScenePuppetAnimationPropertyPreparation.visibilityTargets(
+                layerID: entry.key, selection: entry.value.selection))
+        }
+    }
     var namedAlbedoLayerIDs: Set<Int> {
         Set(entriesByLayerID.compactMap { $0.value.contains(where: { $0.namedAlbedo != nil }) ? $0.key : nil })
     }
@@ -167,21 +182,15 @@ struct ScenePreparedStaticModelResources {
                let asset = preparedGeometries[0].animationAsset,
                !layer.puppetAnimationLayers.isEmpty {
                 do {
-                    if let set = try asset.animations.get(), let rig = asset.model.rig {
-                        let attachments = try asset.attachments.get()
-                        switch ScenePuppetAnimationSelector.select(layers: layer.puppetAnimationLayers,
-                                                                 animationSet: set) {
-                        case .success(let selection?):
-                            let evaluator = try ScenePuppetAnimationEvaluator(
-                                bindPositions: asset.model.vertices.map(\.position), rig: rig,
-                                additiveAnimations: selection.clips.map(\.animation))
-                            animations[layer.id] = Animation(vertices: asset.model.vertices,
-                                selection: selection, evaluator: evaluator, attachments: attachments,
-                                initialBones: ScenePuppetLayerLoad.initialBoneConfiguration(
-                                    rig: rig, referenceEvaluator: .success(evaluator)))
-                        case .success(nil): break
-                        case .failure(let failure): throw failure
+                    if let animation = try prepareAnimation(
+                        asset: asset, layers: layer.puppetAnimationLayers) {
+                        animations[layer.id] = animation
+#if DEBUG
+                        if let failure = animation.futureVisibilityFailure {
+                            NSLog("MWX Scene model-animation layer=%d state=default-selection-preserved futureVisibility=unavailable reason=%@",
+                                layer.id, String(describing: failure))
                         }
+#endif
                     }
                 } catch {
 #if DEBUG
@@ -273,6 +282,54 @@ struct ScenePreparedStaticModelResources {
             entriesByLayerID: entries,
             animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 }
         )
+    }
+
+    /// Extend future demand without revoking a healthy current selection. The
+    /// validated asset is reused; no Reader, geometry or playback owner retries.
+    private static func prepareAnimation(
+        asset: AnimationAsset,
+        layers: [ScenePuppetAnimationLayer]
+    ) throws -> Animation? {
+        guard let set = try asset.animations.get(), let rig = asset.model.rig else { return nil }
+        let attachments = try asset.attachments.get()
+        let bindPositions = asset.model.vertices.map(\.position)
+        func make(_ requested: [ScenePuppetAnimationLayer],
+                  failure: FutureVisibilityFailure? = nil) throws -> Animation? {
+            guard let selection = try ScenePuppetAnimationSelector.select(
+                layers: requested, animationSet: set).get() else { return nil }
+            let evaluator = try ScenePuppetAnimationEvaluator(
+                bindPositions: bindPositions, rig: rig,
+                additiveAnimations: selection.clips.map(\.animation))
+            return Animation(vertices: asset.model.vertices, selection: selection,
+                evaluator: evaluator, attachments: attachments,
+                initialBones: ScenePuppetLayerLoad.initialBoneConfiguration(
+                    rig: rig, referenceEvaluator: .success(evaluator)),
+                futureVisibilityFailure: failure)
+        }
+        do {
+            return try make(layers)
+        } catch {
+            let failure: FutureVisibilityFailure
+            switch error {
+            case let reason as ScenePuppetAnimationSelectionFailure:
+                failure = .selection(reason)
+            case let reason as ScenePuppetAnimationEvaluationFailure:
+                switch reason {
+                case .invalidReferenceTrack, .unsupportedReferenceComposition,
+                     .duplicateAdditiveAnimation:
+                    failure = .evaluation(reason)
+                default:
+                    throw error
+                }
+            default:
+                throw error
+            }
+            let current = layers.filter {
+                !($0.hasPreparedVisibilityProperty == true && $0.visible == false)
+            }
+            guard current.count < layers.count else { throw error }
+            return try make(current, failure: failure)
+        }
     }
 
     private static func identity(_ path: String) -> String {

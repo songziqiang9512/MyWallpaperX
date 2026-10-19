@@ -890,6 +890,25 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetBoneEvidence.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-prepared-animation-default-fallback",
+      "title": "新增条件准备失败保健康默认动画",
+      "owner": "Existing compiled property projection / direct prepared resources / playback runtime",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "design_notes": "2026-10-20 #conditional-animation-properties在实现前记录默认健康动画不被新增隐藏需求撤销的设计；prepared provenance限定新增object来源，现resource owner仅重试同Selector/Evaluator，Reader/rig/attachments/cancel不放宽，保完整DTO注册、旧String语义与整key原子拒绝。真实运行后验未闭，不把设计批准算作能力通过。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift"
+      ],
+      "contentPatterns": [
+        "hasPreparedVisibilityProperty",
+        "futureVisibilityFailure",
+        "prepareAnimation"
+      ]
     }
   ]
 }

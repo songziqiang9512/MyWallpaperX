@@ -2,6 +2,16 @@ import Foundation
 import Metal
 
 extension SceneMetalView {
+    /// States enter this registry only after storage allocation and successful
+    /// registration with the launch clock; a prepared mesh alone is insufficient.
+    var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> {
+        puppetPlaybackStates.reduce(into: []) { targets, entry in
+            guard entry.value.isDirectModel else { return }
+            targets.formUnion(ScenePuppetAnimationPropertyPreparation.visibilityTargets(
+                layerID: entry.key, selection: entry.value.selection))
+        }
+    }
+
     /// Direct geometry joins the same layer registry and launch playback clock.
     /// Every surface allocates its own storage from immutable preparation.
     func installDirectModelAnimations() {

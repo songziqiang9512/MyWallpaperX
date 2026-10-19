@@ -259,7 +259,8 @@ struct SceneRuntimeModelBuilder {
             }
         )
         let runtimeInput = SceneRuntimeInput(
-            renderDescriptor: runtimeDescriptor,
+            renderDescriptor: ScenePuppetAnimationPropertyPreparation.applyingBindings(
+                compilation.program, report: sceneBindings, to: runtimeDescriptor),
             propertyBindingProgram: compilation.program,
             effectivePropertyValues: project.userProperties.effectiveValues(
                 overrides: propertyOverrides

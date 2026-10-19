@@ -11,6 +11,10 @@ struct ScenePuppetAnimationSelection {
     struct Clip {
         let layer: ScenePuppetAnimationLayer
         let animation: SceneMdlPuppetAnimation
+
+        var supportsDirectModelChannels: Bool {
+            !animation.hasAlphaContribution && !animation.hasAuxiliaryScalarTrack
+        }
     }
 
     let clips: [Clip]

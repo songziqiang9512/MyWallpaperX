@@ -51,7 +51,7 @@ extension ScenePuppetPlaybackState {
                 let clip = selection.clips[index]
                 return animationFrame.samples[index] != nil
                     && (animationFrame.blends?[index] ?? clip.layer.blend ?? 1) > 0
-                    && (clip.animation.hasAlphaContribution || clip.animation.hasAuxiliaryScalarTrack)
+                    && !clip.supportsDirectModelChannels
             }
             if unsupported {
                 status = .bindFallback(.unsupportedAnimationChannels)

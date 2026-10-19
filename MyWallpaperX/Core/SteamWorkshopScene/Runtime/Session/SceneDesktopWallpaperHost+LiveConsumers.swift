@@ -63,6 +63,7 @@ extension SceneDesktopWallpaperHost {
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         preparedStaticModelLayerIDs: Set<Int>,
         preparedImageMaterialTargets: Set<SceneDynamicTarget>,
+        preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> = [],
         sourceMaterialCandidateConsumerLayerIDs: Set<Int> = [],
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         propertyVectorScriptProgram: SceneScriptVectorProgram,
@@ -90,6 +91,8 @@ extension SceneDesktopWallpaperHost {
                 soundPlaybackProgram: soundPlaybackProgram,
                 preparedStaticModelLayerIDs: preparedStaticModelLayerIDs,
                 preparedImageMaterialTargets: preparedImageMaterialTargets,
+                preparedDirectModelAnimationVisibilityTargets:
+                    preparedDirectModelAnimationVisibilityTargets,
                 sourceMaterialCandidateConsumerLayerIDs:
                     sourceMaterialCandidateConsumerLayerIDs,
                 preparedParticleVisibilityLayerIDs:
@@ -112,6 +115,7 @@ extension SceneDesktopWallpaperHost {
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         preparedStaticModelLayerIDs: Set<Int>,
         preparedImageMaterialTargets: Set<SceneDynamicTarget>,
+        preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> = [],
         sourceMaterialCandidateConsumerLayerIDs: Set<Int> = [],
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         propertyVectorScriptProgram: SceneScriptVectorProgram,
@@ -236,6 +240,7 @@ extension SceneDesktopWallpaperHost {
                 })
                 .union(modelMaterialTargets)
                 .union(preparedImageMaterialTargets)
+                .union(preparedDirectModelAnimationVisibilityTargets)
                 .union(soundPlaybackProgram.liveConsumerTargets)
                 .union(propertyVectorScriptProgram.livePropertyInputTargets)
                 .union(sceneScriptScalarProgram.livePropertyInputTargets)

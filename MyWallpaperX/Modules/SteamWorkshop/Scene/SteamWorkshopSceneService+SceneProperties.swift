@@ -263,6 +263,15 @@ extension SteamWorkshopService {
                 materialInstancesByLayerID: document.materialInstancesByLayerID
             )
         let materialTargets = Set(materialBindings.map(\.target))
+        let bindingReport = document.userPropertyResolution.bindingReport
+        let propertyProgram = ScenePropertyBindingCompiler().compile(
+            report: .init(bindings: bindingReport.bindings + materialBindings,
+                diagnostics: bindingReport.diagnostics),
+            catalog: project.userProperties,
+            cameraInputLayerID: renderDescriptor.camera.default2DInputLayerID
+        ).program
+        let propertyDescriptor = ScenePuppetAnimationPropertyPreparation.applyingBindings(
+            propertyProgram, report: bindingReport, to: renderDescriptor)
         // Descriptor keys are declarations, not consumers. Base slots retain
         // their prepared provider contract, including instance precedence and
         // fallback validation; effect slots already carry the parser's typed
@@ -299,7 +308,7 @@ extension SteamWorkshopService {
             ).compactMap { binding in
                 supportsScenePropertyTarget(
                     binding.target,
-                    in: renderDescriptor,
+                    in: propertyDescriptor,
                     materialTargets: materialTargets
                 ) ? binding.reference.key : nil
             }

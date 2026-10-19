@@ -932,6 +932,8 @@ extension SceneDesktopWallpaperHost {
                     .union(baseMaterialProviderBindings.sourceMaterialAlphaPropertyTargets)
                     .union(baseMaterialProviderBindings.materialColorTargets.values)
                     .union(preparedSourceMaterialTargets),
+                preparedDirectModelAnimationVisibilityTargets:
+                    preparedDeviceResources.staticModels.preparedDirectModelAnimationVisibilityTargets,
                 sourceMaterialCandidateConsumerLayerIDs:
                     sourceMaterialCandidateConsumerLayerIDs,
                 preparedParticleVisibilityLayerIDs:

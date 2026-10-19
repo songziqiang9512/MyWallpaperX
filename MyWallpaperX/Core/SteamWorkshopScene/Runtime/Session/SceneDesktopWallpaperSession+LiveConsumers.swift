@@ -69,6 +69,31 @@ extension SceneDesktopWallpaperSession {
             .map { SceneDynamicTarget.layer(layerID: $0, field: .visibility) }
         return SceneDesktopWallpaperHost.unavailableLiveScriptPropertyTargets(in: context)
             .union(particleTargets)
+            .union(unavailableDirectModelAnimationTargets(in: context))
+    }
+
+    private func unavailableDirectModelAnimationTargets(
+        in context: SceneDesktopWallpaperLaunchContext
+    ) -> Set<SceneDynamicTarget> {
+        let candidates = context.preparedDeviceResources.staticModels
+            .preparedDirectModelAnimationVisibilityTargets
+        guard !candidates.isEmpty else { return [] }
+        guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs else {
+            return candidates
+        }
+        let destroyed = context.sceneScriptDynamicLayerRuntime.snapshot().destroyedAuthoredLayerIDs
+        let retired = candidates.filter { target in
+            guard case let .scriptInstanceProperty(layerID, _) = target else { return false }
+            return destroyed.contains(layerID)
+        }
+        return surfaces.values.reduce(into: retired) { unavailable, surface in
+            guard surface.scriptGeneration == context.propertyVectorScriptProgram.generation else {
+                unavailable.formUnion(candidates)
+                return
+            }
+            unavailable.formUnion(candidates.subtracting(surface.metalView
+                .preparedDirectModelAnimationVisibilityTargets))
+        }
     }
 
     /// Only committed authored deletions end launch-registered callbacks.

@@ -31,7 +31,7 @@ nonisolated extension SceneRenderDescriptor {
         var childLayerIDs: [Int]
         let attachmentName: String?
         let parentAttachmentBindFrame: [Float]?
-        let puppetAnimationLayers: [ScenePuppetAnimationLayer]
+        var puppetAnimationLayers: [ScenePuppetAnimationLayer]
         /// Omission retains the layer default; false disables cursor hits, not scripts.
         var solid: Bool? = nil
         var visible: Bool?
