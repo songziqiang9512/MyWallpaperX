@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.scene_harness_io import separate_graph_debug_output
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -35,6 +36,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
+    SCENE_ROOT / "Diagnostics/SceneFramePerformanceTelemetry.swift",
+    SCENE_ROOT / "Diagnostics/SceneGPUStageTimestampObservation.swift",
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
@@ -70,8 +73,11 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
 ]))
 
+GRAPH_SWIFT_FLAGS = ("-D", "SCENE_GRAPH_TESTING", "-D", "DEBUG")
+
 
 def compile_harness(support_text: str, harness_text: str, additional_sources=()):
+    # Graph fixtures assert Debug diagnostics as well as actual GPU results.
     with tempfile.TemporaryDirectory(
         prefix="mwx-resolved-material-graph-executor-"
     ) as directory:
@@ -91,8 +97,7 @@ def compile_harness(support_text: str, harness_text: str, additional_sources=())
                 "macosx",
                 "swiftc",
                 "-parse-as-library",
-                "-D",
-                "SCENE_GRAPH_TESTING",
+                *GRAPH_SWIFT_FLAGS,
                 str(support),
                 *(str(path) for path in SWIFT_SOURCES),
                 *(str(path) for path in additional_sources),
@@ -122,7 +127,7 @@ def compile_harness(support_text: str, harness_text: str, additional_sources=())
             capture_output=True,
             text=True,
         )
-        return compilation, completed
+        return compilation, separate_graph_debug_output(completed)
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

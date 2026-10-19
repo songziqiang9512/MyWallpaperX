@@ -2311,14 +2311,17 @@
         "script/document_health_baseline.json",
         "script/tests/test_document_health.py",
         "AGENTS.md",
-        "MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md"
+        "MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md",
+        "script/document_links.py",
+        "script/tests/test_document_links.py"
       ],
       "modules": [
         "test_document_role_index",
         "test_scene_governance_contract",
         "test_scene_semantics_coverage",
         "test_document_registry",
-        "test_document_health"
+        "test_document_health",
+        "test_document_links"
       ]
     },
     {
@@ -3866,6 +3869,31 @@
       "modules": [
         "test_scene_diagnostic_report",
         "test_scene_sample_debug_archive"
+      ]
+    },
+    {
+      "id": "graph-standalone-harness",
+      "patterns": [
+        "script/tests/test_scene_resolved_material_graph_visual_failure_contract.py",
+        "script/tests/test_scene_resolved_material_graph_executor.py",
+        "script/tests/scene_harness_io.py"
+      ],
+      "modules": [
+        "test_scene_resolved_material_graph_visual_failure_contract",
+        "test_scene_resolved_material_graph_executor",
+        "test_scene_animated_material_visual_failure",
+        "test_scene_source_color_graph",
+        "test_scene_harness_io"
+      ]
+    },
+    {
+      "id": "material-finalizer-standalone-harness",
+      "patterns": [
+        "script/tests/test_scene_resolved_material_program_finalizer.py"
+      ],
+      "modules": [
+        "test_scene_resolved_material_program_finalizer",
+        "test_scene_background_material_provider"
       ]
     }
   ],

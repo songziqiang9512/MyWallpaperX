@@ -34,8 +34,8 @@
 
 ## 后继：粒子排序成本短筛（2026-10-14）
 
-[三臂局部对照](../../../.artifacts/tmp/particle-order-screen-20261014/paired-summary.json)比较现索引排序、直接稳定排序完整实例、仅有限且已排序时跳过索引排序；三组交替配对显示直接排序在逆序/交错输入回退，ordered候选只在已排序输入有局部收益（16384个有序透明粒子配对中位下降34.4971%）。这是dt0重建owner和完整实例比较，不是实际整帧或稳态收益；原NaN比较器回退未改，不认领非有限深度语义修复。
+三臂局部对照 `../../../.artifacts/tmp/particle-order-screen-20261014/paired-summary.json`比较现索引排序、直接稳定排序完整实例、仅有限且已排序时跳过索引排序；三组交替配对显示直接排序在逆序/交错输入回退，ordered候选只在已排序输入有局部收益（16384个有序透明粒子配对中位下降34.4971%）。这是dt0重建owner和完整实例比较，不是实际整帧或稳态收益；原NaN比较器回退未改，不认领非有限深度语义修复。
 
-沿[冻结条件](../../../.artifacts/tmp/particle-order-screen-20261014/proof/app-screen-spec.json)，App `86b320df…`/候选`5813ba61…`分别运行真实304、3024×1964、60FPS、30秒预热后的约64.5秒测量窗，静音且关闭execution observations。[单对结果](../../../.artifacts/tmp/particle-order-screen-20261014/proof/app-screen-result.json)为整进程CPU时间率816.521→834.294ms/s（上升2.1767%），particle advance p50同为1.246ms；GPU p50为10.048→10.540ms，单对不作归因或验收。两份报告均保原`particle loading incomplete` FAIL。
+沿冻结条件 `../../../.artifacts/tmp/particle-order-screen-20261014/proof/app-screen-spec.json`，App `86b320df…`/候选`5813ba61…`分别运行真实304、3024×1964、60FPS、30秒预热后的约64.5秒测量窗，静音且关闭execution observations。单对结果 `../../../.artifacts/tmp/particle-order-screen-20261014/proof/app-screen-result.json`为整进程CPU时间率816.521→834.294ms/s（上升2.1767%），particle advance p50同为1.246ms；GPU p50为10.048→10.540ms，单对不作归因或验收。两份报告均保原`particle loading incomplete` FAIL。
 
-未达到整体CPU继续门，停止扩测并撤回ordered产品候选，恢复源码SHA `b48c83309824dd7a57d6f62b55c768287e3b21b761ac567f6fa8afd5b44750cc`，保[撤回patch](../../../.artifacts/tmp/particle-order-screen-20261014/proof/rejected-ordered.patch)与原始证据。不以局部sorted收益认领用户可见改善，也不关闭粒子相机/透明排序或整体性能专项；当前下一批归性能卡。
+未达到整体CPU继续门，停止扩测并撤回ordered产品候选，恢复源码SHA `b48c83309824dd7a57d6f62b55c768287e3b21b761ac567f6fa8afd5b44750cc`，保撤回patch `../../../.artifacts/tmp/particle-order-screen-20261014/proof/rejected-ordered.patch`与原始证据。不以局部sorted收益认领用户可见改善，也不关闭粒子相机/透明排序或整体性能专项；当前下一批归性能卡。

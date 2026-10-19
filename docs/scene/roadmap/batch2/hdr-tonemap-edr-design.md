@@ -106,7 +106,7 @@ PMA→straight 是表示转换，不是显示映射。现有编译器插入的�
 
 ## 作者颜色跨 effect 连续性（2026-10-08）
 
-设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。第一卡生成颜色→连续effect→compositor已实施，证据与退出边界见[执行记录](../../history/authored-color-continuity-2026-10-09.md)；第二卡普通静态源上传/capture已接入同一合同，验收见同一执行记录的后继章节。官方与本机同输入的差异见[透明颜色连续性证据](../../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。证据分别记录生成颜色、静态源像素与真实头冠后验；source小输入官方准入失败，不计同输入parity。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
+设计结论：沿既有 Program、graph publication 与唯一 compositor 保留作者可观察的 straight RGB；中间普通 color overwrite 不再无条件预乘。第一卡生成颜色→连续effect→compositor已实施，证据与退出边界见[执行记录](../../history/authored-color-continuity-2026-10-09.md)；第二卡普通静态源上传/capture已接入同一合同，验收见同一执行记录的后继章节。同输入差异见[颜色证据](../../history/authored-color-continuity-2026-10-09.md#e-2026-10-08-transparent-color-continuity)。证据分别记录生成颜色、静态源像素与真实头冠后验；source小输入官方准入失败，不计同输入parity。PMA 输入零 alpha 已无可恢复颜色，不能通过改反预乘 helper 猜回 RGB。
 
 **职责与取舍。** 在现有 Program/variant 准备阶段携带 slot 的实际 content/representation、作者数学输入域及输出存储表示；原 builder 统一实施 sampler/output 适配。straight 到 straight 为恒等，真实 PMA 到 straight 才反预乘，opaque 为恒等，data/independent signal 沿原 typed 合同。profile 继续证明数学与用途，不再分别猜普通 graph 的存储表示。保留扩展 RGB；alpha coverage clamp 与作者明确 UNorm clamp 独立保留。输入数学用途、允许的颜色表示及输出边界身份进入现有 request/cache，旧工件安全失效。源码已证passthrough可指定一个signal槽；同一uint的低8位标记实际PMA，高8位标记实际signal，只有被证明的指定槽可按signal保留raw输出，普通颜色仍走同一适配。nominal输出事实由variant一次发布供同effect后继pass准备，未知保持未知，不能替代帧事实；跨effect保持原并行编译。每帧由已验证 publication 填写掩码，只有对应 color 槽执行反预乘；这同时覆盖前序成功输出 straight 与局部失败保留 PMA 的切换，不枚举表示组合、不临帧编译。普通帧只消费准备布局与 typed 资源事实，不分析源码或生成 shader。
 

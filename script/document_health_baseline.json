@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 379,
-      "bytes": 150498
+      "bytes": 150474
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -170,7 +170,7 @@
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 120,
-      "bytes": 28088
+      "bytes": 28087
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
       "lines": 122,
-      "bytes": 27530
+      "bytes": 27504
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -218,7 +218,7 @@
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
       "lines": 72,
-      "bytes": 14124
+      "bytes": 14123
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 55,
-      "bytes": 14234
+      "bytes": 14232
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 221,
-      "bytes": 65365
+      "bytes": 65313
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,

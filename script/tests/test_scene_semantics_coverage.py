@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import html
 import json
 import os
 import re
@@ -13,9 +12,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import unquote, urlsplit
 
 from script.document_registry import managed_documents
+from script.document_links import markdown_anchors, relative_link_violations
 from script.source_authority import (
     authority_metric_digest,
     authority_relocation_transition_violations,
@@ -32,61 +31,6 @@ DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
 SEMANTICS_ROOT = REPOSITORY_ROOT / "docs/scene/capabilities"
 SCENE_SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SCENE_LAYOUT_PATH = REPOSITORY_ROOT / "script/scene_source_layout.json"
-INLINE_LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
-EXPLICIT_ANCHOR_PATTERN = re.compile(
-    r"<a\s+(?:[^>]*?\s)?id=[\"']([^\"']+)[\"'][^>]*>",
-    re.IGNORECASE,
-)
-
-
-def markdown_without_fenced_code(text: str) -> str:
-    visible_lines: list[str] = []
-    fence: str | None = None
-    for line in text.splitlines():
-        match = re.match(r"^\s*(```|~~~)", line)
-        if match:
-            marker = match.group(1)
-            if fence is None:
-                fence = marker
-            elif marker == fence:
-                fence = None
-            continue
-        if fence is None:
-            visible_lines.append(line)
-    return "\n".join(visible_lines)
-
-
-def markdown_link_targets(text: str) -> list[str]:
-    targets: list[str] = []
-    for raw_target in INLINE_LINK_PATTERN.findall(markdown_without_fenced_code(text)):
-        target = raw_target.strip()
-        if target.startswith("<") and ">" in target:
-            target = target[1 : target.index(">")]
-        else:
-            target = target.split(maxsplit=1)[0]
-        targets.append(target)
-    return targets
-
-
-def github_heading_slug(value: str) -> str:
-    """Return the stable ASCII/CJK subset used by our Markdown anchors."""
-
-    value = re.sub(r"<[^>]+>", "", html.unescape(value)).strip().lower()
-    value = re.sub(r"[^\w\-\u3400-\u9fff ]", "", value)
-    return re.sub(r"[ _]+", "-", value).strip("-")
-
-
-def markdown_anchors(text: str) -> set[str]:
-    anchors = set(EXPLICIT_ANCHOR_PATTERN.findall(text))
-    for line in markdown_without_fenced_code(text).splitlines():
-        match = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
-        if match:
-            slug = github_heading_slug(match.group(1))
-            if slug:
-                anchors.add(slug)
-    return anchors
-
-
 def validation_base() -> str:
     requested = os.environ.get("MWX_VALIDATION_BASE", "HEAD")
     result = subprocess.run(
@@ -865,33 +809,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertIn("r5: cannot start before r4 is complete", violations)
 
     def test_relative_markdown_links_and_fragments_in_documentation_exist(self) -> None:
-        missing: list[str] = []
-        for relative in sorted(managed_documents(REPOSITORY_ROOT)):
-            document = REPOSITORY_ROOT / relative
-            text = document.read_text(encoding="utf-8")
-            for target in markdown_link_targets(text):
-                parsed = urlsplit(target)
-                if parsed.scheme or target.startswith(("#", "/", "//")):
-                    continue
-                relative_path = unquote(parsed.path)
-                if not relative_path:
-                    continue
-                resolved = (document.parent / relative_path).resolve()
-                if not resolved.exists():
-                    missing.append(
-                        f"{document.relative_to(REPOSITORY_ROOT)} -> {target}"
-                    )
-                    continue
-                fragment = unquote(parsed.fragment)
-                if fragment and resolved.is_file() and resolved.suffix == ".md":
-                    anchors = markdown_anchors(resolved.read_text(encoding="utf-8"))
-                    if fragment not in anchors:
-                        missing.append(
-                            f"{document.relative_to(REPOSITORY_ROOT)} -> {target} "
-                            "(missing fragment)"
-                        )
-
-        self.assertEqual(missing, [], "Missing relative Markdown links:\n" + "\n".join(missing))
+        missing = relative_link_violations(REPOSITORY_ROOT, managed_documents(REPOSITORY_ROOT))
+        self.assertEqual(missing, [], "Invalid relative Markdown links:\n" + "\n".join(missing))
 
     def test_render_chain_scan_preserves_rule_ranges_and_refreshes_between_calls(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

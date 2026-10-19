@@ -41,7 +41,7 @@
 
 **失败与验收。** 数值/资源安全沿原最小拒绝，普通effect失败沿原局部回退；创建/回滚与退休仍属DynamicLayerRuntime。先验false/true的四角、非零深度倾角、内部标记及同MVP cursor反投影；保fullscreen、group、project/依赖、native相机和健康peer反例，再做Debug及实际288控制/画面和独立原包。若原包仍无可见收益则不保留空创建基础设施，按队列重选；此设计不预报修复、性能或完整parity。
 
-**native-world 后继资格（2026-10-16）。** childless `composelayer_depthtest` 尚未开放。两轮官方自有 native-camera 载体均缺背景网格与独立 world 四角正控，不能裁定采集或深度语义；到此停止载体重试，不增加矩阵或产品别名。现有仿射 sourceUV 不能直接外推 native 透视；后继须先建立可见源与独立几何，再区分采集和最终遮挡。深度仍应由原 StaticModelFrame 管共享 lease/首次 clear，source/graph 保色彩路径，最终 quad 才只读 scene depth；真实首 pass 依赖主源，保留 captured-main consumer 准入，不转无源绘制。未改变产品能力，资格及失败输入见[限量证据](../../../../.artifacts/scene-evidence/runs/native-world-capture-qualification-20261016/manifest.json)。
+**native-world 后继资格（2026-10-16）。** childless `composelayer_depthtest` 尚未开放。两轮官方自有 native-camera 载体均缺背景网格与独立 world 四角正控，不能裁定采集或深度语义；到此停止载体重试，不增加矩阵或产品别名。现有仿射 sourceUV 不能直接外推 native 透视；后继须先建立可见源与独立几何，再区分采集和最终遮挡。深度仍应由原 StaticModelFrame 管共享 lease/首次 clear，source/graph 保色彩路径，最终 quad 才只读 scene depth；真实首 pass 依赖主源，保留 captured-main consumer 准入，不转无源绘制。未改变产品能力，资格及失败输入见限量证据 `../../../../.artifacts/scene-evidence/runs/native-world-capture-qualification-20261016/manifest.json`。
 
 ### 有序 framebuffer source Program 后继（2026-10-19）
 

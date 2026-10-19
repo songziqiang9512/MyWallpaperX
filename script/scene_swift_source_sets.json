@@ -111,7 +111,6 @@
         "Compilation/ShaderFrontend/SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.swift",
-        "Compilation/ShaderFrontend/SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderWholeVectorAffineParser.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",

@@ -5,12 +5,16 @@ from __future__ import annotations
 import argparse
 from datetime import date
 import hashlib
-import html
 import json
 import math
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
+
+if __package__:
+    from .document_links import markdown_anchors as anchors
+else:
+    from document_links import markdown_anchors as anchors
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = Path('script/document_health_baseline.json')
@@ -136,30 +140,6 @@ def schema_errors(value: object) -> list[str]:
                 errors.append('duplicate adjustment section/path')
             seen.add(key)
     return errors
-
-
-def anchors(text: str) -> set[str]:
-    """Match repository Markdown links: explicit IDs and visible GitHub headings."""
-    result = set(re.findall(r"<a\s+(?:[^>]*?\s)?id=[\"']([^\"']+)[\"'][^>]*>", text, re.I))
-    fence = None
-    for line in text.splitlines():
-        marker = re.match(r"^\s*(```|~~~)", line)
-        if marker:
-            if fence is None:
-                fence = marker[1]
-            elif marker[1] == fence:
-                fence = None
-            continue
-        if fence is not None:
-            continue
-        match = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
-        if match:
-            value = re.sub(r"<[^>]+>", "", html.unescape(match[1])).strip().lower()
-            value = re.sub(r"[^\w\-\u3400-\u9fff ]", "", value)
-            slug = re.sub(r"[ _]+", "-", value).strip("-")
-            if slug:
-                result.add(slug)
-    return result
 
 
 def body_size(text: str) -> dict[str, int]:

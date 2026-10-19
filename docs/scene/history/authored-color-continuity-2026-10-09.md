@@ -19,7 +19,7 @@
 
 ## 有界证据
 
-官方Windows 11 / WE 2.8.0.42的自有输入先输出白RGB和alpha 0/.5/1，后一个effect只把alpha改为.5。官方override三卡均159，baseline为64/159/255；本机旧版override为32/160/160。原始合同、输入manifest及排除的无效实验见[既有证据入口](../capabilities/runtime-evidence-current.md#e-2026-10-08-transparent-color-continuity)。不消费参考项目的私有实现。
+官方Windows 11 / WE 2.8.0.42的自有输入先输出白RGB和alpha 0/.5/1，后一个effect只把alpha改为.5。官方override三卡均159，baseline为64/159/255；本机旧版override为32/160/160。原始合同、输入manifest及排除的无效实验见[既有证据入口](#e-2026-10-08-transparent-color-continuity)。不消费参考项目的私有实现。
 
 最终签名Debug构建源哈希在构建前后相同：App `1bb7c7a2a87d3996ac85a4040c70cd0fd0d6c2e2520d01eac047846a32c73f1c`，dylib `0d5f48e82ad72f89f292134c33bbe8da010a559d047aa0e82de055ba6e00d5bd`。隔离cache/HOME运行相同自有输入，override **160/160/160**、baseline **64/160/255**；5×5 ROI逐通道在预置±2以内。override三层六effect均首帧/下一帧GPU completed，终端被唯一compositor消费，rejectedNodes=0；不是“未执行effect所以看起来正确”。身份和ROI在 `/private/tmp/mwx-color-continuity-20261008/{build-final.json,verified-fixture-report.json}`。
 
@@ -62,3 +62,9 @@
 产品提交后核对18文件仍逐个匹配构建/独立审查身份。定向源上传GPU及无effect用户纹理消费通过；原CPU fixture补齐BC格式枚举后通过。源capture→alpha override门从旧巨型Graph测试文件移至独立205行入口，方法AST保持原样，沿同一harness复用，旧文件无净新增；产品提交后独立入口实际复跑PASS（79.364秒）。结构、依赖、防御、设计、文档与gate选择器检查通过；未跑完整Scene旧测试套件或全样本长稳。
 
 本批最终日志、截图、输入与失败诊断留在`/private/tmp/mwx-source-color-20261009`。正式证据提取被既有缓存总预算拒绝，prune无可删除登记项，未扩预算、未清未知材料。已删除本批停止使用的临时样本、HOME/cache及重复生成输出256269286 bytes；保留前述唯一连续构建缓存供下一批，不另建第二份。
+
+## 2026-10-08 原始对照记录
+
+以下原文取自 `4eb05bd43` 的运行证据行；仅保存当时修复前状态，后继结果见上文。原实验路径为当时本机记录，不随仓库分发。
+
+<a id="e-2026-10-08-transparent-color-continuity"></a>**已证缺口，尚未实施**：官方 Windows 11 / 2.8.0.42 自有三卡输入先生成白色RGB、alpha=0/0.5/1，再仅把alpha改为0.5；两帧ROI均为159/159/159，baseline为64/159/255，红色sentinel证明首effect执行。相同作者输入本机baseline为64/160/255，override为32/160/160，零alpha颜色在中间链丢失。官方81文件manifest `7171e73d71b64565154484bc83eb462b8a30f9cd8e8daa31e1caf5d92ff2ecfb`，本机初版varying修复Debug App `aac679b3…f1d5` / dylib `b69d7bde…e4e`；精确身份、输入、PNG和ROI在 `/private/tmp/mwx-godrays-20261008/official/{behavior-contract.json,translucent-input-manifest.json}` 与 `native-translucent/roi.json`，构建源冻结于 `/private/tmp/mwx-varying-prefix-20261008/build-source-initial.json`。只证明作者颜色可跨effect保留并被后续alpha暴露，不推断官方内部存储，不直接认定3807668787灰冠全部根因或HDR完成；下一步按[现有颜色设计](../roadmap/batch2/hdr-tonemap-edr-design.md#作者颜色跨-effect-连续性2026-10-08待实施)实施唯一共享链。早期normal源材质和缺instance passes的无效对照已排除，保留失败收据；官方实验已清理自有目录/窗口、VM恢复挂起。

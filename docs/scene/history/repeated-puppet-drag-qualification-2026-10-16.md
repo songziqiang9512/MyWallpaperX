@@ -76,7 +76,7 @@ U40仍须修后按原输入验证三轮持续响应、释放后继续更新、�
 
 重新核对作者释放链，3749463715与2998757800都调用尚未接入的 `applyBonePhysicsImpulse`；299没有先前怀疑的 `getAnimation` 变体。共享缺失API已定位，但该静态调用关系不代替两包当前身份的三轮交互验收，也不把异常 fuse 改成忽略即可恢复物理。
 
-固定官方2.8.0.42的自有C/S/SI/IS四格在age8执行一次setter20和低冲量40、显式angular零，观察同callback先后次序。首张实际交互PNG已到age11.267，未取得预登记的C/S格线稳定与大于3px位移正控；虽然24条有限getter和正常调用文本可读，SI/IS登记值同舍入显示，仍不能裁定顺序、单位、增益或隐藏物理状态。按门记 **STOP_UNKNOWN**，不重复同类无区分矩阵、不据此接入猜测solver。输入、原PNG、失败关闭命令和独审保留在[正式包](../../../.artifacts/scene-evidence/runs/u40-setter-impulse-order-stop-20261019/manifest.json)，普通14天；用户随后确认手动关闭该实验预览，官方主客户端及VM继续运行。历史工具未确认关闭的事实保持原样，人工确认不充当物理验收。
+固定官方2.8.0.42的自有C/S/SI/IS四格在age8执行一次setter20和低冲量40、显式angular零，观察同callback先后次序。首张实际交互PNG已到age11.267，未取得预登记的C/S格线稳定与大于3px位移正控；虽然24条有限getter和正常调用文本可读，SI/IS登记值同舍入显示，仍不能裁定顺序、单位、增益或隐藏物理状态。按门记 **STOP_UNKNOWN**，不重复同类无区分矩阵、不据此接入猜测solver。输入、原PNG、失败关闭命令和独审保留在正式包 `../../../.artifacts/scene-evidence/runs/u40-setter-impulse-order-stop-20261019/manifest.json`，普通14天；用户随后确认手动关闭该实验预览，官方主客户端及VM继续运行。历史工具未确认关闭的事实保持原样，人工确认不充当物理验收。
 
 <a id="native-query-render-pose"></a>
 
@@ -119,11 +119,11 @@ U40仍须修后按原输入验证三轮持续响应、释放后继续更新、�
 
 | 阶段与正式ZIP | entry / bytes | ZIP SHA256 |
 |---|---:|---|
-| [R3 · setter正控](../../../.artifacts/scene-evidence/runs/u40-skin-consumer-qualification-20261016/final/samples/3749463715/runtime_evidence.zip) | 89 / 2,161,133 | `6a018609939d2422700cfd2cb7218adef61ec2f88ac5b930f9a6ae972aaf7ae8` |
-| [Q2 · 视觉脉冲，原joint gate UNKNOWN](../../../.artifacts/scene-evidence/runs/u40-translation-impulse-contract-20261016/final/samples/3749463715/runtime_evidence.zip) | 85 / 1,230,986 | `48bc4c10c602606f3803e52638e2e494f0dadcf049ddb8101899e27fc273ff44` |
-| [Q3 · query投影观察](../../../.artifacts/scene-evidence/runs/u40-physics-query-projection-20261016/final/samples/3749463715/runtime_evidence.zip) | 87 / 1,510,219 | `c595175f7b844b1e6492f3b761179c73cecf938c9fd1daf3327b4e4d5a6a4b04` |
-| [Q4/Q5 · 省略启用字段与setter寿命](../../../.artifacts/scene-evidence/runs/u40-pose-query-contract-20261017/final/samples/3749463715/runtime_evidence.zip) | 186 / 3,190,639 | `5a25fde480a0c945b2428eae17686caeafa598a521616e3f9eedc472ed6908b0` |
+| R3 · setter正控 `../../../.artifacts/scene-evidence/runs/u40-skin-consumer-qualification-20261016/final/samples/3749463715/runtime_evidence.zip` | 89 / 2,161,133 | `6a018609939d2422700cfd2cb7218adef61ec2f88ac5b930f9a6ae972aaf7ae8` |
+| Q2 · 视觉脉冲，原joint gate UNKNOWN `../../../.artifacts/scene-evidence/runs/u40-translation-impulse-contract-20261016/final/samples/3749463715/runtime_evidence.zip` | 85 / 1,230,986 | `48bc4c10c602606f3803e52638e2e494f0dadcf049ddb8101899e27fc273ff44` |
+| Q3 · query投影观察 `../../../.artifacts/scene-evidence/runs/u40-physics-query-projection-20261016/final/samples/3749463715/runtime_evidence.zip` | 87 / 1,510,219 | `c595175f7b844b1e6492f3b761179c73cecf938c9fd1daf3327b4e4d5a6a4b04` |
+| Q4/Q5 · 省略启用字段与setter寿命 `../../../.artifacts/scene-evidence/runs/u40-pose-query-contract-20261017/final/samples/3749463715/runtime_evidence.zip` | 186 / 3,190,639 | `5a25fde480a0c945b2428eae17686caeafa598a521616e3f9eedc472ed6908b0` |
 
-已闭query/render片的[原生验收包](../../../.artifacts/scene-evidence/runs/u40-query-render-projection-20261017/final/samples/3749463715/runtime_evidence.zip)按普通14天保留：82 entries / 26,305,297B，SHA `cef4271ae6f2d91baee2e73b5681ecdafd96bee9d7ddc1f2d0631357a36852c2`。含24张self、335两张与379两张原图、原日志/输入身份、实际CPU/Metal命令和独审；81源逐字节匹配后清理重复执行环境。官方Q4/Q5另核185源一致再清临时副本，VM保持running。用户临时授权总预算1536MiB，单包32MiB及到期策略不变。
+已闭query/render片的原生验收包 `../../../.artifacts/scene-evidence/runs/u40-query-render-projection-20261017/final/samples/3749463715/runtime_evidence.zip`按普通14天保留：82 entries / 26,305,297B，SHA `cef4271ae6f2d91baee2e73b5681ecdafd96bee9d7ddc1f2d0631357a36852c2`。含24张self、335两张与379两张原图、原日志/输入身份、实际CPU/Metal命令和独审；81源逐字节匹配后清理重复执行环境。官方Q4/Q5另核185源一致再清临时副本，VM保持running。用户临时授权总预算1536MiB，单包32MiB及到期策略不变。
 
 真实用户媒体只读；U41既有提交`b132add7`不作为U40修复；提交、推送与发布状态由root另行汇报。

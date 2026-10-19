@@ -247,7 +247,7 @@ class DocumentHealthTests(unittest.TestCase):
             self.assertTrue(output.getvalue() or error.getvalue())
 
     def test_heading_anchors_match_original_link_checker(self):
-        from script.tests.test_scene_semantics_coverage import markdown_anchors
+        from script.document_links import markdown_anchors
         text = '# E-2026 — Test  Name\n## 中文 **标题** &amp; value\n```\n## Not an anchor\n```\n<a id="explicit"></a>\n<A class="x" ID="attribute-order"></A>\n'
         self.assertEqual(anchors(text), markdown_anchors(text))
         self.assertIn('e-2026-test-name', anchors(text))

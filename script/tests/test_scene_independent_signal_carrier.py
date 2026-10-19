@@ -26,6 +26,7 @@ STOCK_ROOT = (
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+from generate_scene_shader_cache_identity import build_identity, write_identity  # noqa: E402
 
 
 def unique_sources(*groups: list[Path] | tuple[Path, ...]) -> list[Path]:
@@ -774,6 +775,9 @@ class SceneIndependentSignalCarrierTests(unittest.TestCase):
         (cls.binary.parent.parent / "Info.plist").write_bytes(plistlib.dumps({
             "CFBundleIdentifier": "com.songziqiang.MyWallpaperX", "CFBundleExecutable": cls.binary.name,
             "CFBundlePackageType": "APPL"}))
+        identity_resource = cls.binary.parent.parent / "Resources/SceneShaderCacheIdentity.json"
+        cls.cache_identity = build_identity(REPOSITORY_ROOT, {"testHarness": "independent-signal-carrier"})
+        write_identity(identity_resource, cls.cache_identity)
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(temporary / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(temporary / "swift-cache")
@@ -781,7 +785,7 @@ class SceneIndependentSignalCarrierTests(unittest.TestCase):
         environment.update(HOME=str(cls.home), CFFIXED_USER_HOME=str(cls.home))
         cls.environment = environment
         cls.proof = Path(os.environ["MWX_INDEPENDENT_SIGNAL_PROOF"]) if os.environ.get("MWX_INDEPENDENT_SIGNAL_PROOF") else None
-        cls.inputs = [*SWIFT_SOURCES, harness, Path(__file__), REPOSITORY_ROOT / "script/scene_swift_source_sets.py"]
+        cls.inputs = [*SWIFT_SOURCES, harness, identity_resource, Path(__file__), REPOSITORY_ROOT / "script/scene_swift_source_sets.py"]
         cls.before = cls.input_identities()
         cls.record("inputs-before.json", cls.before)
         started = time.monotonic()
@@ -886,6 +890,10 @@ class SceneIndependentSignalCarrierTests(unittest.TestCase):
             snapshots.append(json.loads(run.stdout))
             files = sorted(cache_home.rglob("*.json"))
             self.assertEqual(len(files), 2)
+            entries = [json.loads(path.read_text()) for path in files]
+            self.assertEqual({entry["key"]["compilerIdentity"] for entry in entries},
+                             {self.cache_identity["semantics"]})
+            self.assertEqual(len({entry["key"]["fragmentSourceSHA256"] for entry in entries}), 2)
             current = {str(p): (p.read_bytes(), p.stat().st_mtime_ns) for p in files}
             self.record(f"cache-{phase}-files.json", [{"path": path, "bytes": len(raw),
                 "sha256": hashlib.sha256(raw).hexdigest(), "mtimeNS": modified}

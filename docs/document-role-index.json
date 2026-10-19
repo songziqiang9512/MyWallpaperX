@@ -744,9 +744,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d8c5d4b90a96c34e1d9c7222b5dc12c5872774c432626a22e0e359b1ce2f9b21",
+        "sourceSHA256": "2d0c10fbd5fb5ff1c253c4773b5378cb276c53432dcf55b019a8edcad965bebd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
         "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
@@ -3432,12 +3432,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "594e487081ee2221376c5b3495d40cb3becc43acfcb1535f2df7b24f8426ed7e",
+        "sourceSHA256": "11004937731298b46afb4a6cabcf3fdb5e012d327ebd57e53580911ac695b07d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
+        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
         "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
       }
     },
@@ -3538,12 +3538,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3ab4b388c0105984fabbd863ddbac4058d37b3c191ae726c06d74f389e1c730",
+        "sourceSHA256": "30752f9f4a61407b74680305d8b804e9f5c214903865ed8a322b732adcf2d949",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步无成员capturedMain单stage同pixel终端：原ingress/proof/变体、共享sampler/cache identity与预算；284白线低清有界闭合，374新route/旧fallback和293加法邻例保持。其余合同未重审。",
+        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
         "limitations": "原型/首拒/门失败保正式包；最终SDR App不代完整HDR、非1alpha source-over全组合、同phase/官方像素、全音源或整体性能。293/321方向漩涡开放；旧293PMA补门非全矩阵PASS。"
       }
     },
@@ -3566,12 +3566,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "189eaf2420b82e42a38683fbc73aac7682a16d5789a9d023ac3428b8be3aba20",
+        "sourceSHA256": "176d839ad23fae63de7274ac31fe1b05f201e1687a072ebbbec7b9735b413de0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
+        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
         "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
       }
     },
@@ -3625,9 +3625,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0b7255d12c5566b2c765ce521465910d056b3560d6ac53ff42625b54bfcd4bb2",
+        "sourceSHA256": "162c78160df52bc5e404cf91cbbee9b142eed63879d6fcab54bc22273b51a8e3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Withdraw unshipped varying-array candidate for release; keep visible waveform gap open and preserve other queue results.",
+        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
         "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },

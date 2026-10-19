@@ -19,6 +19,7 @@ from script.tests.scene_dependency_binding_test_support import (
 from script.tests.scene_framebuffer_source_test_support import (
     framebuffer_source_material_declarations,
 )
+from script.tests.scene_harness_io import separate_graph_debug_output
 
 
 CONTRACT_GATE = Path(__file__).with_name(
@@ -105,8 +106,7 @@ def compile_lit_harness(
                 "macosx",
                 "swiftc",
                 "-parse-as-library",
-                "-D",
-                "SCENE_GRAPH_TESTING",
+                *CONTRACT_FIXTURE["GRAPH_SWIFT_FLAGS"],
                 *extra_swift_flags,
                 str(support),
                 *(str(path) for path in dict.fromkeys([
@@ -138,7 +138,7 @@ def compile_lit_harness(
             capture_output=True,
             text=True,
         )
-        return compilation, completed
+        return compilation, separate_graph_debug_output(completed)
 
 
 SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''

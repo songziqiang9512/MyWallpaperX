@@ -49,7 +49,7 @@
 
 ## 无成员背景采集的终端密度（2026-10-19，有界实现）
 
-目标是避免把巨大屏外画布压到工作纹理后放大。原型只按屏幕密度重放末材质，实际284仅末弧清楚，后继背景capture仍低清先前弧，已撤回；[必要证据](../../../../.artifacts/scene-evidence/runs/arc-density-qualification-20261019/current/report.json)保留，不从单pass或回执计数认三弧修好。
+目标是避免把巨大屏外画布压到工作纹理后放大。原型只按屏幕密度重放末材质，实际284仅末弧清楚，后继背景capture仍低清先前弧，已撤回；必要证据 `../../../../.artifacts/scene-evidence/runs/arc-density-qualification-20261019/current/report.json`保留，不从单pass或回执计数认三弧修好。
 
 后继沿现 Compiler/ArtifactBuilder→Program→pool/GraphExecutor→唯一MainPass保住背景与新细节。共享SyntaxUnit/binding facts证明canonical quad仅经原MVP、原UV的xy无改写、slot0全部普通2D采样读取原xy；改名、括号与恒等向量构造不改变资格。未知坐标/offset/LOD/helper传递/条件改写/vertex warp拒绝可选入口；targetPixels及prefix-link不能替代证明。先限单个resolved color stage、无成员capturedMain、普通正交、无provider/依赖/显式FBO、最终alpha=1及原完整输出合同；slot0精确ingress复用现capturedMainTargetSourceSlot，不以node.bindings遗漏合法材质alias。不能用当前背景偷换前序active效果，未准入的多段链保原图。
 

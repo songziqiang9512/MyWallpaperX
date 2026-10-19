@@ -60,6 +60,8 @@ private struct Output: Codable {
     let compilerOutputCarrierDriftRejected: Bool
     let zeroSampleCountRejected: Bool
     let singleColorWithoutDataRejected: Bool
+    let duplicateSamplerRejected: Bool
+    let sourceAndSyntaxEntryPointsAgree: Bool
 }
 
 @main
@@ -82,11 +84,21 @@ private struct RGBDifferenceEnhancementHarness {
             "}",
         ].joined(separator: "\n")
 
+        var entryPointsAgree = true
         func fact(_ source: String) ->
             SceneAuthoredShaderPreservedAlphaRGBFilterFact? {
-            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
+            let sourceFact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
                 fragmentSource: source
             )
+            let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: .fragment),
+                stage: .fragment
+            )
+            let syntaxFact = syntax.diagnostics.isEmpty
+                ? syntax.unit.flatMap { SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny($0) }
+                : nil
+            entryPointsAgree = entryPointsAgree && sourceFact == syntaxFact
+            return sourceFact
         }
 
         let positive = fact(authored)
@@ -271,7 +283,12 @@ private struct RGBDifferenceEnhancementHarness {
                         fullColorSampleCallCounts: [2: 1],
                         rgbColorSampleCallCounts: [:],
                         dataSampleCallCounts: [:]
-                    ) == nil
+                    ) == nil,
+            duplicateSamplerRejected: fact(authored.replacingOccurrences(
+                of: "uniform sampler2D g_Texture0;",
+                with: "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture0;"
+            )) == nil,
+            sourceAndSyntaxEntryPointsAgree: entryPointsAgree
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -348,6 +365,8 @@ class SceneRGBDifferenceEnhancementTests(unittest.TestCase):
             "compilerOutputCarrierDriftRejected": True,
             "zeroSampleCountRejected": True,
             "singleColorWithoutDataRejected": True,
+            "duplicateSamplerRejected": True,
+            "sourceAndSyntaxEntryPointsAgree": True,
         })
 
 

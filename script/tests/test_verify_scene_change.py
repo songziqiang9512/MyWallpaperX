@@ -104,6 +104,26 @@ class SceneValidationSelectionTests(unittest.TestCase):
                 self.assertIsInstance(metadata["serialized"], bool)
                 self.assertNotEqual(metadata["retirement"], "permanent")
 
+    def test_document_link_checker_changes_select_repository_link_gate(self) -> None:
+        for path in ('script/document_links.py', 'script/tests/test_document_links.py'):
+            with self.subTest(path=path):
+                gates, _ = verify.build_plan([path], arguments(), self.registry)
+                self.assertIn('document-links', [gate.gate_id for gate in gates])
+                focused = next(gate for gate in gates if gate.gate_id == 'focused-tests')
+                self.assertIn('test_document_links', focused.command)
+
+    def test_shared_material_harness_changes_select_real_consumers(self) -> None:
+        cases = {
+            'script/tests/scene_harness_io.py': {'test_scene_animated_material_visual_failure', 'test_scene_source_color_graph'},
+            'script/tests/test_scene_resolved_material_graph_visual_failure_contract.py': {'test_scene_resolved_material_graph_executor'},
+            'script/tests/test_scene_resolved_material_program_finalizer.py': {'test_scene_background_material_provider'},
+        }
+        for path, consumers in cases.items():
+            with self.subTest(path=path):
+                gates, _ = verify.build_plan([path], arguments(), self.registry)
+                focused = next(gate for gate in gates if gate.gate_id == 'focused-tests')
+                self.assertTrue(consumers.issubset(focused.command))
+
     def test_every_registry_path_group_references_existing_modules(self) -> None:
         self.assertEqual(missing_registry_modules(self.registry, SCRIPT_ROOT / 'tests'), [])
 
