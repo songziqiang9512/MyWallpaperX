@@ -57,7 +57,10 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
             precondition(abs(closeRect.width - 32) < 0.5, "close button width must remain unchanged")
             precondition(row.bounds.contains(closeRect), "close button escaped the header")
             precondition(row.frame.height < 64, "header must not absorb spare panel height")
-            precondition(abs(closeRect.midY - row.bounds.midY) < 0.5, "close button must stay centered")
+            precondition(abs(closeRect.midY - row.bounds.midY) < 0.5,
+                         "close button must stay centered: close=\(closeRect), row=\(row.bounds), " +
+                         "parent=\(type(of: row)), insets=\(close.alignmentRectInsets), " +
+                         "scale=\(row.window?.backingScaleFactor ?? 0), compact=\(card.compactHeader)")
             for image in icons where !image.isHidden {
                 precondition(abs(image.alignmentRect(forFrame: image.frame).height - 18) < 0.5,
                              "header icon must retain its own height")
