@@ -425,16 +425,26 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                   ranges.count == 3,
                   let first = componentExpression(ranges[0], tokens: tokens, unit: unit),
                   let second = componentExpression(ranges[1], tokens: tokens, unit: unit),
-                  first.compound || second.compound,
                   let firstWidth = floatVectorWidth(first.type),
-                  firstWidth == floatVectorWidth(second.type),
-                  validWeight(
-                      ranges[2], width: firstWidth, before: index,
-                      tokens: tokens, unit: unit
-                  ) else { return [] }
-            return first.conversions + second.conversions
+                  firstWidth == floatVectorWidth(second.type) else { return [] }
+            if validWeight(
+                ranges[2], width: firstWidth, before: index,
+                tokens: tokens, unit: unit
+            ) {
+                return first.compound || second.compound
+                    ? first.conversions + second.conversions : []
+            }
+            // Component-wise interpolation consumes the leading endpoint-width
+            // components of a proven wider weight, without changing its storage.
+            guard let weight = componentExpression(ranges[2], tokens: tokens, unit: unit),
+                  let weightWidth = floatVectorWidth(weight.type),
+                  weightWidth > firstWidth,
+                  let suffix = narrowingSuffix(from: weightWidth, to: firstWidth)
+            else { return [] }
+            return first.conversions + second.conversions + weight.conversions
+                + [.init(range: weight.range, suffix: suffix)]
         })
-        for conversion in conversions {
+        for conversion in conversions.sorted(by: { $0.range.count < $1.range.count }) {
             starts[conversion.range.lowerBound, default: 0] += 1
             ends[conversion.range.upperBound, default: []].append(conversion.suffix)
         }

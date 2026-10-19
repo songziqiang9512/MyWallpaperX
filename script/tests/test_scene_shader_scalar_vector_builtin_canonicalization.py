@@ -806,5 +806,137 @@ void main() {
                 self.assertNotIn(10.0, constants)
 
 
+    def _compile_weight_probe(self, name: str, source: str, expected: list[float]) -> Path:
+        root = self.binary.parent / "weight-cases" / name
+        root.mkdir(parents=True, exist_ok=True)
+        authored = root / "input.frag"
+        authored.write_text(source, encoding="utf-8")
+        output = json.loads(subprocess.check_output(
+            [str(self.binary), "--analyze", str(authored)], text=True,
+        ))
+        (root / "analysis.json").write_text(json.dumps(output, indent=2), encoding="utf-8")
+        self.assertTrue(output["idempotent"], name)
+        self.assertEqual(output["fallbackDiagnosticCodes"], [], name)
+        self.assertEqual(output["fallbackFragmentFunctionName"], "sceneAuthoredFragment")
+        self.assertIn("float4", output["fallbackMSL"])
+        for stage in ("Vertex", "Fragment"):
+            (root / ("source.vert" if stage == "Vertex" else "source.frag")).write_text(
+                output["normalized" + stage], encoding="utf-8",
+            )
+        (root / "fallback.metal").write_text(output["fallbackMSL"], encoding="utf-8")
+        commands = (
+            [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+             "-l", "source.vert", "source.frag"],
+            [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+             "source.frag", "-o", "result.spv"],
+            [str(GLSLANG.with_name("spirv-cross")), "result.spv", "--msl",
+             "--rename-entry-point", "main", "comparisonFragment", "frag",
+             "--output", "generic.metal"],
+        )
+        for command in commands:
+            compiled = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
+            self.assertEqual(compiled.returncode, 0, name + compiled.stdout + compiled.stderr)
+        (root / "expected.json").write_text(json.dumps(expected * 2), encoding="utf-8")
+        return root
+
+    def test_wider_mix_weights_compile_through_both_backends(self) -> None:
+        declarations = """
+vec3 low = vec3(0.125, 0.25, 0.5), high = vec3(0.625, 0.75, 1.0);
+vec4 rgba = vec4(0.25, 0.5, 0.75, 0.875);
+vec3 border = vec3(0.0, 0.125, 0.25);
+"""
+        cases = [
+            ("nested-mix", declarations +
+             "vec3 rgb = mix(border, mix(low, high, rgba), 0.5); gl_FragColor = vec4(rgb, rgba.a);",
+             [0.125, 0.3125, 0.5625, 0.875]),
+            ("renamed-lerp", declarations.replace("rgba", "atlasWeight").replace("low", "dark").replace("high", "light") +
+             "vec3 rgb = lerp(border, lerp(dark, light, ((atlasWeight))), 0.5); gl_FragColor = vec4(rgb, atlasWeight.a);",
+             [0.125, 0.3125, 0.5625, 0.875]),
+            ("nested-width-boundary", """
+vec2 a = vec2(0.125, 0.25), b = vec2(0.625, 0.75);
+vec3 k = vec3(0.5, 0.25, 1.0); vec4 w = vec4(0.5, 0.75, 0.25, 0.875);
+vec2 rgb = mix(a, b, k * w); gl_FragColor = vec4(rgb, 0.625, w.a);
+""", [0.25, 0.34375, 0.625, 0.875]),
+            ("parenthesized-weight-expression", """
+vec2 base = vec2(0.125, 0.25), peak = vec2(0.625, 0.75);
+vec3 weight = vec3(0.25, 0.5, 0.875);
+vec2 rgb = mix((base), (peak), (abs(weight) + weight - weight));
+gl_FragColor = vec4(rgb, 0.625, weight.z);
+""", [0.25, 0.5, 0.625, 0.875]),
+            ("scalar-weight-adjacent", declarations +
+             "gl_FragColor = vec4(mix(low, high, 0.5), rgba.a);", [0.375, 0.5, 0.75, 0.875]),
+            ("rgba-weight-preserves-alpha", """
+vec4 base = vec4(0.0, 0.125, 0.25, 0.5), peak = vec4(0.5, 0.625, 0.75, 1.0);
+vec4 rgba = vec4(0.25, 0.5, 0.75, 0.875); gl_FragColor = mix(base, peak, rgba);
+""", [0.125, 0.375, 0.625, 0.9375]),
+        ]
+        for name, body, expected in cases:
+            with self.subTest(name=name):
+                root = self._compile_weight_probe(name, "void main() {" + body + "}", expected)
+                output = json.loads((root / "analysis.json").read_text())
+                if name == "nested-mix":
+                    self.assertIn("vec4 rgba = vec4(0.25, 0.5, 0.75, 0.875)", output["canonicalFragment"])
+                    self.assertIn("rgba.a", output["canonicalFragment"])
+                    self.assertIn("(rgba).xyz", output["canonicalFragment"])
+                if name == "nested-width-boundary":
+                    self.assertIn("(k * (w).xyz).xy", output["canonicalFragment"])
+
+    def test_wider_mix_weight_rejects_unproven_and_neighboring_shapes(self) -> None:
+        cases = [
+            # This converter does not prove constructor expressions; preserve them for the compiler.
+            ("constructor-weight-unproven", "vec2 a=vec2(0.0), b=vec2(1.0); vec3 w=vec3(0.5);", "mix((a),(b),(abs(w)+vec3(0.0)))"),
+            ("narrow-weight", "vec3 a=vec3(0.0), b=vec3(1.0); vec2 w=vec2(0.5);", "mix(a,b,w)"),
+            ("different-endpoints", "vec2 a=vec2(0.0); vec3 b=vec3(1.0); vec4 w=vec4(0.5);", "mix(a,b,w)"),
+            ("integer-weight", "vec3 a=vec3(0.0), b=vec3(1.0); ivec4 w=ivec4(1);", "mix(a,b,w)"),
+            ("boolean-weight", "vec3 a=vec3(0.0), b=vec3(1.0); bvec4 w=bvec4(true);", "mix(a,b,w)"),
+            ("integer-endpoints", "ivec3 a=ivec3(0), b=ivec3(1); vec4 w=vec4(0.5);", "mix(a,b,w)"),
+            ("unknown-weight", "vec3 a=vec3(0.0), b=vec3(1.0);", "mix(a,b,unknownWeight())"),
+            ("mutating-weight", "vec3 a=vec3(0.0), b=vec3(1.0); vec4 w=vec4(0.5);", "mix(a,b,w++)"),
+            ("value-shadow", "vec3 a=vec3(0.0), b=vec3(1.0); vec4 w=vec4(0.5); float mix=1.0;", "mix(a,b,w)"),
+        ]
+        root = self.binary.parent / "weight-negative"
+        root.mkdir(exist_ok=True)
+        for name, declarations, expression in cases:
+            with self.subTest(name=name):
+                source = "void main(){" + declarations + "gl_FragColor=vec4(1.0);" + expression + ";}"
+                path = root / (name + ".frag")
+                path.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output([str(self.binary), "--analyze", str(path)], text=True))
+                self.assertTrue(output["idempotent"])
+                (root / (name + "-analysis.json")).write_text(json.dumps(output, indent=2))
+                normalized = root / (name + "-normalized.frag")
+                normalized.write_text(output["normalizedFragment"], encoding="utf-8")
+                compiled = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     str(normalized), "-o", str(root / (name + ".spv"))],
+                    capture_output=True, text=True, timeout=30,
+                )
+                self.assertNotEqual(compiled.returncode, 0, name)
+                if name != "value-shadow":
+                    self.assertEqual(output["canonicalFragment"], source)
+        for intrinsic in ("mix", "lerp"):
+            source = (f"vec3 {intrinsic}(vec3 a,vec3 b,vec4 w){{return a;}}"
+                      f"void main(){{vec3 a=vec3(0.0),b=vec3(1.0);vec4 w=vec4(0.5);"
+                      f"gl_FragColor=vec4({intrinsic}(a,b,w),w.a);}}")
+            path = root / (intrinsic + "-overload.frag")
+            path.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output([str(self.binary), "--analyze", str(path)], text=True))
+            self.assertEqual(output["canonicalFragment"], source)
+            self.assertTrue(output["idempotent"])
+
+    def test_wider_mix_weights_render_exact_known_vectors(self) -> None:
+        self.test_wider_mix_weights_compile_through_both_backends()
+        for root in sorted((self.binary.parent / "weight-cases").iterdir()):
+            expected = json.loads((root / "expected.json").read_text())
+            for flag, name in (("--render", "generic.metal"), ("--render-fallback", "fallback.metal")):
+                with self.subTest(case=root.name, backend=name):
+                    pixels = json.loads(subprocess.check_output(
+                        [str(self.binary), flag, str(root / name)], text=True, timeout=30,
+                    ))
+                    self.assertEqual(len(pixels), len(expected))
+                    for actual, wanted in zip(pixels, expected):
+                        self.assertAlmostEqual(actual, wanted, places=6)
+
+
 if __name__ == "__main__":
     unittest.main()

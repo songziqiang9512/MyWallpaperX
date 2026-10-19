@@ -118,11 +118,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 347896
+      "bytes": 348420
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 142135
+      "bytes": 143345
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77176
+      "bytes": 77213
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 56,
-      "bytes": 18286
+      "bytes": 18302
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 64253
+      "bytes": 64104
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1342,15 +1342,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "2c8cf70dd1dd3fa468b64382a09a4d1dc51c2ba4fe1bbec1dc156a16be017254",
-      "after": "901415581235c989e9efd3ebe5105d5dcf5dac64e65ae8994d874edf6b45ea01",
-      "owner": "scene-ordinary-native-image-depth",
-      "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "2165041e26d0f54aaceb03e721dd6ba863ce3b8c587552ef1a335f7eab85971f",
       "after": "b582e739152be66dde52fd59c66ef565022f4c38afc71309651b429dc199d456",
@@ -1375,15 +1366,6 @@
       "owner": "scene-model-scene-depth-domain",
       "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
       "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "d35d7ed5766dad55fb3c6edcaa890da5987e4b94f33250f8f5ae05c339026233",
-      "after": "7cfccfe8acadc095eefea09d63cb0e71e71eea899e4182e8c230ed05f0e2b7df",
-      "owner": "scene-new25-runtime-audit",
-      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
     },
     {
       "section": "bodies",
@@ -1423,30 +1405,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "6d88a4b34d5e959057eff60ef2faf1c7c1211bdbc4a771cb4bc6f1919878741c",
-      "after": "6c186b7f4db2e54ae8b919b3762e6dc4661f1f5de374ff13fd223e74962e8f32",
-      "owner": "scene-new25-runtime-audit",
-      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
       "after": "9341aeaf02fa66541dcc190ff8edfd4ba9203f2d0e0b7cf2c11e84e43aafa97e",
       "owner": "scene-mixed-layer-timeline",
       "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8c4a527b17d6e0659a58a357e5709b612822b2fdaa7bc877ba27ddf9efa6e285",
-      "after": "5bb6ec30aa1b622e502693a8a792389c708cd68319ea0783dff10bba3b48f614",
-      "owner": "scene-new25-runtime-audit",
-      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
     },
     {
       "section": "bodies",
@@ -1465,6 +1429,51 @@
       "owner": "scene-property-presentation",
       "reason": "记录用户要求的Scene作者属性展示维护，保留现有可达性/条件/value owner，不新增引擎能力。",
       "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "8c4a527b17d6e0659a58a357e5709b612822b2fdaa7bc877ba27ddf9efa6e285",
+      "after": "5bb6ec30aa1b622e502693a8a792389c708cd68319ea0783dff10bba3b48f614",
+      "owner": "scene-new25-runtime-audit",
+      "reason": "依据冻结App的新增25实际运行与正式ZIP诊断、保留旧186对象及未变裁决，按三独立引擎职责保存可执行下一门；生成台账追加25目录行。此为真实证据/职责增长，仍保600行及150行snapshot硬界，不以合并owner或删未解任务换零增长。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261019"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "901415581235c989e9efd3ebe5105d5dcf5dac64e65ae8994d874edf6b45ea01",
+      "after": "8ccf58a01085d9f8bfa7c354f013ca00fbc7cbb1d524868e1f65994f50822149",
+      "owner": "mixed-vector-mix",
+      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "4c3287956ac334d47c684074ec9e1779a1d52c87f7774c35c9bbfcdc86feca3a",
+      "after": "ed5a7ca8abd68b85750716f526bfa2115928684f9e65c631c0eae4d489d5db46",
+      "owner": "mixed-vector-mix",
+      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "6c186b7f4db2e54ae8b919b3762e6dc4661f1f5de374ff13fd223e74962e8f32",
+      "after": "f2c90070c585ec7e1c4e3b5065d8ddd21b7949f6f4882fc629443343fee70baa",
+      "owner": "mixed-vector-mix",
+      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "7cfccfe8acadc095eefea09d63cb0e71e71eea899e4182e8c230ed05f0e2b7df",
+      "after": "29f3b33ec9d7ecdae13aa3cc449a50b9eb22e9ed2904c36a48cf3a8f7cb5a021",
+      "owner": "mixed-vector-mix",
+      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
     }
   ]
 }

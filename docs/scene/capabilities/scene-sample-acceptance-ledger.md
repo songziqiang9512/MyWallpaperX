@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（327 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `4b914f7ead0a4ebc8d1106ea93a058eeedc5529076ad4a6a59189e8cb1fdc7a0`（生成于 2026-10-17T03:20:28.462529+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `a1bc420f733a4a5c1c1ff44b6df2b378c07465b88fe6f9f6e8331d3f44e4c692`。
-- 本页生成于 2026-10-19T09:39:28.500258+00:00。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `61bc602e27c0fd1edf91893347e5efb4e65efdab353f1af02763cb54d9edea20`（生成于 2026-10-17T03:20:28.462529+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `6fd622bf0dd645c6e1ce6856a62049234fb13cb6c11857a245af253835141cf7`。
+- 本页生成于 2026-10-19T10:35:29.182737+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -36,21 +36,21 @@
 
 | 归档首断点集群 | 含义 | 样本数 |
 |---|---|---:|
-| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 16 |
+| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 15 |
 | `particle-load` | 粒子层资源加载 | 11 |
 | `texture-load` | 基础图片纹理加载 | 6 |
 | `scenescript` | SceneScript 异常 | 15 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 163 |
+| `visual-review` | 结构链完整，待视觉验收 | 164 |
 | `not-run` | 未关联本归档运行证据 | 116 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
-| `degraded-runtime` | 47 |
+| `degraded-runtime` | 46 |
 | `not-run` | 116 |
 | `runtime-evidence-incomplete` | 1 |
-| `structural-chain-complete-visual-review` | 161 |
+| `structural-chain-complete-visual-review` | 162 |
 
 作者参数：248 个样本声明了 schemecolor 之外的用户参数，共 8106 项，其中 2734 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -304,12 +304,12 @@
 | `3769761761` | Yoru and Mitaka asa | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：左侧向右下斜光仍缺；并入旧目标斜光观察，实际来源仍unknown。 |
 | `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 2026-10-19原包8s/after6、native、静音/outside0短窗：Root与独审亲看ready/after/目录官方，未定位可归因黑色水花… |
 | `3770462923` | gt3rs@d4rk | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3773747576` | 麻匪 棘 三模式切换 | 33(0) bool 4 color 2 combo 1 text 25 textinput 1 | `degraded-runtime` | `effect-execution / ResolvedMaterialExecution / effect-local-passthrough-material-pass-preparation-library-compilation / resolved-material-graph` | `effect-chain` | `unreviewed` 2026-10-19 | 黑白主体、黑柱图标、圆与碎片可见；四个procedural noise在Metal mix向量宽度处编译失败，星芒/音频差异未直接定因。 |
+| `3773747576` | 麻匪 棘 三模式切换 | 33(0) bool 4 color 2 combo 1 text 25 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 修后原图人物/黑柱图标/曲线与碎片保持，手臂/刀身等四个noise由透传恢复实际Program并进入末合成链；125由后续effect消费。原mix编译首错已… |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3777761326` | I do Anything | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 13(0) bool 4 color 1 group 2 slider 6 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-reference-error / target:layer:visibility` | `scenescript` | `unreviewed` |  |
-| `3779107475` | 麻匪 赛驴 音频识别互动 | 25(2) bool 4 color 2 scenetexture 1 text 17 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | NF墨框、二胡驴、中文、纸纹与飞墨可见；主构图保持，完整动态未验收。 |
+| `3779107475` | 麻匪 赛驴 音频识别互动 | 25(2) bool 4 color 2 scenetexture 1 text 17 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | mixed-width mix修复的独立原包复验：NF墨框、二胡驴、中文、纸纹与飞墨构图保持；短窗ready/after相同不证明完整动态或音频响应。 |
 | `3779904456` | 尤诺2 \|\| 鸣潮 | 47(21) bool 15 color 7 group 4 slider 9 text 10 textinput 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
 | `3780119725` | in the rain V 31 | 13(0) bool 9 color 2 slider 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `fail` 2026-09-08 | 2026-10-18用户补报（待当前身份复验）：人物/地面/摩托中层仍不随鼠标、摩托发光过强；重新开放此范围。旧短pointer窗口前摩托/人物响应的有界证据… |
 | `3780391264` | Agnes Tachyon Umamusume Neon | 7(0) bool 6 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

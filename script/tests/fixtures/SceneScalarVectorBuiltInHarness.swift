@@ -51,7 +51,7 @@ private struct ScalarVectorBuiltInHarness {
         ).fragment
     }
 
-    private static func render(_ path: String) throws -> [Float] {
+    private static func render(_ path: String, functionName: String = "comparisonFragment") throws -> [Float] {
         let device = MTLCreateSystemDefaultDevice()!
         let fragment = try device.makeLibrary(source: String(contentsOfFile: path, encoding: .utf8), options: nil)
         let vertex = try device.makeLibrary(source: """
@@ -64,7 +64,7 @@ private struct ScalarVectorBuiltInHarness {
         """, options: nil)
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertex.makeFunction(name: "testVertex")
-        descriptor.fragmentFunction = fragment.makeFunction(name: "comparisonFragment")
+        descriptor.fragmentFunction = fragment.makeFunction(name: functionName)
         descriptor.colorAttachments[0].pixelFormat = .rgba32Float
         let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -105,6 +105,12 @@ private struct ScalarVectorBuiltInHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(render(CommandLine.arguments[2])))
             return
         }
+        if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render-fallback" {
+            FileHandle.standardOutput.write(try JSONEncoder().encode(render(
+                CommandLine.arguments[2], functionName: "sceneAuthoredFragment"
+            )))
+            return
+        }
         if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--analyze" {
             let source = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
             let lexer = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
@@ -121,6 +127,14 @@ private struct ScalarVectorBuiltInHarness {
                     vertex: pair.vertex, fragment: pair.fragment
                 ),
             ]
+            let fallback = SceneAuthoredShaderFrontend.compile(
+                vertexSource: pair.vertex, fragmentSource: pair.fragment
+            )
+            output["fallbackDiagnosticCodes"] = fallback.diagnostics.map { $0.code.rawValue }
+            if let program = fallback.program {
+                output["fallbackMSL"] = program.metalSource
+                output["fallbackFragmentFunctionName"] = program.fragmentFunctionName
+            }
             if case let .success(normalized) = SceneGenericShaderSourceNormalizer.normalize(
                 vertexSource: pair.vertex, fragmentSource: pair.fragment,
                 maximumStageSourceBytes: 64 * 1_024

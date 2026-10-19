@@ -1394,28 +1394,32 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root（原图审查）",
-      "note": "黑白主体、黑柱图标、圆与碎片可见；四个procedural noise在Metal mix向量宽度处编译失败，星芒/音频差异未直接定因。",
+      "note": "修后原图人物/黑柱图标/曲线与碎片保持，手臂/刀身等四个noise由透传恢复实际Program并进入末合成链；125由后续effect消费。原mix编译首错已闭，其他粒子限制及完整模式未验收。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
+        ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3773747576/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3773747576/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/samples/3773747576/runtime_evidence.zip"
       ]
     },
     "3779107475": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root（原图审查）",
-      "note": "NF墨框、二胡驴、中文、纸纹与飞墨可见；主构图保持，完整动态未验收。",
+      "note": "mixed-width mix修复的独立原包复验：NF墨框、二胡驴、中文、纸纹与飞墨构图保持；短窗ready/after相同不证明完整动态或音频响应。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
+        ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3779107475/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3779107475/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/samples/3773747576/runtime_evidence.zip"
       ]
     },
     "3808922316": {
