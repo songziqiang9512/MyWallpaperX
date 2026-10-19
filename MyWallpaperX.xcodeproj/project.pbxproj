@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		F80000012F810001005688A8 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
 		F80000022F810001005688A8 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
+		F80000032F810001005688A8 /* QuickJSNG LICENSE in CopyFiles */ = {isa = PBXBuildFile; fileRef = F80000132F810001005688A8 /* QuickJSNG LICENSE */; };
 		A10000012F6B0001005688A8 /* MyWallpaperXWallpaperDaemon in CopyFiles */ = {isa = PBXBuildFile; fileRef = A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A10000022F6B0001005688A8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000122F6B0001005688A8 /* AppKit.framework */; };
 		A10000032F6B0001005688A8 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000132F6B0001005688A8 /* AVFoundation.framework */; };
@@ -23,6 +24,17 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		F80000312F810001005688A8 /* Embed QuickJS license */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Resources/QuickJSNG;
+			dstSubfolderSpec = 1;
+			files = (
+				F80000032F810001005688A8 /* QuickJSNG LICENSE in CopyFiles */,
+			);
+			name = "Embed QuickJS license";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A10000322F6B0001005688A8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -40,6 +52,7 @@
 /* Begin PBXFileReference section */
 		F80000112F810001005688A8 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
 		F80000122F810001005688A8 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = SOURCE_ROOT; };
+		F80000132F810001005688A8 /* QuickJSNG LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = "QuickJSNG LICENSE"; path = MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE; sourceTree = SOURCE_ROOT; };
 		98CED6392F6AF877005688A8 /* MyWallpaperX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyWallpaperX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MyWallpaperXWallpaperDaemon; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000122F6B0001005688A8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -58,6 +71,7 @@
 			membershipExceptions = (
 				Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh,
 				Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m,
+				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE,
 				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
 				Info.plist,
 				Modules/OnlineLibrary/AGENTS.md,
@@ -133,6 +147,7 @@
 			children = (
 				F80000112F810001005688A8 /* LICENSE */,
 				F80000122F810001005688A8 /* NOTICE.md */,
+				F80000132F810001005688A8 /* QuickJSNG LICENSE */,
 				98E9DA272F786FCC00C96FC7 /* MyWallpaperXHelp */,
 				98CED63B2F6AF877005688A8 /* MyWallpaperX */,
 				A10000212F6B0001005688A8 /* WallpaperDaemonSources */,
@@ -183,6 +198,7 @@
 				98CED6352F6AF877005688A8 /* Sources */,
 				98CED6362F6AF877005688A8 /* Frameworks */,
 				98CED6372F6AF877005688A8 /* Resources */,
+				F80000312F810001005688A8 /* Embed QuickJS license */,
 				A10000322F6B0001005688A8 /* CopyFiles */,
 				A40000012F810003005688A8 /* Embed SteamService */,
 				A40000022F810003005688A8 /* Embed stock runtime assets */,

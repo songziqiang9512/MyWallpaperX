@@ -85,6 +85,9 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             resources.mkdir(parents=True)
             for name in ("LICENSE", "NOTICE.md"):
                 (resources / name).write_bytes((ROOT / name).read_bytes())
+            (resources / "QuickJSNG").mkdir()
+            (resources / "QuickJSNG/LICENSE").write_bytes(
+                (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE").read_bytes())
             validator.validate_resource_hygiene(app)
             for name in ("session.source", "sess_abc.json", "SteamService.pdb", "README.md"):
                 path = resources / name
@@ -101,8 +104,11 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             resources.mkdir(parents=True)
             for name in ("LICENSE", "NOTICE.md"):
                 (resources / name).write_bytes((ROOT / name).read_bytes())
+            (resources / "QuickJSNG").mkdir()
+            (resources / "QuickJSNG/LICENSE").write_bytes(
+                (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE").read_bytes())
             validator.validate_resource_hygiene(app)
-            for name in ("LICENSE", "NOTICE.md"):
+            for name in ("LICENSE", "NOTICE.md", "QuickJSNG/LICENSE"):
                 path = resources / name
                 expected = path.read_bytes()
                 for content in (None, b"", b"outdated license material"):

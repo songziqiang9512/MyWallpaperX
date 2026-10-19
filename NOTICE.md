@@ -15,7 +15,7 @@ MyWallpaperX 项目自有代码（另有许可声明者除外）按 **GNU Genera
 | 组件或资源 | 声明位置 |
 | --- | --- |
 | SteamKit2、.NET runtime、protobuf-net、ZstdSharp、System.IO.Hashing | [SteamService/NOTICE.md](SteamService/NOTICE.md) 与 [licenses](SteamService/licenses/)；随自包含 helper 一起分发 |
-| QuickJS-NG | [MIT 许可与原作者版权声明](MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE) |
+| QuickJS-NG | [MIT 许可与原作者版权声明](MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE)，随 App 保留在 `Contents/Resources/QuickJSNG/LICENSE` |
 | glslang | [编译工具随包许可](MyWallpaperX/Resources/SceneShaderCompilerLicenses.bundle/Contents/Resources/glslang/LICENSE.txt) |
 | SPIRV-Cross | [编译工具随包许可](MyWallpaperX/Resources/SceneShaderCompilerLicenses.bundle/Contents/Resources/spirv-cross/LICENSE) |
 | Sparkle | [上游许可](https://github.com/sparkle-project/Sparkle/blob/2.9.2/LICENSE)；版本由 Xcode 的 `Package.resolved` 锁定，随 framework 保留原声明 |

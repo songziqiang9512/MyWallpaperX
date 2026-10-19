@@ -185,9 +185,14 @@ def validate_bundle(app: Path) -> None:
 
 def validate_resource_hygiene(app: Path) -> None:
     resources = app / "Contents/Resources"
-    for name in ("LICENSE", "NOTICE.md"):
+    source_root = Path(__file__).resolve().parents[1]
+    for name, source_name in (
+        ("LICENSE", "LICENSE"),
+        ("NOTICE.md", "NOTICE.md"),
+        ("QuickJSNG/LICENSE", "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE"),
+    ):
         bundled = resources / name
-        source = Path(__file__).resolve().parents[1] / name
+        source = source_root / source_name
         if not bundled.is_file() or bundled.read_bytes() != source.read_bytes():
             raise RuntimeError(f"Project license material is missing or stale: {name}")
     for path in resources.rglob("*"):
