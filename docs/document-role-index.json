@@ -3602,9 +3602,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f041cbef663634df1dfa6517cf5b911e0b1b5967b1e2b86c77844b3fbc89dcb4",
+        "sourceSHA256": "0b7255d12c5566b2c765ce521465910d056b3560d6ac53ff42625b54bfcd4bb2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
+        "scope": "Withdraw unshipped varying-array candidate for release; keep visible waveform gap open and preserve other queue results.",
         "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },
