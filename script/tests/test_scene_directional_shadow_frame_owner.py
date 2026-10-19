@@ -30,6 +30,11 @@ SOURCES = list(dict.fromkeys([
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
     SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Compilation/Material/SceneMaterialRenderState+Compilation.swift',
+    SCENE/'Format/SceneMdlPuppetMeshReader.swift',
+    SCENE/'Format/SceneMdlPuppetRigReader.swift',
+    SCENE/'Format/ScenePuppetAnimationLayer.swift',
+    SCENE/'Rendering/Metal/SceneStaticModelVertexStream.swift',
+    SCENE/'Rendering/Frame/SceneSourceUpdateTransaction.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',
 ]))
@@ -66,6 +71,7 @@ struct SceneRenderDescriptor {
   var alpha:Double? = 1;var contentKind:String = "model"
   var modelShadowCastIntent:SceneShadowCastIntent? = nil;var colorBlendMode:Int? = nil
   var anglesXYZ:[Float]? = nil
+  var puppetAnimationLayers:[ScenePuppetAnimationLayer] = []
  }
  struct CameraDescriptor {
   let eye:[Float];let center:[Float];let up:[Float];let orthoWidth:Float?;let orthoHeight:Float?
@@ -107,6 +113,7 @@ struct ScenePreparedStaticModelResources {
   let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var emissiveMask:PreparedTexture? = nil
   let material:SceneStaticModelMaterial;var writesDepth:Bool = true
   var materialBlending:SceneMaterialRenderState.Blending? = nil
+  var geometryState:SceneMdlStaticModel.GeometryState = .authoredStatic
  }
  let pipeline:SceneStaticModelPipeline?;let entries:[Int:[Entry]]
  subscript(_ id:Int)->[Entry]? { entries[id] }

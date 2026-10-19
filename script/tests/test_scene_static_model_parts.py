@@ -21,6 +21,10 @@ from script.tests import test_scene_static_model_reader as reader
 from script.tests import test_scene_directional_shadow_frame_owner as frame
 from script.tests import test_scene_directional_shadow as native
 from script.tests import test_scene_alpha_display_builder_fixture as builder
+from script.tests import test_scene_puppet_playback as puppet
+from script.tests import test_scene_puppet_animation as animation
+from script.tests import test_scene_puppet_mesh as puppet_mesh
+from script.tests.test_scene_direct_model_bind_geometry import build_bind_model
 from script.tests.test_scene_directional_shadow_integration import png, quad, make_package
 
 REPO = Path(__file__).resolve().parents[2]
@@ -84,6 +88,31 @@ def native_fixture(count, *, bad=False, overlap=False):
     entries['scene.json']=json.dumps(scene).encode()
     entries['project.json']=json.dumps({'type':'scene','file':'scene.json'}).encode()
     return entries, expected
+
+
+def animation_attachment_fixture(mode):
+    """Keep the maintained 80B mesh/Rig and MDLA writers; vary only MDAT."""
+    entries, _ = native_fixture(1)
+    body = bytearray(build_bind_model(material=b'materials/part000.json')[:-9])
+    attachments = bytearray()
+    if mode != 'absent':
+        options = {'attachment_names': ('socket Ω', 'other')}
+        if mode == 'bad-name': options['attachment_names'] = ('', 'other')
+        if mode == 'bad-bone': options['attachment_bone'] = 9
+        if mode == 'bad-matrix':
+            values = puppet_mesh.matrix(); values[5] = math.nan
+            options['attachment_local'] = values
+        carrier = puppet_mesh.build_attachment_mdl(**options)
+        attachments = bytearray(carrier[carrier.index(b'MDAT0001\0'):])
+        if mode in ('empty', 'bad-count'):
+            struct.pack_into('<H', attachments, 13, 0 if mode == 'empty' else 1025)
+            if mode == 'empty': attachments = attachments[:15]
+        struct.pack_into('<I', attachments, 9, len(body) + len(attachments))
+    carrier = animation.build_mdl([animation.animation_record(7, 'Motion Ω', 2, 2)])
+    mdla = bytearray(carrier[carrier.index(b'MDLA0006\0'):])
+    struct.pack_into('<I', mdla, 9, len(body) + len(attachments) + len(mdla))
+    entries['models/parts.mdl'] = bytes(body + attachments + mdla)
+    return entries, {'animationPrepared': mode in ('absent', 'nonempty')}
 
 
 def vertex_basis_fixture(renamed=False):
@@ -325,10 +354,23 @@ def resource_support():
     s=s.replace('var anglesXYZ:[Float]? = nil', 'var anglesXYZ:[Float]? = nil;'
         'var originXYZ:[Float]?=nil;var scaleXYZ:[Float]?=nil;'
         'var attachmentName:String?=nil;var parentAttachmentBindFrame:[Float]?=nil')
-    return frame.pool_fixture.HARNESS.split('@main',1)[0]+s+frame.UNUSED_ORDERED_SUPPORT+RESOURCE_TRANSPORT
+    # Static preparation now shares the production immutable initial-bone
+    # projection. Compile that exact pure declaration without pulling the
+    # unused image PlaybackState/renderer into this static resource carrier.
+    load=(SCENE/'Systems/Puppet/ScenePuppetLayerLoad.swift').read_text()
+    config=load[load.index('    struct BoneConfiguration {'):
+                load.index('    /// A launch may retain this result')]
+    initial=load[load.index('    static func initialBoneConfiguration('):
+                 load.index('    struct Outcome {')]
+    bones='\nenum ScenePuppetLayerLoad {\n'+config+initial+'\n}\n'
+    return frame.pool_fixture.HARNESS.split('@main',1)[0]+s+frame.UNUSED_ORDERED_SUPPORT+RESOURCE_TRANSPORT+bones
 
 
-NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,RESOURCE_SOURCE,
+NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,*puppet.SWIFT_SOURCES,RESOURCE_SOURCE,
+    SCENE/'Format/SceneMdlPuppetAnimationReader.swift',
+    SCENE/'Format/SceneMdlPuppetAttachmentReader.swift',
+    SCENE/'Format/ScenePuppetBoneCatalog.swift',
+    SCENE/'Systems/Script/ScenePuppetBoneTransformBridge.swift',
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
     SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Compilation/Material/SceneMaterialRenderState+Compilation.swift',
@@ -336,6 +378,7 @@ NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,RESOURCE
     SCENE/'Rendering/Geometry/SceneLayerWorldFrameResolver.swift',
     SCENE/'Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift',
     SCENE/'Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift',
+    REPO/'script/tests/fixtures/SceneStaticModelAnimationAttachmentChecks.swift',
     REPO/'script/tests/fixtures/SceneStaticModelVertexBasisChecks.swift']))
 
 NATIVE_MAIN=r'''
@@ -355,7 +398,8 @@ NATIVE_MAIN=r'''
    rows.append(row)
   }
   let basis=try SceneStaticModelVertexBasisChecks.run(root:root,device:device,queue:queue)
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"basis":basis]),as:UTF8.self))
+  let attachments=try SceneStaticModelAnimationAttachmentChecks.run(root:root,device:device)
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"basis":basis,"attachments":attachments]),as:UTF8.self))
  }
  static func run(_ mode:String,_ root:URL,_ device:MTLDevice,_ queue:MTLCommandQueue)throws->[String:Any] {
   let files=try FileManager.default.contentsOfDirectory(at:root.appendingPathComponent("materials"),includingPropertiesForKeys:nil).filter{$0.pathExtension=="json"}
@@ -544,11 +588,32 @@ class SceneModelPartsNativeTests(unittest.TestCase):
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
             'defaults':default_albedo_fixture(),'emission':emission_mask_fixture(),
             'blends':blending_fixture(),
+            **{'attachment-'+mode:animation_attachment_fixture(mode) for mode in
+               ['absent','nonempty','empty','bad-count','bad-name','bad-bone','bad-matrix']},
             'basis':vertex_basis_fixture(),'basis-renamed':vertex_basis_fixture(True)})
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
         cls.rows={r['mode']:r for r in cls.report['rows']}
         cls.basis=cls.report['basis']
+
+    def test_attachment_parse_failure_preserves_bind_geometry_and_peer(self):
+        self.assertEqual(len(self.report['attachments']), 7)
+        for row in self.report['attachments']:
+            with self.subTest(mode=row['mode']):
+                self.assertEqual((row['readerParts'], row['readerBones'], row['readerClips']), (1, 2, 1))
+                self.assertEqual((row['bindParts'], row['bindIndices']), (1, 12))
+                self.assertEqual((row['peerParts'], row['peerIndices']), (1, 6))
+                self.assertEqual(row['peerMaterial'], 'materials/peer.json')
+                valid = row['mode'] in ('absent', 'nonempty')
+                self.assertEqual(row['attachmentParseOK'], valid, row)
+                self.assertEqual(row['animationPrepared'], valid, row)
+                self.assertEqual(row['retainedAttachmentNames'], ['socket Ω', 'other']
+                                 if row['mode'] == 'nonempty' else [])
+                if not valid:
+                    expected = {'empty': 'attachment count', 'bad-count': 'attachment count',
+                                'bad-name': 'attachment name', 'bad-bone': 'missing bone',
+                                'bad-matrix': 'matrix'}[row['mode']]
+                    self.assertIn(expected, row['attachmentError'])
 
     def test_authored_vertex_basis_reaches_color_normals_cull_and_all_shadow_types(self):
         self.assertEqual(len(self.basis), 12)

@@ -67,7 +67,9 @@ extension SceneMetalView {
             guard let layer = renderer.layersByID[layerID] else { continue }
             let bones = pose.bones
             let authoredSize = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
-            let model = renderer.geometryModelMatrix(
+            let model = layer.staticModelPath != nil
+                ? renderer.staticModelWorld(for: layer.id, worldFrames: worldFrames)
+                : renderer.geometryModelMatrix(
                 for: layer, worldFramesByLayerID: worldFrames,
                 authoredSize: authoredSize,
                 parallaxMouseNormalized: .zero, configuration: parallax,

@@ -12,6 +12,9 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
     case duplicateAnimationID(Int)
     case invalidAnimationName(Int)
     case unsupportedAnimationMode(String)
+    case unsupportedAnimationFlags(animationID: Int, rawFlags: UInt32)
+    case invalidDerivedSource(Int)
+    case unsupportedDerivedControl(animationID: Int, control: UInt32, rootSelector: Int32)
     case animationBoneCount(animationID: Int, expected: Int, actual: Int)
     case invalidTrack(animationID: Int, boneIndex: Int)
     case invalidTransform(animationID: Int, boneIndex: Int, frameIndex: Int)
@@ -40,6 +43,12 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
             return "invalid MDLA animation name for id \(id)"
         case let .unsupportedAnimationMode(mode):
             return "unsupported MDLA animation mode \(mode)"
+        case let .unsupportedAnimationFlags(id, flags):
+            return "unsupported MDLA animation \(id) flags \(flags)"
+        case let .invalidDerivedSource(id):
+            return "invalid MDLA derived source for animation \(id)"
+        case let .unsupportedDerivedControl(id, control, root):
+            return "unsupported MDLA animation \(id) derived control \(control) root \(root)"
         case let .animationBoneCount(id, expected, actual):
             return "animation \(id) has \(actual) bones; expected \(expected)"
         case let .invalidTrack(id, boneIndex):
@@ -70,6 +79,7 @@ enum SceneMdlPuppetAnimationReader {
         case legacyZeros10
         case perBoneAlphaZeros29
         case modernAuxiliary
+        case modernBoundsAuxiliary
     }
 
     private struct VersionContract {
@@ -102,7 +112,7 @@ enum SceneMdlPuppetAnimationReader {
         "MDLV0023": VersionContract(
             skeletonMarker: Data("MDLS0004\0".utf8),
             animationMarker: Data("MDLA0006\0".utf8),
-            trailer: .modernAuxiliary
+            trailer: .modernBoundsAuxiliary
         ),
     ]
     private static let knownAnimationMarkers = [
@@ -151,13 +161,22 @@ enum SceneMdlPuppetAnimationReader {
             skeletonOffset: skeletonOffset,
             animationOffset: animationOffset
         )
-        let animations = try readAnimations(
+        let records = try readAnimations(
             data: data,
             blockOffset: animationOffset,
             boneCount: boneCount,
             trailerContract: contract.trailer
         )
-        return SceneMdlPuppetAnimationSet(boneCount: boneCount, animations: animations)
+        // Exported source-take IDs and addressable clip IDs belong to distinct domains.
+        let derived = records.filter { $0.derivedSource != nil }
+        let animations = derived.isEmpty ? records : derived
+        var ids: Set<Int> = []
+        for animation in animations where !ids.insert(animation.id).inserted {
+            throw SceneMdlPuppetAnimationReadError.duplicateAnimationID(animation.id)
+        }
+        return SceneMdlPuppetAnimationSet(
+            boneCount: boneCount, animations: animations, records: records
+        )
     }
 
     private static func readBoneCount(
@@ -209,9 +228,9 @@ enum SceneMdlPuppetAnimationReader {
             throw SceneMdlPuppetAnimationReadError.invalidAnimationCount(count)
         }
 
-        var ids: Set<Int> = []
         var totalSamples = 0
         var totalEvents = 0
+        var requiresPhysicalEnd = false
         var animations: [SceneMdlPuppetAnimation] = []
         animations.reserveCapacity(count)
         for index in 0 ..< count {
@@ -224,9 +243,6 @@ enum SceneMdlPuppetAnimationReader {
             guard id > 0, headerState == 0 else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationHeader(index)
             }
-            guard ids.insert(id).inserted else {
-                throw SceneMdlPuppetAnimationReadError.duplicateAnimationID(id)
-            }
             let name = try readString(
                 data: data,
                 cursor: &cursor,
@@ -237,32 +253,39 @@ enum SceneMdlPuppetAnimationReader {
             guard name.isEmpty == false else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationName(id)
             }
-            let mode = try readString(
+            let rawMode = try readString(
                 data: data,
                 cursor: &cursor,
                 bound: endOffset,
                 maxBytes: maxModeBytes,
                 animationID: id
             )
-            guard mode == "loop" || mode == "mirror" || mode == "single" else {
-                throw SceneMdlPuppetAnimationReadError.unsupportedAnimationMode(mode)
-            }
             guard cursor + 16 <= endOffset else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationHeader(index)
             }
             let framesPerSecond = readFloat(data, at: cursor)
             let frameCount = Int(readUInt32(data, at: cursor + 4))
-            let transformState = readUInt32(data, at: cursor + 8)
+            let rawFlags = readUInt32(data, at: cursor + 8)
             let animationBoneCount = Int(readUInt32(data, at: cursor + 12))
             cursor += 16
             guard framesPerSecond.isFinite,
                   framesPerSecond > 0,
                   framesPerSecond <= 1000,
                   frameCount > 0,
-                  frameCount <= maxFrameCount,
-                  transformState == 0
+                  frameCount <= maxFrameCount
             else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationHeader(index)
+            }
+            let isDerived = trailerContract == .modernBoundsAuxiliary && rawFlags == 0x401
+            guard rawFlags == 0 || isDerived else {
+                throw SceneMdlPuppetAnimationReadError.unsupportedAnimationFlags(
+                    animationID: id, rawFlags: rawFlags
+                )
+            }
+            // Qualified imported clips initialize empty mode as loop; preserve the wire value.
+            let mode = isDerived && rawMode.isEmpty ? "loop" : rawMode
+            guard mode == "loop" || mode == "mirror" || mode == "single" else {
+                throw SceneMdlPuppetAnimationReadError.unsupportedAnimationMode(rawMode)
             }
             guard animationBoneCount == boneCount else {
                 throw SceneMdlPuppetAnimationReadError.animationBoneCount(
@@ -284,6 +307,7 @@ enum SceneMdlPuppetAnimationReader {
                 boneCount: boneCount,
                 sampleCount: sampleCount,
                 permitsReferenceCandidates: trailerContract == .modernAuxiliary
+                    || trailerContract == .modernBoundsAuxiliary
             )
             let trailer = try readTrailer(
                 data: data,
@@ -294,9 +318,21 @@ enum SceneMdlPuppetAnimationReader {
                 sampleCount: sampleCount,
                 frameCount: frameCount,
                 mode: mode,
+                isDerived: isDerived,
                 eventBudget: maxTotalEvents - totalEvents,
                 contract: trailerContract
             )
+            if let source = trailer.derivedSource {
+                guard source.sourceRecordOrdinal < animations.count,
+                      animations[source.sourceRecordOrdinal].derivedSource == nil,
+                      source.firstFrame < source.endFrame,
+                      source.endFrame <= animations[source.sourceRecordOrdinal].frameCount,
+                      source.endFrame - source.firstFrame == frameCount else {
+                    throw SceneMdlPuppetAnimationReadError.invalidDerivedSource(id)
+                }
+            }
+            requiresPhysicalEnd = requiresPhysicalEnd || isDerived
+                || (trailer.bounds.map { $0.minimum != .zero || $0.maximum != .zero } ?? false)
             totalEvents += trailer.events.count
             animations.append(SceneMdlPuppetAnimation(
                 id: id,
@@ -307,11 +343,21 @@ enum SceneMdlPuppetAnimationReader {
                 transformsByBone: transforms.tracks,
                 transformTrackStates: transforms.states,
                 alphaByBone: trailer.alphaByBone,
-                events: trailer.events
+                events: trailer.events,
+                bounds: trailer.bounds,
+                hasAuxiliaryScalarTrack: trailer.hasAuxiliaryScalarTrack,
+                recordOrdinal: index, rawMode: rawMode, rawFlags: rawFlags,
+                derivedSource: trailer.derivedSource
             ))
         }
         guard cursor == endOffset else {
             throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
+        }
+        if requiresPhysicalEnd {
+            guard endOffset == data.count
+                || (data.count - endOffset == 1 && data[endOffset] == 0) else {
+                throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
+            }
         }
         return animations
     }
@@ -391,14 +437,19 @@ enum SceneMdlPuppetAnimationReader {
         sampleCount: Int,
         frameCount: Int,
         mode: String,
+        isDerived: Bool,
         eventBudget: Int,
         contract: TrailerContract
-    ) throws -> (alphaByBone: [[Float]]?, events: [SceneMdlPuppetAnimation.Event]) {
+    ) throws -> (
+        alphaByBone: [[Float]]?, events: [SceneMdlPuppetAnimation.Event],
+        bounds: SceneMdlPuppetAnimation.Bounds?, hasAuxiliaryScalarTrack: Bool,
+        derivedSource: SceneMdlPuppetAnimation.DerivedSource?
+    ) {
         if contract == .legacyZeros10 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (nil, [])
+            return (nil, [], nil, false, nil)
         }
         let alphaByBone = try readPerBoneAlphaTracks(
             data: data,
@@ -412,13 +463,13 @@ enum SceneMdlPuppetAnimationReader {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (alphaByBone, [])
+            return (alphaByBone, [], nil, false, nil)
         }
         if contract == .perBoneAlphaZeros29 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (alphaByBone, [])
+            return (alphaByBone, [], nil, false, nil)
         }
         guard cursor < bound else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
@@ -446,15 +497,55 @@ enum SceneMdlPuppetAnimationReader {
         } else if hasAuxiliaryTrack != 0 {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
-        // Keep the verified zero AABB and absent scalar-curve profile.
-        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 25) else {
-            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+        let bounds: SceneMdlPuppetAnimation.Bounds?
+        if contract == .modernBoundsAuxiliary {
+            guard cursor + 25 <= bound else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            let values = (0 ..< 6).map { readFloat(data, at: cursor + $0 * 4) }
+            guard values.allSatisfy({ $0.isFinite && abs($0) <= maxAbsoluteTransformValue }),
+                  (0 ..< 3).allSatisfy({ values[$0] <= values[$0 + 3] }),
+                  data[cursor + 24] == 0 else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            bounds = .init(minimum: SIMD3(values[0], values[1], values[2]),
+                maximum: SIMD3(values[3], values[4], values[5]))
+            cursor += 25
+        } else {
+            // MDLV0021 retains its verified zero fields and absent scalar curve.
+            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 25) else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            bounds = nil
+        }
+        let derivedSource: SceneMdlPuppetAnimation.DerivedSource?
+        if isDerived {
+            guard cursor + 18 <= bound else {
+                throw SceneMdlPuppetAnimationReadError.invalidDerivedSource(animationID)
+            }
+            let source = SceneMdlPuppetAnimation.DerivedSource(
+                sourceRecordOrdinal: Int(data[cursor]) | Int(data[cursor + 1]) << 8,
+                firstFrame: Int(readUInt32(data, at: cursor + 2)),
+                endFrame: Int(readUInt32(data, at: cursor + 6)),
+                control: readUInt32(data, at: cursor + 10),
+                rootSelector: Int32(bitPattern: readUInt32(data, at: cursor + 14))
+            )
+            cursor += 18
+            guard source.control == 0, source.rootSelector == -1 else {
+                throw SceneMdlPuppetAnimationReadError.unsupportedDerivedControl(
+                    animationID: animationID, control: source.control,
+                    rootSelector: source.rootSelector
+                )
+            }
+            derivedSource = source
+        } else {
+            derivedSource = nil
         }
         let events = try readEvents(
             data: data, cursor: &cursor, bound: bound, animationID: animationID,
             frameCount: frameCount, mode: mode, eventBudget: eventBudget
         )
-        return (alphaByBone, events)
+        return (alphaByBone, events, bounds, hasAuxiliaryTrack == 1, derivedSource)
     }
 
     private static func readEvents(

@@ -14,10 +14,13 @@ nonisolated struct ScenePuppetAnimationLayer: Codable, Equatable {
     let visibilityBinding: String?
     // Optional for decoding older prepared descriptors; only true adds a script owner.
     var hasVisibilityScript: Bool? = nil
+    var rateBinding: String? = nil
+    var hasRateScript: Bool? = nil
 
     nonisolated static func parse(_ value: Any?) -> [ScenePuppetAnimationLayer] {
         (value as? [[String: Any]] ?? []).map { root in
             let visibleWrapper = root["visible"] as? [String: Any]
+            let rateWrapper = root["rate"] as? [String: Any]
             return ScenePuppetAnimationLayer(
                 id: root["id"] as? Int,
                 animationID: root["animation"] as? Int,
@@ -30,7 +33,9 @@ nonisolated struct ScenePuppetAnimationLayer: Codable, Equatable {
                 rate: doubleValue(root["rate"]),
                 visible: boolValue(root["visible"]),
                 visibilityBinding: visibleWrapper?["user"] as? String,
-                hasVisibilityScript: visibleWrapper?["script"] is String ? true : nil
+                hasVisibilityScript: visibleWrapper?["script"] is String ? true : nil,
+                rateBinding: rateWrapper?["user"] as? String,
+                hasRateScript: rateWrapper?["script"] is String ? true : nil
             )
         }
     }

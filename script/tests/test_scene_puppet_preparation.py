@@ -17,6 +17,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_puppet_mesh import build_mdl
+from script.tests.test_scene_puppet_direct_playback import EXTRA_SOURCES, PIPELINE, static_model_carrier_source
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +25,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LAYER_LOAD = SCENE / "Systems/Puppet/ScenePuppetLayerLoad.swift"
 CASES = ROOT / "script/tests/fixtures/ScenePuppetPreparationCases.swift"
 SOURCES = [
+    "Runtime/Frame/SceneMaterialRenderState.swift",
     "Format/SceneMdlPuppetMeshReader.swift",
     "Format/SceneMdlPuppetRigReader.swift",
     "Format/SceneMdlPuppetAttachmentReader.swift",
@@ -54,6 +56,8 @@ SOURCES = [
     "Diagnostics/ScenePerformanceCounterHub.swift",
     "Runtime/Session/ScenePreparedPuppetResources.swift",
 ]
+
+SOURCES += [item for item in EXTRA_SOURCES if item not in SOURCES]
 
 
 def matrix(x: float = 0, y: float = 0) -> list[float]:
@@ -121,12 +125,13 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             raise unittest.SkipTest("swiftc unavailable")
         cls._temporary = tempfile.TemporaryDirectory(prefix="mwx-puppet-preparation-")
         directory = Path(cls._temporary.name)
-        source_paths = [LAYER_LOAD, CASES, *(SCENE / item for item in SOURCES)]
+        source_paths = [LAYER_LOAD, CASES, PIPELINE, Path(static_model_carrier_source.__code__.co_filename), *(SCENE / item for item in SOURCES)]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths}
         # Keep the complete production file unchanged; append test cases in the
         # same file only to observe its fileprivate immutable CPU products.
         harness = directory / "preparation.swift"
-        harness.write_bytes(LAYER_LOAD.read_bytes() + b"\n" + CASES.read_bytes())
+        harness.write_bytes(LAYER_LOAD.read_bytes() + b"\n" + CASES.read_bytes()
+                            + static_model_carrier_source().encode())
         binary = directory / "preparation"
         compilation = subprocess.run(
             ["swiftc", *(str(SCENE / item) for item in SOURCES), str(harness), "-o", str(binary)],

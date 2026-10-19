@@ -187,6 +187,7 @@ nonisolated enum SceneMdlStaticModelReader {
                 vertexCount: Int(vertexBytes) / header.vertexStride, elementSize: elementSize,
                 retainGeometry: retainGeometry
             )
+            var rig: SceneMdlPuppetRig?
             if bindOnly {
                 // Exact empty extra-stream/part/clip suffix. The required rig
                 // starts here; neither a marker scan nor first-mesh recovery
@@ -196,7 +197,7 @@ nonisolated enum SceneMdlStaticModelReader {
                     throw SceneMdlStaticModelReadError.invalidTrailer
                 }
                 do {
-                    _ = try SceneMdlPuppetRigReader.read(
+                    rig = try SceneMdlPuppetRigReader.read(
                         data: sourceData,
                         vertexLayout: .init(
                             version: header.version, vertexStride: header.vertexStride,
@@ -219,7 +220,7 @@ nonisolated enum SceneMdlStaticModelReader {
                     indexElementSize: elementSize, materialPath: materialPath,
                     bounds: bounds ?? derivedBounds(vertices: vertices),
                     vertices: vertices, indices: indices,
-                    geometryState: header.geometryState
+                    geometryState: header.geometryState, rig: rig
                 ))
             } else {
                 materials.append(materialPath)

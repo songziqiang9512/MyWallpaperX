@@ -97,7 +97,7 @@ enum SceneStaticModelVertexBasisChecks {
             normalError = max(normalError, simd_distance(actualNormal, expectedNormal(expected)))
         }
         let reference = draws.map { draw in
-            SceneMetalRenderer.StaticModelDraw(entry: draw.entry, texture: draw.texture,
+            SceneMetalRenderer.StaticModelDraw(entry: draw.entry, mesh: draw.mesh, texture: draw.texture,
                 textureFrame: draw.textureFrame, sampling: draw.sampling, premultiplied: draw.premultiplied,
                 world: expected, material: draw.material, alpha: draw.alpha)
         }

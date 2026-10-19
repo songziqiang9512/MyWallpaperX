@@ -33,12 +33,16 @@ nonisolated struct SceneMdlStaticModel: Equatable {
     let vertices: [Vertex]
     let indices: [UInt32]
     let geometryState: GeometryState
+    /// The same mandatory rig validated by the direct reader, retained for the
+    /// existing pose evaluator. Static geometry has no skeleton.
+    let rig: SceneMdlPuppetRig?
 
     init(
         version: String, headerFormat: Int, vertexFormat: Int,
         vertexStride: Int, indexElementSize: Int, materialPath: String,
         bounds: Bounds, vertices: [Vertex], indices: [UInt32],
-        geometryState: GeometryState = .authoredStatic
+        geometryState: GeometryState = .authoredStatic,
+        rig: SceneMdlPuppetRig? = nil
     ) {
         self.version = version
         self.headerFormat = headerFormat
@@ -50,6 +54,7 @@ nonisolated struct SceneMdlStaticModel: Equatable {
         self.vertices = vertices
         self.indices = indices
         self.geometryState = geometryState
+        self.rig = rig
     }
 
     nonisolated var triangleCount: Int { indices.count / 3 }

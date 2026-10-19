@@ -62,7 +62,7 @@ struct SceneMetalRenderer {
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
         encodeSourceUpdates: ((
-            MTLCommandBuffer, SceneSourceUpdateTransaction
+            MTLCommandBuffer, SceneSourceUpdateTransaction, StaticModelFrame
         ) -> Void)? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
@@ -109,7 +109,7 @@ struct SceneMetalRenderer {
             }
         }
 #endif
-        let sourceUpdateTransaction = SceneSourceUpdateTransaction()
+        let sourceUpdateTransaction = SceneSourceUpdateTransaction(on: commandBuffer)
         // Unsubmitted source and registry state roll back together.
         defer {
             if !didTransferFrameOwnership {

@@ -1,8 +1,8 @@
 import Foundation
 import CoreFoundation
 
-nonisolated struct SceneMdlPuppetRig {
-    struct Bone {
+nonisolated struct SceneMdlPuppetRig: Equatable {
+    struct Bone: Equatable {
         /// Authored bone identity is part of the Puppet scripting contract.
         /// Keep the UTF-8 name beside the validated hierarchy instead of
         /// discarding it while reading the MDLS record.
@@ -65,7 +65,7 @@ nonisolated struct SceneMdlPuppetRig {
         }
     }
 
-    struct VertexWeights {
+    struct VertexWeights: Equatable {
         let boneIndices: SIMD4<UInt32>
         let boneWeights: SIMD4<Float>
     }

@@ -65,4 +65,4 @@
 3. 普通帧保持 prepare-once/execute-many；诊断、hash、完整 observation、census 和 full matrix 只在主动验证或 milestone 使用。
 4. 语义变化先更新对应专项表，再更新台账/运行证据；不要在 README、路线和报告之间复制当前数字。
 
-Direct模型的独立合法几何与动画降级边界见[bind几何合同](direct-model-bind-geometry.md)。
+Direct模型的独立合法几何与动画降级边界见[bind几何合同](direct-model-bind-geometry.md)；三维姿态、通道与动态顶点接入按[骨骼动画设计](direct-model-skeletal-animation.md)。

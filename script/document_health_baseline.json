@@ -86,7 +86,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 79683
+      "bytes": 80249
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 380,
-      "bytes": 147396
+      "lines": 379,
+      "bytes": 149209
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -229,8 +229,8 @@
       "bytes": 14234
     },
     "docs/scene/roadmap/properties-panel-card.md": {
-      "lines": 44,
-      "bytes": 9165
+      "lines": 45,
+      "bytes": 9605
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 56,
-      "bytes": 18009
+      "bytes": 18126
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 219,
-      "bytes": 65411
+      "lines": 222,
+      "bytes": 66006
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -299,6 +299,10 @@
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 23,
       "bytes": 3055
+    },
+    "docs/scene/capabilities/direct-model-skeletal-animation.md": {
+      "lines": 62,
+      "bytes": 11147
     }
   },
   "archives": [
@@ -1413,15 +1417,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "aae1f1f3aca73878b5e83423f6cdc920c0ff6984b8671423304d3832cd2fcfef",
-      "after": "1b8da6adccccdbd666812b91cec20d0f6af0978dea88ea5e6c491c502c88515a",
-      "owner": "workshop-property-presentation",
-      "reason": "用户要求Web与Scene展示细节一致；复用共享原生布局/滚动条，保留Web条件label和value的既有身份，只新增展示文本。",
-      "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/web-project-json-localization.md",
       "before": "d3a0a3c7915d2689d8ad5be0cd3e62983bece75c47fc3ee4be7f667bd06864c5",
       "after": "5a565ee9c5cde9152162fcbd714c96c9fce264e00e286518f71ba157b9c91d23",
@@ -1440,24 +1435,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "7cfccfe8acadc095eefea09d63cb0e71e71eea899e4182e8c230ed05f0e2b7df",
-      "after": "29f3b33ec9d7ecdae13aa3cc449a50b9eb22e9ed2904c36a48cf3a8f7cb5a021",
-      "owner": "mixed-vector-mix",
-      "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d681c1db704a85c26c1b2688dc91138711d28f6bcf4e57ac21d070cef05d7e29",
-      "after": "7dc2eec62d9dd9248e08ee66c5ea9083a8b83d50c259f4e6b6973dc9327fb3ca",
-      "owner": "direct-model-bind-geometry",
-      "reason": "保存严格bind几何合同及有界实图证据，退出旧首拒并保留默认动画/漩涡反馈；不扩大运行快照行上限。",
-      "decision": "docs/scene/capabilities/direct-model-bind-geometry.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "9b894dddf16c6732ae49df705d966c3f02bb4f5b0d1807f31a2d168417b2e616",
@@ -1467,27 +1444,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b0105c9f02838bd5128d8a4f286d42c0105c201a273c92ba6673deae2ef36f16",
-      "after": "e28733f461bff5be8bb2f9926489821a29b2cec18634d907213c48a0c1a73d9a",
-      "owner": "direct-model-bind-geometry",
-      "reason": "保存严格bind几何合同及有界实图证据，退出旧首拒并保留默认动画/漩涡反馈；不扩大运行快照行上限。",
-      "decision": "docs/scene/capabilities/direct-model-bind-geometry.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "430adf12f1d8cc3ba916d6e6dd12b6a44969c1f6956293b071d4cfa148ed210f",
       "after": "7245f42c5e55118d0c8a3f770f23f94933bd73898cd56adc43e3d97274d32b90",
-      "owner": "native-rope-camera",
-      "reason": "共享相机合同与有界实图结果替换旧角落首断；保动画及相位边界，不扩大快照行数。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#native-rope-camera"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "05dbec6c64324924663b93bb00e2516b2ff3db953b271b4515780e7d959be54c",
-      "after": "cf72cf7311730f124bad8f38e959b9eece98ed9f883c8ad255701e6894780217",
       "owner": "native-rope-camera",
       "reason": "共享相机合同与有界实图结果替换旧角落首断；保动画及相位边界，不扩大快照行数。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#native-rope-camera"
@@ -1518,6 +1477,60 @@
       "owner": "playback-preparation-convergence",
       "reason": "Document cooperative preparation cancellation boundaries and preserved checks/drain limits.",
       "decision": "docs/history/cross-topic/playback-preparation-convergence-2026-10-19.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "7dc2eec62d9dd9248e08ee66c5ea9083a8b83d50c259f4e6b6973dc9327fb3ca",
+      "after": "644c1d84159e39902e60ea1452b4bf2caa0d12a654d1caae23a04d4446db638c",
+      "owner": "direct-model-skeletal-animation",
+      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "cb2890265d256f38ddb77633c8e3c8777c44f2b1eba9cce955acaae402219d54",
+      "owner": "direct-model-skeletal-animation",
+      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "cf72cf7311730f124bad8f38e959b9eece98ed9f883c8ad255701e6894780217",
+      "after": "7643ef3a685bb91931022ac9193e599071f07ae8821478c8084d95d4acab8aa8",
+      "owner": "direct-model-skeletal-animation",
+      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "1b8da6adccccdbd666812b91cec20d0f6af0978dea88ea5e6c491c502c88515a",
+      "after": "c9d08fcb995b944ee7210f04c7cc4ec8fa56724de897f19db29562a4290fbec7",
+      "owner": "direct-model-skeletal-animation",
+      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "7aaea93106dce7e0cba760a7a3d5184e961914f7ecec3676b0c3766c2b8c4e23",
+      "after": "2f5e8d4d938b5ca5b847399a0e75329c3243da45b71125d3bb7ab5cd2fade592",
+      "owner": "direct-model-skeletal-animation",
+      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1148241d5ae78b44669e142581a96076a8f0ab1d78af29a960c24950601d0f7f",
+      "after": "e8ac8298cccd0fcaf3dfa58c451bda1a383956d704fdf791ce5c7ae2c03784f2",
+      "owner": "direct-model-skeletal-animation",
+      "reason": "共享原pose/clock/XYZ stream的当前实现与受限真实结果；旧缺默认骨架描述退出，rate/条件与边缘闪块继续开放。",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md"
     }
   ]
 }

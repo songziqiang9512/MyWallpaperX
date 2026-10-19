@@ -46,6 +46,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     private let referenceLocalMatrices: [simd_float4x4]
     private let referencePoses: [Pose]
     private let inverseBindWorldMatrices: [simd_float4x4]
+    let hasAffineBindTransforms: Bool
     private let preparedAnimationsByID: [Int: PreparedAnimation]
     private let preparedVertices: [PreparedVertex]
 
@@ -53,13 +54,24 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     /// matrix storage.  The rig itself remains private so callers cannot
     /// bypass the evaluator's hierarchy and validation contracts.
     var boneCount: Int { rig.bones.count }
+    var vertexCount: Int { preparedVertices.count }
 
     init(
         mesh: SceneMdlPuppetMesh,
         rig: SceneMdlPuppetRig,
         additiveAnimations: [SceneMdlPuppetAnimation] = []
     ) throws {
-        guard mesh.vertices.count == rig.vertexWeights.count else {
+        try self.init(bindPositions: mesh.vertices.map { SIMD3($0.x, $0.y, $0.z) },
+                      rig: rig, additiveAnimations: additiveAnimations)
+    }
+
+    /// Direct models supply their validated XYZ channel without an image mesh.
+    init(
+        bindPositions: [SIMD3<Float>],
+        rig: SceneMdlPuppetRig,
+        additiveAnimations: [SceneMdlPuppetAnimation] = []
+    ) throws {
+        guard bindPositions.count == rig.vertexWeights.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
         self.rig = rig
@@ -90,6 +102,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             poses.append(pose)
         }
         inverseBindWorldMatrices = inverseMatrices
+        hasAffineBindTransforms = localMatrices.allSatisfy {
+            $0.columns.0.w == 0 && $0.columns.1.w == 0
+                && $0.columns.2.w == 0 && $0.columns.3.w == 1
+        }
         if let reference = rig.referenceLocalMatricesColumnMajor {
             guard reference.count == rig.bones.count else {
                 throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -130,8 +146,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         }
 
         var vertexData: [PreparedVertex] = []
-        vertexData.reserveCapacity(mesh.vertices.count)
-        for (vertexIndex, vertex) in mesh.vertices.enumerated() {
+        vertexData.reserveCapacity(bindPositions.count)
+        for (vertexIndex, position) in bindPositions.enumerated() {
             let source = rig.vertexWeights[vertexIndex]
             let totalWeight = max(
                 source.boneWeights.x + source.boneWeights.y
@@ -141,7 +157,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             vertexData.append(.init(
                 // Preserve source depth until skinning: X/Y bone rotation
                 // can project it into the final image-space position.
-                bindPoint: SIMD4<Float>(vertex.x, vertex.y, vertex.z, 1),
+                bindPoint: SIMD4<Float>(position, 1),
                 boneIndices: source.boneIndices,
                 normalizedWeights: SIMD4<Float>(
                     source.boneWeights.x / totalWeight,
@@ -358,6 +374,27 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
+        try writeSkinMatrices(selection: selection, frameSamples: frameSamples,
+            localMatricesScratch: &localMatricesScratch,
+            skinMatricesScratch: &skinMatricesScratch,
+            worldMatricesScratch: &worldMatricesScratch,
+            boneOverrides: boneOverrides, blends: blends)
+        for vertexIndex in preparedVertices.indices {
+            let point = try skinnedVertex(at: vertexIndex, skinMatrices: skinMatricesScratch).position
+            output[vertexIndex] = SIMD2(point.x, point.y)
+        }
+    }
+
+    /// Image and direct geometry consume one hierarchy/override/skin projection.
+    func writeSkinMatrices(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?],
+        localMatricesScratch: inout [simd_float4x4],
+        skinMatricesScratch: inout [simd_float4x4],
+        worldMatricesScratch: inout [simd_float4x4],
+        boneOverrides: [Int: simd_float4x4] = [:],
+        blends: [Double]? = nil
+    ) throws {
         guard localMatricesScratch.count >= rig.bones.count,
               skinMatricesScratch.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -382,13 +419,6 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             inverseBindWorldMatrices: inverseBindWorldMatrices,
             into: &skinMatricesScratch
         )
-        for vertexIndex in preparedVertices.indices {
-            let point = try deformedPoint(
-                vertex: preparedVertices[vertexIndex],
-                skinMatrices: skinMatricesScratch
-            )
-            output[vertexIndex] = point
-        }
     }
 
     func applyOverrides(
@@ -727,66 +757,53 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     ) throws -> [SIMD2<Float>] {
         let skinMatrices = try skinMatrices(localMatrices: localMatrices)
         return try preparedVertices.indices.map { vertexIndex in
-            try deformedPoint(
-                vertex: preparedVertices[vertexIndex],
-                skinMatrices: skinMatrices
-            )
+            let point = try skinnedVertex(at: vertexIndex, skinMatrices: skinMatrices).position
+            return SIMD2(point.x, point.y)
         }
     }
 
+    struct SkinnedVertex {
+        let position: SIMD3<Float>
+        let linear: simd_float3x3
+    }
+
+    /// The four positive contributions keep their original image XY order.
+    /// Only direct output requests the blended linear frame and validates Z.
     @inline(__always)
-    private func deformedPoint(
-        vertex: PreparedVertex,
-        skinMatrices: [simd_float4x4]
-    ) throws -> SIMD2<Float> {
-        var point = SIMD2<Float>.zero
+    func skinnedVertex(
+        at vertexIndex: Int,
+        skinMatrices: [simd_float4x4],
+        includesLinear: Bool = false
+    ) throws -> SkinnedVertex {
+        let vertex = preparedVertices[vertexIndex]
+        var point = SIMD3<Float>.zero
+        var linear = simd_float3x3(columns: (.zero, .zero, .zero))
         let bindX = vertex.bindPoint.x
         let bindY = vertex.bindPoint.y
         let bindZ = vertex.bindPoint.z
-        let weight0 = vertex.normalizedWeights.x
-        if weight0 > 0 {
-            let matrix = skinMatrices[Int(vertex.boneIndices.x)]
-            point += SIMD2(
+        for influence in 0..<4 {
+            let weight = vertex.normalizedWeights[influence]
+            guard weight > 0 else { continue }
+            let matrix = skinMatrices[Int(vertex.boneIndices[influence])]
+            point += SIMD3(
                 matrix[0].x * bindX + matrix[1].x * bindY
                     + matrix[2].x * bindZ + matrix[3].x,
                 matrix[0].y * bindX + matrix[1].y * bindY
-                    + matrix[2].y * bindZ + matrix[3].y
-            ) * weight0
+                    + matrix[2].y * bindZ + matrix[3].y,
+                matrix[0].z * bindX + matrix[1].z * bindY
+                    + matrix[2].z * bindZ + matrix[3].z
+            ) * weight
+            if includesLinear {
+                linear.columns.0 += SIMD3(matrix[0].x, matrix[0].y, matrix[0].z) * weight
+                linear.columns.1 += SIMD3(matrix[1].x, matrix[1].y, matrix[1].z) * weight
+                linear.columns.2 += SIMD3(matrix[2].x, matrix[2].y, matrix[2].z) * weight
+            }
         }
-        let weight1 = vertex.normalizedWeights.y
-        if weight1 > 0 {
-            let matrix = skinMatrices[Int(vertex.boneIndices.y)]
-            point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY
-                    + matrix[2].x * bindZ + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY
-                    + matrix[2].y * bindZ + matrix[3].y
-            ) * weight1
-        }
-        let weight2 = vertex.normalizedWeights.z
-        if weight2 > 0 {
-            let matrix = skinMatrices[Int(vertex.boneIndices.z)]
-            point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY
-                    + matrix[2].x * bindZ + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY
-                    + matrix[2].y * bindZ + matrix[3].y
-            ) * weight2
-        }
-        let weight3 = vertex.normalizedWeights.w
-        if weight3 > 0 {
-            let matrix = skinMatrices[Int(vertex.boneIndices.w)]
-            point += SIMD2(
-                matrix[0].x * bindX + matrix[1].x * bindY
-                    + matrix[2].x * bindZ + matrix[3].x,
-                matrix[0].y * bindX + matrix[1].y * bindY
-                    + matrix[2].y * bindZ + matrix[3].y
-            ) * weight3
-        }
+        // Preserve legacy image admission when only Z overflows.
         guard point.x.isFinite, point.y.isFinite else {
             throw ScenePuppetAnimationEvaluationFailure.invalidDeformedVertex
         }
-        return point
+        return SkinnedVertex(position: point, linear: linear)
     }
 
     private func skinMatrices(

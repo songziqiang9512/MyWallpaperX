@@ -22,7 +22,7 @@ extension SceneMetalRenderer {
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
-        encodeSourceUpdates: ((MTLCommandBuffer, SceneSourceUpdateTransaction) -> Void)?,
+        encodeSourceUpdates: ((MTLCommandBuffer, SceneSourceUpdateTransaction, StaticModelFrame) -> Void)?,
         performanceTelemetry: SceneFramePerformanceTelemetry?,
         drawable: CAMetalDrawable,
         commandBuffer: MTLCommandBuffer,
@@ -47,7 +47,7 @@ extension SceneMetalRenderer {
 #if DEBUG
         let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
 #endif
-        encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
+        encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction, modelFrame)
 #if DEBUG
         performanceTelemetry?.endStage("source-update")
 #endif
@@ -295,7 +295,7 @@ extension SceneMetalRenderer {
         let shadowCandidates = hasShadowReceiver && !preparesNamedModelShadow
             ? (modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues,
-                groups: compositionGroupRuntime)) : nil
+                groups: compositionGroupRuntime, state: modelFrame)) : nil
         // All callers inspect the same pre-source image/plan facts. Preserve
         // their short cuts while avoiding duplicate reflection-demand scans.
         var reflectionDemand: Bool?
@@ -360,7 +360,7 @@ extension SceneMetalRenderer {
                let pool = offscreenTexturePool,
                let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
                 visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
-                snapshot: frameContext.dynamicValues, groups: compositionGroupRuntime),
+                snapshot: frameContext.dynamicValues, groups: compositionGroupRuntime, state: modelFrame),
                prepareMandatoryDepth(state: modelFrame, candidates: candidates,
                 orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
                 batches: particleBatchesByID, particlePipeline: particlePipeline,

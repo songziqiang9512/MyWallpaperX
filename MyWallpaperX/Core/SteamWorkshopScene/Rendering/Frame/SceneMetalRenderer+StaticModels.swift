@@ -5,6 +5,7 @@ import simd
 extension SceneMetalRenderer {
     struct StaticModelDraw {
         let entry: ScenePreparedStaticModelResources.Entry
+        let mesh: SceneStaticModelMesh
         let texture: MTLTexture
         let textureFrame: SceneTextureUVTransform
         let sampling: SceneTextureSampling
@@ -42,6 +43,9 @@ extension SceneMetalRenderer {
             }
         }
         private let commandBuffer: MTLCommandBuffer
+        // A present nil rejects this frame's direct draw; absence preserves the
+        // immutable static resource. All passes consume this one publication.
+        private var directMeshes: [Int: SceneStaticModelMesh?] = [:]
         private var sceneDepthByPass: [ObjectIdentifier: SceneDepthDomain] = [:]
         private var acceptsDepthBindings = true
         private(set) var depthDeferralReason: String?
@@ -58,6 +62,20 @@ extension SceneMetalRenderer {
 
         init(commandBuffer: MTLCommandBuffer) {
             self.commandBuffer = commandBuffer
+        }
+
+        func publishDirectModelMesh(_ mesh: SceneStaticModelMesh?, for layerID: Int,
+                                    on commandBuffer: MTLCommandBuffer) {
+            guard self.commandBuffer === commandBuffer else {
+                directMeshes.updateValue(nil, forKey: layerID)
+                return
+            }
+            directMeshes.updateValue(mesh, forKey: layerID)
+        }
+
+        func mesh(for layerID: Int, bind: SceneStaticModelMesh) -> SceneStaticModelMesh? {
+            if let publication = directMeshes[layerID] { return publication }
+            return bind
         }
 
         func sharedDepth(pass: SceneMainPassEncoder, pool: SceneParticleDepthTargetPool,
@@ -145,21 +163,21 @@ extension SceneMetalRenderer {
 
     func staticModelDraws(layer: SceneRenderDescriptor.Layer,
                          worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
+                         state: StaticModelFrame? = nil,
                          requiresCompleteNamedInputs: Bool = false) -> [StaticModelDraw]? {
         guard let parts = staticModelResources[layer.id] else { return [] }
-        var world = worldFrames[layer.id] ?? SceneMatrix.identity()
-        if let height = renderDescriptor.camera.orthoHeight, height > 0 {
-            // The canonical canvas frame is F * authoredWorld * F. Static
-            // model vertices remain authored Y-up, so consume them as F * v.
-            // Keep this complete matrix shared by color, normals and shadow.
-            world.columns.1 = -world.columns.1
-        }
+        let world = staticModelWorld(for: layer.id, worldFrames: worldFrames)
         // Authored zero scale can leave planar geometry while the color draw
         // rejects its singular normal transform. Apply that same admission before
         // collecting depth leases, shadow bounds or casters for this layer.
         guard SceneStaticModelPipeline.normalMatrix(for: world) != nil else { return [] }
         var hasMissingInput = false
         let draws: [StaticModelDraw] = parts.compactMap { entry in
+            let mesh: SceneStaticModelMesh
+            if let state {
+                guard let current = state.mesh(for: layer.id, bind: entry.mesh) else { return nil }
+                mesh = current
+            } else { mesh = entry.mesh }
             let texture: MTLTexture
             let frame: SceneTextureUVTransform
             let sampling: SceneTextureSampling
@@ -184,13 +202,25 @@ extension SceneMetalRenderer {
                 layerID: layer.id,
                 authoredValue: entry.material.viewTint.map { [$0.back.x, $0.back.y, $0.back.z] },
                 snapshot: snapshot))
-            return StaticModelDraw(entry: entry, texture: texture, textureFrame: frame,
+            return StaticModelDraw(entry: entry, mesh: mesh, texture: texture, textureFrame: frame,
                 sampling: sampling, premultiplied: premultiplied,
                 world: world, material: material,
                 alpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
                     authoredValue: layer.alpha, snapshot: snapshot)))
         }
         return requiresCompleteNamedInputs && hasMissingInput ? nil : draws
+    }
+
+    func staticModelWorld(for layerID: Int,
+                          worldFrames: [Int: simd_float4x4]) -> simd_float4x4 {
+        var world = worldFrames[layerID] ?? SceneMatrix.identity()
+        if let height = renderDescriptor.camera.orthoHeight, height > 0 {
+            // The canonical canvas frame is F * authoredWorld * F. Static
+            // model vertices remain authored Y-up, so consume them as F * v.
+            // Keep this complete matrix shared by color, normals and shadow.
+            world.columns.1 = -world.columns.1
+        }
+        return world
     }
 
     func drawStaticModel(layer: SceneRenderDescriptor.Layer, state: StaticModelFrame,
@@ -200,14 +230,14 @@ extension SceneMetalRenderer {
                          leases: inout [SceneParticleDepthTargetLease]) -> Bool {
         guard let pipeline = staticModelResources.pipeline else { return false }
         let draws = state.prepared?[layer.id]
-            ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues) ?? []
+            ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues, state: state) ?? []
         var encodedLit = false
         for draw in draws {
             _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                 device: device, commandBuffer: commandBuffer, leases: &leases)
             if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return encodedLit }
             guard let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer) else { continue }
-            let encoded = pipeline.draw(mesh: draw.entry.mesh, texture: draw.texture,
+            let encoded = pipeline.draw(mesh: draw.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: draw.premultiplied,
                 emissiveMask: draw.entry.emissiveMask?.texture,
                 emissiveMaskTextureFrame: draw.entry.emissiveMask?.uvTransform,
@@ -253,11 +283,11 @@ extension SceneMetalRenderer {
     /// known. Pending named producers keep the original draw/lease path for this frame.
     func shadowDrawCandidates(orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
                               worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
-                              groups: SceneCompositionGroupFrameRuntime?) -> [Int: [StaticModelDraw]]? {
+                              groups: SceneCompositionGroupFrameRuntime?, state: StaticModelFrame? = nil) -> [Int: [StaticModelDraw]]? {
         var result: [Int: [StaticModelDraw]] = [:]
         for layer in orderedLayers where visible.contains(layer.id) && layer.contentKind == "model" {
             if let groups, groups.renderPass(forLayerID: layer.id) == nil { continue }
-            guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot,
+            guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot, state: state,
                 requiresCompleteNamedInputs: true) else { return nil }
             result[layer.id] = draws
         }
@@ -435,7 +465,7 @@ extension SceneMetalRenderer {
             if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
         }
         guard let candidates = shadowDrawCandidates(orderedLayers: orderedLayers, visible: visible,
-            worldFrames: worldFrames, snapshot: snapshot, groups: groups) else { return consumers }
+            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state) else { return consumers }
         // Ordinary failed model parts keep their existing local failure. Once
         // their allocation attempts have priority; a valid scene-domain lease
         // remains usable if another mandatory resource could not be acquired.
@@ -501,7 +531,7 @@ extension SceneMetalRenderer {
                 if visible.contains(layer.id) {
                     if layer.contentKind == "model" {
                         guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames,
-                            snapshot: frameContext.dynamicValues, requiresCompleteNamedInputs: true) else { return nil }
+                            snapshot: frameContext.dynamicValues, state: state, requiresCompleteNamedInputs: true) else { return nil }
                         state.prepared?[layer.id] = draws
                         if !draws.isEmpty {
                             let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
@@ -595,7 +625,7 @@ extension SceneMetalRenderer {
                     casters.append((draw, frontFacing))
                 }
                 if includesDirectional && (casts || draw.material.receivesLighting) {
-                    let item = (draw.entry.mesh.boundsMinimum, draw.entry.mesh.boundsMaximum, draw.world)
+                    let item = (draw.mesh.boundsMinimum, draw.mesh.boundsMaximum, draw.world)
                     if casts { bounds.append(item) }
                     receiverBounds.append(item)
                 }
@@ -642,7 +672,7 @@ extension SceneMetalRenderer {
                     width: Int(viewport.width), height: Int(viewport.height)))
                 for caster in casters {
                     let draw = caster.draw
-                    encoded = pipeline.drawShadow(mesh: draw.entry.mesh, texture: draw.texture,
+                    encoded = pipeline.drawShadow(mesh: draw.mesh, texture: draw.texture,
                         textureFrame: draw.textureFrame, sampling: draw.sampling,
                         modelMatrix: draw.world, projection: projection, face: face, viewport: viewport,
                         layerAlpha: draw.alpha, material: draw.material, encoder: encoder,

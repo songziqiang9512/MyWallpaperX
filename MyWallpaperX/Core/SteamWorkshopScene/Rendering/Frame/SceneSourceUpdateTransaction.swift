@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-/// Keeps CPU-side source producer state aligned with one Metal submission.
+/// Resolves source producer state and registered storage with one submission.
 /// Producers remain speculative until that command buffer completes.
 final class SceneSourceUpdateTransaction: @unchecked Sendable {
     private enum State {
@@ -17,8 +17,22 @@ final class SceneSourceUpdateTransaction: @unchecked Sendable {
     }
 
     private let lock = NSLock()
+    private weak var commandBuffer: MTLCommandBuffer?
+    private let isBound: Bool
+    private let commandBufferIdentity: ObjectIdentifier?
     private var state = State.pending
     private var actions: [ResolutionAction] = []
+
+    init(on commandBuffer: MTLCommandBuffer? = nil) {
+        self.commandBuffer = commandBuffer
+        isBound = commandBuffer != nil
+        commandBufferIdentity = commandBuffer.map(ObjectIdentifier.init)
+    }
+
+    func belongs(to commandBuffer: MTLCommandBuffer) -> Bool {
+        isBound && self.commandBuffer === commandBuffer
+            && commandBufferIdentity == ObjectIdentifier(commandBuffer)
+    }
 
     func registerRollback(_ rollback: @escaping () -> Void) {
         registerResolution(completed: nil, rollback: rollback)
@@ -38,6 +52,7 @@ final class SceneSourceUpdateTransaction: @unchecked Sendable {
     }
 
     func arm(on commandBuffer: MTLCommandBuffer) {
+        guard !isBound || belongs(to: commandBuffer) else { return }
         lock.lock()
         guard state == .pending else {
             lock.unlock()

@@ -6,8 +6,21 @@ struct SceneStaticModelMesh {
     fileprivate let indexBuffer: MTLBuffer
     let boundsMinimum: SIMD3<Float>
     let boundsMaximum: SIMD3<Float>
+    let vertexCount: Int
     let indexCount: Int
     fileprivate let indexType: MTLIndexType
+
+    func replacingVertices(
+        buffer: MTLBuffer,
+        boundsMinimum: SIMD3<Float>,
+        boundsMaximum: SIMD3<Float>
+    ) -> SceneStaticModelMesh {
+        SceneStaticModelMesh(
+            vertexBuffer: buffer, indexBuffer: indexBuffer,
+            boundsMinimum: boundsMinimum, boundsMaximum: boundsMaximum,
+            vertexCount: vertexCount, indexCount: indexCount, indexType: indexType
+        )
+    }
 }
 
 private struct SceneStaticModelShadowUniforms {
@@ -258,9 +271,37 @@ struct SceneStaticModelPipeline {
             indexBuffer: indexBuffer,
             boundsMinimum: vertices.reduce(vertices[0].position) { simd_min($0, $1.position) },
             boundsMaximum: vertices.reduce(vertices[0].position) { simd_max($0, $1.position) },
+            vertexCount: vertices.count,
             indexCount: indices.count,
             indexType: usesWideIndices ? .uint32 : .uint16
         )
+    }
+
+    /// One layer/surface owns this stream; immutable indices remain shared.
+    /// Allocate all slots once under the existing Scene resource budget.
+    func makeVertexStream(
+        mesh: SceneStaticModelMesh
+    ) -> Result<SceneStaticModelVertexStream, SceneStaticModelVertexStream.Failure> {
+        guard Self.hasExpectedVertexABI else { return .failure(.invalidVertexABI) }
+        let (byteCount, overflow) = mesh.vertexCount.multipliedReportingOverflow(
+            by: MemoryLayout<SceneMdlStaticModel.Vertex>.stride
+        )
+        guard !overflow, mesh.vertexCount > 0,
+              mesh.vertexBuffer.length >= byteCount,
+              mesh.vertexBuffer.device === device, mesh.indexBuffer.device === device else {
+            return .failure(.invalidMesh)
+        }
+        var buffers: [MTLBuffer] = []
+        for index in 0..<SceneStaticModelVertexStream.maximumSlots {
+            guard let buffer = device.makeSceneBuffer(
+                length: byteCount, options: .storageModeShared
+            ) else { return .failure(.allocationFailed) }
+            buffer.label = "Scene model vertex stream slot \(index)"
+            buffers.append(buffer)
+        }
+        return .success(SceneStaticModelVertexStream(
+            mesh: mesh, buffers: buffers, device: device
+        ))
     }
 
     /// Encodes into the caller's current render pass. A singular/non-finite

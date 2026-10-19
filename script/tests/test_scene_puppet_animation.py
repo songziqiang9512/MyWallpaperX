@@ -31,6 +31,80 @@ import Foundation
 
 @main
 enum Harness {
+    static func values(_ transform: SceneMdlPuppetAnimation.Transform) -> [Double] {
+        [transform.translation.x, transform.translation.y, transform.translation.z,
+         transform.rotation.x, transform.rotation.y, transform.rotation.z,
+         transform.scale.x, transform.scale.y, transform.scale.z].map(Double.init)
+    }
+
+    static func trackSummary(_ animation: SceneMdlPuppetAnimation, _ index: Int) -> [String: Any] {
+        let track = animation.transformsByBone[index]
+        let samples = track.map(values)
+        var minimum = samples[0], maximum = samples[0]
+        for sample in samples.dropFirst() {
+            for component in sample.indices {
+                minimum[component] = min(minimum[component], sample[component])
+                maximum[component] = max(maximum[component], sample[component])
+            }
+        }
+        return ["boneIndex": index, "first": samples[0], "last": samples.last!,
+                "minimum": minimum, "maximum": maximum,
+                "changedSamples": track.filter { $0 != track[0] }.count]
+    }
+
+    static func summary(_ animation: SceneMdlPuppetAnimation) -> [String: Any] {
+        [
+            "id": animation.id,
+            "name": animation.name,
+            "mode": animation.mode,
+            "rawMode": animation.rawMode, "rawFlags": animation.rawFlags,
+            "recordOrdinal": animation.recordOrdinal.map { $0 as Any } ?? NSNull(),
+            "derivedSource": animation.derivedSource.map {
+                ["sourceRecordOrdinal": $0.sourceRecordOrdinal, "firstFrame": $0.firstFrame,
+                 "endFrame": $0.endFrame, "control": $0.control,
+                 "rootSelector": $0.rootSelector] as [String: Any]
+            } ?? NSNull(),
+            "fps": Double(animation.framesPerSecond),
+            "frameCount": animation.frameCount,
+            "duration": Double(animation.durationSeconds),
+            "trackCount": animation.transformsByBone.count,
+            "trackStates": animation.transformTrackStates.map(\.rawValue),
+            "sampleCounts": animation.transformsByBone.map(\.count),
+            "bounds": animation.bounds.map {
+                [$0.minimum.x, $0.minimum.y, $0.minimum.z,
+                 $0.maximum.x, $0.maximum.y, $0.maximum.z].map(Double.init) as Any
+            } ?? NSNull(),
+            "hasAuxiliaryScalarTrack": animation.hasAuxiliaryScalarTrack,
+            "hasAlphaContribution": animation.hasAlphaContribution,
+            "selectedTracks": [0, 1, 11, 12, 16, 17].filter {
+                animation.transformsByBone.indices.contains($0)
+            }.map { trackSummary(animation, $0) },
+            "alphaByBone": animation.alphaByBone.map {
+                $0.map { $0.map { Double($0) } } as Any
+            } ?? NSNull(),
+            "events": animation.events.map {
+                ["name": $0.name, "frame": $0.frame,
+                 "recordedTime": Double($0.recordedTime)] as [String: Any]
+            },
+            "firstTransform": animation.transformsByBone.first?.first.map {
+                [
+                    Double($0.translation.x), Double($0.translation.y),
+                    Double($0.translation.z), Double($0.rotation.x),
+                    Double($0.rotation.y), Double($0.rotation.z),
+                    Double($0.scale.x), Double($0.scale.y), Double($0.scale.z),
+                ]
+            } ?? [],
+            "lastTransform": animation.transformsByBone.first?.last.map {
+                [
+                    Double($0.translation.x), Double($0.translation.y),
+                    Double($0.translation.z), Double($0.rotation.x),
+                    Double($0.rotation.y), Double($0.rotation.z),
+                    Double($0.scale.x), Double($0.scale.y), Double($0.scale.z),
+                ]
+            } ?? [],
+        ] as [String: Any]
+    }
+
     static func main() throws {
         var results: [[String: Any]] = []
         for path in CommandLine.arguments.dropFirst() {
@@ -45,42 +119,8 @@ enum Harness {
                 }
                 entry["ok"] = true
                 entry["boneCount"] = set.boneCount
-                entry["animations"] = set.animations.map { animation in
-                    [
-                        "id": animation.id,
-                        "name": animation.name,
-                        "mode": animation.mode,
-                        "fps": Double(animation.framesPerSecond),
-                        "frameCount": animation.frameCount,
-                        "duration": Double(animation.durationSeconds),
-                        "trackCount": animation.transformsByBone.count,
-                        "trackStates": animation.transformTrackStates.map(\.rawValue),
-                        "sampleCounts": animation.transformsByBone.map(\.count),
-                        "alphaByBone": animation.alphaByBone.map {
-                            $0.map { $0.map { Double($0) } } as Any
-                        } ?? NSNull(),
-                        "events": animation.events.map {
-                            ["name": $0.name, "frame": $0.frame,
-                             "recordedTime": Double($0.recordedTime)] as [String: Any]
-                        },
-                        "firstTransform": animation.transformsByBone.first?.first.map {
-                            [
-                                Double($0.translation.x), Double($0.translation.y),
-                                Double($0.translation.z), Double($0.rotation.x),
-                                Double($0.rotation.y), Double($0.rotation.z),
-                                Double($0.scale.x), Double($0.scale.y), Double($0.scale.z),
-                            ]
-                        } ?? [],
-                        "lastTransform": animation.transformsByBone.first?.last.map {
-                            [
-                                Double($0.translation.x), Double($0.translation.y),
-                                Double($0.translation.z), Double($0.rotation.x),
-                                Double($0.rotation.y), Double($0.rotation.z),
-                                Double($0.scale.x), Double($0.scale.y), Double($0.scale.z),
-                            ]
-                        } ?? [],
-                    ] as [String: Any]
-                }
+                entry["animations"] = set.animations.map(summary)
+                entry["records"] = set.records.map(summary)
             } catch let error as SceneMdlPuppetAnimationReadError {
                 entry["ok"] = false
                 entry["error"] = error.description
@@ -611,6 +651,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         )
         if completed.returncode != 0:
             raise AssertionError(f"harness run failed:\n{completed.stderr}")
+        cls.raw_output = completed.stdout
         cls.results = {entry["file"]: entry for entry in json.loads(completed.stdout)}
 
     @classmethod

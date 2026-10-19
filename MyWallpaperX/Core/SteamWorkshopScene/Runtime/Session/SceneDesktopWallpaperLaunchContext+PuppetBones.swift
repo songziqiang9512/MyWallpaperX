@@ -3,7 +3,15 @@ import Foundation
 extension SceneDesktopWallpaperLaunchContext {
     func configurePreparedPuppetBones() throws {
         for layer in runtimeInput.renderDescriptor.layers
-        where layer.puppetMeshPath != nil {
+        where layer.puppetMeshPath != nil || layer.staticModelPath != nil {
+            if layer.staticModelPath != nil {
+                if let bones = preparedDeviceResources.staticModels.animation(for: layer.id)?.initialBones {
+                    _ = try configurePuppetBones(layerID: layer.id,
+                        localMatrices: bones.localMatrices, names: bones.names,
+                        parents: bones.parentIndices.map(Int32.init))
+                }
+                continue
+            }
             guard let meshPath = layer.puppetMeshPath,
                   case let .ready(asset)? = preparedDeviceResources.baseImages.puppets.assetsByMeshPath[meshPath.lowercased()],
                   let bones = ScenePuppetLayerLoad.boneConfiguration(for: asset, layerID: layer.id)

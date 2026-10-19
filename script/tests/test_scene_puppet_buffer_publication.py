@@ -12,10 +12,12 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_puppet_playback import SCENE_ROOT, SWIFT_SOURCES
+from script.tests.test_scene_puppet_direct_playback import EXTRA_SOURCES, PIPELINE, static_model_carrier_source, puppet_bone_evidence_leaf_source
 FOG_HEADER = SCENE_ROOT / "Rendering/Composition/SceneDistanceFog.metalh"
 
 
 PLAYBACK_SOURCES = [
+    "Runtime/Frame/SceneMaterialRenderState.swift",
     "Format/SceneMdlPuppetAttachmentReader.swift",
     "Systems/Puppet/ScenePuppetAttachmentPoseProjection.swift",
     "Systems/Puppet/ScenePuppetTranslationMotion.swift",
@@ -32,6 +34,7 @@ PLAYBACK_SOURCES = [
     "Diagnostics/ScenePerformanceCounterHub.swift",
 ]
 
+PLAYBACK_SOURCES += [item for item in EXTRA_SOURCES if item not in PLAYBACK_SOURCES and SCENE_ROOT / item not in SWIFT_SOURCES]
 HARNESS = r'''
 import CryptoKit
 import Foundation
@@ -83,8 +86,8 @@ enum SceneGPUStageTimestampHook {
     static func drew(_ encoder: MTLRenderCommandEncoder) {}
 }
 extension MTLDevice {
-    func makeSceneBuffer(length: Int) -> MTLBuffer? {
-        guard let buffer = makeBuffer(length: length, options: .storageModeShared) else {
+    func makeSceneBuffer(length: Int, options: MTLResourceOptions = []) -> MTLBuffer? {
+        guard let buffer = makeBuffer(length: length, options: options.union(.storageModeShared)) else {
             return nil
         }
         // Make an accidental pre-publication draw observably uninitialized.
@@ -96,15 +99,6 @@ extension MTLDevice {
         makeBuffer(bytes: bytes, length: length, options: .storageModeShared)
     }
 }
-final class ScenePuppetBoneEvidence {
-    static func isEnabled(for layerID: Int) -> Bool { true }
-    func record(layerID: Int, revision: UInt64, frame: UInt64, sceneTime: Double,
-                scriptWritten: Bool, displacement: Float,
-                positions: [SIMD2<Float>], commandBuffer: MTLCommandBuffer) {
-        Observation.evidence.append(positions)
-    }
-}
-
 func columns(_ matrix: simd_float4x4) -> [Float] {
     (0..<4).flatMap { column in (0..<4).map { matrix[column][$0] } }
 }
@@ -720,7 +714,7 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
             options: [.sortedKeys]), as: UTF8.self))
     }
 }
-'''
+''' + puppet_bone_evidence_leaf_source()
 
 
 class PuppetBufferPublicationTests(unittest.TestCase):
@@ -786,13 +780,13 @@ class PuppetBufferPublicationTests(unittest.TestCase):
             raise unittest.SkipTest("Swift/Metal toolchain unavailable")
         with tempfile.TemporaryDirectory(prefix="mwx-puppet-publication-") as directory:
             root = Path(directory)
-            identity_paths = [Path(__file__), *SWIFT_SOURCES,
+            identity_paths = [Path(__file__), PIPELINE, Path(static_model_carrier_source.__code__.co_filename), *SWIFT_SOURCES,
                 *(SCENE_ROOT / path for path in PLAYBACK_SOURCES), FOG_HEADER,
                 SCENE_ROOT / "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
                 SCENE_ROOT / "Rendering/Composition/SceneImageLayer.metal"]
             identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
             source = root / "publication.swift"
-            source.write_text(HARNESS, encoding="utf-8")
+            source.write_text(HARNESS + static_model_carrier_source(), encoding="utf-8")
             # Compile the exact production shader/state prefix. The subsequent
             # broad renderer owns framebuffer routing, which this focused GPU
             # test does not need to replace with stub scene/graph contracts.

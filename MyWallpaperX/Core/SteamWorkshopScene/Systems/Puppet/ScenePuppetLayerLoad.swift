@@ -143,7 +143,7 @@ enum ScenePuppetLayerLoad {
         }
     }
 
-    private static func initialBoneConfiguration(
+    static func initialBoneConfiguration(
         rig: SceneMdlPuppetRig,
         referenceEvaluator: Result<ScenePuppetAnimationEvaluator, Error>?
     ) -> BoneConfiguration? {

@@ -5,6 +5,22 @@ import Metal
 /// Geometry production joins the existing renderer/main pass; this type owns
 /// no command queue, frame target, compositor, or mutable playback state.
 struct ScenePreparedStaticModelResources {
+    /// Immutable preparation shared by instances. Playback and vertex storage
+    /// are allocated by the existing surface-owned Puppet state.
+    struct Animation {
+        let vertices: [SceneMdlStaticModel.Vertex]
+        let selection: ScenePuppetAnimationSelection
+        let evaluator: ScenePuppetAnimationEvaluator
+        let attachments: [SceneMdlPuppetAttachment]
+        let initialBones: ScenePuppetLayerLoad.BoneConfiguration?
+    }
+
+    private struct AnimationAsset {
+        let model: SceneMdlStaticModel
+        let animations: Result<SceneMdlPuppetAnimationSet?, Error>
+        let attachments: Result<[SceneMdlPuppetAttachment], Error>
+    }
+
     struct Entry {
         let modelPath: String
         let materialPath: String
@@ -42,6 +58,14 @@ struct ScenePreparedStaticModelResources {
 
     let pipeline: SceneStaticModelPipeline?
     private let entriesByLayerID: [Int: [Entry]]
+    private let animationsByLayerID: [Int: Animation]
+
+    private init(pipeline: SceneStaticModelPipeline?, entriesByLayerID: [Int: [Entry]],
+                 animationsByLayerID: [Int: Animation] = [:]) {
+        self.pipeline = pipeline
+        self.entriesByLayerID = entriesByLayerID
+        self.animationsByLayerID = animationsByLayerID
+    }
 
     static let empty = ScenePreparedStaticModelResources(
         pipeline: nil,
@@ -57,6 +81,8 @@ struct ScenePreparedStaticModelResources {
     subscript(layerID: Int) -> [Entry]? {
         entriesByLayerID[layerID]
     }
+
+    func animation(for layerID: Int) -> Animation? { animationsByLayerID[layerID] }
 
     static func prepare(
         descriptor: SceneRenderDescriptor,
@@ -77,6 +103,7 @@ struct ScenePreparedStaticModelResources {
             let materialPath: String
             let mesh: SceneStaticModelMesh
             let geometryState: SceneMdlStaticModel.GeometryState
+            let animationAsset: AnimationAsset?
         }
 
         let textureResolver = SceneTexturePathResolver(
@@ -86,6 +113,10 @@ struct ScenePreparedStaticModelResources {
         var geometryByPath: [String: [PreparedGeometry]] = [:]
         var rejectedModelPaths: Set<String> = []
         var entries: [Int: [Entry]] = [:]
+        var animations: [Int: Animation] = [:]
+        let animationDemands = Set(layers.compactMap { layer in
+            !layer.puppetAnimationLayers.isEmpty ? layer.staticModelPath.map(identity) : nil
+        })
 
         for layer in layers {
             try cancellationCheck()
@@ -110,6 +141,13 @@ struct ScenePreparedStaticModelResources {
                     rejectedModelPaths.insert(modelIdentity)
                     continue
                 }
+                // One read/validation per resource, including all clip records.
+                // Hidden visibility-bound clips remain in the same selection.
+                let animationSet: Result<SceneMdlPuppetAnimationSet?, Error>? =
+                    animationDemands.contains(modelIdentity) && decoded.contains(where: { $0.rig != nil })
+                    ? Result { try SceneMdlPuppetAnimationReader.read(data: data) } : nil
+                let attachments: Result<[SceneMdlPuppetAttachment], Error> = animationSet != nil
+                    ? Result { try SceneMdlPuppetAttachmentReader.read(data: data) } : .success([])
                 preparedGeometries = decoded.compactMap { part in
                     guard let mesh = pipeline.makeMesh(
                         vertices: part.vertices, indices: part.indices
@@ -117,10 +155,40 @@ struct ScenePreparedStaticModelResources {
                     return PreparedGeometry(
                         materialPath: part.materialPath,
                         mesh: mesh,
-                        geometryState: part.geometryState
+                        geometryState: part.geometryState,
+                        animationAsset: animationSet.map {
+                            AnimationAsset(model: part, animations: $0, attachments: attachments)
+                        }
                     )
                 }
                 geometryByPath[modelIdentity] = preparedGeometries
+            }
+            if preparedGeometries.count == 1,
+               let asset = preparedGeometries[0].animationAsset,
+               !layer.puppetAnimationLayers.isEmpty {
+                do {
+                    if let set = try asset.animations.get(), let rig = asset.model.rig {
+                        let attachments = try asset.attachments.get()
+                        switch ScenePuppetAnimationSelector.select(layers: layer.puppetAnimationLayers,
+                                                                 animationSet: set) {
+                        case .success(let selection?):
+                            let evaluator = try ScenePuppetAnimationEvaluator(
+                                bindPositions: asset.model.vertices.map(\.position), rig: rig,
+                                additiveAnimations: selection.clips.map(\.animation))
+                            animations[layer.id] = Animation(vertices: asset.model.vertices,
+                                selection: selection, evaluator: evaluator, attachments: attachments,
+                                initialBones: ScenePuppetLayerLoad.initialBoneConfiguration(
+                                    rig: rig, referenceEvaluator: .success(evaluator)))
+                        case .success(nil): break
+                        case .failure(let failure): throw failure
+                        }
+                    }
+                } catch {
+#if DEBUG
+                    NSLog("MWX Scene model-animation layer=%d state=bind-only reason=%@",
+                          layer.id, String(describing: error))
+#endif
+                }
             }
             try cancellationCheck()
 
@@ -202,7 +270,8 @@ struct ScenePreparedStaticModelResources {
 
         return ScenePreparedStaticModelResources(
             pipeline: entries.isEmpty ? nil : pipeline,
-            entriesByLayerID: entries
+            entriesByLayerID: entries,
+            animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 }
         )
     }
 

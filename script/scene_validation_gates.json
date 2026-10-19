@@ -3797,6 +3797,50 @@
         "test_scene_direct_model_bind_geometry",
         "test_scene_static_model_reader"
       ]
+    },
+    {
+      "id": "direct-model-skeletal-animation",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetBones.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneSourceUpdateTransaction.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelVertexStream.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator+Skinning.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetBoneEvidence.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
+        "script/tests/test_scene_puppet_animation_bounds.py",
+        "script/tests/test_scene_puppet_imported_clips.py",
+        "script/tests/test_scene_puppet_direct_skinning.py",
+        "script/tests/test_scene_puppet_direct_playback.py",
+        "script/tests/test_scene_static_model_vertex_stream.py",
+        "script/tests/fixtures/ScenePuppetDirectSkinningHarness.swift",
+        "script/tests/fixtures/ScenePuppetDirectPlaybackHarness.swift",
+        "script/tests/fixtures/SceneStaticModelVertexStreamHarness.swift",
+        "script/tests/fixtures/SceneStaticModelAnimationAttachmentChecks.swift"
+      ],
+      "modules": [
+        "test_scene_puppet_animation_bounds",
+        "test_scene_puppet_imported_clips",
+        "test_scene_puppet_direct_skinning",
+        "test_scene_puppet_direct_playback",
+        "test_scene_static_model_vertex_stream"
+      ]
     }
   ],
   "method_gates": {

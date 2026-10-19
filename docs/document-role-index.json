@@ -59,7 +59,8 @@
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
-      "docs/web/web-wallpaper-benchmark-standard.md"
+      "docs/web/web-wallpaper-benchmark-standard.md",
+      "docs/scene/capabilities/direct-model-skeletal-animation.md"
     ],
     "managedRoot": "docs",
     "policy": "Git tracked and nonignored untracked Markdown; missing tracked files are excluded as deletions. Ignored evidence/cache is not documentation authority.",
@@ -564,7 +565,15 @@
       "path": "docs/scene/capabilities/README.md",
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
-      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
+      "lastReviewed": "2026-10-19",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "60b40838d8bb9191e67a54d145d69057ca55fd1d9019b3d252f70fb092b0bf3d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+      }
     },
     {
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
@@ -574,10 +583,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a8cb97a0f65880e154c993c03c014f7e209fe8aec65f3d2fc4541309accad2f",
+        "sourceSHA256": "908e4af263b78970c2b49143f3b622650ff5ceba06d94d22788501394fa0dae1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
-        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
       }
     },
     {
@@ -705,10 +714,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "be3ccdbc3d8a506298a09515d754091d68b648e382761099a32a5fe4f7204670",
+        "sourceSHA256": "7cbb3b12d475bed3aefc4092dafbb9516c0df8cf9a4a1f81e06ba5bbc7ceca3a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Native admitted root RopeTrail canonical camera and real329/ortho374 bounded visual result.",
-        "limitations": "No fullsample/officialsamephase/prewarm/animation/HDR/performance claim."
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
       }
     },
     {
@@ -3544,10 +3553,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9e5e91bbadae870ff0187c001b7a6a84ed638665b5cd0a46896383c75b70ef53",
+        "sourceSHA256": "a577948b9ea501431317bbf9d53e2ee059378ee07fa54230ada7479d4aa0ac97",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene/Web共用原生属性展示；完整作者文案、独立展示译文、原有条件/值保留与分析缓存失效边界。",
-        "limitations": "只覆盖本批展示合同及对应原生控件/解析验证，不代表全部作者属性或播放画面兼容。"
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
       }
     },
     {
@@ -3572,10 +3581,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "21b3cc6e6ba58a39e84a0a711ec34b8caf702c296f7db2286e3934deee3ac609",
+        "sourceSHA256": "c31533d543ec3f3446b4785536d8da9bf9364d15caecc8786ccedea2a925aba4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
-        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
       }
     },
     {
@@ -3586,10 +3595,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "53b867cce535ce8bf342879cdd192811d3c5d1cc41c8c825cec98aaf3c496a38",
+        "sourceSHA256": "7394bda5f9f6db5c96b329151c9095c78b5b264cfeef46c9b9043123415063c4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Native admitted root RopeTrail canonical camera and real329/ortho374 bounded visual result.",
-        "limitations": "No fullsample/officialsamephase/prewarm/animation/HDR/performance claim."
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
       }
     },
     {
@@ -3708,6 +3717,22 @@
         "scope": "可审计的最近文档维护事件；原合同含义与证据仍由正文自身界定",
         "limitations": "不是本轮全文或产品运行复验；陈旧门衡量文档维护年龄"
       }
+    },
+    {
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
+      "lastReviewed": "2026-10-19",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9976a57d7096b7038e891a7967a1ed9d7883d220e85d6517ad4b3b0927134822",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
+        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+      },
+      "title": "Direct model的骨骼动画合同",
+      "authority": "advanced-object-animation-design"
     }
   ],
   "taskRoutes": [
@@ -3795,7 +3820,8 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/roadmap/scene-full-sample-static-audit.md",
         "docs/scene/capabilities/uniform-invariant-shader-constants.md",
-        "docs/scene/capabilities/direct-model-bind-geometry.md"
+        "docs/scene/capabilities/direct-model-bind-geometry.md",
+        "docs/scene/capabilities/direct-model-skeletal-animation.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

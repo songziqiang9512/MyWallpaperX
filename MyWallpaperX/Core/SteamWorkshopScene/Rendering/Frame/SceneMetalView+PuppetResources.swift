@@ -2,6 +2,39 @@ import Foundation
 import Metal
 
 extension SceneMetalView {
+    /// Direct geometry joins the same layer registry and launch playback clock.
+    /// Every surface allocates its own storage from immutable preparation.
+    func installDirectModelAnimations() {
+        guard let pipeline = renderer.staticModelResources.pipeline else { return }
+        for layer in renderer.renderDescriptor.layers where layer.staticModelPath != nil {
+            guard let animation = renderer.staticModelResources.animation(for: layer.id),
+                  let entries = renderer.staticModelResources[layer.id], entries.count == 1 else { continue }
+            switch ScenePuppetPlaybackState.makeDirectModel(layerID: layer.id,
+                vertices: animation.vertices, mesh: entries[0].mesh,
+                evaluator: animation.evaluator, selection: animation.selection,
+                attachments: animation.attachments, pipeline: pipeline) {
+            case .success(let state):
+                guard case .success = puppetAnimationPlaybackRuntime.register(
+                    layerID: layer.id, selection: state.selection,
+                    authoredLayers: layer.puppetAnimationLayers) else { continue }
+                puppetPlaybackStates[layer.id] = state
+#if DEBUG
+                let unconsumedRate = state.selection.clips.contains {
+                    $0.layer.hasRateScript == true || $0.layer.rateBinding != nil
+                }
+                NSLog("MWX Scene model-animation layer=%d state=prepared clips=%d rateSource=%@",
+                    layer.id, state.selection.clips.count,
+                    unconsumedRate ? "authored-fallback-dynamic-source-unconsumed" : "authored-static")
+#endif
+            case .failure(let failure):
+#if DEBUG
+                NSLog("MWX Scene model-animation layer=%d state=bind-only reason=%@",
+                    layer.id, String(describing: failure))
+#endif
+            }
+        }
+    }
+
     /// Source and dynamic layers share the same instance allocator, clipping
     /// domain, animation registration and geometry publication contract.
     func instantiatePuppetGeometry(

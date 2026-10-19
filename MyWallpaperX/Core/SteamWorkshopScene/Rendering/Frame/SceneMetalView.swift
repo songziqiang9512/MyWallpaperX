@@ -511,6 +511,7 @@ class SceneMetalView: NSView {
 
         videoTextureSources = loadedVideoSources
         puppetPlaybackStates = loadedPuppetPlaybackStates
+        installDirectModelAnimations()
         particlePlayback = SceneParticlePlaybackState(
             descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory,
             device: metalDevice, resourceView: resourceView, textureLoader: loader,
@@ -901,7 +902,7 @@ performanceTelemetry?.recordPreparation(
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
             cameraFrame: cameraFrame,
-            encodeSourceUpdates: { [puppetPlaybackStates, puppetAnimationFrame, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction in
+            encodeSourceUpdates: { [puppetPlaybackStates, puppetAnimationFrame, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction, modelFrame in
                 for (layerID, animation) in spriteAnimations {
                     guard let playbackTime =
                         spriteAnimationPlaybackTimes[layerID] else { continue }
@@ -919,6 +920,10 @@ performanceTelemetry?.recordPreparation(
                         commandBuffer: commandBuffer,
                         transaction: transaction
                     )
+                    if playback.isDirectModel {
+                        modelFrame.publishDirectModelMesh(playback.directModelMesh(on: commandBuffer),
+                            for: layerID, on: commandBuffer)
+                    }
                 }
             },
             encodeFrameReadback: frameReadback,
