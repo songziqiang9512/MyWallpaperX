@@ -744,9 +744,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2d0c10fbd5fb5ff1c253c4773b5378cb276c53432dcf55b019a8edcad965bebd",
+        "sourceSHA256": "a299f7f8018c40d00986b775fe4e7759d8afb45a308b332af41d646e9b92ceb3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
+        "scope": "Merged CI literal evidence-link audit with bounded Sprite coverage and final374/heldout347 runtime navigation; retained withdrawn Rope path and whole-sample limits. Navigation merge only; earlier product entries not rerun.",
         "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
       }
     },

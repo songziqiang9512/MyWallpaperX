@@ -12,6 +12,7 @@ nonisolated struct SceneMaterialRenderState: Codable, Equatable, Hashable, Senda
         case normal
         case translucent
         case additive
+        case alphaToCoverage = "alphatocoverage"
     }
 
     enum Depth: String, Codable, Sendable {

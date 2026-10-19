@@ -155,6 +155,10 @@ extension SceneRenderDescriptor.Layer {
 }
 
 // Carriers only: admission and all world/translation math below are product sources.
+enum SceneShaderUserValueKind: String, Codable {
+    case null, boolean, number, string, array, object
+}
+
 struct SceneDocument {
     struct SceneObjectTimeline: Codable {
         enum Host: String, Codable { case origin, angles, scale }
@@ -167,6 +171,9 @@ struct SceneDocument {
         let userBinding: String?
         let timeline: SceneJSONPresence?
         let timelineDiagnostics: [String]
+        var scriptSource: String? = nil
+        var userValueKind: SceneShaderUserValueKind? = nil
+        var bindingKeys: [String] = []
     }
 }
 

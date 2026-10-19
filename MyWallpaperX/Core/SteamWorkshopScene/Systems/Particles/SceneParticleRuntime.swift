@@ -55,6 +55,7 @@ final class SceneParticleRuntime {
     /// template identities are prepared with the particle graph; frame-varying
     /// coordinates are still supplied by the host each advance.
     private(set) var pointerControlPointLayerIDs: Set<Int> = []
+    private(set) var requiresAlphaToCoverage = false
     private var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
 
@@ -222,7 +223,14 @@ final class SceneParticleRuntime {
                 constantValues: $0.constantShaderValues.mapValues {
                     SceneParticleMaterialConstant(
                         components: $0.components ?? [],
-                        isStatic: $0.userBinding == nil
+                        isStatic: (($0.userValueKind == nil
+                            && ((["number", "string", "vector"].contains($0.valueKind)
+                                && $0.bindingKeys.isEmpty)
+                                || ($0.valueKind == "binding" && $0.bindingKeys == ["value"])))
+                            || ($0.valueKind == "binding" && $0.bindingKeys == ["user", "value"]
+                                && $0.userValueKind == .null))
+                            && $0.userBinding == nil
+                            && $0.scriptSource == nil
                             && $0.timeline == nil
                             && $0.timelineDiagnostics.isEmpty
                     )
@@ -426,6 +434,10 @@ final class SceneParticleRuntime {
         }
         pointerControlPointLayerIDs = pointerDemandLayerIDs
         worldSpaceRequiringLayerIDs = worldSpaceDemandLayerIDs
+        requiresAlphaToCoverage = layers.contains {
+            $0.rootRender?.renderState.blendMode == .alphaToCoverage
+                || $0.childRuntime?.requiresAlphaToCoverage == true
+        }
     }
 
     /// A script anywhere in the scene may write a chain layer's transform

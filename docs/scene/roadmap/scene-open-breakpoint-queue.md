@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 更新：2026-10-19。本文排当前开放问题，并保留用户反馈退出的精简备注；顺序为**画面正确合成/正常播放 → 有证性能成本 → 属性热更新接线 → 其他合同与验证债**；专项选序服从[兼容路线](scene-compatibility-roadmap.md)。已修首断点退出，具体视觉余项单独保留；完整golden、全部交互或更多profile尚未验，不自动构成新缺陷。
+> 更新：2026-10-20。本文排当前开放问题，并保留用户反馈退出的精简备注；顺序为**画面正确合成/正常播放 → 有证性能成本 → 属性热更新接线 → 其他合同与验证债**；专项选序服从[兼容路线](scene-compatibility-roadmap.md)。已修首断点退出，具体视觉余项单独保留；完整golden、全部交互或更多profile尚未验，不自动构成新缺陷。
 
 以源码和同身份执行证据区分**运行复现**、**静态反例**、**能力缺口**与**待复验**；旧日志、声明数、默认隐藏/属性关闭和暂未ready不算可见故障。根因unknown不据同类样本、图层名或截图补算法。
 
@@ -13,7 +13,6 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| particle A2C材质准入 · 3745828537 | active Sprite51/65的alphatocoverage经compileBlending返回nil，AssetGraph无pipelineState，Runtime在simulation/prewarm前拒绝；七个默认hidden花层不算当前缺失，背景花image末effect已有真实GPU/末合成。外圈稀疏/偏白与这两层的精确因果未证。 | 沿唯一typed material→粒子pipeline明确coverage/alpha与sample-count合同，再验证有源Sprite和normal/translucent邻例；不改blend猜恢复、不用starttime或数量扩容绕准入。真实出生/ROI正控未成立即STOP。[首诊](../capabilities/runtime-evidence-current.md#intake-20261019)。 |
 | generic varying数组 · 3292370168 | 原generic normalizer的16元素门仍拒绝默认float[32]。实验曾通过严格link/SPIR-V/MSL、受控Metal和437 Program/末合成，但实际白波形尚未归因；候选已撤回，不进入发布。默认条带与视频上沿重叠，alpha/精确phase仍待确认。 | 先取得可归因波形ROI，再沿原type/normalizer/stage-link续接；不以Program关闭画面单，不改作者参数追图，bounded原门与更宽数组不外推。 |
 | forward copy-background composition · 2972071249 | 313引用后置隐藏composition234，首拒在dependency stage order；234隐式copyBackground使全局prepass不具作者顺序独立性。白色波形未归因234，不能据此闭合可见缺口。 | 先资格consumer边界prefix及跨consumer身份，再复用原graph执行/发布；官方自有单board的静态蓝slot1正控呈黄黑checker，已STOP_UNKNOWN，不能将其余两卡当语义结论，也不重复未资格载体。证据归[运行记录](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)。 |
 | Graph/动态producer/VM执行记录 · 待triage | 3027068980命名target执行不足；3383535304动态producer拒绝；3746422401有typed VM实际错误，归属尚未证。3808922316跨owner sort冲突另归第5节，当前未证额外可见收益。 | 只沿各自active consumer与最早typed失败续查；取得可区分输入/输出后再排实施，不并成共同修法。完整诊断及原失败归[运行记录](../capabilities/runtime-evidence-current.md#intake-20261019)；未控音频/pointer/phase观察不列confirmed故障。 |
@@ -141,6 +140,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 3745828537 · 外围花簇首断点关闭 | 普通Sprite coverage材质沿原准备/Metal链准入；同静音/中心pointer原包，51/65由模拟前拒绝到实际花簇铺回左右和四角，原人物/前景保持，默认particle 4/4。不是整样本PASS：预热200秒仍受344步预算，完整时相、属性和官方像素未验；旧Rope958未借此开放。[最终原图与独审](../capabilities/runtime-evidence-current.md#sprite-alpha-coverage-20261020) |
 | 2849382252 · U26白线低清有界闭合 | [同pixel后继](../capabilities/runtime-evidence-current.md#background-terminal-density-20261019)中，原三弧在保2048²/原Program下恢复连续白芯，人物/遮挡保持，replay/GPU/末合成及下一帧成立；仅闭本反馈。旧末弧原型STOP保留，不扩其他视觉、官方phase/音频/HDR或整样本/性能。 |
 | 3748311238 · 柱盖高端悬留有界闭合 | [轴域后验](../capabilities/runtime-evidence-current.md#utility-axis-domain-20261019)中，同动态宽频 PCM 修前/候选约2/6/8s实图显示高端平台退出、柱盖继续移动及圆角恢复，主体保持；用户最新App实测正常、撤回低/缺/卡观察；仅关闭本反馈，不扩全部音源/variant、精确phase、HDR、清晰度或整样本。 |
 | 3554161528 /3581882134 /3603711180 · 开场镜头缺失已闭 | 10-19原355从修前始终全景恢复近→全，App0/无漂移/正常stop与GPU排空；本批报告 `../../../.artifacts/scene-evidence/runs/opening-camera-halfspan-20261019/current/report.json`保字段资格、首失败与实际原图。358/360原包近→全、358关闭Opening直接全景的旧[后验](../capabilities/runtime-evidence-current.md#default-camera-single-20261019)保持；358光照仍U02、360Blur余界分列。仅闭镜头缺失，非同phase/viewport/pixel、其他视觉或完整互动验收，不升级整样本。 |

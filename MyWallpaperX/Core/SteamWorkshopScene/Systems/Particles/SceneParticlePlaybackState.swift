@@ -39,10 +39,6 @@ final class SceneParticlePlaybackState {
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     ) {
-        guard let pipeline = SceneParticleMetalPipeline(
-            device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
-        ) else { return nil }
-        self.pipeline = pipeline
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
             cacheDirectory: cacheDirectory,
@@ -57,6 +53,14 @@ final class SceneParticlePlaybackState {
             initialDynamicValues: initialDynamicValues,
             initialPlayback: initialPlayback
         )
+        guard let pipeline = SceneParticleMetalPipeline(
+            device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
+            requiresAlphaToCoverage: runtime.requiresAlphaToCoverage
+        ) else {
+            runtime.teardown()
+            return nil
+        }
+        self.pipeline = pipeline
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
         self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs

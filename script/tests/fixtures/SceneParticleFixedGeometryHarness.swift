@@ -12,14 +12,21 @@ enum SceneParticleFixedGeometryHarness {
   guard let device=MTLCreateSystemDefaultDevice(),let queue=device.makeCommandQueue() else { return [] }
   let input = #"[{"name":"identity","scale":[1,1,1],"axis":[0,0,1],"rotation":[0.2,-0.4,0.7],"columns":[[1,0,0],[0,1,0],[0,0,1]]},{"name":"uniform3","scale":[3,3,3],"axis":[0,0,1],"rotation":[0.2,-0.4,0.7],"columns":[[3,0,0],[0,3,0],[0,0,3]]},{"name":"axisY","scale":[2,3,5],"axis":[0,1,0],"rotation":[0,0,0],"columns":[[2,0,0],[0,3,0],[0,0,5]]},{"name":"axisYrotated","scale":[2,3,5],"axis":[0,1,0],"rotation":[0.2,-0.4,0.7],"columns":[[2,0,0],[0,3,0],[0,0,5]]},{"name":"oblique","scale":[2,3,5],"axis":[1,1,1],"rotation":[0.2,-0.4,0.7],"columns":[[2,0,0],[0,3,0],[0,0,5]]},{"name":"flipY","scale":[1,-1,1],"axis":[0,0,1],"rotation":[0.2,-0.4,0.7],"columns":[[1,0,0],[0,-1,0],[0,0,1]]},{"name":"mirrorScale","scale":[-2,3,5],"axis":[1,1,1],"rotation":[0.2,-0.4,0.7],"columns":[[-2,0,0],[0,3,0],[0,0,5]]},{"name":"zeroScale","scale":[0,3,5],"axis":[0,0,1],"rotation":[0.2,-0.4,0.7],"columns":[[0,0,0],[0,3,0],[0,0,5]]},{"name":"rotatedScale","scale":[1,1,1],"columns":[[0,2,0],[-3,0,0],[0,0,5]],"axis":[1,1,1],"rotation":[0.2,-0.4,0.7]},{"name":"parentShear","scale":[1,1,1],"columns":[[2,1,0],[1,3,1],[0,1,5]],"axis":[1,1,1],"rotation":[0.2,-0.4,0.7]},{"name":"zero","scale":[1,1,1],"columns":[[0,0,0],[0,0,0],[0,0,0]],"axis":[1,1,1],"rotation":[0.2,-0.4,0.7]},{"name":"rankOne","scale":[1,1,1],"columns":[[0,0,0],[0,0,0],[1,2,5]],"axis":[1,1,1],"rotation":[0.2,-0.4,0.7]}]"#
   let cases=try JSONDecoder().decode([Case].self,from:Data(input.utf8))
-  // Instrument only the production entry signature and final result publication.
-  // The entire vertex body is compiled unchanged, including uniforms and branch selection.
-  let source=sceneParticleShaderSource
-   .replacingOccurrences(of:"vertex Varyings sceneParticleVert",with:"vertex void sceneParticleVert")
-   .replacingOccurrences(of:"constant LayerUniforms &uniforms [[buffer(2)]])",with:"constant LayerUniforms &uniforms [[buffer(2)]], device float4 *probe [[buffer(3)]])")
-   .replacingOccurrences(of:"    return out;",with:"    probe[vertexID] = out.position;\n    probe[vertexID + 4] = float4(out.screenTangentX, out.screenTangentY);\n    return;")
+  // Capture the production vertex result without rewriting its geometry body.
+  let source=sceneParticleShaderSource + """
+  vertex void sceneParticleProbe(
+      uint vertexID [[vertex_id]], uint instanceID [[instance_id]],
+      constant QuadVertex *quad [[buffer(0)]],
+      device const ParticleInstance *instances [[buffer(1)]],
+      constant LayerUniforms &uniforms [[buffer(2)]],
+      device float4 *probe [[buffer(3)]]) {
+      Varyings out = particleVertex(vertexID, instanceID, quad, instances, uniforms, false);
+      probe[vertexID] = out.position;
+      probe[vertexID + 4] = float4(out.screenTangentX, out.screenTangentY);
+  }
+  """
   let command=queue.makeCommandBuffer()!
-  let lib=try device.makeLibrary(source:source,options:nil);let np=MTLRenderPipelineDescriptor();np.vertexFunction=lib.makeFunction(name:"sceneParticleVert");np.isRasterizationEnabled=false;let pipeline=try device.makeRenderPipelineState(descriptor:np)
+  let lib=try device.makeLibrary(source:source,options:nil);let np=MTLRenderPipelineDescriptor();np.vertexFunction=lib.makeFunction(name:"sceneParticleProbe");np.isRasterizationEnabled=false;let pipeline=try device.makeRenderPipelineState(descriptor:np)
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:640,orthoHeight:480,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.1,farZ:1000),viewportSize:CGSize(width:640,height:480))
   var quad:[SIMD4<Float>]=[SIMD4(-0.5,-0.5,0,1),SIMD4(0.5,-0.5,1,1),SIMD4(-0.5,0.5,0,0),SIMD4(0.5,0.5,1,0)]
   var results:[[String:Any]]=[];var buffers:[MTLBuffer]=[]

@@ -228,25 +228,23 @@ nonisolated struct SceneParticleAssetGraphLoader {
             }
             let renderState = pipelineState == nil ? nil : compiledRenderState
             switch pipelineState?.blendMode {
-            case .additive, .translucent:
+            case .additive, .translucent, .alphaToCoverage:
                 break
             case nil where compiledRenderState?.blending == .normal:
                 diagnose(.unsupportedBlendMode, path, "normal")
             case nil:
                 if let materialPass {
-                    let normalizedBlend = materialPass.blending?
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                        .localizedLowercase
-                    if let normalizedBlend,
-                       !normalizedBlend.isEmpty,
-                       !["additive", "translucent"].contains(normalizedBlend) {
-                        diagnose(.unsupportedBlendMode, path, materialPass.blending)
-                    } else {
+                    switch SceneMaterialRenderState.compileBlending(
+                        materialPass.blending, missing: .translucent
+                    ) {
+                    case .translucent, .additive, .alphaToCoverage:
                         diagnose(
                             .unsupportedRenderState,
                             path,
                             Self.renderStateSummary(materialPass)
                         )
+                    case .normal, nil:
+                        diagnose(.unsupportedBlendMode, path, materialPass.blending)
                     }
                 }
             }

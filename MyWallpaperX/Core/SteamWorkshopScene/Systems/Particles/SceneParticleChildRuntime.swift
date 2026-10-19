@@ -44,6 +44,8 @@ final class SceneParticleChildRuntime {
     /// Launch-stable demand used by the host to avoid projecting the pointer
     /// for particle layers whose prepared child graph cannot consume it.
     let hasPointerControlPointConsumer: Bool
+    /// Includes dormant/event templates before their first particle exists.
+    let requiresAlphaToCoverage: Bool
     /// One-line launch summary for the DEBUG evidence path: how many child
     /// systems the expansion produced versus how many declarations it saw.
     var expansionSummary: String {
@@ -118,6 +120,9 @@ final class SceneParticleChildRuntime {
             rootInstanceOverride: rootInstanceOverride
         )
         templates = expansion.templates
+        requiresAlphaToCoverage = expansion.templates.contains {
+            $0.renderState.blendMode == .alphaToCoverage
+        }
         templatesByIndex = Dictionary(
             expansion.templates.map { ($0.index, $0) },
             uniquingKeysWith: { first, _ in first }

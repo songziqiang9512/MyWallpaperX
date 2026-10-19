@@ -399,6 +399,19 @@ GraphExpansion仍对event/nested保每template`systems×maxSegments≤8192`，�
 
 官方 General 将 albedo/normal、cutout、lighting、refraction、overbright 和 blend 都视为 Particle renderer variant 的一部分。
 
+<a id="sprite-alpha-to-coverage"></a>
+### 普通 Sprite 的 alpha-to-coverage 设计
+
+目标是恢复合法 coverage 材质的可见 Sprite 内容。旧候选因未证实际拖尾收益而撤回；本片以另一真实消费者的外围花簇为正控：原定义在生产 simulator 中出生有限、alpha=1 的粒子，纹理具有大量不透明花形实核，且当前首拒为材质。资格只支持进入真实画面对照，不能以粒子计数预支完成。
+
+复用 `MaterialRenderState → ParticlePipelineRenderStateCompiler → root/child prepared demand → ParticleMetalPipeline → 原 compositor`。共享枚举保留作者 `alphatocoverage`；仅 pass0、单 screen Sprite、已知普通 renderer flags、无 refraction/lighting/cutout/user 输入、静态有限 overbright、no-cull、depth-disabled、alpha omitted/default 准入。Rope、Trail、未知常量或组合及其他材质消费者保持原拒绝边界；不按样本、路径或纹理身份分支。
+
+原 Runtime 在准备期汇总 root 与 dormant/event child 模板需求，PlaybackState 在此后只构造一次原 pipeline。coverage entry 与原 shader 共用顶点几何和纹理/跨帧采样，保留 straight RGB，以 texture alpha × particle alpha 驱动硬件 coverage；普通 PMA entry 不改输出合同。沿现 sample1 target 启用 alpha-to-coverage/alpha-to-one、关闭 blend，不造透明混合替代、alpha cutoff、MSAA resolve、资源池或第二输出 owner。为原共享 depth attachment 保留格式匹配 PSO，不据此开放 authored depth。
+
+coverage library/PSO 是可选准备资源，失败只拒该 draw；普通粒子继续使用原 library/state。取消、completion buffer 与 teardown 仍归原 owner。静态 material constant 的资格由现解析结果排除活动 user/script/timeline；保留既有 exact null-user 无绑定常量，空 String 和未知包装不准入，不能把 script fallback 当静态。
+
+验收采用现材质正反例与改名/等价变体、实际 Metal 像素门、同输入真实原包前后画面和未参与修法样本；复用旧官方自有板的有界语义证据，不重复无区分矩阵。必须在最终画面认出新增花簇及正常遮挡/透明区域；只有准入、执行或非黑即停止并撤回。sample1 的设备覆盖响应不冒称 Windows 阈值、MSAA、边缘或跨设备 parity；预热、数量分布、HDR 与旧 Rope 拖尾仍独立待办。实施与有界验收已完成，具体身份和证据归[本批运行记录](runtime-evidence-current.md#sprite-alpha-coverage-20261020)。
+
 | ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | M01 Material/pass resolution | 从 particle material 找到 pass、shader、纹理和 render state。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 只挑一个 pass，随后经共享 typed render-state admission 进入专用自有 pipeline；unknown/incomplete 或该 pipeline 不支持的 state 不再执行。 | 多 pass/slot、missing/duplicate、更多已证 state fixture。 |
@@ -413,7 +426,7 @@ GraphExpansion仍对event/nested保每template`systems×maxSegments≤8192`，�
 | M10 Static overbright / HDR | 作者可用 material overbright 放大粒子 RGB，并在 HDR 管线中保留超 SDR 能量。 | `L3` | [AST] [GPU] [SIM] [T-AST] [T-GPU] [T-RUN] | 普通单 screen Sprite `genericparticle` 只接受 finite static scalar `0...64`，fragment 仅乘 RGB、不改变 alpha；0.5 Metal pixel 门得到约 0.5 red，真实 `3792817546:127` 消费 1.19。当前 BGRA8 主 target 会夹到 SDR，没有 float target、tone-map、bloom/HDR contract，所以本等级只属于 bounded static overbright，不属于 HDR 支持。 | brightness × overbright、float target、bloom ordering、HDR screenshot 与 Windows pixel 门。 |
 | M11 Additive blend | 粒子颜色加到目标上，常用于光、火花。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] [T-RUN] | 公开 stock `genericparticle.vert/frag` 的采样/跨帧混合先于source alpha；项目普通纹理及generated fallback现保留straight，粒子tint含particle alpha，fragment在过滤/跨帧混合后仅乘一次texel alpha，以 `ONE, ONE` 合成。160组GPU门及真实App自制root/child渐变卡证明该顺序；同源R8控制保持，RG88透明渐变从丢失恢复。 | 重叠 sprite、非白纹理/颜色和 Windows pixel golden。 |
 | M12 Translucent blend | 粒子按 alpha 与目标混合。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] | 自有 premultiplied 路径；官方边缘像素未知。 | 透明边缘、叠层顺序和颜色空间门。 |
-| M13 Other blend modes | 其他作者 blend 必须有明确映射或 fail-closed。 | `L1` | [AST] [T-AST] | 只映射 additive/translucent；unknown 或当前不支持的 blend 产生 `unsupportedBlendMode`，`blendMode=nil`，root 不执行、child graph 拒绝，不再回退 translucent。 | 每种新增模式须闭合真实可见结果；A2C候选虽过有界硬件像素门但未证原包受益，已[撤回](runtime-evidence-current.md#particle-coverage-qualification-20261018)，不按计数开放。 |
+| M13 Other blend modes | 其他作者 blend 必须有明确映射或 fail-closed。 | `L3 bounded` | [AST] [T-AST] [GPU] [RUN] | additive/translucent保持；另准入[普通screen Sprite coverage](#sprite-alpha-to-coverage)，sample1硬件coverage/alphaToOne、straight RGB且关闭blend。准备期root/child模板需求驱动原可选PSO；失败只拒该draw，不暗退translucent。其他renderer/unknown profile仍拒。 | [真实外围花簇恢复、反例与独立样本](runtime-evidence-current.md#sprite-alpha-coverage-20261020)成立；旧Rope拖尾未获准入，跨设备阈值、MSAA、HDR与全profile仍未验。 |
 | M14 Depth test/write/cull/alpha writing | perspective/world 粒子可需要 depth、cull 与 alpha write state。 | `L3` | [AST] [REFR] [GPU] [T-AST] [T-GPU] [T-RUN] | pass 五项 raw state 经唯一 typed compiler。普通单 screen/default Sprite、已知 renderer world bit、无 REFRACT/Lighting/Cutout/user binding，可在 local/world 与正交/透视中独立组合 depth test/write、no-cull/back-cull；同一准备期 profile 决定 native Scene camera 消费，无depth时也一致。原逐层三槽 completion-owned `.depth32Float` pool、clear一次/lessEqual及获取失败只跳该层保持。相机/坐标与实机边界见下节及[运行记录](../history/particle-world-depth-2026-10-11.md)。Trail/fixed/upright/advanced/unknown/alpha enabled不扩准入；alpha default不控制固定write mask，无跨layer/Scene共享深度。 | 多batch/resize/三帧压力、透明排序、alpha write mask、其他geometry native坐标及Windows pixel golden。 |
 | M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L3` | [AST] [REFR] [RUN] [GPU] [T-AST] [T-GPU] [T-RUN] | strict REFRACT 消费 `REFRACT`、零值 `CUTOUT`/`LIGHTING`、静态 `g_Amount`/`g_Overbright`；未知启用 combo、动态/user shader value 失败关闭。 | Lighting/Cutout 等各自 strict variant key 与参数 buffer fixture。 |
 | M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [TEX] [SAMP] [T-AST] [T-GPU] [T-RUN] | TEX container filter/address flags、实际 mip 链与可信单 sequence sidecar nominal frame aspect 进入 runtime；无可信 sidecar 时由 raw frame axes 和 physical texture size 回退。静态单图由同一 source identity 的 validated candidate 提供 texture/physical/mapped extent，root/child 共用；普通 Sprite 保存逻辑 W/H，raw/embedded保留physical padding并以对应UVScale取样，REFRACT 使用 color 而非 normal 尺寸。R8使用111r、RG88使用rrrg的同格式Metal view保留全mip，无CPU展开副本；PNG/JPEG走linear-clamp。Rope atlas 的 [整张 source 用途](#rope-whole-source-atlas) 保持原上传尺寸与 UV，不复用静态 mapped-scale 选择。 | 更多 TEX/sidecar variants、clamp-border、trim pivot、color space 与损坏资源负向门。 |
