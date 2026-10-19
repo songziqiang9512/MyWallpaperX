@@ -6,7 +6,7 @@ import Foundation
 /// 变慢、多 surface 之间还会漂移。这里只做纯函数映射：给定同一个 `sceneTime` 必然得到
 /// 同一个结果，不持有任何播放状态。
 ///
-/// 每段按作者 front/back handle 构造 cubic Bézier。X 是 segment-span 比例，Y 是 value
+/// 每段按作者 front/back handle 构造 cubic Bézier。X 是半 segment-span 比例，Y 是 value
 /// offset；按 frame progress 反求唯一 curve parameter 后再求 value。禁用或缺失的 handle
 /// 退化到对应 keyframe anchor；两侧都关闭时几何曲线严格为直线。
 ///
@@ -167,8 +167,8 @@ nonisolated enum SceneTimelineEvaluator {
         guard front != nil || back != nil else {
             return start.value + (end.value - start.value) * progress
         }
-        let x1 = front?.x ?? 0
-        let x2 = 1 + (back?.x ?? 0)
+        let x1 = (front?.x ?? 0) * 0.5
+        let x2 = 1 + (back?.x ?? 0) * 0.5
         let y1 = start.value + (front?.y ?? 0)
         let y2 = end.value + (back?.y ?? 0)
 

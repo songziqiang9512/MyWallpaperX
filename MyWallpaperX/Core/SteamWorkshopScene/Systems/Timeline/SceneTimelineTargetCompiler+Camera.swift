@@ -3,7 +3,7 @@ import Foundation
 /// Bounded 2D camera-path Timeline profile.
 ///
 /// Camera path records are not drawable layers. A single default-camera record may expose the
-/// editor's Combined `origin` owner + `zoom` child pair or independent Single fields.
+/// editor's Combined `origin`/`zoom` pair or independent Single fields.
 /// A Combined pair shares its owner's clock; independent fields retain their own playback
 /// positions on SceneClock. Both publish through the same dynamic snapshot.
 nonisolated enum Scene2DCameraTimelineCompiler {
@@ -25,27 +25,21 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         }
         // The bounded pair must also be a complete authored component. Its
         // outgoing references are checked below; a third lane may not point in.
-        guard case let .object(authored)? = layer.initialConfiguration else {
+        guard descriptor.camera.default2DInputLayerID == layer.id,
+              case .object(_)? = layer.initialConfiguration else {
             return rejected(labels, reason: "cameraProfileUnsupported")
         }
-        let hasIncomingPeer = [SceneDocument.SceneObjectTimeline.Host.origin, .zoom].contains {
-            SceneDefault2DCameraInputProfile.hasDeclaredIncomingPeer(
-                to: $0, authored: authored, excludingHosts: [.origin, .zoom])
-        }
-        guard !hasIncomingPeer, group.count == 2,
-              let origin = group.first(where: { $0.host == .origin })?.animation,
-              let zoom = group.first(where: { $0.host == .zoom })?.animation,
-              origin.options.parent == nil,
-              origin.options.children.map(\.key) == ["zoom"],
-              zoom.options.parent?.key == "origin",
-              zoom.options.children.isEmpty else {
+        guard let pair = SceneDefault2DCameraInputProfile.combinedAnimations(
+            timelines: layer.timelines, authoredConfiguration: layer.initialConfiguration
+        ) else {
             return independentProgram(layer: layer, descriptor: descriptor, group: group)
         }
+        let owner = pair.root == .origin ? pair.origin : pair.zoom
         let groupedOrigin = SceneTimelineTargetCompiler.groupedAnimation(
-            origin, owner: origin, isOwner: true
+            pair.origin, owner: owner, isOwner: pair.root == .origin
         )
         let groupedZoom = SceneTimelineTargetCompiler.groupedAnimation(
-            zoom, owner: origin, isOwner: false
+            pair.zoom, owner: owner, isOwner: pair.root == .zoom
         )
         guard groupedOrigin.componentCount == 3, groupedZoom.componentCount == 1 else {
             return rejected(labels, reason: "componentMismatch")
@@ -53,7 +47,8 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         guard groupedOrigin.hasExecutableWrapLoop, groupedZoom.hasExecutableWrapLoop else {
             return rejected(labels, reason: "invalidWrapLoop")
         }
-        guard origin.isRelative, !zoom.isRelative,
+        guard descriptor.camera.default2DOriginInputLayerID == layer.id,
+              groupedOrigin.isRelative, !groupedZoom.isRelative,
               let authoredOrigin = layer.originXYZ,
               authoredOrigin.count == 3,
               let authoredZoom = path.zoom,
@@ -67,6 +62,7 @@ nonisolated enum Scene2DCameraTimelineCompiler {
             return rejected(labels, reason: "valueOutOfRange")
         }
 
+        let playbackOwner = SceneDynamicTarget.camera(pair.root == .origin ? .origin : .zoom)
         let originBinding = SceneTimelineBinding(
             definition: .init(
                 target: .camera(.origin),
@@ -79,7 +75,7 @@ nonisolated enum Scene2DCameraTimelineCompiler {
             ),
             animation: groupedOrigin,
             composition: .additive,
-            playbackOwner: .camera(.origin)
+            playbackOwner: playbackOwner
         )
         let zoomBinding = SceneTimelineBinding(
             definition: .init(
@@ -89,7 +85,7 @@ nonisolated enum Scene2DCameraTimelineCompiler {
             ),
             animation: groupedZoom,
             composition: .absolute,
-            playbackOwner: .camera(.origin)
+            playbackOwner: playbackOwner
         )
         return SceneTimelineProgram(
             bindings: [originBinding, zoomBinding],

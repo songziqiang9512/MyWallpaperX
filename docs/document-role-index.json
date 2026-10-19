@@ -579,10 +579,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4adc66170fc088a335d4a76c38c378c970ad22a31d4d677c158b48d7d571f086",
+        "sourceSHA256": "34f58bfc845c3f10fb5c3f40675017477937b7d64caf681055b5de84446578f9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Update only bounded Combined inventory to relative-transform/absolute-alpha; preserve generic Timeline, unsupported API and sample-wide gaps.",
-        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
+        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
+        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6496b08d5889f0fbcdc63bde139aa0be0e8857fc40d0a7fa80e2ef58f8455024",
+        "sourceSHA256": "41d1a79559d14ef40ba175d096cbe156f54db896345abc4667dac43f930d6219",
         "method": "document_registry --audit + document_health --check",
-        "scope": "343行定点更新：原PKG入口资源正控、15默认map的timedate定向交付及合法gain0未见宽夜侧改善；旧alias/PKG失败留历史，保sky/HDR否定、热点/银河已修及开放余项，压缩正文。",
-        "limitations": "Only bounded343 qualification/contribution evidence; no new product fix, individual property readback, exact phase/HDR parity, emission formula, flicker/collision or whole-sample closure. Other rows not re-audited; final gates run by Root."
+        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
+        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
       }
     },
     {
@@ -690,10 +690,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c44c4d7294549ba5aba41080c6c359aab782fe6d230b2e335d650bcc5324cdb",
+        "sourceSHA256": "50d76a2d4b0e13d56c389be405a1065b088d3350d08840cc5240cd8609a4a978",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile mixed Combined typed admission, actual compiler/playback/resolver gate and bounded original323 fade; retain unsupported groups and residual trajectory limits.",
-        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
+        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
+        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
       }
     },
     {
@@ -889,13 +889,13 @@
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
       "commandPolicy": "reference-only",
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "37c03fc610d65ce5c29ae57a9b903df55b7637198bbe38fd8f9e9b3b82f7c9cb",
+        "sourceSHA256": "efef426803a50961ea5cb245cec5cdd97a5724ffc0cc335d578af2c5c91a24a1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "presence/editor条件分域、原382双光束与独立376实际画面/退出；357中性资格校正ordinal和旧reader偏移。",
-        "limitations": "只复核本批职责；format官方语义、完整同状态parity及性能未验；观察器两次误判保留并仅重分类既存日志。"
+        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
+        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
       }
     },
     {
@@ -3430,10 +3430,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "74a87194c457da98ee5cbc29a0e4df4fb418b5cf8b1aaf0913c55b9d3d050f46",
+        "sourceSHA256": "6857a2129605714174c71b5a42092b650e93d013e2d7bbc665ad03319ccce860",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile bounded same-layer relative-transform/absolute-alpha Combined admission, either root and existing playback owner; preserve finite/topology/response and wrap boundaries.",
-        "limitations": "Bounded navigation/contract and cited independent run evidence only; no whole-sample, exact official phase/wrap formula, pose/world trajectory, heldout moon pixel benefit or performance claim."
+        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
+        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
       }
     },
     {
@@ -3542,10 +3542,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db7f236e512d5ae0414c7901ac150b06155df021204fa336ecd93996bca785b1",
+        "sourceSHA256": "9afced446aea846ca1a5a896b7b2a5eea08fe14d7951511a58898a79f68b63e8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "343行定点更新：原PKG入口资源正控、15默认map的timedate定向交付及合法gain0未见宽夜侧改善；旧alias/PKG失败留历史，保sky/HDR否定、热点/银河已修及开放余项，压缩正文。",
-        "limitations": "Only bounded343 qualification/contribution evidence; no new product fix, individual property readback, exact phase/HDR parity, emission formula, flicker/collision or whole-sample closure. Other rows not re-audited; final gates run by Root."
+        "scope": "定点同步Timeline halfspan字段、默认相机互逆root/alias与有限位置域；355开场反馈退出，原参考推断撤旧。其余行未重审。",
+        "limitations": "仅本批42方法、固定Debug原355修前后与独立358端点、官方两prospective seek的限定证据；无完整同phase/pixel、整样本或性能声明。"
       }
     },
     {

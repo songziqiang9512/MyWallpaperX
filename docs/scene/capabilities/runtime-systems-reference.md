@@ -286,7 +286,7 @@ MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `IT
 
 Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe step”。高低 FPS 下同一 wall-clock time 必须得到相同 property value。离线固定 timestep 也必须走相同曲线求值器。
 
-当前 `77883809` 的公共 evaluator 对每段消费 `start.front` / `end.back`：X 解释为 segment span 的归一化 offset，Y 解释为 property value offset，再按绝对 frame progress 二分反求 cubic parameter。缺失或禁用侧退化到对应端点，两侧禁用严格线性；enabled front/back X 分别只准 `0...1` / `-1...0`。该单位来自 44 份合法抽取场景中 48 animations / 180 keyframes / 112 segments 的 clean-room 机械定标，官方页面只确认默认 Bézier smoothing 和 left/right/none handle，不公开私有 JSON 单位。bounded text width 与 camera 另按实际消费的 control-value convex hull 守住预算；无 Windows 同相位数值或像素 golden。
+Timeline按绝对scene time复用原evaluator。作者handle解码、数值域和退化规则统一见[D4合同](../roadmap/batch2/script-component-api-design.md#default-2d-camera-inputs)，当前已验范围见[本批证据](runtime-evidence-current.md#default-camera-single-20261019)；本参考页不另定义wire单位或求根合同。bounded target仍由实际消费的control-value hull守住预算。
 
 ## 5. SceneScript
 

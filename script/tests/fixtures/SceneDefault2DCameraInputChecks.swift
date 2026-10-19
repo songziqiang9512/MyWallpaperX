@@ -328,9 +328,9 @@ struct SceneMetalRenderer {
         facts["camera-and-healthy-peer-current-published"] = try observe(peerFixture, id: 8,
             condition: "thisLayer.alpha===0.2&&thisScene.getLayerByID(7).origin.x===120")
         var layerScene = changingFirst(root()) {
-            $0["origin"] = ["value": "0 0 0", "script": """
+            $0["origin"] = ["value": "0 0 10000001", "script": """
                 export function init(value){
-                    if(thisLayer.id!==7||thisObject.origin.z!==0)throw Error('old layer identity');
+                    if(thisLayer.id!==7||thisObject.origin.z!==10000001)throw Error('old layer identity');
                     thisScene.getLayerByID(8).alpha=0.2;
                     thisObject.origin=new Vec3(90,80,0);
                     return thisLayer.origin;
@@ -462,15 +462,228 @@ struct SceneMetalRenderer {
         }
     }
 
-    static func combined(_ input: [String: Any]) -> [String: Any] {
+    static func combined(_ input: [String: Any], zoomRoot: Bool = false) -> [String: Any] {
         changingFirst(input) {
-            var origin = $0["origin"] as! [String: Any], zoom = $0["zoom"] as! [String: Any]
-            var a = origin["animation"] as! [String: Any], b = zoom["animation"] as! [String: Any]
+            let root = zoomRoot ? "zoom" : "origin", child = zoomRoot ? "origin" : "zoom"
+            var owner = $0[root] as! [String: Any], member = $0[child] as! [String: Any]
+            var a = owner["animation"] as! [String: Any], b = member["animation"] as! [String: Any]
             var ao = a["options"] as! [String: Any], bo = b["options"] as! [String: Any]
-            ao["children"] = [["key": "zoom"]]; bo["parent"] = ["key": "origin"]
-            a["options"] = ao; b["options"] = bo; origin["animation"] = a; zoom["animation"] = b
-            $0["origin"] = origin; $0["zoom"] = zoom
+            ao["children"] = [["key": child]]; ao.removeValue(forKey: "parent")
+            bo["parent"] = ["key": root]; bo.removeValue(forKey: "children")
+            a["options"] = ao; b["options"] = bo; owner["animation"] = a; member["animation"] = b
+            $0[root] = owner; $0[child] = member
         }
+    }
+
+    static func originDomain() throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        for (name, z) in [("zero", 0.0), ("negative", -500), ("beyond-far", 20000)] {
+            let input = changingFirst(root(scripted: false, direct: false)) {
+                $0["origin"] = "120 -40 \(z)"
+            }
+            let fixture = try Fixture(input, key: "lensScale")
+            let (snapshot, _) = try fixture.frame()
+            let camera = fixture.camera(snapshot)
+            let center = projected(camera, SIMD3(2040, 1040, 0))
+            facts[name + "-static-camera-offset"] = fixture.descriptor.camera.default2DOriginInputLayerID == 7
+                && snapshot[originTarget]?.value == .vector3(120,-40,z)
+                && camera.cameraOrigin == SIMD3(120,-40,Float(z))
+                && near(center.x, 0) && near(center.y, 0)
+                && near(center.z, Float(0.5 + z / 9999.99))
+            let scripted = try Fixture(changingFirst(root()) {
+                $0["origin"] = ["value": "0 0 \(z)",
+                    "script": "export function init(v){return new Vec3(120,-40,\(z));}"]
+            }, key: "lensScale")
+            let (scriptSnapshot, evaluation) = try scripted.frame()
+            facts[name + "-script-uses-same-profile"] = evaluation.failures.isEmpty
+                && scripted.vector.inputTargets == [originTarget]
+                && scriptSnapshot[originTarget]?.value == .vector3(120,-40,z)
+                && scripted.camera(scriptSnapshot).cameraOrigin == camera.cameraOrigin
+        }
+        for axis in 0..<3 {
+            for sign in [-1.0, 1.0] {
+                var values = [0.0, 0, 0]; values[axis] = sign * 10_000_000
+                facts["axis-\(axis)-\(sign)-bound"] = SceneDefault2DCameraInputProfile.acceptsOrigin(
+                    values, nearZ: 0.01, farZ: 10000)
+                values[axis] = sign * 10_000_001
+                facts["axis-\(axis)-\(sign)-overflow"] = !SceneDefault2DCameraInputProfile.acceptsOrigin(
+                    values, nearZ: 0.01, farZ: 10000)
+            }
+        }
+        facts["nonfinite-and-component-count-rejected"] = [[Double.nan,0,0], [0,.infinity,0],
+            [0,0,-Double.infinity], [0,0]].allSatisfy {
+                !SceneDefault2DCameraInputProfile.acceptsOrigin($0, nearZ: 0.01, farZ: 10000)
+            }
+        facts["nonfinite-span-rejected"] = !SceneDefault2DCameraInputProfile.acceptsOrigin(
+            [0,0,0], nearZ: .nan, farZ: 10000)
+            && !SceneDefault2DCameraInputProfile.acceptsOrigin([0,0,0], nearZ: 0.01, farZ: .infinity)
+        for (name, z) in [("nonfinite", "Infinity"), ("overflow", "10000001")] {
+            let fixture = try Fixture(changingFirst(root()) {
+                $0["origin"] = ["value": "0 0 0",
+                    "script": "export function init(v){return new Vec3(120,-40,\(z));}"]
+            }, key: "lensScale")
+            let (snapshot, result) = try fixture.frame()
+            facts[name + "-script-keeps-authored-camera"] = result.failures[originTarget] != nil
+                && snapshot[originTarget]?.value == .vector3(0,0,0)
+                && snapshot[originTarget]?.source == .authored
+                && snapshot[zoomTarget]?.value == .scalar(0.73)
+        }
+        let changes: [(String, (inout [String: Any]) -> Void)] = [
+            ("zero-seed", { $0["value"] = "0 0 0" }),
+            ("crosses-old-near", { var a = $0["animation"] as! [String: Any]; a["c2"] = [["frame": 0, "value": -500], ["frame": 20, "value": 0]]; $0["animation"] = a }),
+            ("control-beyond-far", { var a = $0["animation"] as! [String: Any]; a["c2"] = [["frame": 0, "value": 0, "front": ["enabled": true, "x": 0.5, "y": 10000]], ["frame": 20, "value": 0]]; $0["animation"] = a }),
+        ]
+        for (name, change) in changes {
+            let fixture = try Fixture(changingFirst(animated()) {
+                var origin = $0["origin"] as! [String: Any]; change(&origin); $0["origin"] = origin
+            }, key: "lensScale")
+            let (snapshot, _) = try fixture.frame(sceneTime: 1)
+            let value = snapshot.cameraTransform().origin
+            facts[name + "-timeline-accepted"] = fixture.timeline.bindings.count == 2
+                && fixture.descriptor.camera.default2DOriginInputLayerID == 7
+                && snapshot[originTarget]?.source == .timeline
+                && fixture.camera(snapshot).cameraOrigin == value && value.z.isFinite
+        }
+        for (name, nearZ, farZ) in [("negative-near", -1.0, 10000.0), ("empty-span", 10, 10),
+                                  ("reversed-span", 20, 10)] {
+            var input = combined(animated())
+            var general = input["general"] as! [String: Any]
+            general["nearz"] = nearZ; general["farz"] = farZ; input["general"] = general
+            let fixture = try Fixture(input, key: "lensScale")
+            let (snapshot, _) = try fixture.frame(sceneTime: 1)
+            facts[name + "-group-rejected"] = fixture.timeline.bindings.isEmpty
+                && fixture.descriptor.camera.default2DOriginInputLayerID == nil
+                && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+        }
+        return facts
+    }
+
+    static func combinedRoots(_ variant: Int) throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        let id = variant == 0 ? 7 : 709
+        for zoomRoot in [false, true] {
+            let owner = zoomRoot ? zoomTarget : originTarget, child = zoomRoot ? originTarget : zoomTarget
+            let duration = zoomRoot ? 4.0 : 2.0, phase = 1 / duration
+            let input = changingFirst(combined(animated(variant), zoomRoot: zoomRoot)) {
+                var origin = $0["origin"] as! [String: Any], a = origin["animation"] as! [String: Any]
+                origin["value"] = "10 -5 0"; a["c2"] = [["frame": 0, "value": 0], ["frame": 20, "value": 0]]
+                origin["animation"] = a; $0["origin"] = origin
+                for field in ["origin", "zoom"] {
+                    var w = $0[field] as! [String: Any], animation = w["animation"] as! [String: Any]
+                    var options = animation["options"] as! [String: Any]
+                    options["name"] = "renamed-\(variant)-\(field)"
+                    animation["options"] = options; w["animation"] = animation; $0[field] = w
+                }
+                $0["visible"] = ["user": "openingGate", "value": true]
+            }
+            let fixture = try Fixture(input, key: "lensScale",
+                additionalProperties: ["openingGate": ["type": "bool", "value": true]])
+            let prefix = zoomRoot ? "zoom-root-" : "origin-root-"
+            facts[prefix + "one-origin-alias-and-owner"] = fixture.descriptor.camera.default2DOriginInputLayerID == id
+                && fixture.timeline.bindings.count == 2
+                && fixture.timeline.bindings.allSatisfy { $0.playbackOwnerTarget == owner }
+                && fixture.definitions.filter { $0.target == originTarget }.count == 1
+                && !fixture.definitions.contains { $0.target == .layer(layerID: id, field: .origin) }
+            facts[prefix + "name-only-on-real-root"] = fixture.timeline.bindings.first { $0.target == owner }?
+                .animation.options.name == "renamed-\(variant)-\(zoomRoot ? "zoom" : "origin")"
+                && fixture.timeline.bindings.first { $0.target == child }?.animation.options.name == nil
+            let firstOrigin = SceneDynamicValue.vector3(10 + 120 * phase, -5 - 40 * phase, 0)
+            let (first, _) = try fixture.frame(sceneTime: 1)
+            facts[prefix + "typed-values-and-camera"] = first[originTarget]?.value == firstOrigin
+                && first[zoomTarget]?.value == .scalar(1 + phase)
+                && fixture.camera(first).cameraOrigin == SIMD3(Float(10 + 120 * phase),Float(-5 - 40 * phase),0)
+                && fixture.timeline.bindings.allSatisfy { $0.animation.options.durationSeconds == duration }
+            try fixture.domain.publishLayerSnapshot(first, descriptor: fixture.descriptor)
+            facts[prefix + "source-getter-is-camera-current"] = try observe(fixture, id: id,
+                condition: "thisLayer.origin.x===\(10 + 120 * phase)&&thisObject.origin.z===0")
+            let reversed = SceneDefault2DCameraInputProfile.combinedAnimations(
+                timelines: Array(fixture.document.objects[0].timelines.reversed()),
+                authoredConfiguration: fixture.descriptor.layers[0].initialConfiguration)
+            let reversedOrigin = reversed.map { pair in
+                SceneTimelineTargetCompiler.groupedAnimation(pair.origin,
+                    owner: pair.root == .origin ? pair.origin : pair.zoom, isOwner: pair.root == .origin)
+            }
+            let reversedZoom = reversed.map { pair in
+                SceneTimelineTargetCompiler.groupedAnimation(pair.zoom,
+                    owner: pair.root == .origin ? pair.origin : pair.zoom, isOwner: pair.root == .zoom)
+            }
+            facts[prefix + "parsed-member-order-independent"] = reversed?.root == (zoomRoot ? .zoom : .origin)
+                && reversedOrigin == fixture.timeline.bindings.first { $0.target == originTarget }?.animation
+                && reversedZoom == fixture.timeline.bindings.first { $0.target == zoomTarget }?.animation
+            _ = try fixture.frame(sceneTime: 1, commands: [.init(target: child, command: .pause)])
+            let (held, _) = try fixture.frame(sceneTime: 2)
+            facts[prefix + "child-pauses-whole-group"] = held[originTarget]?.value == firstOrigin
+                && held[zoomTarget]?.value == first[zoomTarget]?.value
+            let (stopped, _) = try fixture.frame(sceneTime: 2, commands: [.init(target: owner, command: .stop)])
+            _ = try fixture.frame(sceneTime: 2, commands: [.init(target: child, command: .play)])
+            let (played, _) = try fixture.frame(sceneTime: 3)
+            facts[prefix + "root-stop-child-play"] = stopped[originTarget]?.value == .vector3(10,-5,0)
+                && stopped[zoomTarget]?.value == .scalar(1) && played[originTarget]?.value == firstOrigin
+                && played[zoomTarget]?.value == first[zoomTarget]?.value
+            _ = fixture.live.apply(.bool(false), forPropertyKey: "openingGate")
+            let (hidden, _) = try fixture.frame(sceneTime: duration + 3)
+            _ = fixture.live.apply(.bool(true), forPropertyKey: "openingGate")
+            let (shown, _) = try fixture.frame(sceneTime: duration + 4)
+            facts[prefix + "hidden-time-and-show-without-replay"] = fixture.camera(hidden).cameraOrigin == .zero
+                && shown[originTarget]?.value == .vector3(130,-45,0)
+                && shown[zoomTarget]?.value == .scalar(2)
+                && fixture.camera(shown).cameraOrigin == SIMD3(130,-45,0)
+            let paused = try Fixture(changingFirst(input) {
+                let field = zoomRoot ? "zoom" : "origin"
+                var w = $0[field] as! [String: Any], a = w["animation"] as! [String: Any]
+                var options = a["options"] as! [String: Any]; options["startpaused"] = true
+                a["options"] = options; w["animation"] = a; $0[field] = w
+            }, key: "lensScale", additionalProperties: ["openingGate": ["type": "bool", "value": true]])
+            let (pausedFirst, _) = try paused.frame(sceneTime: 1)
+            _ = try paused.frame(sceneTime: 1, commands: [.init(target: child, command: .play)])
+            let (resumed, _) = try paused.frame(sceneTime: 2)
+            facts[prefix + "root-start-paused-controls-both"] = pausedFirst[originTarget]?.value == .vector3(10,-5,0)
+                && pausedFirst[zoomTarget]?.value == .scalar(1)
+                && resumed[originTarget]?.value == firstOrigin && resumed[zoomTarget]?.value == first[zoomTarget]?.value
+        }
+        return facts
+    }
+
+    static func combinedRejections() throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        for zoomRoot in [false, true] {
+            let owner = zoomRoot ? "zoom" : "origin", child = zoomRoot ? "origin" : "zoom"
+            let cases: [(String, (inout [String: Any]) -> Void)] = [
+                ("two-component-origin", { var w = $0["origin"] as! [String: Any]; w["value"] = "11 -7"; $0["origin"] = w }),
+                ("four-component-origin", { var w = $0["origin"] as! [String: Any]; w["value"] = "11 -7 500 9"; $0["origin"] = w }),
+                ("two-roots", { var w = $0[child] as! [String: Any], a = w["animation"] as! [String: Any]; var o = a["options"] as! [String: Any]; o.removeValue(forKey: "parent"); a["options"] = o; w["animation"] = a; $0[child] = w }),
+                ("wrong-parent", { var w = $0[child] as! [String: Any], a = w["animation"] as! [String: Any]; var o = a["options"] as! [String: Any]; o["parent"] = ["key": "scale"]; a["options"] = o; w["animation"] = a; $0[child] = w }),
+                ("bad-child-curve", { var w = $0[child] as! [String: Any], a = w["animation"] as! [String: Any]; a["c0"] = [] as [Any]; w["animation"] = a; $0[child] = w }),
+                ("script-conflict", { var w = $0[owner] as! [String: Any]; w["script"] = "export function init(v){return v;}"; $0[owner] = w }),
+                ("absolute-origin", { var w = $0["origin"] as! [String: Any], a = w["animation"] as! [String: Any]; a["relative"] = false; w["animation"] = a; $0["origin"] = w }),
+                ("relative-zoom", { var w = $0["zoom"] as! [String: Any], a = w["animation"] as! [String: Any]; a["relative"] = true; w["animation"] = a; $0["zoom"] = w }),
+                ("origin-control-overflow", { var w = $0["origin"] as! [String: Any], a = w["animation"] as! [String: Any]; a["c0"] = [["frame": 0, "value": 10000001], ["frame": 20, "value": 0]]; w["animation"] = a; $0["origin"] = w }),
+                ("zoom-control-overflow", { var w = $0["zoom"] as! [String: Any], a = w["animation"] as! [String: Any]; a["c0"] = [["frame": 0, "value": 101], ["frame": 20, "value": 1]]; w["animation"] = a; $0["zoom"] = w }),
+            ]
+            for (name, change) in cases {
+                let fixture = try Fixture(changingFirst(combined(animated(), zoomRoot: zoomRoot), change), key: "lensScale")
+                let (snapshot, _) = try fixture.frame(sceneTime: 1)
+                facts[owner + "-" + name] = fixture.timeline.bindings.isEmpty
+                    && fixture.descriptor.camera.default2DOriginInputLayerID == nil
+                    && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+                if name == "two-component-origin" || name == "four-component-origin" {
+                    facts[owner + "-" + name + "-normalized-source-stays-local"] =
+                        fixture.descriptor.camera.default2DInputLayerID == 7
+                        && fixture.descriptor.layers[0].originXYZ?.count == 3
+                        && fixture.definitions.filter { $0.target == .layer(layerID: 7, field: .origin) }.count == 1
+                        && !fixture.definitions.contains { $0.target == originTarget || $0.target == zoomTarget }
+                }
+            }
+            var native = combined(animated(), zoomRoot: zoomRoot)
+            var general = native["general"] as! [String: Any]
+            general.removeValue(forKey: "orthogonalprojection"); native["general"] = general
+            let fixture = try Fixture(native, key: "lensScale")
+            let (snapshot, _) = try fixture.frame(sceneTime: 1)
+            facts[owner + "-native-is-not-a-default-2d-group"] = fixture.timeline.bindings.isEmpty
+                && fixture.descriptor.camera.default2DInputLayerID == nil
+                && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+        }
+        return facts
     }
 
     static func independent(_ variant: Int) throws -> [String: Bool] {
@@ -592,11 +805,10 @@ struct SceneMetalRenderer {
     static func independentRejections() throws -> [String: Bool] {
         var facts: [String: Bool] = [:]
         let cases: [(String, (inout [String: Any]) -> Void)] = [
-            ("zero-origin-z", { var value = $0["origin"] as! [String: Any]; value["value"] = "0 0 0"; $0["origin"] = value }),
+            ("out-of-range-origin", { var value = $0["origin"] as! [String: Any]; value["value"] = "0 0 10000001"; $0["origin"] = value }),
             ("unknown-origin-wrapper", { var value = $0["origin"] as! [String: Any]; value["unknown"] = true; $0["origin"] = value }),
             ("absolute-origin", { var value = $0["origin"] as! [String: Any]; var a = value["animation"] as! [String: Any]; a["relative"] = false; value["animation"] = a; $0["origin"] = value }),
-            ("near-plane-control", { var value = $0["origin"] as! [String: Any]; var a = value["animation"] as! [String: Any]; a["c2"] = [["frame": 0, "value": -500], ["frame": 20, "value": 0]]; value["animation"] = a; $0["origin"] = value }),
-            ("far-plane-control", { var value = $0["origin"] as! [String: Any]; var a = value["animation"] as! [String: Any]; a["c2"] = [["frame": 0, "value": 0, "front": ["enabled": true, "x": 0.5, "y": 10000]], ["frame": 20, "value": 0]]; value["animation"] = a; $0["origin"] = value }),
+            ("out-of-range-control", { var value = $0["origin"] as! [String: Any]; var a = value["animation"] as! [String: Any]; a["c2"] = [["frame": 0, "value": 0, "front": ["enabled": true, "x": 0.5, "y": 10000001]], ["frame": 20, "value": 0]]; value["animation"] = a; $0["origin"] = value }),
             ("bad-component", { var value = $0["origin"] as! [String: Any]; var a = value["animation"] as! [String: Any]; a.removeValue(forKey: "c2"); value["animation"] = a; $0["origin"] = value }),
             ("incoming-peer-keeps-independent-zoom", { var a = single([[0,1]], fps: 10, length: 20); var options = a["options"] as! [String: Any]; options["parent"] = ["key": "origin"]; a["options"] = options; $0["alpha"] = ["value": 1, "animation": a] }),
         ]
@@ -618,7 +830,7 @@ struct SceneMetalRenderer {
             && near(zoomBad.camera(zoomBadSnapshot).coverHalfExtents.x, 1920)
         let disabledControl = try Fixture(changingFirst(animated()) {
             var value = $0["origin"] as! [String: Any], a = value["animation"] as! [String: Any]
-            a["c2"] = [["frame": 0, "value": 0, "front": ["enabled": false, "x": 0.5, "y": 10000]],
+            a["c2"] = [["frame": 0, "value": 0, "front": ["enabled": false, "x": 0.5, "y": 10000001]],
                          ["frame": 20, "value": 0]]
             value["animation"] = a; $0["origin"] = value
         }, key: "lensScale")
@@ -641,22 +853,23 @@ struct SceneMetalRenderer {
                 && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
                 && snapshot.cameraTransform() == .identity
         }
-        for reverse in [false, true] {
+        for cycle in [false, true] {
             let input = changingFirst(animated()) {
-                let field = reverse ? "zoom" : "origin"
-                var value = $0[field] as! [String: Any], a = value["animation"] as! [String: Any]
+                var value = $0["origin"] as! [String: Any], a = value["animation"] as! [String: Any]
                 var options = a["options"] as! [String: Any]
-                options["children"] = [["key": reverse ? "origin" : "zoom"]]
-                a["options"] = options; value["animation"] = a; $0[field] = value
-                if reverse {
-                    var origin = $0["origin"] as! [String: Any], oa = origin["animation"] as! [String: Any]
-                    var oo = oa["options"] as! [String: Any]; oo["parent"] = ["key": "zoom"]
-                    oa["options"] = oo; origin["animation"] = oa; $0["origin"] = origin
+                options["children"] = [["key": "zoom"]]
+                if cycle { options["parent"] = ["key": "zoom"] }
+                a["options"] = options; value["animation"] = a; $0["origin"] = value
+                if cycle {
+                    var zoom = $0["zoom"] as! [String: Any], za = zoom["animation"] as! [String: Any]
+                    var zo = za["options"] as! [String: Any]; zo["parent"] = ["key": "origin"]
+                    zo["children"] = [["key": "origin"]]
+                    za["options"] = zo; zoom["animation"] = za; $0["zoom"] = zoom
                 }
             }
             let fixture = try Fixture(input, key: "lensScale")
             let (snapshot, _) = try fixture.frame(sceneTime: 1)
-            facts[reverse ? "reverse-combined-rejected" : "incomplete-peer-rejected"] = fixture.timeline.bindings.isEmpty
+            facts[cycle ? "cycle-rejected" : "incomplete-peer-rejected"] = fixture.timeline.bindings.isEmpty
                 && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
         }
         return facts
@@ -693,12 +906,15 @@ struct SceneMetalRenderer {
                 facts["\(target)-\(error)-origin-route"] =
                     (fixture.descriptor.camera.default2DOriginInputLayerID == nil) == blocksOrigin
                     && fixture.definitions.contains { $0.target == .layer(layerID: 7, field: .origin) } == blocksOrigin
-                let grouped = try Fixture(changingFirst(combined(animated())) {
-                    $0["alpha"] = ["value": 1, "animation": peer]
-                }, key: "lensScale")
-                let (groupSnapshot, _) = try grouped.frame(sceneTime: 1)
-                facts["\(target)-\(error)-combined-rejects-external-peer"] = grouped.timeline.bindings.isEmpty
-                    && groupSnapshot[originTarget] == nil && groupSnapshot[zoomTarget] == nil
+                for zoomRoot in [false, true] {
+                    let grouped = try Fixture(changingFirst(combined(animated(), zoomRoot: zoomRoot)) {
+                        $0["alpha"] = ["value": 1, "animation": peer]
+                    }, key: "lensScale")
+                    let (groupSnapshot, _) = try grouped.frame(sceneTime: 1)
+                    facts["\(target)-\(error)-\(zoomRoot)-combined-rejects-external-peer"] = grouped.timeline.bindings.isEmpty
+                        && groupSnapshot[originTarget] == nil && groupSnapshot[zoomTarget] == nil
+                        && grouped.descriptor.camera.default2DOriginInputLayerID == nil
+                }
             }
         }
         var unrelated = single([[0,1]], fps: 10, length: 20)
@@ -719,6 +935,8 @@ struct SceneMetalRenderer {
         let result: [String: Any] = ["mixed": try [mixed(0), mixed(1)],
             "fallbacks": try fallbacks(), "rejections": try rejections(),
             "independent": try [independent(0), independent(1)],
+            "originDomain": try originDomain(), "combinedRoots": try [combinedRoots(0), combinedRoots(1)],
+            "combinedRejections": try combinedRejections(),
             "pathVisibility": try pathVisibility(), "independentRejections": try independentRejections(),
             "malformedPeers": try malformedPeers()]
         print(String(data: try JSONSerialization.data(withJSONObject: result,

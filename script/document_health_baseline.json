@@ -38,7 +38,7 @@
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,
-      "bytes": 38999
+      "bytes": 38973
     },
     "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
       "lines": 33,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175282
+      "bytes": 175213
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,11 +122,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 143210
+      "bytes": 143207
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 200528
+      "bytes": 200502
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -210,7 +210,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 599,
-      "bytes": 156316
+      "bytes": 155971
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 45,
@@ -241,8 +241,8 @@
       "bytes": 17053
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 215,
-      "bytes": 62909
+      "lines": 214,
+      "bytes": 62505
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,

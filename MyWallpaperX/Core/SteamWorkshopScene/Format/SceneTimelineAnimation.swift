@@ -18,9 +18,9 @@ nonisolated enum SceneTimelineMode: String, Codable, Equatable {
 /// 单侧 Bézier handle。`isEnabled == false` 对应官方 tangent mode 的 `none`，该侧退化
 /// 为直线段。
 ///
-/// clean-room corpus 定标表明 `x` 是相对当前 keyframe segment span 的比例：多组自定义
-/// handle 乘回各自 span 后稳定得到整数或半帧；`y` 是当前 property value 空间中的偏移。
-/// front 只接受 `0...1`，back 只接受 `-1...0`，从而保证 frame -> curve parameter 唯一。
+/// `x` 使用相邻 keyframe 的半个 frame span，`y` 使用 property value offset。
+/// front 的 `0...2`、back 的 `-2...0` 解码后均落在当前 segment 内，保证
+/// frame -> curve parameter 唯一；IR 保留作者原值，不提前覆盖 wire 表示。
 nonisolated struct SceneTimelineTangent: Codable, Equatable {
     let isEnabled: Bool
     let x: Double
@@ -318,10 +318,10 @@ nonisolated enum SceneTimelineAnimationParser {
                 return nil
             }
             guard let back = parseTangent(
-                entry["back"], allowedX: -1 ... 0,
+                entry["back"], allowedX: -2 ... 0,
                 laneIndex: laneIndex, diagnostics: &diagnostics
             ), let front = parseTangent(
-                entry["front"], allowedX: 0 ... 1,
+                entry["front"], allowedX: 0 ... 2,
                 laneIndex: laneIndex, diagnostics: &diagnostics
             )
             else {

@@ -39,7 +39,21 @@ enum Harness {
         let cases = try JSONSerialization.jsonObject(
             with: Data(FileHandle.standardInput.readDataToEndOfFile())
         ) as! [String: [String: Any]]
-        for (name, host) in cases {
+        for (name, rawHost) in cases {
+            var host = rawHost
+            // JSON has no nonfinite numbers. Exercise this parser boundary with
+            // typed Doubles after transport; the overflow case remains JSON-only.
+            if name == "front_nonfinite" || name == "back_nonfinite" {
+                var animation = host["animation"] as! [String: Any]
+                var lane = animation["c0"] as! [[String: Any]]
+                let side = name == "front_nonfinite" ? "front" : "back"
+                let index = side == "front" ? 0 : lane.count - 1
+                var tangent = lane[index][side] as! [String: Any]
+                tangent["x"] = side == "front" ? Double.nan : -Double.infinity
+                lane[index][side] = tangent
+                animation["c0"] = lane
+                host["animation"] = animation
+            }
             let result = SceneTimelineAnimationParser.parse(host: host)
             var entry: [String: Any] = [
                 "diagnostics": result.diagnostics.map { diagnostic in
@@ -296,7 +310,7 @@ CASES = {
                 {
                     "back": {"enabled": True, "x": -1, "y": 0},
                     "frame": 0,
-                    "front": {"enabled": True, "x": 1.01, "y": 0},
+                    "front": {"enabled": True, "x": 2.01, "y": 0},
                     "value": 0,
                 }
             ],
@@ -353,6 +367,30 @@ CASES = {
 CASES["unused_boundary_tangents"]["animation"]["c0"][0]["back"]["y"] = 1e308
 CASES["unused_boundary_tangents"]["animation"]["c0"][-1]["front"]["y"] = 1e308
 CASES["overflowing_segment_control"]["animation"]["c0"][0]["front"]["y"] = 1e308
+
+# Wire X measures half of the adjacent frame span. Keep the raw domain here;
+# only the evaluator converts it to normalized cubic control coordinates.
+for name, front_x, back_x, enabled in (
+    ("halfspan_bounds", 2, -2, True),
+    ("halfspan_zero_handles", 0, 0, True),
+    ("renamed_halfspan_outer", 1.05, -0.92, True),
+    ("disabled_outside_domain", 3, -3, False),
+    ("back_below_domain", 1, -2.01, True),
+    ("front_wrong_side", -0.01, -1, True),
+    ("front_nonfinite", 1, -1, True),
+    ("back_nonfinite", 1, -1, True),
+):
+    first = keyframe(0, 0, front=enabled, back=enabled)
+    last = keyframe(60, 600, front=enabled, back=enabled)
+    first["front"].update(x=front_x, y=200)
+    last["back"].update(x=back_x, y=-200)
+    CASES[name] = {
+        "value": 0,
+        "animation": {
+            "c0": [first, last],
+            "options": {"fps": 60, "length": 60, "mode": "single", "name": name},
+        },
+    }
 
 
 class SceneTimelineIRTests(unittest.TestCase):
@@ -453,6 +491,29 @@ class SceneTimelineIRTests(unittest.TestCase):
         self.assertEqual(first["front"]["x"], 1)
         self.assertEqual(first["back"]["x"], -1)
 
+    def test_halfspan_domain_preserves_raw_handles_and_renamed_metadata(self) -> None:
+        for name, front_x, back_x in (
+            ("halfspan_bounds", 2, -2),
+            ("halfspan_zero_handles", 0, 0),
+            ("renamed_halfspan_outer", 1.05, -0.92),
+        ):
+            with self.subTest(case=name):
+                animation = self.animation(name)
+                first, last = animation["lanes"][0]
+                self.assertEqual(self.diagnostic_codes(name), [])
+                self.assertEqual(animation["options"]["name"], name)
+                self.assertEqual(first["front"]["x"], front_x)
+                self.assertEqual(last["back"]["x"], back_x)
+                self.assertEqual(first["front"]["y"], 200)
+                self.assertEqual(last["back"]["y"], -200)
+
+    def test_disabled_outside_domain_handles_remain_inert_metadata(self) -> None:
+        name = "disabled_outside_domain"
+        first, last = self.animation(name)["lanes"][0]
+        self.assertEqual(self.diagnostic_codes(name), [])
+        self.assertEqual(first["front"], {"enabled": False, "x": 3, "y": 200})
+        self.assertEqual(last["back"], {"enabled": False, "x": -3, "y": -200})
+
     def test_combined_animation_group_links_round_trip(self) -> None:
         parent = self.animation("combined_group_parent")
         self.assertEqual(parent["options"]["children"], ["zoom"])
@@ -495,6 +556,10 @@ class SceneTimelineIRTests(unittest.TestCase):
             "malformed_tangent": "invalidTangent",
             "out_of_segment_front_tangent": "invalidTangent",
             "out_of_segment_back_tangent": "invalidTangent",
+            "back_below_domain": "invalidTangent",
+            "front_wrong_side": "invalidTangent",
+            "front_nonfinite": "nonFiniteValue",
+            "back_nonfinite": "nonFiniteValue",
             "overflowing_segment_control": "nonFiniteValue",
             "malformed_group_parent": "invalidGroupReference",
             "malformed_group_child": "invalidGroupReference",

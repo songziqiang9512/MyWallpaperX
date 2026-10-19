@@ -10,9 +10,9 @@
 `mirror`、`three_keyframes` 与 `offset_lane` 是同结构派生 fixture，分别覆盖反向
 播放、多区间定位和关键帧范围不从 0 起的情况。
 
-本门同时锁定默认、单侧关闭、双侧关闭与真实 camera 自定义 handle。X 以当前 segment
-span 归一化，Y 使用 property value offset；期望值由测试内独立常量锁定，不复用 Swift
-实现。
+本门同时锁定默认、单侧关闭、双侧关闭与真实 camera 自定义 handle。wire X 使用当前
+segment 的半 span，Y 保持 property value offset。期望值是独立高精度 cubic 常量，
+不读取产品输出或调用 Swift 求值器生成 oracle。
 """
 
 from __future__ import annotations
@@ -186,8 +186,52 @@ CASES = {
     },
 }
 
+
+def halfspan_lane(front_x, back_x):
+    return [keyframe(0, 0, front=(front_x, 200)),
+            keyframe(60, 600, back=(back_x, -200))]
+
+
+for name, front_x, back_x in (
+    ("halfspan_asymmetric", 1.05, -0.92),
+    ("halfspan_symmetric_outer", 1.5, -1.5),
+    ("halfspan_endpoint_bounds", 2, -2),
+):
+    CASES[name] = {
+        "value": 0,
+        "animation": {
+            "c0": halfspan_lane(front_x, back_x),
+            "options": {"fps": 60, "length": 60, "mode": "single", "name": name},
+        },
+    }
+CASES["missing_handles"] = {
+    "value": 0,
+    "animation": {
+        "c0": [{"frame": 0, "value": 0}, {"frame": 60, "value": 600}],
+        "options": {"fps": 60, "length": 60, "mode": "single"},
+    },
+}
+CASES["disabled_outer_handles"] = {
+    "value": 0,
+    "animation": {
+        "c0": [keyframe(0, 0, front_enabled=False, front=(3, 200)),
+               keyframe(60, 600, back_enabled=False, back=(-3, -200))],
+        "options": {"fps": 60, "length": 60, "mode": "single"},
+    },
+}
+CASES["renamed_vector_halfspan"] = {
+    "value": "17 -8 29",
+    "animation": {
+        "c0": [{"frame": 0, "value": 0}, {"frame": 60, "value": 600}],
+        "c1": halfspan_lane(1.05, -0.92),
+        "c2": halfspan_lane(1.5, -1.5),
+        "relative": True,
+        "options": {"fps": 60, "length": 60, "mode": "single", "name": "other-origin"},
+    },
+}
+
 # 采样点单位是秒。
-SAMPLES = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
+SAMPLES = [0.0, 0.25, 0.48, 0.5, 0.52, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
 
 
 class SceneTimelineEvaluatorTests(unittest.TestCase):
@@ -244,8 +288,8 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
             self.assertAlmostEqual(values[0], 0.0)
 
     def test_default_handles_apply_bezier_ease_in_and_out(self) -> None:
-        self.assertAlmostEqual(self.at("single", 0.25)[1][0], 0.970275394488)
-        self.assertAlmostEqual(self.at("single", 0.75)[1][0], 0.029724605512)
+        self.assertAlmostEqual(self.at("single", 0.25)[1][0], 0.894107456975)
+        self.assertAlmostEqual(self.at("single", 0.75)[1][0], 0.105892543025)
 
     def test_single_starts_at_the_authored_first_value(self) -> None:
         frame, values = self.at("single", 0.0)
@@ -298,7 +342,7 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
         self.assertAlmostEqual(self.at("three_keyframes", 1.0)[1][0], 1.0)
         # 1.5s → 第 15 帧，落在第二段 1/4 处
         self.assertAlmostEqual(
-            self.at("three_keyframes", 1.5)[1][0], 0.970275394488
+            self.at("three_keyframes", 1.5)[1][0], 0.894107456975
         )
         self.assertAlmostEqual(self.at("three_keyframes", 2.0)[1][0], 0.5)
 
@@ -321,15 +365,53 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
 
     def test_one_sided_and_custom_real_wire_handles_are_consumed(self) -> None:
         self.assertAlmostEqual(
-            self.at("one_sided_text_width", 0.25)[1][0], 839.107024658232
+            self.at("one_sided_text_width", 0.25)[1][0], 795.344953154041
         )
         self.assertAlmostEqual(
-            self.at("custom_camera", 0.25)[1][0], -91.455796420255
+            self.at("custom_camera", 0.25)[1][0], -81.543119865411
         )
         self.assertAlmostEqual(self.at("custom_camera", 0.5)[1][0], -46.25)
         self.assertAlmostEqual(
-            self.at("custom_camera", 0.75)[1][0], -4.905885405246
+            self.at("custom_camera", 0.75)[1][0], -13.014274336136
         )
+
+    def test_halfspan_handles_match_both_prospective_fractional_seeks(self) -> None:
+        # Independent polynomial roots frozen before the two official seeks,
+        # precision rechecked with 60-digit arithmetic, not fitted to readouts.
+        for seconds, asymmetric, symmetric in (
+            (0.48, 265.423875799957, 268.574704190056),
+            (0.52, 296.554400973571, 331.425295809944),
+        ):
+            for name, expected in (("halfspan_asymmetric", asymmetric),
+                                   ("halfspan_symmetric_outer", symmetric)):
+                with self.subTest(case=name, seconds=seconds):
+                    frame, values = self.at(name, seconds)
+                    self.assertAlmostEqual(frame, seconds * 60)
+                    self.assertAlmostEqual(values[0], expected, places=8)
+
+    def test_halfspan_keeps_y_offsets_and_lane_identity(self) -> None:
+        for seconds, asymmetric, symmetric, wrong_y_half in (
+            (0.48, 265.423875799957, 268.574704190056, 256.894667099113),
+            (0.52, 296.554400973571, 331.425295809944, 295.693114846624),
+        ):
+            values = self.at("renamed_vector_halfspan", seconds)[1]
+            for actual, expected in zip(values, (600 * seconds, asymmetric, symmetric)):
+                self.assertAlmostEqual(actual, expected, places=8)
+            # Halving Y as well would be a different curve, even with identical X.
+            self.assertGreater(abs(values[1] - wrong_y_half), 0.5)
+
+    def test_halfspan_inclusive_bounds_have_one_intersection(self) -> None:
+        for seconds, expected in ((0.48, 197.401443199398),
+                                  (0.52, 402.598556800602)):
+            self.assertAlmostEqual(self.at("halfspan_endpoint_bounds", seconds)[1][0],
+                                   expected, places=8)
+        self.assertAlmostEqual(self.at("halfspan_endpoint_bounds", 0.5)[1][0], 300)
+
+    def test_missing_and_disabled_handles_keep_fractional_linear_seeks(self) -> None:
+        for name in ("missing_handles", "disabled_outer_handles"):
+            for seconds in (0.48, 0.52):
+                with self.subTest(case=name, seconds=seconds):
+                    self.assertAlmostEqual(self.at(name, seconds)[1][0], 600 * seconds)
 
     def test_frames_before_and_after_the_lane_hold_the_endpoints(self) -> None:
         # lane 只覆盖第 10～20 帧，之前保持首值、之后保持末值，不外推
@@ -344,7 +426,7 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
         # is independently locked from the authored cubic, not copied from Swift output.
         frame, values = self.at("wrap_custom", 4.0)
         self.assertAlmostEqual(frame, 120.0)
-        self.assertAlmostEqual(values[0], 0.658276335495, places=10)
+        self.assertAlmostEqual(values[0], 0.511297427631, places=10)
         # Exact period boundary returns the authored first keyframe without duplicate endpoint.
         frame, values = self.at("wrap_custom", 5.0)
         self.assertAlmostEqual(frame, 0.0)

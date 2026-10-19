@@ -32,10 +32,11 @@ nonisolated enum SceneDefault2DCameraInputProfile {
     }
 
     static func acceptsOrigin(_ values: [Double], nearZ: Double, farZ: Double) -> Bool {
+        // Orthographic origin translates the canvas depth span; it is not an
+        // eye distance constrained by that span's near/far planes.
         values.count == 3 && nearZ.isFinite && farZ.isFinite
             && nearZ >= 0 && farZ > nearZ
             && values.allSatisfy({ $0.isFinite && abs($0) <= maximumOriginMagnitude })
-            && values[2] > nearZ && values[2] < farZ
     }
 
     static func acceptsZoom(_ value: Double) -> Bool {
@@ -55,11 +56,59 @@ nonisolated enum SceneDefault2DCameraInputProfile {
               zip(origin, parsedOrigin).allSatisfy({ Float($0.0).bitPattern == $0.1.bitPattern }),
               acceptsOrigin(origin, nearZ: nearZ, farZ: farZ) else { return nil }
         if originInputIsSupported(input) { return id }
-        guard let animation = independentAnimation(host: .origin, timelines: timelines,
-                authoredConfiguration: authoredConfiguration),
-              acceptsOrigin(parsedOrigin, animation: animation, nearZ: nearZ, farZ: farZ)
+        let animation: SceneTimelineAnimation
+        if let independent = independentAnimation(host: .origin, timelines: timelines,
+            authoredConfiguration: authoredConfiguration) {
+            animation = independent
+        } else if let pair = combinedAnimations(timelines: timelines,
+            authoredConfiguration: authoredConfiguration),
+            pair.origin.componentCount == 3, pair.zoom.componentCount == 1,
+            pair.origin.isRelative, !pair.zoom.isRelative,
+            pair.origin.hasExecutableWrapLoop, pair.zoom.hasExecutableWrapLoop,
+            let zoomInput = authored["zoom"], let zoom = scalar(zoomInput),
+            acceptsZoom(zoom, animation: pair.zoom) {
+            animation = pair.origin
+        } else { return nil }
+        guard acceptsOrigin(parsedOrigin, animation: animation, nearZ: nearZ, farZ: farZ)
         else { return nil }
         return id
+    }
+
+    /// One preparation proof serves both the origin alias and camera compiler.
+    /// Disconnected Single fields keep independent owners; a connected pair
+    /// must name exactly one root and one reciprocal child.
+    static func combinedAnimations(
+        timelines: [SceneDocument.SceneObjectTimeline],
+        authoredConfiguration: SceneJSONValue?
+    ) -> (origin: SceneTimelineAnimation, zoom: SceneTimelineAnimation,
+          root: SceneDocument.SceneObjectTimeline.Host)? {
+        let group = timelines.filter { $0.host == .origin || $0.host == .zoom }
+        guard group.count == 2,
+              let origin = group.first(where: { $0.host == .origin }),
+              let zoom = group.first(where: { $0.host == .zoom }),
+              case let .object(authored)? = authoredConfiguration,
+              animationInputIsSupported(authored["origin"]),
+              animationInputIsSupported(authored["zoom"]),
+              ![SceneDocument.SceneObjectTimeline.Host.origin, .zoom].contains(where: {
+                  hasDeclaredIncomingPeer(to: $0, authored: authored,
+                    excludingHosts: [.origin, .zoom])
+              }) else { return nil }
+        let roots = group.filter { $0.animation.options.parent == nil }
+        guard roots.count == 1, let root = roots.first else { return nil }
+        let child = root.host == .origin ? zoom : origin
+        guard root.animation.options.children.map(\.key) == [child.host.rawValue],
+              child.animation.options.parent?.key == root.host.rawValue,
+              child.animation.options.children.isEmpty else { return nil }
+        // Range/wrap admission uses the actual root's options. Authored group
+        // references remain here; the compiler's existing lowering owns their
+        // removal and the root-only display name on executable bindings.
+        return (
+            SceneTimelineAnimation(lanes: origin.animation.lanes, options: root.animation.options,
+                isRelative: origin.animation.isRelative, previewValue: origin.animation.previewValue),
+            SceneTimelineAnimation(lanes: zoom.animation.lanes, options: root.animation.options,
+                isRelative: zoom.animation.isRelative, previewValue: zoom.animation.previewValue),
+            root.host
+        )
     }
 
     static func definitions(
@@ -95,11 +144,7 @@ nonisolated enum SceneDefault2DCameraInputProfile {
     ) -> SceneTimelineAnimation? {
         guard host == .origin || host == .zoom,
               case let .object(authored)? = authoredConfiguration,
-              case let .object(wrapper)? = authored[host.rawValue],
-              Set(wrapper.keys).isSubset(of: ["value", "animation", "script", "user"]),
-              wrapper["value"] != nil, wrapper["animation"] != nil,
-              wrapper["script"] == nil || wrapper["script"] == .null,
-              wrapper["user"] == nil || wrapper["user"] == .null else { return nil }
+              animationInputIsSupported(authored[host.rawValue]) else { return nil }
         let matches = timelines.filter { $0.host == host }
         guard matches.count == 1, let animation = matches.first?.animation,
               animation.options.mode == .single,
@@ -158,8 +203,7 @@ nonisolated enum SceneDefault2DCameraInputProfile {
             let base = Double(authored[index])
             guard animation.consumedControlValues(in: lane).allSatisfy({ control in
                 let value = base + control
-                let bounded = value.isFinite && abs(value) <= maximumOriginMagnitude
-                return index == 2 ? bounded && value > nearZ && value < farZ : bounded
+                return value.isFinite && abs(value) <= maximumOriginMagnitude
             }) else { return false }
         }
         return true
@@ -178,6 +222,14 @@ nonisolated enum SceneDefault2DCameraInputProfile {
         return keys.isSubset(of: ["value", "script", "scriptproperties", "user"])
             && wrapper["value"] != nil
             && (wrapper["script"] == nil || wrapper["script"]?.stringValue != nil)
+    }
+
+    private static func animationInputIsSupported(_ value: SceneJSONValue?) -> Bool {
+        guard case let .object(wrapper)? = value else { return false }
+        return Set(wrapper.keys).isSubset(of: ["value", "animation", "script", "user"])
+            && wrapper["value"] != nil && wrapper["animation"] != nil
+            && (wrapper["script"] == nil || wrapper["script"] == .null)
+            && (wrapper["user"] == nil || wrapper["user"] == .null)
     }
 
     private static func zoomInputIsSupported(_ value: SceneJSONValue) -> Bool {

@@ -46,7 +46,7 @@ def preamble() -> str:
     source = vm.SWIFT_PREAMBLE
     media = source[source.index("struct SceneFrameTiming {"):
                    source.index("struct SceneTextScriptDefinition {")]
-    materials = source[source.index("struct SceneShaderContract {}"):
+    materials = source[source.index("enum SceneBaseMaterialColorModulationCompiler {"):
                        source.index("enum SceneTimelinePlaybackCommand:")]
     source = timeline.HARNESS_SOURCE
     assets = source[source.index("struct ScenePkgExtractionReport {"):
@@ -56,9 +56,6 @@ def preamble() -> str:
     return "import Foundation\nimport simd\n" + media + materials + assets + """
 enum SceneGraphRenderTargetPlan {
     enum TextureFormat { case rgba16f, rgbaBackbuffer }
-}
-extension SceneAssetCatalog.ModelAsset {
-    var passthrough: Bool? { nil }
 }
 struct SceneTextScriptProgram {
     struct Binding { let definition: SceneDynamicTargetDefinition }
@@ -140,6 +137,21 @@ class SceneDefault2DCameraInputTests(unittest.TestCase):
 
     def test_hard_error_peers_keep_declared_references_and_local_rejection(self) -> None:
         facts = self.result["malformedPeers"]
+        self.assertTrue(facts)
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_orthographic_origin_is_a_finite_offset_not_a_clip_distance(self) -> None:
+        facts = self.result["originDomain"]
+        self.assertTrue(facts)
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_complete_camera_pair_uses_its_actual_root_and_one_origin_alias(self) -> None:
+        for facts in self.result["combinedRoots"]:
+            self.assertTrue(facts)
+            self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_invalid_camera_components_reject_the_pair_atomically(self) -> None:
+        facts = self.result["combinedRejections"]
         self.assertTrue(facts)
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
 
