@@ -52,7 +52,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         details: ["scalar-output-channel-unproven"]
                     )
                 }
-            } else if variant.frontendProgram.colorTransfer == .unresolved {
+            } else if variant.frontendProgram.colorTransfer == .unresolved,
+                      variant.frontendProgram.colorBoundary?.isValid != true {
+                // A prepared ordinary color boundary can resolve a transfer
+                // beyond source-shape inference. Keep the same typed texture
+                // profiles and resolveColor validation used at frame time.
                 return failure(
                     .colorContractUnproven,
                     phase: .color,

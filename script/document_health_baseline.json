@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 128136
+      "bytes": 129339
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 393,
-      "bytes": 155957
+      "bytes": 157430
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77422
+      "bytes": 77471
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 17603
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 223,
-      "bytes": 65904
+      "lines": 225,
+      "bytes": 66503
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1358,15 +1358,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "5575046d22eef5af2d43cb0750c7e9abf79d1e5ef316663e96220666297451c6",
-      "after": "11b2af29d99b024b5b91d6226082d582a3628ff6547d1aa76c8f00da3453415b",
-      "owner": "scene-diagnostics",
-      "reason": "Bound actual Program/context observation in existing on-demand diagnostic contract; top architecture keeps one link and323 input evidence replaces stale claim. No trajectory fix.",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#timeline-frame-input-observation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
       "after": "40651bf6bd8ae2b51527f732146ceb4cc4d6bdc5eed13572208bbe2951d571d5",
@@ -1538,21 +1529,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "8d77ebcd542a58e1677aa816501906f12b423961e5cc3f1c1b651ce2e7e89138",
+      "after": "cc9999f533fdba129110ef0e786015ce7a8783edd3a90f84354b56dbd2d3deb3",
+      "owner": "Scene runtime and evidence owners",
+      "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
-      "after": "40d82dbd944960720093dd7d09394aeaa7a5fa981d33c4e2a3f7217214a46012",
-      "owner": "scene-text-occlusion-qualification",
-      "reason": "Localize clock/date penetration with one native ablation; distinguish normal authored rim/shadow and unmatched camera state; preserve failed official positive controls and correct intake triage without claiming a product fix.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-text-depth-qualification-20261020"
+      "after": "39e08c85ddb4c93fbb1cf6fadcbaccabc08dcb8f28388130c3750659e036247d",
+      "owner": "Scene runtime and evidence owners",
+      "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "13b95d126713b1f7aea5be0b509315363e9054618bb43aac695860b2c91f2082",
-      "owner": "scene-text-occlusion-qualification",
-      "reason": "Localize clock/date penetration with one native ablation; distinguish normal authored rim/shadow and unmatched camera state; preserve failed official positive controls and correct intake triage without claiming a product fix.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-text-depth-qualification-20261020"
+      "after": "bcbb1d6c3d97cbf9be7b44867bee183ad111c09d515a556236c89d1881d7a8b1",
+      "owner": "Scene runtime and evidence owners",
+      "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
     }
   ]
 }

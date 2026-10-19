@@ -178,6 +178,31 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Codable, Ha
 
     var metalName: String { rawValue }
 
+    var isNumericVector: Bool {
+        switch self {
+        case .int2, .int3, .int4, .uint2, .uint3, .uint4, .float2, .float3, .float4: true
+        default: false
+        }
+    }
+
+    var glslName: String {
+        switch self {
+        case .bool, .int, .uint, .float: rawValue
+        case .int2: "ivec2"
+        case .int3: "ivec3"
+        case .int4: "ivec4"
+        case .uint2: "uvec2"
+        case .uint3: "uvec3"
+        case .uint4: "uvec4"
+        case .float2: "vec2"
+        case .float3: "vec3"
+        case .float4: "vec4"
+        case .float2x2: "mat2"
+        case .float3x3: "mat3"
+        case .float4x4: "mat4"
+        }
+    }
+
     var alignment: Int {
         switch self {
         case .bool, .int, .uint, .float:

@@ -89,7 +89,10 @@ import Metal
 import simd
 
 private func launchGateVariant(
-    _ base: SceneResolvedMaterialCompiledVariant
+    _ base: SceneResolvedMaterialCompiledVariant,
+    transfer: SceneShaderColorTransfer = .opaque,
+    boundary: SceneShaderColorBoundary? = nil,
+    opaqueSlots: Set<Int> = [0]
 ) throws -> SceneResolvedMaterialCompiledVariant {
     let frontend = SceneAuthoredShaderProgram(
         metalSource: base.frontendProgram.metalSource,
@@ -99,10 +102,11 @@ private func launchGateVariant(
         uniformLayout: base.frontendProgram.uniformLayout,
         textureBindings: base.frontendProgram.textureBindings,
         staticLoopWork: base.frontendProgram.staticLoopWork,
-        colorTransfer: .opaque,
+        colorTransfer: transfer,
         fragmentOutputChannelUse:
             base.frontendProgram.fragmentOutputChannelUse,
-        backend: base.frontendProgram.backend
+        backend: base.frontendProgram.backend,
+        colorBoundary: boundary
     )
     let assembly = try SceneResolvedMaterialProgram.PreparedAssembly(
         preparedShader: base.preparedShader,
@@ -123,7 +127,7 @@ private func launchGateVariant(
         activeSamplers: base.activeSamplers,
         graphInputSourceSlotFacts: base.graphInputSourceSlotFacts,
         preservedAlphaRGBColorSlots: base.preservedAlphaRGBColorSlots,
-        sourceProvenOpaqueColorSlots: [0],
+        sourceProvenOpaqueColorSlots: opaqueSlots,
         preservedChannelsProviderInputSlots:
             base.preservedChannelsProviderInputSlots,
         sameAlphaReconstructedRGBInputContract:
@@ -154,6 +158,61 @@ private func launchGateToken(
     ) else { return "success" }
     return ([failure.phase.rawValue, failure.code.rawValue]
         + failure.boundedDetails).joined(separator: "/")
+}
+
+private func boundaryGateResults(
+    base: SceneResolvedMaterialCompiledVariant,
+    template: SceneResolvedMaterialTemplate,
+    input: SceneAuthoredEffectRenderPlan.TextureIdentity,
+    internalTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+) throws -> [String: [String: Any]] {
+    let boundary = SceneShaderColorBoundary(
+        colorInputSlots: [0], outputRepresentation: .straightAlpha
+    )
+    let cases: [(String, SceneShaderColorBoundary?, SceneTextureContent?)] = [
+        ("opaque", boundary, .color(.resolved(.opaque))),
+        ("premultiplied", boundary, .color(.resolved(.premultipliedAlpha))),
+        ("nilBoundary", nil, .color(.resolved(.premultipliedAlpha))),
+        ("invalidBoundary", .init(colorInputSlots: [-1],
+                                 outputRepresentation: .straightAlpha),
+         .color(.resolved(.premultipliedAlpha))),
+        ("absentBoundarySlot", .init(colorInputSlots: [1],
+                                    outputRepresentation: .straightAlpha),
+         .color(.resolved(.premultipliedAlpha))),
+        ("unresolvedColor", boundary, .color(.unresolved)),
+        ("data", boundary, .data),
+        ("signalAsColor", boundary, .color(.resolved(.independentAlphaSignal))),
+        ("deferredInternalGraph", boundary, nil),
+    ]
+    var result: [String: [String: Any]] = [:]
+    for (name, selectedBoundary, content) in cases {
+        // Inject only the immutable transfer/boundary facts into the existing
+        // real PreparedAssembly; both gates still execute production owners.
+        let variant = try launchGateVariant(
+            base, transfer: .unresolved, boundary: selectedBoundary, opaqueSlots: []
+        )
+        var facts = Array<SceneResolvedMaterialProgramDerivation.ColorTextureFact?>(
+            repeating: nil, count: 8
+        )
+        facts[0] = content.map {
+            .init(isGraphReference: true, isFramebufferInput: true, content: $0)
+        }
+        let projection = SceneResolvedMaterialProgramDerivation.resolveColor(
+            transfer: variant.frontendProgram.colorTransfer,
+            textureFacts: facts,
+            colorBoundary: variant.frontendProgram.colorBoundary
+        )
+        result[name] = [
+            "launch": launchGateToken(
+                template: template, variant: variant, input: input,
+                internalTarget: internalTarget, content: content
+            ),
+            "frameAccepted": projection != nil,
+            "frameInput": projection?.framebufferInput.rawValue ?? "rejected",
+            "frameOutput": projection?.fragmentOutput.rawValue ?? "rejected",
+        ]
+    }
+    return result
 }
 
 @main
@@ -195,7 +254,7 @@ private enum LaunchGateHarness {
             fatalError("launch gate fixture did not compile")
         }
         let variant = try launchGateVariant(base)
-        let result = [
+        var result: [String: Any] = [
             "opaque": launchGateToken(
                 template: material,
                 variant: variant,
@@ -232,6 +291,9 @@ private enum LaunchGateHarness {
                 content: nil
             ),
         ]
+        result["boundary"] = try boundaryGateResults(
+            base: base, template: material, input: input, internalTarget: internalTarget
+        )
         let data = try JSONSerialization.data(
             withJSONObject: result,
             options: [.sortedKeys]
@@ -489,6 +551,7 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
             launch,
         )
 
+class SceneOrdinaryColorBoundaryLaunchTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_launch_gate_executes_internal_graph_typed_content_contract(self) -> None:
         with tempfile.TemporaryDirectory(
@@ -510,6 +573,7 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
                     "macosx",
                     "swiftc",
                     "-parse-as-library",
+                    "-whole-module-optimization",
                     *(str(path) for path in finalizer.SWIFT_SOURCES),
                     *(str(path) for path in finalizer.SHARED_FIXTURE_SOURCES),
                     str(harness),
@@ -538,6 +602,34 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
         expected = "color/colorContractUnproven/source-proven-opaque-color-slots"
         for key in ("premultiplied", "data", "unresolved", "missing"):
             self.assertEqual(payload[key], expected, payload)
+
+        boundary = payload["boundary"]
+        for key in ("opaque", "premultiplied"):
+            self.assertEqual(
+                boundary[key],
+                {
+                    "launch": "success",
+                    "frameAccepted": True,
+                    "frameInput": "straight-alpha",
+                    "frameOutput": "straight-alpha",
+                },
+                payload,
+            )
+        for key in (
+            "nilBoundary", "invalidBoundary", "absentBoundarySlot",
+            "unresolvedColor", "data", "signalAsColor",
+        ):
+            self.assertTrue(
+                boundary[key]["launch"].startswith("color/colorContractUnproven/"),
+                (key, payload),
+            )
+            self.assertFalse(boundary[key]["frameAccepted"], (key, payload))
+            self.assertEqual(boundary[key]["frameOutput"], "rejected", (key, payload))
+
+        # An internal graph publication is legitimately unavailable at launch;
+        # its exact frame-time content must still be supplied and validated.
+        self.assertEqual(boundary["deferredInternalGraph"]["launch"], "success", payload)
+        self.assertFalse(boundary["deferredInternalGraph"]["frameAccepted"], payload)
 
 
 if __name__ == "__main__":

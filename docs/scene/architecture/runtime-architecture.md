@@ -2,10 +2,7 @@
 
 <!-- document-role: stable-contract -->
 
-> 状态：现役长期架构合同
->
-> 最近复核：2026-09-15（新增 §8 生命周期与编码合同；未重跑产品）
->
+> 现役长期架构合同；分专题复核范围与源身份见文档登记，不以旧整页日期代表当前全部实现。
 > 当前实现程度与缺口只查[能力台账](../capabilities/coverage-ledger.md)；本文件描述目标处理方式，不把目标冒充现役能力。
 
 ## 1. 产品目标
@@ -122,6 +119,9 @@ authored document/assets
 ```
 
 任何产品层类型或阶段都必须说明自己直接生产上述链上的对象、消费作者输入，或保护会导致 crash、GPU 越界、stale generation/epoch、target hazard、错误 publication/completion 的完整性边界。仅生产报告、hash、诊断、兼容判断、重复 route state 或未来扩展点的机制不得常驻播放链；诊断/benchmark 模式可以旁路观察同一执行结果，但不能反向成为提交或出画面的必要条件。
+
+<a id="audio-packed-source-view"></a>
+HLSL 音频源码视图由现有 BackendCanonicalizer / SourceNormalizer 的单一 audio-array 适配负责，目标是保留明确四分量读取，避免把它误作标量广播。官方自有板的反射已证 64-bin 声明实际编译为 `float4[16]` / 256B；原声音输入正控失败，不证明 FFT 或上传顺序。Native 仍只保 N 个连续 Float 的 host ABI：既有双下标连续 bin 适配与明确 `float4` row 读取共用准备入口，后者通过自有值参 helper 一次求 row/base，再取四个相邻标量，作者 mod/分量选择保持。仅唯一真实 global、现有 16/32/64 Left/Right 家族和已证整数 row 表达参与；普通数组、未知类型、shadow、别名及其他向量宽度保原拒绝。非法 row 只退化该次读取为零，不能夹到合法频段或越界访存；声明/反射/实际 slot 仍由原 Program 与 HostUniformSchema 验证。迁移退役原连续索引入口名称，不增 host 布局、缓存或 runtime owner；先验收非均匀逻辑输入的实际 GPU、改名/等价表达与相邻反例，再验原包和独立样本。官方实际音频及完整画面保持另行验收边界。
 
 复杂度按删除方向管理：优先复用和收窄现有 owner；能由不可变 prepared value、直接函数或已有 typed channel 表达时，不新增 protocol、registry、wrapper、planner、profile 或 renderer。实现通用替代并撤权后，旧 owner、旧准入、旧诊断和只验证旧内部结构的测试成族删除。衡量进展以正确画面、布局、首帧和帧时间为主，不以类型数、gate 数、diagnostic 覆盖或拒绝理由数量为正向指标。
 

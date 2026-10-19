@@ -469,13 +469,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "371e0d9b84c1e86e6a34e89ba27660df6dae93d7378b7bcda43c5862ef8e0bf4",
+        "sourceSHA256": "01b9eb08abca60c16f03a92963558e61aa58950e1ad082aa5de42b938bfa4714",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步无成员capturedMain单stage同pixel终端：原ingress/proof/变体、共享sampler/cache identity与预算；284白线低清有界闭合，374新route/旧fallback和293加法邻例保持。其余合同未重审。",
-        "limitations": "原型/首拒/门失败保正式包；最终SDR App不代完整HDR、非1alpha source-over全组合、同phase/官方像素、全音源或整体性能。293/321方向漩涡开放；旧293PMA补门非全矩阵PASS。"
+        "scope": "定点同步唯一audio-array源码视图、共享数值类型与普通颜色启动边界；338实际Program执行与可见收益UNKNOWN分开，旧首拒退出队列。导航及源身份审计，其余合同未重审。",
+        "limitations": "官方RDEF仅证明自有编译布局，声音正控失败；最终App仅338执行及381健康邻例，JPEG为有损review。未证明338新增可见收益、FFT/上传顺序、完整phase/HDR/整景或性能。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2370d768cc256fdc4225dd042b5486b9cee0aa3b3e2c77c0aabdc66d7ef9e972",
+        "sourceSHA256": "2c5b178fd1e4b6dde11bd4a40ace32290ff634e7e25cbdc0f986368fe72310e3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Navigation and anchor audit after conditional-model closeout and text-occlusion qualification: one current result owner, normal authored content distinguished from defects, official failed positive controls preserved; no new product capability claim.",
-        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
+        "scope": "定点同步唯一audio-array源码视图、共享数值类型与普通颜色启动边界；338实际Program执行与可见收益UNKNOWN分开，旧首拒退出队列。导航及源身份审计，其余合同未重审。",
+        "limitations": "官方RDEF仅证明自有编译布局，声音正控失败；最终App仅338执行及381健康邻例，JPEG为有损review。未证明338新增可见收益、FFT/上传顺序、完整phase/HDR/整景或性能。"
       }
     },
     {
@@ -828,9 +828,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9f8d4f6859d1d18255bc1f54f17b4274af22f5dcd25c17e0e0e18d3fbb44acf6",
+        "sourceSHA256": "117799008fd292c523f7c2927941e28192202df918c93b2f789367ccdcdda13a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "scope": "338旧执行拒绝有界退出；actual Program/GPU与可见收益UNKNOWN分开，人工unreviewed保持。302旧阶段守恒另行fresh资格；当前仅导航与证据指针复核，其余条目未重审。",
         "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },
@@ -3625,9 +3625,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b8872f646fb0e5b3e369e5f1bdfeeab12158f5ddbb897d7a2f801ea2d920861",
+        "sourceSHA256": "cb4defde56032ed3116ae7acc5fb9b26d684f588bc7b34a1b52bb65493ebb495",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "scope": "338旧执行拒绝有界退出；actual Program/GPU与可见收益UNKNOWN分开，人工unreviewed保持。302旧阶段守恒另行fresh资格；当前仅导航与证据指针复核，其余条目未重审。",
         "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },

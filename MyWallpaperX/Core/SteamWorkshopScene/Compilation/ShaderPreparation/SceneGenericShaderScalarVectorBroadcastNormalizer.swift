@@ -237,12 +237,7 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     private static func vectorConstructor(
         _ type: SceneAuthoredShaderValueType
     ) -> String? {
-        switch type {
-        case .float2: "vec2"
-        case .float3: "vec3"
-        case .float4: "vec4"
-        default: nil
-        }
+        [.float2, .float3, .float4].contains(type) ? type.glslName : nil
     }
 
     private static func scalarType(_ type: SceneAuthoredShaderValueType) -> Bool {
@@ -250,7 +245,6 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     }
 
     private static func vectorType(_ type: SceneAuthoredShaderValueType) -> Bool {
-        [.float2, .float3, .float4, .int2, .int3, .int4,
-         .uint2, .uint3, .uint4].contains(type)
+        type.isNumericVector
     }
 }

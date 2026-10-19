@@ -76,23 +76,28 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         Set(valueDeclarationFacts(in: tokens, excluding: []).keys)
     }
 
+    static func valueTypeTokenIndices(in tokens: [SceneAuthoredShaderToken]) -> Set<Int> {
+        Set(valueDeclarationFacts(in: tokens, excluding: []).values
+            .flatMap { $0.map(\.typeIndex) })
+    }
+
     private static func valueDeclarationFacts(
         in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>]
-    ) -> [String: [(type: String, index: Int, value: Bool)]] {
-        var declarations: [String: [(type: String, index: Int, value: Bool)]] = [:]
-        func record(_ index: Int, type: String) {
+    ) -> [String: [(type: String, index: Int, value: Bool, typeIndex: Int)]] {
+        var declarations: [String: [(type: String, index: Int, value: Bool, typeIndex: Int)]] = [:]
+        func record(_ index: Int, type: String, typeIndex: Int) {
             guard !ranges.contains(where: { $0.contains(index) }) else { return }
             let next = index + 1 < tokens.count ? tokens[index + 1].text : ""
             declarations[tokens[index].text, default: []].append((
                 type, index,
-                next != "[" && next != "("
+                next != "[" && next != "(", typeIndex
             ))
         }
         for index in tokens.indices.dropLast() {
             guard let valueType = SceneAuthoredShaderValueType(
                 authoredName: tokens[index].text
             ), tokens[index + 1].kind == .identifier else { continue }
-            record(index + 1, type: valueType.rawValue)
+            record(index + 1, type: valueType.rawValue, typeIndex: index)
             guard index + 2 < tokens.count,
                   tokens[index + 2].text != "(" else { continue }
             var depth = 0
@@ -105,7 +110,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
                 if text == ",", depth == 0, cursor + 2 < tokens.count,
                    tokens[cursor + 1].kind == .identifier,
                    ["=", ";", ",", "["].contains(tokens[cursor + 2].text) {
-                    record(cursor + 1, type: valueType.rawValue)
+                    record(cursor + 1, type: valueType.rawValue, typeIndex: index)
                 }
                 cursor += 1
             }

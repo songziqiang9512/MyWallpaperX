@@ -8,6 +8,11 @@ private struct Output: Codable {
     let normalizedFragment: String?
 }
 
+private struct FragmentUniformBuffer: Decodable {
+    let index: Int
+    let bytes: [UInt8]
+}
+
 @main
 private struct ScalarVectorBuiltInHarness {
     private static let vertex = """
@@ -51,7 +56,10 @@ private struct ScalarVectorBuiltInHarness {
         ).fragment
     }
 
-    private static func render(_ path: String, functionName: String = "comparisonFragment") throws -> [Float] {
+    private static func render(
+        _ path: String, functionName: String = "comparisonFragment",
+        uniformBuffers: [FragmentUniformBuffer] = []
+    ) throws -> [Float] {
         let device = MTLCreateSystemDefaultDevice()!
         let fragment = try device.makeLibrary(source: String(contentsOfFile: path, encoding: .utf8), options: nil)
         let vertex = try device.makeLibrary(source: """
@@ -74,6 +82,16 @@ private struct ScalarVectorBuiltInHarness {
         textureDescriptor.usage = [.renderTarget]
         let texture = device.makeTexture(descriptor: textureDescriptor)!
         let queue = device.makeCommandQueue()!
+        let buffers = try uniformBuffers.map { input -> (Int, MTLBuffer) in
+            guard input.index >= 0, !input.bytes.isEmpty,
+                  let buffer = input.bytes.withUnsafeBytes({ bytes in
+                      device.makeBuffer(bytes: bytes.baseAddress!, length: bytes.count,
+                                        options: .storageModeShared)
+                  }) else {
+                throw NSError(domain: "shader-uniform-buffer", code: 1)
+            }
+            return (input.index, buffer)
+        }
         var pixels: [Float] = []
         for _ in 0..<2 {
             let pass = MTLRenderPassDescriptor()
@@ -83,6 +101,9 @@ private struct ScalarVectorBuiltInHarness {
             let command = queue.makeCommandBuffer()!
             let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
             encoder.setRenderPipelineState(pipeline)
+            for (index, buffer) in buffers {
+                encoder.setFragmentBuffer(buffer, offset: 0, index: index)
+            }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
             encoder.endEncoding()
             command.commit()
@@ -101,6 +122,16 @@ private struct ScalarVectorBuiltInHarness {
     }
 
     static func main() throws {
+        if CommandLine.arguments.count == 4 && CommandLine.arguments[1] == "--render-uniforms" {
+            let inputs = try JSONDecoder().decode(
+                [FragmentUniformBuffer].self,
+                from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(render(
+                CommandLine.arguments[2], uniformBuffers: inputs
+            )))
+            return
+        }
         if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render" {
             FileHandle.standardOutput.write(try JSONEncoder().encode(render(CommandLine.arguments[2])))
             return

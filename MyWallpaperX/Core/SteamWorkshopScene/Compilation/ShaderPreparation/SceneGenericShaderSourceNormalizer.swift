@@ -49,6 +49,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         "uvec2", "uvec3", "uvec4",
         "vec2", "vec3", "vec4", "mat2", "mat3", "mat4",
     ])
+    static let sourceTypeAliases = SceneAuthoredShaderValueType.allCases.filter {
+        $0.glslName != $0.rawValue && SceneAuthoredShaderValueType(authoredName: $0.rawValue) == $0
+    }.map(\.rawValue)
     private static let declaration = try! NSRegularExpression(pattern:
         // Trailing whitespace after the terminator is insignificant authored
         // noise, not an unsupported declaration: a real workshop shader
@@ -72,11 +75,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             return .failure(.sourceTooLarge)
         }
         do {
+            let dialectVertexSource = rewriteTypeSpellings(vertexSource, stage: .vertex)
+            let dialectFragmentSource = rewriteTypeSpellings(fragmentSource, stage: .fragment)
             let typedVertexSource = rewriteFloatArrayIndices(
                 rewriteAssignmentVectorConversions(
                     SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingTypeSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                            renameMetalReservedAlternativeTokens(vertexSource)
+                            renameMetalReservedAlternativeTokens(dialectVertexSource)
                         ),
                         stage: .vertex
                     ),
@@ -88,7 +93,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingTypeSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                             renameMetalReservedAlternativeTokens(
-                                stripHLSLAttributeAnnotations(fragmentSource)
+                                stripHLSLAttributeAnnotations(dialectFragmentSource)
                             )
                         ),
                         stage: .fragment
@@ -553,13 +558,12 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             || declaration.name == "g_AudioSpectrum\(count)Right"
     }
 
-    /// The authored audio dialect accepts this contiguous-bin helper idiom.
-    /// It does not establish a general two-dimensional scalar-array access.
-    /// Keep the N-float ABI and lower only a pure float helper parameter.
-    static func rewriteContiguousAudioIndices(
+    /// Adapt the source's packed four-lane view to the unchanged N-float host
+    /// ABI. Ordinary arrays and unknown consumers retain compiler rejection.
+    static func rewriteAudioArrayViews(
         _ source: String, stage: SceneShaderContract.StageKind
     ) -> String {
-        guard source.contains("g_AudioSpectrum"), source.contains("%") else { return source }
+        guard source.contains("g_AudioSpectrum") else { return source }
         let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage
         )
@@ -590,7 +594,90 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         for (offset, scalar) in source.unicodeScalars.enumerated() where scalar == "\n" {
             lineStarts.append(offset + 1)
         }
+        let sourceScalars = Array(source.unicodeScalars)
         var edits: [(start: Int, end: Int, replacement: String)] = []
+        func offset(_ index: Int, after: Bool = false) -> Int? {
+            let token = tokens[index]
+            guard token.line > 0, token.line <= lineStarts.count else { return nil }
+            return lineStarts[token.line - 1] + token.column - 1
+                + (after ? token.text.unicodeScalars.count : 0)
+        }
+        var helpers: [String: (declaration: Int, source: String)] = [:]
+        for assignment in tokens.indices where tokens[assignment].text == "=" && assignment > 0 {
+            guard tokens[assignment - 1].kind == .identifier,
+                  assignment < 2 || tokens[assignment - 2].text != ".",
+                  let function = unit.functions.first(where: { $0.bodyRange.contains(assignment) })
+            else { continue }
+            let exclusions = unit.functions.filter { $0 != function }.map {
+                $0.headerRange.lowerBound..<$0.bodyRange.upperBound
+            }
+            let values = SceneAuthoredShaderSyntaxAnalyzer.consistentValueDeclarations(
+                in: tokens, excluding: exclusions, before: assignment
+            )
+            guard values[tokens[assignment - 1].text]?.type == "float4" else { continue }
+            var input = assignment + 1
+            var parentheses: [Int] = []
+            while input < function.bodyRange.upperBound, tokens[input].text == "(" {
+                parentheses.append(input)
+                input += 1
+            }
+            guard input + 1 < function.bodyRange.upperBound,
+                  tokens[input].kind == .identifier, tokens[input + 1].text == "[",
+                  let closing = SceneAuthoredShaderSyntaxAnalyzer.matchingDelimiter(
+                      at: input + 1, tokens: tokens
+                  ), closing < function.bodyRange.upperBound else { continue }
+            var terminal = closing + 1
+            var complete = true
+            for opening in parentheses.reversed() {
+                guard terminal < tokens.count, tokens[terminal].text == ")",
+                      SceneAuthoredShaderSyntaxAnalyzer.matchingDelimiter(at: opening, tokens: tokens)
+                        == terminal else { complete = false; break }
+                terminal += 1
+            }
+            let declarations = unit.declarations.filter { $0.name == tokens[input].text }
+            guard complete, terminal < tokens.count, tokens[terminal].text == ";",
+                  declarations.count == 1, let declaration = declarations.first,
+                  declaration.storage == .uniform,
+                  isAudioSpectrumArray(.init(storage: "uniform", type: declaration.typeName,
+                      name: declaration.name, count: declaration.arraySize)),
+                  SceneAuthoredShaderGlobalReferenceAnalyzer.exactReferenceIndices(
+                      declaration.name, in: unit
+                  )?.contains(input) == true,
+                  let row = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
+                      (input + 2)..<closing, tokens: tokens, unit: unit
+                  ), row.type == .int, row.conversions.isEmpty,
+                  let first = offset(input), let last = offset(closing, after: true),
+                  let opening = offset(input + 1),
+                  let rowFirst = offset(input + 1, after: true), let rowLast = offset(closing),
+                  let declarationEnd = declaration.range.last,
+                  let insertion = offset(declarationEnd, after: true),
+                  let count = declaration.arraySize else { continue }
+            let helper = "mwxPackedAudio_\(declaration.name)"
+            guard unit.defines[helper] == nil,
+                  !tokens.contains(where: { $0.kind == .identifier && $0.text == helper })
+            else { continue }
+            guard first >= 0, last <= sourceScalars.count,
+                  rowFirst >= 0, rowFirst < rowLast, rowLast < last,
+                  sourceScalars[opening] == "[",
+                  String(String.UnicodeScalarView(sourceScalars[first...]
+                    .prefix(declaration.name.unicodeScalars.count))) == declaration.name,
+                  sourceScalars[last - 1] == "]" else { continue }
+            let rowSource = String(String.UnicodeScalarView(sourceScalars[rowFirst..<rowLast]))
+            edits.append((first, last, "\(helper)(\(rowSource))"))
+            helpers[helper] = (insertion, """
+
+            vec4 \(helper)(int row) {
+                if (row < 0 || row >= \(count / 4)) { return vec4(0.0); }
+                int base = row * 4;
+                return vec4(\(declaration.name)[base], \(declaration.name)[base + 1],
+                    \(declaration.name)[base + 2], \(declaration.name)[base + 3]);
+            }
+
+            """)
+        }
+        for helper in helpers.sorted(by: { $0.key < $1.key }).map(\.value) {
+            edits.append((helper.declaration, helper.declaration, helper.source))
+        }
         for index in tokens.indices {
             guard let declaration = unit.declarations.first(where: { $0.name == tokens[index].text }),
                   declaration.storage == .uniform, declaration.typeName == "float",

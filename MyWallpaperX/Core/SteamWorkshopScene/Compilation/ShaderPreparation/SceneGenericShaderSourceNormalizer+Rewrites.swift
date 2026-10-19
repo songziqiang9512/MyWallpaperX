@@ -1,6 +1,70 @@
 import Foundation
 
 nonisolated extension SceneGenericShaderSourceNormalizer {
+    /// Lower recognized type positions without rewriting identically named
+    /// values, members or authored functions. The shared syntax owner supplies
+    /// declaration positions; constructor calls must also be unshadowed.
+    static func rewriteTypeSpellings(
+        _ source: String, stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = source.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        guard sourceTypeAliases.contains(where: { normalized.contains($0) }) else { return normalized }
+        let lines = normalized.components(separatedBy: "\n")
+        let analysisSource = lines.map {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("#version") ? "" : $0
+        }.joined(separator: "\n")
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage),
+            stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else { return normalized }
+        let tokens = unit.tokens
+        let typeIndices = SceneAuthoredShaderSyntaxAnalyzer.valueTypeTokenIndices(in: tokens)
+        let shadowed = SceneAuthoredShaderSyntaxAnalyzer.valueDeclarationNames(in: tokens)
+            .union(unit.functions.map(\.name)).union(unit.defines.keys)
+        let authoredTypes = SceneAuthoredShaderGlobalReferenceAnalyzer.structureTypeNames(in: unit)
+            .union(unit.defines.keys)
+        let sourceScalars = Array(normalized.unicodeScalars)
+        var lineStarts = [0]
+        var scalarOffset = 0
+        for scalar in normalized.unicodeScalars {
+            scalarOffset += 1
+            if scalar == "\n" { lineStarts.append(scalarOffset) }
+        }
+        var replacements: [(offset: Int, original: String, replacement: String)] = []
+        for index in tokens.indices {
+            let token = tokens[index]
+            guard let type = SceneAuthoredShaderValueType(authoredName: token.text),
+                  type.glslName != token.text,
+                  !authoredTypes.contains(token.text),
+                  index == 0 || tokens[index - 1].text != ".",
+                  typeIndices.contains(index)
+                    || (index + 1 < tokens.count && tokens[index + 1].text == "("
+                        && !shadowed.contains(token.text)),
+                  token.line > 0, token.line <= lines.count else { continue }
+            let offset = lineStarts[token.line - 1] + token.column - 1
+            // Expanded macros can carry another spelling or source width.
+            // Only edit a type token still present verbatim at its span.
+            guard offset >= 0,
+                  String(String.UnicodeScalarView(sourceScalars.dropFirst(offset)
+                    .prefix(token.text.unicodeScalars.count))) == token.text else { continue }
+            replacements.append((offset, token.text, type.glslName))
+        }
+        guard !replacements.isEmpty else { return normalized }
+        var result = String.UnicodeScalarView()
+        var cursor = 0
+        for item in replacements {
+            let end = item.offset + item.original.unicodeScalars.count
+            guard item.offset >= cursor, end <= sourceScalars.count else { return normalized }
+            result.append(contentsOf: sourceScalars[cursor..<item.offset])
+            result.append(contentsOf: item.replacement.unicodeScalars)
+            cursor = end
+        }
+        result.append(contentsOf: sourceScalars[cursor...])
+        return String(result)
+    }
+
     static func rewriteAssignmentVectorConversions(
         _ source: String,
         stage: SceneShaderContract.StageKind
@@ -75,7 +139,7 @@ nonisolated extension SceneGenericShaderSourceNormalizer {
     static func rewriteFloatArrayIndices(
         _ source: String, stage: SceneShaderContract.StageKind
     ) -> String {
-        let normalized = rewriteContiguousAudioIndices(source
+        let normalized = rewriteAudioArrayViews(source
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n"), stage: stage)
         let masked = lexicalMask(normalized)
@@ -706,8 +770,7 @@ nonisolated extension SceneGenericShaderSourceNormalizer {
     ) -> String {
         let (types, conflicted) = declaredScalarVectorTypes(source, shapes: shapes)
         let vectorNames = types.compactMap { name, type in
-            ["float2", "float3", "float4", "int2", "int3", "int4",
-             "uint2", "uint3", "uint4"].contains(type)
+            SceneAuthoredShaderValueType(rawValue: type)?.isNumericVector == true
                 && !conflicted.contains(name) ? name : nil
         }
         let scalarNames = types.compactMap { name, type in
@@ -733,11 +796,6 @@ nonisolated extension SceneGenericShaderSourceNormalizer {
                 + vectorNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
                 + #")\s*\)"#
         )
-        let glslSpelling = [
-            "float2": "vec2", "float3": "vec3", "float4": "vec4",
-            "int2": "ivec2", "int3": "ivec3", "int4": "ivec4",
-            "uint2": "uvec2", "uint3": "uvec3", "uint4": "uvec4",
-        ]
         var result = source
         for match in regex.matches(
             in: source,
@@ -748,7 +806,7 @@ nonisolated extension SceneGenericShaderSourceNormalizer {
                   let vectorRange = Range(match.range(at: 3), in: source),
                   let fullRange = Range(match.range, in: result),
                   let vectorType = types[String(source[vectorRange])],
-                  let constructor = glslSpelling[vectorType],
+                  let constructor = SceneAuthoredShaderValueType(rawValue: vectorType)?.glslName,
                   let scalarType = types[String(source[intRange])]
             else { continue }  // name lists only admit known scalar/vector types
             // A float scalar entering an integer vector would narrow; the
@@ -790,11 +848,6 @@ nonisolated extension SceneGenericShaderSourceNormalizer {
             guard let range = Range(match.range(at: 1), in: source) else { return nil }
             return String(source[range])
         })
-        let glslSpelling = [
-            "float2": "vec2", "float3": "vec3", "float4": "vec4",
-            "int2": "ivec2", "int3": "ivec3", "int4": "ivec4",
-            "uint2": "uvec2", "uint3": "uvec3", "uint4": "uvec4",
-        ]
         let regex = try! NSRegularExpression(pattern:
             #"\b(max|min)\(\s*(-?[0-9]+(?:\.[0-9]+)?)\s*,\s*([^(),]+?)\s*\)"#
         )
@@ -822,13 +875,13 @@ nonisolated extension SceneGenericShaderSourceNormalizer {
             }
             if isBareIdentifier, let vectorType = types[siblingName],
                !conflicted.contains(siblingName),
-               let spelling = glslSpelling[vectorType] {
+               let type = SceneAuthoredShaderValueType(rawValue: vectorType), type.isNumericVector {
                 let component = ["float2", "float3", "float4"].contains(vectorType)
                     && !value.contains(".")
                     ? value + ".0" : value
                 result.replaceSubrange(
                     full,
-                    with: rebuilt("\(spelling)(\(component))")
+                    with: rebuilt("\(type.glslName)(\(component))")
                 )
             } else if isBareIdentifier, types[siblingName] == "float"
                 || siblingName.contains(".") {

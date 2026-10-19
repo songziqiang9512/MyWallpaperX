@@ -19,6 +19,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         var valueTypes: [Token: SceneAuthoredShaderValueType] = [:]
         var globalIndices: [String: [Int]] = [:]
         var possibleGlobals: Set<String> = []
+        var structureTypeNames: Set<String> = []
     }
 
     private struct Binding {
@@ -51,6 +52,10 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         bindings(in: unit).valueTypes[token]
     }
 
+    static func structureTypeNames(in unit: Unit) -> Set<String> {
+        bindings(in: unit).structureTypeNames
+    }
+
     static func valueType(
         at index: Int, tokens: [Token], in unit: Unit
     ) -> SceneAuthoredShaderValueType? {
@@ -67,6 +72,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
     static func analyzeBindings(in unit: Unit) -> BindingFacts {
         let tokens = unit.tokens
         let functions = unit.functions.map { $0.headerRange.lowerBound..<$0.bodyRange.upperBound }
+        var facts = BindingFacts()
         var structures: Set<Int> = []
         var structureRanges: [Range<Int>] = []
         var structureValues: [Range<Int>] = []
@@ -76,6 +82,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
                   let structure = structureBody(at: index, before: tokens.count, tokens: tokens)
             else { continue }
             structures.formUnion(index...structure.end)
+            if let name = structure.name { facts.structureTypeNames.insert(tokens[name].text) }
             structureRanges.append(index..<(structure.end + 1))
             let members = structureMemberValues(in: structure.body, tokens: tokens)
             structureValues += members.known
@@ -89,7 +96,6 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         let globalTypes = globalDeclarations.compactMapValues {
             SceneAuthoredShaderValueType(rawValue: $0.type)
         }
-        var facts = BindingFacts()
         let declarationRanges = Dictionary(grouping: unit.declarations, by: \.name)
             .mapValues { $0.map(\.range) }
         func readGlobal(_ index: Int) {
@@ -201,6 +207,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
             for range in members.known { read(range) }
             for range in members.unknown { unknown(range) }
             if let nameIndex = structure.name {
+                facts.structureTypeNames.insert(tokens[nameIndex].text)
                 scopes[scopes.count - 1][tokens[nameIndex].text] = Binding(type: nil)
             }
             let tail = (structure.end + 1)..<range.upperBound

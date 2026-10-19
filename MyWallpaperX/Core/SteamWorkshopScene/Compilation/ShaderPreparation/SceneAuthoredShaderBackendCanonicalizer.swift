@@ -48,8 +48,8 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
         // Resolve the authored contiguous audio index before its quotient and
         // remainder lose their joint meaning in scalar operator lowering.
         result = Pair(
-            vertex: SceneGenericShaderSourceNormalizer.rewriteContiguousAudioIndices(result.vertex, stage: .vertex),
-            fragment: SceneGenericShaderSourceNormalizer.rewriteContiguousAudioIndices(result.fragment, stage: .fragment)
+            vertex: SceneGenericShaderSourceNormalizer.rewriteAudioArrayViews(result.vertex, stage: .vertex),
+            fragment: SceneGenericShaderSourceNormalizer.rewriteAudioArrayViews(result.fragment, stage: .fragment)
         )
         // Scalar remainder has one preparation owner for both backends. The
         // source-keyed request identity includes this explicit lowering.
