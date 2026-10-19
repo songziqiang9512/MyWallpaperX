@@ -20,6 +20,7 @@
       "docs/scene/architecture/shader-metadata-failure-contract.md",
       "docs/scene/architecture/variant-analysis-cache-contract.md",
       "docs/scene/capabilities/alpha-display-fallback-design.md",
+      "docs/scene/capabilities/direct-model-bind-geometry.md",
       "docs/scene/capabilities/material-video-assets.md",
       "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "docs/scene/capabilities/puppet-clipping-design.md",
@@ -557,13 +558,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b61bbf7ff57a2ce7c3033e7dbda716a0ad9ff9568d758cb31899a95684bca114",
+        "sourceSHA256": "9a8cb97a0f65880e154c993c03c014f7e209fe8aec65f3d2fc4541309accad2f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Maintain bounded modern neutral-track contract, actual original and heldout evidence, retired first fault and generated unreviewed sample note. Existing authority and archive navigation retained.",
-        "limitations": "Navigation and current bounded-result maintenance; no full sample, arbitrary state1, exact official phase or performance claim."
+        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
+        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
       }
     },
     {
@@ -584,6 +585,20 @@
         "method": "document_registry --audit + document_health --check",
         "scope": "定点同步无成员capturedMain单stage同pixel终端：原ingress/proof/变体、共享sampler/cache identity与预算；284白线低清有界闭合，374新route/旧fallback和293加法邻例保持。其余合同未重审。",
         "limitations": "原型/首拒/门失败保正式包；最终SDR App不代完整HDR、非1alpha source-over全组合、同phase/官方像素、全音源或整体性能。293/321方向漩涡开放；旧293PMA补门非全矩阵PASS。"
+      }
+    },
+    {
+      "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
+      "lastReviewed": "2026-10-19",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "32b540c157f8d971fbfcd53efca2796969e987c898c5f1c4a2f1deaa82248730",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
+        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
       }
     },
     {
@@ -677,10 +692,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e2cc2f38cad7d6bfc92c2c66ce965abb57f8361fc9c01df69ea1f02279fa0f9a",
+        "sourceSHA256": "3aa65afefbfcde65e588827fa79c5697984cf8b8dd764bb542365b16929bfcba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
-        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
+        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
+        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
       }
     },
     {
@@ -3544,10 +3559,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e2f5ed671aae94703896eb77a690452964e4a234a582e94f3469e2bd8d55980d",
+        "sourceSHA256": "21b3cc6e6ba58a39e84a0a711ec34b8caf702c296f7db2286e3934deee3ac609",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
-        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
+        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
+        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
       }
     },
     {
@@ -3558,10 +3573,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "606ced731cb3d65dd4344208d27b978a3a422c9520df76f2fbd6bb978c04e318",
+        "sourceSHA256": "350f4fe7c9fc453b91b9381a018ebe42f1bf332b2e5f1eec32962e7f23a4ef75",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
-        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
+        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
+        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
       }
     },
     {
@@ -3766,7 +3781,8 @@
         "docs/scene/roadmap/scene-compatibility-roadmap.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/roadmap/scene-full-sample-static-audit.md",
-        "docs/scene/capabilities/uniform-invariant-shader-constants.md"
+        "docs/scene/capabilities/uniform-invariant-shader-constants.md",
+        "docs/scene/capabilities/direct-model-bind-geometry.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"

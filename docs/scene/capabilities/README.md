@@ -64,3 +64,5 @@
 2. `recognized`、`wired`、静态 census、compile success、route 数、matrix PASS、非黑像素和单样本通过都不能单独升级为视觉兼容、性能完成或官方 parity。
 3. 普通帧保持 prepare-once/execute-many；诊断、hash、完整 observation、census 和 full matrix 只在主动验证或 milestone 使用。
 4. 语义变化先更新对应专项表，再更新台账/运行证据；不要在 README、路线和报告之间复制当前数字。
+
+Direct模型的独立合法几何与动画降级边界见[bind几何合同](direct-model-bind-geometry.md)。

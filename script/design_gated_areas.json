@@ -826,6 +826,21 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-direct-model-bind-geometry",
+      "title": "direct model验证bind几何局部恢复",
+      "owner": "Scene Format / prepared model resources",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/direct-model-bind-geometry.md",
+      "design_notes": "设计先保存；保真XYZ/normal/tangent/UV/材料并复用rig验证，只显示immutable bind，动画另报typed降级，无新pose/renderer。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -3781,6 +3781,20 @@
       "modules": [
         "test_scene_uniform_invariant_shader_constants"
       ]
+    },
+    {
+      "id": "direct-model-bind-geometry",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "script/tests/test_scene_direct_model_bind_geometry.py"
+      ],
+      "modules": [
+        "test_scene_direct_model_bind_geometry",
+        "test_scene_static_model_reader"
+      ]
     }
   ],
   "method_gates": {

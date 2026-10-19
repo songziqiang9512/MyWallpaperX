@@ -19,6 +19,8 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlStaticModel.swift",
     SCENE_ROOT / "Format/SceneMdlStaticModelReader.swift",
+    SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
+    SCENE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
 ]
 
 HARNESS = r'''

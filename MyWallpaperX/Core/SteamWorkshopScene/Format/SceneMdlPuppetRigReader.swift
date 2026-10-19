@@ -1,7 +1,7 @@
 import Foundation
 import CoreFoundation
 
-struct SceneMdlPuppetRig {
+nonisolated struct SceneMdlPuppetRig {
     struct Bone {
         /// Authored bone identity is part of the Puppet scripting contract.
         /// Keep the UTF-8 name beside the validated hierarchy instead of
@@ -86,7 +86,7 @@ struct SceneMdlPuppetRig {
     }
 }
 
-enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
+nonisolated enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
     case invalidPhysicsMetadata
     case unsupportedPhysicsMode
     case unsupportedMagic(String)
@@ -143,7 +143,16 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
 /// pair is still checked before any bone data is consumed. The index fields
 /// begin at stride - 40 and weights at stride - 24 for the verified 52-, 80-,
 /// and 84-byte records.
-enum SceneMdlPuppetRigReader {
+nonisolated enum SceneMdlPuppetRigReader {
+    /// A validated vertex span, shared by image Puppet and direct-model readers.
+    /// It carries no projected positions or second vertex storage.
+    struct VertexLayout {
+        let version: String
+        let vertexStride: Int
+        let vertexDataOffset: Int
+        let vertexCount: Int
+    }
+
     private struct VersionContract {
         let skeletonMarker: Data
         let vertexStrides: Set<Int>
@@ -195,11 +204,36 @@ enum SceneMdlPuppetRigReader {
         guard let skeletonOffset = data.range(of: contract.skeletonMarker)?.lowerBound else {
             throw SceneMdlPuppetRigReadError.skeletonBlockMissing
         }
+        return try read(data: data, vertexLayout: .init(
+            version: mesh.version, vertexStride: mesh.vertexStride,
+            vertexDataOffset: mesh.meshBlockOffset + 8,
+            vertexCount: mesh.vertices.count
+        ), skeletonOffset: skeletonOffset)
+    }
+
+    /// Direct models supply the exact skeleton boundary reached by their
+    /// complete envelope parser; this entry never searches past a bad mesh.
+    static func read(
+        data rawData: Data,
+        vertexLayout: VertexLayout,
+        skeletonOffset: Int
+    ) throws -> SceneMdlPuppetRig {
+        let data = rawData.startIndex == 0 ? rawData : Data(rawData)
+        let magic = String(decoding: data.prefix(8), as: UTF8.self)
+        guard let contract = versionContracts[magic], vertexLayout.version == magic else {
+            throw SceneMdlPuppetRigReadError.unsupportedMagic(magic)
+        }
+        guard skeletonOffset >= markerSize, skeletonOffset <= data.count,
+              contract.skeletonMarker.count <= data.count - skeletonOffset,
+              data[skeletonOffset..<(skeletonOffset + contract.skeletonMarker.count)]
+                .elementsEqual(contract.skeletonMarker) else {
+            throw SceneMdlPuppetRigReadError.skeletonBlockMissing
+        }
         let skeleton = try readBones(data: data, blockOffset: skeletonOffset,
             permitsReferencePose: contract.skeletonMarker == Data("MDLS0002\0".utf8))
         let weights = try readVertexWeights(
             data: data,
-            mesh: mesh,
+            layout: vertexLayout,
             skeletonOffset: skeletonOffset,
             boneCount: skeleton.bones.count
         )
@@ -320,32 +354,32 @@ enum SceneMdlPuppetRigReader {
 
     private static func readVertexWeights(
         data: Data,
-        mesh: SceneMdlPuppetMesh,
+        layout: VertexLayout,
         skeletonOffset: Int,
         boneCount: Int
     ) throws -> [SceneMdlPuppetRig.VertexWeights] {
-        let magic = mesh.version
+        let magic = layout.version
         guard let contract = versionContracts[magic],
-              contract.vertexStrides.contains(mesh.vertexStride)
+              contract.vertexStrides.contains(layout.vertexStride)
         else {
-            throw SceneMdlPuppetRigReadError.unsupportedVertexStride(mesh.vertexStride)
+            throw SceneMdlPuppetRigReadError.unsupportedVertexStride(layout.vertexStride)
         }
-        let vertexDataOffset = mesh.meshBlockOffset + 8
-        let vertexDataEnd = vertexDataOffset + mesh.vertices.count * mesh.vertexStride
+        let vertexDataOffset = layout.vertexDataOffset
         guard vertexDataOffset >= markerSize,
-              vertexDataEnd <= skeletonOffset
+              vertexDataOffset <= skeletonOffset, layout.vertexCount >= 0,
+              layout.vertexCount <= (skeletonOffset - vertexDataOffset) / layout.vertexStride
         else {
             throw SceneMdlPuppetRigReadError.vertexCountMismatch(
-                expected: mesh.vertices.count,
+                expected: layout.vertexCount,
                 actual: 0
             )
         }
-        let indexOffset = mesh.vertexStride - 40
-        let weightOffset = mesh.vertexStride - 24
+        let indexOffset = layout.vertexStride - 40
+        let weightOffset = layout.vertexStride - 24
         var result: [SceneMdlPuppetRig.VertexWeights] = []
-        result.reserveCapacity(mesh.vertices.count)
-        for vertexIndex in mesh.vertices.indices {
-            let base = vertexDataOffset + vertexIndex * mesh.vertexStride
+        result.reserveCapacity(layout.vertexCount)
+        for vertexIndex in 0..<layout.vertexCount {
+            let base = vertexDataOffset + vertexIndex * layout.vertexStride
             let indices = SIMD4<UInt32>(
                 readUInt32(data, at: base + indexOffset),
                 readUInt32(data, at: base + indexOffset + 4),
@@ -377,9 +411,9 @@ enum SceneMdlPuppetRigReader {
             }
             result.append(.init(boneIndices: indices, boneWeights: weights))
         }
-        guard result.count == mesh.vertices.count else {
+        guard result.count == layout.vertexCount else {
             throw SceneMdlPuppetRigReadError.vertexCountMismatch(
-                expected: mesh.vertices.count,
+                expected: layout.vertexCount,
                 actual: result.count
             )
         }

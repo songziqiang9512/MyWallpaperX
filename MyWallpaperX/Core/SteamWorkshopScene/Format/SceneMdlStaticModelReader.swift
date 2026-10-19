@@ -21,6 +21,7 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
     case indexBudgetExceeded(UInt32)
     case indexOutOfRange(indexPosition: Int, value: UInt32, vertexCount: Int)
     case invalidTrailer
+    case invalidRequiredRig(String)
 
     nonisolated var description: String {
         switch self {
@@ -60,14 +61,16 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
             return "static mdl index \(value) at \(position) exceeds vertex count \(vertexCount)"
         case .invalidTrailer:
             return "invalid static mdl trailer"
+        case .invalidRequiredRig(let reason):
+            return "invalid required bind rig: \(reason)"
         }
     }
 }
 
 /// Strict reader for the direct static-model shapes observed in bounded authored
-/// MDLV0016/MDLV0023 content. This is intentionally separate from Puppet mesh
-/// recovery: other MDLV variants and skinned layouts do not
-/// inherit this product contract.
+/// MDLV0016/MDLV0023 content, plus one fully validated MDLV0023 rigged bind
+/// layout. Animation admission is separate; no mesh search or image projection
+/// can replace the complete direct-model envelope proof.
 nonisolated enum SceneMdlStaticModelReader {
     private static let boundsHeaderVersion = "MDLV0023"
     private static let derivedBoundsVersion = "MDLV0016"
@@ -76,7 +79,7 @@ nonisolated enum SceneMdlStaticModelReader {
     ]
     private static let magicByteCount = 9
     private static let supportedFormat: UInt32 = 15
-    private static let vertexStride = 48
+    private static let riggedBindFormat: UInt32 = 0x0180000f
     private static let boundsHeaderTrailerByteCount = 7
     private static let derivedBoundsTrailerByteCount = 1
     private static let maximumPathByteCount = 4_096
@@ -86,14 +89,11 @@ nonisolated enum SceneMdlStaticModelReader {
     private static let maximumIndexByteCount: UInt32 = 32 * 1_024 * 1_024
     private static let maximumAbsoluteValue: Float = 1_000_000
 
-    /// Reads only the validated identity header used to publish a direct
-    /// static model's material dependency before GPU resource preparation.
-    /// Full geometry validation remains the responsibility of `read(data:)`.
+    /// The singular compatibility entry retains the first material identity,
+    /// but never publishes it before the same full validation as readParts.
     static func readMaterialPathMetadata(data rawData: Data) throws -> String {
-        try rawData.withUnsafeBytes { bytes in
-            var cursor = Cursor(data: bytes)
-            return try readHeader(cursor: &cursor).materialPath
-        }
+        // The header requires at least one complete material segment.
+        try readMaterialPathsMetadata(data: rawData)[0]
     }
 
     static func read(data rawData: Data) throws -> SceneMdlStaticModel {
@@ -107,7 +107,9 @@ nonisolated enum SceneMdlStaticModelReader {
     static func readMaterialPathsMetadata(data: Data) throws -> [String] {
         try data.withUnsafeBytes { bytes in
             var cursor = Cursor(data: bytes)
-            return try readParts(cursor: &cursor, retainGeometry: false).materials
+            return try readParts(
+                cursor: &cursor, sourceData: data, retainGeometry: false
+            ).materials
         }
     }
 
@@ -116,20 +118,23 @@ nonisolated enum SceneMdlStaticModelReader {
     static func readParts(data rawData: Data) throws -> [SceneMdlStaticModel] {
         try rawData.withUnsafeBytes { bytes in
             var cursor = Cursor(data: bytes)
-            return try readParts(cursor: &cursor, retainGeometry: true).models
+            return try readParts(
+                cursor: &cursor, sourceData: rawData, retainGeometry: true
+            ).models
         }
     }
 
     // Both public paths validate every vertex, local index, segment and trailer.
     // Dependency discovery only retains material identities, not upload geometry.
     private static func readParts(
-        cursor: inout Cursor, retainGeometry: Bool
+        cursor: inout Cursor, sourceData: Data, retainGeometry: Bool
     ) throws -> (materials: [String], models: [SceneMdlStaticModel]) {
         let header = try readHeader(cursor: &cursor)
         var materials: [String] = []
         var parts: [SceneMdlStaticModel] = []
         var totalVertexBytes: UInt32 = 0
         var totalIndexBytes: UInt32 = 0
+        let bindOnly = header.geometryState == .bindOnlyAnimationUnqualified
         for ordinal in 0..<header.materialCount {
             let materialPath: String
             if ordinal == 0 {
@@ -145,26 +150,28 @@ nonisolated enum SceneMdlStaticModelReader {
                 materialPath = try readMaterialPath(cursor: &cursor)
             }
             let flag = try cursor.readUInt32(section: "index flag")
-            guard flag <= 1 else {
+            guard flag <= 1, !bindOnly || flag == 0 else {
                 throw SceneMdlStaticModelReadError.unsupportedIndexFlag(flag)
             }
             let bounds = header.version == boundsHeaderVersion
                 ? try readBounds(cursor: &cursor) : nil
             let format = try cursor.readUInt32(section: "vertex format")
-            guard format == supportedFormat else {
+            guard format == header.headerFormat else {
                 throw SceneMdlStaticModelReadError.unsupportedVertexFormat(format)
             }
             let vertexBytes = try cursor.readUInt32(section: "vertex byte count")
-            guard vertexBytes > 0, vertexBytes % UInt32(vertexStride) == 0 else {
+            guard vertexBytes > 0,
+                  vertexBytes % UInt32(header.vertexStride) == 0 else {
                 throw SceneMdlStaticModelReadError.invalidVertexByteCount(vertexBytes)
             }
             guard vertexBytes <= maximumVertexByteCount - totalVertexBytes else {
                 throw SceneMdlStaticModelReadError.vertexBudgetExceeded(vertexBytes)
             }
             totalVertexBytes += vertexBytes
+            let vertexDataOffset = cursor.offset
             let vertices = try readVertices(
                 cursor: &cursor, byteCount: vertexBytes, authoredBounds: bounds,
-                retainGeometry: retainGeometry
+                stride: header.vertexStride, retainGeometry: retainGeometry
             )
             let indexBytes = try cursor.readUInt32(section: "index byte count")
             let elementSize = flag == 0 ? 2 : 4
@@ -177,21 +184,50 @@ nonisolated enum SceneMdlStaticModelReader {
             totalIndexBytes += indexBytes
             let indices = try readIndices(
                 cursor: &cursor, byteCount: indexBytes,
-                vertexCount: Int(vertexBytes) / vertexStride, elementSize: elementSize,
+                vertexCount: Int(vertexBytes) / header.vertexStride, elementSize: elementSize,
                 retainGeometry: retainGeometry
             )
+            if bindOnly {
+                // Exact empty extra-stream/part/clip suffix. The required rig
+                // starts here; neither a marker scan nor first-mesh recovery
+                // may skip malformed direct-model fields.
+                let suffix = try cursor.readBytes(count: 6, section: "bind mesh suffix")
+                guard suffix.allSatisfy({ $0 == 0 }) else {
+                    throw SceneMdlStaticModelReadError.invalidTrailer
+                }
+                do {
+                    _ = try SceneMdlPuppetRigReader.read(
+                        data: sourceData,
+                        vertexLayout: .init(
+                            version: header.version, vertexStride: header.vertexStride,
+                            vertexDataOffset: vertexDataOffset,
+                            vertexCount: Int(vertexBytes) / header.vertexStride
+                        ), skeletonOffset: cursor.offset
+                    )
+                } catch {
+                    // Rig safety is mandatory even though animation is not
+                    // consumed. Its failure rejects this complete model.
+                    throw SceneMdlStaticModelReadError.invalidRequiredRig(
+                        String(describing: error)
+                    )
+                }
+            }
             if retainGeometry {
                 parts.append(.init(
                     version: header.version, headerFormat: Int(header.headerFormat),
-                    vertexFormat: Int(format), vertexStride: vertexStride,
+                    vertexFormat: Int(format), vertexStride: header.vertexStride,
                     indexElementSize: elementSize, materialPath: materialPath,
                     bounds: bounds ?? derivedBounds(vertices: vertices),
-                    vertices: vertices, indices: indices
+                    vertices: vertices, indices: indices,
+                    geometryState: header.geometryState
                 ))
             } else {
                 materials.append(materialPath)
             }
         }
+        // The bind-only branch consumes exactly through the mesh/rig boundary.
+        // Optional MDLA and unprojected skeleton fields are not animation proof.
+        if bindOnly { return (materials, parts) }
         let trailer = try cursor.readBytes(
             count: header.version == boundsHeaderVersion
                 ? boundsHeaderTrailerByteCount : derivedBoundsTrailerByteCount,
@@ -203,9 +239,16 @@ nonisolated enum SceneMdlStaticModelReader {
         return (materials, parts)
     }
 
-    private static func readHeader(
-        cursor: inout Cursor
-    ) throws -> (version: String, headerFormat: UInt32, materialPath: String, materialCount: Int) {
+    private struct Header {
+        let version: String
+        let headerFormat: UInt32
+        let materialPath: String
+        let materialCount: Int
+        let vertexStride: Int
+        let geometryState: SceneMdlStaticModel.GeometryState
+    }
+
+    private static func readHeader(cursor: inout Cursor) throws -> Header {
         let magicBytes = try cursor.readBytes(
             count: magicByteCount,
             section: "magic"
@@ -216,7 +259,8 @@ nonisolated enum SceneMdlStaticModelReader {
         }
 
         let headerFormat = try cursor.readUInt32(section: "header format")
-        guard headerFormat == supportedFormat else {
+        let bindOnly = version == boundsHeaderVersion && headerFormat == riggedBindFormat
+        guard headerFormat == supportedFormat || bindOnly else {
             throw SceneMdlStaticModelReadError.unsupportedHeaderFormat(headerFormat)
         }
         let meshCount = try cursor.readUInt32(section: "mesh count")
@@ -225,14 +269,19 @@ nonisolated enum SceneMdlStaticModelReader {
         }
         let materialCount = try cursor.readUInt32(section: "material count")
         guard materialCount > 0,
-              materialCount == 1 || version == boundsHeaderVersion else {
+              materialCount == 1 || (version == boundsHeaderVersion && !bindOnly) else {
             throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount)
         }
         guard materialCount <= maximumMaterialSegmentCount else {
             throw SceneMdlStaticModelReadError.materialSegmentBudgetExceeded(materialCount)
         }
         let materialPath = try readMaterialPath(cursor: &cursor)
-        return (version, headerFormat, materialPath, Int(materialCount))
+        return .init(
+            version: version, headerFormat: headerFormat,
+            materialPath: materialPath, materialCount: Int(materialCount),
+            vertexStride: bindOnly ? 80 : 48,
+            geometryState: bindOnly ? .bindOnlyAnimationUnqualified : .authoredStatic
+        )
     }
 
     private static func readMaterialPath(cursor: inout Cursor) throws -> String {
@@ -282,17 +331,22 @@ nonisolated enum SceneMdlStaticModelReader {
         cursor: inout Cursor,
         byteCount: UInt32,
         authoredBounds: SceneMdlStaticModel.Bounds?,
+        stride: Int,
         retainGeometry: Bool
     ) throws -> [SceneMdlStaticModel.Vertex] {
-        let count = Int(byteCount) / vertexStride
+        let count = Int(byteCount) / stride
         let bytes = try cursor.readBuffer(count: Int(byteCount), section: "vertex data")
         var vertices: [SceneMdlStaticModel.Vertex] = []
         if retainGeometry { vertices.reserveCapacity(count) }
         var values = [Float](repeating: 0, count: 12)
         for index in 0..<count {
             for component in values.indices {
+                // Position/normal/tangent retain their first forty bytes in
+                // both profiles; UV follows the rig fields only in the 80B one.
+                let componentOffset = component < 10 ? component * 4
+                    : stride - 8 + (component - 10) * 4
                 let word = bytes.loadUnaligned(
-                    fromByteOffset: index * vertexStride + component * 4,
+                    fromByteOffset: index * stride + componentOffset,
                     as: UInt32.self
                 )
                 values[component] = Float(bitPattern: UInt32(littleEndian: word))

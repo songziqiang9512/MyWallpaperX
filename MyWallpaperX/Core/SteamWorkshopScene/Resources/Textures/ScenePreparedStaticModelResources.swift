@@ -16,6 +16,28 @@ struct ScenePreparedStaticModelResources {
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
         let materialBlending: SceneMaterialRenderState.Blending?
+        let geometryState: SceneMdlStaticModel.GeometryState
+
+        init(
+            modelPath: String, materialPath: String, dynamicMaterialPath: String,
+            mesh: SceneStaticModelMesh, albedo: SceneTextureCandidate?,
+            namedAlbedo: SceneNamedTextureReference?, emissiveMask: SceneTextureCandidate?,
+            material: SceneStaticModelMaterial, writesDepth: Bool,
+            materialBlending: SceneMaterialRenderState.Blending?,
+            geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic
+        ) {
+            self.modelPath = modelPath
+            self.materialPath = materialPath
+            self.dynamicMaterialPath = dynamicMaterialPath
+            self.mesh = mesh
+            self.albedo = albedo
+            self.namedAlbedo = namedAlbedo
+            self.emissiveMask = emissiveMask
+            self.material = material
+            self.writesDepth = writesDepth
+            self.materialBlending = materialBlending
+            self.geometryState = geometryState
+        }
     }
 
     let pipeline: SceneStaticModelPipeline?
@@ -54,6 +76,7 @@ struct ScenePreparedStaticModelResources {
         struct PreparedGeometry {
             let materialPath: String
             let mesh: SceneStaticModelMesh
+            let geometryState: SceneMdlStaticModel.GeometryState
         }
 
         let textureResolver = SceneTexturePathResolver(
@@ -93,7 +116,8 @@ struct ScenePreparedStaticModelResources {
                     ) else { return nil }
                     return PreparedGeometry(
                         materialPath: part.materialPath,
-                        mesh: mesh
+                        mesh: mesh,
+                        geometryState: part.geometryState
                     )
                 }
                 geometryByPath[modelIdentity] = preparedGeometries
@@ -162,8 +186,16 @@ struct ScenePreparedStaticModelResources {
                     emissiveMask: emissiveMask,
                     material: modelMaterial,
                     writesDepth: writesDepth(pass.depthWrite),
-                    materialBlending: SceneMaterialRenderState.compileBlending(pass.blending)
+                    materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
+                    geometryState: preparedGeometry.geometryState
                 ))
+#if DEBUG
+                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+                   preparedGeometry.geometryState == .bindOnlyAnimationUnqualified {
+                    NSLog("MWX Scene model-geometry layer=%d state=%@ preparation=ready animation=unqualified",
+                        layer.id, preparedGeometry.geometryState.rawValue)
+                }
+#endif
                 try cancellationCheck()
             }
         }
