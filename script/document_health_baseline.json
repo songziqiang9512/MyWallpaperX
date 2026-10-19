@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 44,
-      "bytes": 8193
+      "bytes": 9165
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
@@ -273,8 +273,8 @@
       "bytes": 5763
     },
     "docs/web/web-project-json-localization.md": {
-      "lines": 450,
-      "bytes": 11680
+      "lines": 452,
+      "bytes": 12785
     },
     "docs/web/web-project-json-runtime-model.md": {
       "lines": 179,
@@ -1423,15 +1423,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "1a2e1721b08a2514b5d899ddc174cc4c260c4c20d345c2e810cf8ad909bba747",
-      "after": "aae1f1f3aca73878b5e83423f6cdc920c0ff6984b8671423304d3832cd2fcfef",
-      "owner": "scene-property-presentation",
-      "reason": "记录用户要求的Scene作者属性展示维护，保留现有可达性/条件/value owner，不新增引擎能力。",
-      "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "8c4a527b17d6e0659a58a357e5709b612822b2fdaa7bc877ba27ddf9efa6e285",
       "after": "5bb6ec30aa1b622e502693a8a792389c708cd68319ea0783dff10bba3b48f614",
@@ -1474,6 +1465,24 @@
       "owner": "mixed-vector-mix",
       "reason": "仅新增共享插值权重边界及本批真实执行/数值验收；关闭已修首门，保未控截图和其他能力限制，不复制完整过程。",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "aae1f1f3aca73878b5e83423f6cdc920c0ff6984b8671423304d3832cd2fcfef",
+      "after": "1b8da6adccccdbd666812b91cec20d0f6af0978dea88ea5e6c491c502c88515a",
+      "owner": "workshop-property-presentation",
+      "reason": "用户要求Web与Scene展示细节一致；复用共享原生布局/滚动条，保留Web条件label和value的既有身份，只新增展示文本。",
+      "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-project-json-localization.md",
+      "before": "d3a0a3c7915d2689d8ad5be0cd3e62983bece75c47fc3ee4be7f667bd06864c5",
+      "after": "5a565ee9c5cde9152162fcbd714c96c9fce264e00e286518f71ba157b9c91d23",
+      "owner": "workshop-property-presentation",
+      "reason": "用户要求Web与Scene展示细节一致；复用共享原生布局/滚动条，保留Web条件label和value的既有身份，只新增展示文本。",
+      "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
     }
   ]
 }

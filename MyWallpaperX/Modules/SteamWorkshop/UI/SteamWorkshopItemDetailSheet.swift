@@ -834,8 +834,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         case .scene:
             sceneInspectionController.requestPropertyEditor(for: record)
         case .web:
-            SteamWorkshopPropertyPanelController.shared.show(title: "Web 属性调节", subtitle: record.title,
-                content: SteamWorkshopWebPropertyEditorView(record: record))
+            let editor = SteamWorkshopWebPropertyEditorView(record: record)
+            if editor.presentsOnlyMessage, let message = editor.emptyStateMessage {
+                SteamWorkshopPropertyPanelController.shared.showMessage(title: "Web 属性调节", subtitle: record.title, message: message)
+            } else {
+                SteamWorkshopPropertyPanelController.shared.show(title: "Web 属性调节", subtitle: record.title, content: editor)
+            }
         case .video:
             let text = label("视频壁纸没有作者可调属性。音量、播放速度及播放方式使用应用的播放设置。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0)
             SteamWorkshopPropertyPanelController.shared.show(title: "Video 属性", subtitle: record.title, content: text)

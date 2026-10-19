@@ -28,7 +28,8 @@ struct SteamWorkshopScenePropertyContext {
         self.effectiveValues = effectiveValues
         let prepared = Self.editorDefinitions(
             in: catalog.definitions,
-            actionableKeys: self.actionableKeys
+            actionableKeys: self.actionableKeys,
+            localization: propertyDisplayLocalization
         )
         definitions = prepared.definitions
         conditionPrograms = prepared.programs
@@ -48,7 +49,8 @@ struct SteamWorkshopScenePropertyContext {
 
     private static func editorDefinitions(
         in definitions: [SceneUserPropertyDefinition],
-        actionableKeys: Set<String>
+        actionableKeys: Set<String>,
+        localization: WorkshopPropertyLocalization
     ) -> (
         definitions: [SceneUserPropertyDefinition],
         programs: [String: SteamWorkshopService.WebDisplayConditionProgram]
@@ -62,13 +64,17 @@ struct SteamWorkshopScenePropertyContext {
             if let group { groups[index] = group }
         }
         var selected: Set<Int> = []
+        let displayResolver = WorkshopPropertyDisplayResolver(localization: localization)
         var pending: [Int] = []
         func include(_ index: Int) {
             guard selected.insert(index).inserted else { return }
             pending.append(index)
         }
         for (index, definition) in definitions.enumerated() {
+            let authoredSeparator = (definition.kind == .text || definition.kind == .group)
+                && WorkshopPropertyTextContent(markup: displayResolver.string(definition.title)).segments.contains(.separator)
             if definition.kind == .unsupported
+                || authoredSeparator
                 || (definition.kind == .text && definition.runtimeType.isEmpty)
                 || (actionableKeys.contains(definition.key)
                 && (supportsEditorControl(definition.kind) || definition.kind == .text)) {
@@ -326,7 +332,12 @@ extension SteamWorkshopService {
             callbackPropertyKeys: callbackKeys, sourceIdentity: prepared.sourceIdentity,
             propertyDisplayLocalization: prepared.propertyDisplayLocalization)
         let catalog = context.catalog
-        return context.actionableDefinitions.isEmpty && catalog.unsupportedDefinitions.isEmpty ? nil : context
+        let displayResolver = WorkshopPropertyDisplayResolver(localization: context.propertyDisplayLocalization)
+        let hasAuthoredContent = context.definitions.contains {
+            ($0.kind == .text || $0.kind == .group)
+                && !WorkshopPropertyTextContent(markup: displayResolver.string($0.title)).isEmpty
+        }
+        return context.actionableDefinitions.isEmpty && catalog.unsupportedDefinitions.isEmpty && !hasAuthoredContent ? nil : context
     }
 
     func shouldDisplaySceneProperty(

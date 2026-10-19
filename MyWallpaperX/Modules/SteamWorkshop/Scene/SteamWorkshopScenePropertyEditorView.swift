@@ -2,11 +2,6 @@ import AppKit
 import Combine
 import UniformTypeIdentifiers
 
-@MainActor
-protocol WorkshopPropertyKeyTraversal: AnyObject {
-    func focusNextPropertyControl(from responder: NSResponder?, reverse: Bool) -> Bool
-}
-
 /// Projects the prepared catalog; persistence and runtime updates stay in the service.
 @MainActor
 final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSource, NSCollectionViewDelegateFlowLayout, WorkshopPropertyKeyTraversal {
@@ -17,9 +12,12 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private var overrides: [String: SceneUserPropertyValue]
     private let list = NSCollectionView()
     private let flowLayout = NSCollectionViewFlowLayout()
-    private let scrollView = InspectorFadingScrollView(fadeRatio: 0)
+    private let scrollView = WorkshopPropertyScrollView()
+    private let reset = NSButton(title: "恢复默认", target: nil, action: nil)
+    private lazy var resetRow = WorkshopPropertyPanelLayout.resetRow(reset)
     private var subscription: AnyCancellable?
     private var titles: [Int: String] = [:]
+    private var titleContents: [Int: WorkshopPropertyTextContent] = [:]
     private var optionLabels: [Int: [String]] = [:]
     private var dependentRows: [String: Set<Int>] = [:]
     private var valueRows: [String: Set<Int>] = [:]
@@ -85,98 +83,65 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         guard width > 0, abs(width - measuredWidth) > 0.5 else { return }
         measuredWidth = width
         for (index, title) in titles {
-            let kind = context.definitions[index].kind
-            let isLabel = kind == .text || kind == .group || kind == .unsupported
-            let font = NSFont.systemFont(ofSize: isLabel ? 12 : 13,
-                weight: kind == .group ? .semibold : .regular)
-            let rect = (title as NSString).boundingRect(
-                with: NSSize(width: Self.titleWidth(for: kind, rowWidth: width), height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: font])
-            let controlsHeight: CGFloat = switch kind {
-            case .slider, .textInput, .combo: 34
-            case .sceneTexture: 62
-            default: 0
-            }
-            heights[index] = max(isLabel ? 30 : 40, ceil(rect.height) + 18 + controlsHeight)
+            heights[index] = WorkshopPropertyRowView.height(
+                style: Self.rowStyle(for: context.definitions[index].kind), content: titleContents[index] ?? .init(text: title), rowWidth: width)
         }
         flowLayout.invalidateLayout()
     }
 
-    private static func titleWidth(for kind: SceneUserPropertyKind, rowWidth: CGFloat) -> CGFloat {
-        max(1, rowWidth - ((kind == .bool || kind == .color) ? 68 : 8))
+    private static func rowStyle(for kind: SceneUserPropertyKind) -> WorkshopPropertyRowView.Style {
+        switch kind {
+        case .text, .unsupported: .note
+        case .group: .group
+        case .bool, .color: .inline
+        case .combo: .choice
+        case .sceneTexture: .resource
+        case .slider, .textInput: .stacked
+        }
     }
 
     private func setupList() {
-        let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetProperties))
-        reset.bezelStyle = .rounded
-        reset.controlSize = .small
-        reset.image = NSImage(systemSymbolName: "arrow.counterclockwise", accessibilityDescription: nil)
-        reset.imagePosition = .imageLeading
+        reset.target = self
+        reset.action = #selector(resetProperties)
         reset.toolTip = "恢复这个 Scene 壁纸的默认属性"
         reset.isHidden = !context.hasEditorControls
-        reset.translatesAutoresizingMaskIntoConstraints = false
         textureStatus.font = .systemFont(ofSize: 11)
         textureStatus.textColor = .secondaryLabelColor
         textureStatus.setAccessibilityIdentifier("scene-texture-update-status")
         textureStatus.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textureStatus.isHidden = true
-        let header = NSStackView(views: [reset, textureStatus])
-        header.orientation = .vertical
-        header.alignment = .trailing
-        header.spacing = 4
-        header.detachesHiddenViews = true
-        header.translatesAutoresizingMaskIntoConstraints = false
-        let separator = NSBox()
-        separator.boxType = .separator
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        let scroller = PropertyScroller()
-        scroller.isHidden = true
-        scrollView.verticalScroller = scroller
-        scrollView.hasHorizontalScroller = false
-        flowLayout.minimumLineSpacing = 6
+        flowLayout.minimumLineSpacing = WorkshopPropertyPanelLayout.rowSpacing
         flowLayout.minimumInteritemSpacing = 0
         flowLayout.scrollDirection = .vertical
+        flowLayout.headerReferenceSize = NSSize(width: 1, height: context.hasEditorControls ? 40 + WorkshopPropertyPanelLayout.rowSpacing : 0)
         list.collectionViewLayout = flowLayout
         list.backgroundColors = [.clear]
         list.isSelectable = false
         list.dataSource = self
         list.delegate = self
+        list.register(NSView.self, forSupplementaryViewOfKind: NSCollectionView.elementKindSectionHeader, withIdentifier: .init("reset"))
         for kind in Set(context.definitions.map { $0.kind.rawValue }) {
             list.register(PropertyItem.self, forItemWithIdentifier: .init(kind))
         }
         scrollView.documentView = list
-        addSubview(header)
-        addSubview(separator)
-        addSubview(scrollView)
-        NSLayoutConstraint.activate([
-            header.leadingAnchor.constraint(equalTo: leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: trailingAnchor),
-            header.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separator.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
-            scrollView.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 4),
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
+        WorkshopPropertyPanelLayout.install(in: self, status: textureStatus, scrollView: scrollView)
     }
 
     private func prepareRows() {
         let displayResolver = WorkshopPropertyDisplayResolver(localization: context.propertyDisplayLocalization)
         for (index, definition) in context.definitions.enumerated() {
+            var content = WorkshopPropertyTextContent(markup: displayResolver.string(definition.title))
             if definition.kind == .unsupported {
                 let status = definition.runtimeType.isEmpty ? "缺少类型" : "不支持的类型：\(definition.runtimeType)"
-                titles[index] = "\(displayText(displayResolver.string(definition.title)) ?? "未命名属性")\n\(status)"
+                if content.isEmpty { content = .init(text: "未命名属性") }
+                content = content.appendingLine(status)
             } else if definition.kind == .group || definition.kind == .text {
-                guard let text = displayText(displayResolver.string(definition.title)) else { continue }
-                titles[index] = text
-            } else {
-                titles[index] = displayText(displayResolver.string(definition.title)) ?? "未命名属性"
+                guard !content.isEmpty else { continue }
+            } else if content.isEmpty {
+                content = .init(text: "未命名属性")
             }
+            titles[index] = content.text
+            titleContents[index] = content
             optionLabels[index] = definition.options.map {
                 displayText(displayResolver.string($0.label)) ?? $0.label
             }
@@ -285,6 +250,19 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     }
 
     func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int { visibleRows.count }
+
+    func collectionView(_ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
+                        at indexPath: IndexPath) -> NSView {
+        let header = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: .init("reset"), for: indexPath)
+        if resetRow.superview !== header {
+            header.addSubview(resetRow)
+            NSLayoutConstraint.activate([
+                resetRow.leadingAnchor.constraint(equalTo: header.leadingAnchor), resetRow.trailingAnchor.constraint(equalTo: header.trailingAnchor),
+                resetRow.topAnchor.constraint(equalTo: header.topAnchor)
+            ])
+        }
+        return header
+    }
 
     func focusNextPropertyControl(from responder: NSResponder?, reverse: Bool) -> Bool {
         let view = (responder as? NSTextView)?.delegate as? NSView ?? responder as? NSView
@@ -469,7 +447,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         clearTextureStatus()
     }
 
-    private final class PropertyCell: NSView, NSTextFieldDelegate {
+    private final class PropertyCell: WorkshopPropertyRowView, NSTextFieldDelegate {
         private weak var editor: SteamWorkshopScenePropertyEditorView?
         private var index: Int?
         private var generation: UInt64 = 0
@@ -478,8 +456,6 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         private var sliderSession: Session?
         private var colorSession: Session?
         private let kind: SceneUserPropertyKind
-        private let title = NSTextField(wrappingLabelWithString: "")
-        private let content = NSStackView()
         private var slider: WorkshopPropertySlider?
         private var summary: NSTextField?
         private var toggle: NSButton?
@@ -500,52 +476,10 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
 
         init(kind: SceneUserPropertyKind) {
             self.kind = kind
-            super.init(frame: .zero)
-            let isLabel = kind == .text || kind == .group || kind == .unsupported
-            title.font = .systemFont(ofSize: isLabel ? 12 : 13,
-                weight: kind == .group ? .semibold : .regular)
-            title.textColor = isLabel ? .secondaryLabelColor : .labelColor
-            title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            title.translatesAutoresizingMaskIntoConstraints = false
-            content.orientation = .horizontal
-            content.alignment = .centerY
-            content.spacing = 8
-            content.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(title)
-            if isLabel {
-                NSLayoutConstraint.activate([
-                    title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-                    title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-                    title.centerYAnchor.constraint(equalTo: centerYAnchor)])
-            } else {
-                addSubview(content)
-                let inline = kind == .bool || kind == .color
-                NSLayoutConstraint.activate([
-                    title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-                    content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4)])
-                if inline {
-                    NSLayoutConstraint.activate([
-                        title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -64),
-                        title.centerYAnchor.constraint(equalTo: centerYAnchor),
-                        content.widthAnchor.constraint(equalToConstant: 44),
-                        content.centerYAnchor.constraint(equalTo: centerYAnchor)])
-                } else {
-                    NSLayoutConstraint.activate([
-                        title.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-                        title.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-                        content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-                        content.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
-                        content.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8)])
-                }
-                setupControl()
-            }
+            super.init(style: SteamWorkshopScenePropertyEditorView.rowStyle(for: kind))
+            if kind != .text && kind != .group && kind != .unsupported { setupControl() }
         }
         required init?(coder: NSCoder) { nil }
-
-        override func layout() {
-            title.preferredMaxLayoutWidth = SteamWorkshopScenePropertyEditorView.titleWidth(for: kind, rowWidth: bounds.width)
-            super.layout()
-        }
 
         override func viewWillMove(toWindow newWindow: NSWindow?) {
             if window != nil && newWindow == nil { cancelEditing() }
@@ -643,7 +577,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 self.editor = editor
                 self.index = index
             }
-            self.title.stringValue = title
+            self.title.setPresentation(editor.titleContents[index] ?? .init(text: title))
             toggle?.setAccessibilityLabel(title)
             toggle?.state = value?.boolValue == true ? .on : .off
             slider?.setAccessibilityLabel(title)
@@ -810,14 +744,4 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         WorkshopPropertyDisplayResolver.plainText(rawText)
     }
 
-    private final class PropertyScroller: NSScroller {
-        override class var isCompatibleWithOverlayScrollers: Bool { true }
-        override class func scrollerWidth(for controlSize: NSControl.ControlSize, scrollerStyle: NSScroller.Style) -> CGFloat { 0 }
-        // Keep vertical scrolling enabled for NSCollectionView's content sizing,
-        // but never let its scrollbar cover the trailing property controls.
-        override var isHidden: Bool {
-            get { super.isHidden }
-            set { super.isHidden = true }
-        }
-    }
 }

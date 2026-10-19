@@ -1,5 +1,43 @@
 import Foundation
 
+/// Display structure only. Separators never become property values or conditions.
+nonisolated struct WorkshopPropertyTextContent: Equatable, Sendable {
+    enum Segment: Equatable, Sendable { case text(String), separator }
+    let segments: [Segment]
+    init(segments: [Segment]) { self.segments = segments }
+    init(text: String) { segments = text.isEmpty ? [] : [.text(text)] }
+    init(markup: String) {
+        let source = markup.replacingOccurrences(of: "(?is)<(script|style)\\b[^>]*>.*?</\\1\\s*>",
+            with: "", options: .regularExpression)
+            .replacingOccurrences(of: "(?s)<!--.*?-->", with: "", options: .regularExpression)
+        let regex = Self.separatorPattern
+        var result: [Segment] = []
+        var start = source.startIndex
+        for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)) {
+            guard let range = Range(match.range, in: source) else { continue }
+            if let text = WorkshopPropertyDisplayResolver.plainText(String(source[start..<range.lowerBound])) {
+                result.append(.text(text))
+            }
+            result.append(.separator)
+            start = range.upperBound
+        }
+        if let text = WorkshopPropertyDisplayResolver.plainText(String(source[start...])) { result.append(.text(text)) }
+        segments = result
+    }
+    private static let separatorPattern = try! NSRegularExpression(pattern: #"(?i)<hr(?=[\s/>])(?:[^<>"']|"[^"]*"|'[^']*')*>"#)
+    var isEmpty: Bool { segments.isEmpty }
+    var text: String { segments.compactMap { if case let .text(value) = $0 { value } else { nil } }.joined(separator: "\n") }
+    func appendingLine(_ line: String) -> Self {
+        var updated = segments
+        if case let .text(last)? = updated.last {
+            updated[updated.count - 1] = .text(last + "\n" + line)
+        } else {
+            updated.append(.text(line))
+        }
+        return Self(segments: updated)
+    }
+}
+
 /// Loss-preserving, display-only author declaration. No runtime property values.
 nonisolated struct WorkshopPropertyLocalization: Equatable, Sendable {
     let flat: [String: String]?

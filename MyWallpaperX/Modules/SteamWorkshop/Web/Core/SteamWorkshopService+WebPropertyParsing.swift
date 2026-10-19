@@ -105,27 +105,36 @@ extension SteamWorkshopService {
 
     nonisolated static func webPropertyOptions(
         from rawValue: Any?,
-        localization: [String: String]
+        localization: [String: String],
+        displayResolver: WorkshopPropertyDisplayResolver
     ) -> [SteamWorkshopWebPropertyOption] {
         if let array = rawValue as? [[String: Any]] {
             return array.compactMap { option in
                 guard let value = webPropertyValue(from: option["value"]) else { return nil }
-                let label = localizedWebString((option["label"] as? String) ?? (option["text"] as? String) ?? "\(value)", localization: localization)
+                let label = (option["label"] as? String) ?? (option["text"] as? String) ?? "\(value)"
                 let condition = (option["condition"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-                return SteamWorkshopWebPropertyOption(label: label, value: value, displayCondition: condition)
+                return webPropertyOption(label: label, value: value, condition: condition, localization: localization, resolver: displayResolver)
             }
         }
         if let dictionary = rawValue as? [String: Any] {
             return dictionary.compactMap { key, value in
                 guard let normalized = webPropertyValue(from: value) else { return nil }
-                return SteamWorkshopWebPropertyOption(label: localizedWebString(key, localization: localization), value: normalized, displayCondition: nil)
+                return webPropertyOption(label: key, value: normalized, condition: nil, localization: localization, resolver: displayResolver)
             }
             .sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
         }
         if let array = rawValue as? [String] {
-            return array.map { SteamWorkshopWebPropertyOption(label: localizedWebString($0, localization: localization), value: .string($0), displayCondition: nil) }
+            return array.map { webPropertyOption(label: $0, value: .string($0), condition: nil, localization: localization, resolver: displayResolver) }
         }
         return []
+    }
+
+    private nonisolated static func webPropertyOption(label: String, value: SteamWorkshopWebPropertyValue,
+        condition: String?, localization: [String: String], resolver: WorkshopPropertyDisplayResolver) -> SteamWorkshopWebPropertyOption {
+        var option = SteamWorkshopWebPropertyOption(label: localizedWebString(label, localization: localization),
+            value: value, displayCondition: condition)
+        option.displayLabel = localizedWebPropertyDisplayString(label, resolver: resolver)
+        return option
     }
 }
 

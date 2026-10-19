@@ -22,8 +22,10 @@ extension SteamWorkshopService {
         switch definition.kind {
         case .label:
             return isMeaningfulWebPropertyStaticText(definition.title)
+                || WorkshopPropertyTextContent(markup: definition.displayTitleMarkup ?? definition.title).segments.contains(.separator)
         case .group:
             return isMeaningfulWebPropertyGroupTitle(definition.title)
+                || WorkshopPropertyTextContent(markup: definition.displayTitleMarkup ?? definition.title).segments.contains(.separator)
         case .unknown:
             return false
         case .slider, .color, .toggle, .text, .combo, .file, .directory:

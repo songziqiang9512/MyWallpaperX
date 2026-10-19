@@ -11,7 +11,12 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
     private let service = SteamWorkshopService.shared
     private let record: SteamWorkshopDownloadRecord
     private let contentStack = NSStackView()
-    private let scrollView = InspectorFadingScrollView(fadeRatio: 0)
+    private let scrollView = WorkshopPropertyScrollView()
+    private let reset = NSButton(title: "恢复默认", target: nil, action: nil)
+    private lazy var resetRow = WorkshopPropertyPanelLayout.resetRow(reset)
+    private(set) var emptyStateMessage: String?
+    var presentsOnlyMessage: Bool { reset.isHidden && emptyStateMessage != nil }
+    private let emptyMessage = NSTextField(wrappingLabelWithString: "")
     /// 当前在树行控件的 action target（rebuild 时随控件一并退役）：
     /// 「恢复默认」需要先冲刷它们的挂起颜色，否则 reset 后 0.6s 去抖/deinit
     /// 会把旧值重新提交，部分回滚恢复默认。
@@ -22,22 +27,26 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
         contentStack.orientation = .vertical
         contentStack.alignment = .leading
-        contentStack.spacing = 12
+        contentStack.spacing = WorkshopPropertyPanelLayout.rowSpacing
         contentStack.translatesAutoresizingMaskIntoConstraints = false
         let document = PropertyDocumentView()
         document.translatesAutoresizingMaskIntoConstraints = false
         document.addSubview(contentStack)
         scrollView.documentView = document
-        addSubview(scrollView)
+        setContentHuggingPriority(.defaultLow, for: .vertical)
+        reset.target = self
+        reset.action = #selector(resetProperties)
+        reset.toolTip = "恢复这个 Web 壁纸的默认属性"
+        WorkshopPropertyPanelLayout.install(in: self, scrollView: scrollView)
+        emptyMessage.alignment = .center
+        emptyMessage.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(emptyMessage)
         NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            emptyMessage.centerXAnchor.constraint(equalTo: centerXAnchor),
+            emptyMessage.centerYAnchor.constraint(equalTo: centerYAnchor),
+            emptyMessage.widthAnchor.constraint(equalTo: widthAnchor),
             document.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
             contentStack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
             contentStack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
@@ -47,8 +56,14 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         rebuild()
     }
     required init?(coder: NSCoder) { nil }
+    override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 400) }
 
     private func rebuild(preservingScrollPosition: Bool = true) {
+        defer {
+            emptyMessage.stringValue = emptyStateMessage ?? ""
+            emptyMessage.isHidden = emptyStateMessage == nil
+            scrollView.isHidden = emptyStateMessage != nil
+        }
         let origin = scrollView.contentView.bounds.origin
         // 提交触发的全量重建会销毁所有行控件；正在被键盘/VoiceOver 调节的滑块以
         // definition.key 为 identifier，重建后据此恢复第一响应者，连续调节不中断。
@@ -64,8 +79,10 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         // 依赖销毁时序：reset 路径的 pending 已提前废弃，普通 rebuild 的
         // deinit 冲刷兜底与批十三语义一致。
         actionTargets.removeAll()
+        emptyStateMessage = nil
         guard let descriptor = service.resolvedWebProjectDescriptor(for: record) else {
-            contentStack.addArrangedSubview(label("当前壁纸的属性暂不可用，请先完成依赖下载。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0))
+            reset.isHidden = true
+            emptyStateMessage = "当前壁纸的属性暂不可用，\n请先完成依赖下载。"
             return
         }
         let values = service.effectiveWebPropertyValues(for: record, descriptor: descriptor)
@@ -73,23 +90,28 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             service.shouldRenderWebPropertyControl($0, staticContentSummary: descriptor.staticContentSummary)
                 && service.shouldDisplayWebProperty($0, values: values, definitions: descriptor.propertyDefinitions)
         }
-        let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetProperties))
-        reset.bezelStyle = .rounded
-        reset.controlSize = .small
-        reset.image = NSImage(systemSymbolName: "arrow.counterclockwise", accessibilityDescription: nil)
-        reset.imagePosition = .imageLeading
-        let resetRow = NSStackView(views: [spacer(), reset])
-        resetRow.orientation = .horizontal
-        contentStack.addArrangedSubview(resetRow)
-        resetRow.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
+        reset.isHidden = !descriptor.propertyDefinitions.contains {
+            $0.kind != .label && $0.kind != .group
+                && service.shouldRenderWebPropertyControl($0, staticContentSummary: descriptor.staticContentSummary)
+        }
         if definitions.isEmpty {
-            contentStack.addArrangedSubview(label("作者没有提供可调节的属性。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0))
+            emptyStateMessage = "当前 Web 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
         }
         for definition in definitions {
+            if (definition.kind == .label || definition.kind == .group) && displayContent(definition).isEmpty { continue }
             let row = webPropertyControl(definition: definition, value: values[definition.key] ?? definition.defaultValue,
                 visibleOptions: service.visibleWebPropertyOptions(for: definition, values: values, definitions: descriptor.propertyDefinitions), record: record)
             contentStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
+        }
+        if !reset.isHidden {
+            // Conditions may hide their own controller. Defaults must remain
+            // reachable even when the current projection has no author rows.
+            emptyStateMessage = nil
+            contentStack.insertArrangedSubview(resetRow, at: 0)
+            resetRow.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
+        } else if contentStack.arrangedSubviews.isEmpty {
+            emptyStateMessage = "当前 Web 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
         }
         layoutSubtreeIfNeeded()
         if preservingScrollPosition { scrollView.contentView.scroll(to: origin) }
@@ -131,29 +153,39 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         visibleOptions: [SteamWorkshopWebPropertyOption],
         record: SteamWorkshopDownloadRecord
     ) -> NSView {
-        if definition.kind == .group || definition.kind == .label {
-            return controlView(definition: definition, value: value, visibleOptions: visibleOptions, record: record, summaryLabel: nil)
+        let style: WorkshopPropertyRowView.Style = switch definition.kind {
+        case .label: .note
+        case .group: .group
+        case .toggle, .color: .inline
+        case .combo: .choice
+        case .file, .directory: .resource
+        default: .stacked
         }
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 16
+        let row = WorkshopPropertyRowView(style: style)
         row.translatesAutoresizingMaskIntoConstraints = false
-        let title = label(definition.title, font: .systemFont(ofSize: 13), color: .labelColor, lines: 0)
-        let summary = definition.kind == .slider ? label(valueSummary(value, definition: definition), font: .monospacedDigitSystemFont(ofSize: 11, weight: .regular), color: .secondaryLabelColor, lines: 1) : nil
-        let control = controlView(definition: definition, value: value, visibleOptions: visibleOptions, record: record, summaryLabel: summary)
+        row.title.setPresentation(displayContent(definition))
+        guard definition.kind != .label && definition.kind != .group else { return row }
+        let summary = definition.kind == .slider ? label(valueSummary(value, definition: definition),
+            font: .monospacedDigitSystemFont(ofSize: 11, weight: .regular), color: .secondaryLabelColor, lines: 1) : nil
+        let control = controlView(definition: definition, value: value, visibleOptions: visibleOptions,
+            record: record, summaryLabel: summary)
         control.translatesAutoresizingMaskIntoConstraints = false
         control.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        control.setAccessibilityLabel(definition.title)
-        row.addArrangedSubview(title)
-        if definition.kind == .toggle { row.addArrangedSubview(spacer()) }
-        row.addArrangedSubview(control)
-        if let summary { row.addArrangedSubview(summary) }
-        title.widthAnchor.constraint(equalToConstant: 112).isActive = true
-        if summary == nil && definition.kind != .toggle {
-            control.widthAnchor.constraint(equalTo: row.widthAnchor, constant: -128).isActive = true
+        control.setAccessibilityLabel(row.title.stringValue)
+        if definition.kind == .toggle { row.content.addArrangedSubview(spacer()) }
+        row.content.addArrangedSubview(control)
+        if let summary {
+            summary.widthAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
+            row.content.addArrangedSubview(summary)
         }
         return row
+    }
+
+    private func displayContent(_ definition: SteamWorkshopWebPropertyDefinition) -> WorkshopPropertyTextContent {
+        let content = definition.displayTitleMarkup.map { WorkshopPropertyTextContent(markup: $0) }
+            ?? definition.displayTitle.map { WorkshopPropertyTextContent(text: $0) }
+            ?? WorkshopPropertyTextContent(markup: WorkshopPropertyDisplayResolver().string(definition.title))
+        return content.isEmpty && definition.kind != .label && definition.kind != .group ? .init(text: "未命名属性") : content
     }
 
     private func controlView(
@@ -172,6 +204,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
                                            target: target,
                                            action: #selector(WebPropertyActionTarget.sliderChanged(_:)))
             slider.isContinuous = true
+            slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
             slider.identifier = NSUserInterfaceItemIdentifier(definition.key)
             slider.translatesAutoresizingMaskIntoConstraints = false
             slider.onTrackingEnded = { [weak target] slider in
@@ -189,6 +222,8 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             return checkbox
         case .combo:
             let popup = NSPopUpButton()
+            popup.lineBreakMode = .byTruncatingTail
+            popup.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             if visibleOptions.isEmpty {
                 popup.addItem(withTitle: "当前没有可选项")
                 popup.isEnabled = false
@@ -200,7 +235,9 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
                     popup.selectItem(at: 0)
                 }
                 visibleOptions.forEach { option in
-                    let item = NSMenuItem(title: option.label, action: nil, keyEquivalent: "")
+                    let display = option.displayLabel ?? WorkshopPropertyDisplayResolver.plainText(
+                        WorkshopPropertyDisplayResolver().string(option.label)) ?? option.label
+                    let item = NSMenuItem(title: display, action: nil, keyEquivalent: "")
                     item.representedObject = option.id as NSString
                     popup.menu?.addItem(item)
                     if option.value == value {
@@ -222,29 +259,32 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             row.orientation = .vertical
             row.alignment = .trailing
             row.spacing = 8
-            let buttonRow = NSStackView()
-            buttonRow.orientation = .horizontal
-            buttonRow.spacing = 10
-            let choose = NSButton(title: definition.kind == .directory ? "选择文件夹" : "选择文件", target: nil, action: nil)
+            let path = value.stringValue ?? ""
+            let name = label(path.isEmpty ? (definition.kind == .directory ? "未选择文件夹" : "未选择文件") : URL(fileURLWithPath: path).lastPathComponent,
+                font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 1)
+            name.lineBreakMode = .byTruncatingMiddle
+            let buttons = NSStackView()
+            buttons.orientation = .horizontal
+            buttons.spacing = 8
+            let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
+            let choose = NSButton(title: definition.kind == .directory ? "选择文件夹" : "选择文件", target: target,
+                action: #selector(WebPropertyActionTarget.choosePath(_:)))
             choose.bezelStyle = .rounded
             choose.controlSize = .small
-            let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
-            choose.target = target
-            choose.action = #selector(WebPropertyActionTarget.choosePath(_:))
+            choose.image = NSImage(systemSymbolName: definition.kind == .directory ? "folder.badge.plus" : "photo.badge.plus", accessibilityDescription: nil)
+            choose.imagePosition = .imageLeading
             retainActionTarget(target, for: choose)
-            buttonRow.addArrangedSubview(spacer())
-            buttonRow.addArrangedSubview(choose)
-            if !(value.stringValue ?? "").isEmpty {
-                let clear = NSButton(title: "清空", target: target, action: #selector(WebPropertyActionTarget.clearPath(_:)))
-                clear.bezelStyle = .rounded
-                clear.controlSize = .small
-                buttonRow.addArrangedSubview(clear)
+            if !path.isEmpty {
+                let clear = NSButton(title: "", target: target, action: #selector(WebPropertyActionTarget.clearPath(_:)))
+                clear.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: "清空选择")
+                clear.isBordered = false
+                clear.toolTip = "清空当前选择"
+                buttons.addArrangedSubview(clear)
             }
-            row.addArrangedSubview(buttonRow)
-            row.addArrangedSubview(textField(textValue(value, definition: definition), placeholder: definition.kind == .directory ? "选择目录路径" : "选择文件路径", target: target, action: #selector(WebPropertyActionTarget.textChanged(_:))))
-            for child in row.arrangedSubviews {
-                child.widthAnchor.constraint(equalTo: row.widthAnchor).isActive = true
-            }
+            buttons.addArrangedSubview(choose)
+            row.addArrangedSubview(name)
+            row.addArrangedSubview(buttons)
+            name.widthAnchor.constraint(lessThanOrEqualTo: row.widthAnchor).isActive = true
             return row
         case .label, .group:
             return label(definition.title, font: definition.kind == .group ? .systemFont(ofSize: 13, weight: .semibold) : .systemFont(ofSize: 12), color: .labelColor, lines: 0)
@@ -252,7 +292,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             return colorControl(value: value, definition: definition, record: record, summaryLabel: summaryLabel)
         case .text, .unknown:
             let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
-            return textField(textValue(value, definition: definition), placeholder: definition.title, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
+            return textField(textValue(value, definition: definition), placeholder: displayContent(definition).text, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
         }
     }
 
@@ -262,35 +302,19 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         record: SteamWorkshopDownloadRecord,
         summaryLabel: NSTextField?
     ) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 10
-        row.translatesAutoresizingMaskIntoConstraints = false
-
         let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
         let colorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 42, height: 26))
+        colorWell.supportsAlpha = false
         colorWell.color = color(from: value.stringValue ?? definition.defaultValue.stringValue ?? "0 0 0")
         colorWell.target = target
         colorWell.action = #selector(WebPropertyActionTarget.colorChanged(_:))
         colorWell.translatesAutoresizingMaskIntoConstraints = false
         retainActionTarget(target, for: colorWell)
-        row.addArrangedSubview(colorWell)
-
-        let field = textField(
-            textValue(value, definition: definition),
-            placeholder: "R G B",
-            target: target,
-            action: #selector(WebPropertyActionTarget.textChanged(_:))
-        )
-        target.textField = field
-        row.addArrangedSubview(field)
-
         NSLayoutConstraint.activate([
             colorWell.widthAnchor.constraint(equalToConstant: 42),
             colorWell.heightAnchor.constraint(equalToConstant: 26)
         ])
-        return row
+        return colorWell
     }
 
     private func retainActionTarget(_ target: WebPropertyActionTarget, for control: NSControl) {
@@ -407,7 +431,6 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         let definition: SteamWorkshopWebPropertyDefinition
         let visibleOptions: [SteamWorkshopWebPropertyOption]
         weak var summaryLabel: NSTextField?
-        weak var textField: NSTextField?
         private var pendingColorString: String?
         private var colorPanelCloseObserver: NSObjectProtocol?
         private var pendingColorCommitWorkItem: DispatchWorkItem?
@@ -478,7 +501,6 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             observeColorPanelCloseIfNeeded()
             pendingColorString = colorString
             summaryLabel?.stringValue = view?.valueSummary(.string(colorString), definition: definition) ?? colorString
-            textField?.stringValue = colorString
             view?.updateWebProperty(.string(colorString), definition: definition, record: record, preview: true)
             schedulePendingColorCommit()
         }

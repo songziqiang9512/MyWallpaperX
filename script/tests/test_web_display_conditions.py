@@ -355,7 +355,10 @@ class SceneDisplayConditionProjectionTests(unittest.TestCase):
         cls.binary = directory / "scene-condition"
         subprocess.run(
             [swiftc, *map(str, SWIFT_SOURCES), str(scene / "SceneUserProperty.swift"),
-             str(scene / "SceneUserPropertyDefinitionParser.swift"), str(bridge), str(harness),
+             str(scene / "SceneUserPropertyDefinitionParser.swift"),
+             str(REPOSITORY_ROOT / "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift"),
+             str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift"),
+             str(bridge), str(harness),
              "-module-cache-path", str(directory / "cache"), "-o", str(cls.binary)],
             check=True, capture_output=True, text=True,
         )

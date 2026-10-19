@@ -60,9 +60,9 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         (window as? PropertyPanel)?.keyTraversal = content as? WorkshopPropertyKeyTraversal
         let body = NSStackView()
         body.orientation = .vertical
-        // The body absorbs spare height instead of stretching the header.
-        // Keep the work title above either an editor or a centered message.
-        body.distribution = .gravityAreas
+        // The title keeps its natural height; the editor fills the remaining
+        // window instead of stopping at its 400pt intrinsic height.
+        body.distribution = .fill
         body.setHuggingPriority(.defaultLow, for: .vertical)
         body.alignment = .leading
         body.spacing = 6
@@ -74,6 +74,11 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         itemTitle.setContentHuggingPriority(.required, for: .vertical)
         itemTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         body.addArrangedSubview(itemTitle)
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.heightAnchor.constraint(equalToConstant: 1).isActive = true
+        separator.setAccessibilityIdentifier("property-header-separator")
+        body.addArrangedSubview(separator)
         let contentHost: NSView
         if centersContent {
             contentHost = NSView()
@@ -83,7 +88,7 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
             contentHost = content
         }
         body.addArrangedSubview(contentHost)
-        for child in [itemTitle, contentHost] {
+        for child in [itemTitle, separator, contentHost] {
             child.translatesAutoresizingMaskIntoConstraints = false
             child.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
         }

@@ -59,7 +59,8 @@ struct SteamWorkshopService { __WEB_METHODS__ }
         facts["fixture-loads-real-standard-vocabulary"] = WorkshopPropertyDisplayResolver().string("ui_close") != "ui_close"
         func webInputs(_ localization: [String: String]) -> SteamWorkshopService.WebDisplayConditionInputs {
             let options = SteamWorkshopService.webPropertyOptions(
-                from: [["label": "ui_close", "value": 0]], localization: localization)
+                from: [["label": "ui_close", "value": 0]], localization: localization,
+                displayResolver: .init(localization: .init(flat: localization)))
             let definition = SteamWorkshopWebPropertyDefinition(key: "mode", title: "Own mode", kind: .combo,
                 runtimeType: "combo", order: 0, minimumValue: nil, maximumValue: nil,
                 allowsFractionalValues: false, fractionalPrecision: nil, displayCondition: nil,
@@ -78,6 +79,43 @@ struct SteamWorkshopService { __WEB_METHODS__ }
             && authoredWeb.values["mode"] == .number(0)
             && SteamWorkshopService.WebDisplayConditionProgram("mode.value == 0").evaluate(inputs: rawWeb)
             && SteamWorkshopService.WebDisplayConditionProgram("mode.value == 0").evaluate(inputs: authoredWeb)
+        let fullTitle = "English title<br/>English help<br/>作者中文标题<br/>中文说明"
+        let parsed = SteamWorkshopService.webPropertyDefinitions(projectRoot: ["general": [
+            "localization": ["own_title": fullTitle], "properties": [
+                "renamed": ["type": "combo", "text": "own_title", "value": "raw-value", "options": [
+                    ["label": "ui_close", "value": "raw-value"]]],
+                "empty_decoration": ["type": "text", "text": "<img src='https://invalid.example/image.png'>"],
+                "pure_rule": ["type": "text", "text": "<hr data-style='author'/>"]
+            ]]])
+        let full = parsed.first { $0.key == "renamed" }!
+        facts["web-display-markup-preserved-separately"] = full.displayTitleMarkup == fullTitle
+        facts["web-full-author-title-survives-parser"] = full.displayTitle == "English title\nEnglish help\n作者中文标题\n中文说明"
+        facts["web-display-option-keeps-condition-label"] = full.options.first?.label == "ui_close"
+            && full.options.first?.displayLabel == WorkshopPropertyDisplayResolver().string("ui_close")
+            && full.options.first?.value == .string("raw-value")
+        facts["web-decoration-does-not-become-key-title"] = parsed.first { $0.key == "empty_decoration" }?.displayTitle == ""
+        let rule = parsed.first { $0.key == "pure_rule" }!
+        facts["web-parser-retains-rule-only-markup"] = WorkshopPropertyTextContent(markup: rule.displayTitleMarkup!).segments == [.separator]
+        let encoded = try JSONEncoder().encode(full)
+        let decoded = try JSONDecoder().decode(SteamWorkshopWebPropertyDefinition.self, from: encoded)
+        facts["web-cache-roundtrip-preserves-display-and-original-inputs"] = decoded == full
+            && decoded.displayTitle == full.displayTitle && decoded.options.first?.label == "ui_close"
+        var legacy = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        legacy.removeValue(forKey: "displayTitle")
+        legacy.removeValue(forKey: "displayTitleMarkup")
+        legacy["options"] = (legacy["options"] as! [[String: Any]]).map { raw in
+            var option = raw; option.removeValue(forKey: "displayLabel"); return option
+        }
+        let old = try JSONDecoder().decode(SteamWorkshopWebPropertyDefinition.self,
+            from: JSONSerialization.data(withJSONObject: legacy))
+        facts["web-legacy-display-fields-are-optional"] = old.displayTitle == nil && old.displayTitleMarkup == nil
+            && old.options.first?.displayLabel == nil && old.options.first?.value == .string("raw-value")
+        facts["authored-rules-preserve-order"] = WorkshopPropertyTextContent(markup: "Before<HR data-style='a'/>中文<hr>After").segments
+            == [.text("Before"), .separator, .text("中文"), .separator, .text("After")]
+        facts["script-style-and-encoded-rules-are-not-rendered-as-rules"] = WorkshopPropertyTextContent(
+            markup: "<script>bad<hr></script><style>bad<hr></style><!-- hidden<hr> -->&lt;hr&gt;").segments == [.text("<hr>")]
+        facts["rule-only-text-survives"] = WorkshopPropertyTextContent(markup: "<hr />").segments == [.separator]
+        facts["rule-attributes-can-contain-quoted-greater-than"] = WorkshopPropertyTextContent(markup: "<HR title='x > y' />").segments == [.separator]
         let work = URL(fileURLWithPath: CommandLine.arguments[2])
         let raw: [String: Any] = ["type": "scene", "general": ["localization": languageTables, "properties": [
             "renamed_key": ["type": "combo", "text": token, "value": "ui_hidden_original", "condition": "gate.value == true",
@@ -130,11 +168,20 @@ class WorkshopPropertyDisplayLocalizationTests(unittest.TestCase):
     def test_resolver_web_interfaces_and_real_project_import(self):
         normalization = NORMALIZATION.read_text()
         signatures = ['    nonisolated static func webProjectLocalization(',
-            '    nonisolated static func localizedWebString(', '    nonisolated static func wallpaperEngineLanguageCode(',
+            '    nonisolated static func localizedWebString(',
+            '    nonisolated static func localizedWebPropertyDisplayString(',
+            '    nonisolated static func wallpaperEngineLanguageCode(',
             '    nonisolated static func normalizedWebDisplayText(', '    private nonisolated static func normalizedWebDisplaySegments(',
             '    private nonisolated static func collapseRepeatedWebDisplaySegments(',
             '    nonisolated static func normalizedWebPropertyTitleText(']
-        source = PROBE.replace('__WEB_METHODS__', '\n'.join(method_body(normalization, s) for s in signatures))
+        methods = [method_body(normalization, s) for s in signatures]
+        methods.extend(method_body(normalization, s) for s in [
+            '    nonisolated static func normalizedWebDirectoryMode(',
+            '    nonisolated static func normalizedWebPropertyFileType('])
+        definitions = NORMALIZATION.with_name('SteamWorkshopService+WebPropertyDefinitions.swift').read_text()
+        methods.extend(method_body(definitions, s) for s in [
+            '    nonisolated static func webPropertyDefinitions(', '    nonisolated static func trimmedNonEmptyString('])
+        source = PROBE.replace('__WEB_METHODS__', '\n'.join(methods))
         with tempfile.TemporaryDirectory(prefix='mwx-property-display-') as directory:
             work = Path(directory)
             (work / RESOURCE.name).write_bytes(RESOURCE.read_bytes())

@@ -17,6 +17,7 @@ extension SteamWorkshopService {
         }
 
         let localization = Self.webProjectLocalization(from: root)
+        let displayResolver = WorkshopPropertyDisplayResolver(localization: .init(flat: localization))
         var definitions: [SteamWorkshopWebPropertyDefinition] = []
         for (key, rawValue) in properties {
             guard let propertyObject = rawValue as? [String: Any] else {
@@ -48,8 +49,7 @@ extension SteamWorkshopService {
             let value = Self.webPropertyValue(from: propertyObject["value"]) ?? .string("")
             let rawTitle = Self.trimmedNonEmptyString(propertyObject["text"] as? String)
 
-            definitions.append(
-                SteamWorkshopWebPropertyDefinition(
+            var definition = SteamWorkshopWebPropertyDefinition(
                     key: key,
                     title: Self.webPropertyTitle(
                         key: key,
@@ -74,10 +74,14 @@ extension SteamWorkshopService {
                     defaultValue: value,
                     options: Self.webPropertyOptions(
                         from: propertyObject["options"] ?? propertyObject["values"],
-                        localization: localization
+                        localization: localization, displayResolver: displayResolver
                     )
-                )
             )
+            let displayTitle = propertyObject["text"] as? String
+                ?? ((kind == .label || kind == .group) ? "" : definition.title)
+            definition.displayTitle = Self.localizedWebPropertyDisplayString(displayTitle, resolver: displayResolver)
+            definition.displayTitleMarkup = displayResolver.string(displayTitle)
+            definitions.append(definition)
         }
 
         return definitions.sorted {

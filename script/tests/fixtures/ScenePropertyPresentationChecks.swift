@@ -70,10 +70,17 @@
                     precondition(frame.minX >= -1 && frame.maxX <= cell.bounds.width + 1, "control escaped narrow property row")
                     precondition(frame.minY >= -1 && frame.maxY <= cell.bounds.height + 1, "control clipped by row height")
                 }
-                if [0, 2, 3].contains(row) {
+                if [0, 3].contains(row) {
                     let controls = descendants(cell, NSControl.self).filter { $0 !== title }
-                    precondition(controls.allSatisfy { $0.convert($0.bounds, to: cell).maxY <= title.frame.minY - 6 },
+                    let titleRect = title.convert(title.bounds, to: cell)
+                    precondition(controls.allSatisfy { $0.convert($0.bounds, to: cell).maxY <= titleRect.minY - 6 },
                         "complex controls must sit below the full-width author label")
+                }
+                if row == 2 {
+                    let popup = descendants(cell, NSPopUpButton.self).first!
+                    let frame = popup.convert(popup.bounds, to: cell)
+                    precondition(abs(frame.midY - title.convert(title.bounds, to: cell).midY) < 1,
+                        "choice must stay beside its full multiline title")
                 }
             }
             window.contentView = nil; window.close()

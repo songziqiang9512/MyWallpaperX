@@ -3,7 +3,7 @@ import Foundation
 // 纯数据值类型：清单在后台线程解码/编码（detached 段），不随服务类的
 // default-MainActor 隔离。
 nonisolated struct SteamWorkshopWebAnalysisCacheManifest: Codable, Equatable {
-    static let currentVersion = 15
+    static let currentVersion = 17
 
     let version: Int
     let recordID: String

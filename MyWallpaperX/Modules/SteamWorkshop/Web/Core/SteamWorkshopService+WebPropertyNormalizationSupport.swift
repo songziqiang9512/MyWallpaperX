@@ -97,6 +97,10 @@ extension SteamWorkshopService {
             localization: .init(flat: localization), vocabulary: .empty).string(raw))
     }
 
+    nonisolated static func localizedWebPropertyDisplayString(_ raw: String, resolver: WorkshopPropertyDisplayResolver) -> String {
+        WorkshopPropertyDisplayResolver.plainText(resolver.string(raw)) ?? ""
+    }
+
     static func resolvedWebWallpaperLanguage() -> String {
         let preferredLanguage = Locale.preferredLanguages.first ?? Locale.current.identifier
         return wallpaperEngineLanguageCode(for: preferredLanguage)

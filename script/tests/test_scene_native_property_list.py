@@ -18,9 +18,17 @@ STUBS = r'''
 import AppKit
 import Combine
 struct SteamWorkshopDownloadRecord { let id: String; let title: String }
+struct ResolvedWebStaticContentSummary {
+    let referencesSchemeColorUserProperty = false
+    let hasUncertainUserPropertyUsage = true
+}
+@MainActor final class SceneDaemonClient {
+    static let shared = SceneDaemonClient()
+    func preparedCallbackPropertyKeys(for recordID: String, source: ScenePreparedCallbackPropertyReachability.Source?) -> Set<String> { [] }
+}
 struct NativeWebDescriptor {
     let propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
-    let staticContentSummary = 0
+    let staticContentSummary = ResolvedWebStaticContentSummary()
 }
 @MainActor final class PickerProbe: NSOpenPanel {
     static var opened: [PickerProbe] = []
@@ -83,18 +91,22 @@ struct NativeWebDescriptor {
     var webDescriptor: NativeWebDescriptor?
     var webValues: [String: SteamWorkshopWebPropertyValue] = [:]
     var webEvents: [(String, SteamWorkshopWebPropertyValue)] = []
+    var webPreviews: [(String, SteamWorkshopWebPropertyValue)] = []
+    var webResetCount = 0
     func resolvedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> NativeWebDescriptor? { webDescriptor }
     func effectiveWebPropertyValues(for record: SteamWorkshopDownloadRecord, descriptor: NativeWebDescriptor) -> [String: SteamWorkshopWebPropertyValue] { webValues }
-    func shouldRenderWebPropertyControl(_ definition: SteamWorkshopWebPropertyDefinition, staticContentSummary: Int) -> Bool { true }
-    func shouldDisplayWebProperty(_ definition: SteamWorkshopWebPropertyDefinition,
-                                 values: [String: SteamWorkshopWebPropertyValue], definitions: [SteamWorkshopWebPropertyDefinition]) -> Bool { true }
     func visibleWebPropertyOptions(for definition: SteamWorkshopWebPropertyDefinition,
                                    values: [String: SteamWorkshopWebPropertyValue], definitions: [SteamWorkshopWebPropertyDefinition]) -> [SteamWorkshopWebPropertyOption] { definition.options }
-    func resetWebPropertyValues(for record: SteamWorkshopDownloadRecord) {}
+    func resetWebPropertyValues(for record: SteamWorkshopDownloadRecord) {
+        webResetCount += 1
+        webValues = Dictionary(uniqueKeysWithValues: (webDescriptor?.propertyDefinitions ?? []).map { ($0.key, $0.defaultValue) })
+    }
     func previewWebPropertyValue(_ value: SteamWorkshopWebPropertyValue, for definition: SteamWorkshopWebPropertyDefinition,
-                                 record: SteamWorkshopDownloadRecord) {}
+                                 record: SteamWorkshopDownloadRecord) { webPreviews.append((definition.key, value)) }
     func updateWebPropertyValue(_ value: SteamWorkshopWebPropertyValue, for definition: SteamWorkshopWebPropertyDefinition,
-                                record: SteamWorkshopDownloadRecord) { webEvents.append((definition.key, value)) }
+                                record: SteamWorkshopDownloadRecord) {
+        webEvents.append((definition.key, value)); webValues[definition.key] = value
+    }
     static func effectiveWebSliderPrecision(for definition: SteamWorkshopWebPropertyDefinition) -> Int? { definition.fractionalPrecision }
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { overrides }
     func updateScenePropertyValue(_ value: SceneUserPropertyValue, definition: SceneUserPropertyDefinition,
@@ -353,7 +365,7 @@ extension NSCollectionView {
                 let cell = list.realizedCell(row)
                 let labels = descendants(cell, NSTextField.self)
                 precondition(labels.count == 1 && labels[0].stringValue == expected && !labels[0].isEditable,
-                    "unknown row must preserve the author title and explain its actual type")
+                    "unknown row \(row) must preserve the author title and explain its actual type: \(labels.map(\.stringValue)) expected \(expected)")
                 precondition(descendants(cell, NSButton.self).isEmpty && descendants(cell, NSSlider.self).isEmpty
                     && descendants(cell, NSColorWell.self).isEmpty && descendants(cell, NSPopUpButton.self).isEmpty,
                     "unknown type names must not infer an editing or resource control")
@@ -693,11 +705,22 @@ enum InspectorHostActions {
         owner.show(title: "Scene 属性调节", subtitle: "own", content: editor)
         let window = owner.window!
         window.contentView!.layoutSubtreeIfNeeded()
+        print("hosted Scene geometry", window.contentView!.bounds, editor.bounds)
+        precondition(editor.bounds.height > window.contentView!.bounds.height - 140,
+            "hosted Scene editor must use the available window height, not stop at its 400pt intrinsic height")
         window.recalculateKeyViewLoop()
         func descendants<T: NSView>(_ view: NSView, _ kind: T.Type) -> [T] {
             (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants($0, kind) }
         }
         let list = descendants(editor, NSCollectionView.self).first!
+        let headerSeparator = descendants(window.contentView!, NSBox.self).first {
+            $0.accessibilityIdentifier() == "property-header-separator"
+        }!
+        precondition(!headerSeparator.isHiddenOrHasHiddenAncestor)
+        let viewport = descendants(editor, NSScrollView.self).first!
+        let viewportRect = viewport.convert(viewport.bounds, to: window.contentView!)
+        precondition(viewportRect.minY < 30 && viewport.frame.height == editor.bounds.height,
+            "Scene scroll viewport must reach the bottom inset of the actual panel")
         func control<T: NSView>(_ row: Int, _ kind: T.Type) -> T {
             list.scrollToItems(at: [IndexPath(item: row, section: 0)], scrollPosition: .nearestHorizontalEdge)
             list.layoutSubtreeIfNeeded(); window.displayIfNeeded()
@@ -714,7 +737,11 @@ enum InspectorHostActions {
         window.selectPreviousKeyView(nil)
         precondition(window.firstResponder is NSTextView)
         let last = control(definitions.count - 1, NSTextField.self)
-        let lastInput = descendants(last.superview!, NSTextField.self).first { $0.isEditable }!
+        var lastCell = last.superview!
+        while !(lastCell is WorkshopPropertyRowView) { lastCell = lastCell.superview! }
+        let lastInput = descendants(lastCell, NSTextField.self).first { $0.isEditable }!
+        precondition(list.visibleRect.contains(lastCell.convert(lastCell.bounds, to: list)),
+            "last Scene row must fully enter the scroll viewport")
         precondition(window.makeFirstResponder(lastInput))
         precondition(!editor.focusNextPropertyControl(from: window.firstResponder, reverse: false),
             "last row must return ownership to the original window key loop")
@@ -723,7 +750,7 @@ enum InspectorHostActions {
         precondition(!editor.focusNextPropertyControl(from: window.firstResponder, reverse: true),
             "first row must return ownership to the original window key loop")
         let chrome = descendants(window.contentView!, NSButton.self).filter { !$0.isDescendant(of: list) }
-        precondition(chrome.count == 2)
+        precondition(chrome.count == 1, "reset belongs to the scrollable list, only close remains in chrome")
         // AppKit's native canBecomeKeyView still uses the real system preference,
         // independently of the public getter above. This fixture proves projection
         // and delegation, not system-setting full-access chrome traversal.
@@ -754,7 +781,8 @@ enum InspectorHostActions {
                                  "all sparse rows must be visible")
                     return sparseList.collectionViewLayout!.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame
                 }
-                precondition(frames[0].minY < 8 && zip(frames, frames.dropFirst()).allSatisfy { first, second in first.maxY <= second.minY + 0.5 },
+                let expectedTop: CGFloat = sparseContext.hasEditorControls ? 40 + WorkshopPropertyPanelLayout.rowSpacing : 0
+                precondition(abs(frames[0].minY - expectedTop) < 1 && zip(frames, frames.dropFirst()).allSatisfy { first, second in first.maxY <= second.minY + 0.5 },
                              "two/three authored rows must start at the top and follow their natural order")
                 let firstRect = window.contentView!.convert(frames[0], from: sparseList)
                 precondition(firstRect.maxY > window.frame.height - 180,
@@ -846,6 +874,9 @@ LOCALIZATION_HARNESS = r'''
 
 
 class NativeScenePropertyListTests(unittest.TestCase):
+    def test_web_scene_shared_property_presentation(self):
+        self.run_probe((ROOT / "script/tests/fixtures/WebPropertyPresentationChecks.swift").read_text())
+
     def test_authored_paragraphs_types_and_narrow_layout(self):
         self.run_probe((ROOT / "script/tests/fixtures/ScenePropertyPresentationChecks.swift").read_text())
 
@@ -866,9 +897,13 @@ class NativeScenePropertyListTests(unittest.TestCase):
         context = SERVICE.read_text().split('\nextension SteamWorkshopService {', 1)[0]
         service = SERVICE.read_text()
         normalization = NORMALIZATION.read_text()
+        web = (MODULE / 'Web/Core/SteamWorkshopService+WebProperties.swift').read_text()
         methods = [
             method_body(service, '    func shouldDisplaySceneProperty('),
             method_body(service, '    func visibleScenePropertyOptions('),
+            method_body(service, '    func projectedScenePropertyContext('),
+            method_body(web, '    func shouldRenderWebPropertyControl('),
+            method_body(web, '    nonisolated func shouldDisplayWebProperty('),
         ]
         names = ['normalizedWebPropertyTitleText', 'normalizedWebDisplayText', 'normalizedWebDisplaySegments',
                  'collapseRepeatedWebDisplaySegments', 'parseWebColorComponents', 'normalizeWebColorTriplet', 'parseHexWebColor']
@@ -890,9 +925,11 @@ class NativeScenePropertyListTests(unittest.TestCase):
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift',
                        MODULE / 'Web/Core/SteamWorkshopWebPropertyModels.swift',
+                       MODULE / 'Web/Core/SteamWorkshopService+WebPropertyControlSupport.swift',
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift',
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
+                       ROOT / 'MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift',
                        MODULE / 'UI/SteamWorkshopWebPropertyEditorView.swift',
                        MODULE / 'UI/WorkshopPropertySlider.swift', editor, path]
             binary = Path(folder) / 'Probe'
@@ -901,6 +938,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn('Unable to simultaneously satisfy constraints', result.stderr)
             print(result.stdout.strip())
 
 

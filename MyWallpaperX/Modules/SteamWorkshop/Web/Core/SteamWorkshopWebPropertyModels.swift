@@ -98,6 +98,8 @@ nonisolated struct SteamWorkshopWebPropertyOption: Identifiable, Codable, Equata
     let label: String
     let value: SteamWorkshopWebPropertyValue
     let displayCondition: String?
+    // Display only. `label` remains the existing Combo.text condition input.
+    var displayLabel: String? = nil
 
     var id: String { "\(label)|\(value)" }
 }
@@ -117,6 +119,8 @@ nonisolated struct SteamWorkshopWebPropertyDefinition: Identifiable, Codable, Eq
     let fileType: String?
     let defaultValue: SteamWorkshopWebPropertyValue
     let options: [SteamWorkshopWebPropertyOption]
+    var displayTitle: String? = nil
+    var displayTitleMarkup: String? = nil
 
     var id: String { key }
 }
