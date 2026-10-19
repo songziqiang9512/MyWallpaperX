@@ -7,12 +7,12 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Activation.swift'
+LAUNCH_MODELS = SOURCE.with_name('SceneDesktopWallpaperLaunchModels.swift')
 HARNESS = r'''
 import AppKit
 import Foundation
 final class SceneTextureDecodeCacheBudget {}
 final class SceneFirstFramePresentationRegistration { let requestID=UUID() }
-enum SceneDesktopWallpaperHostLaunchError: Error { case firstFrameFailed, firstFrameTimeout }
 final class SceneScriptLocalStorageSession {
     func retirePersistence() {}
     func activatePersistence(replacing: SceneScriptLocalStorageSession?) {}
@@ -62,10 +62,7 @@ final class SceneDesktopWallpaperSession {
     var requestResourcesReleasedHandler:((UUID)->Void)?
     var candidatePromotion:(requestID:UUID,promote:()->Void)?
     var unconfirmedPromotion:(requestID:UUID,previous:SceneDesktopWallpaperSession?)?
-    enum Phase { case preparing, cancelled, failed }
-    struct State { let requestID:UUID;let recordID:String?;let phase:Phase;let message:String }
-    var launchState:State?
-    func publishLaunchState(_ state:State) { launchState=state }
+    var launchState:SceneWallpaperLaunchState?
     func cancelPendingLaunch() { discardCandidate() }
     var paused=false
     func configure(_ session:SceneDesktopWallpaperSession) {session.paused=paused}
@@ -77,7 +74,7 @@ final class SceneDesktopWallpaperSession {
         var outcomes:[Bool]=[]
         func begin() throws -> SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
-            host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparing,message:"")
+            host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
             try host.beginCandidate(.init(),firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
@@ -191,7 +188,7 @@ class SceneSessionActivationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='mwx-session-activation-') as temp:
             root=Path(temp); main=root/'main.swift'; main.write_text(HARNESS)
             binary=root/'test'
-            compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),'-o',str(binary)],capture_output=True,text=True)
+            compiled=subprocess.run(['xcrun','swiftc','-parse-as-library',str(main),str(SOURCE),str(LAUNCH_MODELS),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             result=json.loads(subprocess.check_output([str(binary)],text=True))
             for name,passed in result.items():

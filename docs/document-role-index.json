@@ -235,6 +235,19 @@
       ]
     },
     {
+      "path": "docs/history/cross-topic/playback-preparation-convergence-2026-10-19.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/web/web-project-json-runtime-model.md",
+        "docs/web/dedicated-host-process-design.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-19",
+      "uniqueValue": "准备收敛P1–P5原设计、噪声STOP与用户成本/复杂度修订取舍；只保留已证授权/早退出/取消/局部投影，不重开旧缓存/DTO方案。"
+    },
+    {
       "path": "docs/history/cross-topic/project-wide-review-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
@@ -486,10 +499,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6fddfc92267a20ed04949d0cd08cef86941c677ebf3a643472c155344ff4c76f",
+        "sourceSHA256": "e2051523e1ec13e0bc6892074001b216a6ea9f7484076e074024d2a487643a65",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded DEBUG actual Timeline Program and selected surface inputs; detailed design belongs to existing on-demand diagnostic contract and323 trajectory stays open.",
-        "limitations": "CPU parser/DTO/runtime/resolver only; native qualifies actual Program. No pose/world, exact PNG frame join, same-phase parity, visual fix or performance claim."
+        "scope": "Current Web grants/cache rejection/recovery and Scene cooperative cancellation boundaries documented at existing owners.",
+        "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
       }
     },
     {
@@ -3620,13 +3633,13 @@
       "role": "active-plan",
       "entrypoint": "docs/web/README.md",
       "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "19a4dbc763c22ae200210cf5ca17d5f01e5321b179b66d78191ca238840edfe3",
+        "sourceSHA256": "412aed942c70627c8ea8b791772789b8b6eca04088a3f406c54dc303428b8641",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
-        "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
+        "scope": "Current Web grants/cache rejection/recovery and Scene cooperative cancellation boundaries documented at existing owners.",
+        "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
       }
     },
     {
@@ -3677,10 +3690,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7006b970be21757d0eee88a4ec407fe5b9d576dd9b8ecd4d77aa7313b29a800d",
+        "sourceSHA256": "2936de623187ee7eec38b297b23ff4e338d040e5ce244a24ee202bc15d6429c7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核稳定合同角色、Web入口及current-state权威链接；核对原始project保留与descriptor/runtime/context分层的导航。",
-        "limitations": "仅文档职责与导航复核；未重新验收Web兼容、作者效果、真实运行或启动性能。"
+        "scope": "Current Web grants/cache rejection/recovery and Scene cooperative cancellation boundaries documented at existing owners.",
+        "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
       }
     },
     {

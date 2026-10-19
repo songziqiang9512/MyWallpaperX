@@ -286,7 +286,8 @@ extension SceneDesktopWallpaperHost {
         progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
-            propertyOverrides: propertyOverrides
+            propertyOverrides: propertyOverrides,
+            checkCancellation: { try cancellation?.check() }
         )
 #if DEBUG
         let modelBuildMs = (CACurrentMediaTime() - prepareEntry) * 1_000

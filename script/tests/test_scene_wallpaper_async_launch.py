@@ -94,7 +94,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.prepared_device_resources = PREPARED_DEVICE_RESOURCES.read_text(
             encoding="utf-8"
         )
-        cls.metal_view = METAL_VIEW.read_text(encoding="utf-8")
+        cls.metal_view = METAL_VIEW.read_text(encoding="utf-8") + "\n" + METAL_VIEW.with_name("SceneMetalView+Debug.swift").read_text(encoding="utf-8")
         cls.metal_renderer = read_source_family(METAL_RENDERER)
         cls.renderer_diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
         cls.text_loader = TEXT_LOADER.read_text(encoding="utf-8")
@@ -202,7 +202,61 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn("@autoclosure () -> String", self.metal_view)
         self.assertIn("@autoclosure () -> [String]", self.metal_view)
         self.assertIn("if report.isEnabled", load)
-        self.assertIn("recordsDiagnostics: report.isEnabled", load)
+        # Execute the actual conditional input in both configurations. This
+        # checks the Release value and lazy summary rather than their spelling.
+        start = load.index("#if DEBUG")
+        branch = load[start:load.index("#endif", start) + len("#endif")]
+        buffer = "struct SceneStartupReportBuffer " + function_body(
+            self.metal_view, "struct SceneStartupReportBuffer"
+        )
+        harness = r'''
+        import Foundation
+        enum SceneRenderDescriptor { struct Layer {} }
+        final class Renderer {
+            var summaries = 0
+            func effectRuntimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
+                summaries += 1
+                return "effect"
+            }
+        }
+        @main enum Check {
+            static func main() {
+                let renderer = Renderer()
+                let logURLs: [URL?] = [nil, URL(fileURLWithPath: "/unused-report")]
+                for logURL in logURLs {
+        ''' + branch + r'''
+        #if DEBUG
+                    report.append("probe")
+                    precondition(recordsDiagnostics == (logURL != nil))
+                    let previousSummaries = renderer.summaries
+                    precondition(textEffectSummary(.init()) == "effect")
+                    precondition(renderer.summaries == previousSummaries + 1)
+        #else
+                    precondition(!recordsDiagnostics)
+                    precondition(textEffectSummary(.init()) == nil)
+                    precondition(renderer.summaries == 0)
+        #endif
+                }
+                print("launch-diagnostic-input-pass")
+            }
+        }
+        '''
+        for debug in [False, True]:
+            with self.subTest(debug=debug), tempfile.TemporaryDirectory(prefix="mwx-launch-input-") as raw:
+                directory = Path(raw)
+                source = directory / "Check.swift"
+                source.write_text("#if DEBUG\n" + buffer + "\n#endif\n" + harness)
+                binary = directory / "check"
+                command = ["xcrun", "swiftc", "-parse-as-library", "-O"]
+                if debug:
+                    command += ["-D", "DEBUG"]
+                command += [str(source), "-o", str(binary)]
+                compiled = subprocess.run(command, capture_output=True, text=True)
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                executed = subprocess.run([str(binary)], capture_output=True, text=True)
+                self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
+                self.assertIn("launch-diagnostic-input-pass", executed.stdout)
+        self.assertIn("recordsDiagnostics: recordsDiagnostics", load)
         self.assertGreaterEqual(self.text_loader.count("if recordsDiagnostics"), 2)
         self.assertIn("renderer.installResolvedMaterialExecutionEvidence()", load)
         self.assertIn("installExecutionEvidence(", install)

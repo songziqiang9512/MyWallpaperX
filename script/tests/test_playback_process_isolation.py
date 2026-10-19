@@ -35,7 +35,7 @@ import Foundation
             payload: WebDaemonCommand.launch(.init(request, state: state, hosts: ["example.com"]))))
         let decoded = try JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: data)
         guard case let .launch(launch) = decoded.payload else { fatalError("launch roundtrip") }
-        expect(decoded.requestID == id && decoded.version == 1, "envelope identity")
+        expect(decoded.requestID == id && decoded.version == 2, "envelope identity")
         expect(launch.request(id: id).propertiesJSON == request.propertiesJSON
             && launch.state.paused && launch.state.playbackRate == 1.25, "immutable launch roundtrip")
         expect(launch.request(id: id).resourceLifetime == nil, "leases stay in parent")
@@ -396,7 +396,9 @@ final class WallpaperEngine {
             types = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift").read_text()
             prefix = "import Foundation\nclass WallpaperEngine {}\nfinal class PlaybackResourceLifetime {}\n"
             # The endpoint's real value declarations, without constructing WKWebView.
-            (directory / "Types.swift").write_text(prefix + source_block(types, "extension WallpaperEngine"))
+            (directory / "Types.swift").write_text(prefix + source_block(types, "struct WebWallpaperResourceGrant")
+                + "\n" + source_block(types, "struct WebWallpaperPropertyUpdate")
+                + "\n" + source_block(types, "extension WallpaperEngine"))
             (directory / "Harness.swift").write_text(HARNESS)
             sources = [
                 "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",

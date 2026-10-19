@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum WebDaemonProtocol {
-    static let version = 1
+    static let version = 2
     static let flag = "--mwx-web-daemon"
     static let maximumFrameBytes = 8 * 1_024 * 1_024
 }
@@ -23,6 +23,9 @@ nonisolated struct WebDaemonLaunch: Codable {
     let entryURL: URL
     let rootURL: URL
     let propertiesJSON: String?
+    let resourceGrants: [WebWallpaperResourceGrant]
+    let propertyRevision: UInt64
+    let resourceRevision: UInt64
     let source: WallpaperEngine.WebWallpaperLaunchSource
     let recordID: String?
     let language: String
@@ -35,6 +38,8 @@ nonisolated struct WebDaemonLaunch: Codable {
          state: WallpaperEngine.WebWallpaperRuntimeState, hosts: Set<String>) {
         entryURL = request.entryURL; rootURL = request.rootURL
         propertiesJSON = request.propertiesJSON; source = request.source
+        resourceGrants = request.resourceGrants; propertyRevision = request.propertyRevision
+        resourceRevision = request.resourceRevision
         recordID = request.recordID; language = request.language
         profile = request.runtimeProfile; multiDisplayEnabled = request.multiDisplayEnabled
         allowedNetworkHosts = hosts; self.state = state
@@ -43,7 +48,8 @@ nonisolated struct WebDaemonLaunch: Codable {
     func request(id: UUID) -> WallpaperEngine.WebWallpaperLaunchRequest {
         .init(id: id, entryURL: entryURL, rootURL: rootURL,
               propertiesJSON: propertiesJSON, source: source, recordID: recordID,
-              language: language, runtimeProfile: profile, multiDisplayEnabled: multiDisplayEnabled)
+              language: language, runtimeProfile: profile, multiDisplayEnabled: multiDisplayEnabled,
+              resourceGrants: resourceGrants, propertyRevision: propertyRevision, resourceRevision: resourceRevision)
     }
 }
 

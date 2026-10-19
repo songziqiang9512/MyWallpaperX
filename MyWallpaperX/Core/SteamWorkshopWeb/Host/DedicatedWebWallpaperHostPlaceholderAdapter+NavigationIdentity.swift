@@ -47,7 +47,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     ) {
         for surface in Array(surfaces.values) {
             setTransientMouseCaptureEnabled(false, for: surface)
-            surface.schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request.propertiesJSON))
+            surface.schemeHandler.updateResourceGrants(request.resourceGrants)
             surface.window.orderFrontRegardless()
             surface.window.level = surfaceWindowLevel
             loadTrackedNavigation(

@@ -301,7 +301,16 @@ extension SteamWorkshopService {
     func prepareWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackPreparation? {
         if let cachedPlaybackContext = await loadCachedWebPlaybackContext(for: record) {
             guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else { return nil }
-            return ResolvedWebPlaybackPreparation(context: cachedPlaybackContext, descriptor: descriptor)
+            // Disk execution payloads carry no authority. Re-resolve current
+            // bindings/bookmarks even on a valid cached author interpretation.
+            let grants = resolvedWebResourceGrants(for: record, definitions: descriptor.propertyDefinitions,
+                effectiveRootURL: descriptor.effectiveRootURL)
+            let context = ResolvedWebPlaybackContext(recordID: cachedPlaybackContext.recordID,
+                effectiveEntryURL: cachedPlaybackContext.effectiveEntryURL,
+                effectiveRootURL: cachedPlaybackContext.effectiveRootURL,
+                propertyPayloadJSON: cachedPlaybackContext.propertyPayloadJSON,
+                language: cachedPlaybackContext.language, resourceGrants: grants)
+            return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor)
         }
 
         guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else {
@@ -313,13 +322,17 @@ extension SteamWorkshopService {
             definitions: descriptor.propertyDefinitions,
             valuesOverride: effectiveValues
         )
+        let resourceGrants = resolvedWebResourceGrants(for: record,
+            definitions: descriptor.propertyDefinitions, valuesOverride: effectiveValues,
+            effectiveRootURL: descriptor.effectiveRootURL)
         await saveWebRuntimeCache(descriptor: descriptor, propertyPayloadJSON: propertyPayloadJSON, for: record)
         let context = ResolvedWebPlaybackContext(
             recordID: record.id,
             effectiveEntryURL: descriptor.resolvedEntryURL,
             effectiveRootURL: descriptor.effectiveRootURL,
             propertyPayloadJSON: propertyPayloadJSON,
-            language: Self.resolvedWebWallpaperLanguage()
+            language: Self.resolvedWebWallpaperLanguage(),
+            resourceGrants: resourceGrants
         )
         return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor)
     }

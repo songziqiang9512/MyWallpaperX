@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,7 @@ FIXTURE = Path(__file__).with_name("fixtures") / "SceneStaticModelMaterialBindin
 SOURCES = list(dict.fromkeys([
     *schema_fixture.SWIFT_SOURCES,
     *property_fixture.SOURCES,
+    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
     SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialShaderSchema+StaticModelInterface.swift",
     SCENE_ROOT / "Compilation/Material/SceneStaticModelMaterialBindingCompiler.swift",
     SCENE_ROOT / "Resources/Providers/SceneStockNoiseTextureStore.swift",
@@ -116,6 +118,39 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
         self.assertEqual(result["lowercase"]["components"], [[0.8], [0.6, 0.4, 0.2], [3.0]])
         self.assertEqual(result["renamed"]["keys"], ["opacityGain", "surfaceTint", "lightGain"])
         self.assertEqual(result["renamed"]["components"], [[0.35], [0.1, 0.3, 0.9], [2.0]])
+
+    def test_projection_preserves_complete_layout_identity_and_single_field_outputs(self) -> None:
+        result = self.result("schemaProjection")
+        def schema(name: str, material: str, values: list[float], domain=None) -> dict:
+            return {"key": name, "name": name, "materialKeys": [name, material],
+                    "defaultKind": "shader-default",
+                    "defaultBits": [struct.unpack(">Q", struct.pack(">d", value))[0] for value in values],
+                    "defaultKeys": [], "defaultScalarProven": False, "range": domain}
+        expected = sorted([
+            schema("g_TintAlpha", "Alpha", [0.125]),
+            schema("g_TintColor", "Color", [0.25, 0.5, 0.75], [0, 1]),
+            schema("g_Brightness", "Brigtness", [1.75]),
+        ], key=lambda value: value["key"])
+        for name in ["standard", "reversed", "crossStageEqual", "recovered"]:
+            with self.subTest(name=name): self.assertEqual(result[name], expected)
+        abi_names = dict(zip(["g_TintAlpha", "g_TintColor", "g_Brightness"], ["abi_0", "abi_1", "abi_2"]))
+        self.assertEqual(result["abiNames"], [dict(row, name=abi_names[row["key"]]) for row in expected])
+        self.assertEqual(result["arrayLayout"], [dict(row, range=None) if row["key"] == "g_TintColor"
+                                                else row for row in expected])
+        self.assertEqual(result["singleNoRepeat"], [row for row in expected if row["key"] == "g_TintAlpha"])
+        self.assertEqual(result["empty"], [])
+        self.assertEqual(result["changedContract"], [dict(row, defaultBits=[
+            struct.unpack(">Q", struct.pack(">d", 0.75))[0]]) if row["key"] == "g_TintAlpha"
+            else row for row in expected])
+
+    def test_projection_rejects_conflicts_and_bad_metadata_without_cross_call_state(self) -> None:
+        result = self.result("schemaProjection")
+        expected = {"badDefault", "badRange", "keyConflict", "conditional", "crossStageDefault",
+                    "crossStageType", "wrongFieldType", "wrongFieldStage", "duplicateField"}
+        self.assertEqual(set(result["failures"]), expected)
+        for name, value in result["failures"].items():
+            with self.subTest(name=name): self.assertIsNone(value)
+        self.assertEqual(result["recovered"], result["standard"])
 
     def test_unproven_schema_preserves_legacy_and_proven_input_conflict_rejects(self) -> None:
         result = self.result("invalidSchema")

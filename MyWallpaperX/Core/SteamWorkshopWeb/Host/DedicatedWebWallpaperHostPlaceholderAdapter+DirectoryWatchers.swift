@@ -4,7 +4,10 @@ import Darwin
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func startDirectoryWatcher(for propertyName: String, path: String) {
-        let fileDescriptor = open(path, O_EVTONLY)
+        guard let request = currentRequest,
+              let authorized = WebWallpaperResourceGrant.authorizedURL(URL(fileURLWithPath: path), kind: .directory,
+                rootURL: request.rootURL, grants: request.resourceGrants) else { return }
+        let fileDescriptor = open(authorized.path, O_EVTONLY)
         guard fileDescriptor >= 0 else { return }
 
         let source = DispatchSource.makeFileSystemObjectSource(
@@ -42,10 +45,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// 去抖 workItem 都在主队列，cancel 后未开始的 item 不会再执行。
     func pollFetchAllDirectoryProperties() {
         guard phase == .ready || phase == .launching,
-              let propertiesJSON = currentRequest?.propertiesJSON else { return }
+              let request = currentRequest else { return }
+        let requestID = request.id
+        let resourceRevision = request.resourceRevision
         deferredDirectorySyncWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            guard let self, let current = self.currentRequest,
+                  current.id == requestID, current.resourceRevision == resourceRevision,
+                  let propertiesJSON = current.propertiesJSON else { return }
             self.deferredDirectorySyncWorkItem = nil
             self.syncFetchAllDirectoryProperties(using: propertiesJSON)
         }

@@ -123,7 +123,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             language: request.language,
             runtimeProfile: request.runtimeProfile,
             multiDisplayEnabled: multiDisplayEnabled,
-            resourceLifetime: request.resourceLifetime
+            resourceLifetime: request.resourceLifetime,
+            resourceGrants: request.resourceGrants,
+            propertyRevision: request.propertyRevision,
+            resourceRevision: request.resourceRevision
         )
         currentRequest = updatedRequest
         reconcileDisplaySurfaces(for: updatedRequest)
@@ -222,7 +225,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         request: WallpaperEngine.WebWallpaperLaunchRequest
     ) {
         setTransientMouseCaptureEnabled(false, for: surface)
-        surface.schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request.propertiesJSON))
+        surface.schemeHandler.updateResourceGrants(request.resourceGrants)
         surface.window.setFrame(screen.frame, display: true)
         surface.window.collectionBehavior = Self.webWindowCollectionBehavior
         surface.window.level = surfaceWindowLevel
@@ -255,28 +258,33 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             case let .setPlaybackRate(playbackRate):
                 currentPlaybackRate = playbackRate
                 forEachWebView { self.applyPlaybackRate(playbackRate, to: $0) }
-            case let .applyProperties(propertiesJSON):
-                let effectivePropertiesJSON = mergedWebPropertiesJSON(
-                    baseJSON: currentRequest?.propertiesJSON,
-                    deltaJSON: propertiesJSON
+            case let .applyProperties(update):
+                guard let request = currentRequest, update.requestID == request.id,
+                      update.revision > request.propertyRevision,
+                      update.resourceRevision >= request.resourceRevision,
+                      update.resourceGrants == request.resourceGrants || update.resourceRevision > request.resourceRevision else { return }
+                let resourcesChanged = update.resourceRevision != request.resourceRevision
+                let effectivePropertiesJSON = update.propertiesJSON
+                currentRequest = WallpaperEngine.WebWallpaperLaunchRequest(
+                    id: request.id,
+                    entryURL: request.entryURL,
+                    rootURL: request.rootURL,
+                    propertiesJSON: effectivePropertiesJSON,
+                    source: request.source,
+                    recordID: request.recordID,
+                    language: request.language,
+                    runtimeProfile: request.runtimeProfile,
+                    multiDisplayEnabled: request.multiDisplayEnabled,
+                    resourceLifetime: request.resourceLifetime,
+                    resourceGrants: update.resourceGrants,
+                    propertyRevision: update.revision,
+                    resourceRevision: update.resourceRevision
                 )
-                if let request = currentRequest {
-                    currentRequest = WallpaperEngine.WebWallpaperLaunchRequest(
-                        id: request.id,
-                        entryURL: request.entryURL,
-                        rootURL: request.rootURL,
-                        propertiesJSON: effectivePropertiesJSON,
-                        source: request.source,
-                        recordID: request.recordID,
-                        language: request.language,
-                        runtimeProfile: request.runtimeProfile,
-                        multiDisplayEnabled: request.multiDisplayEnabled,
-                        resourceLifetime: request.resourceLifetime
-                    )
+                if resourcesChanged {
+                    refreshReadableResourceRoots(using: effectivePropertiesJSON)
+                    syncFetchAllDirectoryProperties(using: effectivePropertiesJSON)
                 }
-                refreshReadableResourceRoots(using: effectivePropertiesJSON)
-                syncFetchAllDirectoryProperties(using: effectivePropertiesJSON)
-                forEachWebView { self.applyProperties(propertiesJSON, to: $0) }
+                forEachWebView { self.applyProperties(update.propertiesJSON, to: $0) }
             case .stop:
                 let requestID = currentRequest?.id
                 teardownHostSurfaces()

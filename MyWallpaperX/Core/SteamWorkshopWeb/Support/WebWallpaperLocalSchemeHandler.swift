@@ -14,6 +14,15 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         let fileURL: URL
         let didTraverseSymlink: Bool
         let matchedRootPath: String
+        let authorizationGeneration: UInt64
+
+        init(fileURL: URL, didTraverseSymlink: Bool, matchedRootPath: String,
+             authorizationGeneration: UInt64 = 0) {
+            self.fileURL = fileURL
+            self.didTraverseSymlink = didTraverseSymlink
+            self.matchedRootPath = matchedRootPath
+            self.authorizationGeneration = authorizationGeneration
+        }
     }
 
     /// resolve 结果：`resource` 与 `denial` 必有其一。
@@ -85,9 +94,9 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
     let rootURL: URL
     let strictSymlinkPolicy: Bool
     /// 以下共享状态只在 stateLock 内读写；stat/读文件等 IO 一律在锁外。
-    /// `additionalReadableRoots` 只经 `updateAdditionalReadableRoots` 变更。
+    /// `resourceGrants` 只经 `updateResourceGrants` 变更。
     let stateLock = NSLock()
-    var additionalReadableRoots: [URL] = []
+    var resourceGrants: [WebWallpaperResourceGrant] = []
     var readableRootsGeneration: UInt64 = 0
     var resolveCache: [String: CachedResolution] = [:]
     var diagnosticHandler: WebRuntimeDiagnosticHandler?
@@ -108,19 +117,29 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         self.strictSymlinkPolicy = strictSymlinkPolicy
     }
 
-    /// 根集合每次变更都推进代际并丢弃缓存：受控读取判定以 roots 为准，
-    /// 缓存不得跨代际复用。
-    func updateAdditionalReadableRoots(_ urls: [URL]) {
-        let normalizedRoots = Array(
-            Set(
-                urls.map { $0.resolvingSymlinksInPath().standardizedFileURL }
-            )
-        ).sorted { $0.path < $1.path }
+    /// A replacement never accumulates past authority. Equivalent snapshots do
+    /// not interrupt media when an unrelated slider changes.
+    func updateResourceGrants(_ grants: [WebWallpaperResourceGrant]) {
+        let normalized = Array(Set(grants)).sorted {
+            $0.url.path == $1.url.path ? $0.kind.rawValue < $1.kind.rawValue : $0.url.path < $1.url.path
+        }
         stateLock.lock()
-        additionalReadableRoots = normalizedRoots
+        guard resourceGrants != normalized else { stateLock.unlock(); return }
+        resourceGrants = normalized
         readableRootsGeneration &+= 1
         resolveCache.removeAll(keepingCapacity: true)
         stateLock.unlock()
+    }
+
+    /// Cached resolutions and prepared IO must recheck symlink/regular-file
+    /// state and current authority before consuming or publishing bytes.
+    func revalidatedResource(_ resource: ResolvedResource) -> ResolvedResource? {
+        let (grants, generation) = readableRootsSnapshot()
+        guard let authorized = WebWallpaperResourceGrant.authorizedURL(resource.fileURL,
+                rootURL: rootURL, grants: grants), authorized == resource.fileURL,
+              (try? authorized.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { return nil }
+        return ResolvedResource(fileURL: resource.fileURL, didTraverseSymlink: resource.didTraverseSymlink,
+            matchedRootPath: resource.matchedRootPath, authorizationGeneration: generation)
     }
 
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {

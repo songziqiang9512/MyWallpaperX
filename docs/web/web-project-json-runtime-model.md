@@ -66,6 +66,12 @@
   - 属性与 general properties 的宿主 payload
   - 频谱、暂停、音量等运行时桥接所依赖的最小上下文
 
+文件访问授权与属性 payload 分离。只有主 App 已解析的项目/依赖 namespace 和用户书签可产生 typed grant；`file` 精确到文件，`directory` 才允许合法后代。原属性值、未解析路径和作者 sentinel 保留数据语义，不能反向成为授权，也不能为了拒绝访问而清空作者值。磁盘 execution cache 不保存授权，播放前仍由原 binding/bookmark owner 重新解析当前授权。
+
+属性更新整体替换授权快照，request 与资源 revision 同时约束资源读取、random/fetchall 枚举、watcher 和异步结果发布。普通值更新不刷新资源代际；授权改变时，仅撤销实际失去授权的资源，仍获授权的媒体流应继续交付。路径规范化、symlink containment 与 regular-file 检查仍在消费入口执行。
+
+execution 清单先比较已有的版本、作品、语言、项目/来源 metadata、overrides 与入口/资源根字段；失配直接走原重算，避免扫描已确定不能使用的缓存。全部字段匹配后仍实时扫描资源并核对签名和路径存在，不把该早退出规则扩为长期免校验或静态解释保留。
+
 ---
 
 ## 3. 合同对象与最小信息

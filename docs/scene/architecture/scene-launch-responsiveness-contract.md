@@ -85,6 +85,8 @@ launch仅一次投影选层binding的target/type、authored base、composition�
 
 产品状态和持久化当前壁纸只在提交成功后更新。新请求采用 newer-wins；过期准备结果必须在接触 surface、publication 或持久化以前被拒绝。
 
+取消沿原请求 token 在完整同步准备阶段、直接模型和材质 pass 的边界合作检查，不能等完整 ModelBuilder 结束才发现过期。检查放在普通读取失败的 `try?`/catch 之外，原取消错误必须上抛，不得翻译成缺资源或视觉降级。保留每份资源及接口证明，不承诺抢占单次 reader、hash 或 flock；取消后的资源释放仍等待原 preparation 队列尾屏障与 GPU drain，不能为提早响应提前释放租约。
+
 ### 4.2 两阶段准备与提交
 
 ```text

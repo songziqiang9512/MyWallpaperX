@@ -12,6 +12,7 @@ HOST = ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host"
 
 HARNESS = r'''
 import Foundation
+// RESOURCE TYPES
 final class Host {
 // PRODUCT
 }
@@ -21,17 +22,17 @@ func check(_ value: @autoclosure () -> Bool, _ message: String) {
 @main enum Harness {
     static func main() throws {
         let host = Host()
-        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).resolvingSymlinksInPath()
         try Data("must not be disclosed".utf8).write(to: cwd.appendingPathComponent("cwd-secret.txt"))
         func payload(_ path: String, key: String = "slides") throws -> String {
             String(data: try JSONSerialization.data(withJSONObject: [key:
                 ["type":"directory", "mode":"fetchall", "value":path]]), encoding: .utf8)!
         }
         for (index, path) in ["", "  ", "\n\t"].enumerated() {
-            let status = host.directorySyncStatus(forPath: path)
+            let status = host.directorySyncStatus(forPath: path, rootURL: cwd, grants: [])
             check(!status.isAccessible && status.errorMessage == "directory_path_empty", "empty path error")
             check(status.snapshot.filesByPath.isEmpty, "empty path must not expose cwd")
-            let result = host.computeFetchAllDirectorySyncResult(using: try payload(path, key: "renamed\(index)"), previousSnapshots: [:])
+            let result = host.computeFetchAllDirectorySyncResult(using: try payload(path, key: "renamed\(index)"), previousSnapshots: [:], rootURL: cwd, grants: [])
             check(result.snapshotsByProperty.values.allSatisfy { $0.filesByPath.isEmpty }, "empty snapshot")
             check(result.watchedDirectoriesByProperty.isEmpty && !result.hasFetchAllDirectory, "no empty-directory polling")
             check(result.changeNotifications.isEmpty, "no spurious files")
@@ -41,16 +42,22 @@ func check(_ value: @autoclosure () -> Bool, _ message: String) {
         let file = directory.appendingPathComponent("renamed.png")
         try Data([1]).write(to: file)
         let json = try payload(directory.path)
-        let initial = host.computeFetchAllDirectorySyncResult(using: json, previousSnapshots: [:])
+        let initial = host.computeFetchAllDirectorySyncResult(using: json, previousSnapshots: [:], rootURL: cwd, grants: [])
         check(initial.hasFetchAllDirectory && initial.watchedDirectoriesByProperty.count == 1, "selected directory watched")
         check(initial.changeNotifications.first?.addedOrChangedFiles == [file.path], "initial contents")
-        let unchanged = host.computeFetchAllDirectorySyncResult(using: json, previousSnapshots: initial.snapshotsByProperty)
+        let unchanged = host.computeFetchAllDirectorySyncResult(using: json, previousSnapshots: initial.snapshotsByProperty, rootURL: cwd, grants: [])
         check(unchanged.changeNotifications.isEmpty, "unchanged directory sends no duplicate list")
-        let cleared = host.computeFetchAllDirectorySyncResult(using: try payload(""), previousSnapshots: initial.snapshotsByProperty)
+        let alias = cwd.appendingPathComponent("selected-alias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: directory)
+        let aliasResult = host.computeFetchAllDirectorySyncResult(using: try payload(alias.path),
+            previousSnapshots: initial.snapshotsByProperty, rootURL: cwd, grants: [])
+        check(aliasResult.changeNotifications.isEmpty, "legal alias uses same canonical file identity without duplicate notifications")
+        check(aliasResult.watchedDirectoriesByProperty == initial.watchedDirectoriesByProperty, "alias preserves watcher identity")
+        let cleared = host.computeFetchAllDirectorySyncResult(using: try payload(""), previousSnapshots: initial.snapshotsByProperty, rootURL: cwd, grants: [])
         check(cleared.changeNotifications.first?.removedFiles == [file.path], "clearing removes prior contents")
         check(cleared.changeNotifications.first?.addedOrChangedFiles.isEmpty == true, "clearing never adds cwd")
         check(!cleared.hasFetchAllDirectory && cleared.watchedDirectoriesByProperty.isEmpty, "clearing stops polling")
-        let missing = host.computeFetchAllDirectorySyncResult(using: try payload(directory.appendingPathComponent("missing").path), previousSnapshots: [:])
+        let missing = host.computeFetchAllDirectorySyncResult(using: try payload(directory.appendingPathComponent("missing").path), previousSnapshots: [:], rootURL: cwd, grants: [])
         check(missing.hasFetchAllDirectory && missing.watchedDirectoriesByProperty.isEmpty, "missing explicit directory retains retry")
         print("web-directory-sync-pass")
     }
@@ -62,6 +69,9 @@ class WebDirectorySyncTests(unittest.TestCase):
     def test_unset_and_selected_directory_semantics(self):
         types = (HOST / "WebWallpaperHostTypes.swift").read_text()
         source = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+DirectorySync.swift").read_text()
+        resource_types = source_block(types, "struct WebWallpaperResourceGrant")
+        handler = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler.swift").read_text()
+        resource_types += "\nenum WebWallpaperLocalSchemeHandler {\n" + source_block(handler, "class RequestCancellation") + "\n}"
         declarations = [source_block(types, "struct " + name) for name in (
             "DirectorySnapshot", "DirectorySyncStatus", "FetchAllDirectoryProperty",
             "FetchAllDirectoryNotification", "FetchAllDirectoryAccessNotification", "FetchAllDirectorySyncResult")]
@@ -70,7 +80,7 @@ class WebDirectorySyncTests(unittest.TestCase):
             "func directorySyncStatus(")]
         with tempfile.TemporaryDirectory(prefix="mwx-web-directory-sync-") as temporary:
             root = Path(temporary)
-            (root / "Harness.swift").write_text(HARNESS.replace("// PRODUCT", "\n".join(declarations)))
+            (root / "Harness.swift").write_text(HARNESS.replace("// PRODUCT", "\n".join(declarations)).replace("// RESOURCE TYPES", resource_types))
             compile_result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(root / "Harness.swift"),
                 "-o", str(root / "harness")], capture_output=True, text=True, timeout=60)
             self.assertEqual(compile_result.returncode, 0, compile_result.stderr)

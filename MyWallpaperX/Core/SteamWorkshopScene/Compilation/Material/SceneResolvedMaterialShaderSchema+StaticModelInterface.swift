@@ -13,6 +13,13 @@ extension SceneResolvedMaterialShaderSchema {
             contract: contract, explicitCombos: explicitCombos
         ) else { return nil }
         var result: [String: Uniform] = [:]
+        var schemas: [SceneAuthoredShaderUniformLayout.Field: Uniform] = [:]
+        func projectedSchema(_ field: SceneAuthoredShaderUniformLayout.Field) throws -> Uniform {
+            if let cached = schemas[field] { return cached }
+            let schema = try uniformSchema(field, records: records.potential)
+            schemas[field] = schema
+            return schema
+        }
         for field in fields {
             guard field.stage == .fragment else { return nil }
             let matches = records.potential.filter {
@@ -32,14 +39,12 @@ extension SceneResolvedMaterialShaderSchema {
                                   && $0.declaration == record.declaration
                           })
                   }),
-                  let schema = try? uniformSchema(field, records: records.potential) else { return nil }
+                  let schema = try? projectedSchema(field) else { return nil }
             if !vertex.isEmpty {
                 let vertexField = SceneAuthoredShaderUniformLayout.Field(
                     name: field.authoredName, stage: .vertex, type: field.type, offset: 0
                 )
-                guard let vertexSchema = try? uniformSchema(
-                    vertexField, records: records.potential
-                ), vertexSchema.materialKeys == schema.materialKeys,
+                guard let vertexSchema = try? projectedSchema(vertexField), vertexSchema.materialKeys == schema.materialKeys,
                    vertexSchema.defaultValue == schema.defaultValue else { return nil }
             }
             // A potential conditional owner still makes an unconditional key
@@ -58,9 +63,7 @@ extension SceneResolvedMaterialShaderSchema {
                         ?? .float,
                     offset: 0
                 )
-                guard let owner = try? uniformSchema(
-                    other, records: records.potential
-                ), Set(owner.materialKeys).isDisjoint(with: schema.materialKeys) else { return nil }
+                guard let owner = try? projectedSchema(other), Set(owner.materialKeys).isDisjoint(with: schema.materialKeys) else { return nil }
             }
             guard result.updateValue(schema, forKey: field.authoredName) == nil else { return nil }
         }

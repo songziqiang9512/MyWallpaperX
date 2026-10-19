@@ -30,20 +30,24 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func syncFetchAllDirectoryProperties(using propertiesJSON: String) {
+        guard let request = currentRequest, request.propertiesJSON == propertiesJSON else { return }
         directorySyncRequestID &+= 1
         let requestID = directorySyncRequestID
         let previousSnapshots = directorySnapshotsByProperty
+        let cancellation = directoryResourceCancellation
         directorySyncQueue.async { [weak self] in
             guard let self else { return }
             let result = self.computeFetchAllDirectorySyncResult(
                 using: propertiesJSON,
-                previousSnapshots: previousSnapshots
+                previousSnapshots: previousSnapshots,
+                rootURL: request.rootURL, grants: request.resourceGrants, cancellation: cancellation
             )
             DispatchQueue.main.async { [weak self] in
                 guard let self,
                       requestID == self.directorySyncRequestID,
                       self.phase == .ready || self.phase == .launching,
-                      self.currentRequest?.propertiesJSON == propertiesJSON else {
+                      self.currentRequest?.id == request.id,
+                      self.currentRequest?.resourceRevision == request.resourceRevision else {
                     return
                 }
                 self.applyFetchAllDirectorySyncResult(result, previousSnapshots: previousSnapshots)
@@ -53,7 +57,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     func computeFetchAllDirectorySyncResult(
         using propertiesJSON: String,
-        previousSnapshots: [String: DirectorySnapshot]
+        previousSnapshots: [String: DirectorySnapshot],
+        rootURL: URL, grants: [WebWallpaperResourceGrant],
+        cancellation: WebWallpaperLocalSchemeHandler.RequestCancellation? = nil
     ) -> FetchAllDirectorySyncResult {
         guard let properties = parseFetchAllDirectoryProperties(from: propertiesJSON) else {
             let changeNotifications = previousSnapshots.map { propertyName, snapshot in
@@ -85,10 +91,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             let directoryPath = property.path
             // An unselected directory cannot change through filesystem events.
             // Property updates will trigger the next synchronization themselves.
-            hasFetchAllDirectory = hasFetchAllDirectory
-                || !directoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             seenPropertyNames.insert(propertyName)
-            let nextStatus = directorySyncStatus(forPath: directoryPath)
+            let nextStatus = directorySyncStatus(forPath: directoryPath, rootURL: rootURL,
+                grants: grants, cancellation: cancellation)
+            hasFetchAllDirectory = hasFetchAllDirectory || (!directoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && nextStatus.errorMessage != "directory_not_authorized" && cancellation?.isCancelled != true)
             let nextSnapshot = nextStatus.snapshot
             snapshotsByProperty[propertyName] = nextSnapshot
 
@@ -199,7 +206,12 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
     }
 
-    func directorySyncStatus(forPath path: String) -> DirectorySyncStatus {
+    func directorySyncStatus(forPath path: String, rootURL: URL, grants: [WebWallpaperResourceGrant],
+                             cancellation: WebWallpaperLocalSchemeHandler.RequestCancellation? = nil) -> DirectorySyncStatus {
+        guard cancellation?.isCancelled != true else {
+            return DirectorySyncStatus(snapshot: DirectorySnapshot(filesByPath: [:]),
+                isAccessible: false, errorMessage: "directory_request_cancelled")
+        }
         // URL(fileURLWithPath: "") resolves to the process working directory.
         // Reject before URL construction: an unset author property grants no
         // directory and must never enumerate the App/repository/current folder.
@@ -207,7 +219,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             return DirectorySyncStatus(snapshot: DirectorySnapshot(filesByPath: [:]),
                 isAccessible: false, errorMessage: "directory_path_empty")
         }
-        let directoryURL = URL(fileURLWithPath: path)
+        guard let directoryURL = WebWallpaperResourceGrant.authorizedURL(URL(fileURLWithPath: path),
+            kind: .directory, rootURL: rootURL, grants: grants) else {
+            return DirectorySyncStatus(snapshot: DirectorySnapshot(filesByPath: [:]),
+                isAccessible: false, errorMessage: "directory_not_authorized")
+        }
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory) else {
             return DirectorySyncStatus(
@@ -237,10 +253,16 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
         var filesByPath: [String: TimeInterval] = [:]
         for case let url as URL in enumerator {
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey, .isHiddenKey])
+            guard cancellation?.isCancelled != true else {
+                return DirectorySyncStatus(snapshot: DirectorySnapshot(filesByPath: [:]),
+                    isAccessible: false, errorMessage: "directory_request_cancelled")
+            }
+            guard let authorized = WebWallpaperResourceGrant.authorizedURL(url,
+                rootURL: rootURL, grants: grants) else { continue }
+            let values = try? authorized.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey, .isHiddenKey])
             guard values?.isRegularFile == true, values?.isHidden != true else { continue }
             let modifiedAt = values?.contentModificationDate?.timeIntervalSinceReferenceDate ?? 0
-            filesByPath[url.path] = modifiedAt
+            filesByPath[authorized.path] = modifiedAt
         }
         return DirectorySyncStatus(
             snapshot: DirectorySnapshot(filesByPath: filesByPath),

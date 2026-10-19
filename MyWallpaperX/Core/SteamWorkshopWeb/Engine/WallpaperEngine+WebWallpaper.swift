@@ -17,7 +17,8 @@ extension WallpaperEngine {
         language: String,
         runtimeProfile: WebRuntimeProfile = .standard,
         multiDisplayEnabled: Bool,
-        resourceLifetime: PlaybackResourceLifetime? = nil
+        resourceLifetime: PlaybackResourceLifetime? = nil,
+        resourceGrants: [WebWallpaperResourceGrant] = []
     ) {
         launchWebWallpaper(
             WebWallpaperLaunchRequest(
@@ -30,7 +31,8 @@ extension WallpaperEngine {
                 language: language,
                 runtimeProfile: runtimeProfile,
                 multiDisplayEnabled: multiDisplayEnabled,
-                resourceLifetime: resourceLifetime
+                resourceLifetime: resourceLifetime,
+                resourceGrants: resourceGrants
             )
         )
     }
@@ -41,8 +43,22 @@ extension WallpaperEngine {
         dedicatedWebHostAdapter.updateDisplayConfiguration(multiDisplayEnabled: multiDisplayEnabled)
     }
 
-    public func updateCurrentWebWallpaperProperties(_ propertiesJSON: String?) {
-        guard currentPlaybackContentKind == .web else { return }
+    var currentWebResourceRootURL: URL? {
+        guard let requestID = currentWebRequestID else { return nil }
+        return (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.propertyUpdateSession(for: requestID)?.request.rootURL
+    }
+
+    var currentWebResourceGrants: [WebWallpaperResourceGrant] {
+        guard let requestID = currentWebRequestID else { return [] }
+        return (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.propertyUpdateSession(for: requestID)?.resourceGrants ?? []
+    }
+
+    func updateCurrentWebWallpaperProperties(_ propertiesJSON: String?, resourceGrants: [WebWallpaperResourceGrant],
+                                             resourcesChanged: Bool = false) {
+        guard currentPlaybackContentKind == .web,
+              let requestID = currentWebRequestID,
+              let request = (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?
+                .propertyUpdateSession(for: requestID)?.executionRequest else { return }
         currentWebPropertiesJSON = mergedWebPropertiesJSON(
             baseJSON: currentWebPropertiesJSON,
             deltaJSON: propertiesJSON
@@ -53,7 +69,11 @@ extension WallpaperEngine {
         // WE「每次变更交付完整 userProperties」契约相悖。完整袋签名不变时
         // 页面侧去重自然短路。镜像 nil（理论不可达）不推，避免清空页面镜像。
         guard let mergedPropertiesJSON = currentWebPropertiesJSON else { return }
-        dispatchWebRuntimeCommand(.applyProperties(mergedPropertiesJSON))
+        dispatchWebRuntimeCommand(.applyProperties(.init(requestID: request.id,
+            revision: request.propertyRevision &+ 1,
+            resourceRevision: request.resourceRevision &+ ((resourcesChanged || resourceGrants != request.resourceGrants) ? 1 : 0),
+            propertiesJSON: mergedPropertiesJSON,
+            resourceGrants: resourceGrants)))
     }
 
     func launchWebWallpaper(_ request: WebWallpaperLaunchRequest) {
@@ -62,13 +82,15 @@ extension WallpaperEngine {
             requestID: request.id, entryURL: request.entryURL, rootURL: request.rootURL,
             propertiesJSON: request.propertiesJSON, recordID: request.recordID,
             language: request.language, runtimeProfile: request.runtimeProfile,
-            multiDisplayEnabled: request.multiDisplayEnabled, resourceLifetime: request.resourceLifetime)
+            multiDisplayEnabled: request.multiDisplayEnabled, resourceLifetime: request.resourceLifetime,
+            resourceGrants: request.resourceGrants)
     }
 
     func prepareWebSwitch(ticket: PlaybackSwitchTicket, requestID: UUID,
                           entryURL: URL, rootURL: URL, propertiesJSON: String?,
                           recordID: String?, language: String, runtimeProfile: WebRuntimeProfile,
-                          multiDisplayEnabled: Bool, resourceLifetime: PlaybackResourceLifetime?) {
+                          multiDisplayEnabled: Bool, resourceLifetime: PlaybackResourceLifetime?,
+                          resourceGrants: [WebWallpaperResourceGrant] = []) {
         guard ticket.runtime == .web, let adapter = dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
             switchFailed?(ticket, "Web execution endpoint is unavailable"); return
         }
@@ -76,7 +98,8 @@ extension WallpaperEngine {
         let request = WebWallpaperLaunchRequest(id: requestID, entryURL: entryURL,
             rootURL: rootURL, propertiesJSON: propertiesJSON ?? "{}", source: .steamWorkshop,
             recordID: recordID, language: language, runtimeProfile: runtimeProfile,
-            multiDisplayEnabled: multiDisplayEnabled, resourceLifetime: resourceLifetime)
+            multiDisplayEnabled: multiDisplayEnabled, resourceLifetime: resourceLifetime,
+            resourceGrants: resourceGrants)
         adapter.prepareSwitch(ticket: ticket, request: request, runtimeState: webWallpaperRuntimeState())
     }
 

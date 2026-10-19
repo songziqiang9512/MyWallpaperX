@@ -71,12 +71,15 @@ struct SceneRuntimeModelBuilder {
 
     func build(
         rootURL: URL,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+        propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneRuntimeModel {
-        let sourceFacts = SceneRuntimeSourceFactsBuilder().build(
+        let sourceFacts = try SceneRuntimeSourceFactsBuilder().build(
             rootURL: rootURL,
-            propertyOverrides: propertyOverrides
+            propertyOverrides: propertyOverrides,
+            checkCancellation: checkCancellation
         )
+        try checkCancellation?()
         guard let project = sourceFacts.project else {
             throw BuildError.missingProject
         }

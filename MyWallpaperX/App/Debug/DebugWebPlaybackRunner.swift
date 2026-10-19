@@ -365,7 +365,8 @@ enum DebugWebPlaybackRunner {
             recordID: record.id,
             language: playbackContext.language,
             runtimeProfile: service.recommendedWebRuntimeProfile(for: record),
-            multiDisplayEnabled: true
+            multiDisplayEnabled: true,
+            resourceGrants: playbackContext.resourceGrants
         )
         scheduleWebAudioSpectrumIfRequested()
     }

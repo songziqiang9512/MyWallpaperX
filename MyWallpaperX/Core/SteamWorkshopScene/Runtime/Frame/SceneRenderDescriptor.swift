@@ -104,8 +104,10 @@ struct SceneRenderDescriptorBuilder {
         capabilityProfile: SceneCapabilityProfile? = nil,
         directStaticModelMaterialLinks: [
             SceneRenderDescriptor.ModelMaterialLink
-        ] = []
-    ) -> SceneRenderDescriptor? {
+        ] = [],
+        checkCancellation: (() throws -> Void)? = nil
+    ) rethrows -> SceneRenderDescriptor? {
+        try checkCancellation?()
         guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count,
               Set(assetCatalog.models.map(\.relativePath)).count == assetCatalog.models.count else {
             return nil
@@ -291,9 +293,10 @@ struct SceneRenderDescriptorBuilder {
                 from: assetCatalog,
                 directStaticModelMaterialLinks: directStaticModelMaterialLinks
             ),
-            materialPasses: materialPassDescriptors(
+            materialPasses: try materialPassDescriptors(
                 from: assetCatalog,
-                directStaticModelMaterialLinks: directStaticModelMaterialLinks
+                directStaticModelMaterialLinks: directStaticModelMaterialLinks,
+                checkCancellation: checkCancellation
             ),
             preparedImageMaterialStatesByModelPath: preparesNativeImageState
                 ? imageMaterialFacts.compactMapValues(\.state) : nil,
@@ -311,6 +314,7 @@ struct SceneRenderDescriptorBuilder {
         descriptor.runtimeProvidedReferenceCount = resourceReferences?.runtimeProvidedReferenceCount ?? 0
         descriptor.firstStageRendererGaps = capabilityProfile?.firstStageRendererGaps ?? []
 #endif
+        try checkCancellation?()
         return descriptor
     }
 
@@ -399,16 +403,19 @@ struct SceneRenderDescriptorBuilder {
 
     nonisolated private func materialPassDescriptors(
         from catalog: SceneAssetCatalog,
-        directStaticModelMaterialLinks: [SceneRenderDescriptor.ModelMaterialLink]
-    ) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
+        directStaticModelMaterialLinks: [SceneRenderDescriptor.ModelMaterialLink],
+        checkCancellation: (() throws -> Void)? = nil
+    ) rethrows -> [SceneRenderDescriptor.MaterialPassDescriptor] {
         let directMaterials = Set(directStaticModelMaterialLinks.compactMap {
             $0.materialPath.map { $0.replacingOccurrences(of: "\\", with: "/").localizedLowercase }
         })
         let materialsByPath = Dictionary(grouping: catalog.materials) {
             $0.relativePath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
         }
-        return catalog.materials.flatMap { material in
-            material.passes.enumerated().map { index, pass in
+        return try catalog.materials.flatMap { material in
+            try checkCancellation?()
+            return try material.passes.enumerated().map { index, pass in
+                try checkCancellation?()
                 var descriptor = SceneRenderDescriptor.MaterialPassDescriptor(
                     id: "\(material.relativePath)#\(index)",
                     materialPath: material.relativePath,
@@ -436,6 +443,7 @@ struct SceneRenderDescriptorBuilder {
                             SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
                                 pass: descriptor, shaderContracts: catalog.shaderContracts
                             )
+                        try checkCancellation?()
                         descriptor.staticModelMaterialBindings =
                             SceneStaticModelMaterialBindingCompiler.compile(
                                 pass: descriptor,
@@ -448,6 +456,7 @@ struct SceneRenderDescriptorBuilder {
                         )
                     }
                 }
+                try checkCancellation?()
                 return descriptor
             }
         }

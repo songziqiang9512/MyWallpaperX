@@ -45,7 +45,7 @@ extension WebWallpaperLocalSchemeHandler {
     /// 解析请求 URL 到受控文件；拒绝原因随返回值带回，调用方负责 `recordDeny`。
     ///
     /// 缓存键带 `readableRootsGeneration`：受控读取判定完全由
-    /// `updateAdditionalReadableRoots` 决定，根集合每次变更都会让旧条目不可达，
+    /// `updateResourceGrants` 决定，根集合每次变更都会让旧条目不可达，
     /// 因此缓存命中不会绕过 root 校验。
     func resolveResource(for requestURL: URL, allowsDirectoryIndexFallback: Bool) -> ResolveOutcome {
         let (roots, generation) = readableRootsSnapshot()
@@ -54,13 +54,13 @@ extension WebWallpaperLocalSchemeHandler {
             allowsDirectoryIndexFallback: allowsDirectoryIndexFallback,
             generation: generation
         )
-        if let cached = cachedResolution(forKey: cacheKey) {
-            return ResolveOutcome(resource: cached, denial: nil)
+        if let cached = cachedResolution(forKey: cacheKey), let current = revalidatedResource(cached) {
+            return ResolveOutcome(resource: current, denial: nil)
         }
         let outcome = computeResolution(
             for: requestURL,
             allowsDirectoryIndexFallback: allowsDirectoryIndexFallback,
-            roots: roots
+            roots: roots, generation: generation
         )
         if let resource = outcome.resource {
             storeCachedResolution(resource, forKey: cacheKey)
@@ -91,10 +91,10 @@ extension WebWallpaperLocalSchemeHandler {
         return "\(generation)|\(allowsDirectoryIndexFallback ? 1 : 0)|\(Self.decodedRequestPath(for: requestURL))"
     }
 
-    func readableRootsSnapshot() -> (roots: [URL], generation: UInt64) {
+    func readableRootsSnapshot() -> (roots: [WebWallpaperResourceGrant], generation: UInt64) {
         stateLock.lock()
         defer { stateLock.unlock() }
-        return (additionalReadableRoots, readableRootsGeneration)
+        return (resourceGrants, readableRootsGeneration)
     }
 
     func cachedResolution(forKey cacheKey: String) -> ResolvedResource? {
@@ -122,7 +122,7 @@ extension WebWallpaperLocalSchemeHandler {
     private func computeResolution(
         for requestURL: URL,
         allowsDirectoryIndexFallback: Bool,
-        roots: [URL]
+        roots: [WebWallpaperResourceGrant], generation: UInt64
     ) -> ResolveOutcome {
         let decodedPath = Self.decodedRequestPath(for: requestURL)
         let originalURL: URL
@@ -198,7 +198,8 @@ extension WebWallpaperLocalSchemeHandler {
         return .resolved(ResolvedResource(
             fileURL: normalizedTargetURL,
             didTraverseSymlink: didTraverseSymlink,
-            matchedRootPath: matchedRootPath
+            matchedRootPath: matchedRootPath,
+            authorizationGeneration: generation
         ))
     }
 
@@ -277,7 +278,7 @@ extension WebWallpaperLocalSchemeHandler {
         return existingFileURL(for: candidateURL)
     }
 
-    private func allowedAbsoluteCompatibilityURL(for decodedPath: String, roots: [URL]) -> URL? {
+    private func allowedAbsoluteCompatibilityURL(for decodedPath: String, roots: [WebWallpaperResourceGrant]) -> URL? {
         let supportedPrefixes = ["/Users/", "/Volumes/", "/private/", "/tmp/", "/var/"]
         guard supportedPrefixes.contains(where: { decodedPath.hasPrefix($0) }) else {
             return nil
@@ -291,18 +292,13 @@ extension WebWallpaperLocalSchemeHandler {
         return candidateURL
     }
 
-    private func matchedReadableRootPath(for targetURL: URL, roots: [URL]) -> String? {
+    private func matchedReadableRootPath(for targetURL: URL, roots: [WebWallpaperResourceGrant]) -> String? {
         let targetPath = targetURL.resolvingSymlinksInPath().standardizedFileURL.path
         let rootPath = rootURL.path
         if targetPath == rootPath || targetPath.hasPrefix(rootPath + "/") {
             return rootPath
         }
-        for readableRoot in roots {
-            let readablePath = readableRoot.path
-            if targetPath == readablePath || targetPath.hasPrefix(readablePath + "/") {
-                return readablePath
-            }
-        }
+        for grant in roots where grant.allowsCanonicalURL(targetURL) { return grant.url.path }
         return nil
     }
 

@@ -328,8 +328,8 @@ final class SteamWorkshopService: ObservableObject {
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
     /// 会话新鲜清单快速路径的起点：本实例存续期间由保存路径写入的分析
     /// 清单（写时刚完成同源签名扫描）在 `isAnalysisManifestValid` 里会话内
-    /// 免再扫。运行时清单校验（isRuntimeManifestValid）不适用——其调用方
-    /// 在后台段恒做实时扫描。壁钟前跳后回拨或并行第二实例写出的清单可能
+    /// 免再扫。execution 清单不适用该会话捷径——廉价字段匹配后，调用方
+    /// 仍在后台段执行实时扫描。壁钟前跳后回拨或并行第二实例写出的清单可能
     /// 被误判新鲜，暴露面与 mtime 键内存缓存的既有盲区同级。
     let webRuntimeCacheSessionStartDate = Date()
     var scenePropertyRenderTask: Task<Void, Never>?

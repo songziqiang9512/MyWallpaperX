@@ -87,6 +87,10 @@ final class WebRuntimeDiagnosticsStore {
     var lastFailureVideoPath: String?, lastFailureAt: TimeInterval = 0
     let spectrumDelivery = PlaybackSpectrumDelivery()
     lazy var dedicatedWebHostAdapter: WebWallpaperHostAdapter = WebDaemonHostAdapter(spectrumDelivery: spectrumDelivery)
+    var currentWebRequestID: UUID?
+    var currentWebPropertiesJSON: String?
+    func dispatchWebRuntimeCommand(_ command: WebWallpaperRuntimeCommand) { dedicatedWebHostAdapter.handle(command) }
+    // REAL_WEB_PROPERTIES
     func normalizedPath(_ path: String) -> String { path }
     func adoptIntentEpoch(_ epoch: UInt64) {}
     func scanDisplays() {}
@@ -366,11 +370,26 @@ import Foundation
             transport: .init(executableURL: URL(fileURLWithPath: "/unused"), arguments: []),
             recoveryAttempt: 0, ticket: originalTicket)
         dead.committedAt = ProcessInfo.processInfo.systemUptime
+        let selectedResource = WebWallpaperResourceGrant(kind: .file, url: URL(fileURLWithPath: "/external/selected.mp3"))
+        dead.resourceGrants = [selectedResource]
+        let propertyEngine = WallpaperEngine()
+        propertyEngine.dedicatedWebHostAdapter = recoveryAdapter
+        propertyEngine.currentPlaybackContentKind = .web
+        propertyEngine.currentWebRequestID = dead.request.id
+        propertyEngine.currentWebPropertiesJSON = "{}"
         recoveryAdapter.active = dead
         recoveryAdapter.prepareSwitch(ticket: ticket(.web), request: wd.executionRequest, runtimeState: wd.state)
         let preparing = recoveryAdapter.candidate!
         dead.transport.end(); recoveryAdapter.didExit(dead)
         precondition(recoveryAdapter.pendingRecovery?.session === dead && recoveryAdapter.candidate === preparing)
+        precondition(propertyEngine.currentWebResourceGrants == [selectedResource], "committed recovery input lost its authority snapshot")
+        let unrelatedProperties = preparing.propertiesJSON
+        let unrelatedGrants = preparing.resourceGrants
+        propertyEngine.updateCurrentWebWallpaperProperties("{\"image\":{\"value\":\"\"}}", resourceGrants: [], resourcesChanged: true)
+        precondition(dead.resourceGrants.isEmpty && dead.resourceRevision == 1 && dead.propertyRevision == 1,
+            "clear during didExit/pendingRecovery was discarded")
+        precondition(preparing.propertiesJSON == unrelatedProperties && preparing.resourceGrants == unrelatedGrants,
+            "committed clear modified a new user selection")
         var failedCandidateCancelled = false
         recoveryAdapter.cancelSwitch(ticket: preparing.ticket) { failedCandidateCancelled = true }
         preparing.transport.end(); precondition(failedCandidateCancelled)
@@ -378,6 +397,17 @@ import Foundation
         while Date() < recoveryDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
         let restarted = recoveryAdapter.candidate!
         precondition(restarted.ticket == originalTicket && restarted.executionID != dead.executionID)
+        precondition(restarted.resourceGrants.isEmpty && restarted.resourceRevision == 1,
+            "recovery resurrected an external grant cleared during its wait")
+        propertyEngine.updateCurrentWebWallpaperProperties("{\"image\":{\"value\":\"Default\"}}", resourceGrants: [], resourcesChanged: true)
+        precondition(restarted.resourceRevision == 2 && restarted.propertyRevision == 2,
+            "reset while the committed request's recovery candidate prepared was discarded")
+        recoveryAdapter.handle(.applyProperties(.init(requestID: dead.request.id, revision: 3, resourceRevision: 0,
+            propertiesJSON: "{}", resourceGrants: [selectedResource])))
+        precondition(restarted.resourceGrants.isEmpty && restarted.resourceRevision == 2,
+            "stale recovery update expanded current authority")
+        precondition(recoveryAdapter.propertyUpdateSession(for: preparing.request.id) == nil,
+            "old uncommitted selection became a committed update target")
         var deadRetired = false
         recoveryAdapter.retireEndpoint(dead) { deadRetired = true }
         precondition(deadRetired && recoveryAdapter.pendingRecovery == nil && recoveryAdapter.candidate == nil
@@ -493,8 +523,15 @@ class PlaybackSwitchEndpointTests(unittest.TestCase):
             types = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift").read_text()
             support = directory / "Support.swift"
             pause = (ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift").read_text()
-            shell = SUPPORT.replace("// REAL_VIDEO_PAUSE", source_block(pause, "func sendPlaybackPaused("))
-            support.write_text(shell + "\n" + source_block(types, "extension WallpaperEngine"))
+            web = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift").read_text()
+            properties = "\n".join(source_block(web, marker) for marker in (
+                "var currentWebResourceRootURL:", "var currentWebResourceGrants:",
+                "func updateCurrentWebWallpaperProperties(", "private func mergedWebPropertiesJSON(",
+                "private func jsonObjectDictionary("))
+            shell = SUPPORT.replace("// REAL_VIDEO_PAUSE", source_block(pause, "func sendPlaybackPaused(")).replace("// REAL_WEB_PROPERTIES", properties)
+            support.write_text(shell + "\n" + source_block(types, "struct WebWallpaperResourceGrant")
+                + "\n" + source_block(types, "struct WebWallpaperPropertyUpdate")
+                + "\n" + source_block(types, "extension WallpaperEngine"))
             harness = directory / "Harness.swift"; harness.write_text(HARNESS)
             sources = [
                 "Core/PlaybackControl/PlaybackSwitchTransaction.swift",
@@ -526,7 +563,9 @@ class PlaybackSwitchEndpointTests(unittest.TestCase):
                       + prefix[prefix.index("final class PlaybackPolicyController"):])
             types = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift").read_text()
             support = directory / "Support.swift"
-            support.write_text(prefix + ASSEMBLY_SUPPORT + source_block(types, "extension WallpaperEngine"))
+            support.write_text(prefix + ASSEMBLY_SUPPORT + source_block(types, "struct WebWallpaperResourceGrant")
+                + "\n" + source_block(types, "struct WebWallpaperPropertyUpdate")
+                + "\n" + source_block(types, "extension WallpaperEngine"))
             sources = [
                 "Core/PlaybackControl/PlaybackSwitchTransaction.swift",
                 "Core/PlaybackControl/PlaybackSurfaceVisibility.swift",

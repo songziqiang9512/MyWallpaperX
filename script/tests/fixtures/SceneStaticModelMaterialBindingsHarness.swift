@@ -19,12 +19,15 @@ private func shader(
     fragmentExtra: String = "",
     vertexExtra: String = "",
     customAlphaAnnotation: String? = nil,
+    customColorAnnotation: String? = nil,
     conditionalAlpha: Bool = false,
     includedSources: [String: String] = [:],
     identity: String = "fixture/static-material-keys"
 ) -> SceneShaderContract {
     let alphaAnnotation = customAlphaAnnotation
         ?? "{\"material\":\"\(alphaKey)\",\"default\":\(alphaDefault)}"
+    let colorAnnotation = customColorAnnotation
+        ?? "{\"material\":\"\(colorKey)\",\"default\":\(colorDefault)}"
     let ordinaryAlpha = "uniform \(alphaType) g_TintAlpha\(alphaSuffix); // \(alphaAnnotation)"
     let alpha = conditionalAlpha ? """
     // [COMBO] {"combo":"ACTIVE","default":1,"options":[0,1]}
@@ -42,7 +45,7 @@ private func shader(
     let fragment = """
     \(fragmentPrefix)
     \(alpha)
-    uniform vec3 g_TintColor; // {"material":"\(colorKey)","default":\(colorDefault)}
+    uniform vec3 g_TintColor; // \(colorAnnotation)
     uniform float g_Brightness; // {"material":"\(brightnessKey)","default":\(brightnessDefault)}
     \(fragmentExtra)
     void main() { gl_FragColor = vec4(1.0); }
@@ -612,6 +615,77 @@ private func albedoDefaults() -> [String: Any] {
     return result
 }
 
+/// Exercise the actual projection with layout inputs beyond the fixed three
+/// production channels. Assertions compare complete public schema values,
+/// including fields whose first projection came from another channel's proof.
+private func schemaProjection() -> [String: Any] {
+    typealias Field = SceneAuthoredShaderUniformLayout.Field
+    let fields: [Field] = [
+        .init(name: "g_TintAlpha", stage: .fragment, type: .float, offset: 0),
+        .init(name: "g_TintColor", stage: .fragment, type: .float3, offset: 0),
+        .init(name: "g_Brightness", stage: .fragment, type: .float, offset: 0),
+    ]
+    let ordinary = shader(customColorAnnotation:
+        #"{"material":"Color","default":[0.25,0.5,0.75],"type":"color"}"#)
+    func project(_ input: [Field] = fields, _ contract: SceneShaderContract = ordinary) -> Any {
+        guard let schemas = SceneResolvedMaterialShaderSchema.unconditionalStaticModelUniforms(
+            input, contract: contract
+        ) else { return NSNull() }
+        return schemas.keys.sorted().map { key -> [String: Any] in
+            let value = schemas[key]!
+            return [
+                "key": key, "name": value.name, "materialKeys": value.materialKeys,
+                "defaultKind": value.defaultValue?.valueKind as Any? ?? NSNull(),
+                "defaultBits": value.defaultValue?.componentBitPatterns as Any? ?? NSNull(),
+                "defaultKeys": value.defaultValue?.authoredBindingKeys as Any? ?? NSNull(),
+                "defaultScalarProven": value.defaultValue?.authoredScalarProjectionProven as Any? ?? NSNull(),
+                "range": value.authoredRange.map { [$0.lowerBound, $0.upperBound] } as Any? ?? NSNull(),
+            ]
+        }
+    }
+    let first = project()
+    let changed = project(fields, shader(alphaDefault: "0.75", customColorAnnotation:
+        #"{"material":"Color","default":[0.25,0.5,0.75],"type":"color"}"#))
+    let abiNames: [Field] = fields.enumerated().map { index, field in
+        .init(name: "abi_\(index)", authoredName: field.authoredName,
+              stage: field.stage, type: field.type, offset: index * 16)
+    }
+    var arrayLayout = fields
+    arrayLayout[1] = .init(name: "g_TintColor", stage: .fragment,
+                          type: .float3, arrayCount: 1, offset: 0)
+    var wrongType = fields
+    wrongType[1] = .init(name: "g_TintColor", stage: .fragment, type: .float, offset: 0)
+    var wrongStage = fields
+    wrongStage[1] = .init(name: "g_TintColor", stage: .vertex, type: .float3, offset: 0)
+    let badContracts: [String: SceneShaderContract] = [
+        "badDefault": shader(alphaDefault: #""broken""#),
+        "badRange": shader(fragmentExtra:
+            #"uniform float u_Other; // {"material":"other","default":1,"range":[2,1]}"#),
+        "keyConflict": shader(fragmentExtra:
+            #"uniform float u_Other; // {"material":"Alpha","default":1}"#),
+        "conditional": shader(conditionalAlpha: true),
+        "crossStageDefault": shader(vertexExtra:
+            #"uniform float g_TintAlpha; // {"material":"Alpha","default":0.75}"#),
+        "crossStageType": shader(vertexExtra:
+            #"uniform vec3 g_TintAlpha; // {"material":"Alpha","default":[0.125,0,0]}"#),
+    ]
+    var failures = badContracts.mapValues { project(fields, $0) }
+    failures["wrongFieldType"] = project(wrongType)
+    failures["wrongFieldStage"] = project(wrongStage)
+    failures["duplicateField"] = project(fields + [fields[0]])
+    let recovered = project()
+    return [
+        "standard": first, "reversed": project(Array(fields.reversed())),
+        "abiNames": project(abiNames), "arrayLayout": project(arrayLayout),
+        "singleNoRepeat": project([fields[0]]), "empty": project([]),
+        "crossStageEqual": project(fields, shader(vertexExtra:
+            #"uniform float g_TintAlpha; // {"material":"Alpha","default":0.125}"#,
+            customColorAnnotation:
+            #"{"material":"Color","default":[0.25,0.5,0.75],"type":"color"}"#)),
+        "changedContract": changed, "failures": failures, "recovered": recovered,
+    ]
+}
+
 @main
 private enum SceneStaticModelMaterialBindingsHarness {
     static func main() throws {
@@ -625,6 +699,7 @@ private enum SceneStaticModelMaterialBindingsHarness {
         case "proofBoundaries": result = proofBoundaries()
         case "numericInput": result = numericInput()
         case "albedoDefaults": result = albedoDefaults()
+        case "schemaProjection": result = schemaProjection()
         default: throw NSError(domain: "material-bindings-fixture", code: 1)
         }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))

@@ -21,11 +21,15 @@ struct SceneRuntimeSourceFactsBuilder {
     func build(
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        checkCancellation: (() throws -> Void)? = nil,
         willReadResourceRoots: (([URL]) -> Void)? = nil
-    ) -> SceneRuntimeSourceFacts {
+    ) rethrows -> SceneRuntimeSourceFacts {
+        try checkCancellation?()
         let project = try? SceneProjectLoader().load(from: rootURL)
+        try checkCancellation?()
 #if DEBUG
         let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
+        try checkCancellation?()
 #endif
         let packageReport: ScenePkgExtractionReport? = {
             guard let packageURL = project?.packageURL else { return nil }
@@ -37,6 +41,9 @@ struct SceneRuntimeSourceFactsBuilder {
                 )
             )
         }()
+        // Cancellation remains outside optional-load failure handling so it
+        // cannot become a missing resource or a visual compatibility fallback.
+        try checkCancellation?()
         // Extraction has validated the package; inspect its resulting namespace
         // before ResourceView builds indexes or other consumers read it. Callers
         // separately cover the preceding project/index/package reads.
@@ -48,6 +55,7 @@ struct SceneRuntimeSourceFactsBuilder {
             projectRootURL: rootURL,
             packageRootURL: packageReport?.outputURL
         )
+        try checkCancellation?()
         var sceneDocumentLoadError: Error?
         let sceneDocument = project.flatMap { project -> SceneDocument? in
             do {
@@ -61,6 +69,7 @@ struct SceneRuntimeSourceFactsBuilder {
                 return nil
             }
         }
+        try checkCancellation?()
         let assetCatalog = project.flatMap { project in
             try? SceneAssetCatalogLoader().load(
                 resourceView: resourceView,
@@ -68,6 +77,7 @@ struct SceneRuntimeSourceFactsBuilder {
                     sceneDocument?.referencedResourcePaths ?? []
             )
         }
+        try checkCancellation?()
 #if DEBUG
         let resourceReferences = sceneDocument.map {
             SceneResourceReferenceIndexBuilder().build(
@@ -82,29 +92,31 @@ struct SceneRuntimeSourceFactsBuilder {
             resourceReferences: resourceReferences,
             resourceIndex: resourceIndex
         )
+        try checkCancellation?()
 #else
         let resourceReferences: SceneResourceReferenceIndex? = nil
         let capabilityProfile: SceneCapabilityProfile? = nil
 #endif
-        let renderDescriptor: SceneRenderDescriptor? = {
-            guard let project,
-                  let sceneDocument,
-                  let assetCatalog else {
-                return nil
-            }
-
-            return SceneRenderDescriptorBuilder().build(
+        let renderDescriptor: SceneRenderDescriptor?
+        if let project, let sceneDocument, let assetCatalog {
+            let directMaterialLinks = try directStaticModelMaterialLinks(
+                document: sceneDocument,
+                resourceView: resourceView,
+                checkCancellation: checkCancellation
+            )
+            renderDescriptor = try SceneRenderDescriptorBuilder().build(
                 project: project,
                 sceneDocument: sceneDocument,
                 assetCatalog: assetCatalog,
                 resourceReferences: resourceReferences,
                 capabilityProfile: capabilityProfile,
-                directStaticModelMaterialLinks: directStaticModelMaterialLinks(
-                    document: sceneDocument,
-                    resourceView: resourceView
-                )
+                directStaticModelMaterialLinks: directMaterialLinks,
+                checkCancellation: checkCancellation
             )
-        }()
+        } else {
+            renderDescriptor = nil
+        }
+        try checkCancellation?()
 
         var facts = SceneRuntimeSourceFacts(
             project: project,
@@ -126,23 +138,28 @@ struct SceneRuntimeSourceFactsBuilder {
 
     private func directStaticModelMaterialLinks(
         document: SceneDocument,
-        resourceView: SceneResourceView
-    ) -> [SceneRenderDescriptor.ModelMaterialLink] {
+        resourceView: SceneResourceView,
+        checkCancellation: (() throws -> Void)? = nil
+    ) rethrows -> [SceneRenderDescriptor.ModelMaterialLink] {
         var seen: Set<String> = []
-        return document.objects.flatMap { object -> [SceneRenderDescriptor.ModelMaterialLink] in
+        return try document.objects.flatMap { object -> [SceneRenderDescriptor.ModelMaterialLink] in
+            try checkCancellation?()
             guard let modelPath = object.staticModelPath else { return [] }
             let identity = modelPath.replacingOccurrences(of: "\\", with: "/")
                 .localizedLowercase
             guard seen.insert(identity).inserted,
                   let modelURL = resourceView.resource(
                     relativePath: modelPath
-                  )?.url,
-                  let data = try? Data(
-                    contentsOf: modelURL,
-                    options: .mappedIfSafe
-                  ),
-                  let materialPaths = try? SceneMdlStaticModelReader
-                    .readMaterialPathsMetadata(data: data) else {
+                  )?.url else {
+                return []
+            }
+            let data = try? Data(contentsOf: modelURL, options: .mappedIfSafe)
+            try checkCancellation?()
+            guard let data else { return [] }
+            let materialPaths = try? SceneMdlStaticModelReader
+                .readMaterialPathsMetadata(data: data)
+            try checkCancellation?()
+            guard let materialPaths else {
                 return []
             }
             return materialPaths.map {

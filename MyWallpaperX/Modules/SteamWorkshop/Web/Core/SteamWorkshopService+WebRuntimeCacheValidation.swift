@@ -3,7 +3,6 @@ import Foundation
 extension SteamWorkshopService {
     func webRuntimeRequiresLiveResourceResolution(for record: SteamWorkshopDownloadRecord) -> Bool {
         let overrides = webPropertyOverrides(for: record)
-        guard !overrides.isEmpty else { return false }
         return webPropertyDefinitions(for: record).contains { definition in
             guard definition.kind == .file || definition.kind == .directory else {
                 return false
@@ -47,12 +46,11 @@ extension SteamWorkshopService {
         return true
     }
 
-    /// 运行时缓存清单的纯比对：输入快照与实时签名都由调用方给定（扫描在
-    /// 后台完成后传入），本函数不做任何 IO，可在任意线程执行。
-    nonisolated static func isRuntimeManifestValid(
+    /// 运行时清单先比较已有廉价字段，失配时不扫描资源。版本与 record ID
+    /// 由解码入口检查；字段匹配后，调用方仍须验证实时资源签名。
+    nonisolated static func runtimeManifestCheapFieldsMatch(
         _ manifest: SteamWorkshopWebRuntimeCacheManifest,
-        inputs: WebRuntimeCacheManifestInputs,
-        liveResourceSignature: SteamWorkshopWebRuntimeResourceSignature?
+        inputs: WebRuntimeCacheManifestInputs
     ) -> Bool {
         if manifest.language != inputs.language {
             return false
@@ -67,9 +65,6 @@ extension SteamWorkshopService {
             return false
         }
         if manifest.resolvedEntryModifiedAt != inputs.resolvedEntryModifiedAt {
-            return false
-        }
-        if manifest.resourceSignature != liveResourceSignature {
             return false
         }
         if manifest.overridesSignature != inputs.overridesSignature {

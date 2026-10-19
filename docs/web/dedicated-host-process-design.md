@@ -17,8 +17,10 @@
 
 - Web 产品进程与空宿主采用 `.prohibited` 激活策略，与 Video 后台入口一致，不能取得前台焦点；桌面 surface 在 AppKit 启动后按 IPC 创建、以非 key 窗口显示。只有显式 DEBUG evidence 窗口允许 `.accessory`，便于独立画面取证。
 - 主 App 不再创建生产 WebView。沿用同一可执行文件的独立 `--mwx-web-daemon` 入口，在产品装配前进入禁止激活的后台 AppKit run loop；普通 XPC service 不持有桌面窗口。
-- 请求 DTO 只传不可变 URL、属性、profile、语言、显示配置与白名单；`PlaybackResourceLifetime` 留在父进程，直到对应子进程退出。命令/事件带协议版本与 request UUID，准备/提交另带 surface preparation generation，旧进程或旧请求不得发布状态。
+- 请求 DTO 只传不可变 URL、属性、可信 typed resource grants、profile、语言、显示配置与白名单；`PlaybackResourceLifetime` 留在父进程，直到对应子进程退出。命令/事件带协议版本与 request UUID，准备/提交另带 surface preparation generation，旧进程或旧请求不得发布状态。
 - 属性、暂停、音量、速率、显示配置走有序控制；频谱只保留最新值并以控制为屏障。stdin、stdout 均限制积压与单帧大小，EOF/协议失败结束该子进程，不能继续显示失控旧内容。
+
+属性消息携带独立的 property/resource revision 和完整授权替换快照。已提交 request 在崩溃恢复等待、恢复候选和显示重建期间也必须同步最新属性与撤权；不能只更新 active，也不能把另一用户选择的候选当作已提交 request。已退出 transport 只更新原恢复输入，不写 dead pipe；重启、reload 与多屏继续消费同一请求事实。授权粒度和消费边界归[运行模型合同](web-project-json-runtime-model.md#24-playback-context)。
 - 系统歌曲信息仍由主 App 的唯一 SystemMediaService 采集。子进程只聚合页面 demand、接收可还原完整状态的 Web 投影并投递各 frame；不传 Scene 原始封面，缩图仅在身份变化时传递，缺少同身份基线时有界请求完整重放。频谱也不在子进程新建采集器。
 - 父 adapter 投影每个存活子进程的持久 store 使用与记录 identity；回收不能误删尚在运行或准备的 store。diagnostics 回传到原 store；网络授权沿用原声明白名单，不扩大根目录。
 

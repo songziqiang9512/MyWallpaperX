@@ -87,6 +87,7 @@ enum DebugWebRuntimeSwitchRunner {
             engine.setSystemAudioSpectrumEnabled(false)
             var webInfo: [String: Any] = ["requestID": UUID(), "entryURL": context.effectiveEntryURL,
                 "rootURL": context.effectiveRootURL, "recordID": record.id, "language": context.language,
+                "resourceGrants": context.resourceGrants,
                 "runtimeProfile": service.recommendedWebRuntimeProfile(for: record)]
             if let properties = context.propertyPayloadJSON { webInfo["propertiesJSON"] = properties }
             NotificationCenter.default.post(name: .steamWorkshopWebWallpaperReadyToPlay, object: nil,

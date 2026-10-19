@@ -50,7 +50,8 @@ extension WallpaperManager {
     func setWebWallpaper(requestID: UUID, entryURL: URL, rootURL: URL,
                          propertiesJSON: String?, recordID: String?, language: String,
                          runtimeProfile: WallpaperEngine.WebRuntimeProfile,
-                         resourceLifetime: PlaybackResourceLifetime?, intentEpoch: UInt64?) {
+                         resourceLifetime: PlaybackResourceLifetime?, intentEpoch: UInt64?,
+                         resourceGrants: [WebWallpaperResourceGrant] = []) {
         if let intentEpoch {
             guard playbackIntentEpoch == intentEpoch, requestedRuntime == .web,
                   playbackSwitch.pending != nil else { return }
@@ -60,7 +61,8 @@ extension WallpaperManager {
         WallpaperEngine.shared.prepareWebSwitch(ticket: ticket, requestID: requestID,
             entryURL: entryURL, rootURL: rootURL, propertiesJSON: propertiesJSON,
             recordID: recordID, language: language, runtimeProfile: runtimeProfile,
-            multiDisplayEnabled: settings.multiDisplayEnabled, resourceLifetime: resourceLifetime)
+            multiDisplayEnabled: settings.multiDisplayEnabled, resourceLifetime: resourceLifetime,
+            resourceGrants: resourceGrants)
     }
 
     /// Resolving a Workshop request releases its empty-host reservation in a

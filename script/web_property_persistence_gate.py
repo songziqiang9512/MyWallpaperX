@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import math
 import os
 import re
 import shutil
@@ -48,7 +49,11 @@ DIAG_RE = re.compile(
 )
 LIVE_RESOLUTION_RE = re.compile(rf"MWX WEB RUNTIME CACHE: live resource resolution record={A_ID}\b")
 DEFAULTS_SUITE_RE = re.compile(r"MWX DEBUG DEFAULTS: suite=(?P<suite>\S+)")
-FINAL_STOP_TOKENS = ("phase=idle", "surfaces=0", "loopbacks=0", "observers=0")
+EXIT_RECEIPT_FIELDS = (
+    "stopProof", "stopResult", "stopTimedOut", "pidProbe", "parentPID",
+    "capturedChildPIDs", "systemLiveChildPIDs", "adapterLiveChildPIDs",
+    "activeRequestPresent", "pendingRequestPresent", "stopWaitSeconds",
+)
 def parse_contract_events(log_text: str) -> tuple[list[dict[str, Any]], list[str]]:
     events: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -113,6 +118,55 @@ def require_empty(event: dict[str, Any]) -> list[str]:
     failures.extend(require_state(event, "false", "1"))
     return failures
 
+def require_daemon_exit_receipt(event: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    missing = [field for field in EXIT_RECEIPT_FIELDS if field not in event]
+    if missing:
+        failures.append(f"completed exit receipt is missing fields: {', '.join(missing)}")
+    expected = {
+        "stopProof": "web-daemon-process-exit-v1", "stopResult": "exited",
+        "stopTimedOut": "false", "pidProbe": "kill-zero-esrch-v1",
+        "activeRequestPresent": "false", "pendingRequestPresent": "false",
+    }
+    for field, value in expected.items():
+        if event.get(field) != value:
+            failures.append(f"completed exit receipt {field} was not {value}")
+
+    def pid_list(field: str) -> list[int] | None:
+        raw = event.get(field)
+        if not isinstance(raw, str):
+            failures.append(f"completed exit receipt {field} is not a PID list")
+            return None
+        if not raw:
+            return []
+        parts = raw.split(",")
+        if any(not re.fullmatch(r"[1-9][0-9]*", part) for part in parts) or len(set(parts)) != len(parts):
+            failures.append(f"completed exit receipt {field} contains invalid PID identities")
+            return None
+        return [int(part) for part in parts]
+
+    captured = pid_list("capturedChildPIDs")
+    if not captured:
+        failures.append("completed exit receipt contains no captured child PID proof")
+    for field in ("systemLiveChildPIDs", "adapterLiveChildPIDs"):
+        if pid_list(field):
+            failures.append(f"completed exit receipt still has {field}")
+    parent = event.get("parentPID")
+    if not isinstance(parent, str) or not re.fullmatch(r"[1-9][0-9]*", parent):
+        failures.append("completed exit receipt parentPID is invalid")
+    elif captured and int(parent) in captured:
+        failures.append("completed exit receipt captured the parent as a child")
+    try:
+        raw_elapsed = event.get("stopWaitSeconds", "")
+        if not isinstance(raw_elapsed, str):
+            raise ValueError
+        elapsed = float(raw_elapsed)
+        if not math.isfinite(elapsed) or elapsed < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        failures.append("completed exit receipt stopWaitSeconds is invalid")
+    return failures
+
 def score_stage(log_text: str, stage: str, original_file: Path, original_directory: Path,
                 moved_file: Path, moved_directory: Path, expected_suite: str) -> dict[str, Any]:
     lines = log_text.splitlines()
@@ -143,18 +197,6 @@ def score_stage(log_text: str, stage: str, original_file: Path, original_directo
     )
     if not live_resolution_valid:
         failures.append("live resource resolution was not observed before restored host.ready")
-    stop_events = [event for event in diagnostics if event["type"] == "lifecycle.stop"]
-    final_stop = stop_events[-1]["message"] if stop_events else None
-    final_stop_zero = bool(final_stop and all(token in final_stop for token in FINAL_STOP_TOKENS))
-    if not final_stop_zero:
-        failures.append("final lifecycle.stop did not report idle zero state")
-    released = [event for event in diagnostics if event["type"] == "lifecycle.surface.released"]
-    retained = [event for event in diagnostics if event["type"] == "lifecycle.surface.retained"]
-    if not released:
-        failures.append("no Web surface release was observed")
-    if retained:
-        failures.append(f"{len(retained)} Web surface(s) remained retained")
-
     by_action = {str(event.get("action")): event for event in events}
     if stage == "set-switch":
         for action in ("set", "returned-a"):
@@ -174,19 +216,24 @@ def score_stage(log_text: str, stage: str, original_file: Path, original_directo
     elif "verified-cleared" in by_action:
         failures.extend(require_empty(by_action["verified-cleared"]))
 
-    completed_line = by_action.get("completed", {}).get("_line", -1)
-    cleanup_lines = [event["line"] for event in stop_events + released]
-    timeline_valid = bool(completed_line > 0 and cleanup_lines and max(cleanup_lines) < completed_line)
+    completed = by_action.get("completed", {})
+    exit_failures = require_daemon_exit_receipt(completed)
+    failures.extend(exit_failures)
+    completed_line = completed.get("_line", -1)
+    preceding_lines = ready_lines + [event["_line"] for event in events if event.get("action") != "completed"]
+    timeline_valid = bool(ready_lines and completed_line > 0 and all(line < completed_line for line in preceding_lines))
     if not timeline_valid:
-        failures.append("completion was not logged after final stop and surface release")
+        failures.append("completion was not logged after the required property states and host.ready sequence")
     return {
         "stage": stage, "passed": not failures,
         "expected_actions": EXPECTED_ACTIONS[stage], "observed_actions": actions,
         "expected_ready_records": EXPECTED_READY[stage], "ready_records": ready_records,
         "host_ready_count": len(ready_records), "defaults_suite": expected_suite,
         "defaults_suite_valid": suite_valid, "live_resolution_count": len(live_resolution_lines),
-        "live_resolution_before_ready": live_resolution_valid, "final_stop_zero": final_stop_zero,
-        "released_surface_count": len(released), "retained_surface_count": len(retained),
+        "live_resolution_before_ready": live_resolution_valid,
+        "daemon_exit_proven": not exit_failures,
+        "daemon_exit_receipt": {field: completed.get(field) for field in EXIT_RECEIPT_FIELDS},
+        "surface_release_measured": False,
         "timeline_valid": timeline_valid, "failures": failures,
     }
 
@@ -292,10 +339,11 @@ def write_report(output_dir: Path, report: dict[str, Any]) -> None:
         f"- Result: {'PASS' if report['passed'] else 'FAIL'}",
         f"- Stages: {len(report['stages'])}/3",
         f"- Resource override runtime cache absent: {report['override_cache_absent']}",
+        "- Cleanup evidence: captured Web child PID exit and adapter request state; surface retention is not measured.",
     ]
     lines.extend(
         f"- {stage['stage']}: {'PASS' if stage['passed'] else 'FAIL'}; "
-        f"ready={stage['host_ready_count']} released={stage['released_surface_count']}"
+        f"ready={stage['host_ready_count']} daemon_exit_proven={stage['daemon_exit_proven']}"
         for stage in report["stages"]
     )
     if report["failures"]:
@@ -364,7 +412,7 @@ def run_gate_with_suite(args: argparse.Namespace, defaults_suite: str) -> int:
     if len(stages) == 3 and not cache_exists_after_clear:
         failures.append("baseline runtime execution cache was not restored after clear")
     report = {
-        "schema_version": 1, "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "schema_version": 2, "generated_at": datetime.now().isoformat(timespec="seconds"),
         "passed": len(stages) == 3 and not failures,
         "defaults_suite": defaults_suite,
         "app_binary": str(app), "runtime_workshop_root": str(workshop_root),

@@ -16,6 +16,7 @@ extension WebWallpaperLocalSchemeHandler {
 
     private struct PreparedResponse {
         let response: HTTPURLResponse
+        var resource: ResolvedResource
         let body: Data?
         /// 分块交付的已打开句柄；打开失败在 prepare 阶段就转为失败，不会先回 200。
         let streamedHandle: FileHandle?
@@ -74,13 +75,17 @@ self.recordDeny(denied)
         diagnosticHandler: WebRuntimeDiagnosticHandler?
     ) -> PreparedDelivery {
         let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)
-        guard let resource = outcome.resource else {
+        guard let resolved = outcome.resource else {
             return .failure(outcome.denial ?? AccessDenied(
                 reason: .invalidURL,
                 requestURL: requestURL,
                 candidateURL: nil,
                 resolvedURL: nil
             ))
+        }
+        guard let resource = revalidatedResource(resolved) else {
+            return .failure(AccessDenied(reason: .outsideAllowedRoots, requestURL: requestURL,
+                candidateURL: resolved.fileURL, resolvedURL: resolved.fileURL))
         }
         if resource.didTraverseSymlink {
 #if DEBUG
@@ -105,6 +110,7 @@ self.recordDeny(denied)
             if !isHeadRequest, Self.isNotModified(request: request, validators: validators) {
                 return .ready(PreparedResponse(
                     response: try Self.makeNotModifiedResponse(for: requestURL, validators: validators),
+                    resource: resource,
                     body: nil,
                     streamedHandle: nil,
                     streamedLength: 0,
@@ -150,6 +156,7 @@ self.recordDeny(denied)
                     acceptsRanges: !transformsResponse,
                     validators: validators
                 ),
+                resource: resource,
                 body: body,
                 streamedHandle: streamedHandle,
                 streamedLength: streamedLength,
@@ -173,6 +180,11 @@ self.recordDeny(denied)
         cancellation: RequestCancellation,
         webView: WKWebView
     ) {
+        guard !cancellation.isCancelled else {
+            delivery.closeStreamedHandle()
+            finishRequest(urlSchemeTask)
+            return
+        }
         switch delivery {
         case let .failure(error):
             // 416 先行：不可满足的 Range 是可恢复协议响应，不走
@@ -206,6 +218,25 @@ recordDeny(denied)
             finishRequest(urlSchemeTask)
             urlSchemeTask.didFailWithError(error)
         case let .ready(prepared):
+            if readableRootsSnapshot().generation != prepared.resource.authorizationGeneration {
+                ioQueue.async {
+                    let resource = self.revalidatedResource(prepared.resource)
+                    DispatchQueue.main.async {
+                        guard let resource else {
+                            delivery.closeStreamedHandle()
+                            self.deliver(.failure(AccessDenied(reason: .outsideAllowedRoots, requestURL: requestURL,
+                                candidateURL: prepared.resource.fileURL, resolvedURL: prepared.resource.fileURL)),
+                                requestURL: requestURL, to: urlSchemeTask, cancellation: cancellation, webView: webView)
+                            return
+                        }
+                        var refreshed = prepared
+                        refreshed.resource = resource
+                        self.deliver(.ready(refreshed), requestURL: requestURL, to: urlSchemeTask,
+                            cancellation: cancellation, webView: webView)
+                    }
+                }
+                return
+            }
 #if DEBUG
             if let message = prepared.cssServedDiagnostic, shouldRecordServedDiagnostic(for: requestURL) {
                 diagnosticHandler?("local-resource.served", .info, message, requestURL)
@@ -217,7 +248,7 @@ recordDeny(denied)
                     from: streamedHandle,
                     remaining: prepared.streamedLength,
                     to: urlSchemeTask,
-                    cancellation: cancellation
+                    cancellation: cancellation, resource: prepared.resource
                 )
                 return
             }
@@ -229,14 +260,14 @@ recordDeny(denied)
         }
     }
 
-    /// 读一块（IO 队列）→ 交一块（主线程）交替推进，避免整读大文件。
+    /// Read on IO, publish on main. A changed grant set revalidates only this
+    /// pinned resource; unrelated property resources do not interrupt its stream.
     private func streamNextChunk(
         from fileHandle: FileHandle,
         remaining: Int64,
         to urlSchemeTask: any WKURLSchemeTask,
-        cancellation: RequestCancellation
+        cancellation: RequestCancellation, resource: ResolvedResource
     ) {
-        // 声明长度本身为 0（开句柄到交付之间文件被清空）：正常零字节交付。
         guard remaining > 0 else {
             try? fileHandle.close()
             finishRequest(urlSchemeTask)
@@ -245,32 +276,79 @@ recordDeny(denied)
         }
         ioQueue.async { [weak self] in
             guard let self else { return }
+            guard !cancellation.isCancelled else {
+                try? fileHandle.close()
+                DispatchQueue.main.async { self.finishRequest(urlSchemeTask) }
+                return
+            }
+            let current = self.readableRootsSnapshot().generation == resource.authorizationGeneration
+                ? resource : self.revalidatedResource(resource)
+            guard let current else {
+                try? fileHandle.close()
+                DispatchQueue.main.async {
+                    self.finishRequest(urlSchemeTask)
+                    if !cancellation.isCancelled {
+                        urlSchemeTask.didFailWithError(AccessDenied(reason: .outsideAllowedRoots,
+                            requestURL: urlSchemeTask.request.url ?? resource.fileURL,
+                            candidateURL: resource.fileURL, resolvedURL: resource.fileURL))
+                    }
+                }
+                return
+            }
             let chunk = try? fileHandle.read(upToCount: Int(min(Int64(Self.deliveryChunkSize), remaining)))
             DispatchQueue.main.async {
-                guard cancellation.isCancelled == false else {
-                    try? fileHandle.close()
-                    self.finishRequest(urlSchemeTask)
-                    return
-                }
-                guard let chunk, chunk.isEmpty == false else {
-                    // 声明长度尚未读满就 EOF（文件在交付中被改写/截断）：
-                    // 局部失败，不静默交付与 Content-Length 不符的截断体。
-                    try? fileHandle.close()
-                    self.finishRequest(urlSchemeTask)
-                    urlSchemeTask.didFailWithError(LocalSchemeError.truncatedDuringDelivery)
-                    return
-                }
-                urlSchemeTask.didReceive(chunk)
-                let nextRemaining = remaining - Int64(chunk.count)
-                guard nextRemaining > 0 else {
-                    try? fileHandle.close()
-                    self.finishRequest(urlSchemeTask)
-                    urlSchemeTask.didFinish()
-                    return
-                }
-                self.streamNextChunk(from: fileHandle, remaining: nextRemaining, to: urlSchemeTask, cancellation: cancellation)
+                self.deliverStreamChunk(chunk, from: fileHandle, remaining: remaining, to: urlSchemeTask,
+                    cancellation: cancellation, resource: current)
             }
         }
+    }
+
+    private func deliverStreamChunk(
+        _ chunk: Data?, from fileHandle: FileHandle, remaining: Int64,
+        to urlSchemeTask: any WKURLSchemeTask, cancellation: RequestCancellation,
+        resource: ResolvedResource
+    ) {
+        guard !cancellation.isCancelled else {
+            try? fileHandle.close()
+            finishRequest(urlSchemeTask)
+            return
+        }
+        if readableRootsSnapshot().generation != resource.authorizationGeneration {
+            ioQueue.async {
+                let current = self.revalidatedResource(resource)
+                DispatchQueue.main.async {
+                    guard let current else {
+                        try? fileHandle.close()
+                        self.finishRequest(urlSchemeTask)
+                        if !cancellation.isCancelled {
+                            urlSchemeTask.didFailWithError(AccessDenied(reason: .outsideAllowedRoots,
+                                requestURL: urlSchemeTask.request.url ?? resource.fileURL,
+                                candidateURL: resource.fileURL, resolvedURL: resource.fileURL))
+                        }
+                        return
+                    }
+                    self.deliverStreamChunk(chunk, from: fileHandle, remaining: remaining, to: urlSchemeTask,
+                        cancellation: cancellation, resource: current)
+                }
+            }
+            return
+        }
+        guard let chunk, !chunk.isEmpty else {
+            try? fileHandle.close()
+            finishRequest(urlSchemeTask)
+            urlSchemeTask.didFailWithError(LocalSchemeError.truncatedDuringDelivery)
+            return
+        }
+        urlSchemeTask.didReceive(chunk)
+        let nextRemaining = remaining - Int64(chunk.count)
+        guard nextRemaining > 0 else {
+            try? fileHandle.close()
+            finishRequest(urlSchemeTask)
+            urlSchemeTask.didFinish()
+            return
+        }
+        streamNextChunk(from: fileHandle, remaining: nextRemaining, to: urlSchemeTask,
+            cancellation: cancellation, resource: resource)
     }
 
     static func byteRange(for request: URLRequest, totalSize: Int64) throws -> ClosedRange<Int64>? {

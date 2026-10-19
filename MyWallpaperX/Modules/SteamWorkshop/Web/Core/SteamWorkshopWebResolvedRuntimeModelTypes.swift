@@ -288,6 +288,17 @@ nonisolated struct ResolvedWebPlaybackContext: Equatable {
     let effectiveRootURL: URL
     let propertyPayloadJSON: String?
     let language: String
+    let resourceGrants: [WebWallpaperResourceGrant]
+
+    init(recordID: String, effectiveEntryURL: URL, effectiveRootURL: URL,
+         propertyPayloadJSON: String?, language: String, resourceGrants: [WebWallpaperResourceGrant] = []) {
+        self.recordID = recordID
+        self.effectiveEntryURL = effectiveEntryURL
+        self.effectiveRootURL = effectiveRootURL
+        self.propertyPayloadJSON = propertyPayloadJSON
+        self.language = language
+        self.resourceGrants = resourceGrants
+    }
 }
 
 /// Playback and profile selection consume the same prepared descriptor.

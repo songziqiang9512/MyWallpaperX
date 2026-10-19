@@ -20,7 +20,8 @@ extension MainWindowCoordinator {
                 language: notification.userInfo?["language"] as? String ?? "en-us",
                 runtimeProfile: notification.userInfo?["runtimeProfile"] as? WallpaperEngine.WebRuntimeProfile ?? .standard,
                 resourceLifetime: notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime,
-                intentEpoch: notification.userInfo?["intentEpoch"] as? UInt64)
+                intentEpoch: notification.userInfo?["intentEpoch"] as? UInt64,
+                resourceGrants: notification.userInfo?["resourceGrants"] as? [WebWallpaperResourceGrant] ?? [])
         }
         observe(.steamWorkshopSceneReadyToRender) { notification in
             guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }

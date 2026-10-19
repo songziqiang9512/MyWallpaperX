@@ -6,6 +6,7 @@
 #if DEBUG
 import AppKit
 import Foundation
+import Darwin
 
 @MainActor
 enum DebugWebPropertyPersistenceRunner {
@@ -14,6 +15,7 @@ enum DebugWebPropertyPersistenceRunner {
     private static let fileKey = "image"
     private static let directoryKey = "customdirectory"
     private static let modeKey = "wallpapermode"
+    private static var observedChildPIDs = Set<Int32>()
 
     static func scheduleIfRequested() -> Bool {
         let arguments = ProcessInfo.processInfo.arguments
@@ -60,6 +62,7 @@ enum DebugWebPropertyPersistenceRunner {
         service: SteamWorkshopService,
         record: SteamWorkshopDownloadRecord
     ) async {
+        captureWebProcessIdentifiers()
         let definitions = service.webPropertyDefinitions(for: record)
         guard let fileDefinition = definitions.first(where: { $0.key == fileKey }),
               let directoryDefinition = definitions.first(where: { $0.key == directoryKey }),
@@ -84,7 +87,10 @@ enum DebugWebPropertyPersistenceRunner {
                 await logState(stage: stage, action: "set", service: service, record: record)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                Task { @MainActor in await DebugWebPlaybackRunner.launchWebWorkshopItem(switchItemID, using: service) }
+                Task { @MainActor in
+                    await DebugWebPlaybackRunner.launchWebWorkshopItem(switchItemID, using: service)
+                    captureWebProcessIdentifiers()
+                }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
                 Task { @MainActor in
@@ -117,11 +123,59 @@ enum DebugWebPropertyPersistenceRunner {
 
     private static func finish(stage: String, after delay: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            WallpaperEngine.shared.stopPlayback()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                logEvent(stage: stage, action: "completed", detail: nil)
+            Task { @MainActor in
+                let engine = WallpaperEngine.shared
+                let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter
+                let receipt = await stopAndWaitForWebExit(engine: engine, host: host, timeout: 8)
+                logEvent(stage: stage, action: "completed", detail: nil, evidence: receipt)
                 NSApp.terminate(nil)
             }
+        }
+    }
+
+    private static func captureWebProcessIdentifiers() {
+        guard let host = WallpaperEngine.shared.dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
+        observedChildPIDs.formUnion(host.liveProcessIdentifiers)
+    }
+
+    /// Parent adapter state alone is insufficient: a process may still be
+    /// exiting after its logical request has been removed. Only ESRCH proves a
+    /// captured PID absent; EPERM and other unknown probe failures stay live.
+    private static func stopAndWaitForWebExit(
+        engine: WallpaperEngine, host: WebDaemonHostAdapter?, timeout: TimeInterval
+    ) async -> [String: String] {
+        if let host { observedChildPIDs.formUnion(host.liveProcessIdentifiers) }
+        engine.stopPlayback()
+        let started = ProcessInfo.processInfo.systemUptime
+        guard let host else {
+            return ["stopProof": "web-daemon-process-exit-v1", "stopResult": "adapter-unavailable"]
+        }
+        while true {
+            let adapterPIDs = host.liveProcessIdentifiers.sorted()
+            observedChildPIDs.formUnion(adapterPIDs)
+            let capturedPIDs = observedChildPIDs.sorted()
+            let systemLivePIDs = capturedPIDs.filter { Darwin.kill($0, 0) == 0 || errno != ESRCH }
+            let active = host.activeRequest != nil
+            let pending = host.hasPendingRequest
+            let elapsed = ProcessInfo.processInfo.systemUptime - started
+            let exited = !capturedPIDs.isEmpty && adapterPIDs.isEmpty && systemLivePIDs.isEmpty && !active && !pending
+            if exited || elapsed >= timeout {
+                return [
+                    "stopProof": "web-daemon-process-exit-v1",
+                    "stopResult": exited ? "exited" : "timeout",
+                    "stopTimedOut": String(!exited),
+                    "pidProbe": "kill-zero-esrch-v1",
+                    "parentPID": String(ProcessInfo.processInfo.processIdentifier),
+                    "capturedChildPIDs": capturedPIDs.map(String.init).joined(separator: ","),
+                    "systemLiveChildPIDs": systemLivePIDs.map(String.init).joined(separator: ","),
+                    "adapterLiveChildPIDs": adapterPIDs.map(String.init).joined(separator: ","),
+                    "activeRequestPresent": String(active),
+                    "pendingRequestPresent": String(pending),
+                    "stopWaitSeconds": String(elapsed)
+                ]
+            }
+            do { try await Task.sleep(for: .milliseconds(20)) }
+            catch { return ["stopProof": "web-daemon-process-exit-v1", "stopResult": "cancelled"] }
         }
     }
 
@@ -137,6 +191,7 @@ enum DebugWebPropertyPersistenceRunner {
         service: SteamWorkshopService,
         record: SteamWorkshopDownloadRecord
     ) async {
+        captureWebProcessIdentifiers()
         let definitions = service.webPropertyDefinitions(for: record)
         guard let fileDefinition = definitions.first(where: { $0.key == fileKey }),
               let directoryDefinition = definitions.first(where: { $0.key == directoryKey }),
@@ -186,7 +241,7 @@ enum DebugWebPropertyPersistenceRunner {
         ])
     }
 
-    private static func logEvent(stage: String, action: String, detail: String?) {
+    private static func logEvent(stage: String, action: String, detail: String?, evidence: [String: String] = [:]) {
         var payload = [
             "stage": stage,
             "action": action,
@@ -204,6 +259,7 @@ enum DebugWebPropertyPersistenceRunner {
             "modePayload": ""
         ]
         if let detail { payload["detail"] = detail }
+        payload.merge(evidence) { _, current in current }
         logJSON(payload)
     }
 

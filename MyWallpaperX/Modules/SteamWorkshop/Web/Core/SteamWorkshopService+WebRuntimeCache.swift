@@ -198,12 +198,13 @@ extension SteamWorkshopService {
             guard let data = try? Data(contentsOf: inputs.runtimeFileURL),
                   let manifest = try? JSONDecoder().decode(SteamWorkshopWebRuntimeCacheManifest.self, from: data),
                   manifest.version == SteamWorkshopWebRuntimeCacheManifest.currentVersion,
-                  manifest.recordID == inputs.recordID else {
+                  manifest.recordID == inputs.recordID,
+                  Self.runtimeManifestCheapFieldsMatch(manifest, inputs: inputs) else {
                 return nil
             }
             guard let self else { return nil }
             let liveResourceSignature = Self.liveResourceSignature(inputs: inputs, scanner: self)
-            guard Self.isRuntimeManifestValid(manifest, inputs: inputs, liveResourceSignature: liveResourceSignature) else {
+            guard manifest.resourceSignature == liveResourceSignature else {
                 return nil
             }
             let resolvedEntryURL = URL(fileURLWithPath: manifest.execution.resolvedEntryPath).resolvingSymlinksInPath().standardizedFileURL

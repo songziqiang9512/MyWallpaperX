@@ -32,6 +32,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         let mediaConsumer = UUID()
         var state: WallpaperEngine.WebWallpaperRuntimeState
         var propertiesJSON: String?
+        var resourceGrants: [WebWallpaperResourceGrant]
+        var propertyRevision: UInt64
+        var resourceRevision: UInt64
         var multiDisplayEnabled: Bool
         var frames = DaemonNewlineFrameBuffer()
         var usage: Set<UUID> = []
@@ -57,6 +60,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             self.ticket = ticket
             self.request = request; self.state = state; self.transport = transport
             propertiesJSON = request.propertiesJSON
+            resourceGrants = request.resourceGrants
+            propertyRevision = request.propertyRevision
+            resourceRevision = request.resourceRevision
             multiDisplayEnabled = request.multiDisplayEnabled
             self.recoveryAttempt = recoveryAttempt
         }
@@ -66,7 +72,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                   propertiesJSON: propertiesJSON, source: request.source,
                   recordID: request.recordID, language: request.language,
                   runtimeProfile: request.runtimeProfile, multiDisplayEnabled: multiDisplayEnabled,
-                  resourceLifetime: request.resourceLifetime)
+                  resourceLifetime: request.resourceLifetime, resourceGrants: resourceGrants,
+                  propertyRevision: propertyRevision, resourceRevision: resourceRevision)
         }
     }
 
@@ -266,6 +273,18 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     var hasLivePlayback: Bool { !liveSessions.isEmpty }
     var hasPendingRequest: Bool { candidate != nil || displayRebuildSource != nil || preparedProcess?.isIdle == false }
     var activeRequest: WallpaperEngine.WebWallpaperLaunchRequest? { active?.executionRequest }
+
+    /// A committed request can temporarily have no active process. Only its
+    /// exact pending/recovering input may receive edits; an unrelated candidate
+    /// is a new selection and never substitutes for that committed identity.
+    func propertyUpdateSession(for requestID: UUID) -> Session? {
+        if let active, active.request.id == requestID { return active }
+        if let pending = pendingRecovery?.session, pending.request.id == requestID { return pending }
+        if let candidate, candidate.recoveryAttempt > 0, candidate.request.id == requestID { return candidate }
+        if let rebuilding = displayRebuildSource, rebuilding.recoveryAttempt > 0,
+           rebuilding.request.id == requestID { return rebuilding }
+        return nil
+    }
     var activeRecordIDs: Set<String> {
         Set(liveSessions.compactMap { $0.request.recordID })
     }
@@ -408,6 +427,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         }
         var policySessions = [active, candidate].compactMap { $0 } + Array(standby.values)
         if let displayRebuildSource { policySessions.append(displayRebuildSource) }
+        if let pending = pendingRecovery?.session,
+           !policySessions.contains(where: { $0 === pending }) { policySessions.append(pending) }
         for session in policySessions {
             switch command {
             case .pause:
@@ -425,12 +446,18 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             case let .pushAudioSpectrum(levels):
                 session.state = .init(paused: session.state.paused, volume: session.state.volume,
                     playbackRate: session.state.playbackRate, spectrumLevels: levels)
-            case let .applyProperties(json):
-                guard active === session else { continue }
-                session.propertiesJSON = json
+            case let .applyProperties(update):
+                guard propertyUpdateSession(for: update.requestID) === session,
+                      update.revision > session.propertyRevision,
+                      update.resourceRevision >= session.resourceRevision,
+                      update.resourceGrants == session.resourceGrants || update.resourceRevision > session.resourceRevision else { continue }
+                session.propertiesJSON = update.propertiesJSON
+                session.resourceGrants = update.resourceGrants
+                session.propertyRevision = update.revision
+                session.resourceRevision = update.resourceRevision
             case .stop: break
             }
-            if session.hello { send(.runtime(command), to: session) }
+            if session.hello, !session.didObserveExit { send(.runtime(command), to: session) }
         }
     }
 

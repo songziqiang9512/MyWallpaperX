@@ -245,6 +245,56 @@ extension SteamWorkshopService {
         return rawValue
     }
 
+    /// This is the only projection from resolved bindings to playback authority.
+    /// In particular, usesBookmarks:false (selection/bookmark creation) never
+    /// supplies an execution grant, and unresolved author paths grant nothing.
+    func resolvedWebResourceGrants(
+        for record: SteamWorkshopDownloadRecord,
+        definitions: [SteamWorkshopWebPropertyDefinition],
+        valuesOverride: [String: SteamWorkshopWebPropertyValue]? = nil,
+        effectiveRootURL: URL? = nil
+    ) -> [WebWallpaperResourceGrant] {
+        let values = valuesOverride ?? effectiveWebPropertyValues(for: record, definitions: definitions)
+        var bindings: [ResolvedWebResourceBinding] = []
+        for definition in definitions {
+            if let binding = resolvedWebResourceBinding(forKey: definition.key, definition: definition,
+                rawValue: values[definition.key] ?? definition.defaultValue, record: record) {
+                bindings.append(binding)
+            }
+        }
+        let definitionKeys = Set(definitions.map(\.key))
+        for (key, value) in webShellResourcePathLikePresetValues(for: record) where !definitionKeys.contains(key) {
+            if let binding = resolvedWebResourceBinding(forKey: key, definition: nil,
+                rawValue: values[key] ?? value, record: record) { bindings.append(binding) }
+        }
+        let resourceGrants = bindings.compactMap { binding -> WebWallpaperResourceGrant? in
+            guard binding.source != .unresolved, binding.source != .absolutePath,
+                  let url = binding.resolvedURL,
+                  let facts = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey]) else { return nil }
+            if binding.kind == .directory || (binding.kind == .pathlikePreset && facts.isDirectory == true) {
+                guard facts.isDirectory == true else { return nil }
+                return .init(kind: .directory, url: url)
+            }
+            guard facts.isRegularFile == true,
+                  binding.kind != .file || Self.webFileURL(url, matches: binding.fileType) else { return nil }
+            return .init(kind: .file, url: url)
+        }
+        // These are independently trusted project namespaces, never a selected
+        // file's parent. Dependency shell assets remain readable after clearing
+        // a user bookmark; the handler already owns its effective root.
+        let implicitRoot = (effectiveRootURL ?? record.webHostRootURL ?? record.resolvedWebRootURL ?? record.folderURL)
+            .resolvingSymlinksInPath().standardizedFileURL
+        let namespaceGrants = webResourceCandidateRoots(for: record).compactMap { _, root -> WebWallpaperResourceGrant? in
+            let grant = WebWallpaperResourceGrant(kind: .directory, url: root)
+            guard grant.url != implicitRoot,
+                  (try? grant.url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { return nil }
+            return grant
+        }
+        return Array(Set(namespaceGrants + resourceGrants)).sorted {
+            $0.url.path == $1.url.path ? $0.kind.rawValue < $1.kind.rawValue : $0.url.path < $1.url.path
+        }
+    }
+
 }
 
 private extension String {

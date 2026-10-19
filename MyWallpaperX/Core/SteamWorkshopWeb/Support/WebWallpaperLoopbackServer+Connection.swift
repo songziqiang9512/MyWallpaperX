@@ -212,6 +212,10 @@ extension WebWallpaperLoopbackServer {
         leftover: Data,
         on context: ConnectionContext
     ) throws {
+        guard let resource = schemeHandler.revalidatedResource(resource) else {
+            throw WebWallpaperLocalSchemeHandler.AccessDenied(reason: .outsideAllowedRoots,
+                requestURL: requestURL, candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
+        }
         let isHeadRequest = method == "HEAD"
         let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL)
         var urlRequest = URLRequest(url: requestURL)
@@ -240,7 +244,7 @@ extension WebWallpaperLoopbackServer {
         }
 
         if range == nil, !transformsResponse, !isHeadRequest, fileStat.fileSize > Self.streamingThreshold {
-            streamFile(resource.fileURL, mimeType: mimeType, validators: validators, requestURL: requestURL, on: context)
+            streamFile(resource, mimeType: mimeType, validators: validators, requestURL: requestURL, on: context)
             return
         }
 
@@ -260,6 +264,10 @@ extension WebWallpaperLoopbackServer {
         // 会话标记只在 HTML 文档响应上下发：拿到入口文档的客户端才有资格用
         // 无前缀的 Web 根绝对路径访问受控资源（见 authorizedRequestPath）。
         let sessionCookie = mimeType.hasPrefix("text/html") ? accessCookieHeader : nil
+        guard schemeHandler.revalidatedResource(resource) != nil else {
+            throw WebWallpaperLocalSchemeHandler.AccessDenied(reason: .outsideAllowedRoots,
+                requestURL: requestURL, candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
+        }
         sendHTTPResponse(
             statusCode: range == nil ? 200 : 206,
             mimeType: mimeType,
@@ -318,13 +326,14 @@ extension WebWallpaperLoopbackServer {
 
     /// 流式分支同样以句柄实际长度为声明长度，保证 Content-Length 与实际发送一致。
     private func streamFile(
-        _ fileURL: URL,
+        _ resource: WebWallpaperLocalSchemeHandler.ResolvedResource,
         mimeType: String,
         validators: WebWallpaperLocalSchemeHandler.ResponseValidators,
         requestURL: URL,
         on context: ConnectionContext
     ) {
-        guard let fileHandle = try? FileHandle(forReadingFrom: fileURL),
+        guard let resource = schemeHandler.revalidatedResource(resource),
+              let fileHandle = try? FileHandle(forReadingFrom: resource.fileURL),
               let streamedLength = WebWallpaperLocalSchemeHandler.streamedLength(of: fileHandle) else {
             sendError(404, message: "unreadable_local_resource", on: context)
             return
@@ -342,7 +351,7 @@ extension WebWallpaperLoopbackServer {
         headers.append("Accept-Ranges: bytes")
         headers.append("Connection: close")
         send(Data((headers.joined(separator: "\r\n") + "\r\n\r\n").utf8), on: context) { [weak self] in
-            self?.streamNextChunk(from: fileHandle, remaining: streamedLength, requestURL: requestURL, on: context)
+            self?.streamNextChunk(from: fileHandle, remaining: streamedLength, requestURL: requestURL, resource: resource, on: context)
         }
     }
 
@@ -351,8 +360,16 @@ extension WebWallpaperLoopbackServer {
         from fileHandle: FileHandle,
         remaining: Int64,
         requestURL: URL,
+        resource: WebWallpaperLocalSchemeHandler.ResolvedResource,
         on context: ConnectionContext
     ) {
+        let current = schemeHandler.readableRootsSnapshot().generation == resource.authorizationGeneration
+            ? resource : schemeHandler.revalidatedResource(resource)
+        guard var resource = current else {
+            try? fileHandle.close()
+            context.connection.cancel()
+            return
+        }
         let chunk = try? fileHandle.read(upToCount: Int(min(Int64(Self.connectionChunkSize), remaining)))
         guard let chunk, chunk.isEmpty == false else {
             try? fileHandle.close()
@@ -374,6 +391,15 @@ extension WebWallpaperLoopbackServer {
             finishStream(on: context)
             return
         }
+        if schemeHandler.readableRootsSnapshot().generation != resource.authorizationGeneration {
+            guard let current = schemeHandler.revalidatedResource(resource) else {
+                try? fileHandle.close()
+                context.connection.cancel()
+                return
+            }
+            resource = current
+        }
+        let deliveredResource = resource
         context.connection.send(content: chunk, completion: .contentProcessed { [weak self] error in
             guard let self else { return }
             guard error == nil else {
@@ -387,7 +413,7 @@ extension WebWallpaperLoopbackServer {
                 self.finishStream(on: context)
                 return
             }
-            self.streamNextChunk(from: fileHandle, remaining: nextRemaining, requestURL: requestURL, on: context)
+            self.streamNextChunk(from: fileHandle, remaining: nextRemaining, requestURL: requestURL, resource: deliveredResource, on: context)
         })
     }
 

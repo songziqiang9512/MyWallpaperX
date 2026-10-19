@@ -7,6 +7,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from script.tests.test_web_compat_parity import source_block
+
 
 ROOT = Path(__file__).resolve().parents[2]
 # 转换器 + mwx-local resolve：两类断言共用一次 swiftc 编译，覆盖 Support 层
@@ -213,7 +215,9 @@ class WebResponseTransformerTests(unittest.TestCase):
             temporary = Path(directory)
             harness_path = temporary / "main.swift"
             binary_path = temporary / "WebResponseTransformerTests"
-            harness_path.write_text(harness, encoding="utf-8")
+            grant = source_block((ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift").read_text(),
+                                 "struct WebWallpaperResourceGrant")
+            harness_path.write_text("import Foundation\n" + grant + "\n" + harness, encoding="utf-8")
             subprocess.run(
                 [swiftc, *(str(path) for path in TRANSFORMER_SOURCES), str(harness_path), "-o", str(binary_path)],
                 cwd=ROOT,

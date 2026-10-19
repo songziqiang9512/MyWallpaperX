@@ -104,7 +104,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             rootURL: request?.rootURL ?? URL(fileURLWithPath: "/"),
             strictSymlinkPolicy: request?.runtimeProfile.strictLocalResourcePolicy ?? false
         )
-        schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request?.propertiesJSON))
+        schemeHandler.updateResourceGrants(request?.resourceGrants ?? [])
 #if DEBUG
         schemeHandler.diagnosticHandler = { [weak self] type, severity, message, url in
             Task { @MainActor in

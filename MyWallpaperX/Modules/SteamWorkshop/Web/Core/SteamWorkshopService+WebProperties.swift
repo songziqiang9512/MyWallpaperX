@@ -68,7 +68,17 @@ extension SteamWorkshopService {
             visibleOptions: visibleWebPropertyOptions(for: definition, record: record),
             record: record
         )
-        WallpaperEngine.shared.updateCurrentWebWallpaperProperties(deltaJSON)
+        let resourcesChanged = webPropertyChangesResources(definition, record: record)
+        var grants = WallpaperEngine.shared.currentWebResourceGrants
+        if resourcesChanged {
+            let definitions = webPropertyDefinitions(for: record)
+            var effectiveValues = effectiveWebPropertyValues(for: record, definitions: definitions)
+            effectiveValues[definition.key] = value
+            grants = resolvedWebResourceGrants(for: record, definitions: definitions, valuesOverride: effectiveValues,
+                effectiveRootURL: WallpaperEngine.shared.currentWebResourceRootURL)
+        }
+        WallpaperEngine.shared.updateCurrentWebWallpaperProperties(deltaJSON,
+            resourceGrants: grants, resourcesChanged: resourcesChanged)
     }
 
     func updateWebPropertyValue(_ value: SteamWorkshopWebPropertyValue, for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) {
@@ -87,6 +97,11 @@ extension SteamWorkshopService {
         guard isActiveWebRecord(record) else { return }
         let propertyDefinitions = webPropertyDefinitions(for: record)
         let committedValue = currentWebPropertyValue(for: definition, record: record)
+        let resourcesChanged = webPropertyChangesResources(definition, record: record)
+        let grants = resourcesChanged
+            ? resolvedWebResourceGrants(for: record, definitions: propertyDefinitions,
+                effectiveRootURL: WallpaperEngine.shared.currentWebResourceRootURL)
+            : WallpaperEngine.shared.currentWebResourceGrants
         if shouldRefreshFullWebPropertyPayload(
             afterUpdating: definition.key,
             definitions: propertyDefinitions
@@ -95,7 +110,8 @@ extension SteamWorkshopService {
                 effectiveWebPropertiesJSONString(
                     for: record,
                     definitions: propertyDefinitions
-                )
+                ),
+                resourceGrants: grants, resourcesChanged: resourcesChanged
             )
             return
         }
@@ -113,7 +129,14 @@ extension SteamWorkshopService {
             visibleOptions: visibleWebPropertyOptions(for: definition, record: record),
             record: record
         )
-        WallpaperEngine.shared.updateCurrentWebWallpaperProperties(deltaJSON)
+        WallpaperEngine.shared.updateCurrentWebWallpaperProperties(deltaJSON,
+            resourceGrants: grants, resourcesChanged: resourcesChanged)
+    }
+
+    private func webPropertyChangesResources(_ definition: SteamWorkshopWebPropertyDefinition,
+                                            record: SteamWorkshopDownloadRecord) -> Bool {
+        definition.kind == .file || definition.kind == .directory
+            || webShellResourcePathLikeKeys(for: record).contains(definition.key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
     }
 
     func currentWebPropertyValue(for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebPropertyValue {
@@ -159,7 +182,10 @@ extension SteamWorkshopService {
         clearWebPropertyBookmarks(for: record)
         invalidateCachedWebRuntime(for: record.id)
         guard isActiveWebRecord(record) else { return }
-        WallpaperEngine.shared.updateCurrentWebWallpaperProperties(effectiveWebPropertiesJSONString(for: record))
+        let definitions = webPropertyDefinitions(for: record)
+        WallpaperEngine.shared.updateCurrentWebWallpaperProperties(effectiveWebPropertiesJSONString(for: record, definitions: definitions),
+            resourceGrants: resolvedWebResourceGrants(for: record, definitions: definitions,
+                effectiveRootURL: WallpaperEngine.shared.currentWebResourceRootURL), resourcesChanged: true)
     }
 
     func visibleWebPropertyOptions(for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) -> [SteamWorkshopWebPropertyOption] {

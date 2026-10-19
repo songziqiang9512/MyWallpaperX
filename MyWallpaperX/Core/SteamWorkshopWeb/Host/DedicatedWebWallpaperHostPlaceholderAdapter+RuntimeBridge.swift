@@ -293,42 +293,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func refreshReadableResourceRoots(using propertiesJSON: String?) {
-        let accessibleURLs = accessibleResourceURLs(from: propertiesJSON)
         for surface in surfaces.values {
-            surface.schemeHandler.updateAdditionalReadableRoots(accessibleURLs)
+            surface.schemeHandler.updateResourceGrants(currentRequest?.resourceGrants ?? [])
         }
         refreshRandomFileSnapshots(using: propertiesJSON)
-    }
-
-    func accessibleResourceURLs(from propertiesJSON: String?) -> [URL] {
-        guard let propertiesJSON,
-              let data = propertiesJSON.data(using: .utf8),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return []
-        }
-
-        var urls: [URL] = []
-        for rawPayload in root.values {
-            guard let payload = rawPayload as? [String: Any],
-                  let payloadType = payload["type"] as? String,
-                  ["file", "directory"].contains(payloadType.lowercased()),
-                  let rawValue = payload["value"] as? String else {
-                continue
-            }
-
-            let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmedValue.hasPrefix("/") else { continue }
-
-            let candidateURL = URL(fileURLWithPath: trimmedValue)
-                .resolvingSymlinksInPath()
-                .standardizedFileURL
-            var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: candidateURL.path, isDirectory: &isDirectory) else {
-                continue
-            }
-            urls.append(isDirectory.boolValue ? candidateURL : candidateURL.deletingLastPathComponent())
-        }
-        return urls
     }
 
     func resolveRandomFilePath(forPropertyNamed propertyName: String) -> String? {
@@ -343,8 +311,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             return nil
         }
 
-        let candidateURL = URL(fileURLWithPath: rawValue)
-            var isDirectory: ObjCBool = false
+        guard let request = currentRequest,
+              let candidateURL = WebWallpaperResourceGrant.authorizedURL(URL(fileURLWithPath: rawValue),
+                kind: payloadType.lowercased() == "directory" ? .directory : .file,
+                rootURL: request.rootURL, grants: request.resourceGrants) else { return nil }
+        var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: candidateURL.path, isDirectory: &isDirectory) else {
             return nil
         }
@@ -363,8 +334,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         } else {
             resolvedURL = candidateURL
         }
-        guard let resolvedURL else { return nil }
-        return absoluteLocalSchemeURL(for: resolvedURL)
+        guard let resolvedURL,
+              let authorized = WebWallpaperResourceGrant.authorizedURL(resolvedURL,
+                rootURL: request.rootURL, grants: request.resourceGrants),
+              (try? authorized.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { return nil }
+        return absoluteLocalSchemeURL(for: authorized)
     }
 
     /// 主线程只从后台枚举出的目录快照里取随机值：目录树遍历一律在
@@ -412,6 +386,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     private func scheduleRandomFileSnapshotRefresh(for directoryURL: URL) {
+        guard let request = currentRequest,
+              let directoryURL = WebWallpaperResourceGrant.authorizedURL(directoryURL, kind: .directory,
+                rootURL: request.rootURL, grants: request.resourceGrants) else { return }
         let cacheKey = randomFileCacheKey(for: directoryURL)
         guard randomFileEnumeratingDirectoryPaths.contains(cacheKey) == false else { return }
         if let refreshedAt = randomFileSnapshotRefreshedAtByDirectoryPath[cacheKey],
@@ -419,16 +396,19 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             return
         }
         randomFileEnumeratingDirectoryPaths.insert(cacheKey)
-        let requestID = currentRequest?.id
+        let requestID = request.id
+        let revision = request.resourceRevision
+        let cancellation = directoryResourceCancellation
         let directoryPath = directoryURL.path
         directorySyncQueue.async { [weak self] in
             guard let self else { return }
-            let status = self.directorySyncStatus(forPath: directoryPath)
+            let status = self.directorySyncStatus(forPath: directoryPath,
+                rootURL: request.rootURL, grants: request.resourceGrants, cancellation: cancellation)
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                guard self.currentRequest?.id == requestID,
+                      self.currentRequest?.resourceRevision == revision else { return }
                 self.randomFileEnumeratingDirectoryPaths.remove(cacheKey)
-                // 请求已切换的旧枚举结果不落回快照，避免跨请求写入。
-                guard self.currentRequest?.id == requestID else { return }
                 self.randomFileSnapshotsByDirectoryPath[cacheKey] = status.snapshot
                 self.randomFileSnapshotRefreshedAtByDirectoryPath[cacheKey] = ProcessInfo.processInfo.systemUptime
             }

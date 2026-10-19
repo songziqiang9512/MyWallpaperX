@@ -12,6 +12,46 @@ import WebKit
 import CoreGraphics
 import Darwin
 
+/// Immutable authority produced by the main App's resolved binding owner.
+/// A JavaScript property value never creates a grant. URLs are pinned after
+/// resolving the producer's bookmark/root; consumption resolves the target again.
+nonisolated struct WebWallpaperResourceGrant: Codable, Equatable, Hashable, Sendable {
+    enum Kind: String, Codable, Sendable { case file, directory }
+    let kind: Kind
+    let url: URL
+
+    init(kind: Kind, url: URL) {
+        self.kind = kind
+        self.url = url.resolvingSymlinksInPath().standardizedFileURL
+    }
+
+    /// Callers normalize once at the IO boundary, then compare pinned paths.
+    func allowsCanonicalURL(_ targetURL: URL, kind requestedKind: Kind? = nil) -> Bool {
+        guard requestedKind != .directory || kind == .directory else { return false }
+        let target = targetURL.standardizedFileURL.path
+        let granted = url.standardizedFileURL.path
+        return target == granted || (kind == .directory && target.hasPrefix(granted + "/"))
+    }
+
+    static func authorizedURL(_ candidate: URL, kind: Kind? = nil,
+                              rootURL: URL, grants: [Self]) -> URL? {
+        guard candidate.isFileURL else { return nil }
+        let target = candidate.resolvingSymlinksInPath().standardizedFileURL
+        let root = rootURL.standardizedFileURL.path
+        if target.path == root || target.path.hasPrefix(root + "/") { return target }
+        return grants.contains { $0.allowsCanonicalURL(target, kind: kind) } ? target : nil
+    }
+}
+
+/// Properties and the complete replacement authority travel in one message.
+nonisolated struct WebWallpaperPropertyUpdate: Codable {
+    let requestID: UUID
+    let revision: UInt64
+    let resourceRevision: UInt64
+    let propertiesJSON: String
+    let resourceGrants: [WebWallpaperResourceGrant]
+}
+
 extension WallpaperEngine {
     nonisolated enum WebWallpaperLaunchSource: String, Codable {
         case steamWorkshop
@@ -74,6 +114,9 @@ extension WallpaperEngine {
         let entryURL: URL
         let rootURL: URL
         let propertiesJSON: String?
+        let resourceGrants: [WebWallpaperResourceGrant]
+        let propertyRevision: UInt64
+        let resourceRevision: UInt64
         let source: WebWallpaperLaunchSource
         let recordID: String?
         let language: String
@@ -91,12 +134,18 @@ extension WallpaperEngine {
             language: String,
             runtimeProfile: WebRuntimeProfile,
             multiDisplayEnabled: Bool,
-            resourceLifetime: PlaybackResourceLifetime? = nil
+            resourceLifetime: PlaybackResourceLifetime? = nil,
+            resourceGrants: [WebWallpaperResourceGrant] = [],
+            propertyRevision: UInt64 = 0,
+            resourceRevision: UInt64 = 0
         ) {
             self.id = id
             self.entryURL = entryURL
             self.rootURL = rootURL
             self.propertiesJSON = propertiesJSON
+            self.resourceGrants = resourceGrants
+            self.propertyRevision = propertyRevision
+            self.resourceRevision = resourceRevision
             self.source = source
             self.recordID = recordID
             self.language = language
@@ -119,7 +168,7 @@ extension WallpaperEngine {
         case stop
         case setVolume(Float)
         case setPlaybackRate(Float)
-        case applyProperties(String)
+        case applyProperties(WebWallpaperPropertyUpdate)
         case pushAudioSpectrum([Float])
     }
 
@@ -426,10 +475,19 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var phase: Phase = .idle
     var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest? {
         didSet {
-            // 请求切换（新壁纸 / 停止 / 失败）时作废旧目录快照，并在后台预枚举
-            // 新请求的 directory 属性；主线程的随机文件请求只做取值。
-            guard oldValue?.id != currentRequest?.id else { return }
-            resetRandomFileSnapshots()
+            guard oldValue?.id != currentRequest?.id
+                    || oldValue?.resourceRevision != currentRequest?.resourceRevision else { return }
+            directoryResourceCancellation.cancel()
+            directoryResourceCancellation = WebWallpaperLocalSchemeHandler.RequestCancellation()
+            directorySyncRequestID &+= 1
+            deferredDirectorySyncWorkItem?.cancel()
+            deferredDirectorySyncWorkItem = nil
+            randomFileEnumeratingDirectoryPaths.removeAll()
+            if oldValue?.id != currentRequest?.id || oldValue?.resourceGrants != currentRequest?.resourceGrants {
+                stopAllDirectoryWatchers()
+                stopDirectoryWatchTimer()
+                resetRandomFileSnapshots()
+            }
             refreshRandomFileSnapshots(using: currentRequest?.propertiesJSON)
         }
     }
@@ -468,6 +526,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var directoryWatchTimer: DispatchSourceTimer?
     let directorySyncQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.web-directory-sync", qos: .utility)
     var directorySyncRequestID: UInt64 = 0
+    var directoryResourceCancellation = WebWallpaperLocalSchemeHandler.RequestCancellation()
     var deferredDirectorySyncWorkItem: DispatchWorkItem?
     var globalMouseMonitor: Any?
     var localMouseMonitor: Any?
