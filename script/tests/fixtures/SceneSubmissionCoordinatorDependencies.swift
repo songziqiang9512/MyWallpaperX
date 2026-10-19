@@ -26,7 +26,6 @@ struct SceneAuthoredEffectRenderPlan {
         let materialOrdinal: Int?
         let commandSource: TextureIdentity?
         let commandTarget: TextureIdentity?
-
         init(
             nodeIndex: Int,
             kind: NodeKind,
@@ -46,7 +45,6 @@ struct SceneAuthoredEffectRenderPlan {
     let effects: [Effect]
     let nodes: [Node]
     let renderTargets: [TextureIdentity]
-
     init(
         layerID: Int,
         effects: [Effect],
@@ -87,7 +85,6 @@ struct SceneGraphExecutionState {
         let extent: SceneGraphRenderTargetPlan.PixelExtent
         let format: SceneGraphRenderTargetPlan.TextureFormat
         let addressMode: SceneGraphRenderTargetPlan.UVAddressMode
-
         init(
             extent: SceneGraphRenderTargetPlan.PixelExtent = .init(
                 width: 2,
@@ -563,6 +560,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         var supportsTerminalMaterialReplay = false
         var supportsSourceSizedSolidEffects = false
+        var terminalReplayBlendMode = 0
         let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil
         let frameInputContract = FrameInputContract(
             effectTextureProjectionSource: .emittedOutputGeometry,
@@ -779,8 +777,7 @@ struct SceneResolvedMaterialFrameSnapshot {
         dynamicSnapshot: SceneDynamicSnapshot,
         frameInputs: SceneAuthoredShaderFrameInputs
     ) -> Result<Self, SceneResolvedMaterialFailure> {
-        _ = dynamicSnapshot
-        _ = frameInputs
+        _ = dynamicSnapshot; _ = frameInputs
         return textureSnapshot.valid
             ? .success(.init(frameIndex: textureSnapshot.frameIndex))
             : .failure(.init())
@@ -825,7 +822,6 @@ enum SceneMediaThumbnailTextureStore {
         let providerStates: [
             SceneSystemProviderTextureIdentity: SceneTextureProviderState
         ]
-
         init(
             providerStates: [
                 SceneSystemProviderTextureIdentity: SceneTextureProviderState
@@ -842,26 +838,26 @@ struct SceneResolvedMaterialRuntimeCatalog {
 struct SceneMaterialAssetTextureCatalog {
     final class FrameProvider {
         let catalog: SceneMaterialAssetTextureCatalog
-
         init(catalog: SceneMaterialAssetTextureCatalog) {
             self.catalog = catalog
         }
-
         func states(
             sceneTime: TimeInterval
         ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] {
             catalog.states
         }
-
         func commitFrame() {}
         func discardFrame() {}
     }
 
     let states: [SceneAssetTextureIdentity: SceneTextureProviderState]
-
     func makeFrameProvider() -> FrameProvider { .init(catalog: self) }
 }
 
+extension SceneResolvedMaterialRuntimeBridge {
+    // This focused fixture transports absent framebuffer sources only.
+    enum FramebufferSourceMaterial {}
+}
 extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     static let fixture = Self(
         dynamicValues: .init(),
@@ -934,13 +930,17 @@ final class SceneResolvedMaterialGraphExecutor {
         let effectLocalActivationBypassReasonCode: String?
         let discardedPersistentTargetState: Bool
     }
+    struct PreparedTerminalPass {
+        struct Role { let terminalReplayBlendMode: Int? }
+        let role: Role
+    }
     struct PreparedGraph {
         let stages: [PreparedStage]
         let finalResource: SceneFrameTextureResource
         let finalTexture: MTLTexture
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
         let sceneBackgroundResource: SceneFrameTextureResource? = nil
-        var terminalMaterialReplay: Bool? = nil
+        var terminalMaterialReplay: PreparedTerminalPass? = nil
     }
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
@@ -961,8 +961,10 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
+        framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial? = nil,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
-        terminalReplayTarget: MTLTexture? = nil, pool: SceneOffscreenTexturePool? = nil,
+        terminalReplayTarget: MTLTexture? = nil, terminalReplayBlendMode: Int = 0,
+        pool: SceneOffscreenTexturePool? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
@@ -978,8 +980,11 @@ final class SceneResolvedMaterialGraphExecutor {
             Self.preparedDependencyTextureByToken[token.value] =
                 ObjectIdentifier(texture)
         }
-        return Self.preparedByToken[token.value].map(Result.success)
-            ?? .failure(.unavailable)
+        guard var prepared = Self.preparedByToken[token.value] else { return .failure(.unavailable) }
+        if prepared.terminalMaterialReplay != nil {
+            prepared.terminalMaterialReplay = .init(role: .init(terminalReplayBlendMode: terminalReplayBlendMode))
+        }
+        return .success(prepared)
     }
     func encode(_ value: PreparedGraph, commandBuffer: MTLCommandBuffer) -> Bool {
         _ = value; _ = commandBuffer; return Self.encodeSucceeds

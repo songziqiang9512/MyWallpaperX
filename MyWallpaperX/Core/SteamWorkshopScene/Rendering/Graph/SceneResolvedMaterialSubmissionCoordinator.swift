@@ -531,6 +531,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 framebufferSourceMaterial: request.framebufferSourceMaterial,
                 sourceLighting: request.sourceLighting,
                 terminalReplayTarget: request.terminalReplayTarget,
+                terminalReplayBlendMode: request.terminalReplayBlendMode,
                 pool: pool,
                 frameInputs: frameInputs,
                 commandBuffer: commandBuffer,

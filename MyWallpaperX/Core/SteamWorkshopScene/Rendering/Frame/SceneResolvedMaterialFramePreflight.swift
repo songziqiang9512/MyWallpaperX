@@ -323,7 +323,8 @@ extension SceneMetalRenderer {
                     // normal terminal material draws at placement density;
                     // advanced blending consumes the existing graph texture.
                     desiredSize = selectedSource.candidate?.mappedSize ?? solidExtent.pixelSize
-                    if (layer.colorBlendMode ?? 0) == 0 {
+                    if claim.supportsTerminalMaterialReplay,
+                       (layer.colorBlendMode ?? 0) == 0 || layer.colorBlendMode == 31 {
                         terminalReplayTarget = selectedMainSource
                     }
                     break
@@ -953,6 +954,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 framebufferSourceMaterial: framebufferSourceMaterial,
                 sourceLighting: sourceLighting,
                 terminalReplayTarget: terminalReplayTarget,
+                terminalReplayBlendMode: layer.colorBlendMode ?? 0,
                 frameInputs: frameInputs
             ))
         }

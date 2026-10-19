@@ -23,6 +23,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     /// the provider capability without making either layer a visible graph root.
     let isStaticModelGraphOutputPreparationRoot: Bool
     let requiresGraphOutputProvider: Bool
+    let terminalReplayBlendMode: Int
 
     init(
         layerID: Int,
@@ -36,7 +37,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
         isStaticModelGraphOutputPreparationRoot: Bool = false,
-        requiresGraphOutputProvider: Bool
+        requiresGraphOutputProvider: Bool,
+        terminalReplayBlendMode: Int = 0
     ) {
         self.layerID = layerID
         self.products = products
@@ -51,6 +53,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.isStaticModelGraphOutputPreparationRoot =
             isStaticModelGraphOutputPreparationRoot
         self.requiresGraphOutputProvider = requiresGraphOutputProvider
+        self.terminalReplayBlendMode = terminalReplayBlendMode
     }
 }
 
@@ -710,7 +713,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 isGraphOutputProvider: isGraphOutputProvider,
                 isStaticModelGraphOutputPreparationRoot:
                     isStaticModelGraphOutputPreparationRoot,
-                requiresGraphOutputProvider: requiresGraphOutputProvider
+                requiresGraphOutputProvider: requiresGraphOutputProvider,
+                terminalReplayBlendMode: layer.colorBlendMode ?? 0
             ))
         } catch let rejection as Failure {
             return .failure(rejection)

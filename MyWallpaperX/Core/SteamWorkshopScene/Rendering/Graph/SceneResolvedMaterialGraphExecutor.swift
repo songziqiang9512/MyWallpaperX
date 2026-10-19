@@ -196,6 +196,7 @@ final class SceneResolvedMaterialGraphExecutor {
         framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial? = nil,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         terminalReplayTarget: MTLTexture? = nil,
+        terminalReplayBlendMode: Int = 0,
         pool: SceneOffscreenTexturePool? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
@@ -212,7 +213,9 @@ final class SceneResolvedMaterialGraphExecutor {
               commandBuffer.status == .notEnqueued,
               commandBuffer.commandQueue.device.registryID == device.registryID,
               ensureResourceEncoder(commandBuffer.commandQueue),
-              let firstLease = leases.first else {
+              let firstLease = leases.first,
+              terminalReplayTarget == nil
+                || capability.terminalReplayBlendMode == terminalReplayBlendMode else {
             return .failure(.invalidClaim)
         }
         let resolvedInvocations: [
@@ -395,6 +398,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 frameInputs: frameInputs,
                 terminalReplayTarget: capability.supportsTerminalMaterialReplay
                     ? terminalReplayTarget : nil,
+                terminalReplayBlendMode: terminalReplayBlendMode,
                 terminalMaterialReplay: &stageTerminalReplay,
                 pair: &pair,
                 publications: &publications,

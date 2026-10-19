@@ -442,10 +442,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5a7975491d2cd310afe3d51b298e2043c618a0a8c874c106f09b2ebf53eb2578",
+        "sourceSHA256": "ca18392228d5432d4563ac79ab03e3944a0549c51555f914bc733c764aea807a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded DEBUG actual Timeline Program and selected surface inputs; detailed design belongs to existing on-demand diagnostic contract and323 trajectory stays open.",
-        "limitations": "CPU parser/DTO/runtime/resolver only; native qualifies actual Program. No pose/world, exact PNG frame join, same-phase parity, visual fix or performance claim."
+        "scope": "定点同步mode31正交solid终端、真实Program/typed role与背景alpha；293连续环有界恢复，284三弧原型撤回及低清/方向余项保持。其余合同未重审。",
+        "limitations": "裸GPU的两PMA许可skip与独立真实factory补门分列，不冒全矩阵重跑；离散白芯ROI与单轮操作计数不证精确phase/HDR/整样本或整体性能收益。"
       }
     },
     {
@@ -579,10 +579,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "254f29ea13f49fbe942987c417413366ef4cb979dbc5d3976233f30edf099b53",
+        "sourceSHA256": "f3e38544ca82e722f48bd7267d9e494696d71349180a8bb9b99121e92a815806",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
-        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
+        "scope": "定点同步mode31正交solid终端、真实Program/typed role与背景alpha；293连续环有界恢复，284三弧原型撤回及低清/方向余项保持。其余合同未重审。",
+        "limitations": "裸GPU的两PMA许可skip与独立真实factory补门分列，不冒全矩阵重跑；离散白芯ROI与单轮操作计数不证精确phase/HDR/整样本或整体性能收益。"
       }
     },
     {
@@ -676,10 +676,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2e127b154514790904c160c38d065615e71b06457e230940faad7b4ce178ba05",
+        "sourceSHA256": "703ddae5a95c136cc94f3dce2bc66d8bc787076c2de33e2253ea1ca20567c40b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
-        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
+        "scope": "定点同步mode31正交solid终端、真实Program/typed role与背景alpha；293连续环有界恢复，284三弧原型撤回及低清/方向余项保持。其余合同未重审。",
+        "limitations": "裸GPU的两PMA许可skip与独立真实factory补门分列，不冒全矩阵重跑；离散白芯ROI与单轮操作计数不证精确phase/HDR/整样本或整体性能收益。"
       }
     },
     {
@@ -3455,13 +3455,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "664fb78198cff87f6909aba85941e99a7efb61bcafaea7f5581ec5dc692bb8b0",
+        "sourceSHA256": "a0870c114fb611c04e1c085d291eec9ebee434dabca0a854f0a2ecaef846b2b9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bounded procedural-solid advanced blend source domain and accepted-plan consumption; original silent multi-phase/PCM and heldout actual rendering, narrow queue closure.",
-        "limitations": "No density algorithm, new mapped semantics, terminal replay expansion, native/provider/FBO/history expansion or exact official phase/audio/whole-sample/performance claim. Other user observations remain open."
+        "scope": "定点同步mode31正交solid终端、真实Program/typed role与背景alpha；293连续环有界恢复，284三弧原型撤回及低清/方向余项保持。其余合同未重审。",
+        "limitations": "裸GPU的两PMA许可skip与独立真实factory补门分列，不冒全矩阵重跑；离散白芯ROI与单轮操作计数不证精确phase/HDR/整样本或整体性能收益。"
       }
     },
     {
@@ -3542,10 +3542,10 @@
       "lastReviewed": "2026-10-19",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "970136adf351c6504a4eb899c769e877f6968e026bb9a689a43b9e2d4e565378",
+        "sourceSHA256": "ca733bd78cf43f4843c8b3c8c61dd5e7cca5888f5ad1eaf4deb409d97162fc7f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步D1无成员背景复制轴域、374柱盖有界闭合、284邻例保持及284/293低清开放、N03 readback STOP；其余行未重审。",
-        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
+        "scope": "定点同步mode31正交solid终端、真实Program/typed role与背景alpha；293连续环有界恢复，284三弧原型撤回及低清/方向余项保持。其余合同未重审。",
+        "limitations": "裸GPU的两PMA许可skip与独立真实factory补门分列，不冒全矩阵重跑；离散白芯ROI与单轮操作计数不证精确phase/HDR/整样本或整体性能收益。"
       }
     },
     {

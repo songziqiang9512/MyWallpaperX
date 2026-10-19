@@ -462,11 +462,12 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "design_notes": "2026-10-11 官方自有输入确认源尺寸和末尾停用分域。沿现 GraphExecutor/PassEncoder/pool/submission/MainPass，按真实覆盖保留终端输入，不伪造资源尺寸。先无外部依赖，扩域须同一生命周期及真实运行验证；批准不代表验收。 2026-10-12 文字单stage正交终端接线沿同proof，不增加padding/bounds算法；真实越界像素与动态文字待验。",
+      "design_notes": "冻结Program及真实源extent，沿唯一graph/PassEncoder/submission/MainPass按放置密度输出；有覆盖才精确copy。普通solid/text与已准入只读依赖保持原范围。加法后继仅模式31：typed terminal role按真实straight/PMA直接硬件加法、保背景alpha；原frame request/ticket携模式，launch仅预热实际资格，不增scratch/fetch/graph尺寸。其余blend保旧路；验实际293清晰度与正反例。284 capturedMain原型只末弧清楚已撤回，后继需同pixel源证明及实际generic/SDR资格，不自动扩大准入。批准不代表运行收益或完整兼容。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift"
       ],
       "contentPatterns": []
     },

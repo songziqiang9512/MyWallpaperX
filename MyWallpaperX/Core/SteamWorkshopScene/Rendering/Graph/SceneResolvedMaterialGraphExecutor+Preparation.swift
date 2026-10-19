@@ -74,6 +74,7 @@ extension SceneResolvedMaterialGraphExecutor {
         frame: SceneResolvedMaterialFrameSnapshot,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         terminalReplayTarget: MTLTexture?,
+        terminalReplayBlendMode: Int,
         terminalMaterialReplay: inout SceneResolvedMaterialPassEncoder.PreparedPass?,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
@@ -436,7 +437,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         target: terminalReplayTarget,
                         unitModelViewProjection:
                             frameInputs.terminalReplayModelViewProjection
-                                ?? frameInputs.effectOutputModelViewProjection
+                                ?? frameInputs.effectOutputModelViewProjection,
+                        blendMode: terminalReplayBlendMode
                     ) {
                     case let .success(replay):
                         terminalMaterialReplay = replay

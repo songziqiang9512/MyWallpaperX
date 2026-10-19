@@ -24,6 +24,7 @@ extension SceneResolvedMaterialRuntimeBridge.FramePreparationRequest {
             sceneBackgroundResource: sceneBackgroundResource, sourceTexture: texture,
             sourceUniforms: uniforms, sourcePipeline: sourcePipeline,
             sourceLighting: sourceLighting, terminalReplayTarget: terminalReplayTarget,
+            terminalReplayBlendMode: terminalReplayBlendMode,
             frameInputs: frameInputs)
     }
 }

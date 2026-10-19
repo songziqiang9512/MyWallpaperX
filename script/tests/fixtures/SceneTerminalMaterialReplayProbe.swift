@@ -149,6 +149,36 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
     }
     let renderOnlyPMA = renderOnlySourceOver(material, role: .terminalSourceOver)
     let renderOnlyStraight = renderOnlySourceOver(straight, role: .terminalStraightSourceOver)
+    // Reuse the source-proven PMA Program above. Its RGBA input is half-red,
+    // so additive replay adds 128 to the target's red byte and preserves A.
+    let additiveEncoder = SceneResolvedMaterialPassEncoder(device: device)!
+    let additiveWarmup = additiveEncoder.warmup([plan(.bgra8Unorm, .terminalAdditive)])
+    let additiveAttempts = additiveEncoder.pipelineCompilationAttemptCount
+    let additivePass = try? additiveEncoder.prepareTerminalReplay(program: material,
+        target: target, unitModelViewProjection: matrix_identity_float4x4,
+        blendMode: 31).get()
+    var additiveRepresentation = false
+    var additivePixels = false
+    if let additivePass {
+        let command = queue.makeCommandBuffer()!
+        let main = SceneMainPassEncoder(commandBuffer: command, target: target,
+            clearColor: .init(red: 16.0 / 255, green: 24.0 / 255,
+                blue: 32.0 / 255, alpha: 96.0 / 255), clearEnabled: true)
+        let drawn = main.encodePreparedDraw {
+            additiveEncoder.terminalDraw(additivePass, target: $0, commandBuffer: $1)
+        }
+        let finished = main.finishEnsuringClear()
+        command.commit(); command.waitUntilCompleted()
+        let values = pixels(target)
+        let center = pixel(values, at: 8 * 16 + 8)!
+        let outside = pixel(values, at: 0)!
+        additiveRepresentation = additivePass.fragmentOutput == .premultipliedAlpha
+            && additivePass.role == .terminalAdditive
+            && additivePass.sampledTextures.first === input
+        additivePixels = drawn && finished && command.status == .completed
+            && command.error == nil && closePixels(center, [32, 24, 144, 96], tolerance: 1)
+            && closePixels(outside, [32, 24, 16, 96], tolerance: 1)
+    }
     let renderOnlyOffscreenRejected: Bool
     if case .failure(.targetRejected) = encoder.prepareResult(
         program: material, target: renderOnlyTarget) {
@@ -205,6 +235,12 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
             && straightAssociatedOnce,
         "terminalRenderTargetOnlyPMAAndPlacement": renderOnlyPMA,
         "terminalRenderTargetOnlyStraightAssociatedOnce": renderOnlyStraight,
+        "terminalPMAAdditiveUsesAssociatedOutputAndRole": additiveRepresentation,
+        "terminalPMAAdditiveColorAndBackgroundAlpha": additivePixels,
+        "terminalPMAAdditiveWarmsOnce": additiveWarmup.uniqueKeyCount == 1
+            && additiveWarmup.readyKeyCount == 1
+            && additiveAttempts == 1
+            && additiveEncoder.pipelineCompilationAttemptCount == additiveAttempts,
         "offscreenRenderTargetOnlyRejected": renderOnlyOffscreenRejected,
         "terminalShaderReadOnlyRejected": readOnlyTerminalRejected,
         "terminalStaleRejected": staleRejected,

@@ -95,7 +95,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                     isGraphOutputProvider: admitted.isGraphOutputProvider,
                     requiresGraphOutputProvider:
-                        admitted.requiresGraphOutputProvider
+                        admitted.requiresGraphOutputProvider,
+                    terminalReplayBlendMode: admitted.terminalReplayBlendMode
                 )
                 let programResult = compileStages(
                     singleStage,

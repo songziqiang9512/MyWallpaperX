@@ -131,12 +131,12 @@ final class SceneResolvedMaterialPassEncoder {
             program.outputContract,
             attachmentStorage: attachmentStorage
         ) else { return .failure(.fragmentOutputRejected) }
-        if role == .terminalSourceOver,
+        if (role == .terminalSourceOver || role == .terminalAdditive),
            output.colorRepresentation != .premultipliedAlpha,
            output.colorRepresentation != .opaque {
             return .failure(.fragmentOutputRejected)
         }
-        if role == .terminalStraightSourceOver,
+        if (role == .terminalStraightSourceOver || role == .terminalStraightAdditive),
            output.colorRepresentation != .straightAlpha {
             return .failure(.fragmentOutputRejected)
         }
@@ -212,18 +212,28 @@ final class SceneResolvedMaterialPassEncoder {
     func prepareTerminalReplay(
         program: SceneResolvedMaterialProgram,
         target: MTLTexture,
-        unitModelViewProjection: simd_float4x4
+        unitModelViewProjection: simd_float4x4,
+        blendMode: Int = 0
     ) -> Result<PreparedPass, PreparationFailure> {
+        guard blendMode == 0 || blendMode == 31 else {
+            return .failure(.renderStateRejected)
+        }
         guard validUniforms(program),
               let replay = program.terminalReplay(
                 unitModelViewProjection: unitModelViewProjection)
         else { return .failure(.uniformsRejected) }
         let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
             program.outputContract, attachmentStorage: .color)
+        let role: SceneResolvedMaterialProgram.PassRole
+        if blendMode == 31 {
+            role = output?.colorRepresentation == .straightAlpha
+                ? .terminalStraightAdditive : .terminalAdditive
+        } else {
+            role = output?.colorRepresentation == .straightAlpha
+                ? .terminalStraightSourceOver : .terminalSourceOver
+        }
         return prepareAuthorizedResult(program: replay, target: target,
-            attachmentStorage: .color,
-            role: output?.colorRepresentation == .straightAlpha
-                ? .terminalStraightSourceOver : .terminalSourceOver)
+            attachmentStorage: .color, role: role)
     }
 
     /// Exact-copy snapshots change storage only; the prepared Program's
@@ -567,13 +577,18 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = passRole != .offscreenOverwrite
         if passRole != .offscreenOverwrite {
+            let additive = passRole.terminalReplayBlendMode == 31
+            let straight = passRole == .terminalStraightSourceOver
+                || passRole == .terminalStraightAdditive
             descriptor.colorAttachments[0].rgbBlendOperation = .add
             descriptor.colorAttachments[0].sourceRGBBlendFactor =
-                passRole == .terminalStraightSourceOver ? .sourceAlpha : .one
-            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+                straight ? .sourceAlpha : .one
+            descriptor.colorAttachments[0].destinationRGBBlendFactor =
+                additive ? .one : .oneMinusSourceAlpha
             descriptor.colorAttachments[0].alphaBlendOperation = .add
-            descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
-            descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            descriptor.colorAttachments[0].sourceAlphaBlendFactor = additive ? .zero : .one
+            descriptor.colorAttachments[0].destinationAlphaBlendFactor =
+                additive ? .one : .oneMinusSourceAlpha
         }
         descriptor.colorAttachments[0].writeMask = writeMask
         if let binaryArchiveSession {

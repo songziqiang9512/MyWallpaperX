@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 128588
+      "bytes": 128418
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175099
+      "bytes": 175097
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 380,
-      "bytes": 143196
+      "bytes": 142343
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -217,8 +217,8 @@
       "bytes": 9910
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 46,
-      "bytes": 8473
+      "lines": 66,
+      "bytes": 12047
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 62504
+      "bytes": 62502
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1307,11 +1307,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "746f03697f736b295f216d23582401f475a0275dfd0f89f5106398ed295fc0ad",
-      "after": "47d74e31ee09f3d3ad8fec4cea4b257587978b63745cbf1a9c6a5ad9ca8e8121",
-      "owner": "scene-procedural-solid-local-source",
-      "reason": "Extend existing authored local-source sizing to bounded no-Candidate advanced blend; record actual fixed path and moving marks, preserved rejection scope and original failures.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#procedural-solid-local-source"
+      "before": "47d74e31ee09f3d3ad8fec4cea4b257587978b63745cbf1a9c6a5ad9ca8e8121",
+      "after": "16c5238aa006446f68d28c92bd41114ef7308e42b01098bc6ebe18f2790785e7",
+      "owner": "scene-terminal-additive-density",
+      "reason": "Bind actual boundedmode31 terminal design and withdrawn284 prototype/same-pixel successor to existingD1. No body ceiling change; all other owned authority bodies shrink.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#additive-terminal-density"
     },
     {
       "section": "bodies",

@@ -7,6 +7,7 @@ enum SceneSubmissionTerminalReplayFixture {
     static var expectedTarget: MTLTexture?
     static var succeeds = true
     static var commandBuffers: [ObjectIdentifier] = []
+    static var replayModes: [Int?] = []
 }
 
 enum SceneGPUCensus {
@@ -24,13 +25,14 @@ extension SceneResolvedMaterialGraphExecutor {
             targetMatches = target === SceneSubmissionTerminalReplayFixture.expectedTarget
             return nil // Observation only: never begin a Metal encoder.
         }
-        guard prepared.terminalMaterialReplay != nil,
+        guard let replay = prepared.terminalMaterialReplay,
               mainPass.belongs(to: commandBuffer), targetMatches else {
             return false
         }
         SceneSubmissionTerminalReplayFixture.commandBuffers.append(
             ObjectIdentifier(commandBuffer)
         )
+        SceneSubmissionTerminalReplayFixture.replayModes.append(replay.role.terminalReplayBlendMode)
         return SceneSubmissionTerminalReplayFixture.succeeds
     }
 }
@@ -41,6 +43,7 @@ enum SceneSubmissionTerminalReplayChecks {
         func scenario(
             replay: Bool = true,
             supportsReplay: Bool = true,
+            blendMode: Int = 0,
             content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
             mutate: (Coordinator, inout SceneResolvedMaterialRuntimeBridge.ExecutionTicket) -> Void = { _, _ in },
             wrongBuffer: Bool = false,
@@ -62,6 +65,7 @@ enum SceneSubmissionTerminalReplayChecks {
                 binding.map { [7: .externalPrimary($0)] } ?? [:]
             ).capabilitiesByLayerID[7]!
             capability.supportsTerminalMaterialReplay = supportsReplay
+            capability.terminalReplayBlendMode = blendMode
             let coordinator = Coordinator(
                 device: device,
                 capabilities: .init(capability: capability),
@@ -83,7 +87,8 @@ enum SceneSubmissionTerminalReplayChecks {
                 finalTexture: prepared.finalTexture,
                 historyTokensByEffect: prepared.historyTokensByEffect
             )
-            prepared.terminalMaterialReplay = replay ? true : nil
+            prepared.terminalMaterialReplay = replay
+                ? .init(role: .init(terminalReplayBlendMode: blendMode)) : nil
             let dependencyEffects = binding.flatMap { binding in
                 providerUnavailable ? nil : dependencyInput(binding: binding,
                     texture: makeTexture(device, "terminal-named-provider"))
@@ -143,7 +148,8 @@ enum SceneSubmissionTerminalReplayChecks {
                 finalContent: prepared.finalResource.publication.candidate.content,
                 consumesExternalPrimaryDependency: false,
                 effectFailures: [],
-                hasTerminalMaterialReplay: replay
+                hasTerminalMaterialReplay: replay,
+                terminalReplayBlendMode: blendMode
             )
             let bypassReason = coordinator.preparedExternalDependencyBypassReason(layerID: 7)
             if binding != nil {
@@ -162,6 +168,7 @@ enum SceneSubmissionTerminalReplayChecks {
             SceneSubmissionTerminalReplayFixture.expectedTarget = target
             SceneSubmissionTerminalReplayFixture.succeeds = succeeds
             SceneSubmissionTerminalReplayFixture.commandBuffers = []
+            SceneSubmissionTerminalReplayFixture.replayModes = []
             let main = SceneMainPassEncoder(
                 commandBuffer: wrongBuffer ? queue.makeCommandBuffer()! : buffer,
                 target: wrongTarget ? makeTexture(device, "foreign-main") : target,
@@ -199,9 +206,67 @@ enum SceneSubmissionTerminalReplayChecks {
                     consumed, coordinator.frameRequiresDrop,
                     ticket.consumesExternalPrimaryDependency, bypassReason)
         }
+        // Exercise the real coordinator request/prepare/issue chain. The fake
+        // executor transports the request mode; the seed deliberately has none.
+        let propagatedMode: Bool = {
+            var capability = makeCapabilities().capabilitiesByLayerID[7]!
+            capability.supportsTerminalMaterialReplay = true
+            capability.terminalReplayBlendMode = 31
+            let coordinator = Coordinator(device: device,
+                capabilities: .init(capability: capability), logSink: { _ in })
+            let buffer = queue.makeCommandBuffer()!
+            let target = makeTexture(device, "additive-prepared-main")
+            var prepared = makeAtomicPrepared(device: device, layerID: 7, generation: 1)
+            prepared.terminalMaterialReplay = .init(role: .init(terminalReplayBlendMode: nil))
+            let previousPrepared = SceneResolvedMaterialGraphExecutor.preparedByToken
+            let previousEncode = SceneResolvedMaterialGraphExecutor.encodeSucceeds
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [7: prepared]
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            defer {
+                coordinator.cancelUnsubmittedFrame(on: buffer)
+                SceneResolvedMaterialGraphExecutor.preparedByToken = previousPrepared
+                SceneResolvedMaterialGraphExecutor.encodeSucceeds = previousEncode
+            }
+            coordinator.beginFrame(textureSnapshot: .init(frameIndex: 13, valid: true),
+                dynamicSnapshot: .init(), frameInputs: .init())
+            let targets = makeAtomicTargets(layerID: 7, generation: 1)
+            let pool = SceneOffscreenTexturePool(factory: { _ in targets.prepared })
+            guard case let .claimed(preflight) = coordinator.preflightClaim(layerID: 7),
+                  case .ready = coordinator.prepareFrame([.init(claim: preflight,
+                    targetPlan: .init(token: preflight.token,
+                        allocation: .init(graphPlan: .init(key: .init(layerID: 7)))),
+                    sourceTexture: makeTexture(device, "additive-source"), sourceUniforms: .init(),
+                    sourcePipeline: .init(), terminalReplayTarget: target, terminalReplayBlendMode: 31,
+                    frameInputs: .fixture)], pool: pool, commandBuffer: buffer),
+                  case let .claimed(claim) = coordinator.claim(layerID: 7),
+                  case let .encoded(_, ticket) = coordinator.executeClaimed(claim: claim,
+                    dependencyEffects: [], commandBuffer: buffer),
+                  ticket.terminalReplayBlendMode == 31 else { return false }
+            SceneSubmissionTerminalReplayFixture.expectedTarget = target
+            SceneSubmissionTerminalReplayFixture.succeeds = true
+            SceneSubmissionTerminalReplayFixture.commandBuffers = []
+            SceneSubmissionTerminalReplayFixture.replayModes = []
+            let main = SceneMainPassEncoder(commandBuffer: buffer, target: target,
+                clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: true)
+            guard case .consumed = coordinator.drawTerminalMaterialReplay(ticket, mainPass: main) else {
+                return false
+            }
+            return SceneSubmissionTerminalReplayFixture.replayModes == [31]
+                && SceneSubmissionTerminalReplayFixture.commandBuffers.count == 1
+        }()
+        results["requestModeReachesPreparedRoleAndIssuedTicket"] = propagatedMode
         let success = scenario()
         results["terminalReceiptConsumesOnceWithoutTextureSampling"] =
             success.outcome == "consumed" && success.calls == 1 && success.consumed && !success.dropped
+                && propagatedMode
+        let additive = scenario(blendMode: 31)
+        results["additiveTerminalReceiptConsumesActualRoleOnce"] =
+            additive.outcome == "consumed" && additive.calls == 1 && additive.consumed
+                && !additive.dropped && SceneSubmissionTerminalReplayFixture.replayModes == [31]
+        // Keep the existing Python assertion connected to the added mode checks.
+        results["terminalReceiptConsumesOnceWithoutTextureSampling"] =
+            results["terminalReceiptConsumesOnceWithoutTextureSampling"] == true
+                && results["additiveTerminalReceiptConsumesActualRoleOnce"] == true
         for kind in [SceneDependencyRenderPlan.Binding.Kind.imageLayerBlend,
                      .visibleImageGraphOutput, .solidLayer, .resolvedMaterial] {
             let ready = scenario(dependencyKind: kind)
@@ -266,6 +331,13 @@ enum SceneSubmissionTerminalReplayChecks {
         results["absentReplayAllowsOrdinaryTextureReceipt"] =
             ordinaryFallback.outcome == "consumed" && ordinaryFallback.calls == 0
                 && ordinaryFallback.consumed && !ordinaryFallback.dropped
+        let additiveFallback = scenario(replay: false, blendMode: 31, ordinaryAfterNotApplicable: true)
+        results["additiveWithoutReplayAllowsOrdinaryTextureReceipt"] =
+            additiveFallback.outcome == "consumed" && additiveFallback.calls == 0
+                && additiveFallback.consumed && !additiveFallback.dropped
+        results["absentReplayAllowsOrdinaryTextureReceipt"] =
+            results["absentReplayAllowsOrdinaryTextureReceipt"] == true
+                && results["additiveWithoutReplayAllowsOrdinaryTextureReceipt"] == true
         let repeated = scenario(repeated: true)
         results["repeatedTerminalReceiptRejectsWithoutSecondDraw"] =
             repeated.outcome == "terminal-material-replay-ticket-reused" && repeated.calls == 1 && repeated.dropped
@@ -301,6 +373,28 @@ enum SceneSubmissionTerminalReplayChecks {
         })
         results["ticketCannotHidePreparedReplay"] =
             mismatch.outcome == "terminal-material-replay-ticket-mismatch" && mismatch.calls == 0 && mismatch.dropped
+        for mode in [0, 31] {
+            let wrongMode = scenario(blendMode: mode, mutate: { _, ticket in
+                ticket = .init(identity: ticket.identity, epoch: ticket.epoch,
+                    finalTextureIdentity: ticket.finalTextureIdentity, finalContent: ticket.finalContent,
+                    consumesExternalPrimaryDependency: ticket.consumesExternalPrimaryDependency,
+                    effectFailures: ticket.effectFailures, hasTerminalMaterialReplay: true,
+                    terminalReplayBlendMode: mode == 0 ? 31 : 0)
+            })
+            let rejected = wrongMode.outcome == "terminal-material-replay-ticket-mismatch"
+                && wrongMode.calls == 0 && !wrongMode.consumed && wrongMode.dropped
+            results["ticketCannotChangePreparedBlendMode_\(mode)"] = rejected
+            results["ticketCannotHidePreparedReplay"] =
+                results["ticketCannotHidePreparedReplay"] == true && rejected
+        }
+        let additiveRepeated = scenario(blendMode: 31, repeated: true)
+        results["additiveTerminalReceiptRejectsSecondConsumption"] =
+            additiveRepeated.outcome == "terminal-material-replay-ticket-reused"
+                && additiveRepeated.calls == 1 && additiveRepeated.dropped
+                && SceneSubmissionTerminalReplayFixture.replayModes == [31]
+        results["repeatedTerminalReceiptRejectsWithoutSecondDraw"] =
+            results["repeatedTerminalReceiptRejectsWithoutSecondDraw"] == true
+                && results["additiveTerminalReceiptRejectsSecondConsumption"] == true
         let unclaimed = scenario(mutate: { coordinator, _ in coordinator.activeByID[1]?.claimConsumed = false })
         results["unconsumedClaimRejectsBeforeDraw"] =
             unclaimed.outcome == "terminal-material-replay-ticket-mismatch" && unclaimed.calls == 0 && unclaimed.dropped

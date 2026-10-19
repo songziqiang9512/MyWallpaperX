@@ -231,7 +231,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                         )
                     },
                     hasTerminalMaterialReplay:
-                        ledger.prepared.terminalMaterialReplay != nil
+                        ledger.prepared.terminalMaterialReplay != nil,
+                    terminalReplayBlendMode:
+                        ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode ?? 0
                 )
             )
             lock.unlock()

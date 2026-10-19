@@ -218,6 +218,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let requiresGraphOutputProvider: Bool
         let supportsSourceSizedSolidEffects: Bool
         let supportsTerminalMaterialReplay: Bool
+        let terminalReplayBlendMode: Int
 
         fileprivate let capabilityID = UUID()
 
@@ -292,6 +293,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             )
             supportsSourceSizedSolidEffects = solidSizing.intermediates
             supportsTerminalMaterialReplay = solidSizing.terminal
+            terminalReplayBlendMode = admitted.terminalReplayBlendMode
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {

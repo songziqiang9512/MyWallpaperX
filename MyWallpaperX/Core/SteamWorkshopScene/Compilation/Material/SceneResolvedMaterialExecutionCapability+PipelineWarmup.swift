@@ -43,10 +43,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                            $0.authoredName == "g_ModelViewProjectionMatrix"
                                && $0.type == .float4x4
                        }) {
+                        let roles: [SceneResolvedMaterialProgram.PassRole]
+                        switch capability.terminalReplayBlendMode {
+                        case 0: roles = [.terminalSourceOver, .terminalStraightSourceOver]
+                        case 31: roles = [.terminalAdditive, .terminalStraightAdditive]
+                        default: roles = []
+                        }
                         plans += [MTLPixelFormat.bgra8Unorm, .rgba16Float]
                             .flatMap { format in
-                                [plan(format, .terminalSourceOver),
-                                 plan(format, .terminalStraightSourceOver)].compactMap { $0 }
+                                roles.compactMap { plan(format, $0) }
                             }
                     }
                     return plans

@@ -5,6 +5,8 @@ signed compiler license bundle. They exercise real Program/Metal output, not
 App generic compilation, text rasterization, or FramePreflight admission.
 Named cases use the production capability/finalizer and same-frame reserved
 publication; the unequal provider remains a read-only input to terminal replay.
+Density cases retain the existing captured-layer route; captured-main remains
+rejected. They do not cover App FramePreflight or compositor admission.
 """
 import hashlib
 import json
@@ -15,6 +17,13 @@ import unittest
 from script.tests import test_scene_offscreen_texture_pool as pool_fixture
 from script.tests import test_scene_resolved_material_graph_executor as graph_fixture
 from script.tests import test_scene_effect_draw_alpha as alpha_fixture
+from script.tests import test_scene_gpu_stage_timestamps as timestamp_fixture
+from script.tests.scene_framebuffer_source_test_support import (
+    SOURCE as SOURCE_MATERIALS, framebuffer_source_material_declarations,
+)
+
+DEBUG_SOURCES = tuple(path for path in timestamp_fixture.SOURCES
+                      if path.parent == timestamp_fixture.DIAGNOSTICS)
 
 
 # Reuse the graph/compiler scaffold. Only the input shader and extent change.
@@ -74,6 +83,9 @@ actual_frame = actual_frame.replace(
     'effectOutputModelViewProjection: matrix_identity_float4x4,',
     'effectOutputModelViewProjection: effectOutputModelViewProjection,\n'
     '            terminalReplayModelViewProjection: terminalReplayModelViewProjection,', 1)
+actual_frame = actual_frame.replace('final class SceneResolvedMaterialRuntimeBridge {\n',
+    'final class SceneResolvedMaterialRuntimeBridge {\n'
+    + framebuffer_source_material_declarations(), 1)
 frame_start = SUPPORT.index('final class SceneResolvedMaterialRuntimeBridge {')
 frame_end = SUPPORT.index('\nstruct SceneDependencyEffectInput', frame_start)
 SUPPORT = SUPPORT[:frame_start] + actual_frame + SUPPORT[frame_end:]
@@ -96,7 +108,8 @@ private func dependencySizingChecks(
             dependencyOwnership: ownership, sourceRoute: capability.sourceRoute,
             isVisibleExecutionRoot: capability.isVisibleExecutionRoot,
             isGraphOutputProvider: capability.isGraphOutputProvider,
-            requiresGraphOutputProvider: capability.requiresGraphOutputProvider)
+            requiresGraphOutputProvider: capability.requiresGraphOutputProvider,
+            terminalReplayBlendMode: capability.terminalReplayBlendMode)
         let sizing = SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability.solidEffectSizingCapabilities(
             admitted: admitted, stages: capability.stages, materials: capability.materials,
             dependencyOwnership: ownership, sceneBackgroundRequirement: capability.sceneBackgroundRequirement)
@@ -471,6 +484,284 @@ private func terminalCase(
             "wrongCommandRejected": wrongCommandRejected, "stalePreparationRejected": staleRejected]]
 }
 
+private func densityTemplate(
+    _ node: Graph.Node, renamed: Bool = false, legacyVertex: Bool = false,
+    colorKind: String? = nil, provider: SceneNamedTextureReference? = nil
+) -> Template {
+    let base = template(for: node)
+    // Reuse the graph fixture's existing mix helper and the separately tested
+    // zero-base associated-output grammar; do not emulate outer blending.
+    let blendSource = fragmentSource(pass: false, colorBlend: true)
+    let helperStart = blendSource.range(of: "vec3 ApplyBlending(")!.lowerBound
+    let helperEnd = blendSource.range(of: "void main()")!.lowerBound
+    let helper = String(blendSource[helperStart..<helperEnd])
+    let fragment = if colorKind == "straight" { """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture1;
+        void main() { gl_FragColor = texSample2D(g_Texture1, v_TexCoord); }
+        """ } else if colorKind == "pma" { """
+        \(helper)
+        void main() {
+            float weight = 128.0 / 255.0;
+            vec3 tint = vec3(204.0 / 255.0, 102.0 / 255.0, 51.0 / 255.0);
+            vec4 color = vec4(0.0);
+            color.rgb = ApplyBlending(31, color.rgb, tint, weight);
+            color.a = max(color.a, weight);
+            gl_FragColor = color;
+        }
+        """ } else if colorKind == "opaque" { """
+        void main() { gl_FragColor = vec4(102.0 / 255.0, 51.0 / 255.0, 26.0 / 255.0, 1.0); }
+        """ } else { """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        uniform vec4 g_Texture0Resolution;
+        void main() {
+            vec4 sourceColor = texSample2D(g_Texture0, v_TexCoord);
+            sourceColor.rgb *= vec3(step(0.5, fract(v_TexCoord.x * 64.0)),
+                g_Texture0Resolution.x * 0.1, g_Texture0Resolution.y * 0.1);
+            gl_FragColor = sourceColor;
+        }
+        """ }
+    let original = shaderContract(nodeIndex: node.nodeIndex, pass: false, fragmentOverride: fragment)
+    let stages = original.stages.map { stage -> SceneShaderContract.Stage in
+        var source = stage.source
+        if legacyVertex && stage.kind == .vertex {
+            source = source.replacingOccurrences(
+                of: "gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);",
+                with: "gl_Position = vec4(a_Position, 1.0);")
+        }
+        if renamed {
+            source = source.replacingOccurrences(of: "v_TexCoord", with: "v_FrozenUV")
+                .replacingOccurrences(of: "sourceColor", with: "capturedSample")
+                .replacingOccurrences(of: "v_FrozenUV.x * 64.0",
+                    with: "(v_FrozenUV.x * 16.0) * 4.0")
+        }
+        let path = renamed ? "renamed/background.\(stage.kind.rawValue)" : stage.relativePath
+        let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: path)
+        return .init(kind: stage.kind, relativePath: path, source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), includes: parsed.includes,
+            annotations: parsed.annotations, declarations: parsed.declarations)
+    }
+    let sourceGraph = SceneShaderSourceGraph(roots: stages.map {
+        .init(label: $0.kind.rawValue, virtualPath: $0.relativePath)
+    }, nodes: stages.map {
+        .init(virtualPath: $0.relativePath, provenance: .package, source: $0.source,
+            rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count)
+    }, edges: [], diagnostics: [], dependencySHA256: SceneShaderStableDigest.hash(stages))
+    let shader = SceneShaderContract(identity: renamed ? "renamed/background" : original.identity,
+        sourceKind: original.sourceKind, stages: stages, diagnostics: [],
+        canonicalSHA256: SceneShaderStableDigest.hash(stages), sourceGraph: sourceGraph)
+    var slots = base.textureSlots
+    if let provider {
+        slots[1] = .init(index: 1, candidates: [.init(
+            reference: .provider(.namedLayerTarget(provider)), provenance: .instance)])
+    }
+    return Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+        renderState: base.renderState, graphRole: base.graphRole, shaderContract: shader,
+        diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+            contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+            textureSources: [], uniformSources: []))!
+}
+
+private func densityCase(
+    device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
+    blendMode: Int = 0, colorKind: String? = nil
+) throws -> [String: Any] {
+    // The same maintained bare-Swift bounded frontend as overflowCase; the
+    // production finalizer and Metal pass encoder still produce every Program.
+    let prior = getenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES").map { String(cString: $0) }
+    setenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES", "ordinary-shader=disable-generic", 1)
+    defer {
+        if let prior { setenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES", prior, 1) }
+        else { unsetenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES") }
+    }
+    let densityGraph = terminalChain(1)
+    let admitted = orderedLayerGraph(densityGraph), node = densityGraph.nodes[0]
+    let reference = SceneNamedTextureReference(providerLayerID: 879, variant: .primary)
+    let dependency = SceneDependencyRenderPlan.Binding(consumerLayerID: layerID, providerLayerID: 879,
+        slot: .init(effectID: node.effect.descriptorID, passIndex: 0, slotIndex: 1),
+        blendMode: 0, kind: .resolvedMaterial)
+    func densityCatalog(_ legacy: Bool = false, controls: Bool = true) -> SceneResolvedMaterialRuntimeCatalog {
+        .init(entries: [.init(effect: node.effect, nodeIndex: node.nodeIndex):
+            .template(densityTemplate(node, renamed: renamed, legacyVertex: legacy,
+                colorKind: controls ? colorKind : nil,
+                provider: controls && colorKind == "straight" ? reference : nil))],
+            resourceDemandIssues: [])
+    }
+    let caps = capabilities(admitted, catalog: densityCatalog(),
+        namedProvider: colorKind == "straight" ? reference : nil,
+        dependencyBinding: colorKind == "straight" ? dependency : nil,
+        terminalReplayBlendMode: blendMode)
+    guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
+          let executor = Executor(device: device, capabilities: caps),
+          let leases = makeChainedLeases(capability, device: device) else {
+        return ["failure": "density-setup", "reports": caps.reportLines]
+    }
+    func sizing(
+        sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
+        dependency: SceneResolvedMaterialDependencyOwnership = .none,
+        provider: Bool = false, requiredProvider: Bool = false
+    ) -> Bool {
+        let candidate = SceneResolvedMaterialAdmittedLayer(layerID: capability.layerID,
+            products: capability.admittedProducts, pairPlan: capability.pairPlan,
+            dependencyOwnership: dependency, sourceRoute: sourceRoute,
+            isVisibleExecutionRoot: capability.isVisibleExecutionRoot,
+            isGraphOutputProvider: provider, requiresGraphOutputProvider: requiredProvider,
+            terminalReplayBlendMode: capability.terminalReplayBlendMode)
+        let result = Capabilities.LayerCapability.solidEffectSizingCapabilities(admitted: candidate,
+            stages: capability.stages, materials: capability.materials,
+            dependencyOwnership: dependency, sceneBackgroundRequirement: capability.sceneBackgroundRequirement)
+        return result.intermediates || result.terminal
+    }
+    let complexGraph = graph(targets: [rawTarget(first)], nodes: [
+        material(0, ordinal: 0, target: first, read: input),
+        material(1, ordinal: 1, target: output, read: first)])
+    let complexAdmitted = admittedGraph(complexGraph)
+    let complexCaps = capabilities(complexAdmitted, catalog: catalog(for: complexGraph))
+    let complexCapability = complexCaps.claim(complexAdmitted).flatMap { complexCaps.resolve($0.token) }
+    let legacyCaps = capabilities(admitted, catalog: densityCatalog(true, controls: false))
+    let legacyCapability = legacyCaps.claim(admitted).flatMap { legacyCaps.resolve($0.token) }
+    let mainCaps = capabilities(admitted, catalog: densityCatalog(controls: false), capturedMainTarget: true)
+    let mainCapability = mainCaps.claim(admitted).flatMap { mainCaps.resolve($0.token) }
+    let pixels: [UInt8] = (0..<100).flatMap { index -> [UInt8] in
+        let x = index % 10, y = index / 10
+        if colorKind != nil { return [26, 51, 102, 128] }
+        return [UInt8(32 + (x >= 5 ? 32 : 0) + (y >= 5 ? 64 : 0)),
+            UInt8(48 + (x >= 5 ? 64 : 0) + (y >= 5 ? 96 : 0)), 255, 255]
+    }
+    let source = makeSource(device, width: 10, height: 10, pixelsBGRA: pixels)
+    let provider = makeSource(device, width: 10, height: 10,
+        usage: [.shaderRead, .renderTarget], bgra: [51, 102, 204, 128])
+    let providerResource = SceneFrameTextureResource.reservedNamedLayerTarget(reference: reference,
+        frameEpoch: 1, texture: provider, content: .color(.resolved(.straightAlpha)))!
+    let dependencies: [SceneDependencyEffectInput] = colorKind == "straight" ? [.init(
+        consumerLayerID: layerID, providerLayerID: reference.providerLayerID, slot: dependency.slot,
+        frameEpoch: 1, texture: provider, content: .color(.resolved(.straightAlpha)),
+        namedReference: reference, reservedMaterialResource: providerResource)] : []
+    let replayTarget = makeSource(device, width: 256, height: 64, usage: [.renderTarget])
+    let graphTarget = makeSource(device, width: 256, height: 64, usage: [.renderTarget])
+    let pipeline = makeSourcePipeline(device), command = queue.makeCommandBuffer()!
+    let wrongMode = executor.prepare(token: claim.token, leases: leases,
+        historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
+        sourceUniforms: .neutral(), sourcePipeline: pipeline, terminalReplayTarget: replayTarget,
+        terminalReplayBlendMode: blendMode == 31 ? 0 : 31,
+        frameInputs: .init(dependencyEffects: dependencies), commandBuffer: queue.makeCommandBuffer()!,
+        previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1)
+    let wrongModeRejected: Bool
+    if case .failure(.invalidClaim) = wrongMode { wrongModeRejected = true }
+    else { wrongModeRejected = false }
+    let prepared = try executor.prepare(token: claim.token, leases: leases,
+        historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
+        sourceUniforms: .neutral(), sourcePipeline: pipeline, terminalReplayTarget: replayTarget,
+        terminalReplayBlendMode: blendMode, frameInputs: .init(dependencyEffects: dependencies),
+        commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+        effectGeneration: 1, resetGeneration: 1).get()
+    let graphEncoded = executor.encode(prepared, commandBuffer: command)
+    let controlledColor = blendMode == 31 || colorKind != nil
+    let background: [UInt8] = controlledColor ? [32, 24, 16, 96] : [255, 0, 0, 255]
+    let clear = MTLClearColor(red: Double(background[2]) / 255,
+        green: Double(background[1]) / 255, blue: Double(background[0]) / 255,
+        alpha: Double(background[3]) / 255)
+    let graphMain = SceneMainPassEncoder(commandBuffer: command, target: graphTarget,
+        clearColor: clear, clearEnabled: true)
+    let graphDraw = graphMain.encodePreparedDraw { _, _ in
+        { encoder in
+            pipeline.bind(encoder: encoder)
+            pipeline.drawLayer(texture: prepared.finalTexture, mvp: matrix_identity_float4x4,
+                uniforms: .neutral(), encoder: encoder)
+        }
+    }
+    let graphFinished = graphMain.finishEnsuringClear()
+    let replayMain = SceneMainPassEncoder(commandBuffer: command, target: replayTarget,
+        clearColor: clear, clearEnabled: true)
+    let replayDraw = executor.encodeTerminalReplay(prepared, mainPass: replayMain, commandBuffer: command)
+    let replayFinished = replayMain.finishEnsuringClear()
+    guard let graphRead = appendReadback(graphTarget, commandBuffer: command),
+          let replayRead = appendReadback(replayTarget, commandBuffer: command),
+          let sourceRead = appendReadback(source, commandBuffer: command) else {
+        return ["failure": "density-readback"]
+    }
+    command.commit(); command.waitUntilCompleted()
+    func transitions(_ read: Readback) -> Int {
+        let row = (64..<192).map { read.pixel(x: $0, y: 32)[2] > 127 }
+        return zip(row, row.dropFirst()).filter { $0 != $1 }.count
+    }
+    let probes = [(80, 20), (176, 20), (80, 44), (176, 44)]
+    let graphProbes = probes.map { graphRead.pixel(x: $0.0, y: $0.1) }
+    let replayProbes = probes.map { replayRead.pixel(x: $0.0, y: $0.1) }
+    let frozenBackground = zip(graphProbes, replayProbes).allSatisfy { old, new in
+        abs(Int(old[0]) + (blendMode == 31 ? Int(background[0]) : 0) - Int(new[0])) <= 1
+            && Int(old[1]) + (blendMode == 31 ? Int(background[1]) : 0) == Int(new[1])
+            && new[3] == (blendMode == 31 ? background[3] : old[3])
+    }
+    let expectedRepresentation: SceneShaderColorRepresentation? = switch colorKind {
+    case "pma": .premultipliedAlpha
+    case "straight": .straightAlpha
+    case "opaque": .opaque
+    default: nil
+    }
+    // Independent byte arithmetic for these fixed colors, not a blend helper:
+    // background RGBA16/24/32/96 + PMA102/51/26 or straight204/102/51 at128/255.
+    let expected: [UInt8] = blendMode == 31 ? [58, 75, 118, 96]
+        : colorKind == "opaque" ? [26, 51, 102, 255] : [42, 63, 110, 176]
+    let replay = prepared.terminalMaterialReplay
+    let sampledInputMatches: Bool
+    if colorKind == "opaque" || colorKind == "pma" {
+        sampledInputMatches = replay?.sampledTextures.isEmpty == true
+    } else {
+        sampledInputMatches = replay?.sampledTextures.first
+            === (colorKind == "straight" ? provider : leases[0].table.inputTexture)
+    }
+    let straightOutput = replay?.fragmentOutput == .straightAlpha
+    let expectedRole: SceneResolvedMaterialProgram.PassRole = blendMode == 31
+            ? (straightOutput ? .terminalStraightAdditive : .terminalAdditive)
+            : (straightOutput ? .terminalStraightSourceOver : .terminalSourceOver)
+    let roleMatches = replay?.role.terminalReplayBlendMode == blendMode && replay?.role == expectedRole
+    return ["graphTransitions": transitions(graphRead), "terminalTransitions": transitions(replayRead),
+        "graphProbes": graphProbes, "terminalProbes": replayProbes,
+        "centerPixel": replayRead.pixel(x: 96, y: 32), "expectedColor": expected,
+        "actualRole": replay?.role.rawValue ?? "missing", "blendMode": blendMode,
+        "readbackExtent": [replayRead.width, replayRead.height], "readbackBytesPerRow": replayRead.bytesPerRow,
+        "results": ["capturedLayerRoute": capability.sourceRoute == .capturedLayerTexture,
+            "layerSourceSizingAndTerminal": capability.supportsTerminalMaterialReplay
+                && capability.supportsSourceSizedSolidEffects,
+            "admittedAndEncodedModeMatch": capability.terminalReplayBlendMode == blendMode && roleMatches,
+            "wrongModeRejected": wrongModeRejected,
+            "actualRepresentation": expectedRepresentation.map {
+                prepared.finalResource.publication.candidate.content == .color(.resolved($0))
+                    && replay?.fragmentOutput == $0
+            } ?? true,
+            "colorArithmeticAndAlpha": colorKind == nil
+                || matches(replayRead.pixel(x: 96, y: 32), expected),
+            "capturedMainRemainsGraphOnly": mainCapability?.sourceRoute == .capturedMainTargetTexture
+                && mainCapability?.supportsTerminalMaterialReplay == false
+                && mainCapability?.supportsSourceSizedSolidEffects == false,
+            "capturedMainDependencyRejected": !sizing(sourceRoute: .capturedMainTargetTexture,
+                dependency: .externalPrimary(dependency)),
+            "providerRejected": !sizing(provider: true) && !sizing(requiredProvider: true),
+            "complexGraphNotASetupFailure": complexCapability != nil,
+            "complexGraphRejected": complexCapability?.supportsTerminalMaterialReplay == false
+                && complexCapability?.supportsSourceSizedSolidEffects == false,
+            "legacyVertexNotASetupFailure": legacyCapability != nil,
+            "legacyVertexRejected": legacyCapability?.supportsTerminalMaterialReplay == false
+                && legacyCapability?.supportsSourceSizedSolidEffects == false,
+            "allDrawsEncoded": graphEncoded && graphDraw && graphFinished && replayDraw && replayFinished,
+            "gpuCompleted": command.status == .completed && command.error == nil,
+            "sourcePixelsUnchanged": sourceRead.allPixels == (0..<10).map {
+                Array(pixels[($0 * 40)..<(($0 + 1) * 40)]) },
+            "sourceExtentRetained": prepared.stages.allSatisfy {
+                $0.inputWidth == 10 && $0.inputHeight == 10
+            } && prepared.finalTexture.width == 10 && prepared.finalTexture.height == 10,
+            "sameFrozenSampledInput": sampledInputMatches,
+            "validReadbackStride": replayRead.bytesPerRow >= replayRead.width * 4
+                && replayRead.bytesPerRow % 256 == 0 && graphRead.bytesPerRow == replayRead.bytesPerRow,
+            "backgroundUVAndResolutionRetained": colorKind != nil || (frozenBackground
+                && Set(replayProbes.map { $0[1] }).count == 4),
+            "terminalDensityRestored": colorKind != nil || (transitions(replayRead) >= 120
+                && (1...20).contains(transitions(graphRead))),
+            "outsideBackgroundPreserved": matches(replayRead.pixel(x: 10, y: 32), background)]]
+}
+
 @main struct TerminalRasterHarness {
  static func main() throws {
     guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
@@ -506,9 +797,21 @@ private func terminalCase(
         "active": try terminalCase(device: device, queue: queue, count: 2, named: true),
         "inactive": try terminalCase(device: device, queue: queue, count: 2, inactive: [1], named: true),
         "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1], named: true)]
+    let density = ["original": try densityCase(device: device, queue: queue, renamed: false),
+        "renamedEquivalent": try densityCase(device: device, queue: queue, renamed: true),
+        "additiveFine": try densityCase(device: device, queue: queue, renamed: false, blendMode: 31),
+        "additiveFineRenamed": try densityCase(device: device, queue: queue, renamed: true, blendMode: 31),
+        "opaqueAdditive": try densityCase(device: device, queue: queue, renamed: false,
+            blendMode: 31, colorKind: "opaque"),
+        "pmaAdditive": try densityCase(device: device, queue: queue, renamed: false,
+            blendMode: 31, colorKind: "pma"),
+        "straightAdditive": try densityCase(device: device, queue: queue, renamed: false,
+            blendMode: 31, colorKind: "straight"),
+        "pmaSourceOver": try densityCase(device: device, queue: queue, renamed: false, colorKind: "pma"),
+        "straightSourceOver": try densityCase(device: device, queue: queue, renamed: false, colorKind: "straight")]
     let data = try JSONSerialization.data(withJSONObject:
         ["metalAvailable": true, "rows": rows, "overflow": overflow, "named": named,
-            "attachment": attachment], options: [.sortedKeys])
+            "attachment": attachment, "density": density], options: [.sortedKeys])
     FileHandle.standardOutput.write(data)
  }
 }
@@ -519,13 +822,15 @@ private func terminalCase(
 class TerminalMaterialGraphTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        sources = graph_fixture.CONTRACT_FIXTURE['SWIFT_SOURCES']
-        graph_fixture.CONTRACT_FIXTURE['SWIFT_SOURCES'] = list(dict.fromkeys(
-            sources + pool_fixture.SWIFT_SOURCES))
-        try:
-            compilation, run = graph_fixture.compile_lit_harness(SUPPORT, HARNESS)
-        finally:
-            graph_fixture.CONTRACT_FIXTURE['SWIFT_SOURCES'] = sources
+        extra_sources = (*pool_fixture.SWIFT_SOURCES, *DEBUG_SOURCES)
+        sources = list(dict.fromkeys([
+            *graph_fixture.CONTRACT_FIXTURE['SWIFT_SOURCES'], *extra_sources,
+        ]))
+        # Real Debug counters and the telemetry-owned hook use the same complete
+        # production pair as the maintained stage-timestamp gate. No stubs.
+        compilation, run = graph_fixture.compile_lit_harness(SUPPORT, HARNESS,
+            extra_swift_flags=('-D', 'DEBUG', '-framework', 'QuartzCore'),
+            extra_swift_sources=extra_sources)
         if destination := os.environ.get('MWX_TERMINAL_GRAPH_EVIDENCE'):
             root = Path(destination)
             root.mkdir(parents=True, exist_ok=True)
@@ -536,13 +841,20 @@ class TerminalMaterialGraphTests(unittest.TestCase):
             (root/'Support.swift').write_text(SUPPORT)
             (root/'Harness.swift').write_text(HARNESS)
             (root/'source-sha.json').write_text(json.dumps({str(p): hashlib.sha256(p.read_bytes()).hexdigest()
-                for p in [Path(__file__), FRAME_SOURCE,
-                          *dict.fromkeys(sources + pool_fixture.SWIFT_SOURCES)]}, indent=2))
+                for p in [Path(__file__), Path(graph_fixture.__file__), FRAME_SOURCE,
+                          SOURCE_MATERIALS, *sources]}, indent=2))
         if compilation.returncode:
             raise RuntimeError(compilation.stderr)
         if run is None or run.returncode:
             raise RuntimeError(run.stderr if run is not None else 'harness did not run')
-        cls.result = json.loads(run.stdout)
+        cls.result, end = json.JSONDecoder().raw_decode(run.stdout)
+        diagnostics = run.stdout[end:]
+        if any(line and not line.startswith('MWX resolved material envelope rejection: ')
+               for line in diagnostics.splitlines()):
+            raise RuntimeError('unexpected text after terminal graph result: ' + diagnostics)
+        cls.envelope_diagnostics = diagnostics
+        if destination:
+            (root/'stdout-diagnostics.log').write_text(diagnostics)
         if not cls.result['metalAvailable']:
             raise unittest.SkipTest('Metal unavailable')
 
@@ -589,3 +901,29 @@ class TerminalMaterialGraphTests(unittest.TestCase):
                 self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
                 self.assertEqual(row['providerExtent'], [7, 3], row)
                 self.assertEqual([k for k, v in row['dependencySizing'].items() if not v], [], row)
+
+    def test_terminal_density_preserves_captured_layer_source_semantics(self):
+        for name in ('original', 'renamedEquivalent', 'additiveFine', 'additiveFineRenamed'):
+            with self.subTest(case=name):
+                row = self.result['density'][name]
+                self.assertNotIn('failure', row, row)
+                self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+
+    def test_terminal_additive_preserves_source_representation_and_background_alpha(self):
+        for name in ('opaqueAdditive', 'pmaAdditive', 'straightAdditive',
+                     'pmaSourceOver', 'straightSourceOver'):
+            with self.subTest(case=name):
+                row = self.result['density'][name]
+                self.assertNotIn('failure', row, row)
+                if name.startswith('pma') and row['actualRole'] == 'missing' and any(
+                    line.startswith('MWX resolved material envelope rejection: '
+                        'shader=fixture/executor-0 node=0 kind=frontend '
+                        'reason=frontend/shaderFrontendFailed slot=none '
+                        'details=generic-artifact,compiler-configuration-licensebundleunavailable,')
+                    and ',bounded-frontend-owner-revoked,' in line
+                    for line in self.envelope_diagnostics.splitlines()
+                ):
+                    self.skipTest('Bare graph lacks the signed compiler license bundle; '
+                        'PMA Program is unavailable. Factor qualification uses the '
+                        'maintained pass-encoder PMA probe.')
+                self.assertEqual([k for k, v in row['results'].items() if not v], [], row)

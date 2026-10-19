@@ -39,7 +39,11 @@ PUBLICATION_FIXTURE = CONTRACT_FIXTURE["PUBLICATION_FIXTURE"]
 compile_harness = CONTRACT_FIXTURE["compile_harness"]
 
 
-def compile_lit_harness(support_text: str, harness_text: str):
+def compile_lit_harness(
+    support_text: str, harness_text: str, *,
+    extra_swift_flags: tuple[str, ...] = (),
+    extra_swift_sources: tuple[Path, ...] = (),
+):
     """compile_harness plus a default.metallib built from the real image and
     lit capture shaders, so the harness binary can resolve the default
     library the lit pipeline reads its functions from."""
@@ -103,8 +107,11 @@ def compile_lit_harness(support_text: str, harness_text: str):
                 "-parse-as-library",
                 "-D",
                 "SCENE_GRAPH_TESTING",
+                *extra_swift_flags,
                 str(support),
-                *(str(path) for path in CONTRACT_FIXTURE["SWIFT_SOURCES"]),
+                *(str(path) for path in dict.fromkeys([
+                    *CONTRACT_FIXTURE["SWIFT_SOURCES"], *extra_swift_sources,
+                ])),
                 str(harness),
                 "-framework",
                 "Metal",
@@ -177,6 +184,7 @@ struct SceneRenderDescriptor {
         let id: Int
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
+        var colorBlendMode: Int? = nil
         var staticModelPath: String? = nil
         var particlePath: String? = nil
         var utilityLayer: SceneUtilityLayer? = nil
@@ -3207,9 +3215,14 @@ private func appendReadback(
     _ texture: MTLTexture,
     commandBuffer: MTLCommandBuffer
 ) -> Readback? {
-    let bytesPerRow = 256
+    let (rowBytes, rowOverflow) = texture.width.multipliedReportingOverflow(by: 4)
+    let (paddedRowBytes, paddingOverflow) = rowBytes.addingReportingOverflow(255)
+    guard !rowOverflow, !paddingOverflow else { return nil }
+    let bytesPerRow = (paddedRowBytes / 256) * 256
+    let (imageBytes, imageOverflow) = bytesPerRow.multipliedReportingOverflow(by: texture.height)
+    guard !imageOverflow else { return nil }
     guard let destination = texture.device.makeBuffer(
-        length: bytesPerRow * texture.height,
+        length: imageBytes,
         options: .storageModeShared
     ), let encoder = commandBuffer.makeBlitCommandEncoder() else {
         return nil
@@ -3227,7 +3240,7 @@ private func appendReadback(
         to: destination,
         destinationOffset: 0,
         destinationBytesPerRow: bytesPerRow,
-        destinationBytesPerImage: bytesPerRow * texture.height
+        destinationBytesPerImage: imageBytes
     )
     encoder.endEncoding()
     return .init(
@@ -4003,6 +4016,7 @@ private func capabilities(
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:],
     capturedMainTarget: Bool = false,
+    terminalReplayBlendMode: Int = 0,
     forcedInitiallyInactiveEffectKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
@@ -4036,6 +4050,7 @@ private func capabilities(
             }
         )
     if capturedMainTarget { consumer.utilityLayer = .init(kind: .fullscreen) }
+    consumer.colorBlendMode = terminalReplayBlendMode
     var layers: [SceneRenderDescriptor.Layer] = [consumer]
     if let namedProvider, let dependencyBinding {
         consumer.dependencyLayerIDs = [dependencyBinding.providerLayerID]
@@ -4154,7 +4169,8 @@ private func capabilities(
                 sourceRoute: admitted.sourceRoute,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
-                requiresGraphOutputProvider: admitted.requiresGraphOutputProvider
+                requiresGraphOutputProvider: admitted.requiresGraphOutputProvider,
+                terminalReplayBlendMode: admitted.terminalReplayBlendMode
             )
             return .init(layerID: candidate.layerID, result: .success(marked))
         }

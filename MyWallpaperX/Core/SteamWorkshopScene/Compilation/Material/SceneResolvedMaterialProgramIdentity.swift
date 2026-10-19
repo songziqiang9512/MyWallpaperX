@@ -238,6 +238,16 @@ nonisolated extension SceneResolvedMaterialProgram {
         case offscreenOverwrite
         case terminalSourceOver
         case terminalStraightSourceOver
+        case terminalAdditive
+        case terminalStraightAdditive
+
+        var terminalReplayBlendMode: Int? {
+            switch self {
+            case .offscreenOverwrite: nil
+            case .terminalSourceOver, .terminalStraightSourceOver: 0
+            case .terminalAdditive, .terminalStraightAdditive: 31
+            }
+        }
     }
 
     struct MetalCompileStateKey: Hashable {

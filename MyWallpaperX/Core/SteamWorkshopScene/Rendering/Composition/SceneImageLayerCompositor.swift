@@ -398,7 +398,11 @@ struct SceneImageLayerCompositor {
                       request.geometryProduct == nil,
                       ticket.consumesExternalPrimaryDependency == hasDependencyInput,
                       !request.requiresDependencyEffect || ticket.consumesExternalPrimaryDependency,
-                      (request.layer.colorBlendMode ?? 0) == 0,
+                      ticket.terminalReplayBlendMode == (request.layer.colorBlendMode ?? 0),
+                      ((request.layer.colorBlendMode ?? 0) == 0
+                        || (request.layer.contentKind == "solid" && request.layer.colorBlendMode == 31
+                            && !hasDependencyInput && request.terminalDepth == nil
+                            && request.distanceFog.color.w <= 0.5)),
                       (request.finalCompositeAlpha ?? 1) == 1,
                       (ticket.finalContent == .color(.resolved(.opaque))
                         || ticket.finalContent == .color(.resolved(.premultipliedAlpha))

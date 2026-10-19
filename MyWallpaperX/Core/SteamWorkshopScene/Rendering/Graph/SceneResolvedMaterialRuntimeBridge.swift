@@ -76,13 +76,15 @@ final class SceneResolvedMaterialRuntimeBridge {
         let consumesExternalPrimaryDependency: Bool
         let effectFailures: [EffectFailure]
         let hasTerminalMaterialReplay: Bool
+        let terminalReplayBlendMode: Int?
 
         init(identity: UInt64, epoch: UInt64,
              finalTextureIdentity: ObjectIdentifier,
              finalContent: SceneTextureContent,
              consumesExternalPrimaryDependency: Bool,
              effectFailures: [EffectFailure],
-             hasTerminalMaterialReplay: Bool = false) {
+             hasTerminalMaterialReplay: Bool = false,
+             terminalReplayBlendMode: Int = 0) {
             self.identity = identity
             self.epoch = epoch
             self.finalTextureIdentity = finalTextureIdentity
@@ -90,6 +92,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.consumesExternalPrimaryDependency = consumesExternalPrimaryDependency
             self.effectFailures = effectFailures
             self.hasTerminalMaterialReplay = hasTerminalMaterialReplay
+            self.terminalReplayBlendMode = hasTerminalMaterialReplay ? terminalReplayBlendMode : nil
         }
     }
 
@@ -125,6 +128,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         /// failure path that resolved no lit payload this frame.
         let sourceLighting: SceneBaseMaterialLitCapturePayload?
         let terminalReplayTarget: MTLTexture?
+        let terminalReplayBlendMode: Int
         let frameInputs: FrameInputs
 
         init(
@@ -139,6 +143,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             framebufferSourceMaterial: FramebufferSourceMaterial? = nil,
             sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
             terminalReplayTarget: MTLTexture? = nil,
+            terminalReplayBlendMode: Int = 0,
             frameInputs: FrameInputs
         ) {
             self.claim = claim
@@ -151,6 +156,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sourcePipeline = sourcePipeline
             self.sourceLighting = sourceLighting
             self.terminalReplayTarget = terminalReplayTarget
+            self.terminalReplayBlendMode = terminalReplayBlendMode
             self.frameInputs = frameInputs
         }
     }

@@ -39,8 +39,28 @@
 
 目标是让局部 effect 的采样域独立于最终放置，关闭固定路径被显示比例带动旋转的问题。新片限定原 capturedLayer 的普通正交可见 solid、无真实 texture Candidate、显式合法作者尺寸；须同时满足现 prepared source-sized simple color claim、dependency.none、非 graph-output provider、无显式 RT/history/function/copy/swap/compose。上述资格在原准备/计划 owner 确定一次，draw/scratch 消费同一选择，不能仅据 layer 类型与 nil Candidate 各自判定。复用原 `SceneLayerEffectSourceExtent.resolveSolid` 作为作者源尺寸权威，graph preflight、draw request 和 scratch reservation 消费同一结果。现投影 AABB 两轴分别取大污染了局部宽高比，该分支退出；不另造密度算法或尺寸缓存。作者尺寸缺席时保原投影 fallback，显式非法在预留前局部拒绝，不能降级绕过；新早分支保原正尺寸资格；0→1像素仍留原 fallback/resolveSolid 边界，不扩大该早分支。真实 Candidate、精确 atlas、native/perspective、外部 provider 与显式 FBO 保各自原来源和资源门。
 
-高级混合仍按完整 graph-final → 原 compositor 输出，不新增 terminal replay、不伪造 Candidate 或 `g_TextureNResolution`。graph publication 继续以真实 descriptor 和实际 UV 发布 physical/mapped；固定作者源域经原等比预算处理，最终 canonical world/MVP 独占显示的 scale/angle。保旧普通 source-over、局部失败/停用末段、graph/history/resize、取消与 completion pin；若需新的 logical/physical 类型、采样质量策略或跨图来源，停在相应合同，不借本片改 metadata 含义。
+高级混合除[模式31终端后继](#additive-terminal-density)外仍按完整 graph-final → 原 compositor 输出；不伪造 Candidate 或 `g_TextureNResolution`。graph publication 继续以真实 descriptor 和实际 UV 发布 physical/mapped；固定作者源域经原等比预算处理，最终 canonical world/MVP 独占显示的 scale/angle。保旧普通 source-over、局部失败/停用末段、graph/history/resize、取消与 completion pin；若需新的 logical/physical 类型、采样质量策略或跨图来源，停在相应合同，不借本片改 metadata 含义。
 
 最低验收：自有局部圆与沿环标记，静态非等比外部放置，多个时间点的主轴/轴比保持而标记继续移动；改名及等价变体、viewport/世界scale变化、合法矩形源和缺席/非法尺寸反例。沿实际 preflight→graph descriptor→uniform→GPU→末合成验证，不能只断言helper或冻结clock。原380受控静音多相位对照用户固定路径观察，再用未参与修法的真实样本检查输出/退出；一次有效Debug及独审。不承诺全样本、精确官方音频/相位或性能收益，成本变化另遵循性能卡。
 
 实际原包静音三相位、非零PCM与独立样本后验归[运行证据](../../capabilities/runtime-evidence-current.md#procedural-solid-local-source-20261018)；只关闭固定路径自转反馈，不认完整官方相位/速度、音频幅度或性能通过。
+
+<a id="background-terminal-density"></a>
+
+## 无成员背景采集的终端密度（2026-10-19，原型停止）
+
+目标是避免把巨大屏外画布压到工作纹理后放大。保持原 source UV/2048预算、仅将末材质按屏幕密度重放的原型，实际284三层虽都完成终端回执，只有末弧清楚；后继背景 capture 又低清了先前弧。因此已撤回其产品准入，不能从单pass细线或执行计数认三弧修好。[失败与原图身份](../../../../.artifacts/tmp/arc-ring-sharpness-20261019/research/284-prototype-stop.json)保留，不重复同原型。
+
+后继必须沿现 Compiler/ArtifactBuilder→Program→pool/GraphExecutor→唯一MainPass，同时保住背景与新生成细节。优先研究编译期同pixel证明：顶点仅canonical quad经原MVP、原UV分量无改写、slot0每次普通2D采样都对应当前背景pixel，才可让实际generic产物的可选终端入口消费color attachment；未知坐标/offset/LOD/helper/vertex warp退回原纹理路径。targetPixels或prefix-link单独不足以证明，不只修boundedEmitter，不伪造Candidate/Resolution，不以不同extent纹理偷换同descriptor副本。需要SDR/HDR实际PSO资格、三层非平凡背景与细线、改名/等价变体和相邻反例、原284三弧与独立样本；未完成前保持原graph路线，不认性能收益。
+
+<a id="additive-terminal-density"></a>
+
+## 加法终端密度（2026-10-19，有界实现）
+
+当前 source-sized 程序化 solid 的高级混合会将小 graph-final 放大，最后一遍连续细线也丢失。先限定项目已有模式31的通用合同 `background + straightSource * alpha`：源为 PMA 时 RGB 系数 one，为 straight 时 sourceAlpha，目标 RGB 系数 one；alpha 保背景值。该模式可由 Metal 固定混合直接消费既有 terminal Program，不需要 framebuffer fetch、另建 scratch、提高全图预算或改作者 shader。其他模式不从此开放。
+
+沿原 capability 的 simple color、全终端变体 target-pixel 及输入保存证明；仅普通正交可见 solid、无依赖/provider/geometry、合法原源尺寸和现有最终覆盖资格。FramePreflight 通过原 frame request 传递模式，GraphExecutor/PassEncoder 派生 typed 加法 pass role，role 进入既有 cache key 和 launch warmup；ordinary frame 不编译。Compositor 与原 submission ticket 同时核对外层模式和 pass role，再在原 MainPass 原层序恰好消费一次；中间 extent/Resolution/UV、activation、失败后前一成功材质与 completion pin 均保持。准备不支持时保真实 graph-final，不能把已消耗的 ticket 再走另一输出。元数据记录实际 blend 资格，避免为所有普通层预热无用加法 PSO。
+
+验收复用连续细线/非平凡源：同 Program 源 extent 不变、实际加法输出细节、straight/PMA/opaque 与背景非1 alpha，以及同 pixel 普通混合相邻反例；末段停用/失败、被覆盖输入、stale/重复消费、改名及等价表达式。GPU 门与 Debug 后，原293对照圆环重复亮段消除、人物/粒子保持，另验未参与修法的真实加法样本。透明边界、HDR/SDR、resize 与取消沿原约束；未覆盖组合保持开放。收益必须来自实际清晰度和可比开销，不从256²不变或通过测试推性能结论。
+
+实际运行与剩余边界归[当前证据](../../capabilities/runtime-evidence-current.md#additive-terminal-density-20261019)；284三弧仍开放，不由293连续环或单pass回执代验。
