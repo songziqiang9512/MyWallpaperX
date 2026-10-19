@@ -744,9 +744,9 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "57bce3add7c86d68bbd46498a51e184eb435259469a85f095b7a1ef84a3faa9a",
+        "sourceSHA256": "2370d768cc256fdc4225dd042b5486b9cee0aa3b3e2c77c0aabdc66d7ef9e972",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Prepared direct-model conditions/default preservation and shared quaternion temporal sampling; current CPU/build/original+heldout images, actual native combo/save/reopen/reset and human default-flicker confirmation. Closed only named feedback; preserved CI navigation and unqualified boundaries.",
+        "scope": "Navigation and anchor audit after conditional-model closeout and text-occlusion qualification: one current result owner, normal authored content distinguished from defects, official failed positive controls preserved; no new product capability claim.",
         "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
       }
     },

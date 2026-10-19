@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（327 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `09a2b30f302976b055ad8daa3159a33258762bdb403f421aafb1a1bd0ac9b436`（生成于 2026-10-19T16:28:28.546328+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `4cdb19ba8f2dc677b367aee212237f2e067c6bd2c07242643ac34f5167bf82f2`。
-- 本页生成于 2026-10-19T21:40:57.968303+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `16d69dbbe5eb69cb2d91f128656e18ef7de4033aa7cf7426df061a5fa1591a68`。
+- 本页生成于 2026-10-19T22:09:27.142517+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 
@@ -185,7 +185,7 @@
 | `3299228616` | Lonely Cat: Audio visualizer , Clock , … | 64(60) bool 26 color 13 combo 13 slider 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-18 | 限定反馈后验：时钟上方滚动矩形已由childless copybackground=false优先修复；原包恢复387可见且scroll实际Program/G… |
 | `3323988600` | Hentai Goddess of Victory Nikke ANIMATE… | 9(0) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3325624777` | 麻匪 修女 鼠标互动 nun 16:9 21:9 32:9 16:10 | 49(17) bool 7 color 5 combo 1 slider 11 text 25 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 主体、金环、金纹与字阵可见；原包字阵默认绿色，官方金色未锁属性，不记颜色故障。 |
-| `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:1… | 82(59) bool 17 color 20 combo 6 scenetexture 1 slider 9 tex… | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | 10-19模型场景深度域退休geometry/单位相关隔离；公共App两单位遮挡红绿及旋转/改名/近共面壳/前景occluder均通过。原包同输入before… |
+| `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:1… | 82(59) bool 17 color 20 combo 6 scenetexture 1 slider 9 tex… | `not-run` | - | `not-run` | `unreviewed` 2026-10-20 | 10-20当前App原包/clock-off两窗均App0/正常stop，侧clock穿正面随单开关消失，date仍透；原effect CPU/229 fal… |
 | `3341111071` | 麻匪 初音未来 MIKU 海边 32:9 21:9 16:9 16:10 | 32(8) bool 7 color 4 slider 2 text 18 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 187(154) bool 31 color 26 combo 22 scenetexture 4 slider 86… | `not-run` | - | `not-run` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：左上文字超出圆环，用户称官方在环内；确切文本/状态待确认。旧同viewport默认hour/seconds/g… |
 | `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:1… | 74(46) bool 13 color 9 combo 5 scenetexture 1 slider 12 tex… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-18巨裂片/白环/2000²首门已闭；文字位置尺度/漂移partial。可见38.849s<T；静音opacity0不可测，不能合拼周期。 参考 doc… |

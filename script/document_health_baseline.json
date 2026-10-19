@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 393,
-      "bytes": 155120
+      "bytes": 155957
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77462
+      "bytes": 77422
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 223,
-      "bytes": 65972
+      "bytes": 65904
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1511,15 +1511,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
-      "after": "ecf71c532f7feb8d65be7b1b0b8f500501a8453967d462817c11a3cb26d5d423",
-      "owner": "scene-direct-model-animation",
-      "reason": "Keep one current conditional/rotation contract and bounded native-panel acceptance; remove closed feedback, consolidate old runtime narration without losing anchors, retain explicit remaining capability/visual limits.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "c9d08fcb995b944ee7210f04c7cc4ec8fa56724de897f19db29562a4290fbec7",
       "after": "8b7441bf07955c46a54ecb527b23da2e54210ea537802890ca5c958adde90d17",
@@ -1537,15 +1528,6 @@
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
     },
     {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "0d34e63e06f95890f38eda4e5e0ee112871bb8eb1b0e641e7fc7b5e94e62e2a6",
-      "owner": "scene-direct-model-animation",
-      "reason": "Keep one current conditional/rotation contract and bounded native-panel acceptance; remove closed feedback, consolidate old runtime narration without losing anchors, retain explicit remaining capability/visual limits.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
-    },
-    {
       "owner": "scene-direct-model-animation",
       "reason": "Reflect user normal Release video/audio acceptance while retaining preexisting default arm flicker and missing action-control feedback; same canonical sample overlay regenerated, no whole-sample pass.",
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties",
@@ -1553,6 +1535,24 @@
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "7e9ec6f7fcf56b0a0fbf32e1308b68fc742e00b748533695a5e0819cfc30815c",
       "after": "11d6ad8046a5cee37b199dc782252b5ef9551cc435c32ca3fd77bc4cf1989413"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
+      "after": "40d82dbd944960720093dd7d09394aeaa7a5fa981d33c4e2a3f7217214a46012",
+      "owner": "scene-text-occlusion-qualification",
+      "reason": "Localize clock/date penetration with one native ablation; distinguish normal authored rim/shadow and unmatched camera state; preserve failed official positive controls and correct intake triage without claiming a product fix.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-text-depth-qualification-20261020"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
+      "after": "13b95d126713b1f7aea5be0b509315363e9054618bb43aac695860b2c91f2082",
+      "owner": "scene-text-occlusion-qualification",
+      "reason": "Localize clock/date penetration with one native ablation; distinguish normal authored rim/shadow and unmatched camera state; preserve failed official positive controls and correct intake triage without claiming a product fix.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-text-depth-qualification-20261020"
     }
   ]
 }

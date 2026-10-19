@@ -795,16 +795,17 @@
     },
     "3337494481": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-19",
-      "reviewer": "Codex root; independent shared-depth owner and four-image review",
+      "reviewedOn": "2026-10-20",
+      "reviewer": "Codex root; independent native image/input qualification and default-depth boundary review",
       "officialComparison": "compared",
-      "note": "10-19模型场景深度域退休geometry/单位相关隔离；公共App两单位遮挡红绿及旋转/改名/近共面壳/前景occluder均通过。原包同输入before/candidate均App0、无漂移、stop排空，候选前三帧18实例actual world/encoded/同passCB已核；实图倒向文字、粉顶/扁盒及黑背景仍在，原effect CPU、229 fallback、Rope三FAIL保持，不认本包受益或关闭。五层source与typed相机旧首错保持退出，默认text正控仍UNKNOWN。",
+      "note": "10-20当前App原包/clock-off两窗均App0/正常stop，侧clock穿正面随单开关消失，date仍透；原effect CPU/229 fallback/Rope FAIL保持。官方四向rim倒字和title黑影本就存在，不列错误；目录图未同pointer/phase，扁盒/粉顶仅保待同状态。官方原载体A缺外露clock与窗口资格，STOP_UNKNOWN且B未运行，default text test/write/cull未定，不改公共规则；五层source/typed相机及共享模型深度旧首错保持退出。",
       "runs": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-camera-frame-transforms-20261019/native/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-text-depth-333-20261020/current/report.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
@@ -812,9 +813,10 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-text-depth-333-20261020/current/samples/3337494481/runtime_evidence.zip"
       ],
-      "remainingDifferences": "倒向日期/文字跨面透见、顶面构图/扁盒、全屏背景；default text遮挡及同phase相机姿态仍待资格，229首Program fallback、effect CPU及Rope保持；完整音乐/属性/交互和官方parity未验。"
+      "remainingDifferences": "侧clock/date跨面透见、同状态盒体构图与全屏背景；默认text深度仍UNKNOWN，effect CPU/229 fallback/Rope未闭；完整音乐/属性/互动与官方parity未验。"
     },
     "3585542943": {
       "verdict": "unreviewed",
