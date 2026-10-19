@@ -296,7 +296,8 @@ private struct VaryingLinkOutput: Codable {
     let textureCoordinateBoundedSlot3: Bool
     let textureCoordinateGenericAccepted: Bool
     let textureCoordinateGenericSlot3: Bool
-    let unknownCallRejectedByBoth: Bool
+    let declaredHelperPrefixAccepted: Bool
+    let undefinedHelperRejected: Bool
     let suffixReadRejected: Bool
     let zeroFillGenericAccepted: Bool
     let reversePrefixBoundedAccepted: Bool
@@ -306,8 +307,8 @@ private struct VaryingLinkOutput: Codable {
 
 private struct Vector2ArithmeticOutput: Codable {
     let interfaceOperandNarrowed: Bool
-    let localOperandPreserved: Bool
-    let compoundOperandPreserved: Bool
+    let localOperandNarrowed: Bool
+    let compoundOperandNarrowed: Bool
 }
 
 private struct MutableFragmentVaryingOutput: Codable {
@@ -1056,11 +1057,11 @@ private struct GenericShaderArtifactHarness {
             ).fragment
             let output = Vector2ArithmeticOutput(
                 interfaceOperandNarrowed:
-                    canonical.contains("length(v_TexCoord.xy - CAST2(u_offset))"),
-                localOperandPreserved:
-                    canonical.contains("length(local - CAST2(u_offset))"),
-                compoundOperandPreserved:
-                    canonical.contains("length((v_TexCoord + vec3(0.0)) - CAST2(u_offset))")
+                    canonical.replacingOccurrences(of: " ", with: "").contains("length((v_TexCoord).xy-CAST2(u_offset))"),
+                localOperandNarrowed:
+                    canonical.replacingOccurrences(of: " ", with: "").contains("length((local).xy-CAST2(u_offset))"),
+                compoundOperandNarrowed:
+                    canonical.replacingOccurrences(of: " ", with: "").contains("length(((v_TexCoord+vec3(0.0))).xy-CAST2(u_offset))")
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -1469,13 +1470,16 @@ private struct GenericShaderArtifactHarness {
                     guard case let .success(pair) = textureGeneric else { return false }
                     return pair.fragment.contains("g_Texture3")
                 }(),
-                unknownCallRejectedByBoth: {
-                    guard unknownBounded.diagnostics.map({ $0.code })
-                              .contains(.stageLinkMismatch),
-                          case .failure(.varyingUnsupported) = unknownGeneric else {
-                        return false
-                    }
+                declaredHelperPrefixAccepted: {
+                    guard unknownBounded.diagnostics.isEmpty, unknownBounded.program != nil,
+                          case .success = unknownGeneric else { return false }
                     return true
+                }(),
+                undefinedHelperRejected: {
+                    let missing = SceneAuthoredShaderFrontend.compile(
+                        vertexSource: textureVertex, fragmentSource: unknownFragment.replacingOccurrences(
+                            of: "vec2 unknownHelper(vec2 value) { return value; }", with: ""))
+                    return missing.program == nil && !missing.diagnostics.isEmpty
                 }(),
                 suffixReadRejected: {
                     if case .failure(.varyingUnsupported) = suffix { return true }
@@ -1927,7 +1931,7 @@ private struct GenericShaderArtifactHarness {
                 untypedArgumentPreserved:
                     blendNormalized.contains("undefinedTint + tint)"),
                 mixedWidthArgumentPreserved:
-                    blendNormalized.contains("unknownPair + tint)")
+                    blendNormalized.contains("unknownPair + (tint).xy)")
                     && blendNormalized.contains(
                         "vec3 applyBlend(const int mode, in vec3 a, in vec3 b, in float opacity)"
                     )
@@ -5096,7 +5100,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         completed = subprocess.run(
             [
                 swiftc,
-                "-parse-as-library",
+                "-parse-as-library", "-D", "DEBUG",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
                 "-framework", "Security",
@@ -5499,7 +5503,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "textureCoordinateBoundedSlot3": True,
             "textureCoordinateGenericAccepted": True,
             "textureCoordinateGenericSlot3": True,
-            "unknownCallRejectedByBoth": True,
+            "declaredHelperPrefixAccepted": True,
+            "undefinedHelperRejected": True,
             "suffixReadRejected": True,
             "zeroFillGenericAccepted": True,
             "reversePrefixBoundedAccepted": True,
@@ -5517,8 +5522,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         )
         self.assertEqual(json.loads(completed.stdout), {
             "interfaceOperandNarrowed": True,
-            "localOperandPreserved": True,
-            "compoundOperandPreserved": True,
+            "localOperandNarrowed": True,
+            "compoundOperandNarrowed": True,
         })
 
     def test_backend_canonicalizer_namespaces_bounded_builtin_overload(self):

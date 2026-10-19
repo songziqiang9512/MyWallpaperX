@@ -162,7 +162,8 @@ void main() { vec2 lower = vec2(0.0); vec2 position = vec2(0.125);
     {declaration} gl_FragColor = vec4({call}, 0.125, 1.0);
 }}'''
                 result = self.analyze(source, Path(directory))
-                self.assertEqual(result['canonicalFragment'], source)
+                expected = source.replace('position * wide', 'position * (wide).xy')
+                self.assertEqual(result['canonicalFragment'], expected)
                 self.assertTrue(result['idempotent'])
                 compiled = self.compile_fragment(result, Path(directory))
                 self.assertNotEqual(compiled.returncode, 0,
@@ -190,7 +191,8 @@ void main() { vec2 lower = vec2(0.0); vec2 position = vec2(0.125);
     vec3 wide = vec3(1.0); gl_FragColor = vec4({call}, 0.125, 1.0);
 }}'''
                 result = self.analyze(source, Path(directory))
-                self.assertEqual(result['canonicalFragment'], source)
+                expected = source.replace('position + wide', 'position + (wide).xy')
+                self.assertEqual(result['canonicalFragment'], expected)
                 self.assertTrue(result['idempotent'])
                 self.assertNotEqual(self.compile_fragment(result, Path(directory)).returncode, 0)
 

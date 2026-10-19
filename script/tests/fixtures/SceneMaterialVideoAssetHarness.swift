@@ -43,8 +43,10 @@ enum SceneMaterialPropertyBindingCompiler {
         nonisolated func resolve(snapshot: SceneDynamicSnapshot) -> Float { fatalError("unrelated alpha route") }
     }
 }
-struct SceneBaseMaterialLightingProfile {}
+// This video-only fixture has no authored lighting or reflection surfaces.
+struct SceneBaseMaterialLightingProfile { var surfaceEnabled: Bool { false } }
 struct SceneOffscreenTexturePool {}
+struct SceneMainPassEncoder {}
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneLayerEffectSourceExtent { let pixelSize: CGSize }
 struct SceneAudioSpectrumSnapshot { static let silent = Self() }

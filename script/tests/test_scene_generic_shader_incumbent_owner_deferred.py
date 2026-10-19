@@ -295,12 +295,15 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         harness = root / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = root / "generic-incumbent-owner-harness"
+        (root / "SceneShaderCacheIdentity.json").write_text(json.dumps({
+            "schemaVersion": 1, "semantics": "a" * 64, "toolchain": "b" * 64,
+        }))
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
         completed = subprocess.run(
             [
-                "swiftc", "-parse-as-library",
+                "swiftc", "-parse-as-library", "-D", "DEBUG",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness), "-framework", "Security", "-o", str(cls.binary),
             ],
@@ -384,11 +387,11 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
             bad, bad_log, _, _ = self.run_route(root, "alpha")
             self.assertEqual(bad["status"], "unavailable")
-            self.assertEqual(bad["code"], "artifact-contract-rejected")
+            self.assertEqual(bad["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(bad["permitsBoundedFrontend"])
             self.assertFalse(bad["boundedFrontendAccepted"])
             self.assertIn(
-                "outcome=rejected reason=artifact-contract-rejected", bad_log
+                "outcome=rejected reason=compiler-configuration-licensebundleunavailable", bad_log
             )
 
             disabled, disabled_log, _, _ = self.run_route(
@@ -444,11 +447,11 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
                 root, "spatial-weighted"
             )
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertFalse(rejected["boundedFrontendAccepted"])
             self.assertIn(
-                "outcome=rejected reason=artifact-contract-rejected",
+                "outcome=rejected reason=compiler-configuration-licensebundleunavailable",
                 rejected_log,
             )
 
@@ -487,11 +490,11 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
                 "{invalid-json", encoding="utf-8"
             )
             rejected, rejected_log, _, _ = self.run_route(root, "preserved")
-            self.assertEqual(rejected["code"], "artifact-invalid-json")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertFalse(rejected["boundedFrontendAccepted"])
             self.assertIn(
-                "outcome=rejected reason=artifact-invalid-json", rejected_log
+                "outcome=rejected reason=compiler-configuration-licensebundleunavailable", rejected_log
             )
 
             disabled, disabled_log, _, _ = self.run_route(
@@ -535,10 +538,10 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
             rejected, rejected_log, _, _ = self.run_route(root, "composite")
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
-                "outcome=rejected reason=artifact-contract-rejected",
+                "outcome=rejected reason=compiler-configuration-licensebundleunavailable",
                 rejected_log,
             )
 
@@ -583,9 +586,9 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             )
             rejected, rejected_log, _, _ = self.run_route(root, "interpolated")
             self.assertEqual(rejected["status"], "unavailable")
-            self.assertEqual(rejected["code"], "artifact-invalid-json")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
             self.assertFalse(rejected["permitsBoundedFrontend"])
-            self.assertIn("outcome=rejected reason=artifact-invalid-json", rejected_log)
+            self.assertIn("outcome=rejected reason=compiler-configuration-licensebundleunavailable", rejected_log)
 
             disabled, _, _, _ = self.run_route(
                 root, "interpolated", f"{profile}=disable-generic"

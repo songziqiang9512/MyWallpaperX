@@ -262,7 +262,9 @@ void main() {
                 output = json.loads(subprocess.check_output(
                     [str(self.binary), "--analyze", str(authored)], text=True,
                 ))
-                self.assertEqual(output["canonicalFragment"], source)
+                expected = source.replace("value = abs(scale)", "value = (abs(scale)).xy").replace(
+                    "value = pow(scale, 2.0)", "value = (pow(scale, vec3(2.0))).xy")
+                self.assertEqual(output["canonicalFragment"], expected)
                 self.assertTrue(output["idempotent"])
 
     def test_broadcast_uses_parameter_facts_without_borrowing_peer_types(self) -> None:

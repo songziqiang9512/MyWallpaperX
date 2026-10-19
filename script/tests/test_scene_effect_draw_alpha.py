@@ -25,7 +25,10 @@ def runtime_frame_support() -> str:
     start = support.index("final class SceneResolvedMaterialRuntimeBridge {")
     end = support.index("\nstruct SceneDependencyEffectInput", start)
     replacement = "struct SceneAudioSpectrumSnapshot { static let silent = Self() }\n"
-    replacement += "final class SceneResolvedMaterialRuntimeBridge {\n    struct FrameInputs {" + frame + "\n}\n"
+    bridge = support[start:end]
+    bridge = bridge.replace(method_body(bridge, "struct FrameInputs {"),
+        "struct FrameInputs {" + frame, 1)
+    replacement += bridge
     replacement += r'''
 extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     init(dependencyEffects: [SceneDependencyEffectInput] = [],

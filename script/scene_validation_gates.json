@@ -3907,6 +3907,44 @@
         "test_scene_authored_shader_frontend",
         "test_scene_frontend_expression_semantics"
       ]
+    },
+    {
+      "id": "generic-artifact-standalone-harness",
+      "patterns": [
+        "script/tests/test_scene_generic_shader_program_artifact.py",
+        "script/tests/fixtures/SceneGenericShaderRouteResolutionSupport.swift"
+      ],
+      "modules": [
+        "test_scene_generic_shader_program_artifact",
+        "test_scene_opaque_loop_sample_average_owner",
+        "test_scene_independent_signal_compositing_gpu",
+        "test_scene_conditional_opaque_alpha_weighted_rgb_owner",
+        "test_scene_shader_completed_cache",
+        "test_scene_opaque_static_sample_average_owner",
+        "test_scene_opaque_alpha_weighted_loop_average_owner",
+        "test_scene_same_slot_color_replacement_owner",
+        "test_scene_generic_shader_artifact_recovery",
+        "test_scene_generic_shader_matrix_cast"
+      ]
+    },
+    {
+      "id": "sampler-purpose-standalone-harness",
+      "patterns": [
+        "script/tests/test_scene_sampler_default_purpose.py"
+      ],
+      "modules": [
+        "test_scene_animated_material_asset",
+        "test_scene_base_material_static_tint",
+        "test_scene_material_video_asset",
+        "test_scene_sampler_default_purpose",
+        "test_scene_shared_presence_reachability",
+        "test_scene_source_proven_auxiliary_texture_purpose",
+        "test_scene_source_proven_noise_purpose",
+        "test_scene_source_proven_straight_color_purpose",
+        "test_scene_static_model_material_bindings",
+        "test_scene_stock_material_asset_publication",
+        "test_scene_stock_noise_texture_store"
+      ]
     }
   ],
   "method_gates": {

@@ -46,10 +46,14 @@ class SceneFrontendExpressionSemanticsTests(AuthoredShaderFrontendHarness, unitt
                 expected.append((((value * 2 - 1 - center) / ratio / scale + 1 + center) / 2) - offset)
             expected.extend((0, 1))
         for varying, expression in (('v_Coordinates', 'v_Coordinates * 2.0'),
-                                    ('v_PathUV', '2.0 * v_Coordinates')):
+                                    ('v_PathUV', '2.0 * v_Coordinates'),
+                                    ('v_Compound', '(v_Coordinates + vec4(0.0)) * 2.0'),
+                                    ('v_Local', 'localUV * 2.0')):
             with self.subTest(varying=varying, expression=expression):
                 output = self.compile(VEC4_COORDINATE_VERTEX_SOURCE.replace('v_Coordinates', varying),
-                    fragment.replace('v_Coordinates * 2.0', expression).replace('v_Coordinates', varying))
+                    fragment.replace('void main() {', 'void main() { vec4 localUV = v_Coordinates;')
+                        .replace('v_Coordinates * 2.0', expression).replace('v_Coordinates', varying),
+                    canonicalize=True)
                 self.assertEqual(output['diagnosticCodes'], [])
                 self.assertIsNone(output.get('metalError'))
                 values = self.evaluate(output['metalSource'], kernel.replace('v_Coordinates', varying), 3)
@@ -63,6 +67,28 @@ class SceneFrontendExpressionSemanticsTests(AuthoredShaderFrontendHarness, unitt
             void main() { vec2 value = normalize(v_Coordinates); gl_FragColor = vec4(value, 0.0, 1.0); }
         """)
         self.assertIsNotNone(invalid.get('metalError'))
+
+    def test_builtin_vectors_do_not_borrow_a_different_functions_scalar_scope(self):
+        for expression, expected in (('abs(scale)', (0.1, 0.2)),
+                                     ('pow(scale, 2.0)', (0.01, 0.04))):
+            with self.subTest(expression=expression):
+                scale_y = -0.2 if expression == "abs(scale)" else 0.2
+                fragment = f'''float helper() {{ float scale = 0.5; return scale; }}
+                    void main() {{ vec3 spare = vec3(0.0), scale = vec3(0.1, {scale_y}, 99.0);
+                        vec2 first = vec2(0.0), value = {expression};
+                        gl_FragColor = vec4(first + value, 0.0, 1.0); }}'''
+                output = self.compile(VEC4_COORDINATE_VERTEX_SOURCE, fragment, canonicalize=True)
+                self.assertEqual(output['diagnosticCodes'], [])
+                self.assertIsNone(output.get('metalError'))
+                kernel = '''constant SceneAuthoredUniforms mwxTestUniforms = {float2(0)};
+                    kernel void mwxTestEvaluate(device float4 *out [[buffer(0)]]) {
+                        SceneAuthoredFragmentInput input = {}; float4 value = {};
+                        mwxF_main(input, value, mwxTestUniforms); out[0] = value;
+                    }'''
+                values = self.evaluate(output['metalSource'], kernel, 1)
+                self.assertEqual(len(values), 4)
+                for actual, wanted in zip(values, (*expected, 0, 1)):
+                    self.assertAlmostEqual(actual, wanted, places=6)
 
     def test_dead_resolution_projection_and_neutral_resolution_have_distinct_contracts(self):
         fragment = """

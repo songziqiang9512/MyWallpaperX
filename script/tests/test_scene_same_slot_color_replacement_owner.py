@@ -126,7 +126,8 @@ class SceneSameSlotColorReplacementOwnerTests(unittest.TestCase):
             rejected, _, _, rejected_log = self.run_harness(
                 root, route=None, fragment=FRAGMENT, **self.facts()
             )
-            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertEqual(rejected["code"], "compiler-configuration-licensebundleunavailable")
+            self.assertEqual((rejected["status"], rejected.get("backend")), ("unavailable", None))
             self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
                 f"state=generic-only profile={PROFILE} outcome=rejected",

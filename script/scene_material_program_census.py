@@ -30,6 +30,7 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_capability_census_io import is_sample_directory_name
+from generate_scene_shader_cache_identity import build_identity, write_identity
 from scene_real_test_fixture_config import load_fixture_config
 from scene_swift_source_sets import (
     scene_swift_source_relpaths,
@@ -52,6 +53,7 @@ AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_source_relpaths_by_basename(
 )
 
 CURRENT_SOURCE_PATHS = (
+    scene_swift_source_relpaths_by_basename("authored_shader_frontend_support")["SceneShaderCacheIdentity.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphAdmissionCompiler.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphConditionAdmission.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphConditionSchemaEvidenceCompiler.swift",
@@ -244,6 +246,17 @@ enum SceneTextureLoadPurpose: Hashable, Sendable {
     var requiresVolumeTexture: Bool { self == .lookupTable }
 }
 
+// The Template census does not finalize Programs. Keep only the current
+// assembly carrier shape; all derivation entry points below return nil.
+extension SceneResolvedMaterialProgram {
+    struct PreparedAssembly {
+        let preparedShader: SceneShaderPreparedProgram
+        let frontendProgram: SceneAuthoredShaderProgram
+        let renderState: SceneMaterialRenderState
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+    }
+}
+
 enum SceneResolvedMaterialProgramDerivation {
     struct ConditionalGeneratedRGBInputContract: Hashable {
         let alphaCarrierSlot: Int
@@ -259,6 +272,11 @@ enum SceneResolvedMaterialProgramDerivation {
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil
     }
+
+    static func derive(
+        _ frame: SceneResolvedMaterialProgram.FrameAssemblyInput,
+        prepared: SceneResolvedMaterialProgram.PreparedAssembly
+    ) -> SceneResolvedMaterialProgram.Derived? { nil }
 
     static func deriveCompiled(
         _ input: SceneResolvedMaterialProgram.AssemblyInput,
@@ -929,6 +947,9 @@ private enum MaterialProgramCensusHarness {
             case .property:
                 referenceKind = "userProperty"
                 chainLabel = "user"
+            case .userShortcut:
+                referenceKind = "userShortcut"
+                chainLabel = "userShortcut"
             case .system:
                 referenceKind = "systemProvider"
                 chainLabel = "system"
@@ -1687,6 +1708,8 @@ def compile_harness(
     binary_path: Path,
     module_cache: Path,
 ) -> None:
+    write_identity(binary_path.parent / "SceneShaderCacheIdentity.json",
+                   build_identity(REPOSITORY_ROOT, {"tool": "material-program-census"}))
     module_cache.mkdir(parents=True)
     command = [
         "xcrun",

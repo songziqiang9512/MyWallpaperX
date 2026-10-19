@@ -18,6 +18,7 @@ import tempfile
 import time
 import unittest
 
+from script.generate_scene_shader_cache_identity import build_identity, write_identity
 from script.tests import test_scene_shader_color_contract as color
 from script.tests import test_scene_shader_preprocessor as preprocessor
 
@@ -70,7 +71,10 @@ class SceneShaderFragmentOutputTests(unittest.TestCase):
             "CFBundleIdentifier": "com.songziqiang.MyWallpaperX",
             "CFBundleExecutable": "probe", "CFBundlePackageType": "APPL",
         }))
-        cls.inputs = [*SWIFT_SOURCES, FIXTURE, Path(__file__),
+        resource = cls.app / "Contents/Resources/SceneShaderCacheIdentity.json"
+        cls.cache_identity = build_identity(ROOT, {"testHarness": "shader-fragment-output"})
+        write_identity(resource, cls.cache_identity)
+        cls.inputs = [*SWIFT_SOURCES, FIXTURE, Path(__file__), resource,
                       Path(color.__file__), Path(preprocessor.__file__),
                       ROOT / "script/scene_swift_source_sets.py"]
         cls.before = [identity(path) for path in cls.inputs]
