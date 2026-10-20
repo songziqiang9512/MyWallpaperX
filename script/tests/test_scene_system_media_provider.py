@@ -100,6 +100,7 @@ nonisolated enum SystemMusicPlayerSource {
     nonisolated enum Result: Sendable { case snapshot(Snapshot), noSession, unavailable(Failure) }
     static var latest: SystemMediaSource?
     static var starts = 0
+    static var stops = 0
     static var initial: Result? = .unavailable(.missingResource)
     var callback: (@MainActor @Sendable (Result) -> Void)?
     func start(_ receive: @escaping @MainActor @Sendable (Result) -> Void) {
@@ -107,7 +108,7 @@ nonisolated enum SystemMusicPlayerSource {
         callback = receive; Self.latest = self; Self.starts += 1
         if let initial = Self.initial { deliver(initial) }
     }
-    func stop() { callback = nil }
+    func stop() { if callback != nil { Self.stops += 1 }; callback = nil }
     /// A terminal unavailable result retires the transport, mirroring the
     /// production session teardown that lets a later start succeed.
     func deliver(_ result: Result) {
@@ -120,6 +121,23 @@ nonisolated func testPalette(_ red: Double) -> SystemMediaArtworkPalette {
     .init(primaryColor: .init(red, 0, 1 - red), secondaryColor: .init(0, 1, 0),
           tertiaryColor: .init(1, 1, 0), textColor: .init(1, 1, 1), highContrastColor: .init(0, 0, 0))
 }
+nonisolated final class WebArtworkProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    private var blocker: DispatchSemaphore?
+    func setBlocker(_ value: DispatchSemaphore?) {
+        lock.lock(); blocker = value; lock.unlock()
+    }
+    var calls: Int { lock.lock(); defer { lock.unlock() }; return count }
+    func prepare(_ data: Data) -> String? {
+        lock.lock()
+        count += 1
+        let call = count, held = blocker
+        lock.unlock()
+        if let held { precondition(held.wait(timeout: .now() + 5) == .success) }
+        return "converted-\(call)-\(data.first ?? 0)"
+    }
+}
 @main struct Main {
     @MainActor static func wait(_ seconds: Double = 3, until condition: () -> Bool) {
         let deadline = Date(timeIntervalSinceNow: seconds)
@@ -128,13 +146,83 @@ nonisolated func testPalette(_ red: Double) -> SystemMediaArtworkPalette {
     }
     @MainActor static func main() {
         let inbox = SceneMediaThumbnailInbox(), control = SystemMusicPlayerSource.control
-        let provider = SystemMediaService(inbox: inbox)
-        let first = UUID(), second = UUID()
         let name = CommandLine.arguments[1]
+        let artworkProbe = WebArtworkProbe()
+        let provider = name.hasPrefix("web-artwork-demand")
+            ? SystemMediaService(inbox: inbox, prepareWebArtwork: { artworkProbe.prepare($0) })
+            : SystemMediaService(inbox: inbox)
+        let first = UUID(), second = UUID()
         if !["lifecycle", "stale", "permission", "fallback-invalid", "atomic"].contains(name) {
             SystemMediaSource.initial = nil
         }
         switch name {
+        case "web-artwork-demand", "web-artwork-demand-queued":
+            var received: [SystemMediaSnapshot] = []
+            provider.subscribe(first) { received.append($0) } // Scene-only consumer.
+            let source = SystemMediaSource.latest!
+            func track(_ identity: String, byte: UInt8) {
+                source.deliver(.snapshot(.init(source: "other", identity: identity, title: identity,
+                    artworkChanged: true, artworkData: Data([byte]), artworkPalette: testPalette(0.4))))
+            }
+            track("A", byte: 1)
+            let scene = provider.currentSnapshot
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+            precondition(artworkProbe.calls == 0 && scene.webThumbnail == nil,
+                         "Scene-only demand must never prepare Web artwork")
+            let starts = SystemMediaSource.starts, stops = SystemMediaSource.stops
+            let statusOnly = UUID()
+            provider.subscribe(statusOnly, needsMedia: false, needsWebArtwork: true) { _ in }
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+            precondition(artworkProbe.calls == 0 && provider.currentSnapshot == scene,
+                         "a status-only subscription cannot acquire Web artwork")
+            provider.unsubscribe(statusOnly)
+            if name == "web-artwork-demand-queued" {
+                let held = DispatchSemaphore(value: 0)
+                artworkProbe.setBlocker(held)
+                provider.subscribe(second, needsWebArtwork: true) { _ in }
+                wait { artworkProbe.calls == 1 }
+                track("B", byte: 2) // Queued behind A's image preparation.
+                provider.unsubscribe(second)
+                held.signal()
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+                precondition(artworkProbe.calls == 1 && provider.currentSnapshot.webThumbnail == nil,
+                             "revoking Web must skip queued conversion and reject in-flight output")
+                precondition(provider.currentSnapshot.media.current == Data([2]))
+            } else {
+                provider.subscribe(second, needsWebArtwork: true) { _ in }
+                wait { provider.currentSnapshot.webThumbnail == "converted-1-1" }
+                precondition(provider.currentSnapshot.media == scene.media && provider.currentSnapshot.epoch == scene.epoch)
+                provider.subscribe(second, needsWebArtwork: true) { _ in }
+                let third = UUID()
+                provider.subscribe(third, needsWebArtwork: true) { _ in }
+                precondition(artworkProbe.calls == 1, "continuous Web demand reuses current prepared artwork")
+                provider.unsubscribe(second); provider.unsubscribe(third)
+                precondition(provider.currentSnapshot.webThumbnail == nil && provider.currentSnapshot.media == scene.media)
+                let held = DispatchSemaphore(value: 0)
+                artworkProbe.setBlocker(held)
+                var thumbnails: [String] = []
+                provider.subscribe(second, needsWebArtwork: true) { if let value = $0.webThumbnail { thumbnails.append(value) } }
+                wait { artworkProbe.calls == 2 }
+                provider.unsubscribe(second)
+                provider.subscribe(second, needsWebArtwork: true) { if let value = $0.webThumbnail { thumbnails.append(value) } }
+                artworkProbe.setBlocker(nil)
+                held.signal()
+                wait { provider.currentSnapshot.webThumbnail == "converted-3-1" }
+                precondition(!thumbnails.contains("converted-2-1"), "old Web demand cannot publish to a replacement lease")
+                track("B", byte: 2)
+                wait { provider.currentSnapshot.webThumbnail == "converted-4-2" }
+                track("A", byte: 1)
+                wait { provider.currentSnapshot.webThumbnail == "converted-5-1" }
+                source.deliver(.noSession)
+                precondition(provider.currentSnapshot.webThumbnail == nil && provider.currentSnapshot.media.current == nil)
+                provider.unsubscribe(second)
+            }
+            precondition(provider.currentSnapshot.epoch == scene.epoch,
+                         "Web artwork leases cannot advance the shared media epoch")
+            precondition(SystemMediaSource.starts == starts && SystemMediaSource.stops == stops,
+                         "Web artwork changes cannot restart the source while Scene keeps demand")
+            precondition(received.allSatisfy { $0.sourceID != nil || $0.media.current == nil })
+            provider.unsubscribe(first)
         case "status-only":
             var status: [SystemMediaSnapshot] = []
             SceneMediaSourcePreference.isEnabled = false
@@ -575,6 +663,10 @@ class SystemMediaServiceTests(unittest.TestCase):
 
     def test_web_artwork_preparation_and_store_validation(self):
         self.check_case('web-artwork')
+
+    def test_web_artwork_follows_consumers_without_restarting_scene_media(self):
+        self.check_case('web-artwork-demand')
+        self.check_case('web-artwork-demand-queued')
 
     def test_paused_music_cannot_steal_selected_other_player(self):
         self.check_case('selected-other-player')

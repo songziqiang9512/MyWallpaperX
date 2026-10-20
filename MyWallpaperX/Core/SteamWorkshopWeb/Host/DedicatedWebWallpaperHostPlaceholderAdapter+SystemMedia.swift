@@ -58,7 +58,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             systemMediaDemandHandler(needsContent, requestID)
             return
         }
-        SystemMediaService.shared.subscribe(systemMediaConsumerID, needsMedia: needsContent) { [weak self] snapshot in
+        SystemMediaService.shared.subscribe(systemMediaConsumerID, needsMedia: needsContent,
+                                           needsWebArtwork: needsContent) { [weak self] snapshot in
             guard let self, self.currentRequest?.id == requestID,
                   self.systemMediaSubscriptionNeedsContent != nil else { return }
             self.receiveSystemMediaSnapshot(snapshot)

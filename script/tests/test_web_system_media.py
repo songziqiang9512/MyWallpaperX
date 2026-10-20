@@ -20,7 +20,8 @@ SERVICE = r'''
     var currentSnapshot = SystemMediaSnapshot.empty
     var subscriptions: [UUID: (Bool, (SystemMediaSnapshot) -> Void)] = [:]
     var contentConsumerCount: Int { subscriptions.values.filter { $0.0 }.count }
-    func subscribe(_ id: UUID, needsMedia: Bool = true, receive: @escaping (SystemMediaSnapshot) -> Void) {
+    func subscribe(_ id: UUID, needsMedia: Bool = true, needsWebArtwork: Bool = false,
+                   receive: @escaping (SystemMediaSnapshot) -> Void) {
         subscriptions[id] = (needsMedia, receive)
         receive(currentSnapshot)
     }
@@ -373,7 +374,8 @@ class WebSystemMediaTests(unittest.TestCase):
         base = PARITY_HARNESS[:PARITY_HARNESS.index("@MainActor\nenum Scenarios")]
         base = base.replace(source_block(base, "final class Adapter"), ADAPTER)
         base = base.replace(source_block(base, "final class WebWallpaperFrameEndpointRegistry"),
-                            source_block(types, "final class WebWallpaperFrameEndpointRegistry"))
+                            source_block(types, "final class WebWallpaperSpectrumPush") + "\n"
+                            + source_block(types, "final class WebWallpaperFrameEndpointRegistry"))
         base = base.replace(source_block(base, "final class FrameEndpointHelloStub"), HANDLER)
         base = base.replace("    // RUNTIME_HELPERS", "")
         base = base.replace("// RUNTIME_HELPERS", SERVICE)

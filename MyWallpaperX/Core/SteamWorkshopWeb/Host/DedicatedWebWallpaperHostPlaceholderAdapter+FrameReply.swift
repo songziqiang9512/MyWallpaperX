@@ -115,7 +115,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     /// 频谱推送：每 endpoint 同时至多一个在途定向调用，期间只保留最新一份，
     /// 慢 frame 不形成无界积压（D5）。
-    func pushAudioSpectrum(_ levels: [Float], to webView: WKWebView) {
+    func pushAudioSpectrum(_ push: WebWallpaperSpectrumPush, to webView: WKWebView) {
         let now = ProcessInfo.processInfo.systemUptime
         for endpoint in frameEndpointRegistry.endpoints(in: webView) {
             guard endpoint.isLeaseValid(now: now) else {
@@ -123,30 +123,37 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 refreshSystemMediaSubscription()
                 continue
             }
-            deliverAudioSpectrum(levels, to: endpoint, webView: webView)
+            deliverAudioSpectrum(push, to: endpoint, webView: webView)
         }
     }
 
     private func deliverAudioSpectrum(
-        _ levels: [Float],
+        _ push: WebWallpaperSpectrumPush,
         to endpoint: WebWallpaperFrameEndpointRegistry.Endpoint,
         webView: WKWebView
     ) {
         guard endpoint.isSpectrumDeliveryInFlight == false else {
-            endpoint.pendingSpectrumLevels = levels
+            endpoint.pendingSpectrumPush = push
             return
         }
         endpoint.beginSpectrumDelivery()
-        let levelLiterals = levels.map { String(format: "%.6f", $0) }.joined(separator: ",")
         let script = sequencedPushScript(
-            "window.__myWallpaperPushAudioSpectrum([\(levelLiterals)]);",
+            push.scriptBody(),
             sequence: endpoint.advancePushSequence()
         )
         webView.evaluateJavaScript(script, in: endpoint.frameInfo, in: .page) { _ in
             Task { @MainActor in
                 endpoint.endSpectrumDelivery()
-                if let pending = endpoint.pendingSpectrumLevels {
-                    endpoint.pendingSpectrumLevels = nil
+                // An old WebKit completion may arrive after navigation, teardown
+                // or lease expiry retired its endpoint. It cannot flush that
+                // document's pending values into a later delivery generation.
+                guard endpoint.isLeaseValid(now: ProcessInfo.processInfo.systemUptime),
+                      self.frameEndpointRegistry.contains(endpoint, in: webView) else {
+                    endpoint.pendingSpectrumPush = nil
+                    return
+                }
+                if let pending = endpoint.pendingSpectrumPush {
+                    endpoint.pendingSpectrumPush = nil
                     self.deliverAudioSpectrum(pending, to: endpoint, webView: webView)
                 }
             }

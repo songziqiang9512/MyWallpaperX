@@ -237,7 +237,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         switch command {
         case let .pushAudioSpectrum(levels):
             currentSpectrumLevels = levels
-            forEachWebView { self.pushAudioSpectrum(levels, to: $0) }
+            let push = WebWallpaperSpectrumPush(levels)
+            forEachWebView { self.pushAudioSpectrum(push, to: $0) }
         default:
             switch command {
             case .pause:

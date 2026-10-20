@@ -15,18 +15,23 @@ final class SystemMediaService {
 
     private let inbox: SystemMediaSnapshotStore
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene-player-media", qos: .utility)
+    private let prepareWebArtwork: @Sendable (Data) -> String?
     private struct Subscription {
         let lease = UUID()
         let needsMedia: Bool
+        let needsWebArtwork: Bool
         let receive: (SystemMediaSnapshot) -> Void
     }
     private var subscriptions: [UUID: Subscription] = [:]
     private var consumers: Set<UUID> {
         Set(subscriptions.compactMap { $0.value.needsMedia ? $0.key : nil })
     }
+    private var needsWebArtwork: Bool { subscriptions.values.contains { $0.needsWebArtwork } }
     private(set) var currentSnapshot: SystemMediaSnapshot
     private var webThumbnail: String?
     private var preparedArtworkGeneration: UInt64?
+    private var webArtworkDemandRevision: UInt64 = 0
+    private var webArtworkWorkItem: DispatchWorkItem?
     private var sessionGeneration: UInt64 = 0
     private var timer: Timer?
     private var preferenceObserver: NSObjectProtocol?
@@ -54,18 +59,24 @@ final class SystemMediaService {
         return .selected(systemSession.identity)
     }
 
-    init(inbox: SystemMediaSnapshotStore = SystemMediaSnapshotStore()) {
+    init(inbox: SystemMediaSnapshotStore = SystemMediaSnapshotStore(),
+         prepareWebArtwork: @escaping @Sendable (Data) -> String? = SystemMediaWebArtwork.dataURL(from:)) {
         self.inbox = inbox
+        self.prepareWebArtwork = prepareWebArtwork
         currentSnapshot = .empty
         currentSnapshot.enabled = SceneMediaSourcePreference.isEnabled
         currentSnapshot.media = inbox.latest()
     }
 
-    func subscribe(_ consumer: UUID, needsMedia: Bool = true,
+    func subscribe(_ consumer: UUID, needsMedia: Bool = true, needsWebArtwork: Bool = false,
                    receive: @escaping (SystemMediaSnapshot) -> Void) {
         let hadDemand = !consumers.isEmpty
+        let hadWebArtworkDemand = self.needsWebArtwork
         let firstSubscription = subscriptions.isEmpty
-        subscriptions[consumer] = Subscription(needsMedia: needsMedia, receive: receive)
+        subscriptions[consumer] = Subscription(needsMedia: needsMedia,
+            needsWebArtwork: needsMedia && needsWebArtwork, receive: receive)
+        let webArtworkDemandChanged = hadWebArtworkDemand != self.needsWebArtwork
+        if webArtworkDemandChanged { invalidateWebArtworkDemand() }
         if preferenceObserver == nil {
             preferenceObserver = DistributedNotificationCenter.default().addObserver(
                 forName: SceneMediaSourcePreference.changed, object: nil, queue: .main
@@ -77,14 +88,20 @@ final class SystemMediaService {
             reloadSource()
         } else {
             // Status-only and late listeners do not restart a live provider.
-            receive(currentSnapshot)
+            let revision = currentSnapshot.revision
+            if webArtworkDemandChanged { publishSnapshot() }
+            if revision == currentSnapshot.revision { receive(currentSnapshot) }
         }
     }
 
     func unsubscribe(_ consumer: UUID) {
         let hadDemand = !consumers.isEmpty
+        let hadWebArtworkDemand = needsWebArtwork
         guard subscriptions.removeValue(forKey: consumer) != nil else { return }
+        let webArtworkDemandChanged = hadWebArtworkDemand != needsWebArtwork
+        if webArtworkDemandChanged { invalidateWebArtworkDemand() }
         if hadDemand != !consumers.isEmpty { reloadSource() }
+        else if webArtworkDemandChanged { publishSnapshot() }
         guard subscriptions.isEmpty else { return }
         if let preferenceObserver {
             DistributedNotificationCenter.default().removeObserver(preferenceObserver)
@@ -118,8 +135,7 @@ final class SystemMediaService {
         systemArtworkData = nil
         systemArtworkPalette = nil
         usesMusicFallback = false
-        preparedArtworkGeneration = nil
-        webThumbnail = nil
+        resetWebArtworkPreparation()
         systemRetryDelay = 2
         systemRestartDeadline = nil
         clearPublishedSession()
@@ -387,22 +403,31 @@ final class SystemMediaService {
         if currentSnapshot.sourceID != sourceID || currentSnapshot.sessionID != sessionID {
             sessionGeneration &+= 1
         }
-        if preparedArtworkGeneration != media.generation {
+        if needsWebArtwork && preparedArtworkGeneration != media.generation {
+            resetWebArtworkPreparation()
             preparedArtworkGeneration = media.generation
-            webThumbnail = nil
             if let artwork = media.current {
                 let requestEpoch = epoch
                 let generation = media.generation
-                queue.async { [weak self] in
-                    let thumbnail = SystemMediaWebArtwork.dataURL(from: artwork)
+                let demandRevision = webArtworkDemandRevision
+                let prepare = prepareWebArtwork
+                // Cancelling before queue admission skips conversion. ImageIO
+                // already in progress may finish, but cannot publish to a later demand.
+                let prepareAndPublish: @Sendable () -> Void = { [weak self] in
+                    let thumbnail = prepare(artwork)
                     DispatchQueue.main.async {
                         guard let self, self.epoch == requestEpoch,
                               self.inbox.latest().generation == generation,
-                              !self.consumers.isEmpty else { return }
+                              self.needsWebArtwork,
+                              self.webArtworkDemandRevision == demandRevision else { return }
+                        self.webArtworkWorkItem = nil
                         self.webThumbnail = thumbnail
                         self.publishSnapshot()
                     }
                 }
+                let work = DispatchWorkItem(block: prepareAndPublish)
+                webArtworkWorkItem = work
+                queue.async(execute: work)
             }
         }
         var next = SystemMediaSnapshot(
@@ -419,5 +444,17 @@ final class SystemMediaService {
             guard subscriptions[id]?.lease == subscription.lease else { continue }
             subscription.receive(next)
         }
+    }
+
+    private func invalidateWebArtworkDemand() {
+        webArtworkDemandRevision &+= 1
+        resetWebArtworkPreparation()
+    }
+
+    private func resetWebArtworkPreparation() {
+        webArtworkWorkItem?.cancel()
+        webArtworkWorkItem = nil
+        preparedArtworkGeneration = nil
+        webThumbnail = nil
     }
 }

@@ -188,6 +188,24 @@ extension WallpaperEngine {
     }
 }
 
+/// One command's immutable values and lazily prepared body. Endpoints retain
+/// only their latest pending push; no history or cross-command cache is kept.
+@MainActor
+final class WebWallpaperSpectrumPush {
+    private let levels: [Float]
+    private var preparedBody: String?
+
+    init(_ levels: [Float]) { self.levels = levels }
+
+    func scriptBody() -> String {
+        if let preparedBody { return preparedBody }
+        let literals = levels.map { String(format: "%.6f", $0) }.joined(separator: ",")
+        let body = "window.__myWallpaperPushAudioSpectrum([\(literals)]);"
+        preparedBody = body
+        return body
+    }
+}
+
 /// D5（Web 跨源 frame 定向回包与宿主推送）每 webView 的 frame endpoint 登记。
 /// - frame 的持久主键是宿主生成的 endpoint token：WKFrameInfo 是瞬时对象
 ///   （Apple 明确不保证跨 delegate 调用唯一），URL/origin/frameInfo 相等性
@@ -215,7 +233,7 @@ final class WebWallpaperFrameEndpointRegistry {
         private(set) var pushSequence: Int64 = 0
         /// 频谱每 endpoint 同时至多一个在途定向调用；期间只保留最新一份。
         private(set) var isSpectrumDeliveryInFlight = false
-        var pendingSpectrumLevels: [Float]?
+        var pendingSpectrumPush: WebWallpaperSpectrumPush?
         var mediaDemandActive = false
         var mediaDemandNeedsContent = false
         var isMediaDeliveryInFlight = false
@@ -265,6 +283,10 @@ final class WebWallpaperFrameEndpointRegistry {
 
     func hasEndpoints(in webView: WKWebView) -> Bool {
         endpointsByWebView[ObjectIdentifier(webView)]?.isEmpty == false
+    }
+
+    func contains(_ endpoint: Endpoint, in webView: WKWebView) -> Bool {
+        endpointsByWebView[ObjectIdentifier(webView)]?[endpoint.token] === endpoint
     }
 
     var hasAnyEndpoints: Bool {
@@ -531,7 +553,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var globalMouseMonitor: Any?
     var localMouseMonitor: Any?
     var pointerPollingTimer: Timer?
-    var lastPolledMouseLocation: NSPoint?
+    var lastPassivePointerLocation: (surfaceID: UUID, normalizedPoint: CGPoint)?
     var lastHoveredScreenID: CGDirectDisplayID?
     var lastPointerMoveForwardedAt: TimeInterval = 0
     var activeInputForwardingStartedAt: TimeInterval?

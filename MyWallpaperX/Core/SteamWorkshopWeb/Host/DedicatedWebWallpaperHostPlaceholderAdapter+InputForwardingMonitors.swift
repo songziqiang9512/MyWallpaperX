@@ -49,14 +49,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         pointerPollingTimer?.invalidate()
         pointerPollingTimer = nil
-        lastPolledMouseLocation = nil
+        lastPassivePointerLocation = nil
         lastPointerMoveForwardedAt = 0
         activeInputForwardingStartedAt = nil
     }
 
     func startPointerLocationPolling() {
         pointerPollingTimer?.invalidate()
-        lastPolledMouseLocation = nil
+        lastPassivePointerLocation = nil
         pointerPollingTimer = Timer.scheduledTimer(withTimeInterval: Self.pointerMoveThrottleInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.forwardPolledPointerLocationToWallpaper()

@@ -551,7 +551,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             guard let needsMedia else {
                 SystemMediaService.shared.unsubscribe(session.mediaConsumer); return
             }
-            SystemMediaService.shared.subscribe(session.mediaConsumer, needsMedia: needsMedia) { [weak self, weak session] snapshot in
+            SystemMediaService.shared.subscribe(session.mediaConsumer, needsMedia: needsMedia,
+                                               needsWebArtwork: needsMedia) { [weak self, weak session] snapshot in
                 guard let self, let session, !session.isRetiring,
                       self.active === session || self.candidate === session else { return }
                 self.sendMedia(snapshot, to: session)

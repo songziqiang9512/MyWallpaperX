@@ -17,24 +17,19 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // Buttoned motion belongs to the admitted down/drag/up path below. Polling it would
         // let a drag that started in another app leak into the wallpaper after crossing desktop.
         guard buttonMask == 0 else {
-            lastPolledMouseLocation = nil
+            lastPassivePointerLocation = nil
             return
         }
 
         guard shouldForwardMouseEventToWallpaper(at: screenLocation),
               let destinationSurface = targetSurface(at: screenLocation) else {
-            lastPolledMouseLocation = nil
+            lastPassivePointerLocation = nil
             clearSyntheticHoverState()
             return
         }
 
-        if let lastPolledMouseLocation,
-           hypot(screenLocation.x - lastPolledMouseLocation.x, screenLocation.y - lastPolledMouseLocation.y) < 0.5 {
-            return
-        }
-        lastPolledMouseLocation = screenLocation
-
         let normalizedPoint = normalizedPoint(for: screenLocation, in: destinationSurface)
+        guard admitPassivePointerMove(normalizedPoint, to: destinationSurface) else { return }
         let script = String(
             format: "window.__myWallpaperSetPassiveMouseState(true, %.6f, %.6f, %d); window.__myWallpaperDispatchMouseEvent('pointermove', %.6f, %.6f, 0, %d, 1);",
             normalizedPoint.x,
@@ -49,6 +44,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func clearSyntheticHoverState() {
+        lastPassivePointerLocation = nil
         if let lastHoveredScreenID,
            let previousSurface = surfaces[lastHoveredScreenID] {
             previousSurface.webView.evaluateJavaScript(
@@ -57,6 +53,20 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             )
         }
         lastHoveredScreenID = nil
+    }
+
+    /// Both native events and the polling fallback publish passive positions.
+    /// Hit testing and event preheat run before this deduplication; a stationary
+    /// pointer still clears hover when another window covers the desktop.
+    func admitPassivePointerMove(_ point: CGPoint, to surface: HostSurface) -> Bool {
+        let frame = surface.window.screen?.frame ?? surface.window.frame
+        if let previous = lastPassivePointerLocation, previous.surfaceID == surface.id,
+           hypot((point.x - previous.normalizedPoint.x) * max(frame.width, 1),
+                 (point.y - previous.normalizedPoint.y) * max(frame.height, 1)) < 0.5 {
+            return false
+        }
+        lastPassivePointerLocation = (surface.id, point)
+        return true
     }
 
     func forwardMouseEventToWallpaper(_ event: NSEvent) {
@@ -308,6 +318,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let eventType = domMouseEventType(for: event)
         let button = domMouseButton(for: event)
         let pointerID = pointerIdentifier(for: event)
+        if event.type == .mouseMoved, buttonMask == 0,
+           !admitPassivePointerMove(normalizedPoint, to: targetSurface) { return }
         let script: String
         if let eventType {
             if eventType == "wheel" {
