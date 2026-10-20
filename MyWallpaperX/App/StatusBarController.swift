@@ -22,6 +22,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     // 状态栏动态刷新定时器（每 2 秒更新一次图标上的 GPU%）
     private var iconRefreshTimer: DispatchSourceTimer?
+    private var displayedIconPercentage: Int?
+    private var displayedIconAppearance: NSAppearance.Name?
 
     private lazy var menu: NSMenu = {
         let menu = NSMenu()
@@ -73,7 +75,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     /// 将 GPU% 渲染到状态栏图标（加粗等宽数字，保持轻量可读）
     private func updateStatusBarIcon() {
+        guard let button = statusItem?.button else { return }
         let pct = Int(((SystemMonitor.shared.stats.gpuUsage ?? 0) * 100).rounded())
+        let appearance = button.effectiveAppearance.name
+        guard displayedIconPercentage != pct || displayedIconAppearance != appearance else { return }
         let label = String(format: "%d%%", pct)
 
         let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold)
@@ -93,8 +98,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             return true
         }
         img.isTemplate = true
-        statusItem?.button?.image = img
-        statusItem?.button?.imagePosition = .imageOnly
+        button.image = img
+        button.imagePosition = .imageOnly
+        displayedIconPercentage = pct
+        displayedIconAppearance = appearance
     }
     
     func menuNeedsUpdate(_ menu: NSMenu) {
