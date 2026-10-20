@@ -2,12 +2,12 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-21 D9启动库结算完成最近门、最终构建与独审；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
+状态：2026-10-21 D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
 
 本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
 <a id="深入实施-d1d62026-10-21"></a>
-## 深入实施 D1–D9（2026-10-21）
+## 深入实施 D1–D11（2026-10-21）
 
 来源：冻结 `039d164cb` 的优化Debug外部CPU/System/Metal采样、752组词法完整输出对照与75s真实Web音频端点退役反例；证据在忽略的 `apple-silicon-deep-analysis-20261021` 包。局部词法多线程收益不代表整App；GPU类别区间重叠，不相加为可省时间。方案经独立研究复核后获用户实施授权。
 
@@ -22,6 +22,8 @@
 | D7 采样器分析 | 同次activeSamplers仅对当前analysis覆盖／prepared源码做一对严格syntax解析，通道／用途证明共享局部Unit；不跨调用缓存、不借compiler规范化源码。同输入行为投影对照、最近用途门及代表实际播放 | 已保留：47项门、5对冷暖及代表运行通过 |
 | D8 取消响应 | 原token接入capability layer／stage／material批次；完整join后传播取消，不进Rejection／负缓存，不取消共享producer，不动worker上限。先合同、真实叶取消反例，再隔离运行 | 已保留：9项门、组合播放与同daemon切换通过 |
 | D9 Video启动库结算 | 原Manager合并完整SQLite基线与启动期动作；未知基线失败时仅持久化有版本增量，退出／重试／reset不丢动作或覆盖未见库 | 已保留：18种mode／65检查、最终Debug／Release零警告及独审通过 |
+| D10 Release资源归因 | CI等价严格签名、无get-task-allow的原生生产daemon；先L资格，再唯一sample替代L→H→L，按实际端点分开CPU／VM／Metal与工具失败 | 已完成并独审：仅到owner／VM类别，无安全可删工作或retainer证据，不改预算／trim |
+| D11 Web物理Space | 同一最小WK二进制A／B只差reassert，另测真实WebDaemon C；同页、真实手动普通桌面切换、连续RAF／timer与原生事件，不能用模拟通知代替 | 已完成并独审：A4／B6／C5事件不支持reassert为主要停顿原因，停止该方向产品修改 |
 
 每批列明owned源码/测试，构建和实际播放串行；子代理实现可并行，性能计量不与构建/测试重叠。Debug保现开发入口，Release无新增探针；真实媒体只读，用户偏好按精确任务值回收。保留低复杂度可靠局部收益，整体比例未知如实注明；性能或功能回归先修，不能机械追逐数值。阶段结果在本表更新，原24项历史不覆盖新事实。
 
@@ -38,6 +40,12 @@ D8行为资格：9项测试通过，含两级join／后继批次停止／原错�
 D7性能App在D8复制／组合构建前已完成前后身份校验，不能拿后来的candidate源码树／-Onone产物归因D7。最终证据保留于忽略的`apple-silicon-sampler-cancellation-20261021`包；不在Release新增诊断、不放宽安全校验、不改作者样式。D6补查仍缺可归因self-cost，14标量桥接及短数组／字符串转换不另建缓存，原STOP不重开。
 
 D9：冻结`8de80eb6e2`后仅VideoLibrary索引链扩展。真实SQLite与产品Manager／完整导入producer的18种mode、65项检查通过；故意移除两条existing-path context记录后，4项收藏／标签反例为false、8项对照仍true。独审发现并闭合该no-op意图遗漏；最终Debug／Release均构建成功且零警告，前驱6条隔离警告已按MainActor owner修正。测试隔离文件可读性／提示UI／播放等叶端，未运行完整App导入选择和播放UI，不声称所有故障或整App性能比例；收益是启动期普通save不再等待初始SQLite读，且不丢用户动作／未见旧库。无新增timer或Release探针，稳态writer不变。
+
+D10：`4146aa75d`产品源码对应的最终Release（UUID `9577DD1D-88E5-3ADC-87E2-B8CCBDA088D9`）经CI等价嵌套签名／权限校验，普通生产Scene v2入口；主Instruments权限失败、限时退出后缺template，原FAIL保留，不能认领其CPU／Allocations表。唯一替代3次sample／vmmap及正常GPU drain／退出通过。L0→H→L1名义5s观察中，各5个rusage点按C postRead Mach参考端点换算跨度4.098／4.106／4.069s（保pre／post读取括号，不称内核精确记账瞬间）；daemon CPU为58.39／911.00／68.24ms/s、footprint238.91／838.20／381.94MiB（不含父App／compiler helper）。随后6s sample及后验VM单独计时，不替代先前稳态窗口；后验malloc dirty／fragmentation上升、GPU VM大致回落，只有类别线索，无分配来源／持有者证据。Metal有真实帧和3024×1964配置，但H／返L计时全0须标缺测，不能称GPU零成本。H request→prepared16.435s，最大可见resources→surfaces区间11.956s，含并行task／join和异步进度；新HOME中H首次，不是整机冷或全H miss，未采启动栈，不归因纯纹理解码／PSO。持续材质图／cursor／粒子调用有真实consumer，未证明可删，不重开旧STOP。下一次若推进，先拆清该资源区间原有两task／join，沿既有Debug阶段入口取证，不外推Debug比例到Release。
+
+D11：A／B同二进制、同内联页、同正常desktop+1配置，B仅增加Space／activation时的窗口reassert；真实手动切换的4／6事件分别对应RAF停顿567／537／549／551ms与545／547／548／538／538／521ms。A没有reassert也会停约半秒，A／B原生heartbeat最大仅15.1／45.4ms；没有对应半秒主线程停顿。该单轮数据不支持通过删窗口重申解决此类停顿，B低8.5ms也不能称优化收益。三臂均单document、序列连续、零丢包；C经原WebDaemon v2可见确认→finalize→output-activity ACK后观察，5个匹配request的IPC Space事件对应RAF556／567／632／557／568ms；IPC接收时刻不是原生callback时刻，原summary／unified未采到该事件不等于未发生。C兼容脚本覆写hidden，不能以hidden=false证明原生WebKit未遮挡；activation高一档证据也不能当作finalize后的持续level。仅此macOS／WebKit、这一张无网络页、每臂一轮，未证明内部根因、作者样式／音频／主App最小化或所有设备；不做C减A的宿主开销估计。早期快捷键未引发真实Space的B01／C01仅保无切换数据，不算空间验证；有效人工轮无新增产品探针。此阶段不改进程隔离／窗口行为或增加运行时workaround。
+
+D9–D11最终raw、工具与源身份、失败命令／收据、修正前后聚合及独审统一提取至忽略的`.artifacts/scene-evidence/runs/apple-silicon-storage-release-web-space-20261021/`（约1.6MiB，14天）。权限失败、未finalize的1.22GB ATRC不作归因数据；保原FAIL、三文件size／SHA及两份小metadata原文，其大载荷按已核范围清理，不宣称绝无可恢复数据。有效替代并非原trace完整等价副本。测试进程已退出；本轮临时App／DerivedData／样本／HOME／模块缓存按精确归属清理，不清理他人目录。
 
 ## 目标、取舍与职责
 

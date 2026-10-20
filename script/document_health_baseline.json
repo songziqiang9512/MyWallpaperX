@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 447,
-      "bytes": 72164
+      "lines": 455,
+      "bytes": 76179
     }
   },
   "archives": [
@@ -1557,10 +1557,10 @@
     {
       "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "70719059ff463a681b1d00ae1654ce0721b9c0c79d8504b1246e4b5fa356c414",
-      "after": "799c0648e0e671714e207e6aa52b842a15ddd40a06d3dd526b03aaab8086d354",
+      "before": "799c0648e0e671714e207e6aa52b842a15ddd40a06d3dd526b03aaab8086d354",
+      "after": "33f736588fd9f3ad2b5f75b553da3514e6a954f9cb9034a9e7afa44c33a5854e",
       "owner": "apple-silicon-performance",
-      "reason": "用户授权继续唯一路线D9启动库结算；原U1内补完整基线/版本增量/显式动作及失败退出合同和实测范围，不新增平行索引或台账。",
+      "reason": "D10普通Release真实调用/驻留归因与D11手动三臂Space对照独审收口；原计划集中记实测范围、工具FAIL和STOP，不据缺测扩产品或新建台账。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]
