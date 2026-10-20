@@ -4,7 +4,7 @@
 
 本卡维护CPU/GPU、内存、启动与能耗专项。全局按[兼容路线](scene-compatibility-roadmap.md)先处理合成/正常播放问题，再选择有证成本；属性热更新接线归[属性卡](properties-panel-card.md)，开放问题归[队列](scene-open-breakpoint-queue.md)。
 
-**执行顺序。** 本卡独占性能专项选序与验收；研发主线归[兼容路线](scene-compatibility-roadmap.md)。性能由明确的大成本、用户回归或持续资源增长触发，不要求每批提出优化候选；无可行动证据时推进功能。旧E/AS不作前置，[顶层设计](engine-refactor-program.md)只规定边界。
+**执行顺序。** 2026-10-20用户指定[Apple silicon全App优化方案](../../development/apple-silicon-optimization-plan.md)为本轮唯一执行路线；本卡保留下述历史、正式测量与安全口径，不另维护本轮下一步，不将低复杂度局部正收益机械等同正式百分比验收。兼容路线继续拥有作者能力合同及其他功能工作，本轮不据此离开24项路线。旧E/AS不作前置，[顶层设计](engine-refactor-program.md)只规定边界。
 
 1. 整体 CPU/GPU 先联合归因，再联查内存与启动：采样每帧求值/分配、序列化/诊断、主线程阻塞与后台争用，再查压缩纹理展开、解码峰值、重复解析/上传。优先比较 VM/帧桥重复工作、调度 attempt 与实际最贵 GPU pass/shader；局部准备已降而整进程未降时重新选题，不惯性继续微调。温度高、低频与GPU满载须绑定实际工作，不能凭频率或旧样本帧预算判瓶颈。
 2. GPU：按真实pass/shader成本选题，持续筛高级混合复制及满足条件的HDR历史画面路径；实际需要的背景、history、反馈及完成屏障必须保留。

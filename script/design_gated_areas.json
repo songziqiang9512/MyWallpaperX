@@ -128,7 +128,7 @@
       "owner": "Core/Playback shared media service; Scene IPC and Web host adapters",
       "status": "approved",
       "designDoc": "docs/web/mediaremote-nowplaying-design.md",
-      "design_notes": "2026-10-17 已实施 main-App唯一 SystemMediaService、Scene typed IPC原图分片/ACK/lease恢复、Web D5媒体需求与唯一reducer，daemon旧采集撤销；渠道/选源/授权保持，真实音乐验收见Web现役状态。冻结独审关闭legacy异步注册与IPC永久旧状态反例；未覆盖播放器和发布范围不预支。",
+      "design_notes": "2026-10-17 已实施 main-App唯一 SystemMediaService、Scene typed IPC原图分片/ACK/lease恢复、Web D5媒体需求与唯一reducer，daemon旧采集撤销；渠道/选源/授权保持，真实音乐验收见Web现役状态。冻结独审关闭legacy异步注册与IPC永久旧状态反例；未覆盖播放器和发布范围不预支。 2026-10-20 M2按消费者派生Web封面见D6：Subscription缺省非Web、聚合媒体需求独立于Web需求revision，Web-only变更不得reloadSource或重启Scene源；原utility串行队列按(epoch,artwork generation,Web需求revision)双端接纳，取消/ABA/晚订阅不污染原图、颜色与Scene。真实运行与反例另验，不增加Release诊断或第二缓存。",
       "matchPatterns": [
         "MyWallpaperX/Core/Playback/SystemMedia*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaProvider.swift",
@@ -912,6 +912,20 @@
         "futureVisibilityFailure",
         "prepareAnimation"
       ]
+    },
+    {
+      "id": "apple-video-index-ordered-save",
+      "title": "Apple silicon U1 有序异步索引保存与退出同步落盘",
+      "owner": "VideoLibrary WallpaperManager / WallpaperIndexStore",
+      "status": "approved",
+      "designDoc": "docs/development/apple-silicon-optimization-plan.md",
+      "design_notes": "2026-10-20 U1实施细则：唯一MainActor库/不可变snapshot/revision+reset epoch，原SQLite串行队列至多一在飞一最新pending；事务/WAL/旧格式回退不变，退出最新同步flush与reset有序屏障；旧完成不得覆盖或清新回退。真实SQLite及退出/失败反例另验，approved不预支收益或数据安全验收。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperIndexStore.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

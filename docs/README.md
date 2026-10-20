@@ -15,7 +15,7 @@
 | Scene 启动响应 | 详情诊断、异步 preparation、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](scene/architecture/scene-launch-responsiveness-contract.md) |
 | Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development/development-workflow.md) |
 | 工程设计与专项执行 | 所有权、成本消融与退出设计；当前顺序和验收 | [重构顶层设计](scene/roadmap/engine-refactor-program.md)、[性能卡](scene/roadmap/performance-convergence-card.md)、[属性卡](scene/roadmap/properties-panel-card.md) |
-| 跨模块性能研究 | Apple官方指导、24项候选、分阶段取证与实施准入；不取代专项当前状态 | [Apple silicon优化执行方案](development/apple-silicon-optimization-plan.md) |
+| 本轮统一优化执行 | Apple silicon跨模块24项的唯一执行路线、状态、分批验证和取舍；各合同继续约束正确性 | [Apple silicon优化执行方案](development/apple-silicon-optimization-plan.md) |
 | Scene 现役计划 | 当前段位、剩余顺序、停止项和完成门 | [Scene 兼容执行路线](scene/roadmap/scene-compatibility-roadmap.md) |
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/development/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/capabilities/coverage-ledger.md)及专项表 |

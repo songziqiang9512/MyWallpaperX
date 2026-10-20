@@ -3569,10 +3569,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b70734a2917d4f3fcdf4c5d64d1f2b752cdfe9b8d0587a3d386815e085f45cb7",
+        "sourceSHA256": "22542f71bf436c71fe98e1eb90a8ee57d786ca28b06eaeb41d4df99e6c1dcb7a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Authored image font JS-only状态与文字typed事务边界；374首拒退出、局部字体热切、官方固定板与独立381的有界证据。其余正文未重审。",
-        "limitations": "未外推官方throw/任意属性、34字体/完整布局、整景同phase/viewport/HDR或性能；原失败及旧人工verdict保留。"
+        "scope": "Authored image font JS-only状态与文字typed事务边界；374首拒退出、局部字体热切、官方固定板与独立381的有界证据。其余正文未重审。 2026-10-20本轮Apple silicon执行权转交唯一统一路线，专项历史/安全口径保留。",
+        "limitations": "未外推官方throw/任意属性、34字体/完整布局、整景同phase/viewport/HDR或性能；原失败及旧人工verdict保留。 此次仅审导航与执行边界，不重新声称性能专项通过。"
       }
     },
     {

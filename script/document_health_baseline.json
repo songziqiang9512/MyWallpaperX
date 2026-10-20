@@ -226,7 +226,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 56,
-      "bytes": 14794
+      "bytes": 14940
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -261,8 +261,8 @@
       "bytes": 50160
     },
     "docs/web/mediaremote-nowplaying-design.md": {
-      "lines": 68,
-      "bytes": 10634
+      "lines": 76,
+      "bytes": 12213
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 338,
-      "bytes": 49246
+      "lines": 375,
+      "bytes": 55371
     }
   },
   "archives": [
@@ -1223,15 +1223,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/mediaremote-nowplaying-design.md",
-      "before": "08cf28e0d080e8da34be5ee4605b25eeb2cad7a031ddf33caa31067be3d632c9",
-      "after": "67729105c7845a6e23aa9895ab56afc65dce9fb359ce974702dc9c23c0cbbe99",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/technology-stack-boundaries.md",
       "before": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
       "after": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
@@ -1403,15 +1394,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "2086d705dea9fe72cab71986a7a7c56f641cc30cf164b07b2cdd3ad1b2ac4e04",
-      "owner": "apple-silicon-optimization-research",
-      "reason": "用户要求形成跨模块Apple官方指导、24项可执行候选与分阶段验证计划；新增唯一研究方案，不扩产品权限或重复Scene当前状态。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#交付记录与退役"
-    },
-    {
-      "section": "bodies",
       "path": "docs/release/release-signing.md",
       "before": "4025b98b8bbef50c6e21b00be89f8a690b753dd08ec6b52da3f671e8cfde73c4",
       "after": "0ac2e496107cdf2370f54b4e6b62e591e4202d1f4db53661722a219414bdbabd",
@@ -1436,15 +1418,6 @@
       "owner": "Scene runtime and evidence owners",
       "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
       "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "eacee3497a8820a6e387239abdfd1d0e25dc16e7532c8f337278be5e7fda0596",
-      "after": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
-      "owner": "Scene layer-property and evidence owners",
-      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
     },
     {
       "section": "bodies",
@@ -1553,6 +1526,33 @@
       "owner": "scene-named-dependency-direct-anchor",
       "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "2086d705dea9fe72cab71986a7a7c56f641cc30cf164b07b2cdd3ad1b2ac4e04",
+      "after": "414bc07901bbfd381f927b44cc469b9638d24c6f69582c8bba292aaf89df9ecf",
+      "owner": "Apple silicon optimization program",
+      "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
+      "after": "1ea340c9137c06bd985f688654148d1bd2984f0bb9ebbce1725d3c20eb3dab9f",
+      "owner": "Apple silicon optimization program",
+      "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "67729105c7845a6e23aa9895ab56afc65dce9fb359ce974702dc9c23c0cbbe99",
+      "after": "928fb65cb86f41c61b5ceccdea36e346e7e82a835ebc2102a22a6d94f34c4185",
+      "owner": "Apple silicon optimization program",
+      "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md"
     }
   ]
 }

@@ -7,6 +7,14 @@
 
 ## 目标与改造前断点
 
+### 2026-10-20：M2按消费者生成Web封面
+
+本次实施顺序归[Apple silicon统一路线](../development/apple-silicon-optimization-plan.md#m2p1按-web-消费需求生成歌曲封面)，本节只拥有实现合同。原SystemMediaService继续是唯一媒体源／授权／epoch与封面producer；Subscription增加缺省false的needsWebArtwork，并规范化为needsMedia且Web需求。仅Web的两处订阅传该能力，Scene订阅缺省与IPC原语义不变，不新增采集进程或缓存。
+
+分别比较聚合媒体需求和Web派生需求：媒体0↔1沿原reloadSource；仅Web需求0↔1递增Web需求revision、清空或重建Web派生状态，禁止调用reloadSource、推进媒体epoch、stop/start源或清空Scene快照。派生准入与发布同时核对(media epoch, artwork generation, Web需求revision)及仍有Web需求；最后Web退出撤销旧任务，重订阅不能接收旧任务结果。无Web时不把generation记为已准备；首个Web晚到使用当前原图仅生成一次。坏图只缺Web派生，不影响Scene原图、调色板、标题或来源。
+
+验收在真实Service/provider行为门计转换次数与source start/stop：Scene-only零Web转换、晚订阅／ABA／清空、转换在飞退出与重订阅、同代替换订阅、授权拒绝／恢复；Web需求变化不能重启源。再通过实际Scene/Web消费与Release无开发诊断检查。优化只声称省无消费者转换／通知；没有测功耗不声称能耗比例。若需要第二owner或改变原始媒体语义则停止，不保双路径fallback。
+
 开启“壁纸歌曲信息”后，支持媒体监听接口的 Web 壁纸与 Scene 一样收到用户当前播放器的标题、歌手、封面、播放状态及可选进度。作者原有布局与样式不变。歌曲信息与 PCM/频谱是两条独立通路；不分析音频猜歌、不扫描用户音乐库、不修改作者文件、不新增授权按钮。
 
 改造前 Scene 的 `SceneSystemMediaProvider` 汇合系统会话和 Music Apple Events 补充，提交 `SceneMediaThumbnailInbox`。它由 `SceneDesktopWallpaperSession` 按 prepared 需求 acquire/release，实际运行在 Scene daemon，singleton 仅在该进程唯一。Web 的 `DedicatedWebWallpaperHostPlaceholderAdapter` 与 WKWebView 在主 App；五个媒体监听入口已经存在，但 `+MediaState.swift` 从页面 `<audio>/<video>`、页面 `navigator.mediaSession` 与页面标题生成数据，尚未收到系统歌曲。`SceneMediaSourcePreference` 的产品开关也未投影到 Web，Web 的 enabled 仍缺省 true。频谱接通不能证明歌曲信息已接通。
