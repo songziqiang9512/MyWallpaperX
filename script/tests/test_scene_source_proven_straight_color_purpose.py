@@ -231,6 +231,58 @@ private func graphPurposeResults() -> [String: String] {
     ]
 }
 
+private func syntaxReuseResults() throws -> [String: Any] {
+    let source = fragment(body: """
+        vec3 color = texSample2D(g_Texture3, vec2(0.2)).rgb;
+        gl_FragColor = vec4(color, 1.0);
+        """)
+    guard case let .accepted(prepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: contract(source), combos: [:], textureReadiness: [3: true]
+    ) else { throw NSError(domain: "reuse-fixture", code: 1) }
+    func projection(vertex: String? = nil, fragment: String? = nil) throws -> String {
+        token(try Schema.activeSamplers(
+            prepared, activeNames: ["g_Texture3"],
+            analysisVertexSource: vertex, analysisFragmentSource: fragment
+        )[3])
+    }
+    let scalar = fragment(body: """
+        float signal = texSample2D(g_Texture3, vec2(0.2)).r;
+        gl_FragColor = vec4(signal);
+        """)
+    let loops = fragment(body: """
+        vec3 color = texSample2D(g_Texture3, vec2(0.2)).rgb;
+        while (color.x > 0.0) { color *= 0.5; }
+        gl_FragColor = vec4(color, 1.0);
+        """)
+    let overrides = try [projection(), projection(fragment: scalar), projection()]
+    let many = (0..<8).map { "uniform sampler2D g_Texture\($0);" }.joined(separator: "\n")
+        + "\nvoid main() {\n"
+        + (0..<8).map {
+            "vec3 color\($0) = texSample2D(g_Texture\($0), vec2(0.2)).rgb;"
+        }.joined(separator: "\n")
+        + "\ngl_FragColor = vec4("
+        + (0..<8).map { "color\($0)" }.joined(separator: " + ") + ", 1.0);\n}"
+    guard case let .accepted(manyPrepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: contract(many), combos: [:], textureReadiness: [:]
+    ) else { throw NSError(domain: "reuse-fixture", code: 2) }
+    let manySamplers = try Schema.activeSamplers(
+        manyPrepared, activeNames: Set((0..<8).map { "g_Texture\($0)" })
+    )
+    let invalidSources = [
+        ("void main( {", source), (vertexSource, "void main( {"), (vertexSource, loops),
+    ]
+    let invalid = try invalidSources.map { vertex, fragment in
+        let result = try Schema.activeSamplers(
+            prepared, activeNames: ["g_Texture3"],
+            analysisVertexSource: vertex, analysisFragmentSource: fragment
+        )
+        return token(result[3])
+    }
+    let empty = try Schema.activeSamplers(prepared, activeNames: [])
+    return ["successiveOverrides": overrides, "invalid": invalid,
+            "multiple": (0..<8).map { token(manySamplers[$0]) }, "emptyCount": empty.count]
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -250,6 +302,7 @@ private enum Main {
             """
         )
         let results: [String: Any] = [
+            "syntaxReuse": try syntaxReuseResults(),
             "graphPurpose": graphPurposeResults(),
             "colorGraph": colorGraphResults(),
             "positive": [
@@ -473,6 +526,18 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
             "preservedConflict": "nil",
             "mask": "mask",
             "explicitMaskConflictsWithColor": "nil",
+        })
+
+    def test_same_call_syntax_projection_keeps_overrides_failure_and_slot_isolation(self) -> None:
+        self.assertEqual(self.result["syntaxReuse"], {
+            "successiveOverrides": [
+                "unproven/straight-albedo/straight-albedo",
+                "redOnly/nil/nil",
+                "unproven/straight-albedo/straight-albedo",
+            ],
+            "invalid": ["unproven/nil/nil"] * 3,
+            "multiple": ["unproven/straight-albedo/straight-albedo"] * 8,
+            "emptyCount": 0,
         })
 
 

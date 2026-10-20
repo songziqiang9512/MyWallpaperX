@@ -26,10 +26,17 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
         vertexSource: String,
         fragmentSource: String
     ) -> [Fact] {
-        let vertex = syntax(vertexSource, stage: .vertex)
-        let fragment = syntax(fragmentSource, stage: .fragment)
-        guard let vertex, let fragment,
-              let main = fragment.functions.first(where: { $0.name == "main" }),
+        guard let syntax = SceneAuthoredShaderSyntaxAnalyzer.validatedStages(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        ) else { return [] }
+        return analyze(vertex: syntax.vertex, fragment: syntax.fragment)
+    }
+
+    static func analyze(
+        vertex: SceneAuthoredShaderSyntaxUnit,
+        fragment: SceneAuthoredShaderSyntaxUnit
+    ) -> [Fact] {
+        guard let main = fragment.functions.first(where: { $0.name == "main" }),
               let ranges = SceneAuthoredShaderUniformRGBMixAnalyzer
                 .topLevelStatements(in: main.bodyRange, tokens: fragment.tokens)
         else { return [] }
@@ -61,18 +68,6 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
         return roles.keys.sorted().compactMap { slot in
             roles[slot].map { Fact(slot: slot, role: $0) }
         }
-    }
-
-    private static func syntax(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> Unit? {
-        let result = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
-            stage: stage
-        )
-        guard result.diagnostics.isEmpty else { return nil }
-        return result.unit
     }
 
     private struct Sample {

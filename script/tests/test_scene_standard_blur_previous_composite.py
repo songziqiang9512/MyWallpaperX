@@ -27,7 +27,6 @@ SWIFT_SOURCES = list(dict.fromkeys([
     *scene_swift_sources("shader_contract_resource_resolution"),
     *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("authored_shader_preparation_implementation"),
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
@@ -90,7 +89,11 @@ nonisolated struct SceneVFSAssetPath: Hashable, Sendable {
 }
 nonisolated struct SceneResolvedMaterialTemplate {
     typealias Graph = SceneAuthoredEffectRenderPlan
-    enum KnownProviderRequest: Hashable { case namedLayerTarget(SceneNamedTextureReference) }
+    enum KnownProviderRequest: Hashable {
+        case namedLayerTarget(SceneNamedTextureReference)
+        case sceneBackground, sceneEnvironment, system
+    }
+    struct GraphRole: Hashable { let bindings: [Int] = [] }
     struct EffectContext: Hashable {
         let key: Graph.EffectKey
         let input: Graph.TextureIdentity
@@ -138,6 +141,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     let effectContext: EffectContext?
     let shaderContract: SceneShaderContract
     let compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
+    let graphRole = GraphRole()
 }
 '''
 
@@ -604,13 +608,29 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
         cls.root = Path(cls.directory.name)
         support = cls.root / "Support.swift"
         harness = cls.root / "Harness.swift"
+        purpose = cls.root / "SamplerPurpose.swift"
+        # Compile the real purpose projection rather than a manually synced
+        # subset. Graph-input finalization belongs to a separate harness.
+        purpose_source = (SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift").read_text()
+        purpose_projection, marker, _ = purpose_source.partition(
+            "\nextension SceneResolvedMaterialShaderSchema {\n    typealias GraphInputFact ="
+        )
+        if not marker:
+            raise RuntimeError("Sampler purpose projection boundary was not found")
+        uploader = (SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift").read_text()
+        _, marker, purpose_enum = uploader.partition("nonisolated enum SceneTextureLoadPurpose:")
+        purpose_enum, end_marker, _ = purpose_enum.partition("\nnonisolated enum SceneImageTextureUploader")
+        if not marker or not end_marker:
+            raise RuntimeError("Product texture purpose enum boundary was not found")
+        purpose.write_text("import Foundation\nnonisolated enum SceneTextureLoadPurpose:"
+                           + purpose_enum + purpose_projection, encoding="utf-8")
         support.write_text(SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = cls.root / "standard-blur-previous-composite"
         subprocess.run([
             "xcrun", "swiftc", "-o", str(cls.binary),
             *[str(path) for path in SWIFT_SOURCES],
-            str(support), str(harness), "-framework", "Security",
+            str(support), str(purpose), str(harness), "-framework", "Security",
             "-framework", "Metal",
         ], check=True, cwd=REPOSITORY_ROOT)
 

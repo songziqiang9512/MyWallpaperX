@@ -44,6 +44,25 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
+    /// One invocation's active sources may feed several independent proofs.
+    /// Keep their bounded syntax admission identical without reparsing per slot.
+    static func validatedStages(
+        vertexSource: String,
+        fragmentSource: String
+    ) -> (vertex: SceneAuthoredShaderSyntaxUnit, fragment: SceneAuthoredShaderSyntaxUnit)? {
+        let vertex = analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: vertexSource, stage: .vertex),
+            stage: .vertex
+        )
+        let fragment = analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: fragmentSource, stage: .fragment),
+            stage: .fragment
+        )
+        guard vertex.diagnostics.isEmpty, fragment.diagnostics.isEmpty,
+              let vertexUnit = vertex.unit, let fragmentUnit = fragment.unit else { return nil }
+        return (vertexUnit, fragmentUnit)
+    }
+
     /// The same unique-declarator proof also serves vector return conversion.
     /// Arrays, functions and repeated names never provide a value type.
     static func uniqueValueDeclarations(

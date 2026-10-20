@@ -25,9 +25,14 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
         vertexSource: String,
         fragmentSource: String
     ) -> Fact? {
-        guard let vertex = unit(vertexSource, stage: .vertex),
-              let fragment = unit(fragmentSource, stage: .fragment),
-              let vertexFact = neutralVertex(vertex),
+        guard let syntax = SceneAuthoredShaderSyntaxAnalyzer.validatedStages(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        ) else { return nil }
+        return analyze(vertex: syntax.vertex, fragment: syntax.fragment)
+    }
+
+    static func analyze(vertex: Unit, fragment: Unit) -> Fact? {
+        guard let vertexFact = neutralVertex(vertex),
               let fragmentFact = neutralFragment(fragment),
               vertexFact.varying == fragmentFact.varying else { return nil }
         return .init(
@@ -39,21 +44,6 @@ nonisolated enum SceneAuthoredShaderNeutralTextureTintAnalyzer {
             powerUniformName: fragmentFact.power,
             scrollUniformNames: vertexFact.scrolls
         )
-    }
-
-    private static func unit(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> Unit? {
-        let output = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: SceneAuthoredShaderLexer.lex(
-                source: source,
-                stage: stage
-            ),
-            stage: stage
-        )
-        guard output.diagnostics.isEmpty else { return nil }
-        return output.unit
     }
 
     private static func neutralVertex(

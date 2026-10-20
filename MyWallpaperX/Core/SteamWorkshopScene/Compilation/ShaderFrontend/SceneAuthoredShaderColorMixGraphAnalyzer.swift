@@ -22,17 +22,16 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
     static func straightColorInputSlots(
         vertexSource: String, fragmentSource: String
     ) -> Set<Int> {
-        func syntax(_ source: String, stage: SceneShaderContract.StageKind)
-            -> SceneAuthoredShaderSyntaxUnit? {
-            let parsed = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-                lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
-                stage: stage
-            )
-            return parsed.diagnostics.isEmpty ? parsed.unit : nil
-        }
-        guard let vertex = syntax(vertexSource, stage: .vertex),
-              let fragment = syntax(fragmentSource, stage: .fragment),
-              let main = fragment.functions.first(where: { $0.name == "main" }) else { return [] }
+        guard let syntax = SceneAuthoredShaderSyntaxAnalyzer.validatedStages(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        ) else { return [] }
+        return straightColorInputSlots(vertex: syntax.vertex, fragment: syntax.fragment)
+    }
+
+    static func straightColorInputSlots(
+        vertex: SceneAuthoredShaderSyntaxUnit, fragment: SceneAuthoredShaderSyntaxUnit
+    ) -> Set<Int> {
+        guard let main = fragment.functions.first(where: { $0.name == "main" }) else { return [] }
         let tokens = fragment.tokens
         let outputs = tokens.indices.filter { tokens[$0].text == "gl_FragColor" }
         guard outputs.count == 1, let output = outputs.first,

@@ -45,17 +45,28 @@ extension SceneResolvedMaterialShaderSchema {
         vertexSource: String,
         fragmentSource: String
     ) -> [Int: Sampler] {
+        guard let syntax = SceneAuthoredShaderSyntaxAnalyzer.validatedStages(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        ) else { return samplers }
+        return sourceTypedColorSamplers(samplers, vertex: syntax.vertex, fragment: syntax.fragment)
+    }
+
+    nonisolated static func sourceTypedColorSamplers(
+        _ samplers: [Int: Sampler],
+        vertex: SceneAuthoredShaderSyntaxUnit,
+        fragment: SceneAuthoredShaderSyntaxUnit
+    ) -> [Int: Sampler] {
         let auxiliary = sourceTypedAuxiliarySamplers(
             samplers,
-            vertexSource: vertexSource,
-            fragmentSource: fragmentSource
+            vertex: vertex,
+            fragment: fragment
         )
         var result = auxiliary
         let colorGraphSlots = SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
-            vertexSource: vertexSource, fragmentSource: fragmentSource
+            vertex: vertex, fragment: fragment
         )
         let tintSlot = SceneAuthoredShaderNeutralTextureTintAnalyzer.analyze(
-            vertexSource: vertexSource, fragmentSource: fragmentSource
+            vertex: vertex, fragment: fragment
         )?.textureSlot
         for (slot, sampler) in auxiliary {
             guard sampler.permitsSourceStraightColorProjection,
@@ -64,8 +75,8 @@ extension SceneResolvedMaterialShaderSchema {
                     || SceneAuthoredShaderTextureChannelAnalyzer
                       .provesStraightColorUse(
                           samplerName: sampler.name,
-                          vertexSource: vertexSource,
-                          fragmentSource: fragmentSource
+                          vertex: vertex,
+                          fragment: fragment
                       ) else { continue }
             result[slot] = sampler.withSourceProvenPurpose(.straightAlbedo)
         }

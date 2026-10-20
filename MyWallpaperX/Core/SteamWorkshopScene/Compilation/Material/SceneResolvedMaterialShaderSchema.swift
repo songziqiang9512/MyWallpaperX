@@ -383,35 +383,36 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         })
         let vertexSource = analysisVertexSource ?? prepared.vertex.source
         let fragmentSource = analysisFragmentSource ?? prepared.fragment.source
+        guard let syntax = SceneAuthoredShaderSyntaxAnalyzer.validatedStages(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        ) else { return schemas }
         let projected = schemas.mapValues { sampler in
             sampler.withChannelUse(
                 SceneAuthoredShaderTextureChannelAnalyzer.analyze(
                     samplerName: sampler.name,
-                    vertexSource: vertexSource,
-                    fragmentSource: fragmentSource
+                    vertex: syntax.vertex,
+                    fragment: syntax.fragment
                 )
             )
         }
         let sourceTyped = sourceTypedColorSamplers(
-            projected,
-            vertexSource: vertexSource,
-            fragmentSource: fragmentSource
+            projected, vertex: syntax.vertex, fragment: syntax.fragment
         )
         return sourceTypedSpatialWeightedColorBlendSamplers(
             sourceTyped,
-            fragmentSource: fragmentSource,
+            fragment: syntax.fragment,
             normalBlendModeIdentifiers: normalBlendModeIdentifiers
         )
     }
 
     static func sourceTypedAuxiliarySamplers(
         _ samplers: [Int: Sampler],
-        vertexSource: String,
-        fragmentSource: String
+        vertex: SceneAuthoredShaderSyntaxUnit,
+        fragment: SceneAuthoredShaderSyntaxUnit
     ) -> [Int: Sampler] {
         let facts = SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer.analyze(
-            vertexSource: vertexSource,
-            fragmentSource: fragmentSource
+            vertex: vertex,
+            fragment: fragment
         )
         guard !facts.isEmpty, facts.allSatisfy({ fact in
             guard let sampler = samplers[fact.slot],
@@ -450,12 +451,12 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
 
     private static func sourceTypedSpatialWeightedColorBlendSamplers(
         _ samplers: [Int: Sampler],
-        fragmentSource: String,
+        fragment: SceneAuthoredShaderSyntaxUnit,
         normalBlendModeIdentifiers: Set<String>
     ) -> [Int: Sampler] {
         guard let fact = SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer
                 .analyze(
-                    fragmentSource: fragmentSource,
+                    fragment,
                     normalBlendModeIdentifiers: normalBlendModeIdentifiers
                 ),
               Set(samplers.keys) == fact.activeSlots,
