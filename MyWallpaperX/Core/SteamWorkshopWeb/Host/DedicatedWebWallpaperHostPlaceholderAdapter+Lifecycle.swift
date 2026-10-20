@@ -455,6 +455,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                       }) else { return }
                 frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                 refreshSystemMediaSubscription()
+                refreshAudioSpectrumDemand()
             case "hello", nil:
                 handleFrameEndpointHello(nonce: nonce, frameInfo: message.frameInfo, webView: webView)
             default:
@@ -487,6 +488,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             return
         }
         ensureFrameEndpointLeaseRenewalTimer()
+        let routingGeneration = endpoint.routingGeneration
         let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
         let nonceLiteral = WebWallpaperHostSupport.javaScriptQuotedString(nonce)
         webView.evaluateJavaScript(
@@ -496,17 +498,21 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
               window.__myWallpaperHostFrameEndpointToken = \(tokenLiteral);
               window.__myWallpaperHostFrameEndpointAck = true;
               if (typeof window.__myWallpaperReportMediaDemand === 'function') window.__myWallpaperReportMediaDemand();
+              if (typeof window.__myWallpaperReportAudioDemand === 'function') window.__myWallpaperReportAudioDemand();
             })();
             """,
             in: frameInfo,
             in: .page
         ) { [weak self] result in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self,
+                      self.frameEndpointRegistry.contains(endpoint, in: webView),
+                      endpoint.routingGeneration == routingGeneration else { return }
                 if case .failure = result {
                     // ack 都到不了的 frame 不会产生有效 endpoint。
                     self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                     self.refreshSystemMediaSubscription()
+                    self.refreshAudioSpectrumDemand()
                 } else if self.isSystemMediaEndpointCurrent(endpoint, in: webView),
                           let snapshot = self.currentSystemMediaSnapshot {
                     self.deliverSystemMedia(snapshot, to: endpoint, webView: webView)

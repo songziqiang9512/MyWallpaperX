@@ -48,6 +48,7 @@ ADAPTER = r'''
     func forEachWebView(_ action: (WKWebView) -> Void) { surfaces.values.forEach { action($0.webView) } }
     func recordDiagnostic(type: String, severity: Severity, message: String, screenID: Int?, url: String?) {}
     func ensureFrameEndpointLeaseRenewalTimer() {}
+    func refreshAudioSpectrumDemand() {}
     func applyCompatibilitySnapshot(to endpoint: WebWallpaperFrameEndpointRegistry.Endpoint, webView: WKWebView) {}
     // ADAPTER_METHODS
 }

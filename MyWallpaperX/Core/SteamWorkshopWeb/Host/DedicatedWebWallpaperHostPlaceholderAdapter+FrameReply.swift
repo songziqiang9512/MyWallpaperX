@@ -28,7 +28,16 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let playbackRateLiteral = String(format: "%.6f", currentPlaybackRate)
         let pausedLiteral = paused ? "true" : "false"
         let spectrumLiteral: String
-        if let levels = currentSpectrumLevels {
+        let now = ProcessInfo.processInfo.systemUptime
+        let hasAudioDemand = frameEndpointRegistry.endpoints(in: webView).contains {
+            $0.audioDemandActive && $0.isLeaseValid(now: now)
+        }
+        if !hasAudioDemand {
+            // Snapshot replay must agree with withdrawal silence. A delayed
+            // runtime spectrum may still update the transport cache after the
+            // final consumer retires; it cannot restore bars in a passive page.
+            spectrumLiteral = "new Array(128).fill(0)"
+        } else if let levels = currentSpectrumLevels {
             let joinedLevels = levels.map { String(format: "%.6f", $0) }.joined(separator: ",")
             spectrumLiteral = "[\(joinedLevels)]"
         } else {
@@ -90,6 +99,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             guard endpoint.isLeaseValid(now: now) else {
                 frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                 refreshSystemMediaSubscription()
+                refreshAudioSpectrumDemand()
                 continue
             }
             webView.evaluateJavaScript(
@@ -121,10 +131,26 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             guard endpoint.isLeaseValid(now: now) else {
                 frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                 refreshSystemMediaSubscription()
+                refreshAudioSpectrumDemand()
                 continue
             }
+            guard endpoint.audioDemandActive else { continue }
             deliverAudioSpectrum(push, to: endpoint, webView: webView)
         }
+    }
+
+    /// A demand withdrawal is a single control push, even if there are no
+    /// remaining audio consumers. Its newer sequence also rejects a delayed
+    /// older spectrum evaluation in the document; no new stream is scheduled.
+    func clearAudioSpectrum(to endpoint: WebWallpaperFrameEndpointRegistry.Endpoint, webView: WKWebView) {
+        endpoint.pendingSpectrumPush = nil
+        guard endpoint.isLeaseValid(now: ProcessInfo.processInfo.systemUptime),
+              frameEndpointRegistry.contains(endpoint, in: webView) else { return }
+        webView.evaluateJavaScript(
+            sequencedPushScript("window.__myWallpaperPushAudioSpectrum(new Array(128).fill(0));",
+                                sequence: endpoint.advancePushSequence()),
+            in: endpoint.frameInfo, in: .page
+        ) { _ in }
     }
 
     private func deliverAudioSpectrum(
@@ -147,7 +173,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 // An old WebKit completion may arrive after navigation, teardown
                 // or lease expiry retired its endpoint. It cannot flush that
                 // document's pending values into a later delivery generation.
-                guard endpoint.isLeaseValid(now: ProcessInfo.processInfo.systemUptime),
+                guard endpoint.audioDemandActive,
+                      endpoint.isLeaseValid(now: ProcessInfo.processInfo.systemUptime),
                       self.frameEndpointRegistry.contains(endpoint, in: webView) else {
                     endpoint.pendingSpectrumPush = nil
                     return
@@ -186,6 +213,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         guard frameEndpointRegistry.hasAnyEndpoints else {
             stopFrameEndpointLeaseRenewalTimer()
             refreshSystemMediaSubscription()
+            refreshAudioSpectrumDemand()
             return
         }
         forEachWebView { webView in
@@ -194,9 +222,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 guard endpoint.isLeaseValid(now: now) else {
                     self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                     self.refreshSystemMediaSubscription()
+                    self.refreshAudioSpectrumDemand()
                     continue
                 }
                 let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
+                let routingGeneration = endpoint.routingGeneration
                 // 校验收口在 JS 侧唯一 helper（BootstrapFoundation）：token 不匹配
                 // 直接抛错，宿主据失败撤销该 endpoint；helper 缺失同样抛错，仍按
                 // 失败撤销，不放宽。
@@ -206,12 +236,15 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     in: .page
                 ) { result in
                     Task { @MainActor in
+                        guard self.frameEndpointRegistry.contains(endpoint, in: webView),
+                              endpoint.routingGeneration == routingGeneration else { return }
                         switch result {
                         case .success:
                             self.frameEndpointRegistry.renewLease(token: endpoint.token, in: webView)
                         case .failure:
                             self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
                             self.refreshSystemMediaSubscription()
+                            self.refreshAudioSpectrumDemand()
                         }
                     }
                 }

@@ -327,10 +327,22 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     }
   };
   window.wallpaperRegisterAudio = window.wallpaperRegisterAudioStream;
+  // A listener can register before the frame hello acknowledgement. Keep its
+  // demand in this document; the acknowledgement replays it with current routing.
+  window.__myWallpaperReportAudioDemand = () => {
+    const token = window.__myWallpaperHostFrameEndpointToken;
+    if (!token) return;
+    try {
+      window.webkit.messageHandlers.wallpaperHostAudioDemand.postMessage({
+        active: audioListeners.length > 0,
+        nonce: window.__myWallpaperHostFrameDocumentNonce, token
+      });
+    } catch (_) {}
+  };
   window.wallpaperRegisterAudioListener = function(listener) {
     if (typeof listener !== 'function') return;
     audioListeners.push(listener);
-    if (audioListeners.length === 1) { try { window.webkit.messageHandlers.wallpaperHostAudioDemand.postMessage({ active: true }); } catch (_) {} }
+    if (audioListeners.length === 1) window.__myWallpaperReportAudioDemand();
     hostLogger?.post('audio.listener.registered', `count=${audioListeners.length}`);
   };
   window.wallpaperRegisterVolumeListener = function(listener) {

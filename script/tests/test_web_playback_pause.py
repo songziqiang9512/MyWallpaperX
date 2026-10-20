@@ -38,6 +38,7 @@ enum WebWallpaperHostSupport {
     }
     func applyGeneralProperties(to webView: WKWebView) {}
     func refreshSystemMediaSubscription() {}
+    func refreshAudioSpectrumDemand() {}
     /// D5：与产品 adapter 同名的 frame endpoint 登记桩（同表面），供提取出的
     /// applyPausedState/deliverStatePush 在 harness 内编译与运行。
     var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()

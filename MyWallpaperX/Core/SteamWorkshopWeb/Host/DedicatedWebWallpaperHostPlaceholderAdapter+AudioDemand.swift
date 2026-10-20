@@ -22,55 +22,90 @@ final class WebAudioDemandMessageHandler: NSObject, WKScriptMessageHandler {
     ) {
         guard message.name == "wallpaperHostAudioDemand",
               let payload = message.body as? [String: Any],
-              let active = payload["active"] as? Bool,
+              let nonce = payload["nonce"] as? String,
               let adapter,
               adapter.surfaces[screenID]?.audioDemandMessageHandler === self else {
             return
         }
-        adapter.setAudioSpectrumDemand(active, for: screenID)
+        guard let webView = adapter.surfaces[screenID]?.webView else { return }
+        adapter.handleAudioSpectrumDemand(payload, nonce: nonce, webView: webView)
     }
 }
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
-    func setAudioSpectrumDemand(_ active: Bool, for screenID: CGDirectDisplayID) {
-        let wasActive = !audioSpectrumDemandScreenIDs.isEmpty
-        let didChange: Bool
-        if active {
-            didChange = audioSpectrumDemandScreenIDs.insert(screenID).inserted
-        } else {
-            didChange = audioSpectrumDemandScreenIDs.remove(screenID) != nil
+    func handleAudioSpectrumDemand(_ body: [String: Any], nonce: String, webView: WKWebView) {
+        guard currentRequest != nil, screenID(for: webView) != nil,
+              let token = body["token"] as? String,
+              let active = body["active"] as? Bool,
+              let endpoint = frameEndpointRegistry.endpoints(in: webView).first(where: {
+                  $0.token == token && $0.documentNonce == nonce
+              }), endpoint.isLeaseValid(now: ProcessInfo.processInfo.systemUptime) else { return }
+        let wasActive = endpoint.audioDemandActive
+        endpoint.audioDemandActive = active
+        if !active { endpoint.pendingSpectrumPush = nil }
+        refreshAudioSpectrumDemand()
+        if wasActive && !active && lastPublishedAudioSpectrumDemand {
+            clearAudioSpectrum(to: endpoint, webView: webView)
         }
-        guard didChange else { return }
+    }
 
-        let isActive = !audioSpectrumDemandScreenIDs.isEmpty
+    /// Endpoint registration is the only per-document demand owner. This bool
+    /// only deduplicates publication of the aggregate to the shared capture owner.
+    func refreshAudioSpectrumDemand() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let demandedScreens = surfaces.values.filter { surface in
+            frameEndpointRegistry.endpoints(in: surface.webView).contains {
+                $0.audioDemandActive && $0.isLeaseValid(now: now)
+            }
+        }
+        let active = !demandedScreens.isEmpty
+        guard lastPublishedAudioSpectrumDemand != active else { return }
+        lastPublishedAudioSpectrumDemand = active
+        if !active {
+            // Retained documents may still display the last bars (including
+            // passive DOM observers). Preserve one ordered silence barrier;
+            // their registration alone does not retain the capture consumer.
+            for surface in surfaces.values {
+                for endpoint in frameEndpointRegistry.endpoints(in: surface.webView) {
+                    clearAudioSpectrum(to: endpoint, webView: surface.webView)
+                }
+            }
+        }
 #if DEBUG
         recordDiagnostic(
-            type: "web.audio-demand",
-            severity: .info,
-            message: "active=\(isActive) surfaces=\(audioSpectrumDemandScreenIDs.count)",
-            screenID: screenID,
-            url: surfaces[screenID]?.webView.url?.absoluteString
+            type: "web.audio-demand", severity: .info,
+            message: "active=\(active) surfaces=\(demandedScreens.count)",
+            screenID: nil, url: nil
         )
 #endif
-        if wasActive != isActive, let requestID = currentRequest?.id {
-            eventHandler?(.audioSpectrumDemandChanged(isActive, requestID: requestID))
+        if let requestID = currentRequest?.id {
+            eventHandler?(.audioSpectrumDemandChanged(active, requestID: requestID))
+        }
+    }
+
+    /// Navigation and surface teardown withdraw only this display's documents;
+    /// another display's valid endpoints must retain their shared capture lease.
+    func clearAudioSpectrumDemand(for screenID: CGDirectDisplayID) {
+        let surface = surfaces[screenID]
+        let endpoints = surface.map { frameEndpointRegistry.endpoints(in: $0.webView) } ?? []
+        let withdrawn = endpoints.filter { $0.audioDemandActive }
+        for endpoint in endpoints {
+            endpoint.audioDemandActive = false
+            endpoint.pendingSpectrumPush = nil
+        }
+        refreshAudioSpectrumDemand()
+        if let surface, lastPublishedAudioSpectrumDemand {
+            for endpoint in withdrawn { clearAudioSpectrum(to: endpoint, webView: surface.webView) }
         }
     }
 
     func clearAudioSpectrumDemand() {
-        guard !audioSpectrumDemandScreenIDs.isEmpty else { return }
-        audioSpectrumDemandScreenIDs.removeAll()
-#if DEBUG
-        recordDiagnostic(
-            type: "web.audio-demand",
-            severity: .info,
-            message: "active=false surfaces=0",
-            screenID: nil,
-            url: nil
-        )
-#endif
-        if let requestID = currentRequest?.id {
-            eventHandler?(.audioSpectrumDemandChanged(false, requestID: requestID))
+        for surface in surfaces.values {
+            for endpoint in frameEndpointRegistry.endpoints(in: surface.webView) {
+                endpoint.audioDemandActive = false
+                endpoint.pendingSpectrumPush = nil
+            }
         }
+        refreshAudioSpectrumDemand()
     }
 }

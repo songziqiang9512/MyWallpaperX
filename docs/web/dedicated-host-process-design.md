@@ -28,6 +28,8 @@
 
 - 主 App 只拥有用户意图、设置、共享采集、异步控制与状态投影。Video、Web、Scene 子进程各自拥有窗口、播放时钟、渲染、输入及本地暂停状态；持续播放不需要主 App 心跳或逐帧许可。
 - 唯一共享音频采集在后台通过带身份的线程安全投递端直接写入有界 transport，不经过 AppKit 主队列。控制面只更新投递目标与需求；Scene 保留 capture scope 与 daemon generation 校验，旧端点在停止/替换时撤权。系统歌曲信息按事件传完整快照，不能阻塞子进程播放。
+- 页面音频需求由现有frame endpoint登记持有：注册必须绑定surface、文档nonce与endpoint token；主导航撤销该surface全部端点；早于hello/ACK的注册在确认后重报。屏幕及主App只聚合仍存活端点的需求，不保留独立screen Set真值。goodbye、导航换代、租约失效、拆屏与teardown沿同一退役路径撤销；其他端点仍需求时不得停共享采集，Scene/Video聚合不变。持续频谱只向声明需求的端点投递，旧evaluate completion/ACK不得恢复需求或flush撤销端点。页面恢复须以当前有效身份重新声明，不能靠旧租约复活。
+- 验收须覆盖唯一音频iframe移除后原生采集停止、双消费者只退一个仍播放、晚注册/重复ACK/导航/租约/重建与全退役；沿真实IPC+系统音频验证，不能只以JS事件计数或进程退出当需求回收证明。
 - 三者沿用同一个 DaemonProcessTransport 的有序控制、最新值合并、EOF 与退出合同。引擎专属协议/首帧判据保留，避免通用包装抹掉实际就绪语义。
 - 暂停或撤销频谱需求时，投递端先向旧合法 Video/Web 端点发送一次有序静音屏障，再拒绝迟到采集；不能只清父端快照而让子端保留旧柱高。Video 子端 CommandReader 仍逐条投递主队列；父死亡/EOF 已有共同后台硬截止期，入站合并仍为待收敛边界。
 - 跨引擎准备期间保留旧输出。Web 在 snapshot 后补齐媒体 completion 和 WindowServer 确认，Video 在 AVPlayerLayer 就绪后补齐逐屏窗口确认，Scene 保留实际 first-frame-presented。唯一产品交接由 [播放生命周期与切换事务](../architecture/playback-lifecycle-transaction-design.md) 约束，主 App 确认旧输出退休后才 finalize 新输出。系统 Space/WindowServer/WebKit 本身调度仍可能带来短停顿，进程隔离不声称消除系统级暂停。

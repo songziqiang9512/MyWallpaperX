@@ -167,7 +167,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         // 得接收新文档的推送；新文档由注入脚本重新 hello 登记。
         frameEndpointRegistry.revokeAll(in: webView)
         refreshSystemMediaSubscription()
-        setAudioSpectrumDemand(false, for: screenID)
+        clearAudioSpectrumDemand(for: screenID)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {}
@@ -208,7 +208,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
         phase = .launching
         invalidatePresentation(on: surface)
-        setAudioSpectrumDemand(false, for: screenID)
+        clearAudioSpectrumDemand(for: screenID)
 #if DEBUG
         recordDiagnostic(
             type: "webcontent.terminated",

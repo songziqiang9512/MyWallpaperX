@@ -2,9 +2,28 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-20 本轮24项已逐项处置：保留10项实施；S1／S3实测后停止；其余按现有实现、证据与成本保留现状。本轮已收尾，不自动展开新的优化队列；正向成果按职责独立审查和分批提交，不推送。研究基准 `32be3ec1d6bf3d8bf10eab343bcd57a0c1c3db76`；实施从最新 `f5d50dc4d89eade09e18455942160d7dbb05ff77` 重新核对，不把历史研究当作当前运行证明。
+状态：2026-10-21 用户授权继续深入实施 D1–D6。原24项处置与STOP保持有效；新阶段只根据新CPU/GPU/生命周期证据推进，不把局部实验比例当作整App收益。正向成果独立审查后按批提交，不推送。起点 `039d164cb048787557068a2412335937db809bc5`；上一阶段身份与结项见下方原记录。
 
-本计划独占本轮24项的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
+本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
+
+## 深入实施 D1–D6（2026-10-21）
+
+来源：冻结 `039d164cb` 的优化Debug外部CPU/System/Metal采样、752组词法完整输出对照与75s真实Web音频端点退役反例；证据在忽略的 `apple-silicon-deep-analysis-20261021` 包。局部词法多线程收益不代表整App；GPU类别区间重叠，不相加为可省时间。方案经独立研究复核后获用户实施授权。
+
+| 阶段 | 原owner内最小结果、退出与验收 | 状态 |
+|---|---|---|
+| D1 公共词法 | ASCII标识符直接判定，Unicode回原CharacterSet；不放宽token/source预算、不增cache。完整token/诊断等价，最近frontend门、整App冷暖与独立样本；先不叠加sampler扫描复用 | 已保留，`9042ed143` |
+| D2 Web音频 | 端点表独占需求归属，surface/主App只派生聚合；goodbye/导航/租约/拆屏撤销，旧ACK/回包不得恢复。多消费者、重新注册、真实音频退役和现Scene路径回归。设计见Web进程合同 | 已保留：端点回收与75s原生验证通过 |
+| D3 Range | 原scheme/loopback流式owner按有效区间seek+remaining分块；保授权/每块撤销/取消/短读/206/HEAD/416，loopback stop沿原owner关闭连接。有界内存与真实响应字节门，不能借此改路径/HTTP策略 | 实施资格通过 |
+| D4 远程CSS | 先用可控延迟确认当前WebKit的@import关键路径，再决定是否调整。字体/级联/加载时序有兼容风险且无可证等价则保留现状；不得删字体换速度 | 候选实测停止 |
+| D5 GPU | 审核连续inactive copy及同帧source capture能否在现版本/历史/发布语义内省略；先设计，不能删copy伪造发布或重开旧跨帧缓存。风险超过收益则记录STOP | 本阶段停止产品修改 |
+| D6 调度与普通帧 | 暖窗口未见大Runnable积压，保持QoS/worker上限；只跟随新调用证据考虑循环取消/任务分配/普通帧重复工作，不为完成表格扩大修改 | 保持现状 |
+
+每批列明owned源码/测试，构建和实际播放串行；子代理实现可并行，性能计量不与构建/测试重叠。Debug保现开发入口，Release无新增探针；真实媒体只读，用户偏好按精确任务值回收。保留低复杂度可靠局部收益，整体比例未知如实注明；性能或功能回归先修，不能机械追逐数值。阶段结果在本表更新，原24项历史不覆盖新事实。
+
+D1：ASCII候选与前轮752组完整输出比较的源码逐字节相同；新门及frontend共78项（77通过、1项缺隔离fixture跳过），签名优化Debug、2938612768共20次启动/drain及独立3173418061截图/实际运行通过，独审闭合。5对冷/5对暖观察均同向，中位ready为−16.63%/−10.34%、主PID累计CPU为−31.06%/−14.31%；另一个Scene renderer最高392%CPU污染，不能称稳定整App或Release收益。主PID不含compiler helper，冷仅本任务编译缓存，原startUTC字段实为结束记录时刻；原数全保留，不筛掉不利配对。独立固定工作量实验仍支持低复杂度保留。
+
+D4：实际WK自定义scheme的7臂资格中，恒假supports候选仍发原import请求；无恢复臂2请求/2响应、DCL1573ms，未跳过1500ms等待。有限最终字体/样式/层序相同不代表有收益；原FAIL及原数保留，未写产品，不外推真实HTTPS。D5新trace缺纹理内容版本/消费者证据；source capture含UV/颜色/PMA/tint/尺寸转换且建立publication，copy还承载固定pair/history/terminal preservation。未证明可省，不改GPU。D6暖调度无大Runnable积压；不升QoS/并发数，不重开旧缓存或另造任务平台。
 
 ## 目标、取舍与职责
 
@@ -405,4 +424,4 @@ python3.12 -B script/playback_process_isolation_benchmark.py --app <隔离Debug�
 
 研究文档批次已提交；当前实施按每批真实 owned 文件界定范围。共享角色／设计／预算 JSON 逐项增量合并，不覆盖并行条目；产品与测试仅改本批 owner，未经核对不纳入他人源文件。此路线的实施细则只补职责、退出与验证，不复制既有能力台账。
 
-各实现批次分别列 owned 文件、验证、独立审查、产物去留、Git 状态；本轮已获逐批提交授权，不推送。本轮过程在上方冻结为结项记录，不再发下一步队列。本文U1/U2实施边界仍由现设计登记引用；待稳定合同由原owner专题接管后整体归档，不为搬文档复制第二份当前事实。重开STOP必须满足本页记录的条件，或由用户明确授权新阶段。
+各实现批次分别列 owned 文件、验证、独立审查、产物去留、Git 状态；本轮已获逐批提交授权，不推送。原24项过程冻结为结项记录，当前新增顺序只由上方D阶段维护。本文U1/U2实施边界仍由现设计登记引用；待稳定合同由原owner专题接管后整体归档，不为搬文档复制第二份当前事实。重开STOP必须满足本页记录的条件，或由用户明确授权新阶段。

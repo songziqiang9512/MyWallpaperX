@@ -51,6 +51,7 @@ enum WKContentWorld { case page }
     let frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     var subscriptionRefreshes = 0
     func refreshSystemMediaSubscription() { subscriptionRefreshes += 1 }
+    func refreshAudioSpectrumDemand() {}
     // PRODUCTION_METHODS
 }
 
@@ -66,6 +67,8 @@ enum WKContentWorld { case page }
         let endpoint1 = adapter.frameEndpointRegistry.register(documentNonce: "one", frameInfo: WKFrameInfo(1), in: first)!
         let endpoint2 = adapter.frameEndpointRegistry.register(documentNonce: "two", frameInfo: WKFrameInfo(2), in: first)!
         let endpoint3 = adapter.frameEndpointRegistry.register(documentNonce: "three", frameInfo: WKFrameInfo(3), in: second)!
+        for endpoint in [endpoint1, endpoint2, endpoint3] { endpoint.audioDemandActive = true }
+        let passive = adapter.frameEndpointRegistry.register(documentNonce: "passive", frameInfo: WKFrameInfo(6), in: first)!
         let levels = (0..<128).map { Float($0) / 127 }
         let expectedBody = "window.__myWallpaperPushAudioSpectrum(["
             + levels.map { String(format: "%.6f", $0) }.joined(separator: ",") + "]);"
@@ -74,6 +77,7 @@ enum WKContentWorld { case page }
         adapter.pushAudioSpectrum(initial, to: first)
         adapter.pushAudioSpectrum(initial, to: second)
         expect(formattedValueCount == 128, "all endpoints/displays share one formatted body")
+        expect(passive.pushSequence == 0, "a registered frame without audio demand receives no periodic push")
         expect(first.sent.count == 2 && second.sent.count == 1, "every endpoint receives the push")
         for delivery in first.sent + second.sent {
             expect(delivery.script.contains(expectedBody), "retain exact six-decimal values")
@@ -104,6 +108,7 @@ enum WKContentWorld { case page }
         let beforeRevoke = first.sent.count
         adapter.frameEndpointRegistry.revokeAll(in: first)
         let replacement = adapter.frameEndpointRegistry.register(documentNonce: "replacement", frameInfo: WKFrameInfo(5), in: first)!
+        replacement.audioDemandActive = true
         let replacementInitial = WebWallpaperSpectrumPush(Array(repeating: 0.5, count: 128))
         adapter.pushAudioSpectrum(replacementInitial, to: first)
         adapter.pushAudioSpectrum(silence, to: first)
@@ -130,6 +135,16 @@ enum WKContentWorld { case page }
         expect(!adapter.frameEndpointRegistry.hasEndpoints(in: first), "expired endpoints are revoked")
         expect(adapter.subscriptionRefreshes == 1, "lease revocation refreshes current media demand")
         expect(first.sent.count == beforeExpired, "expired endpoint receives no new spectrum")
+        let disabled = adapter.frameEndpointRegistry.register(documentNonce: "disabled", frameInfo: WKFrameInfo(7), in: first)!
+        disabled.audioDemandActive = true
+        adapter.pushAudioSpectrum(WebWallpaperSpectrumPush(levels), to: first)
+        adapter.pushAudioSpectrum(silence, to: first)
+        let beforeDisabledReply = first.sent.count
+        disabled.audioDemandActive = false
+        first.finish(7)
+        await settle()
+        expect(first.sent.count == beforeDisabledReply && disabled.pendingSpectrumPush == nil,
+               "an old completion cannot flush a document whose audio demand was withdrawn")
         print("spectrum delivery checks passed")
     }
 }

@@ -229,11 +229,15 @@ final class WebWallpaperFrameEndpointRegistry {
         let documentNonce: String
         var frameInfo: WKFrameInfo
         var leaseExpiresAt: TimeInterval
+        /// Repeated hello keeps this token but replaces its frame routing. Older
+        /// acknowledgement/challenge completions cannot retire that newer route.
+        private(set) var routingGeneration: UInt64 = 0
         /// 逐 endpoint 单调推送序号：属性/暂停等推送按此有序，接收端丢弃乱序。
         private(set) var pushSequence: Int64 = 0
         /// 频谱每 endpoint 同时至多一个在途定向调用；期间只保留最新一份。
         private(set) var isSpectrumDeliveryInFlight = false
         var pendingSpectrumPush: WebWallpaperSpectrumPush?
+        var audioDemandActive = false
         var mediaDemandActive = false
         var mediaDemandNeedsContent = false
         var isMediaDeliveryInFlight = false
@@ -273,6 +277,12 @@ final class WebWallpaperFrameEndpointRegistry {
         func renewLease(now: TimeInterval) {
             leaseExpiresAt = now + WebWallpaperFrameEndpointRegistry.leaseDuration
         }
+
+        func renewRegistration(frameInfo: WKFrameInfo, now: TimeInterval) {
+            self.frameInfo = frameInfo
+            routingGeneration += 1
+            renewLease(now: now)
+        }
     }
 
     private var endpointsByWebView: [ObjectIdentifier: [String: Endpoint]] = [:]
@@ -303,8 +313,7 @@ final class WebWallpaperFrameEndpointRegistry {
         let key = ObjectIdentifier(webView)
         var endpoints = endpointsByWebView[key] ?? [:]
         if let existing = endpoints.first(where: { $0.value.documentNonce == documentNonce }) {
-            existing.value.frameInfo = frameInfo
-            existing.value.renewLease(now: ProcessInfo.processInfo.systemUptime)
+            existing.value.renewRegistration(frameInfo: frameInfo, now: ProcessInfo.processInfo.systemUptime)
             return existing.value
         }
         guard endpoints.count < Self.endpointCapacityPerWebView else { return nil }
@@ -533,7 +542,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     /// 补位转 .ready 后引擎的 .ready 事件也须补发一次（video 退场/暂停补发
     /// 还悬置着）；增屏闪断（增前已 ready）则不重发。launch 时复位。
     var didEmitReadyEventForCurrentRequest = false
-    var audioSpectrumDemandScreenIDs = Set<CGDirectDisplayID>()
+    var lastPublishedAudioSpectrumDemand = false
     var surfaces: [CGDirectDisplayID: HostSurface] = [:]
     var navigationGeneration: UInt64 = 0
     var navigationOwnershipByScreen: [CGDirectDisplayID: NavigationOwnership] = [:]

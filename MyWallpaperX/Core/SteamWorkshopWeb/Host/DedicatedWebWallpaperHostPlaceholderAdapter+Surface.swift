@@ -186,7 +186,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     func removeSurface(for screenID: CGDirectDisplayID) {
         navigationOwnershipByScreen.removeValue(forKey: screenID)
-        setAudioSpectrumDemand(false, for: screenID)
+        clearAudioSpectrumDemand(for: screenID)
         guard let surface = surfaces[screenID] else { return }
         surface.mediaPlaybackGate.invalidate()
         presentationInvalidationHandler?()

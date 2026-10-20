@@ -96,7 +96,7 @@ class WebNavigationPolicyTests(unittest.TestCase):
                 func screenID(for webView: WKWebView) -> CGDirectDisplayID? { nil }
                 func screenIDForStartedNavigation(_ navigation: WKNavigation?, webView: WKWebView) -> CGDirectDisplayID? { nil }
                 func screenIDForCurrentNavigation(_ navigation: WKNavigation?, webView: WKWebView) -> CGDirectDisplayID? { nil }
-                func setAudioSpectrumDemand(_ active: Bool, for screenID: CGDirectDisplayID) {}
+                func clearAudioSpectrumDemand(for screenID: CGDirectDisplayID) {}
                 func installDefaultInteractiveRegionsIfNeeded() {}
                 func refreshSystemMediaSubscription() {}
                 func invalidatePresentation(on surface: HostSurface) {}

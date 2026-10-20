@@ -4018,6 +4018,24 @@
         "test_scene_user_shortcut_properties",
         "test_scene_user_shortcut_vm"
       ]
+    },
+    {
+      "id": "web-endpoint-audio-demand",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+AudioDemand.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+NavigationDelegate.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift",
+        "MyWallpaperX/App/Debug/DebugWebNavigationIdentityProbe.swift"
+      ],
+      "modules": [
+        "test_web_audio_demand",
+        "test_web_spectrum_delivery",
+        "test_web_navigation_policy"
+      ]
     }
   ],
   "method_gates": {

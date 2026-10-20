@@ -58,7 +58,19 @@ enum DebugWebNavigationIdentityProbe {
             return nil
         }
 
-        host.setAudioSpectrumDemand(true, for: surface.screenID)
+        // Seed demand through the current document's real frame route. The
+        // stale navigation below must not retire this registered endpoint.
+        guard let frame = host.frameEndpointRegistry.endpoints(in: surface.webView).first,
+              let audioEndpoint = host.frameEndpointRegistry.register(
+                  documentNonce: frame.documentNonce,
+                  frameInfo: frame.frameInfo,
+                  in: surface.webView
+              ) else { return nil }
+        host.handleAudioSpectrumDemand(
+            ["token": audioEndpoint.token, "nonce": audioEndpoint.documentNonce, "active": true],
+            nonce: audioEndpoint.documentNonce,
+            webView: surface.webView
+        )
         host.webView(surface.webView, didStartProvisionalNavigation: currentNavigation)
         host.webView(surface.webView, didFinish: currentNavigation)
         host.handleNavigationFailure(
@@ -77,7 +89,9 @@ enum DebugWebNavigationIdentityProbe {
         )
             && host.recoveringWebContentScreenIDs.contains(surface.screenID)
             && !host.readyScreenIDs.contains(surface.screenID)
-            && host.audioSpectrumDemandScreenIDs.contains(surface.screenID)
+            && host.frameEndpointRegistry.contains(audioEndpoint, in: surface.webView)
+            && audioEndpoint.audioDemandActive
+            && host.lastPublishedAudioSpectrumDemand
 
         host.webView(surface.webView, didFinish: recoveryNavigation)
         let currentRecoveryNavigationFinished = ownsCurrentRequest(

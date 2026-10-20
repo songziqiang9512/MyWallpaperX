@@ -257,8 +257,8 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 133,
-      "bytes": 50160
+      "lines": 135,
+      "bytes": 50814
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -285,8 +285,8 @@
       "bytes": 8377
     },
     "docs/web/dedicated-host-process-design.md": {
-      "lines": 74,
-      "bytes": 14265
+      "lines": 76,
+      "bytes": 15163
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 47,
@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 408,
-      "bytes": 63202
+      "lines": 427,
+      "bytes": 66797
     }
   },
   "archives": [
@@ -1196,15 +1196,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
-      "after": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
       "after": "1fe0d24c627dd3495ed737dc20e76cbc5d70092a8e6d3d555dcb065b1b7f1df9",
@@ -1376,15 +1367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/dedicated-host-process-design.md",
-      "before": "9678f7bc05abbec7e49caf377be1377dbe282fee741deed5c3d76d8f2705b6ed",
-      "after": "daa8591d8a9fcc4230f64ef3b450e36dcdb3e2e8fa80d88a67e38b5d4cd7cc86",
-      "owner": "playback-preparation-convergence",
-      "reason": "Document grant transport and committed-request recovery revocation without adding an independent owner.",
-      "decision": "docs/history/cross-topic/playback-preparation-convergence-2026-10-19.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "6aa2744c72543945739b58eb1fc647e08d312c5624f6d99e27bf9bd502e77c49",
       "after": "7f0227bfd4d6d59474a9b502e11008e44ca2143bc6e3d5ecef956dac15d1c1ec",
@@ -1548,11 +1530,29 @@
     {
       "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "83a4d3daf414233ecbceb9da188d8311fad940dc037c263d2d5accfe2fd08a08",
-      "after": "45e42e8dcc951ba71d9ca242dcdd4f4862dfd8fe72982778b47f0fec8640956b",
-      "owner": "Apple silicon optimization closeout",
-      "reason": "在唯一执行路线内替换阶段状态为24项冻结处置，记录实际验证、原失败、独立审查、分批提交及证据边界；U1/U2设计登记移交前保留，不新增执行队列。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md"
+      "before": "45e42e8dcc951ba71d9ca242dcdd4f4862dfd8fe72982778b47f0fec8640956b",
+      "after": "ed7d1c6a223ec385d29754b6374064d5bfc1af0814fbab345d3bd35d5b57a85d",
+      "owner": "apple-silicon-performance",
+      "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
+      "after": "a9b8e6c35cff47f961b7244b898e5542b663fcb0fe93b519b4385d7ee79df4db",
+      "owner": "apple-silicon-performance",
+      "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "daa8591d8a9fcc4230f64ef3b450e36dcdb3e2e8fa80d88a67e38b5d4cd7cc86",
+      "after": "b4131212ddf0c2e5aecba9c3695c3310d676414b3882f0a3fd9b49bddba1ae99",
+      "owner": "apple-silicon-performance",
+      "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]
 }

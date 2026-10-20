@@ -941,6 +941,24 @@
       "contentPatterns": [
         "invalidatePendingMetadataLoad"
       ]
+    },
+    {
+      "id": "web-endpoint-audio-demand",
+      "title": "Web存活端点音频需求与退役闭环",
+      "owner": "DedicatedWebWallpaperHostPlaceholderAdapter existing frame endpoints / aggregate audio demand",
+      "status": "approved",
+      "designDoc": "docs/web/dedicated-host-process-design.md",
+      "design_notes": "2026-10-21 D2实施前明确：endpoint持有audio demand；nonce/token阻陈旧消息；screen/main仅聚合。hello早注册重报，goodbye/navigation/lease/surface teardown撤需求，其他消费者与Scene/Video不变；原生真实75s退役反例与多消费者回归另验。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+AudioDemand.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+NavigationDelegate.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }
