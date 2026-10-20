@@ -22,7 +22,7 @@ from .scene_vector_vm_test_support import (
 # Compile the actual configuration that the scalar projection now consults;
 # this carrier supplies only the ordinary disabled configuration.
 PREAMBLE = SWIFT_PREAMBLE.replace(
-    "    struct Camera {\n", "    struct Camera {\n        var bloom = SceneBloomConfiguration.disabled\n", 1)
+    "        var bloom = Bloom()", "        var bloom = SceneBloomConfiguration.disabled", 1)
 EXTRA_SOURCES = (
     VM.parent.parent / "Rendering/Composition/SceneBloomPostProcess.swift",
     VM.parent.parent / "Resources/Textures/SceneResourceBudget.swift",
@@ -69,6 +69,24 @@ import Foundation
             result["differentCatalogRejected"] = false
         } catch {
             result["differentCatalogRejected"] = true
+        }
+        // Both catalogs lack raw configuration: prepared kind must carry
+        // the property capability identity, independently of that JSON.
+        var imageCatalog = descriptor(.null)
+        imageCatalog.layers[0].initialConfiguration = nil
+        imageCatalog.layers[0].contentKind = "image"
+        var containerCatalog = imageCatalog
+        containerCatalog.layers[0].contentKind = "container"
+        result["imageCapabilityChangesSignature"] = try
+            SceneScriptQuickJSDomain.catalogSignature(for: imageCatalog)
+            != SceneScriptQuickJSDomain.catalogSignature(for: containerCatalog)
+        let imageCapabilityDomain = try SceneScriptQuickJSDomain()
+        try imageCapabilityDomain.configureLayerCatalog(imageCatalog)
+        do {
+            try imageCapabilityDomain.configureLayerCatalog(containerCatalog)
+            result["imageCapabilityDriftRejected"] = false
+        } catch {
+            result["imageCapabilityDriftRejected"] = true
         }
         let nonfinite = descriptor(.object(["nested": .number(.infinity)]))
         do {
@@ -299,7 +317,8 @@ class SceneScriptInitialLayerConfigurationTests(unittest.TestCase):
     def test_swift_catalog_identity_and_actual_callbacks(self) -> None:
         for key in ("signatureOrderIndependent", "sameCatalogAccepted",
                     "differentConfigurationChangesSignature", "differentCatalogRejected",
-                    "invalidJSONSignatureRejected"):
+                    "invalidJSONSignatureRejected", "imageCapabilityChangesSignature",
+                    "imageCapabilityDriftRejected"):
             with self.subTest(key=key):
                 self.assertIs(self.swift_result[key], True)
         self.assertEqual(

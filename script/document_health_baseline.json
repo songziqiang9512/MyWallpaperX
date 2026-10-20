@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 393,
-      "bytes": 159124
+      "lines": 403,
+      "bytes": 161370
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 113662
+      "bytes": 114086
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -209,8 +209,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 599,
-      "bytes": 155971
+      "lines": 600,
+      "bytes": 157546
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -225,12 +225,12 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 55,
-      "bytes": 14232
+      "lines": 56,
+      "bytes": 14794
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
-      "bytes": 9782
+      "bytes": 9965
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
@@ -241,8 +241,8 @@
       "bytes": 17603
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 227,
-      "bytes": 66887
+      "lines": 228,
+      "bytes": 66900
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1259,15 +1259,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "62e7b70b4eb27055cf2911a88981d1f6fb50635af093170fb503fc7301804ecf",
-      "after": "f84340965475672bdd7a53321dae3bf821da6ac6d1918937a8b66f3418cba395",
-      "owner": "scene-shared-timer-cancellation",
-      "reason": "Bounded shared timer cancellation design, actual caller/retirement semantics, preserved failures and real hover acceptance; no full sample or performance claim.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#shared-timer-cancellation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
       "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
@@ -1340,15 +1331,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "bfdc2834836b29f6540b57163eca0fd46232d64fc9bdc1ae1d8ed83b7971614e",
-      "after": "94a98965c5ddda1b25111ebfb799474672ac34f2125624d5e7cdb8ff42a3cd9a",
-      "owner": "scene-model-scene-depth-domain",
-      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
       "after": "40651bf6bd8ae2b51527f732146ceb4cc4d6bdc5eed13572208bbe2951d571d5",
@@ -1361,15 +1343,6 @@
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "feb21d09d40b20adeefc99060e40e63d5d884c32276fb9a7f00d422cc2d22faa",
       "after": "2e8fcb90a8280cb65b3c34f6e5ec29e8593643f75270926318d6fc7f11c6249f",
-      "owner": "scene-mixed-layer-timeline",
-      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "8a991a36e26f4ac75b71bb778f24256f396a6b2678c4bec5947a072c9f539bd2",
-      "after": "9341aeaf02fa66541dcc190ff8edfd4ba9203f2d0e0b7cf2c11e84e43aafa97e",
       "owner": "scene-mixed-layer-timeline",
       "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
@@ -1493,15 +1466,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "c9d08fcb995b944ee7210f04c7cc4ec8fa56724de897f19db29562a4290fbec7",
-      "after": "8b7441bf07955c46a54ecb527b23da2e54210ea537802890ca5c958adde90d17",
-      "owner": "scene-direct-model-animation",
-      "reason": "Keep one current conditional/rotation contract and bounded native-panel acceptance; remove closed feedback, consolidate old runtime narration without losing anchors, retain explicit remaining capability/visual limits.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "2ddc5deaadc80957c60c7c0a5ad436ceb6646ba50102c3bf632ff673ded08e50",
       "after": "3cf8384e44759c9db71a53ac4c7df5188c1b62d54a1e19a109fe5672279485c6",
@@ -1517,15 +1481,6 @@
       "owner": "Scene runtime and evidence owners",
       "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
       "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
-      "after": "53221656ef12b99cf3475e172e12aef045e8a79ba0f23ce4a4ab9e0503c95bbd",
-      "owner": "Scene dependency and media owners",
-      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
     },
     {
       "section": "bodies",
@@ -1547,12 +1502,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
+      "after": "2a1ea17adc58bc0e676d02b88b8eb943b3171df29bc6d272ff8c28755df77fbe",
+      "owner": "Scene layer-property and evidence owners",
+      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "f84340965475672bdd7a53321dae3bf821da6ac6d1918937a8b66f3418cba395",
+      "after": "a7d4b3a7c69815c0888fd7ae96d0766ba2aacd2b3e4cca0d8a1cc2c3eed55699",
+      "owner": "Scene layer-property and evidence owners",
+      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "7e37cdb173cca1056ff75e3040e4efe046b31d810ef3e6883b7c2b74e8dcda49",
+      "after": "bdcd0ff9cf82299c74b76477c5ce0c7840cf22cc68e8d8ab1f2c83a0ff161966",
+      "owner": "Scene layer-property and evidence owners",
+      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "eacee3497a8820a6e387239abdfd1d0e25dc16e7532c8f337278be5e7fda0596",
+      "after": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
+      "owner": "Scene layer-property and evidence owners",
+      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "c9d08fcb995b944ee7210f04c7cc4ec8fa56724de897f19db29562a4290fbec7",
+      "after": "8f9019a28d731161f86ff23c0b60867661c9234126644dd79ce2b737db31e628",
+      "owner": "Scene layer-property and evidence owners",
+      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "ad3628a664e7bfe7230c27c49b0d0359fef899b34d63437c4f544b011d534e57",
-      "owner": "Scene dependency and media owners",
-      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
+      "after": "e300d4a7dea4076c486cc2c8f4c27f3eda78b33381e1b8d195aee4e995b1344e",
+      "owner": "Scene layer-property and evidence owners",
+      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
     }
   ]
 }

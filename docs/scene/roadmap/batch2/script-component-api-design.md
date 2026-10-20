@@ -46,8 +46,9 @@ direct user zoom 复用原 extractor、property Program、live 准入与事务�
 
 字体getter、setter与`createLayer({font: ...})`使用同一String路径合同；后两者复用AssetHost的严格primitive String解码和真实UTF-8长度校验，不调用任意对象的coercion。短生命周期UTF-8视图必须在每条退出路径释放；setter先比较当前路径，相同即结束，不额外复制、stage或dirty；变化后才沿原authored baseline/mutation或dynamic journal复制并提交。构造器在释放配置值前取得持久副本。空getter保现undefined，省略构造font保原默认；不借此开放未知空值写入。
 
-失败继续进入同一callback事务，后续throw不得留下font、text或动态birth的部分结果。typed `.text(.font)`、descriptor、CoreText、last-ready source、graph和最终合成不新建owner，取消、退休与资源释放保持。
+<a id="image-font-script-state"></a> 2026-10-20 图像层font决策（有界实施）：官方自有三路载体中，普通文字正控健康；caught/uncaught图像font路径赋值均不throw，前后文字更新继续，独立lookup读回同一String。只开放prepared authored image的有界JS状态：原catalog能力参数扩为互斥text/image标记并纳入launch身份；复用LayerRecord.font，image setter沿原primitive String/安全路径/1024 UTF-8字节准入与同值退出，直接存目标层，不发FONT mutation或资源需求；text仍走原typed事务。snapshot仅覆盖native文字font，图像值随原layer/domain释放，fresh handle与健康其他owner共读；不增加wrapper缓存、任意属性包或逐帧解析。最多4096层的C字符串上界不冒称QuickJS堆限额。
 
+文字font、text和dynamic birth失败仍沿原callback及host frame整笔回滚。图像新值属于JS状态，和普通脚本状态一样不由native accept/discard恢复；拒用现整record dynamic journal，因多writer的Swift晚拒会回滚覆盖健康peer。官方未裁定throw、任意JS值、删除属性或其他kind，保留边界；非法类型/路径、过长、stale/destroyed与无能力target继续局部拒绝。native typed `.text(.font)`、descriptor、CoreText、last-ready source、graph及唯一合成不增加owner。验收要求改名/等价路径、跨lookup/owner、下一snapshot及snapshot回滚保值、A晚拒不覆盖B、target/domain退休无串值、无FONT mutation，加原text失败反例；同身份实际374修前/修后与独立作者样本运行才裁定收益，当前374字体热切换已有局部可见收益，默认横屏裁切/遮挡与整景不升完成；结果归[运行证据](../../capabilities/runtime-evidence-current.md#image-font-script-state-20261020)。
 验收复用现QuickJS门的真实C执行：注册结果/String getter的类型与值、同回调读写及下一回调、getter转交创建、改名与等价表达式；非法相对路径、NUL、UTF-8上限、伪对象/coercion及整笔回滚为反例。真实stock时钟的getter传递由读源与该C行为门限定，不能冒称时钟App实图验收。一次Debug、同载体修前/修后实图及独立作者样本的执行结果归[运行证据](../../capabilities/runtime-evidence-current.md#asset-path-string-values-20261018)。已有层引用、topology和typed字体发布门只补受影响范围；声明、build或CPU通过均不代替画面，未测完整字体/parity或性能不得升级。
 
 <a id="text-layer-pointsize-setter"></a>

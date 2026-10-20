@@ -201,6 +201,16 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 官方原图、首失败、冻结/构建/最终收据保`.artifacts/tmp/constant-dense-state1-20261018/`，observer summary SHA`530d05d6…effc84`；Swift收据保`.artifacts/tmp/puppet-dense-reference-tracks-20261018/tests/attempt01/`。官方副本及停止native输入/HOME/旧a7e3 stage已按manifest/零句柄清理，保唯一16a80fc1 stage、单份source/DerivedData缓存与运行VM；正式归档待既有容量答复。无CPU/GPU、内存、启动或能耗收益结论。
 
+<a id="image-font-script-state-20261020"></a>
+
+### 图像font脚本状态与真实字体热切换（2026-10-20）
+
+原374同project`008e956b…939f`/PKG`0b5cbef1…9d5e`默认450.visibility非text font异常由1→0，人物/剑/水保持。公开x属性1300仅用于让部分日期入屏；同候选字体7→4在surface1/window29280保持时accepted=true，外露“周”由手写细线变粗黑描边，Root及Sol原PNG均确认有限字体贡献。默认横屏日期crop外，移入后其余日期受人物遮挡，phase/crop不同，不闭完整布局。独立381雨/人物/伞/青形/底部频谱保持；三最终run App0、failures[]、stop1→0/GPU排空。
+
+[唯一合同](../roadmap/batch2/script-component-api-design.md#image-font-script-state)只为prepared authored image保目标层有界String脚本状态，不发FONT/native资源；文字仍走原typed事务，catalog显式能力身份、fresh handle、snapshot及退休边界保持。官方2.8.0.42固定自有N/C/U板四角/双字体/文字正控健康；caught/uncaught图像赋值均无throw且前后文字继续，独立lookup读回路径，Root OBS/TICK390→1067、Sol单帧3185一致。未裁定官方throw/任意属性或值；项目JS-only不参加native late discard。自有预览已关闭且CUA确认，8个哈希核准guest文件及空目录清理，官方主客户端/VM保留。
+
+新真实C六组615checks均有PASS记录；固定旧HEAD语义RED，首次4/6过、修夹具disabled-owner生命周期后仅重跑受影响2/2，未再全门复跑。覆盖改名/等价式、跨owner、无native mutation、晚拒不覆盖peer、snapshot回滚、stale/destroy/rebuild与String/路径/UTF-8边界。旧font/动态birth及snapshot2方法PASS；Swift catalog/config4方法PASS，nil配置image→container身份不同且原domain拒漂移。独审无阻断，一次Debug62.688s/4360输入无漂移/签名0，App`ebf62861…84d5`/dylib`5cfaae12…e799`。正式报告`../../../.artifacts/scene-evidence/runs/image-font-script-state-374-20261020/current/report.json`保完整输入身份、首失败、门收据、原PNG SHA及有损review；CUA画面仅对话内。全部34字体、完整面板/整景、同phase/viewport/HDR与性能未验，不升人工verdict。
+
 <a id="asset-path-string-values-20261018"></a>
 
 ### 资产路径String与字体回调（2026-10-18）

@@ -569,7 +569,7 @@ static JSValue layer_set(
         break;
     }
     case LAYER_FONT: {
-        if (!record->text_mutable && !record->dynamic)
+        if (!record->text_mutable && !record->dynamic && !record->image_font_script_state)
             return JS_ThrowTypeError(
                 context, "layer font mutation target is not a text layer"
             );
@@ -591,6 +591,14 @@ static JSValue layer_set(
         if (copy != NULL) memcpy(copy, value, length + 1);
         JS_FreeCString(context, value);
         if (copy == NULL) return JS_ThrowOutOfMemory(context);
+        if (record->image_font_script_state) {
+            // Authored image font is script state, not a native text mutation.
+            // Keep the target-layer value across fresh handles and snapshots;
+            // native owner acceptance/rollback must not overwrite another writer.
+            free(record->font);
+            record->font = copy;
+            break;
+        }
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
                 mwx_scene_quickjs_stage_authored_mutation(owner, record_index);

@@ -170,10 +170,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     size_t diagnostic_capacity
 );
 
+enum { MWX_SCENE_QUICKJS_LAYER_CAPABILITY_TEXT = 1,
+       MWX_SCENE_QUICKJS_LAYER_CAPABILITY_IMAGE_FONT = 2 };
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
-    uint32_t text_mutable,
+    uint32_t capabilities,
     char *diagnostic,
     size_t diagnostic_capacity
 );

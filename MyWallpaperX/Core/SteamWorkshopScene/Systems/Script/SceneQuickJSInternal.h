@@ -161,6 +161,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool dirty;
     bool configured;
     bool text_mutable;
+    bool image_font_script_state;
     bool world_transform_available;
     bool video_available;
     bool video_loop;

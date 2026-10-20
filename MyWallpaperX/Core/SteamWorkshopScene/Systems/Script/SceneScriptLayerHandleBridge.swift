@@ -563,7 +563,7 @@ private nonisolated extension String {
 /// descriptor; every frame overlays only resolved current values.
 nonisolated extension SceneScriptQuickJSDomain {
     /// Launch-stable catalog identity: index, id, parent, name, authored
-    /// transforms, size and text mutability of every descriptor layer. This
+    /// transforms, size and property capabilities of every descriptor layer. This
     /// signature is only built at load/configuration time; the per-frame
     /// snapshot path compares the launch-frozen token instead of rescanning
     /// the catalog.
@@ -579,11 +579,18 @@ nonisolated extension SceneScriptQuickJSDomain {
             let size = layer.sizeWH ?? [0, 0]
             let attachment = layer.parentAttachmentBindFrame ?? []
             let effectIdentity = layer.effects.map { [$0.id, $0.name ?? ""] }
-            let textMutable = layer.contentKind == "text"
-                && layer.text != nil && layer.textStyle != nil
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):perspective=\(layer.usesPerspective.map(String.init) ?? "inherit"):attachment=\(attachment):text=\(textMutable):effects=\(effectIdentity):initial=\(try initialConfigurationJSON(layer) ?? "unavailable")"
+            let capabilities = layerCapabilities(layer)
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):perspective=\(layer.usesPerspective.map(String.init) ?? "inherit"):attachment=\(attachment):capabilities=\(capabilities):effects=\(effectIdentity):initial=\(try initialConfigurationJSON(layer) ?? "unavailable")"
         }.joined(separator: "|")
         return "camera=\(camera)|\(layers)"
+    }
+
+    private static func layerCapabilities(_ layer: SceneRenderDescriptor.Layer) -> UInt32 {
+        if layer.contentKind == "image" {
+            return UInt32(MWX_SCENE_QUICKJS_LAYER_CAPABILITY_IMAGE_FONT)
+        }
+        return layer.contentKind == "text" && layer.text != nil && layer.textStyle != nil
+            ? UInt32(MWX_SCENE_QUICKJS_LAYER_CAPABILITY_TEXT) : 0
     }
 
     private static func initialConfigurationJSON(
@@ -764,8 +771,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
                     handle,
                     UInt32(index),
-                    layer.contentKind == "text" && layer.text != nil
-                        && layer.textStyle != nil ? 1 : 0,
+                    Self.layerCapabilities(layer),
                     &diagnostic,
                     diagnostic.count
                 )

@@ -633,7 +633,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
             staged->text_replaced = true;
             record->text = candidate;
         }
-        if (staged->font != NULL) {
+        // Image font is target-layer JS state; native snapshots own text fonts.
+        if (staged->font != NULL && !record->image_font_script_state) {
             char *candidate = staged->font;
             staged->font = record->font;
             staged->font_replaced = true;

@@ -317,12 +317,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
-    uint32_t text_mutable,
+    uint32_t capabilities,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || domain->callback_active || text_mutable > 1 ||
+    if (domain == NULL || domain->callback_active ||
+        capabilities > MWX_SCENE_QUICKJS_LAYER_CAPABILITY_IMAGE_FONT ||
         layer_index >= domain->authored_layer_count ||
         !domain->layers[layer_index].configured) {
         mwx_scene_quickjs_write_diagnostic(
@@ -331,7 +332,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    domain->layers[layer_index].text_mutable = text_mutable != 0;
+    domain->layers[layer_index].text_mutable =
+        capabilities == MWX_SCENE_QUICKJS_LAYER_CAPABILITY_TEXT;
+    domain->layers[layer_index].image_font_script_state =
+        capabilities == MWX_SCENE_QUICKJS_LAYER_CAPABILITY_IMAGE_FONT;
     return MWX_SCENE_QUICKJS_OK;
 }
 
