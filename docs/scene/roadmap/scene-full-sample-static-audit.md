@@ -2,7 +2,7 @@
 
 # Scene 静态审计：当前剩余问题
 
-> 10-16基线 `680e54846`，10-17/18按实际后验退出旧首门；10-19补新增25的已证执行拒绝，10-20按有界后验退出rate值源首门；核当前e88fe10f3的共享投影已排scriptSource，退出过时static脚本包装条目，未重审旧全集。本页不维护旧243统计、评分或修复数量。
+> 10-16基线 `680e54846`，后继按有界后验退出已修首门。10-21新增24项诊断补控制点距离约束准入缺口，并退出已实现的usershortcut旧条目；未重审旧全集。本页不维护旧243统计、评分或修复数量。
 
 选序服从[兼容路线](scene-compatibility-roadmap.md)；用户现象与运行待办归[断点队列](scene-open-breakpoint-queue.md)，此处只保跨专题静态首owner。合同分别归[shader/图](../capabilities/render-graph-shader-coverage.md)、[粒子](../capabilities/particle-component-coverage.md)、[高级对象](../capabilities/advanced-object-coverage.md)和[SceneScript](../capabilities/scenescript-api-coverage.md)。
 
@@ -29,6 +29,7 @@
 | **Puppet rotation/gravity/IK 物理 profile 明确拒绝**（原 G15 的剩余部分） | [rig reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift)的平移 spring/rigid profile 对启用 rotation/gravity/IK 拒绝。LBS、挂点、平移回弹与骨写已支持，不能再称 Puppet 整体无 physics。 | 须先有独立输入合同与有界 observable，[高级对象](../capabilities/advanced-object-coverage.md)拥有具体范围。U40的setter正控、视觉脉冲及query分道观察见[唯一资格记录](../history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation)；query/render局部translation首门已修，后继只澄清实际释放impulse及顺序/一次提交合同，不以早期2/2 STOP否定新观察，也不以有界观察开放未知impulse或更广物理profile。 |
 | **point volumetric 与 2D lit directional consumer 缺失**（原 G6/G7） | [SpotLightPlan](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift)仅准入 bounded `lspot` cone；[2D light payload](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift)只打包 point/spot/ambient，无 directional 槽。现有静态模型 directional 与 2D point/spot 不受此结论否定。 | 各取实际 visible consumer，分别锁 point volume 与 2D directional 输入/输出；方向、能量和空间合同未定时不套用其他灯型参数。精确数值研究归[光照边界](../capabilities/advanced-object-coverage.md)。 |
 | **粒子 periodic 最大每周期数量尚未支持**（原 G5） | [periodic admission](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift)仍要求 `maximumEmissionCount == nil`；合法 `maxtoemitperperiod`进入当前 profile 也会被拒，不能用普通 duration/delay/rate/count 已支持关闭此项。 | 10-16真实consumer核为3749463715的405/412→thunderbolt，非3750813609；alpha在frame790/fps90才到1，cap32之外另缺mapsequencebetweencontrolpoints与maintaindistancebetweencontrolpoints。未启动单项cap实验，不承诺解除该门就恢复雷电。沿原schedule/出生owner补完整依赖与数值合同，验证fixed-dt、seed、数量及回滚，不猜倍率/重置或扩大预算。资格：`.artifacts/scene-evidence/runs/open-consumer-qualification-20261016/`内`particle-period-cap/qualification.json`（静态资格，无新运行）。[粒子合同](../capabilities/particle-component-coverage.md)拥有数值 unknown。 |
+| **粒子到控制点的距离约束未准入** | 新增3742497499声明`maintaindistancetocontrolpoint`及controlpoint/distance/variablestrength，现parser无该operator case；与`maintaindistancebetweencontrolpoints`不同，不能按名称互换。 | 先定位实际active renderer、约束前后粒子轨迹及合法数值合同，沿原operator/CP owner接入；静态声明与准入缺口不证明可见缺失。新增`inheritinitialvaluefromevent`已有有界消费者，不一并报缺失。[本轮诊断](../capabilities/runtime-evidence-current.md#intake-20261021)。 |
 
 ## 性能
 
@@ -39,7 +40,8 @@
 | 当前问题 | 现役首断点与已支持边界 | 最小验证/退出条件 |
 |---|---|---|
 | **粒子绝对 color 的 direct user-property target 未映射**（原 G24） | [TargetMapping](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift)的 particle `.color`仍返回 nil，`.normalizedColor`已有 typed route。 | 先有实际合法定义和颜色单位合同，再复用同一 typed instruction/出生 consumer。当前逐通道平方是否符合官方不能仅由静态代码判错；不要把此输入缺口扩成全部粒子颜色错误。 |
-| **usershortcut 执行未接入**（原 G3 的剩余部分） | [property kind](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift)无可执行 shortcut kind；未知类型现由原面板只读展示，旧“EmptyView静默丢弃”已经不是当前事实。SceneScript `openUserShortcut`尚无执行入口。 | 先取得真实用户动作与 macOS 产品授权/取消合同，再沿原 property/交互入口实现；不因缺类型而隐藏定义，也不补无人调用的空 API。权威边界见[属性卡](properties-panel-card.md)与[API表](../capabilities/scenescript-api-coverage.md)。 |
+
+旧usershortcut执行缺口退出：现有typed配置、真实面板和`openUserShortcut`已接入，用户确认目录、图片、音乐及App可正常打开；宽hover反馈仍归队列通用鼠标资格，不由此重开执行缺口。证据归[实际入口后验](../capabilities/runtime-evidence-current.md#user-shortcut-native-20261020)与[属性卡](properties-panel-card.md)。
 
 ## 未知项与后继维护
 

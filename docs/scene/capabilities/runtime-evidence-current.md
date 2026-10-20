@@ -1034,3 +1034,19 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 本片关闭普通Sprite材质首断点；Rope/Trail、其他combo/alpha/depth/cull、HDR、MSAA与跨设备覆盖响应保持边界。旧10-18无可见拖尾收益的撤回结论不改写。基线冷准备75.742秒、最终84.732秒只属这两个Debug取证窗，不构成性能收益；首个监督60秒额度不足的超时亦保留为取证失败，延等待不是引擎优化。
 
 必要证据由仓库主checkout正式库保存于 `.artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/samples/3745828537/runtime_evidence.zip`，117641B，SHA `625c515d39ca1cd14d37e91103071d8b067eaf90dc7712b00d4943a5adbe2a69`。内含有损审阅缩图及原图hash、App/源码身份、真实运行摘录、CPU/GPU原始读回与独审；无损原图已实际查看，缩图不承担像素等价断言。维持已授权1792MiB临时总限、单包32MiB和14天规则；本轮已结束执行副本与重试输出清理，连续迭代仅保隔离worktree一份 `.build-cache/scene-playback-debug`。
+
+
+<a id="intake-20261021"></a>
+## 2026-10-21：新增24样本的Debug诊断入库
+
+本轮只诊断、同步文档，不改产品/脚本/测试代码。只读样本根现351数字目录、350完整输入，新增24、无目录删除；旧3763323436仍只有shaders。全量声明扫描169346 occurrence/4449 family/2368参数profile/22979字段profile，新增24贡献16549 occurrence与195新family；声明不等于能力缺口。原census已写raw snapshot后在残缺行Markdown展示崩溃；仅内存补实查展示字段生成[声明统计](scene-corpus-capability-inventory.md)，未修生成器、未称verify通过。
+
+开工工作区以e76a1e58a为base冻结（含当时并行未提交源码及全部输入hash/patch），签名Debug arm64构建成功；主程序SHA `4b68d11441cce87b4d87796da986d5e97332a307b85805751389dd5a735bbf99`，debug dylib `089f21ed4d5a1383ab1d6a67559e2c863b62c2a4a4407c5a465e8e48c0e744b1`。24个隔离原包各请求12s/after8、30fps、多音PCM；同App串行运行，均exit0、无超时/输入漂移、surface1→0且GPU排空。pointer为中心进入后移出，PointerDrag约2秒先写after；四重点实际after为2.3–2.7s，不是8秒固定中心图。官方23张原图实际查看，337目录无截屏；原图比例/边框、音源、时相和作者属性未同控。无新增VM实验，不认全参数/完整动画、官方parity、普通daemon路径或性能验收。
+
+首错按公共类型并入[队列](../roadmap/scene-open-breakpoint-queue.md)：299默认7号流体normal node16 launch颜色合同拒绝，20节点全透传且官方大片流体背景实际缺失；292 global const initializer与314 varying准备失败、308 stage conservation/named binding失败各保精确边界。281/299292的Bool动态asset首错、374的CP距离/event initializer profile及382动画metadata异常保独立结构事实，尚无对应明显缺图因果。原normalizer摘要16条结构链完整、7降级、1blocked，只是工具输出；378唯一missing为默认关闭、脚本退休的开场Logo1780，不能称产品blocked；382的scriptInstanceProperty异常又未被normalizer覆盖。台账保raw观察并人工限定为378证据不完整/382局部脚本降级，不能当24份视觉裁决。
+
+337视频PTS持续推进且源720包时间戳连续，但新buffer发布存在1.305s/3.195s空档后恢复；layer120已先因null.visible退出，不能归因成功的每帧create/play。用户称官方崩溃未复现，根因/长稳保留。278眼部Pulse181实际执行；默认测试音未达作者阈值。补20s自有强低频PCM与静音各一窗：离线真实分析器预热后四值均值>0.735，实际frame8两侧first>.66，但日志缺band1，不能硬称同帧均值>0.5；原图未取得明确发光差，保待复验。291蓝环、292曲线与317音频发射雪粒的可见性亦保同输入资格，不凭非零输入或早图判缺能力。
+
+376面具补两主题各一条live链：theme1 mask true→false，theme2 false→true，226/370按定义切换且局部脸/眼覆盖变化，window/surface不变；只证明两单向，本窗未复现开关失效，不宣称往返/面板持久化/官方全mask通过。用户明确374时钟是鼠标移右拼合、382蝴蝶延迟出现，两者既往正常；撤下早截图视觉缺失候选，独立结构首错不与其关联。其余基础构图未见明显缺层者仍留unreviewed。
+
+正式索引 `.artifacts/scene-evidence/runs/new-sample-intake-20261021/index/current/report.json` 关联分包原始report/日志、24张after、必要变体原图、自有PCM、App/源码身份与独审；目录官方图仅保原路径/SHA。全样本台账增至351行，归档新增24条且保原212条不变、旧人工verdict不改；不是全351本轮运行。包遵循总量5GiB/单包32MiB，普通结果14天、明确未解决首错包注明保护理由。测试结束后临时source/DerivedData/App/HOME/样本副本与未保留重复输出清理，Goal维持暂停。

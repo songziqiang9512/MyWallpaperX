@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 454,
-      "bytes": 173405
+      "lines": 470,
+      "bytes": 177386
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -137,12 +137,12 @@
       "bytes": 3104
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
-      "lines": 488,
-      "bytes": 74762
+      "lines": 599,
+      "bytes": 92008
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 390,
-      "bytes": 78742
+      "lines": 414,
+      "bytes": 89058
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 54,
-      "bytes": 17182
+      "lines": 56,
+      "bytes": 17443
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 229,
-      "bytes": 69172
+      "lines": 239,
+      "bytes": 74105
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1412,15 +1412,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "3cf8384e44759c9db71a53ac4c7df5188c1b62d54a1e19a109fe5672279485c6",
-      "after": "199e9d7bafb48209f2b6178f9701bfd4541c7dc338b70fb59ff60de4d3dd4de9",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
       "after": "6cf9d3cec75e0c32e57053a0e82b2eb12b88a9ff90dd6a3acc1e091d92efdca0",
@@ -1466,36 +1457,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8727564386d49f6a45dde95a917b47cb0725fca301351c09801b37a7628f7447",
-      "after": "192f9cdf1d8b685f6c9f4bb7002e1c3607f169d0d5eef209ac43cc7b9fe37ea6",
-      "owner": "scene-named-dependency-direct-anchor",
-      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "f45d804b559e059902df251dd54dcee0c7a0d84d28a992d39e52e2049ceabc5c",
-      "after": "b7fcdb2200ee1715248aa6123371efc6964e034758f27c403e942d4aa50b613c",
-      "owner": "scene-named-dependency-direct-anchor",
-      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "50a9500abf66b283e412044610353a897c8a50dbdf627cd10ea7db30bcd25592",
       "after": "7374c3ed02d91aa88bca5ef438cf2ecdb1b1d3bc0d376a7df7a2987279c13dca",
-      "owner": "scene-named-dependency-direct-anchor",
-      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "18da8106d609b1f7313e8cbb08bdb400a8a8d99a28b360016ef8f6e6787cb0a6",
-      "after": "0e5db9e6601458a2af2c70459b7d6852e78464d836e1087af9388cc103749654",
       "owner": "scene-named-dependency-direct-anchor",
       "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
@@ -1553,6 +1517,51 @@
       "owner": "apple-silicon-performance",
       "reason": "用户授权继续D7同次严格syntax复用与D8准备批次取消；原owner内补职责、失败/join边界及实际门，保留旧STOP和未验范围。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "5cb88afb5e25c55f1dc401736f57a4e3487d091ad7df2c241eb8aac938509258",
+      "after": "f9f823c5f582369b8ef23268f5e31744c1c77498e29ff53ac714205208aedb5a",
+      "owner": "scene-new-sample-diagnostics",
+      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "before": "8d206b405b5a60549218046c071742614b16dc664278b04aace1570098d75929",
+      "after": "f6581a9b057d75da2354e4ea04d092c88a4fdd1408f5e053af6c5c1d7005cece",
+      "owner": "scene-new-sample-diagnostics",
+      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "b7fcdb2200ee1715248aa6123371efc6964e034758f27c403e942d4aa50b613c",
+      "after": "b2478a48f842042096569813f6b11139029e019c4d049e7abf23452d79801093",
+      "owner": "scene-new-sample-diagnostics",
+      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "7c8fb04a12d7cded24d102f3ff669f42cc593cefbabfc49289d55b9ba4f71c60",
+      "after": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
+      "owner": "scene-new-sample-diagnostics",
+      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "0e5db9e6601458a2af2c70459b7d6852e78464d836e1087af9388cc103749654",
+      "after": "42d5386e6db4a632a53ed476f15d585e1a8b78f8fab6bc41a7b50ead7e722f2b",
+      "owner": "scene-new-sample-diagnostics",
+      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
     }
   ]
 }

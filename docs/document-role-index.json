@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ae89da8fb19641ce12ae6121ca491c1723c84ca9d645d4b0ca25841c49ce0b0a",
+        "sourceSHA256": "e197f3d8fc2aad3c01f66e1a589e3b1049ac8fcfbc8ae7a2d8b40fd7e890951e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对Scene v2唯一版本及实际音频sender到decoder/Inbox测试、普通App到daemon非零材质输入与证据指针。",
-        "limitations": "只复核本次IPC遗漏；旧段落未重新验收，不代表全样本、官方视觉或性能。"
+        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
+        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
       }
     },
     {
@@ -803,7 +803,15 @@
       "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-21",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "b0c418410eb7d55ed84bf62bc8ea0c4301f618bd27c62f19d0d1e2fa3118f87b",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
+        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
+      }
     },
     {
       "path": "docs/scene/capabilities/scene-format-and-render-graph.md",
@@ -825,13 +833,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e25abad670e264df2c2eeba71df94c22d588218fd969d1e39a3d2c5e2aa29eb2",
+        "sourceSHA256": "02dab14ffe7cf32d8545e15859e61eec334602a4e25d209f48f48a4a5b15d83e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
-        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
+        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
+        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
       }
     },
     {
@@ -3608,13 +3616,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "对旧静态审计逐项复核后仍可定位的首owner缺口/状态反例；不维护旧样本评分，不代替实际运行故障或队列选序。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9213222b6c383e6f9559c94ee8b203859343949bdf1cdb84244c7294d9fd348a",
+        "sourceSHA256": "f10524667d38de7e613d901f2e0b8083a6360135043b51a3076857f86b3923f4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步213蓝烟花实际热切/模板/GPU及可见burst资格和UNKNOWN边界；退出e88fe10f3已修的过时static投影条目。其余内容未重审。",
-        "limitations": "仅当前22s原包、原图与独审和既有e88fe10f3静态predicate；没有新build/产品修法，无完整轨迹、四子路径逐项或官方parity。"
+        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
+        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
       }
     },
     {
@@ -3622,13 +3630,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1dfe8c00c684fd4eab3740b804b1d7acba7df6bc598752d47980462ccfafe0e1",
+        "sourceSHA256": "98a05d27041e5cc5d759aa672cce249e1dce38b36997d4eac6defdacffec024a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
-        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
+        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
+        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
       }
     },
     {

@@ -2,17 +2,20 @@
 
 > 状态：现役 corpus 事实、公共结构影响面与修复事件索引。
 >
-> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。
+> 本页静态数据由 `script/scene_capability_census.py` 从只读 authored corpus 扫描；2026-10-21 的有界资料同步例外见下文；完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。
 
 ## 1. 当前结论
 
-- 当前真实 Scene 根发现 **243** 个样本，**243/243** 的 project、PKGV 索引和入口 JSON 可解析。
-- tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1195626192, 1300076567, 1315486372, 1439846152, 1480826543, 1507413154, 1507593643, 1511889295, 1926190458, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2347762662, 2356604986, 2505351195, 2524111047, 2607203340, 2616828675, 2684431262, 2775915974, 2794098047, 2797913147, 2804817823, 2808874251, 2811643059, 2813231542, 2815826216, 2824109832, 2834973884, 2837223712, 2849382252, 2896873092, 2917306763, 2932157836, 2932631210, 2942486721, 2949019513, 2959875782, 2981249186, 2983846453, 2986218263, 3002649614, 3021013015, 3025969015, 3042492564, 3078285611, 3113287126, 3113554287, 3115163440, 3146507587, 3147346398, 3167210190, 3211615441, 3219398263, 3226487183, 3232289987, 3233141951, 3238423642, 3264246690, 3287715210, 3323988600, 3351163962, 3357627941, 3363252053, 3389974179, 3395392965, 3395777145, 3396722575, 3420215721, 3437487219, 3446316682, 3448845950, 3448877775, 3470948192, 3472940912, 3477054430, 3487629864, 3509243656, 3549827466, 3554161528, 3562021804, 3563038726, 3566880847, 3581882134, 3585542943, 3585875739, 3587571382, 3589454154, 3601964477, 3603711180, 3609108600, 3610154602, 3612058080, 3612199597, 3612795410, 3629927359, 3655958892, 3662390671, 3662790108, 3663810817, 3665307769, 3690859128, 3694697894, 3699213569, 3703104370, 3712499998, 3721456868, 3723344874, 3747190633, 3748311238, 3749463715, 3754630802, 3754639143, 3761159935, 3762312138, 3763323436, 3763428294, 3764725758, 3765904723, 3775355045, 3775373546, 3777761326, 3779026256, 3779904456, 3780119725, 3780391264, 3780940857, 3781307553, 3782650329, 3782740481, 3784012236, 3786048634, 3786185473, 3786641495, 3787355076, 3787382101, 3788066613, 3788467391, 3788645041, 3788698200, 3788734811, 3788897599, 3789316755, 3790631363, 3790726145, 3790806929, 3790956325, 3791905266, 3791967416, 3792249095, 3792400801, 3792817546, 3793328876, 3793978239, 3793998447, 3796588443, 3797217144, 3800075350, 3800356808, 3800572533, 3800728730, 3801294161, 3801984224, 3802005866, 3803087940, 3803482159, 3803576671, 3804441338, 3804906814, 3804971850, 3805449677, 3805547608, 3806006894, 3806016969, 3806202923, 3806337293, 3807013762, 3807121855, 3807151772, 3807239614, 3807436394, 3807553861, 3807668787, 3807861954, 3809541486, 3809609151, 3809618616, 3810943704, 3811154012, 3812249745, 833227004`，是否曾单独运行不能由静态扫描判断。
-- 全量 authored census 共保存 **101675** 个 typed occurrence、**3479** 个公共结构 family、**2020** 个参数 profile 与 **18532** 个 JSON 字段 profile。
-- 物理 corpus 共 **16996** 个 PKG entry / **16994** 个唯一路径，包体约 **8.752 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
-- package anomaly：样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；样本 `3807013762` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 49/57，同字节；该包 73 entries / 72 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
+- 当前真实 Scene 根有 **351** 个数字目录：**350** 个完整项目的 project、PKGV 索引和入口 JSON 可解析；既有 `3763323436` 目录仅残留 `shaders`，缺 `project.json`，保留为 **1** 个解析失败项。350 个 project 的类型均为 Scene（`scene` 273 / `Scene` 77）。
+- 相对旧验收台账的 327 个 ID，本轮新增 **24** 个目录、减少 **0** 个目录；旧成员为 326 个完整项目和上述 1 个残缺项。按完整输入集合比较的 `+24/-1` 不能写成目录删除，也不撤销历史运行或人工裁决。
+- 2026-10-21 原 `generate` 已完成扫描并写出 raw snapshot，随后在 `render_markdown` 访问 failed row 的 `has_manual_screenshot` 时触发 `KeyError`，未完整通过。本页复用该快照及现有 renderer，仅在内存为残缺项补入实查为 false 的截图/观察说明展示字段；未修改生成器，未重扫语料，未运行或宣称 `verify` 通过。原错误保留在 `.artifacts/scene-evidence/runs/new-sample-intake-20261021/index/current/samples/2784267518/runtime_evidence.zip` 的 `census/generate.log`；该工具问题修复前本页为有界资料同步结果。
+- 新增 24 项贡献 **16549** 个 occurrence，触达 844 个 family，其中 **195** 个仅见于新增（layer 112、particle 40、dynamic-input 21、shader 17、material 4、audio-declaration 1）；另有 33 个新参数 profile、318 个新字段 profile，没有新 domain/kind。作者属性除 schemecolor 外为 806 项、condition 175 项，无新增 property kind；这些新声明形态不是运行能力缺口或失败结论。
+- tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1195626192, 1300076567, 1315486372, 1439846152, 1480826543, 1507413154, 1507593643, 1511889295, 1695673397, 1926190458, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2347762662, 2356604986, 2505351195, 2507971256, 2524111047, 2607203340, 2616828675, 2684431262, 2731896598, 2735160334, 2775915974, 2776912698, 2780710296, 2784267518, 2787219305, 2794098047, 2797913147, 2797943632, 2804817823, 2807058277, 2808874251, 2811643059, 2813231542, 2813240634, 2814167871, 2815826216, 2819143171, 2821634935, 2824109832, 2824690710, 2831174267, 2834973884, 2835398595, 2837223712, 2849382252, 2850139759, 2866086594, 2871175822, 2871552691, 2877499944, 2877855240, 2884170082, 2887542690, 2890473419, 2896873092, 2913492057, 2917306763, 2919854127, 2927205881, 2932157836, 2932631210, 2942486721, 2949019513, 2951452910, 2959875782, 2960821850, 2964778792, 2969308380, 2972071249, 2981249186, 2983846453, 2986218263, 2987771245, 2992924426, 2999907577, 3002649614, 3021013015, 3022080536, 3025969015, 3027056454, 3027068980, 3039704323, 3039882306, 3042492564, 3078285611, 3086016320, 3087231311, 3113287126, 3113554287, 3114332546, 3115163440, 3137495261, 3146507587, 3147346398, 3148125112, 3167210190, 3173418061, 3175039950, 3211615441, 3219398263, 3221354414, 3226487183, 3232289987, 3233141951, 3238423642, 3248220186, 3264246690, 3287715210, 3291326967, 3292370168, 3323988600, 3325624777, 3337494481, 3341111071, 3351163962, 3351179520, 3357627941, 3363252053, 3372715909, 3374523158, 3383535304, 3389974179, 3395392965, 3395777145, 3396722575, 3420215721, 3435573282, 3436945972, 3437487219, 3446316682, 3448845950, 3448877775, 3470948192, 3471294034, 3472940912, 3476868923, 3477054430, 3486887298, 3487629864, 3507496797, 3509243656, 3549827466, 3554161528, 3562021804, 3563038726, 3566880847, 3577990983, 3581882134, 3585542943, 3585875739, 3586705329, 3587571382, 3589454154, 3597772384, 3599986633, 3601801724, 3601964477, 3603711180, 3605502569, 3605722997, 3609108600, 3610154602, 3612058080, 3612199597, 3612795410, 3616389236, 3617056047, 3627973226, 3629927359, 3632513108, 3632522893, 3641200550, 3655958892, 3662245960, 3662390671, 3662790108, 3663810817, 3665307769, 3666041758, 3680252478, 3690065713, 3690859128, 3694697894, 3695791724, 3698459055, 3699213569, 3703104370, 3708363772, 3712499998, 3719111841, 3721456868, 3722749868, 3723344874, 3742497499, 3745828537, 3746422401, 3747190633, 3748311238, 3749463715, 3754630802, 3754639143, 3754908581, 3761159935, 3761619125, 3762312138, 3763323436, 3763428294, 3764725758, 3765904723, 3766299002, 3766310551, 3773747576, 3775355045, 3775373546, 3777761326, 3779026256, 3779107475, 3779904456, 3780119725, 3780391264, 3780940857, 3781307553, 3781757083, 3782650329, 3782740481, 3784012236, 3786048634, 3786185473, 3786330502, 3786641495, 3787355076, 3787382101, 3788066613, 3788467391, 3788645041, 3788698200, 3788734811, 3788897599, 3789316755, 3790631363, 3790726145, 3790806929, 3790956325, 3791905266, 3791967416, 3792249095, 3792400801, 3792817546, 3793328876, 3793978239, 3793998447, 3796588443, 3797217144, 3800075350, 3800356808, 3800572533, 3800728730, 3801294161, 3801984224, 3802005866, 3803087940, 3803482159, 3803576671, 3804441338, 3804906814, 3804971850, 3805449677, 3805547608, 3806006894, 3806016969, 3806202923, 3806337293, 3807013762, 3807121855, 3807151772, 3807239614, 3807436394, 3807553861, 3807668787, 3807861954, 3808922316, 3809034761, 3809541486, 3809609151, 3809618616, 3810943704, 3811154012, 3811216799, 3812249745, 3812473896, 3814040466, 3815761795, 3818943255, 3820312181, 3822822401, 833227004`，是否曾单独运行不能由静态扫描判断。
+- 全量 authored census 共保存 **169346** 个 typed occurrence、**4449** 个公共结构 family、**2368** 个参数 profile 与 **22979** 个 JSON 字段 profile。
+- 物理 corpus 共 **27802** 个 PKG entry / **27799** 个唯一路径，包体约 **16.887 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
+- package anomaly：样本 `3690065713` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 36/54，同字节；该包 107 entries / 106 unique paths）；样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；样本 `3807013762` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 49/57，同字节；该包 73 entries / 72 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
 - 结构 fallback 记录为 **93**，另有 **6** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
-- 公共能力粗映射：**3472** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
+- 公共能力粗映射：**4442** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -29,46 +32,46 @@
 
 | 大类 | occurrence | family | family 语义/专项入口（非 current 状态） |
 |---|---:|---:|---|
-| `resource` | 9365 | 14 | [格式/资源](scene-format-and-render-graph.md) |
-| `shader` | 3684 | 342 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `layer` | 8851 | 1605 | [格式/对象](scene-format-and-render-graph.md) |
-| `material` | 9354 | 52 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `effect` | 5071 | 15 | [Effect](effect-execution-coverage.md) |
-| `render-graph` | 6302 | 28 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `render-target` | 804 | 8 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `texture` | 18753 | 71 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
-| `particle` | 21256 | 788 | [粒子](particle-component-coverage.md) |
-| `audio-declaration` | 2092 | 33 | [音频声明](coverage-ledger.md) |
-| `dynamic-input` | 11256 | 481 | [属性/输入](runtime-input-property-coverage.md) |
-| `project-property` | 4887 | 42 | [属性/输入](runtime-input-property-coverage.md) |
+| `resource` | 15300 | 14 | [格式/资源](scene-format-and-render-graph.md) |
+| `shader` | 5958 | 397 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `layer` | 15309 | 2208 | [格式/对象](scene-format-and-render-graph.md) |
+| `material` | 16675 | 68 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `effect` | 9365 | 15 | [Effect](effect-execution-coverage.md) |
+| `render-graph` | 11186 | 28 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `render-target` | 1253 | 8 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `texture` | 31486 | 72 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
+| `particle` | 32054 | 940 | [粒子](particle-component-coverage.md) |
+| `audio-declaration` | 3479 | 39 | [音频声明](coverage-ledger.md) |
+| `dynamic-input` | 18345 | 616 | [属性/输入](runtime-input-property-coverage.md) |
+| `project-property` | 8936 | 44 | [属性/输入](runtime-input-property-coverage.md) |
 
 ### 3.1 纹理本体与使用点
 
-- 包内物理 TEX：**3947**；格式分布：`{"0": 1582, "4": 436, "6": 28, "7": 36, "8": 558, "9": 1307}`。
-- TEX 结构特征：`{"animated": 52, "static": 3895, "video-mp4": 4}`。这些只证明文件结构可读，不证明上传、purpose、sampler 或合成正确。
-- 纹理使用 occurrence：**14806**；slot 状态：`{"hole": 3800, "missing": 71, "resolved": 8198, "runtime-provided": 2737}`。`runtime-provided` 是 graph/named target 等运行身份，`missing` 需要结合 default/optional combo/VFS 语义判断，不能一律当缺图。
+- 包内物理 TEX：**6544**；格式分布：`{"0": 2835, "4": 556, "6": 28, "7": 36, "8": 787, "9": 2302}`。
+- TEX 结构特征：`{"animated": 77, "static": 6467, "video-mp4": 5}`。这些只证明文件结构可读，不证明上传、purpose、sampler 或合成正确。
+- 纹理使用 occurrence：**24942**；slot 状态：`{"hole": 6737, "missing": 101, "resolved": 13831, "runtime-provided": 4273}`。`runtime-provided` 是 graph/named target 等运行身份，`missing` 需要结合 default/optional combo/VFS 语义判断，不能一律当缺图。
 
 ### 3.2 对象、Effect 与动态输入
 
-- 对象类型：`{"camera": 12, "image": 3068, "light": 19, "particle": 761, "shape": 22, "sound": 114, "text": 1086, "utility": 701}`；静态非 hidden：`{"camera": 11, "image": 2071, "light": 16, "particle": 637, "shape": 16, "sound": 114, "text": 722, "utility": 604}`。
-- Effect instance **5071**，粒子 root layer **761**；动态 wrapper：`{"condition_wrappers": 1117, "script_wrappers": 3895, "timeline_wrappers": 475, "user_bindings": 5950}`。
+- 对象类型：`{"camera": 23, "image": 5565, "light": 51, "particle": 1171, "shape": 30, "sound": 225, "text": 1608, "utility": 1071}`；静态非 hidden：`{"camera": 19, "image": 3673, "light": 33, "particle": 920, "shape": 23, "sound": 225, "text": 1053, "utility": 882}`。
+- Effect instance **9365**，粒子 root layer **1171**；动态 wrapper：`{"condition_wrappers": 1711, "script_wrappers": 6170, "timeline_wrappers": 997, "user_bindings": 9709}`。
 - 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。
 
 ### 3.3 音频声明与 consumer 意图关系
 
-- payload-free 音频关系共 **2092** 个 occurrence / **184** 个样本；其中 editor `supportsaudioprocessing=true` 为 **128** 个样本，存在至少一种非 project 声明关系的样本为 **184** 个。
-- 标记有而没有非 project 声明关系：`无`；有声明关系而没有 editor 标记：`1553008362, 1636394814, 1926190458, 1994794519, 2069136288, 2112262451, 2269193950, 2473638329, 2505351195, 2524111047, 2607203340, 2616828675, 2775915974, 2797913147, 2802243144, 2811643059, 2824109832, 2896873092, 2942486721, 2959875782, 2998757800, 3021013015, 3025969015, 3088601835, 3167210190, 3323988600, 3395392965, 3549827466, 3663810817, 3699213569, 3703104370, 3738202317, 3750342273, 3750813609, 3757555836, 3762312138, 3763323436, 3764725758, 3766403294, 3767232084, 3769761761, 3770444459, 3781307553, 3782650329, 3786048634, 3786641495, 3787355076, 3788645041, 3790631363, 3790956325, 3791905266, 3793328876, 3801294161, 3803087940, 3807239614, 3807553861`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。
-- 静态 consumer 意图为 **86** 个样本：`1937925563, 2131872317, 2134765860, 2241938645, 2419444134, 2684431262, 2794098047, 2804817823, 2813231542, 2815826216, 2834973884, 2849382252, 2884628849, 2902406982, 2932157836, 2932631210, 2938612768, 2974757317, 2983846453, 3002649614, 3042492564, 3078285611, 3211615441, 3226487183, 3232289987, 3233141951, 3238423642, 3264246690, 3299228616, 3351163962, 3363252053, 3395777145, 3396722575, 3420215721, 3448845950, 3448877775, 3477054430, 3554161528, 3562021804, 3585542943, 3585875739, 3587571382, 3589454154, 3601964477, 3603711180, 3610154602, 3612199597, 3612795410, 3655958892, 3662790108, 3665307769, 3694697894, 3723344874, 3747190633, 3747492842, 3749463715, 3754639143, 3765904723, 3767460992, 3768020435, 3768229922, 3768724269, 3769688830, 3777761326, 3779026256, 3780119725, 3780391264, 3787382101, 3788066613, 3788467391, 3789316755, 3790806929, 3791967416, 3792249095, 3793998447, 3797217144, 3800356808, 3804441338, 3806202923, 3806337293, 3807013762, 3807151772, 3807668787, 3809609151, 3810943704, 3811154012`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **0**。
-- 其中同一 SceneScript owner 同时具有静态准入 AudioBuffers 与显式导出 cursor callback 的意图为 **1** 个样本：`3238423642`；这只登记实例化候选关系，不证明 hit、事件触发、snapshot refresh 或可见输出。
-- editor 标记有而静态意图无：`2067939514, 2917306763, 2949019513, 3113287126, 3113554287, 3122339805, 3146507587, 3147346398, 3287715210, 3290491250, 3357627941, 3470948192, 3487629864, 3509243656, 3563038726, 3566880847, 3581882134, 3609108600, 3662390671, 3690859128, 3712499998, 3721456868, 3743305891, 3748311238, 3754630802, 3761159935, 3763428294, 3765760121, 3769364482, 3779904456, 3782740481, 3788734811, 3788897599, 3792400801, 3792817546, 3796588443, 3800075350, 3802005866, 3804906814, 3804971850, 3805547608, 3809618616`；静态意图有而 editor 标记无：`无`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。
+- payload-free 音频关系共 **3479** 个 occurrence / **279** 个样本；其中 editor `supportsaudioprocessing=true` 为 **218** 个样本，存在至少一种非 project 声明关系的样本为 **279** 个。
+- 标记有而没有非 project 声明关系：`无`；有声明关系而没有 editor 标记：`1553008362, 1636394814, 1695673397, 1926190458, 1994794519, 2069136288, 2112262451, 2269193950, 2473638329, 2505351195, 2524111047, 2607203340, 2616828675, 2775915974, 2797913147, 2802243144, 2811643059, 2824109832, 2896873092, 2942486721, 2959875782, 2987771245, 2998757800, 3021013015, 3025969015, 3088601835, 3167210190, 3221354414, 3323988600, 3395392965, 3486887298, 3549827466, 3663810817, 3680252478, 3699213569, 3703104370, 3738202317, 3750342273, 3750813609, 3757555836, 3762312138, 3764725758, 3766403294, 3767232084, 3769761761, 3770444459, 3781307553, 3782650329, 3786048634, 3786641495, 3787355076, 3788645041, 3790631363, 3790956325, 3791905266, 3793328876, 3801294161, 3803087940, 3807239614, 3807553861, 3822822401`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。
+- 静态 consumer 意图为 **161** 个样本：`1937925563, 2131872317, 2134765860, 2241938645, 2419444134, 2507971256, 2684431262, 2731896598, 2776912698, 2780710296, 2784267518, 2787219305, 2794098047, 2797943632, 2804817823, 2807058277, 2813231542, 2813240634, 2814167871, 2815826216, 2819143171, 2821634935, 2824690710, 2831174267, 2834973884, 2835398595, 2849382252, 2850139759, 2866086594, 2871552691, 2877499944, 2877855240, 2884170082, 2884628849, 2887542690, 2890473419, 2902406982, 2913492057, 2919854127, 2927205881, 2932157836, 2932631210, 2938612768, 2951452910, 2960821850, 2972071249, 2974757317, 2983846453, 2992924426, 2999907577, 3002649614, 3027056454, 3027068980, 3039704323, 3039882306, 3042492564, 3078285611, 3087231311, 3114332546, 3137495261, 3148125112, 3175039950, 3211615441, 3226487183, 3232289987, 3233141951, 3238423642, 3248220186, 3264246690, 3291326967, 3292370168, 3299228616, 3325624777, 3337494481, 3341111071, 3351163962, 3351179520, 3363252053, 3374523158, 3383535304, 3395777145, 3396722575, 3420215721, 3435573282, 3436945972, 3448845950, 3448877775, 3471294034, 3476868923, 3477054430, 3507496797, 3554161528, 3562021804, 3585542943, 3585875739, 3586705329, 3587571382, 3589454154, 3601964477, 3603711180, 3605722997, 3610154602, 3612199597, 3612795410, 3617056047, 3627973226, 3632513108, 3632522893, 3655958892, 3662790108, 3665307769, 3666041758, 3690065713, 3694697894, 3695791724, 3708363772, 3719111841, 3723344874, 3742497499, 3745828537, 3747190633, 3747492842, 3749463715, 3754639143, 3761619125, 3765904723, 3766299002, 3766310551, 3767460992, 3768020435, 3768229922, 3768724269, 3769688830, 3773747576, 3777761326, 3779026256, 3779107475, 3780119725, 3780391264, 3781757083, 3786330502, 3787382101, 3788066613, 3788467391, 3789316755, 3790806929, 3791967416, 3792249095, 3793998447, 3797217144, 3800356808, 3804441338, 3806202923, 3806337293, 3807013762, 3807151772, 3807668787, 3809034761, 3809609151, 3810943704, 3811154012`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **0**。
+- 其中同一 SceneScript owner 同时具有静态准入 AudioBuffers 与显式导出 cursor callback 的意图为 **2** 个样本：`3238423642, 3632513108`；这只登记实例化候选关系，不证明 hit、事件触发、snapshot refresh 或可见输出。
+- editor 标记有而静态意图无：`2067939514, 2871175822, 2917306763, 2949019513, 2964778792, 2969308380, 3022080536, 3086016320, 3113287126, 3113554287, 3122339805, 3146507587, 3147346398, 3287715210, 3290491250, 3357627941, 3372715909, 3470948192, 3487629864, 3509243656, 3563038726, 3566880847, 3577990983, 3581882134, 3597772384, 3605502569, 3609108600, 3616389236, 3641200550, 3662390671, 3690859128, 3698459055, 3712499998, 3721456868, 3743305891, 3748311238, 3754630802, 3761159935, 3763428294, 3765760121, 3769364482, 3779904456, 3782740481, 3788734811, 3788897599, 3792400801, 3792817546, 3796588443, 3800075350, 3802005866, 3804906814, 3804971850, 3805547608, 3808922316, 3809618616, 3812473896, 3815761795`；静态意图有而 editor 标记无：`无`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。
 
 | 声明关系 | occurrence | 样本 | 静态状态分布 |
 |---|---:|---:|---|
-| `material-audio-response` | 137 | 37 | `{"activation": {"absent": 4, "disabled": 1, "enabled": 132}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `material-host-spectrum` | 1351 | 175 | `{"activation": {"disabled": 1, "enabled": 132, "not-authored": 1218}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {"launch-envelope-unjoined": 1351}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 3626, "source-shape-exact": 84}}` |
-| `particle-audio-response` | 81 | 18 | `{"activation": {"disabled": 1, "enabled": 55, "missing-mode": 25}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `project-support-enabled` | 128 | 128 | `{"activation": {}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `scenescript-registration` | 395 | 79 | `{"activation": {}, "cursor_audio_consumer": {"no-cursor-event": 394, "statically-admitted": 1}, "cursor_events": {"cursorEnter+cursorLeave": 1}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 87, "statically-admitted": 308}, "script_resolution": {"16": 298, "32": 6, "64": 4, "dynamic-or-invalid": 87}, "script_scope": {"proven-global": 395}, "source_abi": {}}` |
+| `material-audio-response` | 235 | 77 | `{"activation": {"absent": 5, "disabled": 1, "enabled": 229}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `material-host-spectrum` | 1897 | 264 | `{"activation": {"disabled": 1, "enabled": 229, "not-authored": 1667}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {"launch-envelope-unjoined": 1897}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 5318, "source-shape-exact": 124}}` |
+| `particle-audio-response` | 139 | 31 | `{"activation": {"disabled": 4, "enabled": 78, "missing-mode": 57}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `project-support-enabled` | 218 | 218 | `{"activation": {}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `scenescript-registration` | 990 | 143 | `{"activation": {}, "cursor_audio_consumer": {"no-cursor-event": 987, "statically-admitted": 3}, "cursor_events": {"cursorEnter+cursorLeave": 3}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 144, "statically-admitted": 846}, "script_resolution": {"16": 776, "32": 10, "64": 60, "dynamic-or-invalid": 144}, "script_scope": {"proven-global": 990}, "source_abi": {}}` |
 
 ## 4. 当前公共 family 影响面索引
 
@@ -76,86 +79,86 @@
 
 | family | domain/kind | occurrence | 样本 | 可见 occurrence / 样本 | 修复事件（非能力状态） |
 |---|---|---:|---:|---:|---|
-| `texture/image-material-slot@2e7ce906c5bcf601` | `texture/image-material-slot` | 1568 | 231 | 1102 / 231 | `untriaged` |
-| `material/effect-pass@526202cd27954701` | `material/effect-pass` | 5558 | 221 | 3634 / 219 | `untriaged` |
-| `effect/authored-graph@9231d5e82bfe3a7f` | `effect/authored-graph` | 4372 | 214 | 2772 / 212 | `untriaged` |
-| `render-graph/effect-pass@91c374f0320bbf80` | `render-graph/effect-pass` | 4372 | 214 | 2772 / 212 | `untriaged` |
-| `texture/effect-material-slot@aba645ada829ada9` | `texture/effect-material-slot` | 3758 | 206 | 2634 / 206 | `untriaged` |
-| `material/image-pass@f0e77c0708dc8bfc` | `material/image-pass` | 1338 | 205 | 916 / 204 | `untriaged` |
-| `layer/image@5e4c8117d0220cb3` | `layer/image` | 630 | 179 | 427 / 164 | `untriaged` |
-| `texture/effect-material-slot@72d5c351e3518afd` | `texture/effect-material-slot` | 1835 | 154 | 1339 / 153 | `untriaged` |
-| `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 823 | 158 | 684 / 152 | `untriaged` |
-| `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 984 | 157 | 819 / 152 | `untriaged` |
-| `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 730 | 153 | 604 / 145 | `untriaged` |
-| `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-4@836ca1b0e44c7396` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-5@5147f5e0ff1dc4d8` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-6@19856d86c6ba8777` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-7@1981e7ba62a17e45` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `particle/controlpoint-unknown@ab32a4d63b720bf0` | `particle/controlpoint` | 833 | 143 | 676 / 139 | `untriaged` |
-| `texture/effect-material-slot@09cd4f00c72ef79a` | `texture/effect-material-slot` | 842 | 137 | 587 / 137 | `untriaged` |
-| `particle/initializer-colorrandom@92fe2a1db1c0a335` | `particle/initializer` | 663 | 139 | 571 / 134 | `untriaged` |
-| `audio-declaration/material-host-spectrum@f54a244027c2d7a1` | `audio-declaration/material-host-spectrum` | 925 | 138 | 624 / 134 | `untriaged` |
-| `particle/initializer-velocityrandom@28cd03ab4eb204db` | `particle/initializer` | 522 | 136 | 449 / 132 | `untriaged` |
-| `particle/material@0cc12e1c65aba7ca` | `particle/material` | 698 | 133 | 576 / 129 | `untriaged` |
-| `texture/effect-material-slot@b9dbbf20539e7403` | `texture/effect-material-slot` | 901 | 136 | 580 / 128 | `untriaged` |
-| `texture/particle-material-slot@c890a3f690d3cae8` | `texture/particle-material-slot` | 765 | 134 | 618 / 126 | `untriaged` |
-| `particle/operator-movement@241f23d1981eba83` | `particle/operator` | 400 | 113 | 347 / 109 | `untriaged` |
-| `texture/graph-binding@1cb3111748f1f792` | `texture/graph-binding` | 705 | 113 | 513 / 107 | `untriaged` |
-| `particle/operator-alphafade@79efef34b1e1efd1` | `particle/operator` | 353 | 111 | 316 / 106 | `untriaged` |
-| `texture/graph-binding@dc7a25a33e535aae` | `texture/graph-binding` | 1026 | 107 | 721 / 101 | `untriaged` |
-| `texture/image-material-slot@1914e3ff4fa250de` | `texture/image-material-slot` | 461 | 107 | 282 / 98 | `untriaged` |
-| `particle/operator-alphafade@42039ec7351e2817` | `particle/operator` | 322 | 96 | 244 / 88 | `untriaged` |
-| `layer/image@740da70a0906f520` | `layer/image` | 391 | 91 | 217 / 81 | `untriaged` |
-| `material/effect-pass@cdf796695d9b62b3` | `material/effect-pass` | 258 | 83 | 185 / 81 | `untriaged` |
-| `render-graph/effect-pass@87b44c43e3733ab2` | `render-graph/effect-pass` | 227 | 83 | 159 / 80 | `untriaged` |
-| `material/effect-pass@84145b2e51f1d262` | `material/effect-pass` | 200 | 84 | 159 / 79 | `untriaged` |
-| `render-graph/effect-pass@27a4e0a2441c4633` | `render-graph/effect-pass` | 200 | 84 | 159 / 79 | `untriaged` |
-| `effect/authored-graph@c1df0b7918ba4c2d` | `effect/authored-graph` | 199 | 83 | 158 / 78 | `untriaged` |
-| `particle/initializer-rotationrandom@50be9f80182bdd6c` | `particle/initializer` | 219 | 83 | 187 / 74 | `untriaged` |
-| `layer/image@1963ea2b13ddb536` | `layer/image` | 417 | 78 | 259 / 74 | `untriaged` |
-| `material/image-pass@a16e3bc68008f398` | `material/image-pass` | 417 | 78 | 259 / 74 | `untriaged` |
-| `render-graph/effect-pass@95943be768e36742` | `render-graph/effect-pass` | 328 | 76 | 228 / 73 | `untriaged` |
-| `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 207 | 76 | 141 / 73 | `untriaged` |
-| `particle/emitter-sphererandom@e75b31b9bb9c07b9` | `particle/emitter` | 204 | 76 | 167 / 66 | `untriaged` |
-| `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 196 | 70 | 153 / 65 | `untriaged` |
-| `audio-declaration/material-host-spectrum@b45ca2db59b7644c` | `audio-declaration/material-host-spectrum` | 238 | 72 | 99 / 64 | `untriaged` |
-| `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 363 | 68 | 243 / 61 | `implemented` |
-| `particle/operator-movement@38205f18a84856b8` | `particle/operator` | 202 | 64 | 161 / 58 | `untriaged` |
-| `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 462 | 59 | 295 / 56 | `untriaged` |
-| `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 116 | 56 | 106 / 52 | `untriaged` |
-| `render-graph/effect-pass@c76a5976d14e6a9b` | `render-graph/effect-pass` | 213 | 55 | 169 / 51 | `untriaged` |
-| `particle/initializer-colorrandom@37ca9b83db0e48a4` | `particle/initializer` | 226 | 57 | 163 / 50 | `untriaged` |
-| `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 223 | 55 | 171 / 50 | `untriaged` |
-| `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 134 | 51 | 95 / 48 | `untriaged` |
-| `particle/emitter-sphererandom@d1f27f5059ca5180` | `particle/emitter` | 82 | 51 | 78 / 48 | `untriaged` |
-| `material/image-pass@56589507d93ffe7f` | `material/image-pass` | 209 | 55 | 137 / 47 | `untriaged` |
-| `effect/authored-graph@49c310bdbcb3af55` | `effect/authored-graph` | 202 | 52 | 160 / 47 | `untriaged` |
-| `render-graph/effect-pass@419b55fe86b12fd0` | `render-graph/effect-pass` | 202 | 52 | 160 / 47 | `untriaged` |
-| `render-target/fbo@b7f0838a5064473e` | `render-target/fbo` | 202 | 52 | 160 / 47 | `untriaged` |
-| `particle/children-child-definition@9ac07766b41dd3ec` | `particle/children` | 173 | 49 | 152 / 47 | `untriaged` |
-| `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 92 | 48 | 86 / 46 | `untriaged` |
-| `layer/image@ce6e6edd1955feb5` | `layer/image` | 328 | 50 | 189 / 45 | `untriaged` |
-| `particle/operator-controlpointattract@dbf3bebbae124331` | `particle/operator` | 93 | 47 | 84 / 45 | `untriaged` |
-| `particle/operator-alphafade@6e7ca1434b17529b` | `particle/operator` | 153 | 50 | 122 / 44 | `untriaged` |
-| `effect/authored-graph@812aa00e4d7bfe07` | `effect/authored-graph` | 121 | 47 | 87 / 44 | `untriaged` |
-| `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 94 | 47 | 84 / 44 | `untriaged` |
-| `particle/material@39fc82b1fae017f5` | `particle/material` | 97 | 50 | 76 / 43 | `untriaged` |
-| `particle/operator-movement@632199e7235723e5` | `particle/operator` | 134 | 48 | 104 / 43 | `untriaged` |
-| `particle/initializer-angularvelocityrandom@198daf786a62e408` | `particle/initializer` | 91 | 50 | 77 / 41 | `untriaged` |
-| `particle/operator-angularmovement@60d6a8e0f4658b34` | `particle/operator` | 86 | 45 | 76 / 40 | `untriaged` |
-| `effect/authored-graph@dfc634e4773519c6` | `effect/authored-graph` | 86 | 44 | 54 / 40 | `untriaged` |
-| `render-graph/effect-pass@3c0d08489093a45a` | `render-graph/effect-pass` | 86 | 44 | 54 / 40 | `untriaged` |
-| `texture/effect-material-slot@8ec2c2b3a7358158` | `texture/effect-material-slot` | 174 | 41 | 118 / 40 | `untriaged` |
-| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 51 | 40 | 51 / 40 | `untriaged` |
-| `audio-declaration/scenescript-registration@c41c05c7b52d814f` | `audio-declaration/scenescript-registration` | 297 | 48 | 202 / 39 | `untriaged` |
-| `particle/operator-oscillateposition@c49553200c2ce38b` | `particle/operator` | 67 | 41 | 63 / 38 | `untriaged` |
-| `particle/initializer-sizerandom@e0dd54a817ccc18e` | `particle/initializer` | 74 | 43 | 56 / 36 | `untriaged` |
-| `particle/operator-sizechange@82c34119f9ad1e27` | `particle/operator` | 102 | 38 | 96 / 36 | `untriaged` |
-| `particle/operator-oscillatealpha@2022845e81a0933b` | `particle/operator` | 85 | 36 | 67 / 35 | `untriaged` |
-| `particle/emitter-sphererandom@6ec19a5b249eb35e` | `particle/emitter` | 84 | 38 | 72 / 34 | `untriaged` |
+| `texture/image-material-slot@2e7ce906c5bcf601` | `texture/image-material-slot` | 3181 | 337 | 2081 / 332 | `untriaged` |
+| `material/effect-pass@526202cd27954701` | `material/effect-pass` | 9883 | 323 | 6232 / 321 | `untriaged` |
+| `effect/authored-graph@9231d5e82bfe3a7f` | `effect/authored-graph` | 8118 | 315 | 5067 / 313 | `untriaged` |
+| `render-graph/effect-pass@91c374f0320bbf80` | `render-graph/effect-pass` | 8118 | 315 | 5067 / 313 | `untriaged` |
+| `material/image-pass@f0e77c0708dc8bfc` | `material/image-pass` | 2638 | 308 | 1677 / 300 | `untriaged` |
+| `texture/effect-material-slot@aba645ada829ada9` | `texture/effect-material-slot` | 6643 | 297 | 4605 / 297 | `untriaged` |
+| `texture/effect-material-slot@72d5c351e3518afd` | `texture/effect-material-slot` | 3424 | 233 | 2413 / 230 | `untriaged` |
+| `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 1156 | 237 | 936 / 223 | `untriaged` |
+| `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 1449 | 233 | 1140 / 222 | `untriaged` |
+| `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 1091 | 229 | 846 / 213 | `untriaged` |
+| `layer/image@5e4c8117d0220cb3` | `layer/image` | 1429 | 268 | 875 / 212 | `untriaged` |
+| `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-4@836ca1b0e44c7396` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-5@5147f5e0ff1dc4d8` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-6@19856d86c6ba8777` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-7@1981e7ba62a17e45` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `particle/controlpoint-unknown@ab32a4d63b720bf0` | `particle/controlpoint` | 1244 | 213 | 956 / 205 | `untriaged` |
+| `texture/effect-material-slot@09cd4f00c72ef79a` | `texture/effect-material-slot` | 1260 | 199 | 877 / 197 | `untriaged` |
+| `particle/initializer-velocityrandom@28cd03ab4eb204db` | `particle/initializer` | 819 | 203 | 646 / 193 | `untriaged` |
+| `audio-declaration/material-host-spectrum@f54a244027c2d7a1` | `audio-declaration/material-host-spectrum` | 1197 | 198 | 837 / 191 | `untriaged` |
+| `texture/effect-material-slot@b9dbbf20539e7403` | `texture/effect-material-slot` | 1332 | 200 | 866 / 188 | `untriaged` |
+| `particle/initializer-colorrandom@92fe2a1db1c0a335` | `particle/initializer` | 885 | 197 | 725 / 187 | `untriaged` |
+| `particle/material@0cc12e1c65aba7ca` | `particle/material` | 954 | 193 | 755 / 183 | `untriaged` |
+| `texture/particle-material-slot@c890a3f690d3cae8` | `texture/particle-material-slot` | 1213 | 198 | 910 / 182 | `untriaged` |
+| `texture/image-material-slot@1914e3ff4fa250de` | `texture/image-material-slot` | 769 | 193 | 484 / 175 | `untriaged` |
+| `layer/image@740da70a0906f520` | `layer/image` | 639 | 168 | 373 / 149 | `untriaged` |
+| `texture/graph-binding@1cb3111748f1f792` | `texture/graph-binding` | 1070 | 166 | 703 / 148 | `untriaged` |
+| `particle/operator-movement@241f23d1981eba83` | `particle/operator` | 550 | 159 | 455 / 148 | `untriaged` |
+| `particle/operator-alphafade@79efef34b1e1efd1` | `particle/operator` | 469 | 153 | 393 / 142 | `untriaged` |
+| `layer/image@1963ea2b13ddb536` | `layer/image` | 837 | 147 | 586 / 142 | `untriaged` |
+| `material/image-pass@a16e3bc68008f398` | `material/image-pass` | 837 | 147 | 586 / 142 | `untriaged` |
+| `texture/graph-binding@dc7a25a33e535aae` | `texture/graph-binding` | 1580 | 158 | 995 / 140 | `untriaged` |
+| `particle/operator-alphafade@42039ec7351e2817` | `particle/operator` | 484 | 144 | 363 / 131 | `untriaged` |
+| `audio-declaration/material-host-spectrum@b45ca2db59b7644c` | `audio-declaration/material-host-spectrum` | 389 | 140 | 196 / 124 | `untriaged` |
+| `material/effect-pass@84145b2e51f1d262` | `material/effect-pass` | 482 | 129 | 337 / 121 | `untriaged` |
+| `render-graph/effect-pass@27a4e0a2441c4633` | `render-graph/effect-pass` | 482 | 129 | 337 / 121 | `untriaged` |
+| `effect/authored-graph@c1df0b7918ba4c2d` | `effect/authored-graph` | 481 | 128 | 336 / 120 | `untriaged` |
+| `material/effect-pass@cdf796695d9b62b3` | `material/effect-pass` | 382 | 124 | 256 / 111 | `untriaged` |
+| `render-graph/effect-pass@87b44c43e3733ab2` | `render-graph/effect-pass` | 341 | 123 | 220 / 109 | `untriaged` |
+| `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 887 | 105 | 632 / 102 | `untriaged` |
+| `render-graph/effect-pass@95943be768e36742` | `render-graph/effect-pass` | 453 | 114 | 296 / 100 | `untriaged` |
+| `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 316 | 114 | 197 / 100 | `untriaged` |
+| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 121 | 97 | 121 / 97 | `untriaged` |
+| `particle/initializer-rotationrandom@50be9f80182bdd6c` | `particle/initializer` | 322 | 107 | 249 / 95 | `untriaged` |
+| `particle/operator-movement@38205f18a84856b8` | `particle/operator` | 297 | 104 | 229 / 94 | `untriaged` |
+| `particle/emitter-sphererandom@e75b31b9bb9c07b9` | `particle/emitter` | 292 | 106 | 223 / 92 | `untriaged` |
+| `audio-declaration/scenescript-registration@c41c05c7b52d814f` | `audio-declaration/scenescript-registration` | 773 | 104 | 477 / 90 | `untriaged` |
+| `layer/image@ce6e6edd1955feb5` | `layer/image` | 645 | 92 | 428 / 86 | `untriaged` |
+| `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 579 | 103 | 345 / 83 | `implemented` |
+| `particle/initializer-colorrandom@37ca9b83db0e48a4` | `particle/initializer` | 362 | 92 | 262 / 79 | `untriaged` |
+| `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 223 | 83 | 173 / 77 | `untriaged` |
+| `particle/material@39fc82b1fae017f5` | `particle/material` | 185 | 80 | 139 / 69 | `untriaged` |
+| `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 292 | 75 | 217 / 67 | `untriaged` |
+| `texture/effect-material-slot@8ec2c2b3a7358158` | `texture/effect-material-slot` | 345 | 73 | 226 / 67 | `untriaged` |
+| `material/image-pass@56589507d93ffe7f` | `material/image-pass` | 353 | 83 | 184 / 66 | `untriaged` |
+| `particle/operator-alphafade@6e7ca1434b17529b` | `particle/operator` | 281 | 74 | 203 / 66 | `untriaged` |
+| `render-graph/effect-pass@c76a5976d14e6a9b` | `render-graph/effect-pass` | 280 | 73 | 213 / 66 | `untriaged` |
+| `effect/authored-graph@dfc634e4773519c6` | `effect/authored-graph` | 180 | 78 | 99 / 63 | `untriaged` |
+| `particle/operator-controlpointattract@dbf3bebbae124331` | `particle/operator` | 136 | 66 | 118 / 63 | `untriaged` |
+| `render-graph/effect-pass@3c0d08489093a45a` | `render-graph/effect-pass` | 179 | 77 | 98 / 62 | `untriaged` |
+| `effect/authored-graph@49c310bdbcb3af55` | `effect/authored-graph` | 269 | 70 | 204 / 62 | `untriaged` |
+| `render-graph/effect-pass@419b55fe86b12fd0` | `render-graph/effect-pass` | 269 | 70 | 204 / 62 | `untriaged` |
+| `render-target/fbo@b7f0838a5064473e` | `render-target/fbo` | 269 | 70 | 204 / 62 | `untriaged` |
+| `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 134 | 67 | 119 / 61 | `untriaged` |
+| `particle/operator-oscillateposition@c49553200c2ce38b` | `particle/operator` | 111 | 66 | 95 / 60 | `untriaged` |
+| `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 158 | 65 | 113 / 60 | `untriaged` |
+| `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 171 | 63 | 134 / 60 | `untriaged` |
+| `audio-declaration/material-host-spectrum@4f38735fd4b152f6` | `audio-declaration/material-host-spectrum` | 229 | 73 | 138 / 59 | `untriaged` |
+| `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 137 | 61 | 114 / 59 | `untriaged` |
+| `particle/initializer-angularvelocityrandom@198daf786a62e408` | `particle/initializer` | 167 | 69 | 124 / 58 | `untriaged` |
+| `particle/operator-movement@632199e7235723e5` | `particle/operator` | 168 | 64 | 125 / 58 | `untriaged` |
+| `audio-declaration/material-audio-response@19a32783dd328dfa` | `audio-declaration/material-audio-response` | 211 | 71 | 122 / 57 | `untriaged` |
+| `particle/children-child-definition@9ac07766b41dd3ec` | `particle/children` | 221 | 63 | 187 / 57 | `untriaged` |
+| `particle/emitter-sphererandom@5a95afd97c419886` | `particle/emitter` | 100 | 64 | 82 / 56 | `untriaged` |
+| `particle/operator-movement@45cf8638a64d3236` | `particle/operator` | 159 | 61 | 113 / 55 | `untriaged` |
+| `layer/image@5af3291c18378ed6` | `layer/image` | 207 | 55 | 147 / 55 | `untriaged` |
+| `effect/authored-graph@812aa00e4d7bfe07` | `effect/authored-graph` | 137 | 57 | 99 / 53 | `untriaged` |
+| `particle/emitter-sphererandom@d1f27f5059ca5180` | `particle/emitter` | 91 | 57 | 85 / 53 | `untriaged` |
 
 完整 family、payload-free feature summary、样本归属与 revision 数在机器快照中；此表故意只保留前 80 个高覆盖项，避免人类文档成为不可维护的 payload 转储。
 
@@ -165,25 +168,25 @@
 
 | capability | 台账 authority 行 | family | occurrence | 样本 |
 |---|---|---:|---:|---:|
-| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 51 | 2333 | 196 |
-| `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 9 | 12 | 12 |
-| `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 9 | 12 | 12 |
-| `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 14 | 5069 | 225 |
-| `cap.graph.fbo` | [Generic FBO command graph](coverage-ledger.md) | 39 | 9073 | 225 |
-| `cap.graph.utility-composition` | [Utility composition](coverage-ledger.md) | 81 | 701 | 39 |
-| `cap.layer.ir` | [Scene IR 与基础层级](coverage-ledger.md) | 1605 | 8851 | 243 |
-| `cap.light.hdr` | [2D lighting/Scene HDR](coverage-ledger.md) | 11 | 19 | 8 |
-| `cap.material.ir` | [EffectDefinition/Material IR](coverage-ledger.md) | 55 | 15476 | 243 |
-| `cap.model3d.runtime` | [3D model/camera/physics](coverage-ledger.md) | 2 | 1871 | 242 |
-| `cap.particle.runtime` | [Particle runtime](coverage-ledger.md) | 896 | 22693 | 164 |
-| `cap.property.atomic-state` | [Atomic live property state/routing](coverage-ledger.md) | 1 | 1117 | 61 |
-| `cap.property.user` | [User Properties](coverage-ledger.md) | 93 | 10813 | 243 |
-| `cap.resource.index` | [PKG/TEX/资源索引](coverage-ledger.md) | 42 | 13312 | 243 |
-| `cap.resource.texture-provider` | [Typed texture provider](coverage-ledger.md) | 42 | 12926 | 242 |
-| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 466 | 3897 | 141 |
-| `cap.shader.source-contract` | [Shader source/include/annotation/declaration contract](coverage-ledger.md) | 342 | 3684 | 229 |
-| `cap.text.runtime` | [Text/Font runtime](coverage-ledger.md) | 272 | 1400 | 126 |
-| `cap.timeline.runtime` | [Timeline runtime](coverage-ledger.md) | 28 | 476 | 70 |
+| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 59 | 3946 | 296 |
+| `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 11 | 23 | 21 |
+| `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 11 | 23 | 21 |
+| `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 14 | 9354 | 327 |
+| `cap.graph.fbo` | [Generic FBO command graph](coverage-ledger.md) | 39 | 15380 | 327 |
+| `cap.graph.utility-composition` | [Utility composition](coverage-ledger.md) | 93 | 1071 | 77 |
+| `cap.layer.ir` | [Scene IR 与基础层级](coverage-ledger.md) | 2208 | 15309 | 350 |
+| `cap.light.hdr` | [2D lighting/Scene HDR](coverage-ledger.md) | 16 | 51 | 17 |
+| `cap.material.ir` | [EffectDefinition/Material IR](coverage-ledger.md) | 71 | 26429 | 350 |
+| `cap.model3d.runtime` | [3D model/camera/physics](coverage-ledger.md) | 2 | 3218 | 349 |
+| `cap.particle.runtime` | [Particle runtime](coverage-ledger.md) | 1062 | 34181 | 245 |
+| `cap.property.atomic-state` | [Atomic live property state/routing](coverage-ledger.md) | 1 | 1712 | 113 |
+| `cap.property.user` | [User Properties](coverage-ledger.md) | 111 | 18652 | 350 |
+| `cap.resource.index` | [PKG/TEX/资源索引](coverage-ledger.md) | 42 | 21844 | 350 |
+| `cap.resource.texture-provider` | [Typed texture provider](coverage-ledger.md) | 43 | 22197 | 349 |
+| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 601 | 6172 | 239 |
+| `cap.shader.source-contract` | [Shader source/include/annotation/declaration contract](coverage-ledger.md) | 397 | 5958 | 332 |
+| `cap.text.runtime` | [Text/Font runtime](coverage-ledger.md) | 367 | 2364 | 210 |
+| `cap.timeline.runtime` | [Timeline runtime](coverage-ledger.md) | 29 | 998 | 133 |
 
 显式 unknown family 共 **7** 个，原因分布：`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`；unknown 是静态不可判定的显式登记，不是运行失败，也不得据此宣称缺失。
 
@@ -201,6 +204,7 @@
 | `1511889295` | 死库水 | 3 | 1 | 2 | 119 | 无 | 新增 / census未join runtime |
 | `1553008362` | [Jidan Hua] Ichigo and 002 (Darling in the Franxx) - animated | 1 | 4 | 0 | 53 | 截图 | tracked45 / census未join runtime |
 | `1636394814` | [Jaku Denpa] Shigure (Kantai Collection) - animated xray | 3 | 21 | 0 | 209 | 截图 | tracked45 / census未join runtime |
+| `1695673397` | 白发少女 4k动漫壁纸 | 4 | 1 | 2 | 72 | 截图 | 新增 / census未join runtime |
 | `1926190458` | Morning_4k | 3 | 9 | 1 | 147 | 无 | 新增 / census未join runtime |
 | `1937925563` | Tropical Paradise 4K [Customizable Colors &amp; Audio Visualizer] - Vaporwave &amp; Neon | 16 | 51 | 3 | 761 | 截图 | tracked45 / census未join runtime |
 | `1989767609` | Black tights（透视） | 1 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
@@ -223,115 +227,205 @@
 | `2470144420` | 女孩独享的宁静傍晚 | 4 | 6 | 2 | 124 | 截图 | tracked45 / census未join runtime |
 | `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 111 | 截图 | tracked45 / census未join runtime |
 | `2505351195` | Nier Automata / +21 \| NSFW &amp; SFW | 2 | 6 | 1 | 99 | 无 | 新增 / census未join runtime |
+| `2507971256` | 麻匪 骚气音频可视化 | 9 | 6 | 0 | 124 | 截图 | 新增 / census未join runtime |
 | `2524111047` | Liu Meryl Wei wei（被举报下架-重发） | 2 | 5 | 0 | 81 | 无 | 新增 / census未join runtime |
 | `2607203340` | Tomb Raider +18 | 2 | 4 | 1 | 77 | 无 | 新增 / census未join runtime |
 | `2616828675` | 【R18】别看了，快点啦~#4K#动态#16:9 | 6 | 14 | 4 | 252 | 无 | 新增 / census未join runtime |
 | `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 273 | 无 | 新增 / census未join runtime |
+| `2731896598` | 麻匪 A-SOUL | 27 | 21 | 3 | 408 | 截图 | 新增 / census未join runtime |
+| `2735160334` | 麻匪 山景城 | 8 | 15 | 4 | 232 | 截图 | 新增 / census未join runtime |
 | `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4 | 12 | 0 | 150 | 无 | 新增 / census未join runtime |
+| `2776912698` | 麻匪 洛天依 Android | 20 | 26 | 0 | 327 | 截图 | 新增 / census未join runtime |
+| `2780710296` | 麻匪 miku 初音ミク 初音未来 Windows | 17 | 12 | 2 | 290 | 截图 | 新增 / census未join runtime |
+| `2784267518` | 麻匪 D.Va 守望先锋 Windows | 15 | 18 | 1 | 312 | 截图 | 新增 / census未join runtime |
+| `2787219305` | 麻匪 你的责任 Windows 4K 21:9 16:9 | 15 | 13 | 2 | 246 | 截图 | 新增 / census未join runtime |
 | `2794098047` | 麻匪 是姐姐还是妹妹 windows | 15 | 20 | 1 | 332 | 无 | 新增 / census未join runtime |
 | `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 3 | 7 | 0 | 83 | 无 | 新增 / census未join runtime |
+| `2797943632` | 麻匪 僵尸女孩 Windows | 16 | 14 | 2 | 293 | 截图 | 新增 / census未join runtime |
 | `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 188 | 截图 | tracked45 / census未join runtime |
-| `2804817823` | Yor Forger \| Spy x Family | 11 | 18 | 2 | 314 | 无 | 新增 / census未join runtime |
+| `2804817823` | Yor Forger \| Spy x Family | 11 | 18 | 2 | 314 | 截图 | 新增 / census未join runtime |
+| `2807058277` | 麻匪 森美声 森カリオペ Windows | 24 | 60 | 0 | 558 | 截图 | 新增 / census未join runtime |
 | `2808874251` | youer | 6 | 0 | 5 | 138 | 无 | 新增 / census未join runtime |
 | `2811643059` | 原神 | 1 | 4 | 0 | 60 | 无 | 新增 / census未join runtime |
 | `2813231542` | 清新美女 R-18 | 6 | 13 | 1 | 202 | 无 | 新增 / census未join runtime |
+| `2813240634` | 麻匪 NIXEU 九尾妖狐 | 10 | 15 | 1 | 214 | 截图 | 新增 / census未join runtime |
+| `2814167871` | 麻匪 明日方舟 凯尔希 Windows | 40 | 33 | 1 | 615 | 截图 | 新增 / census未join runtime |
 | `2815826216` | 麻匪 约尔·福杰 间谍过家家 SPY×FAMILY | 18 | 17 | 0 | 268 | 无 | 新增 / census未join runtime |
+| `2819143171` | 麻匪 夜兰 原神 16:9 21:9 | 30 | 40 | 1 | 549 | 截图 | 新增 / census未join runtime |
+| `2821634935` | 麻匪 德克萨斯 明日方舟 | 32 | 39 | 0 | 508 | 截图 | 新增 / census未join runtime |
 | `2824109832` | Yor Forger - NIXEU 4K | 5 | 17 | 2 | 295 | 无 | 新增 / census未join runtime |
+| `2824690710` | 麻匪 原神 雷电将军 Windows 16:9 21:9 | 44 | 51 | 3 | 623 | 截图 | 新增 / census未join runtime |
+| `2831174267` | 麻匪 Lycoris Recoil 21:9 16:9 | 20 | 23 | 4 | 407 | 截图 | 新增 / census未join runtime |
 | `2834973884` | 麻匪 wlop-鬼刀 重置版 | 9 | 12 | 1 | 212 | 无 | 新增 / census未join runtime |
+| `2835398595` | 麻匪 碧蓝航线 独角兽 Windows | 52 | 30 | 8 | 675 | 截图 | 新增 / census未join runtime |
 | `2837223712` | 李擎洲：阿狸[4K] | 7 | 1 | 4 | 142 | 无 | 新增 / census未join runtime |
 | `2849382252` | 麻匪 死亡笔记 L·Lawliet | 18 | 17 | 9 | 481 | 无 | 新增 / census未join runtime |
+| `2850139759` | 麻匪 血妖姬 16:9 / 21:9 | 15 | 15 | 2 | 315 | 截图 | 新增 / census未join runtime |
+| `2866086594` | 麻匪 赛博朋克 边缘行者 露西 Lucy | 7 | 13 | 0 | 212 | 截图 | 新增 / census未join runtime |
+| `2871175822` | 麻匪 猫 | 9 | 12 | 3 | 249 | 截图 | 新增 / census未join runtime |
+| `2871552691` | 麻匪 操 | 6 | 3 | 0 | 73 | 截图 | 新增 / census未join runtime |
+| `2877499944` | 麻匪 做什么壁纸？看美女不香？ | 15 | 10 | 0 | 156 | 截图 | 新增 / census未join runtime |
+| `2877855240` | 麻匪 雷电将军 泳装 | 49 | 63 | 0 | 724 | 截图 | 新增 / census未join runtime |
+| `2884170082` | 麻匪 wlop 小绿 | 20 | 34 | 0 | 406 | 截图 | 新增 / census未join runtime |
 | `2884628849` | 麻匪 小姐姐 | 26 | 33 | 0 | 466 | 截图 | tracked45 / census未join runtime |
+| `2887542690` | 麻匪 礼服斯卡蒂 3D版 | 57 | 53 | 2 | 771 | 截图 | 新增 / census未join runtime |
+| `2890473419` | 麻匪 肉肉的雷电将军 3D 21:9 16:9 | 28 | 41 | 4 | 580 | 截图 | 新增 / census未join runtime |
 | `2896873092` | Genshin Impact: Thicc Girls Spread Collage X-Ray R18+ | 11 | 64 | 0 | 579 | 无 | 新增 / census未join runtime |
 | `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 140 | 115 | 1 | 1754 | 截图 | tracked45 / census未join runtime |
+| `2913492057` | 麻匪 粒子音频互动 | 5 | 2 | 3 | 159 | 截图 | 新增 / census未join runtime |
 | `2917306763` | [4K/动态/R18/衣服透视可调]碧蓝航线-独角兽妹妹「天使的护理时间」-B站慕慕慕慕斯小蛋糕 | 8 | 15 | 0 | 173 | 无 | 新增 / census未join runtime |
-| `2932157836` | [4K \| 可自定义] 星浴 \| Hoshi-yoku | 22 | 74 | 1 | 985 | 无 | 新增 / census未join runtime |
+| `2919854127` | 麻匪 辉夜 AHEGAO | 11 | 29 | 0 | 315 | 截图 | 新增 / census未join runtime |
+| `2927205881` | 麻匪 音频识别 多素材自定义 | 65 | 97 | 9 | 1594 | 截图 | 新增 / census未join runtime |
+| `2932157836` | [4K \| 可自定义] 星浴 \| Hoshi-yoku | 22 | 74 | 1 | 985 | 截图 | 新增 / census未join runtime |
 | `2932631210` | 欧派-音乐乱动 | 6 | 7 | 3 | 188 | 无 | 新增 / census未join runtime |
 | `2938612768` | 麻匪 音频识别 Media Player | 85 | 73 | 5 | 1369 | 截图 | tracked45 / census未join runtime |
 | `2942486721` | R18 Ishtar And Ereshkigal / 遠坂 凛 Tohsaka Rin 4K [Fate/Grand Order] [NSFW] | 1 | 5 | 0 | 61 | 无 | 新增 / census未join runtime |
-| `2949019513` | [4K \| 可自定义] A.R.O.N.A. (碧蓝档案) | 16 | 47 | 2 | 656 | 无 | 新增 / census未join runtime |
+| `2949019513` | [4K \| 可自定义] A.R.O.N.A. (碧蓝档案) | 16 | 47 | 2 | 656 | 截图 | 新增 / census未join runtime |
+| `2951452910` | 麻匪 一伊那尔栖 21:9 16:9 | 20 | 28 | 3 | 561 | 截图 | 新增 / census未join runtime |
 | `2959875782` | [R18] Lexaiduer Last Origin Dark Elven Forest Ranger Wedding Dress X-Ray Animated | 136 | 292 | 0 | 2883 | 无 | 新增 / census未join runtime |
+| `2960821850` | Media Player (2.0) | 16 | 26 | 2 | 387 | 截图 | 新增 / census未join runtime |
+| `2964778792` | [4K/动态/R18-3.0版]碧蓝航线-莱莎琳·斯托特「熬夜的炼金术士」补档-B站慕慕慕慕斯小蛋糕 | 14 | 13 | 5 | 308 | 截图 | 新增 / census未join runtime |
+| `2969308380` | 麻匪 三分钟一张流水线壁纸 简单且无聊 | 34 | 18 | 1 | 430 | 截图 | 新增 / census未join runtime |
+| `2972071249` | 麻匪 宵剑 | 8 | 28 | 1 | 380 | 截图 | 新增 / census未join runtime |
 | `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 53 | 67 | 4 | 1163 | 截图 | tracked45 / census未join runtime |
 | `2981249186` | 4K SCI-FI Black Hole | 12 | 9 | 4 | 256 | 无 | 新增 / census未join runtime |
 | `2983846453` | 麻匪 自定义双背景开关 - Customizable Day/Night Switcher | 37 | 13 | 0 | 386 | 无 | 新增 / census未join runtime |
 | `2986218263` | Tokisaki Asaba &amp; Tokisaki Mio │18+ X-Ray │NSFW &amp; SFW│VERSIONS | 5 | 1 | 1 | 73 | 无 | 新增 / census未join runtime |
+| `2987771245` | 麻匪 Wlop鬼刀画作 雨儿 | 45 | 51 | 9 | 832 | 截图 | 新增 / census未join runtime |
+| `2992924426` | 麻匪 炫彩男孩 16:9 21:9 | 19 | 43 | 0 | 460 | 截图 | 新增 / census未join runtime |
 | `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 22 | 22 | 15 | 738 | 截图 | tracked45 / census未join runtime |
+| `2999907577` | 麻匪 站姬 16:9 21:9 | 10 | 39 | 0 | 357 | 截图 | 新增 / census未join runtime |
 | `3002649614` | 纯欲少女 | 4 | 0 | 0 | 27 | 无 | 新增 / census未join runtime |
 | `3021013015` | 赛博color-墨侠客行 | 3 | 6 | 1 | 114 | 无 | 新增 / census未join runtime |
+| `3022080536` | 赛博color-宣纸国画-紫罗兰永恒花园 | 4 | 5 | 1 | 149 | 截图 | 新增 / census未join runtime |
 | `3025969015` | 黑龙闹海 | 9 | 7 | 7 | 280 | 无 | 新增 / census未join runtime |
+| `3027056454` | 麻匪 多娜多娜 Dohna Dohna | 24 | 24 | 1 | 422 | 截图 | 新增 / census未join runtime |
+| `3027068980` | 麻匪 Miku 初音未来 自定义音频识别 Media Player | 32 | 51 | 5 | 673 | 截图 | 新增 / census未join runtime |
 | `3028090166` | WLOP [Tian Nan2] | 12 | 20 | 2 | 347 | 截图 | tracked45 / census未join runtime |
-| `3042492564` | [4K \| Customizable] Hoshi-Tele \| 星屑テレパス | 79 | 90 | 10 | 2363 | 无 | 新增 / census未join runtime |
+| `3039704323` | 赛博color-宣纸国画-紫罗兰永恒花园3 | 7 | 9 | 2 | 239 | 截图 | 新增 / census未join runtime |
+| `3039882306` | 麻匪 音频识别 抽签 Media Player | 45 | 54 | 0 | 718 | 截图 | 新增 / census未join runtime |
+| `3042492564` | [4K \| Customizable] Hoshi-Tele \| 星屑テレパス | 79 | 90 | 10 | 2363 | 截图 | 新增 / census未join runtime |
 | `3078285611` | 麻匪 金克丝 jinx 音频识别 Media Player | 70 | 31 | 4 | 757 | 无 | 新增 / census未join runtime |
+| `3086016320` | 麻匪 发如雪 21:9 16:9 | 26 | 30 | 3 | 478 | 截图 | 新增 / census未join runtime |
+| `3087231311` | 麻匪 明日方舟 凯尔希 | 23 | 35 | 2 | 498 | 截图 | 新增 / census未join runtime |
 | `3088601835` | Winter Wanderer Xayah - League of Legends [ NAMAKXIN ] | 31 | 36 | 19 | 875 | 截图 | tracked45 / census未join runtime |
 | `3113287126` | Dome 4k {Artwork by WLOP} | 31 | 46 | 5 | 801 | 无 | 新增 / census未join runtime |
 | `3113554287` | 【可随时间变化】窗旁の伊蕾娜 （优化版本） | 6 | 1 | 0 | 56 | 无 | 新增 / census未join runtime |
+| `3114332546` | 麻匪 云兮 竹林的小师妹 | 46 | 55 | 9 | 1054 | 截图 | 新增 / census未join runtime |
 | `3115163440` | Shadow Garden (X-Ray) | 2 | 1 | 0 | 34 | 无 | 新增 / census未join runtime |
 | `3122339805` | Pixels | 190 | 17 | 0 | 790 | 截图 | tracked45 / census未join runtime |
+| `3137495261` | 麻匪 花姐 21:9 16:9 | 94 | 34 | 6 | 978 | 截图 | 新增 / census未join runtime |
 | `3141421197` | GraspOfTheAbyss | 1 | 1 | 0 | 12 | 截图 | tracked45 / census未join runtime |
 | `3146507587` | こきん【吉罗】 | 18 | 32 | 6 | 561 | 无 | 新增 / census未join runtime |
 | `3147346398` | ⛏🧱Minecraft Lo-Fi Fireplace [4k HDR] WE adaptation by Becco38 | 11 | 2 | 0 | 89 | 无 | 新增 / census未join runtime |
+| `3148125112` | 麻匪 薇薇安娜 明日方舟 4K | 68 | 51 | 3 | 853 | 截图 | 新增 / census未join runtime |
 | `3167210190` | [Blue Archive] 奶牛装明日奈 | 1 | 5 | 0 | 65 | 无 | 新增 / census未join runtime |
+| `3173418061` | Persona 5/女神异闻录5 音乐播放器 | 21 | 7 | 1 | 162 | 截图 | 新增 / census未join runtime |
+| `3175039950` | 麻匪 音频节拍互动 Music beat interaction | 33 | 26 | 2 | 518 | 截图 | 新增 / census未join runtime |
 | `3211615441` | 捆绑悬挂 \| Bind &amp; Suspend [ 可交互/interactive \| iumu \| X-ray \| 4k \| 明日方舟/Arknights ] | 26 | 116 | 0 | 1049 | 无 | 新增 / census未join runtime |
 | `3219398263` | Acheron Black Hole (StarchaserArt) | 10 | 1 | 6 | 187 | 无 | 新增 / census未join runtime |
+| `3221354414` | dynamic Ginka 神轿银花 [GINKA OST: 祭神纸偶与愿望 梦浮桥（Instrumental）][8K HDR ] | 7 | 11 | 5 | 227 | 无 | 新增 / census未join runtime |
 | `3226487183` | 麻匪 花火 五角色自定义 崩坏星穹铁道 Sparkle Honkai: Star Rail 媒体音频识别 Media Player 16:9 16:10 21:9 32 | 52 | 105 | 3 | 1327 | 截图 | 新增 / census未join runtime |
 | `3232289987` | 【4k 高度自定义】流萤&amp;萨姆 丝袜可更改——夜莺Night【崩坏星穹铁道】 | 60 | 52 | 9 | 1377 | 无 | 新增 / census未join runtime |
 | `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura falls （Highly customizable） | 65 | 59 | 9 | 1022 | 无 | 新增 / census未join runtime |
 | `3238423642` | Katana Girl with Hologram (Adjustable; 4k; Cyberpunk Samurai) MX | 96 | 123 | 31 | 3035 | 无 | 新增 / census未join runtime |
+| `3248220186` | 麻匪 音频粒子球 Audio Particle Ball 16:9 16:10 21:9 32:9 | 14 | 4 | 6 | 451 | 截图 | 新增 / census未join runtime |
 | `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 36 | 33 | 0 | 571 | 截图 | 新增 / census未join runtime |
 | `3287715210` | 发光少女 4K动态壁纸 | 12 | 8 | 2 | 192 | 无 | 新增 / census未join runtime |
 | `3290491250` | frieren | 5 | 3 | 1 | 76 | 截图 | tracked45 / census未join runtime |
+| `3291326967` | 蒙眼少女 4K动态壁纸 | 19 | 13 | 11 | 507 | 截图 | 新增 / census未join runtime |
+| `3292370168` | 麻匪 3D 自定义动态交互 骷髅 音频识别 Human Skeleton Media Player | 150 | 15 | 10 | 852 | 截图 | 新增 / census未join runtime |
 | `3299228616` | Lonely Cat: Audio visualizer , Clock , Chill , Multi language | 271 | 276 | 42 | 4346 | 截图 | tracked45 / census未join runtime |
 | `3323988600` | Hentai Goddess of Victory Nikke ANIMATED \| Huge Ass Cowgirl \| NSFW R-18 \| Customizable | 6 | 6 | 4 | 207 | 无 | 新增 / census未join runtime |
-| `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 136 | 59 | 8 | 1528 | 无 | 新增 / census未join runtime |
+| `3325624777` | 麻匪 修女 鼠标互动 nun 16:9 21:9 32:9 16:10 | 12 | 19 | 4 | 600 | 截图 | 新增 / census未join runtime |
+| `3337494481` | 麻匪 3D交互音频模块 媒体识别 Media Player 16:9 16:10 21:9 32:9 | 72 | 25 | 22 | 1154 | 截图 | 新增 / census未join runtime |
+| `3341111071` | 麻匪 初音未来 MIKU 海边 32:9 21:9 16:9 16:10 | 18 | 51 | 2 | 511 | 截图 | 新增 / census未join runtime |
+| `3351163962` | [高度自定义] 樱花庄的宠物女孩 椎名真白 | 136 | 59 | 8 | 1528 | 截图 | 新增 / census未join runtime |
+| `3351179520` | 麻匪 東京喰种 高槻泉 媒体识别 Media Player 16:9 16:10 21:9 32:9 | 55 | 72 | 8 | 1067 | 截图 | 新增 / census未join runtime |
 | `3357627941` | 麻匪 开门见喜 鼠标交互 自定义本地文件 Windows door 16:9 21:9 | 13 | 7 | 1 | 204 | 无 | 新增 / census未join runtime |
 | `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Night Light and Shadow | 48 | 34 | 4 | 801 | 无 | 新增 / census未join runtime |
+| `3372715909` | 御坂美琴 旗袍 | 17 | 1 | 0 | 153 | 无 | 新增 / census未join runtime |
+| `3374523158` | 麻匪 极光音频响应式 交互壁纸 Aurora audio-responsive interactive | 18 | 21 | 1 | 427 | 截图 | 新增 / census未join runtime |
+| `3383535304` | 麻匪 顶顶 音频感应自动场景切换 Audio monitoring scene switching | 51 | 81 | 4 | 898 | 截图 | 新增 / census未join runtime |
 | `3389974179` | 落日与白皙的大腿 | 4 | 4 | 0 | 99 | 无 | 新增 / census未join runtime |
 | `3395392965` | 请叫我帅锅-小姨定制 | 1 | 1 | 0 | 22 | 无 | 新增 / census未join runtime |
 | `3395777145` | 麻匪 光 音频识别 Media Player 16:9 16:10 21:9 | 21 | 39 | 0 | 533 | 无 | 新增 / census未join runtime |
 | `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 16:9 16:10 4:3 21:9 32:9 | 61 | 76 | 16 | 1827 | 无 | 新增 / census未join runtime |
 | `3420215721` | 麻匪 圈 媒体识别交互壁纸 Circle Media Player | 41 | 59 | 2 | 764 | 无 | 新增 / census未join runtime |
+| `3435573282` | 麻匪 巳蛇 自定义动画 音频识别 Media Player | 73 | 109 | 11 | 1492 | 截图 | 新增 / census未join runtime |
+| `3436945972` | 麻匪 Wlop 远方来客 | 102 | 117 | 30 | 3169 | 截图 | 新增 / census未join runtime |
 | `3437487219` | 3D Earth - Close Orbit [HDR10 Optimized] | 21 | 4 | 2 | 201 | 截图 | 新增 / census未join runtime |
-| `3446316682` | 【完美世界】柳神 无敌道 | 6 | 10 | 4 | 248 | 无 | 新增 / census未join runtime |
+| `3446316682` | 【完美世界】柳神 无敌道 | 6 | 10 | 4 | 248 | 截图 | 新增 / census未join runtime |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:10 21:9 32:9 | 81 | 103 | 2 | 1291 | 截图 | 新增 / census未join runtime |
-| `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Night【原画：Rella] | 103 | 40 | 14 | 1525 | 无 | 新增 / census未join runtime |
+| `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Night【原画：Rella] | 103 | 40 | 14 | 1525 | 截图 | 新增 / census未join runtime |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 49 | 6 | 0 | 338 | 无 | 新增 / census未join runtime |
+| `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 100 | 109 | 20 | 1660 | 截图 | 新增 / census未join runtime |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 3 | 6 | 0 | 90 | 无 | 新增 / census未join runtime |
+| `3476868923` | 麻匪 索泰ZOTAC 天启姬 (角色双动画 点击互动) 120项自定义 | 84 | 124 | 2 | 1414 | 截图 | 新增 / census未join runtime |
 | `3477054430` | Cat with headphones on the roof | 15 | 2 | 0 | 133 | 截图 | 新增 / census未join runtime |
+| `3486887298` | 风景系列-真4K【流星、夜晚】-B站慕慕慕慕斯小蛋糕 | 6 | 7 | 0 | 117 | 截图 | 新增 / census未join runtime |
 | `3487629864` | 云曦老婆 (18+) | 4 | 5 | 2 | 102 | 无 | 新增 / census未join runtime |
+| `3507496797` | 麻匪 龙吟锦鲤赋 32:9 | 35 | 116 | 4 | 1206 | 截图 | 新增 / census未join runtime |
 | `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 142 | 12 | 4 | 1255 | 无 | 新增 / census未join runtime |
-| `3549827466` | 【完美世界 火灵儿】盛典妆容 | 7 | 9 | 5 | 279 | 无 | 新增 / census未join runtime |
+| `3549827466` | 【完美世界 火灵儿】盛典妆容 | 7 | 9 | 5 | 279 | 截图 | 新增 / census未join runtime |
 | `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 37 | 24 | 13 | 855 | 无 | 新增 / census未join runtime |
-| `3562021804` | 【完美世界】石昊 以身为种 | 9 | 14 | 1 | 198 | 无 | 新增 / census未join runtime |
-| `3563038726` | 【凡人修仙传】梅凝 乖巧可怜 | 13 | 12 | 3 | 257 | 无 | 新增 / census未join runtime |
-| `3566880847` | 【凡人修仙传】紫灵 白色限定 | 8 | 15 | 4 | 305 | 无 | 新增 / census未join runtime |
-| `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 26 | 41 | 9 | 782 | 无 | 新增 / census未join runtime |
-| `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 22 | 29 | 5 | 602 | 无 | 新增 / census未join runtime |
+| `3562021804` | 【完美世界】石昊 以身为种 | 9 | 14 | 1 | 198 | 截图 | 新增 / census未join runtime |
+| `3563038726` | 【凡人修仙传】梅凝 乖巧可怜 | 13 | 12 | 3 | 257 | 截图 | 新增 / census未join runtime |
+| `3566880847` | 【凡人修仙传】紫灵 白色限定 | 8 | 15 | 4 | 305 | 截图 | 新增 / census未join runtime |
+| `3577990983` | Chainsaw Man-Reze 蕾塞[4K] | 46 | 27 | 2 | 697 | 截图 | 新增 / census未join runtime |
+| `3581882134` | 【凡人修仙传】紫灵 冰清玉洁 | 26 | 41 | 9 | 782 | 截图 | 新增 / census未join runtime |
+| `3585542943` | 【凡人修仙传】元瑶 灵泉沐浴 | 22 | 29 | 5 | 602 | 截图 | 新增 / census未join runtime |
 | `3585875739` | Miku Monitoring | 3 | 6 | 2 | 148 | 无 | 新增 / census未join runtime |
-| `3587571382` | 【凡人修仙传】宋玉 璀璨夺目 | 26 | 23 | 6 | 460 | 无 | 新增 / census未join runtime |
+| `3586705329` | [甜蜜女友3]柳木诗梦 | 23 | 14 | 1 | 316 | 截图 | 新增 / census未join runtime |
+| `3587571382` | 【凡人修仙传】宋玉 璀璨夺目 | 26 | 23 | 6 | 460 | 截图 | 新增 / census未join runtime |
 | `3589454154` | 土星 \| Saturn - Sykm | 130 | 44 | 1 | 955 | 截图 | 新增 / census未join runtime |
+| `3597772384` | Lost Landscape \| northway. | 63 | 74 | 7 | 1200 | 截图 | 新增 / census未join runtime |
+| `3599986633` | 麻匪 杉泽 观山海 | 52 | 71 | 1 | 770 | 截图 | 新增 / census未join runtime |
+| `3601801724` | ash一爪布鲁托 | 2 | 0 | 1 | 33 | 截图 | 新增 / census未join runtime |
 | `3601964477` | 千咲 \|\| 鸣潮 \|\| 枫 \|\| 4K | 33 | 20 | 3 | 519 | 无 | 新增 / census未join runtime |
-| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 63 | 52 | 6 | 920 | 无 | 新增 / census未join runtime |
+| `3603711180` | 【凡人修仙传】慕沛灵 金屋藏娇 | 63 | 52 | 6 | 920 | 截图 | 新增 / census未join runtime |
+| `3605502569` | 顾州-暗影魅眸｜Shadow · Charming Eyes | 10 | 7 | 1 | 198 | 截图 | 新增 / census未join runtime |
+| `3605722997` | [假装4K]魔王-追悼【可交互壁纸】（喜欢的点个赞呗） | 41 | 8 | 5 | 435 | 截图 | 新增 / census未join runtime |
 | `3609108600` | 千咲 \|\| 鸣潮 \|\| 4K | 5 | 12 | 0 | 143 | 无 | 新增 / census未join runtime |
 | `3610154602` | 千咲 \|\| 鸣潮 \|\| 高塔 \|\| 4K | 26 | 16 | 2 | 409 | 无 | 新增 / census未join runtime |
 | `3612058080` | 吞噬星空-星幻王 | 1 | 2 | 0 | 28 | 无 | 新增 / census未join runtime |
 | `3612199597` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 咖啡厅天台 \|\| 4K | 30 | 20 | 5 | 716 | 无 | 新增 / census未join runtime |
 | `3612795410` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 喷泉广场 \|\| 4K | 30 | 22 | 1 | 454 | 无 | 新增 / census未join runtime |
+| `3616389236` | Aesthetic Media Visualizer (Shortcut) \| 𝙎𝙚𝙮𝙪𝙡.𝙎𝙖𝙡𝙩𝙯 | 77 | 102 | 0 | 1212 | 截图 | 新增 / census未join runtime |
+| `3617056047` | 麻匪 模型音频互动 Model - audio interaction | 13 | 4 | 0 | 169 | 截图 | 新增 / census未join runtime |
+| `3627973226` | [Sakiko Togawa]snowy night - It's MyGO!!!!!/AveMujica | 40 | 36 | 10 | 793 | 截图 | 新增 / census未join runtime |
 | `3629927359` | 奶牛大鸭鸭 2 | 25 | 0 | 0 | 203 | 无 | 新增 / census未join runtime |
+| `3632513108` | 千咲 不散的春之花——夜莺Night《鸣潮 Wuthering Waves》 | 140 | 98 | 2 | 1947 | 截图 | 新增 / census未join runtime |
+| `3632522893` | Widescreen Mount Fuji Visualiser | 36 | 27 | 1 | 468 | 截图 | 新增 / census未join runtime |
+| `3641200550` | 樱羽艾玛 | 2 | 1 | 0 | 22 | 截图 | 新增 / census未join runtime |
 | `3655958892` | R18 Acheron &amp; Black Swan 黄泉&amp;黑天鹅 [Honkai:Star Rail] [NSFW] | 11 | 10 | 0 | 180 | 无 | 新增 / census未join runtime |
+| `3662245960` | Wuthering Waves - Aemeath | 4 | 6 | 1 | 137 | 截图 | 新增 / census未join runtime |
 | `3662390671` | 【Angels of Delusion】\| Sunna \| Aria \| Nangong Yu \| Zenless Zone Zero (ZZZ) \| Customizable \| Media Integration | 58 | 70 | 1 | 928 | 无 | 新增 / census未join runtime |
 | `3662790108` | 实时太阳系 Live Solar System - SYKM | 847 | 70 | 0 | 4615 | 无 | 新增 / census未join runtime |
 | `3663810817` | 鎏金狮影映娇颜 | 30 | 19 | 12 | 917 | 无 | 新增 / census未join runtime |
 | `3665307769` | 爱弥斯1 \|\| 鸣潮 \|\| 4K | 29 | 30 | 3 | 603 | 无 | 新增 / census未join runtime |
+| `3666041758` | 麻匪 磁流体 Magnetofluid 音频相应 | 18 | 8 | 0 | 455 | 截图 | 新增 / census未join runtime |
+| `3680252478` | SUPRA A80 \| GREY HORIZON | 9 | 25 | 2 | 303 | 截图 | 新增 / census未join runtime |
+| `3690065713` | 老人-棕发女孩 [带鱼屏4K] | 17 | 19 | 3 | 345 | 截图 | 新增 / census未join runtime |
 | `3690859128` | 爱弥斯2 \|\| 鸣潮 \|\| 4K | 21 | 14 | 9 | 605 | 无 | 新增 / census未join runtime |
-| `3694697894` | 星街すいせい 星街彗星（第二版） | 6 | 5 | 1 | 182 | 无 | 新增 / census未join runtime |
+| `3694697894` | 星街すいせい 星街彗星（第二版） | 6 | 5 | 1 | 182 | 截图 | 新增 / census未join runtime |
+| `3695791724` | Angel (Commission; Adjustable; 4k) MX | 30 | 27 | 12 | 844 | 截图 | 新增 / census未join runtime |
+| `3698459055` | 凡人修仙传-梅凝·暗系[4K] | 23 | 3 | 5 | 328 | 截图 | 新增 / census未join runtime |
 | `3699213569` | 碧蓝航线Azurlane-斯特拉斯堡&amp;克莱蒙梭（By Adramahlihk） | 1 | 5 | 0 | 62 | 无 | 新增 / census未join runtime |
 | `3703104370` | Rio&amp;菲比-adoc(涟) | 1 | 6 | 0 | 69 | 无 | 新增 / census未join runtime |
+| `3708363772` | 麻匪 3D磨砂 音频识别 Media Player | 72 | 67 | 1 | 1038 | 截图 | 新增 / census未join runtime |
 | `3712499998` | 鸣潮 \|\| 3.3pv \| 自星海尽处回响 | 21 | 0 | 5 | 463 | 无 | 新增 / census未join runtime |
+| `3719111841` | 【明日方舟/Arknights】凯尔希•思衡托——Kal'tsit·Esperanta | 43 | 23 | 8 | 672 | 截图 | 新增 / census未join runtime |
 | `3721456868` | 绯雪1 \|\| 鸣潮 | 13 | 18 | 2 | 317 | 无 | 新增 / census未join runtime |
-| `3723344874` | 【凡人修仙传】玄骨 借尸还魂 | 35 | 37 | 4 | 818 | 无 | 新增 / census未join runtime |
+| `3722749868` | Porsche GT3 RS | 11 | 6 | 7 | 265 | 截图 | 新增 / census未join runtime |
+| `3723344874` | 【凡人修仙传】玄骨 借尸还魂 | 35 | 37 | 4 | 818 | 截图 | 新增 / census未join runtime |
 | `3738202317` | Albedo. | 1 | 4 | 0 | 60 | 截图 | tracked45 / census未join runtime |
 | `3742133044` | 凌霄·双司镇命·无常&lt;1&gt;-[深空之眼] | 4 | 5 | 2 | 122 | 截图 | tracked45 / census未join runtime |
+| `3742497499` | 麻匪 白泽夢 | 141 | 120 | 10 | 1741 | 截图 | 新增 / census未join runtime |
 | `3743305891` | 战双 | 8 | 4 | 1 | 145 | 截图 | tracked45 / census未join runtime |
-| `3747190633` | 【凡人修仙传】银月 惹人怜惜 | 38 | 29 | 7 | 571 | 无 | 新增 / census未join runtime |
+| `3745828537` | 麻匪 xraypad-眠 | 214 | 328 | 11 | 2846 | 截图 | 新增 / census未join runtime |
+| `3746422401` | 麻匪 泠泠泉心 21:9 16:9 | 34 | 59 | 0 | 660 | 截图 | 新增 / census未join runtime |
+| `3747190633` | 【凡人修仙传】银月 惹人怜惜 | 38 | 29 | 7 | 571 | 截图 | 新增 / census未join runtime |
 | `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Evil 4 Remake \| Re4 | 21 | 13 | 1 | 592 | 截图 | tracked45 / census未join runtime |
 | `3748311238` | 大 | 6 | 17 | 0 | 265 | 无 | 新增 / census未join runtime |
 | `3749463715` | 还能在大 ∑ 2 | 28 | 37 | 8 | 1018 | 无 | 新增 / census未join runtime |
@@ -339,14 +433,18 @@
 | `3750813609` | Asian Temple in the Mountains | 13 | 5 | 9 | 391 | 截图 | tracked45 / census未join runtime |
 | `3754630802` | WLOP [ChineseNewYear 7] | 38 | 31 | 10 | 1052 | 无 | 新增 / census未join runtime |
 | `3754639143` | WLOP 银月 | 22 | 20 | 2 | 465 | 无 | 新增 / census未join runtime |
+| `3754908581` | DJGun Making Noise!(Lite) | 5 | 3 | 0 | 34 | 截图 | 新增 / census未join runtime |
 | `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 9 | 9 | 7 | 425 | 截图 | tracked45 / census未join runtime |
 | `3761159935` | 【诛仙】陆雪琪 等待的沉默 | 32 | 27 | 13 | 767 | 无 | 新增 / census未join runtime |
+| `3761619125` | 麻匪 雪竹 | 73 | 123 | 3 | 1321 | 截图 | 新增 / census未join runtime |
 | `3762312138` | Elf x Goth | 2 | 9 | 0 | 100 | 无 | 新增 / census未join runtime |
-| `3763323436` | 补 碧蓝航线 拉菲 Azur lane Laffey | 4 | 6 | 1 | 100 | 无 | 新增 / census未join runtime |
+| `3763323436` | 3763323436 | 0 | 0 | 0 | 0 | 无 | 新增 / census未join runtime |
 | `3763428294` | 秧秧·玄翎1\|\|穗穗\|\|舟行画中，心随风远\|\|鸣潮 | 16 | 25 | 3 | 413 | 无 | 新增 / census未join runtime |
 | `3764725758` | Lumine_HuuOliv | 17 | 10 | 4 | 262 | 截图 | 新增 / census未join runtime |
 | `3765760121` | 【4K】三色堇与她 | 13 | 12 | 1 | 209 | 截图 | tracked45 / census未join runtime |
 | `3765904723` | 调月莉音 | 5 | 9 | 0 | 128 | 无 | 新增 / census未join runtime |
+| `3766299002` | 麻匪 皓风琦修罗 双主题切换 | 62 | 71 | 3 | 945 | 截图 | 新增 / census未join runtime |
+| `3766310551` | 【完美世界】柳神 九劫焚天 | 21 | 25 | 6 | 502 | 截图 | 新增 / census未join runtime |
 | `3766387484` | ARKNIGHTS ENDFIELD ARCANE CHEN XIANGYU | 7 | 13 | 1 | 229 | 截图 | tracked45 / census未join runtime |
 | `3766403294` | 仪玄(AI) | 2 | 1 | 0 | 30 | 截图 | tracked45 / census未join runtime |
 | `3766415113` | The last pour | 1 | 0 | 0 | 9 | 截图 | tracked45 / census未join runtime |
@@ -362,20 +460,24 @@
 | `3769761761` | Yoru and Mitaka asa | 20 | 24 | 5 | 524 | 截图 | tracked45 / census未join runtime |
 | `3770444459` | 三国杀【节气 夏至 2026】8K | 6 | 4 | 5 | 247 | 截图 | tracked45 / census未join runtime |
 | `3770462923` | gt3rs@d4rk | 4 | 5 | 0 | 100 | 截图 | tracked45 / census未join runtime |
+| `3773747576` | 麻匪 棘 三模式切换 | 47 | 49 | 4 | 619 | 截图 | 新增 / census未join runtime |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2 | 1 | 0 | 31 | 无 | 新增 / census未join runtime |
 | `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2 | 1 | 0 | 31 | 无 | 新增 / census未join runtime |
 | `3777761326` | I do Anything | 7 | 22 | 1 | 266 | 无 | 新增 / census未join runtime |
 | `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 30 | 22 | 2 | 487 | 无 | 新增 / census未join runtime |
+| `3779107475` | 麻匪 赛驴 音频识别互动 | 11 | 15 | 0 | 210 | 截图 | 新增 / census未join runtime |
 | `3779904456` | 尤诺2 \|\| 鸣潮 | 15 | 11 | 5 | 397 | 无 | 新增 / census未join runtime |
 | `3780119725` | in the rain V 31 | 89 | 37 | 48 | 1993 | 截图 | 新增 / census未join runtime |
 | `3780391264` | Agnes Tachyon Umamusume Neon | 19 | 7 | 10 | 516 | 截图 | 新增 / census未join runtime |
 | `3780940857` | 枕澜 蒂法 电脑动态壁纸 最终幻想7 TIFA Final Fantasy VII | 2 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
 | `3781307553` | Look this | 2 | 5 | 0 | 66 | 无 | 新增 / census未join runtime |
+| `3781757083` | 羽毛笔-天国来信・Arknights | 48 | 27 | 6 | 596 | 截图 | 新增 / census未join runtime |
 | `3782650329` | 我们三 X-ray | 1 | 3 | 0 | 46 | 无 | 新增 / census未join runtime |
 | `3782740481` | WLOP Violet 紫 | 23 | 21 | 1 | 480 | 无 | 新增 / census未join runtime |
 | `3784012236` | &gt;R-18&lt; 蔚蓝档案 Blue_Archive\|06\|飛鳥馬 トキ 时 Toki_Asuma X-ray | 2 | 1 | 0 | 35 | 无 | 新增 / census未join runtime |
 | `3786048634` | 2B and A2 | 2 | 7 | 0 | 74 | 无 | 新增 / census未join runtime |
 | `3786185473` | ELF PARADISE～欢迎来到性夜♪色情精灵们的淫乱圣诞节特别篇～ \| (x-ray) | 4 | 4 | 0 | 79 | 无 | 新增 / census未join runtime |
+| `3786330502` | 麻匪 Astra GamingGear 含羞 | 113 | 184 | 6 | 2037 | 截图 | 新增 / census未join runtime |
 | `3786641495` | Albedo - Look at here my master | 2 | 12 | 0 | 109 | 无 | 新增 / census未join runtime |
 | `3787355076` | 维琳娜-申请入股 | 1 | 1 | 0 | 22 | 无 | 新增 / census未join runtime |
 | `3787382101` | 清宵 \|\| 万剑 \|\| 鸣潮 | 15 | 12 | 3 | 375 | 无 | 新增 / census未join runtime |
@@ -397,7 +499,7 @@
 | `3792817546` | 小羊不吃草 (地雷系)#滕子京大王 | 5 | 0 | 1 | 62 | 无 | 新增 / census未join runtime |
 | `3793328876` | 大凤Taihou&amp;白凤Hakuhou-HanAI | 1 | 6 | 0 | 69 | 无 | 新增 / census未join runtime |
 | `3793978239` | 埃吉尔掰穴 | 1 | 0 | 0 | 9 | 无 | 新增 / census未join runtime |
-| `3793998447` | 枕中梦 | 4 | 2 | 0 | 55 | 无 | 新增 / census未join runtime |
+| `3793998447` | 枕中梦 | 4 | 2 | 0 | 55 | 截图 | 新增 / census未join runtime |
 | `3796588443` | ZZZ 薇薇安 法厄同 Vivian Belle 鼠标互动揉胸 | 16 | 44 | 2 | 500 | 无 | 新增 / census未join runtime |
 | `3797217144` | 迪迦奥特曼 出场动画 镜头视差【Ultraman Tiga】dy柊明 | 26 | 30 | 5 | 535 | 无 | 新增 / census未join runtime |
 | `3800075350` | 三角洲三小只-RX | 5 | 0 | 2 | 51 | 无 | 新增 / census未join runtime |
@@ -406,7 +508,7 @@
 | `3800728730` | 浮士德ego穴 | 2 | 0 | 0 | 13 | 无 | 新增 / census未join runtime |
 | `3801294161` | Reze - Let's turn off the lights | 5 | 13 | 1 | 154 | 无 | 新增 / census未join runtime |
 | `3801984224` | 粉红护士 | 1 | 0 | 0 | 9 | 无 | 新增 / census未join runtime |
-| `3802005866` | 绝区零 维琳娜 西域风 Zenless Zone Zero Velina | 13 | 14 | 0 | 248 | 无 | 新增 / census未join runtime |
+| `3802005866` | 绝区零 维琳娜 西域风 Zenless Zone Zero Velina | 13 | 14 | 0 | 248 | 截图 | 新增 / census未join runtime |
 | `3803087940` | 原神 少女黑丝玉足 X - ray NSFW 差分 | 3 | 3 | 1 | 79 | 无 | 新增 / census未join runtime |
 | `3803482159` | Black Morpho | 6 | 3 | 3 | 161 | 无 | 新增 / census未join runtime |
 | `3803576671` | NFFA画风 冰雪公主（可去防封马赛克+可去时钟） | 3 | 1 | 1 | 69 | 无 | 新增 / census未join runtime |
@@ -418,7 +520,7 @@
 | `3806006894` | 三角洲行动露娜天际线_LUNA_4K动态初版FLYSMALLPIG | 5 | 3 | 1 | 76 | 无 | 新增 / census未join runtime |
 | `3806016969` | 三角洲行动红狼蚀金玫瑰_黑金_动态版4K_FLYSMALLPIG | 5 | 3 | 1 | 73 | 无 | 新增 / census未join runtime |
 | `3806202923` | Azur Lane 碧蓝航线光辉 | 27 | 24 | 5 | 440 | 无 | 新增 / census未join runtime |
-| `3806337293` | 初音未来 hatsune miku 3d视差 4k | 11 | 21 | 0 | 272 | 无 | 新增 / census未join runtime |
+| `3806337293` | 初音未来 hatsune miku 3d视差 4k | 11 | 21 | 0 | 272 | 截图 | 新增 / census未join runtime |
 | `3807013762` | Frieren | 30 | 21 | 1 | 339 | 无 | 新增 / census未join runtime |
 | `3807121855` | 鸣潮今汐-桃花鸢 | 3 | 0 | 1 | 49 | 无 | 新增 / census未join runtime |
 | `3807151772` | MyGO 长崎素世 Soyo 鼠标互动 捧脸 | 7 | 20 | 1 | 405 | 无 | 新增 / census未join runtime |
@@ -427,12 +529,21 @@
 | `3807553861` | Albedo - After the bath | 8 | 26 | 0 | 223 | 无 | 新增 / census未join runtime |
 | `3807668787` | 霜翼剑使 | 19 | 12 | 8 | 400 | 无 | 新增 / census未join runtime |
 | `3807861954` | 鬼方 カヨコ | 10 | 3 | 5 | 188 | 无 | 新增 / census未join runtime |
+| `3808922316` | 麻匪 Elisa | 182 | 259 | 2 | 2639 | 截图 | 新增 / census未join runtime |
+| `3809034761` | 白丝·斜身侧立[4K] | 16 | 2 | 0 | 132 | 截图 | 新增 / census未join runtime |
 | `3809541486` | Moon Princess | 11 | 4 | 7 | 256 | 无 | 新增 / census未join runtime |
-| `3809609151` | League of Legends Gwen \| 6 character poses, click to switch \| R18 mouse interaction \| Customizable | 89 | 95 | 13 | 1391 | 无 | 新增 / census未join runtime |
+| `3809609151` | League of Legends Gwen \| 6 character poses, click to switch \| R18 mouse interaction \| Customizable | 89 | 95 | 13 | 1391 | 截图 | 新增 / census未join runtime |
 | `3809618616` | 芒果青青 | 4 | 5 | 0 | 60 | 截图 | 新增 / census未join runtime |
-| `3810943704` | Empress of Grace (Commission; Adjustable) MX | 36 | 53 | 11 | 1002 | 无 | 新增 / census未join runtime |
+| `3810943704` | Empress of Grace (Commission; Adjustable) MX | 36 | 53 | 11 | 1002 | 截图 | 新增 / census未join runtime |
 | `3811154012` | 麻匪 Uncle Panda 残叙 | 58 | 54 | 9 | 910 | 无 | 新增 / census未join runtime |
+| `3811216799` | Nikke - Guilty (Mighty Bunny) Desktop Avatar Delight Version | 3 | 0 | 0 | 13 | 截图 | 新增 / census未join runtime |
 | `3812249745` | 完美世界-九劫柳神 | 1 | 4 | 0 | 47 | 无 | 新增 / census未join runtime |
+| `3812473896` | 原神芙宁娜-水畔芙谣[Furina's Ballad by the Waterside] | 8 | 0 | 2 | 198 | 截图 | 新增 / census未join runtime |
+| `3814040466` | Nikke - Privaty - Sharp Lesson | 4 | 0 | 1 | 38 | 截图 | 新增 / census未join runtime |
+| `3815761795` | 明日方舟・夕｜画桥（4K） | 60 | 12 | 28 | 1135 | 截图 | 新增 / census未join runtime |
+| `3818943255` | 美女肚兜 | 1 | 0 | 0 | 12 | 无 | 新增 / census未join runtime |
+| `3820312181` | Void Edge Theme R6S [High Resolution] | 2 | 2 | 0 | 61 | 截图 | 新增 / census未join runtime |
+| `3822822401` | 麻匪 穿云 | 56 | 57 | 6 | 1016 | 截图 | 新增 / census未join runtime |
 | `833227004` | 星云变换t001 | 1 | 0 | 0 | 13 | 截图 | 新增 / census未join runtime |
 
 ## 6. 修复事件记录与防回归合同
