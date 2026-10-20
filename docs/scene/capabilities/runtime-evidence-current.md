@@ -165,6 +165,10 @@
 
 ## 3. 证据包
 
+### 蓝烟花事件与画面资格
+
+<a id="blue-firework-qualification-20261020"></a> 原2131872317在复用的当前Debug（无新build）运行22s，原source无漂移。blue的2s关闭/10s恢复共5次接受，surface1/window3072保持；1375四child模板准备、0unsupported，多个非空/衰减阶段与实际GPU241帧/0failed、571批（25折射）完成。Root及独审见蓝色放射短线和后续稀疏蓝白亮点，主构图保持；不能由这些图/聚合计数宣称完整上升、全部四child逐一执行、出生frame/velocity正确。官方目录截图未露蓝爆炸，preview.gif经ffprobe为200×200/50帧/2s，不作轨迹oracle；本机VM实际stopped，本批未启动。结论`STOP_TRAJECTORY_REFERENCE_UNQUALIFIED`：首错UNKNOWN、无产品修法，不关闭用户旧轨迹观察，不改作者参数或宣称性能收益。App0/stop1→0/GPUdrained，必要限期包 `../../../.artifacts/scene-evidence/runs/blue-firework-qualification-213-20261020/current/report.json`。
+
 ### 程序化quad整层显隐热更新
 
  <a id="quad-visibility-live-20261020"></a>共享visibility admission补严格standalone quad leaf的潜在准备；Host只认当前catalog claim/resolve、transparentDirectDraw与非空material。原3768724269的sunrays关闭原先被layer100误拒，修后100/54同代false/true，startup-false在首次true时执行原Program3da88dd5…与GPU/末合成/下一帧；两run全部3次接受，surface1、window2118/2126不变。静音观测nonSilent0，原图可见光束消失/恢复且主体/背景/字保留。独立3287715210的radial quad470执行Program/GPU/末合成/下一帧，人物/眼周光/文字保持；不关闭旧亮度/条纹余项。结构与真实Host/identity/LiveState门33通过，邻门19项中18通过/1既有skip，Debug25.443s/无漂移/独审GO。三run均0/stop1→0/drained；原376的12个effect均program、0unsupported，14个作者script occurrence对应14个完成target，仅证明当前默认/静音callback覆盖，非完整交互/音频行为或官方parity。首基线错silence flag、nonSilent12，保为失败资格，只认属性拒绝、不用于光照对照；未改光照算法或宣称性能收益。必要限期包 `../../../.artifacts/scene-evidence/runs/quad-visibility-live-20261020/current/report.json`。

@@ -1057,14 +1057,16 @@
     },
     "2131872317": {
       "verdict": "unreviewed",
-      "reviewedOn": "",
-      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：蓝色爆炸烟花乱飘、轨迹不对；并入旧烟花观察，需同时间窗/随机输入区分。",
-      "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "reviewedOn": "2026-10-20",
+      "reviewer": "Codex与独立代理当前原图有界复核",
+      "note": "当前22s原包blue热切及蓝放射/稀疏星点阶段可见，四child已准备且聚合GPU完成；未取得完整轨迹或官方连续正控，不关闭旧反馈。无产品修改。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/blue-firework-qualification-213-20261020/current/report.json"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。蓝色爆炸烟花乱飘、轨迹不对；并入旧烟花观察，需同时间窗/随机输入区分。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "evidence": [
+        ".artifacts/scene-evidence/runs/blue-firework-qualification-213-20261020/current/samples/2131872317/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "首错UNKNOWN；完整上升轨迹、四child逐一路径/出生空间及同phase/seed官方蓝色周期未资格，不作已修或整样本裁决。",
       "officialComparison": "unknown"
     },
     "3743305891": {

@@ -2,7 +2,7 @@
 
 # Scene 静态审计：当前剩余问题
 
-> 10-16基线 `680e54846`，10-17/18按实际后验退出旧首门；10-19补新增25的已证执行拒绝，10-20按有界后验退出rate值源首门，未重审旧全集。本页不维护旧243统计、评分或修复数量。
+> 10-16基线 `680e54846`，10-17/18按实际后验退出旧首门；10-19补新增25的已证执行拒绝，10-20按有界后验退出rate值源首门；核当前e88fe10f3的共享投影已排scriptSource，退出过时static脚本包装条目，未重审旧全集。本页不维护旧243统计、评分或修复数量。
 
 选序服从[兼容路线](scene-compatibility-roadmap.md)；用户现象与运行待办归[断点队列](scene-open-breakpoint-queue.md)，此处只保跨专题静态首owner。合同分别归[shader/图](../capabilities/render-graph-shader-coverage.md)、[粒子](../capabilities/particle-component-coverage.md)、[高级对象](../capabilities/advanced-object-coverage.md)和[SceneScript](../capabilities/scenescript-api-coverage.md)。
 
@@ -38,7 +38,6 @@
 
 | 当前问题 | 现役首断点与已支持边界 | 最小验证/退出条件 |
 |---|---|---|
-| **粒子material常量的static投影漏脚本包装** | 静态反例，尚无真实受影响画面资格：`SceneParticleRuntime`将constantShaderValues投影为MaterialConstant时只排user/Timeline，未排已保留的scriptSource；有合法seed的脚本包装可被旧overbright/refraction静态门当作常量。A2C原型曾修该投影，但原型未采纳后已一并撤回，不能误记完成。 | 先确认真实active消费者与局部降级边界，再修唯一DTO或接原typed动态值源；不按材质profile复制guard，不以seed绘制冒充脚本执行。 |
 | **粒子绝对 color 的 direct user-property target 未映射**（原 G24） | [TargetMapping](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift)的 particle `.color`仍返回 nil，`.normalizedColor`已有 typed route。 | 先有实际合法定义和颜色单位合同，再复用同一 typed instruction/出生 consumer。当前逐通道平方是否符合官方不能仅由静态代码判错；不要把此输入缺口扩成全部粒子颜色错误。 |
 | **usershortcut 执行未接入**（原 G3 的剩余部分） | [property kind](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift)无可执行 shortcut kind；未知类型现由原面板只读展示，旧“EmptyView静默丢弃”已经不是当前事实。SceneScript `openUserShortcut`尚无执行入口。 | 先取得真实用户动作与 macOS 产品授权/取消合同，再沿原 property/交互入口实现；不因缺类型而隐藏定义，也不补无人调用的空 API。权威边界见[属性卡](properties-panel-card.md)与[API表](../capabilities/scenescript-api-coverage.md)。 |
 

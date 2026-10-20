@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 423,
-      "bytes": 165745
+      "lines": 427,
+      "bytes": 166754
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 390,
-      "bytes": 78004
+      "bytes": 78047
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 55,
-      "bytes": 17670
+      "lines": 54,
+      "bytes": 17182
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 227,
-      "bytes": 67294
+      "bytes": 67658
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1502,27 +1502,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "851fb4b16100f7b96300c5b94440c1a5a8dd2298860c5f1567dfe237cc760a08",
-      "after": "6048140352b47e3c924f4726e3331e587cc44a6710b54a5ebe156b2fea176b9a",
-      "owner": "scene-dynamic-layer-visibility-admission",
-      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "2c099a1491faeb9662be6e57c2edbeefae6c1f4b2ea44e9b2d05b992c748d631",
       "after": "e0078691b9635187c9229c2be921f6f91e4247a0d37f142cb941e7bb3bf88b46",
-      "owner": "scene-dynamic-layer-visibility-admission",
-      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "e2ae5ba8a95c68212a21611c1cd239b50bd1c7f8cdce9ee98774152c647b5512",
-      "after": "2bd670f0ac8547c38baa328cbaca3daec25fa956ff0f7188e341d88c8d9444f6",
       "owner": "scene-dynamic-layer-visibility-admission",
       "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
@@ -1547,12 +1529,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6048140352b47e3c924f4726e3331e587cc44a6710b54a5ebe156b2fea176b9a",
+      "after": "e335404b340983cf8e710799050d97e952810a8c482721c13a5228534848dcbe",
+      "owner": "scene-particle-event-qualification",
+      "reason": "保存当前蓝烟花事件/GPU与burst阶段，明确未资格的完整轨迹和官方正控；退出过时投影缺口，保持未修状态与能力边界。",
+      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "2bd670f0ac8547c38baa328cbaca3daec25fa956ff0f7188e341d88c8d9444f6",
+      "after": "ec9258ee9679c4159a3e4c2b73e7ec324265ddee5a8c3e7559444de0363d374a",
+      "owner": "scene-particle-event-qualification",
+      "reason": "保存当前蓝烟花事件/GPU与burst阶段，明确未资格的完整轨迹和官方正控；退出过时投影缺口，保持未修状态与能力边界。",
+      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f6ebf928588595f97dc3578a6db32fa64b1669c4543a9e264f1fbc037dbc868e",
-      "after": "36a629bd1970c8dadb95ec48bf0f7056bf8057d9fea768752eb048441629b032",
-      "owner": "scene-puppet-animation-auxiliary-profile",
-      "reason": "归并已执行官方API-only部分读回及明确STOP，保本机L0和未执行几何门，避免过时的下一步路线诱导重复实验；不是能力扩张。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#op-puppet-blend-shapes"
+      "before": "36a629bd1970c8dadb95ec48bf0f7056bf8057d9fea768752eb048441629b032",
+      "after": "30ed9ad2868b423ae487a385ebbd7b330f22c419fa2d6a8bcc30dd3db9a0e101",
+      "owner": "scene-particle-event-qualification",
+      "reason": "保存当前蓝烟花事件/GPU与burst阶段，明确未资格的完整轨迹和官方正控；退出过时投影缺口，保持未修状态与能力边界。",
+      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md"
     }
   ]
 }
