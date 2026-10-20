@@ -73,7 +73,17 @@
     "3448845950": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "黑屏已解除，脚本效果与整体布局未通过"
+      "note": "10-20当前原包复现691命名依赖锚点错配导致首帧超时；共享compiler修后实际蓝色动态背景、中央三角标签、时间与封面恢复，691/183 Program/GPU/末合成及下一帧通过，正常停止/GPU排空。只关闭无法启动反馈，历史整体fail保留。",
+      "remainingDifferences": "180/effect10高亮颜色TypeError仍局部回退；旧脚本/布局及全部属性/互动、官方同phase/viewport未复裁。不是整样本PASS，未验证Release/HDR或性能。",
+      "noteReconciledOn": "2026-10-20",
+      "reviewer": "Codex 当前Debug启动/原图有界复核与独审；不重判历史整体verdict",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/named-dependency-direct-anchor-344-20261020/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3470948192": {
       "verdict": "fail",

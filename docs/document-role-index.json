@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "885e5dbf2ffaa338a21680ba2d07b244920b0dcffecd8edac2a37a095b08774d",
+        "sourceSHA256": "142e9807752ad7059f5ad9b024ca8d953f303e731409a3e58dd59129ba398cb0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对四项旧反馈与已有局部关闭证据，保原整样本verdict；同步199五点与原包/自有board的STOP_UNKNOWN及matrix-first载体错误。其余事实未重审。",
-        "limitations": "未证明199鼠标正确、公共倍率缺陷或官方矩阵域；四项为既有精确反馈后验对账，不是当前HEAD重测或整景通过。"
+        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
+        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
       }
     },
     {
@@ -828,10 +828,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dfca6c13ca072ba991bc5d5730453c6b4b24e6503c091f29d270dce4254a5ff6",
+        "sourceSHA256": "e25abad670e264df2c2eeba71df94c22d588218fd969d1e39a3d2c5e2aa29eb2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对四项旧反馈与已有局部关闭证据，保原整样本verdict；同步199五点与原包/自有board的STOP_UNKNOWN及matrix-first载体错误。其余事实未重审。",
-        "limitations": "未证明199鼠标正确、公共倍率缺陷或官方矩阵域；四项为既有精确反馈后验对账，不是当前HEAD重测或整景通过。"
+        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
+        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
       }
     },
     {
@@ -3527,10 +3527,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ad952ecffd106cae7577eddd6a41d1e8c805329770716467256431d1650878c",
+        "sourceSHA256": "7cd4f748ee917e243c8750a256cf861a43f26c893c96e17109e368f73dcf5a64",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同provider visible graph-final精确多槽设计与原owner接线；302当前封面实际收益/无媒体/381邻例、原失败及独审边界，旧216328首拒退出。仅定点导航/source identity核对，其余正文未重审。",
-        "limitations": "CPU Plan的typed admitted seam不代媒体实物；受控当前封面不代上一封面转场、真实播放器、官方同audio/pointer/phase/HDR/整景或性能。JPEG仅有损review，原PNG hash与输入/App身份保正式包。"
+        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
+        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
       }
     },
     {
@@ -3625,10 +3625,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d17ec822cb701c72856f9bab86f2034bccada5f41fe1a404ff9978b984c32bd2",
+        "sourceSHA256": "1dfe8c00c684fd4eab3740b804b1d7acba7df6bc598752d47980462ccfafe0e1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对四项旧反馈与已有局部关闭证据，保原整样本verdict；同步199五点与原包/自有board的STOP_UNKNOWN及matrix-first载体错误。其余事实未重审。",
-        "limitations": "未证明199鼠标正确、公共倍率缺陷或官方矩阵域；四项为既有精确反馈后验对账，不是当前HEAD重测或整景通过。"
+        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
+        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
       }
     },
     {

@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（327 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `09a2b30f302976b055ad8daa3159a33258762bdb403f421aafb1a1bd0ac9b436`（生成于 2026-10-19T16:28:28.546328+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `c18d86270295c1b0134268f5f3bef6d3c25e8db8215c8465e6f8167afb5a8a7b`。
-- 本页生成于 2026-10-20T12:26:28.170876+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `17902ad9ecb423a3175fee2954ddf8242299bd513c1187fa7abb5971b34f2c75`。
+- 本页生成于 2026-10-20T13:18:23.150171+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -28,12 +28,12 @@
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 271 |
+| `unknown` | 270 |
 | `not-run` | 1 |
 | `blocked` | 0 |
-| `compared` | 55 |
+| `compared` | 56 |
 
-- 已裁决但缺观看者身份的条目：**18**；已裁决但缺截图/视频身份的条目：**15**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
+- 已裁决但缺观看者身份的条目：**17**；已裁决但缺截图/视频身份的条目：**14**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
 | 归档首断点集群 | 含义 | 样本数 |
 |---|---|---:|
@@ -203,7 +203,7 @@
 | `3436945972` | 麻匪 Wlop 远方来客 | 45(9) bool 3 color 2 combo 4 slider 6 text 27 textinput 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 补足启动余量后已见开场过渡及双人物桥景；旧70s工具超时保留，不判主体缺失。冷启动单次64.8s，非性能收益。 |
 | `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-10-19 | 10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail… |
 | `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
+| `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 10-20当前原包复现691命名依赖锚点错配导致首帧超时；共享compiler修后实际蓝色动态背景、中央三角标签、时间与封面恢复，691/183 Progra… |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | mixed组未参与修法原包独立8s/native/默认：人物、帘、城市、时钟实际呈现，App0、正常stop/GPU排空、输入/App无漂移。1733 alp… |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 仍黑水滴/缺亮边拖尾；旧NaN已修，反射原型已撤回；115.scale首个非有限返回仍在。 |
 | `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 86(44) bool 10 color 21 combo 4 slider 7 text 37 textinput 7 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。sh… |

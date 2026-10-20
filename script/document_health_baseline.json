@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 445,
-      "bytes": 171085
+      "lines": 454,
+      "bytes": 173406
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 390,
-      "bytes": 78616
+      "bytes": 78742
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -214,7 +214,7 @@
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
-      "bytes": 13153
+      "bytes": 13418
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
       "lines": 72,
@@ -241,8 +241,8 @@
       "bytes": 17182
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 228,
-      "bytes": 68665
+      "lines": 229,
+      "bytes": 69172
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1439,15 +1439,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
-      "after": "50a9500abf66b283e412044610353a897c8a50dbdf627cd10ea7db30bcd25592",
-      "owner": "Scene dependency and media owners",
-      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "eacee3497a8820a6e387239abdfd1d0e25dc16e7532c8f337278be5e7fda0596",
       "after": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
@@ -1530,29 +1521,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6ff1b26964e47a7aa713162847c3f500e61e8b5547fbfc305fcc6421e242aaa8",
-      "after": "8727564386d49f6a45dde95a917b47cb0725fca301351c09801b37a7628f7447",
-      "owner": "scene-qualification-reconciliation",
-      "reason": "同步已关闭的精确旧反馈及199原包/自有board的无效正控、独审与STOP_UNKNOWN边界；不刷新整样本verdict或虚构公共修复。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "8727564386d49f6a45dde95a917b47cb0725fca301351c09801b37a7628f7447",
+      "after": "192f9cdf1d8b685f6c9f4bb7002e1c3607f169d0d5eef209ac43cc7b9fe37ea6",
+      "owner": "scene-named-dependency-direct-anchor",
+      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "2771eefd17d794b1dcd563a6f04c9530284b986c5353fd6533578077ca698eae",
-      "after": "f45d804b559e059902df251dd54dcee0c7a0d84d28a992d39e52e2049ceabc5c",
-      "owner": "scene-qualification-reconciliation",
-      "reason": "同步已关闭的精确旧反馈及199原包/自有board的无效正控、独审与STOP_UNKNOWN边界；不刷新整样本verdict或虚构公共修复。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "f45d804b559e059902df251dd54dcee0c7a0d84d28a992d39e52e2049ceabc5c",
+      "after": "b7fcdb2200ee1715248aa6123371efc6964e034758f27c403e942d4aa50b613c",
+      "owner": "scene-named-dependency-direct-anchor",
+      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "before": "50a9500abf66b283e412044610353a897c8a50dbdf627cd10ea7db30bcd25592",
+      "after": "7374c3ed02d91aa88bca5ef438cf2ecdb1b1d3bc0d376a7df7a2987279c13dca",
+      "owner": "scene-named-dependency-direct-anchor",
+      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "652954173b25b2e353e825efba683805cd7f42eb88003028ba5c31269b15ed22",
-      "after": "18da8106d609b1f7313e8cbb08bdb400a8a8d99a28b360016ef8f6e6787cb0a6",
-      "owner": "scene-qualification-reconciliation",
-      "reason": "同步已关闭的精确旧反馈及199原包/自有board的无效正控、独审与STOP_UNKNOWN边界；不刷新整样本verdict或虚构公共修复。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "18da8106d609b1f7313e8cbb08bdb400a8a8d99a28b360016ef8f6e6787cb0a6",
+      "after": "0e5db9e6601458a2af2c70459b7d6852e78464d836e1087af9388cc103749654",
+      "owner": "scene-named-dependency-direct-anchor",
+      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
     }
   ]
 }

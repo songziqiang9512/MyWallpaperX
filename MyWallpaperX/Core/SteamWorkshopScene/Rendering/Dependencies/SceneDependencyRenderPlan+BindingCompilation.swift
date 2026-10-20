@@ -458,9 +458,14 @@ extension SceneDependencyRenderPlan {
             references: references,
             layersByID: layersByID
         ), let reference = materialProgramReferences.first {
+            let direct = Set(directReferences)
+            let anchor = materialProgramReferences.first(where: direct.contains) ?? reference
             // Resource ownership only: the admitted MaterialProgram still
             // proves shader semantics, scalar inputs and output authority.
-            contract = (reference, 0, .imageLayerBlend, true)
+            // Retain the direct binding identity when an earlier inactive
+            // stage gains Program authority. Its authored slot order belongs
+            // to referenceSlots, independently of this reservation anchor.
+            contract = (anchor, 0, .imageLayerBlend, true)
         } else if let reference = materialProgramGeometryLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,

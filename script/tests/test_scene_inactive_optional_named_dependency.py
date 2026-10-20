@@ -84,6 +84,7 @@ enum Harness {
         providerDependencies: [Int] = [],
         declaredDependencies: [Int]? = nil,
         consumerKind: String = "image",
+        providerKind: String = "image",
         providerAfterConsumer: Bool = false,
         providerVisible: Bool = false,
         providerEffects: [SceneRenderDescriptor.EffectDescriptor] = []
@@ -95,7 +96,7 @@ enum Harness {
             visible: true, effects: effects
         )
         let provider = SceneRenderDescriptor.Layer(
-            id: providerID, contentKind: "image", utilityLayer: nil,
+            id: providerID, contentKind: providerKind, utilityLayer: nil,
             dependencyLayerIDs: providerDependencies,
             childLayerIDs: providerChildren, visible: providerVisible,
             effects: providerEffects
@@ -164,6 +165,10 @@ enum Harness {
             admittedResolvedMaterialReferences: admittedReferences
                 ?? Set(direct + potential)
         )
+        let directAdmittedPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor, visibleLayerIDs: visible,
+            admittedResolvedMaterialReferences: Set(direct)
+        )
         let runtimeBinding = plan.bindingsByConsumerLayerID[consumerID]
         let admittedBinding = admittedPlan.bindingsByConsumerLayerID[consumerID]
         let edges = SceneDependencyRenderPlan.productDependencyEdges(
@@ -198,6 +203,8 @@ enum Harness {
             "runtimeGraphProviders": plan.requiredGraphOutputProviderLayerIDs.sorted(),
             "runtimeKind": runtimeBinding.map { String(describing: $0.kind) } ?? "none",
             "runtimeIdentity": bindingRow(runtimeBinding),
+            "directAdmittedIdentity": bindingRow(
+                directAdmittedPlan.bindingsByConsumerLayerID[consumerID]),
             "runtimeSlots": slotRows(runtimeBinding),
             "carrierKinds": carriers.map { String(describing: $0.kind) },
             "carrierIdentities": carriers.map { bindingRow($0) },
@@ -239,6 +246,24 @@ enum Harness {
            providerAfterConsumer: forward, providerVisible: true,
            providerEffects: [.init(id: "provider-tint",
                file: "effects/tint/effect.json", visible: true, passes: [])])
+    }
+
+    // A static text publication uses the same generic image carrier as an
+    // ordinary image. Resource names deliberately avoid the legacy Blend route.
+    static func genericDescriptor(
+        consumerKind: String = "text",
+        providerKind: String = "text",
+        ids: [String] = ["dormant-mask", "active-mask"],
+        resource: String = "effects/owned/text-mask/effect.json",
+        effectOrder: [Int] = [0, 1]
+    ) -> SceneRenderDescriptor {
+        let effects = [
+            effect(id: ids[0], kind: nil, file: resource),
+            effect(id: ids[1], visible: true, kind: nil, file: resource),
+        ]
+        return descriptor(effects: effectOrder.map { effects[$0] },
+            consumerKind: consumerKind, providerKind: providerKind,
+            providerVisible: true)
     }
 
     static func main() throws {
@@ -320,6 +345,31 @@ enum Harness {
             ids: ["direct-b", "optional-a", "unused"], effectOrder: [1, 0]))
         payload["graphUniqueOptional"] = inspect(graphDescriptor(
             ids: ["unused", "only-optional", "unused-peer"], effectOrder: [1]))
+        let generic = genericDescriptor()
+        payload["textInactiveBeforeDirect"] = inspect(generic)
+        payload["imageInactiveBeforeDirect"] = inspect(genericDescriptor(
+            consumerKind: "image", providerKind: "image"))
+        payload["genericRenamed"] = inspect(genericDescriptor(
+            ids: ["z-sleep", "a-live"],
+            resource: "effects/renamed/unseen-mask/effect.json"))
+        payload["genericDirectBeforeInactive"] = inspect(genericDescriptor(
+            effectOrder: [1, 0]))
+        payload["genericOptionalOnly"] = inspect(genericDescriptor(effectOrder: [0]))
+        payload["genericNoProgram"] = inspect(generic, admittedReferences: [])
+        let genericDirect = SceneDependencyGraphAnalysis.references(in: generic.layers)
+        let genericPotential = SceneDependencyGraphAnalysis
+            .potentialNamedReferences(in: generic.layers)
+        for (name, bad) in [
+            ("genericForeignAdmission", SceneDependencyRenderPlan.Reference(
+                consumerLayerID: consumerID, providerLayerID: 999,
+                slot: genericPotential[0].slot, variant: .primary)),
+            ("genericWrongSlotAdmission", .init(
+                consumerLayerID: consumerID, providerLayerID: providerID,
+                slot: .init(effectID: genericPotential[0].slot.effectID,
+                    passIndex: 0, slotIndex: 2), variant: .primary)),
+        ] {
+            payload[name] = inspect(generic, admittedReferences: Set(genericDirect + [bad]))
+        }
         // Call the production helper directly with deliberately inconsistent
         // effect metadata; this is not a claim that author parsing emits it.
         let consumer = graph.layers.first { $0.id == consumerID }!
@@ -571,6 +621,53 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         for name in ("inactiveSystem", "inactiveProperty", "activeSystem"):
             self.assertEqual(self.disabled_results[name]["carriers"], [])
             self.assertEqual(self.disabled_results[name]["runtimeBindings"], [])
+
+    def test_generic_direct_anchor_survives_earlier_inactive_admission(self) -> None:
+        # These references represent Program-authorized slots, as in the
+        # existing graph-output seam; this does not compile or activate a Program.
+        for name, direct, order in (
+            ("textInactiveBeforeDirect", "active-mask", ["dormant-mask", "active-mask"]),
+            ("imageInactiveBeforeDirect", "active-mask", ["dormant-mask", "active-mask"]),
+            ("genericRenamed", "a-live", ["z-sleep", "a-live"]),
+            ("genericDirectBeforeInactive", "active-mask", ["active-mask", "dormant-mask"]),
+        ):
+            with self.subTest(name=name):
+                row = self.results[name]
+                slot = {"effect": direct, "pass": 0, "slot": 1}
+                base = {
+                    "consumer": 202, "provider": 101, "slot": slot,
+                    "referenceSlots": [slot], "blendMode": 0,
+                    "kind": "imageLayerBlend", "requiresForwardCapture": False,
+                    "requiresProgram": True,
+                }
+                self.assertEqual(row["directAdmittedIdentity"], base)
+                self.assertEqual(row["admittedSlots"], [
+                    {"effect": effect, "pass": 0, "slot": 1} for effect in order
+                ])
+                self.assertEqual(row["admittedIdentity"], {
+                    **base, "referenceSlots": row["admittedSlots"],
+                })
+                self.assertEqual(row["admittedProviders"], [101])
+
+    def test_generic_optional_only_uses_its_one_authorized_carrier(self) -> None:
+        row = self.results["genericOptionalOnly"]
+        self.assertEqual(row["direct"], [])
+        self.assertEqual(row["directAdmittedIdentity"], {})
+        self.assertEqual(row["runtimeIdentity"], {})
+        self.assertEqual(len(row["carrierIdentities"]), 1)
+        self.assertEqual(row["admittedIdentity"], row["carrierIdentities"][0])
+        self.assertEqual(row["admittedSlots"], [
+            {"effect": "dormant-mask", "pass": 0, "slot": 1}
+        ])
+
+    def test_generic_admission_cannot_promote_unproved_siblings(self) -> None:
+        self.assertEqual(self.results["genericNoProgram"]["admittedIdentity"], {})
+        for name in ("genericForeignAdmission", "genericWrongSlotAdmission"):
+            with self.subTest(name=name):
+                row = self.results[name]
+                self.assertEqual(row["admittedIdentity"], row["directAdmittedIdentity"])
+                self.assertEqual(row["admittedReferenceEffects"], ["active-mask"])
+                self.assertEqual(row["admittedProviders"], [101])
 
 
 if __name__ == "__main__":

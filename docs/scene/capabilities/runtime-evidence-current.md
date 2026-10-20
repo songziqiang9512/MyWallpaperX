@@ -995,6 +995,15 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 **身份与保留。** project/pkg：358554=`767455ce…20c2`/`09770fd1…6ece`；358188=`4ca743f3…a8c5`/原hash见输入收据；360同理逐file在冻结中，未覆盖旧归档人工verdict。三包仍unreviewed；当前记录只更新其限定反馈和实际运行。`.artifacts/tmp/358-rays-fresh-20261018/`及`u02-remaining-rays-fresh-20261018/`保输入身份、事前界限、原图、原FAIL、chain-observation与独审；只清本轮停用输入/HOME，继续留单份stage/迭代source/DD供后继。完整属性/互动、全随机周期及性能不在本次判断内。旧零轴数值首拒已沿[既有合同](previous-blurred-composite-admission.md)退出，旧光照观察仍保其范围，不复跑以追未定parity。
 
 
+<a id="named-dependency-direct-anchor-20261020"></a>
+## 2026-10-20：命名依赖锚点一致性恢复首帧
+
+原3448845950当前Debug真实复现无法启动：31个graph已准入、纹理loaded=1，但691连续`binding-not-planned`使整帧丢弃，最终候选首帧超时；不是外部watchdog或旧局部TypeError归因。其text660→text691的作者顺序为inactive693、active183。Program扩展保183 anchor与[693,183]引用向量，runtime generic image/text重编误取693，破坏完整Binding身份。共享compiler现保原direct anchor，引用仍按作者序；[合同](../roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector)与已有graph-final分支一致，不改变Program授权、epoch、资源或精确相等门。
+
+生产Plan门11方法，修前text/image/改名3子例仅anchor红，修后全过；顺序互换、无direct、无Program和错provider/slot等邻例保持。Debug增量26.229s、owned产品输入未漂移；候选App SHA `860f4bcc…236679` / dylib `df15a48e…d6bd11`。同原件默认/静音6s截图实际恢复蓝色动态背景、中央三角标签、时间与封面，691/183为真实Program/GPU/末合成并进入下一帧；693仍正确inactive透传。独立3027068980默认原包保人物/青底/星环；两run最小矩阵failures[]、正常1→0与GPU排空。不把各约50.4/25.2s Debug ready作性能收益或完整视觉通过。
+
+327目录只读结构筛查中326份scene可解析，3763323436仅shader目录缺输入；精确default-active同型只命中344。另9样本22组相邻结构依赖脚本visible和系统媒体覆盖，未证明同故障；不能按扫描结果批量宣称受益。代码/原图独审GO，代码体量与防御门通过；额外相邻门仅执行1方法，另2个class因旧harness缺resolution/render-state依赖未编译，未写作通过、未加产品旁路。必要报告 `.artifacts/scene-evidence/runs/named-dependency-direct-anchor-344-20261020/`保修前失败、修后/独立原图、实际执行/退出、扫描、测试失败及身份。180/effect10高亮颜色TypeError仍局部回退，旧脚本/布局、完整152属性/互动、官方同phase/viewport、HDR和Release未验，历史整样本fail保留。无新增VM实验；只关闭本次首帧阻断，用户要求本批提交后暂停。
+
 <a id="pointer-scale-qualification-199-20261020"></a>
 ## 2026-10-20：鼠标缩放反馈的资格边界
 
