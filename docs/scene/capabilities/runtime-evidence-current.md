@@ -73,7 +73,7 @@
 | 图层透视状态 | [Bool事务/共享相机](../history/layer-perspective-2026-10-12.md)及[缺省FOV/反算](../history/canvas-perspective-default-2026-10-12.md)有界已修；自有深度/倾斜、变体与独立样本实际绘制已验，特殊clone及其他组合仍开放。 |
 | 初始配置与动态图片复用 | [N06限定后验](../history/initial-layer-configuration-2026-10-12.md)：288的34个origin TypeError消失；25个普通图片目标进入原创建/事务链，保留5个Puppet、1个composition、3个text包装；create几何后继见上项，不计整样本parity。 |
 | Bool正常返回与初始化连续性 | <a id="e-2026-10-16-bool-return"></a>10-16固定官方2.8.0.42、exe `daac1ea7…6bda07`自有init/update各14格：仅原生Bool改变值，Number/String/null/Vec3/普通对象/数组保fallback；init与独立补测update内timer均存活，throw观察不用于放宽本项目rollback。现役唯一`call_primitive`更正旧Number truthiness及对象BAD_RETURN，保其他类型/异常与typed事务；候选签名Debug `888bf8a9…7b2c`/dylib `07fc6c3a…21cd`运行3781757083同原包，293.visibility基线406条失败→0，实际按住拖动origin由(2618.59985,1201.79541)变为(2259.415283,1417.795410)，文字/装饰同移且释放后保位；390/271的Sound random首门后继见[有界后验](../history/sound-script-control-2026-10-12.md#sound-random-playback)。样本曾误记为3789316755，已更正。聚焦门17/17、62项返回/连续性事实通过；26格正常返回native body/timer与官方相符，throw的timer rollback差异明确保留；独立3264246690原包人物/布条实际呈现，64次GPU记录含22次末合成、VM无异常并安全退出；连续current过渡未做官方对照，不计全样本parity或CPU/GPU收益。必要结果：`.artifacts/scene-evidence/runs/bool-property-return-20261016/`。 |
-| SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验 |
+| SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验；[standalone quad后继](#quad-visibility-live-20261020)闭合sunrays整key切换与startup-false准备，保实际Program准入 |
 | 音频共享 producer 与产品入口 | [共享 producer 记录](#e-2026-09-22-audio-shared-canonical-producer)、[普通产品入口记录](#e-2026-09-22-audio-ordinary-scene-web) |
 | solid named源尺寸 | [有界修复](../history/named-solid-source-extent-2026-10-12.md)：376裙摆11层重复矩形消失，14层terminal/GPU/下一帧，保留graph-final依赖；后继[缺省尺寸修复](../history/missing-resolution-normalization-2026-10-12.md)使头部deformer进入原GPU/合成链，实际材质阶段由77增至78，另37段作者关闭而透传，非整图parity。 |
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
@@ -164,6 +164,10 @@
 <a id="evidence-packages"></a>
 
 ## 3. 证据包
+
+### 程序化quad整层显隐热更新
+
+ <a id="quad-visibility-live-20261020"></a>共享visibility admission补严格standalone quad leaf的潜在准备；Host只认当前catalog claim/resolve、transparentDirectDraw与非空material。原3768724269的sunrays关闭原先被layer100误拒，修后100/54同代false/true，startup-false在首次true时执行原Program3da88dd5…与GPU/末合成/下一帧；两run全部3次接受，surface1、window2118/2126不变。静音观测nonSilent0，原图可见光束消失/恢复且主体/背景/字保留。独立3287715210的radial quad470执行Program/GPU/末合成/下一帧，人物/眼周光/文字保持；不关闭旧亮度/条纹余项。结构与真实Host/identity/LiveState门33通过，邻门19项中18通过/1既有skip，Debug25.443s/无漂移/独审GO。三run均0/stop1→0/drained；原376的12个effect均program、0unsupported，14个作者script occurrence对应14个完成target，仅证明当前默认/静音callback覆盖，非完整交互/音频行为或官方parity。首基线错silence flag、nonSilent12，保为失败资格，只认属性拒绝、不用于光照对照；未改光照算法或宣称性能收益。必要限期包 `../../../.artifacts/scene-evidence/runs/quad-visibility-live-20261020/current/report.json`。
 
 <a id="shared-timer-cancellation-20261018"></a>
 

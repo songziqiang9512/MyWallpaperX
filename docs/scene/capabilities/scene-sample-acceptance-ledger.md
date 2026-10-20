@@ -11,8 +11,8 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（327 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `09a2b30f302976b055ad8daa3159a33258762bdb403f421aafb1a1bd0ac9b436`（生成于 2026-10-19T16:28:28.546328+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `102f05d168bab35aa2a04c3431d72a41a57caeec46f40fd520fb43b432745674`。
-- 本页生成于 2026-10-20T08:53:22.933191+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `3c3aa65f6b2695753763c4652fb1592cbc141cd45a7ef6262ea769b0337383cd`。
+- 本页生成于 2026-10-20T09:32:29.393490+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -298,7 +298,7 @@
 | `3767460992` | Magic mushroom | 14(0) bool 9 color 3 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3768020435` | Silver Wolf with media integration | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3768229922` | 麻匪 赤芒 音频互动 | 34(0) bool 7 color 1 text 25 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 10-19原包8s邻例已见PSYCHE GEAR标识… |
-| `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 23(1) bool 18 color 1 group 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 23(1) bool 18 color 1 group 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-20 | sunrays整key因quad100被漏准入而拒绝的首门已修：100/54同代热切、startup-false恢复，原图光束随开关消失/恢复，窗口/surf… |
 | `3768903841` | Naha Gaze at Firework \| northway. | 10(0) bool 7 color 1 slider 1 text 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 6(0) bool 5 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-18 | 限定基本标量播放后验：原包默认59/effect173/pass1 rayintensity实际负→.4499919→负进入Program，五node GPU… |
 | `3769688830` | Spirit Blossom Springs Ahri (Adjustable… | 21(0) bool 13 color 3 group 3 scenetexture 1 untyped 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

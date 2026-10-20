@@ -173,6 +173,13 @@ extension SceneDesktopWallpaperHost {
                 guard case let .layer(layerID, .visibility) = target else {
                     return false
                 }
+                if descriptor.layers.first(where: { $0.id == layerID })?.contentKind == "quad" {
+                    guard let claim = resolvedMaterialExecutionCapabilities.claim(layerID: layerID),
+                          let capability = resolvedMaterialExecutionCapabilities.resolve(claim.token),
+                          case .transparentDirectDraw = capability.sourceRoute,
+                          !capability.materials.isEmpty else { return false }
+                    return true
+                }
                 if let layer = descriptor.layers.first(where: { $0.id == layerID }),
                    layer.contentKind == "composition",
                    !layer.dependencyLayerIDs.isEmpty {

@@ -3022,7 +3022,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
         "script/tests/test_scene_model_visibility_integration.py",
         "script/tests/test_scene_composition_visibility_integration.py",
-        "script/tests/test_scene_composition_effect_visibility_integration.py"
+        "script/tests/test_scene_composition_effect_visibility_integration.py",
+        "script/tests/test_scene_quad_visibility_live_consumers.py"
       ],
       "modules": [
         "test_scene_script_visible_roots",
@@ -3032,7 +3033,8 @@
         "test_scene_model_visibility_integration",
         "test_scene_property_live_update_state",
         "test_scene_composition_visibility_integration",
-        "test_scene_composition_effect_visibility_integration"
+        "test_scene_composition_effect_visibility_integration",
+        "test_scene_quad_visibility_live_consumers"
       ]
     },
     {

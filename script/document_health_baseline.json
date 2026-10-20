@@ -121,12 +121,12 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 419,
-      "bytes": 164315
+      "lines": 423,
+      "bytes": 165745
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 200502
+      "bytes": 201421
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 390,
-      "bytes": 77837
+      "bytes": 78004
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 227,
-      "bytes": 66913
+      "bytes": 67159
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1340,15 +1340,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "feb21d09d40b20adeefc99060e40e63d5d884c32276fb9a7f00d422cc2d22faa",
-      "after": "2e8fcb90a8280cb65b3c34f6e5ec29e8593643f75270926318d6fc7f11c6249f",
-      "owner": "scene-mixed-layer-timeline",
-      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "8f4b677fc4e30982ce929ab47ae2667cd709e0cb1f8052bc872b0ceef2acd642",
       "after": "ece660ca6b5aabfaf83f079b76f48c6fe8ce613cb7373bb7738d654fbfe58276",
@@ -1484,24 +1475,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
-      "after": "e2ae5ba8a95c68212a21611c1cd239b50bd1c7f8cdce9ee98774152c647b5512",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete unconsumed rate status with one typed-source contract, actual audio-driven pose progression, strict callback failure boundary and preserved unreviewed whole-scene diagnostics.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "4064b9f36b4835047e9099862b8c57fcbae85771c3c512d382032b787ff5a032",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete unconsumed rate status with one typed-source contract, actual audio-driven pose progression, strict callback failure boundary and preserved unreviewed whole-scene diagnostics.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "1b8a28fe1d8af0fb6124100940e13e61f54003e4cf27ca2248fde3b11db89f07",
       "after": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
@@ -1514,15 +1487,6 @@
       "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
       "before": "e77fa1c11d6a3b351cfee97cb134edab7621c18917091ac5c655620a4bec8fe1",
       "after": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9dfe93098bbfa92caec90fe1bd4f6320980a8a9491771657711dae2ab3e2bbcb",
-      "after": "851fb4b16100f7b96300c5b94440c1a5a8dd2298860c5f1567dfe237cc760a08",
       "owner": "Scene script and Puppet playback owners",
       "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
@@ -1553,6 +1517,42 @@
       "owner": "Scene script and Puppet playback owners",
       "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "851fb4b16100f7b96300c5b94440c1a5a8dd2298860c5f1567dfe237cc760a08",
+      "after": "6048140352b47e3c924f4726e3331e587cc44a6710b54a5ebe156b2fea176b9a",
+      "owner": "scene-dynamic-layer-visibility-admission",
+      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "2c099a1491faeb9662be6e57c2edbeefae6c1f4b2ea44e9b2d05b992c748d631",
+      "after": "e0078691b9635187c9229c2be921f6f91e4247a0d37f142cb941e7bb3bf88b46",
+      "owner": "scene-dynamic-layer-visibility-admission",
+      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "e2ae5ba8a95c68212a21611c1cd239b50bd1c7f8cdce9ee98774152c647b5512",
+      "after": "2bd670f0ac8547c38baa328cbaca3daec25fa956ff0f7188e341d88c8d9444f6",
+      "owner": "scene-dynamic-layer-visibility-admission",
+      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "4064b9f36b4835047e9099862b8c57fcbae85771c3c512d382032b787ff5a032",
+      "after": "f6ebf928588595f97dc3578a6db32fa64b1669c4543a9e264f1fbc037dbc868e",
+      "owner": "scene-dynamic-layer-visibility-admission",
+      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
     }
   ]
 }

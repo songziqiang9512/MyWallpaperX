@@ -1608,6 +1608,20 @@
       "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3808922316/runtime_evidence.zip"
       ]
+    },
+    "3768724269": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-20",
+      "reviewer": "Codex与独立代理原图复核；用户近官方观察只作线索",
+      "note": "sunrays整key因quad100被漏准入而拒绝的首门已修：100/54同代热切、startup-false恢复，原图光束随开关消失/恢复，窗口/surface保持。当前12个effect均Program，14个作者脚本target均完成callback；不等于完整行为或整样本通过。",
+      "remainingDifferences": "旧光束范围/根部及右上渐变未确认新gross缺陷；需同状态ROI再判。完整cursor/音频/属性组合、多surface、HDR及官方同phase未验。",
+      "officialComparison": "unknown",
+      "runs": [
+        ".artifacts/scene-evidence/runs/quad-visibility-live-20261020/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/quad-visibility-live-20261020/current/samples/3768724269/runtime_evidence.zip"
+      ]
     }
   },
   "localEvidenceRetirement": {

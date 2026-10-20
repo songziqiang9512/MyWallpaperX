@@ -18,6 +18,8 @@ struct SceneLayerDisplayScriptOwnership {
     var fields: [String] { [] }
 }
 struct SceneRenderDescriptor {
+    struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
+    var camera = Camera()
     struct Utility {
         enum Kind: String { case composition, fullscreen, project }
         let kind: Kind
@@ -38,6 +40,7 @@ struct SceneRenderDescriptor {
         var effects: [Effect] = []
         var staticModelPath: String? = nil
         var particlePath: String? = nil
+        var usesPerspective: Bool? = nil
     }
     let layers: [Layer]
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
@@ -193,6 +196,50 @@ struct SceneDependencyRenderPlan {
         default: fatalError("unknown owned light fixture")
         }
         return .init(layers: [root, first, spot, directional, peer] + extras)
+    }
+    static func quadFacts() -> [String: Any] {
+        var output: [String: Any] = [:]
+        for (key, quadID, peerID) in [("sunrays", 100, 54), ("renamedBeam", 407, 819)] {
+            let d = SceneRenderDescriptor(layers: [
+                .init(id: quadID, contentKind: "quad", effects: [.init(visible: true)]),
+                .init(id: peerID, visible: true, contentKind: "particle", particlePath: "renamed.json")])
+            let candidate: Set<SceneDynamicTarget> = [target(quadID)]
+            let definition = SceneDynamicTargetDefinition(target: target(quadID),
+                valueType: .bool, authoredValue: .bool(false))
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [definition], userValues: [target(quadID): .bool(true)]).snapshot
+            output[key] = ["typed": ids(d, candidates: candidate),
+                "scripts": ids(d, candidates: [], scripts: true),
+                "preparation": SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+                    in: d, candidates: candidate).sorted(),
+                "initiallyHidden": !SceneLayerVisibility.visibleLayerIDs(in: d).contains(quadID),
+                "publishedVisible": SceneLayerVisibility.visibleLayerIDs(in: d, snapshot: snapshot).contains(quadID)]
+        }
+        var rejected: [String: Bool] = [:]
+        for violation in ["parent", "children", "unlisted-child", "dependency", "authored-dependency", "duplicate", "utility"] {
+            var quad = SceneRenderDescriptor.Layer(id: 100, contentKind: "quad",
+                effects: [.init(visible: true)])
+            var extras: [SceneRenderDescriptor.Layer] = []
+            switch violation {
+            case "parent":
+                quad.parentID = 90
+                extras = [.init(id: 90, childLayerIDs: [100], contentKind: "container")]
+            case "children":
+                quad.childLayerIDs = [110]; extras = [.init(id: 110, parentID: 100)]
+            case "unlisted-child": extras = [.init(id: 110, parentID: 100)]
+            case "dependency": quad.dependencyLayerIDs = [200]
+            case "authored-dependency": quad.authoredDependencies = [200]
+            case "duplicate": extras = [quad]
+            case "utility": quad.utilityLayer = .init(kind: .fullscreen)
+            default: fatalError("unknown owned quad violation")
+            }
+            let d = SceneRenderDescriptor(layers: [quad] + extras)
+            rejected[violation] = ids(d, candidates: [target(100)]).isEmpty
+                && SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+                    in: d, candidates: [target(100)]).isEmpty
+        }
+        output["rejected"] = rejected
+        return output
     }
     static func main() throws {
         if CommandLine.arguments.count > 1 {
@@ -578,6 +625,7 @@ struct SceneDependencyRenderPlan {
         output["dependencyCompositionPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
             in: dependencyGroup, candidates: [target(420)]).sorted()
 #endif
+        output["quadFacts"] = quadFacts()
         print(String(data: try JSONSerialization.data(withJSONObject: output), encoding: .utf8)!)
     }
 }
@@ -639,6 +687,21 @@ class ScriptVisibleRootTests(unittest.TestCase):
     def test_no_script_keeps_only_explicit_typed_candidates(self):
         self.assertEqual(self.result['noScripts'], [])
         self.assertEqual(self.result['typedOwner'], [1])
+
+    def test_independent_quad_is_a_hidden_preparation_root_with_renamed_identity(self):
+        for key, quad_id, peer_id in [('sunrays', 100, 54), ('renamedBeam', 407, 819)]:
+            with self.subTest(key=key):
+                value = self.result['quadFacts'][key]
+                self.assertEqual(value['typed'], [quad_id])
+                self.assertEqual(value['scripts'], sorted([quad_id, peer_id]))
+                self.assertEqual(value['preparation'], [quad_id])
+                self.assertTrue(value['initiallyHidden'])
+                self.assertTrue(value['publishedVisible'])
+
+    def test_quad_preparation_keeps_parent_children_dependency_and_identity_boundaries(self):
+        for name, passed in self.result['quadFacts']['rejected'].items():
+            with self.subTest(case=name):
+                self.assertTrue(passed)
 
     def test_preparation_does_not_force_visibility_or_prevent_hiding(self):
         for key in ['authoredHidden', 'shown', 'hiddenAgain']:
