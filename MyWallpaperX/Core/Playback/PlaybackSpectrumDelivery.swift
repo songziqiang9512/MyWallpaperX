@@ -130,7 +130,7 @@ nonisolated final class PlaybackSpectrumDelivery: @unchecked Sendable {
             guard let target = sceneTarget, target.generation == generation,
                   target.demand == demand else { return }
             guard let data = try? DaemonNewlineJSON.encodeJSONObject([
-                "v": 1, "cmd": "publishAudioSpectrum",
+                "v": SceneDaemonProtocol.version, "cmd": "publishAudioSpectrum",
                 "left": frame.left, "right": frame.right,
                 "left32": frame.left32, "right32": frame.right32,
                 "left64": frame.left64, "right64": frame.right64,

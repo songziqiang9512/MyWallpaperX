@@ -91,18 +91,22 @@ import Foundation
         try transport.start()
         defer { transport.terminate() }
         let delivery = PlaybackSpectrumDelivery()
-        let demand = SceneAudioSpectrumCaptureDemand(requiresSpectrum: true,
-            includesCurrentProcessOutput: false, scopeEpoch: 7)
+        let inbox = SceneAudioSpectrumInbox()
+        inbox.setDemand(true)
+        inbox.setDemand(false)
+        inbox.setDemand(true)
+        let demand = inbox.captureDemand
         var route = SceneAudioSpectrumCaptureRoutingState()
         route.update(route: .daemon(demand, generation: 10))
+        expect(demand.scopeEpoch != route.scopeEpoch, "daemon and App capture epochs are distinct")
         delivery.configure(overlay: true, web: true, barCount: 28, routing: route,
             scene: .init(generation: 10, demand: demand, transport: transport))
         delivery.setWebTargets([.init(requestID: id, transport: transport)])
         delivery.setVideoTargets([transport])
-        let frame = SceneAudioSpectrumRoutedFrame(left: Array(repeating: 0.5, count: 16),
-            right: Array(repeating: 0.5, count: 16), left32: Array(repeating: 0.5, count: 32),
-            right32: Array(repeating: 0.5, count: 32), left64: Array(repeating: 0.5, count: 64),
-            right64: Array(repeating: 0.5, count: 64), captureToken: .init(
+        let frame = SceneAudioSpectrumRoutedFrame(left: (1...16).map { Float($0) / 32 },
+            right: (1...16).map { Float($0) / 64 }, left32: (1...32).map { Float($0) / 64 },
+            right32: (1...32).map { Float($0) / 128 }, left64: (1...64).map { Float($0) / 128 },
+            right64: (1...64).map { Float($0) / 256 }, captureToken: .init(
                 scopeEpoch: route.scopeEpoch, includesCurrentProcessOutput: false))
         let finished = DispatchSemaphore(value: 0)
         DispatchQueue.global().async {
@@ -128,7 +132,34 @@ import Foundation
         expect(lines.contains { $0.contains("pushAudioSpectrum") }, "web received during main stall")
         expect(lines.contains { $0.contains("publishAudioSpectrum") }, "scene received during main stall")
 
-        // A new daemon reuses its local scope 7. The capture epoch must still
+        // Decode the real producer's pipe bytes, rather than a separately
+        // versioned fixture. A protocol bump must not silently sever audio.
+        let sceneLine = lines.first { $0.contains("publishAudioSpectrum") }!
+        let sceneCommand = try SceneDaemonProtocol.decodeCommand(Data(sceneLine.utf8)).get()
+        guard case let .publishAudioSpectrum(audio) = sceneCommand else { fatalError("Scene audio command") }
+        func publish(_ audio: SceneDaemonAudioSpectrumFrame) -> Bool {
+            inbox.publishSystemCapture(left: audio.left, right: audio.right,
+                left32: audio.left32, right32: audio.right32,
+                left64: audio.left64, right64: audio.right64, token: audio.captureToken)
+        }
+        expect(publish(audio), "current daemon scope accepts the real wire frame")
+        let received = inbox.latest()
+        expect(received.generation > 0 && received.left == frame.left && received.right == frame.right
+            && received.left32 == frame.left32 && received.right32 == frame.right32
+            && received.left64 == frame.left64 && received.right64 == frame.right64,
+            "all six stereo arrays survive producer, transport, decoder and inbox")
+        inbox.setDemand(false)
+        expect(inbox.latest().isSilent, "withdrawal clears Scene replay")
+        expect(!publish(audio), "late decoded frame cannot refill a withdrawn inbox")
+        inbox.setDemand(true)
+        expect(!publish(audio), "old decoded scope cannot refill a restarted inbox")
+        var legacy = try JSONSerialization.jsonObject(with: Data(sceneLine.utf8)) as! [String: Any]
+        legacy["v"] = SceneDaemonProtocol.version - 1
+        expect(SceneDaemonProtocol.decodeCommand(try JSONSerialization.data(withJSONObject: legacy))
+            == .failure(.unsupportedVersion(SceneDaemonProtocol.version - 1)),
+            "repair must not weaken strict protocol admission")
+
+        // A new daemon reuses its local scope. The capture epoch must still
         // reject the old tap's frame (ABA/generation counterexample).
         route.update(route: .daemon(demand, generation: 11))
         delivery.configure(overlay: false, web: false, barCount: 28, routing: route,
@@ -410,6 +441,15 @@ final class WallpaperEngine {
                 "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
                 "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonIO.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+                "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+                "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
+                "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonMediaProtocol.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift",
             ]
             binary = directory / "harness"
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *[str(ROOT / p) for p in sources],

@@ -531,13 +531,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db314cd820010dee5b704a62690d789b57d118257973680319c3144cf3d95153",
+        "sourceSHA256": "92bcb04429b951911ff45b1b24c5678ec5b6b3a67f5505c049a8d61e20826cb2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "核对Scene v2唯一版本及实际音频sender到decoder/Inbox测试、普通App到daemon非零材质输入与证据指针。",
+        "limitations": "只复核本次IPC遗漏；旧段落未重新验收，不代表全样本、官方视觉或性能。"
       }
     },
     {
@@ -741,13 +741,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "142e9807752ad7059f5ad9b024ca8d953f303e731409a3e58dd59129ba398cb0",
+        "sourceSHA256": "ae89da8fb19641ce12ae6121ca491c1723c84ca9d645d4b0ca25841c49ce0b0a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
-        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
+        "scope": "核对Scene v2唯一版本及实际音频sender到decoder/Inbox测试、普通App到daemon非零材质输入与证据指针。",
+        "limitations": "只复核本次IPC遗漏；旧段落未重新验收，不代表全样本、官方视觉或性能。"
       }
     },
     {

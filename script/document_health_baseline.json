@@ -69,8 +69,8 @@
       "bytes": 19022
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 131,
-      "bytes": 18179
+      "lines": 129,
+      "bytes": 18155
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 137,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 454,
-      "bytes": 173406
+      "bytes": 173405
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,

@@ -4,11 +4,9 @@
 
 > 状态：现役进程设计契约；实际接线查[代码地图](runtime-as-built-map.md)，后续专项顺序归[性能卡](../roadmap/performance-convergence-card.md)，工程边界查[顶层设计](../roadmap/engine-refactor-program.md)。
 >
-> 复核：2026-10-20（Scene v2快捷方式配置边界；不代表全样本、真实目标或性能验收）
+> 复核：2026-10-21（Scene v2命令与频谱发送版本；不代表全样本或性能验收）
 >
 > 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
->
-> 现状权威：`docs/scene/capabilities/coverage-ledger.md`。代码实际接线查[事实架构地图](runtime-as-built-map.md)。
 >
 > 退役条件：daemon 化完成并稳定后，本契约并入长期架构合同（runtime-architecture.md 增补进程章节），本文转 historical-evidence。
 
@@ -73,7 +71,7 @@
 
 - 进程间**只传** coarse 命令与轻量统计；`MTLTexture`/registry/coordinator/任何进程内对象不跨进程。
 - daemon 内保持唯一权威五件套与失效域合同；诊断旁路（evidence window/HUD）留在 daemon 内。
-- 协议版本：首行沿 `SceneDaemonProtocol.version` 严格握手（当前 Scene v2；Video/Web各保原版本）；不匹配 → 主程序拒绝启动该 daemon 并报错。
+- 协议版本：握手、全部命令和事件统一引用 `SceneDaemonProtocol.version`（当前 Scene v2；Video/Web各保原版本）；不匹配严格拒绝。后台频谱发送也遵守此规则；回归门须将真实发送字节交给实际 decoder 与 Inbox，不能只检查命令已写出。
 
 ### User Shortcut 的 coarse 扩展设计
 
