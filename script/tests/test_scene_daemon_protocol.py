@@ -410,6 +410,8 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             compiled = subprocess.run(
                 [
                     "xcrun", "swiftc", "-parse-as-library",
+                    "-swift-version", "6",
+                    "-default-isolation", "MainActor", "-warnings-as-errors",
                     str(PROPERTY), str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
                     str(COMMAND), str(PROFILE), str(SCREEN), str(AUDIO),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift"),

@@ -425,12 +425,13 @@ extension SceneDesktopWallpaperSession {
                 layerMutations: [], inputBatchOverflowed: false
             )
         } else {
+            let shortcutDispatch: SceneScriptUserShortcutDispatch = userShortcutDispatch(frameIndex: timing.frameIndex)
             cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
                 batch: cursorBatch, frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON,
                 effectivePropertyValues: launchContext.liveState.effectiveValues,
                 propertyRevision: launchContext.liveState.revision, audioSpectrum: audioSpectrum,
-                userShortcutDispatch: userShortcutDispatch(frameIndex: timing.frameIndex)
+                userShortcutDispatch: .some(shortcutDispatch)
             )
         }
         if cursorResult.inputBatchOverflowed {

@@ -1,7 +1,7 @@
 import Foundation
 
 extension SceneDaemonProtocol {
-    static func shortcutConfiguration(_ raw: Any?) -> ScenePlaybackShortcutConfiguration? {
+    nonisolated static func shortcutConfiguration(_ raw: Any?) -> ScenePlaybackShortcutConfiguration? {
         guard let raw else { return .empty }
         guard JSONSerialization.isValidJSONObject(raw),
               let data = try? JSONSerialization.data(withJSONObject: raw),
@@ -11,7 +11,7 @@ extension SceneDaemonProtocol {
         return configuration
     }
 
-    static func shortcutObject(_ configuration: ScenePlaybackShortcutConfiguration) -> [String: Any] {
+    nonisolated static func shortcutObject(_ configuration: ScenePlaybackShortcutConfiguration) -> [String: Any] {
         let references = configuration.references.mapValues { reference in
             var value = ["kind": reference.kind.rawValue, "url": reference.url.absoluteString]
             if let bookmark = reference.bookmarkData { value["bookmarkData"] = bookmark.base64EncodedString() }

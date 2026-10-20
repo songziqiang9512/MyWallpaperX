@@ -12,7 +12,7 @@ struct ScenePuppetAnimationSelection {
         let layer: ScenePuppetAnimationLayer
         let animation: SceneMdlPuppetAnimation
 
-        var supportsDirectModelChannels: Bool {
+        nonisolated var supportsDirectModelChannels: Bool {
             !animation.hasAlphaContribution && !animation.hasAuxiliaryScalarTrack
         }
     }

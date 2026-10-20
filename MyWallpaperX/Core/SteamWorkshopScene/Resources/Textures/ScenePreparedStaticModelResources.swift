@@ -332,7 +332,7 @@ struct ScenePreparedStaticModelResources {
         }
     }
 
-    private static func identity(_ path: String) -> String {
+    private nonisolated static func identity(_ path: String) -> String {
         path.replacingOccurrences(of: "\\", with: "/")
             .localizedLowercase
     }

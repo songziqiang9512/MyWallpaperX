@@ -33,6 +33,8 @@ class SceneUserShortcutDispatchTests(unittest.TestCase):
             binary = Path(temporary) / "policy"
             result = subprocess.run([
                 "xcrun", "swiftc", "-parse-as-library",
+                "-swift-version", "6",
+                "-default-isolation", "MainActor", "-warnings-as-errors",
                 str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
                 str(ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackDesktopInputAdmission.swift"),
                 str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+UserShortcuts.swift"),

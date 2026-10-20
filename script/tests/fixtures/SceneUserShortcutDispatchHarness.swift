@@ -44,8 +44,11 @@ final class SceneDesktopWallpaperHost { var activeSession: SceneDesktopWallpaper
         precondition(session.applyUserShortcutConfiguration(.init(revision: 3,
             references: ["deleted": reference, "renamedAction": reference])))
         let first = click()
-        precondition(session.dispatchUserShortcut(first, key: "renamedAction", frameIndex: 1) == 1)
-        precondition(session.dispatchUserShortcut(first, key: "renamedAction", frameIndex: 1) == -1)
+        let dispatch: SceneScriptUserShortcutDispatch = session.userShortcutDispatch(frameIndex: 1)
+        let optionalDispatch: SceneScriptUserShortcutDispatch? = .some(dispatch)
+        precondition(optionalDispatch?(first, "renamedAction") == 1)
+        precondition(calls.count == 1, "native open must finish before the synchronous callback returns")
+        precondition(optionalDispatch?(first, "renamedAction") == -1)
         precondition(session.dispatchUserShortcut(first, key: "renamedAction", frameIndex: 2) == -1)
         precondition(calls.count == 1)
         let sameFrame = click()
