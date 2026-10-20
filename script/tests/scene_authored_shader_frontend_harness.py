@@ -57,6 +57,7 @@ private struct AuthoredShaderFrontendHarness {
                          "line": token.line, "column": token.column]
                     },
                     "defines": output.defines,
+                    "source": output.source.map { $0 as Any } ?? NSNull(),
                     "diagnostics": output.diagnostics.map { diagnostic -> [String: Any] in
                         ["code": diagnostic.code.rawValue,
                          "line": diagnostic.line.map { $0 as Any } ?? NSNull(),

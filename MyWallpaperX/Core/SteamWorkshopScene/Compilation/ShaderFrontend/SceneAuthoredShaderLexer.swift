@@ -26,9 +26,10 @@ nonisolated enum SceneAuthoredShaderLexer {
                 stage: stage
             )
         }
-        let normalizedSource = source
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
+        let normalizedSource = source.utf8.contains(0x0D)
+            ? source.replacingOccurrences(of: "\r\n", with: "\n")
+                .replacingOccurrences(of: "\r", with: "\n")
+            : source
         let directiveResult = extractDirectives(source: normalizedSource, stage: stage)
         guard directiveResult.diagnostics.isEmpty else {
             return Output(
@@ -56,6 +57,11 @@ nonisolated enum SceneAuthoredShaderLexer {
         source: String,
         stage: SceneShaderContract.StageKind
     ) -> DirectiveOutput {
+        // Without a marker, the directive pass only copies the original lines.
+        // Tokenization still validates comments, tokens and their budgets.
+        guard source.utf8.contains(0x23) else {
+            return DirectiveOutput(source: source, defines: [:], diagnostics: [])
+        }
         var defines: [String: String] = [:]
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
         var body: [String] = []

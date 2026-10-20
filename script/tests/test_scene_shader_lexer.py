@@ -52,6 +52,52 @@ class SceneShaderLexerTests(AuthoredShaderFrontendHarness, unittest.TestCase):
         self.assertEqual(outputs[7]["diagnostics"], [])
         self.assertEqual(outputs[7]["tokens"][0]["line"], 2)
 
+    def test_newlines_comments_and_directive_boundaries(self):
+        source = "\n// 注释\n变量_2 /* comment */ + 3;\n\n"
+        lf, crlf, cr = self.lex([
+            source, source.replace("\n", "\r\n"), source.replace("\n", "\r"),
+        ])
+        self.assertEqual(lf, crlf)
+        self.assertEqual(lf, cr)
+        self.assertEqual(lf["source"], source)
+        self.assertEqual(lf["diagnostics"], [])
+        self.assertEqual(lf["tokens"][0], {
+            "kind": "identifier", "text": "变量_2", "line": 3, "column": 1,
+        })
+        outputs = self.lex([
+            "", "\n\n", "/* unterminated", "a\r\n@\rb",
+            "// #define IGNORED 9\nIGNORED", "/* #version 150 */\na",
+            "#define VALUE 3\r\nVALUE", "#version 150\na",
+            "#define VALUE 1\n#define VALUE 2\nVALUE",
+        ])
+        self.assertEqual(outputs[0]["source"], "")
+        self.assertEqual(outputs[1]["source"], "\n\n")
+        self.assertEqual(outputs[2]["diagnostics"][0]["code"], "unterminatedComment")
+        self.assertEqual(outputs[3]["source"], "a\n@\nb")
+        self.assertEqual(outputs[3]["diagnostics"], [
+            {"code": "invalidToken", "line": 2, "column": 1},
+        ])
+        for index in [4, 5]:
+            self.assertEqual(outputs[index]["defines"], {})
+        self.assertEqual(outputs[6]["defines"], {"VALUE": "3"})
+        self.assertEqual(outputs[7]["diagnostics"][0]["code"], "unsupportedDirective")
+        self.assertEqual(outputs[8]["diagnostics"][0]["code"], "malformedDefine")
+
+    def test_original_source_and_token_budgets_still_apply(self):
+        outputs = self.lex([
+            " " * (512 * 1024), " " * (512 * 1024 + 1),
+            "\r\n" * (256 * 1024) + " ",
+            "; " * 100_000, "; " * 100_001,
+        ])
+        self.assertEqual(outputs[0]["diagnostics"], [])
+        self.assertEqual(len(outputs[0]["source"]), 512 * 1024)
+        for index in [1, 2]:
+            self.assertEqual(outputs[index]["diagnostics"][0]["code"], "sourceTooLarge")
+            self.assertIsNone(outputs[index]["source"])
+        self.assertEqual(outputs[3]["diagnostics"], [])
+        self.assertEqual(len(outputs[3]["tokens"]), 100_000)
+        self.assertEqual(outputs[4]["diagnostics"][0]["code"], "tokenBudgetExceeded")
+
 
 if __name__ == "__main__":
     unittest.main()

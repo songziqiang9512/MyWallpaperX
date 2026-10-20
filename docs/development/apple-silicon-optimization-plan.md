@@ -2,12 +2,12 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-21 D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
+状态：2026-10-21 D12词法快路完成行为门、冷暖资格与独审（全仓两门存量FAIL另列）；D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
 
 本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
 <a id="深入实施-d1d62026-10-21"></a>
-## 深入实施 D1–D11（2026-10-21）
+## 深入实施 D1–D12（2026-10-21）
 
 来源：冻结 `039d164cb` 的优化Debug外部CPU/System/Metal采样、752组词法完整输出对照与75s真实Web音频端点退役反例；证据在忽略的 `apple-silicon-deep-analysis-20261021` 包。局部词法多线程收益不代表整App；GPU类别区间重叠，不相加为可省时间。方案经独立研究复核后获用户实施授权。
 
@@ -24,6 +24,7 @@
 | D9 Video启动库结算 | 原Manager合并完整SQLite基线与启动期动作；未知基线失败时仅持久化有版本增量，退出／重试／reset不丢动作或覆盖未见库 | 已保留：18种mode／65检查、最终Debug／Release零警告及独审通过 |
 | D10 Release资源归因 | CI等价严格签名、无get-task-allow的原生生产daemon；先L资格，再唯一sample替代L→H→L，按实际端点分开CPU／VM／Metal与工具失败 | 已完成并独审：仅到owner／VM类别，无安全可删工作或retainer证据，不改预算／trim |
 | D11 Web物理Space | 同一最小WK二进制A／B只差reassert，另测真实WebDaemon C；同页、真实手动普通桌面切换、连续RAF／timer与原生事件，不能用模拟通知代替 | 已完成并独审：A4／B6／C5事件不支持reassert为主要停顿原因，停止该方向产品修改 |
+| D12 Scene资源关键路径 | 先沿既有Debug阶段日志＋启动外采样拆清launch／device／first-surface三链与真实join；有昂贵重复且完整身份等价才在原owner内小修、冷暖验证 | 已保留：562完整输出等价、5对局部／3对启动、独立L及最近行为门／独审；全仓两门存量失败另列，旧STOP不变 |
 
 每批列明owned源码/测试，构建和实际播放串行；子代理实现可并行，性能计量不与构建/测试重叠。Debug保现开发入口，Release无新增探针；真实媒体只读，用户偏好按精确任务值回收。保留低复杂度可靠局部收益，整体比例未知如实注明；性能或功能回归先修，不能机械追逐数值。阶段结果在本表更新，原24项历史不覆盖新事实。
 
@@ -46,6 +47,22 @@ D10：`4146aa75d`产品源码对应的最终Release（UUID `9577DD1D-88E5-3ADC-8
 D11：A／B同二进制、同内联页、同正常desktop+1配置，B仅增加Space／activation时的窗口reassert；真实手动切换的4／6事件分别对应RAF停顿567／537／549／551ms与545／547／548／538／538／521ms。A没有reassert也会停约半秒，A／B原生heartbeat最大仅15.1／45.4ms；没有对应半秒主线程停顿。该单轮数据不支持通过删窗口重申解决此类停顿，B低8.5ms也不能称优化收益。三臂均单document、序列连续、零丢包；C经原WebDaemon v2可见确认→finalize→output-activity ACK后观察，5个匹配request的IPC Space事件对应RAF556／567／632／557／568ms；IPC接收时刻不是原生callback时刻，原summary／unified未采到该事件不等于未发生。C兼容脚本覆写hidden，不能以hidden=false证明原生WebKit未遮挡；activation高一档证据也不能当作finalize后的持续level。仅此macOS／WebKit、这一张无网络页、每臂一轮，未证明内部根因、作者样式／音频／主App最小化或所有设备；不做C减A的宿主开销估计。早期快捷键未引发真实Space的B01／C01仅保无切换数据，不算空间验证；有效人工轮无新增产品探针。此阶段不改进程隔离／窗口行为或增加运行时workaround。
 
 D9–D11最终raw、工具与源身份、失败命令／收据、修正前后聚合及独审统一提取至忽略的`.artifacts/scene-evidence/runs/apple-silicon-storage-release-web-space-20261021/`（约1.6MiB，14天）。权限失败、未finalize的1.22GB ATRC不作归因数据；保原FAIL、三文件size／SHA及两份小metadata原文，其大载荷按已核范围清理，不宣称绝无可恢复数据。有效替代并非原trace完整等价副本。测试进程已退出；本轮临时App／DerivedData／样本／HOME／模块缓存按精确归属清理，不清理他人目录。
+
+D12实施顺序：从`8aaca3336`冻结导出树构建优化Debug（明确-O／wholemodule及DEBUG，不能外推普通Release比例），隔离H／L输入、HOME和应用shader缓存，先重用现LAUNCH-STAGE／管线计时及同一生产Scene v2入口。模型阶段与资源阶段独立；旧3662790108的descriptor约7s不解释本次H=3042492564资源区间。原launch worker与两个各自串行GCD队列／NSCondition并行，device等待QuickJS资源需求规划；现device-join／first-surface-join日志还含join后处理，不当纯等待时间。先一轮H冷／同进程暖作归因资格；必要时仅补最短缺口的DEBUG计时，Release无新诊断。外sample若覆盖启动须记录采样重叠／工具开销，不能把inclusive栈计数当CPU比例。
+
+D12局部实施：原始512KiB预算检查后，无CR源码复用原String；extractDirectives在完全无`#`时直接返回原源码及空指令结果，仍执行原tokenizer的注释／Unicode／位置和token预算逻辑。有CR保留原双替换，无CR复用原String；有`#`保留原指令扫描，无`#`跳过该扫描，两条件独立，不扩cache或改变解析／admission。先完整lexer输出A／B（含source、token、define、诊断全文），覆盖换行／注释／Unicode／指令／预算正反例并测固定工作量，再整App冷暖和独立作品实际运行。
+
+只有新证据证明同完整资源／用途／版本或同次不可变输入的昂贵重复，且不需第二owner、长期缓存、安全豁免或作者效果变化，才实施等价复用并验证反例与独立样本；保原取消／join／退役，冷暖对照按低复杂度总体正向取舍，不机械用旧百分比淘汰。若主链是必要编译／解码、只剩已STOP或数据无法定位可删工作，保留新证据并停止产品修改，不扩为全样本或后台预编译。每个实际产品小批完成最近门、隔离运行和独立审查后再提交；原并行pbxproj不入批。
+
+D12定位结果：优化Debug基线首次resource累计11040ms，其中catalog-decode23ms、capability至8835ms、first-surface-join至10825ms；同daemon第二次resource2527ms。8s／10ms的sample调用树指向capability内的词法／语法／源码规范化及helper等待，device在等脚本规划；并行variant累计时间不能相加作wall或CPU占比。初始HH及外采前快照实际有安装版App活动，保留原数仅作路径定位，不能称独占性能；外采结束观察还含符号处理，不把整个命令包络当采集时长。对照前按既有授权退出安装版与子进程，之后构建／局部测量／播放串行，正式六臂preflight／resume／exit快照未见另一匹配App／构建／sample，不代表全机连续隔离。
+
+D12局部结果：H缓存294条record的588个canonical字段（88个独特字符串）中587个无`#`、全部无CR，仅为输入普查而非调用计数。562组两stage完整lexer投影（source、token全部字段、defines及诊断stage／code／message／位置／null）逐字段、完整压缩内容SHA一致；含真实源码、Unicode与相邻异常、CR／CRLF／LF、指令／注释、字节及分号token预算边界。原HEAD的identifier／number early-continue预算缺口是存量，本批不改变它，分号门不证明所有token类别的100k上限。五对交替优化Swift固定工作量：无指令组142.936→80.991ms、配对中位−43.34%；含`#`邻居组84.925→82.992ms，基线波动达8.73%，仅认未见明显退步。时间含lexer与checksum，非CPU率、App百分比或能耗。
+
+D12启动资格：冻结`8aaca3336`与仅lexer变化候选，两个Debug产物同为-O／wholemodule、无debug dylib，构建零警告；现有签名／权限不更改，不冒称发行Release。三对BC／CB／BC、每臂新HOME及应用shader-cache、同daemon两次H：request→prepared首次中位12192→10922ms（配对−29.22／−11.48／−9.14%），再次4063→3866ms（配对+3.19／−4.86／−6.71%，不隐去较慢轮）；首次呈现中位12249→10979ms、再次4110→3935ms。输入页／OS／驱动缓存未清，第二H准备与旧H播放并存，只有此设备／输入／优化Debug的小规模资格，不能称稳定Release比例或纯cache收益。六臂12请求均首呈现、旧UUID资源退役、GPU drain／实际退出及App／输入前后身份通过；已存在的16条launch／source降级原因集合完全相同，不称样本完整兼容或零视觉失败。独立L=3766415113候选实际启动／呈现／drain通过。4项lexer门通过，frontend／dead-binding共88项中86通过、2项因缺隔离3141421197／retained requests fixture跳过，不把新562组投影代称这两个fixture。无新增缓存、线程、Release诊断或作者语义变化；其余同源analysis跨接口复用候选暂不叠加，保留本批低复杂度收益。
+
+D12全仓门边界：carrier CPU门通过；目录／职责15项中3项失败，冻结8aaca导出树同3项及相同validators逐项复现（5个原文件未登记、同一UserShortcut职责计数／路径未同步）。测试断言门的2条报告亦在冻结基线652份tracked Python测试中复现，两树完整inventory一致；本批未引入，未修改这些旧登记或他人文件。依赖／产物／残留／代码健康／防御／设计／文档登记与预算／diff检查通过，不宣称全仓全绿。原FAIL、基线复核和独审同保。
+
+D12最终原数、完整投影、失败／修正收据、工具与源码身份提取到忽略的`.artifacts/scene-evidence/runs/apple-silicon-scene-lexer-d12-20261021/`，14天有界保留。仅保必要结果，不保可重建App／DerivedData／HOME／shader和模块缓存；本任务进程退出后精确清理隔离根，不触碰原样本／并行pbxproj。
 
 ## 目标、取舍与职责
 

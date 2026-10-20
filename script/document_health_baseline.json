@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 455,
-      "bytes": 76179
+      "lines": 472,
+      "bytes": 82439
     }
   },
   "archives": [
@@ -1557,10 +1557,10 @@
     {
       "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "799c0648e0e671714e207e6aa52b842a15ddd40a06d3dd526b03aaab8086d354",
-      "after": "33f736588fd9f3ad2b5f75b553da3514e6a954f9cb9034a9e7afa44c33a5854e",
+      "before": "33f736588fd9f3ad2b5f75b553da3514e6a954f9cb9034a9e7afa44c33a5854e",
+      "after": "814748eb390cc13857ab5ca20f859ecd806d83967c12c1740fac770b9bed1398",
       "owner": "apple-silicon-performance",
-      "reason": "D10普通Release真实调用/驻留归因与D11手动三臂Space对照独审收口；原计划集中记实测范围、工具FAIL和STOP，不据缺测扩产品或新建台账。",
+      "reason": "D12资源关键路径取证、原lexer内等价快路及完整投影/冷暖实测收口；原计划集中记录收益、噪声与已知覆盖限制，不新增并行计划或诊断owner。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]
