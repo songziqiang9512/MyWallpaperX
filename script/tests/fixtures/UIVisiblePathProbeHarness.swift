@@ -79,6 +79,8 @@ private final class ProbeManager: @unchecked Sendable {
 }
 
 @MainActor private final class GridProbe {
+    // Window/timer admission is exercised separately with real NSWindow owners.
+    private var canProbeMissingPaths: Bool { true }
     let wallpaperManager: ProbeManager
     let collectionView = ProbeCollection()
     var orderedIDs: [String] = []

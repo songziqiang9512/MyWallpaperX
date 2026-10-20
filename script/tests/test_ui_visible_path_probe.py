@@ -18,6 +18,7 @@ class UIVisiblePathProbeTests(unittest.TestCase):
         template = (ROOT / "script/tests/fixtures/UIVisiblePathProbeHarness.swift").read_text()
         fields = "\n".join(next(line for line in product.splitlines() if field in line) for field in [
             "private var isMissingPathProbeInFlight", "private var visibleMissingWallpaperIDs",
+            "private var needsMissingPathProbeAfterFlight",
         ])
         template = template.replace("// PRODUCTION_PROBE_STATE", fields).replace(
             "// PRODUCTION_VISIBLE_PROBE", declaration(product, "    private func probeVisibleMissingWallpapers("))

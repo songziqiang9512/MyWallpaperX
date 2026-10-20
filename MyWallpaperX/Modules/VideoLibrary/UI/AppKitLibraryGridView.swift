@@ -36,6 +36,8 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private var isVisibleItemStateRefreshScheduled = false
     private var missingPathProbeTimer: DispatchSourceTimer?
     private var isMissingPathProbeInFlight = false
+    private var missingPathWindowObservers = [NSObjectProtocol]()
+    private var needsMissingPathProbeAfterFlight = false
     private var visibleMissingWallpaperIDs = Set<String>()
     private var lastAppliedQuery: String = ""
     private var pendingVisibleColumnCount: Int?
@@ -135,7 +137,6 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         setupViewHierarchy()
         setupObservers()
         observeScrollToTopRequests()
-        startMissingPathProbeTimer()
         observeModuleFocusRequests()
     }
 
@@ -149,6 +150,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         viewportPrefetchWorkItem?.cancel()
         missingPathProbeTimer?.cancel()
         missingPathProbeTimer = nil
+        missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
         cancellables.removeAll()
     }
 
@@ -178,6 +180,20 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        missingPathWindowObservers.removeAll()
+        if let window {
+            missingPathWindowObservers = [NSWindow.didMiniaturizeNotification,
+                NSWindow.didDeminiaturizeNotification].map { name in
+                NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, self.window === window else { return }
+                        self.updateMissingPathProbeTimer()
+                    }
+                }
+            }
+        }
+        updateMissingPathProbeTimer()
         guard window != nil else { return }
         scheduleRestingScrollOriginCapture()
     }
@@ -882,7 +898,24 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         }
     }
 
+    private var canProbeMissingPaths: Bool { window.map { $0.isVisible && !$0.isMiniaturized } ?? false }
+
+    private func updateMissingPathProbeTimer() {
+        // orderOut is not guaranteed to notify; keep cadence until detach/miniaturize.
+        guard window?.isMiniaturized == false else {
+            missingPathProbeTimer?.cancel()
+            missingPathProbeTimer = nil
+            needsMissingPathProbeAfterFlight = false
+            return
+        }
+        guard missingPathProbeTimer == nil else { return }
+        startMissingPathProbeTimer()
+        if isMissingPathProbeInFlight { needsMissingPathProbeAfterFlight = canProbeMissingPaths }
+        else { probeVisibleMissingWallpapers() }
+    }
+
     private func startMissingPathProbeTimer() {
+        guard window?.isMiniaturized == false, missingPathProbeTimer == nil else { return }
         // 缺失文件探针只检查可见项，目的是尽早给出路径缺失提示，但不做全库扫描。
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 2.0, repeating: 2.0, leeway: .milliseconds(300))
@@ -894,7 +927,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     }
 
     private func probeVisibleMissingWallpapers() {
-        guard !isMissingPathProbeInFlight else { return }
+        guard canProbeMissingPaths, !isMissingPathProbeInFlight else { return }
         let visibleIndexPaths = collectionView.indexPathsForVisibleItems()
         let targets = visibleIndexPaths.compactMap { indexPath -> (id: String, path: String)? in
             guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return nil }
@@ -916,6 +949,15 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.isMissingPathProbeInFlight = false
+                guard self.canProbeMissingPaths else {
+                    self.needsMissingPathProbeAfterFlight = false
+                    return
+                }
+                if self.needsMissingPathProbeAfterFlight {
+                    self.needsMissingPathProbeAfterFlight = false
+                    self.probeVisibleMissingWallpapers()
+                    return
+                }
                 let visibleIDs = Set(self.collectionView.indexPathsForVisibleItems().compactMap { indexPath -> String? in
                     guard indexPath.item >= 0, indexPath.item < self.orderedIDs.count else { return nil }
                     return self.orderedIDs[indexPath.item]

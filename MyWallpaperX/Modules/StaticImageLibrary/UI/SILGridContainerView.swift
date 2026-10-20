@@ -189,6 +189,9 @@ final class SILGridContainerView: NSView, ModuleFocusable {
     private var scrollToTopObserver: NSObjectProtocol?
     private var moduleFocusObserver: NSObjectProtocol?
     private var missingPathTimer: DispatchSourceTimer?
+    private var isMissingPathProbeInFlight = false
+    private var missingPathWindowObservers = [NSObjectProtocol]()
+    private var needsMissingPathProbeAfterFlight = false
 
     // MARK: - Init
     init() {
@@ -196,7 +199,6 @@ final class SILGridContainerView: NSView, ModuleFocusable {
         SILGridItem.resetHoverTracking()
         setupViewHierarchy()
         observeScrollToTop()
-        startMissingPathTimer()
         _ = dataSource
         observeModuleFocusRequests()
     }
@@ -206,6 +208,7 @@ final class SILGridContainerView: NSView, ModuleFocusable {
         scrollToTopObserver.map { NotificationCenter.default.removeObserver($0) }
         moduleFocusObserver.map { NotificationCenter.default.removeObserver($0) }
         missingPathTimer?.cancel()
+        missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - ModuleFocusable
@@ -229,6 +232,20 @@ final class SILGridContainerView: NSView, ModuleFocusable {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        missingPathWindowObservers.removeAll()
+        if let window {
+            missingPathWindowObservers = [NSWindow.didMiniaturizeNotification,
+                NSWindow.didDeminiaturizeNotification].map { name in
+                NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, self.window === window else { return }
+                        self.updateMissingPathProbeTimer()
+                    }
+                }
+            }
+        }
+        updateMissingPathProbeTimer()
         guard window != nil else { return }
         scheduleRestingScrollOriginCapture()
     }
@@ -441,13 +458,31 @@ extension SILGridContainerView {
             NotificationCenter.default.post(name: .appKitLibraryGridScrollToTopAnimationDidEnd, object: nil)
         }
     }
+    private var canProbeMissingPaths: Bool { window.map { $0.isVisible && !$0.isMiniaturized } ?? false }
+
+    private func updateMissingPathProbeTimer() {
+        // orderOut is not guaranteed to notify; keep cadence until detach/miniaturize.
+        guard window?.isMiniaturized == false else {
+            missingPathTimer?.cancel()
+            missingPathTimer = nil
+            needsMissingPathProbeAfterFlight = false
+            return
+        }
+        guard missingPathTimer == nil else { return }
+        startMissingPathTimer()
+        if isMissingPathProbeInFlight { needsMissingPathProbeAfterFlight = canProbeMissingPaths }
+        else { probeMissingPaths() }
+    }
+
     private func startMissingPathTimer() {
+        guard window?.isMiniaturized == false, missingPathTimer == nil else { return }
         let t = DispatchSource.makeTimerSource(queue: .main)
         t.schedule(deadline: .now() + 2.0, repeating: 2.0, leeway: .milliseconds(300))
         t.setEventHandler { [weak self] in self?.probeMissingPaths() }
         missingPathTimer = t; t.resume()
     }
     private func probeMissingPaths() {
+        guard canProbeMissingPaths, !isMissingPathProbeInFlight else { return }
         let vips = collectionView.indexPathsForVisibleItems(); guard !vips.isEmpty else { return }
         var targets: [(ip: IndexPath, path: String, id: String)] = []
         for ip in vips {
@@ -455,17 +490,29 @@ extension SILGridContainerView {
             targets.append((ip, w.path, w.id))
         }
         guard !targets.isEmpty else { return }
+        isMissingPathProbeInFlight = true
         // 周期性 stat 在后台执行，避免轮询在慢速卷上造成主线程掉帧
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let fm = FileManager.default
             let missing = targets.filter { !fm.fileExists(atPath: $0.path) }
-            guard !missing.isEmpty else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                // 后台 stat 期间网格数据可能已变化：按 id 身份校验（先 count 后下标），
-                // 过滤掉位移导致的错位与越界 index，避免 reloadItems 崩溃
+                self.isMissingPathProbeInFlight = false
+                guard self.canProbeMissingPaths else {
+                    self.needsMissingPathProbeAfterFlight = false
+                    return
+                }
+                if self.needsMissingPathProbeAfterFlight {
+                    self.needsMissingPathProbeAfterFlight = false
+                    self.probeMissingPaths()
+                    return
+                }
+                let visible = self.collectionView.indexPathsForVisibleItems()
+                // 慢卷结果只作用于仍可见且 id/path 都未替换的记录。
                 let valid = missing.filter {
-                    $0.ip.item < self.orderedIDs.count && self.orderedIDs[$0.ip.item] == $0.id
+                    visible.contains($0.ip) && $0.ip.item < self.orderedIDs.count
+                        && self.orderedIDs[$0.ip.item] == $0.id
+                        && self.wallpapersByID[$0.id]?.path == $0.path
                 }
                 guard !valid.isEmpty else { return }
                 self.collectionView.reloadItems(at: Set(valid.map(\.ip)))
