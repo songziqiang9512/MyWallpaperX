@@ -7,6 +7,7 @@ struct SteamWorkshopScenePlaybackRequest {
     let recordID: String
     let resourceLifetime: PlaybackResourceLifetime?
     var intentEpoch: UInt64? = nil
+    var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
 }
 
 extension SteamWorkshopService {
@@ -31,18 +32,17 @@ extension SteamWorkshopService {
         let generation = webLaunchIntentGeneration
         withResolvedSceneTexturePropertyReferences(for: record) { [weak self] references in
             guard let self, self.webLaunchIntentGeneration == generation, intent?.isCurrent() != false else { return }
+            var request = SteamWorkshopScenePlaybackRequest(
+                rootURL: record.folderURL, propertyOverrides: propertyOverrides,
+                userPropertyTextures: references, recordID: record.id,
+                resourceLifetime: resourceLifetime, intentEpoch: intent?.intentEpoch
+            )
+            request.userShortcuts = self.sceneShortcutConfiguration(for: record)
             NotificationCenter.default.post(
                 name: .steamWorkshopSceneReadyToRender,
                 object: nil,
                 userInfo: [
-                    "request": SteamWorkshopScenePlaybackRequest(
-                        rootURL: record.folderURL,
-                        propertyOverrides: propertyOverrides,
-                        userPropertyTextures: references,
-                        recordID: record.id,
-                        resourceLifetime: resourceLifetime,
-                        intentEpoch: intent?.intentEpoch
-                    )
+                    "request": request
                 ]
             )
         }

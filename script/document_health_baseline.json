@@ -69,8 +69,8 @@
       "bytes": 19022
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 127,
-      "bytes": 17191
+      "lines": 131,
+      "bytes": 18179
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 137,
@@ -121,12 +121,12 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 427,
-      "bytes": 166754
+      "lines": 436,
+      "bytes": 168762
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 201421
+      "bytes": 201922
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 390,
-      "bytes": 78047
+      "bytes": 78244
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 114342
+      "bytes": 114775
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -210,7 +210,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 157546
+      "bytes": 165900
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -241,8 +241,8 @@
       "bytes": 17182
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 227,
-      "bytes": 67658
+      "lines": 228,
+      "bytes": 68331
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1232,15 +1232,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "f4b7c4eefa670b0002a78707c2a49836b16a74fbdb8ea483e4ec7104fc3016ec",
-      "after": "fe903875d18c039637a85ed73fdcc47bcf04b607ebb932e4fe5eb0c19a17ca90",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/technology-stack-boundaries.md",
       "before": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
       "after": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
@@ -1457,15 +1448,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "7e37cdb173cca1056ff75e3040e4efe046b31d810ef3e6883b7c2b74e8dcda49",
-      "after": "bdcd0ff9cf82299c74b76477c5ce0c7840cf22cc68e8d8ab1f2c83a0ff161966",
-      "owner": "Scene layer-property and evidence owners",
-      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "eacee3497a8820a6e387239abdfd1d0e25dc16e7532c8f337278be5e7fda0596",
       "after": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
@@ -1502,15 +1484,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "2c099a1491faeb9662be6e57c2edbeefae6c1f4b2ea44e9b2d05b992c748d631",
-      "after": "e0078691b9635187c9229c2be921f6f91e4247a0d37f142cb941e7bb3bf88b46",
-      "owner": "scene-dynamic-layer-visibility-admission",
-      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
       "after": "6cf9d3cec75e0c32e57053a0e82b2eb12b88a9ff90dd6a3acc1e091d92efdca0",
@@ -1520,39 +1493,66 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "2f758cbc4bfb91cbc53d74e25d4f118642bd0ee940e8d2b4f9acea2cd20ab54b",
-      "after": "ba2264878cba0d1eddc43362b2dd9359fceb9dd964aeca8ce2b2b1088c068f55",
-      "owner": "scene-puppet-animation-auxiliary-profile",
-      "reason": "归并已执行官方API-only部分读回及明确STOP，保本机L0和未执行几何门，避免过时的下一步路线诱导重复实验；不是能力扩张。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#op-puppet-blend-shapes"
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "fe903875d18c039637a85ed73fdcc47bcf04b607ebb932e4fe5eb0c19a17ca90",
+      "after": "09b29f6b76992ea274c13031a06625c53ff4b3df07c2816e30e676c78d5bdcb2",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6048140352b47e3c924f4726e3331e587cc44a6710b54a5ebe156b2fea176b9a",
-      "after": "e335404b340983cf8e710799050d97e952810a8c482721c13a5228534848dcbe",
-      "owner": "scene-particle-event-qualification",
-      "reason": "保存当前蓝烟花事件/GPU与burst阶段，明确未资格的完整轨迹和官方正控；退出过时投影缺口，保持未修状态与能力边界。",
-      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md"
+      "before": "e335404b340983cf8e710799050d97e952810a8c482721c13a5228534848dcbe",
+      "after": "6ff1b26964e47a7aa713162847c3f500e61e8b5547fbfc305fcc6421e242aaa8",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "e0078691b9635187c9229c2be921f6f91e4247a0d37f142cb941e7bb3bf88b46",
+      "after": "093e13191dc60fba1fd7506f662090f267e932d3eceffec9bc0a09f930b87683",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "2bd670f0ac8547c38baa328cbaca3daec25fa956ff0f7188e341d88c8d9444f6",
-      "after": "ec9258ee9679c4159a3e4c2b73e7ec324265ddee5a8c3e7559444de0363d374a",
-      "owner": "scene-particle-event-qualification",
-      "reason": "保存当前蓝烟花事件/GPU与burst阶段，明确未资格的完整轨迹和官方正控；退出过时投影缺口，保持未修状态与能力边界。",
-      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md"
+      "before": "ec9258ee9679c4159a3e4c2b73e7ec324265ddee5a8c3e7559444de0363d374a",
+      "after": "2771eefd17d794b1dcd563a6f04c9530284b986c5353fd6533578077ca698eae",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "ba2264878cba0d1eddc43362b2dd9359fceb9dd964aeca8ce2b2b1088c068f55",
+      "after": "a21bafc1cc38355001f1b81595831c3dcc6e60a15bf7e60602691cb20c2d41be",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "bdcd0ff9cf82299c74b76477c5ce0c7840cf22cc68e8d8ab1f2c83a0ff161966",
+      "after": "18cd7e3c72918107a5306e7218d52206c1251e62f40718e32e9265ccc502ed0b",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "36a629bd1970c8dadb95ec48bf0f7056bf8057d9fea768752eb048441629b032",
-      "after": "30ed9ad2868b423ae487a385ebbd7b330f22c419fa2d6a8bcc30dd3db9a0e101",
-      "owner": "scene-particle-event-qualification",
-      "reason": "保存当前蓝烟花事件/GPU与burst阶段，明确未资格的完整轨迹和官方正控；退出过时投影缺口，保持未修状态与能力边界。",
-      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md"
+      "before": "30ed9ad2868b423ae487a385ebbd7b330f22c419fa2d6a8bcc30dd3db9a0e101",
+      "after": "652954173b25b2e353e825efba683805cd7f42eb88003028ba5c31269b15ed22",
+      "owner": "scene-user-shortcut-adapter",
+      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
     }
   ]
 }

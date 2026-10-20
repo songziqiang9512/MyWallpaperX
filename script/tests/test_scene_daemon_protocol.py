@@ -39,7 +39,7 @@ import Foundation
             return SceneDaemonProtocol.decodeCommand(data)
         }
         let load = decode([
-            "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
+            "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
             "profile": 30, "recordID": "fixture",
             "propertyOverrides": ["enabled": true, "rate": 1.5, "label": "ok"],
             "userPropertyTextures": [
@@ -47,7 +47,7 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, profile, recordID, requiredKeys, requestID)) = load {
+        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID)) = load {
             loadValid = root.path == "/private/tmp/scene"
                 && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil
                 && values["enabled"] == .bool(true)
@@ -56,38 +56,101 @@ import Foundation
                 && textures["cover"]?.url.path == "/private/tmp/cover.png"
                 && textures["cover"]?.bookmarkData == Data([1, 2, 3])
         } else { loadValid = false }
+        let shortcuts = ScenePlaybackShortcutConfiguration(revision: 9, references: [
+            "open_file": .init(kind: .file, url: URL(fileURLWithPath: "/private/tmp/action.command"),
+                bookmarkData: Data([3, 1, 4, 1, 5])),
+            "open_page": .init(kind: .webURL, url: URL(string: "https://example.org/action?q=scene")!,
+                bookmarkData: nil),
+        ])
+        let shortcutObject = SceneDaemonProtocol.shortcutObject(shortcuts)
+        let shortcutRequestID = UUID()
+        let shortcutLoadValid: Bool
+        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID)) = decode([
+            "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
+            "recordID": "fixture", "requestID": shortcutRequestID.uuidString,
+            "userShortcuts": shortcutObject,
+        ]) {
+            shortcutLoadValid = decoded == shortcuts && recordID == "fixture" && requestID == shortcutRequestID
+        } else { shortcutLoadValid = false }
+        let shortcutUpdate: [String: Any] = [
+            "v": 2, "cmd": "setUserShortcuts", "configuration": shortcutObject,
+            "recordID": "fixture", "requestID": shortcutRequestID.uuidString,
+        ]
+        let shortcutUpdateValid: Bool
+        if case let .success(.setUserShortcuts(update, requestID)) = decode(shortcutUpdate) {
+            shortcutUpdateValid = update.configuration == shortcuts && update.recordID == "fixture"
+                && requestID == shortcutRequestID
+        } else { shortcutUpdateValid = false }
+        let invalidShortcuts = [
+            ScenePlaybackShortcutConfiguration(revision: 9, references: [
+                "open": .init(kind: .webURL, url: URL(string: "javascript:alert(1)")!, bookmarkData: nil),
+            ]),
+            ScenePlaybackShortcutConfiguration(revision: 9, references: [
+                "open": .init(kind: .file, url: URL(fileURLWithPath: "/private/tmp/action.command"), bookmarkData: nil),
+            ]),
+        ]
+        let invalidShortcutConfigurationRejected = invalidShortcuts.allSatisfy { configuration in
+            var update = shortcutUpdate
+            update["configuration"] = SceneDaemonProtocol.shortcutObject(configuration)
+            guard case .failure(.invalidPayload("setUserShortcuts")) = decode(update) else { return false }
+            if case .failure(.invalidPayload("loadScene")) = decode([
+                "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
+                "userShortcuts": SceneDaemonProtocol.shortcutObject(configuration),
+            ]) { return true }
+            return false
+        }
+        var zeroShortcutRevision = shortcutUpdate
+        zeroShortcutRevision["configuration"] = SceneDaemonProtocol.shortcutObject(.empty)
+        let zeroShortcutRevisionRejected: Bool
+        if case .failure(.invalidPayload("setUserShortcuts")) = decode(zeroShortcutRevision) {
+            zeroShortcutRevisionRejected = true
+        } else { zeroShortcutRevisionRejected = false }
+        let invalidShortcutIdentityRejected = ["recordID", "requestID"].allSatisfy { key in
+            var update = shortcutUpdate
+            update[key] = key == "recordID" ? "" : "bad-uuid"
+            if case .failure(.invalidPayload("setUserShortcuts")) = decode(update) { return true }
+            return false
+        }
+        var legacyShortcutUpdate = shortcutUpdate
+        legacyShortcutUpdate["v"] = 1
+        let legacyShortcutVersionRejected: Bool
+        if case .failure(.unsupportedVersion(1)) = decode(legacyShortcutUpdate) {
+            legacyShortcutVersionRejected = true
+        } else { legacyShortcutVersionRejected = false }
         let explicitID = UUID()
         let explicitRequestValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, requestID)) = decode([
-            "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
+        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID)) = decode([
+            "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
             "requestID": explicitID.uuidString
         ]) { explicitRequestValid = requestID == explicitID } else { explicitRequestValid = false }
         let invalidRequestRejected = ["bad-uuid" as Any, 7, NSNull()].allSatisfy { value in
             if case .failure(.invalidPayload("loadScene")) = decode([
-                "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
+                "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
                 "requestID": value
             ]) { return true }
             return false
         }
         let propertyValid: Bool
         if case let .success(.setProperty(values, revision, recordID)) = decode([
-            "v": 1, "cmd": "setProperty", "revision": 7,
+            "v": 2, "cmd": "setProperty", "revision": 7,
             "recordID": "fixture", "values": ["rate": 2.0]
         ]) {
             propertyValid = revision == 7 && recordID == "fixture"
                 && values["rate"] == .number(2)
         } else { propertyValid = false }
-        let versionRejected: Bool
-        if case .failure(.unsupportedVersion(2)) = decode(["v": 2, "cmd": "pause"]) {
-            versionRejected = true
-        } else { versionRejected = false }
+        let versionRejected = [1, 3].allSatisfy { version in
+            if case .failure(.unsupportedVersion(version)) = decode(["v": version, "cmd": "pause"]) {
+                return true
+            }
+            return false
+        }
         let unsupportedRejected: Bool
         if case .failure(.unsupportedCommand("switchNext")) = decode([
-            "v": 1, "cmd": "switchNext"
+            "v": 2, "cmd": "switchNext"
         ]) { unsupportedRejected = true } else { unsupportedRejected = false }
         let zeroRevisionRejected: Bool
         if case .failure(.invalidPayload("setProperty")) = decode([
-            "v": 1, "cmd": "setProperty", "revision": 0,
+            "v": 2, "cmd": "setProperty", "revision": 0,
             "recordID": "fixture", "values": ["rate": 2]
         ]) { zeroRevisionRejected = true } else { zeroRevisionRejected = false }
         let booleanVersionRejected: Bool
@@ -96,43 +159,43 @@ import Foundation
         } else { booleanVersionRejected = false }
         let numericMuteRejected: Bool
         if case .failure(.invalidPayload("setMuted")) = decode([
-            "v": 1, "cmd": "setMuted", "muted": 1
+            "v": 2, "cmd": "setMuted", "muted": 1
         ]) { numericMuteRejected = true } else { numericMuteRejected = false }
         let spectrumToggleRetired: Bool
         if case .failure(.unsupportedCommand("setSpectrumEnabled")) = decode([
-            "v": 1, "cmd": "setSpectrumEnabled", "enabled": true
+            "v": 2, "cmd": "setSpectrumEnabled", "enabled": true
         ]) { spectrumToggleRetired = true } else { spectrumToggleRetired = false }
         let numericSpectrumToggleRetired: Bool
         if case .failure(.unsupportedCommand("setSpectrumEnabled")) = decode([
-            "v": 1, "cmd": "setSpectrumEnabled", "enabled": 1
+            "v": 2, "cmd": "setSpectrumEnabled", "enabled": 1
         ]) { numericSpectrumToggleRetired = true } else {
             numericSpectrumToggleRetired = false
         }
         let captureFrameEmptyRejected: Bool
         if case .failure(.invalidPayload("captureFrame")) = decode([
-            "v": 1, "cmd": "captureFrame", "requestID": ""
+            "v": 2, "cmd": "captureFrame", "requestID": ""
         ]) { captureFrameEmptyRejected = true } else {
             captureFrameEmptyRejected = false
         }
         let volumeValid: Bool
         if case let .success(.setVolume(volume)) = decode([
-            "v": 1, "cmd": "setVolume", "volume": 0.375
+            "v": 2, "cmd": "setVolume", "volume": 0.375
         ]) {
             volumeValid = abs(Double(volume) - 0.375) < 0.0001
         } else { volumeValid = false }
         let volumeOutOfRangeRejected: Bool
         if case .failure(.invalidPayload("setVolume")) = decode([
-            "v": 1, "cmd": "setVolume", "volume": 1.01
+            "v": 2, "cmd": "setVolume", "volume": 1.01
         ]) { volumeOutOfRangeRejected = true } else {
             volumeOutOfRangeRejected = false
         }
         let cancelValid: Bool
         if case .success(.cancelLaunch(recordID: "fixture")) = decode([
-            "v": 1, "cmd": "cancelLaunch", "recordID": "fixture"
+            "v": 2, "cmd": "cancelLaunch", "recordID": "fixture"
         ]) { cancelValid = true } else { cancelValid = false }
         let candidateID = UUID()
         let candidateControlsValid = ["commitCandidate", "finalizeCandidate", "cancelCandidate"].allSatisfy { command in
-            switch decode(["v": 1, "cmd": command, "requestID": candidateID.uuidString]) {
+            switch decode(["v": 2, "cmd": command, "requestID": candidateID.uuidString]) {
             case let .success(.commitCandidate(requestID)): return command == "commitCandidate" && requestID == candidateID
             case let .success(.finalizeCandidate(requestID)): return command == "finalizeCandidate" && requestID == candidateID
             case let .success(.cancelCandidate(requestID, operationID)):
@@ -142,36 +205,36 @@ import Foundation
         }
         let malformedCandidateControlsRejected = ["commitCandidate", "finalizeCandidate", "cancelCandidate"].allSatisfy { command in
             ["" as Any, "bad", 1, NSNull()].allSatisfy { value in
-                if case .failure(.invalidPayload(command)) = decode(["v": 1, "cmd": command, "requestID": value]) { return true }
+                if case .failure(.invalidPayload(command)) = decode(["v": 2, "cmd": command, "requestID": value]) { return true }
                 return false
             }
         }
         let operationID = UUID()
         let cancelReceiptValid: Bool
         if case .success(.cancelCandidate(requestID: candidateID, operationID: operationID)) = decode([
-            "v": 1, "cmd": "cancelCandidate", "requestID": candidateID.uuidString,
+            "v": 2, "cmd": "cancelCandidate", "requestID": candidateID.uuidString,
             "operationID": operationID.uuidString
         ]) { cancelReceiptValid = true } else { cancelReceiptValid = false }
         let outputActivityValid: Bool
         if case .success(.setOutputActive(requestID: candidateID, operationID: operationID, active: false)) = decode([
-            "v": 1, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
+            "v": 2, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
             "operationID": operationID.uuidString, "active": false
         ]) { outputActivityValid = true } else { outputActivityValid = false }
         let malformedOutputActivityRejected = ["" as Any, "bad", 1, NSNull()].allSatisfy { value in
             if case .failure(.invalidPayload("setOutputActive")) = decode([
-                "v": 1, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
+                "v": 2, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
                 "operationID": value, "active": false
             ]) { return true }
             return false
         }
         let numericOutputActivityRejected: Bool
         if case .failure(.invalidPayload("setOutputActive")) = decode([
-            "v": 1, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
+            "v": 2, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
             "operationID": operationID.uuidString, "active": 1
         ]) { numericOutputActivityRejected = true } else { numericOutputActivityRejected = false }
         let displayValid: Bool
         if case let .success(.setDisplayConfiguration(screens)) = decode([
-            "v": 1, "cmd": "setDisplayConfiguration", "screens": [[
+            "v": 2, "cmd": "setDisplayConfiguration", "screens": [[
                 "id": 7, "frame": [
                     "x": -1920, "y": 0, "width": 1920, "height": 1080
                 ], "scale": 2
@@ -185,14 +248,14 @@ import Foundation
         } else { displayValid = false }
         let duplicateDisplayRejected: Bool
         if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
-            "v": 1, "cmd": "setDisplayConfiguration", "screens": [
+            "v": 2, "cmd": "setDisplayConfiguration", "screens": [
                 ["id": 7, "frame": ["x": 0, "y": 0, "width": 10, "height": 10], "scale": 1],
                 ["id": 7, "frame": ["x": 10, "y": 0, "width": 10, "height": 10], "scale": 1]
             ]
         ]) { duplicateDisplayRejected = true } else { duplicateDisplayRejected = false }
         let badBookmarkRejected: Bool
         if case .failure(.invalidPayload("loadScene")) = decode([
-            "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
+            "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
             "profile": 60, "propertyOverrides": [:],
             "userPropertyTextures": ["cover": ["path": "/tmp/a", "bookmark": "%%"]]
         ]) { badBookmarkRejected = true } else { badBookmarkRejected = false }
@@ -201,7 +264,7 @@ import Foundation
         let bands64 = Array(repeating: 0.75, count: 64)
         let audioValid: Bool
         if case let .success(.publishAudioSpectrum(frame)) = decode([
-            "v": 1, "cmd": "publishAudioSpectrum",
+            "v": 2, "cmd": "publishAudioSpectrum",
             "left": bands16, "right": bands16,
             "left32": bands32, "right32": bands32,
             "left64": bands64, "right64": bands64,
@@ -217,7 +280,7 @@ import Foundation
         } else { audioValid = false }
         let audioWrongShapeRejected: Bool
         if case .failure(.invalidPayload("publishAudioSpectrum")) = decode([
-            "v": 1, "cmd": "publishAudioSpectrum",
+            "v": 2, "cmd": "publishAudioSpectrum",
             "left": Array(bands16.dropLast()), "right": bands16,
             "left32": bands32, "right32": bands32,
             "left64": bands64, "right64": bands64,
@@ -226,7 +289,7 @@ import Foundation
         let audioBooleanBandRejected: Bool
         let booleanBands: [Any] = [true] + bands16.dropFirst().map { $0 as Any }
         if case .failure(.invalidPayload("publishAudioSpectrum")) = decode([
-            "v": 1, "cmd": "publishAudioSpectrum",
+            "v": 2, "cmd": "publishAudioSpectrum",
             "left": booleanBands, "right": bands16,
             "left32": bands32, "right32": bands32,
             "left64": bands64, "right64": bands64,
@@ -287,7 +350,7 @@ import Foundation
         ) { negativeMediaIndexRejected = true } else { negativeMediaIndexRejected = false }
         let mediaWrongTypeRejected: Bool
         if case .failure(.invalidPayload("publishSystemMedia")) = decode([
-            "v": 1, "cmd": "publishSystemMedia", "frame": ["scope": true]
+            "v": 2, "cmd": "publishSystemMedia", "frame": ["scope": true]
         ]) { mediaWrongTypeRejected = true } else { mediaWrongTypeRejected = false }
         let payload = [
             "mediaCommandValid": mediaCommandValid,
@@ -296,6 +359,12 @@ import Foundation
             "negativeMediaIndexRejected": negativeMediaIndexRejected,
             "mediaWrongTypeRejected": mediaWrongTypeRejected,
             "loadValid": loadValid,
+            "shortcutLoadValid": shortcutLoadValid,
+            "shortcutUpdateValid": shortcutUpdateValid,
+            "invalidShortcutConfigurationRejected": invalidShortcutConfigurationRejected,
+            "zeroShortcutRevisionRejected": zeroShortcutRevisionRejected,
+            "invalidShortcutIdentityRejected": invalidShortcutIdentityRejected,
+            "legacyShortcutVersionRejected": legacyShortcutVersionRejected,
             "explicitRequestValid": explicitRequestValid,
             "invalidRequestRejected": invalidRequestRejected,
             "propertyValid": propertyValid,
@@ -341,12 +410,14 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             compiled = subprocess.run(
                 [
                     "xcrun", "swiftc", "-parse-as-library",
-                    str(PROPERTY), str(COMMAND), str(PROFILE), str(SCREEN), str(AUDIO),
+                    str(PROPERTY), str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
+                    str(COMMAND), str(PROFILE), str(SCREEN), str(AUDIO),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift"),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift"),
                     str(SCENE / "Systems/Media/SceneMediaThumbnailInbox.swift"),
                     str(SCENE / "Runtime/IPC/SceneDaemonMediaProtocol.swift"),
                     str(PROTOCOL),
+                    str(SCENE / "Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift"),
                     str(harness),
                     "-o", str(binary),
                 ],
@@ -357,7 +428,9 @@ class SceneDaemonProtocolTests(unittest.TestCase):
                 [str(binary)], capture_output=True, text=True, timeout=10
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertTrue(all(json.loads(completed.stdout).values()))
+            for name, passed in json.loads(completed.stdout).items():
+                with self.subTest(behavior=name):
+                    self.assertTrue(passed)
 
 
     def test_performance_profile_updates_shared_texture_decode_budget(self) -> None:

@@ -10,6 +10,7 @@ nonisolated enum SceneUserPropertyKind: String, Codable, Equatable, Hashable {
     case text
     case group
     case sceneTexture = "scenetexture"
+    case userShortcut = "usershortcut"
     case unsupported
 }
 

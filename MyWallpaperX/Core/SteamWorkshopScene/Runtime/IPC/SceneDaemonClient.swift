@@ -118,6 +118,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// candidate rollback and GPU drain, independently of mutable UI intent.
     var requestResourceLifetimes: [UUID: PlaybackResourceLifetime] = [:]
     var pendingPropertyRevisions: [UInt64: String] = [:]
+    var shortcutUpdateAdmissionClosed = false
+    var latestShortcutCommand: (recordID: String, revision: UInt64)?
+    var pendingShortcutUpdates: [UInt64: PendingShortcutUpdate] = [:]
     var pendingTextureUpdates: [UInt64: PendingTextureUpdate] = [:]
     var latestTextureRevisions: [String: UInt64] = [:]
     /// Synchronous drain callbacks may not admit work into the departing session.
@@ -305,6 +308,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             return
         }
         let requestID = pendingRequestID
+        finishPendingShortcutUpdates(.superseded)
         finishPendingTextureUpdates(.superseded)
         if activeIntent == nil {
             // In particular, a hello still queued on stdout must not replay it.
@@ -366,6 +370,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// Internal execution teardown stays silent. A standalone command stop may
     /// publish its state; product command stops first enter stopPlaybackRequested.
     func stop(postsLaunchState: Bool) {
+        finishPendingShortcutUpdates(.superseded)
         finishPendingTextureUpdates(.superseded)
         let stoppedRequestID = activeRequestID ?? pendingRequestID
             ?? (activeIntent != nil || pendingIntent != nil ? UUID() : nil)
@@ -457,6 +462,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         }
         cancelPreparationForRuntimeSwitch()
         pendingResourceLifetime = incomingLifetime
+        finishPendingShortcutUpdates(.superseded)
         finishPendingTextureUpdates(.superseded)
         latestTextureRevisions.removeAll(keepingCapacity: true)
         warmSessionPending = false
@@ -634,6 +640,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 \.foundationValue
             ),
             "userPropertyTextures": textures,
+            "userShortcuts": SceneDaemonProtocol.shortcutObject(request.userShortcuts),
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
             "profile": performanceProfile.maxFPS
         ]

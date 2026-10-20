@@ -429,7 +429,8 @@ extension SceneDesktopWallpaperSession {
                 batch: cursorBatch, frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON,
                 effectivePropertyValues: launchContext.liveState.effectiveValues,
-                propertyRevision: launchContext.liveState.revision, audioSpectrum: audioSpectrum
+                propertyRevision: launchContext.liveState.revision, audioSpectrum: audioSpectrum,
+                userShortcutDispatch: userShortcutDispatch(frameIndex: timing.frameIndex)
             )
         }
         if cursorResult.inputBatchOverflowed {

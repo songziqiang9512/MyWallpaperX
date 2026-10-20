@@ -41,6 +41,7 @@ extension SceneDesktopWallpaperSession {
     }
 
     func removePointerEventMonitors() {
+        userShortcutInput.revoke()
         if let localPointerEventMonitor {
             NSEvent.removeMonitor(localPointerEventMonitor)
             self.localPointerEventMonitor = nil
@@ -68,14 +69,36 @@ extension SceneDesktopWallpaperSession {
         default:
             primaryButtonIsDown = NSEvent.pressedMouseButtons & 1 != 0
         }
+        let hasNativeMainThreadIngress = Thread.isMainThread
         let publish = { [weak self] in
             guard let self else { return }
+            guard self.isVisible, self.isOutputActive else { return }
             let timestamp = CACurrentMediaTime()
+            let buttonEvent = event.type == .leftMouseDown || event.type == .leftMouseUp
+            var admitsNativeAction = false
+            if hasNativeMainThreadIngress, buttonEvent {
+                let receiver = NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0)
+                admitsNativeAction = self.surfaces.values.contains { $0.window.windowNumber == receiver }
+                    || PlaybackDesktopInputAdmission.allowsDesktopWindow(windowNumber: receiver)
+            }
+            let gestureID: UInt64?
+            if admitsNativeAction {
+                gestureID = self.userShortcutInput.receiveNativeButtonEvent(
+                    down: event.type == .leftMouseDown, up: event.type == .leftMouseUp)
+            } else {
+                if buttonEvent { self.userShortcutInput.revoke() }
+                gestureID = nil
+            }
+            let grant: ScenePlaybackShortcutGesture?
+            if let gestureID, let requestID = self.launchRequestID, let context = self.launchContext {
+                grant = .init(requestID: requestID,
+                    configurationRevision: context.userShortcuts.revision, gestureID: gestureID)
+            } else { grant = nil }
             for surface in surfaces.values {
                 surface.metalView.recordSceneScriptPointerEvent(
                     screenPoint: screenPoint,
                     primaryButtonIsDown: primaryButtonIsDown,
-                    timestamp: timestamp
+                    timestamp: timestamp, nativeShortcutGesture: grant
                 )
             }
         }

@@ -16,8 +16,29 @@
 - component/object/particle综合项仍有缺口，不能由综合等级推断各基础设施缺失；现`SceneScriptLayerHandleBridge`已有upsert/destroy、mutation commit/discard与scope隔离，`SceneScriptOwnerLifecycleBridge`已有生命周期及mutation预算。
 - 2026-10-01核对官方[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)、[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)、[IParticleSystem](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystem.html)。公开入口未证明作者可调用`registerSceneScriptComponent`。
 
-<a id="default-2d-camera-inputs"></a>
+<a id="user-shortcut-macos-adapter"></a>
 
+## User Shortcut 的 macOS adapter（2026-10-20，本机目标打开已验）
+
+**目标与实际调用者。** 首片须让用户在原生属性面板为原357的Launcher配置本机文件、目录或HTTP(S) URL后，原作者按钮可见、可命中且真实点击能打开所选目标。[公开User Shortcut](https://docs.wallpaperengine.io/en/scene/userproperties/usershortcut.html)与[IEngine](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)规定系统本地配置、cursorClick/up/down内调用、每click一次及重复throw；true表示shortcut successfully called，false表示无action，不要求目标App完成启动。本文限定macOS返回合同，不宣称Windows底层行为或全平台等价。 已只读核原357：16个`usershortcut`定义`_1…_16`默认空；Launcher214的`scriptProperties.shortcutName='_1'`，cursorClick先检查`thisLayer.visible && shared.appDockEnabled`再调用`openUserShortcut`。它不读取shortcut的`isbound/file`和图标投影；Dock209从原Bool `kg`和thisLayer.visible维护shared开关，210按原数量属性控制图标显隐/布局；214的`instance.usertextures`把`_1`声明为usershortcut。该结构用于验收，产品按类型、key和gesture执行，不按这些身份分派。现已支持的作者图标底图必须保持，不能因新增assignment把目标文件当图片解码、变成白块，或在可见/布局未接通时仅宣称opener成功。
+
+**数据流与唯一职责。** 原Property definition/parser增加显式shortcut kind，原AppKit editor复用resource行、sheet request/window/row生命周期；SteamWorkshopService独占本机选择、bookmark、assignment持久化与revision。沿现coarse load/update IPC交付`recordID/requestID/configurationRevision/propertyKey`绑定的typed assignment/reference快照；Session复用现输入owner持有当前执行lease与gesture/frame预算，C/Swift窄桥只接受已注册property key，验证后同步调用`NSWorkspace.shared.open`并直接返回native Bool。无新broker、资源registry、时钟、进程或通用opener；App仍是用户意图/store唯一权威，daemon不写用户配置，普通帧不解析/刷新bookmark。 assignment是typed资源/动作能力，不塞进`SceneUserPropertyValue.string`的JSON、不把作者String当可执行URL。首片只开放registered key的配置与调用；`isbound/file` structured getter及其applyUserProperties事件投影明确pending，不把空String伪装为shortcut对象，后继复用现userProperties/event DTO。原357不依赖这些对象字段，限定实际打开证据归[本机后验](../../capabilities/runtime-evidence-current.md#user-shortcut-native-20261020)。首片保作者icon fallback，不能伪造系统icon或据未参与本片的字段阻塞原Launcher点击闭环。
+
+文件/目录由用户chooser显式选择；URL由用户显式输入且只接受合法HTTP(S)。沿原record/key存储与bookmark资源生命周期扩展typed assignment，portable preset不导出本机授权；未知key、未配置、过期/不可读引用均不执行。Shell/console command、任意scheme、作者提供的路径参数、通用文件/网络API及无交互自动打开均不进入本片。 **选择与取舍。** 采用Session本地同步macOS adapter：native Bool只表示此次OS dispatch接受，不冒称目标已启动/文件已呈现。拒绝App侧异步排队返回true、始终返回false却仍打开，以及帧内pipe等待/嵌套RunLoop；它们不能保同步结果或会扩大阻塞。现[daemon合同](../../architecture/scene-runtime-daemon-contract.md)允许播放进程持有输入/AppKit runtime，此窄能力不迁移UI/store；相关coarse payload与执行边界由该合同登记。原typed对象变更仍走frame transaction，外部OS动作另按下述不可回滚合同，不借此绕过图层/资源事务。
+
+**首次调用与预算。** 在现native pointer ingress为真实AppKit输入分配session内gesture identity，经surface合流、捕获、pending callback到C当前调用scope；timestamp只排序，不作授权。真实点击还须WindowServer实际接收窗口为当前壁纸surface或Finder桌面；复用现Web命中算法，提取Core共享纯判定函数并退役Web私有重复判断，Web原cache/输入owner保留。遮挡的普通App/设置窗口不给grant，普通pointer视觉传播保持。只在active、visible、outputActive且当前owner/request/configuration一致的物理cursorDown/up/click放行，init/update/timer/media、synthetic/debug输入和伪造callback kind均无grant。一次click跨down/up/click、所有owner/surface共享一次attempt，另共享当前frame的一次预算；由现input owner持有，不新增gesture服务。 显式macOS策略：合法String参数且进入授权cursor scope后的首次调用先消费两项预算，再查已注册key/当前assignment并尝试native dispatch；未绑定/unknown key/失效引用或native false均返回false且不退款。同gesture或已耗尽frame预算的重复调用throw，不能换owner/key/回调再试；非法类型或真正非cursor scope抛错且不调用OS；合法cursor没有native grant/adapter或已因配置/生命周期撤权时返回false，不把环境不可执行变成作者视觉owner永久禁用。只有真正的同gesture/同frame重复attempt仍throw。首次成功返回实际native true；失败调用的精确Windows计数细节未证，作为平台策略保留，不伪称官方失败分支parity。
+
+**不可回滚与退出。** 消耗标记和dispatch结果留在现input owner、独立于VM/native mutation rollback。发出后即使作者随后throw、owner整包晚拒、GPU未提交/失败或presentation重试，也不退款、撤销或重放；外部目标无法随frame取消。调用前在同一串行点核active session及assignment revision，stop/切换/standby/候选未激活、reset/key删除或配置替换立即撤grant；排队事件保捕获时request/configuration revision，不改授新目标；已发出的OS动作不能追回，迟到事件、IPC重连/daemon重启不得重放动作。
+
+chooser取消、隐藏/窗口换绑或旧请求完成保原选择；选取/替换仅在当前revision接受后发布新快照，晚到picker不能复活reset前授权。reset清本机assignment/bookmark并按原store/revision语义更新当前session；失效bookmark保用户已选意图供展示/reset，标记不可执行，沿原资源准备范围刷新或要求重新选择，不降级为裸路径或另一个目标。错误只影响该动作/失败owner，保健康脚本、原图标底图、选择和播放；不把失败打开扩大为整Scene重载。
+
+**验收与停止。** 独立改名fixture须贯穿真实definition/editor-store投影→typed configuration/coarse IPC→原VM/cursor scope→typed key/revision校验→native adapter，用可计数native测试接缝分别注入true/false结果，验证不是伪queue成功；再由用户配置无害本机目录/文件及HTTP(S)，在原357真实桌面点击取得一次打开、对应native结果及原按钮/布局保持，关闭重开保选择、取消/reset生效。只用CLI改值、直接调用C或脚本shape门不能关闭该结果。
+
+反例覆盖未绑定/unknown key、非String、非法scheme/命令、坏/失效bookmark、picker/reset/revision竞态、重叠owner/跨surface、down+up+click/同frame重复、非native/非cursor、stop/standby/旧generation、native false后重试、首次打开后throw/owner晚拒/GPU失败及daemon重连；均不得额外打开或串用其他target。健康独立脚本/图标fallback及普通typed事务保原结果。Swift实施须Debug build与隔离代表运行；设计落库阶段不执行打开；实施阶段沿用户已授权范围使用无害测试目标验收。
+
+若原Launcher仍被shared/visible/typed资源门阻断，先修同链最早owner而非强显图标或绕过原脚本；若本地同步调用出现不可接受的主线程停顿，或gesture/configuration无法在dispatch前原子核定，撤回执行route并重评。未覆盖全部16项/全部target handler、系统icon/完整file shape、commands/schemes、Windows失败细节、App完成启动、性能长稳和完整官方parity；只把真正阻塞首片的未证字段单列pending，不反复泛化BLOCK整个API。
+
+<a id="default-2d-camera-inputs"></a>
 ## Default 2D camera 输入
 
 **现役范围（2026-10-16，有界已实施）。** 目标是让普通正交画布的作者默认相机 origin/zoom 经唯一 typed camera snapshot 到达现有投影。原无 Timeline 的 path 基值与 direct Slider zoom 漏接、origin Script 误作普通层位置，现与原 Combined Timeline 共享 `.camera(.origin/.zoom)`。混合来源按字段准入；运行和不同比例边界归[限定证据](../../history/default-2d-camera-inputs-2026-10-16.md)，不改作者画布或图层位置补偿。
@@ -37,7 +58,6 @@ direct user zoom 复用原 extractor、property Program、live 准入与事务�
 原SceneClock/PlaybackRuntime持播放位置，独立target各自clock映射、组成员共享root owner；Single末值保持，暂停/取消/事务和旧响应选项边界不变。prepared source的同帧parent-aware Bool显隐只撤origin/zoom到原identity分量，shake/parallax保原链；隐藏期时间继续，再显消费当前位置，不隐式play/pause/stop，官方重播策略仍未证。最近验收贯穿parser→descriptor/alias→Program→Playback/resolver→cameraFrame/getter，含两种root、改名/顺序、不同fps/length/startsPaused、typed控制、隐藏恢复、±Z/超far平移及坏peer/三分量/超幅/非有限反例。官方一板两次预登记fractional seek支持半span独立数学±0.25 authored单位，不认精确算法；原355实际由静止全景恢复近→全，独立358保持开场，均正常stop/GPU排空。具体身份/首失败归[当前证据](../../capabilities/runtime-evidence-current.md#default-camera-single-20261019)，只闭镜头缺失，不外推JS camera handles、同phase/viewport/pixel、完整视觉/交互或性能。
 
 <a id="asset-path-string-values"></a>
-
 ## 资产路径值与字体入口（2026-10-18，有界已实施）
 
 目标是让公开资产值可直接读写、比较并传入文字创建配置，不因项目私有对象包装中断作者回调。固定官方2.8.0.42的自有文字载体已观察到：`registerAsset`返回路径String，非空`font` getter也是String；合法stock路径直接赋值与注册返回值赋值均成功，同回调及下一回调读回保持。只限定所测路径值行为，不裁决资源预加载、路径规范化、空字体或字体像素一致性；具体身份与实测归运行证据。
@@ -52,7 +72,6 @@ direct user zoom 复用原 extractor、property Program、live 准入与事务�
 验收复用现QuickJS门的真实C执行：注册结果/String getter的类型与值、同回调读写及下一回调、getter转交创建、改名与等价表达式；非法相对路径、NUL、UTF-8上限、伪对象/coercion及整笔回滚为反例。真实stock时钟的getter传递由读源与该C行为门限定，不能冒称时钟App实图验收。一次Debug、同载体修前/修后实图及独立作者样本的执行结果归[运行证据](../../capabilities/runtime-evidence-current.md#asset-path-string-values-20261018)。已有层引用、topology和typed字体发布门只补受影响范围；声明、build或CPU通过均不代替画面，未测完整字体/parity或性能不得升级。
 
 <a id="text-layer-pointsize-setter"></a>
-
 ## Text layer pointsize setter（2026-10-16，有界已实施）
 
 目标是让文字层同一回调内的 `pointsize` 与 `text` 写入共同进入现有事务，使字号设置不再提前中止合法媒体文字回调。[公开 ITextLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ITextLayer.html)声明Number且未标readonly；真实中性投影只证明存在这些member写入，未读作者表达式，不推断其字号公式或完整视觉。
@@ -66,7 +85,6 @@ setter准入复用现scalar consumer的有限Double域，0/1025与有限极大�
 C ABI按职责组织：HostTypes保存既有opaque handles、DTO、字段枚举与callback typedef，原SceneQuickJS.h保domain/owner函数声明并相对include；载荷与执行owner不变，不复制声明或仅为行数增加wrapper。最近真C→ABI→Swift验收覆盖thisLayer/lookup、同回调bundle、跨回调、partial/rollback、动态text clone、极端有限/非法类型、竞争producer及stale/退休；具体门与原包/独立输入结果只归[限定记录](../../history/text-layer-pointsize-setter-2026-10-16.md)，门与设计批准不代替实际输出。真实标题可见不外推artist文字、右黑块、全部媒体/字体parity或性能收益。
 
 <a id="vector-mixed-dimension-arithmetic"></a>
-
 ## Vec3 与 Vec2 混合算术（2026-10-16，限定实现已接）
 
 目标是让受支持的 Vec3 接收者对实际 Vec2 执行 `add/subtract/multiply/divide` 时，仅运算共同的 x/y，原样保留接收者 z。按[官方研究边界](../../development/official-client-behavior-research-workflow.md)固定官方 2.8.0.42（executable SHA256 `daac1ea7…bda07`）的 24 个自有黑盒 case 已确认该数值行为、改名直调一致、左值不变及返回另一对象；黑盒没有验证 prototype/instanceof，返回 Vec3 沿公开 API 签名与现 owner，不混作黑盒类型实证。
@@ -78,7 +96,6 @@ C ABI按职责组织：HostTypes保存既有opaque handles、DTO、字段枚举�
 验收复用真实 QuickJS owner harness：四方法直接调用及变量改名/等价表达式、返回新对象且两操作数不变、scalar 与显式 Vec3、零扩展构造及非有限 typed 返回反例；不新建 vector owner 或测试算法。最近门、Debug、原包1128首错消失及独立实图的身份归[限定证据](../../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)，原包保owner-executed，未直接观测位置向量或完整motion；不据此关闭 U13 光束、媒体或整样本差异。失败保留原局部降级，不增加 cache、identity 或逐帧准备。
 
 <a id="named-user-pass-scalar"></a>
-
 ## Named-user pass scalar 输入（2026-10-16，有界已实施）
 
 目标是让 effect pass 的有限 Number `script/user/value` 包装进入现有 Scalar owner；outer user 是当前属性输入，脚本返回值是唯一高优先级 uniform producer。真实 slider 包装已定位，原入口仅允许 named-user Vec3，故在 binding 解析即丢失 scalar owner。选择补接现有输入链，不加 VM、属性状态、frame writer 或特殊 shader profile。
@@ -90,7 +107,6 @@ Binding reader 只扩有限非 Bool Number 与规范化命名 user；Scalar proj
 验收用改名及等价表达式确认真实输入被脚本变换，覆盖非默认保存值启动、连续热改、错误类型/非有限返回、缺失或重复 owner、未知 wrapper/竞争 Timeline及健康旧 scalar/Vec3/property-only。最终隔离 App 须直接确认 target identity、typed 输入/输出与 encoded uniform、GPU/末合成/下一帧及实际旋转响应；未参与修法内容另作真实渲染。若没有实际 owner/consumer 或画面响应，保留未证边界，不扩大 wrapper 或颜色域；一个有效构建和最近门可复用。
 
 <a id="camera-layer-fov-scalar"></a>
-
 ## Camera layer FOV scalar（2026-10-15）
 
 合法 native-perspective default-camera layer 的 FOV 属性脚本复用原 scalar Program、QuickJS domain、typed snapshot和唯一 camera-frame。现役准入、数值、来源、失败/退休与未覆盖合同统一见[Property-bound 核心合同](../../capabilities/scenescript-api-coverage.md#2-property-bound-核心合同)；实现与验证身份、原生结果及未验边界只记[限定证据](../../history/camera-layer-fov-live-2026-10-15.md)。本段不另维护状态或测试清单，`ICamera` JS handle仍不因此开放。
@@ -129,7 +145,6 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 接口复用现层名称/顺序解析及带代次的 handle 校验。现值、事务和资源仍由原 owner 负责；读取初始配置不代表 createLayer 已能消费其中所有字段。对不支持的资源保持局部拒绝，不能把 Puppet 扁平化或对缺少 provider 返回假成功。验收覆盖三入口、嵌套副本隔离、实时值不污染初始值、缺层/旧句柄、配置 identity 变化、现 create/destroy/rollback；真实 App 则核对原 34 个失败 target 的实际分布、普通图片模板复用与实际脚本角度输出，不以方法存在或截图非黑计完成。
 
 <a id="prepared-text-clone"></a>
-
 ## 已准备文字 wrapper 动态实例（2026-10-15，有界实施）
 
 **目标与范围。** `createLayer({text: …})`应区分String、静态value、user绑定和script wrapper；有状态脚本的两个clone必须各自持有模块状态、init/update、输入修订和退休状态，不能把wrapper字符串化、只取fallback或共享原namespace。现真实缺口包含一个已准备时钟脚本与两个纯user wrapper；后者应走原property typed链，不为其创建空VM owner。初片仅复用本launch成功准备的作者文字模板，不接任意新源码、Puppet/composition、动态配置getter或新的资源发现。官方自有中性实验已证独立init/update及create返回后立即`.text`可见init结果；user/throw/destroy沿项目既有合同验收，不称官方parity。
@@ -155,7 +170,6 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 产品原particle frame是整个cadence的共享native预算/事务作用域，开启它不能拒绝普通文字创建。同步子模块构造、init与失败销毁期间，在上述词法激活scope暂存并抑制原emission/boundary hooks，所有出口恢复原hooks/opaque；不重置active、work、limit或reserved。子init的particle播放/emit命令在原native入口、任何Swift preview/reserve或可捕获错误之前设sticky失败并拒绝creator，即使module阶段尚无provisional指针也按原nested激活身份拒绝；查询如被允许仍扣原共享work。父先前prefix/query候选不能被child end/discard边界清除。验收以原particle scope包围create并核前后父输入/预算、正常与失败出口、健康suffix；禁止为绕过此门关闭产品particle事务或新增第二模拟owner。
 
 <a id="prepared-puppet-clone"></a>
-
 ## 已准备特殊实例（2026-10-15，默认Puppet几何有界已接）
 
 **选题与资格。** 首片为已准备Puppet模型的默认几何实例，其次为空composition实例；文字显式style先需已证请求，不沿外观猜font或继承padding。实际原包31次create有25次普通命中、6次特殊模型缺失；六请求的own及完整已核原型链均没有animations/puppetAnimationLayers/effects，五Puppet源的mesh已成功准备。source声明不代表请求继承：不复制源动画、脚本或effects，不为本片新建子VM owner。[IScene](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IScene.html)公开配置创建，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html)公开播放控制；两页未裁决clone出生相位、配置省略或source销毁后的关系。只为实际影响首片的unknown做自有黑盒，不取私有算法。本片准入限静态atlas与原普通单pass builtin image材质、已准备model/mesh和无动画/effect请求；其他配置继续局部拒绝，动画/graph后继仍未裁决。
@@ -169,7 +183,6 @@ N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 im
 **最近验收与停止。** 实施与未验边界见[默认实例记录](../../history/prepared-puppet-default-instances-2026-10-15.md)。本片用自有双实例验证真实mesh轮廓/默认reference或bind几何、独立state/变换、throw/晚拒绝无残留及退休一个后peer继续，另验真实候选与未参与修法样本；动画字段不复制source，用失败反例锁定。未来动画实例另须非静态mesh位移与独立播放事实。改名/等价配置和缺template、错误代次、用途冲突保邻反例。若真实请求依赖首片外脚本/graph或没有可消费的prepared结果，收口资格并重新排队，不以无可见收益的基础设施扩张计交付。性能只在重复准备确有可比收益时单独验收。
 
 <a id="prepared-empty-composition"></a>
-
 ### 已准备空composition与限定透视消费者（2026-10-16）
 
 [前轮省略原型](../../history/prepared-empty-composition-2026-10-15.md)因真实true请求无消费者而撤回；后继已锁真实Object的own Boolean true及authored286无成员背景采集，按[D1](composition-render-target-design.md)的flat capture/output分离重开。现实施沿原prepared resource模板/kind、同一catalog/journal/候选/topology接空composition，接受省略/false/true；普通size与初始配置可用边界保持。source的effects/成员/脚本/最终纹理不继承，无effect只参与顺序。未消费animations/effects、背景/config、parent/children/dependencies出生前拒绝，getter/Proxy异常和晚拒绝共同撤回，原排序/退休/creator归属不变。
@@ -283,7 +296,6 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 **完整显式分支删除后继（2026-10-16，有界已实施）。** Project Bool入口接通后，真实owner同时明确删除Logo父、子层，但旧leaf guard在父层先行拒绝整笔。只允许同一个owner bundle明确包含所有仍存活作者后代的删除请求；按原descriptor的声明及实际parent边核完整性，各请求仍独立校验identity、预算、字段、顺序及重复删除，任一失败撤回整owner。已提交child tombstone不再阻止清理空父层。复用原tombstone、下一帧topology、cohort退休与在途资源寿命；不隐式添加后代、不跨peer凑齐删除、不扩大单独parent删除或另建子树owner。正反门覆盖父先/子先、多级完整/缺一、漏报child、后代无效/throw、跨owner和同帧回滚；实际原包需同时证明Logo退休与口罩effect切换，否则保留后续断点。
 
 <a id="puppet-query-render-pose"></a>
-
 ## Puppet 本地查询与物理姿态分域（2026-10-17，有界已实施）
 
 **目标与范围。** 固定官方客户端的[同输入观察](../../history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation)已区分本地查询与物理世界姿态：平移物理骨的一次 origin setter 在同 callback 可读，下一 callback 的 origin/local matrix 回到动画基值，世界矩阵与网格仍回弹。实施前 physics 和 setter 共写持久 override，污染后续本地查询。本片只修正已准入平移物理骨的局部 translation 投影与寿命；rotation/scale/其余 matrix 分量及没有该物理配置的骨保留原 setter 行为，其更广寿命未证。冲量入口、方向空间/单位、角物理及其他 profile 仍是后继，不为通过本片猜测实现。
@@ -309,7 +321,6 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 控制数据由共享播放 owner 发布只读 metadata/state 快照，C handle 只持身份、镜像及有序 callback overlay。play/pause/stop/setFrame 和 rate/blend/visible 的写入进入同一个 owner effect bundle；原始帧位置与渲染采样位置分开，显式越界 seek 只在采样端钳位。普通帧先推进播放并发布骨骼，再执行脚本；本片以已证的下一帧姿态作为验收下限，最终 GPU 相位不冒称官方一致。ended 注册必须在现有事务成功时保留、失败时撤销，使用实际自然结束事件并在 update 前执行；重复 cadence 不再次消费，未知 mirror/跨多圈行为需明确有界 profile，不能用假回调掩盖。控制命令上限取既有 owner/frame 与场景通道预算较小者；失败拒绝整个 owner bundle，重算其他 owner，不扩大到整个父层或 scene。
 
 <a id="puppet-animation-layer-lookup"></a>
-
 ### 已准备 Puppet 动画层 lookup（2026-10-16，CPU及self-index GPU有界已验）
 
 **目标与取舍。** 公开 [IImageLayer.getAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html#getanimationlayer-name-stringnumber-ianimationlayer) 按 name 或 index 查现有动画层，[IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html) 的 play 恢复、stop 停止并复位；不能用属性 Timeline 或当前 nested owner 的别名代替所查 target。一次开放任意 layer handle 会扩大跨父层权限、target 生命周期和事件归属；当前实现限已有 prepared Puppet nested-owner 经 thisLayer 查询同 parent 的已准备动画层。String 名称与有限非负整数 authored index 均解析真实 target，不按样本、名字或当前动画 ID 分派。真实中性资格证明 receiver 是同 parent thisLayer；335最初在参数解析前被资源准备合同拒绝，后继读源和资源资格确认其按String名称查同parent目标，资源事件与实际播放进展归[事件链路](#puppet-animation-events)，不由lookup入口存在性推断。
@@ -329,7 +340,6 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 **原包初始边界。** 最初335因MDLA0006现代尾部被整段零合同拒绝，lookup随prepared source退出，命令0；这份历史失败及原始身份保存在 `.artifacts/scene-evidence/runs/puppet-auxiliary-trailer-20261016/`。后继已定位其中事件记录，现状只由[事件链路与限定验收](#puppet-animation-events)拥有，不再把旧unknown当当前STOP；跨parent/任意layer handle、模型或动态动画创建和完整官方parity仍未闭。
 
 <a id="puppet-animation-events"></a>
-
 ### Puppet 源帧事件与动画接续（2026-10-16，有界实施与原包接续已验）
 
 **目标与取舍。** 修复合法现代MDLA事件记录被零填充合同拒绝、以及prepared动画无法经`animationEvent(event,value)`接续播放的共享链。335的同一资源两clip分别有1/0事件，事件名与nested Bool脚本输入精确匹配：初始化停止目标clip，收到另一clip的命名事件后播放；只读资格不算已恢复。公开[事件指南](https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html)与[AnimationEvent](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AnimationEvent.html)提供源帧、name/frame及同层callback表面。选择复用原PlaybackRuntime和owner事务；只放松reader会漏掉真实事件消费，另建surface计时器或完整Timeline事件平台均不采用。
@@ -419,7 +429,6 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 验收：原C/Swift门覆盖scene唯一与歧义、同parent同名layer/effect的旧layer隔离、仅effect名称scene可查而layer仍拒、改名/资源改名/等价表达式、坏scene_only/target索引、retained/cross-owner/stale/删除/16命令与throw整owner撤回；既有PlaybackRuntime实际消费play/pause/stop并使effect typed snapshot数值推进。一次最终Debug、自有同窗实际effect及原322点击控制与非零Timeline phase、独立原包/GPU排空和独审后才计入口恢复；2522 shader仍拒绝时只保其后继首断点，不把passthrough算作者滤镜。若需跨scope隐式猜名、重建图或第二时钟即停止重排。 实施沿本设计收敛；最近真实VM/typed门、自有特效像素与原322实际点击/非零phase归[限定运行证据](../../capabilities/runtime-evidence-current.md#scene-named-animation-scope-20261017)，不升级剩余目标或shader语义。
 
 <a id="prepared-dynamic-image-material"></a>
-
 ## 已准备普通图片的动态复用（2026-10-12—16，默认材质有界实施）
 
 10-12首片让作者通过初始配置取得image model路径后，createLayer继续消费既有dynamicImageResources、LaunchFrameSchema模板和DynamicImageTextureProvider。原资源owner在上传完成/失败回收后投影成功Entry的Loaded；model默认SourceKey须与Entry相同，保candidate/采样/texture身份，layer slot0 override不污染model默认源，显式资源优先。首片只准唯一model/material/pass、builtin image、单slot0、无常量/用户/provider、VERSION=2及translucent/disabled/disabled/nocull/alpha未指定。该plain专用资格现已由下述统一材质catalog接管，不作为第二入口；未知/custom/多pass不借纹理成功伪装普通quad。ColorModulationCompiler仍独占source Program语义lowering，不是资源引用资格，不重复调用它准备shader。
@@ -451,7 +460,6 @@ Vector applyUserProperties原已执行，但live state仅登记Scalar/String导�
 验收：真实VM方法→typed destination→owner提交/拒绝→AVQueuePlayer时钟与查询；startsilent、重复play、pause位置、stop归零重播、single自然结束、宿主暂停/恢复与停止后恢复、stale句柄/跨owner/throw/超额回滚，Video原方法回归。真实3761619125选曲脚本四MP3进入链，其他样本仅报告准入子集。Debug构建、独审及隔离运行，不把方法存在或player ready当成已播放；无法验证的模式继续记录首断点。
 
 <a id="sound-random-playback"></a>
-
 ### Random Sound多源接续（2026-10-16，有界实施）
 
 **目标与取舍。** 恢复已准备random Sound的正常播放和控制，让默认可达的音乐选择脚本能完成整个媒体事务。相比仍缺当前归因的旧视觉观察、尚无新增可避免成本信号的性能微调，这条真实首断点可直接解锁播放；具体选序仍只由现役队列维护。官方开发者[2021说明](https://steamcommunity.com/app/431960/discussions/2/3110266679775510809/)支持列表内选一源、完整结束后再选下一源，以及两声之间的min/max间隔；这是公开方向证据，不是当前客户端全部行为的实测。[ISoundLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html)保留play/pause/stop/isPlaying表面。本片不研究随机分布、洗牌或禁止重复，不把random映射为single。
@@ -469,7 +477,6 @@ Vector applyUserProperties原已执行，但live state仅登记Scalar/String导�
 **最小验收与停止。** 自有双短源实际自然完成并接续、同层不重叠、合法间隔与已资格控制合同、宿主暂停/恢复及退役后不续播；同一原包音乐选项3→1→0→3的命令与真实player消费、独立未参与修法样本实图。相邻门保loop/single、单源random、资源/变量改名、缺/坏源、非法间隔、stale回执和健康peer。无法在唯一现有链路内闭合或关键相位仍unknown时停该实施，不用构建、player ready、错误消失或日志数量代替播放收益；不预支性能或完整官方parity。
 
 <a id="sound-ogg-native"></a>
-
 ### OGG平台原生准入（2026-10-16，平台限定准备、资源级已消费）
 
 Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePlayer继续唯一播放。`.ogg`仅在`AVURLAsset.isPlayableExtendedMIMEType("audio/ogg")`为true时进入原链；[Apple能力查询](https://developer.apple.com/documentation/avfoundation/avurlasset/isplayableextendedmimetype%28_%3A%29)针对给定container/codec声明报告可播放性，本片只据容器查询形成一次静态准备事实，不保证具体文件成功。当前最低系统可调用该API，不按系统版本猜支持。FLAC/MP3/WAV保持，不加codec、header解析、转码、player或资源owner，不泛开放M4A/WebM。
@@ -480,7 +487,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 
 
 <a id="sound-volume-script"></a>
-
 ## Sound volume标量脚本接续（2026-10-16，有界实施）
 
 **目标与边界。** 普通Sound的`script/value`或`script/scriptproperties/value`音量经现Scalar VM→最终typed `.layer(.volume)` snapshot→唯一Sound Registry/AVQueuePlayer，改变实际增益而不重建播放器或场景。公开[ISoundLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html)只定义volume为播放音量，[update](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html)定义当前属性值与返回更新值；越界/clamp及mixed优先级未获完整官方合同。现沿Sound有限`[0,1]`项目准入，越界走owner局部失败，不擅自夹取；精确named outer-user组合见[后继合同](#sound-volume-named-input)，Timeline、spatial/random与volume setter不扩，OGG仅按[平台格式门](#sound-ogg-native)准入。
@@ -496,7 +502,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 实施边界与真实增益、原包/独立内容、超时及未验入口统一见[Sound volume后验](../../history/sound-script-control-2026-10-12.md#sound-volume-script)；本节保留职责和退出选择，不复制运行状态。
 
 <a id="sound-volume-named-input"></a>
-
 ### Named volume与声明输入（2026-10-16，有界已执行）
 
 **目标与资格。** 让普通Sound的有限Number `script/scriptproperties/user/value`沿同一Scalar owner接收外层slider及内层条件输入，实际调增益和播放意图并避免编辑重建。3147346398的原始volume同时绑定0…1 slider与两个Combo条件Bool输入；一次现役App资格取得instruction=0、callback=0、rebuildRequired=true及真实改值拒绝。这不是无consumer的条件Combo；不能加value-only例外、忽略script或复用无关字体callback来宣称可热更。资格事实留`.artifacts/tmp/condition-combo-qualification-20261016/`，CLI拒绝不等于本轮已执行原生面板重建，尚无性能收益。
@@ -512,7 +517,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 **验收与停止。** [有界后验](../../history/sound-script-control-2026-10-12.md#sound-mixed-volume)记录真实原包播放/暂停热改、派生脚本实际增益、原生保存/重开/reset单session及独立渲染；VM/player门覆盖改名、fallback、timer/media不额外推进与partial peer/rollback。未测性能；deferred visibility与Sound同key的实际组合、故障后整笔Session取消、多surface及听感/parity仍待验。若需全场景update、第二writer/输入缓存或扩大暂停包络，先另补合同及区分门。
 
 <a id="color-input-numeric-slot"></a>
-
 ### Color输入与数值slot（2026-10-16，有界已实施）
 
 **目标与资格。** 3337494481的147/effect3 alpha在进入JS前因Number fallback绑定Color持续拒绝。固定官方2.8.0.42自有正控证明：Color送入数值`addSlider` slot仍为三分量String，callback可返回有限scalar；不应按fallback类型提前拒绝或强转Number/Vec3。它不证明原作者media/fade画面已修，详细资格只归本机`333-next-qualification-20261016/official-property-slot/`。
@@ -524,7 +528,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 [有界后验](../../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)记录原333首错退出、自有Scalar同窗编辑与独立画面；当时残留的末次合法编辑拒绝由[回调退场后继](#retired-property-callback-consumers)接续，特殊composition和完整交互不随此关闭。
 
 <a id="retired-property-callback-consumers"></a>
-
 ### 永久删除后的属性回调消费者（2026-10-16，有界已实施）
 
 333同时间无非法输入对照仍拒绝末次合法编辑；精确guard证实，启动时冻结的全键callback集合仍包含已永久删除的347.visibility。选择修正事件消费者投影，不复活owner、不削失败准入，也不改VM事件或属性存储。Session从唯一DynamicLayerRuntime的已提交tombstone，使用现有target→layer映射，只投影本次keys已永久删除的callback receivers；LiveUpdateState仅从事件集合减去它们。显式typed instructions的消费者、值验证及原子提交仍全部保留，避免把活跃text clone复用的原输入当成已死数据源。暂时隐藏、disabled、待retry或资源未ready且无tombstone者继续阻挡；无存活consumer的键保原边界。新dynamic callback注册、widget owner退场和全无消费者的面板值不随片开放。
@@ -532,7 +535,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 普通/合并编辑、deferred完成及userTexture异步再次准入都重新读已提交事实；拒绝或未提交的destroy不能改变参与者，不新增退休registry、全场景刷新或帧内工作。永久删除后清理失败仍由原生命周期重试，不重新登记事件订阅。复用现有callback派发与owner teardown，值revision只随实际成功变化递增。门验证改名/类型、同值no-op、未退休失败peer、显式绑定/共享输入及全事件owner退休；原包同时间对照与原非法→合法序列、自有离场/调值画面及独立原包归[后验](../../history/property-callback-recovery-2026-10-14.md#retired-property-callback-consumers)。异步再次准入已审调用，实际deferred/resource删除竞态、完整原生面板/存储、多surface/HDR及性能未验；若需忽略活跃失败owner或传播到共享typed输入，则停止扩大并另立合同。
 
 <a id="project-utility-visibility"></a>
-
 ### Project utility 的 Boolean owner（2026-10-16，有界已实施）
 
 **目标与首断点。** 已资格的真实点击能进入原cursor owner，但共享状态的消费者挂在project层visible上，被候选contentKind和utility限制提前丢弃，未创建VM owner。选择补齐此普通Bool入口，优于猜事件API或绕过作者脚本。仅接无parent/children、无dependency及authoredDependency的project capture；其既有source route、Program和graph仍须独立通过准备。同束删除仍按上文完整显式分支合同，不跨peer借未提交tombstone。不为脚本副作用单建调度器，也不按源码形状决定准入。
@@ -542,7 +544,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 **验收与停止。** 自有VM输入验证Bool返回与跨effect副作用、改名/等价表达式、原子失败及邻近不准入形态；隔离App以相同窗口证明脚本持续更新和实际effect像素切换，另验project自身false→true→false及未参与修法内容。原包口罩变化须同时有owner、typed effect/graph执行和实际ROI，点击命中或非黑不足。不能承接动态capture或出现更早owner缺失时停下重排；多surface/HDR、完整样本及性能另验。
 
 <a id="script-module-top-level-initialization"></a>
-
 #### 模块顶层初始化后继（2026-10-18，有界已实施）
 
 成功求值的 stateful Bool 模块即使没有可调用回调，也可通过顶层初始化贡献共享状态。官方 marker、真实 candidate 门与原 U35 的限定画面已验证；构造 attempt 内曾执行模块仍不等于最终 domain 已接纳，本片不改变 Catalog 或 UI 属性通知。只撤除现有合法 stateful Bool 的额外无 hook 拒绝，不另造 Scalar、String 或非 Bool Vector 分支，不扩大其已有行为；非函数导出沿现共享 export Bridge 视为无可调用回调，不新增 ABI 判定。
@@ -552,7 +553,6 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 模块 throw、预算或其他构造失败仍排除失败 target，并重建干净候选 domain；不把失败 attempt 的共享 heap 合并到最终域。最近门验证实际 candidate 重建、兄弟读取、改名与等价初始化、闲置无多余帧调用、失败模块清堆及健康 peer；value-only 与 destroy-only 反例保留。原 U35 默认输入的 ready/after 均不再出现底部复制矩形，三个 origin 首输出保持作者屏外基值；独立 U25 的时钟、圆环、问候与主体保持。只据此确认初始化贡献及这项画面收益，不外推精确音频/动画相位、字体像素、整样本兼容或性能；其他模块生命周期不能由此自动准入。
 
 <a id="layer-alpha-raw-setter"></a>
-
 ### Layer alpha 的 raw setter 与显示边界（2026-10-17）
 
 **目标与资格。** fullscreen owner接通后，322的4907渐变先写有限负alpha再归零，现宿主范围拒绝使callback永久停用、中央组不能继续淡入。独立普通2D官方四卡证明0/1正控及1.01/−.01均不抛错，同callback与下一callback保持raw数值；黑底白源分别得到白/黑端点。此证据只说明属性/显示分域，不定位官方内部clamp相位，不推广非有限值、HDR、color或particle instance。

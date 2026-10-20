@@ -114,7 +114,7 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
             binary = path / 'harness'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(PROPERTY),
-                *[str(SOURCES / name) for name in ['WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift']],
+                *[str(SOURCES / name) for name in ['ScenePlaybackShortcut.swift', 'WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift']],
                 str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)

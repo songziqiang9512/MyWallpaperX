@@ -37,6 +37,14 @@ final class PlaybackCommandMultiplexer {
     }
 
     @MainActor @discardableResult
+    func applyUserShortcutUpdate(
+        _ update: ScenePlaybackShortcutUpdate,
+        completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void
+    ) -> Bool {
+        handler(for: .scene)?.applyUserShortcutUpdate(update, completion: completion) ?? false
+    }
+
+    @MainActor @discardableResult
     func applyUserTextureUpdate(
         _ update: ScenePlaybackTextureUpdate,
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void

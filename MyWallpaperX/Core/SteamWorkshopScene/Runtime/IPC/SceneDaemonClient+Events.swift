@@ -13,7 +13,7 @@ extension SceneDaemonClient {
                   Self.integer(payload["v"]) == SceneDaemonProtocol.version else {
                 publishFailure(
                     code: "malformed-event",
-                    message: "Scene daemon emitted an invalid v1 event"
+                    message: "Scene daemon emitted an invalid protocol event"
                 )
                 continue
             }
@@ -37,6 +37,7 @@ extension SceneDaemonClient {
             case "frameStats": handleFrameStats(payload)
             case "propertyUpdateResult": handlePropertyUpdateResult(payload)
             case "textureUpdateResult": handleTextureUpdateResult(payload)
+            case "shortcutUpdateResult": handleShortcutUpdateResult(payload)
             case "systemMediaDemandChanged":
                 handleSystemMediaDemand(payload, generation: generation)
             case "systemMediaAcknowledged":
@@ -379,6 +380,7 @@ extension SceneDaemonClient {
         // Notify external completions only after recovery facts are coherent;
         // they may synchronously request a newer product selection.
         failPendingFrameCaptures()
+        finishPendingShortcutUpdates(.failed("Scene daemon disconnected"))
         finishPendingTextureUpdates(.failed("Scene daemon disconnected"))
         revokeAudioSpectrumDemand(generation: generation)
         revokeSystemMediaDemand(generation: generation)

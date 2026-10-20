@@ -223,7 +223,7 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 原329同PKG`4e017ac6…ccc0`默认34/56的8个原rate脚本均完成，静音值0.15，固定PCM实测publication0.384742427。GPU完成的frame5→6实际骨骼采样分别推进约4.5000002和11.5422724个clip帧/scene秒，与两rate对应；这是动画推进速度，不是呈现FPS或性能。两轮分别48/47份不同XYZ几何，Root及Sol原图见完整骷髅在盒顶区域变姿、视频画面及全屏彩轨保持；静图不证明连续视频。独立339的人物/头发、蓝紫背景及白字保持。三run App0、无输入/产品漂移、stop1→0/GPU排空；329两轮仍同9类Graph/utility诊断FAIL，339仍particle loading incomplete，不升整样本裁决。
 
-真实parser→VM→snapshot→Playback新11门、旧Puppet控制18、播放28及parser14均PASS；相邻standalone夹具缺依赖/值类型已修，两个完整Swift夹具搬迁经字节/AST等价不重复跑门。独审先发现media callback绕过cohort并已在唯一出口修复。最终一次实际编译Debug88.293s，14产品源无漂移、签名0，App`307ba7a9…1775`/dylib`d695fc0c…b645`；此前冷依赖下载STOP不算编译/性能基线。两包普通14天[正式报告](../../../.artifacts/scene-evidence/runs/puppet-animation-rate-script-329-final-20261020/current/report.json)保存原图SHA/有损review、真实失败、输入/构建及门身份。官方同音频/phase、全部8动作、rate live-property readiness、HDR/多surface和CPU/GPU/内存/启动收益未验。
+真实parser→VM→snapshot→Playback新11门、旧Puppet控制18、播放28及parser14均PASS；相邻standalone夹具缺依赖/值类型已修，两个完整Swift夹具搬迁经字节/AST等价不重复跑门。独审先发现media callback绕过cohort并已在唯一出口修复。最终一次实际编译Debug88.293s，14产品源无漂移、签名0，App`307ba7a9…1775`/dylib`d695fc0c…b645`；此前冷依赖下载STOP不算编译/性能基线。两包普通14天正式报告 `.artifacts/scene-evidence/runs/puppet-animation-rate-script-329-final-20261020/current/report.json`保存原图SHA/有损review、真实失败、输入/构建及门身份。官方同音频/phase、全部8动作、rate live-property readiness、HDR/多surface和CPU/GPU/内存/启动收益未验。
 
 <a id="image-font-script-state-20261020"></a>
 
@@ -994,6 +994,15 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 
 **身份与保留。** project/pkg：358554=`767455ce…20c2`/`09770fd1…6ece`；358188=`4ca743f3…a8c5`/原hash见输入收据；360同理逐file在冻结中，未覆盖旧归档人工verdict。三包仍unreviewed；当前记录只更新其限定反馈和实际运行。`.artifacts/tmp/358-rays-fresh-20261018/`及`u02-remaining-rays-fresh-20261018/`保输入身份、事前界限、原图、原FAIL、chain-observation与独审；只清本轮停用输入/HOME，继续留单份stage/迭代source/DD供后继。完整属性/互动、全随机周期及性能不在本次判断内。旧零轴数值首拒已沿[既有合同](previous-blurred-composite-admission.md)退出，旧光照观察仍保其范围，不复跑以追未定parity。
 
+
+<a id="user-shortcut-native-20261020"></a>
+## 2026-10-20：本机快捷方式配置与实际打开
+
+原生属性面板的typed本机配置经Scene v2 coarse IPC、原VM cursor scope与Session唯一gesture/frame预算同步调用macOS opener；设计与退出边界归[D4](../roadmap/batch2/script-component-api-design.md#user-shortcut-macos-adapter)。旧候选曾两次native true，但随后无grant异常永久停用同一scale owner；修后合法cursor不可执行返回false，保作者视觉update，真正重复/非法调用仍throw。真实QuickJS四方法、Session实际生产接缝与client竞态反例、App配置及carrier回归已验证；不由host true推目标显示。
+
+用户在普通签名Release（主程序SHA `fb0916e4…076f1dc`）实测确认3577990983自定义目录在Finder打开、图片/音乐/App均可打开，前景窗口遮挡点击无误打开。最新Debug23.679秒、产品输入无漂移；修正发布版身份与此前失败/独审/测试包 `.artifacts/scene-evidence/runs/user-shortcut-qualification-20261020/` 保留归档时的pending状态，后继人工反馈与收尾证据另存 `.artifacts/scene-evidence/runs/user-shortcut-closeout-20261020/`。原作者默认hover外半径约602场景单位，仅静态解释部分提前放大；用户另报1994794519中心准、边缘偏移，通用pointer倍率/投影仍[待排查](../roadmap/scene-open-breakpoint-queue.md#qv-visual-repairs)，不因半径数学关闭。
+
+只认上述本机目标与有界遮挡反馈；HTTP(S)、全部16键/handler、重开持久化、完整isbound/file投影、系统icon、命令/任意scheme、官方同点/全景parity与性能未验。不修改作者hover或资源参数；本轮无需新增官方VM实验。最新同App独立297短播原图的人物、霓虹背景、中央音乐卡和时钟文字可见，79 VM owner全quiescent且零failure，正常surface1→0/GPU排空；固定矩阵19项数量/metadata及solid842断言仍FAIL，完整保留，不算矩阵或全交互通过。
 
 <a id="sprite-alpha-coverage-20261020"></a>
 ## 2026-10-20 普通 Sprite coverage：外围花簇恢复

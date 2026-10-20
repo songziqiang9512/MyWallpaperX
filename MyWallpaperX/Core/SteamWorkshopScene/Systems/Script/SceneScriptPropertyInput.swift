@@ -166,7 +166,9 @@ nonisolated enum SceneScriptPropertyInputCodec {
         kinds: [String: SceneUserPropertyKind]
     ) -> String {
         let object = values.reduce(into: [String: Any]()) { result, entry in
-            guard validName(entry.key) else { return }
+            // Shortcut assignments are native control-plane resources. This
+            // slice does not expose the public structured shortcut object.
+            guard validName(entry.key), kinds[entry.key] != .userShortcut else { return }
             switch (kinds[entry.key], entry.value) {
             case (.color, .string(let value)):
                 if let color = vector3(value) {

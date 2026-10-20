@@ -1,5 +1,7 @@
 import Foundation
 
+enum SceneDaemonProtocol { static let version = 2 }
+
 // Leaves replace only the platform service and actual pipe. The subscription,
 // generation checks, asynchronous preparation, ACK pump and receiver are real.
 @MainActor final class SystemMediaService {

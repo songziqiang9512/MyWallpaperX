@@ -4000,6 +4000,22 @@
         "test_scene_puppet_active_composition",
         "test_scene_direct_model_animation_preparation_fallback"
       ]
+    },
+    {
+      "id": "scene-user-shortcuts",
+      "patterns": [
+        "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackDesktopInputAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/**/Scene*UserShortcut*",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneShortcutProperties.swift",
+        "script/tests/test_scene_user_shortcut_*.py",
+        "script/tests/fixtures/SceneUserShortcut*Harness.swift"
+      ],
+      "modules": [
+        "test_scene_user_shortcut_dispatch",
+        "test_scene_user_shortcut_properties",
+        "test_scene_user_shortcut_vm"
+      ]
     }
   ],
   "method_gates": {

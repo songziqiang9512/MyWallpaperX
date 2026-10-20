@@ -46,7 +46,8 @@ extension SceneMetalView {
     func recordSceneScriptPointerEvent(
         screenPoint: CGPoint,
         primaryButtonIsDown: Bool,
-        timestamp: Double = CACurrentMediaTime()
+        timestamp: Double = CACurrentMediaTime(),
+        nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
     ) {
         guard let window else { return }
         let windowPoint = window.convertPoint(fromScreen: screenPoint)
@@ -54,7 +55,7 @@ extension SceneMetalView {
             windowPoint,
             primaryButtonIsDown: primaryButtonIsDown
         )
-        appendSceneScriptPointerEvent(timestamp: timestamp)
+        appendSceneScriptPointerEvent(timestamp: timestamp, nativeShortcutGesture: nativeShortcutGesture)
     }
 
     func drainSceneScriptPointerEvents() -> SceneSurfacePointerEventBatch {
@@ -93,12 +94,14 @@ extension SceneMetalView {
         parallaxPointerSmoother.setTarget(normalized, timestamp: CACurrentMediaTime())
     }
 
-    private func appendSceneScriptPointerEvent(timestamp: Double) {
+    private func appendSceneScriptPointerEvent(
+        timestamp: Double, nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
+    ) {
         sceneScriptPointerEvents.append(.init(
             normalizedPosition: pointerState.sceneScriptCurrent,
             isInside: pointerState.isInside,
             primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown,
-            timestamp: timestamp
+            timestamp: timestamp, nativeShortcutGesture: nativeShortcutGesture
         ))
     }
 

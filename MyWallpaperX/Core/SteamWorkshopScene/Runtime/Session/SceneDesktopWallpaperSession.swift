@@ -60,6 +60,10 @@ final class SceneDesktopWallpaperSession {
     var launchContext: SceneDesktopWallpaperLaunchContext?
     private var activeSpaceObserver: NSObjectProtocol?
     var localPointerEventMonitor: Any?
+    let userShortcutOpener: (URL) -> Bool
+    var userShortcutInput = SceneUserShortcutInputState()
+    var userShortcutURLs: [String: URL] = [:]
+    var userShortcutScopedKeys: Set<String> = []
     var globalPointerEventMonitor: Any?
     var frameTimer: Timer?
     var frameDriverDeadline: CFTimeInterval?
@@ -121,12 +125,15 @@ final class SceneDesktopWallpaperSession {
 
     /// A host is process-local runtime state. SceneDaemonRuntime owns the
     /// product instance; the explicit DEBUG evidence runner owns its own.
-    init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget) {
+    init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
+         userShortcutOpener: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }) {
+        self.userShortcutOpener = userShortcutOpener
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
         installObservers()
     }
 
     deinit {
+        releaseUserShortcutScopes()
         removePointerEventMonitors()
         if let activeSpaceObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(
@@ -149,6 +156,7 @@ final class SceneDesktopWallpaperSession {
             capturesLifecycleObservations: context.capturesExecutionObservations
         )
         launchContext = context
+        installUserShortcuts(context.userShortcuts)
         userPropertyTextureLoad = context.userPropertyTextureLoad
         evaluationTransaction = .init()
 #if DEBUG
@@ -593,7 +601,7 @@ final class SceneDesktopWallpaperSession {
                 screen: screen
             )
             window.isReleasedWhenClosed = false
-            window.ignoresMouseEvents = true
+            window.ignoresMouseEvents = !SceneDesktopWallpaperHost.usesDebugEvidenceWindow
             window.backgroundColor = .clear
             window.isOpaque = false
             window.hasShadow = false

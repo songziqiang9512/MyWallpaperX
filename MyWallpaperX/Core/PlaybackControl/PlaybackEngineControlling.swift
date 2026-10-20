@@ -18,6 +18,12 @@ protocol PlaybackEngineControlling: AnyObject {
     func handle(_ command: WallpaperEngineCommand) -> Bool
 
     @MainActor @discardableResult
+    func applyUserShortcutUpdate(
+        _ update: ScenePlaybackShortcutUpdate,
+        completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void
+    ) -> Bool
+
+    @MainActor @discardableResult
     func applyUserTextureUpdate(
         _ update: ScenePlaybackTextureUpdate,
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
@@ -31,6 +37,11 @@ protocol PlaybackEngineControlling: AnyObject {
 }
 
 extension PlaybackEngineControlling {
+    @MainActor func applyUserShortcutUpdate(
+        _ update: ScenePlaybackShortcutUpdate,
+        completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void
+    ) -> Bool { false }
+
     @MainActor func applyUserTextureUpdate(
         _ update: ScenePlaybackTextureUpdate,
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void

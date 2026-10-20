@@ -14,6 +14,7 @@ nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
     let surface: SceneScriptSurfaceInput?
     let surfaceID: UInt32?
     let leavingSurface: SceneScriptSurfaceInput?
+    var nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
 
     init(
         hits: [Int: SceneScriptCursorHit],
@@ -22,7 +23,8 @@ nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
         primaryButtonIsDown: Bool,
         surface: SceneScriptSurfaceInput? = nil,
         surfaceID: UInt32? = nil,
-        leavingSurface: SceneScriptSurfaceInput? = nil
+        leavingSurface: SceneScriptSurfaceInput? = nil,
+        nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
     ) {
         self.hits = hits
         self.ownerProjections = ownerProjections ?? hits
@@ -31,6 +33,7 @@ nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
         self.surface = surface
         self.surfaceID = surfaceID
         self.leavingSurface = leavingSurface
+        self.nativeShortcutGesture = nativeShortcutGesture
     }
 }
 
@@ -110,6 +113,7 @@ nonisolated struct SceneScriptCursorPendingEvent: Sendable {
     let surface: SceneScriptSurfaceInput?
     let captureActive: Bool
     let currentHit: Bool
+    var nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
 }
 
 nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {

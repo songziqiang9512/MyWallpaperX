@@ -97,7 +97,7 @@ nonisolated enum SceneDaemonMediaWire {
     static let maximumArtworkBytes = 16 * 1_024 * 1_024
 
     private struct Envelope<T: Encodable>: Encodable {
-        let v = 1
+        let v = SceneDaemonProtocol.version
         let cmd: String
         let frame: T
     }

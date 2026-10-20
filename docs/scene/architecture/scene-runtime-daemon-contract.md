@@ -4,7 +4,7 @@
 
 > 状态：现役进程设计契约；实际接线查[代码地图](runtime-as-built-map.md)，后续专项顺序归[性能卡](../roadmap/performance-convergence-card.md)，工程边界查[顶层设计](../roadmap/engine-refactor-program.md)。
 >
-> 复核：2026-10-18（候选提交、撤销与版本租约协议；不代表全样本或性能验收）
+> 复核：2026-10-20（Scene v2快捷方式配置边界；不代表全样本、真实目标或性能验收）
 >
 > 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
 >
@@ -37,7 +37,7 @@
 | 状态存储 | daemon 拥有运行时状态；持久化设置由主程序经命令下发；daemon 无本地持久化（除既有 shader artifact 磁盘缓存，路径不变） |
 | 已知代价（接受） | ① daemon 二进制=完整 app（内存映射共享页，增量小）；② `@main` 分支需守护测试防 UI 初始化渗入 daemon 路径；③ launchd 无托管——退避重启由主程序负责（§4） |
 
-## 3. IPC 合同（= EngineCommand 的传输化，v1 冻结）
+## 3. IPC 合同（= EngineCommand 的传输化）
 
 ### 3.1 命令（主程序 → daemon，逐行 JSON）
 
@@ -73,7 +73,11 @@
 
 - 进程间**只传** coarse 命令与轻量统计；`MTLTexture`/registry/coordinator/任何进程内对象不跨进程。
 - daemon 内保持唯一权威五件套与失效域合同；诊断旁路（evidence window/HUD）留在 daemon 内。
-- 协议版本：首行 `{"v":1,"role":"scene-daemon"}` 握手；不匹配 → 主程序拒绝启动该 daemon 并报错。
+- 协议版本：首行沿 `SceneDaemonProtocol.version` 严格握手（当前 Scene v2；Video/Web各保原版本）；不匹配 → 主程序拒绝启动该 daemon 并报错。
+
+### User Shortcut 的 coarse 扩展设计
+
+[macOS adapter](../roadmap/batch2/script-component-api-design.md#user-shortcut-macos-adapter)Scene协议独立升v2，保现有严格header/command/event版本校验，Video/Web及公共transport不改；旧版本不能静默吞授权字段。load与更新交付App独占选择、bookmark和存储的typed configuration（revision、registered property key及本机reference），绑定record/request；daemon仅准备执行lease，不持久化配置或逐帧解析书签。Session在真实native cursor scope同步调用NSWorkspace并返回实际native Bool；grant保捕获时request/config revision，每click及每frame至多一次attempt，消耗不随脚本/帧事务撤回，stop/reset/替换撤销未执行grant。无动作IPC或重连重放，不把此边界扩大为通用文件/网络或JS native模块。配置/执行接线已实施；真实目标和运行验收另记现役能力。
 
 ## 4. 生命周期与崩溃语义
 

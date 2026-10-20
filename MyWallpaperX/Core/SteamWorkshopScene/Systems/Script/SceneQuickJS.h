@@ -2,6 +2,7 @@
 #define MWX_SCENE_QUICKJS_H
 
 #include "SceneQuickJSHostTypes.h"
+#include "SceneQuickJSUserShortcutHost.h"
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t authored_index,

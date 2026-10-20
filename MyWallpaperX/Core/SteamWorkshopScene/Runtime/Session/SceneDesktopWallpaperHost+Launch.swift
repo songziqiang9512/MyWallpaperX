@@ -55,6 +55,8 @@ struct SceneDesktopWallpaperLaunchContext {
     let logURL: URL?
     let recordID: String?
     let capturesExecutionObservations: Bool
+    var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
+    var userShortcutKeys: Set<String> = []
 
     var requiresSystemMedia: Bool {
         !propertyVectorScriptProgram.mediaOwnerRegistrations.isEmpty
@@ -82,13 +84,14 @@ struct SceneDesktopWallpaperLaunchContext {
 extension SceneDesktopWallpaperHost {
     struct PreparedLaunch {
         let model: SceneRuntimeModel
-        let context: SceneDesktopWallpaperLaunchContext
+        var context: SceneDesktopWallpaperLaunchContext
     }
 
     func requestLaunch(
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
         userPropertyTextureURLs: [String: URL] = [:],
+        userShortcuts: ScenePlaybackShortcutConfiguration = .empty,
         requiredUserTextureKeys: Set<String> = [],
         logURL: URL? = nil,
         recordID: String? = nil,
@@ -120,7 +123,7 @@ extension SceneDesktopWallpaperHost {
         launchPreparationQueue.async { [weak self] in
             guard let self else { return }
             do {
-                let prepared = try Self.prepareLaunch(
+                var prepared = try Self.prepareLaunch(
                     rootURL: rootURL,
                     propertyOverrides: propertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
@@ -144,6 +147,9 @@ extension SceneDesktopWallpaperHost {
                         ))
                     }
                 }
+                prepared.context.userShortcuts = userShortcuts
+                prepared.context.userShortcutKeys = Set(prepared.model.project.userProperties.definitions
+                    .filter { $0.kind == .userShortcut }.map(\.key))
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.nextLaunchRequestGeneration == requestGeneration else {

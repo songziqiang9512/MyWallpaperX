@@ -39,7 +39,7 @@ struct SceneWallpaperLaunchState {
     let message: String
     var callbackPropertyReachability: ScenePreparedCallbackPropertyReachability? = nil
 }
-enum SceneDaemonProtocol { static let version = 1 }
+enum SceneDaemonProtocol { static let version = 2 }
 struct Backoff { mutating func reset() {} }
 extension Notification.Name {
     static let sceneWallpaperLaunchStateDidChange = Notification.Name("launch")
@@ -117,6 +117,7 @@ extension Notification.Name {
     func fallbackReplayIntent(requestID: UUID) -> ScenePlaybackLoadRequest? { nil }
     func finishTextureReload(recordID: String?, outcome: ScenePlaybackTextureUpdateOutcome) {}
     func finishPendingTextureUpdates(_ outcome: ScenePlaybackTextureUpdateOutcome) {}
+    func finishPendingShortcutUpdates(_ outcome: ScenePlaybackShortcutUpdateOutcome) {}
     func scheduleRestart(reason: String) { fatalError("unexpected restart: " + reason) }
     func publishFailure(code: String, message: String) { fatalError(code + message) }
 ''' + '\n'.join(method(client, signature) for signature in (
@@ -167,6 +168,7 @@ struct SteamWorkshopDownloadRecord {
     init(_ root: URL) { steamDownloadLibraryRootURL = root }
     func clearLaunchPending(matching id: String) {}
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { [:] }
+    func sceneShortcutConfiguration(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackShortcutConfiguration { .empty }
     func withResolvedSceneTexturePropertyReferences(for record: SteamWorkshopDownloadRecord,
         completion: ([String: ScenePlaybackTextureReference]) -> Void) { completion([:]) }
 ''' + method(reclamation, '    func libraryVersionLifetime(') + r'''
@@ -244,6 +246,7 @@ struct SteamWorkshopDownloadRecord {
             source.write_text(harness)
             binary = folder / 'test'
             subprocess.run(['xcrun', 'swiftc', '-D', 'DEBUG', '-parse-as-library', *map(str, SOURCES),
+                            str(ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift'),
                             str(scene), str(source), '-o', str(binary)], check=True, timeout=120)
             result = subprocess.run([str(binary), str(folder / 'library')], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

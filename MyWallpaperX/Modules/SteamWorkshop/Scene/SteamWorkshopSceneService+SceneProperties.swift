@@ -73,7 +73,7 @@ struct SteamWorkshopScenePropertyContext {
         for (index, definition) in definitions.enumerated() {
             let authoredSeparator = (definition.kind == .text || definition.kind == .group)
                 && WorkshopPropertyTextContent(markup: displayResolver.string(definition.title)).segments.contains(.separator)
-            if definition.kind == .unsupported
+            if definition.kind == .unsupported || definition.kind == .userShortcut
                 || authoredSeparator
                 || (definition.kind == .text && definition.runtimeType.isEmpty)
                 || (actionableKeys.contains(definition.key)
@@ -118,7 +118,8 @@ struct SteamWorkshopScenePropertyContext {
 
     var actionableDefinitions: [SceneUserPropertyDefinition] {
         catalog.definitions.filter {
-            actionableKeys.contains($0.key) && Self.supportsEditorControl($0.kind)
+            ($0.kind == .userShortcut || actionableKeys.contains($0.key))
+                && Self.supportsEditorControl($0.kind)
         }
     }
 
@@ -128,7 +129,7 @@ struct SteamWorkshopScenePropertyContext {
 
     private static func supportsEditorControl(_ kind: SceneUserPropertyKind) -> Bool {
         switch kind {
-        case .bool, .slider, .color, .combo, .textInput, .sceneTexture:
+        case .bool, .slider, .color, .combo, .textInput, .sceneTexture, .userShortcut:
             return true
         case .text, .group, .unsupported:
             return false
@@ -184,6 +185,7 @@ struct SteamWorkshopScenePropertyContext {
         case .text: .label
         case .group: .group
         case .sceneTexture: .file
+        case .userShortcut: .unknown
         case .unsupported: .unknown
         }
     }
@@ -382,7 +384,7 @@ extension SteamWorkshopService {
         definition: SceneUserPropertyDefinition,
         record: SteamWorkshopDownloadRecord
     ) {
-        guard definition.kind != .sceneTexture else { return }
+        guard definition.kind != .sceneTexture, definition.kind != .userShortcut else { return }
         scenePropertyCommandRevision &+= 1
         scenePropertyEditRevisions[record.id + "\u{0}" + definition.key] = scenePropertyCommandRevision
         var overrides = scenePropertyOverrides(for: record)
@@ -416,12 +418,34 @@ extension SteamWorkshopService {
         for key in changedKeys {
             scenePropertyEditRevisions[record.id + "\u{0}" + key] = resetRevision
         }
+        var textureOutcome: ScenePlaybackTextureUpdateOutcome?
+        var shortcutOutcome: ScenePlaybackShortcutUpdateOutcome?
+        func finishResetIfReady() {
+            guard let textures = textureOutcome, let shortcuts = shortcutOutcome else { return }
+            switch shortcuts {
+            case let .failed(message): completion(.failed(message))
+            case .superseded: completion(.superseded)
+            case .unavailable: completion(.unavailable)
+            case .applied: completion(textures)
+            }
+        }
+        resetSceneShortcutProperties(for: record) { outcome in
+            shortcutOutcome = outcome
+            finishResetIfReady()
+        }
         resetSceneTextureProperties(for: record, defaultValues: defaultValues) { [weak self] textureKeys, outcome in
-            guard let self else { completion(.superseded); return }
+            guard let self else {
+                textureOutcome = .superseded
+                finishResetIfReady()
+                return
+            }
             let changedPropertyKeys = changedKeys.subtracting(textureKeys).filter {
                 self.scenePropertyEditRevisions[record.id + "\u{0}" + $0] == resetRevision
             }
-            defer { completion(outcome) }
+            defer {
+                textureOutcome = outcome
+                finishResetIfReady()
+            }
             guard !changedPropertyKeys.isEmpty else { return }
             var remaining = self.scenePropertyOverrides(for: record)
             changedPropertyKeys.forEach { remaining.removeValue(forKey: $0) }

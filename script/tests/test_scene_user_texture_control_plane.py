@@ -41,6 +41,7 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
                 + "\n@MainActor extension SceneDaemonClient {\n" + handlers + "\n}\n")
             sources = [
                 SCENE / "Systems/Properties/SceneUserProperty.swift",
+                ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
                 ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
                 ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",
                 SCENE / "Runtime/Frame/SceneScreenTopology.swift",
@@ -49,7 +50,8 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
                 ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift",
                 SCENE / "Systems/Media/SceneMediaThumbnailInbox.swift",
                 SCENE / "Runtime/IPC/SceneDaemonMediaProtocol.swift",
-                SCENE / "Runtime/IPC/SceneDaemonProtocol.swift", TEXTURES, probe,
+                SCENE / "Runtime/IPC/SceneDaemonProtocol.swift",
+                SCENE / "Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift", TEXTURES, probe,
             ]
             result = subprocess.run(["swiftc", "-D", "DEBUG", *map(str, sources), "-enable-upcoming-feature", "MemberImportVisibility", "-module-cache-path", str(work / "cache"),
                 "-o", str(work / "control")], capture_output=True, text=True, timeout=60)

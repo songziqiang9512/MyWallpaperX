@@ -114,7 +114,7 @@ extension SceneMetalView {
             surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing,
                 dynamicValues: dynamicValues, worldFrames: worldFrames),
             surfaceID: surfaceID,
-            leavingSurface: leavingSurface
+            leavingSurface: leavingSurface, nativeShortcutGesture: pointer.nativeShortcutGesture
         )
     }
 

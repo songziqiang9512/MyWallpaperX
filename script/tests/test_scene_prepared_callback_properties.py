@@ -123,10 +123,11 @@ struct ScenePlaybackLoadRequest {
     var propertyOverrides: [String: SceneUserPropertyValue] = [:]
     var userPropertyTextures: [String: Texture] = [:]
     var requiredUserTextureKeys: Set<String> = []
+    var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
     struct Texture { var url: URL; var bookmarkData: Data? }
 }
 enum ScenePlaybackTextureUpdateOutcome { case superseded, failed(String) }
-enum SceneDaemonProtocol { static let version = 1 }
+enum SceneDaemonProtocol { static let version = 2 }
 enum DaemonNewlineJSON { static func encodeJSONObject(_ value: [String: Any], options: JSONSerialization.WritingOptions) throws -> Data { try JSONSerialization.data(withJSONObject: value, options: options) } }
 struct PlaybackVolumeState { static let shared = Self(); let normalizedVolume = 1.0 }
 struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
@@ -181,6 +182,7 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     func bindDeferredTextureUpdates(recordID: String?, requestID: UUID) {}
     func resumeDeferredTextureUpdates(recordID:String?,requestID:UUID) {}
     func finishTextureReload(recordID: String?, outcome: ScenePlaybackTextureUpdateOutcome) {}
+    func finishPendingShortcutUpdates(_ outcome: ScenePlaybackShortcutUpdateOutcome) {}
     func scheduleRestart(reason: String) { restarts += 1 }
     func publishFailure(code: String, message: String) { preconditionFailure(code + message) }
     func sendDisplayConfiguration() {}; func sendSimpleCommand(_ value: String) {}
@@ -308,4 +310,6 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
         methods += [method_body(events, signature) for signature in [
             '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(']]
         source = source.replace('__CLIENT_METHODS__', '\n'.join(methods).replace('private ', ''))
-        self.run_probe(source, [MODELS, SCENE / 'Systems/Properties/SceneUserProperty.swift'])
+        self.run_probe(source, [MODELS, SCENE / 'Systems/Properties/SceneUserProperty.swift',
+            ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
+            SCENE / 'Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift'])

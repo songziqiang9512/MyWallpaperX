@@ -301,6 +301,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             compilation = subprocess.run([
                 "xcrun", "swiftc", "-D", "DEBUG", "-swift-version", "5", "-parse-as-library",
                 str(LAUNCH.with_name("SceneDesktopWallpaperLaunchModels.swift")),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift"),
+                str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
                 str(harness), "-o", str(binary),
             ], capture_output=True, text=True, timeout=60)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
@@ -355,11 +357,8 @@ def property_launch_harness(host_source: str) -> str:
         "func finishTextureReload(", "private func restoreFallbackIntent(",
         "func finishPendingTextureUpdates(", "private func applying(",
     ]])
-    values = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift").read_text()
     commands = (ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text()
-    control_types = "\n".join([
-        method(values, "nonisolated enum SceneUserPropertyValue:"),
-    ] + [method(commands, signature) for signature in [
+    control_types = "\n".join([method(commands, signature) for signature in [
         "nonisolated struct ScenePlaybackTextureReference:",
         "nonisolated struct ScenePlaybackTextureUpdate:",
         "nonisolated enum ScenePlaybackTextureUpdateOutcome:",
@@ -380,7 +379,7 @@ struct SceneRuntimeModel {
     struct Project {
         let rootURL = URL(fileURLWithPath: "/own")
         let sourceWitness: String? = nil
-        struct Catalog { let definitions: [String] = [] }
+        struct Catalog { let definitions: [SceneUserPropertyDefinition] = [] }
         let userProperties = Catalog()
     }
     struct Document { let sourceWitness: String? = nil }
@@ -390,12 +389,14 @@ struct SceneRuntimeModel {
 struct SceneDesktopWallpaperLaunchContext {
     let values: [String: SceneUserPropertyValue]
     let generation: UInt64
+    var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
+    var userShortcutKeys: Set<String> = []
 }
 struct SceneFirstFramePresentationRegistration { let requestID: UUID; let recordID: String? }
 struct SceneFramePresentation { let requestID:UUID;let recordID:String?;let uptimeMicros:UInt64 }
 extension Notification.Name { static let sceneWallpaperFirstFrameDidPresent=Notification.Name("first-present") }
 struct RestartBackoff { mutating func reset() {} }
-enum SceneDaemonProtocol { static let version = 1 }
+enum SceneDaemonProtocol { static let version = 2 }
 
 final class PreparationControl: @unchecked Sendable {
     let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
@@ -413,7 +414,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     let acceptsJ: Bool
     let activeRecordID:String?
     func cancelPendingUserTextureUpdates() {}
-    func preparedCallbackPropertyKeys(definitions: [String]) -> Set<String> { [] }
+    func preparedCallbackPropertyKeys(definitions: [SceneUserPropertyDefinition]) -> Set<String> { [] }
     init(_ values: [String: SceneUserPropertyValue], acceptsJ: Bool = true, recordID:String="record") {
         self.values = values; self.acceptsJ = acceptsJ;self.activeRecordID=recordID
     }
@@ -428,7 +429,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     }
 }
 @MainActor final class SceneDesktopWallpaperHost {
-    struct PreparedLaunch { let context: SceneDesktopWallpaperLaunchContext; let model: SceneRuntimeModel }
+    struct PreparedLaunch { var context: SceneDesktopWallpaperLaunchContext; let model: SceneRuntimeModel }
     let launchPreparationQueue = DispatchQueue(label: "self-authored-launch-boundary")
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     var nextLaunchRequestGeneration: UInt64 = 0, nextSceneScriptGeneration: UInt64 = 0
@@ -514,6 +515,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var heldAcks: [[String: Any]] = []
     var textureSends = 0
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
+    func finishPendingShortcutUpdates(_ outcome: ScenePlaybackShortcutUpdateOutcome) {}
     var activeResourceLifetime: Lifetime?, pendingResourceLifetime: Lifetime?
     var activeRecordID: String?, activeRequestID: UUID?, pendingRequestID: UUID?
     var pendingPresentationRequestID:UUID?

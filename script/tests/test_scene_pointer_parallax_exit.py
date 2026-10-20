@@ -65,6 +65,7 @@ class ScenePointerParallaxExitTests(unittest.TestCase):
             executable = root / "harness"
             compilation = subprocess.run([
                 "xcrun", "swiftc",
+                str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
                 str(SCENE / "Runtime/Frame/SceneSurfacePointerState.swift"),
                 str(SCENE / "Rendering/Frame/SceneMetalView+Pointer.swift"),
                 str(harness), "-o", str(executable),

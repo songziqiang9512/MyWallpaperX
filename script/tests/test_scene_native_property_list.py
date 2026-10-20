@@ -84,6 +84,9 @@ struct NativeWebDescriptor {
     var overrides: [String: SceneUserPropertyValue] = [:]
     var events: [(String, SceneUserPropertyValue)] = []
     var textureURL: URL?
+    var shortcutConfiguration: ScenePlaybackShortcutConfiguration = .empty
+    var shortcutEvents: [(String, URL?)] = []
+    var shortcutReplies: [@MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void] = []
     var textureReplies: [@MainActor (ScenePlaybackTextureUpdateOutcome) -> Void] = []
     var resetReplies: [@MainActor (ScenePlaybackTextureUpdateOutcome) -> Void] = []
     var downloadError: String?
@@ -109,6 +112,12 @@ struct NativeWebDescriptor {
     }
     static func effectiveWebSliderPrecision(for definition: SteamWorkshopWebPropertyDefinition) -> Int? { definition.fractionalPrecision }
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { overrides }
+    func storedSceneShortcutConfiguration(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackShortcutConfiguration { shortcutConfiguration }
+    func sceneShortcutReference(forKey key: String, record: SteamWorkshopDownloadRecord) -> ScenePlaybackShortcutReference? { shortcutConfiguration.references[key] }
+    func updateSceneShortcutPropertyURL(_ url: URL?, definition: SceneUserPropertyDefinition,
+                                      record: SteamWorkshopDownloadRecord, completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void) {
+        shortcutEvents.append((definition.key, url)); shortcutReplies.append(completion)
+    }
     func updateScenePropertyValue(_ value: SceneUserPropertyValue, definition: SceneUserPropertyDefinition,
                                   record: SteamWorkshopDownloadRecord) {
         events.append((definition.key, value))
@@ -328,7 +337,7 @@ extension NSCollectionView {
         service.overrides = [:]
         service.events = []
         for (unknownKey, runtimeType, gateKey, condition) in [
-            ("unknownAction", "usershortcut", "gate", "gate.value"),
+            ("unknownAction", "own-private-shortcut-like", "gate", "gate.value"),
             ("renamedResource", "futureResourceChooser", "renamedGate", "!(!renamedGate.value)")
         ] {
             let note = String(repeating: "作者只读说明 ", count: 40).trimmingCharacters(in: .whitespaces)
@@ -921,6 +930,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
             editor.write_text(EDITOR.read_text().replace('NSOpenPanel()', 'PickerProbe()'))
             (Path(folder) / 'WorkshopPropertyDisplayStrings.json').write_bytes((ROOT / 'MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json').read_bytes())
             sources = [ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift',
+                       ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift',

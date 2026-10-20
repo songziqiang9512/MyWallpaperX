@@ -35,7 +35,7 @@ struct Reachability:Codable {
 typealias ScenePreparedCallbackPropertyReachability=Reachability
 enum Outcome {case superseded,failed(String)}
 struct Backoff {mutating func reset(){}}
-enum SceneDaemonProtocol {static let version=1}
+enum SceneDaemonProtocol {static let version=2}
 enum NSScreen {static let screens=[1,2]}
 struct SceneScreenTopology:Equatable {
     let id:Int
@@ -97,6 +97,7 @@ extension Notification.Name {
         pendingIntent=request;pendingSwitchTicket=ticket
     }
     func finishPendingTextureUpdates(_ result:Outcome) {}
+    func finishPendingShortcutUpdates(_ outcome: Outcome) {}
     func send(_ value:[String:Any]) {sent.append(value)}
     func stop() {
         stopped += 1;pendingIntent=nil;pendingRequestID=nil;pendingSwitchTicket=nil

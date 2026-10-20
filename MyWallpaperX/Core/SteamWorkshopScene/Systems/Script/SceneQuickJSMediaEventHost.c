@@ -319,6 +319,56 @@ static JSValue properties_argument(JSContext *context, const void *payload) {
     return argument;
 }
 
+void mwx_scene_quickjs_owner_set_user_shortcut_dispatch(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSUserShortcutDispatch dispatch,
+    void *opaque
+) {
+    if (owner == NULL) return;
+    owner->user_shortcut_dispatch = dispatch;
+    owner->user_shortcut_opaque = dispatch == NULL ? NULL : opaque;
+}
+
+static JSValue open_user_shortcut(
+    JSContext *context, JSValueConst this_value,
+    int argc, JSValueConst *argv
+) {
+    (void)this_value;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    MWXSceneQuickJSOwner *owner = domain == NULL ? NULL : domain->active_owner;
+    if (owner == NULL || !domain->callback_active || owner->disabled ||
+        owner->teardown_started || !owner->user_shortcut_cursor_scope) {
+        return JS_ThrowInternalError(context, "user shortcut requires native cursor scope");
+    }
+    if (argc != 1 || !JS_IsString(argv[0])) {
+        return JS_ThrowTypeError(context, "user shortcut key must be a String");
+    }
+    // Ordinary cursor visuals still run without an external-action grant
+    // (occluded input, unbound adapter or synthetic pointer). No action is
+    // performed; keep the owner healthy so later hover/update can restore it.
+    if (owner->user_shortcut_dispatch == NULL) return JS_FALSE;
+    size_t length = 0;
+    const char *key = JS_ToCStringLen(context, &length, argv[0]);
+    if (key == NULL) return JS_EXCEPTION;
+    const int32_t result = owner->user_shortcut_dispatch(
+        owner->user_shortcut_opaque, key, length
+    );
+    JS_FreeCString(context, key);
+    if (result == 0 || result == 1) return JS_NewBool(context, result == 1);
+    return JS_ThrowInternalError(context, "user shortcut native dispatch rejected");
+}
+
+bool mwx_scene_quickjs_install_user_shortcut_engine(
+    MWXSceneQuickJSOwner *owner, JSValue engine
+) {
+    if (owner == NULL || !JS_IsObject(engine)) return false;
+    JSContext *context = owner->domain->context;
+    JSValue function = JS_NewCFunction(context, open_user_shortcut, "openUserShortcut", 1);
+    if (JS_IsException(function)) return false;
+    return JS_DefinePropertyValueStr(context, engine, "openUserShortcut", function,
+        JS_PROP_ENUMERABLE) >= 0;
+}
+
 static MWXSceneQuickJSResult dispatch_event(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -451,9 +501,16 @@ static MWXSceneQuickJSResult dispatch_event(
 
     JSValue argument = argument_factory(context, payload);
     const bool called_author = !JS_IsException(argument);
+    // Due timers/video callbacks and the later job drain cannot inherit the
+    // physical cursor grant, even while the Swift synchronous adapter is set.
+    owner->user_shortcut_cursor_scope = called_author &&
+        (strcmp(callback_name, "cursorDown") == 0 ||
+         strcmp(callback_name, "cursorUp") == 0 ||
+         strcmp(callback_name, "cursorClick") == 0);
     JSValue result = !called_author
         ? JS_EXCEPTION
         : JS_Call(context, function, owner->module, 1, &argument);
+    owner->user_shortcut_cursor_scope = false;
     JS_FreeValue(context, argument);
     JS_FreeValue(context, function);
     MWXSceneQuickJSResult job_result = MWX_SCENE_QUICKJS_OK;

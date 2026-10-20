@@ -406,14 +406,14 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
-| `usershortcut` definition/persistence | `L0` | parser 归入 unsupported | macOS 类型/授权、逐机存储、preset 排除和安全 UI |
-| cursor-triggered open | callback `L3 bounded`；shortcut API `L0` | generic QuickJS cursorDown/up/click与captured owner已执行，但没有`openUserShortcut` host API或本机授权/绑定存储 | ordered单事件单命令、click propagation、invalid key与权限门 |
+| `usershortcut` definition/persistence | `L3 bounded` | 显式kind，原面板文件/目录或HTTP(S)配置、App独占typed本机store/bookmark与revision；不塞普通scalar值、不导出portable preset；普通Release用户配置本机目标并打开已验 | 仅首片本机资源种类；HTTP(S)、重开持久化及完整handler端到端仍按[D4验收](../roadmap/batch2/script-component-api-design.md#user-shortcut-macos-adapter) |
+| cursor-triggered open | `L3 bounded` | 原VM/cursor→Session同步native Bool及不可回滚一次attempt；真实接收窗口资格、request/config撤权、不重放。普通Release用户确认目录/图片/音乐/App打开、遮挡无误触；无资格cursor返回false保hover更新，typed/VM正反门已过 | 作者Launcher hover响应范围仍待核；不由native true外推所有目标显示，全16项及全部handler未验 |
 | shortcut icon provider / authored fallback | ready icon `L0`；底图`L3 bounded` | 无系统icon producer；限定未绑定solid保有效作者底图，见下方合同 | 本机赋值的ready/absent generation、取消与更宽consumer |
 | `isbound` / `file` change payload | `L0` | 无 `applyUserProperties` event | first/full 与 change-only payload、隐私与屏保策略 |
 
 <a id="user-shortcut-authored-fallback"></a>
 
-**未绑定底图合同（实施前设计于2026-10-17落库）。** 精确`{type:"usershortcut",name:非空字符串}`保独立typed类型，不改写path/property；当前macOS无本机绑定/ready icon producer，仅普通solid、无Puppet、合法instance单一slot0底图与快捷方式（空尾user slots允许）保留原VFS/TextureLoader→source publication→compositor。unknown/额外键/畸形、多纹理、effect/pass、3D及已认领system/sceneTexture沿原准入，不扩为任意未知provider回退。无有效资源保既有局部失败/solid降级，不新建状态或资源owner。未来本机绑定须在同一选择边界以ready/absent和generation替代静态资格，保取消/陈旧publication，不并行两套输出；底图、输入改名、kind/key碰撞及三态model目录反例见[有界官方/真实后验](runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)。该后验只证有效底图与透明形状，不代替系统赋值、点击、payload/面板、全样本或性能验收。
+**未绑定底图合同（实施前设计于2026-10-17落库）。** 精确`{type:"usershortcut",name:非空字符串}`保独立typed类型，不改写path/property；当前macOS本机绑定只供窄执行adapter使用，仍无ready icon producer，仅普通solid、无Puppet、合法instance单一slot0底图与快捷方式（空尾user slots允许）保留原VFS/TextureLoader→source publication→compositor。unknown/额外键/畸形、多纹理、effect/pass、3D及已认领system/sceneTexture沿原准入，不扩为任意未知provider回退。无有效资源保既有局部失败/solid降级，不新建状态或资源owner。未来本机系统icon须在同一选择边界以ready/absent和generation替代静态资格，保取消/陈旧publication，不并行两套输出；底图、输入改名、kind/key碰撞及三态model目录反例见[有界官方/真实后验](runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)。该后验只证有效底图与透明形状，不代替系统赋值、点击、payload/面板、全样本或性能验收。
 下表沿用 21 样本 target census 快照：424 definitions、952 bindings、195 条 conditional bindings。它只用于解释既有 target 分布，数字不是当前 corpus fingerprint、产品支持率或开发顺序；当前能力以每行代码/运行证据和[总台账](coverage-ledger.md)为准。
 
 ## 6. User Property target 矩阵

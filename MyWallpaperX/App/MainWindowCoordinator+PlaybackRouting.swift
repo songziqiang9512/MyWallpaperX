@@ -26,9 +26,11 @@ extension MainWindowCoordinator {
         observe(.steamWorkshopSceneReadyToRender) { notification in
             guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
             SteamWorkshopService.shared.markLaunchPending(recordID: request.recordID)
-            manager.setSceneWallpaper(.init(rootURL: request.rootURL,
+            var load = ScenePlaybackLoadRequest(rootURL: request.rootURL,
                 propertyOverrides: request.propertyOverrides, userPropertyTextures: request.userPropertyTextures,
-                recordID: request.recordID), resourceLifetime: request.resourceLifetime, intentEpoch: request.intentEpoch)
+                recordID: request.recordID)
+            load.userShortcuts = request.userShortcuts
+            manager.setSceneWallpaper(load, resourceLifetime: request.resourceLifetime, intentEpoch: request.intentEpoch)
         }
         observe(.sceneWallpaperLaunchStateDidChange) { notification in
             guard let state = notification.object as? SceneWallpaperLaunchState else { return }

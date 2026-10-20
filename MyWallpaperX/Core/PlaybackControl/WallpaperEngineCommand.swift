@@ -38,6 +38,7 @@ nonisolated struct ScenePlaybackLoadRequest: Equatable, Sendable {
     var userPropertyTextures: [String: ScenePlaybackTextureReference]
     let recordID: String?
     var requiredUserTextureKeys: Set<String> = []
+    var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
 }
 
 /// 粗粒度壁纸引擎命令：UI 与控制面只发命令，不直触引擎内部。

@@ -328,12 +328,14 @@
     },
     "3577990983": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-17",
-      "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出/GPU排空。animation1678 auxiliary仍bind-pose，210/233/320局部effect/typed producer余项保留。目录官方仅作基础构图对照，viewport、phase、媒体/全部属性未同状态验收。",
+      "reviewedOn": "2026-10-20",
+      "reviewer": "用户普通Release实测；既有Codex原图观察保留",
+      "note": "10-20普通Release用户确认原Launcher目录/图片/音乐/App打开正常，遮挡无误触；此前原图中央Reze/手臂/身体、16透明花叶和210半透明dock已恢复。hover提前放大与199通用pointer倍率/投影待排查，作者宽半径不关闭该反馈；人物auxiliary动画及233/320余项仍开放。",
       "runs": [],
-      "evidence": [],
-      "remainingDifferences": "animation1678 auxiliary拒绝使人物动画沿bind-pose；210/233/320局部effect余项仍开放。16底栏白块已退出；ready黑及effect回退使原benchmark FAIL保留，首final watchdog失败也保留；完整视觉、播放、交互及作者参数未验收。",
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "人物auxiliary拒绝仍bind-pose；233/320局部effect余项与通用pointer比例/投影待排查。210底板与16白块、本机目标打开反馈已退出；完整视觉/播放/交互未验。",
       "officialComparison": "compared",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/report.json",
@@ -1624,6 +1626,17 @@
       "evidence": [
         ".artifacts/scene-evidence/runs/quad-visibility-live-20261020/current/samples/3768724269/runtime_evidence.zip"
       ]
+    },
+    "1994794519": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-20",
+      "reviewer": "用户补报；当前App同点尚未复验",
+      "note": "10-20用户报告上下层揭露位置在屏幕中心准确，越向边缘偏移越大，怀疑输入位移倍率；未取得当前App/viewport同点配准，不认已证根因。与357提前hover反馈并列待排查，不由其作者宽半径关闭。",
+      "remainingDifferences": "通用pointer比例/投影待排查；按用户要求本批仅记录，后继锁points/bounds/drawable及effect源域。",
+      "evidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "runs": []
     }
   },
   "localEvidenceRetirement": {

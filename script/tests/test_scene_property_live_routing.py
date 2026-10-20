@@ -66,6 +66,10 @@ extension Notification.Name {
     func cleanup() { defaults.removePersistentDomain(forName: suiteName); defaults.synchronize() }
     func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? { nil }
     func clearLaunchPending(matching id: String) {}
+    func resetSceneShortcutProperties(for record: SteamWorkshopDownloadRecord,
+        completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void) { completion(.applied) }
+
+    func sceneShortcutConfiguration(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackShortcutConfiguration { .empty }
 }
 @MainActor final class PlaybackCommandMultiplexer {
     static let shared = PlaybackCommandMultiplexer()
@@ -409,6 +413,9 @@ struct SteamWorkshopDownloadRecord {
     var scenePropertyEditRevisions: [String: UInt64] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
     func requestSceneRender(_ record: SteamWorkshopDownloadRecord, newSelection: Bool = true) {}
+    func resetSceneShortcutProperties(for record: SteamWorkshopDownloadRecord,
+        completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void) { completion(.applied) }
+
     func resetSceneTextureProperties(for record: SteamWorkshopDownloadRecord,
         defaultValues: [String: SceneUserPropertyValue],
         completion: @escaping @MainActor (Set<String>, ScenePlaybackTextureUpdateOutcome) -> Void) {}
@@ -706,6 +713,8 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
                         "nonisolated enum ScenePlaybackTextureUpdateOutcome:"),
         ]))
         sources = builder.SWIFT_SOURCES + [
+            REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+            SCENE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift",
             SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
@@ -861,6 +870,7 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
             SCENE_ROOT / "Resources/Providers/SceneVideoPayloadPreparation.swift",
             SCENE_ROOT / "Format/SceneWebMContainer.swift",
+            REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
             TEXTURE_SOURCE, PLAYBACK_SOURCE, harness,
         ]
         binary = cls.work / "selection"

@@ -81,6 +81,7 @@ import Foundation
     var restartReasons: [String] = []
     var warmSessionPending = false
     struct Backoff { func reset() {} }
+    func finishPendingShortcutUpdates(_ outcome: ScenePlaybackShortcutUpdateOutcome) {}
     func failPendingFrameCaptures() {}
     func revokeAudioSpectrumDemand(generation: UInt64) {}
     func revokeSystemMediaDemand(generation: UInt64) {}
@@ -430,7 +431,7 @@ extension Notification.Name {
             func decode(_ payload: [String: Any]) -> Result<SceneDaemonCommand, SceneDaemonProtocolFailure> {
                 SceneDaemonProtocol.decodeCommand(try! JSONSerialization.data(withJSONObject: payload))
             }
-            let base: [String: Any] = ["v": 1, "cmd": "setUserTextures", "references": [:],
+            let base: [String: Any] = ["v": 2, "cmd": "setUserTextures", "references": [:],
                 "resetKeys": ["cover"], "values": ["cover": ""], "revision": 1, "recordID": "own"]
             if case .success(.setUserTextures(let u)) = decode(base) { checks["protocol_reset"] = u.isValid }
             else { checks["protocol_reset"] = false }

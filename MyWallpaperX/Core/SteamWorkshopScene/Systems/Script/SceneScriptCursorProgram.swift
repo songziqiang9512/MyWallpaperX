@@ -83,6 +83,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         propertyRevision: UInt64? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
+        userShortcutDispatch: SceneScriptUserShortcutDispatch? = nil,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptCursorFrameResult {
         hasCandidateDispatch = true
@@ -291,7 +292,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             hit: SceneScriptCursorHit,
             callbackFrame: SceneScriptFrameInput,
             captureActive: Bool,
-            currentHit: Bool
+            currentHit: Bool,
+            nativeShortcutGesture: ScenePlaybackShortcutGesture?
         ) {
             let ownerTarget = binding.ownerTarget
             guard failures[ownerTarget] == nil, binding.events.contains(kind),
@@ -328,6 +330,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                           candidate.mutation.kind == .upsert else { return nil }
                     return candidate.mutation
                 },
+                nativeShortcutGesture: nativeShortcutGesture,
+                userShortcutDispatch: userShortcutDispatch,
                 interruptBudget: interruptBudget
             ) {
             case let .success(mutations):
@@ -434,7 +438,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             hit: SceneScriptCursorHit,
             callbackFrame: SceneScriptFrameInput,
             captureActive: Bool,
-            currentHit: Bool
+            currentHit: Bool,
+            nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
         ) {
             let target = binding.ownerTarget
             guard binding.events.contains(kind), !disabledTargets.contains(target) else { return }
@@ -449,7 +454,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 return
             }
             candidateEvents.append(.init(ownerTarget: target, kind: kind, hit: hit,
-                surface: callbackFrame.surface, captureActive: captureActive, currentHit: currentHit))
+                surface: callbackFrame.surface, captureActive: captureActive, currentHit: currentHit,
+                nativeShortcutGesture: nativeShortcutGesture))
             eventCounts[target, default: 0] += 1
         }
         // Recognize the entire input batch before executing callbacks. A
@@ -507,7 +513,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     record(
                         .down, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
-                        captureActive: false, currentHit: true
+                        captureActive: false, currentHit: true,
+                        nativeShortcutGesture: sample.nativeShortcutGesture
                     )
                     if hasActiveBinding(layerID: binding.layerID) {
                         capturedHits[binding.layerID] = hit
@@ -535,13 +542,15 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                         .up, binding: binding, hit: releaseHit,
                         callbackFrame: callbackFrame,
                         captureActive: true,
-                        currentHit: admittedHits[binding.layerID] != nil
+                        currentHit: admittedHits[binding.layerID] != nil,
+                        nativeShortcutGesture: sample.nativeShortcutGesture
                     )
                     if admittedHits[binding.layerID] != nil {
                         record(
                             .click, binding: binding, hit: releaseHit,
                             callbackFrame: callbackFrame,
-                            captureActive: true, currentHit: true
+                            captureActive: true, currentHit: true,
+                            nativeShortcutGesture: sample.nativeShortcutGesture
                         )
                     }
                 }
@@ -561,7 +570,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             guard let binding = bindingsByTarget[event.ownerTarget] else { continue }
             emit(event.kind, binding: binding, hit: event.hit,
                 callbackFrame: .init(replacingSurfaceOf: frame, with: event.surface),
-                captureActive: event.captureActive, currentHit: event.currentHit)
+                captureActive: event.captureActive, currentHit: event.currentHit,
+                nativeShortcutGesture: event.nativeShortcutGesture)
         }
         for binding in bindings where !disabledTargets.contains(binding.ownerTarget) {
             if case let .failure(failure) = binding.owner.commitStorage() {

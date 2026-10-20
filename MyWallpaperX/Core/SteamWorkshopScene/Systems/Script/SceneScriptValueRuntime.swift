@@ -650,6 +650,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         scriptPropertiesJSON: String,
         userPropertiesJSON: String,
         authoredLayerBaselines: [SceneScriptLayerMutation] = [],
+        nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil,
+        userShortcutDispatch: SceneScriptUserShortcutDispatch? = nil,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         guard layerID == event.layerID else {
@@ -662,7 +664,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         }
         defer { clearCursorAuthoredLayerBaselines() }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
-        return SceneScriptMediaEventBridge.dispatchCursor(
+        return SceneScriptUserShortcutBridge.withScope(
+            owner: handle, gesture: nativeShortcutGesture, dispatch: userShortcutDispatch
+        ) { SceneScriptMediaEventBridge.dispatchCursor(
             owner: handle,
             namedAnimationTargets: domain.namedAnimationTargets ?? [],
             target: target,
@@ -671,7 +675,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             frame: frame,
             scriptPropertiesJSON: scriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
-        ).flatMap { mutations in
+        ) }.flatMap { mutations in
             if valueType == .scalar { pendingCursorEvaluation = true }
             guard case .effectVisibility = target else {
                 return .success(mutations)

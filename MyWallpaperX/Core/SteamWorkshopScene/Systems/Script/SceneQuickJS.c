@@ -446,7 +446,8 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
             "userProperties",
             user_properties,
             read_only
-        ) < 0 || !mwx_scene_quickjs_install_timer_engine(owner, engine)) {
+        ) < 0 || !mwx_scene_quickjs_install_timer_engine(owner, engine) ||
+        !mwx_scene_quickjs_install_user_shortcut_engine(owner, engine)) {
         JS_FreeValue(context, engine);
         return false;
     }

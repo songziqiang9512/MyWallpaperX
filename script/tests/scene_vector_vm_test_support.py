@@ -15,6 +15,8 @@ VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 
 SWIFT_SOURCES = [
+    ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+    VM / "SceneScriptUserShortcutDispatch.swift",
     SCENE / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE / "Rendering/Composition/SceneUtilityLayer.swift",
     SCENE / "Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",

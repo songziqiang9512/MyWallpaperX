@@ -262,7 +262,7 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, profile, recordID, requiredTextureKeys, requestID
+            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys, requestID
         ):
             lastPropertyRevision = 0
             // Explicit parent identities use a cancellable prepare/commit/
@@ -281,6 +281,7 @@ final class SceneDaemonRuntime {
                 userPropertyTextureURLs: Self.resolveTextureURLs(
                     textureReferences
                 ),
+                userShortcuts: shortcuts,
                 requiredUserTextureKeys: requiredTextureKeys,
                 recordID: recordID,
                 requestID: requestID ?? UUID()
@@ -302,6 +303,11 @@ final class SceneDaemonRuntime {
                 "recordID": recordID,
                 "accepted": accepted
             ])
+        case let .setUserShortcuts(update, requestID):
+            let accepted = host.applyUserShortcutUpdate(update, requestID: requestID)
+            emit(["v": SceneDaemonProtocol.version, "event": "shortcutUpdateResult",
+                "recordID": update.recordID, "requestID": requestID.uuidString,
+                "revision": update.configuration.revision, "accepted": accepted])
         case let .setUserTextures(update):
             let urls = Self.resolveTextureURLs(update.references)
             let scopes = urls.values.filter { $0.startAccessingSecurityScopedResource() }

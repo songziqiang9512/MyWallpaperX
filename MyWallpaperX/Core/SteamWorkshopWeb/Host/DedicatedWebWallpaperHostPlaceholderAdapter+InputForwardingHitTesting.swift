@@ -3,14 +3,6 @@ import CoreGraphics
 import Foundation
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
-    private func isFinderWindow(pid: pid_t, ownerName: String) -> Bool {
-        if let app = NSRunningApplication(processIdentifier: pid),
-           app.bundleIdentifier == "com.apple.finder" {
-            return true
-        }
-        return ownerName == "Finder" || ownerName == "访达"
-    }
-
     func resetDesktopInputEligibilityCache() {
         cachedDesktopInputWindowNumber = nil
         cachedDesktopInputWindowAllowsForwarding = false
@@ -40,29 +32,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
         // Unknown and non-desktop targets fail closed. In particular, window sharing state
         // describes content capture permissions and must never be used as an input hit test.
-        let allowsForwarding = isFinderDesktopWindow(windowNumber: targetWindowNumber)
+        let allowsForwarding = PlaybackDesktopInputAdmission.allowsDesktopWindow(windowNumber: targetWindowNumber)
         cachedDesktopInputWindowNumber = targetWindowNumber
         cachedDesktopInputWindowAllowsForwarding = allowsForwarding
         return allowsForwarding
-    }
-
-    private func isFinderDesktopWindow(windowNumber: Int) -> Bool {
-        guard let windowInfoList = CGWindowListCopyWindowInfo(
-            [.optionIncludingWindow],
-            CGWindowID(windowNumber)
-        ) as? [[String: Any]],
-              let windowInfo = windowInfoList.first(where: { info in
-                  (info[kCGWindowNumber as String] as? NSNumber)?.intValue == windowNumber
-              }) else {
-            return false
-        }
-
-        let desktopIconWindowLevel = Int(CGWindowLevelForKey(.desktopIconWindow))
-        let ownerPID = (windowInfo[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? 0
-        let ownerName = (windowInfo[kCGWindowOwnerName as String] as? String) ?? ""
-        let layer = (windowInfo[kCGWindowLayer as String] as? NSNumber)?.intValue ?? Int.max
-        guard ownerPID != getpid(), layer <= desktopIconWindowLevel else { return false }
-        return isFinderWindow(pid: ownerPID, ownerName: ownerName)
     }
 
     func targetSurface(at screenLocation: NSPoint) -> HostSurface? {

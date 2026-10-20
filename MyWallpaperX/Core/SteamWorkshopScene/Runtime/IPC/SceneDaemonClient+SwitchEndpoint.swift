@@ -84,6 +84,7 @@ extension SceneDaemonClient {
             completion()
             self?.resumeCommittedSwitchRecoveryIfPossible(after: ticket)
         }
+        finishPendingShortcutUpdates(.superseded)
         finishPendingTextureUpdates(.superseded)
         pendingIntent = nil
         pendingResourceLifetime = nil

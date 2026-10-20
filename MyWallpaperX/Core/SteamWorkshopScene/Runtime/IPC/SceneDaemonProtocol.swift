@@ -7,6 +7,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextures: [String: ScenePlaybackTextureReference],
+        userShortcuts: ScenePlaybackShortcutConfiguration = .empty,
         profile: PlaybackPerformanceProfile,
         recordID: String?,
         requiredUserTextureKeys: Set<String> = [],
@@ -18,6 +19,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         recordID: String
     )
     case setUserTextures(ScenePlaybackTextureUpdate)
+    case setUserShortcuts(ScenePlaybackShortcutUpdate, requestID: UUID)
     case cancelLaunch(recordID: String)
     case commitCandidate(requestID: UUID)
     case finalizeCandidate(requestID: UUID)
@@ -88,7 +90,7 @@ nonisolated struct SceneDaemonEventAdmission: Equatable, Sendable {
 }
 
 nonisolated enum SceneDaemonProtocol {
-    static let version = 1
+    static let version = 2
     static let commandFlag = "--mwx-scene-daemon"
     static let sceneRootFlag = "--mwx-scene-root"
 
@@ -124,6 +126,7 @@ nonisolated enum SceneDaemonProtocol {
                   !root.isEmpty,
                   let profile = profile(payload["profile"] ?? payload["maxFPS"]),
                   let values = propertyValues(payload["propertyOverrides"]),
+                  let shortcuts = shortcutConfiguration(payload["userShortcuts"]),
                   let textures = textureReferences(
                     payload["userPropertyTextures"]
                   ), let requiredKeys = optionalTextureKeys(payload["requiredUserTextureKeys"]) else {
@@ -134,11 +137,22 @@ nonisolated enum SceneDaemonProtocol {
                     .resolvingSymlinksInPath().standardizedFileURL,
                 propertyOverrides: values,
                 userPropertyTextures: textures,
+                userShortcuts: shortcuts,
                 profile: profile,
                 recordID: payload["recordID"] as? String,
                 requiredUserTextureKeys: requiredKeys,
                 requestID: requestID
             ))
+        case "setUserShortcuts":
+            guard let configuration = shortcutConfiguration(payload["configuration"]),
+                  configuration.revision > 0,
+                  let recordID = payload["recordID"] as? String, !recordID.isEmpty,
+                  let rawID = payload["requestID"] as? String,
+                  let requestID = UUID(uuidString: rawID) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setUserShortcuts(.init(
+                configuration: configuration, recordID: recordID), requestID: requestID))
         case "setUserTextures":
             guard let values = propertyValues(payload["values"]),
                   let references = textureReferences(payload["references"]),

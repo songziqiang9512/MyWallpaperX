@@ -10,6 +10,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private let context: SteamWorkshopScenePropertyContext
     private var values: [String: SceneUserPropertyValue]
     private var overrides: [String: SceneUserPropertyValue]
+    private var shortcutConfiguration: ScenePlaybackShortcutConfiguration = .empty
     private let list = NSCollectionView()
     private let flowLayout = NSCollectionViewFlowLayout()
     private let scrollView = WorkshopPropertyScrollView()
@@ -27,6 +28,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private var heights: [Int: CGFloat] = [:]
     private var measuredWidth: CGFloat = 0
     private var textureSelection: (id: UUID, index: Int, panel: NSOpenPanel)?
+    private var shortcutSelection: (id: UUID, index: Int, sheet: NSWindow)?
     private let textureStatus = NSTextField(wrappingLabelWithString: "")
     // These tokens scope feedback to this presentation; the service owns submission revisions.
     private var textureFeedbackRequests: [String: (id: UUID, index: Int)] = [:]
@@ -38,6 +40,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         self.context = context
         values = context.effectiveValues
         overrides = SteamWorkshopService.shared.scenePropertyOverrides(for: record)
+        shortcutConfiguration = SteamWorkshopService.shared.storedSceneShortcutConfiguration(for: record)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -52,6 +55,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         if window != nil && newWindow !== window {
             cancelTextureSelection()
+            cancelShortcutSelection()
             invalidateTextureFeedback()
             cancelEditing()
             subscription?.cancel()
@@ -73,6 +77,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     override func viewDidHide() {
         super.viewDidHide()
         cancelTextureSelection()
+        cancelShortcutSelection()
         invalidateTextureFeedback()
     }
 
@@ -95,7 +100,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         case .group: .group
         case .bool, .color: .inline
         case .combo: .choice
-        case .sceneTexture: .resource
+        case .sceneTexture, .userShortcut: .resource
         case .slider, .textInput: .stacked
         }
     }
@@ -175,14 +180,20 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
 
     private func refreshAcceptedValues(forceRows: Set<Int> = []) {
         let current = service.scenePropertyOverrides(for: record)
-        guard current != overrides || !forceRows.isEmpty else { return }
+        let shortcuts = service.storedSceneShortcutConfiguration(for: record)
+        var changedRows = forceRows
+        if shortcuts != shortcutConfiguration {
+            changedRows.formUnion(context.definitions.indices.filter { context.definitions[$0].kind == .userShortcut })
+        }
+        guard current != overrides || !changedRows.isEmpty else { return }
         overrides = current
+        shortcutConfiguration = shortcuts
         let accepted = context.catalog.effectiveValues(overrides: current)
         for (row, index) in visibleRows.enumerated()
         where values[context.definitions[index].key] != accepted[context.definitions[index].key] {
             ((list.item(at: IndexPath(item: row, section: 0)) as? PropertyItem)?.cell)?.cancelEditing()
         }
-        updateValues(accepted, forceRows: forceRows)
+        updateValues(accepted, forceRows: changedRows)
     }
 
     private func updateValues(_ accepted: [String: SceneUserPropertyValue], forceRows: Set<Int> = []) {
@@ -208,6 +219,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         let removed = IndexSet(old.indices.filter { !newIDs.contains(old[$0]) })
         let inserted = IndexSet(visibleRows.indices.filter { !oldIDs.contains(visibleRows[$0]) })
         if let selection = textureSelection, !newIDs.contains(selection.index) { cancelTextureSelection() }
+        if let selection = shortcutSelection, !newIDs.contains(selection.index) { cancelShortcutSelection() }
         if !textureFeedbackRequests.isEmpty {
             textureFeedbackRequests = textureFeedbackRequests.filter { newIDs.contains($0.value.index) }
         }
@@ -348,6 +360,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
 
     @objc private func resetProperties() {
         cancelTextureSelection()
+        cancelShortcutSelection()
         cancelEditing()
         invalidateTextureFeedback()
         let requestID = UUID()
@@ -362,7 +375,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 self.clearTextureStatus()
                 self.refreshAcceptedValues(forceRows: Set(self.titles.keys))
             case .failed(_), .unavailable:
-                self.showTextureStatus("部分图像或视频未能恢复默认，已保留原选择。", index: nil)
+                self.showTextureStatus("部分属性未能恢复默认，已保留原选择。", index: nil)
             case .superseded:
                 break
             }
@@ -372,6 +385,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private func selectSceneTexture(index: Int) {
         guard let window else { return }
         cancelTextureSelection()
+        cancelShortcutSelection()
         let panel = NSOpenPanel()
         let requestID = UUID()
         textureSelection = (requestID, index, panel)
@@ -395,6 +409,89 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         let pending = textureSelection
         textureSelection = nil
         pending?.panel.cancel(nil)
+    }
+
+    private func cancelShortcutSelection() {
+        let pending = shortcutSelection
+        shortcutSelection = nil
+        if let panel = pending?.sheet as? NSOpenPanel { panel.cancel(nil) }
+        else if let sheet = pending?.sheet {
+            sheet.sheetParent?.endSheet(sheet, returnCode: .cancel)
+            sheet.orderOut(nil)
+        }
+    }
+
+    private func selectShortcut(index: Int, web: Bool) {
+        guard let window, displayed.contains(index) else { return }
+        cancelTextureSelection()
+        cancelShortcutSelection()
+        let requestID = UUID()
+        let finish: (NSApplication.ModalResponse, URL?) -> Void = { [weak self, weak window] response, url in
+            guard let self, let window, self.window === window,
+                  self.shortcutSelection?.id == requestID else { return }
+            self.shortcutSelection = nil
+            guard response == .OK, let url, window.isVisible,
+                  !self.isHiddenOrHasHiddenAncestor, self.displayed.contains(index) else { return }
+            self.updateShortcut(url, index: index)
+        }
+        if web {
+            let alert = NSAlert()
+            alert.messageText = "配置网址快捷方式"
+            alert.informativeText = "仅支持 HTTP 或 HTTPS 网址，不支持命令或其他协议。"
+            alert.addButton(withTitle: "保存")
+            alert.addButton(withTitle: "取消")
+            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+            let reference = service.sceneShortcutReference(forKey: context.definitions[index].key, record: record)
+            field.stringValue = reference?.kind == .webURL ? reference!.url.absoluteString : "https://"
+            field.setAccessibilityLabel("HTTP 或 HTTPS 网址")
+            alert.accessoryView = field
+            shortcutSelection = (requestID, index, alert.window)
+            alert.beginSheetModal(for: window) { [weak self, weak window] response in
+                guard response == .alertFirstButtonReturn else { finish(.cancel, nil); return }
+                guard let self, let window, self.window === window,
+                      self.shortcutSelection?.id == requestID,
+                      self.canPresentTextureFeedback(in: window), self.displayed.contains(index) else { return }
+                let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let url = URL(string: text), ScenePlaybackShortcutReference(
+                    kind: .webURL, url: url, bookmarkData: nil).isValid else {
+                    self.shortcutSelection = nil
+                    self.showTextureStatus("请输入不含账户信息的 HTTP(S) 网址。", index: index)
+                    return
+                }
+                finish(.OK, url)
+            }
+        } else {
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.prompt = "选择"
+            shortcutSelection = (requestID, index, panel)
+            panel.beginSheetModal(for: window) { [weak panel] response in finish(response, panel?.url) }
+        }
+    }
+
+    private func updateShortcut(_ url: URL?, index: Int) {
+        cancelShortcutSelection()
+        let definition = context.definitions[index], requestID = UUID()
+        textureFeedbackRequests[definition.key] = (requestID, index)
+        resetFeedbackRequestID = nil
+        clearTextureStatus()
+        let initiatingWindow = window
+        service.updateSceneShortcutPropertyURL(url, definition: definition, record: record) { [weak self, weak initiatingWindow] outcome in
+            guard let self, let initiatingWindow,
+                  self.textureFeedbackRequests[definition.key]?.id == requestID,
+                  self.canPresentTextureFeedback(in: initiatingWindow), self.displayed.contains(index) else { return }
+            self.textureFeedbackRequests.removeValue(forKey: definition.key)
+            switch outcome {
+            case .applied:
+                self.clearTextureStatus()
+                self.refreshAcceptedValues(forceRows: [index])
+            case let .failed(message): self.showTextureStatus(message, index: index)
+            case .unavailable: self.showTextureStatus("当前播放会话未接受快捷方式配置，已保留原选择。", index: index)
+            case .superseded: break
+            }
+        }
     }
 
     private func updateTexture(_ url: URL?, index: Int) {
@@ -466,11 +563,12 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         private var resourceName: NSTextField?
         private var clear: NSButton?
         private var choose: NSButton?
+        private var chooseWeb: NSButton?
         var definitionIndex: Int? { index }
 
         func keyboardControls(fullAccess: Bool) -> [NSView] {
             if !fullAccess { return field.map { [$0] } ?? [] }
-            return [toggle, slider, field, colorWell, popup, clear?.isHidden == false ? clear : nil, choose]
+            return [toggle, slider, field, colorWell, popup, clear?.isHidden == false ? clear : nil, choose, chooseWeb]
                 .compactMap { $0 }
         }
 
@@ -543,7 +641,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 control.action = #selector(comboChanged)
                 content.addArrangedSubview(control)
                 popup = control
-            case .sceneTexture:
+            case .sceneTexture, .userShortcut:
                 content.orientation = .vertical
                 content.alignment = .trailing
                 let label = NSTextField(labelWithString: "")
@@ -552,14 +650,22 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 let buttons = NSStackView()
                 buttons.orientation = .horizontal
                 buttons.spacing = 8
-                let choose = NSButton(title: "选择文件", target: self, action: #selector(chooseTexture))
+                let shortcut = kind == .userShortcut
+                let choose = NSButton(title: shortcut ? "文件或目录" : "选择文件", target: self,
+                    action: shortcut ? #selector(chooseShortcut) : #selector(chooseTexture))
                 choose.bezelStyle = .rounded; choose.controlSize = .small
-                choose.image = NSImage(systemSymbolName: "photo.badge.plus", accessibilityDescription: nil)
-                choose.imagePosition = .imageLeading; choose.toolTip = "选择 PNG/JPEG 图像或 MP4/MOV/M4V 视频"
-                let restore = NSButton(title: "", target: self, action: #selector(clearTexture))
-                restore.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: "恢复默认纹理")
-                restore.isBordered = false; restore.toolTip = "恢复作者提供的默认纹理"
+                choose.image = NSImage(systemSymbolName: shortcut ? "folder.badge.plus" : "photo.badge.plus", accessibilityDescription: nil)
+                choose.imagePosition = .imageLeading
+                choose.toolTip = shortcut ? "选择本机文件或目录，配置后从壁纸按钮点击打开" : "选择 PNG/JPEG 图像或 MP4/MOV/M4V 视频"
+                let restore = NSButton(title: "", target: self, action: shortcut ? #selector(clearShortcut) : #selector(clearTexture))
+                restore.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: shortcut ? "清除快捷方式" : "恢复默认纹理")
+                restore.isBordered = false; restore.toolTip = shortcut ? "清除此设备的快捷方式配置" : "恢复作者提供的默认纹理"
                 buttons.addArrangedSubview(restore); buttons.addArrangedSubview(choose)
+                if shortcut {
+                    let web = NSButton(title: "网址", target: self, action: #selector(chooseShortcutWeb))
+                    web.bezelStyle = .rounded; web.controlSize = .small
+                    buttons.addArrangedSubview(web); chooseWeb = web
+                }
                 content.addArrangedSubview(label); content.addArrangedSubview(buttons)
                 label.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor).isActive = true
                 resourceName = label; clear = restore
@@ -617,11 +723,18 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 }
             }
             if let resourceName {
-                let url = editor.service.resolvedSceneTexturePropertyURL(forKey: definition.key, record: editor.record)
-                let hasSelection = url != nil || editor.overrides[definition.key] != nil
-                resourceName.stringValue = url?.lastPathComponent
-                    ?? (hasSelection ? "已选图像暂不可用" : "使用作者默认纹理")
-                clear?.isHidden = !hasSelection
+                if kind == .userShortcut {
+                    let reference = editor.shortcutConfiguration.references[definition.key]
+                    resourceName.stringValue = reference?.displayName ?? "未配置（仅保存在此设备）"
+                    resourceName.toolTip = reference?.url.absoluteString
+                    clear?.isHidden = reference == nil
+                } else {
+                    let url = editor.service.resolvedSceneTexturePropertyURL(forKey: definition.key, record: editor.record)
+                    let hasSelection = url != nil || editor.overrides[definition.key] != nil
+                    resourceName.stringValue = url?.lastPathComponent
+                        ?? (hasSelection ? "已选图像暂不可用" : "使用作者默认纹理")
+                    clear?.isHidden = !hasSelection
+                }
             }
         }
 
@@ -690,6 +803,15 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         }
         @objc private func clearTexture(_ sender: NSButton) {
             guard let index else { return }; editor?.updateTexture(nil, index: index)
+        }
+        @objc private func chooseShortcut(_ sender: NSButton) {
+            guard let index else { return }; editor?.selectShortcut(index: index, web: false)
+        }
+        @objc private func chooseShortcutWeb(_ sender: NSButton) {
+            guard let index else { return }; editor?.selectShortcut(index: index, web: true)
+        }
+        @objc private func clearShortcut(_ sender: NSButton) {
+            guard let index else { return }; editor?.updateShortcut(nil, index: index)
         }
     }
 

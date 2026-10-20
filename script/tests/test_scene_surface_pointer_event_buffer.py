@@ -148,6 +148,7 @@ class SceneSurfacePointerEventBufferTests(unittest.TestCase):
             compilation = subprocess.run(
                 [
                     "xcrun", "--sdk", "macosx", "swiftc",
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
                     str(SOURCE), str(harness), "-o", str(binary),
                 ],
                 cwd=REPOSITORY_ROOT,

@@ -59,7 +59,7 @@ struct PlaybackPerformanceProfile {
     init() {}
     init?(rawValue: Int) { maxFPS = rawValue }
 }
-enum SceneDaemonProtocol { static let version = 1 }
+enum SceneDaemonProtocol { static let version = 2 }
 final class SceneDaemonClient: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind = .scene
     var stopPlaybackRequested: (() -> Void)?
@@ -248,10 +248,11 @@ final class Host {
             path = Path(directory)
             (path / "Harness.swift").write_text(harness)
             sources = [CORE / "Playback/DaemonProtocol.swift",
+                CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift",
                 CORE / "PlaybackControl/PlaybackSurfaceVisibility.swift",
                 CORE / "SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
                 ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
-                *[CORE / "PlaybackControl" / name for name in ["WallpaperEngineCommand.swift",
+                *[CORE / "PlaybackControl" / name for name in ["ScenePlaybackShortcut.swift", "WallpaperEngineCommand.swift",
                     "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift"]]]
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
                 str(path / "Harness.swift"), "-o", str(path / "harness")],

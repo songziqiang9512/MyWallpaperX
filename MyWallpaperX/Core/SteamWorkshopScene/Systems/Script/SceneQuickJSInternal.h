@@ -495,6 +495,9 @@ struct MWXSceneQuickJSOwner {
     bool retryable_user_property_callback;
     bool value_only;
     bool effectful_boolean;
+    MWXSceneQuickJSUserShortcutDispatch user_shortcut_dispatch;
+    void *user_shortcut_opaque;
+    bool user_shortcut_cursor_scope;
     MWXSceneQuickJSDynamicImageAliasRecord *dynamic_image_aliases;
     uint32_t dynamic_image_alias_count;
     /// Set when the property this owner drives belongs to the layer itself
@@ -752,6 +755,9 @@ bool mwx_scene_quickjs_restore_module_engine_host(
 bool mwx_scene_quickjs_install_timer_engine(
     MWXSceneQuickJSOwner *owner,
     JSValue engine
+);
+bool mwx_scene_quickjs_install_user_shortcut_engine(
+    MWXSceneQuickJSOwner *owner, JSValue engine
 );
 MWXSceneQuickJSResult mwx_scene_quickjs_run_due_timers(
     MWXSceneQuickJSOwner *owner,

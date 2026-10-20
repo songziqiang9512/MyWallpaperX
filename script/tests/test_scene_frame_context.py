@@ -14,6 +14,7 @@ SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/S
 POINTER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift"
 )
+SHORTCUT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"
 DYNAMIC_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
 )
@@ -439,6 +440,7 @@ class SceneFrameContextTests(unittest.TestCase):
                 "swiftc",
                 str(DYNAMIC_SOURCE),
                 str(AUDIO_SOURCE),
+                str(SHORTCUT_SOURCE),
                 str(POINTER_SOURCE),
                 str(SOURCE),
                 str(VIEW_FRAME_CONTEXT_SOURCE),
@@ -532,6 +534,7 @@ class SceneFrameContextTests(unittest.TestCase):
                     "swiftc",
                     str(DYNAMIC_SOURCE),
                     str(AUDIO_SOURCE),
+                    str(SHORTCUT_SOURCE),
                     str(POINTER_SOURCE),
                     str(SOURCE),
                     str(harness),

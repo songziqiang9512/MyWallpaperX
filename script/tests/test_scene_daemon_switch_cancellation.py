@@ -33,7 +33,7 @@ extension Notification.Name {
 }
 struct Backoff { var resets=0;mutating func reset(){resets += 1} }
 enum Outcome { case superseded }
-enum SceneDaemonProtocol { static let version=1 }
+enum SceneDaemonProtocol { static let version=2 }
 @MainActor final class SceneDaemonClient {
     struct Lifetime {
         let lifetime:PlaybackResourceLifetime
@@ -80,6 +80,7 @@ enum SceneDaemonProtocol { static let version=1 }
     var resumed:[UUID]=[]
     func send(_ value:[String:Any]) { sent.append(value) }
     func finishPendingTextureUpdates(_ result:Outcome) {}
+    func finishPendingShortcutUpdates(_ outcome: Outcome) {}
     func stop() {
         stopped=true;endpointReady=false
         retiredLeases += requestResourceLifetimes.values

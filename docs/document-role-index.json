@@ -531,13 +531,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ac8fb88b4bef1f12479f22b92dac3fb90bbd1ddbcc46d8d6cf7b391c42adc527",
+        "sourceSHA256": "db314cd820010dee5b704a62690d789b57d118257973680319c3144cf3d95153",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Candidate prepared/commit/present/finalize protocol, exact request cancellation and version lifetime routing updated against production owners.",
-        "limitations": "Bounded protocol and navigation review; not full sample compatibility, multi-display runtime acceptance, release or performance proof."
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "61ec5ecc0470d1e9a47b081e39b899fb31f7c77ffcaa64f39f90bb7fafad321a",
+        "sourceSHA256": "69ac4d838e74399c448020bb35e09a94bde2d530fb5953dc64b724f7e4b8f2a3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步213蓝烟花实际热切/模板/GPU及可见burst资格和UNKNOWN边界；退出e88fe10f3已修的过时static投影条目。其余内容未重审。",
-        "limitations": "仅当前22s原包、原图与独审和既有e88fe10f3静态predicate；没有新build/产品修法，无完整轨迹、四子路径逐项或官方parity。"
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {
@@ -758,10 +758,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "affa86475e4efd78af17ad12b3c38069d679c1471534983f37bc6ecd412f0f8a",
+        "sourceSHA256": "886a16c8e703004accd548edaf7c1fdc0e575eb25ecc9af73582de8ae2d326f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步standalone quad显隐合同、当前sunrays执行与脚本声明/完成边界及原图证据；原观察与未验行为分开。其余段落未重审。",
-        "limitations": "只认本批33方法、邻门18通过/1skip、Debug与两个376属性序列及独立328原图；不认整样本、官方像素或性能。"
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {
@@ -828,10 +828,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db6d4216e120f62bde67eb895bcbc8f3ec20ef64f83aef90d2353ca79ac65746",
+        "sourceSHA256": "7ccd8e4c07d19f35aba1e70275e64e7c7b931fdbb3c32ed6f67c79e0a6946e33",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步213蓝烟花实际热切/模板/GPU及可见burst资格和UNKNOWN边界；退出e88fe10f3已修的过时static投影条目。其余内容未重审。",
-        "limitations": "仅当前22s原包、原图与独审和既有e88fe10f3静态predicate；没有新build/产品修法，无完整轨迹、四子路径逐项或官方parity。"
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {
@@ -848,10 +848,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "99fead1649934cfec466d54a09c43ffb26e11a6f63e736675bd4e85d282430d9",
+        "sourceSHA256": "6327da1894252b5235bb644d460c54c2d0512c378f684a9232b353d9243b4801",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步既有官方shape API-only自有板的部分读回及STOP，保本机L0；队列/API表链接唯一资格记录，区分旧650几何0派发与新W2停止。其他段落未重审。",
-        "limitations": "已归档的官方2.8.0.42观察及独审；完整0→1→0/P2及几何B未执行，不判reset/持久性机制，不证明MDMP/scalar/357修复。"
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {
@@ -3513,10 +3513,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4ba20398bda8fb94f9dccc4959c9aa4236a37e41e1125f48b0cd69770c0ba366",
+        "sourceSHA256": "cbbae26d2545cfdf5a2f7a471a2d481990152ac855a2e719c3702ed727d26c16",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Authored image font JS-only状态与文字typed事务边界；374首拒退出、局部字体热切、官方固定板与独立381的有界证据。其余正文未重审。",
-        "limitations": "未外推官方throw/任意属性、34字体/完整布局、整景同phase/viewport/HDR或性能；原失败及旧人工verdict保留。"
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {
@@ -3625,10 +3625,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "534c5aedb2081ee58947a3959142cb92f135b85fc021cda0224ed42c484ed3ac",
+        "sourceSHA256": "91c3ed10973d7a0e7dffbc804eeb1ffe4b9f0b340acf142742b0ede9b1f61b26",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步213蓝烟花实际热切/模板/GPU及可见burst资格和UNKNOWN边界；退出e88fe10f3已修的过时static投影条目。其余内容未重审。",
-        "limitations": "仅当前22s原包、原图与独审和既有e88fe10f3静态predicate；没有新build/产品修法，无完整轨迹、四子路径逐项或官方parity。"
+        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
+        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
       }
     },
     {

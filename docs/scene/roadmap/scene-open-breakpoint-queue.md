@@ -40,7 +40,7 @@
 
 382右上缺光已退出：sampler presence不再被editor `require`阻断；原包默认参数实际恢复两束蓝白光，Program/GPU/末合成及下一帧执行，独立376人物/背景与旧mask链保持。format条件未扩、完整同phase/viewport仍未验，无性能收益声明；见[有界后验](../capabilities/runtime-evidence-current.md#sampler-presence-requirements-20261017)。
 
-357底栏16白块与210黑底板已退出：typed usershortcut保作者底图，16透明花叶恢复；后继二维fallback让210恢复半透明圆角dock，人物/栏杆可透见，独立361顶部8透明链环保持。只闭这些有界反馈，系统赋值/点击、未知回退及aux/233/320不扩；原失败保留，不升整样本。[底图后验](../capabilities/runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)、[dock后验](../capabilities/runtime-evidence-current.md#shader-vec2-authored-fallback-20261018)。
+357底栏16白块与210黑底板已退出：typed usershortcut保作者底图，16透明花叶恢复；后继二维fallback让210恢复半透明圆角dock，人物/栏杆可透见，独立361顶部8透明链环保持。10-20本机文件/目录/App配置与实际打开亦已用户确认；hover范围见上表，未知回退及aux/233/320仍保留，不升整样本。[底图后验](../capabilities/runtime-evidence-current.md#user-shortcut-authored-fallback-20261017)、[dock后验](../capabilities/runtime-evidence-current.md#shader-vec2-authored-fallback-20261018)。
 
 3022080536背景缺失已退出：旧52B全文件选择/拒绝优先后，format9/20B静态mesh沿原bind/UV/world链准入；原包奶油纸底、书法和双红印实际恢复，主体18动画保持，独立WLOP legacy16/52画面保持。完整属性、互动及相同viewport/phase仍未验，不当作整样本PASS；见[有界后验](../capabilities/runtime-evidence-current.md#mdl-static-position-uv20-20261017)。
 
@@ -66,6 +66,7 @@
 
 | 样本 / 旧观察 | 当前边界与下一关闭门 |
 |---|---|
+| 通用鼠标比例/投影待排查 · 1994794519、3577990983 | 10-20用户补报：199上下层揭露位置在屏幕中心准确，越往边缘偏差越大，怀疑输入位移倍率；357则较远已放大。前者未取得当前App同点复现，不能把猜测当根因或两者已证共根。357作者默认宽半径约602场景单位可解释部分提前放大，但不能关闭通用缩放偏差。下一门锁定points/bounds/drawable、fit/crop/zoom与effect源域，中心/四边同点配准，沿唯一pointer→consumer投影找首错；不改作者半径或加样本补偿。按用户要求本批只入队，待后继排查。 |
 | 2887542690 · 音频ROI、黑遮挡/字体与片区布局 | 10-16 composition创建、286控制及限定透视回绘已接通，原visible-of-null退出；只证旧外悬蓝条同位置消失。固定pointer显隐消融未找到音频条的可重复正证，资格STOP，不能称图框内音频恢复；其他旧具体视觉与完整交互仍待当前可区分证据。[本批边界](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 右侧旧黑块 | 10-16默认日景及作者Night(Lights On) String选项4实图未定位独立右黑矩形；亮吊灯、书柜和地板可见，灰白海报与软阴影仍在。旧精确ROI、媒体和墙钟/viewport phase未齐，不写已修；移出当前已确认缺陷，先取同状态可区分复现再追source/effect/compositor，不据两条无归属mask诊断实施。夜景限期证据 `../../../.artifacts/scene-evidence/runs/213-black-region-night-qualification-20261016/manifest.json`；标题修复不重开。 |
 | 3768903841 · 云形/烟花细节 | 旧Worley云形及烟花/色彩细节未取得同相位关闭。10-16 R40独立原包复验四束spot GPU成功、底部光束可见，实图仍有横向深色云片；只证明当前呈现，不据此判新根因或整样本通过。先同phase对齐实际source/Program与ROI，不因四束恢复关闭旧云形差异。[原边界](../history/runtime-evidence-index.md#e-spot-light) |
