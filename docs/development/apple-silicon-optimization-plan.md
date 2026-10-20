@@ -2,7 +2,7 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-20 按用户授权进入逐项执行；本方案为本轮唯一执行路线，正向成果按职责分批验证、独立审查和提交，不推送。研究基准 `32be3ec1d6bf3d8bf10eab343bcd57a0c1c3db76`；实施从最新 `f5d50dc4d89eade09e18455942160d7dbb05ff77` 重新核对，不把历史研究当作当前运行证明。
+状态：2026-10-20 本轮24项已逐项处置：保留10项实施；S1／S3实测后停止；其余按现有实现、证据与成本保留现状。本轮已收尾，不自动展开新的优化队列；正向成果按职责独立审查和分批提交，不推送。研究基准 `32be3ec1d6bf3d8bf10eab343bcd57a0c1c3db76`；实施从最新 `f5d50dc4d89eade09e18455942160d7dbb05ff77` 重新核对，不把历史研究当作当前运行证明。
 
 本计划独占本轮24项的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
@@ -80,32 +80,63 @@ P1 优先取得可行动证据；P2 在规模或实际消费出现时推进；P3
 
 没有硬编码“必须全改完”。每阶段完成最近门与真实操作后独立子代理审查；高风险项复审修订点。收益递减、两次有区分力实验不支持假设、或为微小收益必须增加明显复杂度时，保留证据并换方向。当前并行任务正在使用的帧／模型 owner 不抢改。
 
-## 本轮执行状态（2026-10-20）
+## 本轮执行状态（2026-10-20，冻结结项记录）
 
-唯一执行台账如下；“停止”只结束当前假设，不声称原有成本为零。测试候选在通过必要门、实际操作和独立审查前不记为完成。计时使用冻结 `f5d50dc4d` 导出＋本批 owned，工作区后续并行提交不混入配对结论。
+此表是24项的唯一处置记录；下方候选说明保留研究／改造前基准，不应据旧行号或旧成本再次立题。停止不表示成本为零，保留不表示已经测得全 App／功耗比例；没有实施的项不能称“优化完成”。本轮覆盖已结项，未来只有重开条件成立或用户明确提出下一阶段才推进。
 
-| 项 | 当前决定／下一验收 |
+| 项 | 处置与证据／未扩范围 |
 |---|---|
-| S1 | STOP：99个真实去重PSO，冷/暖分别1213.937/21.759ms；有未开始任务时空槽累计仅1.816/3.061 worker-ms，未见固定分组长尾。不改调度器。此为带临时Debug插桩的资格，不是App提速A/B。 |
-| S2／S3／S4 | 核对实际编译、归档与并发瓶颈；未取得可归因证据前不改优先级／跨首帧缓存寿命／Metal选项。 |
-| S5／S6／S7／S8 | 核对当前消费与既有STOP；帧时钟／共享深度／预算不凭源码形状替换，未验不得记完成。 |
-| M1 | 候选：唯一串行分析器复用FFT scratch，验证跨尺寸／声道／padding／reset及发布值独立。 |
-| M2 | 已先补D6实施合同；候选仅Web消费者触发派生，验晚订阅、ABA、退订与源不重启。 |
-| W1 | 候选：原两输入路径共享同surface的被动位置去重，不删30Hz兜底／真实hitTest。 |
-| W2 | 资格：暂停与prepared／activation／surface换代共用原状态；先确认释放Activity实际收益与恢复边界。 |
-| W3 | 候选：同一频谱命令只格式化一次，保latest-only背压，补退休endpoint迟到完成反例。 |
-| M3 | STOP：现poll至多1s也兜底继承stdout的取消；拉长需新增wake/reader寿命状态，收益不足以承担复杂度。静态退出反例，非运行复现。 |
-| V1 | 资格后暂不迁移：当前已在后台有界2槽；异步取消须新增job代际、精确取消与缓存写入边界，尚无抵消成本的证据。 |
-| W4 | 保持现有单进程30s空预热与压力退役；无新真实命中数据，不延长TTL或新增预热。 |
-| U1 | 已先写有界异步保存／reset／同步flush实施细则；候选与真实SQLite失败、退出反例待验。 |
-| U2 | 保留旧 metadata 后台补齐窄片；同 ID／同列数几何与可见文字接通，23 项真实 owner／Waterfall 反例及代表窗口通过。同步 JSON／stat／save 与格式保持，不实施完整异步 loader。 |
-| U3 | 候选先补SIL single-flight与迟到身份复核；窗口停启需另核恢复，未连带认领。 |
-| U4 | 候选先省相同百分比／外观的图标；采样owner不改，实际功耗未知。 |
-| U5／U7 | 先核真实目录／JSON成本与外部变化；不为少量I/O造新长期缓存。 |
-| U6 | 候选复用已有标签投影，验证全部方向键输出／tie与比较次数。 |
-| U8 | 候选同owner分离已合成筛选、抑制相同最终数组；保删除意图同步。 |
+| S1 | **实测后STOP**。99个去重PSO，原四worker；冷／暖warmup1213.937／21.759ms。有未开始任务时空槽累计仅1.816／3.061 worker-ms，未见可行动分组长尾。不改调度，未运行的CPU草稿已删。  临时Debug资格；冷matrix的runtime schema误填原FAIL保留，暖为同App／HOME direct runner重放，非双benchmark PASS；原收据见结项证据包`s1/`。 |
+| S2 | **保留现状**。未取得System Trace runnable等待证据，不凭reader的utility QoS推定优先级反转；10ms保护循环与限额／取消保持。 |
+| S3 | **实测后STOP延后归档**。第二个隔离资格窗：应用archive冷0/99 hit、warmup183.212ms，暖99/99 hit、21.988ms；serialize冷累计651.727 worker-ms，不是可省0.65秒墙钟。完整ready7716.029／2695.736ms，未隔离系统driver缓存，非整机冷／暖A/B。约0.17秒量级理想局部包络尚无消融；跨首帧保99个opaque archive与有界排队／取消寿命不合算，保原暖命中。 |
+| S4 | **保留现状**。已有MSL single-flight；没有新证证明Metal内并发受限，不叠加最大并发或新Metal4后端。 |
+| S5 | **保留现时钟**。原S1短窗195 submitted／194 presented、drawableMiss0、p95 33.333ms只证该窗；无新pacing故障。不为此加多屏leader／display-link协调状态，唯一VM／clock／history准入不改。 |
+| S6 | **保留现状**。无新普通帧分配热点或prepared无consumer证据；旧world／overlay／MDL／material载荷STOP不重开，不加跨帧缓存。 |
+| S7 | **保留现depth语义**。后继仍可能load共享depth，无末次liveness证明；不以store源码形状删写回或改memoryless。 |
+| S8 | **已有保护，未重复实施**。单总账min(recommended/4,3GiB)、decoded子额及准备尾释放已在现代码，pool仍竞争总额；未发现可归因的长期holder，不升预算／全清暖缓存。 |
+| M1 | **保留**。串行FFT复用工作区，84帧×6数组共18,816浮点严格等于基线；五组400次stereo分析均少2,400次分配请求／26,291,200累计请求字节。代价48k常见N4096驻留32KiB，最大128KiB；不声称RSS／能耗下降。 |
+| M2 | **保留**。仅Web消费者需求派生PNG，独立Web revision与媒体epoch；Scene-only不转Web图，晚订阅／ABA／撤销不重启Scene源。真实Music经main→WebDaemon IPC→5监听，标题／PNG加载／进度成立；Scene原图与授权源保持，更多播放器未覆盖。 |
+| W1 | **保留**。同surface原生event与30Hz poll共享被动坐标去重；真实方法原版重复RED→候选GREEN，遮挡／按钮／新surface反例通过。保真实hit-test和手势；benchmark的JS交互不作为原生全局monitor证明，本轮未作纯被动原生集成／能耗声明。 |
+| W2 | **STOP本轮Activity改造**。暂停、prepared、activation、导航／拓扑与恢复须联合接纳，未测得稳定暂停持assertion的实际能耗；不增加token真值／恢复分支。 |
+| W3 | **保留**。同一命令多个endpoint只格式化至多一次，全busy可零次；每endpoint序号／latest-only保持。另修退休／过期endpoint的旧completion继续flush，RED→GREEN且不污染同view新endpoint。单endpoint原本只格式化一次，现多一个短命引用对象，未声称普遍CPU提速。 |
+| M3 | **STOP**。现poll≤1s还承担继承stdout子孙不EOF时的取消兜底；拉至remaining可把取消尾延至12s，需额外wake/reader owner，名义少唤醒不足以支持。静态反例，未冒充运行复现。 |
+| V1 | **保留现后台有界路径**。已离主、2槽／精确帧／缓存合并；新async取消要job身份与精确generator结算，还跨U1清缓存寿命，无已证成本抵消复杂度。不修改取帧容差／质量。 |
+| W4 | **保留已有策略**。一个空预热进程、30s TTL、压力退役已具备；无新真实命中节奏，不调TTL或扩预热。 |
+| U1 | **保留稳态窄片**。初始load结算后immutable／一飞一最新pending，原SQLite队列／全事务／fallback；reset epoch与同步退出flush。有效fallback含[]优先旧DB，成功后才清。未结算仍原sync；既有startup整库覆盖竞态未修，async返回不表示durable ACK。真实SQLite跨进程／失败／退出反例通过。 |
+| U2 | **保留旧metadata窄片**。JSON先发布、utility补缺header，generation／id／path及仍缺字段准入；同ID同列数的真实Waterfall／文字刷新、快照在途与reset反例闭合。23项行为与代表窗口通过。同步JSON／stat／save／格式保持，完整异步loader／writer STOP。 |
+| U3 | **保留**。SIL single-flight、同viewport/id/path回包；Video/SIL最小化／离窗停原timer，恢复最多一次catch-up。34条真实NSWindow检查＋两probe门通过。orderOut通知不可靠的真实失败保留，普通隐藏保2s timer但零路径I/O／零发布，回显沿原cadence；不称全隐藏零唤醒。 |
+| U4 | **保留相同图标复用**。相同GPU显示整数／外观不建NSImage、不赋button；首次／nil／外观反例通过。采样／菜单时序保持，采样迁移无归因不做，不称整机节能比例。 |
+| U5 | **STOP本轮缓存迁移**。cell stat现状已核；未证明本地目录成本值得引入视口generation／外部增删校准。保现发现与最终存在性校验，不加常驻watcher。 |
+| U6 | **保留**。复用已存在tag投影后排序，箭头结果／tie／搜索／边界与旧全库oracle一致；省无关比较，不加缓存，不外推App百分比。 |
+| U7 | **STOP本轮异步cache迁移**。只读资格时23份cache总62,172B，中位2,118B、最大7,737B；不是延迟测量。没有已证等待，不给已修的stale呈现／作者返回再加消费代际或第二缓存；TTL／离线保持。 |
+| U8 | **保留**。已合成阶段只筛一次，最终全值相等不发布，但每次清无效选择。真实didSet／merge／账号／失败历史门通过，删除意图同步，不延迟Web清理。 |
 
-S1证据保留为隔离目录 `/private/tmp/mwx-s1-warmup-20261020-7dcmuomg/evidence`（约18.1MiB），其余1.81GB本轮导出／App／HOME／缓存已清。冷轮临时matrix schema填错导致原报告FAIL，暖轮为同App/HOME的新进程runner重放；两轮真实PSO事件、ready／停止／GPU排空完整，但不改写原FAIL或称完整benchmark双PASS。5条冻结基线既有并发警告单列，不能认领为本批零警告构建。
+### 本轮验收与取舍边界
+
+- 冻结产品输入为`55a13f4ec`（含最新并行提交）＋18份本轮产品文件SHA；最终提交文件逐一匹配。S1单独冻结于`f5d50dc4d`；不同窗口不拼成新旧App提速A/B。
+- Debug `-O/WMO`与Release均BUILD SUCCEEDED；25个相关模块串行全通过，代码健康1328份Swift／1000行硬门通过。独立审查发现并修复U2晚到尺寸未通布局，以及snapshot在途的consumer缺口；原失败与修后门均保留。
+- 实际Scene 2938612768应用archive冷benchmark PASS，暖同staged App／HOME新进程runner exit0，均ready、停止1→0、GPU排空。此处有临时Debug阶段归因，不能当普通Release启动比例。
+- Web：CWAV＋自有3-endpoint PCM矩阵两样本A／100；5秒晚注册、8秒子frame导航后频谱继续。真实Music无合成PCM的CWAV与受管理3793879750均A／100；自有5监听页有标题、可加载PNG及递增position。受管理输入首次遗漏publication索引的原F39保留，补齐同代索引仅重定位临时root后通过，未删marker／放宽安全校验。grade不是全兼容或官方parity。
+- 三引擎正式owner／IPC由Debug driver驱动，33/33检查通过：六方向切换、main阻塞期间独立播放／实际PCM继续、失败保旧、取消与进程退出；不是Release全场景、物理多屏／Space／sleep验收。
+- CUA实际窗口目视核对3种图片比例80×120、160×90、120×80与AX尺寸文案，未见错位。该UI只证明呈现：macOS CFPreferences未采用磁盘预置偏好，不能把临时HOME当完整`.standard`隔离；U1 fallback／重启由独立domain的真实SQLite门验。已仅按本轮路径前缀清除遗留的测试CurrentWallpaper，不猜测恢复未知历史值；真实媒体未改。
+- 实际Release按既有CI inside-out Developer ID／hardened／timestamp签名后，25个Mach-O闭包含arm64、18个自有arm64-only、Apple Events／Steam JIT／Sparkle权限通过。原始本地Xcode签名带get-task-allow的拒绝收据保留；最终CI等价重签通过，不修改项目配置。主binary开发flag与指定diagnostic symbols均零命中；未公证、发布或推送。
+- Debug／Release各仍有冻结基线5条Scene并发警告（PreparedStaticModelResources:133、SceneDaemonProtocol:129/147、FrameDriver:433、PuppetAnimationPropertyPreparation:56），本批未新增，未抢改并行owner。未覆盖普通Release实际播放、物理多屏／最低设备／30min能耗、所有播放器和W1纯被动原生输入，不能写“全场景无缺陷”。
+
+### 已提交的独立代码批次
+
+| 批次 | 提交 |
+|---|---|
+| 路线／实施设计先行 | `55a13f4ec` |
+| M1 FFT工作区 | `6d9860472` |
+| U6 标签导航 | `49a3691ad` |
+| U4 状态栏图标 | `7bacdc00f` |
+| U8 下载投影 | `136be602f` |
+| U3 网格探针 | `a4a0be6ba` |
+| U1 索引保存 | `45144b9da` |
+| M2／W1／W3 Web输入与媒体投递 | `e5da0385e` |
+| U2 旧尺寸补齐与真实consumer | `62b24db57` |
+
+冻结跨模块证据归入忽略的`.artifacts/apple-silicon-optimization-20261020/`；原Scene冷报告及其画面／运行证据由既有工具登记在`.artifacts/scene-evidence/runs/apple-silicon-optimization-20261020-s3/`。两包合计约19 MiB，均保留14天至2026-11-03；含原失败／配置／源与产物SHA／必要画面。字节及解压SHA核对后，清除本轮导出树、DerivedData、staged App、样本、HOME与无用探针；不保留构建缓存或测试实例。旧STOP重开条件见各项，不把此记录变成另一条活跃队列。
 
 ## Scene：8 项
 
@@ -374,4 +405,4 @@ python3.12 -B script/playback_process_isolation_benchmark.py --app <隔离Debug�
 
 研究文档批次已提交；当前实施按每批真实 owned 文件界定范围。共享角色／设计／预算 JSON 逐项增量合并，不覆盖并行条目；产品与测试仅改本批 owner，未经核对不纳入他人源文件。此路线的实施细则只补职责、退出与验证，不复制既有能力台账。
 
-各实现批次分别列 owned 文件、验证、独立审查、产物去留、Git 状态；本轮已获逐批提交授权，不推送。本计划所有候选已作保留／停止／转入原专题的决定，或用户结束研究专项后，将过程归档，稳定合同回原owner，不留下第二条长期任务队列。
+各实现批次分别列 owned 文件、验证、独立审查、产物去留、Git 状态；本轮已获逐批提交授权，不推送。本轮过程在上方冻结为结项记录，不再发下一步队列。本文U1/U2实施边界仍由现设计登记引用；待稳定合同由原owner专题接管后整体归档，不为搬文档复制第二份当前事实。重开STOP必须满足本页记录的条件，或由用户明确授权新阶段。

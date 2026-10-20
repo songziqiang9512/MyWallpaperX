@@ -187,7 +187,7 @@
       "path": "docs/development/apple-silicon-optimization-plan.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "本轮24项跨模块候选均已保留、停止或转入原专题，或用户结束专项后归档；不维护第二份Scene长期选序和当前能力台账。"
+      "retirementCondition": "本轮24项已逐项处置，且U1/U2持久化与旧尺寸补齐合同迁入原owner的稳定合同、相关设计登记替换或退役后归档；在此之前仅保留冻结结项与实施合同，不自动开启新队列，不维护第二份Scene长期选序或能力台账。"
     },
     {
       "path": "docs/development/repository-improvement.md",
