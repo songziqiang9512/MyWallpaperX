@@ -44,6 +44,29 @@ private struct HarnessOutput: Codable {
 @main
 private struct AuthoredShaderFrontendHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--lex" {
+            let sources = try JSONDecoder().decode(
+                [String].self,
+                from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
+            )
+            let outputs: [[String: Any]] = sources.map { source in
+                let output = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
+                return [
+                    "tokens": output.tokens.map { token -> [String: Any] in
+                        ["kind": String(describing: token.kind), "text": token.text,
+                         "line": token.line, "column": token.column]
+                    },
+                    "defines": output.defines,
+                    "diagnostics": output.diagnostics.map { diagnostic -> [String: Any] in
+                        ["code": diagnostic.code.rawValue,
+                         "line": diagnostic.line.map { $0 as Any } ?? NSNull(),
+                         "column": diagnostic.column.map { $0 as Any } ?? NSNull()]
+                    },
+                ]
+            }
+            FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: outputs))
+            return
+        }
         let vertexSource = try String(
             contentsOfFile: CommandLine.arguments[1],
             encoding: .utf8

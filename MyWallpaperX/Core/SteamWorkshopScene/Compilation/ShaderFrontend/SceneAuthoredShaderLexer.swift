@@ -270,7 +270,13 @@ nonisolated enum SceneAuthoredShaderLexer {
     }
 
     private static func isIdentifierStart(_ scalar: UnicodeScalar) -> Bool {
-        scalar == "_" || CharacterSet.letters.contains(scalar)
+        let value = scalar.value
+        if value < 128 {
+            return value == 95
+                || (65 ... 90).contains(value)
+                || (97 ... 122).contains(value)
+        }
+        return CharacterSet.letters.contains(scalar)
     }
 
     private static func isIdentifierContinue(_ scalar: UnicodeScalar) -> Bool {
