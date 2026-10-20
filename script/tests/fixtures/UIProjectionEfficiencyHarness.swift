@@ -55,6 +55,10 @@ struct SILWallpaper: Equatable {
     var silTags: [String] = []
     var derivations = 0
     var comparisons = 0
+    var currentContextTag: String?
+    var visibleGridColumnCount = 4
+    var inspectorSyncs = 0
+    func syncSelectedWallpaperInspectorIfNeeded() { inspectorSyncs += 1 }
     // SIL_PROJECTION_METHODS
 }
 struct OnlineLibraryVideoItem: Equatable { let id: Int; var title: String = "fixture" }
@@ -492,6 +496,50 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
         checks["silUntaggedPropertyPreservesItsExistingProjection"] = propertyEquivalent
         checks["silTagProjectionKeepsEqualValueInputOrderInBothDirections"] = exactTiesKeepOrder
 
+        var navigationEquivalent = true
+        for mode in SILSortMode.allCases {
+            for ascending in [false, true] {
+                sil.sortState = SILSortState(mode: mode, ascending: ascending)
+                for query in queries {
+                    sil.searchQuery = query
+                    let legacy = legacySortedAll(sil)
+                    for tag in tags {
+                        sil.currentContextTag = tag
+                        let visible = tag.map { tag in legacy.filter { $0.tags.contains(tag) } } ?? legacy
+                        let selections: [String?] = [nil, "missing"] + visible.map { Optional($0.id) }
+                        for current in selections {
+                            for key in [UInt16(123), 124, 125, 126, 0] {
+                                let expected: String?
+                                if visible.isEmpty { expected = current }
+                                else if let current, let index = visible.firstIndex(where: { $0.id == current }) {
+                                    let offset: Int
+                                    switch key {
+                                    case 123: offset = -1
+                                    case 124: offset = 1
+                                    case 125: offset = sil.visibleGridColumnCount
+                                    case 126: offset = -sil.visibleGridColumnCount
+                                    default: offset = 0
+                                    }
+                                    expected = visible[min(max(0, index + offset), visible.count - 1)].id
+                                } else { expected = visible.first?.id }
+                                sil.selectedID = current
+                                sil.moveSingleSelectionByArrowKey(key)
+                                navigationEquivalent = navigationEquivalent && sil.selectedID == expected
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        checks["silArrowNavigationMatchesDisplayedLegacyOrderIncludingTiesAndBoundaries"] = navigationEquivalent
+        sil.isMultiSelectMode = true
+        sil.selectedID = "unchanged"
+        let priorSyncs = sil.inspectorSyncs
+        sil.moveSingleSelectionByArrowKey(124)
+        checks["silMultiSelectionArrowDoesNotChangeSelectionOrInspector"] = sil.selectedID == "unchanged"
+            && sil.inspectorSyncs == priorSyncs
+        sil.isMultiSelectMode = false
+
         // A narrow page selects four scattered rows from a much larger input.
         // Count the actual production comparator, rather than timing a copy.
         sil.wallpapers = (0..<256).map { index in
@@ -513,6 +561,14 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
         sil.comparisons = 0
         let missing = sil.sortedWallpapers(forSILTag: "absent")
         checks["silMissingTagPerformsNoSortComparisons"] = missing.isEmpty && sil.comparisons == 0
+        sil.currentContextTag = "narrow"
+        sil.selectedID = narrow.first?.id
+        sil.comparisons = 0
+        sil.derivations = 0
+        sil.moveSingleSelectionByArrowKey(124)
+        checks["silArrowNavigationSortsOnlyTheActiveTag"] = sil.selectedID == narrow.dropFirst().first?.id
+            && sil.derivations == 1 && sil.comparisons == narrowComparisons
+        sil.currentContextTag = nil
         sil.sortState = SILSortState(mode: .none, ascending: false)
         sil.comparisons = 0
         checks["silDefaultOrderFiltersWithoutSorting"] = sil.sortedWallpapers(forSILTag: "narrow").map(\.id)

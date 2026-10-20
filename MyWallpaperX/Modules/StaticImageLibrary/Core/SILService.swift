@@ -411,10 +411,7 @@ final class SILService: ObservableObject {
         guard !isMultiSelectMode else { return }
         // 与网格显示列表保持一致（AppKitDetailHostViewController.updateSILGrid）：
         // 标签上下文只在该标签内导航，无标签上下文时回退全库
-        var list = sortedWallpapers
-        if let tag = currentContextTag {
-            list = list.filter { $0.tags.contains(tag) }
-        }
+        let list = sortedWallpapers(forSILTag: currentContextTag)
         guard !list.isEmpty else { return }
         guard let current = selectedID, let idx = list.firstIndex(where: { $0.id == current }) else {
             selectedID = list.first?.id

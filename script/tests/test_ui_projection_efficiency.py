@@ -55,7 +55,8 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
         fragments = {
             '// VIDEO_PROJECTION_METHODS': video_sort + '\n' + methods(video, [
                 '    var normalizedSearchQuery:', '    func filterWallpapers(']),
-            '// SIL_PROJECTION_METHODS': method(sil, '    var sortedWallpapers:') + '\n' + sil_sort,
+            '// SIL_PROJECTION_METHODS': method(sil, '    var sortedWallpapers:') + '\n' + sil_sort
+                + '\n' + method(sil, '    func moveSingleSelectionByArrowKey('),
             '// SELECTION_SOURCE': method(selection, '    func sourceWallpapers('),
             '// SHELL_METHODS': methods(shell, [
                 '    func update(selectedItem:', '    private func observeVideoLibraryState(',
