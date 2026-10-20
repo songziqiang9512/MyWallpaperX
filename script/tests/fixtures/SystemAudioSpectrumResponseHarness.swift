@@ -41,6 +41,39 @@ struct SpectrumResponseHarness {
         }
         return [attack, release]
     }
+    static func arrays(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [[Float]] {
+        [levels.left, levels.right, levels.left32, levels.right32, levels.left64, levels.right64]
+    }
+    static func scratchReuseChecks() -> [String: Bool] {
+        let reused = SystemAudioSceneSpectrumAnalyzer()!
+        var matchesFresh = true
+        var rightStaysSilent = true
+        var publishedStaysImmutable = true
+        // 96k -> fractional 48k retains an 8192-point FFT while shrinking its
+        // populated window. Other cases grow/shrink storage and switch channels.
+        for targetRate: Float in [48_005.99, 44_100, 192_000, 1_000, 48_000] {
+            reused.reset()
+            _ = reused.analyze(signedChannels: [pcm([(3000, 0.7)], rate: 96_000)], sampleRate: 96_000)
+            reused.reset()
+            let left = pcm([(min(600, targetRate / 4), 0.1)], rate: targetRate)
+            let zero = left.map { _ in Float(0) }
+            let result = reused.analyze(signedChannels: [left, zero], sampleRate: targetRate, timestamp: 1)
+            let fresh = SystemAudioSceneSpectrumAnalyzer()!.analyze(
+                signedChannels: [left, zero], sampleRate: targetRate, timestamp: 1)
+            matchesFresh = matchesFresh && arrays(result) == arrays(fresh)
+            rightStaysSilent = rightStaysSilent && result.right64.allSatisfy { $0 == 0 }
+            let published = arrays(result)
+            _ = reused.analyze(signedChannels: [zero, left], sampleRate: targetRate, timestamp: 2)
+            publishedStaysImmutable = publishedStaysImmutable && arrays(result) == published
+            reused.reset()
+            let restarted = reused.analyze(signedChannels: [zero], sampleRate: targetRate, timestamp: 0)
+            let silentFresh = SystemAudioSceneSpectrumAnalyzer()!.analyze(
+                signedChannels: [zero], sampleRate: targetRate, timestamp: 0)
+            matchesFresh = matchesFresh && arrays(restarted) == arrays(silentFresh)
+        }
+        return ["matchesFresh": matchesFresh, "rightStaysSilent": rightStaysSilent,
+                "publishedStaysImmutable": publishedStaysImmutable]
+    }
     static func main() throws {
         if CommandLine.arguments.count == 2 {
             let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -135,6 +168,7 @@ struct SpectrumResponseHarness {
             "fractionalRateResetMatchesFresh":after.left64==fresh.left64,
             "fractionalWindowCounts":[SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate:aRate),SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate:bRate)],
             "finiteRates":finiteRates,"captureFrames":frames,
+            "scratchReuse":scratchReuseChecks(),
             "observedPeakIndices":[Float(80),250,500,1000,4000,10000].map { peakIndex(settled([($0,0.02)]).left64) }
         ]
         print(String(decoding:try JSONSerialization.data(withJSONObject:report,options:[.sortedKeys]),as:UTF8.self))

@@ -68,6 +68,11 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     private var rollingSampleRate: Float = 0
     private var window: [Float] = []
     private var fftSize = 0
+    // The capture worker serializes this analyzer. Scratch never escapes into
+    // published Levels, and each transform overwrites both split-complex arrays.
+    private var fftInput: [Float] = []
+    private var fftReal: [Float] = []
+    private var fftImaginary: [Float] = []
     private var amplitudeScale: Float = 0
     private var bandWeights: [[(bin: Int, coverage: Float)]] = []
     private var bandGains: [Float] = []
@@ -163,6 +168,11 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     private func prepareAnalysis(windowCount: Int, sampleRate: Float) {
         fftSize = 2
         while fftSize < windowCount { fftSize *= 2 }
+        if fftInput.count != fftSize {
+            fftInput = Array(repeating: 0, count: fftSize)
+            fftReal = Array(repeating: 0, count: fftSize / 2)
+            fftImaginary = Array(repeating: 0, count: fftSize / 2)
+        }
         window = (0..<windowCount).map { index in
             let phase = 2 * Double.pi * Double(index) / Double(windowCount - 1)
             return Float(0.5 - 0.5 * cos(phase))
@@ -211,18 +221,19 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
         // Accumulate DC in Double: a repeated finite Float must subtract to
         // exact zero, rather than leak a Float summation residual into low bars.
         let mean = Float(samples.reduce(0.0) { $0 + Double($1) } / Double(samples.count))
-        var input = Array(repeating: Float(0), count: fftSize)
-        for index in samples.indices { input[index] = (samples[index] - mean) * window[index] }
-        var real = Array(repeating: Float(0), count: fftSize / 2)
-        var imaginary = real
-        input.withUnsafeMutableBufferPointer { source in
-            real.withUnsafeMutableBufferPointer { r in
-                imaginary.withUnsafeMutableBufferPointer { i in
+        let count = fftSize
+        fftInput.withUnsafeMutableBufferPointer { source in
+            for index in samples.indices { source[index] = (samples[index] - mean) * window[index] }
+            // A new rate can shrink the unpadded window without changing count.
+            // Clear padding on every channel so old samples cannot enter its FFT.
+            for index in samples.count..<count { source[index] = 0 }
+            fftReal.withUnsafeMutableBufferPointer { r in
+                fftImaginary.withUnsafeMutableBufferPointer { i in
                     var split = DSPSplitComplex(realp: r.baseAddress!, imagp: i.baseAddress!)
-                    source.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: fftSize / 2) {
-                        vDSP_ctoz($0, 2, &split, 1, vDSP_Length(fftSize / 2))
+                    source.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: count / 2) {
+                        vDSP_ctoz($0, 2, &split, 1, vDSP_Length(count / 2))
                     }
-                    vDSP_fft_zrip(fftSetup, &split, 1, vDSP_Length(log2(Float(fftSize))), FFTDirection(FFT_FORWARD))
+                    vDSP_fft_zrip(fftSetup, &split, 1, vDSP_Length(log2(Float(count))), FFTDirection(FFT_FORWARD))
                 }
             }
         }
@@ -230,7 +241,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
             var magnitude: Double = 0
             var width: Double = 0
             for (bin, coverage) in weights {
-                magnitude += hypot(Double(real[bin]), Double(imaginary[bin])) * Double(coverage)
+                magnitude += hypot(Double(fftReal[bin]), Double(fftImaginary[bin])) * Double(coverage)
                 width += Double(coverage)
             }
             let amplitude = magnitude * Double(amplitudeScale) * Double(bandGains[band]) / max(1, width)

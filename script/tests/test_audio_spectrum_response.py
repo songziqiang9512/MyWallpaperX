@@ -75,6 +75,11 @@ class AudioSpectrumResponseTests(unittest.TestCase):
     def test_capture_quantum_supports_analysis_cadence(self) -> None:
         self.assertEqual(self.result["captureFrames"], [512, 512, 1024, 2048, 1024, 256])
 
+    def test_reused_fft_storage_preserves_padding_channels_and_published_values(self) -> None:
+        self.assertEqual(self.result["scratchReuse"], {
+            "matchesFresh": True, "rightStaysSilent": True, "publishedStaysImmutable": True,
+        })
+
     def test_tones_retain_frequency_identity(self) -> None:
         for actual, expected in zip(self.result["observedPeakIndices"], [2, 10, 21, 32, 46, 58]):
             self.assertLessEqual(abs(actual - expected), 2)
