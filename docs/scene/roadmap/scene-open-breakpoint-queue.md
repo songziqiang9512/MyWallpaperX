@@ -32,9 +32,9 @@
 
 338的306/effect364启动与编译首拒已退出：有效prepared普通颜色边界不再被启动门无条件拒绝，数值类型和packed音频源码视图复用共享准备链；原Program实际GPU/合成及下一帧已完成。开关前后可见ink仍不能可靠归因，整景保unreviewed；不能把旧“dynamic producer回退”继续列为现役故障，也不记视觉完成。见[有界执行与未覆盖项](../capabilities/runtime-evidence-current.md#audio-packed-source-view-20261020)。
 
-329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围，音频rate与其余面板验收归属性卡；direct条件选择已由[同session热切换后继](../capabilities/runtime-evidence-current.md#conditional-model-animation-20261020)关闭有界首门，437数组/原graph余项仍开放；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
+329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围；后继[rate Number值源](../capabilities/runtime-evidence-current.md#puppet-animation-rate-script-20261020)已恢复原作者音频变速，面板余项归属性卡；direct条件选择已由[同session热切换后继](../capabilities/runtime-evidence-current.md#conditional-model-animation-20261020)关闭有界首门，437数组/原graph余项仍开放；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
 
-329默认单臂闪骨与动作控件缺失已退出：公共prepared Pose统一四元数时间采样，保完整骨贡献/identity/reference/blend；真实80采样与当前App原图、用户默认1连续观察均通过对应范围。成功条件Program进入实际Service筛选，原生“视差”1…8下拉框出现，用户确认动作更新；Root选2保存/重开和reset回1已验。普通Release视频/音频反馈亦已正常，不再列为播放回归；旧Debug负载时序、rate/437/graph及全模式/官方时相仍保边界，不计整样本通过。见[当前有界后验](../capabilities/runtime-evidence-current.md#puppet-rotation-continuity-20261020)。
+329默认单臂闪骨与动作控件缺失已退出：公共prepared Pose统一四元数时间采样，保完整骨贡献/identity/reference/blend；真实80采样与当前App原图、用户默认1连续观察均通过对应范围。成功条件Program进入实际Service筛选，原生“视差”1…8下拉框出现，用户确认动作更新；Root选2保存/重开和reset回1已验。普通Release视频/音频反馈亦已正常，不再列为播放回归；旧Debug负载时序、437/graph及全模式/官方时相仍保边界，不计整样本通过。见[当前有界后验](../capabilities/runtime-evidence-current.md#puppet-rotation-continuity-20261020)。
 
 322的2522色散首门已退出：共享词法绑定及浮点公共宽度转换让原包点击后的非零Alpha进入作者Program，实际GPU/末合成与瞬态RGB分离、回清晰黑面具均已取得；局部vec4遮蔽不同类型global不再误拒。原命名点击、左眼/默认动画与脸颈组装修复保持；手部旧观察仍归第2节，完整同phase/viewport与全部互动不记通过。见[有界后验](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)。
 
@@ -197,7 +197,6 @@
 
 | 项目 | 当前边界 / 最小下一门 |
 |---|---|
-| 动画层条件显隐与rate来源 | 329已证对象式user条件和音频rate未进入当前动画消费者；状态/最小下一门归[属性卡](properties-panel-card.md)，不与默认34的骨骼播放修复混销。 |
 | U42 · 面板打开/编辑、长Combo与显示语言余项 | 原生列表/AX滚动及有限本地化已有有界验收；旧“浏览严重卡顿/中文都变英文”不能无条件沿用。打开/编辑总延迟、完整系统键盘chrome、长Combo完整显示及更多locale仍待当前实际资格；未审词汇不直接算错译。先单个可达控件和用户动作/成本，沿原Intent→store→consumer验证 |
 
 显隐slider/缺定义、条件-only Combo、maxwidth script等旧声明/候选不等于缺热更新：先有同身份instruction/callback/rebuild及可见consumer资格。314 fireplacesound属Sound mixed，已修；304 clock_lang已有真实text模块applyUserProperties consumer，亦非condition-only；不另造condition evaluator或value-only旁路。

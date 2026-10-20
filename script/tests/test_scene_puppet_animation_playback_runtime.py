@@ -20,8 +20,12 @@ import simd
 enum SceneDynamicTarget: Hashable {
     case scriptInstanceProperty(layerID: Int, path: [String])
 }
-enum SceneDynamicValue { case bool(Bool), number(Double) }
-struct SceneDynamicResolvedValue { let value: SceneDynamicValue }
+enum SceneDynamicValue { case bool(Bool), scalar(Double) }
+enum SceneDynamicSource { case authored, userProperty, timeline, sceneScript }
+struct SceneDynamicResolvedValue {
+    let value: SceneDynamicValue
+    var source: SceneDynamicSource = .authored
+}
 enum Observation { static var visibilityReads = 0 }
 struct SceneDynamicSnapshot {
     let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
@@ -384,7 +388,7 @@ func denseStateRuntimeReport() throws -> [[String: Any]] {
             dynamicValues: visible([:]))
         let wrong = invalidVisibilityOwner.advance(frameIndex: 1, sceneTime: 6,
             dynamicValues: .init(values: [ScenePuppetAnimationPropertyTarget.visibility(
-                layerID: 42, animationLayerID: 10): .init(value: .number(1))]))
+                layerID: 42, animationLayerID: 10): .init(value: .scalar(1))]))
         let valid = invalidVisibilityOwner.advance(frameIndex: 2, sceneTime: 6.25,
             dynamicValues: visible([42: true]))
         output["invalidVisibility"] = ["missing": report(missing), "wrong": report(wrong),
@@ -670,7 +674,9 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         if not shutil.which("swiftc"):
             raise unittest.SkipTest("Swift toolchain unavailable")
-        with tempfile.TemporaryDirectory(prefix="mwx-puppet-playback-runtime-") as directory:
+        output_root = Path(__file__).resolve().parents[2] / ".artifacts/tmp/animation-rate-source-329-20261020/tests"
+        output_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="mwx-puppet-playback-runtime-", dir=output_root) as directory:
             root = Path(directory)
             source, binary = root / "runtime.swift", root / "runtime"
             source.write_text(HARNESS, encoding="utf-8")

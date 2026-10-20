@@ -299,10 +299,10 @@ extension SceneDesktopWallpaperSession {
            timing.frameIndex <= 1200, timing.frameIndex % 30 == 0 {
             for animation in puppetAnimationFrame.animationSnapshots
             where ScenePuppetBoneEvidence.isEnabled(for: animation.identity.layerID) {
-                NSLog("MWX DEBUG SCENE: phase=puppet-animation-playback layer=%d index=%d animationLayer=%@ animation=%d frame=%llu currentFrame=%.6f playing=%@ visible=%@",
+                NSLog("MWX DEBUG SCENE: phase=puppet-animation-playback layer=%d index=%d animationLayer=%@ animation=%d frame=%llu currentFrame=%.6f rate=%.6f playing=%@ visible=%@",
                     animation.identity.layerID, animation.identity.animationLayerIndex,
                     animation.identity.animationLayerID.map(String.init) ?? "none", animation.animationID,
-                    timing.frameIndex, animation.currentFrame,
+                    timing.frameIndex, animation.currentFrame, animation.rate,
                     animation.isPlaying ? "true" : "false", animation.visible ? "true" : "false")
             }
         }

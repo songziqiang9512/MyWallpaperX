@@ -207,6 +207,16 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 官方原图、首失败、冻结/构建/最终收据保`.artifacts/tmp/constant-dense-state1-20261018/`，observer summary SHA`530d05d6…effc84`；Swift收据保`.artifacts/tmp/puppet-dense-reference-tracks-20261018/tests/attempt01/`。官方副本及停止native输入/HOME/旧a7e3 stage已按manifest/零句柄清理，保唯一16a80fc1 stage、单份source/DerivedData缓存与运行VM；当时未正式归档。无CPU/GPU、内存、启动或能耗收益结论。
 
+<a id="puppet-animation-rate-script-20261020"></a>
+
+### 动画rate Number值源与原作者音频变速（2026-10-20）
+
+[唯一合同](direct-model-skeletal-animation.md#animation-rate-script-values)共用prepared动画身份、原ScalarProgram/QuickJS及下一cadence消费者；原API与动态值共用保phase的setRate，0不再误投影为隐藏。所有callback在共同mutation出口限制Puppet cohort，非法返回/throw/晚拒整owner撤销、健康peer保留；只消费合法sceneScript来源，authored回退不重置健康速度。无新clock、算法或样本分派。
+
+原329同PKG`4e017ac6…ccc0`默认34/56的8个原rate脚本均完成，静音值0.15，固定PCM实测publication0.384742427。GPU完成的frame5→6实际骨骼采样分别推进约4.5000002和11.5422724个clip帧/scene秒，与两rate对应；这是动画推进速度，不是呈现FPS或性能。两轮分别48/47份不同XYZ几何，Root及Sol原图见完整骷髅在盒顶区域变姿、视频画面及全屏彩轨保持；静图不证明连续视频。独立339的人物/头发、蓝紫背景及白字保持。三run App0、无输入/产品漂移、stop1→0/GPU排空；329两轮仍同9类Graph/utility诊断FAIL，339仍particle loading incomplete，不升整样本裁决。
+
+真实parser→VM→snapshot→Playback新11门、旧Puppet控制18、播放28及parser14均PASS；相邻standalone夹具缺依赖/值类型已修，两个完整Swift夹具搬迁经字节/AST等价不重复跑门。独审先发现media callback绕过cohort并已在唯一出口修复。最终一次实际编译Debug88.293s，14产品源无漂移、签名0，App`307ba7a9…1775`/dylib`d695fc0c…b645`；此前冷依赖下载STOP不算编译/性能基线。两包普通14天[正式报告](../../../.artifacts/scene-evidence/runs/puppet-animation-rate-script-329-final-20261020/current/report.json)保存原图SHA/有损review、真实失败、输入/构建及门身份。官方同音频/phase、全部8动作、rate live-property readiness、HDR/多surface和CPU/GPU/内存/启动收益未验。
+
 <a id="image-font-script-state-20261020"></a>
 
 ### 图像font脚本状态与真实字体热切换（2026-10-20）

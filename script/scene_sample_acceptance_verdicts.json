@@ -1435,11 +1435,15 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-20",
       "reviewer": "用户反馈定位 + Codex与独立代理原图复核",
-      "note": "默认34与大角度背景有界修复保留；条件8请求准备、实际动作Combo恢复，用户确认切换动作生效及默认1未再见异常骨段。Root非默认2保存/重开与reset回1已验；先前普通Release视频/音频正常。仅关闭上述反馈，整体unreviewed。",
-      "remainingDifferences": "音频rate、437数组/原graph余项、全部8模式逐一实机、多surface、App重启持久化、完整同输入phase/viewport/HDR仍未闭；新增隐藏需求失败分支仅CPU反例。旧Debug重负载Source query迟到单独保留，不标普通Release播放故障。",
+      "note": "默认34与大角度背景有界修复保留；条件8请求准备、实际动作Combo恢复，用户确认切换动作生效及默认1未再见异常骨段。Root非默认2保存/重开与reset回1已验；先前普通Release视频/音频正常。仅关闭上述反馈，整体unreviewed。 后继rate Number已恢复默认34的原作者音频变速，静音/固定PCM与独立339有界实图通过；Graph/utility诊断FAIL保留，整体仍unreviewed。",
+      "remainingDifferences": "rate live-property组合未验；437数组/原graph余项、全部8模式逐一实机、多surface、App重启持久化、完整同输入phase/viewport/HDR仍未闭；新增隐藏需求失败分支仅CPU反例。旧Debug重负载Source query迟到单独保留，不标普通Release播放故障。",
       "officialComparison": "compared",
-      "runs": [],
-      "evidence": [],
+      "runs": [
+        ".artifacts/scene-evidence/runs/puppet-animation-rate-script-329-final-20261020/current/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/puppet-animation-rate-script-329-final-20261020/current/samples/3292370168/runtime_evidence.zip"
+      ],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/report.json",

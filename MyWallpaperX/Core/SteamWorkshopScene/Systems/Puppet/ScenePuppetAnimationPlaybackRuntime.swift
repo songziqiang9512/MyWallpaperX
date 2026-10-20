@@ -96,6 +96,15 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         func phase(_ clip: ClipDefinition) -> Double {
             (playbackTime ?? 0) * rate * Double(clip.animation.framesPerSecond) + phaseOffset
         }
+
+        mutating func setRate(_ value: Double, clip: ClipDefinition) {
+            let next = Double(Float(value))
+            guard rate != next else { return }
+            let currentPhase = phase(clip)
+            rate = next
+            phaseOffset = currentPhase - (playbackTime ?? 0) * rate
+                * Double(clip.animation.framesPerSecond)
+        }
     }
 
     private struct EventCrossing {
@@ -197,10 +206,19 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 if clip.usesDynamicVisibility {
                     local[index].visible = clip.isVisible(layerID: layerID, snapshot: dynamicValues)
                 }
-                if local[index].playbackTime == nil {
+                let startsNow = local[index].playbackTime == nil
+                if startsNow {
                     // Preserve first-visible nonzero sceneTime compatibility.
                     local[index].playbackTime = local[index].visible ? max(0, currentSceneTime) : 0
-                } else if local[index].visible && local[index].isPlaying {
+                }
+                if clip.layer.hasRateScript == true, let id = clip.layer.id,
+                   let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.rate(
+                       layerID: layerID, animationLayerID: id)],
+                   resolved.source == .sceneScript, case let .scalar(rate) = resolved.value,
+                   ScenePuppetAnimationCommand.acceptsScalarControl(rate) {
+                    local[index].setRate(rate, clip: clip)
+                }
+                if !startsNow && local[index].visible && local[index].isPlaying {
                     let previousPhase = local[index].explicitFrame ?? local[index].phase(clip)
                     local[index].playbackTime! += elapsed
                     if let explicit = local[index].explicitFrame, elapsed > 0, local[index].rate > 0 {
@@ -360,11 +378,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 case .pause: state.isPlaying = false
                 case .stop: state.isPlaying = false; state.explicitFrame = 0
                 case let .setFrame(frame): state.explicitFrame = Double(Float(frame))
-                case let .setRate(rate):
-                    let phase = state.phase(clip)
-                    state.rate = Double(Float(rate))
-                    state.phaseOffset = phase - (state.playbackTime ?? 0) * state.rate
-                        * Double(clip.animation.framesPerSecond)
+                case let .setRate(rate): state.setRate(rate, clip: clip)
                 case let .setBlend(blend): state.blend = Double(Float(blend))
                 case let .setVisible(visible): state.visible = visible
                 }
@@ -406,7 +420,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
             case let .setFrame(value):
                 guard value.isFinite, Float(value).isFinite else { return .failure(.invalidValue(command.identity)) }
             case let .setRate(value), let .setBlend(value):
-                guard value.isFinite, value >= 0, Float(value).isFinite else {
+                guard ScenePuppetAnimationCommand.acceptsScalarControl(value) else {
                     return .failure(.invalidValue(command.identity))
                 }
             default: break

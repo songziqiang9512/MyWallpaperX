@@ -621,28 +621,14 @@ nonisolated extension SceneScriptVectorProgram {
         authoredOrdinal: Int,
         descriptor: SceneRenderDescriptor
     ) -> SceneScriptVectorCandidate? {
-        guard binding.owner.kind == .animationLayer,
-              binding.targetKey == "visible", binding.valueType == .boolean,
+        guard binding.targetKey == "visible",
               let authored = binding.authoredValue?.boolValue,
-              let objectIndex = binding.owner.objectIndex,
-              let layerID = binding.owner.objectID,
-              let animationIndex = binding.owner.animationLayerIndex,
-              let animationID = binding.owner.animationLayerID,
-              binding.targetPath == [.key("objects"), .index(objectIndex),
-                  .key("animationlayers"), .index(animationIndex), .key("visible")],
-              descriptor.layers.indices.contains(objectIndex),
-              binding.userPropertyKey == nil,
-              let keys = binding.wrapperKeys,
-              Set(keys).isSubset(of: ["script", "scriptproperties", "value"]),
+              let identity = SceneScriptPuppetAnimationBridge.preparedBindingIdentity(
+                  binding, descriptor: descriptor),
+              let animationID = identity.animationLayerID,
               let properties = SceneScriptPropertyInputCodec.inputs(binding.properties)
         else { return nil }
-        let layer = descriptor.layers[objectIndex]
-        guard layer.id == layerID, layer.layerIndex == objectIndex,
-              layer.puppetAnimationLayers.indices.contains(animationIndex),
-              layer.puppetAnimationLayers[animationIndex].id == animationID,
-              layer.puppetAnimationLayers[animationIndex].visible == authored,
-              layer.puppetAnimationLayers.filter({ $0.id == animationID }).count == 1
-        else { return nil }
+        let layerID = identity.layerID
         return .init(
             authoredOrdinal: authoredOrdinal, source: binding.source,
             definition: .init(target: ScenePuppetAnimationPropertyTarget.visibility(
@@ -654,8 +640,7 @@ nonisolated extension SceneScriptVectorProgram {
             hasCurrentAnimation: false, dynamicImageReferences: [],
             requiresStatefulOwner: true, evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil,
-            puppetAnimationIdentity: .init(layerID: layerID,
-                animationLayerIndex: animationIndex, animationLayerID: animationID)
+            puppetAnimationIdentity: identity
         )
     }
 

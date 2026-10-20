@@ -80,7 +80,7 @@ nonisolated extension SceneScriptValueOwner {
         // Bool/effect/Puppet owner. Other value families retain their VM contract.
         var imagePaths = dynamicImagePathsByAuthoredIdentity
         let acceptsImageRequests: Bool = {
-            if isSceneOwner { return false }
+            if isSceneOwner || puppetAnimationIdentity != nil { return false }
             if valueType != .bool { return true }
             guard puppetAnimationIdentity == nil, case .layer(_, .visibility) = target else { return false }
             return allowsStatefulLayerSideEffects || !imagePaths.isEmpty
@@ -180,10 +180,13 @@ nonisolated extension SceneScriptValueOwner {
                     hasCurrentAnimation: hasCurrentAnimation
                 )
                 if let puppetAnimationIdentity {
-                    guard valueType == .bool, allowsStatefulLayerSideEffects,
+                    guard allowsStatefulLayerSideEffects,
                           !hasCurrentAnimation, puppetAnimationIdentity.layerID == targetLayerID,
                           let id = puppetAnimationIdentity.animationLayerID,
-                          target == ScenePuppetAnimationPropertyTarget.visibility(layerID: targetLayerID, animationLayerID: id) else {
+                          (valueType == .bool && target == ScenePuppetAnimationPropertyTarget.visibility(
+                              layerID: targetLayerID, animationLayerID: id))
+                            || (valueType == .scalar && target == ScenePuppetAnimationPropertyTarget.rate(
+                                layerID: targetLayerID, animationLayerID: id)) else {
                         throw SceneScriptScalarRuntimeFailure.invalidArgument("Puppet animation target identity mismatch")
                     }
                     try SceneScriptPuppetAnimationBridge.configure(owner: created, identity: puppetAnimationIdentity)

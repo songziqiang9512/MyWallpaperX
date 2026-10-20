@@ -9,11 +9,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .scene_vector_vm_test_support import compile_vector_harness
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+FIXTURES = Path(__file__).with_name("fixtures")
 DOCUMENT_SOURCES = [
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
@@ -36,6 +41,10 @@ DOCUMENT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
 ]
 LAYER_SOURCES = [
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Rendering/Composition/SceneUtilityLayer.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
@@ -46,16 +55,6 @@ LAYER_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
-]
-ALPHA_PROJECTION_SOURCES = [
-    SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
-    SOURCE_ROOT / "Systems/Script/SceneScriptPropertyInput.swift",
-    SOURCE_ROOT / "Systems/Script/SceneScriptScalarProgram+Projection.swift",
 ]
 
 
@@ -311,31 +310,6 @@ enum SceneTextGeometry {
     }
 }
 
-enum SceneUserPropertyValue {}
-enum SceneUserPropertyKind { case sceneTexture }
-
-struct SceneUserPropertyDefinition {
-    let key: String
-    let kind: SceneUserPropertyKind
-}
-
-struct SceneUserPropertyCatalog {
-    let definitions: [SceneUserPropertyDefinition]
-    static let empty = SceneUserPropertyCatalog(definitions: [])
-}
-
-
-
-struct SceneUserPropertyDocumentResolver {
-    func resolve(
-        root: [String: Any],
-        catalog: SceneUserPropertyCatalog,
-        overrides: [String: SceneUserPropertyValue]
-    ) -> SceneUserPropertyResolution {
-        SceneUserPropertyResolution(root: root)
-    }
-}
-
 struct ScenePkgExtractionReport {
     let outputURL: URL?
 }
@@ -379,487 +353,16 @@ enum Harness {
 }
 '''
 
-GENERIC_DOCUMENT_HARNESS = r'''
-import Foundation
-
-struct SceneParticleInstanceOverride: Codable {}
-
-struct SceneParticleDefinitionParser {
-    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
-}
-
-struct SceneTextDescriptor: Codable {
-    let padding: Float
-    init(padding: Float = 0) { self.padding = padding }
-    static func parse(_ root: [String: Any]) -> SceneTextDescriptor { .init() }
-}
-
-enum SceneTextGeometry {
-    static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? {
-        authoredSize
-    }
-}
-
-enum SceneUserPropertyValue {}
-enum SceneUserPropertyKind { case sceneTexture }
-
-struct SceneUserPropertyDefinition {
-    let key: String
-    let kind: SceneUserPropertyKind
-}
-
-struct SceneUserPropertyCatalog {
-    let definitions: [SceneUserPropertyDefinition]
-    static let empty = SceneUserPropertyCatalog(definitions: [])
-}
+GENERIC_DOCUMENT_HARNESS = (FIXTURES / "SceneScriptBindingGenericDocumentHarness.swift").read_text(encoding="utf-8")
 
 
-
-struct SceneUserPropertyDocumentResolver {
-    func resolve(
-        root: [String: Any],
-        catalog: SceneUserPropertyCatalog,
-        overrides: [String: SceneUserPropertyValue]
-    ) -> SceneUserPropertyResolution {
-        SceneUserPropertyResolution(root: root)
-    }
-}
-
-struct ScenePkgExtractionReport {
-    let outputURL: URL?
-}
-
-struct SceneProject {
-    let rootURL: URL
-    let entryPath: String
-    let userProperties: SceneUserPropertyCatalog
-    var entryURL: URL { rootURL.appendingPathComponent(entryPath) }
-}
-
-struct BindingPayload: Encodable {
-    let source: String
-    let ownerKind: String
-    let objectIndex: Int?
-    let objectID: Int?
-    let effectIndex: Int?
-    let effectID: Int?
-    let passIndex: Int?
-    let passID: Int?
-    let targetPath: [String]
-    let targetKey: String
-    let properties: [String: SceneJSONValue]
-    let authoredValue: SceneJSONValue?
-    let valueType: String
-    let wrapperKeys: [String]
-    let userPropertyKey: String?
-
-    init(_ binding: SceneScriptBindingIR) {
-        source = binding.source
-        ownerKind = binding.owner.kind.rawValue
-        objectIndex = binding.owner.objectIndex
-        objectID = binding.owner.objectID
-        effectIndex = binding.owner.effectIndex
-        effectID = binding.owner.effectID
-        passIndex = binding.owner.passIndex
-        passID = binding.owner.passID
-        targetPath = binding.targetPath.map {
-            switch $0 {
-            case let .key(key): key
-            case let .index(index): "[\(index)]"
-            }
-        }
-        targetKey = binding.targetKey
-        properties = binding.properties
-        authoredValue = binding.authoredValue
-        valueType = binding.valueType.rawValue
-        wrapperKeys = binding.wrapperKeys ?? []
-        userPropertyKey = binding.userPropertyKey
-    }
-}
-
-struct DiagnosticPayload: Encodable {
-    let code: String
-    let targetPath: [String]
-
-    init(_ diagnostic: SceneScriptBindingDiagnostic) {
-        code = diagnostic.code.rawValue
-        targetPath = diagnostic.targetPath.map {
-            switch $0 {
-            case let .key(key): key
-            case let .index(index): "[\(index)]"
-            }
-        }
-    }
-}
-
-struct SourceEvidencePayload: Encodable {
-    let source: String
-    let ownerKind: String
-    let objectIndex: Int?
-    let objectID: Int?
-    let effectIndex: Int?
-    let effectID: Int?
-    let passIndex: Int?
-    let passID: Int?
-    let targetPath: [String]
-    let targetKey: String
-    let wrapperKeys: [String]
-
-    init(_ evidence: SceneScriptSourceEvidenceIR) {
-        source = evidence.source
-        ownerKind = evidence.owner.kind.rawValue
-        objectIndex = evidence.owner.objectIndex
-        objectID = evidence.owner.objectID
-        effectIndex = evidence.owner.effectIndex
-        effectID = evidence.owner.effectID
-        passIndex = evidence.owner.passIndex
-        passID = evidence.owner.passID
-        targetPath = evidence.targetPath.map {
-            switch $0 {
-            case let .key(key): key
-            case let .index(index): "[\(index)]"
-            }
-        }
-        targetKey = evidence.targetKey
-        wrapperKeys = evidence.wrapperKeys
-    }
-}
-
-struct Payload: Encodable {
-    let bindings: [BindingPayload]
-    let diagnostics: [DiagnosticPayload]
-    let sourceEvidence: [SourceEvidencePayload]
-    let invalidAuthoredBindingCount: Int
-    let invalidAuthoredDiagnostics: [DiagnosticPayload]
-    let invalidAuthoredSourceEvidence: [SourceEvidencePayload]
-    let mixedArraySourceEvidence: [SourceEvidencePayload]
-    let legacyWrapperKeysMissing: Bool
-}
-
-enum HarnessError: Error { case missingFixture }
-
-@main
-enum Harness {
-    static func main() throws {
-        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
-        let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
-        let document = try SceneDocumentLoader().load(from: sceneURL)
-        let legacyIR = try JSONDecoder().decode(
-            SceneScriptBindingIR.self,
-            from: Data("""
-            {
-              "source": "legacy",
-              "owner": {"kind": "object", "objectIndex": 0, "objectID": 9},
-              "targetPath": [{"key": {"_0": "origin"}}],
-              "properties": {},
-              "authoredValue": {"string": {"_0": "0 0 0"}},
-              "valueType": "string"
-            }
-            """.utf8)
-        )
-        let invalidAuthoredDocument: [String: Any] = [
-            "objects": [
-                [
-                    "id": 999,
-                    "origin": [
-                        "script": "fixture-invalid-authored",
-                        "value": Date(),
-                    ],
-                ] as [String: Any],
-            ],
-        ]
-        let invalidAuthored = SceneScriptBindingIRParser.parse(
-            document: invalidAuthoredDocument
-        )
-        let invalidAuthoredEvidence = SceneScriptSourceEvidenceCollector.collect(
-            document: invalidAuthoredDocument
-        )
-        let mixedArrayDocument: [String: Any] = [
-            "objects": [
-                ["malformed", ["script": "fixture-mixed-object"]],
-                [
-                    "id": 700,
-                    "effects": [
-                        ["malformed", ["script": "fixture-mixed-effect"]],
-                        [
-                            "id": 701,
-                            "passes": [
-                                ["malformed", ["script": "fixture-mixed-pass"]],
-                                [
-                                    "id": 702,
-                                    "metadata": [
-                                        "script": "fixture-valid-after-mixed"
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ]
-        let mixedArrayEvidence = SceneScriptSourceEvidenceCollector.collect(
-            document: mixedArrayDocument
-        )
-        let payload = Payload(
-            bindings: document.scriptBindings.map(BindingPayload.init),
-            diagnostics: document.scriptBindingDiagnostics.map(DiagnosticPayload.init),
-            sourceEvidence: document.scriptSourceEvidence.map(SourceEvidencePayload.init),
-            invalidAuthoredBindingCount: invalidAuthored.bindings.count,
-            invalidAuthoredDiagnostics:
-                invalidAuthored.diagnostics.map(DiagnosticPayload.init),
-            invalidAuthoredSourceEvidence:
-                invalidAuthoredEvidence.map(SourceEvidencePayload.init),
-            mixedArraySourceEvidence:
-                mixedArrayEvidence.map(SourceEvidencePayload.init),
-            legacyWrapperKeysMissing: legacyIR.wrapperKeys == nil
-        )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        print(String(decoding: try encoder.encode(payload), as: UTF8.self))
-    }
-}
-'''
-
-
-LAYER_COMPATIBILITY_HARNESS = r'''
-import Foundation
-
-struct SceneRenderDescriptor { let layers: [Layer] }
-struct SceneParticleInstanceOverride: Codable {}
-struct SceneUtilityLayer: Codable {}
-struct ScenePuppetAnimationLayer: Codable {}
-struct SceneTextDescriptor: Codable { let padding: Float }
-struct SceneTextScriptDefinition: Codable {}
-
-struct SceneDocument {
-    struct Scene2DCameraPathDefinition: Codable {}
-    struct SceneObjectTimeline: Codable {}
-    struct SceneParticleTimeline: Codable {}
-}
-
-enum SceneTextGeometry {
-    static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? {
-        authoredSize
-    }
-}
-
-extension SceneRenderDescriptor {
-    struct EffectDescriptor: Codable {}
-}
-
-@main
-enum Harness {
-    static func main() throws {
-        let oldCache = """
-        {
-          "id": 1,
-          "layerIndex": 0,
-          "contentKind": "image",
-          "dependencyLayerIDs": [],
-          "authoredDependencies": [],
-          "childLayerIDs": [],
-          "puppetAnimationLayers": [],
-          "disablesParallaxPropagation": false,
-          "timelines": [],
-          "timelineDiagnostics": [],
-          "particleTimelines": [],
-          "particleTimelineDiagnostics": [],
-          "hasInlineScript": false,
-          "effects": [],
-          "effectFiles": [],
-          "texturePaths": []
-        }
-        """
-        let layer = try JSONDecoder().decode(
-            SceneRenderDescriptor.Layer.self,
-            from: Data(oldCache.utf8)
-        )
-        let layersJSON = """
-        [
-          {
-            "id": 1,
-            "layerIndex": 0,
-            "contentKind": "image",
-            "dependencyLayerIDs": [],
-            "authoredDependencies": [],
-            "childLayerIDs": [],
-            "puppetAnimationLayers": [],
-            "visible": true,
-            "disablesParallaxPropagation": false,
-            "timelines": [],
-            "timelineDiagnostics": [],
-            "particleTimelines": [],
-            "particleTimelineDiagnostics": [],
-            "hasInlineScript": false,
-            "effects": [],
-            "effectFiles": [],
-            "texturePaths": []
-          },
-          {
-            "id": 2,
-            "layerIndex": 1,
-            "contentKind": "image",
-            "dependencyLayerIDs": [],
-            "authoredDependencies": [],
-            "childLayerIDs": [3],
-            "puppetAnimationLayers": [],
-            "visible": true,
-            "displayScriptOwnership": {"visible": true, "alpha": false},
-            "disablesParallaxPropagation": false,
-            "timelines": [],
-            "timelineDiagnostics": [],
-            "particleTimelines": [],
-            "particleTimelineDiagnostics": [],
-            "hasInlineScript": true,
-            "effects": [],
-            "effectFiles": [],
-            "texturePaths": []
-          },
-          {
-            "id": 3,
-            "layerIndex": 2,
-            "contentKind": "image",
-            "dependencyLayerIDs": [],
-            "authoredDependencies": [],
-            "parentID": 2,
-            "childLayerIDs": [],
-            "puppetAnimationLayers": [],
-            "visible": true,
-            "disablesParallaxPropagation": false,
-            "timelines": [],
-            "timelineDiagnostics": [],
-            "particleTimelines": [],
-            "particleTimelineDiagnostics": [],
-            "hasInlineScript": false,
-            "effects": [],
-            "effectFiles": [],
-            "texturePaths": []
-          },
-          {
-            "id": 4,
-            "layerIndex": 3,
-            "contentKind": "image",
-            "dependencyLayerIDs": [],
-            "authoredDependencies": [],
-            "childLayerIDs": [],
-            "puppetAnimationLayers": [],
-            "visible": true,
-            "displayScriptOwnership": {"visible": false, "alpha": true},
-            "disablesParallaxPropagation": false,
-            "timelines": [],
-            "timelineDiagnostics": [],
-            "particleTimelines": [],
-            "particleTimelineDiagnostics": [],
-            "hasInlineScript": true,
-            "effects": [],
-            "effectFiles": [],
-            "texturePaths": []
-          }
-        ]
-        """
-        let layers = try JSONDecoder().decode(
-            [SceneRenderDescriptor.Layer].self,
-            from: Data(layersJSON.utf8)
-        )
-        let descriptor = SceneRenderDescriptor(layers: layers)
-        let payload: [String: Any] = [
-            "oldScriptBindingsMissing": layer.scriptBindings == nil,
-            "oldDisplayOwnershipMissing": layer.displayScriptOwnership == nil,
-            "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(in: descriptor).sorted(),
-            "reportLines": SceneLayerVisibility.reportLines(in: descriptor),
-        ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
-        print(String(decoding: data, as: UTF8.self))
-    }
-}
-'''
+LAYER_COMPATIBILITY_HARNESS = (FIXTURES / "SceneScriptBindingLayerCompatibilityHarness.swift").read_text(encoding="utf-8")
 
 
 ALPHA_PROJECTION_HARNESS = r'''
 import Foundation
 
-// Compile-closure stubs: the scalar alpha projection gate is pure structural
-// code, but its file lives next to VM-owned symbols (SceneScriptScalarProgram,
-// SceneScriptValueOwner) and descriptor leaf types that only exist inside the
-// App target. The stubs provide exactly the shape the gate reads; the asserted
-// value:null alpha path never reaches SceneScriptValueOwner because a wrapper
-// without a finite numeric seed fails the seed guard first.
-nonisolated struct SceneScriptScalarProgram {}
-
-nonisolated enum SceneScriptValueOwner {
-    static func acceptsScalar(
-        _ value: Double, for target: SceneDynamicTarget
-    ) -> Bool {
-        value.isFinite
-    }
-}
-
-enum SceneParticleNumericValue: Equatable, Sendable {
-    case scalar(Double)
-    case vector([Double])
-
-    var scalarValue: Double? {
-        guard case let .scalar(value) = self else { return nil }
-        return value
-    }
-}
-
-struct SceneParticleBoundValue: Equatable, Sendable {
-    let value: SceneParticleNumericValue?
-    let userPropertyKey: String?
-    let hasScript: Bool
-    let hasAnimation: Bool
-}
-
-struct SceneParticleInstanceOverride: Equatable, Sendable {
-    let alpha: SceneParticleBoundValue?
-    let size: SceneParticleBoundValue?
-    let lifetime: SceneParticleBoundValue?
-    let rate: SceneParticleBoundValue?
-    let speed: SceneParticleBoundValue?
-    let count: SceneParticleBoundValue?
-    let brightness: SceneParticleBoundValue?
-}
-
-struct SceneRenderDescriptor {
-    struct TextStyle {
-        let pointSize: Float?
-    }
-
-    struct ShaderValue {
-        enum UserValueKind: Equatable { case null, string }
-        let scriptSource: String?
-        let components: [Double]?
-        let userValueKind: UserValueKind?
-    }
-
-    struct EffectDescriptor {
-        struct PassDescriptor {
-            let id: Int?
-            let passIndex: Int
-            let constantShaderValues: [String: ShaderValue]
-        }
-
-        let id: String
-        let effectID: Int?
-        let passes: [PassDescriptor]
-    }
-
-    struct Layer {
-        let id: Int
-        let layerIndex: Int
-        var contentKind: String = "image"
-        var alpha: Double? = nil
-        var text: String? = nil
-        var textStyle: TextStyle? = nil
-        var particleInstanceOverride: SceneParticleInstanceOverride? = nil
-        var authoredLightIntensity: Float? = nil
-        var effects: [EffectDescriptor] = []
-    }
-
-    var layers: [Layer]
-}
-
+// The shared fixture supplies the real scalar projection and Puppet bridge.
 enum HarnessError: Error { case missingFixture }
 
 @main
@@ -916,9 +419,12 @@ enum AlphaProjectionHarness {
         }
         let parseResult = SceneScriptBindingIRParser.parse(document: documentRoot)
         let descriptor = SceneRenderDescriptor(layers: [
-            .init(id: 10, layerIndex: 0, alpha: 0.5),
-            .init(id: 20, layerIndex: 1),
-            .init(id: 30, layerIndex: 2),
+            .init(id: 10, layerIndex: 0, name: nil, visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 0.5, effects: []),
+            .init(id: 20, layerIndex: 1, name: nil, visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: []),
+            .init(id: 30, layerIndex: 2, name: nil, visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: []),
         ])
         let targets = SceneScriptScalarProgram.projectedTargets(
             descriptor: descriptor,
@@ -949,6 +455,7 @@ def compile_swift(sources: list[Path], harness: Path, binary: Path) -> None:
     completed = subprocess.run(
         [
             "swiftc",
+            "-module-cache-path", str(binary.parent / "module-cache"),
             *(str(source) for source in sources),
             str(harness),
             "-o",
@@ -964,9 +471,12 @@ def compile_swift(sources: list[Path], harness: Path, binary: Path) -> None:
 class SceneScriptBindingParserTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        output_root = REPOSITORY_ROOT / ".artifacts/tmp/animation-rate-source-329-20261020/tests"
+        output_root.mkdir(parents=True, exist_ok=True)
         cls.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-scene-script-binding-"
+            prefix="mwx-scene-script-binding-", dir=output_root
         )
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         directory = Path(cls.temporary_directory.name)
 
         scene = directory / "scene.json"
@@ -1021,16 +531,8 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         )
         cls.visibility_result = json.loads(compatibility.stdout)
 
-        alpha_projection_harness = directory / "AlphaProjectionHarness.swift"
-        alpha_projection_harness.write_text(
-            ALPHA_PROJECTION_HARNESS,
-            encoding="utf-8",
-        )
-        alpha_projection_binary = directory / "scene-alpha-projection"
-        compile_swift(
-            ALPHA_PROJECTION_SOURCES,
-            alpha_projection_harness,
-            alpha_projection_binary,
+        alpha_projection_binary = compile_vector_harness(
+            directory, ALPHA_PROJECTION_HARNESS, "scene-alpha-projection"
         )
         alpha_projection_completed = subprocess.run(
             ["/usr/bin/env", str(alpha_projection_binary), str(scene)],
@@ -1039,10 +541,6 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             text=True,
         )
         cls.alpha_projection = json.loads(alpha_projection_completed.stdout)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
 
     def test_top_level_hosts_are_retained_in_stable_order(self) -> None:
         bindings = self.objects[10]["bindings"]

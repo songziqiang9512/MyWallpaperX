@@ -422,12 +422,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 return .failure(.badReturn("invalid default 2D camera origin"))
             }
         }
-        if puppetAnimationIdentity != nil,
-           !mutations.mediaPlaybackCommands.isEmpty || !mutations.textureAnimationCommands.isEmpty
-            || !mutations.puppetBones.isEmpty || !mutations.particlePlaybackCommands.isEmpty {
-            discardLayerMutations()
-            return .failure(.invalidArgument("Puppet animation owner produced out-of-cohort mutations"))
-        }
         let publishedLayerMutations: [SceneScriptLayerMutation]
         let resolvedValue: SceneDynamicValue
         if valueType == .bool {
@@ -759,6 +753,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
 
     static func acceptsScalar(_ value: Double, for target: SceneDynamicTarget) -> Bool {
         guard value.isFinite else { return false }
+        if ScenePuppetAnimationPropertyTarget.field(for: target) == .rate {
+            return ScenePuppetAnimationCommand.acceptsScalarControl(value)
+        }
         if case .layer(_, .fov) = target {
             return SceneDynamicLayerField.acceptsFOV(value)
         }

@@ -50,6 +50,11 @@ nonisolated struct ScenePuppetAnimationSnapshot: Equatable, Sendable {
 }
 
 nonisolated struct ScenePuppetAnimationCommand: Equatable, Sendable {
+    /// The existing rate/blend control domain, shared by typed value inputs.
+    static func acceptsScalarControl(_ value: Double) -> Bool {
+        value.isFinite && value >= 0 && Float(value).isFinite
+    }
+
     enum Action: Equatable, Sendable {
         case play
         case pause

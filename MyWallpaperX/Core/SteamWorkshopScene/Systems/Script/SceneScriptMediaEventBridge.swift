@@ -785,6 +785,16 @@ nonisolated enum SceneScriptMediaEventBridge {
                 return .failure(.invalidArgument("scene owner produced side effects"))
             }
         }
+        // Every callback passes here, before a later init/update can clear its
+        // native DTOs. Nested animation properties may only control Puppet.
+        if ScenePuppetAnimationPropertyTarget.source(for: target) != nil {
+            guard materialFunctions.isEmpty, animations.isEmpty, layers.isEmpty,
+                  mediaPlaybackCommands.isEmpty, textureAnimationCommands.isEmpty,
+                  puppetBones.isEmpty, particlePlaybackCommands.isEmpty,
+                  mwx_scene_quickjs_owner_pending_layer_topology_identity(owner) == 0 else {
+                return .failure(.invalidArgument("Puppet animation owner produced out-of-cohort mutations"))
+            }
+        }
         return .success(.init(
             materialFunctions: materialFunctions,
             animations: animations,

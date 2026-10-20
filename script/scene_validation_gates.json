@@ -256,7 +256,8 @@
         "test_scene_puppet_pose_publication",
         "test_scene_puppet_bone_origin",
         "test_scene_puppet_buffer_publication",
-        "test_scene_puppet_animation"
+        "test_scene_puppet_animation",
+        "test_scene_puppet_animation_rate_script"
       ]
     },
     {
@@ -264,7 +265,9 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptSourceEvidence.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptSourceEvidence.swift",
+        "script/tests/fixtures/SceneScriptBindingGenericDocumentHarness.swift",
+        "script/tests/fixtures/SceneScriptBindingLayerCompatibilityHarness.swift"
       ],
       "modules": [
         "test_scene_frame_context",
@@ -389,7 +392,8 @@
         "test_scene_vector_owner_admission",
         "test_scene_quickjs_named_animation",
         "test_scene_script_named_timeline",
-        "test_scene_cursor_timer_cadence"
+        "test_scene_cursor_timer_cadence",
+        "test_scene_puppet_animation_rate_script"
       ]
     },
     {

@@ -3,6 +3,44 @@ import Foundation
 /// Native mirror and journal for the prepared animation-layer owner. Playback
 /// positions and end events remain owned by the launch's Puppet runtime.
 nonisolated enum SceneScriptPuppetAnimationBridge {
+    /// One preparation-time identity proof for nested Bool and Number owners.
+    static func preparedBindingIdentity(
+        _ binding: SceneScriptBindingIR, descriptor: SceneRenderDescriptor
+    ) -> ScenePuppetAnimationIdentity? {
+        guard binding.owner.kind == .animationLayer,
+              binding.owner.effectIndex == nil, binding.owner.effectID == nil,
+              binding.owner.passIndex == nil, binding.owner.passID == nil,
+              let objectIndex = binding.owner.objectIndex,
+              let layerID = binding.owner.objectID,
+              let animationIndex = binding.owner.animationLayerIndex,
+              let animationID = binding.owner.animationLayerID,
+              descriptor.layers.indices.contains(objectIndex),
+              binding.userPropertyKey == nil, let keys = binding.wrapperKeys,
+              keys.contains("script"), keys.contains("value"),
+              Set(keys).isSubset(of: ["script", "scriptproperties", "value"]),
+              binding.targetPath == [.key("objects"), .index(objectIndex),
+                  .key("animationlayers"), .index(animationIndex), .key(binding.targetKey)]
+        else { return nil }
+        let layer = descriptor.layers[objectIndex]
+        guard layer.id == layerID, layer.layerIndex == objectIndex,
+              layer.puppetAnimationLayers.indices.contains(animationIndex),
+              layer.puppetAnimationLayers[animationIndex].id == animationID,
+              layer.puppetAnimationLayers.filter({ $0.id == animationID }).count == 1
+        else { return nil }
+        let animation = layer.puppetAnimationLayers[animationIndex]
+        switch (binding.targetKey, binding.valueType, binding.authoredValue) {
+        case let ("visible", .boolean, .bool(value)?):
+            guard animation.visible == value else { return nil }
+        case let ("rate", .number, .number(value)?):
+            guard animation.hasRateScript == true, animation.rateBinding == nil,
+                  animation.rate?.bitPattern == value.bitPattern,
+                  ScenePuppetAnimationCommand.acceptsScalarControl(value) else { return nil }
+        default: return nil
+        }
+        return .init(layerID: layerID, animationLayerIndex: animationIndex,
+            animationLayerID: animationID)
+    }
+
     static func configure(owner: OpaquePointer, identity: ScenePuppetAnimationIdentity) throws {
         guard identity.layerID >= 0, let index = UInt32(exactly: identity.animationLayerIndex) else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid Puppet animation identity")

@@ -33,7 +33,18 @@ record ordinal 是源引用身份，exported animation ID 是作者层选择身�
 
 AnimationSelector 与 AnimationPlaybackRuntime 继续拥有 authored layers、顺序、additive/blend/rate及已支持的 visibility/property/script 选择；可动态显现的合法 binding 也须准备，不能以初始不可见排除。原329的8个条件动画现由成功Bool Program投影动态准备来源，实际全部准备；同session模式1→2→1已消费具体34→35→34并改变模型姿态，沿原clock与surface私有stream，不重建窗口。该条件对象增量限direct model；image对象条件未开放，旧String/image合同保持。不能把16条可寻址clips外推成全部已播放，实际后验见[条件热切换](runtime-evidence-current.md#conditional-model-animation-20261020)。原 Rig 无 reference pose；后继 referenceCandidate仍过constant/bind-equivalence门。play/pause/seek/setRate、事件、bone override与多surface顺序沿原链，不另算elapsed time。
 
-原329的rate wrapper含音频脚本，当前未消费且保留诊断；`.setRate` API存在不等于该来源已接通。实际恢复限静态fallback rate=1的连续TRS。音频rate后继须沿script binding → typed animation control → PlaybackRuntime接入并补来源/失败合同，不以新clock或复制脚本替代。
+原329的8个rate Number脚本现经原ScalarProgram/QuickJS、accepted typed snapshot进入共享PlaybackRuntime，默认34实际随音频输入改变推进速度；[运行后验](runtime-evidence-current.md#puppet-animation-rate-script-20261020)只关闭该值源，保留原graph、全部模式及完整官方时相边界。
+
+<a id="animation-rate-script-values"></a>
+### 动画rate脚本值源
+
+目标是让作者的动画层Number脚本进入现有播放速度消费者，恢复音频/共享属性驱动的动作快慢；不改变姿态、选片、动画时间单位或新建clock。Format的原binding parser保留`animationlayers[index].rate`；visibility与rate共用一个prepared身份资格：parent/index/animation-layer ID、完整path、唯一ID、原wrapper和typed seed必须一致。原ScalarProgram独占Number执行/音频输入/失败回退，原VectorProgram继续Bool visibility，两者不复制求值或跨目标复用有状态模块。
+
+成功rate owner沿原nested animation handle暴露`thisObject`；Swift只准Bool visibility或scalar rate的精确target，C仍拒value-only、current-Timeline及重复配置。两个nested值源只可产生原Puppet控制cohort，不能写parent layer、effect、media、particle或bone；throw/非法返回/host晚拒继续撤销整个owner bundle，健康peer保留。rate采用现控制命令的有限、非负且可表示为Float的值域；0冻结速度，负值/非有限/溢出局部拒绝，不静默钳位。
+
+Scalar结果由原accepted typed snapshot发布，PlaybackRuntime在下一cadence只读取该动画身份的合法`sceneScript`已提交值；缺失、拒绝或Resolver的authored回退不覆盖上一健康速度/API状态。动态值与现`.setRate`共用一份phase-preserving状态更新：先保留当前phase，再改速度和offset；相同速度提前结束，禁止以`sceneTime × 新rate`重算从头位置。每个launch只推进一次，surface只消费同一immutable frame；暂停、隐藏、seek、事件、同cadence重读与新注册parent沿原合同。资源选择、rig/aux/alpha准入、bind降级和属性条件范围均不因rate放宽。
+
+回归贯通真实parser→ScalarProgram/QuickJS→typed snapshot→原PlaybackRuntime，覆盖变量/资源改名、等价式、path/index/ID错配、重复定义、无script邻例、0/正rate、非法返回、throw/晚拒及健康peer；变速点phase连续且暂停/隐藏/同cadence不重复推进。原329默认34的固定PCM/静音已取得实际rate与GPU完成姿态的速度差，独立真实Puppet样本有界渲染/退场；本轮不重认普通Release视频连续播放或全部动作面板。rate带`applyUserProperties`的live readiness未扩，原329仅有init/update，不由此推断该组合已支持。不以owner命中或构建代替播放收益，官方精确audio/phase未对齐不宣称parity；若原作者脚本仍有更早失败或没有可归因动作收益，停止升级能力并重排。
 
 <a id="conditional-animation-properties"></a>
 ### 条件动画的准备与热切换

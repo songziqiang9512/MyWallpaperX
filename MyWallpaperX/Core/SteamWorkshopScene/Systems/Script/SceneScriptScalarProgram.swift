@@ -294,7 +294,8 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             case .scene(.bloomStrength):
                 effectNames = []
             case let .effectConstant(value, _, _, _), let .layer(value, _),
-                 let .text(value, .pointSize), let .particle(value, _):
+                 let .text(value, .pointSize), let .particle(value, _),
+                 let .scriptInstanceProperty(value, _):
                 guard let layer = descriptor.layers.first(where: { $0.id == value }) else {
                     if requestedTargets.contains(target) {
                         failures[target] = .invalidArgument("SceneScript owner layer identity unavailable")
@@ -328,6 +329,9 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                       valueType: .scalar,
                       effectNames: effectNames,
                       hasCurrentAnimation: timelineTargets.contains(target),
+                      puppetAnimationIdentity: SceneScriptPuppetAnimationBridge.preparedBindingIdentity(
+                          binding, descriptor: descriptor),
+                      allowsStatefulLayerSideEffects: binding.owner.kind == .animationLayer,
                       generation: generation,
                       budget: budget,
                       constructionWork: constructionWork

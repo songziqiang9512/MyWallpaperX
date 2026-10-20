@@ -2,7 +2,7 @@
 
 # Scene 静态审计：当前剩余问题
 
-> 10-16基线 `680e54846`，10-17/18按实际后验退出旧首门；10-19只补新增25的已证执行拒绝，未重审旧全集。本页不维护旧243统计、评分或修复数量。
+> 10-16基线 `680e54846`，10-17/18按实际后验退出旧首门；10-19补新增25的已证执行拒绝，10-20按有界后验退出rate值源首门，未重审旧全集。本页不维护旧243统计、评分或修复数量。
 
 选序服从[兼容路线](scene-compatibility-roadmap.md)；用户现象与运行待办归[断点队列](scene-open-breakpoint-queue.md)，此处只保跨专题静态首owner。合同分别归[shader/图](../capabilities/render-graph-shader-coverage.md)、[粒子](../capabilities/particle-component-coverage.md)、[高级对象](../capabilities/advanced-object-coverage.md)和[SceneScript](../capabilities/scenescript-api-coverage.md)。
 
@@ -16,7 +16,7 @@
 
 | 当前问题 | 现役首断点与已支持边界 | 最小验证/退出条件 |
 |---|---|---|
-| **direct MDL余下动画输入与channel** | 原80B模型已复用共享Selector/clock/pose并以XYZ stream输出，329默认34实际恢复盒顶区域舞姿；旧“无默认骨架动画接线”退出。direct条件对象已成功准备/热切换，退出此静态缺口；仍未消费rate脚本；非中性alpha/aux/morph、非空direct附件及多part动画未资格，继续typed bind降级。 | 沿原属性/脚本typed动画控制或现channel owner取得合法消费者，不新建clock/LBS、不跳坏record。已闭范围归[动画合同](../capabilities/direct-model-skeletal-animation.md)及[运行证据](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)，边缘色块已由公共截面后继单独修复，未完成项不升全样本失败或成功。 |
+| **direct MDL余下动画输入与channel** | 原80B模型已复用共享Selector/clock/pose并以XYZ stream输出，329默认34实际恢复盒顶区域舞姿；旧“无默认骨架动画接线”退出。direct条件对象已成功准备/热切换，退出此静态缺口；rate Number脚本已沿原播放消费者贯通；非中性alpha/aux/morph、非空direct附件及多part动画未资格，继续typed bind降级。 | 沿原属性/脚本typed动画控制或现channel owner取得合法消费者，不新建clock/LBS、不跳坏record。已闭范围归[动画合同](../capabilities/direct-model-skeletal-animation.md)及[运行证据](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)，边缘色块已由公共截面后继单独修复，未完成项不升全样本失败或成功。 |
 | **跨stage varying数组仍有准备缺口** | 同形float数组32的容量、动态索引/插值打包尚未资格。已闭合的同宽端点mix宽权重、按值prefix和generic uniform派生只读global首门不再列作缺陷；未知表达式仍属保守边界。 | 由原type/normalizer/stage-link承接数组ABI，保非法shape/别名反例并验真实动态输出；具体样本和仍未控条件归[队列](scene-open-breakpoint-queue.md)。[最新共享转换后验](../capabilities/runtime-evidence-current.md#generic-varying-first-gate-20261019)。 |
 | **现代MDLA dense state1的非neutral profile仍未覆盖** | 原reader/evaluator已支持全帧常量、九lane齐全且与bind等价的neutral state1，339两model动画与查询首门已恢复，不再列其整个state1缺失。非neutral/非恒定或未证参考姿态仍拒绝；与下行auxiliary/scalar为不同首门。 | 不重开339已闭首门；只有新active非neutral消费者和可归因姿态ROI才续接参考姿态/变换合同。固定官方单header正反的局部眼部变化仍反证“把任意state1当state0”。[现役neutral资格及边界](../capabilities/runtime-evidence-current.md#constant-dense-state1-20261018)。 |
 | **Puppet动画auxiliary profile仍有拒绝面** | 多target裁剪已让357人物恢复；animation1678仍被固定tag门拒，伴MDMP与scalar依赖而保持bind-pose；四clip已逐record核完，均有79/80骨约0.7的非一alpha；1678/258另有非零逐骨scalar，混合规则未证。stride84 position.w的19个ordinal已证，旧参考reader多读4B已纠正；packed位移/第二通道及曲线混合仍未知。已支持LBS/挂点/clipping及其他版本动画不能一并报缺失；格式准入也不等于本条播放已修。 | 先做morph/scalar消费者与混合顺序设计，核准真实MDLA/auxiliary边界及producer语义，沿原evaluator/pose补通用profile；不可跳track、吞坏数据或另建变形器。须原包真实姿态推进及健康/失败邻例。 |

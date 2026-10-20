@@ -320,10 +320,12 @@ nonisolated enum SceneScriptBindingIRParser {
                     animationLayerIndex: animationIndex,
                     animationLayerID: animation["id"] as? Int
                 )
-                append(animation["visible"], owner: owner,
-                    path: [.key("objects"), .index(objectIndex),
-                        .key("animationlayers"), .index(animationIndex), .key("visible")],
-                    bindings: &bindings, diagnostics: &diagnostics)
+                for field in ["visible", "rate"] {
+                    append(animation[field], owner: owner,
+                        path: [.key("objects"), .index(objectIndex),
+                            .key("animationlayers"), .index(animationIndex), .key(field)],
+                        bindings: &bindings, diagnostics: &diagnostics)
+                }
             }
 
             let effects = object["effects"] as? [[String: Any]] ?? []

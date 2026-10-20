@@ -86,7 +86,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 80350
+      "bytes": 80484
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 409,
-      "bytes": 162246
+      "lines": 419,
+      "bytes": 164315
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 114086
+      "bytes": 114128
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -230,7 +230,7 @@
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
-      "bytes": 9965
+      "bytes": 10067
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 55,
-      "bytes": 17603
+      "bytes": 17670
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 228,
-      "bytes": 67021
+      "lines": 227,
+      "bytes": 66913
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -301,8 +301,8 @@
       "bytes": 3055
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
-      "lines": 77,
-      "bytes": 16431
+      "lines": 88,
+      "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 338,
@@ -1448,33 +1448,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "644c1d84159e39902e60ea1452b4bf2caa0d12a654d1caae23a04d4446db638c",
-      "after": "1b8a28fe1d8af0fb6124100940e13e61f54003e4cf27ca2248fde3b11db89f07",
-      "owner": "scene-direct-model-animation",
-      "reason": "Keep one current conditional/rotation contract and bounded native-panel acceptance; remove closed feedback, consolidate old runtime narration without losing anchors, retain explicit remaining capability/visual limits.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "before": "cdcbe7c081e7d3bd51f898c2fbc5a81884b1f9cc2f988de45b12fcbee1f47d24",
-      "after": "e77fa1c11d6a3b351cfee97cb134edab7621c18917091ac5c655620a4bec8fe1",
-      "owner": "scene-direct-model-animation",
-      "reason": "Keep one current conditional/rotation contract and bounded native-panel acceptance; remove closed feedback, consolidate old runtime narration without losing anchors, retain explicit remaining capability/visual limits.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "2ddc5deaadc80957c60c7c0a5ad436ceb6646ba50102c3bf632ff673ded08e50",
-      "after": "3cf8384e44759c9db71a53ac4c7df5188c1b62d54a1e19a109fe5672279485c6",
-      "owner": "scene-direct-model-animation",
-      "reason": "Keep one current conditional/rotation contract and bounded native-panel acceptance; remove closed feedback, consolidate old runtime narration without losing anchors, retain explicit remaining capability/visual limits.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "8d77ebcd542a58e1677aa816501906f12b423961e5cc3f1c1b651ce2e7e89138",
       "after": "cc9999f533fdba129110ef0e786015ce7a8783edd3a90f84354b56dbd2d3deb3",
@@ -1490,15 +1463,6 @@
       "owner": "Scene dependency and media owners",
       "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "f84340965475672bdd7a53321dae3bf821da6ac6d1918937a8b66f3418cba395",
-      "after": "a7d4b3a7c69815c0888fd7ae96d0766ba2aacd2b3e4cca0d8a1cc2c3eed55699",
-      "owner": "Scene layer-property and evidence owners",
-      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
     },
     {
       "section": "bodies",
@@ -1520,39 +1484,75 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "c9d08fcb995b944ee7210f04c7cc4ec8fa56724de897f19db29562a4290fbec7",
-      "after": "8f9019a28d731161f86ff23c0b60867661c9234126644dd79ce2b737db31e628",
-      "owner": "Scene layer-property and evidence owners",
-      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
-      "after": "9dfe93098bbfa92caec90fe1bd4f6320980a8a9491771657711dae2ab3e2bbcb",
-      "owner": "Scene evidence and sample-ledger owners",
-      "reason": "Record user-deleted local caches as unavailable historical provenance; retain original verdicts and strict live-reference validation, regenerate the existing ledger and retire stale quota waits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#local-evidence-availability"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
       "after": "e2ae5ba8a95c68212a21611c1cd239b50bd1c7f8cdce9ee98774152c647b5512",
-      "owner": "Scene evidence and sample-ledger owners",
-      "reason": "Record user-deleted local caches as unavailable historical provenance; retain original verdicts and strict live-reference validation, regenerate the existing ledger and retire stale quota waits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#local-evidence-availability"
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete unconsumed rate status with one typed-source contract, actual audio-driven pose progression, strict callback failure boundary and preserved unreviewed whole-scene diagnostics.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "11b7a99ff70730570811916f1a09503a3e0dfaaeb483cfe1a3da2036c9758389",
-      "owner": "Scene evidence and sample-ledger owners",
-      "reason": "Record user-deleted local caches as unavailable historical provenance; retain original verdicts and strict live-reference validation, regenerate the existing ledger and retire stale quota waits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#local-evidence-availability"
+      "after": "4064b9f36b4835047e9099862b8c57fcbae85771c3c512d382032b787ff5a032",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete unconsumed rate status with one typed-source contract, actual audio-driven pose progression, strict callback failure boundary and preserved unreviewed whole-scene diagnostics.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "1b8a28fe1d8af0fb6124100940e13e61f54003e4cf27ca2248fde3b11db89f07",
+      "after": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "before": "e77fa1c11d6a3b351cfee97cb134edab7621c18917091ac5c655620a4bec8fe1",
+      "after": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "9dfe93098bbfa92caec90fe1bd4f6320980a8a9491771657711dae2ab3e2bbcb",
+      "after": "851fb4b16100f7b96300c5b94440c1a5a8dd2298860c5f1567dfe237cc760a08",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "a7d4b3a7c69815c0888fd7ae96d0766ba2aacd2b3e4cca0d8a1cc2c3eed55699",
+      "after": "2f758cbc4bfb91cbc53d74e25d4f118642bd0ee940e8d2b4f9acea2cd20ab54b",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/properties-panel-card.md",
+      "before": "8f9019a28d731161f86ff23c0b60867661c9234126644dd79ce2b737db31e628",
+      "after": "f1deeba1f66b3ae0fee1d3b3159063935cd86335fe67018588ad854e12fbef8b",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "3cf8384e44759c9db71a53ac4c7df5188c1b62d54a1e19a109fe5672279485c6",
+      "after": "199e9d7bafb48209f2b6178f9701bfd4541c7dc338b70fb59ff60de4d3dd4de9",
+      "owner": "Scene script and Puppet playback owners",
+      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
+      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
     }
   ]
 }

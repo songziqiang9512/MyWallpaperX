@@ -42,12 +42,10 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
             } else if puppetCommandCount > 64 {
                 reason = "frame Puppet animation command budget exceeded"
             } else if let puppetAnimationRuntime {
-                if case let .scriptInstanceProperty(layerID, path) = owner.ownerTarget,
-                   path.count == 3, path[0] == "puppetAnimationLayer", path[2] == "visible",
-                   let animationLayerID = Int(path[1]), String(animationLayerID) == path[1] {
+                if let source = ScenePuppetAnimationPropertyTarget.source(for: owner.ownerTarget) {
                     switch puppetAnimationRuntime.validate(
-                        owner.puppetAnimationCommands, sourceLayerID: layerID,
-                        sourceAnimationLayerID: animationLayerID, frameIndex: timing.frameIndex
+                        owner.puppetAnimationCommands, sourceLayerID: source.layerID,
+                        sourceAnimationLayerID: source.animationLayerID, frameIndex: timing.frameIndex
                     ) {
                     case .success: reason = nil
                     case let .failure(failure): reason = String(describing: failure)

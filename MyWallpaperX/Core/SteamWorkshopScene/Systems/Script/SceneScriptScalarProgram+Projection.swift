@@ -120,6 +120,17 @@ nonisolated extension SceneScriptScalarProgram {
               descriptor.layers[objectIndex].layerIndex == objectIndex else {
             return nil
         }
+        if binding.owner.kind == .animationLayer {
+            guard binding.targetKey == "rate",
+                  let identity = SceneScriptPuppetAnimationBridge.preparedBindingIdentity(
+                      binding, descriptor: descriptor),
+                  let id = identity.animationLayerID else { return nil }
+            let target = ScenePuppetAnimationPropertyTarget.rate(
+                layerID: identity.layerID, animationLayerID: id)
+            guard !timelineTargets.contains(target),
+                  SceneScriptValueOwner.acceptsScalar(authored, for: target) else { return nil }
+            return target
+        }
         if binding.owner.kind == .object {
             let layer = descriptor.layers[objectIndex]
             if binding.targetPath == [

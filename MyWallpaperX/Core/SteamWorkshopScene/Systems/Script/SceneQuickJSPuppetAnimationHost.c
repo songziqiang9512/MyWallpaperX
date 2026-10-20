@@ -373,8 +373,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t authored_index,
     int64_t animation_layer_id, uint32_t has_animation_layer_id,
     char *diagnostic, size_t diagnostic_capacity) {
+    // Swift preparation authorizes the typed visibility/rate target. Generic
+    // scalar owners share this identity/mirror, never a second playback owner.
     if (owner == NULL || owner->domain == NULL || owner->value_only ||
-        !owner->effectful_boolean || owner->current_animation_available ||
+        owner->current_animation_available ||
         owner->puppet_animation_configured || has_animation_layer_id > 1 || layer_id < 0) {
         mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid Puppet animation owner configuration");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
@@ -596,6 +598,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_end(
 }
 
 void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner *owner, double *output) {
+    // Number owners return rate, including zero; only Bool owners publish
+    // their property value as visibility. Explicit commands keep their journal.
+    if (!owner->effectful_boolean) return;
     MWXSceneQuickJSPuppetAnimationRecord *record = source_record(owner);
     if (record == NULL) return;
     if (owner->puppet_animation_visibility_staged)
@@ -657,14 +662,23 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_events(
             JS_DefinePropertyValueStr(context, event, "name", name, JS_PROP_C_W_E) >= 0 &&
             JS_DefinePropertyValueStr(context, event, "frame", JS_NewFloat64(context, (double)pending->frame), JS_PROP_C_W_E) >= 0;
         if (!created) { JS_FreeValue(context, event); result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; break; }
-        JSValue arguments[] = { event, JS_NewBool(context, *value != 0) };
+        JSValue arguments[] = { event, owner->effectful_boolean
+            ? JS_NewBool(context, *value != 0) : JS_NewFloat64(context, *value) };
         JSValue returned = JS_Call(context, function, owner->module, 2, arguments);
         JS_FreeValue(context, event); JS_FreeValue(context, arguments[1]);
         if (JS_IsException(returned)) result = mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
-        else if (JS_IsBool(returned)) *value = JS_ToBool(context, returned);
         else if (!JS_IsUndefined(returned)) {
-            mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "animationEvent expects Boolean or undefined return");
-            result = MWX_SCENE_QUICKJS_BAD_RETURN;
+            if (owner->effectful_boolean && JS_IsBool(returned)) {
+                *value = JS_ToBool(context, returned);
+            } else if (!owner->effectful_boolean && JS_IsNumber(returned)
+                && JS_ToFloat64(context, value, returned) >= 0 && isfinite(*value)) {
+                // The common primitive callback continues with this Number.
+            } else {
+                mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
+                    owner->effectful_boolean ? "animationEvent expects Boolean or undefined return"
+                        : "animationEvent expects finite Number or undefined return");
+                result = MWX_SCENE_QUICKJS_BAD_RETURN;
+            }
         }
         JS_FreeValue(context, returned);
         if (result == MWX_SCENE_QUICKJS_OK) result = mwx_scene_quickjs_drain_jobs(owner, diagnostic, diagnostic_capacity);
