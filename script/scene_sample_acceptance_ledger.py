@@ -217,6 +217,14 @@ def load_verdicts(path: Path) -> dict[str, dict[str, Any]]:
             )
         runs = _string_list(entry.get("runs"), sample_id, "runs")
         evidence = _string_list(entry.get("evidence"), sample_id, "evidence")
+        # Explicitly retired local paths preserve provenance, not live evidence.
+        # Missing active references still fail the unchanged reference gate.
+        unavailable_runs = _string_list(
+            entry.get("unavailableLocalRuns"), sample_id, "unavailableLocalRuns"
+        )
+        unavailable_evidence = _string_list(
+            entry.get("unavailableLocalEvidence"), sample_id, "unavailableLocalEvidence"
+        )
         result[sample_id] = {
             "verdict": verdict,
             "note": note,
@@ -224,6 +232,8 @@ def load_verdicts(path: Path) -> dict[str, dict[str, Any]]:
             "reviewer": reviewer,
             "runs": runs,
             "evidence": evidence,
+            "unavailableLocalRuns": unavailable_runs,
+            "unavailableLocalEvidence": unavailable_evidence,
             "remainingDifferences": remaining,
             "officialComparison": official,
         }
@@ -571,6 +581,8 @@ def build_ledger(
             "reviewer": verdict["reviewer"],
             "runs": list(verdict["runs"]),
             "evidence": list(verdict["evidence"]),
+            "unavailableLocalRuns": list(verdict.get("unavailableLocalRuns", [])),
+            "unavailableLocalEvidence": list(verdict.get("unavailableLocalEvidence", [])),
             "remainingDifferences": verdict["remainingDifferences"],
             "officialComparison": verdict["officialComparison"],
         })
@@ -626,6 +638,14 @@ def build_ledger(
             "reviewedWithoutEvidence": sum(
                 1 for row in rows
                 if row["verdict"] != "unreviewed" and not row["evidence"]
+            ),
+            "unavailableLocalEvidenceSamples": sum(
+                bool(row["unavailableLocalRuns"] or row["unavailableLocalEvidence"])
+                for row in rows
+            ),
+            "unavailableLocalEvidenceReferences": sum(
+                len(row["unavailableLocalRuns"]) + len(row["unavailableLocalEvidence"])
+                for row in rows
             ),
         },
         "samples": rows,
@@ -685,6 +705,11 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         "[运行证据](runtime-evidence-current.md)为准。"
         "`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；"
         "归档中的失败状态也不等于当前 HEAD 的失败。",
+        f"本机已清理的历史证据：{summary['unavailableLocalEvidenceSamples']} 个样本、"
+        f"{summary['unavailableLocalEvidenceReferences']} 个引用；原路径保留在裁决覆盖层的"
+        " `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。"
+        "清理不撤销历史结论，也不代表当前重新验收；见"
+        "[证据可用性](runtime-evidence-current.md#local-evidence-availability)。",
         "",
         "## 2. 汇总",
         "",

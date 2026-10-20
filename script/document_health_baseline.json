@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 403,
-      "bytes": 161370
+      "lines": 409,
+      "bytes": 162246
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -141,8 +141,8 @@
       "bytes": 74762
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 389,
-      "bytes": 77540
+      "lines": 390,
+      "bytes": 77837
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 228,
-      "bytes": 66900
+      "bytes": 67021
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1484,30 +1484,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
-      "after": "0513c7440bc7166d90db22d467bda70550180930f2cfe3a35c9287ddb2acee93",
-      "owner": "Scene dependency and media owners",
-      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
       "after": "50a9500abf66b283e412044610353a897c8a50dbdf627cd10ea7db30bcd25592",
       "owner": "Scene dependency and media owners",
       "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
       "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
-      "after": "2a1ea17adc58bc0e676d02b88b8eb943b3171df29bc6d272ff8c28755df77fbe",
-      "owner": "Scene layer-property and evidence owners",
-      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
     },
     {
       "section": "bodies",
@@ -1547,12 +1529,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
+      "after": "9dfe93098bbfa92caec90fe1bd4f6320980a8a9491771657711dae2ab3e2bbcb",
+      "owner": "Scene evidence and sample-ledger owners",
+      "reason": "Record user-deleted local caches as unavailable historical provenance; retain original verdicts and strict live-reference validation, regenerate the existing ledger and retire stale quota waits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#local-evidence-availability"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
+      "after": "e2ae5ba8a95c68212a21611c1cd239b50bd1c7f8cdce9ee98774152c647b5512",
+      "owner": "Scene evidence and sample-ledger owners",
+      "reason": "Record user-deleted local caches as unavailable historical provenance; retain original verdicts and strict live-reference validation, regenerate the existing ledger and retire stale quota waits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#local-evidence-availability"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "e300d4a7dea4076c486cc2c8f4c27f3eda78b33381e1b8d195aee4e995b1344e",
-      "owner": "Scene layer-property and evidence owners",
-      "reason": "Keep one bounded image font JS-state contract; retire the reproduced374 callback rejection and record actual same-window font contribution, strict neighbors and unqualified whole-sample limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#image-font-script-state"
+      "after": "11b7a99ff70730570811916f1a09503a3e0dfaaeb483cfe1a3da2036c9758389",
+      "owner": "Scene evidence and sample-ledger owners",
+      "reason": "Record user-deleted local caches as unavailable historical provenance; retain original verdicts and strict live-reference validation, regenerate the existing ledger and retire stale quota waits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#local-evidence-availability"
     }
   ]
 }

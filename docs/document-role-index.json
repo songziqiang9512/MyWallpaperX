@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "25738ba9eb116c2bc773f1e8a9d333c71343cb911c56db734aac5ff0881a26f7",
+        "sourceSHA256": "37334c9022867b660d8eb8e41fe45cc7d64bff775a92f541444c901156d4b4d9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Authored image font JS-only状态与文字typed事务边界；374首拒退出、局部字体热切、官方固定板与独立381的有界证据。其余正文未重审。",
-        "limitations": "未外推官方throw/任意属性、34字体/完整布局、整景同phase/viewport/HDR或性能；原失败及旧人工verdict保留。"
+        "scope": "User-confirmed cache deletion: historical provenance and currently available payloads separated; old capacity wait retired; sample verdict/date/content preserved.",
+        "limitations": "Documentation/provenance reconciliation only; no new App run, visual acceptance, performance measurement or restoration of deleted files."
       }
     },
     {
@@ -828,10 +828,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3666ccfb5c6ddd07f32e36fae4abf35f22b6799506f09b2c5296e6a9940c30ff",
+        "sourceSHA256": "0338d4f30e4e3794822bd23f1404bdc3e4ef52906ec2cbf360674dd5f9ba2447",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同provider visible graph-final精确多槽设计与原owner接线；302当前封面实际收益/无媒体/381邻例、原失败及独审边界，旧216328首拒退出。仅定点导航/source identity核对，其余正文未重审。",
-        "limitations": "CPU Plan的typed admitted seam不代媒体实物；受控当前封面不代上一封面转场、真实播放器、官方同audio/pointer/phase/HDR/整景或性能。JPEG仅有损review，原PNG hash与输入/App身份保正式包。"
+        "scope": "User-confirmed cache deletion: historical provenance and currently available payloads separated; old capacity wait retired; sample verdict/date/content preserved.",
+        "limitations": "Documentation/provenance reconciliation only; no new App run, visual acceptance, performance measurement or restoration of deleted files."
       }
     },
     {
@@ -3625,10 +3625,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5e5edb77836e75156cb978ec05975fdf562e1041ab2b9ef356483308b030ebc6",
+        "sourceSHA256": "b1485f018854918e70f6a763a70f1ba14695828fac3ba2efdedec32fbb9c3289",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Authored image font JS-only状态与文字typed事务边界；374首拒退出、局部字体热切、官方固定板与独立381的有界证据。其余正文未重审。",
-        "limitations": "未外推官方throw/任意属性、34字体/完整布局、整景同phase/viewport/HDR或性能；原失败及旧人工verdict保留。"
+        "scope": "User-confirmed cache deletion: historical provenance and currently available payloads separated; old capacity wait retired; sample verdict/date/content preserved.",
+        "limitations": "Documentation/provenance reconciliation only; no new App run, visual acceptance, performance measurement or restoration of deleted files."
       }
     },
     {

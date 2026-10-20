@@ -14,10 +14,13 @@
       "note": "10-19当前原包短播及独审，顶部/中段光束仍比官方宽软；52光卡、117雾与12水纹均实际执行。水纹大体限盆内，旧gross错位未定位。相位/viewport与实际slot域未齐，公共错误owner未知；旧fail保留，无新修复。",
       "remainingDifferences": "顶部/中段光束宽软、亮根/渐隐仍有外观差异；水波旧位置反馈未获同状态关闭，不按物理padding或观感推根因。",
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "runs": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json"
       ],
-      "runs": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json"
       ]
     },
@@ -47,18 +50,19 @@
       "note": "10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail保持。前批2D emission已恢复银河橙调。 旧反馈与资源后验：2026-10-18用户补报地球高频闪烁，与cursor owner collision分开，未证同因；10-19先确认小窗不闪/全屏闪，后确认depth候选全屏不闪，不能据短窗闭偶发。日期时间恢复及pending漏画修正各保原范围，原snapshot superseded FAIL照保。 10-19模型隔离退休后修前/候选原包after均保地表、云、蓝边与银河，候选前三帧Earth/Cloud两实例实际同passCB。夜侧仍偏亮；截图序列superseded/teardown失败原样保留，不记GPUframe错误或闭闪烁。单次目标池需求减少不认稳定性能。",
       "remainingDifferences": "圆白热点已由共享零端点策略在原包与独审有界退出；Earth夜侧仍偏亮、颜色/光影与目录官方有差异，VM Date/作者phase及HDR域未同条件资格。全屏间歇闪烁保时序/负载复验，旧collision独立保留；不因零端点、资源或2D emission修正关闭。",
       "reviewer": "Codex 原包屏幕帧短窗、用户目视反馈与独立资源审查；非完整官方对照",
-      "runs": [
-        ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/small/report.json",
-        ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/before/report.json",
-        ".artifacts/scene-evidence/runs/static-model-depth-after-20261019/after/report.json",
-        ".artifacts/scene-evidence/runs/static-model-depth-repeat-20261019/repeat/report.json",
-        ".artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json"
-      ],
+      "runs": [],
       "evidence": [
         "docs/scene/history/static-model-depth-pending-2026-10-19.md",
         "docs/scene/history/lit-image-emission-albedo-2026-10-19.md",
         "docs/scene/history/surface-zero-roughness-2026-10-19.md",
         "docs/scene/history/model-scene-depth-domain-2026-10-19.md"
+      ],
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/small/report.json",
+        ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/before/report.json",
+        ".artifacts/scene-evidence/runs/static-model-depth-after-20261019/after/report.json",
+        ".artifacts/scene-evidence/runs/static-model-depth-repeat-20261019/repeat/report.json",
+        ".artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json"
       ]
     },
     "3448845950": {
@@ -143,321 +147,367 @@
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "主体已呈现；边侧裁切较紧，尚未同viewport对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "主体已呈现；边侧裁切较紧，尚未同viewport对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3601801724-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3601801724-20261017/final/samples/3601801724/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "主体已呈现；边侧裁切较紧，尚未同viewport对齐。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3597772384": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "限定root正交CP world force与缺省距离已接通，自有正控成立；原包9秒/after5山景、雨和时钟保持，但270在current/committed非空快照及逐层非空GPU统计均缺席，鸟群可见贡献仍UNKNOWN。音频发射抑制因果未证，operator10非零world origin仍未准入；before/after App、sidecar与cache不同，不作单变量像素或性能结论。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "Bird270当前窗口零nonempty、可见贡献UNKNOWN；音频抑制因果未证；operator10非零world origin未准入；完整视觉、播放、交互、作者参数及同状态官方对照未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3597772384-20261017/final/samples/3597772384/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "Bird270当前窗口零nonempty、可见贡献UNKNOWN；音频抑制因果未证；operator10非零world origin未准入；完整视觉、播放、交互、作者参数及同状态官方对照未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3690065713": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物、眼部背景和默认文本均呈现；边框、媒体与视窗差异待同状态对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物、眼部背景和默认文本均呈现；边框、媒体与视窗差异待同状态对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3690065713-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3690065713-20261017/final/samples/3690065713/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物、眼部背景和默认文本均呈现；边框、媒体与视窗差异待同状态对齐。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "2964778792": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "动态origin63的准备/74.stop首门已修，原包第一idle已实际可见黑色Z；与目录官方截屏基础构图相符。复用driver因explicit拖动不生成after而保留FAIL，未重跑；后段origin/63独立GPU未导出，不称完整两轮clear/resume像素闭合。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "完整两轮交互、官方同viewport/时相、全部参数、HDR与性能未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-2964778792-20261017/final/samples/2964778792/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/samples/2964778792/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "完整两轮交互、官方同viewport/时相、全部参数、HDR与性能未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3616389236": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "10-17同公共shortcut底图修复的实际受益验收：默认8个顶部白块恢复透明链环，主幅/时钟/装饰保持；复用既有签名App单次direct运行64.200s ready、正常exit0/GPU排空。旧62.16s ready后watchdog失败原值保留；延长诊断watchdog不算启动优化，无系统快捷方式赋值/点击或全景验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "顶部8白块已退出。当前未资格化其他明确可见故障；完整画面、播放、媒体/系统快捷方式和全部参数未验收，不因此新增无归属缺陷。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3616389236-20261017/final/samples/3616389236/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/samples/3616389236/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "顶部8白块已退出。当前未资格化其他明确可见故障；完整画面、播放、媒体/系统快捷方式和全部参数未验收，不因此新增无归属缺陷。",
-      "officialComparison": "compared"
+      ]
     },
     "3291326967": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物、雪粒子、日期与频谱呈现；未定位大面积主体缺失，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物、雪粒子、日期与频谱呈现；未定位大面积主体缺失，完整参数与同状态细节未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3291326967-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3291326967-20261017/final/samples/3291326967/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物、雪粒子、日期与频谱呈现；未定位大面积主体缺失，完整参数与同状态细节未验。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3627973226": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3627973226-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3627973226-20261017/final/samples/3627973226/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3022080536": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "10-17静态format9/20B mesh修正后，原包奶油纸底、书法与双红印已恢复，主体18旧52B动画保持；不再列背景灰底/装饰缺失。与目录官方仅基础构图对照，viewport/phase及完整属性/交互尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "背景首错已修；完整视觉/crop、音频条相位、指针与全部作者参数未验收，不能由工具2/2或主幅恢复记整样本PASS。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/mdl-static-position-uv20-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3022080536-20261017/final/samples/3022080536/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/mdl-static-position-uv20-20261017/final/samples/3022080536/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "背景首错已修；完整视觉/crop、音频条相位、指针与全部作者参数未验收，不能由工具2/2或主幅恢复记整样本PASS。",
-      "officialComparison": "compared"
+      ]
     },
     "3662245960": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物与故障风格效果呈现；动态阶段及同状态精度未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物与故障风格效果呈现；动态阶段及同状态精度未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3662245960-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3662245960-20261017/final/samples/3662245960/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物与故障风格效果呈现；动态阶段及同状态精度未验。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3632522893": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "富士山、文字、前景呈现；active Blur whole-stage被composition childless准入拒绝，836无hook/默认隐藏独立保留边界。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "富士山、文字、前景呈现；active Blur whole-stage被composition childless准入拒绝，836无hook/默认隐藏独立保留边界。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3632522893-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3632522893-20261017/final/samples/3632522893/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "富士山、文字、前景呈现；active Blur whole-stage被composition childless准入拒绝，836无hook/默认隐藏独立保留边界。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3586705329": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3586705329-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3586705329-20261017/final/samples/3586705329/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3577990983": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "10-17中央Reze/手臂/身体经多target修正已恢复，后继原包16白块已沿同一typed source链恢复透明花叶图案；烟火/栏杆保持、最终正常退出/GPU排空。animation1678 auxiliary仍bind-pose，210/233/320局部effect/typed producer余项保留。目录官方仅作基础构图对照，viewport、phase、媒体/全部属性未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "animation1678 auxiliary拒绝使人物动画沿bind-pose；210/233/320局部effect余项仍开放。16底栏白块已退出；ready黑及effect回退使原benchmark FAIL保留，首final watchdog失败也保留；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/usershortcut-authored-fallback-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/samples/3577990983/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/usershortcut-authored-fallback-20261017/final/samples/3577990983/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "animation1678 auxiliary拒绝使人物动画沿bind-pose；210/233/320局部effect余项仍开放。16底栏白块已退出；ready黑及effect回退使原benchmark FAIL保留，首final watchdog失败也保留；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3486887298": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "彗星与时钟呈现；未定位大面积主体缺失，时相/布局细节及完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "彗星与时钟呈现；未定位大面积主体缺失，时相/布局细节及完整参数未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3486887298-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3486887298-20261017/final/samples/3486887298/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "彗星与时钟呈现；未定位大面积主体缺失，时相/布局细节及完整参数未验。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3754908581": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3754908581-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3754908581-20261017/final/samples/3754908581/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物、时钟、背景文字呈现；未把作者绿色脸框当引擎故障，交互与参数完整性未验。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3719111841": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3719111841-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3719111841-20261017/final/samples/3719111841/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3820312181": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "10-17原包默认参数的右上缺光已恢复：sampler presence误用editor条件的首错退出，17/effect1真实Program/GPU/末合成及下一帧执行，双束光与VOID EDGE主体呈现。仅基础构图对照，viewport/phase、全部属性与交互未全验。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "旧slot1绑定/缺光首错已退出；完整同viewport/phase的光束形态、播放交互与全部属性未验，不记整样本PASS。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3820312181-20261017/final/samples/3820312181/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/sampler-presence-requirements-20261017/final/samples/3820312181/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "旧slot1绑定/缺光首错已退出；完整同viewport/phase的光束形态、播放交互与全部属性未验，不记整样本PASS。",
-      "officialComparison": "compared"
+      ]
     },
     "3599986633": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "10-17基线主幅黑幕经177.visible单次消融定位；修正空effect查询合同后，原包默认初始化自行解除遮挡，九凤人物和彩色主幅已恢复。702独立destroy拒绝仍在，不再归因初始黑幕。官方仅基础构图对照，完整背景选择/过场交互、viewport/phase与全部属性未验。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "主幅初始黑遮挡已修；702独立删除拒绝及完整背景选择/过场交互、精确官方画面/运动仍未验，不据未验项宣称新视觉缺陷。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/empty-effect-lookup-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3599986633-20261017/final/samples/3599986633/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/empty-effect-lookup-20261017/final/samples/3599986633/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "主幅初始黑遮挡已修；702独立删除拒绝及完整背景选择/过场交互、精确官方画面/运动仍未验，不据未验项宣称新视觉缺陷。",
-      "officialComparison": "compared"
+      ]
     },
     "3605722997": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root",
       "note": "默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍在，driver1原失败保留。strings独立像素ROI、官方padding/曲线、同phase/viewport及全部属性交互未验，不计全样本通过。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍在，driver1原失败保留。strings独立像素ROI、官方padding/曲线、同phase/viewport及全部属性交互未验，不计全样本通过。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3605722997-20261017/final/samples/3605722997/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "默认25s/after22s人物与建筑完整；196/205单图atlas Rope加载及非空GPU完成已恢复，49.visibility TypeError仍在，driver1原失败保留。strings独立像素ROI、官方padding/曲线、同phase/viewport及全部属性交互未验，不计全样本通过。",
-      "officialComparison": "compared"
+      ]
     },
     "3173418061": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "已修mix首错：7条effect scale恢复；56标题按下/释放反馈可见，hover保持。主体与文字正常，其他播放/交互及官方同phase未验。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "粒子131及完整音乐/各标题点击、作者参数和全图parity未验；不再把已修mix非法参数列作现役故障。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/wemath-mix-value-boundary-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3173418061-20261017/final/samples/3173418061/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/wemath-mix-value-boundary-20261017/final/samples/3173418061/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "粒子131及完整音乐/各标题点击、作者参数和全图parity未验；不再把已修mix非法参数列作现役故障。",
-      "officialComparison": "compared"
+      ]
     },
     "1695673397": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol",
       "note": "当前仅补登/同构建回归；主体、羽毛和雪呈现，顶部灰带沿用已锁同宽高比官方也有的边界，不重新排故障。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "当前仅补登/同构建回归；主体、羽毛和雪呈现，顶部灰带沿用已锁同宽高比官方也有的边界，不重新排故障。；完整视觉、播放、交互及作者参数未验收。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-1695673397-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-1695673397-20261017/final/samples/1695673397/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "当前仅补登/同构建回归；主体、羽毛和雪呈现，顶部灰带沿用已锁同宽高比官方也有的边界，不重新排故障。；完整视觉、播放、交互及作者参数未验收。",
-      "officialComparison": "compared"
+      ]
     },
     "3818943255": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / dynamic_image_material_tests_sol",
       "note": "新发现后复用同签名App单次默认direct短播放：1image/0effects、0.971s ready，实际图像呈现、exit0/stop1→0/GPU排空。没有目录官方截屏，只记基础显示/退出；3项属性未完整验收，source material shader-contract→authored-layer-color诊断未证可见故障。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "无官方截屏，未判相同viewport/phase合成parity；完整属性/播放未验。源颜色合同回退只保具体诊断，不能由标签认定画面或热更新失效。",
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/shortcut-beneficiary-intake-20261017/final/samples/3616389236/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "无官方截屏，未判相同viewport/phase合成parity；完整属性/播放未验。源颜色合同回退只保具体诊断，不能由标签认定画面或热更新失效。",
-      "officialComparison": "unknown"
+      ]
     },
     "3226487183": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-17",
       "reviewer": "Codex root / prepared_puppet_design_sol / sound_peak_probe_sol",
       "note": "10-17最终原包4907点击后2522实际执行作者Program：白面具→整景RGB分离/重影→清晰黑面具，左右眼与脸颈/身体在。前序reference组装、MDLV19挂点及MDLA5 alpha/零缩放眼睑修复保持，原2/3/2默认动画请求未改。非零Alpha通过encodedData相等守卫并由GPU/末合成消费，未导出uniform字节或附造异步PNG的exact帧。固定HEAD加11个Scene文件的隔离App两包均安全退出；未锁官方同phase/viewport，不记完整样本通过。 后继Combined共享播放批以本样本作独立回归：原click后2522三个非零typed值经同帧Program/GPU/末合成，原图瞬态RGB后回清晰黑面具；未重开手部旧观察或扩大完整parity结论。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "原1028手部旧观察仍待当前复验，现origin/reference/效果链已证正常，不能按外观改坐标。live媒体、完整同viewport/phase官方对照、全部交互及作者属性分支未验，仍unreviewed，不记整样本PASS。",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/report.json",
@@ -466,7 +516,7 @@
         ".artifacts/scene-evidence/runs/shader-float2-consumer-width-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/puppet-reference-fallback-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/puppet-attachment-mdlv19-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/puppet-mdla5-alpha-20261017/final/samples/3226487183/runtime_evidence.zip",
@@ -474,26 +524,27 @@
         ".artifacts/scene-evidence/runs/scene-named-animation-scope-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/shader-float2-consumer-width-20261017/final/samples/3226487183/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "原1028手部旧观察仍待当前复验，现origin/reference/效果链已证正常，不能按外观改坐标。live媒体、完整同viewport/phase官方对照、全部交互及作者属性分支未验，仍unreviewed，不记整样本PASS。",
-      "officialComparison": "compared"
+      ]
     },
     "3233141951": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root / native_camera_app_sol",
       "note": "10-19 mixed公共组后继：absolute alpha与relative origin/scale复用原owner，旧新原包各28s/native/默认，Program11→14、242三拒绝→0；25s肩颈火焰从旧常驻恢复按段淡出。观察器仅两transform四帧timeline，未导出alpha；不据此关闭脸/龙/小人/刀轨迹或双色音频。此前六binding输入资格保留。",
-      "runs": [
+      "runs": [],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "脸/头发、龙头/小人/刀准确轨迹与双色音频仍开放；403 literal-true资格仍STOP_UNKNOWN。242只闭混合组首拒与本淡出窗口；零key锚点不等于曲线静止，旧推断撤销。原目录无官方同phase截屏；不认整样本通过。",
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/timeline-frame-input-20261019/native/report.json",
         ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
       ],
-      "evidence": [
-        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip",
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
-      "remainingDifferences": "脸/头发、龙头/小人/刀准确轨迹与双色音频仍开放；403 literal-true资格仍STOP_UNKNOWN。242只闭混合组首拒与本淡出窗口；零key锚点不等于曲线静止，旧推断撤销。原目录无官方同phase截屏；不认整样本通过。",
-      "officialComparison": "unknown"
+      "unavailableLocalEvidence": [
+        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip"
+      ]
     },
     "3742133044": {
       "verdict": "unreviewed",
@@ -502,10 +553,12 @@
       "note": "本片未参与修法的独立回归：原perspective粒子196进入非空提交，实际雪花位置变化，人物/红月/花背景保持；只作基础构图对照，非完整官方parity。",
       "remainingDifferences": "官方同viewport/时相、全部参数、完整视觉/播放及HDR/性能未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/particle-root-world-translation-20261017/final/samples/2964778792/runtime_evidence.zip"
       ]
     },
@@ -516,11 +569,13 @@
       "note": "2026-10-19原包8s/after6、native、静音/outside0短窗：Root与独审亲看ready/after/目录官方，未定位可归因黑色水花ROI；底图22自带水波effects，白水不能直接算粒子。四层REFRACT实完成且failed0，exit0/FAIL[]、输入/App无漂移、正常stop/GPU排空仅证执行，不证颜色fidelity。2026-10-18用户黑水补报保持open/unreviewed，混合模式仅猜测、原因unknown；正式观察：.artifacts/scene-evidence/runs/water-particle-current-20261019/original/report.json。旧原包短播的人物脸眼、伸手、荷叶、鱼、水及root/child/refraction证据保留；目录官方未控phase，不认完整动态、交互或同状态parity。",
       "remainingDifferences": "完整动态、交互、作者参数与同状态官方parity未验收；本批仅为独立短窗视觉及生命周期回归，继续unreviewed。 2026-10-18用户补报（待当前身份复验）：溅水滴为黑色、用户称应白色；混合模式仅用户猜测，根因unknown。旧短播保持不关闭此色彩观察。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/report.json",
         ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/animated-rope-whole-source-20261017/final/samples/3605722997/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/particle-control-point-force-20261017/final/samples/3597772384/runtime_evidence.zip"
       ]
@@ -532,10 +587,12 @@
       "note": "原包默认短播银白发侧脸、蓝眼/蓝饰与橙红背景呈现，亮波带/细斜纹亦见作者预览，不据此报缺陷；11effects两帧22GPU完成，仅2终级末合成，dust/rain非空、77默认隐藏，正常退出/drain。无目录官方图，不计整样本通过。",
       "remainingDifferences": "slider/color热更新、完整动态/音频切歌、HDR/多屏及相同状态官方对照未验；暂无已证首阻断。",
       "officialComparison": "not-run",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3221354414-20261017/final/samples/3221354414/runtime_evidence.zip"
       ]
     },
@@ -546,64 +603,73 @@
     "3471294034": {
       "verdict": "unreviewed",
       "note": "2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。shared selected-provider准入与GPU末合成/下一帧证据成立。仅此反馈CLOSED，不等于整样本/全部属性或交互/官方同phase验收；before为CP旧App，after为A+3source的f844，不是单变量性能或像素对照。 正式主347归档report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json；本ID精确execution/App/input/raw位于ZIP neutral/runtime-context.json关联上下文：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip。 2026-10-18追加同a67独立原包后验：背景菱形网格保持，人物、文字、花瓣与底部频谱可见；仅保既有网格反馈闭合及本次邻居未退化观察，全部属性/交互/播放和官方同phase仍未验，不记整样本PASS。 正式report：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json；关联ZIP：/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "网格缺失反馈已闭且a67邻居观察保持；整样本播放、全部作者属性/交互和官方同phase仍未验。",
+      "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "网格缺失反馈已闭且a67邻居观察保持；整样本播放、全部作者属性/交互和官方同phase仍未验。"
+      ]
     },
     "3351179520": {
       "verdict": "unreviewed",
       "note": "10-18巨裂片/白环/2000²首门已闭；文字位置尺度/漂移partial。可见38.849s<T；静音opacity0不可测，不能合拼周期。 参考 docs/scene/capabilities/runtime-evidence-current.md#composition-local-source-20261018 与同页 #visual-feedback-followup-20261018。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "文字精确位置、尺度与旋转漂移仍partial；ordinary可见38.849s<文字周期41.8879s，silence作者opacity0不可测，不得合拼完整周期；官方同媒体/phase与整景验收未完成。",
+      "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "文字精确位置、尺度与旋转漂移仍partial；ordinary可见38.849s<文字周期41.8879s，silence作者opacity0不可测，不得合拼完整周期；官方同媒体/phase与整景验收未完成。"
+      ]
     },
     "3617056047": {
       "verdict": "unreviewed",
       "note": "限定后验：位置/倒置反馈已闭。同批行为等价前版758f9b原包9秒/after5/resize/noPCM回归，罐体正立位于虚线圈内、不压底字，背景文字保持；exit0/failures[]，source/App无drift。此前observer与普通App的身份区别只归旧run，不延用成当前缺陷；整样本继续unreviewed，不认官方同phase/光照/像素一致。 10-19在飞深度资源修正的未参与修法邻例：罐体/圆环/文字实际可见，App0/FAIL[]/输入稳定/stop1→0/GPU排空；不认全部姿态/交互或官方parity。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "位置/倒置反馈已闭；整样本播放、全部作者参数/交互及官方相位/光照/像素对照仍未完成。",
+      "reviewedOn": "2026-10-18",
+      "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
+      "officialComparison": "compared",
+      "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/heldout361/result.json",
         ".artifacts/scene-evidence/runs/static-model-depth-after-20261019/heldout/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/heldout361/results/3617056047/scene-after-window.png"
-      ],
-      "remainingDifferences": "位置/倒置反馈已闭；整样本播放、全部作者参数/交互及官方相位/光照/像素对照仍未完成。",
-      "reviewedOn": "2026-10-18",
-      "reviewer": "Codex root; independent static_model_reflection_final_review_sol",
-      "officialComparison": "compared"
+      ]
     },
     "3589454154": {
       "verdict": "unreviewed",
       "note": "10-19旧App与最终深度候选在请求sceneTime30下均呈现整颗土星、星环、时钟/底部图标；exit0/runner FAIL[]、输入/App无漂移、正常停止排空。sun431 explicit test/write状态已准备，但像素归属与可归因遮挡收益未证；作者Date/媒体音量仍走实时时钟，非整图锁相对照。这里只退出“仅见intro”的观察边界，不证明自然开场全轨迹或官方parity，旧视觉余项保持unreviewed。",
-      "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json"
-      ],
+      "runs": [],
       "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md"
       ],
       "remainingDifferences": "sun具体遮挡收益、自然开场全轨迹、全部参数/播放与旧视觉余项未闭；无完整同phase官方对照或性能结论。",
       "reviewedOn": "2026-10-19",
-      "reviewer": "Codex root; bounded native depth integration"
+      "reviewer": "Codex root; bounded native depth integration",
+      "unavailableLocalRuns": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/report.json",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
+      ]
     },
     "3797217144": {
       "verdict": "unreviewed",
@@ -646,15 +712,18 @@
       "reviewedOn": "",
       "note": "10-19当前0ea907d9a对应App原包全尺寸七点受控输入，山体左右/上下响应并回中心、零深度文字固定，独审一致；完全缺渲染视差未复现，无新产品修复。真实鼠标/桌面路由、多屏、精确官方响应及整景未验，保持unreviewed。",
       "reviewer": "unknown",
-      "runs": [
-        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
-      ],
+      "runs": [],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
-        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ],
       "remainingDifferences": "尚无当前受控输入缺视差证据；真实鼠标/桌面路由、多屏及官方精确gain/delay未验，不自动认定新缺陷。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
+      ]
     },
     "2684431262": {
       "verdict": "unreviewed",
@@ -709,15 +778,18 @@
       "reviewedOn": "",
       "note": "10-19原生attachment后继已闭三白弧低清（见#background-terminal-density-20261019）；本次独立原包非零PCM+中心pointer复验，三条连续白弧/人物保持，Program/GPU/末合成及次帧成立。完整音源/相位/同状态官方样式仍未验。",
       "reviewer": "unknown",
-      "runs": [
-        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json"
-      ],
+      "runs": [],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
-        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip"
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip"
+      ]
     },
     "3754630802": {
       "verdict": "unreviewed",
@@ -799,7 +871,15 @@
       "reviewer": "Codex root; independent native image/input qualification and default-depth boundary review",
       "officialComparison": "compared",
       "note": "10-20当前App原包/clock-off两窗均App0/正常stop，侧clock穿正面随单开关消失，date仍透；原effect CPU/229 fallback/Rope FAIL保持。官方四向rim倒字和title黑影本就存在，不列错误；目录图未同pointer/phase，扁盒/粉顶仅保待同状态。官方原载体A缺外露clock与窗口资格，STOP_UNKNOWN且B未运行，default text test/write/cull未定，不改公共规则；五层source/typed相机及共享模型深度旧首错保持退出。",
-      "runs": [
+      "runs": [],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md"
+      ],
+      "remainingDifferences": "侧clock/date跨面透见、同状态盒体构图与全屏背景；默认text深度仍UNKNOWN，effect CPU/229 fallback/Rope未闭；完整音乐/属性/互动与官方parity未验。",
+      "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-framebuffer-material-source-20261019/native/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-camera-frame-transforms-20261019/native/report.json",
@@ -807,16 +887,11 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-text-depth-333-20261020/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-text-depth-333-20261020/current/samples/3337494481/runtime_evidence.zip"
-      ],
-      "remainingDifferences": "侧clock/date跨面透见、同状态盒体构图与全屏背景；默认text深度仍UNKNOWN，effect CPU/229 fallback/Rope未闭；完整音乐/属性/互动与官方parity未验。"
+      ]
     },
     "3585542943": {
       "verdict": "unreviewed",
@@ -824,14 +899,16 @@
       "reviewer": "Codex root; independent prepared_puppet_design_sol",
       "officialComparison": "compared",
       "note": "限定8.165s原图：上部/人物左上青绿扇状照明实际可辨，人物/水纹/右烟/头发高光保持，旧笼统缺光未重现。204有真实138/137批GPU完成，像素不独归它。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "remainingDifferences": "旧笼统缺光退出；精确光形/强度、全phase/viewport与全部属性交互未验，不新增假故障。",
+      "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/358-rays-fresh-20261018/result.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/358-rays-fresh-20261018/independent-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/358-rays-fresh-20261018/results/3585542943/scene-series-0000-window.png"
-      ],
-      "remainingDifferences": "旧笼统缺光退出；精确光形/强度、全phase/viewport与全部属性交互未验，不新增假故障。"
+      ]
     },
     "3581882134": {
       "verdict": "unreviewed",
@@ -840,17 +917,19 @@
       "officialComparison": "compared",
       "note": "10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.150s原图：人物/金带/背景保持；官方左上暖亮、native冷暗的差异保留，无法与背景/flare/随机phase分离，不认独立光束已修。113真实201/200批GPU完成不代像素合同。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/result.json",
-        ".artifacts/scene-evidence/runs/default-camera-single-20261019/before/report.json",
-        ".artifacts/scene-evidence/runs/default-camera-single-20261019/after/report.json",
-        ".artifacts/scene-evidence/runs/default-camera-single-20261019/off/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/result.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png",
         "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
       ],
-      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。  不认完整官方phase、全部交互/整样本或性能通过。"
+      "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。  不认完整官方phase、全部交互/整样本或性能通过。",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/before/report.json",
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/after/report.json",
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/off/report.json"
+      ]
     },
     "3603711180": {
       "verdict": "unreviewed",
@@ -859,8 +938,7 @@
       "officialComparison": "compared",
       "note": "10-19开场镜头完全缺失已闭；Gaussian零轴数值首拒后继退出，目标四Program/GPU执行、FAIL[]。细条受后画UI遮挡且相机phase不同，未辨独立视觉收益；整样本unreviewed保持。 10-19独立Single修复后实际近景→展开→末值保持，开场镜头完全缺失有界关闭。 旧记录：限定8.498s原图：左帘强光、青白发丝轮廓/肩光实际可见，旧笼统缺光未重现；234与613均131/130批真实GPU完成。原runner两FAIL保留：666/effect2 blur为whole-stage owner未准入，后Opacity仍Program。 原包默认、neutral center、12s/series8/resize/noPCM，App0/正常stop1→0及GPUdrain、source/App无漂移；不同aspect/phase/audio，不作整样本PASS或性能收益。",
       "runs": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json",
-        ".artifacts/scene-evidence/runs/default-camera-single-20261019/second/report.json"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/result.json"
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
@@ -868,26 +946,30 @@
         "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
         "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md"
       ],
-      "remainingDifferences": "旧666/effect2/672数值首拒已由非负有限零轴准入后继退出；目标不是空透明源，默认捕获背景，但细条被615后画UI大幅覆盖，两图camera/UI状态不同，未证独立像素收益。旧照明限定观察、完整phase/属性/交互与精确官方光形仍保原边界；不认整样本或性能通过。"
+      "remainingDifferences": "旧666/effect2/672数值首拒已由非负有限零轴准入后继退出；目标不是空透明源，默认捕获背景，但细条被615后画UI大幅覆盖，两图camera/UI状态不同，未证独立像素收益。旧照明限定观察、完整phase/属性/交互与精确官方光形仍保原边界；不认整样本或性能通过。",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/second/report.json"
+      ]
     },
     "3806337293": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-18",
       "reviewer": "Codex 原包受控PCM/静音多相位与独立审查；非完整官方对照",
       "note": "2026-10-18灰层/过曝/缺环及后补路径整体自转已分别真实复现并修正；固定椭圆路径与条目移动保持，非完整样本/官方相位验收。",
-      "runs": [
-        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/baseline/report.json",
-        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/final/report.json",
-        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/before/report.json",
-        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/after/report.json",
-        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/pcm/report.json"
-      ],
+      "runs": [],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "remainingDifferences": "所报灰层/过曝/缺环与固定路径整体自转均有界关闭；官方同phase/aspect、精确速度/音频幅度、完整交互及整样本未验，不据此改整样本verdict或造新可见缺陷。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/baseline/report.json",
+        ".artifacts/scene-evidence/runs/audio-index-preparation-order-20261018/final/report.json",
+        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/before/report.json",
+        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/after/report.json",
+        ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/pcm/report.json"
+      ]
     },
     "2932631210": {
       "verdict": "unreviewed",
@@ -990,28 +1072,30 @@
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex 同原包PCM前后原图与独立审查；非完整官方对照",
       "note": "10-19透视neutral材质证明接通统一动态模板：同PCM非零阶段从无频谱恢复底部白条，后续静音收回，63动态层实际发布/绘制；频谱缺失首门退出，背景十字流星过大仍开放。",
-      "runs": [
-        ".artifacts/scene-evidence/runs/perspective-neutral-tint-20261019/native/report.json"
-      ],
+      "runs": [],
       "evidence": [
         "docs/scene/history/source-material-entry-2026-10-08.md"
       ],
       "remainingDifferences": "背景十字流星尺寸仍待同phase可归属几何/遮罩正控；world父/local子已有独立scale，未证重复乘，不改作者参数。未验真实系统音频、完整属性/交互/HDR及官方parity。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/perspective-neutral-tint-20261019/native/report.json"
+      ]
     },
     "3768229922": {
       "verdict": "unreviewed",
       "reviewedOn": "",
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 10-19原包8s邻例已见PSYCHE GEAR标识，App0/stop1→0/GPU排空；主体与完整过渡未验，stationary hover最低变化FAIL保留。",
-      "runs": [
-        ".artifacts/scene-evidence/runs/default-camera-single-20261019/adjacent/report.json"
-      ],
+      "runs": [],
       "evidence": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "remainingDifferences": "本窗开场标识可见，主体及完整过渡仍未覆盖，不关闭原反馈；未测作者交互，不从stationary hover最低变化判产品缺陷。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/adjacent/report.json"
+      ]
     },
     "3554161528": {
       "verdict": "unreviewed",
@@ -1042,14 +1126,15 @@
       "reviewedOn": "",
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 10-19相机heldout在62.958s ready，短窗主体构图保留；69s总watchdog中断正常停止，原5FAIL保留，不认生命周期通过。",
-      "runs": [
-        ".artifacts/scene-evidence/runs/default-camera-single-20261019/heldout/report.json"
-      ],
+      "runs": [],
       "evidence": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/default-camera-single-20261019/heldout/report.json"
+      ]
     },
     "2815826216": {
       "verdict": "unreviewed",
@@ -1080,11 +1165,12 @@
       "note": "mixed组未参与修法原包独立8s/native/默认：人物、帘、城市、时钟实际呈现，App0、正常stop/GPU排空、输入/App无漂移。1733 alpha-root的origin四次实际输入为timeline；双script/parent的完整可见收益未资格，不据此认领月亮或昼夜修好。",
       "remainingDifferences": "完整昼夜周期、同phase/viewport官方对照及全部参数/交互未验；不把未覆盖当新增故障。",
       "officialComparison": "unknown",
-      "runs": [
-        ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
-      ],
+      "runs": [],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
       ]
     },
     "2507971256": {
@@ -1094,10 +1180,12 @@
       "note": "两侧主体、黑白拼图和斜分隔可见；音频/视差输入未锁，未见主构图缺层。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2507971256/runtime_evidence.zip"
       ]
     },
@@ -1108,10 +1196,12 @@
       "note": "五竖卡及五圆头像可见；中央粒子点簇颜色/位置只作未控pointer、音频与phase观察，不判故障。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2731896598/runtime_evidence.zip"
       ]
     },
@@ -1122,10 +1212,12 @@
       "note": "雪山、云湖、两侧树与蓝光可见；未控相位/视差差异不判缺陷。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2735160334/runtime_evidence.zip"
       ]
     },
@@ -1136,10 +1228,12 @@
       "note": "女像、玫瑰、左钟与青横线可见；横线/谱高度依赖音频，不据静音窗判缺失。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2787219305/runtime_evidence.zip"
       ]
     },
@@ -1150,10 +1244,12 @@
       "note": "白发人物、蓝底、水果与右钟可见；有短暂typed非零音频，但未与图精确关联，不据频谱高度判缺失。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2814167871/runtime_evidence.zip"
       ]
     },
@@ -1164,10 +1260,12 @@
       "note": "沙发人物、笔电、蛋糕与手机钟可见；三环/频谱未同音频资格，不判合成错误。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-01/current/samples/2821634935/runtime_evidence.zip"
       ]
     },
@@ -1178,10 +1276,12 @@
       "note": "红底双人物、枪花、标题日期可见；ready提示在after已消失；底谱未锁音频，不判缺失。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2831174267/runtime_evidence.zip"
       ]
     },
@@ -1192,10 +1292,12 @@
       "note": "中央白框人物、樱花与右钟可见；框齿/频谱差异未与音频/phase对齐。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2835398595/runtime_evidence.zip"
       ]
     },
@@ -1206,10 +1308,12 @@
       "note": "红白衣人物、灰底横线、文字与雪粒可见；光线形状/强度未控输入，不判故障。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2850139759/runtime_evidence.zip"
       ]
     },
@@ -1220,10 +1324,12 @@
       "note": "白字可见，参考亮环在静音窗未见；advisory预览不能作为compositor阻断依据，旧自动误标已按通用oracle资格修正。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2871552691/runtime_evidence.zip"
       ]
     },
@@ -1234,10 +1340,12 @@
       "note": "三联视频主体/街景可见且两图有帧变化；频谱未与音频对齐，不判未执行。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2877499944/runtime_evidence.zip"
       ]
     },
@@ -1248,10 +1356,12 @@
       "note": "人物、粒子、时钟可见；日期右端裁切和STANDBY保留视口/媒体状态未知，不作适配根因。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2969308380/runtime_evidence.zip"
       ]
     },
@@ -1262,10 +1372,12 @@
       "note": "主体与刀可见；effect313的dependency-stage-reference-unavailable保留为执行缺口，白波纹与其因果未证。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/2972071249/runtime_evidence.zip"
       ]
     },
@@ -1276,11 +1388,13 @@
       "note": "216/328旧准备守恒与命名绑定首拒已退出；同project/PKG的自有梯度当前封面由白占位恢复紫至蓝灰，白边/标题/人物/星环保持。无媒体正确无封面；216默认隐藏，不假称它可见恢复。",
       "remainingDifferences": "只关闭同provider graph-final精确多槽及受控当前封面路径；上一封面切换、真实播放器来源、全部属性/交互、pending资源组合、HDR与官方同audio/pointer/phase/viewport未验，圆环宽形差异未归因；无性能结论。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/optional-graph-output-slot-vector-20261020/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/optional-graph-output-slot-vector-20261020/current/samples/3027068980/runtime_evidence.zip"
       ]
@@ -1292,10 +1406,12 @@
       "note": "米白水墨人物、竖字及双弧可见；主构图保持，完整动态/输入未验收。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3039704323/runtime_evidence.zip"
       ]
     },
@@ -1306,10 +1422,12 @@
       "note": "荧绿人物、灰白斜条、文字与粒子可见；未见主构图缺层，不外推完整播放。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3087231311/runtime_evidence.zip"
       ]
     },
@@ -1320,7 +1438,9 @@
       "note": "默认34与大角度背景有界修复保留；条件8请求准备、实际动作Combo恢复，用户确认切换动作生效及默认1未再见异常骨段。Root非默认2保存/重开与reset回1已验；先前普通Release视频/音频正常。仅关闭上述反馈，整体unreviewed。",
       "remainingDifferences": "音频rate、437数组/原graph余项、全部8模式逐一实机、多surface、App重启持久化、完整同输入phase/viewport/HDR仍未闭；新增隐藏需求失败分支仅CPU反例。旧Debug重负载Source query迟到单独保留，不标普通Release播放故障。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/report.json",
         ".artifacts/scene-evidence/runs/native-rope-camera-20261019/current/report.json",
@@ -1331,7 +1451,7 @@
         ".artifacts/scene-evidence/runs/scene-video-stale-query-329-20261020/diagnosis/report.json",
         ".artifacts/scene-evidence/runs/conditional-model-rotation-panel-20261020/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3292370168/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/direct-model-bind-geometry-20261019/current/samples/3292370168/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/native-rope-camera-20261019/current/samples/3292370168/runtime_evidence.zip",
@@ -1350,10 +1470,12 @@
       "note": "主体、金环、金纹与字阵可见；原包字阵默认绿色，官方金色未锁属性，不记颜色故障。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3325624777/runtime_evidence.zip"
       ]
     },
@@ -1364,11 +1486,13 @@
       "note": "酒吧人物、挂饰、枪酒杯与前景杯保持；306/effect364旧颜色启动/类型/packed音频编译首拒已退出，原Program实际GPU和末合成完成。_1开关同窗口，但新增ink仍未可靠归因，整景保unreviewed。",
       "remainingDifferences": "本批只关闭执行拒绝；官方自有板声音正控失败，RDEF仅证float4[16]声明布局。音频上传顺序/FFT、可见贡献、同phase/鼠标/viewport、完整属性/播放/交互与HDR未验；无性能收益结论。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/audio-packed-source-view-338-20261020/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3383535304/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/audio-packed-source-view-338-20261020/current/samples/3383535304/runtime_evidence.zip"
       ]
@@ -1380,10 +1504,12 @@
       "note": "补足启动余量后已见开场过渡及双人物桥景；旧70s工具超时保留，不判主体缺失。冷启动单次64.8s，非性能收益。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3436945972/runtime_evidence.zip"
       ]
     },
@@ -1394,12 +1520,14 @@
       "note": "径向模糊1042保原恢复；10-20普通Sprite coverage准入后，51/65实际花簇恢复至左右/四角，人物与原花层保持，默认particle4/4。旧归档首拒已退出；整体裁决仍unreviewed。",
       "remainingDifferences": "预热requested200仍仅344步约4.586667秒，未改数量/分布；音频、视差、phase、属性、viewport与官方未同状态，HDR/完整播放交互未验。旧Rope profile保持拒绝。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json",
         ".artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-03/current/samples/3745828537/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/samples/3745828537/runtime_evidence.zip"
@@ -1413,12 +1541,16 @@
       "remainingDifferences": "全部34字体及完整面板、默认裁切与人物遮挡、同音频/pointer/phase/viewport/HDR、整景和完整交互未资格。只闭此字体callback/局部热更新范围，无性能声明。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/image-font-script-state-374-20261020/current/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3746422401/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/image-font-script-state-374-20261020/current/samples/3746422401/runtime_evidence.zip"
+      ],
+      "unavailableLocalRuns": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3746422401/runtime_evidence.zip"
       ]
     },
     "3773747576": {
@@ -1428,11 +1560,13 @@
       "note": "修后原图人物/黑柱图标/曲线与碎片保持，手臂/刀身等四个noise由透传恢复实际Program并进入末合成链；125由后续effect消费。原mix编译首错已闭，其他粒子限制及完整模式未验收。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3773747576/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/samples/3773747576/runtime_evidence.zip"
       ]
@@ -1444,11 +1578,13 @@
       "note": "mixed-width mix修复的独立原包复验：NF墨框、二胡驴、中文、纸纹与飞墨构图保持；短窗ready/after相同不证明完整动态或音频响应。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
         ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3779107475/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/mixed-vector-mix-20261019/current/samples/3773747576/runtime_evidence.zip"
       ]
@@ -1460,12 +1596,19 @@
       "note": "红发人物、彩翼、三球与背景可见；有typed VM InternalError待判，球环形变/透明差异未锁音频、pointer和phase。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [
+      "runs": [],
+      "evidence": [],
+      "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
-      "evidence": [
+      "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3808922316/runtime_evidence.zip"
       ]
     }
+  },
+  "localEvidenceRetirement": {
+    "observedOn": "2026-10-20",
+    "authority": "User confirmed deletion of old local caches.",
+    "meaning": "unavailableLocalRuns/unavailableLocalEvidence preserve historical provenance only; they are not available payloads or fresh acceptance. Original verdict, review date, reviewer, notes and remaining differences are unchanged. Missing active references still fail the existing gate."
   }
 }

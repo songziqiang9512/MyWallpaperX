@@ -262,6 +262,37 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
             ):
                 self.assertIn(expected_row, markdown)
 
+    def test_explicitly_retired_cache_references_preserve_history_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            missing_run = ".artifacts/scene-evidence/runs/deleted/current/report.json"
+            missing_image = ".artifacts/scene-evidence/runs/deleted/current/frame.png"
+            entry = {
+                "verdict": "fail", "reviewedOn": "2026-09-08", "reviewer": "viewer",
+                "note": "Historical observed difference; no fresh playback.",
+                "unavailableLocalRuns": [missing_run],
+                "unavailableLocalEvidence": [missing_image],
+            }
+            overlay = _write(root / "retired.json", _verdicts({"10": entry}))
+            ledger = build_ledger(samples, archive, overlay, root)
+            row = next(row for row in ledger["samples"] if row["id"] == "10")
+            self.assertEqual(row["verdict"], "fail")
+            self.assertEqual(row["reviewedOn"], "2026-09-08")
+            self.assertEqual(row["runs"], [])
+            self.assertEqual(row["evidence"], [])
+            self.assertEqual(row["unavailableLocalRuns"], [missing_run])
+            self.assertEqual(row["unavailableLocalEvidence"], [missing_image])
+            self.assertEqual(ledger["summary"]["reviewedWithoutEvidence"], 1)
+            self.assertEqual(ledger["summary"]["unavailableLocalEvidenceSamples"], 1)
+            self.assertEqual(ledger["summary"]["unavailableLocalEvidenceReferences"], 2)
+            self.assertIn("1 个样本、2 个引用", render_markdown(ledger))
+            # Retirement is not a whitelist for an active dangling citation.
+            _write(overlay, _verdicts({"10": {**entry, "runs": [missing_run]}}))
+            with self.assertRaisesRegex(ValueError, "dangling references"):
+                build_ledger(samples, archive, overlay, root)
+
     def test_p0_2_verdict_relation_fields_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
