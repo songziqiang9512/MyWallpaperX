@@ -111,20 +111,32 @@ final class WallpaperIndexStore {
     }
 
     func saveWallpapers(_ wallpapers: [VideoWallpaper]) throws {
+        try queue.sync { try saveWallpapersInternal(wallpapers) }
+    }
+
+    func saveWallpapersAsync(
+        _ wallpapers: [VideoWallpaper],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        queue.async {
+            let result = Result { try self.saveWallpapersInternal(wallpapers) }
+            DispatchQueue.main.async { completion(result) }
+        }
+    }
+
+    private func saveWallpapersInternal(_ wallpapers: [VideoWallpaper]) throws {
         // 全量替换采用显式事务，避免中途失败写出半截索引。
-        try queue.sync {
-            try openIfNeeded()
-            // 全量替换 + sort_index 持久化，保证重排后的顺序可跨启动稳定恢复。
-            try exec("BEGIN IMMEDIATE TRANSACTION;")
-            do {
-                try exec("DELETE FROM wallpapers;")
-                try insertWallpapers(wallpapers)
-                try upsertMetaValue("1", forKey: "library_initialized")
-                try exec("COMMIT;")
-            } catch {
-                _ = try? exec("ROLLBACK;")
-                throw error
-            }
+        try openIfNeeded()
+        // 全量替换 + sort_index 持久化，保证重排后的顺序可跨启动稳定恢复。
+        try exec("BEGIN IMMEDIATE TRANSACTION;")
+        do {
+            try exec("DELETE FROM wallpapers;")
+            try insertWallpapers(wallpapers)
+            try upsertMetaValue("1", forKey: "library_initialized")
+            try exec("COMMIT;")
+        } catch {
+            _ = try? exec("ROLLBACK;")
+            throw error
         }
     }
 

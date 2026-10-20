@@ -83,7 +83,8 @@ extension WallpaperManager {
         // #11 修复：SQLite 加载改为异步，不阻塞主线程。
         // 启动时先用 UserDefaults 旧数据（毫秒级）让后续 init() 链路立即可用。
         // 没有旧数据时 wallpapers 保持空数组，loadSampleData 会注入内置示例。
-        if let legacyWallpapers: [VideoWallpaper] = loadCodableValue(forKey: wallpapersKey) {
+        let restoredFallback: [VideoWallpaper]? = loadCodableValue(forKey: wallpapersKey)
+        if let legacyWallpapers = restoredFallback {
             wallpapers = deduplicatedWallpapersByPath(legacyWallpapers.map(migratedBundledVideoWallpaper))
             scheduleMissingIndexedSourceFilesScan()
         }
@@ -91,8 +92,15 @@ extension WallpaperManager {
         // 后台异步加载 SQLite 索引，完成后回主线程替换。
         // init() 剩余链路（loadSampleData/loadTags/restorePlaybackState）基于同步阶段数据执行，
         // SQLite 回填后只替换 wallpapers 数组，不重新走整个启动链路。
+        let loadEpoch = wallpaperIndexSaveEpoch
         WallpaperIndexStore.shared.loadWallpapersAsync { [weak self] result in
-            guard let self else { return }
+            guard let self, self.wallpaperIndexSaveEpoch == loadEpoch else { return }
+            self.didFinishInitialIndexLoad = true
+            if restoredFallback != nil {
+                // 上次失败已保存的当前值（含空库）优先于较旧 SQLite；只在重提成功后清键。
+                self.saveWallpapers()
+                return
+            }
             switch result {
             case .success(let sqliteWallpapers) where !sqliteWallpapers.isEmpty:
                 let deduped = self.deduplicatedWallpapersByPath(self.migratedBundledVideoIndex(sqliteWallpapers))
@@ -114,7 +122,7 @@ extension WallpaperManager {
                         }
                         guard !updates.isEmpty else { return }
                         DispatchQueue.main.async { [weak self] in
-                            guard let self else { return }
+                            guard let self, self.wallpaperIndexSaveEpoch == loadEpoch else { return }
                             for update in updates {
                                 let normalized = self.normalizedPath(update.path)
                                 if let index = self.wallpapers.firstIndex(where: { self.normalizedPath($0.path) == normalized }) {
@@ -204,14 +212,62 @@ extension WallpaperManager {
     }
 
     func saveWallpapers() {
-        // 壁纸索引先写 SQLite，失败再回退到旧存储，保证不会因为后端异常丢库。
-        do {
-            try wallpaperIndexStore.saveWallpapers(wallpapers)
-            defaults.removeObject(forKey: wallpapersKey)
-        } catch {
-            // SQLite 不可用时兜底到旧存储路径，保证不丢数据。
-            saveCodableValue(wallpapers, forKey: wallpapersKey)
+        // 初次装载尚未结算时保留原同步保存语义；此处不另造启动库合并规则。
+        guard didFinishInitialIndexLoad else {
+            flushWallpaperIndex()
+            return
         }
+        wallpaperIndexSaveRevision &+= 1
+        pendingWallpaperIndexSave = WallpaperIndexSaveSnapshot(
+            wallpapers: wallpapers, revision: wallpaperIndexSaveRevision, epoch: wallpaperIndexSaveEpoch
+        )
+        submitPendingWallpaperIndexSave()
+    }
+
+    private func submitPendingWallpaperIndexSave() {
+        guard wallpaperIndexSaveInFlight == nil, let request = pendingWallpaperIndexSave else { return }
+        pendingWallpaperIndexSave = nil
+        wallpaperIndexSaveInFlight = request
+        wallpaperIndexStore.saveWallpapersAsync(request.wallpapers) { [weak self] result in
+            guard let self, self.wallpaperIndexSaveInFlight?.revision == request.revision,
+                  self.wallpaperIndexSaveInFlight?.epoch == request.epoch else { return }
+            self.wallpaperIndexSaveInFlight = nil
+            if self.wallpaperIndexSaveEpoch == request.epoch,
+               self.wallpaperIndexSaveRevision == request.revision {
+                self.applyWallpaperIndexSaveResult(result, snapshot: request.wallpapers)
+            }
+            self.submitPendingWallpaperIndexSave()
+        }
+    }
+
+    private func applyWallpaperIndexSaveResult(_ result: Result<Void, Error>, snapshot: [VideoWallpaper]) {
+        switch result {
+        case .success:
+            defaults.removeObject(forKey: wallpapersKey)
+        case .failure:
+            saveCodableValue(snapshot, forKey: wallpapersKey)
+        }
+    }
+
+    private func flushWallpaperIndex() {
+        // 最新值排在已提交事务之后；退出不能等回主队列的旧 completion。
+        wallpaperIndexSaveRevision &+= 1
+        pendingWallpaperIndexSave = nil
+        wallpaperIndexSaveInFlight = nil
+        let snapshot = wallpapers
+        do {
+            try wallpaperIndexStore.saveWallpapers(snapshot)
+            applyWallpaperIndexSaveResult(.success(()), snapshot: snapshot)
+        } catch {
+            applyWallpaperIndexSaveResult(.failure(error), snapshot: snapshot)
+        }
+    }
+
+    private func invalidateWallpaperIndexPersistence() {
+        wallpaperIndexSaveEpoch &+= 1
+        didFinishInitialIndexLoad = true
+        pendingWallpaperIndexSave = nil
+        // 旧事务仍占原槽直至完成，避免连续 reset 堆积并行保存。
     }
 
     func saveTags() {
@@ -467,7 +523,7 @@ extension WallpaperManager {
         recentWallpapersAutoSaveWorkItem = nil
         saveSettings()
         saveTags()
-        saveWallpapers()
+        flushWallpaperIndex()
         saveRecentWallpapers()
         savePlaybackState()
         saveActiveWallpaperRuntime()
@@ -507,6 +563,7 @@ extension WallpaperManager {
 
     func resetToFreshInstallState() {
         // 这里的语义是“重新安装级重置”，所以必须清掉库、缓存、最近使用、标签和运行中状态。
+        invalidateWallpaperIndexPersistence()
         settingsAutoSaveWorkItem?.cancel()
         settingsAutoSaveWorkItem = nil
         wallpapersAutoSaveWorkItem?.cancel()

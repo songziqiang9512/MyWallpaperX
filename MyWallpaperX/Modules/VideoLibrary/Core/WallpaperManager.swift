@@ -173,6 +173,16 @@ class WallpaperManager: ObservableObject {
     var thumbnailGenerationFailures: [String: Date] = [:]
     let thumbnailGenerationFailureLock = NSLock()
     var wallpapersAutoSaveWorkItem: DispatchWorkItem?
+    struct WallpaperIndexSaveSnapshot {
+        let wallpapers: [VideoWallpaper]
+        let revision: UInt64
+        let epoch: UInt64
+    }
+    var wallpaperIndexSaveRevision: UInt64 = 0
+    var wallpaperIndexSaveEpoch: UInt64 = 0
+    var didFinishInitialIndexLoad = false
+    var wallpaperIndexSaveInFlight: WallpaperIndexSaveSnapshot?
+    var pendingWallpaperIndexSave: WallpaperIndexSaveSnapshot?
     var recentWallpapersAutoSaveWorkItem: DispatchWorkItem?
     var settingsAutoSaveWorkItem: DispatchWorkItem?
     var pendingSystemWallpaperSyncWorkItem: DispatchWorkItem?
