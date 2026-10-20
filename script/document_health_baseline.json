@@ -86,7 +86,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 80484
+      "bytes": 81221
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 114128
+      "bytes": 114342
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 227,
-      "bytes": 67159
+      "bytes": 67294
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1475,27 +1475,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "1b8a28fe1d8af0fb6124100940e13e61f54003e4cf27ca2248fde3b11db89f07",
-      "after": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
       "before": "e77fa1c11d6a3b351cfee97cb134edab7621c18917091ac5c655620a4bec8fe1",
       "after": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "a7d4b3a7c69815c0888fd7ae96d0766ba2aacd2b3e4cca0d8a1cc2c3eed55699",
-      "after": "2f758cbc4bfb91cbc53d74e25d4f118642bd0ee940e8d2b4f9acea2cd20ab54b",
       "owner": "Scene script and Puppet playback owners",
       "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
@@ -1547,12 +1529,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
+      "after": "6cf9d3cec75e0c32e57053a0e82b2eb12b88a9ff90dd6a3acc1e091d92efdca0",
+      "owner": "scene-puppet-animation-auxiliary-profile",
+      "reason": "归并已执行官方API-only部分读回及明确STOP，保本机L0和未执行几何门，避免过时的下一步路线诱导重复实验；不是能力扩张。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#op-puppet-blend-shapes"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "2f758cbc4bfb91cbc53d74e25d4f118642bd0ee940e8d2b4f9acea2cd20ab54b",
+      "after": "ba2264878cba0d1eddc43362b2dd9359fceb9dd964aeca8ce2b2b1088c068f55",
+      "owner": "scene-puppet-animation-auxiliary-profile",
+      "reason": "归并已执行官方API-only部分读回及明确STOP，保本机L0和未执行几何门，避免过时的下一步路线诱导重复实验；不是能力扩张。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#op-puppet-blend-shapes"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4064b9f36b4835047e9099862b8c57fcbae85771c3c512d382032b787ff5a032",
-      "after": "f6ebf928588595f97dc3578a6db32fa64b1669c4543a9e264f1fbc037dbc868e",
-      "owner": "scene-dynamic-layer-visibility-admission",
-      "reason": "在既有权威同步严格quad准备与实际Program准入、真实sunrays整key切换和有界脚本/画面核查；保留未知和未验状态，不扩成整样本或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md"
+      "before": "f6ebf928588595f97dc3578a6db32fa64b1669c4543a9e264f1fbc037dbc868e",
+      "after": "36a629bd1970c8dadb95ec48bf0f7056bf8057d9fea768752eb048441629b032",
+      "owner": "scene-puppet-animation-auxiliary-profile",
+      "reason": "归并已执行官方API-only部分读回及明确STOP，保本机L0和未执行几何门，避免过时的下一步路线诱导重复实验；不是能力扩张。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#op-puppet-blend-shapes"
     }
   ]
 }
