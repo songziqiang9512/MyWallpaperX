@@ -187,7 +187,7 @@
       "path": "docs/development/apple-silicon-optimization-plan.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "本轮24项已逐项处置，且U1/U2持久化与旧尺寸补齐合同迁入原owner的稳定合同、相关设计登记替换或退役后归档；在此之前仅保留冻结结项与实施合同，不自动开启新队列，不维护第二份Scene长期选序或能力台账。"
+      "retirementCondition": "原24项及用户后继D阶段逐项处置、实施合同迁入原owner且设计登记完成替换/退役后归档；此前本页独占本轮顺序与状态，不维护第二份Scene长期选序或能力台账。"
     },
     {
       "path": "docs/development/repository-improvement.md",
@@ -511,12 +511,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e2051523e1ec13e0bc6892074001b216a6ea9f7484076e074024d2a487643a65",
+        "sourceSHA256": "f29a91f9dbbf1d41a0bffe720c2036f4dfcf676c6784012961533058e30d40fd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current Web grants/cache rejection/recovery and Scene cooperative cancellation boundaries documented at existing owners.",
+        "scope": "现Scene准备token接入capability批次、并行完整join及原Host退出/失败边界；当前输入/输出行为门和文档路由核对。",
         "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
       }
     },

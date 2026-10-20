@@ -714,7 +714,6 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         ]))
         sources = builder.SWIFT_SOURCES + [
             REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
-            SCENE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift",
             SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",

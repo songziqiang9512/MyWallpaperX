@@ -57,6 +57,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
+    SOURCE_ROOT / "Format/SceneMdlPuppetAnimation.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -74,6 +75,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Input/SceneLayerParallax.swift",
     SOURCE_ROOT / "Rendering/Geometry/SceneMatrix.swift",
     SOURCE_ROOT / "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
+    SOURCE_ROOT / "Systems/Puppet/ScenePuppetAnimationSelection.swift",
     SOURCE_ROOT / "Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
     SOURCE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan.swift",
@@ -95,6 +97,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    SOURCE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingProgram.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
@@ -619,6 +622,12 @@ def layer_result(payload: dict, layer_id: int) -> dict:
 _force_source = (SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift").read_text()
 _environment_start = _force_source.index("nonisolated struct SceneParticleControlPointForceEnvironment:")
 HARNESS_SOURCE = _force_source[_environment_start:_force_source.index("\n}", _environment_start) + 2] + "\n" + HARNESS_SOURCE
+
+# Scalar preparation uses this production identity proof. Retain the complete
+# method from its owner; the remaining bridge methods require the VM, which is
+# outside this builder fixture's existing runtime leaves.
+_animation_bridge = (SOURCE_ROOT / "Systems/Script/SceneScriptPuppetAnimationBridge.swift").read_text()
+HARNESS_SOURCE = _animation_bridge[:_animation_bridge.index("    static func configure(")] + "}\n" + HARNESS_SOURCE
 
 
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):

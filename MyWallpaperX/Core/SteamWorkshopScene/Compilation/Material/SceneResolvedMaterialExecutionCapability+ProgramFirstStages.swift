@@ -52,66 +52,82 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int,
         maximumStageWorkers: Int = 1,
-        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
-    ) -> Result<CompiledStages, Rejection> {
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer,
+        cancellationCheck: (() throws -> Void)? = nil
+    ) throws -> Result<CompiledStages, Rejection> {
         // Stage inputs are immutable and do not consume another stage's
         // compiler result. Prepare independently, then fold in authored order
         // so identity checks, the first failure and dependency ownership keep
         // exactly one deterministic authority.
         let workers = min(max(maximumStageWorkers, 1), admitted.products.count)
         let resultLock = NSLock()
+        var preparationError: Error?
         var programResults = Array<Result<CompiledStages, Rejection>?>(
             repeating: nil, count: admitted.products.count
         )
         DispatchQueue.concurrentPerform(iterations: workers) { worker in
             for index in stride(from: worker, to: admitted.products.count, by: workers) {
-                let product = admitted.products[index]
-                guard let effect = product.graph.effects.first,
-                      admitted.unavailableDependencyStageReasons[effect.key] == nil else {
-                    continue
+                do {
+                    try resultLock.withLock {
+                        if let preparationError { throw preparationError }
+                        try cancellationCheck?()
+                    }
+                    let product = admitted.products[index]
+                    guard let effect = product.graph.effects.first,
+                          admitted.unavailableDependencyStageReasons[effect.key] == nil else {
+                        continue
+                    }
+                    let initiallyInactive = admitted.initiallyInactiveEffectKeys.contains(effect.key)
+                    // The renderer captures the layer/main target exactly once into
+                    // the pair member identified by baseCaptureIdentity. Every later
+                    // effect consumes the preceding effect output already resident in
+                    // that pair, so it must not be required to prove the original
+                    // layer source route again.
+                    let stageSourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute =
+                        effect.input == admitted.pairPlan.baseCaptureIdentity
+                            ? admitted.sourceRoute
+                            : .capturedLayerTexture
+                    let singleStage = SceneResolvedMaterialAdmittedLayer(
+                        layerID: admitted.layerID,
+                        products: [product],
+                        pairPlan: admitted.pairPlan,
+                        dependencyOwnership: admitted.dependencyOwnership,
+                        unavailableDependencyStageReasons:
+                            admitted.unavailableDependencyStageReasons.filter {
+                                $0.key == effect.key
+                            },
+                        initiallyInactiveEffectKeys:
+                            initiallyInactive ? [effect.key] : [],
+                        sourceRoute: stageSourceRoute,
+                        isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
+                        isGraphOutputProvider: admitted.isGraphOutputProvider,
+                        requiresGraphOutputProvider:
+                            admitted.requiresGraphOutputProvider,
+                        terminalReplayBlendMode: admitted.terminalReplayBlendMode
+                    )
+                    let programResult = try compileStages(
+                        singleStage,
+                        materialCatalog: materialCatalog,
+                        demandIssues: demandIssues,
+                        dynamicProducers: dynamicProducers,
+                        assetFormatFacts: assetFormatFacts,
+                        assetStates: assetStates,
+                        systemProviderStates: systemProviderStates,
+                        maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+                        backbufferFormat: backbufferFormat,
+                        cancellationCheck: cancellationCheck
+                    )
+                    resultLock.withLock { programResults[index] = programResult }
+                } catch {
+                    resultLock.withLock {
+                        if preparationError == nil { preparationError = error }
+                    }
+                    return
                 }
-                let initiallyInactive = admitted.initiallyInactiveEffectKeys.contains(effect.key)
-                // The renderer captures the layer/main target exactly once into
-                // the pair member identified by baseCaptureIdentity. Every later
-                // effect consumes the preceding effect output already resident in
-                // that pair, so it must not be required to prove the original
-                // layer source route again.
-                let stageSourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute =
-                    effect.input == admitted.pairPlan.baseCaptureIdentity
-                        ? admitted.sourceRoute
-                        : .capturedLayerTexture
-                let singleStage = SceneResolvedMaterialAdmittedLayer(
-                    layerID: admitted.layerID,
-                    products: [product],
-                    pairPlan: admitted.pairPlan,
-                    dependencyOwnership: admitted.dependencyOwnership,
-                    unavailableDependencyStageReasons:
-                        admitted.unavailableDependencyStageReasons.filter {
-                            $0.key == effect.key
-                        },
-                    initiallyInactiveEffectKeys:
-                        initiallyInactive ? [effect.key] : [],
-                    sourceRoute: stageSourceRoute,
-                    isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
-                    isGraphOutputProvider: admitted.isGraphOutputProvider,
-                    requiresGraphOutputProvider:
-                        admitted.requiresGraphOutputProvider,
-                    terminalReplayBlendMode: admitted.terminalReplayBlendMode
-                )
-                let programResult = compileStages(
-                    singleStage,
-                    materialCatalog: materialCatalog,
-                    demandIssues: demandIssues,
-                    dynamicProducers: dynamicProducers,
-                    assetFormatFacts: assetFormatFacts,
-                    assetStates: assetStates,
-                    systemProviderStates: systemProviderStates,
-                    maximumVariantsPerMaterial: maximumVariantsPerMaterial,
-                    backbufferFormat: backbufferFormat
-                )
-                resultLock.withLock { programResults[index] = programResult }
             }
         }
+        if let preparationError { throw preparationError }
+        try cancellationCheck?()
         var stages: [StageCapability] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
         for (index, product) in admitted.products.enumerated() {

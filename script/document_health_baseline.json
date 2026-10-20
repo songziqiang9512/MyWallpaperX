@@ -61,8 +61,8 @@
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 214,
-      "bytes": 22435
+      "lines": 218,
+      "bytes": 23416
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 427,
-      "bytes": 66817
+      "lines": 438,
+      "bytes": 69628
     }
   },
   "archives": [
@@ -1367,15 +1367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "6aa2744c72543945739b58eb1fc647e08d312c5624f6d99e27bf9bd502e77c49",
-      "after": "7f0227bfd4d6d59474a9b502e11008e44ca2143bc6e3d5ecef956dac15d1c1ec",
-      "owner": "playback-preparation-convergence",
-      "reason": "Document cooperative preparation cancellation boundaries and preserved checks/drain limits.",
-      "decision": "docs/history/cross-topic/playback-preparation-convergence-2026-10-19.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/release/release-signing.md",
       "before": "4025b98b8bbef50c6e21b00be89f8a690b753dd08ec6b52da3f671e8cfde73c4",
       "after": "0ac2e496107cdf2370f54b4e6b62e591e4202d1f4db53661722a219414bdbabd",
@@ -1538,20 +1529,29 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "ed7d1c6a223ec385d29754b6374064d5bfc1af0814fbab345d3bd35d5b57a85d",
-      "after": "7b416a87896891e73382ae41f8fff798d27860dec17ef11f283bd6e007c9692f",
+      "path": "docs/web/current-state.md",
+      "before": "a9b8e6c35cff47f961b7244b898e5542b663fcb0fe93b519b4385d7ee79df4db",
+      "after": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
       "owner": "apple-silicon-performance",
       "reason": "D3有界Range交付与连接stop闭环经过真实scheme/TCP及独审，补实际成本/未测边界并关闭本批D处置。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "a9b8e6c35cff47f961b7244b898e5542b663fcb0fe93b519b4385d7ee79df4db",
-      "after": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "7b416a87896891e73382ae41f8fff798d27860dec17ef11f283bd6e007c9692f",
+      "after": "70719059ff463a681b1d00ae1654ce0721b9c0c79d8504b1246e4b5fa356c414",
       "owner": "apple-silicon-performance",
-      "reason": "D3有界Range交付与连接stop闭环经过真实scheme/TCP及独审，补实际成本/未测边界并关闭本批D处置。",
+      "reason": "用户授权继续D7同次严格syntax复用与D8准备批次取消；原owner内补职责、失败/join边界及实际门，保留旧STOP和未验范围。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "7f0227bfd4d6d59474a9b502e11008e44ca2143bc6e3d5ecef956dac15d1c1ec",
+      "after": "a9fb34fedb1cfcac939840ca963afd281811cbb38761a529e0ceb86777ecf597",
+      "owner": "apple-silicon-performance",
+      "reason": "用户授权继续D7同次严格syntax复用与D8准备批次取消；原owner内补职责、失败/join边界及实际门，保留旧STOP和未验范围。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]

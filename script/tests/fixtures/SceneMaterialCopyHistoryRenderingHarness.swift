@@ -419,7 +419,7 @@ private func capabilities(
         descriptor: descriptor(for: graph),
         authoredPlans: [graph]
     )
-    return .init(
+    return try! .init(
         admissionCandidates: candidates,
         materialCatalog: catalog(
             for: graph,

@@ -9,7 +9,7 @@ import Metal
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue()
         else { fatalError("terminal seal behavior requires Metal") }
         let owner = SceneResolvedMaterialSubmissionCoordinator(device: device,
-            capabilities: .init(admissionCandidates: [],
+            capabilities: try .init(admissionCandidates: [],
                 materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
             capturesExecutionObservations: false, logSink: { _ in })
         let renderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: false,

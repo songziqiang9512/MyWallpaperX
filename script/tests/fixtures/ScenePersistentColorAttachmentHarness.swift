@@ -206,7 +206,7 @@ import CoreGraphics
 
             // Real terminal, pool and submission owners. No graph/history is invented.
             typealias Coordinator = SceneResolvedMaterialSubmissionCoordinator
-            let owner = Coordinator(device: device, capabilities: .init(admissionCandidates: [],
+            let owner = Coordinator(device: device, capabilities: try .init(admissionCandidates: [],
                 materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
                 capturesExecutionObservations: false, logSink: { _ in })
             let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float,

@@ -226,7 +226,7 @@ import Metal
         let device = MTLCreateSystemDefaultDevice()!, queue = device.makeCommandQueue()!
         let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float,
             maxDimension: 16, residentByteBudget: 4096)
-        let owner = Coordinator(device: device, capabilities: .init(admissionCandidates: [],
+        let owner = Coordinator(device: device, capabilities: try .init(admissionCandidates: [],
             materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
             capturesExecutionObservations: false, logSink: { _ in })
         let renderer = SceneMetalRenderer(renderDescriptor: .init(hdrEnabled: false,

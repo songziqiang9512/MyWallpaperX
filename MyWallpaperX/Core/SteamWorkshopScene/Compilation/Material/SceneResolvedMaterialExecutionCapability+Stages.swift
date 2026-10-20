@@ -253,8 +253,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int,
-        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
-    ) -> Result<CompiledStages, Rejection> {
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer,
+        cancellationCheck: (() throws -> Void)? = nil
+    ) throws -> Result<CompiledStages, Rejection> {
         guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
             return .failure(rejection("material-variant-envelope-capacity"))
         }
@@ -262,11 +263,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         var stages: [StageCapability] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
         for product in admitted.products {
+            try cancellationCheck?()
             guard let effect = product.graph.effects.first else {
                 return .failure(rejection("stage-effect-identity-missing"))
             }
 
-            switch compileMaterials(
+            switch try compileMaterials(
                 product,
                 materialCatalog: materialCatalog,
                 demandIssues: demandIssues,
@@ -277,7 +279,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 existingKeys: Set(allMaterials.keys),
                 sourceRoute: admitted.sourceRoute,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial,
-                backbufferFormat: backbufferFormat
+                backbufferFormat: backbufferFormat,
+                cancellationCheck: cancellationCheck
             ) {
             case .failure(let failure):
                 return .failure(failure)
@@ -319,8 +322,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         existingKeys: Set<MaterialKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         maximumVariantsPerMaterial: Int,
-        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
-    ) -> Result<[MaterialKey: MaterialCapability], Rejection> {
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer,
+        cancellationCheck: (() throws -> Void)? = nil
+    ) throws -> Result<[MaterialKey: MaterialCapability], Rejection> {
         guard let effect = product.graph.effects.first else {
             return .failure(rejection("material-template-unsupported"))
         }
@@ -353,6 +357,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
                 continue
             }
+            try cancellationCheck?()
             let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
             guard let template =
                     SceneResolvedMaterialExecutionCapabilityTemplateAdmission.resolve(

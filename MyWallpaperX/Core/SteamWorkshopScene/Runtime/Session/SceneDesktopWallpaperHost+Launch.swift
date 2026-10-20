@@ -598,7 +598,7 @@ extension SceneDesktopWallpaperHost {
             cancellationCheck: { try cancellation?.check() }
         )
         let provisionalMaterialExecutionCapabilities =
-            SceneResolvedMaterialExecutionCapabilityCatalog(
+            try SceneResolvedMaterialExecutionCapabilityCatalog(
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
                 materialCatalog: resolvedMaterialCatalog,
                 dynamicProducers: .init(
@@ -613,7 +613,8 @@ extension SceneDesktopWallpaperHost {
                 systemProviderStates: stockNoiseTextures.states,
                 dynamicVisibleRootLayerIDs:
                     projectedLayerVisibilityRootLayerIDs,
-                backbufferFormat: runtimeInput.renderDescriptor.colorTargetFormat
+                backbufferFormat: runtimeInput.renderDescriptor.colorTargetFormat,
+                cancellationCheck: { try cancellation?.check() }
             )
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=capability-catalog elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)

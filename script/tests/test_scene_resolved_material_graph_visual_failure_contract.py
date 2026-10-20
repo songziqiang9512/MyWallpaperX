@@ -132,6 +132,24 @@ def compile_harness(support_text: str, harness_text: str, additional_sources=())
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
+    def test_program_preparation_cancellation_stops_batches_after_join(self) -> None:
+        from script.tests import test_scene_resolved_material_graph_executor as base
+
+        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
+        self.assertTrue(marker)
+        fixture = Path(__file__).with_name("fixtures") / "SceneProgramPreparationCancellationHarness.swift"
+        compilation, completed = base.compile_harness(
+            base.SUPPORT, prefix + fixture.read_text(encoding="utf-8"),
+            additional_sources=[SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift"],
+        )
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(len(payload["checks"]), 12, payload)
+        self.assertTrue(all(payload["checks"].values()), payload)
+
     def test_launch_texture_binding_failure_keeps_healthy_effect_stages(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as base
 

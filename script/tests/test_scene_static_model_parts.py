@@ -248,10 +248,7 @@ BUILDER_MAIN=r'''
 def builder_support():
     s=builder.HARNESS_SOURCE.split('@main',1)[0]
     start=s.index('enum SceneMdlStaticModelReader {');end=s.index('nonisolated struct SceneScriptScalarProgram',start)
-    force=(builder.SOURCE_ROOT/'Systems/Particles/SceneParticleControlPointForce.swift').read_text()
-    environment_start=force.index('nonisolated struct SceneParticleControlPointForceEnvironment:')
-    environment=force[environment_start:force.index('\n}',environment_start)+2]
-    return environment+'\n'+s[:start]+s[end:]+BUILDER_MAIN
+    return s[:start]+s[end:]+BUILDER_MAIN
 
 
 class SceneModelPartsDependencyTests(unittest.TestCase):

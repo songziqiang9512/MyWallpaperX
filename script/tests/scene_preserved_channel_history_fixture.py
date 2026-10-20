@@ -419,7 +419,7 @@ private func capabilities(
             functions: nil
         )]
     )
-    return .init(
+    return try! .init(
         admissionCandidates:
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: descriptor,

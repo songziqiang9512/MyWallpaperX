@@ -346,8 +346,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int = 16,
         dynamicVisibleRootLayerIDs: Set<Int> = [],
-        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
-    ) {
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer,
+        cancellationCheck: (() throws -> Void)? = nil
+    ) throws {
         self.dynamicVisibleRootLayerIDs = dynamicVisibleRootLayerIDs
         let demandIssues = materialCatalog.resourceDemandIssues
         candidateCount = admissionCandidates.count
@@ -359,6 +360,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         var visualFailurePassthroughs: [String: Int] = [:]
         var initiallyInactivePassthroughs: [String: Int] = [:]
         let preparationLock = NSLock()
+        var preparationError: Error?
         var preparations = Array<Result<CompiledStages, Rejection>?>(
             repeating: nil,
             count: admissionCandidates.count
@@ -379,25 +381,41 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             let stageWorkers = workerBudget / layerWorkers
                 + (worker < workerBudget % layerWorkers ? 1 : 0)
             for offset in stride(from: worker, to: admittedIndices.count, by: layerWorkers) {
-                let index = admittedIndices[offset]
-                guard case let .success(admitted) = admissionCandidates[index].result else {
-                    continue
+                do {
+                    try preparationLock.withLock {
+                        if let preparationError { throw preparationError }
+                        try cancellationCheck?()
+                    }
+                    let index = admittedIndices[offset]
+                    guard case let .success(admitted) = admissionCandidates[index].result else {
+                        continue
+                    }
+                    let result = try Self.compileProgramFirstStages(
+                        admitted,
+                        materialCatalog: materialCatalog,
+                        demandIssues: demandIssues,
+                        dynamicProducers: dynamicProducers,
+                        assetFormatFacts: assetFormatFacts,
+                        assetStates: assetStates,
+                        systemProviderStates: systemProviderStates,
+                        maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+                        maximumStageWorkers: stageWorkers,
+                        backbufferFormat: backbufferFormat,
+                        cancellationCheck: cancellationCheck
+                    )
+                    preparationLock.withLock { preparations[index] = result }
+                } catch {
+                    preparationLock.withLock {
+                        if preparationError == nil { preparationError = error }
+                    }
+                    return
                 }
-                let result = Self.compileProgramFirstStages(
-                    admitted,
-                    materialCatalog: materialCatalog,
-                    demandIssues: demandIssues,
-                    dynamicProducers: dynamicProducers,
-                    assetFormatFacts: assetFormatFacts,
-                    assetStates: assetStates,
-                    systemProviderStates: systemProviderStates,
-                    maximumVariantsPerMaterial: maximumVariantsPerMaterial,
-                    maximumStageWorkers: stageWorkers,
-                    backbufferFormat: backbufferFormat
-                )
-                preparationLock.withLock { preparations[index] = result }
             }
         }
+        // concurrentPerform joins every entered worker before cancellation
+        // escapes. Never fold a cancelled partial result into visual failure.
+        if let preparationError { throw preparationError }
+        try cancellationCheck?()
         for (index, candidate) in admissionCandidates.enumerated() {
             switch candidate.result {
             case let .failure(failure):

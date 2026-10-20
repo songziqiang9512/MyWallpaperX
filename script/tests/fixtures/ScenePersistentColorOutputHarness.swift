@@ -7,7 +7,7 @@ import Metal
         else { fatalError("RF07 requires Metal") }
         typealias Coordinator = SceneResolvedMaterialSubmissionCoordinator
         func coordinator() -> Coordinator {
-            Coordinator(device: device, capabilities: .init(admissionCandidates: [],
+            Coordinator(device: device, capabilities: try! .init(admissionCandidates: [],
                 materialCatalog: .init(entries: [:], resourceDemandIssues: [])),
                 capturesExecutionObservations: false, logSink: { _ in })
         }

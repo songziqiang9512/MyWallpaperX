@@ -87,6 +87,10 @@ launch仅一次投影选层binding的target/type、authored base、composition�
 
 取消沿原请求 token 在完整同步准备阶段、直接模型和材质 pass 的边界合作检查，不能等完整 ModelBuilder 结束才发现过期。检查放在普通读取失败的 `try?`/catch 之外，原取消错误必须上抛，不得翻译成缺资源或视觉降级。保留每份资源及接口证明，不承诺抢占单次 reader、hash 或 flock；取消后的资源释放仍等待原 preparation 队列尾屏障与 GPU drain，不能为提早响应提前释放租约。
 
+Program capability 准备沿用该 token，在领取下一 layer、stage 或 material 批次前合作检查；编译层只接收原 throwing check，不拥有第二份请求状态。并行入口用原结果锁保存首个取消错误，停止领取后继批次；已经进入的同步工作允许完成，原四 worker 总预算、作者顺序归并及完整 join 不变。join 后在归并或发布部分 capability 前上抛原错误，不能将取消折成 `Rejection`、缺失结果或视觉 passthrough。取消上下文只属于本次调用，不能污染后继请求。
+
+本边界不进入单个 variant envelope、negative cache、single-flight wait 或 RuntimeCatalog/AssetCatalog；其锁、发布、唤醒与失败语义保留。行为门使用真实 capability/stage/material 链和受控目录读取叶，验证取消分类、后继批次停止、在飞工作 join、普通结果和下一次调用；这不证明单次编译可抢占或实际切换耗时已改善。
+
 ### 4.2 两阶段准备与提交
 
 ```text

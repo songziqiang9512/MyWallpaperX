@@ -695,17 +695,21 @@ struct SceneResolvedMaterialRuntimeCatalog {
 
     let entries: [Key: Entry]
     let resourceDemandIssues: Set<ResourceDemandIssue>
+    let entryObserver: ((Graph.Node) -> Void)?
 
     init(
         entries: [Key: Entry],
-        resourceDemandIssues: Set<ResourceDemandIssue> = []
+        resourceDemandIssues: Set<ResourceDemandIssue> = [],
+        entryObserver: ((Graph.Node) -> Void)? = nil
     ) {
         self.entries = entries
         self.resourceDemandIssues = resourceDemandIssues
+        self.entryObserver = entryObserver
     }
 
     func entry(for node: Graph.Node) -> Entry? {
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
+        entryObserver?(node)
+        return entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
     }
 
     func admittedEntry(
@@ -4175,7 +4179,7 @@ private func capabilities(
             return .init(layerID: candidate.layerID, result: .success(marked))
         }
     }
-    return .init(
+    return try! .init(
         admissionCandidates: candidates,
         materialCatalog: catalog,
         dynamicProducers: dynamicProducers,
@@ -5383,8 +5387,8 @@ private enum Harness {
                 requiresGraphOutputProvider: false
             )
         }
-        let downgradeStageResult = downgradeAdmitted.map {
-            SceneResolvedMaterialExecutionCapabilityCatalog
+        let downgradeStageResult = try downgradeAdmitted.map {
+            try SceneResolvedMaterialExecutionCapabilityCatalog
                 .compileProgramFirstStages(
                     $0,
                     materialCatalog: catalog(
@@ -5398,8 +5402,8 @@ private enum Harness {
                     maximumVariantsPerMaterial: 16
                 )
         }
-        let parallelDowngradeStageResult = downgradeAdmitted.map {
-            SceneResolvedMaterialExecutionCapabilityCatalog
+        let parallelDowngradeStageResult = try downgradeAdmitted.map {
+            try SceneResolvedMaterialExecutionCapabilityCatalog
                 .compileProgramFirstStages(
                     $0,
                     materialCatalog: catalog(
