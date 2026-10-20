@@ -1271,16 +1271,18 @@
     },
     "3027068980": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-19",
-      "reviewer": "Codex native_camera_app_sol（代理原图审查）",
-      "note": "人物、星与白细环可见；216/328准备和命名target链有拒绝，不将参考环高差直接归因，音频未锁。",
-      "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
+      "reviewedOn": "2026-10-20",
+      "reviewer": "Codex root与独立Sol审查（受控当前封面/无媒体及最终原图）",
+      "note": "216/328旧准备守恒与命名绑定首拒已退出；同project/PKG的自有梯度当前封面由白占位恢复紫至蓝灰，白边/标题/人物/星环保持。无媒体正确无封面；216默认隐藏，不假称它可见恢复。",
+      "remainingDifferences": "只关闭同provider graph-final精确多槽及受控当前封面路径；上一封面切换、真实播放器来源、全部属性/交互、pending资源组合、HDR与官方同audio/pointer/phase/viewport未验，圆环宽形差异未归因；无性能结论。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
+        ".artifacts/scene-evidence/runs/optional-graph-output-slot-vector-20261020/current/report.json"
       ],
       "evidence": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
+        ".artifacts/scene-evidence/runs/optional-graph-output-slot-vector-20261020/current/samples/3027068980/runtime_evidence.zip"
       ]
     },
     "3039704323": {

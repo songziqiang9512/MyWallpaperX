@@ -75,6 +75,9 @@ extension SceneDependencyRenderPlan {
             guard let binding = executableBinding(
                 for: layer,
                 references: [reference],
+                directReferences: productReferences.filter {
+                    $0.consumerLayerID == layer.id
+                },
                 layersByID: layersByID,
                 order: order,
                 visibleLayerIDs: visibleLayerIDs,
@@ -167,22 +170,27 @@ extension SceneDependencyRenderPlan {
     /// hidden graph provider: reachability is established by the surrounding
     /// dependency plan, while this helper only proves the provider publication
     /// contract.
-    nonisolated static func visibleImageGraphOutputReference(
+    nonisolated static func visibleImageGraphOutputReferences(
         layer: SceneRenderDescriptor.Layer,
         visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer],
         visibleLayerIDs: Set<Int>
-    ) -> Reference? {
+    ) -> [Reference]? {
         guard layer.contentKind == "image",
               hasNoUtilityLayer(layer),
               layer.childLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty,
-              references.count == 1,
+              !references.isEmpty,
+              Set(references).count == references.count,
               let reference = references.first,
-              reference.variant == .primary,
-              reference.slot.passIndex == 0,
-              reference.slot.slotIndex == 1,
+              references.allSatisfy({
+                  $0.consumerLayerID == layer.id
+                      && $0.providerLayerID == reference.providerLayerID
+                      && $0.variant == .primary
+                      && $0.slot.passIndex == 0
+                      && $0.slot.slotIndex == 1
+              }),
               activeDependencyProviderLayerIDs(
                   layer: layer,
                   references: references
@@ -194,26 +202,28 @@ extension SceneDependencyRenderPlan {
               ) else {
             return nil
         }
-        let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
-        guard effects.count == 1, let effect = effects.first,
-              effect.passes.count == 1 else { return nil }
-        let passes = effect.passes.filter {
-            $0.passIndex == reference.slot.passIndex
+        // Optional references arrive from a set after Program admission.
+        // Reconstruct their exact vector from authored effect order once;
+        // the caller preserves the original direct input anchor separately.
+        var ordered: [Reference] = []
+        for effect in visibleEffects {
+            let matches = references.filter { $0.slot.effectID == effect.id }
+            guard matches.count <= 1 else { return nil }
+            guard let item = matches.first else { continue }
+            guard effect.passes.count == 1, let pass = effect.passes.first,
+                  pass.passIndex == item.slot.passIndex,
+                  pass.textureSlots.indices.contains(item.slot.slotIndex),
+                  let path = pass.textureSlots[item.slot.slotIndex],
+                  SceneNamedTextureReference.parse(path) == .init(
+                      providerLayerID: item.providerLayerID, variant: .primary
+                  ), SceneNamedTextureDependencyReferenceAnalysis
+                    .userTextureAllowsNamedFallback(
+                        slotIndex: item.slot.slotIndex, pass: pass
+                    ) else { return nil }
+            ordered.append(item)
         }
-        guard passes.count == 1, let pass = passes.first,
-              pass.textureSlots.indices.contains(reference.slot.slotIndex),
-              let path = pass.textureSlots[reference.slot.slotIndex],
-              SceneNamedTextureReference.parse(path) == .init(
-                  providerLayerID: reference.providerLayerID,
-                  variant: .primary
-              ), SceneNamedTextureDependencyReferenceAnalysis
-                .userTextureAllowsNamedFallback(
-                    slotIndex: reference.slot.slotIndex,
-                    pass: pass
-                ) else {
-            return nil
-        }
-        return reference
+        return ordered.count == references.count && Set(ordered) == Set(references)
+            ? ordered : nil
     }
 
     /// A visible image can publish only its already-admitted graph-final output

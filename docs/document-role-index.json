@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2c5b178fd1e4b6dde11bd4a40ace32290ff634e7e25cbdc0f986368fe72310e3",
+        "sourceSHA256": "a5733bc9b5ae64a75b15306830c40daab221cb7d7d6ea4a380d8abdee0f0a95d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步唯一audio-array源码视图、共享数值类型与普通颜色启动边界；338实际Program执行与可见收益UNKNOWN分开，旧首拒退出队列。导航及源身份审计，其余合同未重审。",
-        "limitations": "官方RDEF仅证明自有编译布局，声音正控失败；最终App仅338执行及381健康邻例，JPEG为有损review。未证明338新增可见收益、FFT/上传顺序、完整phase/HDR/整景或性能。"
+        "scope": "同provider visible graph-final精确多槽设计与原owner接线；302当前封面实际收益/无媒体/381邻例、原失败及独审边界，旧216328首拒退出。仅定点导航/source identity核对，其余正文未重审。",
+        "limitations": "CPU Plan的typed admitted seam不代媒体实物；受控当前封面不代上一封面转场、真实播放器、官方同audio/pointer/phase/HDR/整景或性能。JPEG仅有损review，原PNG hash与输入/App身份保正式包。"
       }
     },
     {
@@ -828,10 +828,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "117799008fd292c523f7c2927941e28192202df918c93b2f789367ccdcdda13a",
+        "sourceSHA256": "3666ccfb5c6ddd07f32e36fae4abf35f22b6799506f09b2c5296e6a9940c30ff",
         "method": "document_registry --audit + document_health --check",
-        "scope": "338旧执行拒绝有界退出；actual Program/GPU与可见收益UNKNOWN分开，人工unreviewed保持。302旧阶段守恒另行fresh资格；当前仅导航与证据指针复核，其余条目未重审。",
-        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
+        "scope": "同provider visible graph-final精确多槽设计与原owner接线；302当前封面实际收益/无媒体/381邻例、原失败及独审边界，旧216328首拒退出。仅定点导航/source identity核对，其余正文未重审。",
+        "limitations": "CPU Plan的typed admitted seam不代媒体实物；受控当前封面不代上一封面转场、真实播放器、官方同audio/pointer/phase/HDR/整景或性能。JPEG仅有损review，原PNG hash与输入/App身份保正式包。"
       }
     },
     {
@@ -3524,13 +3524,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "播放器来源进入现役合同并完成真实换曲、权限、来源切换及退出验收后归档；未覆盖播放器仍保留能力缺口。",
-      "lastReviewed": "2026-10-09",
+      "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "43562317bef120685216c838fc9c37852d3c20427b0f4693a259ae0e855b6758",
+        "sourceSHA256": "5ad952ecffd106cae7577eddd6a41d1e8c805329770716467256431d1650878c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对媒体来源仲裁、封面替换与Single重播的限定证据及U12剩余导航。",
-        "limitations": "仅导航与当前修复证据边界核对；不代表全样本、真实播放器或官方parity验收。"
+        "scope": "同provider visible graph-final精确多槽设计与原owner接线；302当前封面实际收益/无媒体/381邻例、原失败及独审边界，旧216328首拒退出。仅定点导航/source identity核对，其余正文未重审。",
+        "limitations": "CPU Plan的typed admitted seam不代媒体实物；受控当前封面不代上一封面转场、真实播放器、官方同audio/pointer/phase/HDR/整景或性能。JPEG仅有损review，原PNG hash与输入/App身份保正式包。"
       }
     },
     {
@@ -3625,10 +3625,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cb4defde56032ed3116ae7acc5fb9b26d684f588bc7b34a1b52bb65493ebb495",
+        "sourceSHA256": "8e70b822c7fbb99cf13d88b3bb61f3b39f52798eb87b294a5c96590141c54e07",
         "method": "document_registry --audit + document_health --check",
-        "scope": "338旧执行拒绝有界退出；actual Program/GPU与可见收益UNKNOWN分开，人工unreviewed保持。302旧阶段守恒另行fresh资格；当前仅导航与证据指针复核，其余条目未重审。",
-        "limitations": "Navigation/source identity only; runtime witnesses retain their individual source identity. No whole sample, official phase, Release playback, HDR or performance claim."
+        "scope": "同provider visible graph-final精确多槽设计与原owner接线；302当前封面实际收益/无媒体/381邻例、原失败及独审边界，旧216328首拒退出。仅定点导航/source identity核对，其余正文未重审。",
+        "limitations": "CPU Plan的typed admitted seam不代媒体实物；受控当前封面不代上一封面转场、真实播放器、官方同audio/pointer/phase/HDR/整景或性能。JPEG仅有损review，原PNG hash与输入/App身份保正式包。"
       }
     },
     {

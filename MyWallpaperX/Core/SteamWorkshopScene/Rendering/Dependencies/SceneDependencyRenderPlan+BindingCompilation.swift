@@ -112,11 +112,11 @@ extension SceneDependencyRenderPlan {
             }
         )
         let visibleGraphOutputReferences: Set<Reference> = Set(
-            descriptor.layers.compactMap { layer in
+            descriptor.layers.flatMap { layer -> [Reference] in
                 guard reachableConsumerLayerIDs.contains(layer.id) else {
-                    return nil
+                    return []
                 }
-                return Self.visibleImageGraphOutputReference(
+                return Self.visibleImageGraphOutputReferences(
                     layer: layer,
                     visibleEffects: Self.admittedConsumerEffects(
                         layer,
@@ -127,7 +127,7 @@ extension SceneDependencyRenderPlan {
                     references: referencesByConsumer[layer.id] ?? [],
                     layersByID: layersByID,
                     visibleLayerIDs: visibleLayerIDs
-                )
+                ) ?? []
             }
         )
         let passthroughSafeGraphOutputProviderLayerIDs = Set(
@@ -157,6 +157,9 @@ extension SceneDependencyRenderPlan {
             guard let binding = Self.executableBinding(
                 for: layer,
                 references: layerReferences,
+                directReferences: productReferences.filter {
+                    $0.consumerLayerID == layer.id
+                },
                 layersByID: layersByID,
                 order: order,
                 visibleLayerIDs: visibleLayerIDs,
@@ -363,6 +366,7 @@ extension SceneDependencyRenderPlan {
     nonisolated static func executableBinding(
         for layer: SceneRenderDescriptor.Layer,
         references: [Reference],
+        directReferences: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer],
         order: [Int: Int],
         visibleLayerIDs: Set<Int>,
@@ -398,6 +402,7 @@ extension SceneDependencyRenderPlan {
             kind: Binding.Kind,
             requiresResolvedMaterialProgram: Bool
         )?
+        var graphOutputReferenceSlots: [SceneEffectPassSlot] = []
         if let reference = materialProgramSolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
@@ -464,14 +469,22 @@ extension SceneDependencyRenderPlan {
             visibleLayerIDs: visibleLayerIDs
         ) {
             contract = (reference, 0, .geometryLayer, true)
-        } else if let reference = visibleImageGraphOutputReference(
+        } else if let graphReferences = visibleImageGraphOutputReferences(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references,
             layersByID: layersByID,
             visibleLayerIDs: visibleLayerIDs
-        ) {
-            contract = (reference, 0, .visibleImageGraphOutput, false)
+        ), let reference = graphReferences.first {
+            graphOutputReferenceSlots = graphReferences.map(\.slot)
+            let direct = Set(directReferences)
+            let anchor = graphReferences.first(where: direct.contains) ?? reference
+            // Descriptor-only optional carriers never authorize capture.
+            // Their exact Program/activation proof is required before the
+            // admitted vector can re-enter the runtime dependency plan.
+            contract = (anchor, 0, .visibleImageGraphOutput,
+                potentialEffectID != nil || graphReferences.count > 1
+                    || !direct.contains(anchor))
         } else if let reference = resolvedMaterialReference(
             in: visibleEffects,
             references: references
@@ -670,6 +683,8 @@ extension SceneDependencyRenderPlan {
         let referenceSlots: [SceneEffectPassSlot]
         if contract.kind == .resolvedMaterial {
             referenceSlots = references.map(\.slot)
+        } else if contract.kind == .visibleImageGraphOutput {
+            referenceSlots = graphOutputReferenceSlots
         } else if contract.kind == .imageLayerBlend,
                   contract.requiresResolvedMaterialProgram,
                   let programImageReferenceSlots {
@@ -762,7 +777,7 @@ extension SceneDependencyRenderPlan {
         ) != nil {
             return true
         }
-        if visibleImageGraphOutputReference(
+        if visibleImageGraphOutputReferences(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references,

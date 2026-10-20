@@ -43,3 +43,17 @@
 ## 验收
 
 真实播放器的曲目、封面、暂停/恢复与退出必须进入同一实际场景并可见。仲裁须测Music三种状态不抢占、系统空/临时不可用、同来源暂停、两个API不同步、ABA迟到及禁用；系统缺封面的跨API身份桥接仍待证。自有输入验证缺封面、无曲目、迟到回包、来源切换、权限拒绝、目标 PID 退出及读取中换曲；检查无消费者时没有轮询，多屏只读一份。Debug build、独立审查、窄范围提交及原媒体消费者回归必须完成。系统授权与签名、运行证据和未覆盖来源分别记录。
+
+<a id="optional-graph-output-slot-vector"></a>
+
+## 可选媒体与同 provider graph-final 多槽（2026-10-20，有界实现）
+
+目标是让多个作者阶段在同一已完成 graph-final 与可选媒体之间选择，保留当前/上一封面的独立显隐。原单槽 visible graph-output 识别器与仅收 Program carrier 的 potential 过滤不一致；普通 image-blend 测试不能代验此交集。扩展沿现有 ReferenceAnalysis → DependencyPlan → ProgramFirst/VariantCache → admitted references → Runtime DependencyPlan → publication/compositor，不新建 provider、fallback 或调度 owner。
+
+准备期的 potential carrier 只证明精确 consumer/provider/effect/pass/slot、primary、作者顺序及既有 visible graph-output 来源资格，不产生 runtime edge/capture。此类候选必须要求原 MaterialProgram 证明完整 optional-data/named-PMA envelope、激活和来源合同后才晋升；当前 inactive 阶段沿原 activation policy/安全 passthrough，不用任一同 provider sibling 替代缺失 slot。准备结果回投 Runtime Plan 时，同一 provider 的已接纳精确 slot 向量须按作者 effect/pass 顺序保全，使用既有 Binding.referenceSlots，不退回“只取首项”。原单槽 wrapper 可由向量的唯一元素表达，不能保两套识别规则。 Binding.slot 保留原 direct owner 的首个精确 anchor，referenceSlots 独立保作者序；无 direct 时才取已接纳 potential 的作者首槽。单 optional 晋升仍保 requiresProgram 证明身份，不能因运行时只剩一槽降回旧 direct 单槽身份。
+
+provider 仍只发布自己已接纳的 graph-final 一次；多 consumer slot 消费同一 publication/generation，不能把带特效的可见图片退回 raw capture。Frame selection 继续区分 ready/absent/pending/failed，不把 pending 当可选缺席；原颜色用途、资源/epoch/ABI、循环、前向顺序和 completion pin 不放宽。多 provider、secondary/错 slot、无 Program、未知或不完整表示 envelope 保原拒绝/局部失败；已编码资源与取消只由现有 ledger 退场。
+
+验收先用生产 Plan 的 effectful visible provider＋direct/当前 inactive optional/上一 active optional 三阶段作红例，复核真正 base/potential/runtime 向量；补改名、等价阶段排序、移除 carrier、错 provider/pass/slot、前向 provider、无 Program 不授权和健康单槽。再以真实 Program/variant 的同 provider 多槽及显隐反例验证 finalization，不能用手工 image-blend binding 或 bounded 的更早回退冒充此路由。实际样本须取得受控非对称封面的可归因显示、无媒体反例、原 graph-final GPU/末合成与退出，以及一个独立真实样本；不把无媒体时作者 opacity=0、音频/鼠标/viewport 差异当缺图。收益不成立或仍不能解释最早实际失败时停止扩大准入，保留证据并重排队列；不宣称全部播放器、官方同 phase、HDR 或性能通过。
+
+当前封面正控、无媒体反例、独立样本与未覆盖边界归[运行证据](../../capabilities/runtime-evidence-current.md#optional-graph-output-slot-vector-20261020)，不提升整样本或真实播放器等级。

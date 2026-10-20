@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 393,
-      "bytes": 157430
+      "bytes": 159124
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 389,
-      "bytes": 77471
+      "bytes": 77540
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -213,8 +213,8 @@
       "bytes": 155971
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
-      "lines": 45,
-      "bytes": 9910
+      "lines": 59,
+      "bytes": 13153
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
       "lines": 72,
@@ -241,8 +241,8 @@
       "bytes": 17603
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 225,
-      "bytes": 66503
+      "lines": 227,
+      "bytes": 66887
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1196,15 +1196,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "065ba0929c0325aa2136cb2237d5af114ef95ca0a06ec701e7367811c1c5304f",
-      "after": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
-      "owner": "shared-system-media",
-      "reason": "Scene/Web共享歌曲信息实施及真实音乐验收，明确main App唯一采集、typed IPC、D5媒体投递与授权/生命周期退出；不扩大其它播放器或发布结论。",
-      "decision": "docs/web/mediaremote-nowplaying-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "45390156607672244bed86c70374c6535b316c39a5485f33c897ce35d840e8fa",
       "after": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
@@ -1519,15 +1510,6 @@
       "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties"
     },
     {
-      "owner": "scene-direct-model-animation",
-      "reason": "Reflect user normal Release video/audio acceptance while retaining preexisting default arm flicker and missing action-control feedback; same canonical sample overlay regenerated, no whole-sample pass.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#conditional-animation-properties",
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "7e9ec6f7fcf56b0a0fbf32e1308b68fc742e00b748533695a5e0819cfc30815c",
-      "after": "11d6ad8046a5cee37b199dc782252b5ef9551cc435c32ca3fd77bc4cf1989413"
-    },
-    {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "8d77ebcd542a58e1677aa816501906f12b423961e5cc3f1c1b651ce2e7e89138",
@@ -1540,19 +1522,37 @@
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "acd09575be5b02391caacef9d6a8d0ad5249dae031f8559e5376f225c6db1d1c",
-      "after": "39e08c85ddb4c93fbb1cf6fadcbaccabc08dcb8f28388130c3750659e036247d",
-      "owner": "Scene runtime and evidence owners",
-      "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
+      "after": "53221656ef12b99cf3475e172e12aef045e8a79ba0f23ce4a4ab9e0503c95bbd",
+      "owner": "Scene dependency and media owners",
+      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "8e464577962e0f0abd30ae8adc09de3092e898cc9e93fe2ae7f2ed6179d45b67",
+      "after": "0513c7440bc7166d90db22d467bda70550180930f2cfe3a35c9287ddb2acee93",
+      "owner": "Scene dependency and media owners",
+      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "before": "dd8fe0b15f0142ba51509a8199d43d0559a6f97ddbd3d8b0cd7ddc3418171cea",
+      "after": "50a9500abf66b283e412044610353a897c8a50dbdf627cd10ea7db30bcd25592",
+      "owner": "Scene dependency and media owners",
+      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "804f22ab8af29aead4aaf7fae306098a0eeb00a6e3ce7b88ecf0d926c2d119c9",
-      "after": "bcbb1d6c3d97cbf9be7b44867bee183ad111c09d515a556236c89d1881d7a8b1",
-      "owner": "Scene runtime and evidence owners",
-      "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
+      "after": "ad3628a664e7bfe7230c27c49b0d0359fef899b34d63437c4f544b011d534e57",
+      "owner": "Scene dependency and media owners",
+      "reason": "Conserve exact same-provider graph-final optional slot identities and record controlled artwork recovery, absent and heldout witnesses without whole-sample promotion.",
+      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
     }
   ]
 }
