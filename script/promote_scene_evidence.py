@@ -28,6 +28,7 @@ from scene_capability_census_io import is_sample_directory_name
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_ROOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/runs"
 RUN_LABEL_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
+DEFAULT_MAX_CACHE_MIB = 5 * 1024
 DEFAULT_EVIDENCE_KEYS = (
     "app_log",
     "app_log_path",
@@ -200,7 +201,7 @@ def prune_expired(now: float | None = None) -> dict:
 
 
 def promote(runs, destination_relative, max_package_mib, retain_days=14,
-            max_cache_mib=1024, protect_reason='') -> Path:
+            max_cache_mib=DEFAULT_MAX_CACHE_MIB, protect_reason='') -> Path:
     with evidence_lock():
         return _promote(runs, destination_relative, max_package_mib, retain_days,
                         max_cache_mib, protect_reason)
@@ -261,7 +262,7 @@ def _promote(
     destination_relative: Path,
     max_package_mib: int,
     retain_days: int = 14,
-    max_cache_mib: int = 1024,
+    max_cache_mib: int = DEFAULT_MAX_CACHE_MIB,
     protect_reason: str = "",
 ) -> Path:
     if not 1 <= retain_days <= 90 or max_cache_mib <= 0 or max_package_mib <= 0:
@@ -369,7 +370,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-package-mib", type=int, default=32)
     parser.add_argument('--protect-reason', default='', help='preserve an unresolved failure; still counts against total cache budget')
     parser.add_argument('--retain-days', type=int, default=14)
-    parser.add_argument('--max-cache-mib', type=int, default=1024)
+    parser.add_argument('--max-cache-mib', type=int, default=DEFAULT_MAX_CACHE_MIB)
     parser.add_argument('--prune-expired', action='store_true', help='remove unchanged expired packages; preserve unknown or active evidence')
     return parser.parse_args()
 

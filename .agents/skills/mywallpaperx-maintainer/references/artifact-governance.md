@@ -8,7 +8,7 @@
 |---|---|
 | DerivedData、staged App、运行样本副本、临时 HOME、重试输出 | 独立任务临时目录；进程结束并提取必要结果后当轮删除。默认 checkpoint build 已自动清理。 |
 | 连续迭代的构建缓存 | 显式 `--cache-dir`，同一任务只留一份；任务结束清理，跨轮保留须报告路径和用途，下一轮先复核是否仍需。 |
-| 最终日志、必要截图、身份与报告 | `promote_scene_evidence.py` 提取至 `.artifacts/scene-evidence/runs/`；默认14天、单包32 MiB、总量1 GiB，达到总预算停止新增，不静默删除未知材料。 |
+| 最终日志、必要截图、身份与报告 | `promote_scene_evidence.py` 提取至 `.artifacts/scene-evidence/runs/`；默认14天、单包32 MiB、总量5 GiB，达到总预算停止新增，不静默删除未知材料。 |
 | 未解决失败的最小复现 | 使用 `--protect-reason` 说明问题，不自动到期；仍计入总预算，问题解决后重新提取普通有期限结果并清理原包。 |
 | 既有未分类证据 | `.artifacts/scene-evidence/archive/` 保存迁移的旧证据，按需查询，不继续写入；缓存普查在 `census/`。迁移保留原字节，不假称释放磁盘。 |
 | 长期结论 | 按 `docs/README.md` 的角色分工：合同拥有目标，路线拥有顺序，能力台账与运行证据拥有当前结果；Scene过程进 `docs/scene/history/`，跨专题过程进 `docs/history/`，不把整个输出纳入版本库。 |
