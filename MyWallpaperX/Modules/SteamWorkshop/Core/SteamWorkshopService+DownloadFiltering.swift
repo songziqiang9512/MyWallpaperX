@@ -10,7 +10,12 @@ extension SteamWorkshopService {
     /// 失败项与失败后的重试任务保留在下载页；从未失败的新 queued/downloading
     /// 只在下载弹窗展示，不进本列表。
     func filteredAndSortedDownloads(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
-        let modeFiltered = downloadsWithFailedIntents(from: records).filter { record in
+        filteredAndSortedMergedDownloads(from: downloadsWithFailedIntents(from: records))
+    }
+
+    /// refreshDisplayedDownloads 已提交合成记录，不在筛选阶段重复扫描任务意图。
+    func filteredAndSortedMergedDownloads(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
+        let modeFiltered = records.filter { record in
             switch downloadsDisplayMode {
             case .all:
                 // all 含未知类型的失败意图。

@@ -556,7 +556,10 @@ final class SteamWorkshopService: ObservableObject {
             downloads = merged
             return
         }
-        displayedDownloads = filteredAndSortedDownloads(from: downloads)
+        let projected = filteredAndSortedMergedDownloads(from: merged)
+        if displayedDownloads != projected {
+            displayedDownloads = projected
+        }
         sanitizeDownloadSelectionAgainstDisplayedDownloads()
     }
 }

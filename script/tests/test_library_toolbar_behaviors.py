@@ -27,8 +27,14 @@ class LibraryToolbarBehaviorTests(unittest.TestCase):
         steam_methods += '\n' + method(service, '    private func refreshDisplayedDownloads(')
         steam_methods += '\n' + method(service, '    @Published var downloadsShowsAdultContent')
         steam_methods += '\n' + '\n'.join(method(filtering, signature) for signature in [
-            '    func filteredAndSortedDownloads(', '    private func sortedDownloadRecords(',
+            '    func filteredAndSortedDownloads(', '    func filteredAndSortedMergedDownloads(',
+            '    func downloadsWithFailedIntents(', '    var currentSteamDownloadAccount:',
+            '    func hasFailedDownloadHistory(',
+            '    private func sortedDownloadRecords(',
             '    private func downloadRecordStableComparison(', '    func sanitizeDownloadSelectionAgainstDisplayedDownloads('])
+        merge_start = '    func downloadsWithFailedIntents(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {'
+        self.assertEqual(steam_methods.count(merge_start), 1)
+        steam_methods = steam_methods.replace(merge_start, merge_start + '\n        mergeCalls += 1')
         online = (ROOT / 'MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift').read_text()
         online_methods = '\n'.join(method(online, signature) for signature in [
             '    func deleteSelected(', '    func toggleMultiSelect(',
@@ -53,6 +59,7 @@ class LibraryToolbarBehaviorTests(unittest.TestCase):
             '    private static func selectedWallpapers(', '    private static func resolvedHostWindow('])
         actions = (STEAM / 'Toolbar/SteamWorkshopToolbarController+Actions.swift').read_text()
         template = (ROOT / 'script/tests/fixtures/LibraryToolbarBehaviorHarness.swift').read_text()
+        template = template.replace('// DOWNLOADS_PROPERTY', method(service, '    @Published var downloads:'))
         for marker, fragment in {
             '// STEAM_METHODS': steam_methods,
             '// ONLINE_METHODS': online_methods,

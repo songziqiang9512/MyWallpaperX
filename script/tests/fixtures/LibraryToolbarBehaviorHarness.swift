@@ -21,10 +21,27 @@ struct SteamWorkshopDownloadRecord: Equatable {
     var sizeBytes: Int64? = nil
     var sizeText = "10"
 }
+enum SteamDownloadJobState { case failed, queued, running, staged, committing, cancelled, completed }
+struct SteamDownloadJob {
+    let accountSteamId: String
+    let workshopItemId: String
+    var state: SteamDownloadJobState
+}
+struct IntentHistory {
+    enum Outcome { case failed, completed }
+    let accountSteamId: String
+    let workshopItemId: String
+    let outcome: Outcome
+}
+final class IntentStore {
+    var jobs: [SteamDownloadJob] = []
+    var history = [IntentHistory(accountSteamId: "A", workshopItemId: "retry", outcome: .failed)]
+}
+final class IntentAuth { var steamId: String? = "A" }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
-    var downloads: [SteamWorkshopDownloadRecord] = []
-    var displayedDownloads: [SteamWorkshopDownloadRecord] = []
+    // DOWNLOADS_PROPERTY
+    @Published var displayedDownloads: [SteamWorkshopDownloadRecord] = []
     var downloadsDisplayMode = SteamWorkshopDownloadsDisplayMode.all
     var downloadsSortMode = SteamWorkshopDownloadsSortMode.createdAt
     var downloadsSortAscending = false
@@ -37,8 +54,17 @@ struct SteamWorkshopDownloadRecord: Equatable {
     var downloadSelectionPublicationVersion = 0
     func syncDownloadsInspectorSelectionIfNeeded() {}
     func deleteDownloads(itemIDs: [String]) { deleteRequests.append(Set(itemIDs)) }
-    func downloadsWithFailedIntents(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] { records }
-    func hasFailedDownloadHistory(itemID: String) -> Bool { itemID == "retry" }
+    var mergeCalls = 0
+    let downloadJobStore = IntentStore()
+    let steamAuth = IntentAuth()
+    // Record-construction leaves adapt the real intent projection to the small
+    // value model above; account/history/dedup and publication bodies are real.
+    func synthesizedFailedIntentRecord(from job: SteamDownloadJob) -> SteamWorkshopDownloadRecord {
+        .init(id: job.workshopItemId, status: .failed("fixture"), contentType: .unknown)
+    }
+    func synthesizedActiveRetryRecord(from job: SteamDownloadJob) -> SteamWorkshopDownloadRecord {
+        .init(id: job.workshopItemId, status: job.state == .queued ? .queued : .downloading, contentType: .unknown)
+    }
     static func parseByteCount(from text: String) -> Int64? { Int64(text) }
     static func workshopItemIDSearchID(from query: String) -> String? { nil }
     // STEAM_METHODS
@@ -243,6 +269,55 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         checks["hiddenAdultSelectionIsSanitized"] = service.selectedDownloadID == nil && service.selectedDownloadIDs.isEmpty
         service.downloadsShowsAdultContent = true
         checks["reenablingRestoresWholeExistingProjection"] = service.displayedDownloads.count == 8
+
+        var publications = 0
+        let projectionSubscription = service.$displayedDownloads.dropFirst().sink { _ in publications += 1 }
+        service.mergeCalls = 0
+        for _ in 0..<20 { service.refreshDisplayedDownloads() }
+        checks["unchangedDownloadProjectionPublishesNothingAndMergesOncePerRefresh"] = publications == 0
+            && service.mergeCalls == 20
+        service.selectedDownloadID = "outside-projection"
+        service.selectedDownloadIDs = ["outside-projection"]
+        service.refreshDisplayedDownloads()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["unchangedProjectionStillSanitizesSelection"] = publications == 0
+            && service.selectedDownloadID == nil && service.selectedDownloadIDs.isEmpty
+        service.mergeCalls = 0
+        service.downloads[0].title = "Updated metadata"
+        checks["metadataChangePublishesProjectionSynchronouslyWithoutSecondMerge"] = publications == 1
+            && service.displayedDownloads.contains { $0.title == "Updated metadata" } && service.mergeCalls == 1
+        projectionSubscription.cancel()
+
+        let intent = SteamWorkshopService()
+        intent.downloadJobStore.jobs = [
+            .init(accountSteamId: "A", workshopItemId: "ready", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "failure", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "failure", state: .failed),
+            .init(accountSteamId: "B", workshopItemId: "other-account", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "retry", state: .queued),
+            .init(accountSteamId: "A", workshopItemId: "new-task", state: .running)]
+        var intentPublications = 0
+        let intentSubscription = intent.$displayedDownloads.dropFirst().sink { _ in intentPublications += 1 }
+        let ready = SteamWorkshopDownloadRecord(id: "ready", title: "Keep ready metadata")
+        intent.downloads = [ready]
+        checks["newFailedIntentsConvergeInOneDidSetReentryAndOnePublication"] = intent.mergeCalls == 2
+            && intentPublications == 1 && intent.downloads.count == 3
+            && Set(intent.displayedDownloads.map(\.id)) == ["ready", "failure", "retry"]
+        checks["readyMetadataAndDuplicateFailedIntentRemainSingleCards"] = intent.downloads.first { $0.id == "ready" } == ready
+            && intent.downloads.filter { $0.id == "failure" }.count == 1
+        intent.mergeCalls = 0
+        intent.refreshDisplayedDownloads()
+        checks["settledFailedIntentRefreshMergesOnceWithoutRepublishing"] = intent.mergeCalls == 1 && intentPublications == 1
+        intent.downloadJobStore.history = []
+        intent.refreshDisplayedDownloads()
+        checks["clearedHistoryHidesActiveRetryButPreservesFailedIntent"] = Set(intent.displayedDownloads.map(\.id))
+            == ["ready", "failure"] && intentPublications == 2
+        intent.steamAuth.steamId = "B"
+        let accountB = intent.filteredAndSortedDownloads(from: [ready])
+        checks["projectionSynthesizesOnlyCurrentAccountIntents"] = Set(accountB.map(\.id)) == ["ready", "other-account"]
+        intent.steamAuth.steamId = nil
+        checks["signedOutProjectionCannotSynthesizeFailedIntents"] = intent.filteredAndSortedDownloads(from: [ready]) == [ready]
+        intentSubscription.cancel()
 
         let previousDownloads = service.downloads
         func sortable(_ id: String, _ title: String, _ date: TimeInterval, _ bytes: Int64) -> SteamWorkshopDownloadRecord {
