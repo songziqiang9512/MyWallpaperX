@@ -44,6 +44,8 @@ project.json / Workshop directory
 
 页面频谱需求由既有frame endpoint表持有，nonce/token与当前surface绑定；goodbye、导航、租约失效、拆屏统一撤销，屏幕/主App只聚合仍存活需求。持续频谱仅投需求端点，最后撤需有序清零；无本屏需求的快照也固定零，迟到缓存不能恢复旧柱高。2026-10-21冻结签名优化Debug经75s真实IPC/CoreAudio验证：唯一监听iframe在8.008s移除，需求false后8ms停止采集；父页70s仍活跃，后续原生频谱零投递且无暂停/重启。自有fixture及单屏证明不外推全Web/BFCache；多消费者/过期/旧ACK/快照反例另由真实owner行为门覆盖。
 
+非转换Range响应现沿原scheme/loopback发送链，以同一已打开句柄定长、解析范围、seek后按remaining分块；单块上限1MiB并按交付完成背压，不再整体读取请求区间。保206/HEAD/416、keep-alive/pipeline及每块授权复核；loopback原连接名额owner同时登记存活连接，stop撤accept身份并取消已接连接。真实scheme回调/TCP覆盖短读、取消、撤权、截断与stop/restart，旧实现反证失败。块大小不是WebKit/NW/进程总内存上限；真实排队旧accept只作锁序审查，未测视频RSS/能耗。
+
 启动身份由应用包的 `LSUIElement=YES` 从进程注册时声明；主窗口打开时由既有 coordinator 升为普通 App 并显示 Dock 入口，关闭回后台。Web/Scene 子角色不再经历普通 App 注册后隐藏图标的过程；Web 仍禁止激活。
 
 物理 Space 仍有未闭合边界：用户实际切换时，在暂停转换为 0 的观测窗口出现约 0.56–0.73s RAF 间隔，而子进程原生循环最大间隔约 24–60ms。进程隔离不等于消除 WebKit/窗口系统调度停顿；全样本、长稳与多屏热插拔未作通过声明。启动分阶段日志区分作品准备、进程初始化、网页准备与交接，单次冷启动改善不作普遍性能承诺。

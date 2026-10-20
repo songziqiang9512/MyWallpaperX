@@ -106,7 +106,7 @@ self.recordDeny(denied)
                 return .failure(LocalSchemeError.unreadableFileSize)
             }
             let validators = Self.responseValidators(for: fileStat)
-            let range = transformsResponse ? nil : try Self.byteRange(for: request, totalSize: fileStat.fileSize)
+            var range = transformsResponse ? nil : try Self.byteRange(for: request, totalSize: fileStat.fileSize)
             if !isHeadRequest, Self.isNotModified(request: request, validators: validators) {
                 return .ready(PreparedResponse(
                     response: try Self.makeNotModifiedResponse(for: requestURL, validators: validators),
@@ -122,20 +122,16 @@ self.recordDeny(denied)
             let deliveredLength: Int
             var streamedHandle: FileHandle?
             var streamedLength: Int64 = 0
-            if range == nil, !transformsResponse, !isHeadRequest, fileStat.fileSize > 0 {
-                // 无 Range 且非转换：先开句柄并以句柄实际长度声明，
-                // 分块读 + 多次 didReceive；声明长度、实际读到的字节与
-                // streamNextChunk 的 remaining 三者同源。
-                let fileHandle = try FileHandle(forReadingFrom: resource.fileURL)
-                guard let handleLength = Self.streamedLength(of: fileHandle) else {
-                    try? fileHandle.close()
-                    return .failure(LocalSchemeError.unreadableFileSize)
-                }
-                streamedHandle = fileHandle
-                streamedLength = handleLength
+            if !transformsResponse, !isHeadRequest {
+                // 完整与 Range 响应共用同一有界交付链；范围和声明长度
+                // 均取自已打开句柄，seek 后只交付选定窗口。
+                let stream = try Self.openResponseStream(from: resource.fileURL, request: request)
+                streamedHandle = stream.handle
+                streamedLength = stream.length
+                range = stream.range
                 body = nil
-                responseSize = handleLength
-                deliveredLength = Int(handleLength)
+                responseSize = stream.totalSize
+                deliveredLength = Int(stream.length)
             } else if isHeadRequest, !transformsResponse {
                 body = nil
                 responseSize = fileStat.fileSize
@@ -196,6 +192,7 @@ self.recordDeny(denied)
                    totalSize: totalSize
                ) {
                 urlSchemeTask.didReceive(notSatisfiableResponse)
+                guard !cancellation.isCancelled else { finishRequest(urlSchemeTask); return }
                 finishRequest(urlSchemeTask)
                 urlSchemeTask.didFinish()
 #if DEBUG
@@ -243,6 +240,11 @@ recordDeny(denied)
             }
 #endif
             urlSchemeTask.didReceive(prepared.response)
+            guard !cancellation.isCancelled else {
+                delivery.closeStreamedHandle()
+                finishRequest(urlSchemeTask)
+                return
+            }
             if let streamedHandle = prepared.streamedHandle {
                 streamNextChunk(
                     from: streamedHandle,
@@ -255,6 +257,7 @@ recordDeny(denied)
             if let body = prepared.body, body.isEmpty == false {
                 urlSchemeTask.didReceive(body)
             }
+            guard !cancellation.isCancelled else { finishRequest(urlSchemeTask); return }
             finishRequest(urlSchemeTask)
             urlSchemeTask.didFinish()
         }
@@ -268,6 +271,11 @@ recordDeny(denied)
         to urlSchemeTask: any WKURLSchemeTask,
         cancellation: RequestCancellation, resource: ResolvedResource
     ) {
+        guard !cancellation.isCancelled else {
+            try? fileHandle.close()
+            finishRequest(urlSchemeTask)
+            return
+        }
         guard remaining > 0 else {
             try? fileHandle.close()
             finishRequest(urlSchemeTask)
@@ -275,7 +283,7 @@ recordDeny(denied)
             return
         }
         ioQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self else { try? fileHandle.close(); return }
             guard !cancellation.isCancelled else {
                 try? fileHandle.close()
                 DispatchQueue.main.async { self.finishRequest(urlSchemeTask) }
@@ -340,6 +348,12 @@ recordDeny(denied)
             return
         }
         urlSchemeTask.didReceive(chunk)
+        // didReceive 可同步触发 WebKit stop；末块也不能再回调 didFinish。
+        guard !cancellation.isCancelled else {
+            try? fileHandle.close()
+            finishRequest(urlSchemeTask)
+            return
+        }
         let nextRemaining = remaining - Int64(chunk.count)
         guard nextRemaining > 0 else {
             try? fileHandle.close()
@@ -349,6 +363,25 @@ recordDeny(denied)
         }
         streamNextChunk(from: fileHandle, remaining: nextRemaining, to: urlSchemeTask,
             cancellation: cancellation, resource: resource)
+    }
+
+    /// 打开、定长、解析 Range 与 seek 在同一句柄上完成，失败不泄漏 FD。
+    /// 调用者仍负责资源授权；这里不产生新的可读根或缓存。
+    static func openResponseStream(
+        from fileURL: URL, request: URLRequest
+    ) throws -> (handle: FileHandle, totalSize: Int64, range: ClosedRange<Int64>?, length: Int64) {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        do {
+            guard let totalSize = streamedLength(of: handle) else {
+                throw LocalSchemeError.unreadableFileSize
+            }
+            let range = try byteRange(for: request, totalSize: totalSize)
+            if let range { try handle.seek(toOffset: UInt64(range.lowerBound)) }
+            return (handle, totalSize, range, range.map { $0.upperBound - $0.lowerBound + 1 } ?? totalSize)
+        } catch {
+            try? handle.close()
+            throw error
+        }
     }
 
     static func byteRange(for request: URLRequest, totalSize: Int64) throws -> ClosedRange<Int64>? {

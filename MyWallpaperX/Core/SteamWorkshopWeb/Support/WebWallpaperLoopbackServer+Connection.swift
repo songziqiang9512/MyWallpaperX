@@ -11,6 +11,7 @@ extension WebWallpaperLoopbackServer {
     final class ConnectionContext {
         let connection: NWConnection
         let queue: DispatchQueue
+        let cancellation: WebWallpaperLocalSchemeHandler.RequestCancellation
         var bufferedRequestData = Data()
         var servedRequestCount = 0
         var idleTimeoutWorkItem: DispatchWorkItem?
@@ -21,13 +22,15 @@ extension WebWallpaperLoopbackServer {
         /// 不再按收据重挂（滴流字节不能无限续命）。
         var headerTimeoutArmed = false
 
-        init(connection: NWConnection, queue: DispatchQueue) {
+        init(connection: NWConnection, queue: DispatchQueue,
+             cancellation: WebWallpaperLocalSchemeHandler.RequestCancellation) {
             self.connection = connection
             self.queue = queue
+            self.cancellation = cancellation
         }
     }
 
-    /// 超过该长度的无 Range 请求改流式发送，避免整读进内存。
+    /// 完整响应超过该长度时流式发送；Range 始终以有限窗口分块。
     static let streamingThreshold: Int64 = 64 * 1024 * 1024
     static let connectionChunkSize = 1 << 20
     static let maxRequestsPerConnection = 64
@@ -37,42 +40,36 @@ extension WebWallpaperLoopbackServer {
     /// 本机连接不得在等待 `\r\n\r\n` 期间无限占内存。
     static let maxRequestHeaderBytes = 64 * 1024
 
-    /// 名额归还的一次性闸：NWConnection 终态在个别 teardown 路径可能
-    /// `.failed` 后再派发 `.cancelled`，同一连接只允许归还一次名额。
-    /// 不持有 connection，无环。
-    final class ConnectionSlotReleaseGuard {
-        var released = false
-    }
-
     /// listener 的 accept 队列在这里交棒：连接后续读写都在自己的串行队列上。
-    func handle(_ connection: NWConnection) {
+    func handle(_ connection: NWConnection, admissionID: UUID) {
         // 连接数上限：WKWebView 对单 host 的并发远低于该值，超限连接只可能
         // 来自本机进程的可用性攻击面（每连接一个串行队列与 FD），直接拒绝。
-        guard claimActiveConnectionSlot() else {
-            connection.cancel()
-            return
-        }
+        let cancellation = WebWallpaperLocalSchemeHandler.RequestCancellation()
         let queue = DispatchQueue(
             label: "com.songziqiang.MyWallpaperX.web-loopback.connection",
             qos: .userInitiated
         )
-        let context = ConnectionContext(connection: connection, queue: queue)
-        let slotReleaseGuard = ConnectionSlotReleaseGuard()
+        let context = ConnectionContext(connection: connection, queue: queue, cancellation: cancellation)
+        let connectionID = UUID()
         connection.stateUpdateHandler = { [weak self] state in
             switch state {
             case .cancelled, .failed:
-                guard slotReleaseGuard.released == false else { return }
-                slotReleaseGuard.released = true
-                self?.releaseActiveConnectionSlot()
+                cancellation.cancel()
+                self?.releaseActiveConnectionSlot(for: connectionID)
             default:
                 break
             }
         }
-        connection.start(queue: queue)
+        guard registerAndStartConnection(for: connection, cancellation: cancellation,
+            admissionID: admissionID, connectionID: connectionID, queue: queue) else {
+            connection.cancel()
+            return
+        }
         receiveRequest(on: context)
     }
 
     private func receiveRequest(on context: ConnectionContext, isComplete: Bool = false) {
+        guard !context.cancellation.isCancelled else { context.connection.cancel(); return }
         // keep-alive 下同一连接的后续请求（含已到达的 pipelined 字节）直接处理。
         let scanStart = max(0, context.headerScanStartIndex)
         if let headerRange = context.bufferedRequestData.range(
@@ -127,6 +124,7 @@ extension WebWallpaperLoopbackServer {
     }
 
     private func respond(to requestText: String, leftover: Data, on context: ConnectionContext) {
+        guard !context.cancellation.isCancelled else { context.connection.cancel(); return }
         guard let firstLine = requestText.components(separatedBy: "\r\n").first else {
             sendError(400, message: "bad_request", on: context)
             return
@@ -243,8 +241,10 @@ extension WebWallpaperLoopbackServer {
             return
         }
 
-        if range == nil, !transformsResponse, !isHeadRequest, fileStat.fileSize > Self.streamingThreshold {
-            streamFile(resource, mimeType: mimeType, validators: validators, requestURL: requestURL, on: context)
+        if !transformsResponse, !isHeadRequest,
+           range != nil || fileStat.fileSize > Self.streamingThreshold {
+            try streamFile(resource, request: urlRequest, mimeType: mimeType, validators: validators,
+                requestURL: requestURL, keepAlive: range != nil && keepAlive, leftover: leftover, on: context)
             return
         }
 
@@ -287,7 +287,8 @@ extension WebWallpaperLoopbackServer {
 
     private func continueAfterResponse(on context: ConnectionContext, leftover: Data, keepAlive: Bool) {
         context.servedRequestCount += 1
-        guard keepAlive, context.servedRequestCount < Self.maxRequestsPerConnection else {
+        guard !context.cancellation.isCancelled, keepAlive,
+              context.servedRequestCount < Self.maxRequestsPerConnection else {
             context.connection.cancel()
             return
         }
@@ -324,34 +325,31 @@ extension WebWallpaperLoopbackServer {
         sendError(404, message: error.localizedDescription, on: context)
     }
 
-    /// 流式分支同样以句柄实际长度为声明长度，保证 Content-Length 与实际发送一致。
+    /// 206 与完整大文件复用同一背压链；范围、seek 和声明长度同源于已打开句柄。
     private func streamFile(
         _ resource: WebWallpaperLocalSchemeHandler.ResolvedResource,
+        request: URLRequest,
         mimeType: String,
         validators: WebWallpaperLocalSchemeHandler.ResponseValidators,
         requestURL: URL,
+        keepAlive: Bool,
+        leftover: Data,
         on context: ConnectionContext
-    ) {
-        guard let resource = schemeHandler.revalidatedResource(resource),
-              let fileHandle = try? FileHandle(forReadingFrom: resource.fileURL),
-              let streamedLength = WebWallpaperLocalSchemeHandler.streamedLength(of: fileHandle) else {
-            sendError(404, message: "unreadable_local_resource", on: context)
-            return
+    ) throws {
+        guard !context.cancellation.isCancelled else { context.connection.cancel(); return }
+        let stream = try WebWallpaperLocalSchemeHandler.openResponseStream(from: resource.fileURL, request: request)
+        guard let resource = schemeHandler.revalidatedResource(resource) else {
+            try? stream.handle.close()
+            throw WebWallpaperLocalSchemeHandler.AccessDenied(reason: .outsideAllowedRoots,
+                requestURL: requestURL, candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
         }
-        var headers = [
-            "HTTP/1.1 200 OK",
-            "Content-Type: \(mimeType)",
-            "Content-Length: \(streamedLength)",
-            "Cache-Control: no-cache",
-            "ETag: \(validators.entityTag)"
-        ]
-        if let lastModified = validators.lastModified {
-            headers.append("Last-Modified: \(lastModified)")
-        }
-        headers.append("Accept-Ranges: bytes")
-        headers.append("Connection: close")
-        send(Data((headers.joined(separator: "\r\n") + "\r\n\r\n").utf8), on: context) { [weak self] in
-            self?.streamNextChunk(from: fileHandle, remaining: streamedLength, requestURL: requestURL, resource: resource, on: context)
+        sendHTTPResponse(statusCode: stream.range == nil ? 200 : 206, mimeType: mimeType,
+            totalSize: stream.totalSize, range: stream.range, body: Data(), contentLength: stream.length,
+            acceptsRanges: true, validators: validators, keepAlive: keepAlive, sessionCookie: nil,
+            on: context, failure: { try? stream.handle.close() }) { [weak self] in
+            guard let self else { try? stream.handle.close(); return }
+            self.streamNextChunk(from: stream.handle, remaining: stream.length, requestURL: requestURL,
+                resource: resource, keepAlive: keepAlive, leftover: leftover, on: context)
         }
     }
 
@@ -361,8 +359,20 @@ extension WebWallpaperLoopbackServer {
         remaining: Int64,
         requestURL: URL,
         resource: WebWallpaperLocalSchemeHandler.ResolvedResource,
+        keepAlive: Bool,
+        leftover: Data,
         on context: ConnectionContext
     ) {
+        guard !context.cancellation.isCancelled else {
+            try? fileHandle.close()
+            context.connection.cancel()
+            return
+        }
+        guard remaining > 0 else {
+            try? fileHandle.close()
+            finishStream(on: context, keepAlive: keepAlive, leftover: leftover)
+            return
+        }
         let current = schemeHandler.readableRootsSnapshot().generation == resource.authorizationGeneration
             ? resource : schemeHandler.revalidatedResource(resource)
         guard var resource = current else {
@@ -388,7 +398,7 @@ extension WebWallpaperLoopbackServer {
                 context.connection.cancel()
                 return
             }
-            finishStream(on: context)
+            finishStream(on: context, keepAlive: keepAlive, leftover: leftover)
             return
         }
         if schemeHandler.readableRootsSnapshot().generation != resource.authorizationGeneration {
@@ -399,10 +409,15 @@ extension WebWallpaperLoopbackServer {
             }
             resource = current
         }
+        guard !context.cancellation.isCancelled else {
+            try? fileHandle.close()
+            context.connection.cancel()
+            return
+        }
         let deliveredResource = resource
         context.connection.send(content: chunk, completion: .contentProcessed { [weak self] error in
-            guard let self else { return }
-            guard error == nil else {
+            guard let self else { try? fileHandle.close(); return }
+            guard error == nil, !context.cancellation.isCancelled else {
                 try? fileHandle.close()
                 context.connection.cancel()
                 return
@@ -410,15 +425,20 @@ extension WebWallpaperLoopbackServer {
             let nextRemaining = remaining - Int64(chunk.count)
             guard nextRemaining > 0 else {
                 try? fileHandle.close()
-                self.finishStream(on: context)
+                self.finishStream(on: context, keepAlive: keepAlive, leftover: leftover)
                 return
             }
-            self.streamNextChunk(from: fileHandle, remaining: nextRemaining, requestURL: requestURL, resource: deliveredResource, on: context)
+            self.streamNextChunk(from: fileHandle, remaining: nextRemaining, requestURL: requestURL,
+                resource: deliveredResource, keepAlive: keepAlive, leftover: leftover, on: context)
         })
     }
 
-    /// 末块后显式 final-message（FIN）再关闭，保持 200 + Content-Length 语义。
-    private func finishStream(on context: ConnectionContext) {
+    /// Range 保原 keep-alive/pipeline 语义；完整大文件保原显式 FIN。
+    private func finishStream(on context: ConnectionContext, keepAlive: Bool, leftover: Data) {
+        if keepAlive {
+            continueAfterResponse(on: context, leftover: leftover, keepAlive: true)
+            return
+        }
         context.connection.send(
             content: nil,
             contentContext: .finalMessage,
@@ -441,6 +461,7 @@ extension WebWallpaperLoopbackServer {
         keepAlive: Bool,
         sessionCookie: String?,
         on context: ConnectionContext,
+        failure: (() -> Void)? = nil,
         completion: @escaping () -> Void
     ) {
         var headers = [
@@ -465,7 +486,8 @@ extension WebWallpaperLoopbackServer {
         if let range {
             headers.append("Content-Range: bytes \(range.lowerBound)-\(range.upperBound)/\(totalSize)")
         }
-        send(Data((headers.joined(separator: "\r\n") + "\r\n\r\n").utf8) + body, on: context, completion: completion)
+        send(Data((headers.joined(separator: "\r\n") + "\r\n\r\n").utf8) + body,
+            on: context, failure: failure, completion: completion)
     }
 
     /// 304 不带正文与 Content-Length；同源页面无需 CORS 头。
@@ -520,8 +542,15 @@ extension WebWallpaperLoopbackServer {
         }
     }
 
-    private func send(_ data: Data, on context: ConnectionContext, completion: @escaping () -> Void) {
-        context.connection.send(content: data, completion: .contentProcessed { _ in
+    private func send(_ data: Data, on context: ConnectionContext,
+                      failure: (() -> Void)? = nil, completion: @escaping () -> Void) {
+        guard !context.cancellation.isCancelled else { failure?(); context.connection.cancel(); return }
+        context.connection.send(content: data, completion: .contentProcessed { error in
+            guard error == nil, !context.cancellation.isCancelled else {
+                failure?()
+                context.connection.cancel()
+                return
+            }
             completion()
         })
     }

@@ -2,7 +2,7 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-21 用户授权继续深入实施 D1–D6。原24项处置与STOP保持有效；新阶段只根据新CPU/GPU/生命周期证据推进，不把局部实验比例当作整App收益。正向成果独立审查后按批提交，不推送。起点 `039d164cb048787557068a2412335937db809bc5`；上一阶段身份与结项见下方原记录。
+状态：2026-10-21 D阶段已完成本批处置：D1–D3保留；D4候选实测无收益、D5未证明安全省略而停止；D6保留调度现状。原24项处置与STOP继续有效，不代表全App优化已穷尽。正向成果按职责独立审查和分批提交，不推送；深入阶段基准 `039d164cb048787557068a2412335937db809bc5`。
 
 本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
@@ -14,7 +14,7 @@
 |---|---|---|
 | D1 公共词法 | ASCII标识符直接判定，Unicode回原CharacterSet；不放宽token/source预算、不增cache。完整token/诊断等价，最近frontend门、整App冷暖与独立样本；先不叠加sampler扫描复用 | 已保留，`9042ed143` |
 | D2 Web音频 | 端点表独占需求归属，surface/主App只派生聚合；goodbye/导航/租约/拆屏撤销，旧ACK/回包不得恢复。多消费者、重新注册、真实音频退役和现Scene路径回归。设计见Web进程合同 | 已保留：端点回收与75s原生验证通过 |
-| D3 Range | 原scheme/loopback流式owner按有效区间seek+remaining分块；保授权/每块撤销/取消/短读/206/HEAD/416，loopback stop沿原owner关闭连接。有界内存与真实响应字节门，不能借此改路径/HTTP策略 | 实施资格通过 |
+| D3 Range | 原scheme/loopback流式owner按有效区间seek+remaining分块；保授权/每块撤销/取消/短读/206/HEAD/416，loopback stop沿原owner关闭连接。有界内存与真实响应字节门，不能借此改路径/HTTP策略 | 已保留：真实scheme/TCP行为门通过 |
 | D4 远程CSS | 先用可控延迟确认当前WebKit的@import关键路径，再决定是否调整。字体/级联/加载时序有兼容风险且无可证等价则保留现状；不得删字体换速度 | 候选实测停止 |
 | D5 GPU | 审核连续inactive copy及同帧source capture能否在现版本/历史/发布语义内省略；先设计，不能删copy伪造发布或重开旧跨帧缓存。风险超过收益则记录STOP | 本阶段停止产品修改 |
 | D6 调度与普通帧 | 暖窗口未见大Runnable积压，保持QoS/worker上限；只跟随新调用证据考虑循环取消/任务分配/普通帧重复工作，不为完成表格扩大修改 | 保持现状 |

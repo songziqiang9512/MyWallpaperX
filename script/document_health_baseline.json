@@ -257,8 +257,8 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 135,
-      "bytes": 50814
+      "lines": 137,
+      "bytes": 51402
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -306,7 +306,7 @@
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 427,
-      "bytes": 66797
+      "bytes": 66817
     }
   },
   "archives": [
@@ -1529,29 +1529,29 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "45e42e8dcc951ba71d9ca242dcdd4f4862dfd8fe72982778b47f0fec8640956b",
-      "after": "ed7d1c6a223ec385d29754b6374064d5bfc1af0814fbab345d3bd35d5b57a85d",
-      "owner": "apple-silicon-performance",
-      "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "a290c15e8a858e585b89563ba3832fb6b4e5fafe4a2c224b3a7655429d7276c5",
-      "after": "a9b8e6c35cff47f961b7244b898e5542b663fcb0fe93b519b4385d7ee79df4db",
-      "owner": "apple-silicon-performance",
-      "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
       "before": "daa8591d8a9fcc4230f64ef3b450e36dcdb3e2e8fa80d88a67e38b5d4cd7cc86",
       "after": "b4131212ddf0c2e5aecba9c3695c3310d676414b3882f0a3fd9b49bddba1ae99",
       "owner": "apple-silicon-performance",
       "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "ed7d1c6a223ec385d29754b6374064d5bfc1af0814fbab345d3bd35d5b57a85d",
+      "after": "7b416a87896891e73382ae41f8fff798d27860dec17ef11f283bd6e007c9692f",
+      "owner": "apple-silicon-performance",
+      "reason": "D3有界Range交付与连接stop闭环经过真实scheme/TCP及独审，补实际成本/未测边界并关闭本批D处置。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "a9b8e6c35cff47f961b7244b898e5542b663fcb0fe93b519b4385d7ee79df4db",
+      "after": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
+      "owner": "apple-silicon-performance",
+      "reason": "D3有界Range交付与连接stop闭环经过真实scheme/TCP及独审，补实际成本/未测边界并关闭本批D处置。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]

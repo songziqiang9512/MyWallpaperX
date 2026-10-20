@@ -22,26 +22,34 @@ final class WebWallpaperLoopbackServer {
     /// 队列与 FD，无上限 accept 会被本机进程用作可用性放大面。
     static let maxConcurrentConnections = 16
     private let connectionCountLock = NSLock()
-    private var activeConnectionCount = 0
+    private var connectionAdmissionID: UUID?
+    private var activeConnections: [UUID: (NWConnection, WebWallpaperLocalSchemeHandler.RequestCancellation)] = [:]
 
     init(schemeHandler: WebWallpaperLocalSchemeHandler) {
         self.schemeHandler = schemeHandler
         self.accessToken = Self.makeAccessToken()
     }
 
-    /// 原子占用一个连接名额；返回 false 表示已超过并发上限，调用方应立即取消连接。
-    func claimActiveConnectionSlot() -> Bool {
+    /// 登记与 start 同锁，stop 不会先 cancel 再让迟到 accept 启动旧连接。
+    func registerAndStartConnection(
+        for connection: NWConnection,
+        cancellation: WebWallpaperLocalSchemeHandler.RequestCancellation,
+        admissionID: UUID, connectionID: UUID, queue: DispatchQueue
+    ) -> Bool {
         connectionCountLock.lock()
         defer { connectionCountLock.unlock() }
-        guard activeConnectionCount < Self.maxConcurrentConnections else { return false }
-        activeConnectionCount += 1
+        guard connectionAdmissionID == admissionID,
+              activeConnections.count < Self.maxConcurrentConnections else { return false }
+        activeConnections[connectionID] = (connection, cancellation)
+        connection.start(queue: queue)
         return true
     }
 
-    func releaseActiveConnectionSlot() {
+    func releaseActiveConnectionSlot(for connectionID: UUID) {
         connectionCountLock.lock()
         defer { connectionCountLock.unlock() }
-        activeConnectionCount = max(0, activeConnectionCount - 1)
+        // failed/cancelled 重复终态或旧 listener 迟到完成都只移除自身。
+        activeConnections.removeValue(forKey: connectionID)
     }
 
     /// 请求路径的强制前缀；入口 URL 与页面内相对路径都从它派生。
@@ -85,8 +93,13 @@ final class WebWallpaperLoopbackServer {
                 guard let listener else { return }
                 self?.handleListenerState(state, from: listener)
             }
+            let admissionID = UUID()
+            connectionCountLock.lock()
+            connectionAdmissionID = admissionID
+            connectionCountLock.unlock()
             listener.newConnectionHandler = { [weak self] connection in
-                self?.handle(connection)
+                guard let self else { connection.cancel(); return }
+                self.handle(connection, admissionID: admissionID)
             }
             listener.start(queue: listenerQueue)
             self.listener = listener
@@ -183,18 +196,23 @@ final class WebWallpaperLoopbackServer {
     }
 
     func stop() {
+        // 先撤 accept 身份再停 listener：排队中的旧 accept 无法越过 stop，
+        // 已登记连接则与本次快照一起取消；回调只弱持有 server，无持有环。
+        connectionCountLock.lock()
+        connectionAdmissionID = nil
+        let connections = Array(activeConnections.values)
+        activeConnections.removeAll()
+        connectionCountLock.unlock()
+        for (connection, cancellation) in connections {
+            cancellation.cancel()
+            connection.cancel()
+        }
         startupTimeoutWorkItem?.cancel()
         startupTimeoutWorkItem = nil
         pendingStartCompletions.removeAll()
         listener?.cancel()
         listener = nil
         port = nil
-        // listener cancel 不级联已 accept 的连接（Apple 语义：存量连接独立
-        // 存活），这里清零使重启计数从零起算；存续连接的迟到 release 由
-        // releaseActiveConnectionSlot 的 max(0) 下限钳制，至多短暂放宽上限。
-        connectionCountLock.lock()
-        activeConnectionCount = 0
-        connectionCountLock.unlock()
     }
 
     /// 请求目标只有在带 `/mwx-<token>/` 前缀、或携带本服务器的会话标记 cookie 时

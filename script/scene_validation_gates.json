@@ -4036,6 +4036,19 @@
         "test_web_spectrum_delivery",
         "test_web_navigation_policy"
       ]
+    },
+    {
+      "id": "web-range-streaming",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler+IO.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer+Connection.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer.swift"
+      ],
+      "modules": [
+        "test_web_range_streaming",
+        "test_web_resource_grants",
+        "test_web_response_transformer"
+      ]
     }
   ],
   "method_gates": {
