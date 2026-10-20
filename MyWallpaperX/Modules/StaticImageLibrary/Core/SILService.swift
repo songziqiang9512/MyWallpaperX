@@ -110,6 +110,13 @@ final class SILService: ObservableObject {
     private let sortStateKey  = "SILSortState"
     private let silTagsKey    = "SILTags"
     private let initialMissingFilesAlertRetryLimit = 5
+    private var metadataLoadGeneration: UInt64 = 0
+    nonisolated private struct MissingImageDimensions: Sendable {
+        let id: String
+        let path: String
+        let pixelWidth: Int?
+        let pixelHeight: Int?
+    }
 
     /// 供外部（如重置功能）访问持久化文件路径
     var silPersistenceURL: URL { persistenceURL }
@@ -135,23 +142,59 @@ final class SILService: ObservableObject {
     // MARK: - 持久化
 
     func load() {
+        invalidatePendingMetadataLoad()
         guard let data = try? Data(contentsOf: persistenceURL),
               let decoded = try? JSONDecoder().decode([SILWallpaper].self, from: data) else { return }
-        // 对旧数据补读像素尺寸（新导入的已在 init 时读取）
-        wallpapers = decoded.map { w in
-            guard w.pixelWidth == nil || w.pixelHeight == nil else { return w }
-            var updated = w
-            if let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: w.path) as CFURL, nil),
-               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
-                updated.pixelWidth  = props[kCGImagePropertyPixelWidth]  as? Int
-                updated.pixelHeight = props[kCGImagePropertyPixelHeight] as? Int
-            }
-            return updated
+        wallpapers = decoded
+        // 旧索引立即可见，缺失尺寸只在 utility 读 header，不阻塞网格展示。
+        let missing = decoded.filter { $0.pixelWidth == nil || $0.pixelHeight == nil }.map {
+            MissingImageDimensions(id: $0.id, path: $0.path, pixelWidth: $0.pixelWidth, pixelHeight: $0.pixelHeight)
         }
-        // 如果有数据被补充，异步保存
-        let needsSave = decoded.contains { $0.pixelWidth == nil || $0.pixelHeight == nil }
-        if needsSave {
-            DispatchQueue.global(qos: .utility).async { [weak self] in self?.save() }
+        guard !missing.isEmpty else { return }
+        let generation = metadataLoadGeneration
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            var updates: [(request: MissingImageDimensions, width: Int?, height: Int?)] = []
+            for request in missing {
+                if let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: request.path) as CFURL, nil),
+                   let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
+                    updates.append((request, props[kCGImagePropertyPixelWidth] as? Int,
+                                    props[kCGImagePropertyPixelHeight] as? Int))
+                }
+            }
+            guard !updates.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.applyLoadedImageDimensions(updates, generation: generation)
+            }
+        }
+    }
+
+    func invalidatePendingMetadataLoad() {
+        metadataLoadGeneration &+= 1
+    }
+
+    private func applyLoadedImageDimensions(
+        _ updates: [(request: MissingImageDimensions, width: Int?, height: Int?)], generation: UInt64
+    ) {
+        guard generation == metadataLoadGeneration else { return }
+        var enriched = wallpapers
+        var indicesByID: [String: [Int]] = [:]
+        for index in enriched.indices { indicesByID[enriched[index].id, default: []].append(index) }
+        var changed = false
+        for update in updates {
+            for index in indicesByID[update.request.id] ?? [] where enriched[index].path == update.request.path {
+                if update.request.pixelWidth == nil, enriched[index].pixelWidth == nil, let width = update.width {
+                    enriched[index].pixelWidth = width
+                    changed = true
+                }
+                if update.request.pixelHeight == nil, enriched[index].pixelHeight == nil, let height = update.height {
+                    enriched[index].pixelHeight = height
+                    changed = true
+                }
+            }
+        }
+        if changed {
+            wallpapers = enriched
+            save()
         }
     }
 

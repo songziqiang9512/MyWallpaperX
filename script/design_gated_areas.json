@@ -926,6 +926,21 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "apple-sil-legacy-metadata-preparation",
+      "title": "Apple silicon U2 旧图片尺寸后台补齐",
+      "owner": "StaticImageLibrary SILService",
+      "status": "approved",
+      "designDoc": "docs/development/apple-silicon-optimization-plan.md",
+      "design_notes": "2026-10-20 U2资格后窄片：JSON原顺序先发布，immutable缺尺寸请求后台header；同generation/id/path且当前字段仍缺才补，保用户其他字段，reset/load撤代。批次完成仅实际补值才原save，不改writer/JSON/退出，不引入完整loader/delta/cache；真实迟到/失败与App回归另验。 consumer同ID/同列数尺寸变化沿原Waterfall显式失效，仅受影响可见cell重配；原snapshot串行完成再投最新拓扑和待重配ID，不改变timer。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift"
+      ],
+      "contentPatterns": [
+        "invalidatePendingMetadataLoad"
+      ]
     }
   ]
 }

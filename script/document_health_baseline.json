@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 375,
-      "bytes": 55371
+      "lines": 377,
+      "bytes": 56186
     }
   },
   "archives": [
@@ -1529,15 +1529,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "2086d705dea9fe72cab71986a7a7c56f641cc30cf164b07b2cdd3ad1b2ac4e04",
-      "after": "414bc07901bbfd381f927b44cc469b9638d24c6f69582c8bba292aaf89df9ecf",
-      "owner": "Apple silicon optimization program",
-      "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
       "after": "1ea340c9137c06bd985f688654148d1bd2984f0bb9ebbce1725d3c20eb3dab9f",
@@ -1552,6 +1543,15 @@
       "after": "928fb65cb86f41c61b5ceccdea36e346e7e82a835ebc2102a22a6d94f34c4185",
       "owner": "Apple silicon optimization program",
       "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "414bc07901bbfd381f927b44cc469b9638d24c6f69582c8bba292aaf89df9ecf",
+      "after": "83a4d3daf414233ecbceb9da188d8311fad940dc037c263d2d5accfe2fd08a08",
+      "owner": "Apple silicon U2 metadata",
+      "reason": "资格后仅将旧图片header补齐移后台，记录generation/reset/字段/Waterfall串行消费合同，不扩完整loader或writer。",
       "decision": "docs/development/apple-silicon-optimization-plan.md"
     }
   ]

@@ -176,7 +176,9 @@ final class SILGridContainerView: NSView, ModuleFocusable {
     private var orderedIndexByID: [String: Int] = [:]
     private var lastAppliedIDs: [String] = []
     private var pendingIDs: [String] = []
+    private var pendingDimensionReloadIDs = Set<String>()
     private var isSnapshotScheduled = false
+    private var isApplyingSnapshot = false
     private var isVisibleRefreshScheduled = false
     private var isSelectionSyncScheduled = false
     private var isSelectionVisualUpdateScheduled = false
@@ -259,9 +261,17 @@ final class SILGridContainerView: NSView, ModuleFocusable {
     func update(wallpapers: [SILWallpaper]) {
         var byID: [String: SILWallpaper] = [:]
         for w in wallpapers { byID[w.id] = w }
+        let changedDimensions = Set(byID.compactMap { id, wallpaper -> String? in
+            guard let previous = wallpapersByID[id],
+                  previous.pixelWidth != wallpaper.pixelWidth || previous.pixelHeight != wallpaper.pixelHeight else { return nil }
+            return id
+        })
+        pendingDimensionReloadIDs.formUnion(changedDimensions)
+        pendingDimensionReloadIDs.formIntersection(byID.keys)
         wallpapersByID = byID
         orderedIDs = wallpapers.map(\.id)
         orderedIndexByID = Dictionary(uniqueKeysWithValues: orderedIDs.enumerated().map { ($1, $0) })
+        if !changedDimensions.isEmpty { waterfallLayout.invalidateLayout() }
         applySnapshot(ids: orderedIDs)
         scheduleSyncSelection()
         emptyLabel.isHidden = !orderedIDs.isEmpty
@@ -281,19 +291,36 @@ final class SILGridContainerView: NSView, ModuleFocusable {
             guard let self else { return }
             self.isSnapshotScheduled = false
             let ids = self.pendingIDs
-            guard ids != self.lastAppliedIDs else { return }
+            guard !self.isApplyingSnapshot else { return }
+            guard ids != self.lastAppliedIDs else {
+                self.reloadPendingDimensionItems()
+                return
+            }
             let animate = !self.lastAppliedIDs.isEmpty
                 && abs(ids.count - self.lastAppliedIDs.count)
                     <= max(20, self.collectionView.indexPathsForVisibleItems().count + 10)
             var snap = NSDiffableDataSourceSnapshot<Section, String>()
             snap.appendSections([.main]); snap.appendItems(ids, toSection: .main)
+            self.isApplyingSnapshot = true
             self.dataSource.apply(snap, animatingDifferences: animate) { [weak self] in
                 guard let self else { return }
+                self.isApplyingSnapshot = false
                 self.lastAppliedIDs = ids
+                self.reloadPendingDimensionItems()
                 self.scheduleVisibleRefresh()
                 self.scheduleRestingScrollOriginCapture()
+                if self.pendingIDs != ids { self.applySnapshot(ids: self.pendingIDs) }
             }
         }
+    }
+
+    private func reloadPendingDimensionItems() {
+        guard lastAppliedIDs == orderedIDs, !pendingDimensionReloadIDs.isEmpty else { return }
+        let changed = collectionView.indexPathsForVisibleItems().filter {
+            $0.item < orderedIDs.count && pendingDimensionReloadIDs.contains(orderedIDs[$0.item])
+        }
+        pendingDimensionReloadIDs.removeAll()
+        if !changed.isEmpty { collectionView.reloadItems(at: Set(changed)) }
     }
 }
 

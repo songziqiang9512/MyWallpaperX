@@ -633,6 +633,7 @@ extension WallpaperManager {
 
         // 同步重置图片库（图片库无缩略图缓存，只清库数据和 UserDefaults）
         let sil = SILService.shared
+        sil.invalidatePendingMetadataLoad()
         sil.wallpapers.removeAll()
         sil.silTags.removeAll()
         sil.sortState = SILSortState()
