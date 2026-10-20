@@ -61,7 +61,23 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         case 1: return .redOnly
         case 2: return .greenOnly
         case 3: return .redGreenOnly
+        case 8: return .alphaOnly
         default: return .unproven
+        }
+    }
+
+    /// Shared by the generic artifact builder; the bounded frontend already
+    /// owns validated units and consumes the same `analyze` fact directly.
+    static func provesAlphaOnlyInputs(
+        _ slots: [Int], vertexSource: String, fragmentSource: String
+    ) -> Bool {
+        guard !slots.isEmpty else { return true }
+        guard let syntax = SceneAuthoredShaderSyntaxAnalyzer.validatedStages(
+            vertexSource: vertexSource, fragmentSource: fragmentSource
+        ) else { return false }
+        return slots.allSatisfy {
+            analyze(samplerName: "g_Texture\($0)", vertex: syntax.vertex,
+                    fragment: syntax.fragment) == .alphaOnly
         }
     }
 
@@ -143,7 +159,7 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
     }
 
     /// Accepts a direct complete-vector sample or an immediate `.r/.x`,
-    /// `.g/.y`, or `.rg/.xy` projection of `texSample2D` and `texture2D`.
+    /// `.g/.y`, `.rg/.xy`, or `.a/.w` projection of `texSample2D` and `texture2D`.
     /// The caller unions projected uses and preserves complete-vector use as a
     /// separate fact; target-format admission owns any unstored-component
     /// semantics. Permutations and other explicit swizzles remain unproven.
@@ -172,6 +188,15 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         case "r", "x": return .redOnly
         case "g", "y": return .greenOnly
         case "rg", "xy": return .redGreenOnly
+        case "a", "w":
+            // Alpha is independent of RGB representation. Prove the complete
+            // sampler argument and reject aliases/escapes before granting that
+            // exemption; scalar arithmetic after this projection is harmless.
+            guard let arguments = argumentRanges(in: samplerIndex..<close, tokens: tokens),
+                  arguments.count == 2, arguments[0] == samplerIndex..<(samplerIndex + 1),
+                  !arguments[1].contains(where: { tokens[$0].text == tokens[samplerIndex].text })
+            else { return nil }
+            return .alphaOnly
         default: return nil
         }
     }
@@ -279,6 +304,7 @@ private nonisolated extension SceneAuthoredShaderProgram.TextureBinding.ChannelU
         case .redOnly: 1
         case .greenOnly: 2
         case .redGreenOnly: 3
+        case .alphaOnly: 8
         case .wholeVector, .unproven: 0
         }
     }

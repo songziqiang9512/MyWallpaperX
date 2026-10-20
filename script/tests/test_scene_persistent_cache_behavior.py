@@ -33,7 +33,7 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 # Explicit invalidation expectation; never derive this from the product under test.
-CURRENT_VARIANT_SCHEMA_VERSION = 28
+CURRENT_VARIANT_SCHEMA_VERSION = 29
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
@@ -352,7 +352,7 @@ private func runGenericProbe() throws -> ProbeOutput {
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let root = try cacheRoot()
-    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v28")
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v29")
     let key = "probe-variant-key"
     try expect(
         into: &output,

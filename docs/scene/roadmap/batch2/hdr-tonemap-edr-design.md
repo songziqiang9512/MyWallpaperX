@@ -3,21 +3,13 @@
 
 # D2 — Scene HDR、tone mapping 与 EDR 输出
 
-> 复核基线：2026-10-01，独立工作树 `93b1b85a`。本文是设计裁决，不是当前能力或运行验收；已合入 `codex/engine-refactor-program`；实施时按其最新代码重新核对所列 owner，以下行号仍指向原设计基线。`approved` 仅表示本设计完成，阶段性 unknown 仍受本文准入门约束。
+> 本文拥有设计裁决；当前能力和验收见[运行证据](../../capabilities/runtime-evidence-current.md)，稳定 owner 见[运行时架构](../../architecture/runtime-architecture.md)。`approved` 不代表未验范围已支持。
 
 ## 目标合同与设计判据
 
 保留作者高亮的中间精度，在唯一 terminal compositor 的输出阶段做一次有明确颜色语义的显示映射：先保持 SDR 正常颜色与 HDR Bloom，再开放可选 EDR。跨 target、Bloom、surface 和显示状态 owner，触及唯一输出与外部平台合同。
 
-五判据：横切多个 owner 或主链节点=是；触碰唯一权威合同=是；用户可见且难逆的 API/数据/发布合同=否；触碰机器冻结结构家族=否；依赖官方或平台外部证据=是。
-
-## 设计基线事实与证据（2026-10-01）
-
-- [E-2026-09-27-SCENE-COLOR-PRECISION](../../capabilities/runtime-evidence-current.md#e-2026-09-27-scene-color-precision)（该文件 `:477`）：RGBA16F 已贯穿 graph 到 CAMetalLayer；仍是 display-referred sRGB，没有完整 HDR Bloom/tone mapping 或 EDR。
-- `MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift:156` 设置 pixelFormat，`:159` 设置 sRGB。格式精度不是 scene-linear 语义证据。
-- 交接的静态取证 §7.4 是音频方向，不可用作 HDR 曲线依据；本设计不消费私有曲线、公式或常量。
-- [官方 Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) 公开区分标准与 Ultra HDR Bloom；不公开本项目所需的全部显示映射参数。
-- [Apple 自行 tone mapping](https://developer.apple.com/documentation/metal/performing-your-own-tone-mapping) 支持 extended-linear color space、RGBA16Float、`wantsExtendedDynamicRangeContent` 与当前屏幕 headroom；这是 macOS 呈现合同，不是 WE 数值算法。公开资料复核日为 2026-10-01。
+本设计横切准备、颜色与显示 owner，依赖官方和平台行为证据；用户数据与发布语义不变。
 
 ## owner
 
@@ -47,6 +39,14 @@
 ## 特效颜色边界保留浮点范围（2026-10-08）
 
 PMA→straight 是表示转换，不是显示映射。现有编译器插入的输入 helper 将 RGB/alpha 裁到0–1，违背上文中间HDR不提前裁剪的合同；先用实际accepted Program和F16输入证明超白经作者衰减后仍错误变暗。修复归现有 Metal source 生成职责：共享边界函数供 bounded frontend 与 generic lowering 使用，删除各处重复实现；离线编译工具同步同一合同。只转换已证明的颜色槽，data/signal采样及作者表达式不改。alpha仍按既有coverage域处理，零alpha返回零RGB；有限扩展RGB保留到作者运算与既有终端。作者明确的UNorm输出饱和保留；独立信号合成的自动RGB输出裁剪同样撤销：两个0–1输入的实际generic Program将作者结果1.25裁成1，bounded Program保留1.25。两端覆盖alpha仍有界。持久工件及含生成代码的准备缓存撤销旧版本，不靠用户清缓存。验收覆盖不透明/半透明HDR、普通SDR、零alpha、显式饱和、不同lowering及缓存重启；真实328渐变条纹仍独立验收，不以此共享反例指认其根因。
+
+## 仅 alpha 采样的普通颜色边界（2026-10-21）
+
+只消费 alpha、生成新 RGB 的普通 Program 不应被未读取的 RGB 表示拒绝。沿现有 TextureChannelAnalyzer 扩展 `alphaOnly`：所有活动引用须为直接采样的 `.a/.w`，任一 RGB、整向量、别名或 vertex 引用均不成立；纹理标签保持。准备期将此槽从 RGB 转换集合移入互斥的 `alphaInputSlots`，两编译器复验源码与实际绑定，身份、缓存与解码保真；旧工件缺字段按空集合处理，不补造证明。
+
+launch 与实际 finalization 共用原颜色推导，alpha 槽复用已存在的 scalar-alpha 可用性规则：已解析颜色（含独立信号）与 RGBA data 可读；未知、缺失及 R/RG 存储不能把 Metal 缺省 alpha 冒充作者信号。只有 RGB 槽参与原 PMA 适配，输出仍由作者 Program 证明；局部失败沿原生命周期和输出 owner。
+
+验收包括改名/采样坐标等价与 `.a/.w` 变体，混合 RGB、间接/vertex 读取、未知和无 alpha 的邻例，两 frontend、缓存身份/旧解码及实际 GPU alpha 保真。原始流体样本还须整图和真实画面受益，首拒消失不等于全部流体或光照已支持；独立样本确认原颜色合成未退步。
 
 ## HDR Bloom 参数与运行分支（2026-10-06）
 

@@ -663,6 +663,10 @@ def build_program_artifact(
         boundary = parse_ordinary_color_boundary(color_boundary)
         if boundary is not None and output_semantics != "color":
             raise InputColorContractFailure("ordinary-color-output-semantics")
+        if boundary is not None and boundary.get("alphaInputSlots"):
+            # The standalone Python worker has no authored-stage alpha-only
+            # proof. Accepting request metadata cannot grant artifact admission.
+            raise InputColorContractFailure("ordinary-alpha-input-source-proof-unavailable")
     except InputColorContractFailure as error:
         raise ArtifactFailure(str(error)) from error
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):

@@ -32,9 +32,15 @@ def ordinary_color_boundary(value: Any) -> dict[str, Any] | None:
     if value is None:
         return None
     required = {"colorInputSlots", "outputRepresentation"}
-    if not isinstance(value, dict) or not required <= set(value) or set(value) - required - {"signalPassthroughSlot"}:
+    if not isinstance(value, dict) or not required <= set(value) or set(value) - required - {"signalPassthroughSlot", "alphaInputSlots"}:
         raise InputColorContractFailure("ordinary-color-boundary")
     slots = premultiplied_color_input_slots(value["colorInputSlots"])
+    try:
+        alpha_slots = premultiplied_color_input_slots(value.get("alphaInputSlots", []))
+    except InputColorContractFailure as error:
+        raise InputColorContractFailure("ordinary-alpha-input-slots") from error
+    if set(slots) & set(alpha_slots):
+        raise InputColorContractFailure("ordinary-color-boundary")
     representation = value["outputRepresentation"]
     if representation not in {"opaque", "straight-alpha", "premultiplied-alpha", "independent-alpha-signal"}:
         raise InputColorContractFailure("ordinary-color-boundary")
@@ -45,6 +51,8 @@ def ordinary_color_boundary(value: Any) -> dict[str, Any] | None:
     ):
         raise InputColorContractFailure("ordinary-color-boundary")
     result = {"colorInputSlots": slots, "outputRepresentation": representation}
+    if "alphaInputSlots" in value:
+        result["alphaInputSlots"] = alpha_slots
     if signal_slot is not None:
         result["signalPassthroughSlot"] = signal_slot
     return result
@@ -54,7 +62,7 @@ def ordinary_boundary_cache_key(value: dict[str, Any] | None) -> str:
     if value is None:
         return "-"
     signal_slot = value.get("signalPassthroughSlot")
-    return f"ordinary-color-v2:{cache_key(value['colorInputSlots'])}:{value['outputRepresentation']}:{signal_slot if signal_slot is not None else '-'}"
+    return f"ordinary-color-v3:{cache_key(value['colorInputSlots'])}:{cache_key(value.get('alphaInputSlots', []))}:{value['outputRepresentation']}:{signal_slot if signal_slot is not None else '-'}"
 
 
 def _ordinary_stored_color_expression(value: str, boundary: dict[str, Any]) -> str:
@@ -67,6 +75,10 @@ def lower_ordinary_color_boundary(
     source: str, boundary: dict[str, Any], *, stage: str = "fragment", include_helpers: bool = True
 ) -> str:
     """Adapt original compiler MSL using each function's proven uniform context."""
+    if boundary.get("alphaInputSlots"):
+        # MSL sample suffixes do not prove all authored sampler references or
+        # vertex uses. Keep this worker closed until it shares that source proof.
+        raise InputColorContractFailure("ordinary-alpha-input-source-proof-unavailable")
     if any(name in source for name in (
         "mwxStraightColorInput", "mwxStraightColorOutput", "mwxPassthroughColorOutput", "mwxUnpremultiply",
         "mwxGenericUnpremultiply", "mwxGenericPremultiply",

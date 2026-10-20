@@ -42,6 +42,7 @@ nonisolated extension SceneShaderCacheCost {
         guard let boundary else { return }
         add(64)
         slots(boundary.colorInputSlots.count)
+        slots(boundary.alphaInputSlots.count)
     }
 
     mutating func runtimeLoopBounds(_ bounds: SceneAuthoredShaderRuntimeLoopBounds) {
@@ -83,7 +84,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             boundTextureSlots: Set<Int>
         ) {
             // v22 retires source-classified programs before typed RGBA signal auxiliaries.
-            cacheSchemaVersion = 22
+            cacheSchemaVersion = 23
             compilerIdentity = SceneShaderCacheIdentity.semantics
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
@@ -323,9 +324,13 @@ nonisolated enum SceneAuthoredShaderFrontend {
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
         if let colorBoundary,
            !colorBoundary.isValid
-            || !Set(colorBoundary.colorInputSlots).isSubset(
+            || !Set(colorBoundary.colorInputSlots + colorBoundary.alphaInputSlots).isSubset(
                 of: Set(validation.textures.map(\.slot))
-            ) || colorBoundary.signalPassthroughSlot.map({ slot in
+            ) || !colorBoundary.alphaInputSlots.allSatisfy({ slot in
+                SceneAuthoredShaderTextureChannelAnalyzer.analyze(
+                    samplerName: "g_Texture\(slot)", vertex: vertexUnit, fragment: fragmentUnit
+                ) == .alphaOnly
+            }) || colorBoundary.signalPassthroughSlot.map({ slot in
                 colorTransfer != .passthrough(textureSlot: slot)
                     || SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
                         != .passthrough(textureSlot: slot)

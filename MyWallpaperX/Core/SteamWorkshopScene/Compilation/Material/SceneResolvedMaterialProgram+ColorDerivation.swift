@@ -306,6 +306,9 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             if let slot = boundary.signalPassthroughSlot,
                transfer != .passthrough(textureSlot: slot) { return nil }
             guard boundary.isValid,
+                  boundary.alphaInputSlots.allSatisfy({
+                      scalarComponentIsResolved(.alpha, slot: $0, textureFacts: textureFacts)
+                  }),
                   boundary.colorInputSlots.allSatisfy({ slot in
                       guard let value = representation(slot: slot, textureFacts: textureFacts)
                       else { return false }

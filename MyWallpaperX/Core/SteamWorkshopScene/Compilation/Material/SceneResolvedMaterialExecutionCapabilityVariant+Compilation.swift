@@ -107,7 +107,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             cachedAnalysis: cachedAnalysis
         )
         // Exact producer content covers explicit bindings and the existing
-        // previous/default alias. A single color channel is not a data proof.
+        // previous/default alias. Component use never relabels resource content.
         let graphInputContents = Dictionary(uniqueKeysWithValues:
             sourceActiveSamplers.keys.compactMap { slot -> (Int, SceneTextureContent)? in
                 guard readinessMask & (1 << UInt8(slot)) != 0,
@@ -375,11 +375,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         colorSlots.subtract(dataSlots)
         colorSlots = Set(colorSlots.filter { slot in
             guard let sampler = samplers[slot] else { return false }
-            // A color channel remains color when read alone. Only the typed
-            // data roles above exempt a sample from representation conversion.
+            // RGB remains color when read alone. Alpha-only reads have their
+            // own source-proven, publication-validated channel contract.
             return sampler.mode == .regular || providerColorSlots.contains(slot)
                 || selectedPurposes[slot] == .premultipliedColor
         })
+        let alphaSlots = Set(colorSlots.filter { samplers[$0]?.channelUse == .alphaOnly })
+        colorSlots.subtract(alphaSlots)
         if let contract = conditionalContract {
             colorSlots.subtract(contract.scalarRedSlots)
             colorSlots.subtract(contract.scalarGreenSlots)
@@ -399,7 +401,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             signalSlot = nil
         }
         return .init(colorInputSlots: colorSlots, outputRepresentation: output,
-                     signalPassthroughSlot: signalSlot)
+                     signalPassthroughSlot: signalSlot, alphaInputSlots: alphaSlots)
     }
 
 }

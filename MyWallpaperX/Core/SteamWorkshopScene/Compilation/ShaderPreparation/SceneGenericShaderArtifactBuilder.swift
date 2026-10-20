@@ -196,6 +196,11 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             let preparedColorMSL: String
             let preparedVertexMSL: String
             if let colorBoundary {
+                guard SceneAuthoredShaderTextureChannelAnalyzer.provesAlphaOnlyInputs(
+                    colorBoundary.alphaInputSlots,
+                    vertexSource: vertexStage.authoredSource,
+                    fragmentSource: fragmentStage.authoredSource
+                ) else { throw Failure.colorTransfer }
                 if let slot = colorBoundary.signalPassthroughSlot {
                     guard color.transfer.kind == "passthrough", color.transfer.slot == slot,
                           color.transfer.slots == nil else { throw Failure.colorTransfer }
@@ -279,7 +284,10 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 of: Set(bindings.map(\.slot))
             ) else { throw Failure.colorTransfer }
             guard colorBoundary.map({
-                Set($0.colorInputSlots).isSubset(of: Set(bindings.map(\.slot)))
+                Set($0.colorInputSlots + $0.alphaInputSlots).isSubset(of: Set(bindings.map(\.slot)))
+                    && $0.alphaInputSlots.allSatisfy { slot in
+                        bindings.contains(where: { $0.slot == slot && $0.channelUse == "alphaOnly" })
+                    }
             }) ?? true else { throw Failure.colorTransfer }
             let accumulatorLoopWork: Int? = if
                 expectedColorTransfer?.usesRGBA8UnormAttachmentBoundary == true
@@ -478,6 +486,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 currentMask = 2
             } else if suffix.range(of: #"^\s*\.xy\b"#, options: .regularExpression) != nil {
                 currentMask = 3
+            } else if suffix.range(of: #"^\s*\.w\b"#, options: .regularExpression) != nil {
+                currentMask = 8
             } else if suffix.range(of: #"^\s*\."#, options: .regularExpression) != nil {
                 return "unproven"
             } else {
@@ -491,6 +501,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         case 1: return "redOnly"
         case 2: return "greenOnly"
         case 3: return "redGreenOnly"
+        case 8: return "alphaOnly"
         default: return "unproven"
         }
     }

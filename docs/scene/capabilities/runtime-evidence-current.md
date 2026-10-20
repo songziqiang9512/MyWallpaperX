@@ -165,6 +165,10 @@
 
 ## 3. 证据包
 
+### 普通 Program 仅 alpha 读取（2026-10-21）
+
+<a id="alpha-only-color-boundary-20261021"></a>现采样组件证明`alphaOnly`，互斥alpha/RGB槽沿原Program消费；launch/finalization核真实alpha，straight存储沿原资格，RGB/PMA不误转换，未知/缺失/R/RG不得凭新alpha合同获准；既有typed-data默认扩展保持。两frontend及artifact解码/缓存同事实，离线Python缺源证明时明确拒非空alpha合同。固定HEAD红门复现独立信号输入被拒；修后12等价/表示正例及2个既有R/RG均实际GPU，同atom/像素成立，RGB混用/别名/vertex与9个篡改工件反例通过；最近graph颜色5门及cache fresh-reader两门通过。最终签名Debug App原299已越过normal node16，仍在combine node17的legacy light数组拒绝，**背景未恢复**；独立313/372默认静音主体、背景与粒子保留，3包exit0、stop1→0/GPU排空，非同状态官方parity或性能结论。独审0必须修；证据`.artifacts/scene-evidence/runs/alpha-only-color-boundary-20261021/`。
+
 ### 蓝烟花事件与画面资格
 
 <a id="blue-firework-qualification-20261020"></a> 原2131872317在复用的当前Debug（无新build）运行22s，原source无漂移。blue的2s关闭/10s恢复共5次接受，surface1/window3072保持；1375四child模板准备、0unsupported，多个非空/衰减阶段与实际GPU241帧/0failed、571批（25折射）完成。Root及独审见蓝色放射短线和后续稀疏蓝白亮点，主构图保持；不能由这些图/聚合计数宣称完整上升、全部四child逐一执行、出生frame/velocity正确。官方目录截图未露蓝爆炸，preview.gif经ffprobe为200×200/50帧/2s，不作轨迹oracle；本机VM实际stopped，本批未启动。结论`STOP_TRAJECTORY_REFERENCE_UNQUALIFIED`：首错UNKNOWN、无产品修法，不关闭用户旧轨迹观察，不改作者参数或宣称性能收益。App0/stop1→0/GPUdrained，必要限期包 `../../../.artifacts/scene-evidence/runs/blue-firework-qualification-213-20261020/current/report.json`。

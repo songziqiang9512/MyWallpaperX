@@ -469,13 +469,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "01b9eb08abca60c16f03a92963558e61aa58950e1ad082aa5de42b938bfa4714",
+        "sourceSHA256": "7c8432fe7a1a2d0606ab18bc82082c1979cddff9ba18397e49db397f5937c238",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步唯一audio-array源码视图、共享数值类型与普通颜色启动边界；338实际Program执行与可见收益UNKNOWN分开，旧首拒退出队列。导航及源身份审计，其余合同未重审。",
-        "limitations": "官方RDEF仅证明自有编译布局，声音正控失败；最终App仅338执行及381健康邻例，JPEG为有损review。未证明338新增可见收益、FFT/上传顺序、完整phase/HDR/整景或性能。"
+        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
+        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e197f3d8fc2aad3c01f66e1a589e3b1049ac8fcfbc8ae7a2d8b40fd7e890951e",
+        "sourceSHA256": "e7534a609ebc3d825aa4e94a62cf48c7da93cb4899b60a8d5946ada489629af7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
-        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
+        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
+        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
       }
     },
     {
@@ -3619,10 +3619,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f10524667d38de7e613d901f2e0b8083a6360135043b51a3076857f86b3923f4",
+        "sourceSHA256": "e62c94151f3ce51ff9826cc0dee967eaa357078ad64df7e1cb140a4588907607",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
-        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
+        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
+        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "98a05d27041e5cc5d759aa672cce249e1dce38b36997d4eac6defdacffec024a",
+        "sourceSHA256": "6a7bfb9a5ff1294b63d949151b1a74993a117a14fdf582377b935123d0589ee0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
-        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
+        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
+        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
       }
     },
     {

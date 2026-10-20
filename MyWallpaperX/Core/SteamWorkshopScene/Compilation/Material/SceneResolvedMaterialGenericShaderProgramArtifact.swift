@@ -194,7 +194,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                   bindings.contains(where: { $0.slot == slot })
               }) else { return nil }
         if let boundary = raw.colorBoundary {
-            guard Set(boundary.colorInputSlots).isSubset(of: Set(bindings.map(\.slot))),
+            guard Set(boundary.colorInputSlots + boundary.alphaInputSlots).isSubset(of: Set(bindings.map(\.slot))),
+                  boundary.alphaInputSlots.allSatisfy({ slot in
+                      bindings.contains(where: { $0.slot == slot && $0.channelUse == .alphaOnly })
+                  }),
                   !boundary.requiresInputMask || fields.contains(where: {
                       $0.name == SceneShaderColorBoundary.uniformName && $0.type == .uint
                           && $0.arrayCount == nil

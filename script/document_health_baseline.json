@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 129339
+      "bytes": 129584
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 470,
-      "bytes": 177386
+      "lines": 474,
+      "bytes": 178439
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -182,7 +182,7 @@
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
       "lines": 122,
-      "bytes": 27504
+      "bytes": 27464
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 56,
-      "bytes": 17443
+      "lines": 57,
+      "bytes": 18059
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 239,
-      "bytes": 74105
+      "bytes": 74345
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1385,15 +1385,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8d77ebcd542a58e1677aa816501906f12b423961e5cc3f1c1b651ce2e7e89138",
-      "after": "cc9999f533fdba129110ef0e786015ce7a8783edd3a90f84354b56dbd2d3deb3",
-      "owner": "Scene runtime and evidence owners",
-      "reason": "Record one bounded audio source-view contract and actual execution result; retire stale338 rejection without promoting unknown visible benefit or whole sample.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#audio-packed-source-view"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
       "before": "e77fa1c11d6a3b351cfee97cb134edab7621c18917091ac5c655620a4bec8fe1",
       "after": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
@@ -1511,15 +1502,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5cb88afb5e25c55f1dc401736f57a4e3487d091ad7df2c241eb8aac938509258",
-      "after": "f9f823c5f582369b8ef23268f5e31744c1c77498e29ff53ac714205208aedb5a",
-      "owner": "scene-new-sample-diagnostics",
-      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
       "before": "8d206b405b5a60549218046c071742614b16dc664278b04aace1570098d75929",
       "after": "f6581a9b057d75da2354e4ea04d092c88a4fdd1408f5e053af6c5c1d7005cece",
@@ -1538,30 +1520,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "7c8fb04a12d7cded24d102f3ff669f42cc593cefbabfc49289d55b9ba4f71c60",
-      "after": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
-      "owner": "scene-new-sample-diagnostics",
-      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0e5db9e6601458a2af2c70459b7d6852e78464d836e1087af9388cc103749654",
-      "after": "42d5386e6db4a632a53ed476f15d585e1a8b78f8fab6bc41a7b50ead7e722f2b",
-      "owner": "scene-new-sample-diagnostics",
-      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
       "before": "33f736588fd9f3ad2b5f75b553da3514e6a954f9cb9034a9e7afa44c33a5854e",
       "after": "814748eb390cc13857ab5ca20f859ecd806d83967c12c1740fac770b9bed1398",
       "owner": "apple-silicon-performance",
       "reason": "D12资源关键路径取证、原lexer内等价快路及完整投影/冷暖实测收口；原计划集中记录收益、噪声与已知覆盖限制，不新增并行计划或诊断owner。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "cc9999f533fdba129110ef0e786015ce7a8783edd3a90f84354b56dbd2d3deb3",
+      "after": "dd7dd60deef3d289ec3bb76ae27b7540ac3f7513725df529f33bfbf5ad77defb",
+      "owner": "scene-material-color-boundary",
+      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "f9f823c5f582369b8ef23268f5e31744c1c77498e29ff53ac714205208aedb5a",
+      "after": "b592bc92eb1764ffd8a7725ad02038e36e132e2f6c40ada78682c108ed0b75d8",
+      "owner": "scene-material-color-boundary",
+      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
+      "after": "405b9303b5ede6d4474732694718382409e50e521b262598f63a5aac8663a343",
+      "owner": "scene-material-color-boundary",
+      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "42d5386e6db4a632a53ed476f15d585e1a8b78f8fab6bc41a7b50ead7e722f2b",
+      "after": "4007b55abf4eac096b69ae32675a153c8b7e741d4b69f4578fe2602e08a37f68",
+      "owner": "scene-material-color-boundary",
+      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
     }
   ]
 }

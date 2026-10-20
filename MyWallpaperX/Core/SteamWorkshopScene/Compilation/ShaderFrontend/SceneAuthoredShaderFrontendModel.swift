@@ -363,27 +363,47 @@ nonisolated struct SceneShaderColorBoundary: Codable, Hashable, Sendable {
     }
     static let uniformName = "mwxPremultipliedColorInputMask"
     let colorInputSlots: [Int]
+    /// Source-proven alpha-only reads bypass RGB representation conversion.
+    /// The actual publication must still carry a resolved alpha channel.
+    let alphaInputSlots: [Int]
     let outputRepresentation: OutputRepresentation
     let signalPassthroughSlot: Int?
 
     init(
         colorInputSlots: Set<Int>, outputRepresentation: OutputRepresentation,
-        signalPassthroughSlot: Int? = nil
+        signalPassthroughSlot: Int? = nil, alphaInputSlots: Set<Int> = []
     ) {
         self.colorInputSlots = colorInputSlots.sorted()
+        self.alphaInputSlots = alphaInputSlots.sorted()
         self.outputRepresentation = outputRepresentation
         self.signalPassthroughSlot = signalPassthroughSlot
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case colorInputSlots, alphaInputSlots, outputRepresentation, signalPassthroughSlot
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        colorInputSlots = try values.decode([Int].self, forKey: .colorInputSlots)
+        alphaInputSlots = try values.decodeIfPresent([Int].self, forKey: .alphaInputSlots) ?? []
+        outputRepresentation = try values.decode(OutputRepresentation.self, forKey: .outputRepresentation)
+        signalPassthroughSlot = try values.decodeIfPresent(Int.self, forKey: .signalPassthroughSlot)
+    }
+
     var requiresInputMask: Bool { !colorInputSlots.isEmpty }
     var cacheKey: String {
-        "ordinary-color-v2:\(colorInputSlots.map(String.init).joined(separator: ",")):\(outputRepresentation.rawValue):\(signalPassthroughSlot.map(String.init) ?? "-")"
+        "ordinary-color-v3:\(colorInputSlots.map(String.init).joined(separator: ",")):\(alphaInputSlots.map(String.init).joined(separator: ",")):\(outputRepresentation.rawValue):\(signalPassthroughSlot.map(String.init) ?? "-")"
     }
 
     var isValid: Bool {
         colorInputSlots == colorInputSlots.sorted()
             && Set(colorInputSlots).count == colorInputSlots.count
             && colorInputSlots.allSatisfy { (0 ..< 8).contains($0) }
+            && alphaInputSlots == alphaInputSlots.sorted()
+            && Set(alphaInputSlots).count == alphaInputSlots.count
+            && alphaInputSlots.allSatisfy { (0 ..< 8).contains($0) }
+            && Set(alphaInputSlots).isDisjoint(with: colorInputSlots)
             && signalPassthroughSlot.map {
                 colorInputSlots.contains($0) && outputRepresentation != .independentAlphaSignal
             } ?? true
@@ -420,6 +440,8 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
             /// Active sample results observe a nonempty subset of red/green,
             /// with the aggregate use requiring both stored components.
             case redGreenOnly
+            /// Every active sample observes only alpha (`.a` / `.w`).
+            case alphaOnly
             /// At least one active sample observes the complete sampled vector.
             /// Typed R/RG graph resources may separately prove the format's
             /// deterministic Metal expansion for unstored components.

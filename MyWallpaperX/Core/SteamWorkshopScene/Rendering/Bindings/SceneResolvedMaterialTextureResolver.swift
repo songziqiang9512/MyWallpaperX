@@ -289,7 +289,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 slot: binding.slot,
                 acceptsStraightColorStorage: variant.frontendProgram.colorBoundary?
                     .colorInputSlots.contains(binding.slot) == true
-
+                    || variant.frontendProgram.colorBoundary?
+                        .alphaInputSlots.contains(binding.slot) == true
             )
             result[binding.slot] = .init(
                 index: binding.slot,

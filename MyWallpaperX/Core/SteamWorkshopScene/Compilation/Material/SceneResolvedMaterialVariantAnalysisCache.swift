@@ -19,7 +19,7 @@ import Foundation
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     // v28 retires cached color-transfer facts before typed RGBA signal auxiliaries.
-    private static let schemaVersion = 28
+    private static let schemaVersion = 29
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
