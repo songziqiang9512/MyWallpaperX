@@ -66,7 +66,7 @@
 
 | 样本 / 旧观察 | 当前边界与下一关闭门 |
 |---|---|
-| 通用鼠标比例/投影待排查 · 1994794519、3577990983 | 10-20用户补报：199上下层揭露位置在屏幕中心准确，越往边缘偏差越大，怀疑输入位移倍率；357则较远已放大。前者未取得当前App同点复现，不能把猜测当根因或两者已证共根。357作者默认宽半径约602场景单位可解释部分提前放大，但不能关闭通用缩放偏差。下一门锁定points/bounds/drawable、fit/crop/zoom与effect源域，中心/四边同点配准，沿唯一pointer→consumer投影找首错；不改作者半径或加样本补偿。按用户要求本批只入队，待后继排查。 |
+| 通用鼠标比例/投影待排查 · 1994794519、3577990983 | 10-20用户补报：199上下层揭露位置在屏幕中心准确，越往边缘偏差越大，怀疑输入位移倍率；357则较远已放大。199原包5点完成实际generic图，但点位未取得可归因揭露ROI；官方原包亦缺鼠标揭露正控，已STOP_UNKNOWN，见[本轮资格](../capabilities/runtime-evidence-current.md#pointer-scale-qualification-199-20261020)。旧shader的inverse离屏域只属静态机制。后继静态board在官方footprint正控失败，且自有mul方向有误，未裁矩阵域；新增MVP引用切换position单位仅静态等价性风险。不能破坏forward/inverse配对或据此改公共倍率。357作者默认宽半径约602场景单位仅解释部分提前放大，不关闭通用缩放偏差或证明两者共根。后继先取可见揭露正控、实际points/bounds/drawable与source/output域同点配准，不改作者半径或加样本补偿。 |
 | 2887542690 · 音频ROI、黑遮挡/字体与片区布局 | 10-16 composition创建、286控制及限定透视回绘已接通，原visible-of-null退出；只证旧外悬蓝条同位置消失。固定pointer显隐消融未找到音频条的可重复正证，资格STOP，不能称图框内音频恢复；其他旧具体视觉与完整交互仍待当前可区分证据。[本批边界](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 右侧旧黑块 | 10-16默认日景及作者Night(Lights On) String选项4实图未定位独立右黑矩形；亮吊灯、书柜和地板可见，灰白海报与软阴影仍在。旧精确ROI、媒体和墙钟/viewport phase未齐，不写已修；移出当前已确认缺陷，先取同状态可区分复现再追source/effect/compositor，不据两条无归属mask诊断实施。夜景限期证据 `../../../.artifacts/scene-evidence/runs/213-black-region-night-qualification-20261016/manifest.json`；标题修复不重开。 |
 | 3768903841 · 云形/烟花细节 | 旧Worley云形及烟花/色彩细节未取得同相位关闭。10-16 R40独立原包复验四束spot GPU成功、底部光束可见，实图仍有横向深色云片；只证明当前呈现，不据此判新根因或整样本通过。先同phase对齐实际source/Program与ROI，不因四束恢复关闭旧云形差异。[原边界](../history/runtime-evidence-index.md#e-spot-light) |

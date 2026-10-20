@@ -37,7 +37,12 @@
     "3264246690": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "人物左肘缺块；构图未验收"
+      "note": "旧头部出画/左肘缺块已退出；后继真实原包保持头、左肘和黑口罩完整，点击口罩亦有实际后验。AA与警戒带运动仍待当前画面对照；整体历史fail不升级。",
+      "remainingDifferences": "人物边缘AA及警戒带运动仍待当前对照；头部/左肘/口罩旧反馈已闭，构图与完整互动未验。",
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "noteReconciledOn": "2026-10-20"
     },
     "3287715210": {
       "verdict": "fail",
@@ -125,7 +130,12 @@
     "3787382101": {
       "verdict": "fail",
       "reviewedOn": "2026-09-06",
-      "note": "Water Waves 扭曲人物全身，未限制在作者 mask 内"
+      "note": "旧Water Waves影响人物全身的理由已被六组同构A/B否定，实际效果限于对应作者mask；该精确反馈已退出。保留09-06历史整体fail，不把过时理由继续当现役故障，也不据此新判整样本PASS。",
+      "remainingDifferences": "旧mask反馈已闭；历史整体fail未重新裁决，缺完整样本新结论，不新增泛化待修项。",
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "noteReconciledOn": "2026-10-20"
     },
     "3788734811": {
       "verdict": "fail",
@@ -1013,13 +1023,15 @@
       "verdict": "unreviewed",
       "reviewedOn": "",
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：频谱柱盖停在高处；柱体超cap仅用户猜测，根因unknown。旧人物恢复不关闭柱盖观察。",
+      "note": "10-19轴域后继已取得同动态宽频PCM修前/候选2/6/8s实图：柱盖高端平台退出、继续移动及圆角恢复，主体保持；用户最新App实测正常并撤回低/缺/卡观察。该精确反馈已闭；本轮仅同步既有有界结论，无新播放。",
       "runs": [],
       "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。频谱柱盖停在高处；柱体超cap仅用户猜测，根因unknown。旧人物恢复不关闭柱盖观察。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "remainingDifferences": "仅柱盖高端悬留反馈已闭；全部音源/variant、精确phase、HDR、清晰度及完整样本未验，不继续把旧cap猜测列为当前故障。",
+      "officialComparison": "unknown",
+      "noteReconciledOn": "2026-10-20"
     },
     "3749463715": {
       "verdict": "unreviewed",
@@ -1105,13 +1117,15 @@
       "verdict": "unreviewed",
       "reviewedOn": "",
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：开场镜头动画缺少；与旧缺光观察分开，需默认开场完整窗口复验。",
+      "note": "10-19原包镜头由始终全景恢复近→全，正常退出/GPU排空；开场镜头缺失反馈已闭。旧缺光观察独立保留；本轮仅同步既有后验，无新播放。",
       "runs": [],
       "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。开场镜头动画缺少；与旧缺光观察分开，需默认开场完整窗口复验。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "remainingDifferences": "开场镜头缺失已闭；旧光照余项按U02及当前证据另行复验，完整画面/互动及同phase对照未验。",
+      "officialComparison": "unknown",
+      "noteReconciledOn": "2026-10-20"
     },
     "3769761761": {
       "verdict": "unreviewed",

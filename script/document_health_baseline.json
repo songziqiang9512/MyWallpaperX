@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 436,
-      "bytes": 168762
+      "lines": 445,
+      "bytes": 171085
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 390,
-      "bytes": 78244
+      "bytes": 78616
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 228,
-      "bytes": 68331
+      "bytes": 68665
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1502,27 +1502,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e335404b340983cf8e710799050d97e952810a8c482721c13a5228534848dcbe",
-      "after": "6ff1b26964e47a7aa713162847c3f500e61e8b5547fbfc305fcc6421e242aaa8",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "e0078691b9635187c9229c2be921f6f91e4247a0d37f142cb941e7bb3bf88b46",
       "after": "093e13191dc60fba1fd7506f662090f267e932d3eceffec9bc0a09f930b87683",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ec9258ee9679c4159a3e4c2b73e7ec324265ddee5a8c3e7559444de0363d374a",
-      "after": "2771eefd17d794b1dcd563a6f04c9530284b986c5353fd6533578077ca698eae",
       "owner": "scene-user-shortcut-adapter",
       "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
@@ -1547,12 +1529,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6ff1b26964e47a7aa713162847c3f500e61e8b5547fbfc305fcc6421e242aaa8",
+      "after": "8727564386d49f6a45dde95a917b47cb0725fca301351c09801b37a7628f7447",
+      "owner": "scene-qualification-reconciliation",
+      "reason": "同步已关闭的精确旧反馈及199原包/自有board的无效正控、独审与STOP_UNKNOWN边界；不刷新整样本verdict或虚构公共修复。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "2771eefd17d794b1dcd563a6f04c9530284b986c5353fd6533578077ca698eae",
+      "after": "f45d804b559e059902df251dd54dcee0c7a0d84d28a992d39e52e2049ceabc5c",
+      "owner": "scene-qualification-reconciliation",
+      "reason": "同步已关闭的精确旧反馈及199原包/自有board的无效正控、独审与STOP_UNKNOWN边界；不刷新整样本verdict或虚构公共修复。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "30ed9ad2868b423ae487a385ebbd7b330f22c419fa2d6a8bcc30dd3db9a0e101",
-      "after": "652954173b25b2e353e825efba683805cd7f42eb88003028ba5c31269b15ed22",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
+      "before": "652954173b25b2e353e825efba683805cd7f42eb88003028ba5c31269b15ed22",
+      "after": "18da8106d609b1f7313e8cbb08bdb400a8a8d99a28b360016ef8f6e6787cb0a6",
+      "owner": "scene-qualification-reconciliation",
+      "reason": "同步已关闭的精确旧反馈及199原包/自有board的无效正控、独审与STOP_UNKNOWN边界；不刷新整样本verdict或虚构公共修复。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
 }

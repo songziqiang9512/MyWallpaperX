@@ -995,6 +995,15 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 **身份与保留。** project/pkg：358554=`767455ce…20c2`/`09770fd1…6ece`；358188=`4ca743f3…a8c5`/原hash见输入收据；360同理逐file在冻结中，未覆盖旧归档人工verdict。三包仍unreviewed；当前记录只更新其限定反馈和实际运行。`.artifacts/tmp/358-rays-fresh-20261018/`及`u02-remaining-rays-fresh-20261018/`保输入身份、事前界限、原图、原FAIL、chain-observation与独审；只清本轮停用输入/HOME，继续留单份stage/迭代source/DD供后继。完整属性/互动、全随机周期及性能不在本次判断内。旧零轴数值首拒已沿[既有合同](previous-blurred-composite-admission.md)退出，旧光照观察仍保其范围，不复跑以追未定parity。
 
 
+<a id="pointer-scale-qualification-199-20261020"></a>
+## 2026-10-20：鼠标缩放反馈的资格边界
+
+原1994794519无SceneScript，47的pulse→旧X-Ray以普通MVP inverse和slot0物理尺寸定位揭露。当前7b47ab74f同输入Debug原包5点已完成；33/34帧effect50为真实material1、GPU完成且末合成，早期outside passthrough另列。五次截图均在下一点前完成，但root所看中心/右点位缺可归因揭露ROI，工具基本PASS不证明位置准确。静态cover数学可以产生中心准、边缘递增误差；公开合同仍要求MVP/inverse配对且区分effect矩阵，不能据此单改generic inverse。最近CPU17门只证现helper约定，不关闭原反馈。
+
+固定官方2.8.0.42原包完整3文件验SHA后健康呈现；CUA点击/拖动未取得揭露/端点正控，120s观察预算未闭合、launch至close约287s，故STOP_UNKNOWN。仅生成cache的公开binding名线索含legacy inverse/Pointer，不证具体pass或VFS替换。关闭专用预览并复核9项生成cache后清自有stage，保主客户端/VM。必要16,016,703B包 `.artifacts/scene-evidence/runs/pointer-scale-qualification-199-20261020/`保两张原生原图、其余frame hash、输入/源码/测试及失败收据；官方图只在会话内观察，无数值golden。未改产品，未证修复/官方parity/性能；后继须先补可区分正控，不重复本轮无信号点位。
+
+后继单次自有静态board仅Native正控通过：512×256输入、Program/GPU/末合成及下一帧已执行，probe/target参考均[51,26,51]，layer参考[121,26,51]。官方四角注册正常、中心512×256 footprint失败，立即STOP并关闭；审查另发现自有shader误用matrix-first `mul`，Native对角矩阵掩盖方向差异，故不裁官方inverse域或`a_Position`单位、不重试救板。公开[属性](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)只定object space；源码另有“仅加无输出影响的MVP读取也会切换合成position单位”的静态等价性风险，未运行复现、未证真实样本受影响。60,151B必要包 `.artifacts/scene-evidence/runs/pointer-static-domain-qualification-20261020/`保自有输入、原生原图、身份/失败收据及独审；7项自有stage生成cache随已关闭stage清除，主客户端/VM保留。
+
 <a id="user-shortcut-native-20261020"></a>
 ## 2026-10-20：本机快捷方式配置与实际打开
 

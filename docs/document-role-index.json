@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69ac4d838e74399c448020bb35e09a94bde2d530fb5953dc64b724f7e4b8f2a3",
+        "sourceSHA256": "885e5dbf2ffaa338a21680ba2d07b244920b0dcffecd8edac2a37a095b08774d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "核对四项旧反馈与已有局部关闭证据，保原整样本verdict；同步199五点与原包/自有board的STOP_UNKNOWN及matrix-first载体错误。其余事实未重审。",
+        "limitations": "未证明199鼠标正确、公共倍率缺陷或官方矩阵域；四项为既有精确反馈后验对账，不是当前HEAD重测或整景通过。"
       }
     },
     {
@@ -828,10 +828,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7ccd8e4c07d19f35aba1e70275e64e7c7b931fdbb3c32ed6f67c79e0a6946e33",
+        "sourceSHA256": "dfca6c13ca072ba991bc5d5730453c6b4b24e6503c091f29d270dce4254a5ff6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "核对四项旧反馈与已有局部关闭证据，保原整样本verdict；同步199五点与原包/自有board的STOP_UNKNOWN及matrix-first载体错误。其余事实未重审。",
+        "limitations": "未证明199鼠标正确、公共倍率缺陷或官方矩阵域；四项为既有精确反馈后验对账，不是当前HEAD重测或整景通过。"
       }
     },
     {
@@ -3625,10 +3625,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "91c3ed10973d7a0e7dffbc804eeb1ffe4b9f0b340acf142742b0ede9b1f61b26",
+        "sourceSHA256": "d17ec822cb701c72856f9bab86f2034bccada5f41fe1a404ff9978b984c32bd2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "核对四项旧反馈与已有局部关闭证据，保原整样本verdict；同步199五点与原包/自有board的STOP_UNKNOWN及matrix-first载体错误。其余事实未重审。",
+        "limitations": "未证明199鼠标正确、公共倍率缺陷或官方矩阵域；四项为既有精确反馈后验对账，不是当前HEAD重测或整景通过。"
       }
     },
     {
