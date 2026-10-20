@@ -21,6 +21,8 @@ extension WallpaperManager {
             return
         }
 
+        if userInitiated { recordInitialIndexUserSelection(wallpaper) }
+
         recordPlaybackHistoryIfNeeded(
             current: currentWallpaper,
             targetNormalizedPath: normalizedTargetPath,

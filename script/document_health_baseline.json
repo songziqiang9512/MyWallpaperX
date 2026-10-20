@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 438,
-      "bytes": 69628
+      "lines": 447,
+      "bytes": 72164
     }
   },
   "archives": [
@@ -1502,15 +1502,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "7b416a87896891e73382ae41f8fff798d27860dec17ef11f283bd6e007c9692f",
-      "after": "70719059ff463a681b1d00ae1654ce0721b9c0c79d8504b1246e4b5fa356c414",
-      "owner": "apple-silicon-performance",
-      "reason": "用户授权继续D7同次严格syntax复用与D8准备批次取消；原owner内补职责、失败/join边界及实际门，保留旧STOP和未验范围。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "7f0227bfd4d6d59474a9b502e11008e44ca2143bc6e3d5ecef956dac15d1c1ec",
       "after": "a9fb34fedb1cfcac939840ca963afd281811cbb38761a529e0ceb86777ecf597",
@@ -1562,6 +1553,15 @@
       "owner": "scene-new-sample-diagnostics",
       "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "70719059ff463a681b1d00ae1654ce0721b9c0c79d8504b1246e4b5fa356c414",
+      "after": "799c0648e0e671714e207e6aa52b842a15ddd40a06d3dd526b03aaab8086d354",
+      "owner": "apple-silicon-performance",
+      "reason": "用户授权继续唯一路线D9启动库结算；原U1内补完整基线/版本增量/显式动作及失败退出合同和实测范围，不新增平行索引或台账。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]
 }

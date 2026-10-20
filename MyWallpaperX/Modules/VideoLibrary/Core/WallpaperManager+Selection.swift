@@ -379,10 +379,12 @@ extension WallpaperManager {
         guard !newName.isEmpty, newName != oldTag else { return nil }
         guard let index = tags.firstIndex(of: oldTag) else { return nil }
 
-        tags[index] = newName
-        mutateWallpapers(containingTag: oldTag) { wallpaper in
-            wallpaper.tags.removeAll { $0 == oldTag }
-            wallpaper.tags.append(newName)
+        withInitialIndexGlobalMutation(.renameTag(oldTag, newName)) {
+            tags[index] = newName
+            mutateWallpapers(containingTag: oldTag) { wallpaper in
+                wallpaper.tags.removeAll { $0 == oldTag }
+                wallpaper.tags.append(newName)
+            }
         }
         saveTags()
         return newName
@@ -391,9 +393,11 @@ extension WallpaperManager {
     @discardableResult
     func removeTagFromLibrary(_ tag: String) -> Bool {
         guard tags.contains(tag) else { return false }
-        tags.removeAll { $0 == tag }
-        mutateWallpapers(containingTag: tag) { wallpaper in
-            wallpaper.tags.removeAll { $0 == tag }
+        withInitialIndexGlobalMutation(.removeTag(tag)) {
+            tags.removeAll { $0 == tag }
+            mutateWallpapers(containingTag: tag) { wallpaper in
+                wallpaper.tags.removeAll { $0 == tag }
+            }
         }
         saveTags()
         return true

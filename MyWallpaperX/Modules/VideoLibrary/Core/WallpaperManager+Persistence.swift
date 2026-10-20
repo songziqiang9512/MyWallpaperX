@@ -20,7 +20,8 @@ extension WallpaperManager {
     }
 
     func scheduleWallpapersAutoPersist() {
-        // 壁纸索引更新要比设置更谨慎：后台写盘 + 最近使用收口一起做。
+        // Initial publication already commits one complete snapshot explicitly.
+        guard !initialIndexInternalPublication else { return }
         wallpapersAutoSaveWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
@@ -80,67 +81,17 @@ extension WallpaperManager {
     }
 
     func loadWallpapers() {
-        // #11 修复：SQLite 加载改为异步，不阻塞主线程。
-        // 启动时先用 UserDefaults 旧数据（毫秒级）让后续 init() 链路立即可用。
-        // 没有旧数据时 wallpapers 保持空数组，loadSampleData 会注入内置示例。
-        let restoredFallback: [VideoWallpaper]? = loadCodableValue(forKey: wallpapersKey)
-        if let legacyWallpapers = restoredFallback {
-            wallpapers = deduplicatedWallpapersByPath(legacyWallpapers.map(migratedBundledVideoWallpaper))
+        beginInitialIndexLoad()
+        if let fallback: [VideoWallpaper] = loadCodableValue(forKey: wallpapersKey) {
+            // A complete failed-save snapshot (including []) supersedes SQLite.
+            didFinishInitialIndexLoad = true
+            wallpapers = deduplicatedWallpapersByPath(fallback.map(migratedBundledVideoWallpaper))
             scheduleMissingIndexedSourceFilesScan()
+            return
         }
-
-        // 后台异步加载 SQLite 索引，完成后回主线程替换。
-        // init() 剩余链路（loadSampleData/loadTags/restorePlaybackState）基于同步阶段数据执行，
-        // SQLite 回填后只替换 wallpapers 数组，不重新走整个启动链路。
-        let loadEpoch = wallpaperIndexSaveEpoch
-        WallpaperIndexStore.shared.loadWallpapersAsync { [weak self] result in
-            guard let self, self.wallpaperIndexSaveEpoch == loadEpoch else { return }
-            self.didFinishInitialIndexLoad = true
-            if restoredFallback != nil {
-                // 上次失败已保存的当前值（含空库）优先于较旧 SQLite；只在重提成功后清键。
-                self.saveWallpapers()
-                return
-            }
-            switch result {
-            case .success(let sqliteWallpapers) where !sqliteWallpapers.isEmpty:
-                let deduped = self.deduplicatedWallpapersByPath(self.migratedBundledVideoIndex(sqliteWallpapers))
-                self.wallpapers = deduped
-                self.scanForMissingMetadata()
-                self.scheduleMissingIndexedSourceFilesScan()
-                // SQLite 加载成功后清理旧 UserDefaults 冗余数据。
-                UserDefaults.standard.removeObject(forKey: self.wallpapersKey)
-                // 后台补填 fileSize（供「按大小排序」使用），避免主线程磁盘 I/O。
-                let pathsNeedingSize = deduped.filter { $0.fileSize == nil }.map { $0.path }
-                if !pathsNeedingSize.isEmpty {
-                    DispatchQueue.global(qos: .utility).async { [weak self] in
-                        var updates: [(path: String, size: Int64)] = []
-                        for path in pathsNeedingSize {
-                            if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-                               let size = attrs[.size] as? Int64 {
-                                updates.append((path, size))
-                            }
-                        }
-                        guard !updates.isEmpty else { return }
-                        DispatchQueue.main.async { [weak self] in
-                            guard let self, self.wallpaperIndexSaveEpoch == loadEpoch else { return }
-                            for update in updates {
-                                let normalized = self.normalizedPath(update.path)
-                                if let index = self.wallpapers.firstIndex(where: { self.normalizedPath($0.path) == normalized }) {
-                                    self.wallpapers[index].fileSize = update.size
-                                }
-                            }
-                        }
-                    }
-                }
-            case .failure:
-                // SQLite 不可用时继续用已加载的 UserDefaults 数据，并触发迁移。
-                if !self.wallpapers.isEmpty {
-                    self.migrateLegacyWallpaperIndexToSQLite(self.wallpapers)
-                }
-            default:
-                break
-            }
-        }
+        didFinishInitialIndexLoad = false
+        wallpapers = initialIndexChanges.merged(with: initialIndexSeedWallpapers, materializePatches: true, normalize: normalizedPath)
+        retryInitialIndexLoadIfNeeded()
     }
 
     func scheduleMissingIndexedSourceFilesScan() {
@@ -208,13 +159,13 @@ extension WallpaperManager {
         // 用两个轻量判断替代：内存中已有壁纸 OR UserDefaults 旧 key 存在。
         // SQLite 异步回填后 wallpapers 会被替换，loadSampleData 的去重逻辑保证不重复注入。
         if !wallpapers.isEmpty { return true }
-        return defaults.object(forKey: wallpapersKey) != nil
+        return defaults.object(forKey: wallpapersKey) != nil || defaults.data(forKey: initialIndexChangesKey) != nil
     }
 
     func saveWallpapers() {
-        // 初次装载尚未结算时保留原同步保存语义；此处不另造启动库合并规则。
         guard didFinishInitialIndexLoad else {
-            flushWallpaperIndex()
+            persistInitialIndexChanges()
+            retryInitialIndexLoadIfNeeded()
             return
         }
         wallpaperIndexSaveRevision &+= 1
@@ -244,12 +195,15 @@ extension WallpaperManager {
         switch result {
         case .success:
             defaults.removeObject(forKey: wallpapersKey)
+            clearInitialIndexRecoveryAfterSave()
         case .failure:
             saveCodableValue(snapshot, forKey: wallpapersKey)
         }
     }
 
     private func flushWallpaperIndex() {
+        // A failed read retains the old DB and a versioned delta, never a partial full snapshot.
+        guard settleInitialIndexForFlush() else { return }
         // 最新值排在已提交事务之后；退出不能等回主队列的旧 completion。
         wallpaperIndexSaveRevision &+= 1
         pendingWallpaperIndexSave = nil
@@ -265,6 +219,7 @@ extension WallpaperManager {
 
     private func invalidateWallpaperIndexPersistence() {
         wallpaperIndexSaveEpoch &+= 1
+        invalidateInitialIndexLoad()
         didFinishInitialIndexLoad = true
         pendingWallpaperIndexSave = nil
         // 旧事务仍占原槽直至完成，避免连续 reset 堆积并行保存。
@@ -432,6 +387,7 @@ extension WallpaperManager {
 
         // 最近使用是快照数据，启动时必须先做存在性清洗，再决定是否回写。
         recentlyUsedWallpapers = savedWallpapers.map(migratedBundledVideoWallpaper)
+        guard didFinishInitialIndexLoad else { return }
         normalizeRecentWallpapers(limit: WallpaperManager.recentWallpapersLimit, requireExistingFiles: true)
 
         // 仅在清洗后的结果与原持久化内容不一致时才回写，减少冷启动无意义写盘。

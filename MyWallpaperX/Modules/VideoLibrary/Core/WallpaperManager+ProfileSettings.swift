@@ -271,7 +271,10 @@ extension WallpaperManager {
                         staticFramePath: wallpapers[existingIndex].staticFramePath,
                         isFavorite: wallpapers[existingIndex].isFavorite,
                         lastUsed: wallpapers[existingIndex].lastUsed,
-                        tags: wallpapers[existingIndex].tags
+                        tags: wallpapers[existingIndex].tags,
+                        fileSize: wallpapers[existingIndex].fileSize,
+                        duration: wallpapers[existingIndex].duration,
+                        resolution: wallpapers[existingIndex].resolution
                     )
                 }
                 mergedCount += 1
@@ -292,6 +295,14 @@ extension WallpaperManager {
             wallpapers.append(newWallpaper)
             indexByPath[normalizedEntryPath] = wallpapers.count - 1
             createdCount += 1
+        }
+        // Explicit preferences also apply when SQLite knows a path that the startup UI has not seen yet.
+        for entry in payload.entries {
+            if let index = indexByPath[normalizedPath(entry.path)] {
+                var fields: Set<WallpaperIndexStartupChanges.Field> = [.favorite]
+                if !entry.title.isEmpty { fields.insert(.title) }
+                recordInitialIndexExplicitEdit(wallpapers[index], fields: fields, addedTags: normalizedTagList(entry.tags))
+            }
         }
 
         // 把导入的偏好写回 settings，热键配置不覆盖（用户本地配置优先）。

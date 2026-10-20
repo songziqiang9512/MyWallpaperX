@@ -2,12 +2,12 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-21 D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
+状态：2026-10-21 D9启动库结算完成最近门、最终构建与独审；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
 
 本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
 <a id="深入实施-d1d62026-10-21"></a>
-## 深入实施 D1–D8（2026-10-21）
+## 深入实施 D1–D9（2026-10-21）
 
 来源：冻结 `039d164cb` 的优化Debug外部CPU/System/Metal采样、752组词法完整输出对照与75s真实Web音频端点退役反例；证据在忽略的 `apple-silicon-deep-analysis-20261021` 包。局部词法多线程收益不代表整App；GPU类别区间重叠，不相加为可省时间。方案经独立研究复核后获用户实施授权。
 
@@ -21,6 +21,7 @@
 | D6 调度与普通帧 | 暖窗口未见大Runnable积压，保持QoS/worker上限；只跟随新调用证据考虑循环取消/任务分配/普通帧重复工作，不为完成表格扩大修改 | 保持现状 |
 | D7 采样器分析 | 同次activeSamplers仅对当前analysis覆盖／prepared源码做一对严格syntax解析，通道／用途证明共享局部Unit；不跨调用缓存、不借compiler规范化源码。同输入行为投影对照、最近用途门及代表实际播放 | 已保留：47项门、5对冷暖及代表运行通过 |
 | D8 取消响应 | 原token接入capability layer／stage／material批次；完整join后传播取消，不进Rejection／负缓存，不取消共享producer，不动worker上限。先合同、真实叶取消反例，再隔离运行 | 已保留：9项门、组合播放与同daemon切换通过 |
+| D9 Video启动库结算 | 原Manager合并完整SQLite基线与启动期动作；未知基线失败时仅持久化有版本增量，退出／重试／reset不丢动作或覆盖未见库 | 已保留：18种mode／65检查、最终Debug／Release零警告及独审通过 |
 
 每批列明owned源码/测试，构建和实际播放串行；子代理实现可并行，性能计量不与构建/测试重叠。Debug保现开发入口，Release无新增探针；真实媒体只读，用户偏好按精确任务值回收。保留低复杂度可靠局部收益，整体比例未知如实注明；性能或功能回归先修，不能机械追逐数值。阶段结果在本表更新，原24项历史不覆盖新事实。
 
@@ -35,6 +36,8 @@ D7启动资格：受并行样本干扰的原记录单列保留；与另一会话
 D8行为资格：9项测试通过，含两级join／后继批次停止／原错传播12检查、原source取消20检查，以及原视觉失败和真实属性consumer。取消只在准备批次边界生效，不进入variant负缓存／共享producer，也不能抢占已进入的单次编译／等待。旧测试装配4次前置编译FAIL保留，补真实依赖而非stub。组合Debug（-Onone）在2938612768／3173418061完成代表播放、零失败帧、正常GPU drain；75s同daemon测试两请求／两首呈现／单PID、最终launched、无failure并正常退出。30s未完成记录与临时driver误把终态写成ready的断言FAIL均保留；实际结果按真实launched枚举复核，不重跑掩盖。不据此宣称完整兼容、实际取消延迟或稳态性能。
 
 D7性能App在D8复制／组合构建前已完成前后身份校验，不能拿后来的candidate源码树／-Onone产物归因D7。最终证据保留于忽略的`apple-silicon-sampler-cancellation-20261021`包；不在Release新增诊断、不放宽安全校验、不改作者样式。D6补查仍缺可归因self-cost，14标量桥接及短数组／字符串转换不另建缓存，原STOP不重开。
+
+D9：冻结`8de80eb6e2`后仅VideoLibrary索引链扩展。真实SQLite与产品Manager／完整导入producer的18种mode、65项检查通过；故意移除两条existing-path context记录后，4项收藏／标签反例为false、8项对照仍true。独审发现并闭合该no-op意图遗漏；最终Debug／Release均构建成功且零警告，前驱6条隔离警告已按MainActor owner修正。测试隔离文件可读性／提示UI／播放等叶端，未运行完整App导入选择和播放UI，不声称所有故障或整App性能比例；收益是启动期普通save不再等待初始SQLite读，且不丢用户动作／未见旧库。无新增timer或Release探针，稳态writer不变。
 
 ## 目标、取舍与职责
 
@@ -132,7 +135,7 @@ P1 优先取得可行动证据；P2 在规模或实际消费出现时推进；P3
 | M3 | **STOP**。现poll≤1s还承担继承stdout子孙不EOF时的取消兜底；拉至remaining可把取消尾延至12s，需额外wake/reader owner，名义少唤醒不足以支持。静态反例，未冒充运行复现。 |
 | V1 | **保留现后台有界路径**。已离主、2槽／精确帧／缓存合并；新async取消要job身份与精确generator结算，还跨U1清缓存寿命，无已证成本抵消复杂度。不修改取帧容差／质量。 |
 | W4 | **保留已有策略**。一个空预热进程、30s TTL、压力退役已具备；无新真实命中节奏，不调TTL或扩预热。 |
-| U1 | **保留稳态窄片**。初始load结算后immutable／一飞一最新pending，原SQLite队列／全事务／fallback；reset epoch与同步退出flush。有效fallback含[]优先旧DB，成功后才清。未结算仍原sync；既有startup整库覆盖竞态未修，async返回不表示durable ACK。真实SQLite跨进程／失败／退出反例通过。 |
+| U1 | **保留稳态窄片，D9已补启动结算**。初始load前仅有版本增量，完整SQLite基线到达后由原Manager合并；失败不覆盖未见旧库。结算后immutable／一飞一最新pending，原SQLite队列／全事务／fallback；reset epoch与同步退出flush。有效fallback含[]优先旧DB，成功后才清；async返回不表示durable ACK。真实SQLite跨进程／读中断／失败／退出及显式导入反例通过。 |
 | U2 | **保留旧metadata窄片**。JSON先发布、utility补缺header，generation／id／path及仍缺字段准入；同ID同列数的真实Waterfall／文字刷新、快照在途与reset反例闭合。23项行为与代表窗口通过。同步JSON／stat／save／格式保持，完整异步loader／writer STOP。 |
 | U3 | **保留**。SIL single-flight、同viewport/id/path回包；Video/SIL最小化／离窗停原timer，恢复最多一次catch-up。34条真实NSWindow检查＋两probe门通过。orderOut通知不可靠的真实失败保留，普通隐藏保2s timer但零路径I/O／零发布，回显沿原cadence；不称全隐藏零唤醒。 |
 | U4 | **保留相同图标复用**。相同GPU显示整数／外观不建NSImage、不赋button；首次／nil／外观反例通过。采样／菜单时序保持，采样迁移无归因不做，不称整机节能比例。 |
@@ -293,11 +296,17 @@ P1 优先取得可行动证据；P2 在规模或实际消费出现时推进；P3
 - **反例／验收**：T10 只是相邻门，必须新增真实 SQLite harness：A→B、A 迟到失败、reset 排序、不可写 DB、立即退出后重启。真实退出／reset入口使用 `WallpaperManager.flushPersistentState()`（Persistence 460–474行），其有序 flush 不能靠 fire-and-forget 替代。
 - **规模／停止**：隔离 1k/10k 值索引看 main 等待、事务写量和交互；若小库成本可忽略，不扩到整套增量存储。数据丢失／旧回包复活是硬失败。
 
-#### U1 实施细则（2026-10-20，先保存、后决定装载扩展）
+#### U1 实施细则（2026-10-20保存；2026-10-21 D9启动结算扩展）
 
-WallpaperManager 继续唯一持有用户库与保存意图，WallpaperIndexStore 的原 utility 串行队列继续唯一执行 SQLite；不换后端、不增缓存、不改全表事务／WAL／失败时的旧格式回退。本批收敛为仅初始装载结算后的普通保存优化：未结算时沿原同步事务／回退，reset以epoch撤旧装载并视为空库已结算；不扩大旧启动回填竞态窗口，不引入一次性baseline／delta合并。已结算后的普通保存先在主线程捕获不可变快照与 revision／reset epoch，再异步提交；至多一个在飞和一个最新待保存快照，合并中间版本但不乱序。结果回主线程只可更新同 epoch／当前 revision 的回退状态，旧失败不得覆盖新成功，旧成功不得清除新回退。
+D9修复此前明确保留的启动整库竞态，覆盖读取期间导入／删库／收藏／标签／个人设置／派生更新及退出。Manager仍是唯一库与用户动作owner，Store原串行队列仍是唯一SQLite执行owner；不增加timer、不禁用操作、不使普通save等待初始read。Store完整读取须终结于SQLITE_DONE，并在同次读取携带原library_initialized（含已初始化空库），不能把读失败当空库。完整可解码fallback（含[]）仍整体权威，坏fallback不冒充空库。
 
-同步退出／显式 flush 取消 debounce，将最新快照排在已提交事务后完成保存与失败回退，再允许退出，不能依赖待主队列执行的异步 completion。reset 先推进 epoch、撤 pending，数据库 reset 和后续保存仍依原队列顺序；迟到读取／保存结果不得复活旧库。迁移的同步 API 保留，仅共享内部事务实现。验证真实 SQLite 的完整替换、失败原子回滚、A→B、有界合并、reset→save、旧回包、不可写后端及阻塞队列中退出后重启；主线程节省的是普通事务等待，退出仍允许必需的最终同步提交。启动若存在可解码的旧格式回退（含空数组），它代表尚未成功提交的当前索引，应优先于旧SQLite；沿同保存owner重提当前快照，仅成功后清除回退。无回退时保原SQLite装载，坏回退不得冒充有效空库。旧版无回退装载期间用户改库可能被整库回填覆盖的风险仍在；本批不声称修复，也不以拒整份回填丢旧库的方式掩盖。若该风险需完整关闭，应先设计读失败时保留未见旧库与用户增量的持久化语义，本次不扩新格式。
+未知基线期间，Manager保存一次性的按规范化路径变化：新增记录作为“不在旧库时的候选”，只将明确编辑的字段覆盖同path旧项；SQLite已有项保稳定ID／未编辑字段。标签记录逐标签增删，保留未见的旧标签；全库标签改名／删除和清预览路径作为有序屏障，避免只修改已见记录。屏障之间同path变化合并为一份，删除保tombstone，删除后重加以较晚动作决定。初始化种子单独保存，仅未初始化库可采用；后台派生回写不把种子变成用户新增。当前快照恢复与真正新导入保各自来源，个人设置导入明确覆盖title／favorite及追加tags；路径命中后修正选择／current／pending引用到稳定ID，不重新发起播放。
+
+未结算时autosave只保存version=1的启动变化到同UserDefaults owner的独立键（不伪装成完整Wallpapers fallback），并沿原Store重试一次读取；只有后续既有save／flush／下次启动触发重试，不循环或加timer。完整基线成功后主线程一次合并并发布，转回原有界writer；成功提交当前完整快照才清增量／fallback，失败则保完整fallback及原增量。加载generation独立撤销迟到回包；reset先撤generation／增量，再按原Store顺序清库并保存fresh状态。退出在原队列同步读完整基线、合并再全事务保存；读取仍失败则保旧DB并持久化变化，供下次恢复，不写半库。
+
+recent在未知基线时不得按临时库裁剪；完整结算后再归一化。损坏或未知版本增量保留原始字节到一个有界隔离键并明确提示，不能解释为空动作或清空旧DB；可恢复完整DB与本次新动作，不承诺恢复不可解码的历史动作。格式仅承担尚未完成的启动恢复，不是长期第二索引；无未结算变化时不写空journal。最近门必须使用真实SQLite／产品合并方法，覆盖A+B、删后重加、同path字段与稳定引用、空库／种子、标签屏障、recent、读中断／失败重启、无主callback的退出及reset；保原有界writer／fallback回归。不据此宣称所有存储故障或性能验收。
+
+稳态保存保留U1原合同：主线程捕获不可变快照与revision／reset epoch，至多一个在飞及一个最新pending，原utility串行队列执行原全表事务／WAL；结果只更新同epoch／当前revision的fallback，旧失败不覆盖新成功，旧成功不清新fallback。退出同步flush排在已有事务之后，不依赖主callback；reset撤pending并沿原队列reset→save。原SQLite事务回滚、有界合并、fallback含空库、旧回包和跨进程重启门继续保留。此前只保留稳态优化的阶段已结束，启动变化按上方D9合同结算，不再沿未结算临时数组全量保存。
 
 ### U2｜P1：SIL 首次装载和保存都沿唯一快照 owner
 

@@ -55,6 +55,7 @@ extension WallpaperManager {
             let title = videoURL.deletingPathExtension().lastPathComponent
             let newWallpaper = makeImportedWallpaper(from: videoURL, title: title, context: .library)
             _ = upsertWallpaper(newWallpaper)
+            if !didFinishInitialIndexLoad { initialIndexSeedWallpapers.append(newWallpaper) }
             schedulePreviewAssetGeneration(for: videoURL)
         }
     }
@@ -335,6 +336,7 @@ extension WallpaperManager {
             } else {
                 counters.duplicate += 1
             }
+            recordInitialIndexImportContext(context, wallpaper: wallpapers[index])
         }
 
         for entry in prepared.preparedImports {
@@ -344,6 +346,7 @@ extension WallpaperManager {
                 } else {
                     counters.duplicate += 1
                 }
+                recordInitialIndexImportContext(context, wallpaper: wallpapers[index])
                 playableExistingPaths.append(entry.normalizedPath)
                 continue
             }
@@ -370,6 +373,9 @@ extension WallpaperManager {
             wallpapers.reserveCapacity(wallpapers.count + newWallpapers.count)
         }
         appendWallpapersInBatches(newWallpapers)
+        for wallpaper in newWallpapers {
+            recordInitialIndexImportContext(context, wallpaper: wallpaper)
+        }
 
         // 在线库静默导入后立即播放：优先播放新导入的，已存在则从库中找
         if let autoplayToken, ImportedVideoAutoplayGate.shared.isCurrent(autoplayToken) {
@@ -387,6 +393,16 @@ extension WallpaperManager {
         // WallpaperManager.wallpapers and is included in Steam version GC's
         // persistent-path protection set.
         withExtendedLifetime(resourceLifetime) {}
+    }
+
+    private func recordInitialIndexImportContext(_ context: ImportContext, wallpaper: VideoWallpaper) {
+        switch context {
+        case .favorites:
+            recordInitialIndexExplicitEdit(wallpaper, fields: [.favorite])
+        case .tag(let tag):
+            recordInitialIndexExplicitEdit(wallpaper, fields: [], addedTags: [tag])
+        default: break
+        }
     }
 
     private func schedulePreviewAssetGeneration(for url: URL) {

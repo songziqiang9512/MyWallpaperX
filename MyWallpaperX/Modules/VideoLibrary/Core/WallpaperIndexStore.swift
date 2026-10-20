@@ -9,6 +9,11 @@ import SQLite3
 final class WallpaperIndexStore {
     static let shared = WallpaperIndexStore()
 
+    nonisolated struct LoadedIndex {
+        let wallpapers: [VideoWallpaper]
+        let initialized: Bool
+    }
+
     private enum StoreError: Error {
         case openFailed(String)
         case statementPrepareFailed(String)
@@ -68,6 +73,23 @@ final class WallpaperIndexStore {
         }
     }
 
+    func loadInitialIndex() throws -> LoadedIndex {
+        try queue.sync { try loadInitialIndexInternal() }
+    }
+
+    func loadInitialIndexAsync(completion: @escaping (Result<LoadedIndex, Error>) -> Void) {
+        queue.async {
+            let result = Result { try self.loadInitialIndexInternal() }
+            DispatchQueue.main.async { completion(result) }
+        }
+    }
+
+    private func loadInitialIndexInternal() throws -> LoadedIndex {
+        let wallpapers = try loadWallpapersInternal()
+        let initialized = try selectMetaValue(forKey: "library_initialized") == "1" || !wallpapers.isEmpty
+        return LoadedIndex(wallpapers: wallpapers, initialized: initialized)
+    }
+
     // 内部同步实现，供 loadWallpapers 和 loadWallpapersAsync 共用。
     private func loadWallpapersInternal() throws -> [VideoWallpaper] {
         try openIfNeeded()
@@ -83,7 +105,8 @@ final class WallpaperIndexStore {
         defer { sqlite3_finalize(statement) }
 
         var items: [VideoWallpaper] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
+        var step = sqlite3_step(statement)
+        while step == SQLITE_ROW {
             let id = stringColumn(statement, index: 0) ?? UUID().uuidString
             let title = stringColumn(statement, index: 1) ?? ""
             let path = stringColumn(statement, index: 2) ?? ""
@@ -106,7 +129,9 @@ final class WallpaperIndexStore {
                 isFavorite: isFavorite, lastUsed: lastUsed, tags: tags,
                 fileSize: fileSize, duration: duration, resolution: resolution
             ))
+            step = sqlite3_step(statement)
         }
+        guard step == SQLITE_DONE else { throw StoreError.statementStepFailed(lastSQLiteErrorMessage()) }
         return items
     }
 

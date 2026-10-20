@@ -41,6 +41,7 @@ class WallpaperManager: ObservableObject {
     @Published var selectedTag: String? = nil
     @Published var wallpapers: [VideoWallpaper] = [] {
         didSet {
+            recordInitialIndexChanges(from: oldValue, to: wallpapers)
             syncSelectedWallpaperInspectorIfNeeded()
         }
     }
@@ -181,6 +182,13 @@ class WallpaperManager: ObservableObject {
     var wallpaperIndexSaveRevision: UInt64 = 0
     var wallpaperIndexSaveEpoch: UInt64 = 0
     var didFinishInitialIndexLoad = false
+    var initialIndexChanges = WallpaperIndexStartupChanges()
+    var initialIndexLoadGeneration: UInt64 = 0
+    var initialIndexLoadInFlight = false
+    var initialIndexBootstrapInProgress = false
+    var initialIndexSeedWallpapers: [VideoWallpaper] = []
+    var initialIndexInternalPublication = false
+    var initialIndexGlobalMutationDepth = 0
     var wallpaperIndexSaveInFlight: WallpaperIndexSaveSnapshot?
     var pendingWallpaperIndexSave: WallpaperIndexSaveSnapshot?
     var recentWallpapersAutoSaveWorkItem: DispatchWorkItem?
@@ -318,6 +326,7 @@ class WallpaperManager: ObservableObject {
 
         GlobalHotkeyManager.shared.update(with: settings)
         lastAppliedHotkeySettings = HotkeySettingsSnapshot(settings: settings)
+        finishInitialIndexBootstrap()
     }
 
     func restorePersistedSystemAudioSpectrumIfNeeded() {
@@ -400,6 +409,7 @@ class WallpaperManager: ObservableObject {
     }
 
     func normalizeRecentWallpapers(limit: Int = WallpaperManager.recentWallpapersLimit, requireExistingFiles: Bool) {
+        guard didFinishInitialIndexLoad else { return }
         // 最近使用是快照列表，先回填到主库对象再做去重和限长，避免快照字段漂移。
         let libraryByPath = wallpapers.reduce(into: [String: VideoWallpaper]()) { result, wallpaper in
             result[normalizedPath(wallpaper.path)] = wallpaper

@@ -915,14 +915,15 @@
     },
     {
       "id": "apple-video-index-ordered-save",
-      "title": "Apple silicon U1 有序异步索引保存与退出同步落盘",
+      "title": "Apple silicon U1 有序索引保存、启动结算与退出落盘",
       "owner": "VideoLibrary WallpaperManager / WallpaperIndexStore",
       "status": "approved",
       "designDoc": "docs/development/apple-silicon-optimization-plan.md",
-      "design_notes": "2026-10-20 U1实施细则：唯一MainActor库/不可变snapshot/revision+reset epoch，原SQLite串行队列至多一在飞一最新pending；事务/WAL/旧格式回退不变，退出最新同步flush与reset有序屏障；旧完成不得覆盖或清新回退。真实SQLite及退出/失败反例另验，approved不预支收益或数据安全验收。",
+      "design_notes": "2026-10-20 U1稳态有界writer；2026-10-21 D9启动结算扩展：唯一MainActor库合并完整SQLite基线与有版本启动增量，明确用户字段/标签/全库动作、种子和稳定引用；失败保未见旧库，退出同步读完整基线后全事务，generation/reset撤旧回包。沿原串行Store与fallback，不新增长期索引owner。真实SQLite、producer、读中断/失败重启/立即退出另验，approved不预支收益或数据安全验收。",
       "matchPatterns": [
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperIndexStore.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+InitialIndexLoad.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift"
       ],
       "contentPatterns": []
