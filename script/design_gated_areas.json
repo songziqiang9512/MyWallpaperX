@@ -464,10 +464,10 @@
     {
       "id": "scene-terminal-material-chain",
       "title": "多段材质输入尺寸与末尾有效材质显示",
-      "owner": "scene-e-route",
+      "owner": "Scene prepared material / graph / unique MainPass",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "design_notes": "沿唯一Program/graph/PassEncoder/submission/MainPass保源域与终端密度，既有solid/text/background及限定加法31资格保持。普通正交image复用同owner，仅prepared合法MVP/renderSize ABI且无fragment raster读取的简单color链准入，forward/inverse成对采用最终放置，源capture/Resolution/前序graph保留；可选terminal编译/函数准备失败保完整graph-final，后继真实material清旧候选。无provider/依赖/geometry/额外外层状态；旧/未知artifact保原路径，安全与资源身份仍严格。批准不等于运行验收；结果见现役后验。",
+      "design_notes": "既有源域、terminal密度/放置资格保持。新增内建genericimage2/VERSION2无depth图片additive RGB资格沿原typed state到MainPass；原source bind/冲突门不变，完整graph-final不replay，新PSO仅改destinationRGB为one，原片元/Alpha写法不变。普通正交/透视共用窄资格，保高级混合/provider/group与未知state边界；可选PSO失败保原安全输出。官方纯图片RGB正控已成立，opaque PNG不裁default A；实现与有界后验归现役运行证据；批准不等于完整产品/官方验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
@@ -481,7 +481,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift"
       ],
       "contentPatterns": []
     },

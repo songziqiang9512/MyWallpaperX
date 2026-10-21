@@ -49,6 +49,7 @@ struct SceneImageLayerPipeline {
         case readOnly, readWrite, writeOnly
     }
     private let depthState: MTLRenderPipelineState?
+    private let additiveMaterialState: MTLRenderPipelineState?
     private let depthStencilStates: [DepthMode: MTLDepthStencilState]
     private let disabledDepthStencilState: MTLDepthStencilState
     private let supportsTranslucentMaterialState: Bool
@@ -74,7 +75,8 @@ struct SceneImageLayerPipeline {
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
         blendMode: SceneLayerBlendMode = .sourceOver,
         library injectedLibrary: MTLLibrary? = nil,
-        preparesDepth: Bool = false
+        preparesDepth: Bool = false,
+        preparesAdditive: Bool = false
     ) {
         guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
@@ -110,6 +112,17 @@ struct SceneImageLayerPipeline {
         disabledDepthStencilState = disabledDepthState
         self.pixelFormat = pixelFormat
         supportsTranslucentMaterialState = blendMode == .sourceOver
+        if preparesAdditive && blendMode == .sourceOver {
+            // This uses the ordinary fragment: straight input is associated
+            // once, while an already-associated graph output stays unchanged.
+            // Only RGB background retention changes; alpha writing is the
+            // same as the existing source-over pipeline.
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .one
+            additiveMaterialState = try? device.makeRenderPipelineState(descriptor: descriptor)
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        } else {
+            additiveMaterialState = nil
+        }
         if preparesDepth {
             descriptor.depthAttachmentPixelFormat = .depth32Float
             depthState = try? device.makeRenderPipelineState(descriptor: descriptor)
@@ -128,6 +141,7 @@ struct SceneImageLayerPipeline {
     }
 
     func supports(_ renderState: SceneMaterialRenderState) -> Bool {
+        if renderState.supportsImageAdditiveRGB { return additiveMaterialState != nil }
         guard supportsTranslucentMaterialState, renderState.blending == .translucent,
               renderState.alphaWriting == .unspecified else { return false }
         guard let mode = Self.depthMode(for: renderState) else { return true }
@@ -161,6 +175,18 @@ struct SceneImageLayerPipeline {
 
     func bind(encoder: MTLRenderCommandEncoder, renderState: SceneMaterialRenderState) -> Bool {
         guard supports(renderState) else { return false }
+        if renderState.supportsImageAdditiveRGB {
+            guard let additiveMaterialState else { return false }
+#if DEBUG
+            ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+#endif
+            encoder.setRenderPipelineState(additiveMaterialState)
+            encoder.setDepthStencilState(disabledDepthStencilState)
+            encoder.setFrontFacing(.counterClockwise)
+            encoder.setCullMode(.none)
+            Self.bindQuad(encoder: encoder)
+            return true
+        }
         let cullMode: MTLCullMode = renderState.cullMode == .normal ? .back : .none
         guard let mode = Self.depthMode(for: renderState) else {
             bind(encoder: encoder)

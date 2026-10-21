@@ -50,6 +50,14 @@ nonisolated struct SceneMaterialRenderState: Codable, Equatable, Hashable, Senda
         depthTest == .enabled || depthWrite == .enabled
     }
 
+    /// The ordinary image terminal changes RGB addition only. Source captures
+    /// and the existing alpha factors remain independent of this policy.
+    var supportsImageAdditiveRGB: Bool {
+        blending == .additive && depthTest == .disabled && depthWrite == .disabled
+            && cullMode == .noCull
+            && (alphaWriting == .unspecified || alphaWriting == .default)
+    }
+
     func matchesFullscreenOverwrite(
         alphaWriting expectedAlphaWriting: AlphaWriting
     ) -> Bool {

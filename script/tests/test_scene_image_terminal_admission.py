@@ -20,6 +20,10 @@ SOURCE = ROOT / (
     "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/"
     "SceneResolvedMaterialFramePreflight+Admission.swift"
 )
+STATE_SOURCES = [ROOT / "MyWallpaperX/Core/SteamWorkshopScene" / path for path in (
+    "Runtime/Frame/SceneMaterialRenderState.swift",
+    "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+)]
 
 LEAVES = r'''
 protocol MTLTexture: AnyObject {}
@@ -39,7 +43,7 @@ enum SceneRenderDescriptor {
         var contentKind = "image"
         var colorBlendMode: Int? = nil
         var perspective = false
-        var imageMaterialRenderState: String? = nil
+        var imageMaterialRenderState: SceneMaterialRenderState? = nil
         var utilityLayer: String? = nil
     }
 }
@@ -104,8 +108,14 @@ MAIN = r'''
         image.perspective = false
         results["nativeCameraOrthoOverride"] = selects(base, image,
             .init(defaultsToPerspective: true), target: target)
-        image.imageMaterialRenderState = "explicit"
+        image.imageMaterialRenderState = SceneMaterialRenderState.compile(blending: "translucent",
+            depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)
         results["outerMaterialState"] = !selects(base, image, target: target)
+        for alpha: String? in [nil, "default"] {
+            image.imageMaterialRenderState = SceneMaterialRenderState.compile(blending: "additive",
+                depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: alpha)!
+            results["outerAdditive-\(alpha ?? "omitted")"] = !selects(base, image, target: target)
+        }
         image.imageMaterialRenderState = nil
         image.utilityLayer = "composition"
         results["utilityImage"] = !selects(base, image, target: target)
@@ -145,22 +155,23 @@ class SceneImageTerminalAdmissionTests(unittest.TestCase):
         begin = source.index("extension SceneMetalRenderer {")
         end = source.index("    func admitResolvedMaterialFrameTargets(", begin)
         predicate = source[begin:end] + "}\n"
-        before = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+        sources = [SOURCE, *STATE_SOURCES]
+        before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
         with tempfile.TemporaryDirectory(prefix="mwx-image-terminal-admission-") as directory:
             root = Path(directory)
             harness = root / "Admission.swift"
             harness.write_text("import Foundation\n" + LEAVES + predicate + MAIN)
             binary = root / "admission"
             compiled = subprocess.run([
-                "xcrun", "swiftc", "-parse-as-library", str(harness),
+                "xcrun", "swiftc", "-parse-as-library", *map(str, STATE_SOURCES), str(harness),
                 "-module-cache-path", str(root / "module-cache"), "-o", str(binary),
             ], capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             completed = subprocess.run([str(binary)], capture_output=True, text=True)
             self.assertEqual(completed.returncode, 0, completed.stderr)
             results = json.loads(completed.stdout)
-        self.assertEqual(hashlib.sha256(SOURCE.read_bytes()).hexdigest(), before)
-        self.assertEqual(len(results), 22)
+        self.assertEqual({path: hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}, before)
+        self.assertEqual(len(results), 24)
         for name, passed in results.items():
             with self.subTest(case=name):
                 self.assertTrue(passed)

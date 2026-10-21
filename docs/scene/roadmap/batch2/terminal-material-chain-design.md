@@ -86,3 +86,20 @@
 最低验收：先用自有非平凡前序效果与局部 pointer shader，通过真实 image 准入和终端 consumer，验证 cover/不同尺寸放置下响应位置、前序颜色、冻结输入/Resolution、只变 MVP pair；改名/等价变体与 fragment raster read、缺 ABI、provider/高级混合/透视/几何等相邻反例。复用 active/inactive/失败末段、快照失败和一次消费门；在非不透明背景验证 straight/PMA alpha。有效 Debug 后，原199默认ROI需由旧偏移点响应改为可见目标点响应，并以未参与修法的真实 image 链检查画面与退出。人工官方观察仅支持功能方向，不声明精确官方像素一致；性能收益另测。
 
 实际结果、构建身份与原图由[本批后验](../../capabilities/runtime-evidence-current.md#image-terminal-placement-20261021)唯一维护。原199默认揭露位置、自有变体与独立真实图片链完成有界验收；PMA专项夹具未取得真实Program资格，未冒通过，完整alpha/profile与物理输入域仍待扩验。
+
+<a id="builtin-image-additive-rgb"></a>
+## 内建图片材质的加法 RGB（2026-10-22，有界落地）
+
+普通图片将已声明的 additive 材质丢为 nil，末合成退到 source-over，发光源因而遮暗背景。官方纯图片自有板已区分两者：双非黑背景、texture A0/0.5/1、layer alpha0.9下，translucent正控一致，additive保完整背景差且源coverage只乘一次；default/省略alphaWriting的RGB相同。两轮含未资格自有effect的污染板不提供语义结论；opaque PNG不能证明最终A写入，保留该未知。
+
+沿现 RenderDescriptor 单次准备 host-builtin genericimage2、显式VERSION2、唯一普通slot0的无lighting材质；只增加additive、无depth、nocull、alphaWriting缺省/default、普通image/quad、无instance/provider/utility/geometry且layer colorBlendMode0的终端资格。正交与透视共用这一无depth片，旧透视translucent/depth资格保持。仅退出本资格被丢为nil的分支，不把任意basePass状态转给外层；原source raw overwrite及冲突拒绝不变。
+
+同一typed state进入现frame索引、SceneDrawing请求与唯一MainPass。仅确有该需求时在原image pipeline准备一个PSO；普通帧不解析/编译或新建缓存。它使用原普通image片元与straight/PMA关联，仅目标RGB因子改one；源RGB、Alpha因子及write mask保持，因此相同输入的A结果不变，不宣称default A官方一致。不得复用directDraw额外coverage的alphaWeightedAdditive，也不与高级模式31合并。
+
+源捕获继续不带terminal state的原bind；存在外层state时保原replay拒绝，完整前序graph和真实graph-final仍执行，末图仅合成一次。只在实际MainPass选择新PSO，group/任意透明RT不扩。可选PSO失败沿原source-over安全输出，不丢整层或启动；安全句柄/epoch失败仍严格拒绝。shape、custom/multi-pass、LIGHTING、其他state和高级混合维持原边界。
+
+实际动态createLayer材质Catalog仍只准translucent；本片未扩，手工prepared模板投影不等于真实动态创建支持。
+
+验收复用纯图片官方RGB板，补prepared准入/手工模板投影、非白straight/PMA与A0/0.5/1、layer alpha0/0.5/1、原Alpha结果不变、source bind不变及depth/cull/未知字段反例；有前序效果的图须证完整graph-final到末合成。改名/等价输入不改变资格。Debug后核原炫光默认/关闭亮度变化的实际颜色、三effect/GPU/次帧与健康独立样本；无实际改善或邻例回归即修正或撤回，不调作者亮度。HDR/SDR有限值沿原片元与目标，未做全HDR/任意RT/官方A或性能验收不认领。
+
+实际原图、数值、构建与失败边界由[本批后验](../../capabilities/runtime-evidence-current.md#builtin-image-additive-rgb-20261022)维护。

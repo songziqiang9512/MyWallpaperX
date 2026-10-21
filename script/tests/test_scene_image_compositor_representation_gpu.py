@@ -17,6 +17,10 @@ ROOT = Path(__file__).resolve().parents[2]
 PIPELINE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift"
 SHADER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
 FOG_HEADER = SHADER.with_name("SceneDistanceFog.metalh")
+STATE_SOURCES = [ROOT / "MyWallpaperX/Core/SteamWorkshopScene" / path for path in (
+    "Runtime/Frame/SceneMaterialRenderState.swift",
+    "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+)]
 
 HARNESS = r'''
 import Foundation
@@ -67,54 +71,57 @@ func pixel(_ texture: MTLTexture) -> [Float] {
         let background = SIMD4<Float>(0.125, 0.25, 0.375, 0.2)
         var results: [[String: Any]] = []
         var captureResults: [[String: Any]] = []
-        let capturePipeline = SceneImageLayerPipeline(device: device,
-            pixelFormat: .rgba16Float, library: library)!
-        for straight in [false, true] {
-            for coverage: Float in [0, 0.5, 1] {
-                for opacity: Float in [0, 0.4, 1] {
-                    for vertexCoverage: Float in [0, 0.75] {
-                        for clipCoverage: Float in [0, 0.6, 1] {
-                            let rgb = straight ? authored : authored * coverage
-                            let input = texture(device, SIMD4(rgb.x, rgb.y, rgb.z, coverage))
-                            let original = pixel(input)
-                            let clip = texture(device, SIMD4(repeating: clipCoverage))
-                            let output = texture(device, .zero)
-                            let command = queue.makeCommandBuffer()!
-                            let pass = MTLRenderPassDescriptor()
-                            pass.colorAttachments[0].texture = output
-                            pass.colorAttachments[0].loadAction = .load
-                            pass.colorAttachments[0].storeAction = .store
-                            let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
-                            capturePipeline.bind(encoder: encoder)
-                            var vertices = [
-                                SceneQuadVertex(position: SIMD2(-0.5, -0.5), texcoord: SIMD2(0, 1), vertexCoverage: vertexCoverage),
-                                SceneQuadVertex(position: SIMD2( 0.5, -0.5), texcoord: SIMD2(1, 1), vertexCoverage: vertexCoverage),
-                                SceneQuadVertex(position: SIMD2(-0.5,  0.5), texcoord: SIMD2(0, 0), vertexCoverage: vertexCoverage),
-                                SceneQuadVertex(position: SIMD2( 0.5,  0.5), texcoord: SIMD2(1, 0), vertexCoverage: vertexCoverage),
-                            ]
-                            var mvp = simd_float4x4(diagonal: SIMD4(2, 2, 1, 1))
-                            var uniforms = SceneLayerFragmentUniforms(time: 0, alpha: opacity,
-                                dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
-                                sourceSampling: SIMD2(0, straight ? 3 : 0),
-                                tint: SIMD4(tint.x, tint.y, tint.z, 1),
-                                textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
-                            var clipTransform = SIMD4<Float>(0.5, 0.5, 0.1, 0.1)
-                            encoder.setVertexBytes(&vertices, length: vertices.count * MemoryLayout<SceneQuadVertex>.stride, index: 0)
-                            encoder.setVertexBytes(&mvp, length: MemoryLayout<simd_float4x4>.size, index: 1)
-                            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneLayerFragmentUniforms>.size, index: 0)
-                            encoder.setFragmentTexture(input, index: 0)
-                            encoder.setFragmentTexture(input, index: 1)
-                            encoder.setFragmentTexture(clip, index: 2)
-                            encoder.setFragmentBytes(&clipTransform, length: MemoryLayout<SIMD4<Float>>.size, index: 1)
-                            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-                            encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
-                            let alpha = coverage * opacity * vertexCoverage * clipCoverage
-                            let expectedRGB = authored * tint * (straight ? 1 : alpha)
-                            captureResults.append(["straight": straight, "coverage": coverage,
-                                "opacity": opacity, "vertexCoverage": vertexCoverage, "clipCoverage": clipCoverage,
-                                "completed": command.status == .completed && command.error == nil,
-                                "sourceUnchanged": pixel(input) == original, "actual": pixel(output),
-                                "expected": [expectedRGB.x, expectedRGB.y, expectedRGB.z, alpha]])
+        for preparesAdditive in [false, true] {
+            let capturePipeline = SceneImageLayerPipeline(device: device,
+                pixelFormat: .rgba16Float, library: library, preparesAdditive: preparesAdditive)!
+            for straight in [false, true] {
+                for coverage: Float in [0, 0.5, 1] {
+                    for opacity: Float in [0, 0.4, 1] {
+                        for vertexCoverage: Float in [0, 0.75] {
+                            for clipCoverage: Float in [0, 0.6, 1] {
+                                let rgb = straight ? authored : authored * coverage
+                                let input = texture(device, SIMD4(rgb.x, rgb.y, rgb.z, coverage))
+                                let original = pixel(input)
+                                let clip = texture(device, SIMD4(repeating: clipCoverage))
+                                let output = texture(device, .zero)
+                                let command = queue.makeCommandBuffer()!
+                                let pass = MTLRenderPassDescriptor()
+                                pass.colorAttachments[0].texture = output
+                                pass.colorAttachments[0].loadAction = .load
+                                pass.colorAttachments[0].storeAction = .store
+                                let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
+                                capturePipeline.bind(encoder: encoder)
+                                var vertices = [
+                                    SceneQuadVertex(position: SIMD2(-0.5, -0.5), texcoord: SIMD2(0, 1), vertexCoverage: vertexCoverage),
+                                    SceneQuadVertex(position: SIMD2( 0.5, -0.5), texcoord: SIMD2(1, 1), vertexCoverage: vertexCoverage),
+                                    SceneQuadVertex(position: SIMD2(-0.5,  0.5), texcoord: SIMD2(0, 0), vertexCoverage: vertexCoverage),
+                                    SceneQuadVertex(position: SIMD2( 0.5,  0.5), texcoord: SIMD2(1, 0), vertexCoverage: vertexCoverage),
+                                ]
+                                var mvp = simd_float4x4(diagonal: SIMD4(2, 2, 1, 1))
+                                var uniforms = SceneLayerFragmentUniforms(time: 0, alpha: opacity,
+                                    dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
+                                    sourceSampling: SIMD2(0, straight ? 3 : 0),
+                                    tint: SIMD4(tint.x, tint.y, tint.z, 1),
+                                    textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
+                                var clipTransform = SIMD4<Float>(0.5, 0.5, 0.1, 0.1)
+                                encoder.setVertexBytes(&vertices, length: vertices.count * MemoryLayout<SceneQuadVertex>.stride, index: 0)
+                                encoder.setVertexBytes(&mvp, length: MemoryLayout<simd_float4x4>.size, index: 1)
+                                encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneLayerFragmentUniforms>.size, index: 0)
+                                encoder.setFragmentTexture(input, index: 0)
+                                encoder.setFragmentTexture(input, index: 1)
+                                encoder.setFragmentTexture(clip, index: 2)
+                                encoder.setFragmentBytes(&clipTransform, length: MemoryLayout<SIMD4<Float>>.size, index: 1)
+                                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                                encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
+                                let alpha = coverage * opacity * vertexCoverage * clipCoverage
+                                let expectedRGB = authored * tint * (straight ? 1 : alpha)
+                                captureResults.append(["preparedAdditive": preparesAdditive,
+                                    "straight": straight, "coverage": coverage,
+                                    "opacity": opacity, "vertexCoverage": vertexCoverage, "clipCoverage": clipCoverage,
+                                    "completed": command.status == .completed && command.error == nil,
+                                    "sourceUnchanged": pixel(input) == original, "actual": pixel(output),
+                                    "expected": [expectedRGB.x, expectedRGB.y, expectedRGB.z, alpha]])
+                            }
                         }
                     }
                 }
@@ -191,7 +198,7 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
             harness = folder / "Harness.swift"
             harness.write_text(HARNESS, encoding="utf-8")
             identity = {path: hashlib.sha256(path.read_bytes()).hexdigest()
-                        for path in (PIPELINE, SHADER, FOG_HEADER)}
+                        for path in (PIPELINE, SHADER, FOG_HEADER, *STATE_SOURCES)}
             shader = folder / SHADER.name
             shader.write_text(SHADER.read_text().replace(
                 '#include "SceneDistanceFog.metalh"', FOG_HEADER.read_text()), encoding="utf-8")
@@ -201,7 +208,7 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
             environment["SWIFT_MODULECACHE_PATH"] = str(folder / "swift-cache")
             compiled = subprocess.run([
                 "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(PIPELINE), str(harness), "-framework", "Metal",
+                *map(str, STATE_SOURCES), str(PIPELINE), str(harness), "-framework", "Metal",
                 "-module-cache-path", str(folder / "module-cache"), "-o", str(binary)
             ], cwd=ROOT, env=environment, capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
@@ -211,6 +218,12 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
             self.assertEqual(identity, {path: hashlib.sha256(path.read_bytes()).hexdigest()
                                         for path in identity}, "product source changed during GPU gate")
             payload = json.loads(executed.stdout)
+            if evidence := os.environ.get("MWX_IMAGE_REPRESENTATION_EVIDENCE"):
+                output = Path(evidence)
+                output.mkdir(parents=True, exist_ok=True)
+                (output / "source-identity.json").write_text(json.dumps(
+                    {str(path): digest for path, digest in identity.items()}, indent=2))
+                (output / "report.json").write_text(json.dumps(payload, indent=2))
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         self.assertEqual(len(payload["cases"]), 12)
@@ -224,12 +237,15 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
             for coverage in (0, 0.5, 1):
                 pair = [case["actual"] for case in cases if case["coverage"] == coverage]
                 self.assertEqual(pair[0], pair[1])
-        self.assertEqual(len(payload["captureCases"]), 108)
+        self.assertEqual(len(payload["captureCases"]), 216)
         for case in payload["captureCases"]:
             self.assertTrue(case["completed"], case)
             self.assertTrue(case["sourceUnchanged"], case)
             for actual, expected in zip(case["actual"], case["expected"], strict=True):
                 self.assertAlmostEqual(actual, expected, delta=0.002, msg=case)
+        for ordinary, prepared in zip(payload["captureCases"][:108],
+                                      payload["captureCases"][108:], strict=True):
+            self.assertEqual(ordinary["actual"], prepared["actual"])
 
 
 if __name__ == "__main__":

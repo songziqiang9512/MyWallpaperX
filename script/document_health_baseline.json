@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175217
+      "bytes": 175565
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 211402
+      "bytes": 212500
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -141,8 +141,8 @@
       "bytes": 92008
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 421,
-      "bytes": 91445
+      "lines": 419,
+      "bytes": 91035
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -217,8 +217,8 @@
       "bytes": 13418
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 88,
-      "bytes": 17670
+      "lines": 105,
+      "bytes": 20506
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 249,
-      "bytes": 77258
+      "bytes": 77106
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1196,15 +1196,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "549cf7d8e2c82f804f75b4c0d80ba9962a5edcb0084050e97ecc426364315684",
-      "after": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
-      "owner": "scene-packaged-sound-resource-admission",
-      "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "e6924f1ac8bad1c87f1ca5c8cdca12aa9f4faebcca289d41d81fcadd2e4a34df",
       "after": "e0a779dcc4b97876e9f5309afefa4d0b09c0c2a933775835b3fa9f416e188002",
@@ -1226,15 +1217,6 @@
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "73f1647cb362d82ed9665a97042ef84b19de2d876651046006bf5c7ac2b179dd",
       "after": "8fa48c55a62ca0b442cb583084aedff53c7dbfd314942a4656dc679a3a2e538b",
-      "owner": "root-scene-image-terminal-placement",
-      "reason": "普通image终端放置合同、原199可逆ROI与独立374有界后验；更新现役队列和两行来源，不重复旧状态。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#image-terminal-placement"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "8b2bd94b2ee2612be698d88aa6252a517f898a17339c92f160f1815d8f44de0c",
-      "after": "dfb4d7855a471e2014126d30c0c4a811c4c55f444d1c908270c8cf24cecdc8d8",
       "owner": "root-scene-image-terminal-placement",
       "reason": "普通image终端放置合同、原199可逆ROI与独立374有界后验；更新现役队列和两行来源，不重复旧状态。",
       "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#image-terminal-placement"
@@ -1295,30 +1277,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "before": "dfb4d7855a471e2014126d30c0c4a811c4c55f444d1c908270c8cf24cecdc8d8",
+      "after": "398c46d46411eba636581dd76ace5d5428dc44fa443048750bae396452137f5e",
+      "owner": "Scene prepared material / unique MainPass",
+      "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3d72133efb1de04743eb07c5ff209143e001e9ac70b0cc41063235ab1da58c2f",
-      "after": "1cbd462b8eb27634393a4ff77858653c93bcb0e017884730bf7d65de2776cb8e",
-      "owner": "Scene particle initializer / evidence and sample ledger",
-      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
+      "before": "1cbd462b8eb27634393a4ff77858653c93bcb0e017884730bf7d65de2776cb8e",
+      "after": "5e3cfe32272edd1841e0f5a3138ba612b678186836274f477df9a2f52953fbc1",
+      "owner": "Scene prepared material / unique MainPass",
+      "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "f9784559f800ab30dcb35dc8a87347a1279ec4c134681189f2a755d2a4c72777",
-      "after": "eb41dd59ab536686fa9dfc471381426a2990ef43e9d639f19393e8ebc041b2f2",
-      "owner": "Scene particle initializer / evidence and sample ledger",
-      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "002fdd1923762377b4d8f60c3a47d70cf79f18656dbc10df73b266f95d4c3561",
-      "after": "d9565c7ced035f4d8da3ecc0a68af44ce32644ae7765520069a6bdd533c4256b",
-      "owner": "Scene particle initializer / evidence and sample ledger",
-      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
+      "after": "043161750ad45f597dbd859233a7f41c8a7434a4f10db6920c257fda4a2b604b",
+      "owner": "Scene prepared material / unique MainPass",
+      "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
     }
   ]
 }

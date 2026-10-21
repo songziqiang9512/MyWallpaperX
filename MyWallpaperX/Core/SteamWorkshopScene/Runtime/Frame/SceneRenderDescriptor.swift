@@ -84,6 +84,12 @@ struct SceneRenderDescriptor: Codable {
             $0.requiresDepthAttachment
         } == true
     }
+
+    /// Hidden authored layers can become visible; unadmitted dynamic models
+    /// alone must not cause an unused terminal pipeline to be prepared.
+    nonisolated var requiresImageAdditiveRGB: Bool {
+        layers.contains { $0.imageMaterialRenderState?.supportsImageAdditiveRGB == true }
+    }
 #if DEBUG
     var firstStageRendererGaps: [String] = []
 #endif
@@ -163,6 +169,11 @@ struct SceneRenderDescriptorBuilder {
             && sceneDocument.general.farZ.map {
                 $0.isFinite && $0 > (sceneDocument.general.nearZ ?? 0.01)
             } != false
+        let preparedModelStates = imageMaterialFacts.compactMapValues { fact in
+            guard preparesNativeImageState || fact.state?.supportsImageAdditiveRGB == true
+            else { return nil as SceneMaterialRenderState? }
+            return fact.state
+        }
 
         var descriptor = SceneRenderDescriptor(
             entryPath: project.entryPath,
@@ -276,7 +287,11 @@ struct SceneRenderDescriptorBuilder {
                 )
                 let facts = object.imagePath.flatMap { imageMaterialFacts[SceneModelResourceIdentity($0).value] }
                 layer.proceduralSolidSource = facts?.procedural
-                if preparesNativeImageState, layer.isImageRenderable, utilityLayer == nil,
+                let additiveImage = facts?.state?.supportsImageAdditiveRGB == true
+                    && layer.contentKind == "image" && object.materialInstance == nil
+                let acceptsMaterialState = facts?.state?.supportsImageAdditiveRGB == true
+                    ? additiveImage : preparesNativeImageState
+                if acceptsMaterialState, layer.isImageRenderable, utilityLayer == nil,
                    puppetMeshPath == nil, object.staticModelPath == nil,
                    object.shape == nil || object.shape == "quad",
                    (object.colorBlendMode ?? 0) == 0,
@@ -298,8 +313,8 @@ struct SceneRenderDescriptorBuilder {
                 directStaticModelMaterialLinks: directStaticModelMaterialLinks,
                 checkCancellation: checkCancellation
             ),
-            preparedImageMaterialStatesByModelPath: preparesNativeImageState
-                ? imageMaterialFacts.compactMapValues(\.state) : nil,
+            preparedImageMaterialStatesByModelPath: preparesNativeImageState || !preparedModelStates.isEmpty
+                ? preparedModelStates : nil,
             effectDefinitions: assetCatalog.effectDefinitions,
             shaderReferences: assetCatalog.shaderReferences,
             textureReferences: assetCatalog.textureReferences,
@@ -358,9 +373,24 @@ struct SceneRenderDescriptorBuilder {
                 blending: pass.blending, depthTest: pass.depthTest,
                 depthWrite: pass.depthWrite, cullMode: pass.cullMode,
                 alphaWriting: pass.alphaWriting)
+            let input = pass.textureSlots.first.flatMap { $0 }.map {
+                SceneModelResourceIdentity($0).value
+            }
+            let additiveImage = builtinImage && shader == "genericimage2"
+                && !model.isSolidLayer && model.passthrough != true
+                && pass.combos["VERSION"] == 2
+                && pass.combos.allSatisfy {
+                    ($0.key == "VERSION" && $0.value == 2)
+                        || ($0.key == "LIGHTING" && $0.value == 0)
+                }
+                && pass.textureSlots.count == 1
+                && input.map { !$0.isEmpty && !$0.hasPrefix("_rt_") && !$0.hasPrefix("$") } == true
+                && pass.userTextureInputs.allSatisfy { $0 == nil }
+                && pass.constantShaderValues.isEmpty && pass.userShaderValues.isEmpty
             facts[identity] = (
                 state.flatMap {
-                    $0.blending == .translucent && $0.alphaWriting == .unspecified ? $0 : nil
+                    ($0.blending == .translucent && $0.alphaWriting == .unspecified)
+                        || (additiveImage && $0.supportsImageAdditiveRGB) ? $0 : nil
                 },
                 neutral ? .neutral : nil)
         }

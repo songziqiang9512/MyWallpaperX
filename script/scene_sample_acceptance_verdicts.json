@@ -1033,7 +1033,7 @@
         ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/candidate/report.json"
       ],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md#particle-fractional-count-20261022",
+        "docs/scene/capabilities/runtime-evidence-current.md",
         ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/before/report.json",
         ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/candidate/report.json"
       ],
@@ -1163,14 +1163,15 @@
     },
     "3042492564": {
       "verdict": "unreviewed",
-      "reviewedOn": "",
-      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 10-19相机heldout在62.958s ready，短窗主体构图保留；69s总watchdog中断正常停止，原5FAIL保留，不认生命周期通过。",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex root + GPT-6.1-Sol independent bounded image review",
+      "note": "10-22普通图片加法末合成恢复X白亮核心；默认/关Shine与GPU末消费有界通过，完整属性/光束/媒体及粒子738仍开放。",
       "runs": [],
       "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+        ".artifacts/scene-evidence/runs/builtin-image-additive-rgb-20261022/final/samples/3042492564/runtime_evidence.zip",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。X光合成不对；混合模式仅用户猜测，根因unknown，需锁X光状态/ROI。 待锁当前App、输入/属性、phase、音源与viewport复验。",
+      "remainingDifferences": "只关闭已证内建图片additive被丢为source-over的RGB首门；光束形状、媒体封面裁切/blur、布局及交互仍开放。原报告粒子738不可用不归X光；全属性、HDR、官方同phase/Alpha及整样本未验。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/heldout/report.json"
@@ -1669,9 +1670,9 @@
     "1994794519": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-20",
-      "reviewer": "用户补报；当前App同点尚未复验",
-      "note": "10-20用户报告上下层揭露位置在屏幕中心准确，越向边缘偏移越大，怀疑输入位移倍率；未取得当前App/viewport同点配准，不认已证根因。与357提前hover反馈并列待排查，不由其作者宽半径关闭。",
-      "remainingDifferences": "通用pointer比例/投影待排查；按用户要求本批仅记录，后继锁points/bounds/drawable及effect源域。",
+      "reviewer": "历史用户反馈及10-21有界放置后验；本批仅同步覆盖层，未新运行",
+      "note": "10-21同cover三点可逆已闭下游末材质放置偏移；物理入口/全profile/官方像素未扩。 历史观察：10-20用户报告上下层揭露位置在屏幕中心准确，越向边缘偏移越大，怀疑输入位移倍率；未取得当前App/viewport同点配准，不认已证根因。与357提前hover反馈并列待排查，不由其作者宽半径关闭。",
+      "remainingDifferences": "下游末材质放置偏移已闭；物理输入倍率/DPI、多屏、全profile与官方精确像素仍待相应运行验收。",
       "evidence": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
@@ -1963,7 +1964,7 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-21",
       "reviewer": "Codex 隔离Debug诊断与独立原图复核；未作人工整样本裁决",
-      "note": "Pulse181实际执行。强低频/静音原图未取得明确眼发光差；离线四值均值>0.735，实际摘要缺band1，尚不能严证同帧作者阈值。保留用户观察待复验，不判正常/缺能力。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
+      "note": "10-21受控PCM与单变量旁路支持Pulse181贡献轻微眼内提亮；未验官方强度/halo/HDR或正常采集。 历史人工观察（原文保留）：Pulse181实际执行。强低频/静音原图未取得明确眼发光差；离线四值均值>0.735，实际摘要缺band1，尚不能严证同帧作者阈值。保留用户观察待复验，不判正常/缺能力。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
       "remainingDifferences": "具体待修/待复验归现役队列；早截图、音频、视差、媒体状态差异不自动是缺陷。",
       "officialComparison": "compared",
       "runs": [

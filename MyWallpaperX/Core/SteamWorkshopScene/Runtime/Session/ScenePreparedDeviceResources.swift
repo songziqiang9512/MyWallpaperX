@@ -648,7 +648,8 @@ final class ScenePreparedDeviceResourcesTask {
                 guard let imageLayerPipeline = SceneImageLayerPipeline(
                     device: device,
                     pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-                    preparesDepth: descriptor.requiresImageDepthAttachment
+                    preparesDepth: descriptor.requiresImageDepthAttachment,
+                    preparesAdditive: descriptor.requiresImageAdditiveRGB
                 ) else {
                     throw SceneDesktopWallpaperHostLaunchError
                         .requiredImagePipelineUnavailable

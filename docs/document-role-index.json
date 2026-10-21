@@ -614,13 +614,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "32331f8945f8fff2feab805168351dd3476a67d30f72e54dab87d42ccd344504",
+        "sourceSHA256": "28fbb0fe1fb932e15e2e81cfde16197f4bbfbcc72c25a8a4058d8872db87ec8d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
-        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
+        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
+        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5b7735a25d07c88e7dfea812f8f39a2ed0862325a2a1348fed298a303877f5da",
+        "sourceSHA256": "a47ae014c5af30a6bcc21fca09580b387b53ffa7e5f2399c036ff785e93bf998",
         "method": "document_registry --audit + document_health --check",
-        "scope": "既有粒子CP主题合并小数Count后继；保留官方点集/数值/真实GPU与未闭方向密度边界。原视频定位与其他证据保各自身份。",
-        "limitations": "导航收据不替代运行；不外推完整官方phase/sign/公式、311密度方向、性能或未执行组合。"
+        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
+        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "06a6a3cdd8e6c348b0d0d493be41929843442d9f9122dfd99b3bdf639840ea97",
+        "sourceSHA256": "c7c107a0cc377e5673f315374908177f2ffeabd7acb1c273652e17e23d5ba5c5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步192零有效引用诊断修正的覆盖层SHA；356行、旧运行及人工裁决保持。",
-        "limitations": "仅离线重放，不刷新旧样本运行日期、官方对照或视觉裁决。"
+        "scope": "从原356范围重新生成；304有界结论、199/278旧页与覆盖层同步，311证据字段改为真实文件身份；归档/人工裁决不变。",
+        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
       }
     },
     {
@@ -3546,13 +3546,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e5db98c6c4c118ef6bc097d5ed70c950b32f48a89e370e1e329cf2fadc88d1a7",
+        "sourceSHA256": "a945dc78acf4f373091206eaa24e392b4676d4c84b2b4ef2388f925c74389280",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
-        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
+        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
+        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3bff87c173c06f93c2bdc4178747b9c3cdd88a224dd0265904a778069c7f372a",
+        "sourceSHA256": "ec18822dadba955c92ff181a600289facb49e8c5397ccc6f5b75d292d7bcff13",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅退出已修graph-internal零有效引用诊断；其余工具缺口与现役队列保持。",
-        "limitations": "仅离线重放旧日志，非新原生渲染、性能或整样本验收。"
+        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
+        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
       }
     },
     {

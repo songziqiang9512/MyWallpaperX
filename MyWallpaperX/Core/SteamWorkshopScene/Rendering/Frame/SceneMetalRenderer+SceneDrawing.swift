@@ -152,18 +152,27 @@ extension SceneMetalRenderer {
         // Only prepared policy IDs are inspected. Source/effect programs retain
         // their coordinate ABI; this policy belongs to the ordinary terminal.
         var ordinaryDepthLayerIDs: Set<Int> = []
-        if cameraFrame.defaultsToPerspective, let imagePipeline {
+        if let imagePipeline {
             for id in frameProjection.imageMaterialStateLayerIDs.intersection(frameVisibleLayerIDs) {
                 guard let layer = frameLayersByID[id],
-                      cameraFrame.resolvesPerspective(for: layer), layer.utilityLayer == nil,
+                      let state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
                       imageTextures.geometryProducts[id] == nil,
                       (compositionGroupRuntime?.renderPass(forLayerID: id) === mainPass
-                        || compositionGroupRuntime == nil),
-                      imageCompositor.preflightResolvedMaterialClaim(layerID: id)
-                        .execution?.supportsTerminalMaterialReplay != true,
-                      let state = layer.imageMaterialRenderState else { continue }
+                        || compositionGroupRuntime == nil) else { continue }
+                let additiveImage = state.supportsImageAdditiveRGB
+                if additiveImage {
+                    guard !dependencyRuntime.requiresGraphOutputCapture(for: id),
+                          !dependencyRuntime.requiresEffect(for: id) else { continue }
+                } else {
+                    guard cameraFrame.defaultsToPerspective,
+                          cameraFrame.resolvesPerspective(for: layer),
+                          imageCompositor.preflightResolvedMaterialClaim(layerID: id)
+                            .execution?.supportsTerminalMaterialReplay != true else { continue }
+                }
                 guard imagePipeline.supports(state) else {
-                    modelFrame.unavailableImageMaterialLayerIDs.insert(id)
+                    // Optional RGB policy failure keeps the prior safe image
+                    // output. Existing required depth/state failures stay local.
+                    if !additiveImage { modelFrame.unavailableImageMaterialLayerIDs.insert(id) }
                     continue
                 }
                 modelFrame.imageMaterialStates[id] = state
