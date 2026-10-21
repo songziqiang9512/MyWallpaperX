@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 520,
-      "bytes": 103534
+      "lines": 543,
+      "bytes": 112801
     }
   },
   "archives": [
@@ -1305,11 +1305,11 @@
     {
       "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "4e23747710556c731cb2d11f9721fcad054429fad7b774ffc1beec21330b102a",
-      "after": "a3a3177807878040079e1901ddb125524a23b7d9185f9950d90abc2871382b6b",
-      "owner": "apple-silicon-grid-thumbnail-reuse",
-      "reason": "D15/D16设计、真实验证范围和用户授权提交/启动交付；同一执行路线收口。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md"
+      "before": "a3a3177807878040079e1901ddb125524a23b7d9185f9950d90abc2871382b6b",
+      "after": "2d043fdaf2a57851868ea841be114b53082a1089fbcf6b34c34b3b2d33aabf55",
+      "owner": "apple-silicon-grid-demand-audit",
+      "reason": "D16提交及普通Release交付闭环，D17全模块网格调度审查与分阶段候选；保持唯一执行路线，未实施新产品策略或预支性能收益。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#d17全模块网格缩略图调度审查与下一批顺序"
     }
   ]
 }
