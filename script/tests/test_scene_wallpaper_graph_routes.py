@@ -59,11 +59,14 @@ class SceneWallpaperGraphRoutesTests(unittest.TestCase):
     ) -> None:
         preview_text = "\n".join([
             "resolved material execution capabilities: "
-            "schema=layer-graph-capability-v1 candidates=4 accepted=4 "
+            "schema=layer-graph-capability-v1 candidates=5 accepted=5 "
             "rejected=0 variantLimit=8",
             "resolved material execution capability: "
             "schema=layer-graph-route-v1 layer=68 status=accepted "
             "dependency=none dependencyReferences=0",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=69 status=accepted "
+            "dependency=graph-internal dependencyReferences=0",
             "resolved material execution capability: "
             "schema=layer-graph-route-v1 layer=70 status=accepted "
             "dependency=graph-internal dependencyReferences=1",
@@ -82,7 +85,7 @@ class SceneWallpaperGraphRoutesTests(unittest.TestCase):
 
         self.assertEqual(
             metrics["capability"]["accepted_layer_ids"],
-            [68, 70, 72, 74],
+            [68, 69, 70, 72, 74],
         )
         self.assertEqual(
             metrics["capability"]["malformed_route_observation_count"],
@@ -95,6 +98,8 @@ class SceneWallpaperGraphRoutesTests(unittest.TestCase):
 
         malformed_dependencies = [
             "dependency=none dependencyReferences=1",
+            "dependency=graph-internal dependencyReferences=-1",
+            "dependency=graph-internal dependencyReferences=bad",
             "dependency=external-primary dependencyReferences=0",
             "dependency=external-aggregate dependencyReferences=0",
             "dependency=external-unknown dependencyReferences=1",

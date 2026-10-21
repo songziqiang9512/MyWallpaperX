@@ -2098,7 +2098,7 @@
       "reviewedOn": "2026-10-21",
       "reviewer": "Codex 当前Debug实际运行与独立原图复核，非整样本裁决",
       "note": "未参与OGG修法的独立FLAC对照：人物/床/装饰/早餐构图保留；FLAC admitted1/rejected0、ready/rate1、时钟0→0.407405。两资源类型不共用假数据播放证明；本轮muted=true。",
-      "remainingDifferences": "矩阵6条NONPASS为graph-internal/0引用accepted-route诊断；真实Program/GPU/末合成/次帧存在，保原失败为工具待核，不冒充整样本或官方parity通过。",
+      "remainingDifferences": "10-22修正合法graph-internal/0有效引用的诊断归一；原日志离线重放6项误报归零，独立372整份metrics不变。原报告保留；无新渲染或官方对照，整样本仍未裁决。",
       "officialComparison": "not-run",
       "runs": [
         ".artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/report.json"

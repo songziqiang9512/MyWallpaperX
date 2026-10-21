@@ -127,8 +127,12 @@ def resolved_material_graph_execution_metrics(
         if current is not None:
             dependency = current.group("dependency")
             reference_count = int(current.group("dependency_references"))
+            # Self dependencies remain graph-internal when their named reads
+            # are shadowed by graph bindings; the producer then reports zero
+            # effective references. Only external owners require a live slot.
             if (dependency == "none" and reference_count != 0) or (
-                dependency != "none" and reference_count == 0
+                dependency in {"external-primary", "external-aggregate"}
+                and reference_count == 0
             ):
                 malformed_route_count += 1
                 continue

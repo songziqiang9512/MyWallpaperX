@@ -833,13 +833,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "13fd26e922a96dd68882f531b3c188f52f3b3f52adcf9b58bfe5e613076600c0",
+        "sourceSHA256": "06a6a3cdd8e6c348b0d0d493be41929843442d9f9122dfd99b3bdf639840ea97",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冻结356仅更新278原定义强音频运行来源及有界后验；其余355行、人工overlay及verdict不变；243归档只改278对象。",
-        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
+        "scope": "仅同步192零有效引用诊断修正的覆盖层SHA；356行、旧运行及人工裁决保持。",
+        "limitations": "仅离线重放，不刷新旧样本运行日期、官方对照或视觉裁决。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "af9cd5459b7707fc249b7713c59035a7449e8fb4e9443c2a06ac274d44693cc1",
+        "sourceSHA256": "3bff87c173c06f93c2bdc4178747b9c3cdd88a224dd0265904a778069c7f372a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "只补3742497499活跃距离约束的有界资格与零值预设失败，保原缺口；队列另沿用已记N08停止门。",
-        "limitations": "未实施距离约束，未取得零值/时间步公式或真实轨迹恢复；未重审其他条目及全样本。"
+        "scope": "仅退出已修graph-internal零有效引用诊断；其余工具缺口与现役队列保持。",
+        "limitations": "仅离线重放旧日志，非新原生渲染、性能或整样本验收。"
       }
     },
     {
