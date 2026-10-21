@@ -194,7 +194,7 @@
 | 3766387484 /3792817546 /3790726145 /2986218263 · 仅保验收边界 | 前者日期/星期/时钟旧首门、后三者CP/Rope/pointer准入已记恢复；剩“其他effect、原生输入、官方宽度/UV/颜色未验”不是新的具体故障。保台账/专项范围，新具体现象出现时逐项补证，不新增泛化任务。 |
 ## 3. 性能：先取得当前可避免工作的证据
 
-新增3724289844在target/driver30的16s Debug观察窗submitted约15.046FPS、CPU帧p95约25.875ms/GPU约11.283ms；带执行观察器和resize，仅为成本线索。先以普通同条件窗定位帧准入/CPU职责，不认瓶颈、温度根因或优化收益；[后继5包](../capabilities/runtime-evidence-current.md#intake-five-20261021)。
+3724289844的半帧率已限定到本轮未优化Debug条件；独立时间线确认在途延后与正常cadence空档，但同源码优化Debug普通窗达到目标帧率。本轮停止timer/clock/history修改，不认整体性能收益或温度根因；[资格与保留边界](../capabilities/runtime-evidence-current.md#water-cadence-qualification-20261021)。
 
 专项阈值、有效基线与NO-GO/STOP只由[性能卡](performance-convergence-card.md)维护；本页不另建优化campaign。以下不是永久启动失败、泄漏或整引擎掉帧结论。
 

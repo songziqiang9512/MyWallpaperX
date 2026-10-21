@@ -54,7 +54,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
-      "bytes": 29908
+      "bytes": 30017
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 518,
-      "bytes": 189474
+      "lines": 528,
+      "bytes": 191421
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -225,8 +225,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 56,
-      "bytes": 14940
+      "lines": 57,
+      "bytes": 15405
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 247,
-      "bytes": 76431
+      "bytes": 76449
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1214,20 +1214,38 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "792806403d71bc33862aa87420f4de7c93ead32bfd16012d484683d3711a1bea",
-      "after": "fddccc4bca386d9b953f4ce23d3eaa48ff769763c0d2e69252e708ceeadd301d",
-      "owner": "scene-generic-preparation-and-runtime-evidence",
-      "reason": "既有纯内建只读global首门、335有界长窗及5包实际增量诊断；保未证可见收益与历史混合身份，合并精确varying/Compose/source/声音/性能余项，不扩大兼容结论。",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "833ba69921eead8634eb099d41ff8c67d49cb41f5e67868a5b0b34ffe3c41b3c",
+      "after": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
+      "owner": "scene-frame-cadence-qualification",
+      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b94ae7dd30307f4ea1bed3f7327e54c8108ec12f667f885f58d04f64486aede1",
-      "after": "3517c9469a6e4b8e7334631695eed6e8a0a1e8667d2423222bb3e387bb9de89d",
-      "owner": "scene-varying-prefix-link",
-      "reason": "记录共享分组XY读取修复及两处实际局部星线恢复，保首失败/修正、Compose未闭与混合历史身份；三条增量统计不扩大整景或性能结论。",
+      "before": "3517c9469a6e4b8e7334631695eed6e8a0a1e8667d2423222bb3e387bb9de89d",
+      "after": "7a0a3dea96b58850724ff5becd4ee6556b5cfa5e48e695e35f5b7a06083d15b4",
+      "owner": "scene-frame-cadence-qualification",
+      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "1ea340c9137c06bd985f688654148d1bd2984f0bb9ebbce1725d3c20eb3dab9f",
+      "after": "161d6baf42adaac5e958be38797a1c8c82624fcaa4c6c0606e7f64d8a91ac3b7",
+      "owner": "scene-frame-cadence-qualification",
+      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b83ab24574aa49b9b950d18516e6e890e92cdaad5494310e82fd24541adb5d84",
+      "after": "cab5640382d3e8e8f93578694e7d58125a503262ce4c891c5dfd7ea0a7d20420",
+      "owner": "scene-frame-cadence-qualification",
+      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
     }
   ]

@@ -94,7 +94,7 @@ SceneScript C host按layer catalog/baseline、native handle、typed value、jour
 6. **digest = variant memo 键**：registry snapshot 的 SelectionDigest 只含 fact 层（布尔化 generation），跨视频帧稳定；是变体选择的 memo 键。M3.1 已改为随 entries 写入增量折叠；beginFrame/discard 清空并重置 digest；snapshot 仍遍历 entries 建 lookup 字典。本机有等值 harness，但尚未纳入正式回归入口。往 fact 加逐帧变化字段 = memo 永远 miss。
 7. **hasSameValuePayload 是 generation 闸门**：值不变则快照 generation 不递增，下游 memo 依赖此稳定；不能当冗余比较优化掉。
 8. **属性 lane 优先级**：user > timeline > sceneScript（合并顺序 + stateful script 值仅在无高优 producer 时前向携带）。动顺序 = 脚本动画被静默覆盖。
-9. **VM timer 只在真实帧 dispatch**：busy 重试对 timer frame state 做"快照→guard→discard"防重复执行。绕过 FrameDriver 的帧驱动会双触发或丢 timer。
+9. **VM timer 每模拟cadence消费一次**：正常驱动无论surface提交、deferred或dropped均提交已消费的VM/timer/input；暂停首帧重试复用已求值simulation，不重跑回调。不能以GPU呈现成功作为JS heap回滚或timer重放条件。
 10. **QuickJS 线程绑定**：VM 创建于 launch 队列、adoptCurrentThread 迁移到使用线程；全部 VM 交互 Swift 状态无隔离标注（约定主线程）。换线程/进程必须 rebase 并迁移全部交互状态。
 11. **sticky 遥测只报首次**：effect/graph/失败类日志多为 once-per-subject；"不再报错"≠修复。
 12. **debug evidence 门三合一**：诊断 + benchmark 日志行（benchmark 恒传 flag+Debug 构建）+ **窗口层样式**。往门下加行为会改窗口表现；`#if DEBUG` 包裹物 Release 不存在。
@@ -116,7 +116,7 @@ SceneScript C host按layer catalog/baseline、native handle、typed value、jour
 | 改 in-flight/pool 预算/history 保留 | acceptance 门 + pin/rehydrate + busy 重试节奏一起评估 | .busy 风暴 / target hazard / 内存滞涨 |
 | 帧循环换线程/进程（M5） | VM adoptCurrentThread rebase + VM 交互状态全迁移 + AppKit 接触点（drawableSize 主线程写/帧读、指针链 NSEvent/window.convertPoint、surfaces 字典主线程独占、8 组 commit 栅栏）+ launch 状态改事件 + 完成回调落点 | 随机崩溃 / timer 双跑 / 状态漂移 |
 | 改属性生效/优先级 | lane 合并顺序 + revision 语义（userPropertiesJSON 缓存键）+ hasSameValuePayload 闸门 | 脚本动画被覆盖；属性改了画面不动 |
-| 改 SceneScript 定时器/帧状态 | 快照/discard 对只在真实帧 dispatch 的约定（不变量 9） | timer 双触发/丢失；deferred 帧后 VM 漂移 |
+| 改 SceneScript 定时器/帧状态 | 局部owner撤回与已消费cadence不重放、暂停重绘复用的约定（不变量 9） | timer 双触发/丢失；deferred 帧后 VM 漂移 |
 | 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 推进 PreparedPass 命令世代但保留完整内容键 PSO；catalog/device 替换必须重建 executor | 旧命令被误接纳；错误跨 catalog/device 复用；重置后首帧重新编译 |
 | 加 per-frame 遥测/诊断 | 常开层只准定长整数更新（不变量 17）；完整 observation/evidence 仍服从 evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 分配/字符串/遍历回归；窗口样式意外变化；统计触发 lazy pipeline 编译 |
 | 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |

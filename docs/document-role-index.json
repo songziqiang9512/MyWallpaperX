@@ -483,13 +483,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5e4279e76e21ec7e7408b918169992456247e1267da31372e977dd14e865301e",
+        "sourceSHA256": "fc355bba234c972ab3679e876607a11003d7fa739948bec3106c6a51cf46f758",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本次材质准备行：唯一PreparedAssembly身份与完整判等边界；现役入口链接核对",
-        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
+        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
+        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b14748dd7316b377fbb2497b943c7ea410cf7982fe6e2adf1a1c01f24cd2ce48",
+        "sourceSHA256": "85e8641b36eedb2c2efdbf7c2c58de17b4c3445d8ad8c62533691b86852b7968",
         "method": "document_registry --audit + document_health --check",
-        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
-        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
+        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
+        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
       }
     },
     {
@@ -3574,13 +3574,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "22542f71bf436c71fe98e1eb90a8ee57d786ca28b06eaeb41d4df99e6c1dcb7a",
+        "sourceSHA256": "542166bd3cc937383c44fa6f078ad988c61089acd71850dd6940939119a5cb87",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Authored image font JS-only状态与文字typed事务边界；374首拒退出、局部字体热切、官方固定板与独立381的有界证据。其余正文未重审。 2026-10-20本轮Apple silicon执行权转交唯一统一路线，专项历史/安全口径保留。",
-        "limitations": "未外推官方throw/任意属性、34字体/完整布局、整景同phase/viewport/HDR或性能；原失败及旧人工verdict保留。 此次仅审导航与执行边界，不重新声称性能专项通过。"
+        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
+        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "512500c1aecf9299b63a5f82e1b2380a8c88958788645d20edf7156504b8eb0e",
+        "sourceSHA256": "5961f4b64da0577223f5ce121069a90a71968e73d525b23ec040de68e6614504",
         "method": "document_registry --audit + document_health --check",
-        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
-        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
+        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
+        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
       }
     },
     {

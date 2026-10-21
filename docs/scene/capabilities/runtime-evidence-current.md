@@ -276,6 +276,16 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 原292默认1733与作者白色时间分支536分别从四节点拒绝透传到四material节点Program/GPU/末合成及次帧执行，普通运行均exit0/stop1→0排空；536不是1733。30%窗与原3024×1964白色对照均未建立可归因Bloom增益，彩线短段仍开放，不能把执行恢复当画质改善或整景PASS；不盲改作者阈值/增益。App`c820f615…ac0c6`/dylib`44bdb507…7346`，原基线`0c0cb159…337c`/`295ef404…5458`；签名staging先修正unsigned Xcode拷贝留下的Sparkle头文件seal引用，再strict验证后运行，无产品签名逻辑变更。原默认/白色两种可见分支保持机器人、背景、盘和文字，另5个未参与修法样本真实筛查见下条；未认全部参数/HDR/官方parity或性能收益。必要原图、CPU/GPU失败与更正、构建/身份及独审归档`.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/`（普通14天，约24.3MB）。
 
+<a id="water-cadence-qualification-20261021"></a>
+
+### 水面帧节奏资格：未实施调度修改（2026-10-21）
+
+原372默认属性、固定PCM/中心pointer进入后移出、3024×1964/30FPS，无resize/执行观察器/periodic截图。-Onone同42e App单次95s（预热30s、测量63.482s）952提交/driver1905、14.996FPS，CPU renderer wall p95 24.845ms/GPU10.112ms；准备21.129ms是两窗每帧合计，非drawable等待。独立6s sample另窗，仅给主线程材质准备实际caller，32 claim/41材质节点均有消费者；不把调用数或完整Program工作当可删。旁支map/索引低命中保持HOLD，旧payload/working-view STOP不重开。
+
+临时DEBUG探针128事件/14933B/0.637s：连续20 cadence中10 prepared、10明确inflight→deferred→正常dropped deadline；9组完整drain，完成后至下driver还隔22.965–29.085ms。2组GPU callback先于gate、MainActor drain后于当次驱动；其余8组callback在gate后。只记CB注册而非commit，无raw GPU端点；末条同步导出先于Task enqueue，末drain右截断不是丢completion。四个探针源按原SHA恢复、独审核合，不留产品探针或改同步/clock。初次探针装配不完整的构建、profile输出目录非空的前置失败均保留，不冒充有效运行。
+
+同产品源码另建`-O/WMO` Debug单次95s、无探针的普通窗达到30FPS/driver30，CPU renderer wall p95 9.022ms、GPU14.365ms，App0/失败帧0/正常drain；完整输入无漂移、strict/deep签名通过。此为构建配置资格，非代码优化或正式Release/功耗/温度收益，也非三对性能验收；两配置计时不作百分比改善。当前不为此样本重做timer/VM/history，其他更重负载未外推。必要原图/原报告、source与App身份、sample、探针补丁/原事件/独审及首失败归`.artifacts/scene-evidence/runs/water-cadence-{unoptimized,optimized}-20261021/`（普通14天，各<32MiB）。
+
 <a id="grouped-varying-prefix-20261021"></a>
 
 ### 分组只读 varying 前缀读取（2026-10-21）
