@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "92a7ff10d1577836c5d26053cfe43c2c5dc11cda031f7f9cf729b94b534d014d",
+        "sourceSHA256": "210ef3818463398cc8c7074497b1cf4b3694529777513b612eba71b6473e8ff4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
-        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
+        "scope": "278四臂实际PCM/accepted四bin及Pulse-off局部ROI资格；308/source361367只读诊断收窄，不新增产品修法。",
+        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "119dbf2c168eeb2d4c4d129189cf68c3f18ee7b0c433254033767e783c66544d",
+        "sourceSHA256": "13fd26e922a96dd68882f531b3c188f52f3b3f52adcf9b58bfe5e613076600c0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冻结356记录仅更新原199与独立374的来源/构建身份；243归档行只换两行，其余241对象相等。199注释先列本轮有界后验再保历史观察，其余355表格行及人工verdict不变。",
-        "limitations": "实际目录371只计数，新增15未纳入或运行；本批只确认199局部揭露位置和374主要内容，不升整样本或官方像素。"
+        "scope": "冻结356仅更新278原定义强音频运行来源及有界后验；其余355行、人工overlay及verdict不变；243归档只改278对象。",
+        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
       }
     },
     {
@@ -3619,10 +3619,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f10524667d38de7e613d901f2e0b8083a6360135043b51a3076857f86b3923f4",
+        "sourceSHA256": "df21f3959cf89f3017ac19cad96cb56a6c701e62b2ebfa790e4aa51657513412",
         "method": "document_registry --audit + document_health --check",
-        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
-        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
+        "scope": "移除已由4fb8a175b关闭的32项float数组旧首拒；仅整理仍开放的静态能力缺口，不复跑旧审计。",
+        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "69694db606e3c8ab9c35d9c71c9eedb285ee8d9cbe8df3cf36c3741d32a2a209",
+        "sourceSHA256": "60d8351966de9466c9f379bd1f9167e3ca1e6198c1bf6450fbb877adaa76c396",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
-        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
+        "scope": "278退出本窗完全缺眼部音频响应修法；308/source361367按默认显隐、媒体输入与实际执行收窄下一门，避免只修日志。",
+        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
       }
     },
     {

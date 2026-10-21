@@ -3437,10 +3437,27 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "8240229d3600bddd49269e2c44cfe564691328f2",
+      "short_version": "2.11.0",
+      "bundle_version": "283",
+      "executable_sha256": "afab766deb77c3ac7dd3bad3d40919672fe959344c735af868c92eb973b9cfcb",
+      "runtime_root_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/278-audio-followup-20261021/runs/original-strong/runtime/runtime-app-12639-1792585645886113000",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/image-terminal-placement-20261021/runtime-app-94609-1792581850652746000/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/image-terminal-placement-20261021/runtime-app-94609-1792581850652746000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/278-audio-followup-20261021/runs/original-strong/runtime/runtime-app-12639-1792585645886113000/MyWallpaperX.app",
+      "runtime_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/278-audio-followup-20261021/runs/original-strong/runtime/runtime-app-12639-1792585645886113000/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_retained": true,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-21T11:51:37.989551+00:00",
+  "generatedAtUtc": "2026-10-21T13:05:25.272756+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -5403,6 +5420,19 @@
       "status": "retained-byte-verified",
       "matrix": "image-terminal-heldout-20261021",
       "matrixSha256": "37860fc738fcdc0d9199527ea06ab75b47f6e78a07e7156ed2847efedcd3bd68",
+      "sampleCount": 1
+    },
+    {
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/original-strong/current/samples/2784267518/runtime_evidence.zip",
+      "containerSha256": "c00fca0e41e7ed396f244ab069a4445c387a3fb8322908c1aa1d50c93a75fde0",
+      "member": "report.json",
+      "bytes": 208654,
+      "sha256": "bf8bf2d049267a29627669a2ddfd2be1cac614de6c41d802bec4855bd9bfbadd",
+      "crc32": "ab13f355",
+      "status": "retained-byte-verified",
+      "matrix": "278-original-strong-frozen-afab-control",
+      "matrixSha256": "887f96df00e1aa21e9176fb499aca55d89c7b4a9d7f08c0da8614dc9ae6dd56c",
       "sampleCount": 1
     }
   ],
@@ -28514,40 +28544,113 @@
       },
       "evidence": {
         "report": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/report.json",
-          "sha256": "bd1478736ba1a6d0996ae5f6dc84b1e914bcce4e2d80b6ba5ef28fbf375f24a3",
-          "sampleIndex": 0
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/original-strong/current/samples/2784267518/runtime_evidence.zip",
+          "containerSha256": "c00fca0e41e7ed396f244ab069a4445c387a3fb8322908c1aa1d50c93a75fde0",
+          "member": "report.json",
+          "bytes": 208654,
+          "sha256": "bf8bf2d049267a29627669a2ddfd2be1cac614de6c41d802bec4855bd9bfbadd",
+          "crc32": "ab13f355",
+          "status": "retained-byte-verified",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
         },
         "sampleEvidencePaths": {
-          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/samples/2784267518/app_log.log",
-          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/samples/2784267518/preview_log.log",
-          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/samples/2784267518/runtime_evidence.zip",
-          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/samples/2784267518/after_snapshot.png"
-        }
+          "app_log": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/original-strong/current/samples/2784267518/app_log.log",
+            "bytes": 125932,
+            "sha256": "cf6a2b29c72feead86b506835291fe13ada822fd81f94dcbc5e29bac9338a253",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "file",
+            "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/original-strong/current/samples/2784267518/preview_log.log",
+            "bytes": 19486,
+            "sha256": "558caca1dd1f400c5db069b4b6bd2ec19ebf8f2e422c06e2f53eaa29c3dc9c63",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/original-strong/current/samples/2784267518/runtime_evidence.zip",
+            "containerSha256": "c00fca0e41e7ed396f244ab069a4445c387a3fb8322908c1aa1d50c93a75fde0",
+            "member": "results/2784267518/scene-runtime-evidence.json",
+            "bytes": 569244,
+            "sha256": "37fe2122e7b624271c878abca7f82735972cfaeb7ca4b41109b7ca2562b8029a",
+            "crc32": "7b924b6c",
+            "status": "retained-byte-verified"
+          },
+          "series_snapshot_0003": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/original-strong/current/samples/2784267518/runtime_evidence.zip",
+            "containerSha256": "c00fca0e41e7ed396f244ab069a4445c387a3fb8322908c1aa1d50c93a75fde0",
+            "member": "results/2784267518/scene-series-0003-window.png",
+            "bytes": 3764806,
+            "sha256": "44516514692d352709e3bccf23f32e01c03876e6095e18ae550eadc6843b40e8",
+            "crc32": "76722e98",
+            "status": "retained-byte-verified"
+          }
+        },
+        "unretainedEvidenceKeys": [
+          "ready_snapshot",
+          "hover_snapshot",
+          "after_snapshot",
+          "pointer_trajectory_snapshots",
+          "preview_visual.reference_png",
+          "preview_visual.comparison_montage"
+        ],
+        "qualification": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/supporting/current/samples/0/runtime_evidence.zip",
+          "containerSha256": "24e43bb328bdcc5af853d74c21d3801580991f2302c6a0f0e4ef2a75f87787ee",
+          "member": "roi-pulse-off-analysis.json",
+          "bytes": 23469,
+          "sha256": "456c662ee34a15ef0f36ea13af9862df7212ad4e09d49cb7c8fe15e69e21655d",
+          "crc32": "9696d32d",
+          "status": "retained-byte-verified"
+        },
+        "supportingReport": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/supporting/current/report.json",
+          "bytes": 930,
+          "sha256": "cfbcd314539a0835175a492cf6ef2024e24d1125a7c5ed333c2aa516dd9cc807",
+          "status": "retained-byte-verified"
+        },
+        "canonicalDefinition": "Original unmodified packaged scene/project; strong controlled PCM, no observer",
+        "observationBoundary": "Observer strong/zero and visibility-only off are supporting diagnostic arms, not canonical authored acceptance. Small eye-interior Pulse contribution only; human verdict remains unreviewed."
       },
       "id": "2784267518",
       "nextAction": "perform-authored-preview-and-next-frame-visual-review",
       "runtime": {
         "benchmarkResultIgnored": {
-          "failureCount": 0,
           "passed": true,
+          "failureCount": 0,
           "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
         },
         "evidenceSummary": {
-          "acceptedGraphLayerCount": 6,
-          "afterFlatBorderRatio": 0.08968741606231534,
-          "afterNonBlackObserved": true,
-          "graphEvidenceObserved": true,
-          "nextFrameLayerCount": 5,
-          "previewSpatialColorSimilarityAdvisory": 0.7747,
-          "readyFlatBorderRatio": 0.0924993284985227,
-          "readyNonBlackObserved": true,
           "surfaceCount": 1,
-          "terminalCompositorLayerCount": 5
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.09324637389202256,
+          "afterFlatBorderRatio": 0.09049321783507924,
+          "previewSpatialColorSimilarityAdvisory": null,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 6,
+          "terminalCompositorLayerCount": 5,
+          "nextFrameLayerCount": 5
         },
         "firstBreakpoint": null,
         "secondaryEvents": [],
-        "status": "structural-chain-complete-visual-review"
+        "status": "structural-chain-complete-visual-review",
+        "intakeLifecycle": {
+          "exitCode": 0,
+          "timedOut": false,
+          "stop": "2026-10-21 20:27:46.160 MyWallpaperX[12656:3017582] MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true",
+          "lifecycleQualified": true,
+          "sourceDrift": false,
+          "appVerifiedAfter": true
+        },
+        "note": "10-21受控PCM与单变量旁路支持Pulse181贡献轻微眼内提亮；未验官方强度/halo/HDR或正常采集。 历史人工观察（原文保留）：Pulse181实际执行。强低频/静音原图未取得明确眼发光差；离线四值均值>0.735，实际摘要缺band1，尚不能严证同帧作者阈值。保留用户观察待复验，不判正常/缺能力。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。"
       },
       "title": "麻匪 D.Va 守望先锋 Windows"
     },
@@ -30836,7 +30939,7 @@
       "sha256": "b86322c623c2190f13e27a90261b38e1355929825a4e718db4f711bdb29a18cf",
       "registeredSampleCount": 1
     },
-    "membershipBoundary": "243 bounded mixed-identity runtime rows;356 frozen ledger samples,371 current numeric directories. This delta refreshes runtime/evidence only1994794519/3747190633; other241 row objects, all existing order/authored/title and human verdicts preserved. All15 added directories excluded (including prior12); no full current-HEAD rerun or static census refresh.",
+    "membershipBoundary": "243 bounded mixed-identity runtime rows;356 frozen ledger samples. This batch directory-name snapshot was373 with17 added directories excluded; it is not a current full-corpus census. This delta refreshes runtime/evidence only2784267518; other242 row objects, all order/authored/title and human verdicts preserved; no new IDs included, no full current-HEAD rerun or static census refresh.",
     "candidateOnly": true,
     "evidencePathRetentionBoundary": "Twenty delta rows reference promoted ZIP members with actual container and member hashes. Four report references preserve original five-sample group report bytes, not the single-sample formal/report.json projection. Unselected ready snapshots and full runtime JSON are historical-not-retained. Original159 rows and paths remain unchanged historical records.",
     "promotionMap": {
@@ -31545,6 +31648,48 @@
           "sha256": "6301a18893190bbd600ae72b28ce05e54be6e9b4f87597dbe840810006dbc7b3",
           "status": "retained-byte-verified"
         }
+      },
+      {
+        "importedAtUtc": "2026-10-21T13:05:25.272756+00:00",
+        "sampleIDs": [
+          "2784267518"
+        ],
+        "reason": "Controlled native Pulse181 eye-interior small-brightening contribution qualified through actual four-value observation and visibility-only fourth-arm ablation; original definition strong is canonical. No whole-sample/manual verdict or official/normal capture/phase/performance claim.",
+        "qualification": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/supporting/current/samples/0/runtime_evidence.zip",
+          "containerSha256": "24e43bb328bdcc5af853d74c21d3801580991f2302c6a0f0e4ef2a75f87787ee",
+          "member": "roi-pulse-off-analysis.json",
+          "bytes": 23469,
+          "sha256": "456c662ee34a15ef0f36ea13af9862df7212ad4e09d49cb7c8fe15e69e21655d",
+          "crc32": "9696d32d",
+          "status": "retained-byte-verified"
+        },
+        "review": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/supporting/current/samples/0/runtime_evidence.zip",
+          "containerSha256": "24e43bb328bdcc5af853d74c21d3801580991f2302c6a0f0e4ef2a75f87787ee",
+          "member": "review.json",
+          "bytes": 58845,
+          "sha256": "67cbd8b2d3118a37369eb9ce9cfa431541cf66222b36b7ea815c1bb0c7a6508e",
+          "crc32": "9ec8461e",
+          "status": "retained-byte-verified"
+        },
+        "supportingReport": {
+          "format": "file",
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/pulse-eye-response-278-20261021/supporting/current/report.json",
+          "bytes": 930,
+          "sha256": "cfbcd314539a0835175a492cf6ef2024e24d1125a7c5ed333c2aa516dd9cc807",
+          "status": "retained-byte-verified"
+        },
+        "parentArchiveSha256": "2375bc3185c943998843c2e2f6b29fe568500cc1c61614d4b3e7ad44a6095a2f",
+        "frozenLedgerSampleCount": 356,
+        "currentDirectoryCount": 373,
+        "excludedNewDirectoryCount": 17,
+        "newDirectoriesIncluded": false,
+        "staticCensusRefreshed": false,
+        "directoryNameSnapshotRecordedAtUtc": "2026-10-21T13:06:46.653766+00:00",
+        "directoryNameSnapshotBoundary": "373 names/17 extra was observed once before this merge; not a permanent current-corpus count or membership gate."
       }
     ]
   },
