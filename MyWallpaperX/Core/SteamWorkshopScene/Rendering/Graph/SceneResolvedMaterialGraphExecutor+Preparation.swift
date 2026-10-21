@@ -76,6 +76,7 @@ extension SceneResolvedMaterialGraphExecutor {
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         terminalReplayTarget: MTLTexture?,
         terminalReplayBlendMode: Int,
+        terminalReplayIsOptional: Bool,
         terminalMaterialReplay: inout SceneResolvedMaterialPassEncoder.PreparedPass?,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
@@ -449,7 +450,9 @@ extension SceneResolvedMaterialGraphExecutor {
                     case let .success(replay):
                         terminalMaterialReplay = replay
                     case let .failure(failure):
-                        if capability.sourceRoute == .capturedMainTargetTexture {
+                        if capability.sourceRoute == .capturedMainTargetTexture
+                            || (terminalReplayIsOptional
+                                && failure.effectLocalPreEncodeReasonCode != nil) {
                             // This optional density entry must not revoke the
                             // already-prepared ordinary graph on unsupported PSO/ABI.
                             terminalMaterialReplay = nil

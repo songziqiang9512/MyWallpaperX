@@ -399,7 +399,10 @@ struct SceneImageLayerCompositor {
                             && request.layer.utilityLayer?.copyBackground == true
                             && request.layer.childLayerIDs.isEmpty && request.requiresSourceCopy
                             && !hasDependencyInput && request.terminalDepth == nil
-                        : request.layer.contentKind == "solid" || request.layer.contentKind == "text"),
+                        : request.layer.contentKind == "solid" || request.layer.contentKind == "text"
+                            || (request.layer.contentKind == "image"
+                                && request.terminalDepth == nil && request.terminalMVP == nil
+                                && request.distanceFog.color.w <= 0.5)),
                       request.geometryProduct == nil,
                       ticket.consumesExternalPrimaryDependency == hasDependencyInput,
                       !request.requiresDependencyEffect || ticket.consumesExternalPrimaryDependency,

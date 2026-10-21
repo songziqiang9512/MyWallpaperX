@@ -218,6 +218,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let requiresGraphOutputProvider: Bool
         let supportsSourceSizedSolidEffects: Bool
         let supportsTerminalMaterialReplay: Bool
+        let supportsPlacementSpaceTerminalReplay: Bool
         let terminalReplayBlendMode: Int
 
         fileprivate let capabilityID = UUID()
@@ -284,15 +285,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
             isGraphOutputProvider = admitted.isGraphOutputProvider
             requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
-            let solidSizing = Self.solidEffectSizingCapabilities(
+            let simpleColor = Self.simpleColorChainCapabilities(
                 admitted: admitted,
                 stages: stages,
                 materials: materials,
                 dependencyOwnership: dependencyOwnership,
                 sceneBackgroundRequirement: sceneBackgroundRequirement
             )
-            supportsSourceSizedSolidEffects = solidSizing.intermediates
-            supportsTerminalMaterialReplay = solidSizing.terminal
+            supportsSourceSizedSolidEffects = simpleColor.intermediates
+            supportsPlacementSpaceTerminalReplay = simpleColor.placement
+            supportsTerminalMaterialReplay = simpleColor.terminal
                 || Self.backgroundAttachmentReplaySupported(
                     admitted: admitted, stages: stages, materials: materials,
                     dependencyOwnership: dependencyOwnership,

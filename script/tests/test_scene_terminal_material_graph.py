@@ -19,7 +19,7 @@ from script.tests import test_scene_resolved_material_graph_executor as graph_fi
 from script.tests import test_scene_effect_draw_alpha as alpha_fixture
 from script.tests import test_scene_gpu_stage_timestamps as timestamp_fixture
 from script.tests.scene_framebuffer_source_test_support import (
-    SOURCE as SOURCE_MATERIALS, framebuffer_source_material_declarations,
+    SOURCE as SOURCE_MATERIALS,
 )
 
 DEBUG_SOURCES = tuple(path for path in timestamp_fixture.SOURCES
@@ -83,9 +83,6 @@ actual_frame = actual_frame.replace(
     'effectOutputModelViewProjection: matrix_identity_float4x4,',
     'effectOutputModelViewProjection: effectOutputModelViewProjection,\n'
     '            terminalReplayModelViewProjection: terminalReplayModelViewProjection,', 1)
-actual_frame = actual_frame.replace('final class SceneResolvedMaterialRuntimeBridge {\n',
-    'final class SceneResolvedMaterialRuntimeBridge {\n'
-    + framebuffer_source_material_declarations(), 1)
 frame_start = SUPPORT.index('final class SceneResolvedMaterialRuntimeBridge {')
 frame_end = SUPPORT.index('\nstruct SceneDependencyEffectInput', frame_start)
 SUPPORT = SUPPORT[:frame_start] + actual_frame + SUPPORT[frame_end:]
@@ -110,7 +107,7 @@ private func dependencySizingChecks(
             isGraphOutputProvider: capability.isGraphOutputProvider,
             requiresGraphOutputProvider: capability.requiresGraphOutputProvider,
             terminalReplayBlendMode: capability.terminalReplayBlendMode)
-        let sizing = SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability.solidEffectSizingCapabilities(
+        let sizing = SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability.simpleColorChainCapabilities(
             admitted: admitted, stages: capability.stages, materials: capability.materials,
             dependencyOwnership: ownership, sceneBackgroundRequirement: capability.sceneBackgroundRequirement)
         return sizing.intermediates || sizing.terminal
@@ -308,7 +305,7 @@ private func overflowCase(
 private func terminalCase(
     device: MTLDevice, queue: MTLCommandQueue, count: Int,
     inactive: Set<Int> = [], failed: Set<Int> = [], budget: Int = 4096,
-    named: Bool = false
+    named: Bool = false, optionalReplayFailure: Bool = false
 ) throws -> [String: Any] {
     let graph = terminalChain(count), admitted = orderedLayerGraph(graph)
     let targets = graph.effects.map {
@@ -357,6 +354,7 @@ private func terminalCase(
         return try executor.prepare(token: claim.token, leases: leases,
             historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
             sourceUniforms: .neutral(), sourcePipeline: pipeline, terminalReplayTarget: target,
+            terminalReplayIsOptional: optionalReplayFailure,
             pool: pool, frameInputs: .init(dependencyEffects: dependencies, dynamicValues: dynamic),
             commandBuffer: command,
             previousStates: [:], previousGraphResources: [:], effectGeneration: 1,
@@ -369,6 +367,26 @@ private func terminalCase(
                 .libraryCompilationRejected(diagnostic: "terminal tail regression"),
                 preparedKey: warm.stages[index].programCacheKeys[0])
         }
+    }
+    if optionalReplayFailure {
+        _ = try prepare(queue.makeCommandBuffer()!, active: true)
+        let last = capability.materials.values.first { $0.key.effect == graph.effects.last!.key }!
+        let variant = last.variants.launchEnvelopeCapabilitySnapshot().variants[0]
+        let shader = SceneResolvedMaterialProgramIdentity.shader(variant.frontendProgram,
+            schemaVersion: variant.preparedShader.vertex.frontendSchemaVersion)
+        let injected = executor.materialEncoder.withLock {
+            let keys = executor.materialEncoder.entries.keys.filter {
+                ($0.passRole == .terminalSourceOver || $0.passRole == .terminalStraightSourceOver)
+                    && $0.shader == shader
+            }
+            for key in keys {
+                executor.materialEncoder.entries[key] = .failed(
+                    .pipelineCompilationRejected(diagnostic: "optional terminal regression"),
+                    origin: .framePreparation)
+            }
+            return keys.count
+        }
+        precondition(injected > 0)
     }
     let command = queue.makeCommandBuffer()!, prepared = try prepare(command, active: false)
     let main = SceneMainPassEncoder(commandBuffer: command, target: target,
@@ -451,6 +469,7 @@ private func terminalCase(
         commandBuffer: staleCommand)
     stale.terminalInputPins.forEach { $0.release() }
     return ["transitions": transitions, "copyCount": copyCount,
+        "hasReplay": hasReplay,
         "pinCount": prepared.terminalInputPins.count, "snapshotPixels": snapshotReadback?.allPixels ?? [],
         "providerExtent": named ? [provider.width, provider.height] : [],
         "peakPixel": peakPixel, "providerFirstPixel": providerReadback?.firstPixel ?? [],
@@ -468,6 +487,9 @@ private func terminalCase(
                 : red.min()! < (named ? 160 : 16) && red.max()! > 239,
             "noActiveMaterialUsesGraph": lastActive != nil || (!hasReplay
                 && prepared.terminalInputPins.isEmpty && snapshotTexture == nil),
+            "optionalMissKeepsActiveTail": !optionalReplayFailure || (!hasReplay
+                && prepared.stages.last?.effectLocalActivationBypassReasonCode == nil
+                && prepared.stages.last?.effectLocalFailureReasonCode == nil),
             "necessaryCopiesOnly": copyCount == UInt64(bypassCount + expectedPins),
             "necessaryPinsOnly": prepared.terminalInputPins.count == expectedPins,
             "snapshotIsExactRealInput": snapshotMatches && snapshotDistinct,
@@ -608,7 +630,7 @@ private func densityCase(
             isVisibleExecutionRoot: capability.isVisibleExecutionRoot,
             isGraphOutputProvider: provider, requiresGraphOutputProvider: requiredProvider,
             terminalReplayBlendMode: capability.terminalReplayBlendMode)
-        let result = Capabilities.LayerCapability.solidEffectSizingCapabilities(admitted: candidate,
+        let result = Capabilities.LayerCapability.simpleColorChainCapabilities(admitted: candidate,
             stages: capability.stages, materials: capability.materials,
             dependencyOwnership: dependency, sceneBackgroundRequirement: capability.sceneBackgroundRequirement)
         return result.intermediates || result.terminal
@@ -718,6 +740,7 @@ private func densityCase(
             : (straightOutput ? .terminalStraightSourceOver : .terminalSourceOver)
     let roleMatches = replay?.role.terminalReplayBlendMode == blendMode && replay?.role == expectedRole
     return ["graphTransitions": transitions(graphRead), "terminalTransitions": transitions(replayRead),
+        "capabilityReports": caps.reportLines,
         "graphProbes": graphProbes, "terminalProbes": replayProbes,
         "centerPixel": replayRead.pixel(x: 96, y: 32), "expectedColor": expected,
         "actualRole": replay?.role.rawValue ?? "missing", "blendMode": blendMode,
@@ -776,7 +799,9 @@ private func densityCase(
         "twoInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [1,2]),
         "identityThenInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [2]),
         "snapshotBudgetRejected": try terminalCase(device: device, queue: queue, count: 2,
-            inactive: [1], budget: 0)]
+            inactive: [1], budget: 0),
+        "optionalReplayFailure": try terminalCase(device: device, queue: queue, count: 2,
+            optionalReplayFailure: true)]
     let overflow = [
         "positiveSkew": try overflowCase(device: device, queue: queue, skew: 0.75, offset: 2.5,
             probeX: 50, probeY: 22),
@@ -871,7 +896,7 @@ class TerminalMaterialGraphTests(unittest.TestCase):
         self.check_cases(['inactive', 'failed', 'twoInactive', 'identityThenInactive'])
 
     def test_no_active_material_or_snapshot_storage_uses_the_real_graph_route(self):
-        self.check_cases(['singleInactive', 'snapshotBudgetRejected'])
+        self.check_cases(['singleInactive', 'snapshotBudgetRejected', 'optionalReplayFailure'])
 
     def test_terminal_replay_preserves_positive_and_negative_vertex_overflow(self):
         for name in ('positiveSkew', 'negativeSkew', 'offset', 'halfAlpha'):
@@ -910,20 +935,20 @@ class TerminalMaterialGraphTests(unittest.TestCase):
                 self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
 
     def test_terminal_additive_preserves_source_representation_and_background_alpha(self):
-        for name in ('opaqueAdditive', 'pmaAdditive', 'straightAdditive',
-                     'pmaSourceOver', 'straightSourceOver'):
+        for name in ('opaqueAdditive', 'straightAdditive', 'straightSourceOver'):
             with self.subTest(case=name):
                 row = self.result['density'][name]
                 self.assertNotIn('failure', row, row)
-                if name.startswith('pma') and row['actualRole'] == 'missing' and any(
-                    line.startswith('MWX resolved material envelope rejection: '
-                        'shader=fixture/executor-0 node=0 kind=frontend '
-                        'reason=frontend/shaderFrontendFailed slot=none '
-                        'details=generic-artifact,compiler-configuration-licensebundleunavailable,')
-                    and ',bounded-frontend-owner-revoked,' in line
-                    for line in self.envelope_diagnostics.splitlines()
-                ):
-                    self.skipTest('Bare graph lacks the signed compiler license bundle; '
-                        'PMA Program is unavailable. Factor qualification uses the '
-                        'maintained pass-encoder PMA probe.')
                 self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+
+    def test_terminal_pma_requires_an_actual_admitted_program(self):
+        rows = [self.result['density'][name] for name in ('pmaAdditive', 'pmaSourceOver')]
+        unavailable = ('resolved material execution capability fallback: state=prefer-generic '
+                       'outcome=effect-local-passthrough reason=material-generic-owner-revoked count=1')
+        if all(row.get('actualRole') == 'missing'
+               and unavailable in row.get('capabilityReports', ()) for row in rows):
+            self.skipTest('Bare fixture disables generic compilation and has no admitted PMA Program; '
+                          'no PMA output claim. Use the signed App or maintained representation probe.')
+        for row in rows:
+            self.assertNotIn('failure', row, row)
+            self.assertEqual([k for k, v in row['results'].items() if not v], [], row)

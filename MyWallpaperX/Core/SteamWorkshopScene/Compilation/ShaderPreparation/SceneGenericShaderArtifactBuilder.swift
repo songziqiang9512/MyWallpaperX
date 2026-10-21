@@ -367,6 +367,17 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 colorTransfer: color.transfer,
                 fragmentOutputChannelUse: outputChannelUse.rawValue,
                 vertexPositionInput: vertexPositionInput?.rawValue,
+                fragmentReadsRasterPosition: {
+                    let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+                        lexerOutput: SceneAuthoredShaderLexer.lex(
+                            source: fragmentStage.authoredSource, stage: .fragment),
+                        stage: .fragment
+                    )
+                    guard analysis.diagnostics.isEmpty, let unit = analysis.unit else { return nil }
+                    return ["gl_Position", "gl_FragCoord"].contains {
+                        SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced($0, in: unit)
+                    }
+                }(),
                 attachmentReadVariant: attachmentRead
             )
             return .success(.init(

@@ -12,16 +12,22 @@ extension SceneMetalRenderer {
         isVisible: Bool,
         mainSource: MTLTexture
     ) -> MTLTexture? {
-        claim.supportsTerminalMaterialReplay && claim.admittedGraphs.count == 1
-            && claim.dependencyOwnership == .none
+        guard claim.supportsTerminalMaterialReplay,
+              claim.dependencyOwnership == .none,
+              (layer.colorBlendMode ?? 0) == 0,
+              imageTextures.geometryProducts[layer.id] == nil,
+              !dependencyRuntime.requiresGraphOutputCapture(for: layer.id) else { return nil }
+        if layer.contentKind == "image" {
+            return claim.supportsPlacementSpaceTerminalReplay && isVisible
+                && !cameraFrame.resolvesPerspective(for: layer)
+                && layer.imageMaterialRenderState == nil && layer.utilityLayer == nil
+                ? mainSource : nil
+        }
+        return claim.admittedGraphs.count == 1
             && ((layer.contentKind == "solid" && cameraFrame.defaultsToPerspective
                     && cameraFrame.resolvesPerspective(for: layer))
                 || (layer.contentKind == "text" && isVisible
-                    && !cameraFrame.resolvesPerspective(for: layer)))
-            && (layer.colorBlendMode ?? 0) == 0
-            && imageTextures.geometryProducts[layer.id] == nil
-            && !dependencyRuntime.requiresGraphOutputCapture(for: layer.id)
-            ? mainSource : nil
+                    && !cameraFrame.resolvesPerspective(for: layer))) ? mainSource : nil
     }
 
     func admitResolvedMaterialFrameTargets(

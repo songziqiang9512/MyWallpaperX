@@ -172,7 +172,10 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         (cls.evidence_root / "protocol.json").write_text(json.dumps(protocol, indent=2) + "\n")
         print(f"RF04 A App evidence: {cls.evidence_root}", flush=True)
 
-    def run_case(self, reflection: int, *, capture: bool) -> dict:
+    def run_case(self, reflection: int, *, capture: bool,
+                 extra_arguments: tuple[str, ...] = (),
+                 initial_snapshot: str = "scene-ready-window.png",
+                 material_input_path: str = "materials/receiver.json") -> dict:
         name = f"Ref{reflection}-capture-{'on' if capture else 'off'}"
         work = self.evidence_root / name
         content, home = work / "content", work / "home"
@@ -181,11 +184,12 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
         (work / "scene-input.json").write_bytes(entries["scene.json"])
-        (work / "material-input.json").write_bytes(entries["materials/receiver.json"])
+        (work / "material-input.json").write_bytes(entries[material_input_path])
         command = [str(self.app), "--mwx-debug-scene-root", str(content),
                    "--mwx-debug-scene-duration", "6"]
         if capture:
             command += ["--mwx-debug-scene-evidence-dir", str(work / "evidence")]
+        command += list(extra_arguments)
         environment = {key: value for key, value in os.environ.items()
                        if not key.startswith("MWX_SCENE_DEBUG_")}
         controls = {"HOME": str(home), "CFFIXED_USER_HOME": str(home), "MWX_SCENE_DEBUG_SURFACE_COUNT": "1"}
@@ -225,7 +229,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         self.assertRegex(log, r"phase=stopped surfacesBefore=[1-9]\d* surfacesAfter=0 gpuDrained=true")
         if capture:
             self.assertRegex(log, r"state=completed frame=[1-9]\d* surface=\d+ gpu=completed")
-            self.assertIn("scene-ready-window.png", pixels)
+            self.assertIn(initial_snapshot, pixels)
             self.assertIn("scene-after-window.png", pixels)
         else:
             self.assertFalse(pixels, outcome)

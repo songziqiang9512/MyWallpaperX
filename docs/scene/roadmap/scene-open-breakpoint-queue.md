@@ -41,9 +41,9 @@
 
 338的306/effect364启动与编译首拒已退出：有效prepared普通颜色边界不再被启动门无条件拒绝，数值类型和packed音频源码视图复用共享准备链；原Program实际GPU/合成及下一帧已完成。开关前后可见ink仍不能可靠归因，整景保unreviewed；不能把旧“dynamic producer回退”继续列为现役故障，也不记视觉完成。见[有界执行与未覆盖项](../capabilities/runtime-evidence-current.md#audio-packed-source-view-20261020)。
 
-329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围；后继[rate Number值源](../capabilities/runtime-evidence-current.md#puppet-animation-rate-script-20261020)已恢复原作者音频变速，面板余项归属性卡；direct条件选择已由[同session热切换后继](../capabilities/runtime-evidence-current.md#conditional-model-animation-20261020)关闭有界首门，437数组/原graph余项仍开放；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
+329默认骨架站位/静止反馈已退出：完整记录身份与共享XYZ姿态链恢复默认34，实看骷髅在下方盒顶区域连续变姿，未改作者origin；当前HEAD整合及独立static/Puppet健康邻例保持。只关闭此具体范围；后继[rate Number值源](../capabilities/runtime-evidence-current.md#puppet-animation-rate-script-20261020)已恢复原作者音频变速，面板余项归属性卡；direct条件选择已由[同session热切换后继](../capabilities/runtime-evidence-current.md#conditional-model-animation-20261020)关闭有界首门；默认437数组首拒及上方白波形已由[固定数组后验](../capabilities/runtime-evidence-current.md#generic-varying-array-20261021)有界关闭；边缘多色大片已由[公共截面后继](../capabilities/runtime-evidence-current.md#screen-displacement-ribbon-20261020)关闭具体反馈，不升整样本通过；[有界后验](../capabilities/runtime-evidence-current.md#direct-model-skeletal-animation-20261019)。
 
-329默认单臂闪骨与动作控件缺失已退出：公共prepared Pose统一四元数时间采样，保完整骨贡献/identity/reference/blend；真实80采样与当前App原图、用户默认1连续观察均通过对应范围。成功条件Program进入实际Service筛选，原生“视差”1…8下拉框出现，用户确认动作更新；Root选2保存/重开和reset回1已验。普通Release视频/音频反馈亦已正常，不再列为播放回归；旧Debug负载时序、437/graph及全模式/官方时相仍保边界，不计整样本通过。见[当前有界后验](../capabilities/runtime-evidence-current.md#puppet-rotation-continuity-20261020)。
+329默认单臂闪骨与动作控件缺失已退出：公共prepared Pose统一四元数时间采样，保完整骨贡献/identity/reference/blend；真实80采样与当前App原图、用户默认1连续观察均通过对应范围。成功条件Program进入实际Service筛选，原生“视差”1…8下拉框出现，用户确认动作更新；Root选2保存/重开和reset回1已验。普通Release视频/音频反馈亦已正常，不再列为播放回归；默认437首门/波形已另闭；旧Debug负载时序及全模式/官方时相仍保边界，不计整样本通过。见[当前有界后验](../capabilities/runtime-evidence-current.md#puppet-rotation-continuity-20261020)。
 
 322的2522色散首门已退出：共享词法绑定及浮点公共宽度转换让原包点击后的非零Alpha进入作者Program，实际GPU/末合成与瞬态RGB分离、回清晰黑面具均已取得；局部vec4遮蔽不同类型global不再误拒。原命名点击、左眼/默认动画与脸颈组装修复保持；手部旧观察仍归第2节，完整同phase/viewport与全部互动不记通过。见[有界后验](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)。
 
@@ -76,7 +76,7 @@
 | 样本 / 旧观察 | 当前边界与下一关闭门 |
 |---|---|
 | 音频相关可见性 · 2784267518 /2919854127 /2927205881 /3175039950 | 278眼部Pulse181实际Program/GPU/末合成成立；默认fixture受作者前两档四值平均0.5阈值抑制。补强低频/静音原图仍无可明确归因的发光差异，离线均值>0.735但实际摘要缺band1，不能严格闭合同帧阈值或判缺能力。291官方蓝环本窗未见但graph已消费；292曲线只见右短段；317白方块雪粒未见、两粒子层人口0且发射受音频控制。官方音源、时相与视口未同控，均保待复验。先同源PCM并锁实际作者输入、出生/像素正控，再定位第一断裂边；292编译拒绝另归上表，未证其导致短曲线。不能按“眼睛/音频环”名称共用修法、改阈值或用非零输入替代作者触发条件。 |
-| 通用鼠标比例/投影待排查 · 1994794519、3577990983 | 10-20用户补报：199上下层揭露位置在屏幕中心准确，越往边缘偏差越大，怀疑输入位移倍率；357则较远已放大。199原包5点完成实际generic图，但点位未取得可归因揭露ROI；官方原包亦缺鼠标揭露正控，已STOP_UNKNOWN，见[本轮资格](../capabilities/runtime-evidence-current.md#pointer-scale-qualification-199-20261020)。旧shader的inverse离屏域只属静态机制。后继静态board在官方footprint正控失败，且自有mul方向有误，未裁矩阵域；新增MVP引用切换position单位仅静态等价性风险。不能破坏forward/inverse配对或据此改公共倍率。357作者默认宽半径约602场景单位仅解释部分提前放大，不关闭通用缩放偏差或证明两者共根。后继先取可见揭露正控、实际points/bounds/drawable与source/output域同点配准，不改作者半径或加样本补偿。 |
+| 物理鼠标输入与 hover 比例待排查 · 1994794519、3577990983 | 199默认图像末材质的 cover 放置偏移已独立关闭，见下表；受控ROI覆盖直接注入渲染输入，未证明 AppKit points/bounds/drawable、多屏/DPI 的真实入口无误。357较远提前放大仍待同设置官方/原生对照；作者默认宽半径约602场景单位只解释部分观察，不能据此调全局倍率、作者半径或认定与199共根。仅在实际鼠标复现可定位偏差后，沿唯一输入→投影链修正。 |
 | 2887542690 · 音频ROI、黑遮挡/字体与片区布局 | 10-16 composition创建、286控制及限定透视回绘已接通，原visible-of-null退出；只证旧外悬蓝条同位置消失。固定pointer显隐消融未找到音频条的可重复正证，资格STOP，不能称图框内音频恢复；其他旧具体视觉与完整交互仍待当前可区分证据。[本批边界](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 右侧旧黑块 | 10-16默认日景及作者Night(Lights On) String选项4实图未定位独立右黑矩形；亮吊灯、书柜和地板可见，灰白海报与软阴影仍在。旧精确ROI、媒体和墙钟/viewport phase未齐，不写已修；移出当前已确认缺陷，先取同状态可区分复现再追source/effect/compositor，不据两条无归属mask诊断实施。夜景限期证据 `../../../.artifacts/scene-evidence/runs/213-black-region-night-qualification-20261016/manifest.json`；标题修复不重开。 |
 | 3768903841 · 云形/烟花细节 | 旧Worley云形及烟花/色彩细节未取得同相位关闭。10-16 R40独立原包复验四束spot GPU成功、底部光束可见，实图仍有横向深色云片；只证明当前呈现，不据此判新根因或整样本通过。先同phase对齐实际source/Program与ROI，不因四束恢复关闭旧云形差异。[原边界](../history/runtime-evidence-index.md#e-spot-light) |
@@ -158,6 +158,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 1994794519 · 默认揭露投影偏移已闭 | 同原包/3024×1964 cover、三点可逆对照由“目标无揭露→左移旧点揭露→目标无揭露”变为“目标揭露→旧点无揭露→目标揭露”；普通图片末材质消费实际放置空间的 MVP/inverse pair，源域与前序效果保持。官方人工确认贴鼠标，仅作行为方向对照；不扩真实输入倍率、全部aspect/DPI/互动、官方精确像素或整样本PASS。[有界后验](../capabilities/runtime-evidence-current.md#image-terminal-placement-20261021)。 |
 | 2999907577 · 默认7号流体背景缺失已闭 | 共享opaque辅助颜色边界及alpha-only旁读反馈资格修正后，原包金属流体与上方文字实际恢复，人物保持；7/7 layer capability、原20节点及后续帧执行、正常stop/GPU排空。仅关闭最大缺失，全部模式/参数、精细灯光、HDR与官方同状态数值未验。[有界后验](../capabilities/runtime-evidence-current.md#independent-signal-opaque-auxiliary-20261021)。 |
 | 3766299002 · 面具开关失效本窗未复现 | 10-21 theme1初始true→live false、theme2初始false→live true，两条原226/370 visibility及脸/眼覆盖随定义变化，surface/window保持。仅这两个单向链，不是两主题完整往返、真实面板/持久化或官方全mask验收；用户笼统异常未取得更具体反例，暂不排产品修法。 |
 | 3742497499 /3822822401 · 早截图视觉候选撤下 | 用户明确374需鼠标移右让两块时钟拼合，382蝴蝶延迟出现，既往测试正常；不再排“孤立02/缺蝴蝶”。独立粒子profile与metadata首错保留，不与已解释现象建立因果。 |

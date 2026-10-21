@@ -8,14 +8,16 @@
 
 ## 1. 来源
 
-- 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（本页冻结 356 个样本；当前目录 368，新增 12 个目录不纳入本轮两行刷新）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `2371a81f6c0eaa66b7e81cefa0465cc68a8c4d42b949deb99cbbf39099d35190`（生成于 2026-10-21T09:48:24.762332+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`、CDHash `6383c520523c85a42542662b29dc2b16a5552897`、CDHash `6c57aab5c9af57e61c72249ec963b626e0a653da`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（本页冻结 356 个样本；当前目录 371，新增 15 个目录不纳入本轮两行刷新）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `2375bc3185c943998843c2e2f6b29fe568500cc1c61614d4b3e7ad44a6095a2f`（生成于 2026-10-21T11:51:37.989551+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`、CDHash `6383c520523c85a42542662b29dc2b16a5552897`、CDHash `6c57aab5c9af57e61c72249ec963b626e0a653da`、CDHash `8240229d3600bddd49269e2c44cfe564691328f2`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `fcb6a0a77bd845d706164862aa551d7080c1a7a0c2eaf46d04597ebd2ea133b9`。
-- 本页生成于 2026-10-21T09:48:24.938368+00:00。
+- 本页生成于 2026-10-21T11:51:38.199860+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
+
+- 本轮仅更新 `1994794519`、`3747190633` 的运行证据引用；有界结果见[image 终链公共坐标运行证据](runtime-evidence-current.md#image-terminal-placement-20261021)，人工裁决与本页分母保持不变。
 
 ## 2. 汇总
 
@@ -75,7 +77,7 @@
 | `1926190458` | Morning_4k | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-21 | 未参与OGG修法的独立FLAC对照：人物/床/装饰/早餐构图保留；FLAC admitted1/rejected0、ready/rate1、时钟0→0.407… |
 | `1937925563` | Tropical Paradise 4K [Customizable Colo… | 8(0) color 6 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `1989767609` | Black tights（透视） | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `1994794519` | D.VA_OVERWATCH[X-Ray] | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-20 | 10-20用户报告上下层揭露位置在屏幕中心准确，越向边缘偏移越大，怀疑输入位移倍率；未取得当前App/viewport同点配准，不认已证根因。与357提前ho… |
+| `1994794519` | D.VA_OVERWATCH[X-Ray] | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-20 | 10-21同cover三点可逆已闭下游末材质放置偏移；物理入口/全profile/官方像素未扩。 历史观察：10-20用户报告上下层揭露位置在屏幕中心准确，越… |
 | `2067939514` | Windows Visualizer | 34(27) bool 12 color 9 combo 5 scenetexture 2 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2069136288` | [R18] Lexaiduer DOA Nagisa x Tamaki X-R… | 3(0) color 1 combo 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2112262451` | [R18] Sakimi Chan Azur Lane Belfast X-R… | 4(0) color 1 combo 2 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

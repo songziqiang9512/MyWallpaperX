@@ -467,7 +467,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "design_notes": "沿唯一Program/graph/PassEncoder/submission/MainPass保源域与终端密度。普通solid/text和限定加法31保现有typed角色；capturedMain后继仅共享AST中性顶点/identity source0证明+当前实际仿射同pixel映射+单有效color stage，ArtifactBuilder完成颜色lowering后结构派生可选attachment入口/物理槽；未知使用/目标/PSO保原graph。保持真实Resolution/预算/颜色与一次消费，launch预热，无帧内解析。原284三弧/独立样本通过前不认收益；批准非运行验收。",
+      "design_notes": "沿唯一Program/graph/PassEncoder/submission/MainPass保源域与终端密度，既有solid/text/background及限定加法31资格保持。普通正交image复用同owner，仅prepared合法MVP/renderSize ABI且无fragment raster读取的简单color链准入，forward/inverse成对采用最终放置，源capture/Resolution/前序graph保留；可选terminal编译/函数准备失败保完整graph-final，后继真实material清旧候选。无provider/依赖/geometry/额外外层状态；旧/未知artifact保原路径，安全与资源身份仍严格。批准不等于运行验收；结果见现役后验。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
@@ -475,7 +475,13 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSamePixelSourceAnalyzer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderAttachmentReadLowering.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift"
       ],
       "contentPatterns": []
     },

@@ -106,6 +106,151 @@ HARNESS = HARNESS.replace(
     "        if arguments[1] == \"--render\" { try render(arguments); return }",
 )
 HARNESS = HARNESS.replace("    private static func print(json", RENDER_METHOD + "\n    private static func print(json")
+HARNESS = HARNESS.replace(
+    '"boundedMetal": frontend.program?.metalSource ?? "",',
+    '"boundedMetal": frontend.program?.metalSource ?? "",\n'
+    '            "boundedRasterFact": rasterFact(frontend.program),\n'
+    '            "boundedOldReplay": frontend.program?.supportsTerminalMaterialReplay ?? false,\n'
+    '            "boundedPlacementReplay": frontend.program?.supportsPlacementSpaceTerminalReplay ?? false,',
+).replace(
+    '            result["ok"] = true',
+    '            result["vertexPositionInput"] = pair.vertexPositionInput.rawValue\n'
+    '            result["ok"] = true',
+)
+
+PLACEMENT_METHODS = r'''
+    private static func rasterFact(_ program: SceneAuthoredShaderProgram?) -> Any {
+        if let value = program?.fragmentReadsRasterPosition { return value }
+        return NSNull()
+    }
+
+    private static func placementArtifact(_ configuration: String) throws {
+        let files = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: URL(fileURLWithPath: configuration))) as! [String: String]
+        func source(_ key: String) throws -> String {
+            try String(contentsOfFile: files[key]!, encoding: .utf8)
+        }
+        let stages = try ["vertex", "fragment"].map { name in
+            SceneGenericShaderArtifactBuilder.Stage(
+                name: name, source: try source(name + "Normalized"),
+                authoredSource: try source(name + "Authored"),
+                msl: try source(name + "MSL"),
+                reflection: try Data(contentsOf: URL(fileURLWithPath: files[name + "Reflection"]!)))
+        }
+        let built = SceneGenericShaderArtifactBuilder.build(
+            requestKey: "placement-fixture", backendID: "glslang-spirv-cross-msl-v2",
+            outputSemantics: .preservedRGBAUnorm, stages: stages,
+            vertexPositionInput: .init(rawValue: files["vertexPositionInput"]!),
+            maximumArtifactBytes: 1_024_000)
+        guard case let .success(artifact) = built else {
+            print(json: ["builderFailure": String(describing: built)]); return
+        }
+        let encoded = try JSONEncoder().encode(artifact)
+        try encoded.write(to: URL(fileURLWithPath: files["artifact"]!))
+        func program(_ object: [String: Any]) throws -> SceneAuthoredShaderProgram? {
+            let data = try JSONSerialization.data(withJSONObject: object)
+            return try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: data)
+                .makeProgram(expectedKey: "placement-fixture",
+                    expectedOutputSemantics: .preservedRGBAUnorm,
+                    expectedColorTransfer: .unresolved, expectedFragmentOutputChannelUse: .redDefined)
+        }
+        let wire = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        let decoded = try program(wire)
+        var old = wire
+        var oldFields = old["program"] as! [String: Any]
+        oldFields.removeValue(forKey: "fragmentReadsRasterPosition")
+        old["program"] = oldFields
+        let legacy = try program(old)
+        var malformed = wire
+        var fields = malformed["program"] as! [String: Any]
+        fields["fragmentReadsRasterPosition"] = "false"
+        malformed["program"] = fields
+        var malformedRejected = false
+        do { _ = try program(malformed) } catch { malformedRejected = true }
+        print(json: [
+            "ordinaryProgram": decoded != nil,
+            "rasterFact": rasterFact(decoded),
+            "placementReplay": decoded?.supportsPlacementSpaceTerminalReplay ?? false,
+            "oldReplay": decoded?.supportsTerminalMaterialReplay ?? false,
+            "legacyOrdinaryProgram": legacy != nil,
+            "legacyFactMissing": legacy?.fragmentReadsRasterPosition == nil,
+            "legacyPlacementReplay": legacy?.supportsPlacementSpaceTerminalReplay ?? false,
+            "legacyOldReplay": legacy?.supportsTerminalMaterialReplay ?? false,
+            "malformedBoolRejected": malformedRejected,
+        ])
+    }
+
+    private static func placementABI() throws {
+        let vertex = """
+        uniform mat4 g_ModelViewProjectionMatrix;
+        attribute vec3 a_Position;
+        void main() { gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix); }
+        """
+        let frontend = SceneAuthoredShaderFrontend.compile(vertexSource: vertex,
+            fragmentSource: "void main() { gl_FragColor = vec4(0.2,0.3,0.4,1.0); }")
+        guard let program = frontend.program else {
+            print(json: ["frontendReady": false]); return
+        }
+        let encoded = try JSONEncoder().encode(program)
+        let original = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        func changed(_ update: (inout [String: Any]) -> Void) throws -> SceneAuthoredShaderProgram {
+            var wire = original
+            update(&wire)
+            return try JSONDecoder().decode(SceneAuthoredShaderProgram.self,
+                from: JSONSerialization.data(withJSONObject: wire))
+        }
+        var results: [String: Any] = ["frontendReady": true,
+            "positive": program.supportsPlacementSpaceTerminalReplay,
+            "oldReplay": program.supportsTerminalMaterialReplay]
+        let old = try changed { $0.removeValue(forKey: "fragmentReadsRasterPosition") }
+        results["oldNilStaysOrdinary"] = old.fragmentReadsRasterPosition == nil
+            && old.supportsTerminalMaterialReplay && !old.supportsPlacementSpaceTerminalReplay
+        results["rasterReadRejected"] = try !changed { $0["fragmentReadsRasterPosition"] = true }
+            .supportsPlacementSpaceTerminalReplay
+        for name in ["missingMVP", "missingSize", "wrongMVPType", "wrongSizeType",
+                     "arrayMVP", "arraySize", "fragmentOnlyMVP", "wrongHostName",
+                     "overlap", "misaligned", "negativeOffset", "overflowArray", "oversized"] {
+            let altered = try changed { wire in
+                var layout = wire["uniformLayout"] as! [String: Any]
+                var fields = layout["fields"] as! [[String: Any]]
+                let matrix = fields.firstIndex { $0["authoredName"] as? String == "g_ModelViewProjectionMatrix" }!
+                let size = fields.firstIndex { $0["authoredName"] as? String == "mwxRenderSize" }!
+                switch name {
+                case "missingMVP": fields.remove(at: matrix)
+                case "missingSize": fields.remove(at: size)
+                case "wrongMVPType": fields[matrix]["type"] = "float3"
+                case "wrongSizeType": fields[size]["type"] = "float"
+                case "arrayMVP": fields[matrix]["arrayCount"] = 1
+                case "arraySize": fields[size]["arrayCount"] = 1
+                case "fragmentOnlyMVP": fields[matrix]["stage"] = "fragment"
+                case "wrongHostName": fields[matrix]["authoredName"] = "u_otherMatrix"
+                case "overlap": fields[size]["offset"] = 0
+                case "misaligned": fields[matrix]["offset"] = 1
+                case "negativeOffset": fields[size]["offset"] = -1
+                case "overflowArray": fields[size]["arrayCount"] = Int.max
+                case "oversized": layout["byteSize"] = 4_112
+                default: break
+                }
+                layout["fields"] = fields
+                wire["uniformLayout"] = layout
+            }
+            results[name] = !altered.supportsPlacementSpaceTerminalReplay
+                && altered.supportsTerminalMaterialReplay
+        }
+        print(json: results)
+    }
+'''
+HARNESS = HARNESS.replace(
+    '        let arguments = CommandLine.arguments',
+    '        let arguments = CommandLine.arguments\n'
+    '        if arguments[1] == "--placement-artifact" { try placementArtifact(arguments[2]); return }\n'
+    '        if arguments[1] == "--placement-abi" { try placementABI(); return }',
+).replace('    private static func print(json', PLACEMENT_METHODS + '\n    private static func print(json')
+
+PLACEMENT_VERTEX = VERTEX.replace(
+    "attribute vec3 a_Position;", "uniform mat4 g_ModelViewProjectionMatrix;\nattribute vec3 a_Position;",
+).replace("gl_Position = vec4(a_Position, 1.0);",
+          "gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);")
 
 
 class SceneShaderFragmentPositionTests(unittest.TestCase):
@@ -189,6 +334,99 @@ class SceneShaderFragmentPositionTests(unittest.TestCase):
             "-o", str(path.with_suffix(".air")),
         ], capture_output=True, text=True, timeout=30)
         self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def placement_artifact(self, directory: Path, normalized: dict) -> dict:
+        linked = subprocess.run([
+            str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+            str(directory / "output.vert"), str(directory / "output.frag"),
+        ], cwd=directory, capture_output=True, text=True, timeout=30)
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+        configuration = {"vertexPositionInput": normalized["vertexPositionInput"],
+                         "artifact": str(directory / "artifact.json")}
+        for name, extension, entry in (("vertex", "vert", "mwxGenericVertex"),
+                                       ("fragment", "frag", "mwxGenericFragment")):
+            metal, reflection = directory / f"{name}.metal", directory / f"{name}.reflection.json"
+            for arguments in (
+                ["--msl", "--rename-entry-point", "main", entry, extension, "--output", str(metal)],
+                ["--reflect", "--output", str(reflection)],
+            ):
+                cross = subprocess.run([str(GLSLANG.with_name("spirv-cross")),
+                    str(directory / f"{extension}.spv"), *arguments],
+                    capture_output=True, text=True, timeout=30)
+                self.assertEqual(cross.returncode, 0, cross.stdout + cross.stderr)
+            configuration.update({name + "Normalized": str(directory / f"output.{extension}"),
+                name + "Authored": str(directory / f"input.{extension}"),
+                name + "MSL": str(metal), name + "Reflection": str(reflection)})
+        path = directory / "artifact-input.json"
+        path.write_text(json.dumps(configuration), encoding="utf-8")
+        built = subprocess.run([str(self.binary), "--placement-artifact", str(path)],
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(built.returncode, 0, built.stderr)
+        result = json.loads(built.stdout)
+        self.assertNotIn("builderFailure", result, result)
+        self.results.append({"kind": "placement-artifact", "result": result})
+        return result
+
+    def test_prepared_placement_replay_distinguishes_fragment_raster_reads(self) -> None:
+        cases = [
+            ("plain", "void main(){gl_FragColor=vec4(v_TexCoord,0.25,1.0);}", False),
+            ("comments", "// gl_Position gl_FragCoord\nvoid main(){gl_FragColor=vec4((v_TexCoord),0.25,1.0);}", False),
+            ("renamed", "void main(){vec2 coordinate=((v_TexCoord).yx);gl_FragColor=vec4(coordinate.yx,0.25,1.0);}", False),
+            ("resource", "uniform sampler2D g_Texture3;\nvoid main(){gl_FragColor=texture2D(g_Texture3,(v_TexCoord));}", False),
+            ("direct", "void main(){gl_FragColor=vec4(gl_Position.xy*0.001,0.25,1.0);}", True),
+            ("helper", "vec2 raster(){return gl_Position.xy;}\nvec2 nested(){return raster();}\nvoid main(){gl_FragColor=vec4(nested()*0.001,0.25,1.0);}", True),
+            ("modern", "void main(){gl_FragColor=vec4(gl_FragCoord.xy*0.001,0.25,1.0);}", True),
+        ]
+        for name, fragment, raster in cases:
+            with self.subTest(name=name):
+                fragment = "varying vec2 v_TexCoord;\n" + fragment
+                vertex = PLACEMENT_VERTEX
+                if name == "renamed":
+                    fragment = fragment.replace("v_TexCoord", "surfaceUV")
+                    vertex = vertex.replace("v_TexCoord", "surfaceUV")
+                result, directory = self.compile(fragment, vertex)
+                self.assertTrue(result["ok"], result)
+                self.assertTrue(result["boundedHasProgram"], result["boundedDiagnostics"])
+                self.assertIs(result["boundedRasterFact"], raster)
+                self.assertTrue(result["boundedOldReplay"])
+                self.assertIs(result["boundedPlacementReplay"], not raster)
+                artifact = self.placement_artifact(directory, result)
+                self.assertTrue(artifact["ordinaryProgram"], artifact)
+                self.assertIs(artifact["rasterFact"], raster)
+                self.assertIs(artifact["placementReplay"], not raster)
+                self.assertTrue(artifact["oldReplay"])
+                self.assertTrue(artifact["legacyOrdinaryProgram"])
+                self.assertTrue(artifact["legacyFactMissing"])
+                self.assertFalse(artifact["legacyPlacementReplay"])
+                self.assertTrue(artifact["legacyOldReplay"])
+                self.assertTrue(artifact["malformedBoolRejected"])
+
+    def test_placement_replay_requires_real_host_abi_and_old_facts_stay_optional(self) -> None:
+        completed = subprocess.run([str(self.binary), "--placement-abi"],
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertTrue(result["frontendReady"], result)
+        for name, value in result.items():
+            self.assertIs(value, True, name)
+        self.results.append({"kind": "placement-abi", "result": result})
+
+    def test_fragment_local_shadow_and_unused_declaration_are_not_raster_reads(self) -> None:
+        # gl_ declarations are reserved by GLSL; this proves the existing
+        # bounded lexical fact only, not legal generic compiler admission.
+        for fragment in (
+            "uniform vec4 gl_Position;\nvoid main(){gl_FragColor=vec4(v_TexCoord,0.25,1.0);}",
+            "void main(){vec4 gl_Position=vec4(0.2,0.3,0.4,1.0);gl_FragColor=gl_Position;}",
+            "vec2 local(vec2 gl_Position){return gl_Position;}\nvoid main(){gl_FragColor=vec4(local(v_TexCoord),0.25,1.0);}",
+        ):
+            result, _ = self.compile("varying vec2 v_TexCoord;\n" + fragment, PLACEMENT_VERTEX)
+            self.assertTrue(result["boundedHasProgram"], result["boundedDiagnostics"])
+            self.assertIs(result["boundedRasterFact"], False)
+            self.assertTrue(result["boundedPlacementReplay"])
+        result, _ = self.compile("varying vec2 v_TexCoord;\nvoid main(){gl_FragColor=vec4(v_TexCoord,0.25,1.0);}")
+        self.assertTrue(result["boundedHasProgram"], result["boundedDiagnostics"])
+        self.assertFalse(result["boundedOldReplay"])
+        self.assertFalse(result["boundedPlacementReplay"])
 
     def test_fragment_reads_and_helper_use_stage_input_on_both_backends(self) -> None:
         for body in (

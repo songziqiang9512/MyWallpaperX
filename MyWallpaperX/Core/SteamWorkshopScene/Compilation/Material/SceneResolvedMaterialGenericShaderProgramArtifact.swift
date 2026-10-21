@@ -31,7 +31,6 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     // the full shader-preparation implementation. Keep the serialized guard
     // cap synchronized with SceneGenericShaderLoopGuardLowering.iterationCap.
     private static let loopGuardIterationCap = 4096
-    private static let maximumUniformByteSize = 4_096
 
     struct Program: Codable {
         struct UniformLayout: Codable, Equatable {
@@ -93,6 +92,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let colorTransfer: ColorTransfer
         let fragmentOutputChannelUse: String
         var vertexPositionInput: String? = nil
+        var fragmentReadsRasterPosition: Bool? = nil
         var attachmentReadVariant: SceneAuthoredShaderProgram.AttachmentReadVariant? = nil
     }
 
@@ -165,7 +165,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                 // Validate before storageByteSize can multiply untrusted wire
                 // metadata. Preserve existing array ABI within the layout cap.
                 guard count > 0,
-                      count <= min(raw.uniformLayout.byteSize, Self.maximumUniformByteSize)
+                      count <= min(raw.uniformLayout.byteSize, SceneAuthoredShaderUniformLayout.maximumByteSize)
                         / type.byteSize else { return nil }
             }
             return .init(
@@ -182,7 +182,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             byteSize: raw.uniformLayout.byteSize
         )
         guard fields.count == raw.uniformLayout.fields.count,
-              Self.valid(layout),
+              layout.isValid,
               fields.contains(where: {
                   $0.name == "mwxRenderSize" && $0.type == .float2
               }) else { return nil }
@@ -360,32 +360,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             backend: .genericCompilerArtifact,
             vertexPositionInput: raw.vertexPositionInput.flatMap {
                 SceneAuthoredShaderProgram.VertexPositionInput(rawValue: $0)
-            }, colorBoundary: raw.colorBoundary,
+            }, fragmentReadsRasterPosition: raw.fragmentReadsRasterPosition,
+            colorBoundary: raw.colorBoundary,
             attachmentReadVariant: attachmentRead
         )
-    }
-
-    private static func valid(_ layout: SceneAuthoredShaderUniformLayout) -> Bool {
-        guard (0 ... Self.maximumUniformByteSize).contains(layout.byteSize),
-              layout.byteSize.isMultiple(of: 16),
-              Set(layout.fields.map(\.name)).count == layout.fields.count else {
-            return false
-        }
-        var occupied = Set<Int>()
-        for field in layout.fields {
-            guard field.offset >= 0,
-                  field.offset <= layout.byteSize,
-                  field.storageByteSize <= layout.byteSize - field.offset,
-                  field.offset.isMultiple(of: field.type.alignment),
-                  field.storageByteSize > 0 else { return false }
-            let end = field.offset + field.storageByteSize
-            guard
-                  (field.offset ..< end).allSatisfy({ !occupied.contains($0) }) else {
-                return false
-            }
-            occupied.formUnion(field.offset ..< end)
-        }
-        return true
     }
 
     static func sha256(_ data: Data) -> String {

@@ -472,10 +472,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "759f6690bf47eac9bbc8e7be07eb40b81cdca4ace86e4ae3591e47697cea7e3d",
+        "sourceSHA256": "e29e4c40e73fb2aa4cacd36366173975817716c5765725d65e5bbab3a36bd4b1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
-        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
+        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
+        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3c08074ad9dba66eba9a9c95f196e4bcffd6086aa83f5fe6093b3a0c84714f3",
+        "sourceSHA256": "92a7ff10d1577836c5d26053cfe43c2c5dc11cda031f7f9cf729b94b534d014d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Generic scalar-array strict shape and component budget contract; current default437 waveform evidence and retired queue breakpoint; capability facts remain in runtime evidence.",
-        "limitations": "Navigation and this bounded change only; full-phase/official/HDR/multiscreen and performance not qualified."
+        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
+        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4dd49d711031aaef0c1310b3493411e33be3d2066e7194ccf8a8a8cae7ba8a42",
+        "sourceSHA256": "119dbf2c168eeb2d4c4d129189cf68c3f18ee7b0c433254033767e783c66544d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "329 runtime evidence refreshed and 374 observation appended; frozen356 ledger IDs/order and all human verdicts preserved; live368 directory scope disclosed.",
-        "limitations": "New12 directories excluded for next intake; original329 remains NONPASS; no full-sample/official parity claim."
+        "scope": "冻结356记录仅更新原199与独立374的来源/构建身份；243归档行只换两行，其余241对象相等。199注释先列本轮有界后验再保历史观察，其余355表格行及人工verdict不变。",
+        "limitations": "实际目录371只计数，新增15未纳入或运行；本批只确认199局部揭露位置和374主要内容，不升整样本或官方像素。"
       }
     },
     {
@@ -3546,13 +3546,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "30752f9f4a61407b74680305d8b804e9f5c214903865ed8a322b732adcf2d949",
+        "sourceSHA256": "e5db98c6c4c118ef6bc097d5ed70c950b32f48a89e370e1e329cf2fadc88d1a7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
-        "limitations": "原型/首拒/门失败保正式包；最终SDR App不代完整HDR、非1alpha source-over全组合、同phase/官方像素、全音源或整体性能。293/321方向漩涡开放；旧293PMA补门非全矩阵PASS。"
+        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
+        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2b46d3a0be252192cfe39ae1e2263d4bd38427c1121b56801b6e0c16c97060c4",
+        "sourceSHA256": "69694db606e3c8ab9c35d9c71c9eedb285ee8d9cbe8df3cf36c3741d32a2a209",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Generic scalar-array strict shape and component budget contract; current default437 waveform evidence and retired queue breakpoint; capability facts remain in runtime evidence.",
-        "limitations": "Navigation and this bounded change only; full-phase/official/HDR/multiscreen and performance not qualified."
+        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
+        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
       }
     },
     {

@@ -70,3 +70,19 @@
 验收复用连续细线/非平凡源：同 Program 源 extent 不变、实际加法输出细节、straight/PMA/opaque 与背景非1 alpha，以及同 pixel 普通混合相邻反例；末段停用/失败、被覆盖输入、stale/重复消费、改名及等价表达式。GPU 门与 Debug 后，原293对照圆环重复亮段消除、人物/粒子保持，另验未参与修法的真实加法样本。透明边界、HDR/SDR、resize 与取消沿原约束；未覆盖组合保持开放。收益必须来自实际清晰度和可比开销，不从256²不变或通过测试推性能结论。
 
 实际运行与剩余边界归[当前证据](../../capabilities/runtime-evidence-current.md#additive-terminal-density-20261019)；284三弧仍开放，不由293连续环或单pass回执代验。
+
+<a id="image-terminal-placement"></a>
+
+## 普通图片末材质的放置坐标（2026-10-21，有界实施）
+
+原生原包的局部揭露在 cover 裁切后偏离可见目标，而官方人工观察贴着鼠标；精确官方端点序列尚未取得。当前普通 image 始终将完整 graph-final 贴到输出卡，最后材质所见 ordinary MVP/inverse 仍是局部工作纹理空间。现终链 owner 让合资格图片的最后有效材质观察最终放置空间，不修改全局 pointer、作者 shader、Resolution 或单独的 inverse。中间效果的坐标域、物理 AppKit/DPI、脚本 hover 及全局倍率不由本片结案。
+
+沿现 capability → FramePreflight → GraphExecutor/PassEncoder → ticket → 唯一 MainPass 扩域：仅可见正交普通 image、capturedLayerTexture、普通 source-over、无 provider/dependency/geometry，仍须原简单 color 链及全部潜在终端变体准入。继续原非 solid capture extent、源捕获、纹理帧/UV、alpha/tint/lighting 和完整前序 graph；末材质消费冻结的真实前序输出，不能改采原图或当前 attachment。仅同一最终 Program 的 ordinary MVP/inverse 配对替换为实际输出卡变换，原 renderSize、采样对象/尺寸、uniform、颜色和资源生命周期不变。
+
+准备期追加一个通用 replay 资格：实际 MVP/renderSize ABI 存在且合法，并明确不读取 fragment raster position。两种 frontend 在各自既有准备阶段产生这一事实，artifact 缺少事实视为未资格；不在普通帧重新分析源码。现 `targetPixels` 仅说明顶点输入单位，不能单独保证上述性质。新的 image 入口消费同一 prepared 结论；旧 solid/text/background 资格不借此扩张或退役。额外 outer material/depth/fog、非1最终合成 alpha、高级混合、provider/复杂图仍沿原图；不因最终 consumer 拒绝而丢失本来可显示的图片。
+
+新增 image 路径的可选 terminal Program/PSO 编译或函数准备失败，在任何终端写入前保留真实 graph-final；既有快照预算不足仍沿原有界回退；身份/资源不安全错误仍拒最小不安全单元，已开始终端编码不再双重合成。最后有效材质与被后继覆盖的输入仍由原 executor/pool 保全，同一 receipt 一次消费并 pin 至 GPU completion。若实际画面未改善或前序采样/颜色回退，撤回 image 入口，不用调整鼠标倍率、源尺寸或放宽视觉指标挽救。
+
+最低验收：先用自有非平凡前序效果与局部 pointer shader，通过真实 image 准入和终端 consumer，验证 cover/不同尺寸放置下响应位置、前序颜色、冻结输入/Resolution、只变 MVP pair；改名/等价变体与 fragment raster read、缺 ABI、provider/高级混合/透视/几何等相邻反例。复用 active/inactive/失败末段、快照失败和一次消费门；在非不透明背景验证 straight/PMA alpha。有效 Debug 后，原199默认ROI需由旧偏移点响应改为可见目标点响应，并以未参与修法的真实 image 链检查画面与退出。人工官方观察仅支持功能方向，不声明精确官方像素一致；性能收益另测。
+
+实际结果、构建身份与原图由[本批后验](../../capabilities/runtime-evidence-current.md#image-terminal-placement-20261021)唯一维护。原199默认揭露位置、自有变体与独立真实图片链完成有界验收；PMA专项夹具未取得真实Program资格，未冒通过，完整alpha/profile与物理输入域仍待扩验。

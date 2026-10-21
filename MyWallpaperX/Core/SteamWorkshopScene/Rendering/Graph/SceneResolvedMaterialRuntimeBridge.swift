@@ -24,6 +24,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let frameInputContract:
             SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract
         let supportsTerminalMaterialReplay: Bool
+        let supportsPlacementSpaceTerminalReplay: Bool
         let supportsSourceSizedSolidEffects: Bool
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
@@ -39,6 +40,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             frameInputContract:
                 SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract,
             supportsTerminalMaterialReplay: Bool = false,
+            supportsPlacementSpaceTerminalReplay: Bool = false,
             supportsSourceSizedSolidEffects: Bool = false,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
@@ -51,6 +53,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
             self.frameInputContract = frameInputContract
             self.supportsTerminalMaterialReplay = supportsTerminalMaterialReplay
+            self.supportsPlacementSpaceTerminalReplay = supportsPlacementSpaceTerminalReplay
             self.supportsSourceSizedSolidEffects = supportsSourceSizedSolidEffects
             self.token = token
         }
@@ -132,6 +135,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let sourceLighting: SceneBaseMaterialLitCapturePayload?
         let terminalReplayTarget: MTLTexture?
         let terminalReplayBlendMode: Int
+        let terminalReplayIsOptional: Bool
         let frameInputs: FrameInputs
 
         init(
@@ -147,6 +151,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
             terminalReplayTarget: MTLTexture? = nil,
             terminalReplayBlendMode: Int = 0,
+            terminalReplayIsOptional: Bool = false,
             frameInputs: FrameInputs
         ) {
             self.claim = claim
@@ -160,6 +165,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sourceLighting = sourceLighting
             self.terminalReplayTarget = terminalReplayTarget
             self.terminalReplayBlendMode = terminalReplayBlendMode
+            self.terminalReplayIsOptional = terminalReplayIsOptional
             self.frameInputs = frameInputs
         }
     }
@@ -749,6 +755,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
             frameInputContract: capability.frameInputContract,
             supportsTerminalMaterialReplay: capability.supportsTerminalMaterialReplay,
+            supportsPlacementSpaceTerminalReplay: capability.supportsPlacementSpaceTerminalReplay,
             supportsSourceSizedSolidEffects: capability.supportsSourceSizedSolidEffects,
             token: token
         )

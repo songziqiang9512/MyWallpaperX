@@ -4088,6 +4088,20 @@
       "modules": [
         "test_scene_generic_shader_varying_arrays"
       ]
+    },
+    {
+      "id": "image-terminal-placement",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift",
+        "script/tests/test_scene_image_terminal_admission.py",
+        "script/tests/test_scene_image_terminal_placement_integration.py"
+      ],
+      "modules": [
+        "test_scene_image_terminal_admission",
+        "test_scene_image_terminal_placement_integration"
+      ]
     }
   ],
   "method_gates": {

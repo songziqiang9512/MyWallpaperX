@@ -949,6 +949,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 sourceLighting: sourceLighting,
                 terminalReplayTarget: terminalReplayTarget,
                 terminalReplayBlendMode: layer.colorBlendMode ?? 0,
+                terminalReplayIsOptional: layer.contentKind == "image",
                 frameInputs: frameInputs
             ))
         }

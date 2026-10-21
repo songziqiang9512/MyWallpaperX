@@ -258,6 +258,8 @@ nonisolated enum SceneAuthoredShaderHostArrayShape {
 }
 
 nonisolated struct SceneAuthoredShaderUniformLayout: Codable, Equatable, Hashable, Sendable {
+    static let maximumByteSize = 4_096
+
     struct Field: Codable, Equatable, Hashable, Sendable {
         /// Metal ABI name. It is stage-qualified only when the authored name
         /// is declared by both stages and therefore denotes two stage-local
@@ -294,6 +296,28 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Codable, Equatable, Hashabl
 
     let fields: [Field]
     let byteSize: Int
+
+    /// Shared publication check for reflected artifacts and optional replay.
+    /// Validate an array's bound before computing its storage size.
+    var isValid: Bool {
+        guard (0 ... Self.maximumByteSize).contains(byteSize),
+              byteSize.isMultiple(of: 16),
+              Set(fields.map(\.name)).count == fields.count else { return false }
+        var occupied = Set<Int>()
+        for field in fields {
+            if let count = field.arrayCount {
+                guard count > 0, count <= byteSize / field.type.byteSize else { return false }
+            }
+            guard field.offset >= 0, field.offset <= byteSize,
+                  field.storageByteSize <= byteSize - field.offset,
+                  field.offset.isMultiple(of: field.type.alignment),
+                  field.storageByteSize > 0 else { return false }
+            let range = field.offset ..< (field.offset + field.storageByteSize)
+            guard range.allSatisfy({ !occupied.contains($0) }) else { return false }
+            occupied.formUnion(range)
+        }
+        return true
+    }
 }
 
 nonisolated struct SceneAuthoredShaderUniformDeclaration {
@@ -500,9 +524,24 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
     let backend: Backend
     /// Missing in older artifacts: absence never authorizes terminal replay.
     let vertexPositionInput: VertexPositionInput?
+    /// Prepared source fact. Older artifacts retain ordinary execution but
+    /// cannot opt into a different terminal placement space.
+    let fragmentReadsRasterPosition: Bool?
     let attachmentReadVariant: AttachmentReadVariant?
 
     var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
+
+    var supportsPlacementSpaceTerminalReplay: Bool {
+        supportsTerminalMaterialReplay && fragmentReadsRasterPosition == false
+            && uniformLayout.isValid
+            && uniformLayout.fields.contains {
+                $0.authoredName == "g_ModelViewProjectionMatrix" && $0.type == .float4x4
+                    && $0.arrayCount == nil && ($0.stage == nil || $0.stage == .vertex)
+            }
+            && uniformLayout.fields.contains {
+                $0.authoredName == "mwxRenderSize" && $0.type == .float2 && $0.arrayCount == nil
+            }
+    }
 
     func channelUse(forTextureSlot slot: Int) -> TextureBinding.ChannelUse? {
         textureBindings.first(where: { $0.slot == slot })?.channelUse
@@ -520,6 +559,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         fragmentOutputChannelUse: FragmentOutputChannelUse = .unproven,
         backend: Backend = .boundedSwift,
         vertexPositionInput: VertexPositionInput? = nil,
+        fragmentReadsRasterPosition: Bool? = nil,
         colorBoundary: SceneShaderColorBoundary? = nil,
         attachmentReadVariant: AttachmentReadVariant? = nil
     ) {
@@ -535,6 +575,7 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
         self.fragmentOutputChannelUse = fragmentOutputChannelUse
         self.backend = backend
         self.vertexPositionInput = vertexPositionInput
+        self.fragmentReadsRasterPosition = fragmentReadsRasterPosition
         self.attachmentReadVariant = attachmentReadVariant
     }
 

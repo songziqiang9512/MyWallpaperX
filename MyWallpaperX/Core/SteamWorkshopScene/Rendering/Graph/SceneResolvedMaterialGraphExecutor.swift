@@ -197,6 +197,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         terminalReplayTarget: MTLTexture? = nil,
         terminalReplayBlendMode: Int = 0,
+        terminalReplayIsOptional: Bool = false,
         pool: SceneOffscreenTexturePool? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
@@ -399,6 +400,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 terminalReplayTarget: capability.supportsTerminalMaterialReplay
                     ? terminalReplayTarget : nil,
                 terminalReplayBlendMode: terminalReplayBlendMode,
+                terminalReplayIsOptional: terminalReplayIsOptional,
                 terminalMaterialReplay: &stageTerminalReplay,
                 pair: &pair,
                 publications: &publications,
@@ -444,6 +446,13 @@ final class SceneResolvedMaterialGraphExecutor {
             if let stageTerminalReplay {
                 terminalMaterialReplay = stageTerminalReplay
                 terminalStageIndex = index
+            } else if stageCommands.contains(where: {
+                if case .material = $0 { return true }; return false
+            }) {
+                // An active material changed the graph output. A missing
+                // optional replay must not revive an earlier material.
+                terminalMaterialReplay = nil
+                terminalStageIndex = nil
             }
             stages.append(.init(
                 effect: effect,

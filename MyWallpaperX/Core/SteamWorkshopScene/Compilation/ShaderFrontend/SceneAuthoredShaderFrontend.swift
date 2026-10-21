@@ -382,6 +382,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 vertexPositionInput: SceneAuthoredShaderGlobalReferenceAnalyzer
                     .isReferenced("g_ModelViewProjectionMatrix", in: vertexUnit)
                     ? .targetPixels : .clipSpace,
+                fragmentReadsRasterPosition: ["gl_Position", "gl_FragCoord"].contains {
+                    SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced($0, in: fragmentUnit)
+                },
                 colorBoundary: colorBoundary
         )
         programCache.store(program, for: cacheKey)
