@@ -738,6 +738,8 @@ enum SceneDocumentLoader {
         let effect="export var scriptProperties={prefix:'fallback'}; export function init(v){if(thisLayer.getEffectCount()!==0 || thisLayer.getEffect('source-effect')!==null)throw Error('fake effect');return v+'|I1|E'+thisLayer.getEffectCount();}"
         let animation="export var scriptProperties={prefix:'fallback'}; export function init(v){thisObject.getAnimation().play();return v;}"
         let output:[String:Any]=["dual":try dual(false),"renamed":try dual(true),
+            "booleanText":try BooleanTextCloneChecks.run(false),
+            "booleanTextRenamed":try BooleanTextCloneChecks.run(true),
             "wrappers":try wrappers(),"parentThrow":try rejection("throw Error('parent');"),
             "lateDiscard":try rejection(""),"badInit":try rejection("",bad:true),
             "retiredSource":try retiredSource(),"duplicates":try duplicateTemplates(),
@@ -769,7 +771,8 @@ class PreparedTextCloneTests(unittest.TestCase):
         cls.directory = tempfile.TemporaryDirectory(prefix="mwx-prepared-text-")
         cls.addClassCleanup(cls.directory.cleanup)
         binary = compile_vector_harness(Path(cls.directory.name), HARNESS, "prepared-text", preamble=PREAMBLE,
-            extra_swift_sources=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",))
+            extra_swift_sources=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
+                Path(__file__).parent / "fixtures/SceneScriptBooleanTextCloneChecks.swift"))
         execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
         cls.result = json.loads(execution.stdout)
 
@@ -789,6 +792,17 @@ class PreparedTextCloneTests(unittest.TestCase):
                 self.assertEqual((row["destroyed"], row["destroyCalls"], row["repeatDestroyCalls"], row["peerStillActive"]), (1, 1, 0, 1))
                 self.assertEqual((row["staleHandle"], row["staleMutations"], row["creatorQuiescent"], row["peerDestroyCalls"]), ("ok", 0, True, 1))
                 self.assertEqual((row["remainingBindings"], row["capturedOwners"]), (2, 4))
+
+    def test_boolean_creator_keeps_text_and_authored_updates_in_one_transaction(self) -> None:
+        for name in ("booleanText", "booleanTextRenamed"):
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["status"], "ok")
+                self.assertEqual((row["births"], row["rejected"], row["adopted"]), (1, 0, 1))
+                self.assertTrue(row["authoredAngles"])
+                self.assertTrue(row["discardRetainsVisible"])
+                self.assertEqual(row["afterDestroy"], 0)
+                self.assertEqual(row["unknownImage"], "invalid-argument")
 
     def test_user_value_and_safe_own_data_admission(self) -> None:
         row = self.result["wrappers"]

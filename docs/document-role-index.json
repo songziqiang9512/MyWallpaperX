@@ -744,7 +744,7 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2453b392a940bcc5f870cabe8b3aef5f7972f1bf0d851bae2e9f501f67411de8",
+        "sourceSHA256": "cdc77fb1d89499a13da8f2f894ad3866dcf12db041898b91379710d438fa9c7b",
         "method": "document_registry --audit + document_health --check",
         "scope": "共享Vec3既有有界结果及后继337同App12/1输入消融；保独立首错、控制混杂和未实施设计边界。",
         "limitations": "不代替产品优化、唯一解码根因或普通Release/性能/官方parity；全样本归档与人工裁决不变。"
@@ -836,7 +836,7 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b4d0518d8cb0e1abb9c74ea26c5ebac79bed6f6270b738abdfc796dd0034fc82",
+        "sourceSHA256": "9f5ac535f19ab1baf1ad38506f2c6ae22c8fd21c6373bc7eb8b647dc73bde250",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
         "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
@@ -856,7 +856,7 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9363c4002ea3f93d922e2a334ac4343f35d4756a4797b70ef35417b857ba4757",
+        "sourceSHA256": "25594ff435ef248ef03331ddfb3d13d36a2f3b8369feef9a3ea109b31c38d693",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
         "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
@@ -3633,7 +3633,7 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29eccc072158ce55fd6e38f71a09be91f9b57520aef1d3d535d646d29870fc13",
+        "sourceSHA256": "46841aa71c297d8c4dd6890ce8b716ee9fa5898b4ec7f47f644a158abcad91c5",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
         "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"

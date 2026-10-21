@@ -74,7 +74,7 @@
 | 初始配置与动态图片复用 | [N06限定后验](../history/initial-layer-configuration-2026-10-12.md)：288的34个origin TypeError消失；25个普通图片目标进入原创建/事务链，保留5个Puppet、1个composition、3个text包装；create几何后继见上项，不计整样本parity。 |
 | Bool正常返回与初始化连续性 | <a id="e-2026-10-16-bool-return"></a>10-16固定官方2.8.0.42、exe `daac1ea7…6bda07`自有init/update各14格：仅原生Bool改变值，Number/String/null/Vec3/普通对象/数组保fallback；init与独立补测update内timer均存活，throw观察不用于放宽本项目rollback。现役唯一`call_primitive`更正旧Number truthiness及对象BAD_RETURN，保其他类型/异常与typed事务；候选签名Debug `888bf8a9…7b2c`/dylib `07fc6c3a…21cd`运行3781757083同原包，293.visibility基线406条失败→0，实际按住拖动origin由(2618.59985,1201.79541)变为(2259.415283,1417.795410)，文字/装饰同移且释放后保位；390/271的Sound random首门后继见[有界后验](../history/sound-script-control-2026-10-12.md#sound-random-playback)。样本曾误记为3789316755，已更正。聚焦门17/17、62项返回/连续性事实通过；26格正常返回native body/timer与官方相符，throw的timer rollback差异明确保留；独立3264246690原包人物/布条实际呈现，64次GPU记录含22次末合成、VM无异常并安全退出；连续current过渡未做官方对照，不计全样本parity或CPU/GPU收益。必要结果：`.artifacts/scene-evidence/runs/bool-property-return-20261016/`。 |
 | SceneScript 显隐准备与交互 | [统一显隐记录](#e-2026-09-27-unified-effect-visibility)、[事件显隐持久修复](../history/event-visibility-persistence-2026-10-10.md)：312两个浮动窗口恢复，四次属性热切无重建、两窗口拖动已验；[standalone quad后继](#quad-visibility-live-20261020)闭合sunrays整key切换与startup-false准备，保实际Program准入 |
-| Scene音频IPC | <a id="audio-ipc-version-20261021"></a>v2发送修复；17项测试/Debug通过，374普通入口非零左右频谱被材质消费。[限界](../../../.artifacts/scene-evidence/runs/audio-ipc-version-20261021/current/report.json)。 |
+| Scene音频IPC | <a id="audio-ipc-version-20261021"></a>v2发送修复；17项测试/Debug通过，374普通入口非零左右频谱被材质消费。限界（`.artifacts/scene-evidence/runs/audio-ipc-version-20261021/current/report.json`）。 |
 | solid named源尺寸 | [有界修复](../history/named-solid-source-extent-2026-10-12.md)：376裙摆11层重复矩形消失，14层terminal/GPU/下一帧，保留graph-final依赖；后继[缺省尺寸修复](../history/missing-resolution-normalization-2026-10-12.md)使头部deformer进入原GPU/合成链，实际材质阶段由77增至78，另37段作者关闭而透传，非整图parity。 |
 | Batch2 已实施职责与仍待证输入 | [冻结执行记录](#batch2-frozen-records)；按职责查询有界输出、失败与未验profile |
 | 作者图层退出 | <a id="e-2026-10-07-authored-layer-retirement"></a>[删除与脚本退休](../history/authored-layer-retirement-2026-10-07.md) |
@@ -1151,3 +1151,12 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 正式包`.artifacts/scene-evidence/runs/video-publication-337-20261021/`保三份原report/log、两臂原after、输入变换/身份、发布间隔及独审；最小未解决复现受保护，问题关闭后转普通14天。此为后继资格，不重写全样本旧人工裁决或宣称又一轮全量运行；原样本/VM未改，临时副本及无独立价值截图清理，继续复用唯一最新App和既有增量cache。
 
 官方2.8.0.42后继仅用自有3份2s测试视频。首载体缺视频flag/几何等资格并触发`prl_umd10.dll`错误，无语义结论；修正后可见正控两原图的内嵌帧由53→24跨loop，真实推进。隐藏目标在5.0s冻结：C=.814/EOF2，O=1.374/EOF0且playing=true；5.6s显现后C=1.416、P=1.714、O=1.679。原advance须EOF≥2、held须近零，两者均未过，**STOP_UNKNOWN**；2s循环/容差存在相位混叠，不由POST接近或EOF0推断持续解码/完全停止，不重跑同载体或放宽门。dormant未实施；仅帧提取/包装可另筛，仍须保原clock/anchor/EOF及跨屏。正式最小证据与独审归`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`，ZIP SHA`a89a576c…f3573f`；自有预览已定点关闭，主客户端在首载体异常后重启停安全启动提示，VM保持运行，原337官方崩溃仍未复现。无产品、性能或全API验收结论。
+
+<a id="boolean-dynamic-text-20261021"></a>
+## 2026-10-21：Bool可见性owner复用动态文字事务
+
+最早误拒是BooleanVisibilityValidation对全部dynamic mutation强制图片assetPath；合法文字本无此路径。现只对带路径mutation保原prepared alias解析，nil文字继续由原DynamicLayerRuntime核字段/模板/identity/寿命，C journal、共同模拟提交与文字provider/compositor不变。CPU红门两变体均invalid-argument；修后最近文字/Bool两门34方法通过，覆盖模板/变量改名、原文字angles、副本创建/adoption、拒帧保留、destroy与未知图片继续invalid-argument。首green的错误失败码预期已修，不改产品追绿；独审无阻断。Debug及完整签名Debug构建通过，App`0fa2d007…8fd017`/dylib`0549f23e…fd1ebb`，非性能验收。
+
+同默认输入/四点pointer，原299292四Bool从unprepared-asset拒绝转completed，四副本保持hidden，原4748文字可见且有小幅斜率变化；旧Z约5°、作者update常量6°与scene parallax均影响画面，未独立量化新增X/Y。原281121同首拒退出，人物/粒子和右上裁切时钟保持；该crop不在本批关闭。独立302人物、白圆/星点保持。三包均原project/pkg无改，实际Program/末合成及次帧、exit0/stop1→0/GPUdrain；不把矩阵PASS当整景验收。
+
+默认5处阴影均Off，不能称默认缺阴影。另对299仅把4748原scriptproperties.dropShadow从2改0，双方同loose入口/原pkg/其余参数：修前仍拒，修后原图在Wallpaper字后恢复偏移黑色副本，默认Off反例保持无黑影。初轮仅写scene.json sidecar未被选中，作为失格输入保留，不计此结果；后继显式project.file=shadow-control.json才触达。正式证据`.artifacts/scene-evidence/runs/boolean-dynamic-text-20261021/`保必要对照/失格收据、34门、身份及独审，普通14天。完整阴影模式、精确官方pose/排序、全部属性、HDR/多屏及性能未验；382 metadata与其他开放余项不随本批销账。

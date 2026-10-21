@@ -88,8 +88,15 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
                 }
                 continue
             }
-            guard let assetPath = mutation.assetPath,
-                  let modelPath = preparedModelPath(
+            // Text creation has no image/model path. Its prepared template,
+            // fields and lifetime are validated by the shared topology owner,
+            // just as for other value types. Only resource-backed mutations
+            // need this authored image alias resolution.
+            guard let assetPath = mutation.assetPath else {
+                resolved.append(mutation)
+                continue
+            }
+            guard let modelPath = preparedModelPath(
                     for: assetPath,
                     in: dynamicImagePathsByAuthoredIdentity
                   ) else {
