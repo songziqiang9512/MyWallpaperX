@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 536,
-      "bytes": 193136
+      "lines": 547,
+      "bytes": 195272
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 246,
-      "bytes": 76382
+      "bytes": 76558
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1223,27 +1223,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b83ab24574aa49b9b950d18516e6e890e92cdaad5494310e82fd24541adb5d84",
-      "after": "cab5640382d3e8e8f93578694e7d58125a503262ce4c891c5dfd7ea0a7d20420",
-      "owner": "scene-frame-cadence-qualification",
-      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "549cf7d8e2c82f804f75b4c0d80ba9962a5edcb0084050e97ecc426364315684",
       "after": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
-      "owner": "scene-packaged-sound-resource-admission",
-      "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7a0a3dea96b58850724ff5becd4ee6556b5cfa5e48e695e35f5b7a06083d15b4",
-      "after": "1d1f1fe948aa99b040f4244cf7dc04b0c2ed73372a736e2dfcdf8d97034730a3",
       "owner": "scene-packaged-sound-resource-admission",
       "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
@@ -1256,6 +1238,24 @@
       "owner": "scene-packaged-sound-resource-admission",
       "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "1d1f1fe948aa99b040f4244cf7dc04b0c2ed73372a736e2dfcdf8d97034730a3",
+      "after": "53cf51773a94ff860874eff64668333bca2bccaf3a3d3e2c2a4ce92dabf8a3a5",
+      "owner": "scene-compose-subtree-qualification",
+      "reason": "新增受控官方实验的STOP边界：固定像素正控未过、后三臂未运行；保持原子树准入与全样本分母，仅将源范围风险和不可复用失败载体收口到唯一运行记录。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#compose-subtree-qualification-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "64a8d95a368cd14d75a4b5681a752cec0c176a7bd82b0fa51845a368d8dda957",
+      "after": "fc8ae23d174fcccb7548d0a61e4f5c4bef387e855976d7b5414dca0dbda10571",
+      "owner": "scene-compose-subtree-qualification",
+      "reason": "新增受控官方实验的STOP边界：固定像素正控未过、后三臂未运行；保持原子树准入与全样本分母，仅将源范围风险和不可复用失败载体收口到唯一运行记录。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#compose-subtree-qualification-20261021"
     }
   ]
 }

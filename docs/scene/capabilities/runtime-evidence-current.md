@@ -1116,3 +1116,14 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 376面具补两主题各一条live链：theme1 mask true→false，theme2 false→true，226/370按定义切换且局部脸/眼覆盖变化，window/surface不变；只证明两单向，本窗未复现开关失效，不宣称往返/面板持久化/官方全mask通过。用户明确374时钟是鼠标移右拼合、382蝴蝶延迟出现，两者既往正常；撤下早截图视觉缺失候选，独立结构首错不与其关联。其余基础构图未见明显缺层者仍留unreviewed。
 
 正式索引 `.artifacts/scene-evidence/runs/new-sample-intake-20261021/index/current/report.json` 关联分包原始report/日志、24张after、必要变体原图、自有PCM、App/源码身份与独审；目录官方图仅保原路径/SHA。全样本台账增至351行，归档新增24条且保原212条不变、旧人工verdict不改；不是全351本轮运行。包遵循总量5GiB/单包32MiB，普通结果14天、明确未解决首错包注明保护理由。测试结束后临时source/DerivedData/App/HOME/样本副本与未保留重复输出清理，Goal维持暂停。
+
+<a id="compose-subtree-qualification-20261021"></a>
+## 2026-10-21：Compose子树官方实验未取得像素资格
+
+原370的197默认visible、passthrough=true、copybackground缺省由本项目解析为true，带206 TV及三effect；首拒仍在SourceRoute，不能只删除guard：现copy-background成员组会使用全viewport源/回绘，而非作者本地700×512区域。原局部组、背景复制、Program与唯一compositor可复用，但子层是否参与父效果、区域及alpha尚无裁决；本次不改产品或认领画面收益。
+
+固定官方2.8.0.42（exe SHA `daac1ea7…bda07`）/Windows 11，仅派发自有640×360 OFF一次；四臂共8输入文件25270B全部guest/hash一致。蓝底、半透明红child及同材质独立颜色置换正控实际可见；CUA返回带Display ICC的JPEG原始字节（初存`.png`后缀），不是无损PNG。按嵌入ICC转换至sRGB测量固定5×5，不改原图/ROI/±8阈值；两帧red→green与半红→青均只有15/25像素通过，低于预设23/25，独审复算一致，另两角标也未过。JPEG/色彩转换只是候选原因，不代替失败资格。**STOP_UNKNOWN**：TARGET/B/C均未派发，不据OFF中位数裁A/B/C、效果范围或缺省字段合同。
+
+派发前的session0、长EncodedCommand及受ExecutionPolicy限制的UNC脚本失败保留；未改系统策略，最终以Parallels公开`--current-user`及短命令在session1调用官方CLI。请求多词标题实际截为`MWX`的偏差亦保留；只对本轮观察到的预览用官方定点关闭，CUA确认其消失，原8332接收进程/主窗口与VM保留。guest8输入未变，仅新增8个本轮shader cache；关闭后精确清理自有guest根，未动真实样本。
+
+正式包 `.artifacts/scene-evidence/runs/compose-subtree-qualification-20261021/` 保两张原始OFF、关闭图、输入/身份、失败派发、完整像素/独审与本地研究摘要；普通14天，不更新全样本运行分母或verdict。后继须先有可满足预设门的采集与源正控，再重开语义；本次不重复构建/产品运行验证，继续选择其他已证公共缺口。
