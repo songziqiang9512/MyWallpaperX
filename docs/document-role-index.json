@@ -671,13 +671,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fd49fb7b8bcefbda2d6f139e8ff9a6602152d877d91ca5c33d1e2cb66394f909",
+        "sourceSHA256": "ea09ba5b9d16667541c5d78407423ddbcfb246cea12abc2a887033bdea6d93f7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "本批媒体asset唯一owner、typed publication、采样及退出合同；实际结果由历史证据拥有",
-        "limitations": "导航维护不证明全部purpose、普通桌面、hot texture updates、多屏或官方parity。"
+        "scope": "现役入口合同不变；新增layer视频消费需求与后台解码分离的owner/clock/失败/退出边界",
+        "limitations": "不是产品实现、性能收益、动态视频创建支持或官方parity。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "54201f545fd8234d47ac5f110d46794851dce8505346d5d151de95064dbf850f",
+        "sourceSHA256": "5fddd1beea961195a9f4f3c4fa2227d0e85a1f7b053ec0e4096a1274dd229b29",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
-        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
+        "scope": "共享Vec3既有有界结果及后继337同App12/1输入消融；保独立首错、控制混杂和未实施设计边界。",
+        "limitations": "不代替产品优化、唯一解码根因或普通Release/性能/官方parity；全样本归档与人工裁决不变。"
       }
     },
     {

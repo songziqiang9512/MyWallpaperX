@@ -1138,3 +1138,14 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 最近真实C VM门26case×2次回调由缺方法首错全部转绿，健康peer52/52；含改名/等价表达、copy、typed输入、三轴正负阈值下/等/上、分量容差与欧氏距离反例及纯查询。Debug构建和签名、共享防御门及独审通过；主程序SHA `6ffdcfb5…fc6955`、dylib `2d15e2d9…682fdd`，5377冻结输入无漂移。green结果为已完成工具输出的如实转录收据，未为补日志重复运行。只关闭颜色回调/热切首门，旧布局重叠、全部152参数/真实面板/媒体来源、完整官方phase、HDR/Release及性能未验。
 
 正式包 `.artifacts/scene-evidence/runs/vec3-equals-344-20261021/`保原report/log、五张必要原图、红门/green收据、身份与实图独审；普通14天。归档242行只替344和302、其他240行及顺序不变，目录分母356、人工337 unreviewed/19 fail/0 pass不变；历史混合身份不当全量当前复测。原全量census缓存仍351行，本轮用已有两静态行限定normalizer输入，不重扫样本或改census工具。临时HOME/样本与停用图/重复副本清理，仅保一份最新App及既有增量cache供下一批。
+
+<a id="video-publication-demand-20261021"></a>
+## 2026-10-21：视频多路需求与供帧空档的有界消融
+
+复用Vec3批同一完整签名Debug App，主程序`6ffdcfb5…fc6955`/dylib`2d15e2d9…682fdd`，无产品改动。原337默认20s、30FPS、中心固定/独占零PCM、无resize，renderer约29.949FPS，可见100发布275次，非loop最长空档3.180s，故不是只凭旧Debug或截图报卡顿。12个视频为不同MP4，共约553.3MiB，均3750×2250/60FPS/12s；所选100源的720包PTS连续不排除供帧异常，sync间隔3.2s与部分跳跃吻合，不能据此唯一判AVFoundation内部根因。
+
+任务副本两侧同一loose入口/项目默认值和原pkg，仅one删11个隐藏视频对象，保100/120及其余值/顺序。one实际只有100供帧，20s发布588次，非loop最大0.067s、loop边界0.138s；twelve恢复12路后100仅171次，非loop最大3.202s。两侧仍约30FPS、同120 null.visible首错、无材质asset视频需求，均exit0/surface1→0/GPUdrain；两张原after已实际查看，人物/伞/天空/日期保留。after实际约2.2s，不是请求8s或流畅证明；one同时少143脚本owner，不能把有界输入干预升级为唯一解码竞争结论、产品优化或正式性能收益。
+
+最早可行动候选是现FrameLayerTextureAssembly无消费过滤地prepare全部layer视频；不能直接skip：source首次prepare才启动逻辑clock，loop/EOF又依赖backend。先按[待实施需求设计](material-video-assets.md#video-consumer-demand)分开逻辑推进与backend工作，保脚本intent/相位/终结、取源依赖、跨屏及原提交寿命。120的动态视频constructor缺prepared资格，作者又每帧destroy/create；它是独立能力/成本切片，不以放开constructor或改作者参数绕过。官方崩溃未复现，无普通Release/长稳、全部属性或官方同相位裁决。
+
+正式包`.artifacts/scene-evidence/runs/video-publication-337-20261021/`保三份原report/log、两臂原after、输入变换/身份、发布间隔及独审；最小未解决复现受保护，问题关闭后转普通14天。此为后继资格，不重写全样本旧人工裁决或宣称又一轮全量运行；原样本/VM未改，临时副本及无独立价值截图清理，继续复用唯一最新App和既有增量cache。

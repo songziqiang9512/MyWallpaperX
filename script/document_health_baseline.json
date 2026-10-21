@@ -101,8 +101,8 @@
       "bytes": 177846
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 11,
-      "bytes": 1695
+      "lines": 25,
+      "bytes": 4453
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 479,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 558,
-      "bytes": 197807
+      "lines": 569,
+      "bytes": 200124
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -225,8 +225,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 57,
-      "bytes": 15405
+      "lines": 58,
+      "bytes": 15860
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 246,
-      "bytes": 76562
+      "bytes": 76746
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1214,15 +1214,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1ea340c9137c06bd985f688654148d1bd2984f0bb9ebbce1725d3c20eb3dab9f",
-      "after": "161d6baf42adaac5e958be38797a1c8c82624fcaa4c6c0606e7f64d8a91ac3b7",
-      "owner": "scene-frame-cadence-qualification",
-      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "549cf7d8e2c82f804f75b4c0d80ba9962a5edcb0084050e97ecc426364315684",
       "after": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
@@ -1241,15 +1232,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "53cf51773a94ff860874eff64668333bca2bccaf3a3d3e2c2a4ce92dabf8a3a5",
-      "after": "962dec03601ad11b5f703f6164f150cda4c3fd94bfb5fe3f0e6649921a4a9a4c",
-      "owner": "scene-vec3-value-equality",
-      "reason": "在既有Vec3共享宿主补已证严格epsilon判等；原344颜色同窗真实变化/恢复，独立302保持；只更新两条有界运行及单一API/队列/台账，不改历史整样本裁决。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vec3-equals-color-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "a21bafc1cc38355001f1b81595831c3dcc6e60a15bf7e60602691cb20c2d41be",
       "after": "e6924f1ac8bad1c87f1ca5c8cdca12aa9f4faebcca289d41d81fcadd2e4a34df",
@@ -1259,12 +1241,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "9afbd6eb89e31f5d4fbbfa28ba61e151464410cb934a8b7d221e4615835fea7a",
+      "after": "2341032d55b5dea332ea33fcbd8e00a437dc0b95ec5116c16c5b2933c8163563",
+      "owner": "scene-video-consumer-demand-design",
+      "reason": "同App实际337与12/1输入消融提供需求后继资格；在原视频合同先落唯一owner、逻辑clock/EOF/跨屏与eager退回设计，明确未实施/非收益及动态实例独立边界。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-consumer-demand"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "962dec03601ad11b5f703f6164f150cda4c3fd94bfb5fe3f0e6649921a4a9a4c",
+      "after": "bd8335414c753e91d5bcd0bf58f94d3c0aad85516bbdfd7720061fe522a5a5b1",
+      "owner": "scene-video-consumer-demand-design",
+      "reason": "同App实际337与12/1输入消融提供需求后继资格；在原视频合同先落唯一owner、逻辑clock/EOF/跨屏与eager退回设计，明确未实施/非收益及动态实例独立边界。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-consumer-demand"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "161d6baf42adaac5e958be38797a1c8c82624fcaa4c6c0606e7f64d8a91ac3b7",
+      "after": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
+      "owner": "scene-video-consumer-demand-design",
+      "reason": "同App实际337与12/1输入消融提供需求后继资格；在原视频合同先落唯一owner、逻辑clock/EOF/跨屏与eager退回设计，明确未实施/非收益及动态实例独立边界。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-consumer-demand"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fc8ae23d174fcccb7548d0a61e4f5c4bef387e855976d7b5414dca0dbda10571",
-      "after": "a2ec24adbfbfd2fd86545bd0359e02b7cd8e99fac93671d26b8aca782831bb32",
-      "owner": "scene-vec3-value-equality",
-      "reason": "在既有Vec3共享宿主补已证严格epsilon判等；原344颜色同窗真实变化/恢复，独立302保持；只更新两条有界运行及单一API/队列/台账，不改历史整样本裁决。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vec3-equals-color-20261021"
+      "before": "a2ec24adbfbfd2fd86545bd0359e02b7cd8e99fac93671d26b8aca782831bb32",
+      "after": "fd2be3ff8663b657ab2de7ceb4fac715ad3db3c70c0dab4f20258e2519eaef8e",
+      "owner": "scene-video-consumer-demand-design",
+      "reason": "同App实际337与12/1输入消融提供需求后继资格；在原视频合同先落唯一owner、逻辑clock/EOF/跨屏与eager退回设计，明确未实施/非收益及动态实例独立边界。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-consumer-demand"
     }
   ]
 }

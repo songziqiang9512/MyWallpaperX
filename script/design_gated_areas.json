@@ -516,7 +516,7 @@
       "owner": "scene-video-assets",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/material-video-assets.md",
-      "design_notes": "有界asset/fallback已接原媒体owner，prepared与decoded ready分域；稳定合同接管，原设计和实际后验归历史。其余purpose/普通material完整组合仍不外推；不得新增播放器、时钟或伪造layer/alpha。",
+      "design_notes": "材质asset/fallback稳定合同已接原媒体owner；同页video-consumer-demand为待实施layer视频需求设计，必须先闭合逻辑起点/clock/loop/EOF、脚本观测与跨屏，再接原registry/backend dormant。未知需求保eager，asset/property先保原路；禁止直接skip prepare、复用全局pause或合并同源不同intent。动态视频constructor另立实例/拓扑/资源生命周期切片；批准边界不代表实施或收益。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
