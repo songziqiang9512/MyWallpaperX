@@ -1149,3 +1149,5 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 最早可行动候选是现FrameLayerTextureAssembly无消费过滤地prepare全部layer视频；不能直接skip：source首次prepare才启动逻辑clock，loop/EOF又依赖backend。先按[待实施需求设计](material-video-assets.md#video-consumer-demand)分开逻辑推进与backend工作，保脚本intent/相位/终结、取源依赖、跨屏及原提交寿命。120的动态视频constructor缺prepared资格，作者又每帧destroy/create；它是独立能力/成本切片，不以放开constructor或改作者参数绕过。官方崩溃未复现，无普通Release/长稳、全部属性或官方同相位裁决。
 
 正式包`.artifacts/scene-evidence/runs/video-publication-337-20261021/`保三份原report/log、两臂原after、输入变换/身份、发布间隔及独审；最小未解决复现受保护，问题关闭后转普通14天。此为后继资格，不重写全样本旧人工裁决或宣称又一轮全量运行；原样本/VM未改，临时副本及无独立价值截图清理，继续复用唯一最新App和既有增量cache。
+
+官方2.8.0.42后继仅用自有3份2s测试视频。首载体缺视频flag/几何等资格并触发`prl_umd10.dll`错误，无语义结论；修正后可见正控两原图的内嵌帧由53→24跨loop，真实推进。隐藏目标在5.0s冻结：C=.814/EOF2，O=1.374/EOF0且playing=true；5.6s显现后C=1.416、P=1.714、O=1.679。原advance须EOF≥2、held须近零，两者均未过，**STOP_UNKNOWN**；2s循环/容差存在相位混叠，不由POST接近或EOF0推断持续解码/完全停止，不重跑同载体或放宽门。dormant未实施；仅帧提取/包装可另筛，仍须保原clock/anchor/EOF及跨屏。正式最小证据与独审归`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`，ZIP SHA`a89a576c…f3573f`；自有预览已定点关闭，主客户端在首载体异常后重启停安全启动提示，VM保持运行，原337官方崩溃仍未复现。无产品、性能或全API验收结论。

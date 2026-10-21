@@ -18,8 +18,8 @@
 目标是避免无消费者的并行解码拖住可见视频；资格见[同App输入消融](runtime-evidence-current.md#video-publication-demand-20261021)。不以隐藏、离屏或同源直接判定可停，不改作者内容降低负载，也不把动态视频创建失败合并为此优化。
 
 - **职责与数据流：** 复用prepared图的取源/命名依赖与typed可见性、播放intent形成消费需求；Session在共享帧汇合各surface需求，再交原registry/source决定backend是否工作。未知依赖、脚本帧/EOF观测需求保守active；asset/property视频先保原路。不新增需求registry、时钟、播放器池、图或最终输出owner，普通帧不解析脚本、重建图或扫描资源。
-- **逻辑与backend分离：** 原lifecycle仍在相同起点启动并按Scene时钟推进，脚本命令/snapshot保原语义。不能直接skip现prepareFrame：首次启动在该方法，loop/非loop终结又依赖backend EOF；须先闭合隐藏期相位、loop与endedGeneration。不能借全局pause/suspend实现dormant。恢复在唯一source按当前相位重锚，未ready保last-ready，不从零重播、不发布伪造帧。
+- **逻辑与backend分离：** 脚本命令/snapshot、起点、相位和终结必须先资格，不能把当前eager实现反定为官方合同。10-21官方自有隐藏载体的播放状态、currentTime与EOF回调呈混合行为，原advance/held判据均未成立，保持STOP_UNKNOWN，暂不接dormant。现prepareFrame同时负责首次启动、anchor及依赖backend的loop/非loop EOF，不能直接skip或借全局pause/suspend。恢复必须复用唯一source，未ready保last-ready，不从零重播或伪造帧。
 - **identity与失败：** 同源不同owner/播放intent不合并。跨屏取并集，单屏缺drawable不能停另一屏所需source；需求不能在一个surface拒绝后覆盖共享生命周期。原epoch/command generation、候选/commit/discard、GPU持有texture与stop/rebuild/迟到回调继续生效。不能证明无消费时退回当前eager行为，不能扩大黑屏或整帧失败半径。
-- **最小切片与退出：** 先限已证无外部消费者的layer视频，证明typed clock与backend分离后才接dormant；不同时扩dynamic createLayer或材质purpose。必须覆盖改名/等价输入、隐藏→显现、播放/暂停/seek/rate、loop/非loop及EOF、跨屏、拒帧/重建/停止，并用未参与设计的真实视频样本检查画面/次帧。资格或收益不成立即撤候选，保原eager路；验收后由本节接管稳定合同并删除迁移说明。
+- **最小切片与退出：** 可先筛无图像消费者的帧提取/Metal包装，保原prepare、anchor与EOF；这不等于停止解码，且须在首次prepare前汇合跨屏需求或严格证明同帧升级。dormant另待隐藏行为和typed clock资格；不同时扩dynamic createLayer或材质purpose。覆盖改名/等价输入、隐藏→显现、播放/暂停/seek/rate、loop/非loop及EOF、跨屏、拒帧/重建/停止及独立真实视频。资格或收益不成立即撤候选，保原eager路；验收后本节接管稳定合同并删迁移说明。
 
 普通优化配置的同输入前后对照须证明可见视频供帧及CPU/内存收益且无非目标退步，按[性能卡](../roadmap/performance-convergence-card.md)风险分级，不把删除输入的消融当性能验收。动态视频实例另需prepared资格、每实例owner/epoch、拓扑事务与资源复用/退出设计；不能为绕过null直接放开constructor，更不能照作者每帧destroy/create就重复写MP4、重建播放器。
