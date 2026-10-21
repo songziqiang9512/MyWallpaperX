@@ -1026,14 +1026,20 @@
     "3113287126": {
       "verdict": "unreviewed",
       "reviewedOn": "",
-      "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
-      "note": "2026-10-18用户补报（待当前身份复验）：小提琴粒子方向有差异、数量偏少；旧琴/持弓手锚点修复仅关闭锚点，不关闭方向/数量。",
-      "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "reviewer": "Codex 技术复核与原图观察；不作完整视觉通过裁决",
+      "note": "10-22原包20s：小数Count拒绝已修，琴/手锚点保持；五系统实际绘制。方向/密度未闭，未改人工裁决。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/before/report.json",
+        ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/candidate/report.json"
       ],
-      "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。小提琴粒子方向有差异、数量偏少；旧琴/持弓手锚点修复仅关闭锚点，不关闭方向/数量。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md#particle-fractional-count-20261022",
+        ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/before/report.json",
+        ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/candidate/report.json"
+      ],
+      "remainingDifferences": "425合法Count3.02已恢复初始化和GPU消费；该项不减少出生计划，不说明可见数量偏少已修。五个additive系统叠加、精确phase未受控且本目录无官方截屏，整体运动方向、可见密度及完整参数仍待对照。",
+      "officialComparison": "unknown",
+      "noteReconciledOn": "2026-10-22"
     },
     "3748311238": {
       "verdict": "unreviewed",

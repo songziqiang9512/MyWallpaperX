@@ -105,8 +105,8 @@
       "bytes": 7388
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 479,
-      "bytes": 158516
+      "lines": 488,
+      "bytes": 160029
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 209973
+      "bytes": 211402
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 421,
-      "bytes": 91362
+      "bytes": 91445
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 249,
-      "bytes": 77409
+      "bytes": 77612
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1241,15 +1241,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ae1f4c807f1a211ec2143bdef8e66756fe9e557934255724e0063623ae0f4648",
-      "after": "f9784559f800ab30dcb35dc8a87347a1279ec4c134681189f2a755d2a4c72777",
-      "owner": "root-scene-pulse-eye-response",
-      "reason": "冻结356仅更新278原定义强音频运行来源及有界后验；其余355行、人工overlay及verdict不变；243归档只改278对象。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pulse-eye-response-278-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
       "after": "dc9055520c36d4d4ec05356fc7589d9e1f3be5db659ce6110867c35bc2201d4e",
@@ -1295,12 +1286,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "ebd594fc23f9cd86f1271890cddd8b5052e1e2f77bc82a79178a3bceafe5a6a7",
+      "after": "98daacafb9cfd2970fd39fd6c4880458115a3333e54dcc77b7453e40b1938edd",
+      "owner": "Scene particle initializer / evidence and sample ledger",
+      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "15d89a1cae70d107f6eb18e6d321405b400a4124b93de033f54e61aaf6bca977",
-      "after": "3d72133efb1de04743eb07c5ff209143e001e9ac70b0cc41063235ab1da58c2f",
-      "owner": "scene-video-position-publication",
-      "reason": "原Source定位/解码获取/呈现提交分责限定验收；旧提取候选过程收敛为必要结论与正式证据链接，保未闭337边界及600行上限。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-position-publication"
+      "before": "3d72133efb1de04743eb07c5ff209143e001e9ac70b0cc41063235ab1da58c2f",
+      "after": "1cbd462b8eb27634393a4ff77858653c93bcb0e017884730bf7d65de2776cb8e",
+      "owner": "Scene particle initializer / evidence and sample ledger",
+      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "f9784559f800ab30dcb35dc8a87347a1279ec4c134681189f2a755d2a4c72777",
+      "after": "eb41dd59ab536686fa9dfc471381426a2990ef43e9d639f19393e8ebc041b2f2",
+      "owner": "Scene particle initializer / evidence and sample ledger",
+      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "002fdd1923762377b4d8f60c3a47d70cf79f18656dbc10df73b266f95d4c3561",
+      "after": "d9565c7ced035f4d8da3ecc0a68af44ce32644ae7765520069a6bdd533c4256b",
+      "owner": "Scene particle initializer / evidence and sample ledger",
+      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
     }
   ]
 }

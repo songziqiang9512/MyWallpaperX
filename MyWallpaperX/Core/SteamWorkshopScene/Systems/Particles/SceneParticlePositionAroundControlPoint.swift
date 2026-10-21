@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated struct SceneParticlePositionAroundControlPoint: Equatable, Sendable {
     let bounds: SceneParticleNumericValue?
-    let count: Int?
+    let count: Double?
     let limitBehavior: String?
     let speedMinimum: SceneParticleNumericValue?
     let speedMaximum: SceneParticleNumericValue?
@@ -14,7 +14,7 @@ nonisolated struct SceneParticlePositionAroundControlPoint: Equatable, Sendable 
 
     nonisolated init(root: [String: Any]) {
         bounds = SceneParticleDefinitionParser.numericValue(root["bounds"])
-        count = SceneParticleDefinitionParser.integer(root["count"])
+        count = SceneParticleDefinitionParser.number(root["count"])
         if let rawBehavior = root["limitbehavior"] as? String {
             let trimmed = rawBehavior.trimmingCharacters(in: .whitespacesAndNewlines)
             limitBehavior = trimmed.isEmpty ? nil : trimmed.lowercased()
@@ -45,11 +45,26 @@ nonisolated struct SceneParticlePositionAroundControlPoint: Equatable, Sendable 
 
 nonisolated struct SceneParticlePositionAroundControlPointPlan: Equatable, Sendable {
     let bounds: ClosedRange<Double>
-    let count: Int
+    let count: Double
+    let integerCount: UInt64?
     let speedMinimum: SIMD3<Double>
     let speedMaximum: SIMD3<Double>
     let axis: SIMD3<Double>
     let controlPoint: Int
+
+    nonisolated func sequence(particleID: UInt64) -> Double {
+        if let integerCount {
+            return Double(particleID % integerCount) / count
+        }
+        // Reduce exact 32-bit limbs before combining them. Converting the
+        // whole identity to Double first loses births above 2^53.
+        let highRemainder = (Double(particleID >> 32) * 4_294_967_296)
+            .truncatingRemainder(dividingBy: count)
+        let lowRemainder = Double(UInt32(truncatingIfNeeded: particleID))
+            .truncatingRemainder(dividingBy: count)
+        return (highRemainder + lowRemainder)
+            .truncatingRemainder(dividingBy: count) / count
+    }
 }
 
 extension SceneParticleInitializer {
@@ -60,7 +75,7 @@ extension SceneParticleInitializer {
               value.rawFlags ?? 0 == 0,
               value.limitBehavior == "repeat",
               let bounds = Self.vector(value.bounds, count: 2),
-              let count = value.count, (1 ... 1_024).contains(count),
+              let count = value.count, count.isFinite, (1 ... 1_024).contains(count),
               let speedMinimum = Self.vector(value.speedMinimum, count: 3),
               let speedMaximum = Self.vector(value.speedMaximum, count: 3),
               (0 ... 7).contains(value.controlPoint ?? 0) else { return nil }
@@ -98,6 +113,7 @@ extension SceneParticleInitializer {
               abs(authoredAxis.z) <= 1_000_000 else { return nil }
         return .init(
             bounds: bounds[0] ... bounds[1], count: count,
+            integerCount: UInt64(exactly: count),
             speedMinimum: minimumSpeed, speedMaximum: maximumSpeed,
             axis: authoredAxis / length, controlPoint: value.controlPoint ?? 0
         )

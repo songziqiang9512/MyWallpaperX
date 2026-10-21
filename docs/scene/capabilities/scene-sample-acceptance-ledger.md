@@ -11,13 +11,13 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（本页冻结 356 个样本；本轮目录名核对快照 373，新增 17 未纳入）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `e1b1d2a8b0e6d5ca5c7f72e444a2720295c283bb1821c05b913dc38f701c9eb8`（生成于 2026-10-21T13:05:25.272756+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`、CDHash `6383c520523c85a42542662b29dc2b16a5552897`、CDHash `6c57aab5c9af57e61c72249ec963b626e0a653da`、CDHash `8240229d3600bddd49269e2c44cfe564691328f2`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `fcb6a0a77bd845d706164862aa551d7080c1a7a0c2eaf46d04597ebd2ea133b9`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `f53e3259eb2839a5c6129eef38f2379e4ef529d756137e3e79bd8aeed9658aea`。
 - 本页生成于 2026-10-21T13:05:25.453726+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
 
-- 本轮仅更新 `2784267518` 的运行证据引用；有界结果见[Pulse 眼区受控输入证据](runtime-evidence-current.md#pulse-eye-response-278-20261021)，人工裁决与本页冻结 356 分母保持不变。
+- 本页冻结 356 分母及人工裁决保持；后继只按覆盖层增量投影已复核行。`2784267518` 的[Pulse 眼区](runtime-evidence-current.md#pulse-eye-response-278-20261021)与 `3113287126` 的[小数Count](runtime-evidence-current.md#particle-fractional-count-20261022)各保独立范围，不重跑全库或纳入新增17。
 
 ## 2. 汇总
 
@@ -178,7 +178,7 @@
 | `3086016320` | 麻匪 发如雪 21:9 16:9 | 28(1) bool 5 color 3 slider 2 text 18 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` 2026-10-21 | 实际为中部全身背影人物、浅灰背景和半透明巨幅面部；官方为右侧近景正面人物，底部白色柱状频谱本次截图未见。 画面有可见主体与背景，未见整屏黑块；构图、姿态和图像… |
 | `3087231311` | 麻匪 明日方舟 凯尔希 | 55(0) bool 9 color 4 slider 4 text 37 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 荧绿人物、灰白斜条、文字与粒子可见；未见主构图缺层，不外推完整播放。 |
 | `3088601835` | Winter Wanderer Xayah - League of Legen… | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3113287126` | Dome 4k {Artwork by WLOP} | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：小提琴粒子方向有差异、数量偏少；旧琴/持弓手锚点修复仅关闭锚点，不关闭方向/数量。 |
+| `3113287126` | Dome 4k {Artwork by WLOP} | 8(0) bool 6 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 10-22原包20s：小数Count拒绝已修，琴/手锚点保持；五系统实际绘制。方向/密度未闭，未改人工裁决。 |
 | `3113554287` | 【可随时间变化】窗旁の伊蕾娜   （优化版本） | 7(1) bool 3 color 3 combo 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3114332546` | 麻匪 云兮 竹林的小师妹 | 53(21) bool 5 color 8 combo 1 slider 12 text 21 textinput 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-21 | 竹林、前景枝叶、持剑人物与右上时间/日期/农历均实际呈现，基础构图与官方参考相符；未见大块缺层、黑块或独立错位。 人物头发/粒子与时钟值不同；视口较窄使裁切与… |
 | `3115163440` | Shadow Garden (X-Ray) | 4(0) bool 2 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |

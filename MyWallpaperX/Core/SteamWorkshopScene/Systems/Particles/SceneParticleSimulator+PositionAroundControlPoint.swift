@@ -27,7 +27,7 @@ extension SceneParticleSimulator {
         let radius = SceneParticleSimulationMath.length(radial)
         guard radius.isFinite else { return false }
 
-        let sequence = Double(particle.id % UInt64(plan.count)) / Double(plan.count)
+        let sequence = plan.sequence(particleID: particle.id)
         let phase = plan.bounds.lowerBound
             + (plan.bounds.upperBound - plan.bounds.lowerBound) * sequence
         let angle = phase * 2 * Double.pi

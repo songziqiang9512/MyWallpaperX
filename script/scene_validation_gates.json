@@ -2057,6 +2057,19 @@
       ]
     },
     {
+      "id": "particle-position-around-count",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionAroundControlPoint.swift",
+        "script/tests/test_scene_particle_position_around.py"
+      ],
+      "modules": [
+        "test_scene_particle_position_around",
+        "test_scene_particle_definitions",
+        "test_scene_particle_simulator"
+      ]
+    },
+    {
       "id": "particle-turbulent-forward",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",

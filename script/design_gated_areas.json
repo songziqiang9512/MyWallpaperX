@@ -1067,6 +1067,19 @@
         "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-position-around-fractional-count",
+      "title": "Position Around CP 保留小数 Count",
+      "owner": "Existing particle definition / initializer plan / simulator birth",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "2026-10-22 #position-around-fractional-count 先保存。仅 Count 用 Number 保真，finite1...1024，整数 UInt64 模数保持；小数用两段32位余数合成连续相位，不增counter/clock/owner。不扩既有CP/空间/Mirror/periodic资格；实际几何和真实样本另验，不称完整官方公式或密度关闭。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionAroundControlPoint.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "153f416dbba4f7f406564bc636f4f70fc349b06c3be74eac1778880b566d03d5",
+        "sourceSHA256": "5b7735a25d07c88e7dfea812f8f39a2ed0862325a2a1348fed298a303877f5da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "单一视频定位状态、普通拒帧与backend事实分界及单份未发布像素复用；native/Debug/真实双视频和独立WebM验收由运行记录拥有，消费需求优化仍未实施。",
-        "limitations": "导航收据不替代运行；未验Release/HDR/多屏/长稳/性能或官方同phase，不关闭337空档及动态实例。"
+        "scope": "既有粒子CP主题合并小数Count后继；保留官方点集/数值/真实GPU与未闭方向密度边界。原视频定位与其他证据保各自身份。",
+        "limitations": "导航收据不替代运行；不外推完整官方phase/sign/公式、311密度方向、性能或未执行组合。"
       }
     },
     {
