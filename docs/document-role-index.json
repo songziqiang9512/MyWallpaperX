@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "521c440e860437aa5ce62dd4f8096b052ad477d293f09c418279ee1ca21ec933",
+        "sourceSHA256": "54201f545fd8234d47ac5f110d46794851dce8505346d5d151de95064dbf850f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅Compose子树官方资格STOP和对应开放队列：两原始OFF、像素门、输入身份、后三臂未派发及关闭独审；其余已有结论不重测。",
-        "limitations": "未裁子层/背景顺序、源区域/alpha或缺省字段；不改产品、不认原370画面修复，不更新全样本分母或verdict。"
+        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
+        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f138e5796ea0269b106b23720433af71151567b8078f96e728dd4305b8485eb6",
+        "sourceSHA256": "b4d0518d8cb0e1abb9c74ea26c5ebac79bed6f6270b738abdfc796dd0034fc82",
         "method": "document_registry --audit + document_health --check",
-        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
-        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
+        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
+        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
       }
     },
     {
@@ -853,13 +853,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6327da1894252b5235bb644d460c54c2d0512c378f684a9232b353d9243b4801",
+        "sourceSHA256": "9363c4002ea3f93d922e2a334ac4343f35d4756a4797b70ef35417b857ba4757",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
+        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2e51ef82830ed2acfeef44706aeebf1fc57812b6bf3e4a99b741bd8aba34cbac",
+        "sourceSHA256": "29eccc072158ce55fd6e38f71a09be91f9b57520aef1d3d535d646d29870fc13",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅Compose子树官方资格STOP和对应开放队列：两原始OFF、像素门、输入身份、后三臂未派发及关闭独审；其余已有结论不重测。",
-        "limitations": "未裁子层/背景顺序、源区域/alpha或缺省字段；不改产品、不认原370画面修复，不更新全样本分母或verdict。"
+        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
+        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
       }
     },
     {

@@ -73,13 +73,14 @@
     "3448845950": {
       "verdict": "fail",
       "reviewedOn": "2026-09-08",
-      "note": "10-20当前原包复现691命名依赖锚点错配导致首帧超时；共享compiler修后实际蓝色动态背景、中央三角标签、时间与封面恢复，691/183 Program/GPU/末合成及下一帧通过，正常停止/GPU排空。只关闭无法启动反馈，历史整体fail保留。",
-      "remainingDifferences": "180/effect10高亮颜色TypeError仍局部回退；旧脚本/布局及全部属性/互动、官方同phase/viewport未复裁。不是整样本PASS，未验证Release/HDR或性能。",
-      "noteReconciledOn": "2026-10-20",
-      "reviewer": "Codex 当前Debug启动/原图有界复核与独审；不重判历史整体verdict",
+      "note": "10-20首帧命名锚点首门已闭；10-21补共享Vec3.equals后，原180/effect10高亮回调由TypeError恢复持续typed颜色，真实背景同窗青蓝→红→绿→青蓝，标签/时钟/封面保持；三编辑无重建、Program/GPU/末合成/次帧及正常退出成立。历史整体fail不重判。",
+      "remainingDifferences": "旧布局/重叠、全部152属性/互动、真实媒体来源及官方同phase/viewport未复裁；不是整样本PASS，Release/HDR/性能未验。",
+      "noteReconciledOn": "2026-10-21",
+      "reviewer": "Codex当前Debug有界颜色复核与独立Sol实图审查；不重判历史整体verdict",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/named-dependency-direct-anchor-344-20261020/current/report.json"
+        ".artifacts/scene-evidence/runs/named-dependency-direct-anchor-344-20261020/current/report.json",
+        ".artifacts/scene-evidence/runs/vec3-equals-344-20261021/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
@@ -1418,10 +1419,12 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-20",
       "reviewer": "Codex root与独立Sol审查（受控当前封面/无媒体及最终原图）",
-      "note": "216/328旧准备守恒与命名绑定首拒已退出；同project/PKG的自有梯度当前封面由白占位恢复紫至蓝灰，白边/标题/人物/星环保持。无媒体正确无封面；216默认隐藏，不假称它可见恢复。",
+      "note": "216/328旧准备守恒与命名绑定首拒已退出；同project/PKG的自有梯度当前封面由白占位恢复紫至蓝灰，白边/标题/人物/星环保持。无媒体正确无封面；216默认隐藏，不假称它可见恢复。10-21同最终App独立原包青底/人物/星环保持，正常退出；仅更新本次运行身份。",
       "remainingDifferences": "只关闭同provider graph-final精确多槽及受控当前封面路径；上一封面切换、真实播放器来源、全部属性/交互、pending资源组合、HDR与官方同audio/pointer/phase/viewport未验，圆环宽形差异未归因；无性能结论。",
       "officialComparison": "compared",
-      "runs": [],
+      "runs": [
+        ".artifacts/scene-evidence/runs/vec3-equals-344-20261021/heldout/report.json"
+      ],
       "evidence": [],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json",
@@ -1430,7 +1433,8 @@
       "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/optional-graph-output-slot-vector-20261020/current/samples/3027068980/runtime_evidence.zip"
-      ]
+      ],
+      "noteReconciledOn": "2026-10-21"
     },
     "3039704323": {
       "verdict": "unreviewed",

@@ -1127,3 +1127,14 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 派发前的session0、长EncodedCommand及受ExecutionPolicy限制的UNC脚本失败保留；未改系统策略，最终以Parallels公开`--current-user`及短命令在session1调用官方CLI。请求多词标题实际截为`MWX`的偏差亦保留；只对本轮观察到的预览用官方定点关闭，CUA确认其消失，原8332接收进程/主窗口与VM保留。guest8输入未变，仅新增8个本轮shader cache；关闭后精确清理自有guest根，未动真实样本。
 
 正式包 `.artifacts/scene-evidence/runs/compose-subtree-qualification-20261021/` 保两张原始OFF、关闭图、输入/身份、失败派发、完整像素/独审与本地研究摘要；普通14天，不更新全样本运行分母或verdict。后继须先有可满足预设门的采集与源正控，再重开语义；本次不重复构建/产品运行验证，继续选择其他已证公共缺口。
+
+<a id="vec3-equals-color-20261021"></a>
+## 2026-10-21：共享Vec3判等恢复作者颜色过渡
+
+原344的180/effect10高亮回调默认调用缺失的`Vec3.equals`后退出，现有Program继续消费fallback。公开Vec3 API明确epsilon判等；数值边界复用[固定2.8.42行为观察](scenescript-runtime-implementation-contract.md#52-判等容差)，不是本轮VM数值裁决。在原QuickJS值宿主补纯查询方法，合法Vec3逐分量差严格小于1e-5，不改操作数、作者脚本、typed有限值发表、异常/disabled-owner或shader算法；不借此开放其他向量方法/类型。
+
+同原包默认变体3、独占零PCM、中心pointer，当前签名Debug实际运行12s；原回调0错误，166次`u_HighlightColor`编码经同一Program/GPU/末合成和次帧。三次颜色编辑均accepted且surface1/window18257不变；原始908×590系列图在ready后约1.59/3.66/5.78/11.64s显示青蓝→红→绿→青蓝背景，中央蓝标签、可见时钟及封面保持。相邻编码值分别约[.0083,.5294,1]、[.9949,.0027,.0052]、[.0037,.9963,0]、[0,.525495,.999990]；时间变化的纹路不作逐像素恢复断言。after实际约2.26s，不以请求10s误记后期图；目录官方图仅供基本构图参考。独立原302同App青底/人物/白星环保持，两run均exit0、surface1→0/GPUdrain、无源码/App漂移。
+
+最近真实C VM门26case×2次回调由缺方法首错全部转绿，健康peer52/52；含改名/等价表达、copy、typed输入、三轴正负阈值下/等/上、分量容差与欧氏距离反例及纯查询。Debug构建和签名、共享防御门及独审通过；主程序SHA `6ffdcfb5…fc6955`、dylib `2d15e2d9…682fdd`，5377冻结输入无漂移。green结果为已完成工具输出的如实转录收据，未为补日志重复运行。只关闭颜色回调/热切首门，旧布局重叠、全部152参数/真实面板/媒体来源、完整官方phase、HDR/Release及性能未验。
+
+正式包 `.artifacts/scene-evidence/runs/vec3-equals-344-20261021/`保原report/log、五张必要原图、红门/green收据、身份与实图独审；普通14天。归档242行只替344和302、其他240行及顺序不变，目录分母356、人工337 unreviewed/19 fail/0 pass不变；历史混合身份不当全量当前复测。原全量census缓存仍351行，本轮用已有两静态行限定normalizer输入，不重扫样本或改census工具。临时HOME/样本与停用图/重复副本清理，仅保一份最新App及既有增量cache供下一批。

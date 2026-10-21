@@ -3369,10 +3369,27 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "bundle_version": "283",
+      "cdhash": "b8c633ed63d927f18419d8c4926710c0a7277d6e",
+      "executable_sha256": "6ffdcfb5f92cca783b87d19de450cf942aab12265938cad418b825c678fc6955",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "runtime_root_path": null,
+      "short_version": "2.11.0",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/runtime/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/runtime/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "source_signature_verified": true,
+      "team_identifier": "H9QWU9XN8R",
+      "verified_after": true,
+      "verified_before": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-21T05:02:59.588206+00:00",
+  "generatedAtUtc": "2026-10-21T06:19:04.528813+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -5253,6 +5270,24 @@
       "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/supporting/samples/3724289844/runtime_evidence.zip",
       "containerSha256": "69df47de0866dd7953cd2b071c2642a3fcfab49421e8e8038058d45fab9a418e",
       "member": "real/report.json"
+    },
+    {
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/vec3-equals-344-20261021/supporting/samples/3448845950/runtime_evidence.zip",
+      "containerSha256": "49537e50b595c9199bd51c239e9e0794230429f57595771ff7148f9d013f7bc5",
+      "member": "current/report.json",
+      "sha256": "0b4b892421d467e05cfa1566aa46a17ef5caf84c4b4ff356edad93ccd69f6da4",
+      "matrix": "vec3-equals-real-344-and-independent-302",
+      "sampleCount": 1
+    },
+    {
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/vec3-equals-344-20261021/supporting/samples/3448845950/runtime_evidence.zip",
+      "containerSha256": "49537e50b595c9199bd51c239e9e0794230429f57595771ff7148f9d013f7bc5",
+      "member": "heldout/report.json",
+      "sha256": "8ce692a892c87e2b932fe41c693421400a67855ebeb64b38b0f6c8a10c72bf22",
+      "matrix": "vec3-equals-real-344-and-independent-302",
+      "sampleCount": 1
     }
   ],
   "samples": [
@@ -9743,29 +9778,34 @@
         },
         "effectInstanceCount": 103,
         "objectCount": 81,
-        "occurrenceCount": 1280,
+        "occurrenceCount": 1291,
         "packageSha256": "9d30d1d89b35d05bfd64a8b98abc862cd1b8e47b4a6981e953006e8421c63df3",
         "parseState": "parsed",
         "particleLayerCount": 2,
         "projectSha256": "7ac13a90a1d3f9a5b128f4080eb85db32a433624068a259006c182032defb51f",
-        "visibleOccurrenceCount": 287
+        "visibleOccurrenceCount": 291
       },
       "evidence": {
         "report": {
-          "path": "/private/tmp/mwx-fullset-baseline/run-3448845950/report.json",
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/vec3-equals-344-20261021/supporting/samples/3448845950/runtime_evidence.zip",
+          "containerSha256": "49537e50b595c9199bd51c239e9e0794230429f57595771ff7148f9d013f7bc5",
+          "member": "current/report.json",
+          "sha256": "0b4b892421d467e05cfa1566aa46a17ef5caf84c4b4ff356edad93ccd69f6da4",
           "sampleIndex": 0,
-          "sha256": "30ea69a07394ce14314145a1923f2dccbf58679dfc25f518c61c677ffcf57eee"
+          "jsonPointer": "/samples/0"
         },
         "sampleEvidencePaths": {
-          "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3448845950/results/3448845950/scene-after-window.png",
-          "app_log": "/private/tmp/mwx-fullset-baseline/run-3448845950/results/3448845950/app.log",
-          "preview_log": "/private/tmp/mwx-fullset-baseline/run-3448845950/results/3448845950/scene-preview.log",
-          "ready_snapshot": "/private/tmp/mwx-fullset-baseline/run-3448845950/results/3448845950/scene-ready-window.png",
-          "runtime_evidence": "/tmp/mwx-fullset-baseline/run-3448845950/results/3448845950/scene-runtime-evidence.json"
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/current/results/3448845950/app.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/current/results/3448845950/scene-preview.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/current/results/3448845950/scene-runtime-evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/current/results/3448845950/scene-before-window.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/current/results/3448845950/scene-hover-window.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/current/results/3448845950/scene-after-window.png"
         }
       },
       "id": "3448845950",
-      "nextAction": "inspect-fallback-and-authored-visual-ROI",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
       "runtime": {
         "benchmarkResultIgnored": {
           "failureCount": 0,
@@ -9773,34 +9813,20 @@
           "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
         },
         "evidenceSummary": {
-          "acceptedGraphLayerCount": 16,
-          "afterFlatBorderRatio": 0.267358313188289,
+          "acceptedGraphLayerCount": 31,
+          "afterFlatBorderRatio": 0.5990784712799638,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
-          "nextFrameLayerCount": 16,
-          "previewSpatialColorSimilarityAdvisory": 0.5623,
-          "readyFlatBorderRatio": 0.42009971796937956,
+          "nextFrameLayerCount": 21,
+          "previewSpatialColorSimilarityAdvisory": 0.6031,
+          "readyFlatBorderRatio": 0.39738805970149255,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
-          "terminalCompositorLayerCount": 15
+          "terminalCompositorLayerCount": 20
         },
-        "firstBreakpoint": {
-          "capabilityProfileOrAuthoredShape": "target:effectConstant",
-          "evidenceBasis": "evidence.app_log typed SceneScript failure",
-          "failureRadius": "script",
-          "fallbackPreservedTerminalCompositor": null,
-          "owner": "SceneScriptVM",
-          "reasonCode": "scene-script-exception-type-error",
-          "severity": "degraded",
-          "stage": "script-execution",
-          "unit": {
-            "effectIndex": 10,
-            "kind": "script",
-            "layerId": 180
-          }
-        },
+        "firstBreakpoint": null,
         "secondaryEvents": [],
-        "status": "degraded-runtime"
+        "status": "structural-chain-complete-visual-review"
       },
       "title": "麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:10 21:9 32:9"
     },
@@ -24943,215 +24969,66 @@
       "nextAction": "inspect-fallback-and-authored-visual-ROI"
     },
     {
-      "id": "3027068980",
-      "title": "麻匪 Miku 初音未来 自定义音频识别 Media Player",
       "authored": {
-        "projectSha256": "42f66adfee05dc6782dff4467785470468e6a73007cea44d1837d0db5e8d7953",
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 18,
+          "script_wrappers": 42,
+          "timeline_wrappers": 3,
+          "user_bindings": 18
+        },
+        "effectInstanceCount": 51,
+        "objectCount": 32,
+        "occurrenceCount": 673,
         "packageSha256": "436bb36197da2cef83b8e742c28786174491c28e5ebeac270ca9e1c35b34733d",
-        "shaderBlobInventorySha256": "c956c77a6300132fdaf3e4bf2211b6c4322df36d7d24fd4609c3743cdd1b504f",
-        "parseState": "not-censused; frozen project/pkg/shaderBlob identities only",
-        "objectCount": null,
-        "occurrenceCount": null,
-        "visibleOccurrenceCount": null,
-        "effectInstanceCount": null,
-        "particleLayerCount": null,
-        "dynamicFeatureCounts": {},
-        "identitySource": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-          "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-          "member": "native/summary.json",
-          "bytes": 211970,
-          "sha256": "2acb3b6db3be7a017fc9a7da37c17440ab90302bcf7e3e80ad9fdae70e2d978a",
-          "crc32": "138ffe03",
-          "status": "retained-byte-verified"
-        }
-      },
-      "runtime": {
-        "status": "degraded-runtime",
-        "firstBreakpoint": {
-          "stage": "effect-admission",
-          "owner": "EffectStageAdmission",
-          "reasonCode": "unified-capability-unavailable",
-          "capabilityProfileOrAuthoredShape": "backend:effect-family:blend",
-          "failureRadius": "effect",
-          "severity": "degraded",
-          "unit": {
-            "kind": "effect",
-            "layerId": 328,
-            "effectIndex": 0,
-            "descriptorId": "328#effect#329"
-          },
-          "fallbackPreservedTerminalCompositor": null,
-          "evidenceBasis": "runtime.effect_stage_admission.records"
-        },
-        "secondaryEvents": [
-          {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "unified-capability-unavailable",
-            "capabilityProfileOrAuthoredShape": "backend:effect-family:blendgradient",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 328,
-              "effectIndex": 2,
-              "descriptorId": "328#effect#333"
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "effect-admission",
-            "owner": "EffectStageAdmission",
-            "reasonCode": "unified-capability-unavailable",
-            "capabilityProfileOrAuthoredShape": "backend:effect-family:opacity",
-            "failureRadius": "effect",
-            "severity": "degraded",
-            "unit": {
-              "kind": "effect",
-              "layerId": 328,
-              "effectIndex": 3,
-              "descriptorId": "328#effect#336"
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.effect_stage_admission.records"
-          },
-          {
-            "stage": "named-target-binding",
-            "owner": "LayerDependencies",
-            "reasonCode": "named-target-binding-failed",
-            "capabilityProfileOrAuthoredShape": "named-binding",
-            "failureRadius": "layer",
-            "severity": "degraded",
-            "unit": {
-              "kind": "layer",
-              "layerId": 328
-            },
-            "fallbackPreservedTerminalCompositor": null,
-            "evidenceBasis": "runtime.named_target_binding_failed_layer_ids"
-          }
-        ],
-        "evidenceSummary": {
-          "surfaceCount": 1,
-          "readyNonBlackObserved": true,
-          "afterNonBlackObserved": true,
-          "readyFlatBorderRatio": 0.765310233682514,
-          "afterFlatBorderRatio": 0.7559260005372012,
-          "previewSpatialColorSimilarityAdvisory": 0.6785,
-          "graphEvidenceObserved": true,
-          "acceptedGraphLayerCount": 15,
-          "terminalCompositorLayerCount": 9,
-          "nextFrameLayerCount": 9
-        },
-        "benchmarkResultIgnored": {
-          "passed": null,
-          "failureCount": 1,
-          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
-        },
-        "intakeLifecycle": {
-          "exitCode": 0,
-          "timedOut": false,
-          "ready": {
-            "surfaces": 1,
-            "startup_ready_ms": 24057.252,
-            "layers": 32,
-            "effects": 42
-          },
-          "stop": {
-            "line": "2026-10-19 16:21:30.270 MyWallpaperX[51416:1863059] MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true",
-            "surfacesBefore": 1,
-            "surfacesAfter": 0,
-            "gpuDrained": true
-          },
-          "lifecycleQualified": true,
-          "processGroup": "UNKNOWN: existing run_sample creates no independent PGID receipt",
-          "sourceDrift": false,
-          "appVerifiedAfter": true
-        },
-        "visualVerdict": "unreviewed"
+        "parseState": "parsed",
+        "particleLayerCount": 5,
+        "projectSha256": "42f66adfee05dc6782dff4467785470468e6a73007cea44d1837d0db5e8d7953",
+        "visibleOccurrenceCount": 243
       },
       "evidence": {
         "report": {
           "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-          "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-          "member": "native/report.json",
-          "bytes": 346267,
-          "sha256": "f513d7d4142f24c292051d3d30e647c551a4d51702f96652fc5297e22100bd08",
-          "crc32": "cdee4404",
-          "status": "retained-byte-verified",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/vec3-equals-344-20261021/supporting/samples/3448845950/runtime_evidence.zip",
+          "containerSha256": "49537e50b595c9199bd51c239e9e0794230429f57595771ff7148f9d013f7bc5",
+          "member": "heldout/report.json",
+          "sha256": "8ce692a892c87e2b932fe41c693421400a67855ebeb64b38b0f6c8a10c72bf22",
           "sampleIndex": 0,
           "jsonPointer": "/samples/0"
         },
-        "runSummary": {
-          "format": "zip-member",
-          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-          "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-          "member": "native/summary.json",
-          "bytes": 211970,
-          "sha256": "2acb3b6db3be7a017fc9a7da37c17440ab90302bcf7e3e80ad9fdae70e2d978a",
-          "crc32": "138ffe03",
-          "status": "retained-byte-verified"
-        },
         "sampleEvidencePaths": {
-          "app_log": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-            "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-            "member": "native/app.log",
-            "bytes": 191559,
-            "sha256": "2cb9fdfdb9bfd3aa00054e43f999753e263d91a08b7b405d6e25c9373ccccf3b",
-            "crc32": "2168547f",
-            "status": "retained-byte-verified"
-          },
-          "preview_log": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-            "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-            "member": "native/scene-preview.log",
-            "bytes": 49329,
-            "sha256": "42f4a8f103ca065382bf96b789f0654907ef686069771f1dc22cc6df5b091adb",
-            "crc32": "0ed40652",
-            "status": "retained-byte-verified"
-          },
-          "runtime_evidence": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-            "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-            "member": "native/scene-runtime-evidence.json",
-            "bytes": 1054936,
-            "sha256": "05358f9e6929125b114a62103e6c9f2b61125156791c36332397d5c59368478c",
-            "crc32": "dbdfc2e5",
-            "status": "retained-byte-verified"
-          },
-          "after_snapshot": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-            "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-            "member": "raw/scene-after-window.png",
-            "bytes": 2285999,
-            "sha256": "4e3a5f499886f09b064bf971aed59ab32e0d47a9ac8568429b4a2956a6d4fd97",
-            "crc32": "5142e15f",
-            "status": "retained-byte-verified"
-          },
-          "retention_omissions": {
-            "format": "zip-member",
-            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-02/current/samples/3027068980/runtime_evidence.zip",
-            "containerSha256": "2a5bdea544534a9be826c66a11a50f7b04191b5817992e3a66563f3f3b5483e5",
-            "member": "retention-omissions.json",
-            "bytes": 745,
-            "sha256": "6cd2542f9ffcd2ddc09fbac7cc7eb60ae2ca67c2156b14ba5de9a376435afdcb",
-            "crc32": "d6cf9f6f",
-            "status": "retained-byte-verified"
-          }
-        },
-        "unretainedEvidenceKeys": [
-          "ready_snapshot"
-        ]
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/heldout/results/3027068980/app.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/heldout/results/3027068980/scene-preview.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/heldout/results/3027068980/scene-runtime-evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/heldout/results/3027068980/scene-before-window.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/heldout/results/3027068980/scene-hover-window.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/vec3-equals-344-20261021/heldout/results/3027068980/scene-after-window.png"
+        }
       },
-      "nextAction": "inspect-fallback-and-authored-visual-ROI"
+      "id": "3027068980",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 17,
+          "afterFlatBorderRatio": 0.7737731795567616,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 10,
+          "previewSpatialColorSimilarityAdvisory": 0.676,
+          "readyFlatBorderRatio": 0.7574909543193126,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 10
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "麻匪 Miku 初音未来 自定义音频识别 Media Player"
     },
     {
       "id": "3039704323",
@@ -30510,8 +30387,8 @@
     },
     "parentArchive": {
       "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_sample_debug_archive.json",
-      "bytes": 617966,
-      "sha256": "be710559e57d0ba8bb6c73bbed9726c9973ee43712923f1490580f99bb358b41"
+      "bytes": 1555264,
+      "sha256": "af72a58bbe634e234061b38ea43a9d541ebe3efc5a59d9056c8f1ca7c4147e4e"
     },
     "deltaIntake": {
       "format": "zip-member",
@@ -31194,6 +31071,19 @@
           "sha256": "bef16a27d73357f0fa65b4e42a7369688ed4e47024bf2ec7d27c9ddf296c3406"
         },
         "staticCensusRefreshed": false
+      },
+      {
+        "importedAtUtc": "2026-10-21T06:19:04.528813+00:00",
+        "sampleIDs": [
+          "3027068980",
+          "3448845950"
+        ],
+        "reason": "Bounded Vec3.equals host method and real344 color transition; independent302 gross composition preserved. Other240 rows unchanged, no whole-sample verdict or static census refresh.",
+        "qualification": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/vec3-equals-344-20261021/supporting/report.json",
+          "sha256": "08914239e326f37eede551e1d952bb20a9ce4797e6d7ed3aa7153aedf070931e"
+        },
+        "staticCensusRefreshed": false
       }
     ]
   },
@@ -31202,13 +31092,13 @@
     "reportedSampleCount": 242,
     "statusCounts": {
       "blocked": 2,
-      "degraded-runtime": 55,
+      "degraded-runtime": 53,
       "runtime-evidence-incomplete": 2,
-      "structural-chain-complete-visual-review": 183
+      "structural-chain-complete-visual-review": 185
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 7,
-      "effect-admission:unified-capability-unavailable": 4,
+      "effect-admission:unified-capability-unavailable": 3,
       "effect-execution:effect-local-passthrough-material-dynamic-uniform-producer-unavailable": 1,
       "graph-execution:layer-source-not-ready": 5,
       "process:process-timeout": 1,
@@ -31219,7 +31109,7 @@
       "script-execution:scene-script-exception-internal-error": 1,
       "script-execution:scene-script-exception-range-error": 1,
       "script-execution:scene-script-exception-reference-error": 1,
-      "script-execution:scene-script-exception-type-error": 13,
+      "script-execution:scene-script-exception-type-error": 12,
       "script-execution:scene-script-invalid-argument": 2
     },
     "normalizedDiagnosticClaim": "runtime-and-output-diagnostics-only-not-visual-correctness"

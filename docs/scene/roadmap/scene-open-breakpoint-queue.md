@@ -104,7 +104,7 @@
 | 2938612768 · 右下时钟裁切 | 10-14固定13基线/候选的两张后期图均在，23层执行集合相同。根因未定；先当前布局/输出ROI复验，不改矩阵期待掩盖。[同输入证据](../history/frame-texture-snapshot-convergence-2026-10-14.md) |
 | 2775915974 · 顶部灰边 | 来自09-06/08旧人工观察，缺当前身份；方向/顶部事件已修不证明该边界消失，先复验其是否是作者画布露底 |
 | 3437487219 · collision行为 | 旧人工裁决的collision未取得后继关闭证据；先复验实际碰撞输入/owner，日期/时间恢复不代替本项。不能仅因旧fail写当前碰撞缺陷 |
-| 3448845950 · 局部脚本效果/旧布局 | 10-20当前首帧阻断已按[锚点一致性后验](../capabilities/runtime-evidence-current.md#named-dependency-direct-anchor-20261020)关闭，不能继续称无法启动。180/effect10高亮颜色仍有局部TypeError；原图已有蓝背景/标签/封面，旧布局观察未同phase/viewport复裁，不归font或重开资源链。 |
+| 3448845950 · 旧布局余项 | 首帧锚点阻断已闭；10-21高亮颜色的缺失Vec3.equals首错也已退出，背景同窗青蓝→红→绿→青蓝且标签/时钟/封面保持，见[颜色后验](../capabilities/runtime-evidence-current.md#vec3-equals-color-20261021)。只保旧布局/重叠待同phase/viewport复裁；不再排该TypeError，不归font或重开资源链。 |
 | 3712499998 · 重复文字/样式 | 来自旧人工观察，Vec构造首门与频谱已修；若当前仍重复，定位实际String/图层组合，不再补WEVector API |
 | 3477054430 · 月亮/球体与文字布局 | U12雾/Bloom、光照和媒体入口等已有有界后验，但旧“画面显示不全”、月亮/球体与文字布局不能合并销账。月亮过亮、低频响应和猫受光另有明确未闭边界；先按当前原输入/声源/phase定位具体ROI，不从旧fail重开已修首门。[原报告及局部后验](../history/shared-shader-type-compatibility-2026-10-09.md#u12-真实-pcm-与系统采集后继) |
 | 3775355045 /3775373546 · 遮罩下双视频可见卡顿/不同步 | 旧维护者观察为数秒后下层落后；09-14原包20秒实际解码/命令与provider时钟同步推进，差小于2ms，不能继续称同步API缺失。但未将旧可见卡顿逐帧对齐到同内容/phase，保有界余项，先查实际两层publication/graph完成，不泛化所有视频。[时钟后验](../capabilities/scene-sample-debug-ledger.md#video-command-generation) |

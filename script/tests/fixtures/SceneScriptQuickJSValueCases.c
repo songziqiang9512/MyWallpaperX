@@ -138,6 +138,103 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "Vec2 mix with number amount"
     );
 
+    // Fixed official 2.8.0.42 contract: every component has abs(diff) < 1e-5.
+    // Use a zero base at the boundary to avoid subtraction cancellation.
+    // Only legal Vec3 operands are covered; this does not define type coercion.
+    static const struct {
+        const char *label;
+        const char *left;
+        const char *right;
+        bool expected;
+        bool bracket_call;
+    } equals_cases[] = {
+        {"independent equal values", "new Vec3(2,3,4)", "new Vec3(2,3,4)", true, false},
+        {"copy", "new Vec3(-2,0.5,4)", "renamedLeft.copy()", true, false},
+        {"copy constructor", "new Vec3(-2,0.5,4)", "new Vec3(renamedLeft)", true, false},
+        {"renamed equivalent values", "new Vec3(2,3,4)", "new Vec3(4/2,6/2,2+2)", true, true},
+        {"typed callback input", "value", "new Vec3(1,2,3)", true, false},
+        {"zero constructors", "new Vec3()", "new Vec3(0,0,0)", true, false},
+        {"x positive below", "new Vec3()", "new Vec3(0.000009,0,0)", true, false},
+        {"x positive boundary", "new Vec3()", "new Vec3(0.00001,0,0)", false, false},
+        {"x positive above", "new Vec3()", "new Vec3(0.000011,0,0)", false, false},
+        {"x negative below", "new Vec3()", "new Vec3(-0.000009,0,0)", true, false},
+        {"x negative boundary", "new Vec3()", "new Vec3(-0.00001,0,0)", false, false},
+        {"x negative above", "new Vec3()", "new Vec3(-0.000011,0,0)", false, false},
+        {"y positive below", "new Vec3()", "new Vec3(0,0.000009,0)", true, false},
+        {"y positive boundary", "new Vec3()", "new Vec3(0,0.00001,0)", false, false},
+        {"y positive above", "new Vec3()", "new Vec3(0,0.000011,0)", false, false},
+        {"y negative below", "new Vec3()", "new Vec3(0,-0.000009,0)", true, false},
+        {"y negative boundary", "new Vec3()", "new Vec3(0,-0.00001,0)", false, false},
+        {"y negative above", "new Vec3()", "new Vec3(0,-0.000011,0)", false, false},
+        {"z positive below", "new Vec3()", "new Vec3(0,0,0.000009)", true, false},
+        {"z positive boundary", "new Vec3()", "new Vec3(0,0,0.00001)", false, false},
+        {"z positive above", "new Vec3()", "new Vec3(0,0,0.000011)", false, false},
+        {"z negative below", "new Vec3()", "new Vec3(0,0,-0.000009)", true, false},
+        {"z negative boundary", "new Vec3()", "new Vec3(0,0,-0.00001)", false, false},
+        {"z negative above", "new Vec3()", "new Vec3(0,0,-0.000011)", false, false},
+        {"componentwise not Euclidean", "new Vec3()", "new Vec3(0.000008,-0.000008,0.000008)", true, false},
+        {"componentwise reversed", "new Vec3(0.000008,-0.000008,0.000008)", "new Vec3()", true, true},
+    };
+    const char *equals_peer_source =
+        "let healthyCalls=0;export function update(value){healthyCalls++;"
+        "return new Vec3(value.x+1,healthyCalls,value.z);}";
+    MWXSceneQuickJSOwner *equals_peer = mwx_scene_quickjs_owner_create(
+        fixture->domain, equals_peer_source, strlen(equals_peer_source), 146,
+        fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(
+        equals_peer != NULL, "Vec3 equals healthy peer compile", fixture->diagnostic);
+    size_t equals_callbacks_passed = 0, equals_peers_passed = 0, equals_peer_calls = 0;
+    const size_t equals_case_count = sizeof(equals_cases) / sizeof(equals_cases[0]);
+    for (size_t index = 0; index < equals_case_count; ++index) {
+        char source[1536], label[160];
+        const int written = snprintf(source, sizeof(source),
+            "let callbackCount=0;export function update(value){"
+            "const renamedLeft=%s;const candidate=%s;"
+            "const before=[renamedLeft.x,renamedLeft.y,renamedLeft.z,"
+            "candidate.x,candidate.y,candidate.z];"
+            "const answer=%s;"
+            "if(typeof answer!=='boolean')throw Error('equals must return Boolean');"
+            "if(renamedLeft.x!==before[0]||renamedLeft.y!==before[1]||"
+            "renamedLeft.z!==before[2]||candidate.x!==before[3]||"
+            "candidate.y!==before[4]||candidate.z!==before[5])"
+            "throw Error('equals mutated an operand');callbackCount++;"
+            "return new Vec3(answer?1:0,callbackCount,value.z);}",
+            equals_cases[index].left, equals_cases[index].right,
+            equals_cases[index].bracket_call
+                ? "renamedLeft['equals'](candidate)" : "renamedLeft.equals(candidate)");
+        snprintf(label, sizeof(label), "Vec3 equals %s compile", equals_cases[index].label);
+        if (written < 0 || (size_t)written >= sizeof(source)) {
+            fixture->failures += mwx_fixture_check(false, label, "fixture source truncated");
+            continue;
+        }
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 145,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        for (size_t callback = 1; callback <= 2; ++callback) {
+            const double expected[3] = {equals_cases[index].expected ? 1 : 0, (double)callback, 3};
+            snprintf(label, sizeof(label), "Vec3 equals %s callback %zu", equals_cases[index].label, callback);
+            const int failure = mwx_fixture_update_vec3(
+                owner, 145, vec3_input, "", "{}", MWX_SCENE_QUICKJS_OK, expected, label);
+            fixture->failures += failure;
+            equals_callbacks_passed += failure == 0;
+            if (equals_peer != NULL) {
+                ++equals_peer_calls;
+                const double peer_expected[3] = {2, (double)equals_peer_calls, 3};
+                snprintf(label, sizeof(label), "Vec3 equals healthy peer after case %zu callback %zu", index, callback);
+                const int peer_failure = mwx_fixture_update_vec3(
+                    equals_peer, 146, vec3_input, "", "{}", MWX_SCENE_QUICKJS_OK, peer_expected, label);
+                fixture->failures += peer_failure;
+                equals_peers_passed += peer_failure == 0;
+            }
+        }
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+    mwx_scene_quickjs_owner_destroy(equals_peer);
+    printf("MWX_VEC3_EQUALS_CONTRACT {\"cases\":%zu,\"callbacksPassed\":%zu,\"peerCalls\":%zu,\"peersPassed\":%zu}\n",
+        equals_case_count, equals_callbacks_passed, equals_peer_calls, equals_peers_passed);
+
     // Fixed official 2.8.0.42 finite-operand observations, with renamed and
     // equivalent expressions. Result class and RHS immutability below retain
     // this host's existing contract; the official probe did not measure them.

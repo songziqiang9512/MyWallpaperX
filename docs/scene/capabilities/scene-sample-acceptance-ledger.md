@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（356 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `af72a58bbe634e234061b38ea43a9d541ebe3efc5a59d9056c8f1ca7c4147e4e`（生成于 2026-10-21T05:02:59.588206+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `3e9832c25872b363e29eaf1462b50626d93159b083cd2993a4d6a6b06a03b59f`。
-- 本页生成于 2026-10-21T05:03:00.115481+00:00。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `e4081fa0a8325d4a789401193c1070a9cfc423e2201b8d9cbd0e6073d130e261`（生成于 2026-10-21T06:19:04.528813+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `fcb6a0a77bd845d706164862aa551d7080c1a7a0c2eaf46d04597ebd2ea133b9`。
+- 本页生成于 2026-10-21T06:19:04.779101+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -37,21 +37,21 @@
 
 | 归档首断点集群 | 含义 | 样本数 |
 |---|---|---:|
-| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 17 |
+| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 16 |
 | `particle-load` | 粒子层资源加载 | 11 |
 | `texture-load` | 基础图片纹理加载 | 8 |
-| `scenescript` | SceneScript 异常 | 20 |
+| `scenescript` | SceneScript 异常 | 19 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 186 |
+| `visual-review` | 结构链完整，待视觉验收 | 188 |
 | `not-run` | 未关联本归档运行证据 | 114 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
-| `degraded-runtime` | 55 |
+| `degraded-runtime` | 53 |
 | `not-run` | 114 |
 | `runtime-evidence-incomplete` | 2 |
-| `structural-chain-complete-visual-review` | 183 |
+| `structural-chain-complete-visual-review` | 185 |
 
 作者参数：276 个样本声明了 schemecolor 之外的用户参数，共 8985 项，其中 2899 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -167,7 +167,7 @@
 | `3022080536` | 赛博color-宣纸国画-紫罗兰永恒花园 | 2(0) bool 1 color 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` 2026-10-17 | 10-17静态format9/20B mesh修正后，原包奶油纸底、书法与双红印已恢复，主体18旧52B动画保持；不再列背景灰底/装饰缺失。与目录官方仅基础构… |
 | `3025969015` | 黑龙闹海 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3027056454` | 麻匪 多娜多娜 Dohna Dohna | 27(2) bool 5 color 4 combo 1 slider 1 text 16 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-21 | 群像人物、洋红/白色双背景、黑色点阵斜带、星形与几何图案均存在；未见人物大层缺失、异常黑块或明显混合破坏。 actual星形分布、背景几何姿态与官方不同，群像… |
-| `3027068980` | 麻匪 Miku 初音未来 自定义音频识别 Media Player | 30(6) bool 5 color 6 combo 3 scenetexture 1 text 15 | `degraded-runtime` | `effect-admission / EffectStageAdmission / unified-capability-unavailable / backend:effect-family:blend` | `effect-chain` | `unreviewed` 2026-10-20 | 216/328旧准备守恒与命名绑定首拒已退出；同project/PKG的自有梯度当前封面由白占位恢复紫至蓝灰，白边/标题/人物/星环保持。无媒体正确无封面；2… |
+| `3027068980` | 麻匪 Miku 初音未来 自定义音频识别 Media Player | 30(6) bool 5 color 6 combo 3 scenetexture 1 text 15 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-20 | 216/328旧准备守恒与命名绑定首拒已退出；同project/PKG的自有梯度当前封面由白占位恢复紫至蓝灰，白边/标题/人物/星环保持。无媒体正确无封面；2… |
 | `3028090166` | WLOP [Tian Nan2] | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3039704323` | 赛博color-宣纸国画-紫罗兰永恒花园3 | 7(0) bool 5 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 米白水墨人物、竖字及双弧可见；主构图保持，完整动态/输入未验收。 |
 | `3039882306` | 麻匪 音频识别 抽签 Media Player | 49(10) bool 11 color 9 combo 1 scenetexture 2 slider 2 text… | `not-run` | - | `not-run` | `unreviewed` |  |
@@ -223,7 +223,7 @@
 | `3436945972` | 麻匪 Wlop 远方来客 | 45(9) bool 3 color 2 combo 4 slider 6 text 27 textinput 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 补足启动余量后已见开场过渡及双人物桥景；旧70s工具超时保留，不判主体缺失。冷启动单次64.8s，非性能收益。 |
 | `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-10-19 | 10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail… |
 | `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 10-20当前原包复现691命名依赖锚点错配导致首帧超时；共享compiler修后实际蓝色动态背景、中央三角标签、时间与封面恢复，691/183 Progra… |
+| `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 10-20首帧命名锚点首门已闭；10-21补共享Vec3.equals后，原180/effect10高亮回调由TypeError恢复持续typed颜色，真实背… |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | mixed组未参与修法原包独立8s/native/默认：人物、帘、城市、时钟实际呈现，App0、正常stop/GPU排空、输入/App无漂移。1733 alp… |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 仍黑水滴/缺亮边拖尾；旧NaN已修，反射原型已撤回；115.scale首个非有限返回仍在。 |
 | `3471294034` | 麻匪 巳 UnclePanda [3大UI布局切换] | 86(44) bool 10 color 21 combo 4 slider 7 text 37 textinput 7 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18限定后验：原报告的背景菱形网格缺失已由根实际before/after/目录官方对照关闭；线与方形节点恢复，人物/文字/花瓣/频谱仍在。sh… |

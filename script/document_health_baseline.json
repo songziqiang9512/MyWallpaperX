@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 547,
-      "bytes": 195272
+      "lines": 558,
+      "bytes": 197807
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 419,
-      "bytes": 91181
+      "bytes": 91052
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 114775
+      "bytes": 115136
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 246,
-      "bytes": 76558
+      "bytes": 76562
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1242,20 +1242,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1d1f1fe948aa99b040f4244cf7dc04b0c2ed73372a736e2dfcdf8d97034730a3",
-      "after": "53cf51773a94ff860874eff64668333bca2bccaf3a3d3e2c2a4ce92dabf8a3a5",
-      "owner": "scene-compose-subtree-qualification",
-      "reason": "新增受控官方实验的STOP边界：固定像素正控未过、后三臂未运行；保持原子树准入与全样本分母，仅将源范围风险和不可复用失败载体收口到唯一运行记录。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#compose-subtree-qualification-20261021"
+      "before": "53cf51773a94ff860874eff64668333bca2bccaf3a3d3e2c2a4ce92dabf8a3a5",
+      "after": "962dec03601ad11b5f703f6164f150cda4c3fd94bfb5fe3f0e6649921a4a9a4c",
+      "owner": "scene-vec3-value-equality",
+      "reason": "在既有Vec3共享宿主补已证严格epsilon判等；原344颜色同窗真实变化/恢复，独立302保持；只更新两条有界运行及单一API/队列/台账，不改历史整样本裁决。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vec3-equals-color-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "a21bafc1cc38355001f1b81595831c3dcc6e60a15bf7e60602691cb20c2d41be",
+      "after": "e6924f1ac8bad1c87f1ca5c8cdca12aa9f4faebcca289d41d81fcadd2e4a34df",
+      "owner": "scene-vec3-value-equality",
+      "reason": "在既有Vec3共享宿主补已证严格epsilon判等；原344颜色同窗真实变化/恢复，独立302保持；只更新两条有界运行及单一API/队列/台账，不改历史整样本裁决。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vec3-equals-color-20261021"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "64a8d95a368cd14d75a4b5681a752cec0c176a7bd82b0fa51845a368d8dda957",
-      "after": "fc8ae23d174fcccb7548d0a61e4f5c4bef387e855976d7b5414dca0dbda10571",
-      "owner": "scene-compose-subtree-qualification",
-      "reason": "新增受控官方实验的STOP边界：固定像素正控未过、后三臂未运行；保持原子树准入与全样本分母，仅将源范围风险和不可复用失败载体收口到唯一运行记录。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#compose-subtree-qualification-20261021"
+      "before": "fc8ae23d174fcccb7548d0a61e4f5c4bef387e855976d7b5414dca0dbda10571",
+      "after": "a2ec24adbfbfd2fd86545bd0359e02b7cd8e99fac93671d26b8aca782831bb32",
+      "owner": "scene-vec3-value-equality",
+      "reason": "在既有Vec3共享宿主补已证严格epsilon判等；原344颜色同窗真实变化/恢复，独立302保持；只更新两条有界运行及单一API/队列/台账，不改历史整样本裁决。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vec3-equals-color-20261021"
     }
   ]
 }
