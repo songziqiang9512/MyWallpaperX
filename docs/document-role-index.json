@@ -3616,13 +3616,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "对旧静态审计逐项复核后仍可定位的首owner缺口/状态反例；不维护旧样本评分，不代替实际运行故障或队列选序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "df21f3959cf89f3017ac19cad96cb56a6c701e62b2ebfa790e4aa51657513412",
+        "sourceSHA256": "79499e8612bf85ef513f2e0682ea2c82537f9bfb0e7cee7be51912d1a5891548",
         "method": "document_registry --audit + document_health --check",
-        "scope": "移除已由4fb8a175b关闭的32项float数组旧首拒；仅整理仍开放的静态能力缺口，不复跑旧审计。",
-        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
+        "scope": "只补3742497499活跃距离约束的有界资格与零值预设失败，保原缺口；队列另沿用已记N08停止门。",
+        "limitations": "未实施距离约束，未取得零值/时间步公式或真实轨迹恢复；未重审其他条目及全样本。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "97e67627c4f9742028c3afb5059cbecb57f09f3750d17a1cf1c5c3e9f9e204ea",
+        "sourceSHA256": "af9cd5459b7707fc249b7713c59035a7449e8fb4e9443c2a06ac274d44693cc1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "只更新N08的GS缓存观测失败与停止门；此前其他队列事实沿用。",
-        "limitations": "未改变产品profile，未取得容量/world/负细分语义，不提升样本裁决。"
+        "scope": "只补3742497499活跃距离约束的有界资格与零值预设失败，保原缺口；队列另沿用已记N08停止门。",
+        "limitations": "未实施距离约束，未取得零值/时间步公式或真实轨迹恢复；未重审其他条目及全样本。"
       }
     },
     {
