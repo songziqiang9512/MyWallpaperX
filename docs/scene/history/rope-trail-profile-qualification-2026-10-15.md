@@ -1,7 +1,7 @@
 <!-- document-role: historical-evidence -->
 # RopeTrail world/负 subdivision 资格记录
 
-> **历史证据 — 非现役入口**。截止：2026-10-15。本页只保存固定客户端、自有输入的有界观察；未修改产品，也未新增 RopeTrail 支持、官方算法、像素 parity 或性能结论。当前来源边界归[来源索引](../development/source-index.md#particle-rope-profile-blackbox)，产品范围归[组件台账](../capabilities/particle-component-coverage.md#7-renderers)，排程归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
+> **历史证据 — 非现役入口**。截止：2026-10-22（只补下述缓存观测资格）。本页只保存固定客户端、自有输入的有界观察；未修改产品，也未新增 RopeTrail 支持、官方算法、像素 parity 或性能结论。当前来源边界归[来源索引](../development/source-index.md#particle-rope-profile-blackbox)，产品范围归[组件台账](../capabilities/particle-component-coverage.md#7-renderers)，排程归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。
 
 ## 问题与资格
 
@@ -28,7 +28,11 @@ q2–q4 共 20 张 PNG 已逐图检查，无可见控制台/UI 遮挡。冻结�
 
 本轮停止扩展 N08 矩阵。现役拒绝与能力等级保持原样；3337494481 十层的实际恢复仍未证明。只有取得能区分负值及 world 行为的合法作者合同或新证据，才回到同一 trail owner 设计实现与正反验收；本页不授权按 -16 放行、取绝对值或夹值。
 
-下一项从 3435573282 的当前模板首门做单包新资格。2026-10-11 记录的最早具体诊断是 `catalog-failure / shaderContract / shaderContractInvalid`，随后汇总为 `material-template-unsupported`；旧收据尚未区分 source kind、metadata 诊断准入或 stage 配对谓词，也没有当前复验，也不能把 aggregate named-binding 计数当作根因。先收集不含源码/原始编译消息的 typed 谓词和完整 effect/node identity；仅模板过门后再追 named provider。历史拒绝不能冒充当前复现，近期 source-domain 修复也不直接证明上游模板门已解。
+<a id="cache-observer-20261022"></a>
+
+10-22另试一次自有单RopeTrail的GS最大输出容量观测，固定同一客户端、640×360、flags0/subdivision0；只派发s0，+1/-16/-3均未运行。两张原图保四角标及右移白trial，640→608白像素、包围盒x=179…218→201…238，只证明可见正控健康。7份自有新缓存均在原观测器的裸DXBC入口返回`UNKNOWN_CACHE_FORMAT`，未调用D3DDisassemble；HRESULT为初始化哨兵，既不是API调用失败，也不是官方App崩溃。未获得单GS身份或容量4，原`STOP_UNKNOWN_CACHE_FORMAT`保留，不改准入。
+
+既有stock资料已记录`SHDV0069`包装；本轮固定stock的候选长度与内层DXBC结构吻合，但均有未解释尾部，未证明完整包络或全部GS归属。此线停止，不试偏移、不追加白线矩阵；后继须先取得可验证的包络/归属证据，再复用已保存缓存，不能由内层自洽外推官方负值规则。最小收据归`.artifacts/scene-evidence/runs/rope-trail-gs-observer-stop-20261022/`；独立审查确认停止裁决。下一项由现役队列重新选择，本页不保存后继排程。
 
 ## 收据与保留
 

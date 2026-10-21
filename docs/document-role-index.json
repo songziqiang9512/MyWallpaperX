@@ -2699,8 +2699,8 @@
         "docs/scene/capabilities/particle-component-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "cutoffDate": "2026-10-15",
-      "uniqueValue": "固定官方客户端自有直线、曲线、复合倾斜输入的可见输出、q1环境失效和未解负细分/world语义；停止扩矩阵且不新增产品支持。"
+      "cutoffDate": "2026-10-22",
+      "uniqueValue": "固定官方自有直线/曲线/倾斜输出与10-22缓存观测资格失败；保留未解world/负细分，不新增产品支持。"
     },
     {
       "path": "docs/scene/history/runtime-evidence-batches-through-2026-10-03.md",
@@ -3630,13 +3630,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a77e51b4d4e120d3ee0b28f7c76167c90dfe6d40dd0e2335070d1f437b16a48c",
+        "sourceSHA256": "97e67627c4f9742028c3afb5059cbecb57f09f3750d17a1cf1c5c3e9f9e204ea",
         "method": "document_registry --audit + document_health --check",
-        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
+        "scope": "只更新N08的GS缓存观测失败与停止门；此前其他队列事实沿用。",
+        "limitations": "未改变产品profile，未取得容量/world/负细分语义，不提升样本裁决。"
       }
     },
     {
