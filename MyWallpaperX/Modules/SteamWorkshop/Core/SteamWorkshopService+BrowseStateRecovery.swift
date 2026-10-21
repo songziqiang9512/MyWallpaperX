@@ -42,7 +42,6 @@ extension SteamWorkshopService {
         hasMoreBrowserItems = true
         browserLoadMoreFailureMessage = nil
         browserLoadMoreRetryAfter = .distantPast
-        lastPreviewPrefetchIDSet.removeAll()
         selectedBrowserItem = nil
         selectedBrowserItemError = nil
         isRefreshingSelectedBrowserItem = false

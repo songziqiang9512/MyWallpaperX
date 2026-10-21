@@ -1027,11 +1027,11 @@
     },
     {
       "id": "grid-thumbnail-return-reuse",
-      "title": "D16 网格缩略图返回复用与Steam本地优先",
+      "title": "D16/D17 网格缩略图复用与有界需求调度",
       "owner": "ThumbnailCache / OLThumbnailCache / SteamWorkshopPreviewState",
       "status": "approved",
       "designDoc": "docs/development/apple-silicon-optimization-plan.md",
-      "design_notes": "D16实施前明确：既有owner内有界LRU、静态派生图与动画原始数据分键；卡片和预取同一本地优先链；保预算、文件版本、取消／清理失效、作者动画与原样式；冷暖和失败反例验证，不新增Release诊断。",
+      "design_notes": "D16来源/静态派生/LRU继续有效；D17用户授权按AppKit现役设计实施：既有cache owner内的consumer取消、pending可见提升、短读与重生成分离且有界，六类网格单一近邻需求，raw/still/clear/版本与失败语义不退步；不增Release诊断或RAM预算，按真实owner反例及独审收口。",
       "matchPatterns": [
         "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
         "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift",
@@ -1047,7 +1047,24 @@
         "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
         "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+ItemDetailPresentation.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Interaction.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Prefetch.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridItemView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseStateRecovery.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewRequestCoordinator.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView+ThumbnailDemand.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
       ],
       "contentPatterns": []
     }

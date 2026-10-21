@@ -14,6 +14,26 @@ enum SILThumbnailLoadResult {
     case unavailable
 }
 
+/// Both visible and nearby consumers use the same bounded, display-size decode.
+private nonisolated func silGridThumbnailImage(atPath path: String) -> NSImage? {
+    guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL,
+        [kCGImageSourceShouldCache: false] as CFDictionary),
+        let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceThumbnailMaxPixelSize: 512,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary) else { return nil }
+    return NSImage(cgImage: image, size: .zero)
+}
+
+private nonisolated func silGridThumbnailFailureSignature(atPath path: String) -> String? {
+    guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
+    let size = (attrs[.size] as? NSNumber)?.int64Value ?? -1
+    let modified = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+    return "\(path)|\(size)|\(Int64(modified))"
+}
+
 /// decodeQueue 解码失败签名的跨队列载体：loader 写入、主线程 completion 读取
 private final class SILDecodeFailureSignature: @unchecked Sendable {
     private let lock = NSLock()
@@ -95,8 +115,9 @@ final class SILGridContainerView: NSView, ModuleFocusable {
             let isSel = svc.selectedID == wid || svc.selectedIDs.contains(wid)
             item.configure(
                 wallpaper: w, isSelected: isSel,
-                isMultiSelectMode: svc.isMultiSelectMode
-            ) { [weak self] completion in
+                isMultiSelectMode: svc.isMultiSelectMode,
+                thumbnailVisible: self.thumbnailDemandIsVisible
+            ) { [weak self] cancellation, completion in
                 guard let self else {
                     completion(.unavailable)
                     return
@@ -108,9 +129,11 @@ final class SILGridContainerView: NSView, ModuleFocusable {
                 }
                 // 未命中：文件存在性与失败签名 stat 在后台执行，避免逐 cell 主线程文件系统 IO
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    guard !cancellation.cancelled else { return }
                     let exists = FileManager.default.fileExists(atPath: w.path)
-                    let signature = exists ? self?.thumbnailFailureSignature(for: w) : nil
+                    let signature = exists ? silGridThumbnailFailureSignature(atPath: w.path) : nil
                     DispatchQueue.main.async { [weak self] in
+                        guard !cancellation.cancelled else { return }
                         guard let self else {
                             completion(.unavailable)
                             return
@@ -126,21 +149,14 @@ final class SILGridContainerView: NSView, ModuleFocusable {
                         // 签名复用：completion 直接使用闭包捕获的后台签名，失败时由
                         // loader 在 decodeQueue 解码失败处重算带回，不再主线程 stat
                         let decodeFailureSignature = SILDecodeFailureSignature()
-                        self.thumbnailCache.load(forKey: w.path, loader: {
+                        self.thumbnailCache.load(forKey: w.path, cancellation: cancellation, loader: {
                             let decodeFailure: () -> NSImage? = {
-                                if let signature = self.thumbnailFailureSignature(for: w) {
+                                if let signature = silGridThumbnailFailureSignature(atPath: w.path) {
                                     decodeFailureSignature.store(signature)
                                 }
                                 return nil
                             }
-                            guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: w.path) as CFURL, nil) else { return decodeFailure() }
-                            let opts: [CFString: Any] = [
-                                kCGImageSourceThumbnailMaxPixelSize: 512,
-                                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                                kCGImageSourceCreateThumbnailWithTransform: true
-                            ]
-                            guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return decodeFailure() }
-                            return NSImage(cgImage: cg, size: .zero)
+                            return silGridThumbnailImage(atPath: w.path) ?? decodeFailure()
                         }, completion: { [weak self] image in
                             guard let self else {
                                 completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
@@ -194,6 +210,11 @@ final class SILGridContainerView: NSView, ModuleFocusable {
     private var isMissingPathProbeInFlight = false
     private var missingPathWindowObservers = [NSObjectProtocol]()
     private var needsMissingPathProbeAfterFlight = false
+    private var thumbnailPrefetchObserver: NSObjectProtocol?
+    private var thumbnailPrefetchWork: DispatchWorkItem?
+    private var thumbnailPrefetchTokens: [String: (path: String, token: ThumbnailCacheRequestCancellation, wasReady: Bool)] = [:]
+    private var lastPrefetchLeadingIndex: Int?
+    private var thumbnailWindowObservation: NSKeyValueObservation?
 
     // MARK: - Init
     init() {
@@ -211,6 +232,10 @@ final class SILGridContainerView: NSView, ModuleFocusable {
         moduleFocusObserver.map { NotificationCenter.default.removeObserver($0) }
         missingPathTimer?.cancel()
         missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        thumbnailPrefetchObserver.map { NotificationCenter.default.removeObserver($0) }
+        thumbnailPrefetchWork?.cancel()
+        thumbnailPrefetchTokens.values.forEach { $0.token.cancel() }
+        thumbnailWindowObservation?.invalidate()
     }
 
     // MARK: - ModuleFocusable
@@ -234,22 +259,52 @@ final class SILGridContainerView: NSView, ModuleFocusable {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        thumbnailWindowObservation?.invalidate()
+        thumbnailWindowObservation = nil
         missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
         missingPathWindowObservers.removeAll()
         if let window {
+            // The public visibility property also covers orderOut/orderFront;
+            // occlusion notifications alone need not report either transition.
+            thumbnailWindowObservation = window.observe(\.isVisible, options: [.new]) { [weak self, weak window] _, _ in
+                DispatchQueue.main.async { [weak self, weak window] in
+                    guard let self, let window, self.window === window else { return }
+                    self.updateVisibleThumbnailDemand()
+                    self.scheduleThumbnailPrefetch()
+                }
+            }
             missingPathWindowObservers = [NSWindow.didMiniaturizeNotification,
                 NSWindow.didDeminiaturizeNotification].map { name in
                 NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] _ in
                     MainActor.assumeIsolated {
                         guard let self, self.window === window else { return }
                         self.updateMissingPathProbeTimer()
+                        self.updateVisibleThumbnailDemand()
+                        self.scheduleThumbnailPrefetch()
                     }
                 }
             }
         }
         updateMissingPathProbeTimer()
-        guard window != nil else { return }
+        updateVisibleThumbnailDemand()
+        guard window != nil else {
+            cancelThumbnailPrefetch()
+            return
+        }
         scheduleRestingScrollOriginCapture()
+        scheduleThumbnailPrefetch()
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        cancelThumbnailPrefetch()
+        updateVisibleThumbnailDemand()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        updateVisibleThumbnailDemand()
+        scheduleThumbnailPrefetch()
     }
 
     override func layout() {
@@ -309,6 +364,7 @@ final class SILGridContainerView: NSView, ModuleFocusable {
                 self.reloadPendingDimensionItems()
                 self.scheduleVisibleRefresh()
                 self.scheduleRestingScrollOriginCapture()
+                self.scheduleThumbnailPrefetch()
                 if self.pendingIDs != ids { self.applySnapshot(ids: self.pendingIDs) }
             }
         }
@@ -452,6 +508,9 @@ extension SILGridContainerView {
         collectionView.register(SILGridItem.self, forItemWithIdentifier: SILGridItem.reuseID)
         scrollView.documentView = collectionView
         scrollView.contentView.postsBoundsChangedNotifications = true
+        thumbnailPrefetchObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification, object: scrollView.contentView, queue: .main
+        ) { [weak self] _ in self?.scheduleThumbnailPrefetch() }
         addSubview(scrollView); addSubview(emptyLabel)
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -547,11 +606,90 @@ extension SILGridContainerView {
         }
     }
 
-    private func thumbnailFailureSignature(for wallpaper: SILWallpaper) -> String? {
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: wallpaper.path) else { return nil }
-        let size = (attrs[.size] as? NSNumber)?.int64Value ?? -1
-        let modifiedAt = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        return "\(wallpaper.path)|\(size)|\(Int64(modifiedAt))"
+
+    private func cancelThumbnailPrefetch() {
+        thumbnailPrefetchWork?.cancel()
+        thumbnailPrefetchWork = nil
+        thumbnailPrefetchTokens.values.forEach { $0.token.cancel() }
+        thumbnailPrefetchTokens.removeAll()
+        lastPrefetchLeadingIndex = nil
+    }
+
+    private func scheduleThumbnailPrefetch() {
+        guard thumbnailDemandIsVisible, !isScrollToTopAnimating else {
+            cancelThumbnailPrefetch()
+            updateVisibleThumbnailDemand()
+            return
+        }
+        // A throttle, not a trailing debounce: continued scrolling cannot defer it forever.
+        guard thumbnailPrefetchWork == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.thumbnailPrefetchWork = nil
+            self.prefetchNearbyThumbnails()
+        }
+        thumbnailPrefetchWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.025, execute: work)
+    }
+
+    private func updateVisibleThumbnailDemand() {
+        collectionView.visibleItems().compactMap { $0 as? SILGridItem }.forEach { $0.setThumbnailVisible(thumbnailDemandIsVisible) }
+    }
+
+    private var thumbnailDemandIsVisible: Bool {
+        window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+    }
+
+    private func prefetchNearbyThumbnails() {
+        guard thumbnailDemandIsVisible, lastAppliedIDs == orderedIDs else {
+            cancelThumbnailPrefetch()
+            return
+        }
+        let visible = collectionView.indexPathsForVisibleItems().map(\.item)
+        guard let first = visible.min() else { cancelThumbnailPrefetch(); return }
+        let direction = lastPrefetchLeadingIndex.map { first < $0 ? -1 : 1 } ?? 1
+        lastPrefetchLeadingIndex = first
+        let nearby = GridThumbnailPrefetchDemand.indices(visibleIndices: visible,
+            itemCount: orderedIDs.count, neighborLimit: min(16, max(4, visible.count)), direction: direction)
+        let retainedIndices = Set(nearby + visible.filter { orderedIDs.indices.contains($0) })
+        let pathsByID = Dictionary(uniqueKeysWithValues: retainedIndices.compactMap { index -> (String, String)? in
+            let id = orderedIDs[index]
+            return wallpapersByID[id].map { (id, $0.path) }
+        })
+        for (id, request) in thumbnailPrefetchTokens where pathsByID[id] != request.path {
+            request.token.cancel()
+            thumbnailPrefetchTokens.removeValue(forKey: id)
+        }
+        for index in nearby {
+            let id = orderedIDs[index]
+            if let previous = thumbnailPrefetchTokens[id], previous.wasReady,
+               thumbnailCache.cachedImage(forKey: previous.path) == nil {
+                previous.token.cancel()
+                thumbnailPrefetchTokens.removeValue(forKey: id)
+            }
+            guard thumbnailPrefetchTokens[id] == nil, let path = pathsByID[id] else { continue }
+            let token = ThumbnailCacheRequestCancellation()
+            thumbnailPrefetchTokens[id] = (path, token, false)
+            if thumbnailCache.cachedImage(forKey: path) != nil {
+                thumbnailPrefetchTokens[id]?.wasReady = true
+                continue
+            }
+            let cache = thumbnailCache
+            let failedSignatures = failedThumbnailSignatures
+            // File validity remains off-main. The token also covers this pre-cache wait.
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                guard !token.cancelled, FileManager.default.fileExists(atPath: path) else { return }
+                if let signature = silGridThumbnailFailureSignature(atPath: path), failedSignatures.contains(signature) { return }
+                cache.load(forKey: path, priority: .prefetch, cancellation: token,
+                    loader: { silGridThumbnailImage(atPath: path) }, completion: { [weak self] image in
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self, !token.cancelled,
+                                  self.thumbnailPrefetchTokens[id]?.token === token else { return }
+                            self.thumbnailPrefetchTokens[id]?.wasReady = image != nil
+                        }
+                    })
+            }
+        }
     }
 }
 
@@ -759,9 +897,15 @@ extension SILGridContainerView: NSCollectionViewDelegate {
               let w = wallpapersByID[orderedIDs[ip.item]],
               let gi = item as? SILGridItem else { return }
         let svc = SILService.shared
+        gi.setThumbnailVisible(thumbnailDemandIsVisible)
         gi.applySelectionState(
             isSelected: svc.selectedID == w.id || svc.selectedIDs.contains(w.id),
             multiSelectMode: svc.isMultiSelectMode)
+        scheduleThumbnailPrefetch()
+    }
+    func collectionView(_ cv: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
+                        forRepresentedObjectAt ip: IndexPath) {
+        (item as? SILGridItem)?.setThumbnailVisible(false)
     }
     func collectionView(_ cv: NSCollectionView, didSelectItemsAt ips: Set<IndexPath>) {
         guard !isApplyingSelectionSnapshot else { return }

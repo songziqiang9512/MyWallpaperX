@@ -19,14 +19,14 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     private var entries: [OLDownloadedEntry] = []
     private var filteredEntries: [OLDownloadedEntry] = []
     private var searchQuery: String = ""
-    private var orderedIDs: [Int] = []
+    var orderedIDs: [Int] = []
     private var orderedIndexByID: [Int: Int] = [:]
-    private var entriesByID: [Int: OLDownloadedEntry] = [:]
+    var entriesByID: [Int: OLDownloadedEntry] = [:]
     private var currentPlayingNormalizedPath: String?
     private var selectedIDs: Set<Int> = []
     private var selectedAnchorID: Int?
     private var isMultiSelectMode = false
-    private var lastComputedColumns: Int = 3
+    var lastComputedColumns: Int = 3
     private var lastAppliedSnapshotIDs: [Int] = []
     private var deletionBatchReloadGeneration: Int?
     private var isLayoutItemSizeUpdateScheduled = false
@@ -34,6 +34,9 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     private var pendingPostDeletionSelectionGeneration: Int?
     private var reloadEntriesTask: Task<Void, Never>?
     private var reloadEntriesGeneration: Int = 0
+    var thumbnailDemand = OLDownloadedThumbnailDemandState()
+    var thumbnailWindowObservation: NSKeyValueObservation?
+    var thumbnailWindowObservers: [NSObjectProtocol] = []
     private var sortMode: WallpaperSortMode = {
         let raw = UserDefaults.standard.string(forKey: "OLDownloadsSortMode") ?? ""
         return WallpaperSortMode(rawValue: raw) ?? .none
@@ -114,7 +117,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         return s
     }()
 
-    private lazy var collectionView: AppKitOLDownloadsCollectionView = {
+    lazy var collectionView: AppKitOLDownloadsCollectionView = {
         let cv = AppKitOLDownloadsCollectionView()
         cv.isSelectable = false
         cv.backgroundColors = [.clear]
@@ -141,7 +144,8 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
                 entry: entry,
                 isSelected: self.effectiveSelectedIDs.contains(id),
                 isMultiSelectMode: self.isMultiSelectMode,
-                isPlaying: self.normalizedPath(entry.localURL.path) == self.currentPlayingNormalizedPath
+                isPlaying: self.normalizedPath(entry.localURL.path) == self.currentPlayingNormalizedPath,
+                thumbnailDemandActive: self.canLoadThumbnails
             )
             return item
         }
@@ -160,6 +164,8 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
     deinit {
         reloadEntriesTask?.cancel()
+        thumbnailDemand.requests.values.forEach { $0.cancellation.cancel() }
+        thumbnailWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
     }
@@ -178,6 +184,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         collectionView.collectionViewLayout = flowLayout
         collectionView.register(AppKitOLDownloadsItem.self, forItemWithIdentifier: AppKitOLDownloadsItem.reuseIdentifier)
         collectionView.dataSource = dataSource
+        collectionView.delegate = self
         collectionView.onBackgroundLeftClick = { [weak self] in
             self?.handleBackgroundClick()
         }
@@ -199,6 +206,9 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         collectionView.spaceHandler = { [weak self] in self?.previewSelected() }
         collectionView.arrowHandler = { [weak self] key in self?.moveSelectionByArrowKey(key) }
         scrollView.documentView = collectionView
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+            .sink { [weak self] _ in self?.scheduleThumbnailDemand() }.store(in: &cancellables)
 
         addSubview(scrollView)
         addSubview(emptyLabel)
@@ -320,6 +330,18 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         OnlineDownloadsBridge.shared.isActive = (window != nil)
+        observeThumbnailWindow()
+        updateThumbnailWindowVisibility()
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        pauseThumbnailDemand()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        updateThumbnailWindowVisibility()
     }
 
     func reloadIfNeeded() {
@@ -412,6 +434,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
             self.resolveSelectionAfterSnapshot(generation: snapshotGeneration)
             self.reloadVisibleSelectionItems(forceReload: true)
             self.refreshVisiblePlaybackItems(forceReload: true)
+            self.scheduleThumbnailDemand()
         }
     }
 
@@ -439,6 +462,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         let newSize = metrics.itemSize
         guard flowLayout.itemSize != newSize else { return }
         flowLayout.itemSize = newSize
+        scheduleThumbnailDemand()
         // 布局变化与悬停视觉同步生效，避免渐变层在缩放期间出现跟随滞后。
         collectionView.collectionViewLayout?.invalidateLayout()
     }
@@ -867,7 +891,8 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
             localURL: localURL,
             fileSize: metadata.fileSize,
             duration: metadata.durationSeconds > 0 ? metadata.durationSeconds : nil,
-            resolutionString: metadata.resolutionString
+            resolutionString: metadata.resolutionString,
+            thumbnailSourceKey: OLDownloadedThumbnailStore.cacheKey(for: localURL)
         )
     }
 

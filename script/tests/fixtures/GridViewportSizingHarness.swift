@@ -23,6 +23,11 @@ enum AppKitOLDownloadsItem { static let hoverScale: CGFloat = 1.05 }
   dataSource=NSCollectionViewDiffableDataSource<Int,Int>(collectionView:collectionView){cv,path,id in cv.makeItem(withIdentifier:NSUserInterfaceItemIdentifier("cell"),for:path)}
  }
  required init?(coder:NSCoder){nil}
+ func updateVisibleThumbnailPriorities() {}
+ func scheduleThumbnailDemand() {}
+ func scheduleViewportPrefetch() {}
+ func schedulePreviewPrefetch() {}
+ func prioritizeVisibleItemsForHydration() {}
  func scheduleVisibleGridColumnCountUpdateIfNeeded(_ count:Int){currentColumnCount=count}
  func install(_ ids:[Int]) {var s=NSDiffableDataSourceSnapshot<Int,Int>();s.appendSections([0]);s.appendItems(ids);dataSource.apply(s,animatingDifferences:true)}
 }

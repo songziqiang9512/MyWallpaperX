@@ -19,6 +19,34 @@ nonisolated protocol ThumbnailCacheLoadCancellation: Sendable {
     func clearCancellationHandler()
 }
 
+/// Concrete per-consumer interest, shared by local module adapters.
+nonisolated final class ThumbnailCacheRequestCancellation: ThumbnailCacheLoadCancellation, @unchecked Sendable {
+    private let lock = NSLock()
+    private var isCancelled = false
+    private var handler: (@Sendable () -> Void)?
+    var cancelled: Bool { lock.lock(); defer { lock.unlock() }; return isCancelled }
+    func cancel() {
+        lock.lock()
+        guard !isCancelled else { lock.unlock(); return }
+        isCancelled = true
+        let action = handler; handler = nil
+        lock.unlock()
+        action?()
+    }
+    func installCancellationHandler(_ handler: @escaping @Sendable () -> Void) {
+        lock.lock()
+        guard !isCancelled else { lock.unlock(); handler(); return }
+        self.handler = handler
+        lock.unlock()
+    }
+    func clearCancellationHandler() { lock.lock(); handler = nil; lock.unlock() }
+}
+
+nonisolated enum ThumbnailCacheRequestPriority: Int, Comparable, Sendable {
+    case prefetch, visible
+    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+}
+
 /// 异步缩略图加载缓存。
 /// 线程安全：并发读写通过 NSLock 保护 in-flight 表，解码图 LRU 自身线程安全。
 nonisolated final class ThumbnailCache: @unchecked Sendable {
@@ -40,18 +68,45 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private let failureCache: NSCache<NSString, NSNumber>?
 
     private let decodeQueue: DispatchQueue
+    private let generationQueue: DispatchQueue
+    private let sourceQueue: DispatchQueue
+    private let maintenanceQueue: DispatchQueue
     private let imageCache: DecodedThumbnailMemoryCache
-    private var inFlight: [String: [(NSImage?) -> Void]] = [:]
-    private enum AsyncKey: Hashable { case image(String), raw(String) }
-    private final class AsyncRequest: @unchecked Sendable {
-        var consumers = Set<UUID>()
-        var pinned = false
+    private enum RequestKey: Hashable { case image(String), raw(String) }
+    private final class Request: @unchecked Sendable {
+        var consumers: [UUID: ThumbnailCacheRequestPriority] = [:]
+        var pinnedPriority: ThumbnailCacheRequestPriority?
+        var priority: ThumbnailCacheRequestPriority {
+            max(pinnedPriority ?? .prefetch, consumers.values.max() ?? .prefetch)
+        }
         var allowsCaching = true
+        var sourceDataKey: String?
+        var onPriorityPromotion: (@Sendable () -> Void)?
         var task: Task<Void, Never>?
+        var imageCompletions: [UUID: (NSImage?) -> Void] = [:]
+        var rawCompletions: [UUID: (Data?) -> Void] = [:]
     }
-    private var asyncRequests: [AsyncKey: AsyncRequest] = [:]
-    private var rawDataInFlight: [String: [(Data?) -> Void]] = [:]
-    private var rawDataPrefetchInFlight: [String: AsyncRequest] = [:]
+    private enum WorkLane { case decode, generation, source }
+    private final class Work: @unchecked Sendable {
+        let key: RequestKey
+        let request: Request
+        let body: (@escaping @Sendable () -> Void) -> Void
+        let onAbandon: (@Sendable () -> Void)?
+        init(key: RequestKey, request: Request, onAbandon: (@Sendable () -> Void)?,
+             body: @escaping (@escaping @Sendable () -> Void) -> Void) {
+            self.key = key; self.request = request
+            self.body = body; self.onAbandon = onAbandon
+        }
+    }
+    private var requests: [RequestKey: Request] = [:]
+    private var pendingDecode: [Work] = []
+    private var pendingGeneration: [Work] = []
+    private var pendingSource: [Work] = []
+    private var runningDecode = 0
+    private var runningGeneration = 0
+    private var runningSource = 0
+    private var prefetchSourceAdmissions = Set<ObjectIdentifier>()
+    private var maintenanceScheduled = false
     private let lock = NSLock()
 
     /// 磁盘缓存根目录：~/Library/Caches/<bundleID>/thumbnails/<namespace>/
@@ -107,7 +162,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         self.namespace = namespace
         self.writeEncodedData = writeEncodedData
         self.failureCache = usesFailureCache ? NSCache<NSString, NSNumber>() : nil
-        self.decodeQueue = DispatchQueue(label: label, qos: .utility)
+        self.decodeQueue = DispatchQueue(label: label, qos: .utility, attributes: .concurrent)
+        self.generationQueue = DispatchQueue(label: label + ".generation", qos: .utility)
+        self.sourceQueue = DispatchQueue(label: label + ".source", qos: .utility, attributes: .concurrent)
+        self.maintenanceQueue = DispatchQueue(label: label + ".maintenance", qos: .utility)
         failureCache?.countLimit = 256
         imageCache = DecodedThumbnailMemoryCache(countLimit: countLimit, totalCostLimit: totalCostLimit)
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
@@ -115,198 +173,333 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     // MARK: - 公开接口
 
-    /// 加载缩略图。内存缓存命中则同步回调，磁盘缓存命中则异步快速读取，否则后台解码。
+    /// Memory hits deliver synchronously. Short disk reads never wait behind
+    /// a slow synchronous video generator. A nil cancellation pins legacy work.
     func load(
         forKey key: String,
+        priority: ThumbnailCacheRequestPriority = .visible,
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         loader: @escaping () -> NSImage?,
         completion: @escaping (NSImage?) -> Void
     ) {
-        // 1. 内存缓存
-        if let cached = imageCache.object(forKey: key as NSString) {
-            completion(cached)
-            return
-        }
-        // 2. 失败负缓存：已知失败的键直接回 nil，不重复 IO/解码
-        if failureCache?.object(forKey: key as NSString) != nil {
-            completion(nil)
-            return
-        }
+        loadSynchronously(forKey: key, priority: priority, cancellation: cancellation,
+            cachesFailure: true, decoder: Self.decodeStoredImage, generate: {
+                let image = loader()
+                return (image, image.flatMap(Self.jpegData))
+            }, completion: completion)
+    }
 
-        lock.lock()
-        if inFlight[key] != nil {
-            inFlight[key]?.append(completion)
-            asyncRequests[.image(key)]?.pinned = true
-            lock.unlock()
-            return
-        }
-        inFlight[key] = [completion]
-        lock.unlock()
-
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            // 3. 磁盘缓存
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL),
-               let image = Self.decodeStoredImage(data) {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                self.finish(key: key, image: image)
+    /// One media-generation slot spans callback, encoding and publication. A
+    /// decoded image is never parked outside that slot in a congested decode lane.
+    func loadImageAsync(
+        forKey key: String,
+        priority: ThumbnailCacheRequestPriority = .visible,
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
+        loader: @escaping @Sendable () async -> NSImage?,
+        completion: @escaping (NSImage?) -> Void
+    ) {
+        guard let request = beginImageRequest(key: key, priority: priority,
+                cancellation: cancellation, checksFailure: true, completion: completion) else { return }
+        enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
+            defer { done() }
+            if let image = storedImage(for: key, decoder: Self.decodeStoredImage) {
+                finishImageRequest(request, key: key, image: image)
                 return
             }
-            // 4. 解码原图
-            let image = loader()
-            if let image {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                // 写入磁盘缓存（JPEG，压缩质量 0.85）
-                Self.writeToDisk(image: image, url: diskURL)
-                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-            } else {
-                // 失败负缓存：记录结论，重复加载不再触发 loader
-                self.failureCache?.setObject(NSNumber(value: true), forKey: key as NSString)
+            enqueue(key: .image(key), request: request, lane: .generation) { [self] generated in
+                let task = Task { [self] in
+                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key)) else { generated(); return }
+                    let image = await loader()
+                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key)) else { generated(); return }
+                    let priority = self.currentPriority(request, key: .image(key))
+                    self.generationQueue.async(qos: priority == .visible ? .userInitiated : .utility) { [self] in
+                        // This handoff is not removable from pendingDecode.
+                        // Even after cancellation it runs and returns its slot.
+                        defer { generated() }
+                        guard isCurrent(request, key: .image(key)) else { return }
+                        finishImageRequest(request, key: key, image: image,
+                            encodedData: image.flatMap(Self.jpegData), cachesFailure: true)
+                    }
+                }
+                install(task: task, request: request, key: .image(key))
             }
-            self.finish(key: key, image: image)
         }
     }
 
-    /// 加载原始图片数据并保留其编码格式。
-    /// 适合 GIF 等需要保留动画信息的资源。
+    /// Retains encoded animation bytes rather than converting them to JPEG.
     func loadImageData(
         forKey key: String,
+        priority: ThumbnailCacheRequestPriority = .visible,
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         loader: @escaping () -> Data?,
         decoder: @escaping (Data) -> NSImage? = { NSImage(data: $0) },
         completion: @escaping (NSImage?) -> Void
     ) {
-        if let cached = imageCache.object(forKey: key as NSString) {
-            completion(cached)
-            return
-        }
+        loadSynchronously(forKey: key, priority: priority, cancellation: cancellation,
+            cachesFailure: false, decoder: decoder, generate: {
+                guard let data = loader(), let image = decoder(data) else { return (nil, nil) }
+                return (image, data)
+            }, completion: completion)
+    }
 
-        lock.lock()
-        if inFlight[key] != nil {
-            inFlight[key]?.append(completion)
-            asyncRequests[.image(key)]?.pinned = true
-            lock.unlock()
-            return
-        }
-        inFlight[key] = [completion]
-        lock.unlock()
-
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL),
-               let image = decoder(data) {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                self.finish(key: key, image: image)
+    private func loadSynchronously(
+        forKey key: String, priority: ThumbnailCacheRequestPriority,
+        cancellation: (any ThumbnailCacheLoadCancellation)?, cachesFailure: Bool,
+        decoder: @escaping (Data) -> NSImage?,
+        generate: @escaping () -> (NSImage?, Data?),
+        completion: @escaping (NSImage?) -> Void
+    ) {
+        guard let request = beginImageRequest(key: key, priority: priority,
+                cancellation: cancellation, checksFailure: cachesFailure, completion: completion) else { return }
+        enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
+            defer { done() }
+            if let image = storedImage(for: key, decoder: decoder) {
+                finishImageRequest(request, key: key, image: image)
                 return
             }
-
-            guard let data = loader(),
-                  let image = decoder(data) else {
-                self.finish(key: key, image: nil)
-                return
+            enqueue(key: .image(key), request: request, lane: .generation) { [self] generated in
+                defer { generated() }
+                guard isCurrent(request, key: .image(key)) else { return }
+                let (image, data) = generate()
+                finishImageRequest(request, key: key, image: image,
+                    encodedData: data, cachesFailure: cachesFailure)
             }
-
-            self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-            try? data.write(to: diskURL, options: .atomic)
-            Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-            self.finish(key: key, image: image)
         }
     }
 
-    /// 异步加载原始图片数据并保留其编码格式。
-    /// 适合网络资源，避免在缓存队列里同步等待请求返回。
+    /// Network waiting is asynchronous; returned data enters the bounded short
+    /// decode lane, so an actor/Task hop cannot silently create unbounded decode.
     func loadImageDataAsync(
         forKey key: String,
         sourceDataKey: String? = nil,
+        priority: ThumbnailCacheRequestPriority = .visible,
+        onPriorityPromotion: (@Sendable () -> Void)? = nil,
         loader: @escaping @Sendable () async -> Data?,
         decoder: @escaping @Sendable (Data) -> NSImage? = { NSImage(data: $0) },
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         completion: @escaping (NSImage?) -> Void
     ) {
-        guard cancellation?.cancelled != true else { return }
-        if let cached = imageCache.object(forKey: key as NSString) {
-            completion(cached)
-            return
+        loadImageDataAsync(forKey: key, sourceDataKey: sourceDataKey, priority: priority,
+            onPriorityPromotion: onPriorityPromotion, loader: { _ in await loader() },
+            decoder: decoder, cancellation: cancellation, completion: completion)
+    }
+
+    /// The provider must be read by a downstream scheduler at registration,
+    /// without suspending between that read and insertion. The promotion hook
+    /// covers visible consumers joining after downstream registration.
+    func loadImageDataAsync(
+        forKey key: String,
+        sourceDataKey: String? = nil,
+        priority: ThumbnailCacheRequestPriority = .visible,
+        onPriorityPromotion: (@Sendable () -> Void)? = nil,
+        loader: @escaping @Sendable (@escaping @Sendable () -> ThumbnailCacheRequestPriority) async -> Data?,
+        decoder: @escaping @Sendable (Data) -> NSImage? = { NSImage(data: $0) },
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
+        completion: @escaping (NSImage?) -> Void
+    ) {
+        guard let request = beginImageRequest(key: key, priority: priority,
+                cancellation: cancellation, sourceDataKey: sourceDataKey,
+                onPriorityPromotion: onPriorityPromotion, completion: completion) else { return }
+        enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
+            defer { done() }
+            if let image = storedImage(for: key, decoder: decoder) {
+                finishImageRequest(request, key: key, image: image)
+                return
+            }
+            if let sourceDataKey, let image = storedImage(for: sourceDataKey, decoder: decoder) {
+                finishImageRequest(request, key: key, image: image, encodedData: Self.pngData(image))
+                return
+            }
+            enqueue(key: .image(key), request: request, lane: .source) { [self] sourceFinished in
+                let task = Task { [self] in
+                    var transferred = false
+                    defer { if !transferred { sourceFinished() } }
+                    guard !Task.isCancelled else { return }
+                    let data = await loader { [weak self, request] in
+                        self?.currentPriority(request, key: .image(key)) ?? .prefetch
+                    }
+                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key)) else { return }
+                    transferred = true
+                    self.enqueue(key: .image(key), request: request, lane: .decode,
+                            onAbandon: sourceFinished) { [self] decoded in
+                        defer { decoded(); sourceFinished() }
+                        let image = data.flatMap(decoder)
+                        finishImageRequest(request, key: key, image: image,
+                            encodedData: sourceDataKey == nil ? (image == nil ? nil : data) : image.flatMap(Self.pngData),
+                            sourceData: image == nil ? nil : data, sourceDataKey: sourceDataKey)
+                    }
+                }
+                install(task: task, request: request, key: .image(key))
+            }
         }
+    }
+
+    /// Registers every image path with the same request owner. Only the creator
+    /// receives a request to start; joining consumers update its pending priority.
+    private func beginImageRequest(
+        key: String, priority: ThumbnailCacheRequestPriority,
+        cancellation: (any ThumbnailCacheLoadCancellation)?,
+        sourceDataKey: String? = nil, checksFailure: Bool = false,
+        onPriorityPromotion: (@Sendable () -> Void)? = nil,
+        completion: @escaping (NSImage?) -> Void
+    ) -> Request? {
+        guard cancellation?.cancelled != true else { return nil }
+        if let cached = imageCache.object(forKey: key as NSString) { completion(cached); return nil }
+        if checksFailure, failureCache?.object(forKey: key as NSString) != nil { completion(nil); return nil }
         let consumer = UUID()
         let deliver: (NSImage?) -> Void = { image in
             cancellation?.clearCancellationHandler()
             if cancellation?.cancelled != true { completion(image) }
         }
         lock.lock()
-        let startsProducer = inFlight[key] == nil
+        let startsProducer = requests[.image(key)] == nil
+        let request = requests[.image(key)] ?? Request()
         if startsProducer {
-            inFlight[key] = []
-            asyncRequests[.image(key)] = AsyncRequest()
+            request.sourceDataKey = sourceDataKey
+            request.onPriorityPromotion = onPriorityPromotion
+            requests[.image(key)] = request
         }
-        inFlight[key]?.append(deliver)
-        let request = asyncRequests[.image(key)]
-        if cancellation != nil { request?.consumers.insert(consumer) }
-        else { request?.pinned = true }
+        let previousPriority = request.priority
+        request.imageCompletions[consumer] = deliver
+        register(consumer: consumer, priority: priority, cancellation: cancellation, request: request)
+        let promotion = !startsProducer && previousPriority == .prefetch && request.priority == .visible
+            ? request.onPriorityPromotion : nil
         lock.unlock()
-        if let request, let cancellation {
-            cancellation.installCancellationHandler { [weak self] in
-                self?.detachConsumer(consumer, key: .image(key), request: request)
-            }
+        promotion?()
+        cancellation?.installCancellationHandler { [weak self] in
+            self?.detachConsumer(consumer, key: .image(key), request: request)
         }
-        guard startsProducer, let request else { return }
-        decodeQueue.async { [weak self] in
-            guard let self, self.isCurrentImageRequest(request, key: key) else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL), let image = decoder(data) {
-                self.finishImageRequest(request, key: key, image: image)
-                return
-            }
-            // A derived still and the original animation share a source, not
-            // a disk file. Reuse legacy/raw bytes before asking the network.
-            if let sourceDataKey,
-               let data = try? Data(contentsOf: self.diskCacheURL(for: sourceDataKey)),
-               let image = decoder(data) {
-                self.finishImageRequest(request, key: key, image: image,
-                    encodedData: Self.pngData(image))
-                return
-            }
-            let task = Task { [weak self] in
-                guard let self, !Task.isCancelled else { return }
-                let data = await loader()
-                guard !Task.isCancelled else { return }
-                let image = data.flatMap(decoder)
-                self.finishImageRequest(request, key: key, image: image,
-                    encodedData: sourceDataKey == nil ? (image == nil ? nil : data) : image.flatMap(Self.pngData),
-                    sourceData: image == nil ? nil : data, sourceDataKey: sourceDataKey)
-            }
-            self.lock.lock()
-            if self.asyncRequests[.image(key)] === request { request.task = task }
-            else { task.cancel() }
-            self.lock.unlock()
-        }
+        return startsProducer ? request : nil
     }
 
-    private func detachConsumer(_ consumer: UUID, key: AsyncKey, request: AsyncRequest) {
+    private func register(consumer: UUID, priority: ThumbnailCacheRequestPriority,
+                          cancellation: (any ThumbnailCacheLoadCancellation)?, request: Request) {
+        if cancellation != nil { request.consumers[consumer] = priority }
+        else { request.pinnedPriority = max(priority, request.pinnedPriority ?? .prefetch) }
+        // A promoted source may use reserved visible capacity immediately.
+        dispatchPendingLocked(.source)
+    }
+
+    private func detachConsumer(_ consumer: UUID, key: RequestKey, request: Request) {
         lock.lock()
-        guard asyncRequests[key] === request else { lock.unlock(); return }
-        request.consumers.remove(consumer)
-        guard request.consumers.isEmpty, !request.pinned else { lock.unlock(); return }
-        asyncRequests.removeValue(forKey: key)
-        switch key {
-        case let .image(key): inFlight.removeValue(forKey: key)
-        case let .raw(key): rawDataInFlight.removeValue(forKey: key)
+        guard requests[key] === request else { lock.unlock(); return }
+        request.consumers.removeValue(forKey: consumer)
+        request.imageCompletions.removeValue(forKey: consumer)
+        request.rawCompletions.removeValue(forKey: consumer)
+        guard request.consumers.isEmpty, request.pinnedPriority == nil else { lock.unlock(); return }
+        requests.removeValue(forKey: key)
+        var abandoned: [@Sendable () -> Void] = []
+        pendingDecode.removeAll { work in
+            guard work.request === request else { return false }
+            if let handler = work.onAbandon { abandoned.append(handler) }
+            return true
         }
+        pendingGeneration.removeAll { $0.request === request }
+        pendingSource.removeAll { $0.request === request }
         let task = request.task
         request.task = nil
         lock.unlock()
         task?.cancel()
+        abandoned.forEach { $0() }
     }
 
-    private func isCurrentImageRequest(_ request: AsyncRequest, key: String) -> Bool {
+    private func isCurrent(_ request: Request, key: RequestKey) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return requests[key] === request
+    }
+
+    private func currentPriority(_ request: Request, key: RequestKey) -> ThumbnailCacheRequestPriority {
+        lock.lock(); defer { lock.unlock() }
+        return requests[key] === request ? request.priority : .prefetch
+    }
+
+    private func install(task: Task<Void, Never>, request: Request, key: RequestKey) {
         lock.lock()
-        defer { lock.unlock() }
-        return asyncRequests[.image(key)] === request
+        if requests[key] === request { request.task = task; lock.unlock() }
+        else { lock.unlock(); task.cancel() }
+    }
+
+    /// Two short IO/decode slots, one media-generation slot, and four async
+    /// sources (matching Steam's visible HTTP cap, at most two admitted as
+    /// prefetch). Admission class stays fixed when consumer priority changes;
+    /// running work is not preempted if its visible consumer leaves. Pending
+    /// selection uses current priority. Slots span decode/publication too.
+    private func enqueue(key: RequestKey, request: Request, lane: WorkLane,
+                         onAbandon: (@Sendable () -> Void)? = nil,
+                         body: @escaping (@escaping @Sendable () -> Void) -> Void) {
+        lock.lock()
+        guard requests[key] === request else { lock.unlock(); onAbandon?(); return }
+        let work = Work(key: key, request: request, onAbandon: onAbandon, body: body)
+        switch lane {
+        case .decode: pendingDecode.append(work)
+        case .generation: pendingGeneration.append(work)
+        case .source: pendingSource.append(work)
+        }
+        dispatchPendingLocked(lane)
+        lock.unlock()
+    }
+
+    private func dispatchPendingLocked(_ lane: WorkLane) {
+        while true {
+            let work: Work
+            switch lane {
+            case .decode:
+                guard runningDecode < 2, let next = nextWorkIndex(pendingDecode) else { return }
+                work = pendingDecode.remove(at: next); runningDecode += 1
+            case .generation:
+                guard runningGeneration < 1, let next = nextWorkIndex(pendingGeneration) else { return }
+                work = pendingGeneration.remove(at: next); runningGeneration += 1
+            case .source:
+                guard runningSource < 4, let next = nextWorkIndex(pendingSource) else { return }
+                if pendingSource[next].request.priority == .prefetch,
+                   prefetchSourceAdmissions.count >= 2 { return }
+                work = pendingSource.remove(at: next); runningSource += 1
+                if work.request.priority == .prefetch {
+                    prefetchSourceAdmissions.insert(ObjectIdentifier(work.request))
+                }
+            }
+            let queue: DispatchQueue
+            switch lane {
+            case .decode: queue = decodeQueue
+            case .generation: queue = generationQueue
+            case .source: queue = sourceQueue
+            }
+            queue.async(qos: work.request.priority == .visible ? .userInitiated : .utility) { [self, work] in
+                let done: @Sendable () -> Void = { [self] in
+                    lock.lock()
+                    switch lane {
+                    case .decode: runningDecode -= 1
+                    case .generation: runningGeneration -= 1
+                    case .source:
+                        runningSource -= 1
+                        prefetchSourceAdmissions.remove(ObjectIdentifier(work.request))
+                    }
+                    dispatchPendingLocked(lane)
+                    lock.unlock()
+                }
+                guard isCurrent(work.request, key: work.key) else { work.onAbandon?(); done(); return }
+                work.body(done)
+            }
+        }
+    }
+
+    private func nextWorkIndex(_ work: [Work]) -> Int? {
+        work.indices.max { lhs, rhs in
+            let left = work[lhs].request.priority, right = work[rhs].request.priority
+            return left == right ? lhs > rhs : left < right
+        }
+    }
+
+    private func storedImage(for key: String, decoder: (Data) -> NSImage?) -> NSImage? {
+        guard let data = try? Data(contentsOf: diskCacheURL(for: key)) else { return nil }
+        return decoder(data)
     }
 
     @discardableResult
-    private func finishImageRequest(_ request: AsyncRequest, key: String, image: NSImage?, encodedData: Data? = nil,
-                                    sourceData: Data? = nil, sourceDataKey: String? = nil) -> Bool {
+    private func finishImageRequest(_ request: Request, key: String, image: NSImage?, encodedData: Data? = nil,
+                                    sourceData: Data? = nil, sourceDataKey: String? = nil,
+                                    cachesFailure: Bool = false) -> Bool {
+        guard isCurrent(request, key: .image(key)) else { return false }
         let staged = stageEncodedData(encodedData)
         let rawStaged = stageEncodedData(sourceDataKey == nil ? nil : sourceData)
         defer {
@@ -314,29 +507,29 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             if let rawStaged { try? FileManager.default.removeItem(at: rawStaged) }
         }
         lock.lock()
-        guard asyncRequests[.image(key)] === request else { lock.unlock(); return false }
+        guard requests[.image(key)] === request else { lock.unlock(); return false }
         if request.allowsCaching {
             if let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
             if let rawStaged, let sourceDataKey { _ = rename(rawStaged.path, diskCacheURL(for: sourceDataKey).path) }
             if let image { imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image)) }
+            else if cachesFailure { failureCache?.setObject(NSNumber(value: true), forKey: key as NSString) }
         }
-        let completions = inFlight.removeValue(forKey: key) ?? []
-        asyncRequests.removeValue(forKey: .image(key))
+        let completions = Array(request.imageCompletions.values)
+        request.imageCompletions.removeAll()
+        requests.removeValue(forKey: .image(key))
         request.task = nil
         lock.unlock()
-        if staged != nil {
-            Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
+        DispatchQueue.main.async { [self] in
+            completions.forEach { $0(image) }
+            if staged != nil || rawStaged != nil { scheduleMaintenance() }
         }
-        DispatchQueue.main.async { completions.forEach { $0(image) } }
         return true
     }
 
-    /// 异步取回原始编码数据，但不把解码结果写进内存缓存。
-    /// 磁盘命中直接返回；未命中走 loader 并回写磁盘。
-    /// 用途：动画 GIF 的临时动画源——解码图随用随弃，内存缓存里只驻留
-    /// 静态首帧，原始编码数据留在磁盘层。
+    /// Original animated bytes stay on disk and are not retained as NSImage.
     func loadRawDataAsync(
         forKey key: String,
+        priority: ThumbnailCacheRequestPriority = .visible,
         loader: @escaping @Sendable () async -> Data?,
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         completion: @escaping (Data?) -> Void
@@ -348,61 +541,61 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             if cancellation?.cancelled != true { completion(data) }
         }
         lock.lock()
-        let startsProducer = rawDataInFlight[key] == nil
-        if startsProducer {
-            rawDataInFlight[key] = []
-            asyncRequests[.raw(key)] = AsyncRequest()
-        }
-        rawDataInFlight[key]?.append(deliver)
-        let request = asyncRequests[.raw(key)]!
-        if cancellation != nil { request.consumers.insert(consumer) }
-        else { request.pinned = true }
+        let startsProducer = requests[.raw(key)] == nil
+        let request = requests[.raw(key)] ?? Request()
+        if startsProducer { requests[.raw(key)] = request }
+        request.rawCompletions[consumer] = deliver
+        register(consumer: consumer, priority: priority, cancellation: cancellation, request: request)
         lock.unlock()
         cancellation?.installCancellationHandler { [weak self] in
             self?.detachConsumer(consumer, key: .raw(key), request: request)
         }
         guard startsProducer else { return }
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            self.lock.lock()
-            let current = self.asyncRequests[.raw(key)] === request
-            self.lock.unlock()
-            guard current else { return }
-            if let data = try? Data(contentsOf: self.diskCacheURL(for: key)) {
-                self.finishRawData(request, key: key, data: data, persist: false)
+        enqueue(key: .raw(key), request: request, lane: .decode) { [self] done in
+            defer { done() }
+            if let data = try? Data(contentsOf: diskCacheURL(for: key)) {
+                finishRawData(request, key: key, data: data, persist: false)
                 return
             }
-            let task = Task { [weak self] in
-                guard let self, !Task.isCancelled else { return }
-                let data = await loader()
-                guard !Task.isCancelled else { return }
-                self.finishRawData(request, key: key, data: data, persist: true)
+            enqueue(key: .raw(key), request: request, lane: .source) { [self] sourceFinished in
+                let task = Task { [self] in
+                    var transferred = false
+                    defer { if !transferred { sourceFinished() } }
+                    guard !Task.isCancelled else { return }
+                    let data = await loader()
+                    guard !Task.isCancelled, self.isCurrent(request, key: .raw(key)) else { return }
+                    transferred = true
+                    self.enqueue(key: .raw(key), request: request, lane: .decode,
+                            onAbandon: sourceFinished) { [self] finished in
+                        defer { finished(); sourceFinished() }
+                        finishRawData(request, key: key, data: data, persist: true)
+                    }
+                }
+                install(task: task, request: request, key: .raw(key))
             }
-            self.lock.lock()
-            if self.asyncRequests[.raw(key)] === request { request.task = task }
-            else { task.cancel() }
-            self.lock.unlock()
         }
     }
 
-    private func finishRawData(_ request: AsyncRequest, key: String, data: Data?, persist: Bool) {
+    private func finishRawData(_ request: Request, key: String, data: Data?, persist: Bool) {
+        guard isCurrent(request, key: .raw(key)) else { return }
         let staged = stageEncodedData(persist ? data : nil)
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         lock.lock()
-        guard asyncRequests[.raw(key)] === request else { lock.unlock(); return }
+        guard requests[.raw(key)] === request else { lock.unlock(); return }
         if request.allowsCaching, let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
-        let completions = rawDataInFlight.removeValue(forKey: key) ?? []
-        asyncRequests.removeValue(forKey: .raw(key))
+        let completions = Array(request.rawCompletions.values)
+        request.rawCompletions.removeAll()
+        requests.removeValue(forKey: .raw(key))
         request.task = nil
         lock.unlock()
-        if staged != nil {
-            Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
+        DispatchQueue.main.async { [self] in
+            completions.forEach { $0(data) }
+            if staged != nil { scheduleMaintenance() }
         }
-        DispatchQueue.main.async { completions.forEach { $0(data) } }
     }
 
-    /// Stage expensive IO outside the request lock. Only the still-current
-    /// producer may atomically publish its file while finishing that request.
+    /// Expensive staging is outside the request lock; current identity and cache
+    /// permission are checked again before publishing either raw or still file.
     private func stageEncodedData(_ data: Data?) -> URL? {
         guard let data else { return nil }
         let staged = diskCacheDir.appendingPathComponent(".thumbnail-\(UUID().uuidString).pending")
@@ -410,141 +603,37 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         catch { try? FileManager.default.removeItem(at: staged); return nil }
     }
 
-    /// 预取：触发后台加载但不注册回调。
+    private func scheduleMaintenance() {
+        lock.lock()
+        guard !maintenanceScheduled else { lock.unlock(); return }
+        maintenanceScheduled = true
+        lock.unlock()
+        maintenanceQueue.async { [self] in
+            Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
+            lock.lock(); maintenanceScheduled = false; lock.unlock()
+        }
+    }
+
+    /// Legacy prefetch remains pinned; cancellable consumers use load(.prefetch).
+    /// Prefetch failure has never populated the synchronous-load failure cache.
     func prefetch(forKey key: String, loader: @escaping () -> NSImage?) {
-        guard imageCache.object(forKey: key as NSString) == nil else { return }
-
-        lock.lock()
-        guard inFlight[key] == nil else { lock.unlock(); return }
-        inFlight[key] = []
-        lock.unlock()
-
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL),
-               let image = Self.decodeStoredImage(data) {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                self.finish(key: key, image: image)
-                return
-            }
-            let image = loader()
-            if let image {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                Self.writeToDisk(image: image, url: diskURL)
-                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-            }
-            self.finish(key: key, image: image)
-        }
+        loadSynchronously(forKey: key, priority: .prefetch, cancellation: nil,
+            cachesFailure: false, decoder: Self.decodeStoredImage, generate: {
+                let image = loader(); return (image, image.flatMap(Self.jpegData))
+            }, completion: { _ in })
     }
 
-    /// 预取原始图片数据并保留原编码格式。
-    /// 适合 GIF 等动态缩略图，避免在预取阶段被转成静态 JPEG。
     func prefetchImageData(forKey key: String, loader: @escaping () -> Data?) {
-        guard imageCache.object(forKey: key as NSString) == nil else { return }
-
-        lock.lock()
-        guard inFlight[key] == nil else { lock.unlock(); return }
-        inFlight[key] = []
-        lock.unlock()
-
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL),
-               let image = NSImage(data: data) {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                self.finish(key: key, image: image)
-                return
-            }
-
-            guard let data = loader() else {
-                self.finish(key: key, image: nil)
-                return
-            }
-
-            let image = NSImage(data: data)
-            if let image {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-            }
-            try? data.write(to: diskURL, options: .atomic)
-            Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-            self.finish(key: key, image: image)
-        }
+        loadImageData(forKey: key, priority: .prefetch, loader: loader, completion: { _ in })
     }
 
-    /// 异步预取原始图片数据并保留原编码格式。
-    func prefetchImageDataAsync(
-        forKey key: String,
-        loader: @escaping @Sendable () async -> Data?
-    ) {
-        guard imageCache.object(forKey: key as NSString) == nil else { return }
-
-        lock.lock()
-        guard inFlight[key] == nil else { lock.unlock(); return }
-        inFlight[key] = []
-        lock.unlock()
-
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if let data = try? Data(contentsOf: diskURL),
-               let image = NSImage(data: data) {
-                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                self.finish(key: key, image: image)
-                return
-            }
-
-            Task { [weak self] in
-                guard let self else { return }
-                guard let data = await loader() else {
-                    self.finish(key: key, image: nil)
-                    return
-                }
-
-                let image = NSImage(data: data)
-                if let image {
-                    self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-                }
-                try? data.write(to: diskURL, options: .atomic)
-                Self.trimDiskCache(directory: self.diskCacheDir, sizeLimit: Self.diskCacheSizeLimit)
-                self.finish(key: key, image: image)
-            }
-        }
+    func prefetchImageDataAsync(forKey key: String, loader: @escaping @Sendable () async -> Data?) {
+        loadImageDataAsync(forKey: key, priority: .prefetch, loader: loader, completion: { _ in })
     }
 
-    /// 异步预取原始图片数据，只写入磁盘，不解码进内存缓存。
-    /// 适合可见区域外的预热，避免 GIF 等资源在后台产生持续动画/解码压力。
-    func prefetchRawDataAsync(
-        forKey key: String,
-        loader: @escaping @Sendable () async -> Data?
-    ) {
+    func prefetchRawDataAsync(forKey key: String, loader: @escaping @Sendable () async -> Data?) {
         guard imageCache.object(forKey: key as NSString) == nil else { return }
-
-        lock.lock()
-        guard rawDataPrefetchInFlight[key] == nil else { lock.unlock(); return }
-        let request = AsyncRequest()
-        rawDataPrefetchInFlight[key] = request
-        lock.unlock()
-
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            let diskURL = self.diskCacheURL(for: key)
-            if FileManager.default.fileExists(atPath: diskURL.path) {
-                self.finishRawDataPrefetch(request, key: key)
-                return
-            }
-
-            Task { [weak self] in
-                guard let self else { return }
-                guard let data = await loader() else {
-                    self.finishRawDataPrefetch(request, key: key)
-                    return
-                }
-
-                self.finishRawDataPrefetch(request, key: key, data: data)
-            }
-        }
+        loadRawDataAsync(forKey: key, priority: .prefetch, loader: loader, completion: { _ in })
     }
 
     /// 清空内存缓存（磁盘缓存保留）
@@ -557,9 +646,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         defer { lock.unlock() }
         // Existing consumers may finish their shared fetch, but it cannot
         // repopulate an explicitly invalidated cache after this deletion.
-        asyncRequests[.image(key)]?.allowsCaching = false
-        asyncRequests[.raw(key)]?.allowsCaching = false
-        rawDataPrefetchInFlight[key]?.allowsCaching = false
+        requests[.image(key)]?.allowsCaching = false
+        requests[.raw(key)]?.allowsCaching = false
+        for request in requests.values where request.sourceDataKey == key { request.allowsCaching = false }
         imageCache.removeObject(forKey: key as NSString)
         try? FileManager.default.removeItem(at: diskCacheURL(for: key))
     }
@@ -595,8 +684,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     func clearDiskCache() {
         lock.lock()
         defer { lock.unlock() }
-        for request in asyncRequests.values { request.allowsCaching = false }
-        for request in rawDataPrefetchInFlight.values { request.allowsCaching = false }
+        for request in requests.values { request.allowsCaching = false }
         try? FileManager.default.removeItem(at: diskCacheDir)
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
     }
@@ -668,27 +756,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     // MARK: - 内部
 
-    private func finish(key: String, image: NSImage?) {
-        lock.lock()
-        let completions = inFlight.removeValue(forKey: key) ?? []
-        lock.unlock()
-        guard !completions.isEmpty else { return }
-        DispatchQueue.main.async {
-            completions.forEach { $0(image) }
-        }
-    }
-
-    private func finishRawDataPrefetch(_ request: AsyncRequest, key: String, data: Data? = nil) {
-        let staged = stageEncodedData(data)
-        defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
-        lock.lock()
-        guard rawDataPrefetchInFlight[key] === request else { lock.unlock(); return }
-        if request.allowsCaching, let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
-        rawDataPrefetchInFlight.removeValue(forKey: key)
-        lock.unlock()
-        if staged != nil { Self.trimDiskCache(directory: diskCacheDir, sizeLimit: Self.diskCacheSizeLimit) }
-    }
-
     private func diskCacheURL(for key: String) -> URL {
         // 用 SHA256 哈希作为文件名，避免路径中的特殊字符
         let hash = SHA256.hash(data: Data(key.utf8))
@@ -714,10 +781,8 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         return NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])
     }
 
-    private static func writeToDisk(image: NSImage, url: URL) {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-        let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
-        guard let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { return }
-        try? jpegData.write(to: url, options: .atomic)
+    private static func jpegData(_ image: NSImage) -> Data? {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        return NSBitmapImageRep(cgImage: cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
 }

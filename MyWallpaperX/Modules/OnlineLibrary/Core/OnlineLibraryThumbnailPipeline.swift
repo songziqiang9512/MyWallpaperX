@@ -29,145 +29,176 @@ nonisolated enum OLThumbnailRequestPriority: Sendable {
     }
 }
 
+nonisolated private final class OLThumbnailPriorityState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: OLThumbnailRequestPriority
+    init(_ value: OLThumbnailRequestPriority) { self.value = value }
+    func current() -> OLThumbnailRequestPriority { lock.lock(); defer { lock.unlock() }; return value }
+    func promote() { lock.lock(); value = .visible; lock.unlock() }
+}
+
 actor OLThumbnailRequestCoordinator {
     private struct InFlightRequest {
         let id: UUID
-        let task: Task<Data?, Never>
+        let task: Task<Void, Never>
+        let priority: OLThumbnailPriorityState
+        var consumers: [UUID: CheckedContinuation<Data?, Never>]
     }
 
     static let shared = OLThumbnailRequestCoordinator()
-
     private let session: URLSession
     private let scheduler = OLThumbnailRequestScheduler()
     private var inFlight: [String: InFlightRequest] = [:]
 
-    private init() {
+    init(session: URLSession? = nil) {
+        if let session { self.session = session; return }
         let configuration = URLSessionConfiguration.default
         configuration.httpMaximumConnectionsPerHost = 6
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = 12
         configuration.timeoutIntervalForResource = 16
         configuration.waitsForConnectivity = false
-        session = URLSession(configuration: configuration)
+        self.session = URLSession(configuration: configuration)
     }
 
     func loadData(from url: URL, priority: OLThumbnailRequestPriority) async -> Data? {
+        let consumerID = UUID()
         let key = url.absoluteString
-        if let request = inFlight[key] {
-            return await request.task.value
-        }
-
-        let requestID = UUID()
-        let task = Task<Data?, Never> { [session, scheduler] in
-            return await scheduler.run(priority: priority) {
-                do {
-                    var request = URLRequest(url: url)
-                    request.timeoutInterval = priority.timeoutInterval
-                    request.networkServiceType = priority.networkServiceType
-                    let (data, response) = try await session.data(for: request)
-                    guard let http = response as? HTTPURLResponse,
-                          (200..<300).contains(http.statusCode) else {
-                        return nil
+        return await withTaskCancellationHandler {
+            guard !Task.isCancelled else { return nil }
+            return await withCheckedContinuation { continuation in
+                if var request = inFlight[key] {
+                    request.consumers[consumerID] = continuation
+                    if priority == .visible, request.priority.current() == .prefetch {
+                        request.priority.promote()
+                        let requestID = request.id
+                        Task { await scheduler.promote(requestID) }
                     }
-                    return data
-                } catch {
-                    return nil
+                    inFlight[key] = request
+                    return
                 }
+                let requestID = UUID()
+                let priorityState = OLThumbnailPriorityState(priority)
+                let task = Task { [session, scheduler] in
+                    let result = await scheduler.run(id: requestID, priority: priority,
+                        currentPriority: { priorityState.current() }) {
+                        do {
+                            var request = URLRequest(url: url)
+                            request.timeoutInterval = priorityState.current().timeoutInterval
+                            request.networkServiceType = priorityState.current().networkServiceType
+                            let (data, response) = try await session.data(for: request)
+                            guard !Task.isCancelled,
+                                  let http = response as? HTTPURLResponse,
+                                  (200..<300).contains(http.statusCode) else { return nil as Data? }
+                            return data
+                        } catch { return nil as Data? }
+                    }
+                    finish(key: key, requestID: requestID, data: result ?? nil)
+                }
+                inFlight[key] = InFlightRequest(id: requestID, task: task, priority: priorityState,
+                    consumers: [consumerID: continuation])
             }
+        } onCancel: {
+            Task { await self.cancelConsumer(consumerID, forKey: key) }
         }
-        inFlight[key] = InFlightRequest(id: requestID, task: task)
-
-        let data = await task.value
-        removeInFlightTask(forKey: key, requestID: requestID)
-        return data
     }
 
-    private func removeInFlightTask(forKey key: String, requestID: UUID) {
-        guard inFlight[key]?.id == requestID else { return }
+    private func cancelConsumer(_ id: UUID, forKey key: String) {
+        guard var request = inFlight[key], let continuation = request.consumers.removeValue(forKey: id) else { return }
+        continuation.resume(returning: nil)
+        if request.consumers.isEmpty {
+            inFlight.removeValue(forKey: key)
+            request.task.cancel()
+        } else { inFlight[key] = request }
+    }
+
+    private func finish(key: String, requestID: UUID, data: Data?) {
+        guard let request = inFlight[key], request.id == requestID else { return }
         inFlight.removeValue(forKey: key)
+        request.consumers.values.forEach { $0.resume(returning: data) }
     }
 }
 
+/// Owns permits only; the request/cache actors remain the owners of consumers and results.
 actor OLThumbnailRequestScheduler {
-    // Includes permits handed to resumed waiters that have not run yet.
-    private var activeVisibleRequests = 0
-    private var activePrefetchRequests = 0
-    private var waitingVisibleRequests: [CheckedContinuation<Void, Never>] = []
-    private var waitingPrefetchRequests: [CheckedContinuation<Void, Never>] = []
+    private struct Waiter {
+        let id: UUID
+        var priority: OLThumbnailRequestPriority
+        let continuation: CheckedContinuation<OLThumbnailRequestPriority?, Never>
+    }
+    private var active: [UUID: OLThumbnailRequestPriority] = [:]
+    private var waiting: [Waiter] = []
 
-    func run<T>(
-        priority: OLThumbnailRequestPriority,
-        operation: @Sendable () async -> T
-    ) async -> T {
-        await acquire(priority: priority)
-        defer { release(priority: priority) }
-        return await operation()
+    func run<T: Sendable>(id: UUID = UUID(), priority: OLThumbnailRequestPriority,
+        currentPriority: (@Sendable () -> OLThumbnailRequestPriority)? = nil,
+        operation: @Sendable () async -> T) async -> T? {
+        await withTaskCancellationHandler {
+            guard await acquire(id: id, priority: currentPriority?() ?? priority) != nil else { return nil }
+            defer { release(id: id) }
+            guard !Task.isCancelled else { return nil }
+            return await operation()
+        } onCancel: { Task { await self.cancel(id: id) } }
     }
 
-    private func acquire(priority: OLThumbnailRequestPriority) async {
-        if canAcquire(priority: priority) {
-            reserve(priority: priority)
-            return
-        }
-        await withCheckedContinuation { continuation in
-            switch priority {
-            case .visible:
-                waitingVisibleRequests.append(continuation)
-            case .prefetch:
-                waitingPrefetchRequests.append(continuation)
-            }
-        }
-        // release transfers an already reserved permit to this waiter.
-    }
-
-    private func reserve(priority: OLThumbnailRequestPriority) {
-        switch priority {
-        case .visible:
-            activeVisibleRequests += 1
-        case .prefetch:
-            activePrefetchRequests += 1
-        }
-    }
-
-    private func canAcquire(priority: OLThumbnailRequestPriority) -> Bool {
-        switch priority {
-        case .visible:
-            return activeVisibleRequests < 2
-        case .prefetch:
-            return activeVisibleRequests == 0
-                && activePrefetchRequests == 0
-                && waitingVisibleRequests.isEmpty
-        }
-    }
-
-    private func release(priority: OLThumbnailRequestPriority) {
-        switch priority {
-        case .visible:
-            activeVisibleRequests = max(0, activeVisibleRequests - 1)
-        case .prefetch:
-            activePrefetchRequests = max(0, activePrefetchRequests - 1)
-        }
+    func promote(_ id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.id == id }) else { return }
+        waiting[index].priority = .visible
         resumeNextIfPossible()
     }
 
-    private func resumeNextIfPossible() {
-        while canAcquire(priority: .visible), !waitingVisibleRequests.isEmpty {
-            let continuation = waitingVisibleRequests.removeFirst()
-            // Reserve before resuming: the actor cannot run the waiter until
-            // this turn ends, and otherwise every queued waiter looks runnable.
-            reserve(priority: .visible)
-            continuation.resume()
-        }
+    private func acquire(id: UUID, priority: OLThumbnailRequestPriority) async -> OLThumbnailRequestPriority? {
+        guard !Task.isCancelled else { return nil }
+        if canAcquire(priority: priority) { active[id] = priority; return priority }
+        return await withCheckedContinuation { waiting.append(Waiter(id: id, priority: priority, continuation: $0)) }
+    }
 
-        if canAcquire(priority: .prefetch), let continuation = waitingPrefetchRequests.first {
-            waitingPrefetchRequests.removeFirst()
-            reserve(priority: .prefetch)
-            continuation.resume()
+    private func cancel(id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.id == id }) else { return }
+        waiting.remove(at: index).continuation.resume(returning: nil)
+        resumeNextIfPossible()
+    }
+
+    private func release(id: UUID) {
+        active.removeValue(forKey: id)
+        resumeNextIfPossible()
+    }
+
+    private func canAcquire(priority: OLThumbnailRequestPriority) -> Bool {
+        let visible = active.values.filter { $0 == .visible }.count
+        switch priority {
+        case .visible: return visible < 2
+        case .prefetch:
+            return active.isEmpty && !waiting.contains { $0.priority == .visible }
+        }
+    }
+
+    private func resumeNextIfPossible() {
+        while let index = waiting.firstIndex(where: { $0.priority == .visible }), canAcquire(priority: .visible) {
+            let waiter = waiting.remove(at: index)
+            active[waiter.id] = .visible
+            waiter.continuation.resume(returning: .visible)
+        }
+        if canAcquire(priority: .prefetch), let index = waiting.firstIndex(where: { $0.priority == .prefetch }) {
+            let waiter = waiting.remove(at: index)
+            active[waiter.id] = .prefetch
+            waiter.continuation.resume(returning: .prefetch)
         }
     }
 }
 
 // MARK: - 缩略图磁盘缓存
+
+/// Only accessed after Operation has finished; OperationQueue publishes completion after main.
+nonisolated private final class OLThumbnailDecodeOperation: Operation, @unchecked Sendable {
+    let data: Data
+    let maxPixelSize: Int
+    private(set) var image: NSImage?
+    init(data: Data, maxPixelSize: Int) { self.data = data; self.maxPixelSize = maxPixelSize }
+    override func main() {
+        guard !isCancelled else { return }
+        image = autoreleasepool { GridThumbnailDecoder.decode(data, maxPixelSize: maxPixelSize) }
+    }
+}
 
 actor OLThumbnailCache {
     static let shared = OLThumbnailCache()
@@ -201,9 +232,31 @@ actor OLThumbnailCache {
         decodedImageCache.object(forKey: "\(url.absoluteString)@\(maxPixelSize)" as NSString)
     }
 
+    private let requestCoordinator: OLThumbnailRequestCoordinator
     private var cacheGeneration = 0
+    private struct DecodeKey: Hashable, Sendable {
+        let url: URL
+        let pixelSize: Int
+        let generation: Int
+        let data: Data
+    }
+    private struct DecodeRequest {
+        let id: UUID
+        let operation: OLThumbnailDecodeOperation
+        var persistsSourceData: Bool
+        var consumers: [UUID: CheckedContinuation<NSImage?, Never>]
+    }
+    private var decoding: [DecodeKey: DecodeRequest] = [:]
+    private let decodeQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "com.mywallpaper.onlinelibrary.thumbnail.decode"
+        queue.qualityOfService = .utility
+        queue.maxConcurrentOperationCount = 2
+        return queue
+    }()
 
-    private init() {
+    init(requestCoordinator: OLThumbnailRequestCoordinator = .shared) {
+        self.requestCoordinator = requestCoordinator
         Task { await self.evictExpired() }
     }
 
@@ -241,6 +294,12 @@ actor OLThumbnailCache {
     /// 清空缓存（内存 + 磁盘）：设置「清除缓存」统一入口调用
     func clearAll() {
         cacheGeneration &+= 1
+        let requests = Array(decoding.values)
+        decoding.removeAll()
+        for request in requests {
+            request.operation.cancel()
+            request.consumers.values.forEach { $0.resume(returning: nil) }
+        }
         memCache.removeAllObjects()
         decodedImageCache.removeAllObjects()
         try? FileManager.default.removeItem(at: cacheDir)
@@ -249,33 +308,95 @@ actor OLThumbnailCache {
 
     // MARK: 解码结果缓存
 
-    /// 取解码后的缩略图（解码缓存 → 数据缓存后台解码）；返回 nil 表示无可用数据或解码失败
-    func cachedImage(for url: URL, maxPixelSize: Int = 800) async -> NSImage? {
+    /// Captures the clear epoch before either disk or network work begins.
+    func image(for url: URL, maxPixelSize: Int, priority: OLThumbnailRequestPriority) async -> NSImage? {
+        let generation = cacheGeneration
+        if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize, priority: priority) {
+            return !Task.isCancelled && generation == cacheGeneration ? image : nil
+        }
+        guard !Task.isCancelled, generation == cacheGeneration,
+              let data = await requestCoordinator.loadData(from: url, priority: priority),
+              !Task.isCancelled, generation == cacheGeneration else { return nil }
+        return await storeAndDecode(data: data, for: url, maxPixelSize: maxPixelSize,
+            generation: generation, priority: priority)
+    }
+
+    func cachedImage(for url: URL, maxPixelSize: Int = 800,
+        priority: OLThumbnailRequestPriority = .visible) async -> NSImage? {
+        guard !Task.isCancelled else { return nil }
         let key = "\(url.absoluteString)@\(maxPixelSize)" as NSString
-        if let img = decodedImageCache.object(forKey: key) { return img }
+        if let image = decodedImageCache.object(forKey: key) { return image }
         let generation = cacheGeneration
         guard let data = cachedData(for: url),
-              let img = await Self.decode(data, maxPixelSize: maxPixelSize),
-              generation == cacheGeneration else { return nil }
-        decodedImageCache.setObject(img, forKey: key, cost: Self.decodedImageCost(img))
-        return img
+              let image = await decode(data, for: url, maxPixelSize: maxPixelSize,
+                generation: generation, priority: priority, persistsSourceData: false),
+              !Task.isCancelled, generation == cacheGeneration else { return nil }
+        return image
     }
 
-    /// 写入数据缓存并返回后台解码结果；解码失败不写缓存（与旧「先解码后入缓存」行为一致）
-    func storeAndDecode(data: Data, for url: URL, maxPixelSize: Int = 800, generation: Int) async -> NSImage? {
-        guard generation == cacheGeneration else { return nil }
-        guard let img = await Self.decode(data, maxPixelSize: maxPixelSize),
-              generation == cacheGeneration else { return nil }
-        store(data: data, for: url, generation: generation)
-        decodedImageCache.setObject(img, forKey: "\(url.absoluteString)@\(maxPixelSize)" as NSString, cost: Self.decodedImageCost(img))
-        return img
+    func storeAndDecode(data: Data, for url: URL, maxPixelSize: Int = 800,
+        generation: Int, priority: OLThumbnailRequestPriority = .visible) async -> NSImage? {
+        guard !Task.isCancelled, generation == cacheGeneration,
+              let image = await decode(data, for: url, maxPixelSize: maxPixelSize,
+                generation: generation, priority: priority, persistsSourceData: true),
+              !Task.isCancelled, generation == cacheGeneration else { return nil }
+        return image
     }
 
-    /// 解码统一放后台，避免占住调用方线程（主线程或 actor 执行器）
-    private static func decode(_ data: Data, maxPixelSize: Int) async -> NSImage? {
-        await Task.detached(priority: .utility) {
-            GridThumbnailDecoder.decode(data, maxPixelSize: maxPixelSize)
-        }.value
+    private func decode(_ data: Data, for url: URL, maxPixelSize: Int, generation: Int,
+        priority: OLThumbnailRequestPriority, persistsSourceData: Bool) async -> NSImage? {
+        let key = DecodeKey(url: url, pixelSize: maxPixelSize, generation: generation, data: data)
+        let consumerID = UUID()
+        return await withTaskCancellationHandler {
+            guard !Task.isCancelled, generation == cacheGeneration else { return nil }
+            return await withCheckedContinuation { continuation in
+                if var request = decoding[key] {
+                    request.consumers[consumerID] = continuation
+                    request.persistsSourceData = request.persistsSourceData || persistsSourceData
+                    if priority == .visible {
+                        request.operation.queuePriority = .veryHigh
+                        if !request.operation.isExecuting { request.operation.qualityOfService = .userInitiated }
+                    }
+                    decoding[key] = request
+                    return
+                }
+                let requestID = UUID()
+                let operation = OLThumbnailDecodeOperation(data: data, maxPixelSize: maxPixelSize)
+                operation.queuePriority = priority == .visible ? .veryHigh : .low
+                operation.qualityOfService = priority == .visible ? .userInitiated : .utility
+                operation.completionBlock = { [weak self, weak operation] in
+                    let image = operation?.isCancelled == false ? operation?.image : nil
+                    Task { await self?.finishDecode(key: key, requestID: requestID, image: image) }
+                }
+                decoding[key] = DecodeRequest(id: requestID, operation: operation,
+                    persistsSourceData: persistsSourceData, consumers: [consumerID: continuation])
+                decodeQueue.addOperation(operation)
+            }
+        } onCancel: { Task { await self.cancelDecodeConsumer(consumerID, key: key) } }
+    }
+
+    private func cancelDecodeConsumer(_ id: UUID, key: DecodeKey) {
+        guard var request = decoding[key], let continuation = request.consumers.removeValue(forKey: id) else { return }
+        continuation.resume(returning: nil)
+        if request.consumers.isEmpty {
+            decoding.removeValue(forKey: key)
+            request.operation.cancel()
+        } else { decoding[key] = request }
+    }
+
+    private func finishDecode(key: DecodeKey, requestID: UUID, image: NSImage?) {
+        guard let request = decoding[key], request.id == requestID else { return }
+        let result = key.generation == cacheGeneration ? image : nil
+        if let result {
+            // Publish once before resuming any consumer. This closes the gap in
+            // which a new card could start the same decode before its first
+            // consumer had resumed and populated the ready tier.
+            decodedImageCache.setObject(result, forKey: "\(key.url.absoluteString)@\(key.pixelSize)" as NSString,
+                cost: Self.decodedImageCost(result))
+            if request.persistsSourceData { store(data: key.data, for: key.url, generation: key.generation) }
+        }
+        decoding.removeValue(forKey: key)
+        request.consumers.values.forEach { $0.resume(returning: result) }
     }
 
     private static func decodedImageCost(_ image: NSImage) -> Int {

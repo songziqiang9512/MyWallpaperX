@@ -31,9 +31,12 @@ func steamWorkshopLoadPreviewImage(
     let stillKey = "steam-still-v1:\(maxPixelSize):\(rawKey)"
     SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(
         forKey: stillKey, sourceDataKey: rawKey,
-        loader: {
+        priority: priority == .prefetch ? .prefetch : .visible,
+        onPriorityPromotion: { Task { await SteamWorkshopPreviewRequestCoordinator.shared.promoteVisibleRequest(for: url) } },
+        loader: { priorityProvider in
             if url.isFileURL { return try? Data(contentsOf: url) }
-            return await SteamWorkshopPreviewRequestCoordinator.shared.loadData(from: url, priority: priority)
+            return await SteamWorkshopPreviewRequestCoordinator.shared.loadData(from: url, priority: priority,
+                priorityProvider: { priority == .userInitiated ? .userInitiated : (priorityProvider() == .prefetch ? .prefetch : .visible) })
         }, decoder: { steamWorkshopPreviewImage(from: $0, maxPixelSize: maxPixelSize) },
         cancellation: cancellation, completion: completion)
 }

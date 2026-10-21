@@ -44,7 +44,13 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var isApplyingSnapshot = false
     private var isItemsApplyScheduled = false
     private var moduleActivationObserver: NSObjectProtocol?
-    private var lastPrioritizedVisibleIDs: [String] = []
+    private let previewPrefetch = SteamWorkshopPreviewPrefetchController()
+    private var previewPrefetchWorkItem: DispatchWorkItem?
+    private var lastPrefetchOffsetY: CGFloat?
+    private var thumbnailWindowVisibilityObservation: NSKeyValueObservation?
+    private var thumbnailDemandIsVisible: Bool {
+        window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+    }
     private var pendingLayoutItemSizeUpdate = false
     private var pendingItems: [SteamWorkshopBrowserItem]?
 
@@ -142,6 +148,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     }
 
     deinit {
+        previewPrefetchWorkItem?.cancel()
         if let moduleActivationObserver {
             NotificationCenter.default.removeObserver(moduleActivationObserver)
         }
@@ -159,10 +166,26 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window != nil {
-            needsLayout = true
+        thumbnailWindowVisibilityObservation = nil
+        if let window {
+            thumbnailWindowVisibilityObservation = window.observe(\.isVisible, options: [.new]) { [weak self] window, _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.window === window else { return }
+                    self.syncVisiblePreviewAnimationStates(isVisible: self.thumbnailDemandIsVisible)
+                    self.prioritizeVisibleItemsForHydration()
+                }
+            }
         }
-        syncVisiblePreviewAnimationStates(isVisible: window != nil)
+        if window != nil { needsLayout = true }
+        syncVisiblePreviewAnimationStates(isVisible: thumbnailDemandIsVisible)
+        prioritizeVisibleItemsForHydration()
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide(); cancelPreviewPrefetch(); syncVisiblePreviewAnimationStates(isVisible: false)
+    }
+    override func viewDidUnhide() {
+        super.viewDidUnhide(); syncVisiblePreviewAnimationStates(isVisible: thumbnailDemandIsVisible); prioritizeVisibleItemsForHydration()
     }
 
     private func setup() {
@@ -213,6 +236,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.reloadVisibleItems()
+                self?.prioritizeVisibleItemsForHydration()
             }
             .store(in: &cancellables)
 
@@ -227,7 +251,9 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
+                self?.previewPrefetch.cancelAll()
                 self?.forceReloadVisiblePreviews()
+                self?.prioritizeVisibleItemsForHydration()
             }
             .store(in: &cancellables)
 
@@ -287,6 +313,14 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self?.requestFocus()
         }
 
+        for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+            NotificationCenter.default.publisher(for: name).receive(on: DispatchQueue.main)
+                .sink { [weak self] notification in
+                    guard let self, let window = notification.object as? NSWindow, self.window === window else { return }
+                    self.syncVisiblePreviewAnimationStates(isVisible: self.thumbnailDemandIsVisible)
+                    self.prioritizeVisibleItemsForHydration()
+                }.store(in: &cancellables)
+        }
         applyItems(service.displayedBrowserItems)
     }
 
@@ -424,7 +458,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private func syncVisiblePreviewAnimationStates(isVisible: Bool) {
         for visibleItem in collectionView.visibleItems() {
             guard let item = visibleItem as? AppKitSteamWorkshopBrowserItem else { continue }
-            item.setPreviewVisible(isVisible)
+            item.setPreviewVisible(isVisible && thumbnailDemandIsVisible)
         }
     }
 
@@ -589,20 +623,46 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         return collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem
     }
 
+    private func cancelPreviewPrefetch() {
+        previewPrefetchWorkItem?.cancel()
+        previewPrefetchWorkItem = nil
+        lastPrefetchOffsetY = nil
+        previewPrefetch.cancelAll()
+    }
+
     private func prioritizeVisibleItemsForHydration() {
-        let visibleIDs = collectionView.indexPathsForVisibleItems()
-            .sorted()
-            .compactMap { indexPath -> String? in
-                guard let id = dataSource.itemIdentifier(for: indexPath), id != SteamWorkshopBrowserFooterSupport.itemID else { return nil }
-                return id
-            }
-        guard !visibleIDs.isEmpty else { return }
-        let prioritized = Array(visibleIDs.prefix(16))
-        guard prioritized != lastPrioritizedVisibleIDs else { return }
-        lastPrioritizedVisibleIDs = prioritized
+        guard thumbnailDemandIsVisible else {
+            cancelPreviewPrefetch(); return
+        }
+        guard previewPrefetchWorkItem == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.previewPrefetchWorkItem = nil
+            self.prefetchCurrentViewport()
+        }
+        previewPrefetchWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: work)
+    }
+
+    private func prefetchCurrentViewport() {
+        guard thumbnailDemandIsVisible else {
+            cancelPreviewPrefetch(); return
+        }
+        let offset = scrollView.contentView.bounds.minY
+        let direction = lastPrefetchOffsetY.map { offset == $0 ? 0 : (offset > $0 ? 1 : -1) } ?? 0
+        lastPrefetchOffsetY = offset
+        let visible = collectionView.indexPathsForVisibleItems().filter { $0.section == 0 }.map(\.item)
+        let indices = GridThumbnailPrefetchDemand.indices(visibleIndices: visible, itemCount: orderedIDs.count,
+            neighborLimit: min(24, currentColumnCount * 2), direction: direction)
+        let candidates = (indices + visible).compactMap { index -> SteamWorkshopPreviewPrefetchController.Candidate? in
+            guard index >= 0, index < orderedIDs.count else { return nil }
+            let id = orderedIDs[index]
+            guard let item = itemsByID[id] else { return nil }
+            return .init(id: id, item: item, record: service.latestDownloadRecord(for: id), startsIfMissing: !visible.contains(index))
+        }
         let pixels = min(800, GridThumbnailDecoder.pixelLimit(width: flowLayout.itemSize.width,
             scale: window?.backingScaleFactor ?? 2))
-        service.prioritizeVisibleBrowserItemIDs(prioritized, maxPixelSize: pixels)
+        previewPrefetch.replace(with: candidates, maxPixelSize: pixels)
     }
 
     @discardableResult
@@ -624,6 +684,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         flowLayout.minimumLineSpacing = metrics.lineSpacing
         flowLayout.itemSize = newSize
         flowLayout.invalidateLayout()
+        prioritizeVisibleItemsForHydration()
         return true
     }
 
@@ -762,7 +823,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
         guard let item = item as? AppKitSteamWorkshopBrowserItem else { return }
         item.setKeyboardFocus(keyboardFocusedID == id)
-        item.setPreviewVisible(true)
+        item.setPreviewVisible(thumbnailDemandIsVisible)
         prioritizeVisibleItemsForHydration()
     }
 

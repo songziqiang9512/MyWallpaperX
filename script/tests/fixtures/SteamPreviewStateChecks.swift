@@ -13,6 +13,30 @@ import AppKit
         image: { url, _, _, done in images.append((url, done)) }, animation: { _, _, done in animations.append(done) },
         video: { _, done in videos.append(done) }, retryDelay: { _ in nil }, invalidate: { _ in invalidations += 1 }))
     var checks: [String: Bool] = [:]
+    var pendingVisibility: [(SteamWorkshopPreviewLoadCancellation, (NSImage?) -> Void)] = []
+    let visibility = SteamWorkshopPreviewState(loaders: .init(
+        image: { _, _, cancellation, done in pendingVisibility.append((cancellation, done)) },
+        animation: { _, _, done in done(nil) }, video: { _, done in done(nil) }, retryDelay: { _ in nil }, invalidate: { _ in }))
+    visibility.configure(previewURL: a, fallbackVideoURL: nil)
+    visibility.setImageDemandActive(false)
+    checks["offscreenPendingStillReleasesOnlyItsConsumer"] = pendingVisibility.count == 1 && pendingVisibility[0].0.cancelled
+    visibility.configure(previewURL: b, fallbackVideoURL: nil)
+    checks["hiddenConfigurationStoresIdentityWithoutStartingWork"] = pendingVisibility.count == 1
+    pendingVisibility[0].1(animation)
+    visibility.setImageDemandActive(true)
+    checks["reshowResumesLatestUnfinishedIdentity"] = pendingVisibility.count == 2 && visibility.image == nil
+    pendingVisibility[1].1(still)
+    visibility.setImageDemandActive(false)
+    visibility.setImageDemandActive(true)
+    checks["readyStillSurvivesHideWithoutReload"] = pendingVisibility.count == 2 && visibility.image === still
+    visibility.configure(previewURL: a, fallbackVideoURL: nil)
+    pendingVisibility.last!.1(nil)
+    let afterTerminalFailure = pendingVisibility.count
+    visibility.setImageDemandActive(false)
+    visibility.setImageDemandActive(true)
+    checks["terminalFailureDoesNotRestartOnEveryVisibilityChange"] = pendingVisibility.count == afterTerminalFailure
+        && visibility.placeholder == .unavailable
+
     state.setAnimationActive(true)
     state.configure(previewURL: a, fallbackVideoURL: nil)
     for _ in 0..<50 { state.configure(previewURL: a, fallbackVideoURL: nil); state.setAnimationActive(true) }

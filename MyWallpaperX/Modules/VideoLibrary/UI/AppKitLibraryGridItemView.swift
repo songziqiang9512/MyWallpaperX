@@ -42,6 +42,12 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var currentWallpaperID: String?
     private var currentWallpaper: VideoWallpaper?
     private var imageTaskID: UUID?
+    private var imageCancellation: ThumbnailCacheRequestCancellation?
+    private var loadingPlaceholderWorkItem: DispatchWorkItem?
+    private weak var thumbnailWallpaperManager: WallpaperManager?
+    private weak var currentThumbnailProvider: AppKitThumbnailProvider?
+    private var isThumbnailDemandPaused = false
+    private var thumbnailRequestIsPending = false
     private var trackingAreaRef: NSTrackingArea?
     private var isHovering = false
     private var isPressingCard = false
@@ -59,6 +65,8 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         super.init(coder: coder)
     }
 
+    deinit { imageCancellation?.cancel(); loadingPlaceholderWorkItem?.cancel() }
+
     override func loadView() {
         view = NSView()
         setupViews()
@@ -71,6 +79,14 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         currentWallpaperID = nil
         currentWallpaper = nil
         imageTaskID = nil
+        imageCancellation?.cancel()
+        imageCancellation = nil
+        loadingPlaceholderWorkItem?.cancel()
+        loadingPlaceholderWorkItem = nil
+        thumbnailWallpaperManager = nil
+        currentThumbnailProvider = nil
+        isThumbnailDemandPaused = false
+        thumbnailRequestIsPending = false
         isHovering = false
         isPressingCard = false
         isPlaying = false
@@ -79,7 +95,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         thumbnailImageView.image = nil
         placeholderLabel.stringValue = "生成中..."
         placeholderLabel.toolTip = nil
-        placeholderLabel.isHidden = false
+        placeholderLabel.isHidden = true
         favoriteBadge.isHidden = true
         favoriteBadgeContainer.isHidden = true
         multiSelectBadge.isHidden = true
@@ -107,11 +123,15 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         thumbnailProvider: AppKitThumbnailProvider
     ) {
         // item 只接收外部快照，不主动改模型；否则 selection / 收藏 / 预览会出现双向写回竞争。
+        let unchangedResource = currentWallpaper?.id == wallpaper.id
+            && currentWallpaper?.path == wallpaper.path && currentWallpaper?.thumbnailPath == wallpaper.thumbnailPath
+        if !unchangedResource { thumbnailImageView.image = nil }
         currentWallpaperID = wallpaper.id
         currentWallpaper = wallpaper
         self.isPlaying = isPlaying
         self.isMultiSelectMode = multiSelectMode
-        placeholderLabel.isHidden = false
+        loadingPlaceholderWorkItem?.cancel()
+        placeholderLabel.isHidden = true
         favoriteBadgeContainer.isHidden = !isFavorite
         favoriteBadge.isHidden = !isFavorite
         
@@ -141,14 +161,51 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         updatePlayButtonVisibility()
         applyHoverVisibility(isHovering, animated: false)
 
+        thumbnailWallpaperManager = wallpaperManager
+        currentThumbnailProvider = thumbnailProvider
+        thumbnailRequestIsPending = true
+        if !isThumbnailDemandPaused {
+            requestThumbnail(for: wallpaper, wallpaperManager: wallpaperManager, thumbnailProvider: thumbnailProvider)
+        }
+    }
+
+    func setThumbnailVisible(_ visible: Bool) {
+        if !visible {
+            isThumbnailDemandPaused = true
+            imageTaskID = nil
+            imageCancellation?.cancel()
+            imageCancellation = nil
+            loadingPlaceholderWorkItem?.cancel()
+            loadingPlaceholderWorkItem = nil
+        } else if isThumbnailDemandPaused {
+            isThumbnailDemandPaused = false
+            guard thumbnailRequestIsPending, let wallpaper = currentWallpaper,
+                  let manager = thumbnailWallpaperManager, let provider = currentThumbnailProvider else { return }
+            requestThumbnail(for: wallpaper, wallpaperManager: manager, thumbnailProvider: provider)
+        }
+    }
+
+    private func requestThumbnail(for wallpaper: VideoWallpaper, wallpaperManager: WallpaperManager,
+                                  thumbnailProvider: AppKitThumbnailProvider) {
         let requestID = UUID()
         imageTaskID = requestID
-        thumbnailProvider.loadThumbnail(for: wallpaper) { [weak self] image in
+        let loading = DispatchWorkItem { [weak self] in
+            guard let self, self.imageTaskID == requestID, self.thumbnailImageView.image == nil else { return }
+            self.placeholderLabel.stringValue = "生成中..."
+            self.placeholderLabel.isHidden = false
+        }
+        loadingPlaceholderWorkItem = loading
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: loading)
+        imageCancellation?.cancel()
+        imageCancellation = thumbnailProvider.loadThumbnail(for: wallpaper) { [weak self] image in
             guard let self,
                   self.imageTaskID == requestID,
                   self.currentWallpaperID == wallpaper.id else {
                 return
             }
+            self.thumbnailRequestIsPending = false
+            self.loadingPlaceholderWorkItem?.cancel()
+            self.loadingPlaceholderWorkItem = nil
             if let image {
                 self.thumbnailImageView.image = image
                 self.placeholderLabel.isHidden = true

@@ -346,7 +346,6 @@ final class SteamWorkshopService: ObservableObject {
     /// 任务，避免把新任务的 cancel 句柄清成 nil（重复 IO 有界但脏）。
     /// 唯一写方是 preloadWebRuntimeCaches。
     var webRuntimePreloadGeneration: UInt64 = 0
-    var lastPreviewPrefetchIDSet = Set<String>()
     var browserLoadMoreRetryAfter: Date = .distantPast
     /// 稀疏筛选下连续无新增可见项的自动续载页数（见 maxConsecutiveEmptyLoadMorePages）。
     var consecutiveEmptyLoadMorePages = 0

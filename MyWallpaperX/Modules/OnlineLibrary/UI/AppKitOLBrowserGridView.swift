@@ -66,6 +66,13 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
     private var itemsByID:  [Int: OnlineLibraryVideoItem] = [:]
     private var lastConsumedProgress: [Int: Double] = [:]
     private var lastPrioritizedVisibleIDs: [Int]?
+    private var lastPrioritizedPixelLimit = 0
+    private var isThumbnailDemandUpdateScheduled = false
+    private var thumbnailWindowObservation: NSKeyValueObservation?
+    private var thumbnailWindowObservers: [NSObjectProtocol] = []
+    private var canLoadThumbnails: Bool {
+        window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+    }
 
     private let scrollView: NSScrollView = {
         let s = WallpaperGridScrollView()
@@ -105,6 +112,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
                 isDownloading: svc.downloadingIDs.contains(id),
                 isDownloaded:  self.isItemDownloaded(id),
                 downloadProgress: svc.downloadProgressByID[id],
+                thumbnailDemandActive: self.canLoadThumbnails,
                 onDownload:       { [weak self] in self?.onDownload(item) },
                 onSetAsWallpaper: { [weak self] in self?.onSetAsWallpaper(item) }
             )
@@ -130,6 +138,8 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
 
+    deinit { thumbnailWindowObservers.forEach { NotificationCenter.default.removeObserver($0) } }
+
     private func setup() {
         AppKitOLBrowserItem.resetHoverTrackingActivation()
         wantsLayer = true
@@ -138,6 +148,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         collectionView.collectionViewLayout = flowLayout
         collectionView.register(AppKitOLBrowserItem.self, forItemWithIdentifier: AppKitOLBrowserItem.reuseIdentifier)
         collectionView.dataSource = dataSource
+        collectionView.delegate = self
         collectionView.cardPressStateHandler = { [weak self] indexPath, isPressed in
             guard let self,
                   let cell = self.collectionView.item(at: indexPath) as? AppKitOLBrowserItem
@@ -259,6 +270,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
                 isDownloading: self.service.downloadingIDs.contains(id),
                 isDownloaded:  self.isItemDownloaded(id),
                 downloadProgress: self.service.downloadProgressByID[id],
+                thumbnailDemandActive: self.canLoadThumbnails,
                 onDownload:       { [weak self] in self?.onDownload(item) },
                 onSetAsWallpaper: { [weak self] in self?.onSetAsWallpaper(item) }
             )
@@ -287,7 +299,71 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         }
     }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        thumbnailWindowObservation?.invalidate()
+        thumbnailWindowObservation = nil
+        thumbnailWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        thumbnailWindowObservers.removeAll()
+        if let window {
+            thumbnailWindowObservation = window.observe(\.isVisible, options: [.new]) { [weak self] observed, _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.window === observed else { return }
+                    self.updateThumbnailWindowVisibility()
+                }
+            }
+            for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+                thumbnailWindowObservers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] notification in
+                    MainActor.assumeIsolated {
+                        guard let self, self.window === (notification.object as? NSWindow) else { return }
+                        self.updateThumbnailWindowVisibility()
+                    }
+                })
+            }
+        }
+        updateThumbnailWindowVisibility()
+    }
+
+    private func updateThumbnailWindowVisibility() {
+        lastPrioritizedVisibleIDs = nil
+        guard canLoadThumbnails else { pauseThumbnailDemand(); return }
+        collectionView.visibleItems().forEach { ($0 as? AppKitOLBrowserItem)?.beginDisplayingThumbnail() }
+        updateVisibleThumbnailPriorities()
+    }
+
+    private func pauseThumbnailDemand() {
+        lastPrioritizedVisibleIDs = nil
+        service.cancelThumbnailPrefetch()
+        collectionView.visibleItems().forEach { ($0 as? AppKitOLBrowserItem)?.endDisplayingThumbnail() }
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        pauseThumbnailDemand()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        updateThumbnailWindowVisibility()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        updateVisibleThumbnailPriorities()
+    }
+
     private func updateVisibleThumbnailPriorities() {
+        guard !isThumbnailDemandUpdateScheduled else { return }
+        isThumbnailDemandUpdateScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isThumbnailDemandUpdateScheduled = false
+            self.applyThumbnailDemand()
+        }
+    }
+
+    private func applyThumbnailDemand() {
+        guard canLoadThumbnails else { pauseThumbnailDemand(); return }
         let visibleIDs = collectionView.indexPathsForVisibleItems()
             .sorted { lhs, rhs in
                 if lhs.section == rhs.section {
@@ -299,9 +375,13 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
                 guard indexPath.item < orderedIDs.count else { return nil }
                 return orderedIDs[indexPath.item]
             }
-        guard lastPrioritizedVisibleIDs != visibleIDs else { return }
+        let pixelLimit = GridThumbnailDecoder.pixelLimit(width: flowLayout.itemSize.width,
+            scale: window?.backingScaleFactor ?? 2)
+        guard lastPrioritizedVisibleIDs != visibleIDs || lastPrioritizedPixelLimit != pixelLimit
+            || service.thumbnailPrefetchNeedsRefresh() else { return }
         lastPrioritizedVisibleIDs = visibleIDs
-        service.prioritizeVisibleItemIDs(visibleIDs)
+        lastPrioritizedPixelLimit = pixelLimit
+        service.prioritizeVisibleItemIDs(visibleIDs, maxPixelSize: pixelLimit)
     }
 
     // MARK: - Layout
@@ -327,6 +407,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         let newSize = metrics.itemSize
         guard flowLayout.itemSize != newSize else { return }
         flowLayout.itemSize = newSize
+        updateVisibleThumbnailPriorities()
         // 布局变化与悬停视觉同步生效，避免渐变层在缩放期间出现跟随滞后。
         collectionView.collectionViewLayout?.invalidateLayout()
     }
@@ -339,5 +420,21 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
             self.isLayoutItemSizeUpdateScheduled = false
             self.updateLayoutItemSize()
         }
+    }
+}
+
+
+extension AppKitOLBrowserContainerView: NSCollectionViewDelegate {
+    func collectionView(_ collectionView: NSCollectionView, willDisplay item: NSCollectionViewItem,
+        forRepresentedObjectAt indexPath: IndexPath) {
+        if canLoadThumbnails { (item as? AppKitOLBrowserItem)?.beginDisplayingThumbnail() }
+        else { (item as? AppKitOLBrowserItem)?.endDisplayingThumbnail() }
+        updateVisibleThumbnailPriorities()
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
+        forRepresentedObjectAt indexPath: IndexPath) {
+        (item as? AppKitOLBrowserItem)?.endDisplayingThumbnail()
+        updateVisibleThumbnailPriorities()
     }
 }

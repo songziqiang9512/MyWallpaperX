@@ -169,6 +169,12 @@ class GridCardLifecycleTests(unittest.TestCase):
     def test_downloads_content_placeholder_layout_and_selection_playing(self):
         self.check_case("downloads-layout")
 
+    def test_offscreen_unfinished_restarts_ready_is_retained_and_failure_waits_for_new_epoch(self):
+        self.check_case("visibility-requests")
+
+    def test_request_bound_loading_delay_never_covers_ready_or_immediate_failure(self):
+        self.check_case("loading-delay")
+
     def test_real_online_cards_ignore_scroll_hover_events_and_restore_from_current_clip(self):
         self.check_case("real-card-scroll")
 

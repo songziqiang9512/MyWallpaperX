@@ -108,6 +108,7 @@ final class GridCell: NSCollectionViewItem {
     func scheduleLayoutItemSizeUpdate() {}
     func updateBrowserScrollMetrics() {}
     func prioritizeVisibleItemsForHydration() {}
+    func schedulePreviewPrefetch() {}
     func checkLoadMore() {}
     func reloadVisibleMetadata(for ids: Set<String>) { metadataRefreshes += 1 }
     func reloadVisibleItems() { metadataRefreshes += 1 }
@@ -124,6 +125,7 @@ final class GridCell: NSCollectionViewItem {
     let emptyLabel = NSTextField(labelWithString: "")
     func currentEmptyStateText() -> String { "Empty" }
     func refreshVisibleDownloadItems(for ids: Set<String>) { metadataRefreshes += 1 }
+    func schedulePreviewPrefetch() {}
     // DOWNLOAD_METHODS
 }
 

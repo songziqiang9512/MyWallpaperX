@@ -11,16 +11,18 @@ nonisolated private struct SchedulerAuditState: Equatable, Sendable {
 
 extension OLThumbnailRequestScheduler {
     fileprivate func stateForAudit() -> SchedulerAuditState {
-        SchedulerAuditState(primary: activeVisibleRequests, secondary: activePrefetchRequests,
-            waitingPrimary: waitingVisibleRequests.count, waitingSecondary: waitingPrefetchRequests.count)
+        SchedulerAuditState(primary: active.values.filter { $0 == .visible }.count,
+            secondary: active.values.filter { $0 == .prefetch }.count,
+            waitingPrimary: waiting.filter { $0.priority == .visible }.count,
+            waitingSecondary: waiting.filter { $0.priority == .prefetch }.count)
     }
 
     fileprivate func acquireForAudit(_ priority: OLThumbnailRequestPriority) async {
-        await acquire(priority: priority)
+        _ = await acquire(id: UUID(), priority: priority)
     }
 
     fileprivate func releaseForAudit(_ priority: OLThumbnailRequestPriority) -> SchedulerAuditState {
-        release(priority: priority)
+        if let id = active.first(where: { $0.value == priority })?.key { release(id: id) }
         return stateForAudit()
     }
 }
@@ -183,7 +185,7 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
         try await eventually { await scheduler.stateForAudit().waitingPrimary == 1 }
         cancelled.cancel()
         _ = await scheduler.releaseForAudit(.visible)
-        try expect(await cancelled.value, "queued online operation lost its cancellation state")
+        try expect(await cancelled.value == nil, "cancelled queued online operation must not execute")
         try expect(await scheduler.stateForAudit() == SchedulerAuditState(primary: 1, secondary: 0,
             waitingPrimary: 0, waitingSecondary: 0), "cancelled online operation leaked its handed-off permit")
         _ = await scheduler.releaseForAudit(.visible)

@@ -17,6 +17,8 @@ GRID = r'''
     var orderedIDs = ["a"]
     var wallpapersByID = ["a": Record(id: "a", path: "/fixture/a")]
     var lifecycleUpdates = 0
+    var thumbnailWindowObservation: NSKeyValueObservation?
+    var thumbnailWindowVisibilityObservation: NSKeyValueObservation?
     // PRODUCTION_STATE
     init() { super.init(frame: NSRect(x: 0, y: 0, width: 80, height: 80)) }
     required init?(coder: NSCoder) { nil }
@@ -33,6 +35,12 @@ GRID = r'''
     func fire() { PROBE() }
     func synchronize() { updateMissingPathProbeTimer() }
     func scheduleRestingScrollOriginCapture() {}
+    // Prefetch is an unrelated leaf in this source-existence timer gate.
+    func scheduleThumbnailPrefetch() {}
+    func cancelThumbnailPrefetch() {}
+    func scheduleViewportPrefetch() {}
+    func cancelViewportPrefetch() {}
+    func updateVisibleThumbnailDemand() {}
     func reloadVisibleItems(forIDs ids: Set<String>) { if !ids.isEmpty { collectionView.reloadCount += 1 } }
     // PRODUCTION_METHODS
 }

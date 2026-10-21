@@ -1,6 +1,6 @@
 import Foundation
 
-enum SteamWorkshopPreviewRequestPriority {
+nonisolated enum SteamWorkshopPreviewRequestPriority: Sendable {
     case userInitiated
     case visible
     case prefetch
@@ -80,17 +80,18 @@ final class SteamWorkshopPreviewRequestCoordinator {
         from url: URL,
         priority: SteamWorkshopPreviewRequestPriority,
         ignoringBackoff: Bool = false,
-        cancellation: SteamWorkshopPreviewLoadCancellation? = nil
+        cancellation: SteamWorkshopPreviewLoadCancellation? = nil,
+        priorityProvider: (@Sendable () -> SteamWorkshopPreviewRequestPriority)? = nil
     ) async -> Data? {
         guard cancellation?.cancelled != true else { return nil }
-        if !ignoringBackoff, !shouldAttemptLoad(for: url, priority: priority) {
+        if !ignoringBackoff, !shouldAttemptLoad(for: url, priority: priorityProvider?() ?? priority) {
             return nil
         }
         do {
             let data = try await fetchData(
                 from: url,
                 priority: priority,
-                cancellation: cancellation
+                cancellation: cancellation, priorityProvider: priorityProvider
             )
             noteSuccess(for: url)
             return data
@@ -100,7 +101,7 @@ final class SteamWorkshopPreviewRequestCoordinator {
                 || cancellation?.cancelled == true {
                 return nil
             }
-            noteFailure(for: url, error: error, priority: priority)
+            noteFailure(for: url, error: error, priority: priorityProvider?() ?? priority)
             return nil
         }
     }
@@ -152,20 +153,29 @@ final class SteamWorkshopPreviewRequestCoordinator {
         }
     }
 
+    /// The cache promotes a shared producer when its first visible consumer
+    /// joins. The provider closes the race before scheduler registration.
+    func promoteVisibleRequest(for url: URL) {
+        Task { await scheduler.promoteVisible(key: url.absoluteString) }
+    }
+
     private func fetchData(
         from url: URL,
         priority: SteamWorkshopPreviewRequestPriority,
-        cancellation: SteamWorkshopPreviewLoadCancellation?
+        cancellation: SteamWorkshopPreviewLoadCancellation?,
+        priorityProvider: (@Sendable () -> SteamWorkshopPreviewRequestPriority)?
     ) async throws -> Data {
         let requestTask = Task { [scheduler, session] in
-            try await scheduler.run(priority: priority) {
+            try await scheduler.run(priority: priority, key: url.absoluteString, priorityProvider: priorityProvider) {
+                try Task.checkCancellation()
+                let effectivePriority = priorityProvider?() ?? priority
                 var request = URLRequest(url: url)
-                request.timeoutInterval = self.timeout(for: priority)
+                request.timeoutInterval = self.timeout(for: effectivePriority)
                 request.setValue(
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) MyWallpaperX/1.0",
                     forHTTPHeaderField: "User-Agent"
                 )
-                switch priority {
+                switch effectivePriority {
                 case .userInitiated:
                     request.networkServiceType = .responsiveData
                 case .visible:
@@ -283,44 +293,58 @@ final class SteamWorkshopPreviewRequestCoordinator {
 }
 
 actor SteamWorkshopPreviewRequestScheduler {
+    private struct Waiter {
+        let id: UUID
+        let key: String?
+        var priority: SteamWorkshopPreviewRequestPriority
+        let continuation: CheckedContinuation<SteamWorkshopPreviewRequestPriority?, Never>
+    }
     private var activeUserRequests = 0
     private var activeVisibleRequests = 0
     private var activePrefetchRequests = 0
-    private var waitingUserRequests: [CheckedContinuation<Void, Never>] = []
-    private var waitingVisibleRequests: [CheckedContinuation<Void, Never>] = []
-    private var waitingPrefetchRequests: [CheckedContinuation<Void, Never>] = []
+    private var waiting: [Waiter] = []
 
     func run<T>(
         priority: SteamWorkshopPreviewRequestPriority,
+        key: String? = nil,
+        priorityProvider: (@Sendable () -> SteamWorkshopPreviewRequestPriority)? = nil,
         operation: @Sendable () async throws -> T
     ) async rethrows -> T {
-        await acquire(priority: priority)
-        defer { release(priority: priority) }
+        let acquired = await acquire(priority: priority, key: key, priorityProvider: priorityProvider)
+        defer { if let acquired { release(priority: acquired) } }
+        // Keep the existing rethrows contract: a cancelled operation receives
+        // cancellation state immediately and its own throwing API decides exit.
         return try await operation()
     }
 
-    private func acquire(priority: SteamWorkshopPreviewRequestPriority) async {
-        while !canAcquire(priority: priority) {
-            await withCheckedContinuation { continuation in
-                switch priority {
-                case .userInitiated:
-                    waitingUserRequests.append(continuation)
-                case .visible:
-                    waitingVisibleRequests.append(continuation)
-                case .prefetch:
-                    waitingPrefetchRequests.append(continuation)
-                }
-            }
+    func promoteVisible(key: String) {
+        for index in waiting.indices where waiting[index].key == key && waiting[index].priority == .prefetch {
+            waiting[index].priority = .visible
         }
+        resumeNextIfPossible()
+    }
 
-        switch priority {
-        case .userInitiated:
-            activeUserRequests += 1
-        case .visible:
-            activeVisibleRequests += 1
-        case .prefetch:
-            activePrefetchRequests += 1
+    private func acquire(priority: SteamWorkshopPreviewRequestPriority, key: String?,
+                         priorityProvider: (@Sendable () -> SteamWorkshopPreviewRequestPriority)?) async -> SteamWorkshopPreviewRequestPriority? {
+        let id = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !Task.isCancelled else { continuation.resume(returning: nil); return }
+                // No await between current priority and insertion: a promotion
+                // either appears here or updates this registered waiter later.
+                let effective = priorityProvider?() ?? priority
+                waiting.append(Waiter(id: id, key: key, priority: effective, continuation: continuation))
+                resumeNextIfPossible()
+            }
+        } onCancel: {
+            Task { await self.cancelWaiting(id: id) }
         }
+    }
+
+    private func cancelWaiting(id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.id == id }) else { return }
+        waiting.remove(at: index).continuation.resume(returning: nil)
+        resumeNextIfPossible()
     }
 
     private func canAcquire(priority: SteamWorkshopPreviewRequestPriority) -> Bool {
@@ -328,44 +352,36 @@ actor SteamWorkshopPreviewRequestScheduler {
         case .userInitiated:
             return activeUserRequests < 1 && (activeUserRequests + activeVisibleRequests) < 4
         case .visible:
-            return activeVisibleRequests < 4
-                && activeUserRequests == 0
-                && waitingUserRequests.isEmpty
+            return activeVisibleRequests < 4 && activeUserRequests == 0
+                && !waiting.contains { $0.priority == .userInitiated }
         case .prefetch:
-            return activeUserRequests == 0
-                && activeVisibleRequests < 2
-                && activePrefetchRequests < 2
-                && waitingUserRequests.isEmpty
-                && waitingVisibleRequests.isEmpty
+            return activeUserRequests == 0 && activeVisibleRequests < 2 && activePrefetchRequests < 2
+                && !waiting.contains { $0.priority == .userInitiated || $0.priority == .visible }
         }
     }
 
     private func release(priority: SteamWorkshopPreviewRequestPriority) {
         switch priority {
-        case .userInitiated:
-            activeUserRequests = max(0, activeUserRequests - 1)
-        case .visible:
-            activeVisibleRequests = max(0, activeVisibleRequests - 1)
-        case .prefetch:
-            activePrefetchRequests = max(0, activePrefetchRequests - 1)
+        case .userInitiated: activeUserRequests -= 1
+        case .visible: activeVisibleRequests -= 1
+        case .prefetch: activePrefetchRequests -= 1
         }
         resumeNextIfPossible()
     }
 
     private func resumeNextIfPossible() {
-        while canAcquire(priority: .userInitiated), !waitingUserRequests.isEmpty {
-            let continuation = waitingUserRequests.removeFirst()
-            continuation.resume()
-        }
-
-        while canAcquire(priority: .visible), !waitingVisibleRequests.isEmpty {
-            let continuation = waitingVisibleRequests.removeFirst()
-            continuation.resume()
-        }
-
-        while canAcquire(priority: .prefetch), !waitingPrefetchRequests.isEmpty {
-            let continuation = waitingPrefetchRequests.removeFirst()
-            continuation.resume()
+        for priority in [SteamWorkshopPreviewRequestPriority.userInitiated, .visible, .prefetch] {
+            while canAcquire(priority: priority), let index = waiting.firstIndex(where: { $0.priority == priority }) {
+                let waiter = waiting.remove(at: index)
+                // Reserve the slot before resuming; awakened tasks cannot all
+                // observe the same free slot during one actor turn.
+                switch priority {
+                case .userInitiated: activeUserRequests += 1
+                case .visible: activeVisibleRequests += 1
+                case .prefetch: activePrefetchRequests += 1
+                }
+                waiter.continuation.resume(returning: priority)
+            }
         }
     }
 }

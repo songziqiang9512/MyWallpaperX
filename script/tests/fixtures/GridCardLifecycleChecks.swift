@@ -31,6 +31,14 @@ import QuartzCore
         history.append((nextID, key))
     }
 
+    func loadImageAsync(forKey key: String, priority: ThumbnailCacheRequestPriority,
+        cancellation: ThumbnailCacheRequestCancellation?, loader: @escaping @Sendable () async -> NSImage?,
+        completion: @escaping (NSImage?) -> Void) {
+        nextID += 1
+        pending[nextID] = Pending(key: key, completion: completion)
+        history.append((nextID, key))
+    }
+
     func deliver(_ ticket: Int, image: NSImage?) {
         precondition(Thread.isMainThread)
         guard let request = pending.removeValue(forKey: ticket) else {
@@ -39,6 +47,9 @@ import QuartzCore
         request.completion(image)
     }
 }
+
+nonisolated enum ThumbnailCacheRequestPriority { case visible, prefetch }
+nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable { var cancelled: Bool { false }; func cancel() {} }
 
 @MainActor final class OLThumbnailCache {
     static let shared = OLThumbnailCache()
@@ -52,7 +63,8 @@ import QuartzCore
     var decoded: [Data: NSImage] = [:]
     private var nextID = 0
 
-    func publicationGeneration() -> Int { 0 }
+    var generation = 0
+    func publicationGeneration() async -> Int { generation }
 
     func readyImage(for url: URL, maxPixelSize: Int) -> NSImage? { nil }
 
@@ -66,6 +78,15 @@ import QuartzCore
 
     func storeAndDecode(data: Data, for url: URL, maxPixelSize: Int, generation: Int) async -> NSImage? {
         decoded[data]
+    }
+
+    func image(for url: URL, maxPixelSize: Int, priority: OLThumbnailRequestPriority) async -> NSImage? {
+        let generation = await publicationGeneration()
+        if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize) { return image }
+        guard !Task.isCancelled,
+              let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: priority),
+              !Task.isCancelled else { return nil }
+        return await storeAndDecode(data: data, for: url, maxPixelSize: maxPixelSize, generation: generation)
     }
 
     func deliver(_ ticket: Int, image: NSImage?) {
@@ -555,6 +576,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         if reuseBetween { card.prepareForReuse() }
         guard let newA = browserNetworkTicket(card, browserModel(1, thumbnail: "a"), facts, label + ".new-A") else { return }
         facts.expect(label + ".A-B-A-has-new-request", firstGeneration != card.thumbnailRequestID)
+        facts.expect(label + ".long-loading-reveals-placeholder", waitUntil { !card.placeholderView.isHidden })
         let stopsBefore = SpinnerObservation.count(card.spinner)
         OLThumbnailRequestCoordinator.shared.deliver(oldA, data: staleSucceeds ? oldData : nil)
         facts.expect(label + ".old-A-delivered", waitUntil { OLThumbnailRequestCoordinator.shared.returned.contains(oldA) })
@@ -601,6 +623,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             let countBefore = transport.history.count
             card.configure(entry: a, isSelected: true, isMultiSelectMode: true, isPlaying: true)
             let newA = memoryHit ? nil : transport.history.last?.0
+            if !memoryHit { facts.expect(label + ".long-loading-reveals-placeholder", waitUntil { !card.placeholderLabel.isHidden }) }
             facts.expect(label + ".new-A-generation-even-on-cache-hit", card.thumbnailRequestID != generation)
             facts.expect(label + ".transport-entry", transport.history.count == countBefore + (memoryHit ? 0 : 1))
             transport.deliver(oldA, image: staleSucceeds ? oldImage : nil)
@@ -671,6 +694,123 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         && (card.durationBadgeTextLayer.string as? String) == "2s")
     facts.expect("reuse-placeholder-fills-resized-image", !card.placeholderView.isHidden
         && card.placeholderView.frame == card.imageContainer.bounds)
+}
+
+@MainActor func visibilityRequests(_ facts: Facts) {
+    let host = CardHost(.browser)
+    defer { host.finish() }
+    guard let card = host.first() as? AppKitOLBrowserItem else { facts.expect("browser-mounted", false); return }
+    let cache = OLThumbnailCache.shared
+    card.prepareForReuse()
+    var before = Set(cache.pending.keys)
+    configure(card, browserModel(1201, thumbnail: "unfinished"), downloaded: false)
+    facts.expect("first-visible-request", waitUntil { !Set(cache.pending.keys).subtracting(before).isEmpty })
+    guard let old = Set(cache.pending.keys).subtracting(before).first else { return }
+    card.endDisplayingThumbnail()
+    before = Set(cache.pending.keys)
+    card.beginDisplayingThumbnail()
+    facts.expect("unfinished-restarts-on-display", waitUntil { !Set(cache.pending.keys).subtracting(before).isEmpty })
+    guard let current = Set(cache.pending.keys).subtracting(before).first else { return }
+    let ready = image(40)
+    cache.deliver(old, image: image(41)); pump(0.03)
+    facts.expect("ended-old-request-cannot-publish", card.thumbnailView.image == nil)
+    cache.deliver(current, image: ready)
+    facts.expect("resumed-visible-request-publishes", waitUntil { card.thumbnailView.image === ready })
+    let requestCount = cache.history.count
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(); pump(0.03)
+    facts.expect("ready-image-survives-visibility-cycle", card.thumbnailView.image === ready && cache.history.count == requestCount)
+
+    card.prepareForReuse()
+    guard let networkTicket = browserNetworkTicket(card, browserModel(1202, thumbnail: "terminal-bad"), facts, "failed") else { return }
+    OLThumbnailRequestCoordinator.shared.deliver(networkTicket, data: nil)
+    facts.expect("terminal-failure-recorded", waitUntil { card.terminalThumbnailFailureGeneration != nil })
+    let terminalCount = cache.history.count
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(); pump(0.03)
+    facts.expect("terminal-failure-not-retried-on-display", cache.history.count == terminalCount)
+    cache.generation += 1
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail()
+    facts.expect("clear-epoch-allows-new-visible-attempt", waitUntil { cache.history.count > terminalCount })
+
+    card.endDisplayingThumbnail()
+    let hiddenCount = cache.history.count
+    configure(card, browserModel(1204, thumbnail: "hidden-old"), downloaded: false)
+    configure(card, browserModel(1205, thumbnail: "hidden-current"), downloaded: false)
+    pump(0.12)
+    facts.expect("hidden-configure-two-identities-starts-no-work", cache.history.count == hiddenCount && card.thumbnailView.image == nil)
+    card.beginDisplayingThumbnail()
+    facts.expect("show-configured-hidden-starts-latest-only", waitUntil { cache.history.count == hiddenCount + 1 }
+        && cache.history.last?.1 == card.currentThumbnailURL)
+
+    let downloadHost = CardHost(.downloads)
+    defer { downloadHost.finish() }
+    guard let download = downloadHost.first() as? AppKitOLDownloadsItem else { facts.expect("downloads-mounted", false); return }
+    let transport = OLDownloadedThumbnailStore.sharedCache
+    download.prepareForReuse()
+    download.configure(entry: downloadModel(1203, name: "unfinished.mp4"), isSelected: true, isMultiSelectMode: false, isPlaying: true)
+    let oldDownload = transport.history.last!.0
+    download.endDisplayingThumbnail(); download.beginDisplayingThumbnail()
+    let newDownload = transport.history.last!.0
+    facts.expect("download-unfinished-restarts", oldDownload != newDownload)
+    transport.deliver(oldDownload, image: image(42))
+    facts.expect("download-ended-request-cannot-publish", download.thumbnailView.image == nil)
+    transport.deliver(newDownload, image: ready)
+    let count = transport.history.count
+    download.endDisplayingThumbnail(); download.beginDisplayingThumbnail()
+    facts.expect("download-ready-survives-cycle", download.thumbnailView.image === ready && transport.history.count == count
+        && download.isPlaying && download.isSelectedState)
+    download.endDisplayingThumbnail()
+    let hiddenDownloads = transport.history.count
+    download.configure(entry: downloadModel(1206, name: "hidden-old.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
+    download.configure(entry: downloadModel(1207, name: "hidden-current.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
+    pump(0.12)
+    facts.expect("hidden-download-configure-starts-no-work", transport.history.count == hiddenDownloads && download.thumbnailView.image == nil)
+    download.beginDisplayingThumbnail()
+    facts.expect("show-hidden-download-starts-latest-only", transport.history.count == hiddenDownloads + 1
+        && transport.history.last?.1.contains("hidden-current.mp4") == true)
+
+}
+
+@MainActor func loadingDelay(_ facts: Facts) {
+    let browserHost = CardHost(.browser)
+    defer { browserHost.finish() }
+    guard let browser = browserHost.first() as? AppKitOLBrowserItem else { facts.expect("browser-mounted", false); return }
+    browser.prepareForReuse()
+    let cache = OLThumbnailCache.shared
+    let previous = Set(cache.pending.keys)
+    configure(browser, browserModel(1001, thumbnail: "fast-disk"), downloaded: false)
+    facts.expect("browser-warm-load-initially-quiet", browser.placeholderView.isHidden)
+    guard waitUntil(1, { !Set(cache.pending.keys).subtracting(previous).isEmpty }),
+          let ticket = Set(cache.pending.keys).subtracting(previous).first else {
+        facts.expect("browser-cache-request", false); return
+    }
+    let ready = image(30)
+    cache.deliver(ticket, image: ready)
+    facts.expect("browser-ready-is-immediate", waitUntil { browser.thumbnailView.image === ready })
+    pump(0.15)
+    facts.expect("browser-delayed-spinner-cannot-cover-ready", browser.placeholderView.isHidden)
+    browser.endDisplayingThumbnail()
+    browser.prepareForReuse()
+    configure(browser, browserModel(1002, thumbnail: "slow"), downloaded: false)
+    facts.expect("browser-slow-load-still-reveals", waitUntil { !browser.placeholderView.isHidden })
+    browser.prepareForReuse()
+    pump(0.15)
+    facts.expect("browser-old-delay-cannot-reveal-reused-card", browser.placeholderView.isHidden)
+
+    let downloadHost = CardHost(.downloads)
+    defer { downloadHost.finish() }
+    guard let download = downloadHost.first() as? AppKitOLDownloadsItem else { facts.expect("download-mounted", false); return }
+    let transport = OLDownloadedThumbnailStore.sharedCache
+    download.prepareForReuse()
+    download.configure(entry: downloadModel(1003, name: "warm.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
+    facts.expect("download-warm-load-initially-quiet", download.placeholderLabel.isHidden)
+    transport.deliver(transport.history.last!.0, image: ready)
+    pump(0.15)
+    facts.expect("download-ready-has-no-delayed-label", download.thumbnailView.image === ready && download.placeholderLabel.isHidden)
+    download.configure(entry: downloadModel(1004, name: "bad.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
+    transport.deliver(transport.history.last!.0, image: nil)
+    facts.expect("download-failure-is-immediate", !download.placeholderLabel.isHidden && download.placeholderLabel.stringValue == "无法生成预览")
+    pump(0.15)
+    facts.expect("download-failure-is-not-replaced-by-loading", download.placeholderLabel.stringValue == "无法生成预览")
 }
 
 @MainActor func downloadsLayout(_ facts: Facts) {
@@ -829,6 +969,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         case "downloads-replies": downloadsReplies(facts)
         case "browser-layout": browserLayout(facts)
         case "downloads-layout": downloadsLayout(facts)
+        case "loading-delay": loadingDelay(facts)
+        case "visibility-requests": visibilityRequests(facts)
         case "real-card-scroll": realCardScrollHover(facts)
         case "backing-scale": backingScaleRequests(facts)
         case "animation-delayed": animationCase("delayed", facts)

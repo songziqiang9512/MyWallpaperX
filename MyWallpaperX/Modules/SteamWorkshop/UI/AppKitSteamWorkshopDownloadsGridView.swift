@@ -28,6 +28,13 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     private var pendingRecords: [SteamWorkshopDownloadRecord]?
     private var isRecordsApplyScheduled = false
     private var isApplyingRecords = false
+    private let previewPrefetch = SteamWorkshopPreviewPrefetchController()
+    private var previewPrefetchWorkItem: DispatchWorkItem?
+    private var lastPrefetchOffsetY: CGFloat?
+    private var thumbnailWindowVisibilityObservation: NSKeyValueObservation?
+    private var thumbnailDemandIsVisible: Bool {
+        window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+    }
 
     private let scrollView: NSScrollView = {
         let s = WallpaperGridScrollView()
@@ -111,6 +118,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     deinit {
+        previewPrefetchWorkItem?.cancel()
         if let moduleActivationObserver {
             NotificationCenter.default.removeObserver(moduleActivationObserver)
         }
@@ -157,8 +165,26 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        thumbnailWindowVisibilityObservation = nil
+        if let window {
+            thumbnailWindowVisibilityObservation = window.observe(\.isVisible, options: [.new]) { [weak self] window, _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.window === window else { return }
+                    self.syncVisiblePreviewAnimationStates(isVisible: self.thumbnailDemandIsVisible)
+                    self.schedulePreviewPrefetch()
+                }
+            }
+        }
         SteamWorkshopDownloadsBridge.shared.isActive = (window != nil)
-        syncVisiblePreviewAnimationStates(isVisible: window != nil)
+        syncVisiblePreviewAnimationStates(isVisible: thumbnailDemandIsVisible)
+        schedulePreviewPrefetch()
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide(); cancelPreviewPrefetch(); syncVisiblePreviewAnimationStates(isVisible: false)
+    }
+    override func viewDidUnhide() {
+        super.viewDidUnhide(); syncVisiblePreviewAnimationStates(isVisible: thumbnailDemandIsVisible); schedulePreviewPrefetch()
     }
 
     private func setup() {
@@ -171,6 +197,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         collectionView.dataSource = dataSource
         collectionView.delegate = self
         scrollView.documentView = collectionView
+        scrollView.contentView.postsBoundsChangedNotifications = true
 
         addSubview(scrollView)
         addSubview(emptyLabel)
@@ -261,6 +288,22 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             self?.requestFocus()
         }
 
+        NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+            .receive(on: DispatchQueue.main).sink { [weak self] _ in self?.schedulePreviewPrefetch() }
+            .store(in: &cancellables)
+        for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+            NotificationCenter.default.publisher(for: name).receive(on: DispatchQueue.main)
+                .sink { [weak self] notification in
+                    guard let self, let window = notification.object as? NSWindow, self.window === window else { return }
+                    self.syncVisiblePreviewAnimationStates(isVisible: self.thumbnailDemandIsVisible)
+                    self.schedulePreviewPrefetch()
+                }.store(in: &cancellables)
+        }
+        service.$previewReloadToken.dropFirst().receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.previewPrefetch.cancelAll()
+                self?.schedulePreviewPrefetch()
+            }.store(in: &cancellables)
         applyRecords(service.displayedDownloads)
     }
 
@@ -284,6 +327,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     private func commitRecords(_ records: [SteamWorkshopDownloadRecord]) {
         let previousRecordsByID = recordsByID
         let previousFocusIndex = keyboardFocusedID.flatMap { orderedIDs.firstIndex(of: $0) }
+        schedulePreviewPrefetch()
         recordsByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
         orderedIDs = records.map(\.id)
         var didRehomeSelection = false
@@ -341,6 +385,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             if !changedIDs.isEmpty { self.refreshVisibleDownloadItems(for: changedIDs) }
             self.ensureKeyboardFocus()
             self.restoreAuthorReturnScrollIfNeeded()
+            self.schedulePreviewPrefetch()
             self.applyPendingRecords()
         }
     }
@@ -387,10 +432,52 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         }
     }
 
+    private func cancelPreviewPrefetch() {
+        previewPrefetchWorkItem?.cancel()
+        previewPrefetchWorkItem = nil
+        lastPrefetchOffsetY = nil
+        previewPrefetch.cancelAll()
+    }
+
+    private func schedulePreviewPrefetch() {
+        guard thumbnailDemandIsVisible else {
+            cancelPreviewPrefetch(); return
+        }
+        guard previewPrefetchWorkItem == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.previewPrefetchWorkItem = nil
+            self.prefetchCurrentViewport()
+        }
+        previewPrefetchWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: work)
+    }
+
+    private func prefetchCurrentViewport() {
+        guard thumbnailDemandIsVisible else {
+            cancelPreviewPrefetch(); return
+        }
+        let offset = scrollView.contentView.bounds.minY
+        let direction = lastPrefetchOffsetY.map { offset == $0 ? 0 : (offset > $0 ? 1 : -1) } ?? 0
+        lastPrefetchOffsetY = offset
+        let visible = collectionView.indexPathsForVisibleItems().map(\.item)
+        let indices = GridThumbnailPrefetchDemand.indices(visibleIndices: visible, itemCount: orderedIDs.count,
+            neighborLimit: min(24, currentColumnCount * 2), direction: direction)
+        let candidates = (indices + visible).compactMap { index -> SteamWorkshopPreviewPrefetchController.Candidate? in
+            guard index >= 0, index < orderedIDs.count else { return nil }
+            let id = orderedIDs[index]
+            guard let record = recordsByID[id] else { return nil }
+            return .init(id: id, item: record.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: record), record: record, startsIfMissing: !visible.contains(index))
+        }
+        let pixels = min(800, GridThumbnailDecoder.pixelLimit(width: flowLayout.itemSize.width,
+            scale: window?.backingScaleFactor ?? 2))
+        previewPrefetch.replace(with: candidates, maxPixelSize: pixels)
+    }
+
     private func syncVisiblePreviewAnimationStates(isVisible: Bool) {
         for visibleItem in collectionView.visibleItems() {
             guard let item = visibleItem as? AppKitSteamWorkshopBrowserItem else { continue }
-            item.setPreviewVisible(isVisible)
+            item.setPreviewVisible(isVisible && thumbnailDemandIsVisible)
         }
     }
 
@@ -410,6 +497,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         guard flowLayout.itemSize != newSize else { return }
         flowLayout.itemSize = newSize
         scheduleLayoutInvalidation()
+        schedulePreviewPrefetch()
     }
 
     private func scheduleLayoutInvalidation() {
@@ -738,7 +826,8 @@ extension AppKitSteamWorkshopDownloadsContainerView: NSCollectionViewDelegateFlo
         forRepresentedObjectAt indexPath: IndexPath
     ) {
         guard let item = item as? AppKitSteamWorkshopBrowserItem else { return }
-        item.setPreviewVisible(true)
+        item.setPreviewVisible(thumbnailDemandIsVisible)
+        schedulePreviewPrefetch()
     }
 
     func collectionView(

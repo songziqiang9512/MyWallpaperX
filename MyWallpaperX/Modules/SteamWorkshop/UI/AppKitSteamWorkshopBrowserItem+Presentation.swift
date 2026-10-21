@@ -269,6 +269,7 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     func setPreviewVisible(_ visible: Bool) {
+        previewState.setImageDemandActive(visible)
         guard isPreviewVisible != visible else { return }
         isPreviewVisible = visible
         syncPreviewAnimationState()

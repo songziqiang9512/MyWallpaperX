@@ -41,8 +41,9 @@ enum OLDownloadedThumbnailStore {
     /// 键含本地路径 + mtime + size：文件被覆盖/替换后自然换新键，
     /// 旧键缓存（含失败负缓存）不会以 stale 内容复活。
     /// 模式同 steamWorkshopLocalPreviewCacheKey / SteamWorkshopDownloadThumbnailPipeline.cacheKey。
-    static func cacheKey(for url: URL) -> String {
-        let fileURL = url.standardizedFileURL
+    nonisolated static func cacheKey(for url: URL) -> String {
+        var fileURL = url.standardizedFileURL
+        fileURL.removeAllCachedResourceValues()
         let resourceValues = try? fileURL.resourceValues(forKeys: [
             .contentModificationDateKey,
             .fileSizeKey
@@ -50,6 +51,86 @@ enum OLDownloadedThumbnailStore {
         let modificationTime = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
         let fileSize = resourceValues?.fileSize ?? 0
         return "ol-downloaded-preview:\(fileURL.path):\(fileSize):\(modificationTime)"
+    }
+}
+
+// The object bridges cancellation and AVFoundation's callback exactly once.
+nonisolated private final class OLThumbnailVideoGeneration: @unchecked Sendable {
+    private let lock = NSLock()
+    private let generator: AVAssetImageGenerator
+    private var continuation: CheckedContinuation<NSImage?, Never>?
+    private var cancelled = false
+
+    init(url: URL) {
+        generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 520, height: 300)
+    }
+
+    func image() async -> NSImage? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                lock.lock()
+                if cancelled { lock.unlock(); continuation.resume(returning: nil); return }
+                self.continuation = continuation
+                generator.generateCGImageAsynchronously(for: CMTime(seconds: 0.5, preferredTimescale: 600)) { [self] image, _, _ in
+                    finish(image.map { NSImage(cgImage: $0, size: .zero) })
+                }
+                lock.unlock()
+            }
+        } onCancel: { self.cancel() }
+    }
+
+    private func finish(_ image: NSImage?) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        let result = cancelled ? nil : image
+        lock.unlock()
+        pending?.resume(returning: result)
+    }
+
+    private func cancel() {
+        lock.lock()
+        cancelled = true
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        generator.cancelAllCGImageGeneration()
+        pending?.resume(returning: nil)
+    }
+}
+
+extension OLDownloadedThumbnailStore {
+    nonisolated static func generateThumbnail(from url: URL) async -> NSImage? {
+        await OLThumbnailVideoGeneration(url: url).image()
+    }
+
+    static func prefetch(_ entry: OLDownloadedEntry, cancellation: ThumbnailCacheRequestCancellation,
+        completion: @escaping (String, NSImage?) -> Void) {
+        guard !cancellation.cancelled else { return }
+        // The scan fingerprint is a ready-memory hint only. A queued miss may
+        // read a replacement file, so resolve its actual identity off the UI lane.
+        if let preparedKey = entry.thumbnailSourceKey, let image = sharedCache.cachedImage(forKey: preparedKey) {
+            completion(preparedKey, image)
+            return
+        }
+        let url = entry.localURL
+        Task {
+            let key = await Task.detached(priority: .utility) {
+                guard !cancellation.cancelled else { return Optional<String>.none }
+                return cacheKey(for: url)
+            }.value
+            guard let key, !cancellation.cancelled else { return }
+            sharedCache.loadImageAsync(forKey: key, priority: .prefetch, cancellation: cancellation, loader: {
+                // The producer may wait behind another generation. Never publish
+                // pixels from a later source revision under this request's key.
+                guard cacheKey(for: url) == key else { cancellation.cancel(); return nil }
+                let image = await generateThumbnail(from: url)
+                guard cacheKey(for: url) == key else { cancellation.cancel(); return nil }
+                return image
+            }, completion: { image in completion(key, image) })
+        }
     }
 }
 
@@ -61,6 +142,7 @@ struct OLDownloadedEntry: Equatable {
     let fileSize: Int
     var duration: Int?
     var resolutionString: String?
+    var thumbnailSourceKey: String? = nil
 
     var displayTitle: String {
         localURL.lastPathComponent
@@ -243,6 +325,9 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private var isHoverOutlineVisible = false
     private var currentCardScale: CGFloat = 1
     private var thumbnailRequestID = UUID()
+    private var thumbnailCancellation: ThumbnailCacheRequestCancellation?
+    private var thumbnailLoadingWork: DispatchWorkItem?
+    private var isThumbnailDemandActive = true
     private var presentedEntry: OLDownloadedEntry?
     private var currentEntryID = -1
     private var isSelectedState = false
@@ -274,6 +359,10 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         super.prepareForReuse()
         lastLayoutInputs = nil
         thumbnailRequestID = UUID()
+        thumbnailCancellation?.cancel()
+        thumbnailCancellation = nil
+        isThumbnailDemandActive = true
+        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
         presentedEntry = nil
         currentEntryID = -1
         thumbnailView.image = nil
@@ -303,25 +392,40 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         entry: OLDownloadedEntry,
         isSelected: Bool,
         isMultiSelectMode: Bool,
-        isPlaying: Bool
+        isPlaying: Bool,
+        thumbnailDemandActive: Bool? = nil
     ) {
+        let wasActive = isThumbnailDemandActive
+        if let thumbnailDemandActive { isThumbnailDemandActive = thumbnailDemandActive }
+        if !isThumbnailDemandActive { endDisplayingThumbnail() }
         applySelectionState(isSelected, multiSelectMode: isMultiSelectMode)
         applyPlayingState(isPlaying: isPlaying)
-        guard presentedEntry != entry else { return }
+        guard presentedEntry != entry else {
+            if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
+            return
+        }
         let imageChanged = currentEntryID != entry.id || presentedEntry?.localURL != entry.localURL
-            || presentedEntry?.fileSize != entry.fileSize
+            || presentedEntry?.fileSize != entry.fileSize || presentedEntry?.thumbnailSourceKey != entry.thumbnailSourceKey
         presentedEntry = entry
         currentEntryID = entry.id
         titleLabel.stringValue = entry.displayTitle
         metaLabel.stringValue = entry.metaLine
         view.needsLayout = true
 
-        guard imageChanged else { return }
+        guard imageChanged else {
+            if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
+            return
+        }
+        thumbnailCancellation?.cancel(); thumbnailCancellation = nil
+        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
         let requestID = UUID()
         thumbnailRequestID = requestID
         thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
-        placeholderLabel.isHidden = false
+        placeholderLabel.isHidden = true
+        guard isThumbnailDemandActive else { return }
+        // Visible cards preserve the live file fingerprint check: an external
+        // replacement can happen before the next library scan refreshes entry.
         let cacheKey = OLDownloadedThumbnailStore.cacheKey(for: entry.localURL)
         if let cached = OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: cacheKey) {
             thumbnailView.image = cached
@@ -329,16 +433,27 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
             return
         }
 
+        let loadingWork = DispatchWorkItem { [weak self] in
+            guard let self, self.thumbnailRequestID == requestID, self.thumbnailView.image == nil else { return }
+            self.placeholderLabel.isHidden = false
+        }
+        thumbnailLoadingWork = loadingWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: loadingWork)
         let id = entry.id
         let url = entry.localURL
         weak let item = self
         // 共享缓存自带 in-flight 去重与失败负缓存：同键并发只抽一次帧，
         // 失败（损坏/不支持的编码）记录结论后不再重复 AVAsset 重试。
-        OLDownloadedThumbnailStore.sharedCache.load(forKey: cacheKey, loader: {
-            Self.generateThumbnail(from: url)
+        let cancellation = ThumbnailCacheRequestCancellation()
+        thumbnailCancellation = cancellation
+        OLDownloadedThumbnailStore.sharedCache.loadImageAsync(forKey: cacheKey, priority: .visible,
+            cancellation: cancellation, loader: {
+            await OLDownloadedThumbnailStore.generateThumbnail(from: url)
         }, completion: { image in
             // ThumbnailCache 统一主线程回调；卡片已复用为其他条目时丢弃结果
             guard let item, item.currentEntryID == id, item.thumbnailRequestID == requestID else { return }
+            item.thumbnailCancellation = nil
+            item.thumbnailLoadingWork?.cancel(); item.thumbnailLoadingWork = nil
             if let image {
                 item.thumbnailView.image = image
                 item.placeholderLabel.isHidden = true
@@ -350,23 +465,19 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         })
     }
 
-    /// 同步抽帧供 ThumbnailCache 的后台 decode 队列调用（信号量模式同
-    /// SteamWorkshopDownloadThumbnailPipeline.generateCGImage）。
-    private static func generateThumbnail(from url: URL) -> NSImage? {
-        let asset = AVURLAsset(url: url)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 520, height: 300)
-        let time = CMTime(seconds: 0.5, preferredTimescale: 600)
-        var result: CGImage?
-        let semaphore = DispatchSemaphore(value: 0)
-        generator.generateCGImageAsynchronously(for: time) { cgImage, _, _ in
-            result = cgImage
-            semaphore.signal()
-        }
-        semaphore.wait()
-        guard let cgImage = result else { return nil }
-        return NSImage(cgImage: cgImage, size: .zero)
+    func endDisplayingThumbnail() {
+        isThumbnailDemandActive = false
+        thumbnailCancellation?.cancel()
+        thumbnailCancellation = nil
+        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
+        thumbnailRequestID = UUID()
+    }
+
+    func beginDisplayingThumbnail() {
+        isThumbnailDemandActive = true
+        guard thumbnailView.image == nil, thumbnailCancellation == nil, let entry = presentedEntry else { return }
+        presentedEntry = nil
+        configure(entry: entry, isSelected: isSelectedState, isMultiSelectMode: isMultiSelectMode, isPlaying: isPlaying)
     }
 
     /// 缩略图生成失败态：占位文案替换为失败提示并重新排版居中。

@@ -74,7 +74,8 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
             '// ONLINE_METHODS': methods(online, [
                 '    private func applyItems(', '    private func refreshDownloadProgress(',
                 '    private func reloadVisibleItems(', '    private func isItemDownloaded(',
-                '    private func updateVisibleThumbnailPriorities(']),
+                '    private func updateVisibleThumbnailPriorities(',
+                '    private func applyThumbnailDemand(']),
         }
         for marker, fragment in fragments.items():
             self.assertEqual(template.count(marker), 1, marker)

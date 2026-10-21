@@ -72,7 +72,9 @@ struct OnlineLibraryVideoItem: Equatable { let id: Int; var title: String = "fix
     @Published var zoomOffset = 0
     @Published var inspectedDownloadedItemID: Int?
     var prioritizedWindows: [[Int]] = []
-    func prioritizeVisibleItemIDs(_ ids: [Int]) { prioritizedWindows.append(ids) }
+    func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int = 512) { prioritizedWindows.append(ids) }
+    func thumbnailPrefetchNeedsRefresh() -> Bool { false }
+    func cancelThumbnailPrefetch() {}
 }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
@@ -192,7 +194,7 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
     var downloadAction: (() -> Void)?
     var wallpaperAction: (() -> Void)?
     func configure(item: OnlineLibraryVideoItem, isDownloading: Bool, isDownloaded: Bool,
-                   downloadProgress: Double?, onDownload: @escaping () -> Void,
+                   downloadProgress: Double?, thumbnailDemandActive: Bool? = nil, onDownload: @escaping () -> Void,
                    onSetAsWallpaper: @escaping () -> Void) {
         states.append(State(id: item.id, title: item.title, downloading: isDownloading,
             downloaded: isDownloaded, progress: downloadProgress))
@@ -239,6 +241,11 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
     var itemsByID: [Int: OnlineLibraryVideoItem] = [:]
     var lastConsumedProgress: [Int: Double] = [:]
     var lastPrioritizedVisibleIDs: [Int]?
+    var lastPrioritizedPixelLimit = 0
+    var isThumbnailDemandUpdateScheduled = false
+    var canLoadThumbnails = true
+    let window: NSWindow? = nil
+    let flowLayout = NSCollectionViewFlowLayout()
     var lastLoadedCount = 0
     let scrollView = NSScrollView()
     let collectionView = RecordingCollection()
@@ -250,7 +257,12 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
     func scheduleLayoutItemSizeUpdate() {}
     func checkLoadMore() {}
     func requestFocus() {}
+    func pauseThumbnailDemand() { service.cancelThumbnailPrefetch() }
     // ONLINE_METHODS
+}
+
+enum GridThumbnailDecoder {
+    static func pixelLimit(width: CGFloat, scale: CGFloat) -> Int { 512 }
 }
 
 @main struct UIProjectionEfficiencyHarness {
@@ -641,6 +653,7 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
         checks["onlineRepeatedVisibleWindowSendsOneOrderedPriorityUpdate"] = service.prioritizedWindows == [[1, 2]]
         online.collectionView.visible = [IndexPath(item: 2, section: 0), IndexPath(item: 1, section: 0)]
         online.updateVisibleThumbnailPriorities()
+        pump()
         checks["onlineChangedVisibleWindowUpdatesPriorityInIndexOrder"] = service.prioritizedWindows == [[1, 2], [2, 3]]
         service.items = [OnlineLibraryVideoItem(id: 1, title: "new 1"),
             OnlineLibraryVideoItem(id: 2, title: "new 2"), OnlineLibraryVideoItem(id: 3, title: "new 3")]

@@ -192,45 +192,67 @@ final class AppKitThumbnailProvider {
         self.wallpaperManager = wallpaperManager
     }
 
-    func loadThumbnail(for wallpaper: VideoWallpaper, completion: @escaping (NSImage?) -> Void) {
+    private struct Prefetch {
+        let path: String
+        let thumbnailPath: String?
+        let cancellation: ThumbnailCacheRequestCancellation
+        var readyKey: String?
+    }
+    private var prefetches: [String: Prefetch] = [:]
+
+    deinit { prefetches.values.forEach { $0.cancellation.cancel() } }
+
+    @discardableResult
+    func loadThumbnail(for wallpaper: VideoWallpaper, completion: @escaping (NSImage?) -> Void) -> ThumbnailCacheRequestCancellation {
+        let cancellation = ThumbnailCacheRequestCancellation()
+        loadThumbnail(for: wallpaper, priority: .visible, cancellation: cancellation) { image, _ in completion(image) }
+        return cancellation
+    }
+
+    private func loadThumbnail(for wallpaper: VideoWallpaper, priority: ThumbnailCacheRequestPriority,
+                               cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (NSImage?, String?) -> Void) {
         decodeQueue.async { [weak self] in
-            guard let self else { return }
-            // 缓存键必须是后台验证过的缩略图路径：缩略图是可失效的派生资产
-            // （清缓存会删除文件并置空 thumbnailPath），用源视频路径做键会让
-            // 已失效的旧图从内存缓存复活。
+            guard let self, !cancellation.cancelled else { return }
+            // The derived asset must remain valid after clear/rebuild. A source
+            // video path alone cannot identify a reusable thumbnail.
             guard let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) else {
-                DispatchQueue.main.async {
-                    completion(nil)
-                }
+                DispatchQueue.main.async { if !cancellation.cancelled { completion(nil, nil) } }
                 return
             }
-            self.cache.load(forKey: thumbPath, loader: {
+            guard !cancellation.cancelled else { return }
+            self.cache.load(forKey: thumbPath, priority: priority, cancellation: cancellation, loader: {
                 NSImage(contentsOfFile: thumbPath)
             }, completion: { image in
-                // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
-                DispatchQueue.main.async {
-                    completion(image)
-                }
+                DispatchQueue.main.async { if !cancellation.cancelled { completion(image, thumbPath) } }
             })
         }
     }
 
-    func prefetchThumbnail(for wallpaper: VideoWallpaper) {
-        decodeQueue.async { [weak self] in
-            guard let self else { return }
-            guard let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) else {
-                return
+    /// A grid owns one desired set. Removed consumers release their lease;
+    /// another visible consumer of the same derived path remains unaffected.
+    func replacePrefetch(with wallpapers: [VideoWallpaper], retainingVisible visible: [VideoWallpaper] = []) {
+        let wanted = Set((wallpapers + visible).map(\.id))
+        for id in Array(prefetches.keys) where !wanted.contains(id) { cancelPrefetch(id: id) }
+        for (wallpaper, startsIfMissing) in wallpapers.map({ ($0, true) }) + visible.map({ ($0, false) }) {
+            if let old = prefetches[wallpaper.id], old.path == wallpaper.path,
+               old.thumbnailPath == wallpaper.thumbnailPath,
+               old.readyKey.map({ cache.cachedImage(forKey: $0) != nil }) ?? true { continue }
+            cancelPrefetch(id: wallpaper.id)
+            guard startsIfMissing else { continue }
+            let cancellation = ThumbnailCacheRequestCancellation()
+            prefetches[wallpaper.id] = Prefetch(path: wallpaper.path, thumbnailPath: wallpaper.thumbnailPath,
+                                               cancellation: cancellation, readyKey: nil)
+            loadThumbnail(for: wallpaper, priority: .prefetch, cancellation: cancellation) { [weak self] image, key in
+                guard let self, !cancellation.cancelled, image != nil,
+                      self.prefetches[wallpaper.id]?.cancellation === cancellation else { return }
+                self.prefetches[wallpaper.id]?.readyKey = key
             }
-            // 真正预热缓存；同一缩略图的重复预取由 ThumbnailCache 的 in-flight 去重挡掉。
-            self.cache.prefetch(forKey: thumbPath, loader: {
-                NSImage(contentsOfFile: thumbPath)
-            })
         }
     }
 
-    func cancelPrefetch(id: String) {
-        // ThumbnailCache 不提供队列级取消；已排队的预取结果会进缓存供后续显示命中，
-        // 重复预取由 in-flight 去重挡掉，保留接口兼容性。
-        _ = id
+    func cancelPrefetch(id: String) { prefetches.removeValue(forKey: id)?.cancellation.cancel() }
+    func cancelAllPrefetch() {
+        prefetches.values.forEach { $0.cancellation.cancel() }
+        prefetches.removeAll()
     }
 }

@@ -11,6 +11,15 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# Match product isolation/conformance inference rather than the compiler defaults.
+SWIFT_ISOLATION_FLAGS = ["-swift-version", "5", "-default-isolation", "MainActor"] + [
+    argument
+    for feature in ["DisableOutwardActorInference", "InferSendableFromCaptures",
+                    "GlobalActorIsolatedTypesUsability", "MemberImportVisibility",
+                    "InferIsolatedConformances", "NonisolatedNonsendingByDefault"]
+    for argument in ["-enable-upcoming-feature", feature]
+]
+
 
 class ThumbnailReturnReuseTests(unittest.TestCase):
     def test_cached_returns_and_local_first_network_fallback(self):
@@ -35,7 +44,7 @@ class ThumbnailReturnReuseTests(unittest.TestCase):
 
             core = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
             shared = ROOT / "MyWallpaperX/Shared/UI"
-            sources = [shared / "GridThumbnailDecoder.swift", shared / "DecodedThumbnailMemoryCache.swift", shared / "ThumbnailCache.swift",
+            sources = [shared / "GridThumbnailPrefetchDemand.swift", shared / "GridThumbnailDecoder.swift", shared / "DecodedThumbnailMemoryCache.swift", shared / "ThumbnailCache.swift",
                 ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
                 core / "SteamWorkshopModels.swift", core / "SteamWorkshopPreviewImageSupport.swift",
                 core / "SteamWorkshopPreviewSource.swift", core / "SteamWorkshopPreviewRequestCoordinator.swift",
@@ -44,9 +53,12 @@ class ThumbnailReturnReuseTests(unittest.TestCase):
                 ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
                 ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewPlaceholderView.swift",
                 ROOT / "script/tests/fixtures/ThumbnailReturnReuseChecks.swift"]
-            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
+            build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library", *map(str, sources),
                 "-module-cache-path", str(work / "modules"), "-o", str(work / "checks")],
                 capture_output=True, text=True, timeout=120)
+            if proof := os.environ.get("MWX_REUSE_PROOF_DIR"):
+                target = Path(proof); target.mkdir(parents=True, exist_ok=True)
+                (target / "build.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
             thread = threading.Thread(target=server.serve_forever, daemon=True)

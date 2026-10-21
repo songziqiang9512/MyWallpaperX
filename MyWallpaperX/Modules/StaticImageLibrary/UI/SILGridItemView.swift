@@ -149,6 +149,11 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     var wallpaperID: String?
     private var imageTaskID: UUID?
+    private var thumbnailCancellation: ThumbnailCacheRequestCancellation?
+    private var thumbnailLoader: ((ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void)?
+    private var isThumbnailVisible = false
+    private var thumbnailRequestFinished = false
+    private var loadingPlaceholderWork: DispatchWorkItem?
     private var trackingArea: NSTrackingArea?
     private var isHovering      = false
     private var isPressingCard  = false
@@ -159,6 +164,11 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) { super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { super.init(coder: coder) }
+
+    deinit {
+        thumbnailCancellation?.cancel()
+        loadingPlaceholderWork?.cancel()
+    }
 
     override func apply(_ layoutAttributes: NSCollectionViewLayoutAttributes) {
         super.apply(layoutAttributes)
@@ -251,12 +261,18 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     override func prepareForReuse() {
         super.prepareForReuse()
         lastLayoutInputs = nil
+        thumbnailCancellation?.cancel()
+        thumbnailCancellation = nil
+        thumbnailLoader = nil
+        thumbnailRequestFinished = false
+        loadingPlaceholderWork?.cancel()
+        loadingPlaceholderWork = nil
         wallpaperID = nil; imageTaskID = nil
         isHovering = false; isPressingCard = false
         isSelectedState = false; isMultiSelect = false
         thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
-        placeholderLabel.isHidden = false
+        placeholderLabel.isHidden = true
         multiSelectBadge.isHidden = true; multiSelectIcon.isHidden = true
         imageContainer.layer?.transform = CATransform3DIdentity
         hoverOutline.alphaValue = 0; isHoverOutlineVisible = false
@@ -270,7 +286,8 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         wallpaper: SILWallpaper,
         isSelected: Bool,
         isMultiSelectMode: Bool,
-        thumbnailLoader: @escaping (@escaping (SILThumbnailLoadResult) -> Void) -> Void
+        thumbnailVisible: Bool,
+        thumbnailLoader: @escaping (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void
     ) {
         wallpaperID = wallpaper.id
         titleLabel.stringValue = wallpaper.title
@@ -286,12 +303,52 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         metaLabel.stringValue = metaLines.joined(separator: "  ")
 
         applySelectionState(isSelected: isSelected, multiSelectMode: isMultiSelectMode)
+        thumbnailCancellation?.cancel()
+        thumbnailCancellation = nil
+        self.thumbnailLoader = thumbnailLoader
+        thumbnailRequestFinished = false
+        isThumbnailVisible = thumbnailVisible
+        loadingPlaceholderWork?.cancel()
+        loadingPlaceholderWork = nil
         applyHoverVisibility(isHovering, animated: false)
+        thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
-        placeholderLabel.isHidden = false
+        placeholderLabel.isHidden = true
+        beginThumbnailLoad()
+    }
+
+    func setThumbnailVisible(_ visible: Bool) {
+        isThumbnailVisible = visible
+        if !visible {
+            thumbnailCancellation?.cancel()
+            thumbnailCancellation = nil
+            imageTaskID = nil
+            loadingPlaceholderWork?.cancel()
+            loadingPlaceholderWork = nil
+        } else if !thumbnailRequestFinished, thumbnailCancellation == nil {
+            beginThumbnailLoad()
+        }
+    }
+
+    private func beginThumbnailLoad() {
+        guard isThumbnailVisible, let wallpaperID, let thumbnailLoader else { return }
+        placeholderLabel.stringValue = "加载中..."
+        placeholderLabel.isHidden = true
+        let cancellation = ThumbnailCacheRequestCancellation()
+        thumbnailCancellation = cancellation
         let taskID = UUID(); imageTaskID = taskID
-        thumbnailLoader { [weak self] result in
-            guard let self, self.imageTaskID == taskID, self.wallpaperID == wallpaper.id else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.imageTaskID == taskID, self.thumbnailView.image == nil else { return }
+            self.placeholderLabel.isHidden = false
+        }
+        loadingPlaceholderWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+        thumbnailLoader(cancellation) { [weak self] result in
+            guard let self, self.imageTaskID == taskID, self.wallpaperID == wallpaperID else { return }
+            self.thumbnailRequestFinished = true
+            self.thumbnailCancellation = nil
+            self.loadingPlaceholderWork?.cancel()
+            self.loadingPlaceholderWork = nil
             switch result {
             case .image(let image):
                 self.thumbnailView.image = image

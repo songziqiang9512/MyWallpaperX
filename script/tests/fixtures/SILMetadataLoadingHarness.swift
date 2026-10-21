@@ -146,6 +146,7 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
     func scheduleSyncSelection() {}
     func scheduleVisibleRefresh() {}
     func scheduleRestingScrollOriginCapture() {}
+    func scheduleThumbnailPrefetch() {}
     // PRODUCTION_GRID_METHODS
 }
 

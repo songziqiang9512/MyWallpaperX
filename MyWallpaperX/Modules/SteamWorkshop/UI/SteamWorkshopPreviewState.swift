@@ -61,6 +61,9 @@ import AppKit
     private var animationAttempted = false
     private var isLoading = false
     private var isRetrying = false
+    private var isImageDemandActive = true
+    private var currentImageCandidate = 0
+    private var suspendedImageCandidate: Int?
     private var imageCancellation: SteamWorkshopPreviewLoadCancellation?
     private var animationCancellation: SteamWorkshopPreviewLoadCancellation?
     private var retryTask: Task<Void, Never>?
@@ -112,7 +115,9 @@ import AppKit
         isLoading = true
         isRetrying = false
         retryDeadline = Date().addingTimeInterval(35)
-        loadImage(generation: expected)
+        currentImageCandidate = 0
+        if isImageDemandActive { loadImage(generation: expected) }
+        else { suspendedImageCandidate = 0 }
         // A synchronous memory hit finishes before any loading presentation.
         if isLoading { onChange?() }
     }
@@ -138,7 +143,30 @@ import AppKit
         stopAnimation()
         isLoading = false
         isRetrying = false
+        suspendedImageCandidate = nil
         onChange?()
+    }
+
+    /// Offscreen cards release only their pending consumer. A ready image and
+    /// terminal failure remain intact; showing the card resumes unfinished work.
+    func setImageDemandActive(_ active: Bool) {
+        guard isImageDemandActive != active else { return }
+        isImageDemandActive = active
+        if !active {
+            guard isLoading || isRetrying else { return }
+            suspendedImageCandidate = isRetrying && !isLoading ? 0 : currentImageCandidate
+            generation += 1
+            imageCancellation?.cancel()
+            imageCancellation = nil
+            retryTask?.cancel()
+            retryTask = nil
+        } else if let candidate = suspendedImageCandidate, request != nil {
+            suspendedImageCandidate = nil
+            isLoading = true
+            isRetrying = false
+            loadImage(generation: generation, candidate: candidate)
+            if isLoading { onChange?() }
+        }
     }
 
     func setAnimationActive(_ active: Bool) {
@@ -157,7 +185,8 @@ import AppKit
     }
 
     private func loadImage(generation expected: Int, candidate: Int = 0) {
-        guard generation == expected, let request else { return }
+        guard generation == expected, isImageDemandActive, let request else { return }
+        currentImageCandidate = candidate
         guard candidate < request.images.count else { loadVideoFallback(generation: expected); return }
         let source = request.images[candidate]
         let cancellation = SteamWorkshopPreviewLoadCancellation()

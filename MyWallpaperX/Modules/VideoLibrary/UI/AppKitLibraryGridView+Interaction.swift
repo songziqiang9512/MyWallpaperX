@@ -201,6 +201,8 @@ extension AppKitLibraryGridContainerView: NSCollectionViewDelegate {
               let cardItem = item as? AppKitWallpaperItem else {
             return
         }
+        cardItem.setThumbnailVisible(thumbnailDemandIsVisible)
+        scheduleViewportPrefetch()
         cardItem.applyFavoriteState(isFavorite: wallpaper.isFavorite)
         cardItem.applySelectionState(
             isSelected: wallpaperManager.selectedWallpaperId == wallpaper.id
@@ -210,6 +212,12 @@ extension AppKitLibraryGridContainerView: NSCollectionViewDelegate {
         cardItem.applyPlayingState(
             isPlaying: wallpaperManager.effectiveCurrentWallpaper?.path == wallpaper.path
         )
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
+                        forRepresentedObjectAt indexPath: IndexPath) {
+        (item as? AppKitWallpaperItem)?.setThumbnailVisible(false)
+        scheduleViewportPrefetch()
     }
 
     func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
@@ -247,23 +255,7 @@ extension AppKitLibraryGridContainerView: NSCollectionViewDelegate {
     }
 }
 
-extension AppKitLibraryGridContainerView: NSCollectionViewPrefetching {
-    func collectionView(_ collectionView: NSCollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
-        // 预取只预热可见区附近的缩略图，不做额外主线程回写。
-        for indexPath in indexPaths {
-            guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { continue }
-            let id = orderedIDs[indexPath.item]
-            guard let wallpaper = wallpapersByID[id] else { continue }
-            thumbnailProvider.prefetchThumbnail(for: wallpaper)
-        }
-    }
-
-    func collectionView(_ collectionView: NSCollectionView, cancelPrefetchingForItemsAt indexPaths: [IndexPath]) {
-        for indexPath in indexPaths {
-            guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { continue }
-            thumbnailProvider.cancelPrefetch(id: orderedIDs[indexPath.item])
-        }
-    }
+extension AppKitLibraryGridContainerView {
     func handleBackgroundClick() {
         guard !wallpaperManager.isMultiSelectMode else { return }
         wallpaperManager.clearSingleSelectionIfNeeded()

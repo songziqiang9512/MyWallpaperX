@@ -33,11 +33,21 @@ enum SteamWorkshopItemMenu {
     var continuationCalls = 0
     var lastScrollOffset: CGFloat = 0
     func loadMoreBrowserItemsIfNeeded() { continuationCalls += 1 }
-    func prioritizeVisibleBrowserItemIDs(_ ids: [String], maxPixelSize: Int = 800) {}
     func retryLoadingMoreBrowserItems() {}
     func consumePendingBrowserScrollRestoreOffset() { pendingBrowserScrollRestoreOffset = nil }
     func updateBrowserScrollMetrics(offsetY: CGFloat, contentHeight: CGFloat, viewportHeight: CGFloat) { lastScrollOffset = offsetY }
     func refresh() {}
+}
+@MainActor final class SteamWorkshopPreviewPrefetchController {
+    struct Candidate {
+        let id: String
+        let item: SteamWorkshopBrowserItem
+        let record: SteamWorkshopDownloadRecord?
+        var startsIfMissing = true
+    }
+    var replacements = 0
+    func replace(with candidates: [Candidate], maxPixelSize: Int) { replacements += 1 }
+    func cancelAll() {}
 }
 @MainActor final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("SteamProbeCard")
@@ -194,6 +204,13 @@ enum SteamWorkshopItemMenu {
                 grid.cacheDisplay(in: grid.bounds, to: bitmap)
                 try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: directory).appendingPathComponent("native-grid.png"))
             }
+        }
+        let prefetchBeforeOrderOut = grid.previewPrefetch.replacements
+        window.orderOut(nil)
+        grid.prioritizeVisibleItemsForHydration()
+        grid.prefetchCurrentViewport()
+        if grid.previewPrefetchWorkItem != nil || grid.previewPrefetch.replacements != prefetchBeforeOrderOut {
+            failures.append("ordered-out window admitted prefetch")
         }
         print("checks", checks, "failures", failures.count)
         failures.prefix(20).forEach { print($0) }

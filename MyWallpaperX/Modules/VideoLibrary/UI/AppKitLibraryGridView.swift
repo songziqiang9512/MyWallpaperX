@@ -17,7 +17,8 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     /// 删除/导入时对可见区域内（≤35条变化）做原生 diffable 动画，独立于 animatesReorder。
     let animatesInsertDelete: Bool
     private var cancellables = Set<AnyCancellable>()
-    private var viewportPrefetchWorkItem: DispatchWorkItem?
+    var viewportPrefetchWorkItem: DispatchWorkItem?
+    var lastPrefetchOffsetY: CGFloat?
     var wallpapersByID: [String: VideoWallpaper] = [:]
     var normalizedPathToIDs: [String: Set<String>] = [:]
     var orderedIDs: [String] = []
@@ -37,12 +38,12 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private var missingPathProbeTimer: DispatchSourceTimer?
     private var isMissingPathProbeInFlight = false
     private var missingPathWindowObservers = [NSObjectProtocol]()
+    private var thumbnailWindowVisibilityObservation: NSKeyValueObservation?
     private var needsMissingPathProbeAfterFlight = false
     private var visibleMissingWallpaperIDs = Set<String>()
     private var lastAppliedQuery: String = ""
     private var pendingVisibleColumnCount: Int?
     private var isLayoutItemSizeUpdateScheduled = false
-    private var lastPrefetchRange: ClosedRange<Int>?
     private var lastObservedPlayingNormalizedPath: String?
     private var lastObservedSelectedIDs = Set<String>()
     private var scrollToTopObserver: NSObjectProtocol?
@@ -77,7 +78,6 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         collectionView.allowsMultipleSelection = false
         collectionView.backgroundColors = [.clear]
         collectionView.delegate = self
-        collectionView.prefetchDataSource = self
         collectionView.onBackgroundLeftClick = { [weak self] in
             self?.handleBackgroundClick()
         }
@@ -148,6 +148,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
             NotificationCenter.default.removeObserver(moduleFocusObserver)
         }
         viewportPrefetchWorkItem?.cancel()
+        thumbnailProvider.cancelAllPrefetch()
         missingPathProbeTimer?.cancel()
         missingPathProbeTimer = nil
         missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
@@ -180,22 +181,42 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        thumbnailWindowVisibilityObservation = nil
         missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
         missingPathWindowObservers.removeAll()
         if let window {
+            thumbnailWindowVisibilityObservation = window.observe(\.isVisible, options: [.new]) { [weak self] window, _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.window === window else { return }
+                    self.scheduleViewportPrefetch()
+                }
+            }
             missingPathWindowObservers = [NSWindow.didMiniaturizeNotification,
                 NSWindow.didDeminiaturizeNotification].map { name in
                 NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] _ in
                     MainActor.assumeIsolated {
                         guard let self, self.window === window else { return }
                         self.updateMissingPathProbeTimer()
+                        if window?.isMiniaturized == true { self.cancelViewportPrefetch() }
+                        else { self.scheduleViewportPrefetch() }
                     }
                 }
             }
         }
         updateMissingPathProbeTimer()
-        guard window != nil else { return }
+        guard window != nil else { cancelViewportPrefetch(); return }
+        scheduleViewportPrefetch()
         scheduleRestingScrollOriginCapture()
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        cancelViewportPrefetch()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        scheduleViewportPrefetch()
     }
 
     override func layout() {
@@ -430,7 +451,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         rebuildPathIndex(uniqueWallpapers)
         applySnapshot(ids: orderedIDs)
         lastAppliedQuery = query
-        lastPrefetchRange = nil
+        thumbnailProvider.cancelAllPrefetch()
         emptyStateLabel.isHidden = !orderedIDs.isEmpty
         scheduleViewportPrefetch()
     }
@@ -457,6 +478,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
             flowLayout.itemSize = newSize
             // 布局变化与悬停视觉同步生效，避免渐变层在缩放期间出现跟随滞后。
             self.collectionView.collectionViewLayout?.invalidateLayout()
+            scheduleViewportPrefetch()
         }
         scheduleVisibleGridColumnCountUpdateIfNeeded(columnCount)
     }
@@ -478,7 +500,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         let targetOrigin = restingScrollOrigin ?? NSPoint(x: 0, y: 0)
         guard scrollView.contentView.bounds.origin != targetOrigin else { return }
 
-        viewportPrefetchWorkItem?.cancel()
+        cancelViewportPrefetch()
         isScrollToTopAnimating = true
         NotificationCenter.default.post(name: .appKitLibraryGridScrollToTopAnimationWillStart, object: nil)
         NSAnimationContext.runAnimationGroup { context in
@@ -533,6 +555,10 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
             let paths = self.pendingThumbnailReloadPaths
             self.pendingThumbnailReloadPaths.removeAll()
             guard !paths.isEmpty else { return }
+            for path in paths {
+                for id in self.normalizedPathToIDs[path] ?? [] { self.thumbnailProvider.cancelPrefetch(id: id) }
+            }
+            self.scheduleViewportPrefetch()
             let visibleIndexPaths = Set(self.collectionView.indexPathsForVisibleItems())
             guard !visibleIndexPaths.isEmpty else { return }
 
@@ -839,44 +865,6 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         isApplyingSelectionSnapshot = true
         collectionView.selectionIndexPaths = indexPaths
         isApplyingSelectionSnapshot = false
-    }
-
-    private func scheduleViewportPrefetch() {
-        // 滚动事件只合并为一次预取调度，避免高频 bounds 变化直接压到主线程。
-        guard !isScrollToTopAnimating else { return }
-        viewportPrefetchWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.prefetchAroundVisibleRange()
-        }
-        viewportPrefetchWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: workItem)
-    }
-
-    private func prefetchAroundVisibleRange() {
-        // 预取范围围绕当前可见区展开，保持与 Photos 类似的“前后几屏预热”体验。
-        guard !isScrollToTopAnimating else { return }
-        let visibleIndexPaths = collectionView.indexPathsForVisibleItems()
-        guard !visibleIndexPaths.isEmpty, !orderedIDs.isEmpty else { return }
-        let visibleIndices = visibleIndexPaths.map(\.item)
-        guard let minVisible = visibleIndices.min(), let maxVisible = visibleIndices.max() else { return }
-
-        let visibleCount = max(1, maxVisible - minVisible + 1)
-        // 预热窗口控制在可见区前后约 2 屏，降低滚动中的预取竞争。
-        let preloadCount = min(48, max(12, visibleCount * 2))
-        let start = max(0, minVisible - preloadCount)
-        let end = min(orderedIDs.count - 1, maxVisible + preloadCount)
-        guard start <= end else { return }
-        let prefetchRange = start...end
-        if lastPrefetchRange == prefetchRange {
-            return
-        }
-        lastPrefetchRange = prefetchRange
-
-        for index in prefetchRange {
-            let id = orderedIDs[index]
-            guard let wallpaper = wallpapersByID[id] else { continue }
-            thumbnailProvider.prefetchThumbnail(for: wallpaper)
-        }
     }
 
     private func scheduleVisibleGridColumnCountUpdateIfNeeded(_ columnCount: Int) {

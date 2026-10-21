@@ -2,7 +2,7 @@ import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 
-enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }
+nonisolated enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }
 
 /// Only the service's unrelated catalog owner is substituted. Hydration, image
 /// transport, cache IO, source decisions and presentation state are production.
@@ -10,7 +10,6 @@ enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: 
     var browserItems: [SteamWorkshopBrowserItem] = []
     var displayedBrowserItems: [SteamWorkshopBrowserItem] = []
     var downloads: [SteamWorkshopDownloadRecord] = []
-    var lastPreviewPrefetchIDSet = Set<String>()
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { downloads.first { $0.id == id } }
 }
 
@@ -169,8 +168,50 @@ nonisolated final class ReuseCounter: @unchecked Sendable {
                 exportedVideoURL: nil, updatedAt: Date(), sizeText: "", status: status, browserItem: item,
                 contentType: .video, dependencyItemID: nil, dependencyStatus: .none)
         }
+        let forward = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(40...51), itemCount: 100, neighborLimit: 12, direction: 1)
+        let backward = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(40...51), itemCount: 100, neighborLimit: 12, direction: -1)
+        checks["nearestDemandIncludesForwardInsteadOfPrefixTruncation"] = forward == [52,39,53,38,54,37,55,36,56,35,57,34]
+        checks["reverseChangesPriorityWithoutChangingBoundedNeighborhood"] = backward == [39,52,38,53,37,54,36,55,35,56,34,57]
+        checks["nearestDemandClampsEdgesAndSkipsVisibleGaps"] = GridThumbnailPrefetchDemand.indices(visibleIndices: [-1,0,2,100], itemCount: 5, neighborLimit: 24, direction: -1) == [3,4]
+        checks["emptyViewportNeverWarmsCatalog"] = GridThumbnailPrefetchDemand.indices(visibleIndices: [], itemCount: 10_000, neighborLimit: 24, direction: 1).isEmpty
+
         let online = item("local-ready", remote.appendingPathComponent("local-ready.gif"))
         let installed = record(online, preview: local)
+        var requests: [(URL, Int, SteamWorkshopPreviewLoadCancellation, (NSImage?) -> Void)] = []
+        var observedPrefetch: SteamWorkshopPreviewPrefetchController? = SteamWorkshopPreviewPrefetchController(load: {
+            requests.append(($0, $1, $2, $3))
+        })
+        let nearby = SteamWorkshopPreviewPrefetchController.Candidate(id: online.id, item: online, record: installed)
+        observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        checks["prefetchSameIdentityOnlyStartsOnce"] = requests.count == 1 && requests[0].0 == local
+        var becameVisible = nearby; becameVisible.startsIfMissing = false
+        observedPrefetch!.replace(with: [becameVisible], maxPixelSize: 256)
+        checks["prefetchLeaseSurvivesDelayedVisibleSourceValidation"] = requests.count == 1 && !requests[0].2.cancelled
+        observedPrefetch!.replace(with: [becameVisible], maxPixelSize: 512)
+        checks["pixelChangeCancelsObsoleteLeaseWithoutStartingVisibleDuplicate"] = requests[0].2.cancelled && requests.count == 1
+        observedPrefetch!.replace(with: [nearby], maxPixelSize: 512)
+        checks["newPixelDemandStartsRequestedTier"] = requests.count == 2 && requests[1].1 == 512
+        requests[1].3(nil)
+        checks["failedInstalledPrefetchUsesRemoteFallbackWithSameLease"] = requests.count == 3
+            && requests[2].0 == online.previewImageURL && requests[1].2 === requests[2].2
+        observedPrefetch!.replace(with: [], maxPixelSize: 512)
+        checks["leavingViewportCancelsOnlyGridConsumer"] = requests[2].2.cancelled
+        observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        observedPrefetch!.cancelAll()
+        checks["hideOrClearCancelsAllPrefetch"] = requests.last!.2.cancelled
+        observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        let surviving = requests.last!.2
+        observedPrefetch = nil
+        checks["deinitRetiresGridPrefetchConsumers"] = surviving.cancelled
+        let pressurePrefetch = SteamWorkshopPreviewPrefetchController(load: { requests.append(($0, $1, $2, $3)) })
+        pressurePrefetch.replace(with: [nearby], maxPixelSize: 800)
+        let beforeRelease = requests.count
+        requests.last!.3(red)
+        // No corresponding ready pixels remain, as after an LRU pressure release.
+        pressurePrefetch.replace(with: [nearby], maxPixelSize: 800)
+        checks["completedPrefetchRewarmsAfterDecodedPixelsAreEvicted"] = requests.count == beforeRelease + 1
+        pressurePrefetch.cancelAll()
         let selected = steamWorkshopPreviewSources(item: online, record: installed)
         checks["onlineAndSubscriptionPickInstalledPreviewBeforeRemote"] = selected.primary == local && selected.fallback == online.previewImageURL
         checks["incompleteDownloadKeepsRemotePreview"] = steamWorkshopPreviewSources(item: online,
@@ -185,7 +226,8 @@ nonisolated final class ReuseCounter: @unchecked Sendable {
         checks["readyReuseDoesNotEmitIntermediateLoading"] = state.image != nil && !observedLoading
         let service = SteamWorkshopService()
         service.displayedBrowserItems = [online]; service.downloads = [installed]
-        service.prioritizeVisibleBrowserItemIDs([online.id], maxPixelSize: 256)
+        let prefetch = SteamWorkshopPreviewPrefetchController()
+        prefetch.replace(with: [.init(id: online.id, item: online, record: installed)], maxPixelSize: 256)
         checks["prefetchSharesInstalledSourceAndRequestedPixelTier"] = pump { steamWorkshopCachedPreviewImage(for: local, maxPixelSize: 256) != nil }
         let oldKey = steamWorkshopPreviewStillKey(for: local, maxPixelSize: 512)
         try Data([0, 1, 2, 3]).write(to: local)

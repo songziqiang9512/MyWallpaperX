@@ -131,9 +131,6 @@ private extension OLHit {
 final class OnlineLibraryService: ObservableObject {
     static let shared = OnlineLibraryService()
     private enum Constants {
-        static let initialThumbnailPrefetchLimit = 12
-        static let visibleThumbnailPrefetchLeading = 6
-        static let visibleThumbnailPrefetchTrailing = 12
         static let visibleThumbnailPrefetchLimit = 18
     }
 
@@ -161,7 +158,8 @@ final class OnlineLibraryService: ObservableObject {
         hasMore       = false
         hasLoadedOnce = false
         toolbarQuery  = ""
-        lastThumbnailPrefetchIDSet.removeAll()
+        cancelThumbnailPrefetch()
+        itemIndexByID.removeAll()
         objectWillChange.send()
     }
 
@@ -188,7 +186,18 @@ final class OnlineLibraryService: ObservableObject {
         return URLSession(configuration: cfg)
     }()
     private var searchTask: Task<Void, Never>?
-    private var lastThumbnailPrefetchIDSet = Set<Int>()
+    private struct ThumbnailPrefetch {
+        let id: UUID
+        let url: URL
+        let pixelSize: Int
+        let task: Task<Void, Never>
+        var completed = false
+        var failed = false
+        var generation: Int?
+    }
+    private var thumbnailPrefetches: [Int: ThumbnailPrefetch] = [:]
+    private var itemIndexByID: [Int: Int] = [:]
+    private var previousVisibleStart: Int?
     private init() {
         restoreDownloadedIDs()
     }
@@ -220,7 +229,8 @@ final class OnlineLibraryService: ObservableObject {
         errorMessage  = nil
         hasMore       = false
         hasLoadedOnce = true
-        lastThumbnailPrefetchIDSet.removeAll()
+        cancelThumbnailPrefetch()
+        itemIndexByID.removeAll()
         fetchPage(page: 1, appending: false)
     }
 
@@ -229,18 +239,26 @@ final class OnlineLibraryService: ObservableObject {
         fetchPage(page: currentPage + 1, appending: true)
     }
 
-    func prioritizeVisibleItemIDs(_ ids: [Int]) {
-        guard !ids.isEmpty, !items.isEmpty else { return }
-        var seen = Set<Int>()
-        let uniqueIDs = ids.filter { seen.insert($0).inserted }
-        let indexByID = Dictionary(uniqueKeysWithValues: items.enumerated().map { ($0.element.id, $0.offset) })
-        let visibleIndexes = uniqueIDs.compactMap { indexByID[$0] }.sorted()
-        guard let firstVisibleIndex = visibleIndexes.first,
-              let lastVisibleIndex = visibleIndexes.last else { return }
-        let startIndex = max(0, firstVisibleIndex - Constants.visibleThumbnailPrefetchLeading)
-        let endIndex = min(items.count - 1, lastVisibleIndex + Constants.visibleThumbnailPrefetchTrailing)
-        guard startIndex <= endIndex else { return }
-        prefetchThumbnailData(for: Array(items[startIndex...endIndex]), limit: Constants.visibleThumbnailPrefetchLimit)
+    func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int = 512) {
+        let visibleIndexes = ids.compactMap { itemIndexByID[$0] }.sorted()
+        guard let first = visibleIndexes.first else { cancelThumbnailPrefetch(); return }
+        let direction = previousVisibleStart.map { first == $0 ? 0 : (first > $0 ? 1 : -1) } ?? 0
+        previousVisibleStart = first
+        let indices = GridThumbnailPrefetchDemand.indices(visibleIndices: visibleIndexes,
+            itemCount: items.count, neighborLimit: Constants.visibleThumbnailPrefetchLimit, direction: direction)
+        prefetchThumbnailImages(for: indices.map { items[$0] }, visibleIDs: Set(ids), maxPixelSize: maxPixelSize)
+    }
+
+    func thumbnailPrefetchNeedsRefresh() -> Bool {
+        thumbnailPrefetches.values.contains {
+            $0.completed && !$0.failed && OLThumbnailCache.shared.readyImage(for: $0.url, maxPixelSize: $0.pixelSize) == nil
+        }
+    }
+
+    func cancelThumbnailPrefetch() {
+        thumbnailPrefetches.values.forEach { $0.task.cancel() }
+        thumbnailPrefetches.removeAll()
+        previousVisibleStart = nil
     }
 
     // MARK: - 下载状态
@@ -474,10 +492,8 @@ final class OnlineLibraryService: ObservableObject {
                     self.totalHits   = decoded.totalHits
                     self.hasMore     = (page * self.currentParams.perPage) < decoded.totalHits
                     self.items       = appending ? self.items + newItems : newItems
-                    self.prefetchThumbnailData(
-                        for: appending ? newItems : self.items,
-                        limit: Constants.initialThumbnailPrefetchLimit
-                    )
+                    self.itemIndexByID = Dictionary(uniqueKeysWithValues:
+                        self.items.enumerated().map { ($0.element.id, $0.offset) })
                 case 400:       self.errorMessage = "API Key 无效或不完整，请重新填写"
                 case 401, 403:  self.errorMessage = "API Key 无效，请重新填写"
                 case 429:       self.errorMessage = "请求过于频繁，请稍后再试"
@@ -511,25 +527,40 @@ final class OnlineLibraryService: ObservableObject {
         return c?.url
     }
 
-    private func prefetchThumbnailData(for items: [OnlineLibraryVideoItem], limit: Int) {
-        guard !items.isEmpty, limit > 0 else { return }
+    private func prefetchThumbnailImages(for items: [OnlineLibraryVideoItem], visibleIDs: Set<Int>, maxPixelSize: Int) {
         let candidates = items.compactMap { item -> (Int, URL)? in
-            guard let url = item.previewThumbnailURL else { return nil }
-            return (item.id, url)
+            item.previewThumbnailURL.map { (item.id, $0) }
         }
-        let limitedCandidates = Array(candidates.prefix(limit))
-        let nextIDSet = Set(limitedCandidates.map(\.0))
-        let deltaCandidates = limitedCandidates.filter { !lastThumbnailPrefetchIDSet.contains($0.0) }
-        guard !deltaCandidates.isEmpty else { return }
-        lastThumbnailPrefetchIDSet = nextIDSet
-
-        for (_, url) in deltaCandidates {
-            Task {
-                let generation = await OLThumbnailCache.shared.publicationGeneration()
-                guard await OLThumbnailCache.shared.cachedData(for: url) == nil else { return }
-                guard let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: .prefetch) else { return }
-                await OLThumbnailCache.shared.store(data: data, for: url, generation: generation)
+        // Keep a near->visible lease until it leaves both sets, so its newly
+        // visible card has time to join the existing producer.
+        let nextIDs = Set(candidates.map(\.0)).union(visibleIDs)
+        for (id, request) in thumbnailPrefetches where !nextIDs.contains(id) {
+            request.task.cancel()
+            thumbnailPrefetches.removeValue(forKey: id)
+        }
+        for (id, url) in candidates {
+            let previous = thumbnailPrefetches[id]
+            if let current = previous, current.url == url, current.pixelSize == maxPixelSize {
+                if !current.completed || OLThumbnailCache.shared.readyImage(for: url, maxPixelSize: maxPixelSize) != nil { continue }
             }
+            previous?.task.cancel()
+            let requestID = UUID()
+            let task = Task { [weak self] in
+                let generation = await OLThumbnailCache.shared.publicationGeneration()
+                // A terminal bad source is retained until source/tier or clear
+                // changes; a successfully decoded image can be preheated again
+                // after memory eviction without another network fetch.
+                let sameSource = previous?.url == url && previous?.pixelSize == maxPixelSize
+                let suppressFailure = sameSource && previous?.failed == true && previous?.generation == generation
+                let failed: Bool
+                if suppressFailure { failed = true }
+                else { failed = await OLThumbnailCache.shared.image(for: url, maxPixelSize: maxPixelSize, priority: .prefetch) == nil }
+                guard !Task.isCancelled, let self, self.thumbnailPrefetches[id]?.id == requestID else { return }
+                self.thumbnailPrefetches[id]?.completed = true
+                self.thumbnailPrefetches[id]?.failed = failed
+                self.thumbnailPrefetches[id]?.generation = generation
+            }
+            thumbnailPrefetches[id] = ThumbnailPrefetch(id: requestID, url: url, pixelSize: maxPixelSize, task: task)
         }
     }
 }

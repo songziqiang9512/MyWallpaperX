@@ -60,7 +60,7 @@ class SteamGridUpdateTests(unittest.TestCase):
                      'SteamWorkshopGridKeyboardNavigation.swift', 'SteamWorkshopBrowserFooterSupport.swift',
                      'AppKitSteamWorkshopBrowserFooterComponents.swift']
             binary = work / 'container'
-            sources = [ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift', ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
+            sources = [ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift', ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift', ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
                        *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',

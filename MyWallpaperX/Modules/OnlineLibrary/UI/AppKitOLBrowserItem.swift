@@ -162,6 +162,9 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var thumbnailRequestID = UUID()
     private var completionAnimationID = UUID()
     private var thumbnailTask:    Task<Void, Never>?
+    private var thumbnailLoadingWork: DispatchWorkItem?
+    private var terminalThumbnailFailureGeneration: Int?
+    private var isThumbnailDemandActive = true
     private var completionHideWorkItem: DispatchWorkItem?
     private var completionRevealWorkItem: DispatchWorkItem?
     private var isCompletionAnimating = false
@@ -182,6 +185,9 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         completionAnimationID = UUID()
         completionBadgeView.layer?.removeAllAnimations()
         thumbnailTask?.cancel(); thumbnailTask = nil
+        terminalThumbnailFailureGeneration = nil
+        isThumbnailDemandActive = true
+        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
         completionHideWorkItem?.cancel()
         completionHideWorkItem = nil
         completionRevealWorkItem?.cancel()
@@ -195,8 +201,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         thumbnailView.image = nil
         completionHideWorkItem?.cancel()
         completionHideWorkItem = nil
-        placeholderView.isHidden = false
-        spinner.startAnimation(nil)
+        placeholderView.isHidden = true
+        spinner.stopAnimation(nil)
         titleLabel.stringValue = ""
         durationBadgeTextLayer.string = nil
         metaLabel.stringValue = ""
@@ -218,9 +224,13 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     func configure(
         item: OnlineLibraryVideoItem,
         isDownloading: Bool, isDownloaded: Bool, downloadProgress: Double?,
+        thumbnailDemandActive: Bool? = nil,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void
     ) {
+        let wasActive = isThumbnailDemandActive
+        if let thumbnailDemandActive { isThumbnailDemandActive = thumbnailDemandActive }
+        if !isThumbnailDemandActive { endDisplayingThumbnail() }
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         let imageChanged = item.id != currentItemID || currentThumbnailURL != item.previewThumbnailURL
@@ -243,10 +253,17 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             view.needsLayout = true
         }
         if imageChanged {
+            thumbnailTask?.cancel(); thumbnailTask = nil
+            thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
+            terminalThumbnailFailureGeneration = nil
+            thumbnailRequestID = UUID()
             currentThumbnailURL = item.previewThumbnailURL
             requestedPixelLimit = 0
-            loadThumbnail(url: item.previewThumbnailURL)
-        }
+            thumbnailView.image = nil
+            placeholderView.isHidden = true
+            spinner.stopAnimation(nil)
+            if isThumbnailDemandActive { loadThumbnail(url: item.previewThumbnailURL) }
+        } else if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
         setDownloadState(
             isDownloading: isDownloading,
             isDownloaded: isDownloaded,
@@ -370,40 +387,47 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     private func loadThumbnail(url: URL?) {
+        guard isThumbnailDemandActive else { return }
         thumbnailTask?.cancel()
+        terminalThumbnailFailureGeneration = nil
+        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
         let requestID = UUID()
         thumbnailRequestID = requestID
         if requestedPixelLimit == 0 {
-            thumbnailView.image = nil; placeholderView.isHidden = false; spinner.startAnimation(nil)
+            thumbnailView.image = nil; placeholderView.isHidden = true; spinner.stopAnimation(nil)
         }
         let pixelLimit = GridThumbnailDecoder.pixelLimit(width: view.bounds.width, scale: view.window?.backingScaleFactor ?? 2)
         requestedPixelLimit = pixelLimit
-        guard let url else { return }
+        guard let url else {
+            placeholderView.isHidden = false; spinner.stopAnimation(nil)
+            return
+        }
         if let ready = OLThumbnailCache.shared.readyImage(for: url, maxPixelSize: pixelLimit) {
             thumbnailView.image = ready
             placeholderView.isHidden = true
             spinner.stopAnimation(nil)
             return
         }
+        if thumbnailView.image == nil {
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.thumbnailRequestID == requestID, self.thumbnailView.image == nil else { return }
+                self.placeholderView.isHidden = false
+                self.spinner.startAnimation(nil)
+            }
+            thumbnailLoadingWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+        }
         let id = currentItemID
         thumbnailTask = Task { [weak self] in
             let generation = await OLThumbnailCache.shared.publicationGeneration()
-            // 命中/未命中两路径统一走缓存的后台解码，避免在主线程重复解码同一份 JPEG
-            if let img = await OLThumbnailCache.shared.cachedImage(for: url, maxPixelSize: pixelLimit) {
+            guard !Task.isCancelled else { return }
+            guard let img = await OLThumbnailCache.shared.image(for: url, maxPixelSize: pixelLimit, priority: .visible) else {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
-                    self.thumbnailView.image = img
-                    self.placeholderView.isHidden = true
-                    self.spinner.stopAnimation(nil)
-                }
-                return
-            }
-            guard !Task.isCancelled else { return }
-            guard let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: .visible),
-                  let img = await OLThumbnailCache.shared.storeAndDecode(data: data, for: url, maxPixelSize: pixelLimit, generation: generation) else {
-                await MainActor.run {
-                    guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
+                    self.terminalThumbnailFailureGeneration = generation
+                    self.thumbnailLoadingWork?.cancel(); self.thumbnailLoadingWork = nil
+                    if self.thumbnailView.image == nil { self.placeholderView.isHidden = false }
                     self.spinner.stopAnimation(nil)
                 }
                 return
@@ -411,11 +435,34 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
+                self.thumbnailLoadingWork?.cancel(); self.thumbnailLoadingWork = nil
                 self.thumbnailView.image = img
                 self.placeholderView.isHidden = true
                 self.spinner.stopAnimation(nil)
             }
         }
+    }
+
+    func endDisplayingThumbnail() {
+        isThumbnailDemandActive = false
+        thumbnailTask?.cancel()
+        thumbnailTask = nil
+        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
+        spinner.stopAnimation(nil)
+        thumbnailRequestID = UUID()
+    }
+
+    func beginDisplayingThumbnail() {
+        isThumbnailDemandActive = true
+        guard thumbnailView.image == nil, thumbnailTask == nil, let url = currentThumbnailURL else { return }
+        if let failedGeneration = terminalThumbnailFailureGeneration {
+            let requestID = thumbnailRequestID
+            thumbnailTask = Task { [weak self] in
+                let generation = await OLThumbnailCache.shared.publicationGeneration()
+                guard !Task.isCancelled, let self, self.thumbnailRequestID == requestID else { return }
+                if generation != failedGeneration { self.loadThumbnail(url: url) }
+            }
+        } else { loadThumbnail(url: url) }
     }
 
     @objc private func handleDownload()     { onDownload?() }
