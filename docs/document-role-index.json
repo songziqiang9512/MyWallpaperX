@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7a301e789edbbaa5a183ef66b3e013e83ed347049dd1565e39d58e360998c06a",
+        "sourceSHA256": "b14748dd7316b377fbb2497b943c7ea410cf7982fe6e2adf1a1c01f24cd2ce48",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
-        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
+        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
+        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "085e34cf996074fdd18d48aa67f4789268a6d19f84df0db1346809995da48f02",
+        "sourceSHA256": "a135e181a68b8450dd3d11b06e099fa6c1f36a7a138f57347a9853cf7e05c1c8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
-        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
+        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
+        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
       }
     },
     {
@@ -3619,10 +3619,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2b94bb5dc64448b67a0feff9aecf3442a061c81efd873d7127127dcb6745cda5",
+        "sourceSHA256": "f10524667d38de7e613d901f2e0b8083a6360135043b51a3076857f86b3923f4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
-        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
+        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
+        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0e5648ef8a78eebb120a9f0189b9023c873b736b2ccb3abc106eb9cb26d19220",
+        "sourceSHA256": "512500c1aecf9299b63a5f82e1b2380a8c88958788645d20edf7156504b8eb0e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
-        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
+        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
+        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
       }
     },
     {

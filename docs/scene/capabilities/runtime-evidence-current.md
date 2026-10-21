@@ -276,13 +276,21 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 原292默认1733与作者白色时间分支536分别从四节点拒绝透传到四material节点Program/GPU/末合成及次帧执行，普通运行均exit0/stop1→0排空；536不是1733。30%窗与原3024×1964白色对照均未建立可归因Bloom增益，彩线短段仍开放，不能把执行恢复当画质改善或整景PASS；不盲改作者阈值/增益。App`c820f615…ac0c6`/dylib`44bdb507…7346`，原基线`0c0cb159…337c`/`295ef404…5458`；签名staging先修正unsigned Xcode拷贝留下的Sparkle头文件seal引用，再strict验证后运行，无产品签名逻辑变更。原默认/白色两种可见分支保持机器人、背景、盘和文字，另5个未参与修法样本真实筛查见下条；未认全部参数/HDR/官方parity或性能收益。必要原图、CPU/GPU失败与更正、构建/身份及独审归档`.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/`（普通14天，约24.3MB）。
 
+<a id="grouped-varying-prefix-20261021"></a>
+
+### 分组只读 varying 前缀读取（2026-10-21）
+
+原reverse prefix-link现接受单一varying外的平衡分组后读取已初始化XY；复用原词法/类型、readonly跨度与调用域证明，整向量归约、高分量、shadow、escape及写反例仍拒，无新normalizer或普通帧成本。一次CPU编译7方法中仅local-shadow负例错误地期待保留已被glslang合法裁去的死接口；改为可达global读取后同fixture定点方法通过，原死接口保为正控，其余CPU首轮通过。冻结输入后两GPU方法18draw双backend均符独立算术oracle；Debug/源1176项无漂移、静态独审0 must-fix，cache源码身份自动更新。
+
+同PCM、默认属性、3024×1964修前/修后真实运行：314的2661/effect2663恢复顶部蓝窗内细线/亮节点，原角落星网已存在；370的130/effect2恢复心形局部红橙连线，后effect及唯一末合成/次帧持续消费。两处由1拒绝透传到material1/rejected0；370 Compose197/子206三effect仍开放，不称全屏网络、TV像素化或整样本PASS。独立367原样本908×590、中心pointer/同resize设置下，人物/花树/车/地面/标识保留，未见明显新增缺层。5次运行均exit0/stop1→0/GPU排空、project/pkg及App身份无漂移；前后原样本pointer未固定，时相/官方输入未齐，不作像素parity、HDR或性能声明。App`1c4887a6…3db5`/dylib`4157e8c6…871c`；修前`c820f615…ac0c6`/`44bdb507…7346`。必要对照、首测试失败/修正、构建/GPU/身份及独审保于`.artifacts/scene-evidence/runs/varying-prefix-grouping-{before,after,qualified}-20261021/`（普通14天、单包均<32MiB）。
+
 <a id="intake-five-20261021"></a>
 
 ### 后继5包增量诊断（2026-10-21）
 
 复用同一候选Debug App，不重build：3616476797、3679907516、3707474273、3724289844、3744157078逐包默认属性、非零PCM、中心进入后移出，16s请求窗，原project/pkg只读复制。after实际ready+2.122…2.194s，另有约4/8/12s系列；5包均App0、stop1→0/GPU排空，矩阵4PASS/370FAIL仅属执行门。5包均无官方“截屏”，只对作者预览作有界构图参考，视觉均unreviewed；目录356、全样本历史归档为混合身份，不宣称全体当前HEAD实跑。
 
-370主体33与心形层130其他effect实际Program，130/effect2星座仅局部透传；同源314的2661/effect2663亦拒varying，不能与329 float[32]混因。Compose197与TV子206默认可见，三effect另因subtree-shape无owner，不把TV框出现当全效果已播。361113、36771/74/83的raw source材质资格拒绝和367三处lookup异常保各自边界，未证host API缺失；361黑媒体面板无同控媒体，374彩条与相关父/子默认关闭，不新增缺层结论。372声源162报resourceUnavailable但原Ogg在包内；其15.046FPS、CPU p95 25.875ms/GPU11.283ms只属带观察/resize短窗线索，不认性能基线。独立原图复核与最早owner诊断、原报告及必要截图归`.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/`，普通14天；未改5包定义，不以静态声明数补兼容PASS。
+当时370主体33与心形层130其他effect实际Program，130/effect2星座局部透传；同源314的2661/effect2663亦拒varying，后继已按[分组prefix](#grouped-varying-prefix-20261021)闭合，不与329 float[32]混因。Compose197与TV子206默认可见，三effect另因subtree-shape无owner，不把TV框出现当全效果已播。361113、36771/74/83的raw source材质资格拒绝和367三处lookup异常保各自边界，未证host API缺失；361黑媒体面板无同控媒体，374彩条与相关父/子默认关闭，不新增缺层结论。372声源162报resourceUnavailable但原Ogg在包内；其15.046FPS、CPU p95 25.875ms/GPU11.283ms只属带观察/resize短窗线索，不认性能基线。独立原图复核与最早owner诊断、原报告及必要截图归`.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/`，普通14天；未改5包定义，不以静态声明数补兼容PASS。
 
 <a id="ring-motion-qualification-20261018"></a>
 

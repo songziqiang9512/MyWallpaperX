@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 510,
-      "bytes": 187686
+      "lines": 518,
+      "bytes": 189474
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 419,
-      "bytes": 91039
+      "bytes": 90994
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 57,
-      "bytes": 18002
+      "lines": 56,
+      "bytes": 17443
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 247,
-      "bytes": 76673
+      "bytes": 76431
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1196,15 +1196,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4ec0c5a38c8d140e43a6f9cda2c851ee09fe412be4d5289be568f57bea806c9b",
-      "after": "b94ae7dd30307f4ea1bed3f7327e54c8108ec12f667f885f58d04f64486aede1",
-      "owner": "scene-generic-preparation-and-runtime-evidence",
-      "reason": "既有纯内建只读global首门、335有界长窗及5包实际增量诊断；保未证可见收益与历史混合身份，合并精确varying/Compose/source/声音/性能余项，不扩大兼容结论。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "4b46d5078a2590f774932717fabffbf15bdc84aaf5414f7e99a1112b49f96ea4",
       "after": "86922190a064afc2d1bd417b23bc21d77eb59f12477d0b016498c3cd1d7297ac",
@@ -1228,6 +1219,15 @@
       "after": "fddccc4bca386d9b953f4ce23d3eaa48ff769763c0d2e69252e708ceeadd301d",
       "owner": "scene-generic-preparation-and-runtime-evidence",
       "reason": "既有纯内建只读global首门、335有界长窗及5包实际增量诊断；保未证可见收益与历史混合身份，合并精确varying/Compose/source/声音/性能余项，不扩大兼容结论。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "b94ae7dd30307f4ea1bed3f7327e54c8108ec12f667f885f58d04f64486aede1",
+      "after": "3517c9469a6e4b8e7334631695eed6e8a0a1e8667d2423222bb3e387bb9de89d",
+      "owner": "scene-varying-prefix-link",
+      "reason": "记录共享分组XY读取修复及两处实际局部星线恢复，保首失败/修正、Compose未闭与混合历史身份；三条增量统计不扩大整景或性能结论。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
     }
   ]
