@@ -4,6 +4,28 @@ import Foundation
 /// syntax unit that the authored frontend emits. It does not inspect paths,
 /// effect identities, render state, or shader fingerprints.
 nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
+    /// One strict, default-bound fragment parse for related proofs in the same
+    /// call. This value neither proves a transfer nor persists across calls.
+    struct SourceAnalysis {
+        let fragment: SceneAuthoredShaderSyntaxUnit
+        let main: SceneAuthoredShaderSyntaxUnit.Function
+        let outputUses: [Int]
+
+        init?(fragmentSource source: String) {
+            guard let (fragment, main, outputUses) =
+                    SceneAuthoredShaderColorTransferAnalyzer.analyzedMain(source) else {
+                return nil
+            }
+            self.fragment = fragment
+            self.main = main
+            self.outputUses = outputUses
+        }
+    }
+
+    static func analyze(sourceAnalysis: SourceAnalysis?) -> SceneShaderColorTransfer {
+        sourceAnalysis.map { analyze($0.fragment) } ?? .unresolved
+    }
+
     /// Derives the shared material color contract directly from one prepared
     /// authored fragment source. Compiler backends may translate more syntax,
     /// but they may not contradict a fact proven here.
@@ -34,24 +56,19 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
     static func conditionalStraightUnionSourceSlot(
         fragmentSource source: String
     ) -> Int? {
-        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: SceneAuthoredShaderLexer.lex(
-                source: source,
-                stage: .fragment
-            ),
-            stage: .fragment
+        conditionalStraightUnionSourceSlot(
+            sourceAnalysis: SourceAnalysis(fragmentSource: source)
         )
-        guard syntax.diagnostics.isEmpty,
-              let fragment = syntax.unit,
-              let main = fragment.functions.first(where: { $0.name == "main" })
-        else { return nil }
-        let outputUses = fragment.tokens.indices.filter {
-            fragment.tokens[$0].text == "gl_FragColor"
-        }
+    }
+
+    static func conditionalStraightUnionSourceSlot(
+        sourceAnalysis: SourceAnalysis?
+    ) -> Int? {
+        guard let sourceAnalysis else { return nil }
         return SceneAuthoredShaderConditionalStraightUnionAnalyzer.analyze(
-            outputUses: outputUses,
-            fragment: fragment,
-            main: main
+            outputUses: sourceAnalysis.outputUses,
+            fragment: sourceAnalysis.fragment,
+            main: sourceAnalysis.main
         )
     }
 
@@ -64,9 +81,18 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
     static func singleSamplerAlphaMutationSourceSlot(
         fragmentSource source: String
     ) -> Int? {
-        guard let (fragment, main, outputUses) = analyzedMain(source) else {
-            return nil
-        }
+        singleSamplerAlphaMutationSourceSlot(
+            sourceAnalysis: SourceAnalysis(fragmentSource: source)
+        )
+    }
+
+    static func singleSamplerAlphaMutationSourceSlot(
+        sourceAnalysis: SourceAnalysis?
+    ) -> Int? {
+        guard let sourceAnalysis else { return nil }
+        let fragment = sourceAnalysis.fragment
+        let main = sourceAnalysis.main
+        let outputUses = sourceAnalysis.outputUses
         return mutatedStraightAlphaSlot(
             outputUses: outputUses,
             fragment: fragment,
@@ -124,13 +150,19 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
     static func sameSlotChannelReconstructionSourceSlot(
         fragmentSource source: String
     ) -> Int? {
-        guard let (fragment, main, outputUses) = analyzedMain(source) else {
-            return nil
-        }
+        sameSlotChannelReconstructionSourceSlot(
+            sourceAnalysis: SourceAnalysis(fragmentSource: source)
+        )
+    }
+
+    static func sameSlotChannelReconstructionSourceSlot(
+        sourceAnalysis: SourceAnalysis?
+    ) -> Int? {
+        guard let sourceAnalysis else { return nil }
         return SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer.analyze(
-            outputUses: outputUses,
-            fragment: fragment,
-            main: main
+            outputUses: sourceAnalysis.outputUses,
+            fragment: sourceAnalysis.fragment,
+            main: sourceAnalysis.main
         )
     }
 
@@ -154,13 +186,19 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
     static func straightRGBScalarAlphaFact(
         fragmentSource source: String
     ) -> SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.Fact? {
-        guard let (fragment, main, outputUses) = analyzedMain(source) else {
-            return nil
-        }
+        straightRGBScalarAlphaFact(
+            sourceAnalysis: SourceAnalysis(fragmentSource: source)
+        )
+    }
+
+    static func straightRGBScalarAlphaFact(
+        sourceAnalysis: SourceAnalysis?
+    ) -> SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.Fact? {
+        guard let sourceAnalysis else { return nil }
         return SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.analyze(
-            outputUses: outputUses,
-            fragment: fragment,
-            main: main
+            outputUses: sourceAnalysis.outputUses,
+            fragment: sourceAnalysis.fragment,
+            main: sourceAnalysis.main
         )
     }
 
@@ -182,9 +220,20 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         overlayAlpha: (source: Int, overlay: Int)?,
         overlayAlphaPreserving: (source: Int, overlay: Int)?
     ) {
-        guard let (fragment, main, outputUses) = analyzedMain(source) else {
-            return (nil, nil, nil)
-        }
+        blendSourceSlots(sourceAnalysis: SourceAnalysis(fragmentSource: source))
+    }
+
+    static func blendSourceSlots(
+        sourceAnalysis: SourceAnalysis?
+    ) -> (
+        auxiliaryRGB: Int?,
+        overlayAlpha: (source: Int, overlay: Int)?,
+        overlayAlphaPreserving: (source: Int, overlay: Int)?
+    ) {
+        guard let sourceAnalysis else { return (nil, nil, nil) }
+        let fragment = sourceAnalysis.fragment
+        let main = sourceAnalysis.main
+        let outputUses = sourceAnalysis.outputUses
         return (
             SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.analyze(
                 outputUses: outputUses, fragment: fragment, main: main

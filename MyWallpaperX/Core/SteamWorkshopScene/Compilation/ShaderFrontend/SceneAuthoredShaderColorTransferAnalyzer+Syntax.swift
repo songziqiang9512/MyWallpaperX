@@ -6,22 +6,15 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
     /// whether this is color or preserved-channel data. This fact contains no
     /// effect, material, path, or source identity.
     static func isScalarSplatOutput(fragmentSource source: String) -> Bool {
-        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: SceneAuthoredShaderLexer.lex(
-                source: source,
-                stage: .fragment
-            ),
-            stage: .fragment
-        )
-        guard syntax.diagnostics.isEmpty,
-              let fragment = syntax.unit,
-              let main = fragment.functions.first(where: { $0.name == "main" }) else {
-            return false
-        }
+        isScalarSplatOutput(sourceAnalysis: SourceAnalysis(fragmentSource: source))
+    }
+
+    static func isScalarSplatOutput(sourceAnalysis: SourceAnalysis?) -> Bool {
+        guard let sourceAnalysis else { return false }
+        let fragment = sourceAnalysis.fragment
+        let main = sourceAnalysis.main
         let tokens = fragment.tokens
-        let outputUses = tokens.indices.filter {
-            tokens[$0].text == "gl_FragColor"
-        }
+        let outputUses = sourceAnalysis.outputUses
         guard outputUses.count == 1,
               let output = outputUses.first,
               output + 1 < tokens.count,

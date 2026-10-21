@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 472,
-      "bytes": 82439
+      "lines": 481,
+      "bytes": 86717
     }
   },
   "archives": [
@@ -1265,6 +1265,15 @@
       "owner": "scene-boolean-dynamic-text",
       "reason": "Bool文字创建与既有typed文字事务统一；原包回调首拒、受控静态阴影及独立样本有界后验。只刷新三条混合身份运行记录，不改其余239行或人工裁决。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "814748eb390cc13857ab5ca20f859ecd806d83967c12c1740fac770b9bed1398",
+      "after": "3bd6fe65704d06912b69217486166fa7278a4ec1b41118dd93392dc1a878483f",
+      "owner": "apple-silicon-d13-color-analysis-reuse",
+      "reason": "原D阶段计划补同次严格解析复用设计及完整事实／材质投影、局部固定工作量和小规模优化Debug冷暖资格；保暖慢轮、既有失败、测试与Release／视觉边界，不新增执行权威或兼容结论。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
     }
   ]
 }

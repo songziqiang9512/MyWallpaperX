@@ -544,27 +544,29 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
         let outputSemantics = input.outputSemantics
         let runtimeLoopBounds = input.runtimeLoopBounds
 
+        let colorSourceAnalysis = SceneAuthoredShaderColorTransferAnalyzer
+            .SourceAnalysis(fragmentSource: fragmentSource)
         let colorTransfer = sourceColorTransfer
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                fragmentSource: fragmentSource
+                sourceAnalysis: colorSourceAnalysis
             )
         let conditionalStraightUnionSourceSlot =
             SceneAuthoredShaderColorTransferAnalyzer
                 .conditionalStraightUnionSourceSlot(
-                    fragmentSource: fragmentSource
+                    sourceAnalysis: colorSourceAnalysis
                 )
         let singleSamplerAlphaMutationSourceSlot =
             SceneAuthoredShaderColorTransferAnalyzer
                 .singleSamplerAlphaMutationSourceSlot(
-                    fragmentSource: fragmentSource
+                    sourceAnalysis: colorSourceAnalysis
                 )
         let sameSlotChannelReconstructionSourceSlot =
             SceneAuthoredShaderColorTransferAnalyzer
                 .sameSlotChannelReconstructionSourceSlot(
-                    fragmentSource: fragmentSource
+                    sourceAnalysis: colorSourceAnalysis
                 )
         let blendSourceSlots = SceneAuthoredShaderColorTransferAnalyzer
-            .blendSourceSlots(fragmentSource: fragmentSource)
+            .blendSourceSlots(sourceAnalysis: colorSourceAnalysis)
         let associatedOverBlendFact =
             SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze(
                 fragmentSource: fragmentSource
@@ -590,7 +592,7 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
                 fragmentSource: fragmentSource
             )
         let straightRGBScalarAlphaFact = SceneAuthoredShaderColorTransferAnalyzer
-            .straightRGBScalarAlphaFact(fragmentSource: fragmentSource)
+            .straightRGBScalarAlphaFact(sourceAnalysis: colorSourceAnalysis)
         let preservedAlphaRGBFilterTextureSlots =
             preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
         let previousBlurredCompositeSourceFact =
@@ -691,7 +693,7 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
                 ) == .redDefined,
             isScalarSplatOutput:
                 SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
-                    fragmentSource: fragmentSource
+                    sourceAnalysis: colorSourceAnalysis
                 ),
             hasOnlyScalarDataInputs: hasOnlyScalarDataInputs,
             isSourceIndependentPremultipliedOutput:

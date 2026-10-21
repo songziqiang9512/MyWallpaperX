@@ -2,12 +2,12 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-21 D12词法快路完成行为门、冷暖资格与独审（全仓两门存量FAIL另列）；D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
+状态：2026-10-21 D13同次颜色分析复用完成完整输出对照、局部计时及同配置App冷暖资格／独审（暖轮未证收益，全仓存量两门另列）；D12词法快路完成行为门、冷暖资格与独审（全仓两门存量FAIL另列）；D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
 
 本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
 <a id="深入实施-d1d62026-10-21"></a>
-## 深入实施 D1–D12（2026-10-21）
+## 深入实施 D1–D13（2026-10-21）
 
 来源：冻结 `039d164cb` 的优化Debug外部CPU/System/Metal采样、752组词法完整输出对照与75s真实Web音频端点退役反例；证据在忽略的 `apple-silicon-deep-analysis-20261021` 包。局部词法多线程收益不代表整App；GPU类别区间重叠，不相加为可省时间。方案经独立研究复核后获用户实施授权。
 
@@ -25,6 +25,7 @@
 | D10 Release资源归因 | CI等价严格签名、无get-task-allow的原生生产daemon；先L资格，再唯一sample替代L→H→L，按实际端点分开CPU／VM／Metal与工具失败 | 已完成并独审：仅到owner／VM类别，无安全可删工作或retainer证据，不改预算／trim |
 | D11 Web物理Space | 同一最小WK二进制A／B只差reassert，另测真实WebDaemon C；同页、真实手动普通桌面切换、连续RAF／timer与原生事件，不能用模拟通知代替 | 已完成并独审：A4／B6／C5事件不支持reassert为主要停顿原因，停止该方向产品修改 |
 | D12 Scene资源关键路径 | 先沿既有Debug阶段日志＋启动外采样拆清launch／device／first-surface三链与真实join；有昂贵重复且完整身份等价才在原owner内小修、冷暖验证 | 已保留：562完整输出等价、5对局部／3对启动、独立L及最近行为门／独审；全仓两门存量失败另列，旧STOP不变 |
+| D13 同次颜色分析 | 从最新2da624b21冻结，先量同canonical fragment的strict解析重复；一次不可变fragment／main／outputUses供原证明函数使用，上游颜色结论优先，失败仍原nil／false／unresolved | 已保留：56完整事实／90完整分析等价、5对局部材质分析约−12%、3对优化Debug首次H小幅改善；暖轮未证收益，独立L／独审通过，存量失败另列 |
 
 每批列明owned源码/测试，构建和实际播放串行；子代理实现可并行，性能计量不与构建/测试重叠。Debug保现开发入口，Release无新增探针；真实媒体只读，用户偏好按精确任务值回收。保留低复杂度可靠局部收益，整体比例未知如实注明；性能或功能回归先修，不能机械追逐数值。阶段结果在本表更新，原24项历史不覆盖新事实。
 
@@ -63,6 +64,14 @@ D12启动资格：冻结`8aaca3336`与仅lexer变化候选，两个Debug产物�
 D12全仓门边界：carrier CPU门通过；目录／职责15项中3项失败，冻结8aaca导出树同3项及相同validators逐项复现（5个原文件未登记、同一UserShortcut职责计数／路径未同步）。测试断言门的2条报告亦在冻结基线652份tracked Python测试中复现，两树完整inventory一致；本批未引入，未修改这些旧登记或他人文件。依赖／产物／残留／代码健康／防御／设计／文档登记与预算／diff检查通过，不宣称全仓全绿。原FAIL、基线复核和独审同保。
 
 D12最终原数、完整投影、失败／修正收据、工具与源码身份提取到忽略的`.artifacts/scene-evidence/runs/apple-silicon-scene-lexer-d12-20261021/`，14天有界保留。仅保必要结果，不保可重建App／DerivedData／HOME／shader和模块缓存；本任务进程退出后精确清理隔离根，不触碰原样本／并行pbxproj。
+
+D13实施细则：本批先在原ColorTransferAnalyzer内复用同一fragment、默认strict参数／空runtime bounds的解析结果；原字符串入口仍仅计算各自证明，computeAnalysis局部共享fragment／main／outputUses，生命周期止于此次调用。上游input.sourceColorTransfer（可含runtime loop等已证事实）始终优先，局部解析失败不得降级／覆盖它；其他证明保各自原nil／false／unresolved。原证明正文保持唯一，不把通用compiler规范化后的不同输入、D7 prepared sampler语法或不同loop bounds混用；不加长期cache、owner、Release探针或改变持久cache schema。先冻结当前基线和完整颜色事实输出／异常邻居，再测固定工作量；有正向工作量收益且接口成本可控再构建同配置App，串行对照应用缓存冷／暖并做独立代表运行与独审。收益递减或语义风险增大则收窄，不重开旧STOP。已协调另一会话静态／运行窗口，所有build、test和sample计时串行；其BooleanVisibilityValidation／textclone及状态文档不入批。
+
+D13结果：冻结2da624b21，仅覆盖3份owned Swift；并行9e9c03dda未带入构建／本批。56组完整颜色事实、90组完整生产computeAnalysis输出与基线逐值相同，所有证明有正反例；37个nil回退、37个非nil unresolved及16个其他上游结论的优先级不变，strict与有proven bounds结果仍分开。8段实际作者canonical fragment及8个Unicode注释／CRLF邻居，材质flags明确为合成矩阵，不冒称真实材质调用分布。每组8源码×8轮、5对BC／CB交替，含JSON投影和checksum：真实fragment选定颜色入口215.519→45.213ms（配对中位−79.13%），完整材质分析1678.396→1482.206ms（−12.08%）；邻居分别−80.94%／−12.67%。这不等于全App CPU、启动或能耗比例。
+
+D13 App资格：同签名配置、-O／WMO／DEBUG、关闭debug dylib的两份隔离App，3对BC／CB／BC，H=3042492564同进程H,H、每臂全新HOME／应用shader cache；首呈现两臂中位10.734／10.595秒，配对−6.36%／−1.60%／−1.30%。暖轮−2.29%／+0.81%／+0.13%（后两轮慢约30／5ms），不认暖启动收益；数据页经身份哈希预热，非OS／driver冷启动。12个H请求及独立L=3766415113两臂均完成prepared／firstPresent、旧资源释放（第二H）、GPU drain／code0、实际退出／PID消失和原件／副本未变。H每臂原有2条launch／30条source failure逐条相同；L两臂各同一条source-domain-variant-dependent。不能称零视觉失败、完整兼容、普通Release、完整主App点击延迟或稳定启动比例。
+
+D13验证与收尾：最近颜色合同／typed input／frontend／持久缓存／carrier CPU两组50＋85项执行通过（新增4项重复复验，1项缺3141421197隔离fixture跳过）；Debug两臂构建零warning。结构15项的3个失败（6个既有目录登记及UserShortcuts analyzer fleet）与test-assertions两条既有literal库存失配在冻结基线复现，不改并行来源或放宽门禁。依赖／职责防御／code health／设计／产物门通过；未跑广域无关GPU／图路由全部测试。静态和局部／App证据经同一独立审查者复核，保原失败和暖慢轮；必要日志、工具、完整投影、身份与失败收据提取至忽略的`.artifacts/scene-evidence/runs/apple-silicon-scene-color-analysis-d13-20261021/`，14天有界保留，停止后的隔离App／DerivedData／HOME／样本副本／缓存精确清理。下一批再判断分析／compiler规范化复用及切换后内存持有，旧STOP继续有效，不在本批顺带实施。
 
 ## 目标、取舍与职责
 
