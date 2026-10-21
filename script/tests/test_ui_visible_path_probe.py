@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from script.tests.test_ui_library_algorithms import declaration
+from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,7 +29,7 @@ class UIVisiblePathProbeTests(unittest.TestCase):
             source.write_text(template)
             binary = work / "visible-path-probe"
             build = subprocess.run([
-                "xcrun", "swiftc", "-parse-as-library", str(ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"),
+                "xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library", str(ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"),
                 str(source), "-module-cache-path", str(work / "modules"), "-o", str(binary),
             ], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)

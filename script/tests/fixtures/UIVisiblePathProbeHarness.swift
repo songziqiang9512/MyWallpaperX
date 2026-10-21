@@ -5,8 +5,8 @@ private final class SourceBarrier: @unchecked Sendable {
     let release = DispatchSemaphore(value: 0)
 }
 
-/// The source-stat leaf can block deterministically. Its recorder is locked;
-/// preview resolution/preparation remain main-thread leaves, as in the product.
+/// Both file-query leaves can block deterministically. Lock their recorders;
+/// only the preview preparation command remains on the main thread.
 private final class ProbeManager: @unchecked Sendable {
     private let lock = NSLock()
     private var responses: [String: Bool] = [:]
@@ -15,10 +15,26 @@ private final class ProbeManager: @unchecked Sendable {
     private var maximumActive = 0
     private var offMain = true
     private var nextBarrier: SourceBarrier?
-    var previewChecks: [String] = []
-    var preparedIDs: [String] = []
-    var cachedThumbnailIDs = Set<String>()
-    var previewMethodsStayedOnMain = true
+    private var previewBarrier: SourceBarrier?
+    private var previewIDs: [String] = []
+    private var preparationIDs: [String] = []
+    private var cachedIDs = Set<String>()
+    private var previewOffMain = true
+    private var preparationOnMain = true
+    var previewChecks: [String] { lock.lock(); defer { lock.unlock() }; return previewIDs }
+    var preparedIDs: [String] { lock.lock(); defer { lock.unlock() }; return preparationIDs }
+    var cachedThumbnailIDs: Set<String> {
+        get { lock.lock(); defer { lock.unlock() }; return cachedIDs }
+        set { lock.lock(); defer { lock.unlock() }; cachedIDs = newValue }
+    }
+    var previewResolutionStayedOffMain: Bool { lock.lock(); defer { lock.unlock() }; return previewOffMain }
+    var preparationStayedOnMain: Bool { lock.lock(); defer { lock.unlock() }; return preparationOnMain }
+    func blockNextPreviewProbe() -> SourceBarrier {
+        let barrier = SourceBarrier()
+        lock.lock(); defer { lock.unlock() }
+        previewBarrier = barrier
+        return barrier
+    }
 
     var recordedPaths: [String] {
         lock.lock(); defer { lock.unlock() }
@@ -63,13 +79,20 @@ private final class ProbeManager: @unchecked Sendable {
         return response
     }
     func resolvedThumbnailPath(for wallpaper: VideoWallpaper) -> String? {
-        previewMethodsStayedOnMain = previewMethodsStayedOnMain && Thread.isMainThread
-        previewChecks.append(wallpaper.id)
-        return cachedThumbnailIDs.contains(wallpaper.id) ? "/fixture/thumbnail.jpg" : nil
+        lock.lock()
+        previewIDs.append(wallpaper.id)
+        previewOffMain = previewOffMain && !Thread.isMainThread
+        let cached = cachedIDs.contains(wallpaper.id)
+        let barrier = previewBarrier
+        previewBarrier = nil
+        lock.unlock()
+        barrier?.release.wait()
+        return cached ? "/fixture/thumbnail.jpg" : nil
     }
     func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) {
-        previewMethodsStayedOnMain = previewMethodsStayedOnMain && Thread.isMainThread
-        preparedIDs.append(wallpaper.id)
+        lock.lock(); defer { lock.unlock() }
+        preparationOnMain = preparationOnMain && Thread.isMainThread
+        preparationIDs.append(wallpaper.id)
     }
 }
 
@@ -157,7 +180,8 @@ private final class ProbeManager: @unchecked Sendable {
         finish(grid)
         checks["missingThenRecoveredReloadsCurrentID"] = grid.reloads == [[a.id]] && grid.missingIDs.isEmpty
         checks["recoveryKeepsPreviewPreparation"] = manager.previewChecks == [a.id] && manager.preparedIDs == [a.id]
-        checks["previewResolutionAndPreparationRemainOnMain"] = manager.previewMethodsStayedOnMain
+        checks["previewResolutionLeavesMainThread"] = manager.previewResolutionStayedOffMain
+        checks["previewPreparationRemainsOnMain"] = manager.preparationStayedOnMain
         checks["completedProbeAllowsNextTimer"] = manager.recordedPaths == [a.path, a.path]
 
         let reorderedManager = ProbeManager()
@@ -196,10 +220,35 @@ private final class ProbeManager: @unchecked Sendable {
             barrier.release.signal()
             finish(stale)
             checks["\(scenario)DropsOldRecoveryAndPreviewCommit"] = stale.reloads.isEmpty
-                && staleManager.previewChecks.isEmpty && staleManager.preparedIDs.isEmpty
+                && staleManager.preparedIDs.isEmpty
             checks["\(scenario)ClearsUnvalidatedMissingIdentity"] = stale.missingIDs.isEmpty
                 && staleManager.recordedPaths == [a.path]
         }
+
+        let previewManager = ProbeManager()
+        let previewBarrier = previewManager.blockNextPreviewProbe()
+        let previewGrid = GridProbe(previewManager, records: [a], visible: [first])
+        previewGrid.fireTimerForAudit()
+        wait("preview probe did not start") { previewManager.previewChecks == [a.id] }
+        var previewMainQueueRan = false
+        DispatchQueue.main.async { previewMainQueueRan = true }
+        wait("blocked thumbnail stat blocked main queue") { previewMainQueueRan }
+        checks["slowThumbnailProbeLeavesMainQueueResponsive"] = previewGrid.inFlight && previewMainQueueRan
+        for _ in 0..<40 { previewGrid.fireTimerForAudit() }
+        checks["slowThumbnailProbeDoesNotStackTimerWork"] = previewManager.recordedPaths == [a.path]
+        var replacedPreview = a
+        replacedPreview.thumbnailPath = "/fixture/new-thumbnail.jpg"
+        previewGrid.replaceRecords([replacedPreview])
+        previewGrid.missingIDs = [a.id]
+        previewBarrier.release.signal()
+        finish(previewGrid)
+        checks["changedPreviewRejectsOldMissingThumbnailResult"] = previewManager.preparedIDs.isEmpty
+        checks["changedPreviewKeepsSourceRecoveryByID"] = previewGrid.reloads == [[a.id]]
+            && previewGrid.missingIDs.isEmpty
+        previewGrid.fireTimerForAudit()
+        finish(previewGrid)
+        checks["nextProbeUsesCurrentPreviewSnapshot"] = previewManager.preparedIDs == [a.id]
+            && previewManager.previewResolutionStayedOffMain && previewManager.preparationStayedOnMain
 
         let cachedManager = ProbeManager()
         cachedManager.cachedThumbnailIDs = [a.id]
@@ -220,14 +269,14 @@ private final class ProbeManager: @unchecked Sendable {
         var released: GridProbe? = GridProbe(releasedManager, records: [a], visible: [first])
         released?.fireTimerForAudit()
         wait("released source probe did not start") { releasedManager.activeCount == 1 }
-        weak var weakGrid = released
+        weak let weakGrid = released
         released = nil
         checks["slowWorkerDoesNotRetainReleasedGrid"] = weakGrid == nil
         releaseBarrier.release.signal()
         wait("released source probe did not finish") { releasedManager.activeCount == 0 }
         RunLoop.main.run(until: Date().addingTimeInterval(0.02))
         checks["lateCompletionDoesNotReviveOrPrepareReleasedGrid"] = weakGrid == nil
-            && releasedManager.previewChecks.isEmpty && releasedManager.preparedIDs.isEmpty
+            && releasedManager.preparedIDs.isEmpty
 
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }

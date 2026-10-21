@@ -917,11 +917,11 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private func probeVisibleMissingWallpapers() {
         guard canProbeMissingPaths, !isMissingPathProbeInFlight else { return }
         let visibleIndexPaths = collectionView.indexPathsForVisibleItems()
-        let targets = visibleIndexPaths.compactMap { indexPath -> (id: String, path: String)? in
+        let targets = visibleIndexPaths.compactMap { indexPath -> VideoWallpaper? in
             guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return nil }
             let id = orderedIDs[indexPath.item]
             guard let wallpaper = wallpapersByID[id] else { return nil }
-            return (id, wallpaper.path)
+            return wallpaper
         }
         guard !targets.isEmpty else {
             visibleMissingWallpaperIDs.removeAll()
@@ -929,10 +929,12 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         }
         isMissingPathProbeInFlight = true
         let manager = wallpaperManager
-        // 只有纯源路径探测离开主线程；慢速卷上未完成的一轮不叠加后续 timer 工作。
+        // 源与缩略图存在性查询共用本轮后台工作；慢速卷上不叠加后续 timer。
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let results = targets.map { target in
-                (id: target.id, path: target.path, exists: manager.normalizedSourcePathExists(target.path))
+                let exists = manager.normalizedSourcePathExists(target.path)
+                return (wallpaper: target, exists: exists, needsPreview: exists
+                    && manager.resolvedThumbnailPath(for: target) == nil)
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -954,16 +956,18 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
                 var recoveredIDs = Set<String>()
                 for result in results {
                     // 排序可变化；只按仍可见的 ID 和同一原始路径接纳，旧资源不能借用新身份。
-                    guard visibleIDs.contains(result.id), let wallpaper = self.wallpapersByID[result.id],
-                          wallpaper.path == result.path else { continue }
+                    let snapshot = result.wallpaper
+                    guard visibleIDs.contains(snapshot.id), let wallpaper = self.wallpapersByID[snapshot.id],
+                          wallpaper.path == snapshot.path else { continue }
                     if !result.exists {
-                        currentMissingIDs.insert(result.id)
+                        currentMissingIDs.insert(snapshot.id)
                         continue
                     }
-                    if self.visibleMissingWallpaperIDs.contains(result.id) {
-                        recoveredIDs.insert(result.id)
+                    if self.visibleMissingWallpaperIDs.contains(snapshot.id) {
+                        recoveredIDs.insert(snapshot.id)
                     }
-                    if manager.resolvedThumbnailPath(for: wallpaper) == nil {
+                    // 缩略图路径可能在本轮查询期间补齐／替换，旧缺失结果不能触发新资产补建。
+                    if result.needsPreview, wallpaper.thumbnailPath == snapshot.thumbnailPath {
                         manager.ensurePreviewAssetsForWallpaper(wallpaper)
                     }
                 }

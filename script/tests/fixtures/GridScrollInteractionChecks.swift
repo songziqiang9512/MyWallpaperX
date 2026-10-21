@@ -5,6 +5,14 @@ private enum FixtureFailure: Error {
     case unavailable(String)
 }
 
+/// The former observer-only override is a negative control for AppKit's default
+/// compatibility heuristic. It forwards input but has no explicit opt-in.
+private final class LegacyWheelScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        super.scrollWheel(with: event)
+    }
+}
+
 /// A deterministic native window input, without warping the user's pointer.
 private final class PointerWindow: NSWindow {
     var testPointer = NSPoint(x: -10_000, y: -10_000)
@@ -66,7 +74,10 @@ private final class GridFixture {
 
     init() throws {
         window.isReleasedWhenClosed = false
-        window.setFrameOrigin(NSPoint(x: 14_000, y: 14_000))
+        // Responsive scrolling creates a display-synchronized monitor, so the
+        // native window must belong to a real screen even in this input fixture.
+        guard let screen = NSScreen.main else { throw FixtureFailure.unavailable("native display") }
+        window.setFrameOrigin(NSPoint(x: screen.visibleFrame.minX + 10, y: screen.visibleFrame.minY + 10))
         window.contentView = host
         host.addSubview(scroll)
         scroll.hasVerticalScroller = true
@@ -82,6 +93,7 @@ private final class GridFixture {
         collection.dataSource = source
         scroll.documentView = collection
         showAndActivate()
+        guard window.screen != nil else { throw FixtureFailure.unavailable("scroll window has no display") }
         collection.reloadData()
         settle()
         guard !visible.isEmpty else { throw FixtureFailure.unavailable("native collection has no visible items") }
@@ -165,6 +177,14 @@ private struct Checks {
     mutating func expect(_ name: String, _ condition: @autoclosure () -> Bool, _ detail: String = "") {
         values[name] = condition()
         if values[name] == false { details[name] = detail }
+    }
+
+    mutating func responsiveScrolling() {
+        expect("native scroll view supports responsive scrolling", NSScrollView.isCompatibleWithResponsiveScrolling)
+        expect("old wheel override opts out without explicit compatibility", !LegacyWheelScrollView.isCompatibleWithResponsiveScrolling)
+        expect("production scroll observer retains native responsive scrolling", WallpaperGridScrollView.isCompatibleWithResponsiveScrolling)
+        expect("native clip view remains compatible", NSClipView.isCompatibleWithResponsiveScrolling)
+        expect("native collection document remains compatible", NSCollectionView.isCompatibleWithResponsiveScrolling)
     }
 
     mutating func notifications() throws {
@@ -313,8 +333,10 @@ private struct Checks {
         expect("momentum begins before old finger deadline without restore", fixture.scroll.isGridScrolling
             && visible.allSatisfy { !$0.refreshCalls.contains(false) })
         fixture.scroll.scrollWheel(with: try wheel(momentum: 3, expectedMomentum: .ended))
+        let endReturned = ProcessInfo.processInfo.systemUptime
         pump(0.06)
-        expect("momentum end keeps its own quiet interval", fixture.scroll.isGridScrolling)
+        expect("momentum end keeps its own quiet interval", fixture.scroll.isGridScrolling,
+               "elapsed since scrollWheel returned=\(ProcessInfo.processInfo.systemUptime - endReturned), refreshes=\(visible.map(\.refreshCalls))")
         pump(0.10)
         expect("momentum end eventually restores once", !fixture.scroll.isGridScrolling
             && visible.allSatisfy { $0.refreshCalls.filter { !$0 }.count == 1 })
@@ -428,11 +450,16 @@ private enum GridScrollChecks {
         if let pidPath = ProcessInfo.processInfo.environment["MWX_GRID_NATIVE_PID_PATH"] {
             try String(ProcessInfo.processInfo.processIdentifier).write(toFile: pidPath, atomically: true, encoding: .utf8)
         }
-        _ = NSApplication.shared
-        NSApp.setActivationPolicy(.regular)
-        NSApp.finishLaunching()
+        let mode = CommandLine.arguments.dropFirst().first
+        // The class-property regression needs neither a window nor activation.
+        if mode != "responsive" {
+            _ = NSApplication.shared
+            NSApp.setActivationPolicy(.regular)
+            NSApp.finishLaunching()
+        }
         var checks = Checks()
-        switch CommandLine.arguments.dropFirst().first {
+        switch mode {
+        case "responsive": checks.responsiveScrolling()
         case "notifications": try checks.notifications()
         case "new-items": try checks.newItems()
         case "clipped-hover": try checks.clippedHover()

@@ -83,8 +83,14 @@ class GridScrollInteractionTests(unittest.TestCase):
         command += ["--env", "MWX_GRID_NATIVE_PID_PATH=" + str(pid_file),
                     str(self.binary.parents[2]), "--args", name]
         try:
-            run = subprocess.run(command, capture_output=True, text=True,
-                                 env=self.environment, cwd=self.work, timeout=25)
+            if name == "responsive":
+                run = subprocess.run([str(self.binary), name], capture_output=True, text=True,
+                                     env=self.environment, cwd=self.work, timeout=25)
+                stdout.write_text(run.stdout)
+                stderr.write_text(run.stderr)
+            else:
+                run = subprocess.run(command, capture_output=True, text=True,
+                                     env=self.environment, cwd=self.work, timeout=25)
         except subprocess.TimeoutExpired:
             if pid_file.exists():
                 pid = int(pid_file.read_text())
@@ -104,6 +110,9 @@ class GridScrollInteractionTests(unittest.TestCase):
         for check, passed in facts["checks"].items():
             with self.subTest(case=name, check=check):
                 self.assertIs(passed, True, facts["details"].get(check, ""))
+
+    def test_native_responsive_scrolling_survives_the_production_wheel_observer(self):
+        self.check_case("responsive")
 
     def test_native_live_scroll_notifications_are_local_and_idempotent(self):
         self.check_case("notifications")

@@ -33,7 +33,8 @@ private final class ProbeFiles: @unchecked Sendable {
         return false
     }
 }
-private struct Record { let id: String; let path: String }
+private struct Record { let id: String; let path: String; var thumbnailPath: String? = nil }
+private typealias VideoWallpaper = Record
 private final class ProbeManager: @unchecked Sendable {
     func normalizedSourcePathExists(_ path: String) -> Bool { ProbeFiles.shared.fileExists(atPath: path) }
     func resolvedThumbnailPath(for wallpaper: Record) -> String? { "/fixture/preview" }

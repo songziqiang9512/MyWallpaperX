@@ -4204,6 +4204,7 @@
         "script/tests/fixtures/SteamPreviewSchedulingChecks.swift",
         "script/tests/test_grid_window_thumbnail_lifecycle.py",
         "script/tests/fixtures/GridWindowThumbnailLifecycleHarness.swift",
+        "script/tests/fixtures/UIPathProbeWindowLifecycleHarness.swift",
         "script/tests/test_online_grid_thumbnail_demand.py",
         "script/tests/fixtures/OnlineGridThumbnailDemandHarness.swift",
         "script/tests/fixtures/OnlineDownloadedIdentityHarness.swift",

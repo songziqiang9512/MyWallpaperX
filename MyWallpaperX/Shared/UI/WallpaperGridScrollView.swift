@@ -7,6 +7,10 @@ protocol WallpaperGridHoverItem: NSCollectionViewItem {
 }
 
 final class WallpaperGridScrollView: NSScrollView {
+    // The wheel override only observes phases and forwards the original event.
+    // Keep AppKit's responsive scrolling, which overrides otherwise opt out of.
+    override class var isCompatibleWithResponsiveScrolling: Bool { true }
+
     private(set) var isGridScrolling = false
     private var wheelEndWork: DispatchWorkItem?
 
