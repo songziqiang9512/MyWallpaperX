@@ -3352,10 +3352,27 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "efe92a7484bdc92f9dceb1802fa49c5f156175fd",
+      "short_version": "2.11.0",
+      "bundle_version": "283",
+      "executable_sha256": "d4ada6d1af8f70439903132ab8bfabe1746f80768e6305c550f1be3c4e4a49cd",
+      "runtime_root_path": null,
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/packaged-ogg-extraction-20261021/runtime/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/packaged-ogg-extraction-20261021/runtime/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-21T04:08:25.838556+00:00",
+  "generatedAtUtc": "2026-10-21T05:02:59.588206+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -5225,6 +5242,17 @@
       "matrix": "grouped-prefix-independent-original-car",
       "matrixSha256": "72ecb9e10826f414bcff34177df06361b8d1759bb3638d47f418726ce5a2c6a8",
       "sampleCount": 1
+    },
+    {
+      "sha256": "723834cff8435184122a3b0aafa188f8919a9add8393d1b4acb3821aa7136424",
+      "matrix": "packaged-ogg-original-water-and-independent-morning",
+      "matrixSha256": "87f247e87686d695d0bcbbe3d3bcb22515d7fdbfde0a7545d4dfa456d21fe0d0",
+      "sampleCount": 2,
+      "originalPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/packaged-ogg-extraction-20261021/real/report.json",
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/supporting/samples/3724289844/runtime_evidence.zip",
+      "containerSha256": "69df47de0866dd7953cd2b071c2642a3fcfab49421e8e8038058d45fab9a418e",
+      "member": "real/report.json"
     }
   ],
   "samples": [
@@ -30316,9 +30344,9 @@
           "surfaceCount": 1,
           "readyNonBlackObserved": true,
           "afterNonBlackObserved": true,
-          "readyFlatBorderRatio": 0.039066033469018546,
-          "afterFlatBorderRatio": 0.039094301221166895,
-          "previewSpatialColorSimilarityAdvisory": 0.5536,
+          "readyFlatBorderRatio": 0.041901692183722805,
+          "afterFlatBorderRatio": 0.0419100859521891,
+          "previewSpatialColorSimilarityAdvisory": 0.5537,
           "graphEvidenceObserved": true,
           "acceptedGraphLayerCount": 32,
           "terminalCompositorLayerCount": 32,
@@ -30332,17 +30360,19 @@
       },
       "evidence": {
         "report": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
-          "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
-          "sampleIndex": 3
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/supporting/samples/3724289844/runtime_evidence.zip",
+          "containerSha256": "69df47de0866dd7953cd2b071c2642a3fcfab49421e8e8038058d45fab9a418e",
+          "member": "real/report.json",
+          "sha256": "723834cff8435184122a3b0aafa188f8919a9add8393d1b4acb3821aa7136424",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
         },
         "sampleEvidencePaths": {
-          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/app_log.log",
-          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/preview_log.log",
-          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/runtime_evidence.json",
-          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/ready_snapshot.png",
-          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/hover_snapshot.png",
-          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/after_snapshot.png"
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/3724289844/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/3724289844/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/3724289844/runtime_evidence.json",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/3724289844/after_snapshot.png"
         }
       },
       "nextAction": "perform-authored-preview-and-next-frame-visual-review"
@@ -30404,13 +30434,73 @@
         }
       },
       "nextAction": "perform-authored-preview-and-next-frame-visual-review"
+    },
+    {
+      "id": "1926190458",
+      "title": "Morning_4k",
+      "authored": {
+        "projectSha256": "8d463e543025f1e64f1113df20390e8d515d880973bc949f4ad01cb22b0d4c0c",
+        "packageSha256": "361df99a07ed5f1ccab8d46378a066a8b50fd6ab360cba15a227f799cb336974",
+        "parseState": "parsed",
+        "objectCount": 3,
+        "occurrenceCount": 147,
+        "visibleOccurrenceCount": 109,
+        "effectInstanceCount": 9,
+        "particleLayerCount": 1,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.12128995433789955,
+          "afterFlatBorderRatio": 0.12095420359924791,
+          "previewSpatialColorSimilarityAdvisory": 0.9364,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 0,
+          "terminalCompositorLayerCount": 1,
+          "nextFrameLayerCount": 1
+        },
+        "benchmarkResultIgnored": {
+          "passed": false,
+          "failureCount": 6,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/supporting/samples/3724289844/runtime_evidence.zip",
+          "containerSha256": "69df47de0866dd7953cd2b071c2642a3fcfab49421e8e8038058d45fab9a418e",
+          "member": "real/report.json",
+          "sha256": "723834cff8435184122a3b0aafa188f8919a9add8393d1b4acb3821aa7136424",
+          "sampleIndex": 1,
+          "jsonPointer": "/samples/1"
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/1926190458/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/1926190458/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/1926190458/runtime_evidence.json",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/samples/1926190458/after_snapshot.png"
+        }
+      },
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
     }
   ],
   "schemaVersion": 1,
   "source": {
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene",
-    "sampleCount": 241,
-    "sampleIdManifestSha256": "b86e8d1359595de2f5e96362322aeee38c5c4793fa22a48a64b2b1aba099cba6",
+    "sampleCount": 242,
+    "sampleIdManifestSha256": "8556f8d2bbe9ff32adcd946bcaaece62bd691d91b4689ed5b57ade589e1a76a2",
     "currentDirectoryCount": 356,
     "completeSceneInputPairCount": 354,
     "historicalCensusOnly": {
@@ -30500,7 +30590,7 @@
       "sha256": "b86322c623c2190f13e27a90261b38e1355929825a4e718db4f711bdb29a18cf",
       "registeredSampleCount": 1
     },
-    "membershipBoundary": "236 linked bounded runtime rows /351 current numeric directories (350 complete inputs); preserved original212 objects verbatim, appended new24. No fresh full351 runtime claim.",
+    "membershipBoundary": "242 bounded mixed-identity runtime rows /356 current numeric directories; only372 updated and192 appended in this delta, other240 rows preserved. No full current-HEAD rerun.",
     "candidateOnly": true,
     "evidencePathRetentionBoundary": "Twenty delta rows reference promoted ZIP members with actual container and member hashes. Four report references preserve original five-sample group report bytes, not the single-sample formal/report.json projection. Unselected ready snapshots and full runtime JSON are historical-not-retained. Original159 rows and paths remain unchanged historical records.",
     "promotionMap": {
@@ -31091,17 +31181,30 @@
           "sha256": "e6a3e60537a2de40603f5819534a036d33f6ab7b40b442c7e7f0eb3d945d1cf9"
         },
         "staticCensusRefreshed": false
+      },
+      {
+        "importedAtUtc": "2026-10-21T05:02:59.588206+00:00",
+        "sampleIDs": [
+          "1926190458",
+          "3724289844"
+        ],
+        "reason": "Packaged OGG admission and real ready/rate1 clock recovery while muted; independent FLAC runtime retained with diagnostic-schema NONPASS, not whole-sample verdict. Other240 rows unchanged.",
+        "qualification": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/supporting/report.json",
+          "sha256": "bef16a27d73357f0fa65b4e42a7369688ed4e47024bf2ec7d27c9ddf296c3406"
+        },
+        "staticCensusRefreshed": false
       }
     ]
   },
   "summary": {
-    "sampleCount": 241,
-    "reportedSampleCount": 241,
+    "sampleCount": 242,
+    "reportedSampleCount": 242,
     "statusCounts": {
       "blocked": 2,
       "degraded-runtime": 55,
       "runtime-evidence-incomplete": 2,
-      "structural-chain-complete-visual-review": 182
+      "structural-chain-complete-visual-review": 183
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 7,

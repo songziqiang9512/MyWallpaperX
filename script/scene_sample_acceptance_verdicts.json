@@ -2058,11 +2058,12 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-21",
       "reviewer": "Codex 当前隔离Debug运行、原图及独立原图筛查；非人工整样本裁决",
-      "note": "水池、腿/扶手、樱花和时钟构图均在；162声源resourceUnavailable但Ogg在包内，保资源准备首错。带执行观察和resize短窗submitted约15FPS，仅为CPU/帧准入线索。 本轮after实际约2.1s并核约12s系列；均正常退出/GPU排空。",
-      "remainingDifferences": "声音实际解码/播放与普通同条件性能窗待验；无官方截屏，不认整景/性能通过。",
+      "note": "sounds/下OGG漏提取已修；自然02.ogg从resourceUnavailable到admitted1/rejected0、ready/rate1、时钟实际推进0→0.436788，停止source退出；水面/花枝/腿/扶手/日期保留。当前日志muted=true，不声称可闻输出。另优化Debug同条件达到30FPS，未为-Onone半帧率改timer/VM/history。",
+      "remainingDifferences": "全部codec/mode/属性、可闻输出与官方同状态未验；未认代码性能或温度收益。",
       "officialComparison": "not-run",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
+        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+        ".artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
@@ -2077,6 +2078,20 @@
       "officialComparison": "not-run",
       "runs": [
         ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "1926190458": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-21",
+      "reviewer": "Codex 当前Debug实际运行与独立原图复核，非整样本裁决",
+      "note": "未参与OGG修法的独立FLAC对照：人物/床/装饰/早餐构图保留；FLAC admitted1/rejected0、ready/rate1、时钟0→0.407405。两资源类型不共用假数据播放证明；本轮muted=true。",
+      "remainingDifferences": "矩阵6条NONPASS为graph-internal/0引用accepted-route诊断；真实Program/GPU/末合成/次帧存在，保原失败为工具待核，不冒充整样本或官方parity通过。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"

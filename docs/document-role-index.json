@@ -594,13 +594,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bace2db058227e0993c49af2bb0bd9bd7ef80c9f0a53890df8739ae4405b5ab7",
+        "sourceSHA256": "ffa515a6a0e81acd0be4567efcf64c6fb1b302991e96bcbca3ee054c7fdac2d3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步既有官方shape API-only自有板的部分读回及STOP，保本机L0；队列/API表链接唯一资格记录，区分旧650几何0派发与新W2停止。其他段落未重审。",
-        "limitations": "已归档的官方2.8.0.42观察及独审；完整0→1→0/P2及几何B未执行，不判reset/持久性机制，不证明MDMP/scalar/357修复。"
+        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
+        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
       }
     },
     {
@@ -614,13 +614,13 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8430f07bddd09c1d0fe4b3259fb6068c4ad485dc5334511ef659628ed8640020",
+        "sourceSHA256": "32331f8945f8fff2feab805168351dd3476a67d30f72e54dab87d42ccd344504",
         "method": "document_registry --audit + document_health --check",
-        "scope": "定点同步无成员capturedMain单stage同pixel终端：原ingress/proof/变体、共享sampler/cache identity与预算；284白线低清有界闭合，374新route/旧fallback和293加法邻例保持。其余合同未重审。",
-        "limitations": "原型/首拒/门失败保正式包；最终SDR App不代完整HDR、非1alpha source-over全组合、同phase/官方像素、全音源或整体性能。293/321方向漩涡开放；旧293PMA补门非全矩阵PASS。"
+        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
+        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "85e8641b36eedb2c2efdbf7c2c58de17b4c3445d8ad8c62533691b86852b7968",
+        "sourceSHA256": "1f733124ec26596a94739e0a5bc7010f0692d2b4d6f384b0e19a77c1f2ac3075",
         "method": "document_registry --audit + document_health --check",
-        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
-        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
+        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
+        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a135e181a68b8450dd3d11b06e099fa6c1f36a7a138f57347a9853cf7e05c1c8",
+        "sourceSHA256": "f138e5796ea0269b106b23720433af71151567b8078f96e728dd4305b8485eb6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "分组只读varying前缀闭合、314/370局部画面及367独立样本；只更新三条运行记录，238条历史行和顺序保持。",
-        "limitations": "未重跑全样本、未认整样本/官方像素/HDR/性能通过；370 Compose及其他队列余项保留。"
+        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
+        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5961f4b64da0577223f5ce121069a90a71968e73d525b23ec040de68e6614504",
+        "sourceSHA256": "620a6a671b8e2cbbceba1df3ed579327d94bf69eaf19194aebdcba64a53e7068",
         "method": "document_registry --audit + document_health --check",
-        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
-        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
+        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
+        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
       }
     },
     {

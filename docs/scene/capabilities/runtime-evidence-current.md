@@ -276,6 +276,14 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 
 原292默认1733与作者白色时间分支536分别从四节点拒绝透传到四material节点Program/GPU/末合成及次帧执行，普通运行均exit0/stop1→0排空；536不是1733。30%窗与原3024×1964白色对照均未建立可归因Bloom增益，彩线短段仍开放，不能把执行恢复当画质改善或整景PASS；不盲改作者阈值/增益。App`c820f615…ac0c6`/dylib`44bdb507…7346`，原基线`0c0cb159…337c`/`295ef404…5458`；签名staging先修正unsigned Xcode拷贝留下的Sparkle头文件seal引用，再strict验证后运行，无产品签名逻辑变更。原默认/白色两种可见分支保持机器人、背景、盘和文字，另5个未参与修法样本真实筛查见下条；未认全部参数/HDR/官方parity或性能收益。必要原图、CPU/GPU失败与更正、构建/身份及独审归档`.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/`（普通14天，约24.3MB）。
 
+<a id="packaged-ogg-extraction-20261021"></a>
+
+### 已打包 OGG 与声音准入一致（2026-10-21）
+
+原SoundProgram已允许平台可播OGG，PKG extractor的sounds后缀表却漏掉ogg，导致已存在文件未进入ResourceView。现只扩原opaque提取owner，平台解码门、播放registry、路径/payload边界、cache锁/原子发布及生命周期保持；expectedEntries按现规则重算，旧缺OGG marker在原key下自然失效，无版本抬升/第二解码链。真实PKG改名/大小写/Windows路径/表序变体、伪后缀/非法路径/目录邻例、旧v1完整合法清单只缺OGG后的重建及再次暖复用均覆盖：原20门仅新增2红，修后新源重新编译20/20通过，两轮43输入无漂移；Debug build/CodeHealth/Defense及独审0 must-fix。
+
+完整最新Debug App（含当前daemon/helpers）strict/deep签名，原372从admitted0/resourceUnavailable到admitted1/rejected0；自然02.ogg实际ready/rate1，0.5s观察中时钟0→0.436788、advanced=true，停止source退出，水面/花枝/腿/扶手/日期保持。独立原192的FLAC同ready/rate1、0→0.407405，人物/床/装饰/早餐构图保留；其矩阵6条NONPASS来自graph-internal/0引用的accepted-route诊断，原失败保留并归工具队列，不冒充整包通过。两run App0/stop1→0/GPU排空、输入与App后验SHA一致；日志均muted=true，只闭资源、解码准备及播放时钟，不声称可闻输出、全部codec/mode/属性、官方parity或性能收益。只省略ready/hover文件引用、保全部诊断值且归一结果等值；必要after与完整原report/SHA另保，证据`.artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/`，普通14天。
+
 <a id="water-cadence-qualification-20261021"></a>
 
 ### 水面帧节奏资格：未实施调度修改（2026-10-21）

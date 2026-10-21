@@ -86,7 +86,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81221
+      "bytes": 80810
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175094
+      "bytes": 175217
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 528,
-      "bytes": 191421
+      "lines": 536,
+      "bytes": 193136
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 419,
-      "bytes": 90994
+      "bytes": 91181
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 17443
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 247,
-      "bytes": 76449
+      "lines": 246,
+      "bytes": 76382
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1196,15 +1196,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "4b46d5078a2590f774932717fabffbf15bdc84aaf5414f7e99a1112b49f96ea4",
-      "after": "86922190a064afc2d1bd417b23bc21d77eb59f12477d0b016498c3cd1d7297ac",
-      "owner": "scene-generic-preparation-and-runtime-evidence",
-      "reason": "既有纯内建只读global首门、335有界长窗及5包实际增量诊断；保未证可见收益与历史混合身份，合并精确varying/Compose/source/声音/性能余项，不扩大兼容结论。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
       "before": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
       "after": "33039ca496de449cd0f0bd95449e40b4a1feb5cfe44a1e980a6a67b65a1954f2",
@@ -1217,15 +1208,6 @@
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "before": "833ba69921eead8634eb099d41ff8c67d49cb41f5e67868a5b0b34ffe3c41b3c",
       "after": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
-      "owner": "scene-frame-cadence-qualification",
-      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3517c9469a6e4b8e7334631695eed6e8a0a1e8667d2423222bb3e387bb9de89d",
-      "after": "7a0a3dea96b58850724ff5becd4ee6556b5cfa5e48e695e35f5b7a06083d15b4",
       "owner": "scene-frame-cadence-qualification",
       "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
@@ -1246,6 +1228,33 @@
       "after": "cab5640382d3e8e8f93578694e7d58125a503262ce4c891c5dfd7ea0a7d20420",
       "owner": "scene-frame-cadence-qualification",
       "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "549cf7d8e2c82f804f75b4c0d80ba9962a5edcb0084050e97ecc426364315684",
+      "after": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
+      "owner": "scene-packaged-sound-resource-admission",
+      "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7a0a3dea96b58850724ff5becd4ee6556b5cfa5e48e695e35f5b7a06083d15b4",
+      "after": "1d1f1fe948aa99b040f4244cf7dc04b0c2ed73372a736e2dfcdf8d97034730a3",
+      "owner": "scene-packaged-sound-resource-admission",
+      "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
+      "decision": "docs/development/repository-workflow.md#代码与知识交付"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "51209daa3fc53d762d9c07313e2671f541d264d4dbc6ab7a4ebbf46b936070b9",
+      "after": "78498a06540b203df44a04602bba9bcf143c6fe85fce5ff27176e3b68e25965b",
+      "owner": "scene-packaged-sound-resource-admission",
+      "reason": "修复共享PKG声音提取遗漏，保真实解码准备/播放时钟、静音和独立样本schema边界；移除已闭队列项并更新单一Sound权威及两条增量记录，不扩大兼容/性能结论。",
       "decision": "docs/development/repository-workflow.md#代码与知识交付"
     }
   ]

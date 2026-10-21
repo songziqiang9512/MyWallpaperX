@@ -403,6 +403,93 @@ class ScenePkgCacheExtractorTests(unittest.TestCase):
         package.write_bytes(make_package(list(reversed(entries))))
         self.assertEqual(self.extract(package, env)["hashes"], expected)
 
+    def test_packaged_ogg_names_and_neighbors_keep_exact_resource_bytes(self) -> None:
+        # Extraction copies opaque bytes; these fixtures make no codec or
+        # native playback claim and must not depend on AVFoundation support.
+        supported = [
+            ("scene.json", b"{}"),
+            ("sounds/自然02.ogg", b"OggS-chinese-resource"),
+            ("sounds/ambience/renamed-track.OGG", b"OggS-renamed-resource"),
+            ("sounds\\alternate\\timbre.OgG", b"OggS-slash-resource"),
+            ("sounds/kept.flac", b"flac-payload"),
+            ("sounds/kept.mp3", b"mp3-payload"),
+            ("sounds/kept.wav", b"wav-payload"),
+        ]
+        rejected = [
+            ("sounds/not-audio.exe", b"executable"),
+            ("sounds/pretend.ogg.exe", b"wrong-final-extension"),
+            ("sounds/nearby.ogga", b"wrong-extension"),
+            ("audio/outside-sound-root.ogg", b"wrong-root"),
+            ("sounds/../escape.ogg", b"unsafe-path"),
+        ]
+        entries = supported + rejected
+        package, env = self.isolated_package("ogg-resource-variants", entries)
+        expected = {path.replace("\\", "/"): hashlib.sha256(value).hexdigest()
+                    for path, value in supported}
+        for ordered in (entries, list(reversed(entries))):
+            package.write_bytes(make_package(ordered))
+            result = self.extract(package, env)
+            self.assertEqual(result["hashes"], expected)
+            self.assertEqual(set(result["paths"]), set(expected))
+            cache = Path(result["outputURL"])
+            self.assertEqual({str(p.relative_to(cache)) for p in cache.rglob("*") if p.is_file()},
+                             set(expected) | {".mwx-scene-pkg-cache-v1.json"})
+
+    def test_old_cache_without_ogg_rebuilds_then_reuses_complete_manifest(self) -> None:
+        legacy = [("scene.json", b"{}"), ("materials/retained.tex", b"texture"),
+                  ("sounds/retained.flac", b"flac")]
+        added = [("sounds/自然02.ogg", b"OggS-first"),
+                 ("sounds/renamed/ambient.OGG", b"OggS-second")]
+        package, env = self.isolated_package("ogg-old-completion-marker", legacy + added + [
+            ("sounds/ignored.ogg.exe", b"not-audio"), ("audio/ignored.ogg", b"wrong-root")])
+        first = self.extract(package, env)
+        cache = Path(first["outputURL"])
+        marker = cache / ".mwx-scene-pkg-cache-v1.json"
+        legacy_paths = {path for path, _ in legacy}
+        # Preserve the real marker's authored-path ordering so the legacy
+        # cache is not rejected for an unrelated marker ordering difference.
+        legacy_entries = [entry for entry in json.loads(marker.read_text())["entries"]
+                          if entry["relativePath"] in legacy_paths]
+        self.assertEqual({entry["relativePath"]: (entry["size"], entry["contentSHA256"])
+                          for entry in legacy_entries},
+                         {path: (len(value), hashlib.sha256(value).hexdigest())
+                          for path, value in legacy})
+        # Model a valid cache produced by the former extraction admission for
+        # this exact package: only OGG files/manifest entries are absent. Do
+        # not corrupt bytes, change package identity, bump a cache version or
+        # remove its completion marker to force the repair by another cause.
+        for path, _ in added:
+            cached = cache / path
+            if cached.exists():
+                cached.unlink()
+        legacy_marker = {"formatVersion": 1,
+                         "packageSHA256": hashlib.sha256(package.read_bytes()).hexdigest(),
+                         "entries": legacy_entries}
+        marker.write_text(json.dumps(legacy_marker))
+        self.assertEqual({str(p.relative_to(cache)) for p in cache.rglob("*") if p.is_file()},
+                         legacy_paths | {marker.name})
+        for path, value in legacy:
+            self.assertEqual((cache / path).read_bytes(), value)
+        repaired = self.extract(package, env)
+        self.assertEqual(repaired["outputURL"], first["outputURL"])
+        expected = {path: hashlib.sha256(value).hexdigest() for path, value in legacy + added}
+        self.assertEqual(repaired["hashes"], expected)
+        complete_marker = json.loads(marker.read_text())
+        self.assertEqual(complete_marker["packageSHA256"], legacy_marker["packageSHA256"])
+        self.assertEqual({entry["relativePath"]: (entry["size"], entry["contentSHA256"])
+                          for entry in complete_marker["entries"]},
+                         {path: (len(value), expected[path]) for path, value in legacy + added})
+        files = [path for path in cache.rglob("*") if path.is_file()]
+        self.assertEqual({str(path.relative_to(cache)) for path in files}, set(expected) | {marker.name})
+        timestamp = 1_234_000_000_000
+        for path in files:
+            os.utime(path, ns=(timestamp, timestamp))
+        before = {str(path.relative_to(cache)): (path.read_bytes(), path.stat().st_mtime_ns)
+                  for path in files}
+        self.assertEqual(self.extract(package, env), repaired)
+        self.assertEqual({str(path.relative_to(cache)): (path.read_bytes(), path.stat().st_mtime_ns)
+                          for path in cache.rglob("*") if path.is_file()}, before)
+
     def test_alias_collisions_and_reserved_marker_are_rejected(self) -> None:
         for name, paths in [("duplicate", ["textures/a.tex", "textures/a.tex"]),
                             ("slash", ["textures/a.tex", "textures\\a.tex"]),
