@@ -77,6 +77,7 @@ struct SceneLightSnapshot {
     let overflowCount: Int
     var distanceFogColor: SIMD4<Float> = .zero
     var distanceFogRange: SIMD4<Float> = .zero
+    var authoredShaderLighting: SceneAuthoredShaderLightingInputs = .unavailable
 
     static func make(
         descriptor: SceneRenderDescriptor,
@@ -105,12 +106,19 @@ struct SceneLightSnapshot {
         var spotLights: [Spot] = []
         var acceptedCount = 0
         var overflowCount = 0
+        var authoredLighting = SceneAuthoredShaderLightingInputs.Builder(
+            orthographicHeight: descriptor.camera.orthoHeight,
+            ambient: descriptor.lighting?.ambientColorRGB
+        )
         for layer in lightLayers {
             // The same current visibility authority gates direct light,
             // shadow publication and the model-light budget. Launch candidates
             // remain complete so a later show can use its prepared producers.
-            guard visibleLayerIDs.contains(layer.id),
-                  let frame = worldFramesByLayerID[layer.id] else { continue }
+            guard visibleLayerIDs.contains(layer.id) else { continue }
+            guard let frame = worldFramesByLayerID[layer.id] else {
+                authoredLighting.rejectUnsupportedLight()
+                continue
+            }
             // general.lightconfig gates the STATIC-MODEL light classes per
             // scene: an absent author field leaves directional/lpoint/spot
             // inert for models in the official client (own-fixture N-series
@@ -122,6 +130,9 @@ struct SceneLightSnapshot {
             // stays owned by model lights. The 2D packer truncates its own
             // point+spot payload to the four ABI slots in authored order.
             let isImageOnlyPointLight = layer.pointLight?.kind == "point"
+            if !isImageOnlyPointLight {
+                authoredLighting.rejectUnsupportedLight()
+            }
             let admitted: Bool
             if isImageOnlyPointLight {
                 admitted = true
@@ -143,9 +154,42 @@ struct SceneLightSnapshot {
                     snapshot: $0
                 )
             } ?? authoredIntensity(layer)
+            let radius = layer.pointLight.flatMap { definition in
+                dynamicSnapshot.flatMap {
+                    SceneDynamicLayerValues.lightRadius(
+                        layerID: layer.id, authoredValue: definition.radius,
+                        snapshot: $0
+                    )
+                } ?? definition.radius
+            }
+            if isImageOnlyPointLight {
+                // Native colors above retain their normalized contract. The
+                // ordinary ABI validates the same frame's raw typed value;
+                // a present invalid target must not fall back to authored white.
+                let sourceColor: SIMD3<Float>?
+                if let resolved = dynamicSnapshot?[
+                    .layer(layerID: layer.id, field: .color)
+                ] {
+                    if case let .vector3(red, green, blue) = resolved.value {
+                        sourceColor = SIMD3(Float(red), Float(green), Float(blue))
+                    } else {
+                        sourceColor = nil
+                    }
+                } else if let authored = layer.pointLight?.colorRGB {
+                    sourceColor = authored.count == 3
+                        ? SIMD3(authored[0], authored[1], authored[2]) : nil
+                } else {
+                    sourceColor = SIMD3(repeating: 1)
+                }
+                authoredLighting.appendPoint(
+                    renderWorldPosition: position(of: frame),
+                    color: sourceColor,
+                    intensity: intensity, radius: radius
+                )
+            }
             if isImageOnlyPointLight, let light = point(
                 layer: layer, frame: frame, dynamicColor: dynamicColor,
-                intensity: intensity
+                intensity: intensity, radius: radius
             ) {
                 pointLights.append(light)
                 continue
@@ -163,7 +207,7 @@ struct SceneLightSnapshot {
                 }
             } else if let light = point(
                 layer: layer, frame: frame, dynamicColor: dynamicColor,
-                intensity: intensity
+                intensity: intensity, radius: radius
             ) {
                 if acceptedCount < maximumLightCount {
                     pointLights.append(light)
@@ -224,7 +268,8 @@ struct SceneLightSnapshot {
             spot: spotLights,
             overflowCount: overflowCount,
             distanceFogColor: fog.map { SIMD4($0.color[0], $0.color[1], $0.color[2], 1) } ?? .zero,
-            distanceFogRange: fog.map { SIMD4($0.start, $0.end, $0.startDensity, $0.endDensity) } ?? .zero
+            distanceFogRange: fog.map { SIMD4($0.start, $0.end, $0.startDensity, $0.endDensity) } ?? .zero,
+            authoredShaderLighting: authoredLighting.finish()
         )
     }
 
@@ -261,6 +306,11 @@ struct SceneLightSnapshot {
             targets.insert(.layer(layerID: layerID, field: .color))
             if authoredIntensity(layer) != nil {
                 targets.insert(.layer(layerID: layerID, field: .intensity))
+            }
+            if let point = layer.pointLight,
+               point.kind == "point" || point.kind == "lpoint",
+               point.radius != nil {
+                targets.insert(.layer(layerID: layerID, field: .radius))
             }
         }
     }
@@ -302,11 +352,12 @@ struct SceneLightSnapshot {
         layer: SceneRenderDescriptor.Layer,
         frame: simd_float4x4,
         dynamicColor: SIMD3<Float>?,
-        intensity: Float?
+        intensity: Float?,
+        radius: Float?
     ) -> Point? {
         guard let definition = layer.pointLight,
               let intensity,
-              let radius = definition.radius,
+              let radius,
               intensity.isFinite, intensity >= 0,
               radius.isFinite, radius > 0,
               let position = position(of: frame) else { return nil }

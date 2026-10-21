@@ -448,6 +448,7 @@ enum Harness {
         case .layerScale: "layerScale"
         case .layerColor: "layerColor"
         case .lightIntensity: "lightIntensity"
+        case .lightRadius: "lightRadius"
         case .effectVisibility: "effectVisibility"
         case .camera: "camera"
         case .cameraPathZoom: "cameraPathZoom"

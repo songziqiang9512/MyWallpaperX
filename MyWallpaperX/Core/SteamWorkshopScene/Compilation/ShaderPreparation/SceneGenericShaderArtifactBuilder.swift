@@ -418,12 +418,14 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         type: SceneAuthoredShaderValueType
     ) throws -> Int? {
         guard let dimensions else { return nil }
-        guard dimensions.count == 1, let count = dimensions.first,
-              type == .float, [16, 32, 64].contains(count),
-              name == "g_AudioSpectrum\(count)Left"
-                || name == "g_AudioSpectrum\(count)Right" else {
+        guard dimensions.count == 1, let count = dimensions.first else {
             throw Failure.uniformMember
         }
+        let audio = type == .float && [16, 32, 64].contains(count)
+            && (name == "g_AudioSpectrum\(count)Left" || name == "g_AudioSpectrum\(count)Right")
+        guard audio || SceneAuthoredShaderHostArrayShape.isEffectLighting(
+            name: name, type: type, count: count
+        ) else { throw Failure.uniformMember }
         return count
     }
 
@@ -536,7 +538,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 options: .regularExpression
             )
         }
-        for field in layout.fields where field.arrayCount != nil {
+        for field in layout.fields where field.arrayCount != nil && field.type == "float" {
             result = result.replacingOccurrences(
                 of: #"("# + SceneShaderSourceTextFacts.escaped(field.name)
                     + #"\s*\[[^\]\r\n]+\])\.x\b"#,

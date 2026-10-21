@@ -520,6 +520,9 @@ extension SteamWorkshopService {
             return renderDescriptor.layers.contains {
                 $0.id == layerID && $0.authoredLightIntensity != nil
             }
+        case let .lightRadius(layerID):
+            return SceneLightSnapshot.liveConsumerTargets(descriptor: renderDescriptor)
+                .contains(.layer(layerID: layerID, field: .radius))
         case .scene:
             return ScenePropertyBindingCompiler.map(target) != nil
         case let .camera(field):

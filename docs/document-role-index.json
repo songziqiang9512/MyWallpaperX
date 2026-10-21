@@ -472,10 +472,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c8432fe7a1a2d0606ab18bc82082c1979cddff9ba18397e49db397f5937c238",
+        "sourceSHA256": "a96715b20c76891ea1688663ffd1ab39c7166eeff139fac40f488b74e60f22db",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
-        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
+        "scope": "核本批同帧灯宿主、几何和radius owner；有限官方数值、GPU8帧、原299及独立313/372的当前结果与保留边界。",
+        "limitations": "仅本批输入与默认回归；299背景未恢复，非全库、真实radius面板、native lit/model、HDR、官方同phase或性能验收。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e7534a609ebc3d825aa4e94a62cf48c7da93cb4899b60a8d5946ada489629af7",
+        "sourceSHA256": "19d0b80bd4328000bbd933b900e6d04cc37771064b544fd9aaeaea1f4d450266",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
-        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
+        "scope": "核本批同帧灯宿主、几何和radius owner；有限官方数值、GPU8帧、原299及独立313/372的当前结果与保留边界。",
+        "limitations": "仅本批输入与默认回归；299背景未恢复，非全库、真实radius面板、native lit/model、HDR、官方同phase或性能验收。"
       }
     },
     {

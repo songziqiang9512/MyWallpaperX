@@ -220,6 +220,28 @@ enum Harness {
             "authoredParent": geometry(authoredParent),
             "authoredSquare": geometry(authoredSquare),
             "materialSource": geometry(materialSource),
+            "localWorldCard": matrix(SceneCaptureGeometryResolver.resolve(
+                kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+                captureMVP: localMVP, compositionSourceMemberLayerIDs: [],
+                authoredRenderSizeWH: [665, 151], usesMaterialSource: true,
+                outputUnitModelMatrix: parentMVP
+            )!.outputUnitModelMatrix!),
+            "localGroupWorldCard": matrix(SceneCaptureGeometryResolver.resolve(
+                kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+                compositionSourceMemberLayerIDs: [777],
+                localCompositionSourceExtent: CGSize(width: 665, height: 151),
+                outputUnitModelMatrix: parentMVP
+            )!.outputUnitModelMatrix!),
+            "expectedWorldCard": matrix(parentMVP),
+            "fullscreenWorldUnknown": SceneCaptureGeometryResolver.resolve(
+                kind: .fullscreen, layerMVP: outputMVP, viewportSize: nonSquare,
+                outputUnitModelMatrix: parentMVP
+            )!.outputUnitModelMatrix == nil,
+            "legacyGroupWorldUnknown": SceneCaptureGeometryResolver.resolve(
+                kind: .composition, layerMVP: outputMVP, viewportSize: nonSquare,
+                compositionSourceMemberLayerIDs: [777],
+                outputUnitModelMatrix: parentMVP
+            )!.outputUnitModelMatrix == nil,
             "materialSourceProjectRejected": SceneCaptureGeometryResolver.resolve(
                 kind: .project, layerMVP: outputMVP, viewportSize: nonSquare,
                 authoredRenderSizeWH: [665, 151], usesMaterialSource: true
@@ -632,6 +654,12 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertEqual(result["sourceUV"], [[0, 0], [1, 0], [0, 1]])
         self.assertEqual(result["outputMVP"], self.result["authoredSquare"]["outputMVP"])
         self.assertNotEqual(result["sourceUV"], self.result["replaySource"])
+
+    def test_only_authored_local_output_retains_its_world_card(self) -> None:
+        self.assertEqual(self.result["localWorldCard"], self.result["expectedWorldCard"])
+        self.assertEqual(self.result["localGroupWorldCard"], self.result["expectedWorldCard"])
+        self.assertTrue(self.result["fullscreenWorldUnknown"])
+        self.assertTrue(self.result["legacyGroupWorldUnknown"])
 
     def test_material_source_rejects_project_members_and_invalid_explicit_extent(self) -> None:
         for key in ("materialSourceProjectRejected", "materialSourceMemberRejected",

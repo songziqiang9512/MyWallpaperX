@@ -53,6 +53,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
     let pointerPrimaryButtonDown: Bool
     let parallaxPositionNDC: SIMD2<Float>
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
+    let lighting: SceneAuthoredShaderLightingInputs
 
     init(
         frameIndex: UInt64,
@@ -64,7 +65,8 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
         pointerPreviousNDC: SIMD2<Float>,
         pointerPrimaryButtonDown: Bool = false,
         parallaxPositionNDC: SIMD2<Float> = .zero,
-        audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
+        audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
+        lighting: SceneAuthoredShaderLightingInputs = .unavailable
     ) {
         self.frameIndex = frameIndex
         self.screenSize = screenSize
@@ -76,6 +78,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
         self.pointerPrimaryButtonDown = pointerPrimaryButtonDown
         self.parallaxPositionNDC = parallaxPositionNDC
         self.audioSpectrum = audioSpectrum
+        self.lighting = lighting
     }
 }
 
@@ -85,6 +88,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let screenSize: CGSize
     let modelViewProjection: simd_float4x4
     let layerModelMatrix: simd_float4x4
+    let effectUnitModelMatrix: simd_float4x4?
     let effectOutputModelViewProjection: simd_float4x4
     let effectTextureProjectionMatrix: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
@@ -98,6 +102,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let pointerPrimaryButtonDown: Bool
     let parallaxPositionNDC: SIMD2<Float>
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
+    let lighting: SceneAuthoredShaderLightingInputs
 
     init(
         frameIndex: UInt64,
@@ -105,6 +110,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         screenSize: CGSize,
         modelViewProjection: simd_float4x4,
         layerModelMatrix: simd_float4x4,
+        effectUnitModelMatrix: simd_float4x4? = nil,
         effectOutputModelViewProjection: simd_float4x4,
         effectTextureProjectionMatrix: simd_float4x4 = matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
@@ -117,13 +123,15 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         pointerPreviousNDC: SIMD2<Float>,
         pointerPrimaryButtonDown: Bool = false,
         parallaxPositionNDC: SIMD2<Float> = .zero,
-        audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
+        audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
+        lighting: SceneAuthoredShaderLightingInputs = .unavailable
     ) {
         self.frameIndex = frameIndex
         self.renderSize = renderSize
         self.screenSize = screenSize
         self.modelViewProjection = modelViewProjection
         self.layerModelMatrix = layerModelMatrix
+        self.effectUnitModelMatrix = effectUnitModelMatrix
         self.effectOutputModelViewProjection =
             effectOutputModelViewProjection
         self.effectTextureProjectionMatrix = effectTextureProjectionMatrix
@@ -138,5 +146,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.pointerPrimaryButtonDown = pointerPrimaryButtonDown
         self.parallaxPositionNDC = parallaxPositionNDC
         self.audioSpectrum = audioSpectrum
+        self.lighting = lighting
     }
 }

@@ -962,6 +962,23 @@
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-effect-light-host-uniforms",
+      "title": "普通effect宿主灯光数组与effect-world输入",
+      "owner": "scene-material-host-uniforms",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "design_notes": "2026-10-21 #ordinary-effect-light-host-inputs 已以qualified官方自有echo裁定正交≤4 point首片：packed前三RGB/三个w、color*intensity*radius²候选相容、raw ambient、零半径保slot关能量、empty位置非零及authored Y。沿唯一Snapshot同循环投影与现Program链，native准入不变；typed几何保unit-card world并按实际node target换pixel basis。其他灯型/overflow/native perspective/canonical clip world未裁需求局部unavailable；approved非真实画面验收，必须GPU/原299/heldout/独审。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift"
+      ],
+      "contentPatterns": [
+        "g_LightsPosition",
+        "g_LightsColorPremultiplied",
+        "g_EffectModelMatrix",
+        "effectUnitModelMatrix"
+      ]
     }
   ]
 }

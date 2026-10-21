@@ -17,6 +17,8 @@ extension SceneMetalRenderer {
         specializedBaseTextureSamplings: [Int: SceneTextureSampling],
         imagePipeline: SceneImageLayerPipeline?,
         frameProjection: SceneMetalRendererFrameWorldProjection,
+        frameVisibleLayerIDs: Set<Int>,
+        frameLightSnapshot: SceneLightSnapshot,
         preparedParticleBatches: [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
@@ -89,31 +91,8 @@ extension SceneMetalRenderer {
             dynamicValues: frameContext.dynamicValues
         )
         let orderedLayers = frameProjection.orderedLayers
-        let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: frameDescriptor, layersByID: frameLayersByID,
-            snapshot: frameContext.dynamicValues)
         let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs)
-        let dynamicLightColors = Dictionary(uniqueKeysWithValues: frameProjection.lightLayerIDs.compactMap { layerID -> (Int, SIMD3<Float>)? in
-                guard let layer = frameLayersByID[layerID] else { return nil }
-                return (
-                    layer.id,
-                    SceneDynamicLayerValues.color(
-                        layerID: layer.id,
-                        authoredValue: layer.colorRGB,
-                        snapshot: frameContext.dynamicValues
-                    )
-                )
-            }
-        )
-        let frameLightSnapshot = SceneLightSnapshot.make(
-            descriptor: frameDescriptor,
-            worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
-            dynamicSnapshot: frameContext.dynamicValues,
-            candidateLayerIDs: frameProjection.lightLayerIDs,
-            layersByID: frameLayersByID,
-            visibleLayerIDs: frameVisibleLayerIDs
-        )
 #if DEBUG
         performanceTelemetry?.beginStage("prepass-encoder")
 #endif

@@ -82,6 +82,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-pass-preparation-fragment-function",
             "material-pass-preparation-pipeline-compilation",
             "material-finalizer-dynamic-uniform-binding",
+            "material-finalizer-host-input-unavailable",
             "material-finalizer-static-uniform-binding",
             "material-finalizer-host-uniform-declaration-conflict",
             "material-finalizer-uniform-declaration-conflict",

@@ -34,6 +34,7 @@ extension SceneResolvedMaterialGraphExecutor {
             modelViewProjection: frameInputs.effectOutputModelViewProjection * pixelsToUnit,
             layerModelMatrix: source.unitModelMatrix * pixelsToUnit,
             effectOutputModelViewProjection: frameInputs.effectOutputModelViewProjection,
+            effectUnitModelMatrix: source.unitModelMatrix,
             effectTextureProjectionMatrixInverse: frameInputs.effectTextureProjectionMatrixInverse
         )
         let program: SceneResolvedMaterialProgram
@@ -272,6 +273,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         layerModelMatrix: frameInputs.layerModelMatrix,
                         effectOutputModelViewProjection:
                             frameInputs.effectOutputModelViewProjection,
+                        effectUnitModelMatrix: frameInputs.effectUnitModelMatrix,
                         effectTextureProjectionMatrixInverse:
                             frameInputs.effectTextureProjectionMatrixInverse,
                         effectDrawAlpha: frameInputs.effectDrawAlpha,
@@ -352,6 +354,9 @@ extension SceneResolvedMaterialGraphExecutor {
                             return rejection
                         }
                         switch failure.code {
+                        case .hostUniformInputUnavailable:
+                            reasonCode =
+                                "material-finalizer-host-input-unavailable"
                         case .dynamicUniformBindingInvalid:
                             reasonCode =
                                 "material-finalizer-dynamic-uniform-binding"

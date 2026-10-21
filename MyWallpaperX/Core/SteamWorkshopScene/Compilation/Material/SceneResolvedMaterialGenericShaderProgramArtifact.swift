@@ -31,6 +31,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     // the full shader-preparation implementation. Keep the serialized guard
     // cap synchronized with SceneGenericShaderLoopGuardLowering.iterationCap.
     private static let loopGuardIterationCap = 4096
+    private static let maximumUniformByteSize = 4_096
 
     struct Program: Codable {
         struct UniformLayout: Codable, Equatable {
@@ -155,6 +156,17 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                   field.stage == nil
                     || SceneShaderContract.StageKind(rawValue: field.stage!) != nil else {
                 return nil
+            }
+            if SceneAuthoredShaderHostArrayShape.effectLighting(name: field.authoredName) != nil,
+               !SceneAuthoredShaderHostArrayShape.isEffectLighting(
+                   name: field.authoredName, type: type, count: field.arrayCount
+               ) { return nil }
+            if let count = field.arrayCount {
+                // Validate before storageByteSize can multiply untrusted wire
+                // metadata. Preserve existing array ABI within the layout cap.
+                guard count > 0,
+                      count <= min(raw.uniformLayout.byteSize, Self.maximumUniformByteSize)
+                        / type.byteSize else { return nil }
             }
             return .init(
                 name: field.name,
@@ -354,17 +366,20 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     }
 
     private static func valid(_ layout: SceneAuthoredShaderUniformLayout) -> Bool {
-        guard (0 ... 4_096).contains(layout.byteSize),
+        guard (0 ... Self.maximumUniformByteSize).contains(layout.byteSize),
               layout.byteSize.isMultiple(of: 16),
               Set(layout.fields.map(\.name)).count == layout.fields.count else {
             return false
         }
         var occupied = Set<Int>()
         for field in layout.fields {
-            let end = field.offset + field.storageByteSize
             guard field.offset >= 0,
+                  field.offset <= layout.byteSize,
+                  field.storageByteSize <= layout.byteSize - field.offset,
                   field.offset.isMultiple(of: field.type.alignment),
-                  end <= layout.byteSize,
+                  field.storageByteSize > 0 else { return false }
+            let end = field.offset + field.storageByteSize
+            guard
                   (field.offset ..< end).allSatisfy({ !occupied.contains($0) }) else {
                 return false
             }

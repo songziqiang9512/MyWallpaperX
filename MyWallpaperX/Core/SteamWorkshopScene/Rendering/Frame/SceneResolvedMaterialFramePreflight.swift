@@ -117,10 +117,10 @@ extension SceneMetalRenderer {
         let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
             cameraFrame.viewProjection(for: $0) * imageModel($0, $1)
         }
-        let geometryMVP: (
+        let geometryModel: (
             SceneRenderDescriptor.Layer, SceneGeometryProduct
         ) -> simd_float4x4 = { layer, product in
-            cameraFrame.viewProjection(for: layer) * self.geometryModelMatrix(
+            self.geometryModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
                 authoredSize: product.authoredSize,
@@ -130,9 +130,14 @@ extension SceneMetalRenderer {
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer)
             )
         }
+        let geometryMVP: (SceneRenderDescriptor.Layer, SceneGeometryProduct) -> simd_float4x4 = {
+            cameraFrame.viewProjection(for: $0) * geometryModel($0, $1)
+        }
         for layer in orderedLayers {
             let layerID = layer.id
             var directDrawOutputModelViewProjection: simd_float4x4?
+            var directDrawOutputUnitModelMatrix: simd_float4x4?
+            var capturedUnitModelMatrix: simd_float4x4?
             // Values the preparation request consumes, captured by the same
             // single pass that sizes the frame target.
             var capturedLayerSource: SceneBaseMaterialTextureSource?
@@ -275,18 +280,8 @@ extension SceneMetalRenderer {
                     // invariant to parallax translation, so they give a
                     // stable per-layer size; quantize upward to absorb
                     // script-animated scale jitter without pool churn.
-                    let model = imageModelMatrix(
-                        for: layer,
-                        worldFramesByLayerID: worldFramesByLayerID,
-                        renderSizeOverride: imageTextures.layerSourceRenderSize(
-                            for: layer.id
-                        ),
-                        textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
-                        parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                        configuration: parallaxConfiguration,
-                        visibleHalfExtents: cameraFrame.coverHalfExtents,
-                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                    )
+                    let model = imageModel(layer, imageTextures.layerSourceRenderSize(for: layer.id))
+                    capturedUnitModelMatrix = model
                     let onCanvasWidth = simd_length(model.columns.0)
                     let onCanvasHeight = simd_length(model.columns.1)
                     func quantizedUp(_ value: CGFloat) -> CGFloat {
@@ -336,18 +331,8 @@ extension SceneMetalRenderer {
                     desiredSize = extent.pixelSize
                     break
                 }
-                let model = imageModelMatrix(
-                    for: layer,
-                    worldFramesByLayerID: worldFramesByLayerID,
-                    renderSizeOverride: imageTextures.layerSourceRenderSize(
-                        for: layer.id
-                    ),
-                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
-                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                    configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                )
+                let model = imageModel(layer, imageTextures.layerSourceRenderSize(for: layer.id))
+                capturedUnitModelMatrix = model
                 guard let projectedSize =
                     SceneCaptureGeometryResolver.projectedPixelSize(
                     layerMVP: cameraFrame.viewProjection(for: layer) * model,
@@ -383,6 +368,7 @@ extension SceneMetalRenderer {
                     )
                 }
                 let model = imageModel(layer, nil)
+                capturedUnitModelMatrix = model
                 guard let source = SceneResolvedMaterialUtilitySource.prepare(
                     layer: layer, unitModelMatrix: model, cameraFrame: cameraFrame,
                     viewportSize: viewportSize, groups: compositionGroupRuntime,
@@ -430,6 +416,7 @@ extension SceneMetalRenderer {
                     )
                 }
                 directDrawOutputModelViewProjection = outputMVP
+                directDrawOutputUnitModelMatrix = model
                 desiredSize = projectedSize
             }
             let invocations = materialFunctionInvocations(for: layer)
@@ -704,6 +691,7 @@ extension SceneMetalRenderer {
             }
             let sourceMVP: simd_float4x4
             let outputMVP: simd_float4x4
+            let effectUnitModelMatrix: simd_float4x4?
             let sourceTexture: MTLTexture?
             let sourceCandidate: SceneTextureCandidate?
             let sourceUsesAuthoredLayerColor: Bool
@@ -720,17 +708,19 @@ extension SceneMetalRenderer {
                     // effect card to authored pixels for pointer/projection
                     // uniforms; the final mesh draw still consumes raw vertex
                     // positions with the unscaled geometry MVP exactly once.
-                    sourceMVP = geometryMVP(layer, geometry)
-                        * SceneMatrix.scale(SIMD3(
+                    let model = geometryModel(layer, geometry)
+                    let size = SceneMatrix.scale(SIMD3(
                             geometry.authoredSize.x,
                             geometry.authoredSize.y,
                             1
                         ))
+                    sourceMVP = cameraFrame.viewProjection(for: layer) * model * size
+                    effectUnitModelMatrix = model * size
                 } else {
-                    sourceMVP = imageMVP(
-                        layer,
-                        imageTextures.layerSourceRenderSize(for: layerID)
-                    )
+                    let model = capturedUnitModelMatrix
+                        ?? imageModel(layer, imageTextures.layerSourceRenderSize(for: layerID))
+                    sourceMVP = cameraFrame.viewProjection(for: layer) * model
+                    effectUnitModelMatrix = model
                 }
                 outputMVP = sourceMVP
                 sourceTexture = source.texture
@@ -752,11 +742,13 @@ extension SceneMetalRenderer {
                     ))
                 }
             case .capturedMainTargetTexture:
-                sourceMVP = imageMVP(layer, nil)
+                sourceMVP = cameraFrame.viewProjection(for: layer)
+                    * (capturedUnitModelMatrix ?? imageModel(layer, nil))
                 guard let geometry = utilityCaptureGeometry else {
                     return invalid("layer-\(layerID)-utility-geometry-invalid")
                 }
                 outputMVP = geometry.outputMVP
+                effectUnitModelMatrix = geometry.outputUnitModelMatrix
                 sourceTexture = selectedMainSource
                 sourceCandidate = nil
                 sourceUsesAuthoredLayerColor = false
@@ -774,6 +766,7 @@ extension SceneMetalRenderer {
                 }
                 sourceMVP = directDrawOutputMVP
                 outputMVP = sourceMVP
+                effectUnitModelMatrix = directDrawOutputUnitModelMatrix
                 sourceTexture = nil
                 sourceCandidate = nil
                 sourceUsesAuthoredLayerColor = false
@@ -884,6 +877,7 @@ extension SceneMetalRenderer {
                 primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
                 layerModelMatrix: layerModelMatrix,
                 effectOutputModelViewProjection: effectProjectionMVP,
+                effectUnitModelMatrix: effectUnitModelMatrix,
                 terminalReplayModelViewProjection: compositionGroupRuntime?
                     .rasterModelViewProjection(forLayerID: layer.id, worldMVP: outputMVP),
                 effectTextureProjectionMatrixInverse:

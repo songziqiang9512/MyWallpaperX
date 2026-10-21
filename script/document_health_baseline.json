@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 129584
+      "bytes": 131615
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -121,12 +121,12 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 474,
-      "bytes": 178439
+      "lines": 482,
+      "bytes": 180780
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 201922
+      "bytes": 203803
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -165,8 +165,8 @@
       "bytes": 18384
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 556,
-      "bytes": 124116
+      "lines": 573,
+      "bytes": 128946
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 120,
@@ -238,11 +238,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 57,
-      "bytes": 18059
+      "bytes": 18547
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 239,
-      "bytes": 74345
+      "bytes": 74561
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1178,390 +1178,57 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "cda08e94ead5b9a140711dde115b2661830f9f03f39bf29c4d753f45059edaf8",
-      "after": "56bacd95d3482fc3a8ed2c29e1dc13804886f3655c09a20d30ce033a879f7931",
-      "owner": "steam-preview-ui",
-      "reason": "在原AppKit权威记录共同预览状态、静态保留与旧实现退出；独审补齐本地版本、图片候选顺序、成功来源和缓存持有共享producer的消费者租约。",
-      "decision": "docs/architecture/appkit-migration.md#steam-缩略图状态与资源寿命"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/puppet-clipping-design.md",
-      "before": "c08edfb3b207de57009cbfb4a64463b1465ce6968aaa2b40479e86b89f7a9d63",
-      "after": "00fd3315083cf98d074534ea3d9b4fe13a946b1500b509c64d98b2e87534f4e2",
-      "owner": "scene-puppet-multi-target",
-      "reason": "替换误命名单target格式合同，登记多target主体恢复的有界官方/真实运行结果并移除已修队列，保留动画及背景首断点。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-multi-target-20261017"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "8b9414d3d4ad9190033584054d1f6e1e3fa78b3b9024ecebfdbf735d6d809b44",
-      "after": "1fe0d24c627dd3495ed737dc20e76cbc5d70092a8e6d3d555dcb065b1b7f1df9",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "e5bc6bb9c00cf90d3c1d8b3e588ba54640b96a360424a8b3bd48b491f271ba82",
-      "after": "f5bdb1c83f171f85ad93497139cf6671628ec2b09fbce6f23278803d3c1512b9",
-      "owner": "playback-process-isolation",
-      "reason": "Document the single independent playback owners, bounded Web preparation, exact handoff rollback and end-state recovery, pause silence barriers and final adversarial review limits; adjust only this changed topical body.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "559bf99a7f083ccbda1ad4869159e775afbfa6f09c31b0268f9640b59549fcc4",
-      "after": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
-      "owner": "playback-lifecycle-transaction",
-      "reason": "Record the common actual-exit owner, bounded native visibility and media ownership barriers, and the single product switch reducer; replace superseded handoff claims.",
-      "decision": "docs/architecture/playback-lifecycle-transaction-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "23dcc50cc46e055e4e80984ff48aa857f071b47cbb1cc44be955b43b6786fbb4",
-      "owner": "playback-lifecycle-transaction",
-      "reason": "Record the common actual-exit owner, bounded native visibility and media ownership barriers, and the single product switch reducer; replace superseded handoff claims.",
-      "decision": "docs/architecture/playback-lifecycle-transaction-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "6fabd7ab2d70bee43bf427d75a4218fff1f77ee11dd5c8744bf6959e69602e8f",
-      "after": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
-      "owner": "scene-logical-macro-invocation",
-      "reason": "Bounded logical-call contract and current actual red/green evidence; retire stale static queue debt and preserve failed heldout watchdog/tool-cost STOP without broader completion or performance claims.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#logical-macro-invocation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "16c5238aa006446f68d28c92bd41114ef7308e42b01098bc6ebe18f2790785e7",
-      "after": "ba84a9b85e0166d93fa5b1b84af5d305e7e76d6d1fe21dfca30f2c5646987308",
-      "owner": "scene-terminal-background-density",
-      "reason": "Bind bounded capturedMain source proof, reflected optional attachment entry, shared-sampler/cache cost and same-pass typed terminal to existing D1. Original284/heldout374/293 qualify only the visible slice; ordinary authorities shrink,600/150 ceilings unchanged.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#background-terminal-density"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
-      "before": "c77f882d99da089ebf6f489793427d3022494ef7edd680abae7e6ca77306be2a",
-      "after": "fa17a1e9d415ae9ad367a8d3d951d987b79f51d47b2691c546ff98d7621634cb",
-      "owner": "scene-gaussian-zero-axis",
-      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "4420e97dda982640642083588de1aa6417dacfa3a3167330238cad184d7f33c2",
-      "after": "460072c339a100e83a73a4caf6cd076498aed55c8722f59b3639ec9e6abf6c21",
-      "owner": "scene-gaussian-zero-axis",
-      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
-      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-blurred-composite-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/official-client-behavior-research-workflow.md",
-      "before": "26e679bd7b452671335bce5b1e51d81681c4edf363bd478912aec87df113c60e",
-      "after": "07b2ebd75414507d052ae281139fcd43e18d4b47e55decb0f905034c870d45a5",
-      "owner": "scene-residual-lighting",
-      "reason": "Reconcile the bounded zero-axis admission/GPU successor and negative residual-lighting research; replace stale restrictions in existing owners, preserve real-run limits and unchanged sample/archive counts.",
-      "decision": "docs/scene/history/surface-zero-roughness-2026-10-19.md#residual-low-energy-20261019"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
-      "before": "7e35972189bb6f1ee8a8407db9b7bb2c2c0cb07fdfac647a71c8882ba04a98be",
-      "after": "8e862f5d5c11d27b25024de1c452864fb98fc3f1c35c5fed4bff578cbc01a53e",
-      "owner": "scene-ordinary-native-image-depth",
-      "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "2165041e26d0f54aaceb03e721dd6ba863ce3b8c587552ef1a335f7eab85971f",
-      "after": "b582e739152be66dde52fd59c66ef565022f4c38afc71309651b429dc199d456",
-      "owner": "scene-ordinary-native-image-depth",
-      "reason": "Bounded explicit native material-state contract, retired mixed type ownership and current code links; preserve real333 open status and bounded real358 scene observation.",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#普通原生图层的材质深度状态2026-10-19"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "6c5bc0c21848d704e97732ed356dbebe5513175646d1f0d750fd51cd8615a3b0",
-      "after": "fb895891b4a9bacad043211fe9223e53342ee927c6b69856876cfbc8a0d99607",
-      "owner": "scene-model-scene-depth-domain",
-      "reason": "Retire implicit geometry isolation, define exact pass/CB depth owner and true pending pressure, preserve real333/343 and diagnostic-only resource limits; synchronize current residual state without sample completion claims.",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "dd8e1b0ff30eb84398b7db392a63849e6b40d5ef4c998dedac21e65c38c5f53c",
-      "after": "40651bf6bd8ae2b51527f732146ceb4cc4d6bdc5eed13572208bbe2951d571d5",
-      "owner": "scene-mixed-layer-timeline",
-      "reason": "Bind only exact mixed Combined contract/current-evidence growth to existing owner and qualified compiler/native evidence. Reuse existing authority bodies, keep600-line hard limit, retain323 trajectory and official phase/performance limits.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#combined-timeline-playback-owner"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "8f4b677fc4e30982ce929ab47ae2667cd709e0cb1f8052bc872b0ceef2acd642",
-      "after": "ece660ca6b5aabfaf83f079b76f48c6fe8ce613cb7373bb7738d654fbfe58276",
-      "owner": "steam-detail-navigation",
-      "reason": "补充授权的过期详情静默更新、缓存即时复用及作者工坊返回来源合同；复用现有请求、metadata 与分页 owner，不添加轮询或第二缓存。",
-      "decision": "docs/architecture/steam-workshop-acquisition-contract.md#3-浏览缓存与-ui-投影"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8ccf58a01085d9f8bfa7c354f013ca00fbc7cbb1d524868e1f65994f50822149",
-      "after": "7b32a41481ae8e2166ed8b4d32fcc0784a13f893f3941cfd0a77cbbf2e7d0fa3",
-      "owner": "generic-shader-value-preparation",
-      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
-      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-project-json-localization.md",
-      "before": "d3a0a3c7915d2689d8ad5be0cd3e62983bece75c47fc3ee4be7f667bd06864c5",
-      "after": "5a565ee9c5cde9152162fcbd714c96c9fce264e00e286518f71ba157b9c91d23",
-      "owner": "workshop-property-presentation",
-      "reason": "用户要求Web与Scene展示细节一致；复用共享原生布局/滚动条，保留Web条件label和value的既有身份，只新增展示文本。",
-      "decision": "docs/scene/roadmap/properties-panel-card.md#authored-property-presentation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/uniform-invariant-shader-constants.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "df88577984a1de6c5a81328eec4064147020cddaa1c28b8c53f9669891d64b1f",
-      "owner": "generic-shader-value-preparation",
-      "reason": "限定共享source call事实与uniform只读初始化合同；同步真实径向模糊、独立白弧和必要失败证据，移除已修首门，保旧未解能力。无新增快照行或硬行数放宽。",
-      "decision": "docs/scene/capabilities/uniform-invariant-shader-constants.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "9b894dddf16c6732ae49df705d966c3f02bb4f5b0d1807f31a2d168417b2e616",
-      "owner": "direct-model-bind-geometry",
-      "reason": "保存严格bind几何合同及有界实图证据，退出旧首拒并保留默认动画/漩涡反馈；不扩大运行快照行上限。",
-      "decision": "docs/scene/capabilities/direct-model-bind-geometry.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-project-json-runtime-model.md",
-      "before": "a8e3b56449f1409c6b72fe9fa5cbb7db90543ca95d0a540a45eff1c9ea4f757b",
-      "after": "73fbfd127ddbac841772c49266f61301b83270322bdced198d60dab1892c89c8",
-      "owner": "playback-preparation-convergence",
-      "reason": "Record live trusted grant authority and distinct property/resource revisions at the existing Web model owner.",
-      "decision": "docs/history/cross-topic/playback-preparation-convergence-2026-10-19.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/release/release-signing.md",
-      "before": "4025b98b8bbef50c6e21b00be89f8a690b753dd08ec6b52da3f671e8cfde73c4",
-      "after": "0ac2e496107cdf2370f54b4e6b62e591e4202d1f4db53661722a219414bdbabd",
-      "owner": "release",
-      "reason": "User-requested durable one-command release method: explicit authorization, previous-release notes, prepared-version reuse, branch integration and end-to-end public verification.",
-      "decision": "docs/release/release-signing.md#agent-一句话发布"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2968b128662349ee2c26d833656994f398f8728d2834ea253a4ecf2e317a56a8",
-      "after": "ebd594fc23f9cd86f1271890cddd8b5052e1e2f77bc82a79178a3bceafe5a6a7",
-      "owner": "scene-particle-material",
-      "reason": "新增已验普通Sprite coverage的唯一合同、root/child准备需求及失败边界，并保真实外围花簇前后/独立样本/旧原型撤回界线；无样本调参或重复运行状态权威。队列与静态审计同步删除已修首断点并下调预算。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#sprite-alpha-to-coverage"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "before": "e77fa1c11d6a3b351cfee97cb134edab7621c18917091ac5c655620a4bec8fe1",
-      "after": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "8f9019a28d731161f86ff23c0b60867661c9234126644dd79ce2b737db31e628",
-      "after": "f1deeba1f66b3ae0fee1d3b3159063935cd86335fe67018588ad854e12fbef8b",
-      "owner": "Scene script and Puppet playback owners",
-      "reason": "Replace obsolete rate-source status with the typed source/phase contract, actual pose progression and preserved diagnostic failures.",
-      "decision": "docs/scene/capabilities/direct-model-skeletal-animation.md#animation-rate-script-values"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b7584ab9e0eab849d82692c88e8ac4bd16e8888cd9f03f22c52742ee142d7e70",
-      "after": "6cf9d3cec75e0c32e57053a0e82b2eb12b88a9ff90dd6a3acc1e091d92efdca0",
-      "owner": "scene-puppet-animation-auxiliary-profile",
-      "reason": "归并已执行官方API-only部分读回及明确STOP，保本机L0和未执行几何门，避免过时的下一步路线诱导重复实验；不是能力扩张。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#op-puppet-blend-shapes"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
-      "before": "fe903875d18c039637a85ed73fdcc47bcf04b607ebb932e4fe5eb0c19a17ca90",
-      "after": "09b29f6b76992ea274c13031a06625c53ff4b3df07c2816e30e676c78d5bdcb2",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "e0078691b9635187c9229c2be921f6f91e4247a0d37f142cb941e7bb3bf88b46",
-      "after": "093e13191dc60fba1fd7506f662090f267e932d3eceffec9bc0a09f930b87683",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "ba2264878cba0d1eddc43362b2dd9359fceb9dd964aeca8ce2b2b1088c068f55",
-      "after": "a21bafc1cc38355001f1b81595831c3dcc6e60a15bf7e60602691cb20c2d41be",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "bdcd0ff9cf82299c74b76477c5ce0c7840cf22cc68e8d8ab1f2c83a0ff161966",
-      "after": "18cd7e3c72918107a5306e7218d52206c1251e62f40718e32e9265ccc502ed0b",
-      "owner": "scene-user-shortcut-adapter",
-      "reason": "既有D4新增本机授权到原生点击、失败/撤权语义与Scene v2；证据页和样本台账记录有界打开及未排查通用pointer反馈。完整getter、全目标和性能未闭。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
-      "before": "50a9500abf66b283e412044610353a897c8a50dbdf627cd10ea7db30bcd25592",
-      "after": "7374c3ed02d91aa88bca5ef438cf2ecdb1b1d3bc0d376a7df7a2987279c13dca",
-      "owner": "scene-named-dependency-direct-anchor",
-      "reason": "修正generic image/text因inactive先序重选anchor导致的首帧阻断；同步真实反例/修后/独立画面、同类筛查与未覆盖边界，不将局部修复升级整样本PASS。",
-      "decision": "docs/scene/roadmap/batch2/system-media-input-design.md#optional-graph-output-slot-vector"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0a4f55c36c41465a4dbd65211b64217977605c672df9b0b591abbf08aa1dcf25",
-      "after": "1ea340c9137c06bd985f688654148d1bd2984f0bb9ebbce1725d3c20eb3dab9f",
-      "owner": "Apple silicon optimization program",
-      "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/mediaremote-nowplaying-design.md",
-      "before": "67729105c7845a6e23aa9895ab56afc65dce9fb359ce974702dc9c23c0cbbe99",
-      "after": "928fb65cb86f41c61b5ceccdea36e346e7e82a835ebc2102a22a6d94f34c4185",
-      "owner": "Apple silicon optimization program",
-      "reason": "用户授权执行唯一24项路线；补真实S1 STOP与U1/M2实施/退出合同，不新增平行台账。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/dedicated-host-process-design.md",
-      "before": "daa8591d8a9fcc4230f64ef3b450e36dcdb3e2e8fa80d88a67e38b5d4cd7cc86",
-      "after": "b4131212ddf0c2e5aecba9c3695c3310d676414b3882f0a3fd9b49bddba1ae99",
-      "owner": "apple-silicon-performance",
-      "reason": "D阶段真实CPU/端点退役闭环及75s原生回归；保留CSS/GPU STOP与并行负载限制。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "a9b8e6c35cff47f961b7244b898e5542b663fcb0fe93b519b4385d7ee79df4db",
-      "after": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
-      "owner": "apple-silicon-performance",
-      "reason": "D3有界Range交付与连接stop闭环经过真实scheme/TCP及独审，补实际成本/未测边界并关闭本批D处置。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "7f0227bfd4d6d59474a9b502e11008e44ca2143bc6e3d5ecef956dac15d1c1ec",
-      "after": "a9fb34fedb1cfcac939840ca963afd281811cbb38761a529e0ceb86777ecf597",
-      "owner": "apple-silicon-performance",
-      "reason": "用户授权继续D7同次严格syntax复用与D8准备批次取消；原owner内补职责、失败/join边界及实际门，保留旧STOP和未验范围。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "before": "8d206b405b5a60549218046c071742614b16dc664278b04aace1570098d75929",
-      "after": "f6581a9b057d75da2354e4ea04d092c88a4fdd1408f5e053af6c5c1d7005cece",
-      "owner": "scene-new-sample-diagnostics",
-      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "b7fcdb2200ee1715248aa6123371efc6964e034758f27c403e942d4aa50b613c",
-      "after": "b2478a48f842042096569813f6b11139029e019c4d049e7abf23452d79801093",
-      "owner": "scene-new-sample-diagnostics",
-      "reason": "用户授权新增24样本诊断；更新351目录声明/验收统计，按公共类型加入已证首错与有界观察，保存截图时序及工具资格边界，退出用户确认正常项；无产品修法或旧裁决升级。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "33f736588fd9f3ad2b5f75b553da3514e6a954f9cb9034a9e7afa44c33a5854e",
-      "after": "814748eb390cc13857ab5ca20f859ecd806d83967c12c1740fac770b9bed1398",
-      "owner": "apple-silicon-performance",
-      "reason": "D12资源关键路径取证、原lexer内等价快路及完整投影/冷暖实测收口；原计划集中记录收益、噪声与已知覆盖限制，不新增并行计划或诊断owner。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "cc9999f533fdba129110ef0e786015ce7a8783edd3a90f84354b56dbd2d3deb3",
-      "after": "dd7dd60deef3d289ec3bb76ae27b7540ac3f7513725df529f33bfbf5ad77defb",
-      "owner": "scene-material-color-boundary",
-      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+      "before": "dd7dd60deef3d289ec3bb76ae27b7540ac3f7513725df529f33bfbf5ad77defb",
+      "after": "9fee8a0cebc2c86d50f95e47a908cb28d0432154f6803d971613cb6289442a48",
+      "owner": "scene-material-host-inputs",
+      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f9f823c5f582369b8ef23268f5e31744c1c77498e29ff53ac714205208aedb5a",
-      "after": "b592bc92eb1764ffd8a7725ad02038e36e132e2f6c40ada78682c108ed0b75d8",
-      "owner": "scene-material-color-boundary",
-      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+      "before": "b592bc92eb1764ffd8a7725ad02038e36e132e2f6c40ada78682c108ed0b75d8",
+      "after": "6bf00e789e348ad34b6a37c76f74a716d5d0165772f7492f85ebd33d55e3b207",
+      "owner": "scene-material-host-inputs",
+      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "093e13191dc60fba1fd7506f662090f267e932d3eceffec9bc0a09f930b87683",
+      "after": "47f9cf112f3048ebe0ea65342ab9041314ec3ec97d5ac69aca27d82fbd0db6ec",
+      "owner": "scene-material-host-inputs",
+      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "fb895891b4a9bacad043211fe9223e53342ee927c6b69856876cfbc8a0d99607",
+      "after": "68c25f6c26befa4bec6af100169e7ca93b940faa1edf500dd2c1b6c2e6c13060",
+      "owner": "scene-material-host-inputs",
+      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
-      "after": "405b9303b5ede6d4474732694718382409e50e521b262598f63a5aac8663a343",
-      "owner": "scene-material-color-boundary",
-      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+      "before": "405b9303b5ede6d4474732694718382409e50e521b262598f63a5aac8663a343",
+      "after": "9dbcdfd110d0e7ffcff6ebdc7df922e36b848c184965e2b937ee8073991a1270",
+      "owner": "scene-material-host-inputs",
+      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "42d5386e6db4a632a53ed476f15d585e1a8b78f8fab6bc41a7b50ead7e722f2b",
-      "after": "4007b55abf4eac096b69ae32675a153c8b7e741d4b69f4578fe2602e08a37f68",
-      "owner": "scene-material-color-boundary",
-      "reason": "按既有D2设计补alpha-only通道合同并记录实际验收；299首拒退出但legacy光照后继仍开放，替换过时队列并补当前静态producer缺口，不升级整景或性能结论。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#alpha-only-color-boundary-20261021"
+      "before": "4007b55abf4eac096b69ae32675a153c8b7e741d4b69f4578fe2602e08a37f68",
+      "after": "2f1d0e24563c8abb5631e7958d93e63de75074ca11e1e5934608d681a70ab876",
+      "owner": "scene-material-host-inputs",
+      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
     }
   ]
 }

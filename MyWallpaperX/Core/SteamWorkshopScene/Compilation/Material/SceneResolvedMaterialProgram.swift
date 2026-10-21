@@ -78,6 +78,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case staticUniformBindingInvalid
         case hostUniformDeclarationConflict
         case hostUniformBindingInvalid
+        case hostUniformInputUnavailable
         case dynamicUniformBindingInvalid
         case colorContractUnproven
         case frameSnapshotMismatch
@@ -431,6 +432,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         case effectDrawColor, effectDrawColor4
         case textureReductionScale
         case layerModelMatrix
+        case effectModelMatrix
+        case lightsPosition, lightsColorPremultiplied, lightAmbientColor
         case effectModelViewProjection
         case effectTextureProjectionMatrix
         case effectTextureProjectionMatrixInverse

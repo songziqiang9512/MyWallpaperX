@@ -233,6 +233,30 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Codable, Ha
     }
 }
 
+/// Declaration shape only. The material host schema separately proves an
+/// effect-context producer; recognizing this ABI never invents a fallback.
+nonisolated enum SceneAuthoredShaderHostArrayShape {
+    struct Shape {
+        let type: SceneAuthoredShaderValueType
+        let count: Int
+    }
+
+    static func effectLighting(name: String) -> Shape? {
+        switch name {
+        case "g_LightsPosition": .init(type: .float3, count: 4)
+        case "g_LightsColorPremultiplied": .init(type: .float4, count: 3)
+        default: nil
+        }
+    }
+
+    static func isEffectLighting(
+        name: String, type: SceneAuthoredShaderValueType, count: Int?
+    ) -> Bool {
+        guard let shape = effectLighting(name: name) else { return false }
+        return type == shape.type && count == shape.count
+    }
+}
+
 nonisolated struct SceneAuthoredShaderUniformLayout: Codable, Equatable, Hashable, Sendable {
     struct Field: Codable, Equatable, Hashable, Sendable {
         /// Metal ABI name. It is stage-qualified only when the authored name

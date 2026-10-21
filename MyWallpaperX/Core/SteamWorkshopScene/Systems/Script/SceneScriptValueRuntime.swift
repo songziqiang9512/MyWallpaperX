@@ -766,6 +766,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         if case .layer(_, .intensity) = target {
             return value >= 0 && value <= Double(Float.greatestFiniteMagnitude)
         }
+        if case .layer(_, .radius) = target {
+            return SceneDynamicLayerField.acceptsLightRadius(value)
+        }
         if case .layer(_, .brightness) = target {
             return Float(max(0, value)).isFinite
         }

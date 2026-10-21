@@ -4,6 +4,12 @@ import simd
 nonisolated enum SceneResolvedMaterialUniformEncoder {
     typealias Program = SceneResolvedMaterialProgram
 
+    enum HostResolution: Equatable {
+        case encoded(Data)
+        case inputUnavailable
+        case invalid
+    }
+
     static func hostUniform(
         _ field: SceneAuthoredShaderUniformLayout.Field,
         slots: [Program.TextureSlot?],
@@ -33,6 +39,73 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
     }
 
     static func encodeHost(
+        _ host: Program.HostUniform,
+        type: SceneAuthoredShaderValueType,
+        inputs: SceneAuthoredShaderUniformInputs,
+        slots: [Program.TextureSlot?]
+    ) -> Data? {
+        guard case let .encoded(value) = resolveHost(
+            host, type: type, inputs: inputs, slots: slots
+        ) else { return nil }
+        return value
+    }
+
+    /// Only the new optional ordinary-effect inputs can be unavailable.
+    /// ABI errors and failures of established required hosts remain invalid.
+    static func resolveHost(
+        _ host: Program.HostUniform,
+        type: SceneAuthoredShaderValueType,
+        inputs: SceneAuthoredShaderUniformInputs,
+        slots: [Program.TextureSlot?]
+    ) -> HostResolution {
+        let value: Data?
+        switch host {
+        case .effectModelMatrix:
+            guard type == .float4x4 else { return .invalid }
+            guard let model = inputs.effectUnitModelMatrix,
+                  let world = inputs.lighting.worldFromRenderWorld else {
+                return .inputUnavailable
+            }
+            guard valid(inputs.renderSize) else { return .invalid }
+            let width = Float(inputs.renderSize.width)
+            let height = Float(inputs.renderSize.height)
+            guard width.isFinite, height.isFinite, width > 0, height > 0 else {
+                return .invalid
+            }
+            let pixelsToUnit = simd_float4x4(diagonal: SIMD4(
+                1 / width, 1 / height, 1, 1
+            ))
+            value = encodeMatrix(world * model * pixelsToUnit, type: type)
+        case .lightsPosition:
+            guard type == .float3 else { return .invalid }
+            guard let values = inputs.lighting.positions else { return .inputUnavailable }
+            guard values.count == 4 else { return .invalid }
+            value = encodeVectorArray(values.map {
+                [Double($0.x), Double($0.y), Double($0.z)]
+            }, type: type)
+        case .lightsColorPremultiplied:
+            guard type == .float4 else { return .invalid }
+            guard let values = inputs.lighting.colorsPremultiplied else {
+                return .inputUnavailable
+            }
+            guard values.count == 3 else { return .invalid }
+            value = encodeVectorArray(values.map {
+                [Double($0.x), Double($0.y), Double($0.z), Double($0.w)]
+            }, type: type)
+        case .lightAmbientColor:
+            guard type == .float3 else { return .invalid }
+            guard let ambient = inputs.lighting.ambient else { return .inputUnavailable }
+            value = encodeComponents(
+                [Double(ambient.x), Double(ambient.y), Double(ambient.z)], as: type
+            )
+        default:
+            value = encodeRequiredHost(host, type: type, inputs: inputs, slots: slots)
+        }
+        guard let value else { return .invalid }
+        return .encoded(value)
+    }
+
+    private static func encodeRequiredHost(
         _ host: Program.HostUniform,
         type: SceneAuthoredShaderValueType,
         inputs: SceneAuthoredShaderUniformInputs,
@@ -73,6 +146,10 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             return encodeMatrix(inputs.modelViewProjection.inverse, type: type)
         case .layerModelMatrix:
             return encodeMatrix(inputs.layerModelMatrix, type: type)
+        case .effectModelMatrix, .lightsPosition,
+             .lightsColorPremultiplied, .lightAmbientColor:
+            // Optional ordinary inputs are resolved by the typed entry point.
+            return nil
         case .effectModelViewProjection:
             guard valid(inputs.renderSize) else { return nil }
             let targetPixelsToLayer = simd_float4x4(diagonal: SIMD4(
@@ -318,6 +395,17 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 at: index * MemoryLayout<Float>.stride,
                 into: &data
             ) else { return nil }
+        }
+        return data
+    }
+
+    private static func encodeVectorArray(
+        _ vectors: [[Double]], type: SceneAuthoredShaderValueType
+    ) -> Data? {
+        var data = Data()
+        for vector in vectors {
+            guard let encoded = encodeComponents(vector, as: type) else { return nil }
+            data.append(encoded)
         }
         return data
     }

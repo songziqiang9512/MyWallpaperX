@@ -24,6 +24,8 @@ SWIFT_SOURCES = [
     VM / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
     SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
+    SCENE / "Format/SceneDirectionalLightDefinition.swift",
+    SCENE / "Format/ScenePointLightDefinition.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
@@ -423,6 +425,7 @@ struct SceneRenderDescriptor {
         var imagePath: String? = nil
         var staticModelPath: String? = nil
         var puppetMeshPath: String? = nil
+        var pointLight: ScenePointLightDefinition? = nil
         var spotLight: Int? = nil
         var directionalLight: Int? = nil
         var authoredLightIntensity: Float? = nil
@@ -488,6 +491,7 @@ def compile_vector_harness(
     harness_source: str,
     binary_name: str,
     *, extra_swift_sources: tuple[Path, ...] = (), preamble: str = SWIFT_PREAMBLE,
+    whole_module_optimization: bool = False,
 ) -> Path:
     clang = shutil.which("clang")
     if clang is None:
@@ -525,6 +529,7 @@ def compile_vector_harness(
             "swiftc",
             "-parse-as-library",
             "-O",
+            *(["-whole-module-optimization"] if whole_module_optimization else []),
             "-import-objc-header",
             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"),
             "-Xcc",

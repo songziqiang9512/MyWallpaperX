@@ -74,6 +74,24 @@ nonisolated enum SceneDynamicLayerValues {
         return authoredValue
     }
 
+    /// Point/lpoint radius follows the shared frame value and falls back
+    /// locally. Zero stays zero so the snapshot can disable this light.
+    /// Spot cones retain their separate, bounded authored geometry.
+    static func lightRadius(
+        layerID: Int,
+        authoredValue: Float?,
+        snapshot: SceneDynamicSnapshot
+    ) -> Float? {
+        if let resolved = snapshot[.layer(layerID: layerID, field: .radius)],
+           case let .scalar(value) = resolved.value,
+           SceneDynamicLayerField.acceptsLightRadius(value) {
+            return Float(value)
+        }
+        guard let authoredValue,
+              SceneDynamicLayerField.acceptsLightRadius(Double(authoredValue)) else { return nil }
+        return authoredValue
+    }
+
     private static func normalizedAlpha(_ value: Double) -> Float {
         guard value.isFinite else { return 1 }
         return Float(min(max(value, 0), 1))

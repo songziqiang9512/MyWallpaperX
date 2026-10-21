@@ -799,12 +799,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
-        "script/tests/test_scene_script_image_brightness.py"
+        "script/tests/test_scene_script_image_brightness.py",
+        "script/tests/test_scene_script_light_radius.py"
       ],
       "modules": [
         "test_scene_script_image_brightness",
         "test_scene_image_brightness_property",
-        "test_scene_hidden_property_consumers"
+        "test_scene_hidden_property_consumers",
+        "test_scene_script_light_radius"
       ]
     },
     {
@@ -836,14 +838,19 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
         "script/scene_shader_compiler_request_contract.py",
-        "script/tests/test_scene_shader_global_scope.py"
+        "script/tests/test_scene_shader_global_scope.py",
+        "script/tests/test_scene_light_host_array_frontends.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift"
       ],
       "modules": [
         "test_scene_shader_global_scope",
         "test_scene_authored_shader_frontend",
         "test_scene_generic_shader_program_artifact",
         "test_scene_shader_persistent_cache",
-        "test_scene_shader_compiler_request_contract"
+        "test_scene_shader_compiler_request_contract",
+        "test_scene_light_host_array_frontends"
       ]
     },
     {
@@ -1567,7 +1574,10 @@
         "script/tests/test_scene_graph_source_color_purpose.py",
         "script/tests/test_scene_alpha_only_color_boundary.py",
         "script/tests/test_scene_source_proven_straight_color_purpose.py",
-        "script/tests/test_scene_scalar_mask_data_purpose.py"
+        "script/tests/test_scene_scalar_mask_data_purpose.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
+        "script/tests/test_scene_ordinary_effect_lighting.py",
+        "script/tests/test_scene_ordinary_effect_lighting_gpu.py"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1608,7 +1618,9 @@
         "test_scene_graph_source_color_purpose",
         "test_scene_alpha_only_color_boundary",
         "test_scene_source_proven_straight_color_purpose",
-        "test_scene_scalar_mask_data_purpose"
+        "test_scene_scalar_mask_data_purpose",
+        "test_scene_ordinary_effect_lighting",
+        "test_scene_ordinary_effect_lighting_gpu"
       ]
     },
     {
@@ -4050,6 +4062,21 @@
         "test_web_range_streaming",
         "test_web_resource_grants",
         "test_web_response_transformer"
+      ]
+    },
+    {
+      "id": "ordinary-effect-light-inputs",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
+        "script/tests/test_scene_ordinary_effect_lighting.py",
+        "script/tests/test_scene_ordinary_effect_lighting_gpu.py"
+      ],
+      "modules": [
+        "test_scene_ordinary_effect_lighting",
+        "test_scene_ordinary_effect_lighting_gpu",
+        "test_scene_script_light_radius"
       ]
     }
   ],

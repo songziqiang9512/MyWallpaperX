@@ -29,7 +29,8 @@ extension SceneMetalRenderer {
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
         ],
         _ mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
-        _ frameContext: SceneFrameContext
+        _ frameContext: SceneFrameContext,
+        lighting: SceneAuthoredShaderLightingInputs
     ) {
         let systemProviderStates = mediaThumbnail.providerStates.merging(
             stockNoiseTextures.states, uniquingKeysWith: { _, prepared in prepared }
@@ -56,7 +57,7 @@ extension SceneMetalRenderer {
         imageCompositor.beginResolvedMaterialFrame(
             textureSnapshot: textureRegistry.snapshot(),
             dynamicSnapshot: frameContext.dynamicValues,
-            frameInputs: .init(frameContext: frameContext)
+            frameInputs: .init(frameContext: frameContext, lighting: lighting)
         )
     }
 }

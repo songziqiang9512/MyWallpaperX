@@ -154,7 +154,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                             samplers[item.name] = slot
                         } else {
                             guard valueTypes.contains(item.type),
-                                  item.count == nil || isAudioSpectrumArray(item) else {
+                                  item.count == nil || isAudioSpectrumArray(item)
+                                    || isEffectLightingArray(item) else {
                                 throw Failure.uniformUnsupported
                             }
                             if let previous = uniforms[item.name], previous != shape {
@@ -556,6 +557,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
               [16, 32, 64].contains(count) else { return false }
         return declaration.name == "g_AudioSpectrum\(count)Left"
             || declaration.name == "g_AudioSpectrum\(count)Right"
+    }
+
+    private static func isEffectLightingArray(_ declaration: Declaration) -> Bool {
+        guard let type = SceneAuthoredShaderValueType(authoredName: declaration.type) else { return false }
+        return SceneAuthoredShaderHostArrayShape.isEffectLighting(
+            name: declaration.name, type: type, count: declaration.count
+        )
     }
 
     /// Adapt the source's packed four-lane view to the unchanged N-float host

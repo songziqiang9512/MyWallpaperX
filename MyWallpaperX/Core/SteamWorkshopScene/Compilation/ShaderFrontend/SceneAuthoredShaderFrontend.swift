@@ -582,6 +582,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     name: declaration.name,
                     type: type,
                     count: arrayCount
+                ) || SceneAuthoredShaderHostArrayShape.isEffectLighting(
+                    name: declaration.name, type: type, count: arrayCount
                 ) || (type == .float
                     && unit.exactRuntimeLoopUniformArrays.contains(declaration.name)) else {
                     diagnostics.append(.init(

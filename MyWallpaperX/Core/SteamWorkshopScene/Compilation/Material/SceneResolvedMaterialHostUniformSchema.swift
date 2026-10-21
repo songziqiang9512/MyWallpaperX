@@ -8,7 +8,14 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         activeTextureSlots: Set<Int>,
         hasEffectContext: Bool = false
     ) -> Program.HostUniform? {
-        switch (field.authoredName, field.type) {
+        if hasEffectContext,
+           SceneAuthoredShaderHostArrayShape.isEffectLighting(
+               name: field.authoredName, type: field.type, count: field.arrayCount
+           ) {
+            return field.authoredName == "g_LightsPosition"
+                ? .lightsPosition : .lightsColorPremultiplied
+        }
+        return switch (field.authoredName, field.type) {
         case (SceneShaderColorBoundary.uniformName, .uint) where field.arrayCount == nil:
             .premultipliedColorInputMask
         case ("g_Alpha", .float) where field.arrayCount == nil && hasEffectContext:
@@ -19,6 +26,10 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             .effectDrawColor4
         case ("g_TextureReductionScale", .float) where field.arrayCount == nil && hasEffectContext:
             .textureReductionScale
+        case ("g_LightAmbientColor", .float3) where field.arrayCount == nil && hasEffectContext:
+            .lightAmbientColor
+        case ("g_EffectModelMatrix", .float4x4) where field.arrayCount == nil && hasEffectContext:
+            .effectModelMatrix
         case ("mwxRenderSize", .float2): .renderSize
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):
@@ -81,7 +92,13 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         _ name: String,
         hasEffectContext: Bool
     ) -> Bool {
-        hasEffectContext && ["g_Alpha", "g_Color", "g_Color4", "g_TextureReductionScale"].contains(name)
+        if [
+            "g_LightsPosition", "g_LightsColorPremultiplied",
+            "g_LightAmbientColor", "g_EffectModelMatrix",
+        ].contains(name) { return true }
+        return hasEffectContext && [
+            "g_Alpha", "g_Color", "g_Color4", "g_TextureReductionScale",
+        ].contains(name)
     }
 
     private static func textureSlotPrefix(_ name: String) -> Int? {

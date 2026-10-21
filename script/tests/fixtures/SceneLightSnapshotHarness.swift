@@ -283,6 +283,7 @@ enum LightSnapshotHarness {
         precondition(liveTargets == [
             .layer(layerID: 6, field: .color),
             .layer(layerID: 6, field: .intensity),
+            .layer(layerID: 6, field: .radius),
             .layer(layerID: 7, field: .color),
             .layer(layerID: 7, field: .intensity),
         ])
@@ -452,9 +453,14 @@ enum LightSnapshotHarness {
         precondition(bounded.spot.isEmpty)
         precondition(bounded.overflowCount == 0)
         precondition(bounded.shadowLights.compactMap(\.layerID) == [4, 7, 5])
-        precondition(SceneLightSnapshot.liveConsumerTargets(
+        let orderedLiveTargets = SceneLightSnapshot.liveConsumerTargets(
             descriptor: orderedDescriptor
-        ).count == 14)
+        )
+        precondition(orderedLiveTargets.count == 17)
+        precondition(Set(orderedLiveTargets.compactMap { target -> Int? in
+            guard case let .layer(layerID, .radius) = target else { return nil }
+            return layerID
+        }) == [2, 5, 7])
 
         let visibilityDescriptor = SceneRenderDescriptor(
             lighting: orderedDescriptor.lighting,

@@ -5,6 +5,9 @@ struct SceneCaptureGeometry {
     let sourceUV: SceneTextureUVTransform
     let outputMVP: simd_float4x4
     let pixelSize: CGSize
+    /// Present only when the emitted card retains an authored world plane.
+    /// Canonical fullscreen raster geometry cannot supply one by inversion.
+    var outputUnitModelMatrix: simd_float4x4? = nil
 
     /// The caller supplies the output matrix after the actual enclosing pass's
     /// raster transform, and that attachment's pixel extent, not the graph size.
@@ -194,7 +197,8 @@ enum SceneCaptureGeometryResolver {
         compositionSourceMemberLayerIDs: [Int]? = nil,
         authoredRenderSizeWH: [Float]? = nil,
         localCompositionSourceExtent: CGSize? = nil,
-        usesMaterialSource: Bool = false
+        usesMaterialSource: Bool = false,
+        outputUnitModelMatrix: simd_float4x4? = nil
     ) -> SceneCaptureGeometry? {
         guard viewportSize.width.isFinite, viewportSize.height.isFinite,
               viewportSize.width > 0, viewportSize.height > 0 else {
@@ -209,13 +213,15 @@ enum SceneCaptureGeometryResolver {
                     candidateMappedSize: nil
                   ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
                      Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
-            return .init(sourceUV: .identity, outputMVP: layerMVP, pixelSize: extent.pixelSize)
+            return .init(sourceUV: .identity, outputMVP: layerMVP, pixelSize: extent.pixelSize,
+                         outputUnitModelMatrix: outputUnitModelMatrix)
         }
         if kind == .composition,
            compositionSourceMemberLayerIDs?.isEmpty == false,
            let localCompositionSourceExtent {
             return SceneCaptureGeometry(sourceUV: .identity, outputMVP: layerMVP,
-                                        pixelSize: localCompositionSourceExtent)
+                                        pixelSize: localCompositionSourceExtent,
+                                        outputUnitModelMatrix: outputUnitModelMatrix)
         }
         // Legacy members already occupy enclosing viewport coordinates. Empty
         // transparent inputs instead retain the utility's authored local quad.
@@ -272,7 +278,8 @@ enum SceneCaptureGeometryResolver {
                 yAxis: bottomLeft - topLeft
             ),
             outputMVP: layerMVP,
-            pixelSize: pixelSize
+            pixelSize: pixelSize,
+            outputUnitModelMatrix: outputUnitModelMatrix
         )
     }
 

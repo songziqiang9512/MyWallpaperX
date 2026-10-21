@@ -165,6 +165,14 @@
 
 ## 3. 证据包
 
+### 普通 effect 灯光宿主与同帧半径（2026-10-21）
+
+<a id="ordinary-effect-light-host-20261021"></a>证据等级 `S3 shared host/geometry inputs executed`，不是流体恢复。[设计边界](../roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs)由同一 LightSnapshot 发布正交、最多四个可见 point 的位置/颜色/ambient；原 world-card geometry 沿 FrameInputs 到真实 node target，保留唯一资源与合成链。point/lpoint 的非负 radius 复用 typed 属性/脚本链，零半径保持关闭并可恢复；其他灯型、溢出选择和 native perspective 的 legacy 输入仍 unavailable。精确 vec3[4]/vec4[3] 在两 frontend、反射和16B stride一致，坏 ABI/非有限 payload/旧 host 失败仍严格拒绝；仅四个新增可选 host 的缺值进入原拓扑与回滚门约束的局部降级。
+
+官方2.8.0.42自有 echo 的有限单变量与灰阶/signed读数支持前三 RGB/第四灯 W 打包、颜色×强度×半径平方、raw ambient、正交Y与空槽候选；全彩±2资格失败，保留饱和/陈旧激活/编译反例，不宣称完整官方ABI或光照parity。CPU门覆盖属性/半径、改名/分量与坏数组、cache identity、真实Finalizer；冻结源真实GPU8帧及2项原断言通过，含双target非等比父变换/pivot、连续灯值及nil-world入口/peer像素。首轮nil-world整图失败促成上述typed分类纠正，原失败保留。
+
+最终签名Debug增量构建通过，1117个产品源在构建前后相同。真实原299仍 **NON-PASS / 灰底**，首次拒绝已从宿主数组推进到combine node17 `colorContractUnproven`（`launch-color-projection-unresolved,transfer-alpha-signal-composite-0-1`）；不能把原流体effect的透传terminal计为成功。未参与修法的313/372默认路径各PASS，人物/背景/频谱或粒子保持；三run均exit0、stop1→0、GPU排空，未操作真实radius面板，也未补全native lit/model、HDR、官方同phase或全库验收。无可比性能测量，不宣称CPU/GPU/内存收益。必要证据包 `.artifacts/scene-evidence/runs/ordinary-effect-light-host-20261021/`（ZIP SHA-256 `d03537fb…1e32859`，15,812,379B）保留有限数值实验、原GPU失败与最终像素、来源身份及原样App报告；299颜色/背景缺口继续留在队列。
+
 ### 普通 Program 仅 alpha 读取（2026-10-21）
 
 <a id="alpha-only-color-boundary-20261021"></a>现采样组件证明`alphaOnly`，互斥alpha/RGB槽沿原Program消费；launch/finalization核真实alpha，straight存储沿原资格，RGB/PMA不误转换，未知/缺失/R/RG不得凭新alpha合同获准；既有typed-data默认扩展保持。两frontend及artifact解码/缓存同事实，离线Python缺源证明时明确拒非空alpha合同。固定HEAD红门复现独立信号输入被拒；修后12等价/表示正例及2个既有R/RG均实际GPU，同atom/像素成立，RGB混用/别名/vertex与9个篡改工件反例通过；最近graph颜色5门及cache fresh-reader两门通过。最终签名Debug App原299已越过normal node16，仍在combine node17的legacy light数组拒绝，**背景未恢复**；独立313/372默认静音主体、背景与粒子保留，3包exit0、stop1→0/GPU排空，非同状态官方parity或性能结论。独审0必须修；证据`.artifacts/scene-evidence/runs/alpha-only-color-boundary-20261021/`。

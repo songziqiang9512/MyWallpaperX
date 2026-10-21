@@ -120,6 +120,7 @@ nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, S
     case alpha
     case brightness
     case intensity
+    case radius
     case fov
     case origin
     case size
@@ -134,12 +135,19 @@ nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, S
         let degrees = Float(value)
         return degrees.isFinite && degrees > 0 && degrees < 180
     }
+
+    /// Zero is a valid off signal, including positive Double values that
+    /// quantize to Float zero. The current light consumer owns that outcome.
+    nonisolated static func acceptsLightRadius(_ value: Double) -> Bool {
+        value.isFinite && value >= 0
+            && value <= Double(Float.greatestFiniteMagnitude)
+    }
 }
 
 private extension SceneDynamicLayerField {
     nonisolated var userPropertyScalarRange: ClosedRange<Double>? {
         switch self {
-        case .intensity:
+        case .intensity, .radius:
             0 ... Double(Float.greatestFiniteMagnitude)
         case .solid, .perspective, .visibility, .alpha, .brightness, .fov, .origin, .size, .scale, .angles, .color,
              .volume:
@@ -263,6 +271,8 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
     }
 
     nonisolated func acceptsUserPropertyValue(_ value: SceneDynamicValue) -> Bool {
+        if case .layer(_, .radius) = target,
+           !target.acceptsRepresentableValue(value) { return false }
         let numericComponents: [Double]? = switch value {
         case let .scalar(component): [component]
         case let .vector3(x, y, z): [x, y, z]
@@ -284,9 +294,16 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
 
 private extension SceneDynamicTarget {
     nonisolated func acceptsRepresentableValue(_ value: SceneDynamicValue) -> Bool {
-        guard case .layer(_, .fov) = self else { return true }
-        guard case let .scalar(degrees) = value else { return false }
-        return SceneDynamicLayerField.acceptsFOV(degrees)
+        switch self {
+        case .layer(_, .fov):
+            guard case let .scalar(degrees) = value else { return false }
+            return SceneDynamicLayerField.acceptsFOV(degrees)
+        case .layer(_, .radius):
+            guard case let .scalar(radius) = value else { return false }
+            return SceneDynamicLayerField.acceptsLightRadius(radius)
+        default:
+            return true
+        }
     }
 
     nonisolated var userPropertyScalarRange: ClosedRange<Double>? {

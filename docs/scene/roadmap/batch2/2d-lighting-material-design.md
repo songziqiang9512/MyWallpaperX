@@ -554,3 +554,20 @@ one-spot 草案无当前可证 caster 受益，故后移；point 需要完整全
 原生透视图片片的设计与实施过程见[距离雾记录](../../history/static-model-light-input-semantics-2026-10-06.md#image-distance-fog)。沿已有model/camera/light snapshot→typed request→唯一MainPass接入；raw/named publication与utility旁路，模型和两种图片fragment共用一个MSL函数。Fog在effect/tint后，ColorBlend按style alpha混合后再Fog，shape最后限制写入；关闭沿原路。无额外pass、纹理或逐帧解析/编译。
 
 **仍开放：正交距离域。** 官方常密度有响应，但两项距离控制全黑，不足以确定eye/距离；本片不启用正交画布或其perspective override，也不把solid terminal replay等未验路径记为支持。后继先用可见健康邻层及不饱和分段标尺区分Fog距离与失败，再沿现camera owner输出typed位置；不得猜默认距离、复制Fog或按样本分支。修复后验证距离、完整model变换、透明/shape、关闭和raw不变，补官方同输入、实际App与独立审查；全部profile闭合再退役本节。
+
+<a id="ordinary-effect-light-host-inputs"></a>
+## 普通 effect 宿主灯光输入（2026-10-21，point 正交首片）
+
+**目标与首门。** 原299默认流体的normal颜色首拒已由共享alpha-only合同解除；后继combine node17在vec3 `g_LightsPosition[4]`、vec4 `g_LightsColorPremultiplied[3]`数组拒绝，整effect仍透传。只开放数组语法不能补宿主来源；不重写流体、PBR或另建光照算法。公开[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html)说明effect→world矩阵及旧point灯参数，未裁定此三向量颜色打包、强度/半径、空槽或选择顺序。
+
+**已裁范围与证据限度。** 自有 ordinary solid/effect echo 在官方2.8.0.42完成灰阶、signed、动态标记和四边资格。四盏非白灯及单变量强度、半径、颜色、逆序、0/1/4灯、非中心Y对照支持：前三vec4.rgb为前三灯，三个w组成第四灯RGB；已测数值与 `color × intensity × radius²` 相容，ambient取raw而非加skylight。零半径保slot/position且颜色能量为零，不能回退默认半径。空位置读数与 `(0,100,0)` 相容、排除全零；正交位置为authored Y方向，不能直接填Metal内部翻Y的world值。矩阵基线与单位XYZ轴及(605,393,0)平移相容，排除把target尺寸再当basis增益。以上是有限输入的数值证据；全彩±2资格未通过，不认完整灯型、矩阵、HDR或画面parity，原饱和、编译及陈旧激活失败均保留。
+
+**职责与数据流。** 同一SceneLightSnapshot采集循环同时发布native准入灯与不可变ordinary宿主投影；point的零半径候选须在native拒灯前保slot来源，不能重扫scene、重复执行脚本或从shader反推值。把现唯一快照生产移到Program beginFrame之前，原native消费者继续消费同值；typed全局值沿现FrameInputs→frame snapshot→UniformInputs→HostUniformSchema/Program/encoder，不在RuntimeBridge重复储存全局数组。正交render-world→authored-world变换由同投影发布，灯位置与effect模型共用，native消费者的坐标及预算不改。现2D lit gain、ambient+skylight及四灯payload不作为此ABI。
+
+**精确准入。** 首片只开放effect上下文的vec3 `g_LightsPosition[4]`、vec4 `g_LightsColorPremultiplied[3]`、vec3 `g_LightAmbientColor`及mat4 `g_EffectModelMatrix`。数组元素各16字节，分别64/48字节；两frontend、反射、工件和真实encoder同合同，generic历史scalar数组`.x`解包不得吞vec数组分量。正交、最多四个可见point按作者顺序；零半径合法，负/非有限/不可表示值局部拒绝且不伤其他typed值，正Double到Float零沿同静态量化。lpoint/spot/directional、超过四灯选择及native perspective的legacy宿主语义未裁，保持该宿主需求局部unavailable，原native路径不受影响。
+
+**几何与失败。** 现geometry owner在乘camera VP前保实际unit-card→render-world模型，与原output MVP同行；每个node按其实际target W/H右乘pixel→unit，再经上述共享world边界生成EffectModel。父变换、Y方向、pivot/alignment、parallax与geometry尺寸只应用一次；不从屏幕或采样源尺寸猜、不用layer frame/terminal replay冒充。先支持已有world card的局部geometry；canonical clip/fullscreen若无已证world平面则该字段unavailable。未引用的声明不制造需求。四个新增可选host的缺值使用typed `hostUniformInputUnavailable`，仅经原topology及effect-entry回滚门局部透传；畸形ABI、非有限payload、字节跨度异常与旧host失败继续严格拒绝，不填identity或新建renderer。
+
+**研究停止与后继。** 本片数值裁决已够实施，停止扩实验矩阵；保有限区间和候选相容表，不把clamp黑白当精确原值。后继仅当新的真实断点要求其他灯型、选择或world平面时再做区分实验；当前没有证据的profile不扩准入。
+
+**验收与退出。** 两frontend/反射/数组stride、host来源冲突、动态同帧值与无效输入反例，source/resource改名及等价表达式；实际GPU核world位置、非中心Y、非等比父变换/pivot及两target同footprint。当前宿主链与nil-world局部降级已取得8帧GPU证据，稳定职责见[运行时合同](../../architecture/runtime-architecture.md#ordinary-effect-lighting-host)，实际证据见[当前记录](../../capabilities/runtime-evidence-current.md#ordinary-effect-light-host-20261021)。原299仍在combine node17颜色合同拒绝，金属背景未恢复，独立313/372仅默认路径保持；不得以宿主首门消失、非黑或测试通过关闭流体单。原2D/model、其他灯型、shadow、HDR数值及官方精确parity仍待相应后继，不追加猜测或扩数值实验。

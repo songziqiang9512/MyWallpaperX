@@ -44,6 +44,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         modelViewProjection: simd_float4x4,
         layerModelMatrix: simd_float4x4,
         effectOutputModelViewProjection: simd_float4x4,
+        effectUnitModelMatrix: simd_float4x4? = nil,
         effectTextureProjectionMatrixInverse: simd_float4x4,
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
@@ -57,6 +58,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             modelViewProjection: modelViewProjection,
             layerModelMatrix: layerModelMatrix,
             effectOutputModelViewProjection: effectOutputModelViewProjection,
+            effectUnitModelMatrix: effectUnitModelMatrix,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
@@ -122,6 +124,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     let modelViewProjection: simd_float4x4
     let layerModelMatrix: simd_float4x4
     let effectOutputModelViewProjection: simd_float4x4
+    var effectUnitModelMatrix: simd_float4x4? = nil
     let effectTextureProjectionMatrixInverse: simd_float4x4
     /// Consumer opacity; source capture and named provider alpha remain separate.
     var effectDrawAlpha: Float = 1
@@ -146,6 +149,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             screenSize: frameSnapshot.frameInputs.screenSize,
             modelViewProjection: modelViewProjection,
             layerModelMatrix: layerModelMatrix,
+            effectUnitModelMatrix: effectUnitModelMatrix,
             effectOutputModelViewProjection:
                 effectOutputModelViewProjection,
             effectTextureProjectionMatrix:
@@ -162,7 +166,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
                 frameSnapshot.frameInputs.pointerPrimaryButtonDown,
             parallaxPositionNDC:
                 frameSnapshot.frameInputs.parallaxPositionNDC,
-            audioSpectrum: frameSnapshot.frameInputs.audioSpectrum
+            audioSpectrum: frameSnapshot.frameInputs.audioSpectrum,
+            lighting: frameSnapshot.frameInputs.lighting
         )
     }
 
@@ -459,12 +464,23 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             let field = binding.field
             switch binding.source {
             case let .host(host):
-                guard let value = SceneResolvedMaterialUniformEncoder.encodeHost(
-                          host,
-                          type: field.type,
-                          inputs: uniformInputs,
-                          slots: slots
-                ) else {
+                let value: Data
+                switch SceneResolvedMaterialUniformEncoder.resolveHost(
+                    host, type: field.type, inputs: uniformInputs, slots: slots
+                ) {
+                case let .encoded(encoded): value = encoded
+                case .inputUnavailable:
+                    throw failure(
+                        .uniform, .hostUniformInputUnavailable,
+                        details: [field.name]
+                    )
+                case .invalid:
+                    throw failure(
+                        .uniform, .hostUniformBindingInvalid,
+                        details: [field.name]
+                    )
+                }
+                guard value.count == field.storageByteSize else {
                     throw failure(
                         .uniform,
                         .hostUniformBindingInvalid,

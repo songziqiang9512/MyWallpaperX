@@ -135,8 +135,31 @@ struct SceneMetalRenderer {
 #else
         let effectExecutionTrace: SceneEffectExecutionFrameTrace? = nil
 #endif
+        let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: frameProjection.descriptor, layersByID: frameProjection.layersByID,
+            snapshot: frameContext.dynamicValues
+        )
+        let dynamicLightColors = Dictionary(uniqueKeysWithValues:
+            frameProjection.lightLayerIDs.compactMap { layerID -> (Int, SIMD3<Float>)? in
+                guard let layer = frameProjection.layersByID[layerID] else { return nil }
+                return (layerID, SceneDynamicLayerValues.color(
+                    layerID: layerID, authoredValue: layer.colorRGB,
+                    snapshot: frameContext.dynamicValues
+                ))
+            }
+        )
+        let frameLightSnapshot = SceneLightSnapshot.make(
+            descriptor: frameProjection.descriptor,
+            worldFramesByLayerID: frameProjection.worldFrames,
+            dynamicLayerColors: dynamicLightColors,
+            dynamicSnapshot: frameContext.dynamicValues,
+            candidateLayerIDs: frameProjection.lightLayerIDs,
+            layersByID: frameProjection.layersByID,
+            visibleLayerIDs: frameVisibleLayerIDs
+        )
         beginTextureFrame(imageTextures, userPropertyTextures, userPropertyTextureStates,
-                          mediaThumbnail, frameContext)
+                          mediaThumbnail, frameContext,
+                          lighting: frameLightSnapshot.authoredShaderLighting)
 #if DEBUG
         SceneGPUStageTimestampHook.frameEpoch(textureRegistry.frameEpoch, on: commandBuffer)
 #endif
@@ -190,6 +213,8 @@ struct SceneMetalRenderer {
                 specializedBaseTextureSamplings: specializedBaseTextureSamplings,
                 imagePipeline: imagePipeline,
                 frameProjection: frameProjection,
+                frameVisibleLayerIDs: frameVisibleLayerIDs,
+                frameLightSnapshot: frameLightSnapshot,
                 preparedParticleBatches: preparedParticleBatches,
                 particlePipeline: particlePipeline,
                 offscreenTexturePool: offscreenTexturePool,

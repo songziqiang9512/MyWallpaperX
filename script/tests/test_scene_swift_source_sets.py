@@ -211,11 +211,11 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         complete = scene_swift_source_relpaths("resolved_material_program_all")
 
         self.assertEqual(len(model), 7)
-        self.assertEqual(len(uniform), 2)
-        self.assertIn(
+        self.assertEqual(set(uniform), {
+            'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift',
+            'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift',
             'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift',
-            uniform,
-        )
+        })
         self.assertEqual(len(schema), 7)
         self.assertEqual(len(texture_finalization), 8)
         self.assertEqual(len(variant_preparation), 31)
@@ -257,7 +257,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 55)
+        self.assertEqual(len(frame_finalization), 56)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
@@ -266,12 +266,12 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 58)
+        self.assertEqual(len(complete), 59)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.
         self.assertTrue(all("/Compilation/Material/" in path for path in model))
-        self.assertTrue(all("/Rendering/Bindings/" in path for path in uniform))
+        self.assertTrue(all("/Rendering/" in path for path in uniform))
         self.assertTrue(all("/Rendering/Bindings/" in path for path in texture_finalization
                             if Path(path).name.startswith("SceneResolvedMaterialTextureResolver")))
         self.assertEqual(len(set(complete)), len(complete))

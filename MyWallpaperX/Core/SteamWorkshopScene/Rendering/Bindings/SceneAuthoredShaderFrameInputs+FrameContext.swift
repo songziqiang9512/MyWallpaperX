@@ -1,7 +1,10 @@
 import Foundation
 
 extension SceneAuthoredShaderFrameInputs {
-    init(frameContext: SceneFrameContext) {
+    init(
+        frameContext: SceneFrameContext,
+        lighting: SceneAuthoredShaderLightingInputs = .unavailable
+    ) {
         let components = Calendar.current.dateComponents(
             [.hour, .minute, .second, .nanosecond],
             from: frameContext.wallDate
@@ -11,6 +14,7 @@ extension SceneAuthoredShaderFrameInputs {
             + Double(components.second ?? 0)
             + Double(components.nanosecond ?? 0) / 1_000_000_000
         frameIndex = frameContext.frameIndex
+        self.lighting = lighting
         screenSize = frameContext.screenSize
         sceneTime = Float(frameContext.sceneTime)
         dayTime = Float(elapsedSeconds / 86_400)

@@ -20,9 +20,19 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 # compiled from production sources. Unrelated graph/audio branches stay empty.
 STUBS = r'''
 struct SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct Claim { let token: Int }
+    struct Capability {
+        enum SourceRoute { case transparentDirectDraw, capturedLayerTexture }
+        enum DependencyOwnership { case none }
+        let sourceRoute: SourceRoute
+        let dependencyOwnership: DependencyOwnership
+        let materials: [Int]
+    }
     var executionLayerIDs: Set<Int> = []
     var admittedResolvedMaterialReferences: [Int] = []
     var liveConsumerTargets: Set<SceneDynamicTarget> = []
+    func claim(layerID: Int) -> Claim? { nil }
+    func resolve(_ token: Int) -> Capability? { nil }
 }
 enum SceneUtilityLayerRuntimePlanner {
     enum Kind { case fullscreen }
@@ -152,48 +162,55 @@ HARNESS = r'''
 '''
 
 
-class SceneScriptLightVisibilityTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-script-light-visible-")
-        work = Path(cls.temporary.name)
-        preamble = SWIFT_PREAMBLE.replace(
-            "struct Camera {\n        var parallaxEnabled = false\n        var orthoHeight: Float? = nil\n    }",
-            "struct Camera { struct Bloom { var hdr: Int? = nil }; var bloom = Bloom(); "
-            "var parallaxEnabled = false; var orthoWidth: Float? = nil; var orthoHeight: Float? = nil }")
-        lighting = LIGHTING_STUB.split("    struct LightingDescriptor {", 1)[1].split("    struct CameraDescriptor", 1)[0]
-        preamble = preamble.replace("struct SceneRenderDescriptor {",
+def lighting_fixture(work: Path) -> tuple[str, tuple[Path, ...]]:
+    """Stored DTOs plus production light consumers for focused VM gates."""
+    preamble = SWIFT_PREAMBLE.replace("struct Camera {",
+        "struct Camera {\n        var clearEnabled = false\n"
+        "        var authoredOrthographicProjectionActive: Bool? = nil")
+    lighting = LIGHTING_STUB.split("    struct LightingDescriptor {", 1)[1].split("    struct CameraDescriptor", 1)[0]
+    preamble = preamble.replace("struct SceneRenderDescriptor {",
             "struct SceneRenderDescriptor {\n    struct LightingDescriptor {" + lighting
             + "    var lighting: LightingDescriptor? = nil\n")
-        preamble = preamble.replace("struct TextStyle {", "struct TextStyle {\n        var limitWidth = false")
-        preamble = preamble.replace("enum Kind {\n            case composition\n        }",
+    preamble = preamble.replace("struct TextStyle {", "struct TextStyle {\n        var limitWidth = false")
+    preamble = preamble.replace("enum Kind {\n            case composition\n        }",
                                     "enum Kind: String { case composition, fullscreen }")
-        preamble = preamble.replace("var spotLight: Int? = nil",
-            "var pointLight: ScenePointLightDefinition? = nil\n"
-            "        var spotLight: SceneSpotLightDefinition? = nil")
-        preamble = preamble.replace("var directionalLight: Int? = nil",
+    preamble = preamble.replace("var spotLight: Int? = nil",
+            "var spotLight: SceneSpotLightDefinition? = nil")
+    preamble = preamble.replace("var directionalLight: Int? = nil",
                                     "var directionalLight: SceneDirectionalLightDefinition? = nil")
-        preamble = preamble.replace("var particleInstanceOverride:",
+    preamble = preamble.replace("var particleInstanceOverride:",
             "var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil\n"
             "        var particlePath: String? = nil\n"
             "        var supportsDirectLayerColorConsumer: Bool { false }\n"
+            "        var supportsUserPropertyLayerColorConsumer: Bool { false }\n"
             "        var particleInstanceOverride:")
-        admission = (SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift").read_text()
-        start = admission.index("nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {")
-        end = admission.index("/// Raw-graph conservation", start)
-        source = work / "VisibilityAdmission.swift"
-        source.write_text("import Foundation\n" + admission[start:end])
-        host = method_body((SCENE / "Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift").read_text(),
-                           "static func activeLiveConsumerTargets(")
-        preamble += STUBS.replace("__HOST_CONSUMERS__", host)
-        extra = tuple(SCENE / path for path in [
+    admission = (SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift").read_text()
+    start = admission.index("nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {")
+    end = admission.index("/// Raw-graph conservation", start)
+    source = work / "VisibilityAdmission.swift"
+    source.write_text("import Foundation\n" + admission[start:end])
+    host_source = (SCENE / "Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift").read_text()
+    host = method_body(host_source, "static func imageLayerModulationConsumerTargets(")
+    host += "\n" + method_body(host_source, "static func activeLiveConsumerTargets(")
+    preamble += STUBS.replace("__HOST_CONSUMERS__", host)
+    extra = tuple(SCENE / path for path in [
             "Format/SceneDirectionalLightDefinition.swift", "Format/ScenePointLightDefinition.swift",
             "Format/SceneSpotLightDefinition.swift", "Rendering/Lighting/SceneLightSnapshot.swift",
+            "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
             "Rendering/Geometry/SceneLayerVisibility.swift", "Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
             "Systems/Properties/SceneDynamicLayerValues.swift", "Systems/Properties/ScenePropertyBindingProgram.swift",
             "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
             "Systems/Properties/ScenePropertyBindingProgramValidator.swift", "Systems/Properties/ScenePropertyLiveUpdateState.swift",
         ]) + (source,)
+    return preamble, extra
+
+
+class SceneScriptLightVisibilityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-script-light-visible-")
+        work = Path(cls.temporary.name)
+        preamble, extra = lighting_fixture(work)
         binary = compile_vector_harness(work, HARNESS, "light-visible", extra_swift_sources=extra, preamble=preamble)
         result = subprocess.run([str(binary)], capture_output=True, text=True, check=True, timeout=30)
         cls.rows = json.loads(result.stdout)

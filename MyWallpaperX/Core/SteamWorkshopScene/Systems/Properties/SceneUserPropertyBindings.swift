@@ -37,6 +37,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case layerScale(layerID: Int)
     case layerColor(layerID: Int)
     case lightIntensity(layerID: Int)
+    case lightRadius(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
     case scene(field: String)
     case camera(field: String)
@@ -68,7 +69,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return field == "cameraparallax" || field == "camerashake"
         case let .scene(field):
             return field == "bloom"
-        case .layerAlpha, .layerBrightness, .layerScale, .layerColor, .lightIntensity, .text, .cameraPathZoom,
+        case .layerAlpha, .layerBrightness, .layerScale, .layerColor, .lightIntensity, .lightRadius, .text, .cameraPathZoom,
              .particle, .soundVolume, .shaderValue, .materialShaderValue,
              .unsupported:
             return false
@@ -347,6 +348,12 @@ nonisolated struct SceneUserPropertyBindingParser {
             return .lightIntensity(layerID: layerID)
         }
         if components.count == 3,
+           Self.key(components[2]) == "radius",
+           let light = (object["light"] as? String)?.localizedLowercase,
+           ["lpoint", "point"].contains(light) {
+            return .lightRadius(layerID: layerID)
+        }
+        if components.count == 3,
            Self.key(components[2]) == "volume",
            object["sound"] != nil {
             return .soundVolume(layerID: layerID)
@@ -622,6 +629,10 @@ nonisolated struct SceneUserPropertyBindingParser {
            let field = key(components[2]) {
             switch field {
             case "alpha", "brightness", "fov": return .objectScalar
+            case "radius":
+                guard let light = (object["light"] as? String)?.localizedLowercase,
+                      ["lpoint", "point"].contains(light) else { return nil }
+                return .objectScalar
             case "volume": return object["sound"] != nil ? .soundVolume : .objectScalar
             case "angles", "origin", "scale", "color": return .objectVector
             case "visible": return .objectVisibility

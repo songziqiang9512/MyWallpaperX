@@ -134,6 +134,28 @@ nonisolated extension SceneScriptScalarProgram {
         if binding.owner.kind == .object {
             let layer = descriptor.layers[objectIndex]
             if binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key("radius"),
+            ] {
+                let target = SceneDynamicTarget.layer(
+                    layerID: layerID, field: .radius
+                )
+                let validWrapper =
+                    (binding.wrapperKeys == ["script", "value"]
+                        && binding.properties.isEmpty)
+                    || SceneScriptDynamicProviderHostContract.supports(
+                        keys: binding.wrapperKeys ?? [], host: .objectScalar
+                    )
+                guard binding.targetKey == "radius", validWrapper,
+                      binding.userPropertyKey == nil,
+                      !timelineTargets.contains(target),
+                      let point = layer.pointLight,
+                      point.kind == "point" || point.kind == "lpoint",
+                      let radius = point.radius,
+                      SceneDynamicLayerField.acceptsLightRadius(authored),
+                      Float(authored).bitPattern == radius.bitPattern else { return nil }
+                return target
+            }
+            if binding.targetPath == [
                 .key("objects"), .index(objectIndex), .key("volume"),
             ] {
                 let target = SceneDynamicTarget.layer(

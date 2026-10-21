@@ -278,6 +278,7 @@
       "description": "Program host, static, and dynamic uniform byte encoding.",
       "includes": [],
       "sources": [
+        "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
         "Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
         "Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift"
       ]

@@ -52,7 +52,8 @@ struct SceneResolvedMaterialUtilitySource {
                 compositionSourceMemberLayerIDs: memberLayerIDs,
                 authoredRenderSizeWH: layer.renderSizeWH,
                 localCompositionSourceExtent: groups?.localSourceExtent(forRootID: layer.id),
-                usesMaterialSource: utility.framebufferSource != nil
+                usesMaterialSource: utility.framebufferSource != nil,
+                outputUnitModelMatrix: unitModelMatrix
               ) else { return nil }
         guard utility.framebufferSource != nil else {
             return .init(geometry: geometry, material: nil)
