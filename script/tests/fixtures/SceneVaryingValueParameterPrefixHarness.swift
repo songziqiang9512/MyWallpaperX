@@ -70,6 +70,12 @@ private enum VaryingValueParameterPrefixHarness {
             result["boundedMSL"] = program.metalSource
             result["boundedVertexFunction"] = program.vertexFunctionName
             result["boundedFragmentFunction"] = program.fragmentFunctionName
+            result["boundedUniformBufferIndex"] = program.uniformBufferIndex
+            result["boundedUniformByteSize"] = program.uniformLayout.byteSize
+            result["boundedUniformFields"] = program.uniformLayout.fields.map { field in
+                ["name": field.authoredName, "type": field.type.rawValue,
+                 "offset": field.offset] as [String: Any]
+            }
         }
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: pair.vertex, fragmentSource: pair.fragment,

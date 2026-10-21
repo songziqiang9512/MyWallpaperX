@@ -456,29 +456,44 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             guard !hasLocalDeclaration(named: name, in: body, tokens: fragmentTokens)
             else { return nil }
             for index in body where fragmentTokens[index].text == name {
+                // Grouping a single linked value does not read its suffix.
+                // Match each exact pair rather than skipping closing tokens:
+                // calls and expressions containing another value stay whole
+                // reads and cannot acquire a prefix proof from a later swizzle.
+                var start = index
+                var end = index + 1
+                while start > body.lowerBound, end < body.upperBound,
+                      fragmentTokens[start - 1].text == "(",
+                      fragmentTokens[end].text == ")",
+                      SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                          tokens: fragmentTokens, opening: start - 1) == end,
+                      start < 2 || fragmentTokens[start - 2].kind != .identifier {
+                    start -= 1
+                    end += 1
+                }
                 guard !isLocalDeclaration(index, tokens: fragmentTokens),
-                      index + 2 < body.upperBound,
-                      fragmentTokens[index + 1].text == ".",
-                      fragmentTokens[index + 2].kind == .identifier,
+                      end + 1 < body.upperBound,
+                      fragmentTokens[end].text == ".",
+                      fragmentTokens[end + 1].kind == .identifier,
                       index == body.lowerBound
                           || fragmentTokens[index - 1].text != "." else {
                     return nil
                 }
-                let swizzle = fragmentTokens[index + 2].text
+                let swizzle = fragmentTokens[end + 1].text
                 guard !swizzle.isEmpty,
                       swizzle.count <= 4,
                       swizzle.allSatisfy({ component in
                           componentLimit.contains(canonicalComponent(component))
                       }) else { return nil }
-                let after = index + 3
+                let after = end + 2
                 guard after >= body.upperBound || ![
                     ".", "[", "=", "+=", "-=", "*=", "/=", "%=", "++", "--",
                 ].contains(fragmentTokens[after].text),
-                index == body.lowerBound || ![
+                start == body.lowerBound || ![
                     "return", "++", "--",
-                ].contains(fragmentTokens[index - 1].text),
+                ].contains(fragmentTokens[start - 1].text),
                 SceneAuthoredShaderTokenScanner.isReadOnlyValueUse(
-                    start: index, end: after,
+                    start: start, end: after,
                     tokens: fragmentTokens,
                     body: body
                 ),
