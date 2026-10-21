@@ -525,9 +525,10 @@ final class OnlineLibraryService: ObservableObject {
 
         for (_, url) in deltaCandidates {
             Task {
+                let generation = await OLThumbnailCache.shared.publicationGeneration()
                 guard await OLThumbnailCache.shared.cachedData(for: url) == nil else { return }
                 guard let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: .prefetch) else { return }
-                await OLThumbnailCache.shared.store(data: data, for: url)
+                await OLThumbnailCache.shared.store(data: data, for: url, generation: generation)
             }
         }
     }

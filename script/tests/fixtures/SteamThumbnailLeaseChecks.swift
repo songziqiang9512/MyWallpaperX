@@ -67,6 +67,12 @@ final class LeaseDiskWriteGate: @unchecked Sendable {
     func release() { semaphore.signal() }
 }
 
+final class LeaseWriteSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func isSecondWrite() -> Bool { lock.lock(); defer { lock.unlock() }; count += 1; return count == 2 }
+}
+
 @main struct SteamThumbnailLeaseChecks {
     @MainActor static func main() throws {
         _ = NSApplication.shared
@@ -204,6 +210,26 @@ final class LeaseDiskWriteGate: @unchecked Sendable {
         invalidatedCache.loadRawDataAsync(forKey: "invalidated", loader: { nil }) { afterInvalidation = $0; invalidationReadFinished = true }
         checks["invalidationRetiresOldCachePublication"] = pump { invalidationReadFinished } && afterInvalidation == nil
             && invalidatedCache.cachedImage(forKey: "invalidated") == nil
+        for clearDirectory in [false, true] {
+            let gate = LeaseDiskWriteGate(), sequence = LeaseWriteSequence()
+            let derived = ThumbnailCache(namespace: "derived-" + UUID().uuidString,
+                writeEncodedData: { data, url in try gate.write(data, to: url, blocking: sequence.isSecondWrite()) })
+            var completed = false
+            derived.loadImageDataAsync(forKey: "still", sourceDataKey: "raw", loader: { red },
+                decoder: steamWorkshopPreviewImage(from:)) { completed = $0 != nil }
+            let label = clearDirectory ? "derivedDirectoryClear" : "derivedKeyInvalidation"
+            checks[label + "StagesBothFilesBeforePublication"] = pump { gate.waiting }
+            if clearDirectory { derived.clearDiskCache() }
+            else { derived.remove(forKey: "still"); derived.remove(forKey: "raw") }
+            gate.release()
+            checks[label + "PreservesExistingConsumer"] = pump { completed }
+            var stillRead = false, rawRead = false
+            var persistedStill: Data?, persistedRaw: Data?
+            derived.loadRawDataAsync(forKey: "still", loader: { nil }) { persistedStill = $0; stillRead = true }
+            derived.loadRawDataAsync(forKey: "raw", loader: { nil }) { persistedRaw = $0; rawRead = true }
+            checks[label + "NeitherFileNorMemoryRevives"] = pump { stillRead && rawRead }
+                && persistedStill == nil && persistedRaw == nil && derived.cachedImage(forKey: "still") == nil
+        }
         let crossGate = LeaseDiskWriteGate()
         let crossCache = ThumbnailCache(namespace: "cross-" + UUID().uuidString,
             writeEncodedData: { data, url in try crossGate.write(data, to: url, blocking: data == red) })

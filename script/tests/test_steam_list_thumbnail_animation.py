@@ -28,6 +28,10 @@ CORE = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
 SHARED_UI = ROOT / "MyWallpaperX/Shared/UI"
 
 SOURCES = [
+    SHARED_UI / "DecodedThumbnailMemoryCache.swift",
+    SHARED_UI / "GridThumbnailDecoder.swift",
+    CORE / "SteamWorkshopPreviewSource.swift",
+    SHARED_UI / "WallpaperGridScrollView.swift",
     UI / "AppKitSteamWorkshopBrowserItem.swift",
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
     UI / "AppKitSteamWorkshopBrowserItemSupportViews.swift",
@@ -111,6 +115,12 @@ HARNESS = r'''
 import AppKit
 import Foundation
 
+private final class CardSource: NSObject, NSCollectionViewDataSource {
+    var cards: [AppKitSteamWorkshopBrowserItem] = []
+    func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int { cards.count }
+    func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem { cards[indexPath.item] }
+}
+
 @main struct Harness {
     @MainActor static func main() {
         _ = NSApplication.shared
@@ -123,20 +133,32 @@ import Foundation
             defer: false
         )
         window.setFrameOrigin(NSPoint(x: 14_000, y: 14_000))
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 240))
-        window.contentView = container
+        let scroll = WallpaperGridScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 240))
+        let container = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 300, height: 500))
+        let layout = NSCollectionViewFlowLayout()
+        layout.itemSize = NSSize(width: 250, height: 180)
+        layout.minimumLineSpacing = 10
+        container.collectionViewLayout = layout
+        scroll.documentView = container
+        window.contentView = scroll
         window.orderFrontRegardless()
 
         let item = AppKitSteamWorkshopBrowserItem()
-        item.view.frame = NSRect(x: 25, y: 30, width: 250, height: 180)
-        container.addSubview(item.view)
+        let source = CardSource()
+        source.cards = [item]
+        container.dataSource = source
+        container.reloadData()
+        container.layoutSubtreeIfNeeded()
         item.view.layoutSubtreeIfNeeded()
+        precondition(container.visibleItems().contains(item), "the production Steam card must really be visible")
 
-        func enterEvent(_ inside: Bool) -> NSEvent {
+        func enterEvent(_ inside: Bool, target: AppKitSteamWorkshopBrowserItem? = nil) -> NSEvent {
+            let target = target ?? item
+            let visible = target.view.bounds.intersection(target.view.visibleRect)
             let local = inside
-                ? NSPoint(x: item.view.bounds.midX, y: item.view.bounds.midY)
+                ? NSPoint(x: visible.midX, y: visible.midY)
                 : NSPoint(x: -60, y: -60)
-            let location = item.view.convert(local, to: nil)
+            let location = target.view.convert(local, to: nil)
             return NSEvent.enterExitEvent(
                 with: inside ? .mouseEntered : .mouseExited,
                 location: location,
@@ -153,7 +175,7 @@ import Foundation
         // Deterministic loader delivery isolates mouse eligibility here. The
         // lifecycle gate separately exercises real GIF data and cache eviction.
         item.previewState = SteamWorkshopPreviewState(loaders: .init(
-            image: { _, _, done in done(NSImage(size: NSSize(width: 48, height: 48))) },
+            image: { _, _, _, done in done(NSImage(size: NSSize(width: 48, height: 48))) },
             animation: { _, _, done in done(NSImage(size: NSSize(width: 48, height: 48))) },
             video: { _, done in done(nil) }, retryDelay: { _ in nil }, invalidate: { _ in }))
         item.previewState.onChange = { [weak item] in item?.applyPreviewState() }
@@ -189,6 +211,40 @@ import Foundation
         item.setPreviewVisible(false)
         precondition(!item.previewImageView.animates, "hiding the preview must stop the animation")
 
+        // Real card + real shared scroll: transition suppresses the active
+        // preview, guarded mouse events cannot restart it, and newly visible
+        // cards read the same owning scroll state without waiting for replay.
+        item.setPreviewVisible(true)
+        item.mouseEntered(with: enterEvent(true))
+        precondition(item.previewImageView.animates, "positive GIF control before scroll")
+        NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+        precondition(scroll.isGridScrolling && !item.isHovering && !item.previewImageView.animates,
+            "scroll must stop the actual Steam card hover and GIF")
+        item.mouseMoved(with: enterEvent(true))
+        item.mouseEntered(with: enterEvent(true))
+        precondition(!item.isHovering && !item.previewImageView.animates,
+            "hover events during scroll must not restart the actual GIF")
+        let fresh = AppKitSteamWorkshopBrowserItem()
+        source.cards.append(fresh)
+        container.reloadData()
+        container.layoutSubtreeIfNeeded()
+        fresh.viewDidLayout()
+        precondition(fresh.view.enclosingScrollView === scroll && fresh.view.isGridHoverSuppressed,
+            "a new card must read the same active scroll owner")
+        precondition(container.visibleItems().contains(fresh) && !fresh.view.bounds.intersection(fresh.view.visibleRect).isEmpty,
+            "the new card positive control must really be visible")
+        let freshFrame = fresh.view.frame
+        let freshEnter = enterEvent(true, target: fresh)
+        fresh.mouseEntered(with: freshEnter)
+        precondition(!fresh.isHovering, "newly visible real card must remain idle during scroll")
+        NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+        let deadline = Date().addingTimeInterval(0.18)
+        while Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        precondition(!scroll.isGridScrolling && !item.previewImageView.animates,
+            "settlement must use the current pointer, not revive the old GIF")
+        fresh.mouseEntered(with: freshEnter)
+        precondition(fresh.isHovering, "the exact same new-card event must enter hover after scroll; before=\(freshFrame) now=\(fresh.view.frame) bounds=\(fresh.view.bounds) visible=\(fresh.view.visibleRect) local=\(fresh.view.convert(freshEnter.locationInWindow, from: nil)) scrolling=\(scroll.isGridScrolling)")
+        window.orderOut(nil)
         print("Steam list thumbnails: static unless hovered PASS")
     }
 }

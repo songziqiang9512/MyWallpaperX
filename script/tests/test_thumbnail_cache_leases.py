@@ -14,9 +14,12 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-thumbnail-leases-", dir="/private/tmp") as temporary:
             work = pathlib.Path(temporary)
             core = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
-            sources = [ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
-                core / "SteamWorkshopPreviewRequestCoordinator.swift", core / "SteamWorkshopPreviewImageSupport.swift",
+            sources = [ROOT / "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift", ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+                core / "SteamWorkshopPreviewRequestCoordinator.swift", core / "SteamWorkshopPreviewImageSupport.swift", core / "SteamWorkshopPreviewSource.swift", core / "SteamWorkshopModels.swift",
                 ROOT / "script/tests/fixtures/SteamThumbnailLeaseChecks.swift"]
+            stub = work / "Dependencies.swift"
+            stub.write_text("enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }\n")
+            sources.append(stub)
             binary = work / "leases"
             build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
                 "-module-cache-path", str(work / "modules"), "-o", str(binary)],

@@ -33,13 +33,14 @@ enum SteamWorkshopItemMenu {
     var continuationCalls = 0
     var lastScrollOffset: CGFloat = 0
     func loadMoreBrowserItemsIfNeeded() { continuationCalls += 1 }
-    func prioritizeVisibleBrowserItemIDs(_ ids: [String]) {}
+    func prioritizeVisibleBrowserItemIDs(_ ids: [String], maxPixelSize: Int = 800) {}
     func retryLoadingMoreBrowserItems() {}
     func consumePendingBrowserScrollRestoreOffset() { pendingBrowserScrollRestoreOffset = nil }
     func updateBrowserScrollMetrics(offsetY: CGFloat, contentHeight: CGFloat, viewportHeight: CGFloat) { lastScrollOffset = offsetY }
     func refresh() {}
 }
 @MainActor final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("SteamProbeCard")
     static let hoverScale: CGFloat = 1.04
     enum Context { case browser }
     var id = ""

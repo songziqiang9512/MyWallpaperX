@@ -98,7 +98,7 @@ import ImageIO
         let row = SteamPopoverPreviewProbe(url: remote)
         row.load()
         checks["popoverUsesStaticDecodeForRawGIF"] = pump {
-            guard let cached = SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: remoteKey) else { return false }
+            guard let cached = steamWorkshopCachedPreviewImage(for: remote) else { return false }
             return row.thumbnailView.image === cached && !animated(cached)
         }
         let cardAfterRow = SteamWorkshopPreviewState()

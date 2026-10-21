@@ -4,12 +4,13 @@
 //
 //  各模块共用的异步缩略图加载缓存。
 //  合并相同键的并发请求（in-flight deduplication），
-//  后台解码，主线程回调，NSCache 内存缓存 + 按 namespace 隔离的磁盘持久化缓存。
+//  后台解码，主线程回调，有界 LRU 内存缓存 + 按 namespace 隔离的磁盘持久化缓存。
 //
 
 import AppKit
 import CryptoKit
 import Darwin
+import ImageIO
 
 /// A consumer cancellation, distinct from the shared producer's task lifetime.
 nonisolated protocol ThumbnailCacheLoadCancellation: Sendable {
@@ -19,7 +20,7 @@ nonisolated protocol ThumbnailCacheLoadCancellation: Sendable {
 }
 
 /// 异步缩略图加载缓存。
-/// 线程安全：并发读写通过 NSLock 保护 in-flight 表，NSCache 本身线程安全。
+/// 线程安全：并发读写通过 NSLock 保护 in-flight 表，解码图 LRU 自身线程安全。
 nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     /// 缓存容量（最大图片数量）
@@ -39,7 +40,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private let failureCache: NSCache<NSString, NSNumber>?
 
     private let decodeQueue: DispatchQueue
-    private let imageCache = NSCache<NSString, NSImage>()
+    private let imageCache: DecodedThumbnailMemoryCache
     private var inFlight: [String: [(NSImage?) -> Void]] = [:]
     private enum AsyncKey: Hashable { case image(String), raw(String) }
     private final class AsyncRequest: @unchecked Sendable {
@@ -108,8 +109,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         self.failureCache = usesFailureCache ? NSCache<NSString, NSNumber>() : nil
         self.decodeQueue = DispatchQueue(label: label, qos: .utility)
         failureCache?.countLimit = 256
-        imageCache.countLimit = countLimit
-        imageCache.totalCostLimit = totalCostLimit
+        imageCache = DecodedThumbnailMemoryCache(countLimit: countLimit, totalCostLimit: totalCostLimit)
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
     }
 
@@ -147,7 +147,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             // 3. 磁盘缓存
             let diskURL = self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
-               let image = NSImage(data: data) {
+               let image = Self.decodeStoredImage(data) {
                 self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
@@ -217,6 +217,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// 适合网络资源，避免在缓存队列里同步等待请求返回。
     func loadImageDataAsync(
         forKey key: String,
+        sourceDataKey: String? = nil,
         loader: @escaping @Sendable () async -> Data?,
         decoder: @escaping @Sendable (Data) -> NSImage? = { NSImage(data: $0) },
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
@@ -256,12 +257,23 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 self.finishImageRequest(request, key: key, image: image)
                 return
             }
+            // A derived still and the original animation share a source, not
+            // a disk file. Reuse legacy/raw bytes before asking the network.
+            if let sourceDataKey,
+               let data = try? Data(contentsOf: self.diskCacheURL(for: sourceDataKey)),
+               let image = decoder(data) {
+                self.finishImageRequest(request, key: key, image: image,
+                    encodedData: Self.pngData(image))
+                return
+            }
             let task = Task { [weak self] in
                 guard let self, !Task.isCancelled else { return }
                 let data = await loader()
                 guard !Task.isCancelled else { return }
                 let image = data.flatMap(decoder)
-                self.finishImageRequest(request, key: key, image: image, encodedData: image == nil ? nil : data)
+                self.finishImageRequest(request, key: key, image: image,
+                    encodedData: sourceDataKey == nil ? (image == nil ? nil : data) : image.flatMap(Self.pngData),
+                    sourceData: image == nil ? nil : data, sourceDataKey: sourceDataKey)
             }
             self.lock.lock()
             if self.asyncRequests[.image(key)] === request { request.task = task }
@@ -293,13 +305,19 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     }
 
     @discardableResult
-    private func finishImageRequest(_ request: AsyncRequest, key: String, image: NSImage?, encodedData: Data? = nil) -> Bool {
+    private func finishImageRequest(_ request: AsyncRequest, key: String, image: NSImage?, encodedData: Data? = nil,
+                                    sourceData: Data? = nil, sourceDataKey: String? = nil) -> Bool {
         let staged = stageEncodedData(encodedData)
-        defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
+        let rawStaged = stageEncodedData(sourceDataKey == nil ? nil : sourceData)
+        defer {
+            if let staged { try? FileManager.default.removeItem(at: staged) }
+            if let rawStaged { try? FileManager.default.removeItem(at: rawStaged) }
+        }
         lock.lock()
         guard asyncRequests[.image(key)] === request else { lock.unlock(); return false }
         if request.allowsCaching {
             if let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
+            if let rawStaged, let sourceDataKey { _ = rename(rawStaged.path, diskCacheURL(for: sourceDataKey).path) }
             if let image { imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image)) }
         }
         let completions = inFlight.removeValue(forKey: key) ?? []
@@ -405,7 +423,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             guard let self else { return }
             let diskURL = self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
-               let image = NSImage(data: data) {
+               let image = Self.decodeStoredImage(data) {
                 self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
@@ -575,6 +593,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// 不提供静态整根清除入口：整根删除会连带删掉其他 namespace 子目录，
     /// 而实例 init 每进程仅执行一次、无目录重建路径，清除后磁盘写入会静默失败。
     func clearDiskCache() {
+        lock.lock()
+        defer { lock.unlock() }
+        for request in asyncRequests.values { request.allowsCaching = false }
+        for request in rawDataPrefetchInFlight.values { request.allowsCaching = false }
         try? FileManager.default.removeItem(at: diskCacheDir)
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
     }
@@ -674,10 +696,22 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         return diskCacheDir.appendingPathComponent(hash).appendingPathExtension("jpg")
     }
 
-    /// NSCache 的 cost：按已解码位图的像素字节数计，totalCostLimit 据此执行字节上限淘汰。
+    /// 按已解码位图的像素字节数执行 LRU 字节上限淘汰。
     private static func memoryCost(of image: NSImage) -> Int {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return 0 }
         return cgImage.bytesPerRow * cgImage.height
+    }
+
+    private static func decodeStoredImage(_ data: Data) -> NSImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0,
+                [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { return nil }
+        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+    }
+
+    private static func pngData(_ image: NSImage) -> Data? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        return NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])
     }
 
     private static func writeToDisk(image: NSImage, url: URL) {

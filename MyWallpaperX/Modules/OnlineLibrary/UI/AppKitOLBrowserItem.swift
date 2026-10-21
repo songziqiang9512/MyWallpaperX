@@ -113,7 +113,16 @@ final class OLCircularProgressView: NSView {
     }
 }
 
-final class AppKitOLBrowserItem: NSCollectionViewItem {
+final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private struct LayoutInputs: Equatable {
+        let size: NSSize
+        let title: String
+        let metadata: String
+        let duration: String
+        let backingScale: CGFloat
+    }
+    private var lastLayoutInputs: LayoutInputs?
+
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("AppKitOLBrowserItem")
     private static var hoverTrackingActivated = false
     static func resetHoverTrackingActivation() { hoverTrackingActivated = false }
@@ -144,9 +153,14 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     private var isDownloadingState = false
     private var isDownloadedState = false
     private var currentCardScale  = CGFloat(1)
+    private var presentedItem: OnlineLibraryVideoItem?
     private var currentItemID     = -1
     private var currentPageURL:   String? = nil
     private var trackingAreaRef:  NSTrackingArea?
+    private var currentThumbnailURL: URL?
+    private var requestedPixelLimit = 0
+    private var thumbnailRequestID = UUID()
+    private var completionAnimationID = UUID()
     private var thumbnailTask:    Task<Void, Never>?
     private var completionHideWorkItem: DispatchWorkItem?
     private var completionRevealWorkItem: DispatchWorkItem?
@@ -163,13 +177,20 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     // MARK: - 复用
     override func prepareForReuse() {
         super.prepareForReuse()
+        lastLayoutInputs = nil
+        thumbnailRequestID = UUID()
+        completionAnimationID = UUID()
+        completionBadgeView.layer?.removeAllAnimations()
         thumbnailTask?.cancel(); thumbnailTask = nil
         completionHideWorkItem?.cancel()
         completionHideWorkItem = nil
         completionRevealWorkItem?.cancel()
         completionRevealWorkItem = nil
         isCompletionAnimating = false
+        presentedItem = nil
         currentItemID = -1
+        currentThumbnailURL = nil
+        requestedPixelLimit = 0
         currentPageURL = nil
         thumbnailView.image = nil
         completionHideWorkItem?.cancel()
@@ -202,8 +223,10 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     ) {
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
-        if item.id != currentItemID {
-            currentItemID = item.id
+        let imageChanged = item.id != currentItemID || currentThumbnailURL != item.previewThumbnailURL
+        currentItemID = item.id
+        if presentedItem != item {
+            presentedItem = item
             currentPageURL = item.pageURL
             titleLabel.stringValue = item.displayTitle
             let durationText = Self.formatDuration(item.duration)
@@ -217,6 +240,11 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
                 metaParts.append(res)
             }
             metaLabel.stringValue = metaParts.joined(separator: "  ")
+            view.needsLayout = true
+        }
+        if imageChanged {
+            currentThumbnailURL = item.previewThumbnailURL
+            requestedPixelLimit = 0
             loadThumbnail(url: item.previewThumbnailURL)
         }
         setDownloadState(
@@ -266,6 +294,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     }
 
     private func showCompletionBadge() {
+        let animationID = UUID()
+        completionAnimationID = animationID
         completionHideWorkItem?.cancel()
         completionRevealWorkItem?.cancel()
         isCompletionAnimating = true
@@ -300,7 +330,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
         let moveDuration: TimeInterval = 0.26
         let revealLead: TimeInterval = 0.08
         let revealWork = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            guard let self, self.completionAnimationID == animationID else { return }
             self.isCompletionAnimating = false
             self.downloadedBadge.isHidden = false
             self.setWallpaperBtn.isHidden = false
@@ -309,24 +339,26 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
         DispatchQueue.main.asyncAfter(deadline: .now() + bounceDuration + max(0, moveDuration - revealLead), execute: revealWork)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + bounceDuration) { [weak self] in
-            guard let self else { return }
+            guard let self, self.completionAnimationID == animationID else { return }
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = moveDuration
                 ctx.timingFunction = UIInteractionAnimation.cardExitTiming
                 self.completionBadgeView.animator().frame.origin = self.downloadedBadge.frame.origin
-            } completionHandler: {
+            } completionHandler: { [weak self] in
+                guard let self, self.completionAnimationID == animationID else { return }
                 NSAnimationContext.runAnimationGroup { fadeCtx in
                     fadeCtx.duration = 0.14
                     fadeCtx.timingFunction = UIInteractionAnimation.cardExitTiming
                     self.completionBadgeView.animator().alphaValue = 0
-                } completionHandler: {
+                } completionHandler: { [weak self] in
+                    guard let self, self.completionAnimationID == animationID else { return }
                     self.completionBadgeView.isHidden = true
                 }
             }
         }
 
         let hideWork = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            guard let self, self.completionAnimationID == animationID else { return }
             self.isCompletionAnimating = false
             self.completionBadgeView.isHidden = true
             self.completionBadgeView.alphaValue = 1
@@ -338,15 +370,29 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     }
 
     private func loadThumbnail(url: URL?) {
-        thumbnailView.image = nil; placeholderView.isHidden = false; spinner.startAnimation(nil)
+        thumbnailTask?.cancel()
+        let requestID = UUID()
+        thumbnailRequestID = requestID
+        if requestedPixelLimit == 0 {
+            thumbnailView.image = nil; placeholderView.isHidden = false; spinner.startAnimation(nil)
+        }
+        let pixelLimit = GridThumbnailDecoder.pixelLimit(width: view.bounds.width, scale: view.window?.backingScaleFactor ?? 2)
+        requestedPixelLimit = pixelLimit
         guard let url else { return }
+        if let ready = OLThumbnailCache.shared.readyImage(for: url, maxPixelSize: pixelLimit) {
+            thumbnailView.image = ready
+            placeholderView.isHidden = true
+            spinner.stopAnimation(nil)
+            return
+        }
         let id = currentItemID
         thumbnailTask = Task { [weak self] in
+            let generation = await OLThumbnailCache.shared.publicationGeneration()
             // 命中/未命中两路径统一走缓存的后台解码，避免在主线程重复解码同一份 JPEG
-            if let img = await OLThumbnailCache.shared.cachedImage(for: url) {
+            if let img = await OLThumbnailCache.shared.cachedImage(for: url, maxPixelSize: pixelLimit) {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    guard let self, self.currentItemID == id else { return }
+                    guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
                     self.thumbnailView.image = img
                     self.placeholderView.isHidden = true
                     self.spinner.stopAnimation(nil)
@@ -355,16 +401,16 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
             }
             guard !Task.isCancelled else { return }
             guard let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: .visible),
-                  let img = await OLThumbnailCache.shared.storeAndDecode(data: data, for: url) else {
+                  let img = await OLThumbnailCache.shared.storeAndDecode(data: data, for: url, maxPixelSize: pixelLimit, generation: generation) else {
                 await MainActor.run {
-                    guard let self, self.currentItemID == id else { return }
+                    guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
                     self.spinner.stopAnimation(nil)
                 }
                 return
             }
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                guard let self, self.currentItemID == id else { return }
+                guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
                 self.thumbnailView.image = img
                 self.placeholderView.isHidden = true
                 self.spinner.stopAnimation(nil)
@@ -570,8 +616,19 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
+            metadata: metaLabel.stringValue, duration: (durationBadgeTextLayer.string as? String) ?? "", backingScale: view.window?.backingScaleFactor ?? 2)
+        guard lastLayoutInputs != inputs else {
+            checkInitialHoverState()
+            return
+        }
+        lastLayoutInputs = inputs
         let w = view.bounds.width
         guard w > 0 else { return }
+        if let url = currentThumbnailURL,
+           GridThumbnailDecoder.pixelLimit(width: w, scale: view.window?.backingScaleFactor ?? 2) > requestedPixelLimit {
+            loadThumbnail(url: url)
+        }
         let h = floor(w * 9.0 / 16.0)
 
         // imageContainer: 16:9，顶部对齐
@@ -692,10 +749,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     }
 
     private func checkInitialHoverState() {
-        guard let window = view.window else { return }
-        let mouseLocation = window.mouseLocationOutsideOfEventStream
-        let localPoint = view.convert(mouseLocation, from: nil)
-        let isHoveringNow = view.bounds.contains(localPoint)
+        guard !view.isGridHoverSuppressed else { return }
+        let isHoveringNow = view.isGridPointerInside
         if isHoveringNow && !isHovering {
             isHovering = true
             applyHoverVisibility(true, animated: false)
@@ -763,15 +818,25 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
     }
 
     // MARK: - Hover
+    func refreshGridHover(isScrolling: Bool) {
+        let hovered = !isScrolling && view.isGridPointerInside
+        guard hovered != isHovering else { return }
+        isHovering = hovered
+        applyHoverState(hovered)
+    }
+
     override func mouseEntered(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
         isHovering = true; applyHoverState(true)
     }
     override func mouseExited(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
         isHovering = false; applyHoverState(false)
     }
     override func mouseMoved(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         if !Self.hoverTrackingActivated { Self.hoverTrackingActivated = true }
         let p = imageContainer.convert(event.locationInWindow, from: nil)
         let now = imageContainer.bounds.contains(p)

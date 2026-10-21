@@ -14,13 +14,12 @@ final class SteamWorkshopDownloadThumbnailPipeline {
     private let lock = NSLock()
     private var inFlight: [String: [(NSImage?) -> Void]] = [:]
     /// 已生成缩略图的内存缓存：卡片配置链路重复刷新时不再磁盘读+解码。
-    private let memoryCache = NSCache<NSString, NSImage>()
+    private let memoryCache = DecodedThumbnailMemoryCache(countLimit: 320, totalCostLimit: 64 * 1024 * 1024)
     /// 失败负缓存：损坏/可疑视频记录一次结论，避免每次刷新重复 IO 与 AVAsset 重试。
     /// key 含文件 mtime+size，内容变化后自然换新 key，无需显式过期。
     private let failureCache = NSCache<NSString, NSNumber>()
 
     private init() {
-        memoryCache.totalCostLimit = 64 * 1024 * 1024
         failureCache.countLimit = 256
     }
 

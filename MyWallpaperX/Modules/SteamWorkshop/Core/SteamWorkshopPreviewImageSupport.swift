@@ -42,20 +42,6 @@ func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String {
     return "steam-local-preview:\(fileURL.path):\(device):\(inode):\(fileSize):\(modificationTime)"
 }
 
-func steamWorkshopLoadLocalPreviewImage(
-    from url: URL,
-    cancellation: SteamWorkshopPreviewLoadCancellation? = nil,
-    completion: @escaping (NSImage?) -> Void
-) {
-    SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(
-        forKey: steamWorkshopLocalPreviewCacheKey(for: url),
-        loader: { try? Data(contentsOf: url) },
-        decoder: steamWorkshopPreviewImage(from:),
-        cancellation: cancellation,
-        completion: completion
-    )
-}
-
 func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool {
     guard image.size.width > 0, image.size.height > 0 else { return true }
     if image.size.width <= 4 || image.size.height <= 4 {
@@ -113,6 +99,10 @@ nonisolated func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool {
 }
 
 nonisolated func steamWorkshopPreviewImage(from data: Data) -> NSImage? {
+    steamWorkshopPreviewImage(from: data, maxPixelSize: 800)
+}
+
+nonisolated func steamWorkshopPreviewImage(from data: Data, maxPixelSize: Int) -> NSImage? {
     let sourceOptions: [CFString: Any] = [
         kCGImageSourceShouldCache: false
     ]
@@ -122,7 +112,7 @@ nonisolated func steamWorkshopPreviewImage(from data: Data) -> NSImage? {
     // 动画 GIF 也只进静态首帧：共享缓存按像素字节记账，原分辨率多帧
     // NSImage 连同全部帧编码数据驻留会让预算实际膨胀数倍。动画重放由
     // steamWorkshopLoadAnimatedPreview 在悬停/详情打开时按需临时提供。
-    return steamWorkshopStaticPreviewImage(from: source) ?? NSImage(data: data)
+    return steamWorkshopStaticPreviewImage(from: source, maxPixelSize: maxPixelSize) ?? NSImage(data: data)
 }
 
 nonisolated func steamWorkshopPreviewImage(from url: URL) -> NSImage? {
@@ -198,10 +188,12 @@ private nonisolated func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -
 /// 首帧（忠实于源）。悬停动画路径不受影响，仍从原始数据完整重放。
 private nonisolated func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixelSize: Int = 800) -> NSImage? {
     let frameCount = CGImageSourceGetCount(source)
+    guard let longestSide = GridThumbnailDecoder.longestSide(for: source,
+        targetWidth: maxPixelSize, targetHeight: maxPixelSize, maximum: 800) else { return nil }
     let options: [CFString: Any] = [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
         kCGImageSourceCreateThumbnailWithTransform: true,
-        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        kCGImageSourceThumbnailMaxPixelSize: longestSide,
         kCGImageSourceShouldCache: false,
         kCGImageSourceShouldCacheImmediately: false
     ]

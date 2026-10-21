@@ -21,7 +21,17 @@ private enum SteamWorkshopSymbolImageCache {
     }
 }
 
-final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
+final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private struct LayoutInputs: Equatable {
+        let size: NSSize
+        let scale: CGFloat
+        let downloads: Bool
+        let multiSelect: Bool
+        let circularBadge: Bool
+    }
+    private var lastLayoutInputs: LayoutInputs?
+
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("AppKitSteamWorkshopBrowserItem")
     static let hoverScale: CGFloat = 1.03
     static let pressedScale: CGFloat = 0.98
     private var cancellables = Set<AnyCancellable>()
@@ -38,6 +48,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     let detailButton = SteamWorkshopOverlayIconButton()
     let titleMarqueeView = SteamWorkshopMarqueeTextView()
     let statusBadgeButton = SteamWorkshopOverlayIconButton()
+    var overlaySymbolConfiguration: NSImage.SymbolConfiguration?
 
     lazy var previewState: SteamWorkshopPreviewState = {
         let state = SteamWorkshopPreviewState()
@@ -170,6 +181,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        lastLayoutInputs = nil
         unbindDownloadProgress()
         previewState.reset()
         currentDownloadVideoURL = nil
@@ -273,8 +285,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         // receiveDownloadProgress 的 tick-diff 早退拦截，初始内容应用改为
         // 显式执行——否则标题、状态徽章与操作按钮在首次配置时全部缺位。
         applyCurrentContent()
-        loadPreview(from: item.previewImageURL, fallbackImageURL: downloadRecord?.browserItem?.previewImageURL,
-                    fallbackVideoURL: currentDownloadVideoURL)
+        loadCurrentPreview()
     }
 
     func configureMetadataOnly(
@@ -333,12 +344,28 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         // 与 configure 相同：绑定回放的 nil 快照被 tick-diff 早退拦截，
         // 初始内容应用显式执行。
         applyCurrentContent()
-        loadPreview(from: item.previewImageURL, fallbackImageURL: downloadRecord?.browserItem?.previewImageURL,
-                    fallbackVideoURL: currentDownloadVideoURL)
+        loadCurrentPreview()
+    }
+
+    private func loadCurrentPreview() {
+        guard let currentItem else { return }
+        let sources = steamWorkshopPreviewSources(item: currentItem, record: currentDownloadRecord)
+        let pixels = min(800, GridThumbnailDecoder.pixelLimit(width: view.bounds.width,
+            scale: view.window?.backingScaleFactor ?? 2))
+        previewState.configure(previewURL: sources.primary, fallbackImageURL: sources.fallback,
+            fallbackVideoURL: currentDownloadVideoURL, maxPixelSize: pixels)
     }
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        let inputs = LayoutInputs(size: view.bounds.size, scale: view.window?.backingScaleFactor ?? 2, downloads: currentDisplayContext == .downloads,
+            multiSelect: isMultiSelectMode, circularBadge: prefersCircularPlayBadge)
+        guard lastLayoutInputs != inputs else {
+            syncHoverStateFromWindow(animated: false)
+            return
+        }
+        lastLayoutInputs = inputs
+        loadCurrentPreview()
 
         let bounds = view.bounds
         guard bounds.width.isFinite, bounds.height.isFinite else { return }
@@ -346,8 +373,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         ensureCardAnchorCenteredIfNeeded()
 
         let metrics = metrics(for: cardView.bounds.size)
-        applyMetrics(metrics)
-
         previewContainer.frame = cardView.bounds
         hoverOutlineView.frame = cardView.bounds
         updatePreviewImageFrame()
@@ -361,6 +386,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         )
         overlayBarShadowView.frame = barFrame
         overlayBar.frame = barFrame
+        applyMetrics(metrics)
 
         let iconSize = metrics.iconButtonSize
         let barMidY = floor((overlayBar.bounds.height - iconSize) * 0.5)
@@ -422,17 +448,28 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         }
     }
 
+    func refreshGridHover(isScrolling: Bool) {
+        let hovered = !isScrolling && view.isGridPointerInside
+        guard hovered != isHovering else { return }
+        isHovering = hovered
+        syncPreviewAnimationState()
+        applyHoverStyle(animated: false)
+    }
+
     override func mouseEntered(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         super.mouseEntered(with: event)
         syncHoverState(with: event, animated: true)
     }
 
     override func mouseExited(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         super.mouseExited(with: event)
         syncHoverState(with: event, animated: true)
     }
 
     override func mouseMoved(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         super.mouseMoved(with: event)
         syncHoverState(with: event, animated: true)
     }
@@ -733,7 +770,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             accessibilityLabel = "停止播放：\(itemTitle)"
         }
 
-        statusBadgeButton.image = SteamWorkshopSymbolImageCache.image(named: symbolName)
+        statusBadgeButton.image = configuredSymbol(named: symbolName)
         statusBadgeButton.iconTintColor = tintColor
         statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
         statusBadgeButton.isEnabled = actionKind != .saving
@@ -745,6 +782,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     }
 
     private func syncHoverState(with event: NSEvent, animated: Bool) {
+        guard !view.isGridHoverSuppressed else { return }
         let localPoint = view.convert(event.locationInWindow, from: nil)
         let hoveringNow = view.bounds.contains(localPoint)
         guard hoveringNow != isHovering else { return }
@@ -754,9 +792,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     }
 
     private func syncHoverStateFromWindow(animated: Bool) {
-        guard let window = view.window else { return }
-        let localPoint = view.convert(window.mouseLocationOutsideOfEventStream, from: nil)
-        let hoveringNow = view.bounds.contains(localPoint)
+        guard !view.isGridHoverSuppressed else { return }
+        let hoveringNow = view.isGridPointerInside
         guard hoveringNow != isHovering else { return }
         isHovering = hoveringNow
         syncPreviewAnimationState()
@@ -822,6 +859,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     /// layout passes call this several times a second, and every unconditional
     /// `NSImage(systemSymbolName:)` construction plus image assignment used to
     /// invalidate the button each time.
+    private func configuredSymbol(named name: String) -> NSImage {
+        let image = SteamWorkshopSymbolImageCache.image(named: name)
+        return overlaySymbolConfiguration.flatMap { image.withSymbolConfiguration($0) } ?? image
+    }
+
     private func applyDetailChrome(
         key: String,
         symbolName: String,
@@ -831,7 +873,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     ) {
         guard key != lastHeartKey else { return }
         lastHeartKey = key
-        detailButton.image = SteamWorkshopSymbolImageCache.image(named: symbolName)
+        detailButton.image = configuredSymbol(named: symbolName)
         detailButton.iconTintColor = tint
         detailButton.setAccessibilityLabel(accessibilityLabel)
         detailButton.isEnabled = isEnabled

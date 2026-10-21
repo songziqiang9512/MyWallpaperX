@@ -4102,6 +4102,69 @@
         "test_scene_image_terminal_admission",
         "test_scene_image_terminal_placement_integration"
       ]
+    },
+    {
+      "id": "appkit-grid-scroll-presentation",
+      "patterns": [
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridItemView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift",
+        "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",
+        "script/tests/test_grid_scroll_interaction.py",
+        "script/tests/test_grid_card_lifecycle.py",
+        "script/tests/test_grid_thumbnail_decoder.py",
+        "script/tests/fixtures/GridScrollInteractionChecks.swift",
+        "script/tests/fixtures/GridCardLifecycleChecks.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
+      ],
+      "modules": [
+        "test_grid_scroll_interaction",
+        "test_grid_card_lifecycle",
+        "test_grid_thumbnail_decoder",
+        "test_steam_list_thumbnail_animation",
+        "test_steam_download_card_progress_diff",
+        "test_steam_grid_updates",
+        "test_ui_projection_efficiency",
+        "test_sil_metadata_loading",
+        "test_grid_playback_publication",
+        "test_thumbnail_cache_leases"
+      ]
+    },
+    {
+      "id": "grid-thumbnail-return-reuse",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift",
+        "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewSource.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseHydration.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "script/tests/test_thumbnail_return_reuse.py",
+        "script/tests/fixtures/ThumbnailReturnReuseChecks.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+ItemDetailPresentation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift"
+      ],
+      "modules": [
+        "test_thumbnail_return_reuse",
+        "test_thumbnail_cache_leases",
+        "test_grid_thumbnail_decoder",
+        "test_steam_list_thumbnail_animation",
+        "test_grid_card_lifecycle"
+      ]
     }
   ],
   "method_gates": {

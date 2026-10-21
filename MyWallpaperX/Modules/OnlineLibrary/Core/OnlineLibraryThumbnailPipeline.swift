@@ -193,12 +193,15 @@ actor OLThumbnailCache {
     }()
     /// 解码结果缓存：网格卡片每次进入视口都会对同一 URL 请求缩略图，
     /// 缓存解码后的 NSImage 避免重复解析 JPEG（压缩数据仍由 memCache/磁盘缓存）
-    private let decodedImageCache: NSCache<NSString, NSImage> = {
-        let c = NSCache<NSString, NSImage>()
-        c.countLimit = 120
-        c.totalCostLimit = 64 * 1024 * 1024
-        return c
-    }()
+    private nonisolated let decodedImageCache = DecodedThumbnailMemoryCache(
+        countLimit: 120, totalCostLimit: 64 * 1024 * 1024)
+
+    /// Ready pixels only; safe for a synchronous main-thread card reuse.
+    nonisolated func readyImage(for url: URL, maxPixelSize: Int) -> NSImage? {
+        decodedImageCache.object(forKey: "\(url.absoluteString)@\(maxPixelSize)" as NSString)
+    }
+
+    private var cacheGeneration = 0
 
     private init() {
         Task { await self.evictExpired() }
@@ -219,8 +222,11 @@ actor OLThumbnailCache {
         return data
     }
 
-    /// 写入缓存
-    func store(data: Data, for url: URL) {
+    func publicationGeneration() -> Int { cacheGeneration }
+
+    /// Requests capture this generation before waiting for the network.
+    func store(data: Data, for url: URL, generation: Int) {
+        guard generation == cacheGeneration else { return }
         let key = url.absoluteString as NSString
         memCache.setObject(data as NSData, forKey: key, cost: data.count)
         let file = cacheFile(for: url)
@@ -234,6 +240,7 @@ actor OLThumbnailCache {
 
     /// 清空缓存（内存 + 磁盘）：设置「清除缓存」统一入口调用
     func clearAll() {
+        cacheGeneration &+= 1
         memCache.removeAllObjects()
         decodedImageCache.removeAllObjects()
         try? FileManager.default.removeItem(at: cacheDir)
@@ -243,26 +250,32 @@ actor OLThumbnailCache {
     // MARK: 解码结果缓存
 
     /// 取解码后的缩略图（解码缓存 → 数据缓存后台解码）；返回 nil 表示无可用数据或解码失败
-    func cachedImage(for url: URL) async -> NSImage? {
-        let key = url.absoluteString as NSString
+    func cachedImage(for url: URL, maxPixelSize: Int = 800) async -> NSImage? {
+        let key = "\(url.absoluteString)@\(maxPixelSize)" as NSString
         if let img = decodedImageCache.object(forKey: key) { return img }
+        let generation = cacheGeneration
         guard let data = cachedData(for: url),
-              let img = await Self.decode(data) else { return nil }
+              let img = await Self.decode(data, maxPixelSize: maxPixelSize),
+              generation == cacheGeneration else { return nil }
         decodedImageCache.setObject(img, forKey: key, cost: Self.decodedImageCost(img))
         return img
     }
 
     /// 写入数据缓存并返回后台解码结果；解码失败不写缓存（与旧「先解码后入缓存」行为一致）
-    func storeAndDecode(data: Data, for url: URL) async -> NSImage? {
-        guard let img = await Self.decode(data) else { return nil }
-        store(data: data, for: url)
-        decodedImageCache.setObject(img, forKey: url.absoluteString as NSString, cost: Self.decodedImageCost(img))
+    func storeAndDecode(data: Data, for url: URL, maxPixelSize: Int = 800, generation: Int) async -> NSImage? {
+        guard generation == cacheGeneration else { return nil }
+        guard let img = await Self.decode(data, maxPixelSize: maxPixelSize),
+              generation == cacheGeneration else { return nil }
+        store(data: data, for: url, generation: generation)
+        decodedImageCache.setObject(img, forKey: "\(url.absoluteString)@\(maxPixelSize)" as NSString, cost: Self.decodedImageCost(img))
         return img
     }
 
     /// 解码统一放后台，避免占住调用方线程（主线程或 actor 执行器）
-    private static func decode(_ data: Data) async -> NSImage? {
-        await Task.detached(priority: .utility, operation: { NSImage(data: data) }).value
+    private static func decode(_ data: Data, maxPixelSize: Int) async -> NSImage? {
+        await Task.detached(priority: .utility) {
+            GridThumbnailDecoder.decode(data, maxPixelSize: maxPixelSize)
+        }.value
     }
 
     private static func decodedImageCost(_ image: NSImage) -> Int {

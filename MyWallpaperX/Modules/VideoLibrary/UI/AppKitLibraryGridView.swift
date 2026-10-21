@@ -63,7 +63,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     }()
 
     private let scrollView: NSScrollView = {
-        let scrollView = NSScrollView()
+        let scrollView = WallpaperGridScrollView()
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false

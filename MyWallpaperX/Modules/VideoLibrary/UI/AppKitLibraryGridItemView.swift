@@ -7,7 +7,14 @@ import AppKit
 import QuartzCore
 
 @objc(AppKitWallpaperItem)
-final class AppKitWallpaperItem: NSCollectionViewItem {
+final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private struct LayoutInputs: Equatable {
+        let size: NSSize
+        let title: String
+        let metadata: String
+    }
+    private var lastLayoutInputs: LayoutInputs?
+
     static let reuseIdentifier = NSUserInterfaceItemIdentifier(NSStringFromClass(AppKitWallpaperItem.self))
     static let hoverScale: CGFloat = 1.03
     private static let pressedScale: CGFloat = 0.98
@@ -60,6 +67,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        lastLayoutInputs = nil
         currentWallpaperID = nil
         currentWallpaper = nil
         imageTaskID = nil
@@ -385,6 +393,13 @@ final class AppKitWallpaperItem: NSCollectionViewItem {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
+            metadata: metaLabel.stringValue)
+        guard lastLayoutInputs != inputs else {
+            checkInitialHoverState()
+            return
+        }
+        lastLayoutInputs = inputs
         ensureCardAnchorCenteredIfNeeded()
 
         let width = imageContainer.bounds.width
@@ -433,10 +448,8 @@ final class AppKitWallpaperItem: NSCollectionViewItem {
     }
 
     private func checkInitialHoverState() {
-        guard let window = view.window else { return }
-        let mouseLocation = window.mouseLocationOutsideOfEventStream
-        let localPoint = view.convert(mouseLocation, from: nil)
-        let isHoveringNow = view.bounds.contains(localPoint)
+        guard !view.isGridHoverSuppressed else { return }
+        let isHoveringNow = view.isGridPointerInside
         if isHoveringNow && !isHovering {
             isHovering = true
             applyHoverVisibility(true, animated: false)
@@ -471,7 +484,17 @@ final class AppKitWallpaperItem: NSCollectionViewItem {
         imageContainer.ensureLayerAnchorCentered()
     }
 
+    func refreshGridHover(isScrolling: Bool) {
+        let hovered = !isScrolling && view.isGridPointerInside
+        guard hovered != isHovering else { return }
+        isHovering = hovered
+        applyHoverCardScale(hovered)
+        updatePlayButtonVisibility()
+        applyHoverVisibility(hovered, animated: false)
+    }
+
     override func mouseEntered(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         // hover 进入只触发视觉态，不改 selection。
         guard Self.hoverTrackingActivated else { return }
         isHovering = true
@@ -481,6 +504,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem {
     }
 
     override func mouseExited(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         // hover 离开恢复卡片缩放和播放按钮可见性。
         guard Self.hoverTrackingActivated else { return }
         isHovering = false
@@ -490,6 +514,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         // 首次收到鼠标移动后才开启 hover tracking，避免窗口刚出现就误判 hover 状态。
         if !Self.hoverTrackingActivated {
             Self.hoverTrackingActivated = true

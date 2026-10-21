@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 200,
-      "bytes": 14567
+      "lines": 202,
+      "bytes": 15467
     },
     "docs/architecture/repository-map.md": {
       "lines": 32,
@@ -305,8 +305,8 @@
       "bytes": 19066
     },
     "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 491,
-      "bytes": 91298
+      "lines": 520,
+      "bytes": 103534
     }
   },
   "archives": [
@@ -1232,15 +1232,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "3bd6fe65704d06912b69217486166fa7278a4ec1b41118dd93392dc1a878483f",
-      "after": "4e23747710556c731cb2d11f9721fcad054429fad7b774ffc1beec21330b102a",
-      "owner": "apple-silicon-d14-memory-holder-investigation",
-      "reason": "原D阶段计划补工具正反控、实际Swift持有链和单次L/H/L证据及STOP；保留采集失败、缺栈和诊断扰动边界，0产品改动，不新增结论权威或性能宣称。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "before": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
       "after": "12753b912d18c77d1d7b55894fa375d387ef075308caf75c6758c521d4c6385a",
@@ -1301,6 +1292,24 @@
       "owner": "root-scene-pulse-eye-response",
       "reason": "278退出本窗完全缺眼部音频响应修法；308/source361367按默认显隐、媒体输入与实际执行收窄下一门，避免只修日志。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#pulse-eye-response-278-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "56bacd95d3482fc3a8ed2c29e1dc13804886f3655c09a20d30ce033a879f7931",
+      "after": "146c3ed3805646cad0ab7f6308ff2a3ac2e484f111df8ba9ad106084e660cd5a",
+      "owner": "apple-silicon-grid-thumbnail-reuse",
+      "reason": "D15/D16既有路线与缩略图合同补本地来源、静态派生图、同预算LRU、请求失效和实际验证范围；不预支整App收益。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "4e23747710556c731cb2d11f9721fcad054429fad7b774ffc1beec21330b102a",
+      "after": "a3a3177807878040079e1901ddb125524a23b7d9185f9950d90abc2871382b6b",
+      "owner": "apple-silicon-grid-thumbnail-reuse",
+      "reason": "D15/D16设计、真实验证范围和用户授权提交/启动交付；同一执行路线收口。",
+      "decision": "docs/development/apple-silicon-optimization-plan.md"
     }
   ]
 }

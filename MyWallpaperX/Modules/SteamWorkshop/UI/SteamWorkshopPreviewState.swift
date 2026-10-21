@@ -4,22 +4,16 @@ import AppKit
 /// independently of cache eviction; the cache owns shared request cancellation.
 @MainActor final class SteamWorkshopPreviewState {
     struct Loaders {
-        var image: (URL, SteamWorkshopPreviewLoadCancellation, @escaping (NSImage?) -> Void) -> Void
+        var image: (URL, Int, SteamWorkshopPreviewLoadCancellation, @escaping (NSImage?) -> Void) -> Void
         var animation: (URL, SteamWorkshopPreviewLoadCancellation, @escaping (NSImage?) -> Void) -> Void
         var video: (URL, @escaping (NSImage?) -> Void) -> Void
         var retryDelay: (URL) -> TimeInterval?
         var invalidate: (URL) -> Void
 
         static func live(priority: SteamWorkshopPreviewRequestPriority = .visible) -> Loaders { Loaders(
-            image: { url, cancellation, completion in
-                if url.isFileURL {
-                    steamWorkshopLoadLocalPreviewImage(from: url, cancellation: cancellation, completion: completion)
-                } else {
-                    SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(
-                        forKey: steamWorkshopPreviewCacheKey(for: url), loader: {
-                            await SteamWorkshopPreviewRequestCoordinator.shared.loadData(from: url, priority: priority)
-                        }, decoder: steamWorkshopPreviewImage(from:), cancellation: cancellation, completion: completion)
-                }
+            image: { url, pixels, cancellation, completion in
+                steamWorkshopLoadPreviewImage(from: url, maxPixelSize: pixels, priority: priority,
+                    cancellation: cancellation, completion: completion)
             },
             animation: { url, cancellation, completion in
                 let key = url.isFileURL ? steamWorkshopLocalPreviewCacheKey(for: url) : steamWorkshopPreviewCacheKey(for: url)
@@ -28,8 +22,7 @@ import AppKit
             video: { SteamWorkshopDownloadThumbnailPipeline.shared.generateThumbnail(for: $0, completion: $1) },
             retryDelay: { SteamWorkshopPreviewRequestCoordinator.shared.nextRetryDelay(for: $0, priority: priority) },
             invalidate: { url in
-                let key = url.isFileURL ? steamWorkshopLocalPreviewCacheKey(for: url) : steamWorkshopPreviewCacheKey(for: url)
-                SteamWorkshopPreviewImageCache.shared.remove(forKey: key)
+                steamWorkshopInvalidatePreview(url)
                 if !url.isFileURL { SteamWorkshopPreviewRequestCoordinator.shared.resetFailureState(for: url) }
             }
         ) }
@@ -47,6 +40,7 @@ import AppKit
     private struct Request: Equatable {
         let images: [Source]
         let video: Source?
+        let maxPixelSize: Int
         let refreshToken: Int
         func contains(_ source: ResolvedSource) -> Bool {
             switch source {
@@ -84,17 +78,17 @@ import AppKit
     init(loaders: Loaders? = nil) { self.loaders = loaders ?? .live() }
     deinit { retryTask?.cancel(); imageCancellation?.cancel(); animationCancellation?.cancel() }
 
-    func configure(previewURL: URL?, fallbackImageURL: URL? = nil, fallbackVideoURL: URL?, refreshToken: Int = 0) {
+    func configure(previewURL: URL?, fallbackImageURL: URL? = nil, fallbackVideoURL: URL?, refreshToken: Int = 0, maxPixelSize: Int = 800) {
         var images = previewURL.map { [Source($0)] } ?? []
         if let fallbackImageURL {
             let source = Source(fallbackImageURL)
             if !images.contains(source) { images.append(source) }
         }
-        let next = Request(images: images, video: fallbackVideoURL.map(Source.init), refreshToken: refreshToken)
+        let next = Request(images: images, video: fallbackVideoURL.map(Source.init), maxPixelSize: maxPixelSize, refreshToken: refreshToken)
         guard next != request else { return }
         // Download completion may only add/remove a video fallback. A ready
         // primary image remains authoritative and needs no reload or GIF restart.
-        if let previous = request, previous.refreshToken == next.refreshToken,
+        if let previous = request, previous.refreshToken == next.refreshToken, previous.maxPixelSize == next.maxPixelSize,
            previous.images.first == next.images.first, let primary = next.images.first,
            resolvedSource == .image(primary), staticImage != nil {
             request = next
@@ -118,8 +112,9 @@ import AppKit
         isLoading = true
         isRetrying = false
         retryDeadline = Date().addingTimeInterval(35)
-        onChange?()
         loadImage(generation: expected)
+        // A synchronous memory hit finishes before any loading presentation.
+        if isLoading { onChange?() }
     }
 
     func reload() {
@@ -127,7 +122,7 @@ import AppKit
         for source in request.images { loaders.invalidate(source.url) }
         // Recompute local content versions after explicit refresh, too.
         let next = Request(images: request.images.map { Source($0.url) },
-                           video: request.video.map { Source($0.url) }, refreshToken: request.refreshToken)
+                           video: request.video.map { Source($0.url) }, maxPixelSize: request.maxPixelSize, refreshToken: request.refreshToken)
         start(next)
     }
 
@@ -167,7 +162,7 @@ import AppKit
         let source = request.images[candidate]
         let cancellation = SteamWorkshopPreviewLoadCancellation()
         imageCancellation = cancellation
-        loaders.image(source.url, cancellation) { [weak self] image in
+        loaders.image(source.url, request.maxPixelSize, cancellation) { [weak self] image in
             guard let self, self.generation == expected, !cancellation.cancelled else { return }
             self.imageCancellation = nil
             if let image, steamWorkshopPreviewImageIsUsable(image) {

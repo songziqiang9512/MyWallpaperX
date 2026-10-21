@@ -44,6 +44,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                     "swiftc",
                     "-parse-as-library",
                     str(VIDEO_WALLPAPER_SOURCE),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift"),
                     str(THUMBNAIL_CACHE_SOURCE),
                     str(FADING_SCROLL_SOURCE),
                     str(FOOTER_METRICS_SOURCE),

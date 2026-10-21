@@ -180,6 +180,7 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
 }
 
 @MainActor final class AppKitOLBrowserItem: NSCollectionViewItem {
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("OnlineProbeCard")
     struct State: Equatable {
         let id: Int
         let title: String
@@ -202,6 +203,7 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
 @MainActor final class RecordingCollection {
     var visible: Set<IndexPath> = []
     var cells: [IndexPath: NSCollectionViewItem] = [:]
+    func makeItem(withIdentifier: NSUserInterfaceItemIdentifier, for indexPath: IndexPath) -> NSCollectionViewItem { AppKitOLBrowserItem() }
     func indexPathsForVisibleItems() -> Set<IndexPath> { visible }
     func item(at indexPath: IndexPath) -> NSCollectionViewItem? { cells[indexPath] }
     func cell(_ index: Int) -> AppKitOLBrowserItem {

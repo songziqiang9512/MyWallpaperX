@@ -68,7 +68,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
     private var lastPrioritizedVisibleIDs: [Int]?
 
     private let scrollView: NSScrollView = {
-        let s = NSScrollView()
+        let s = WallpaperGridScrollView()
         s.drawsBackground = false
         s.hasVerticalScroller = true
         s.hasHorizontalScroller = false
@@ -97,8 +97,8 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
             collectionView: collectionView
         ) { [weak self] cv, indexPath, id -> NSCollectionViewItem? in
             guard let self, let item = self.itemsByID[id] else { return nil }
-            // 直接 init，避免 makeItem 触发 nib 查找导致崩溃
-            let cell = AppKitOLBrowserItem(nibName: nil, bundle: nil)
+            guard let cell = self.collectionView.makeItem(
+                withIdentifier: AppKitOLBrowserItem.reuseIdentifier, for: indexPath) as? AppKitOLBrowserItem else { return nil }
             let svc = self.service
             cell.configure(
                 item: item,
@@ -136,6 +136,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         layer?.backgroundColor = NSColor.clear.cgColor
 
         collectionView.collectionViewLayout = flowLayout
+        collectionView.register(AppKitOLBrowserItem.self, forItemWithIdentifier: AppKitOLBrowserItem.reuseIdentifier)
         collectionView.dataSource = dataSource
         collectionView.cardPressStateHandler = { [weak self] indexPath, isPressed in
             guard let self,

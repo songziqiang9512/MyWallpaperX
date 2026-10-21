@@ -29,6 +29,10 @@ CORE = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
 SHARED_UI = ROOT / "MyWallpaperX/Shared/UI"
 
 SOURCES = [
+    SHARED_UI / "DecodedThumbnailMemoryCache.swift",
+    SHARED_UI / "GridThumbnailDecoder.swift",
+    CORE / "SteamWorkshopPreviewSource.swift",
+    SHARED_UI / "WallpaperGridScrollView.swift",
     UI / "AppKitSteamWorkshopBrowserItem.swift",
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
     UI / "AppKitSteamWorkshopBrowserItemSupportViews.swift",
@@ -258,10 +262,27 @@ import Foundation
             card.applyHoverStyle(animated: false)
         }
         launchCard()
+        card.viewDidLayout()
+        func assertSymbolSize(_ image: NSImage?, named name: String) {
+            let metrics = card.metrics(for: card.cardView.bounds.size)
+            let config = NSImage.SymbolConfiguration(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium)
+            let expected = NSImage(systemSymbolName: name, accessibilityDescription: nil)!.withSymbolConfiguration(config)!
+            precondition(image?.size == expected.size, "same-size state update lost its symbol configuration: \(name)")
+        }
+        assertSymbolSize(card.statusBadgeButton.image, named: "play.fill")
+        card.detailButton.updateTrackingAreas()
+        let firstTracking = card.view.trackingAreas.first
+        let firstButtonTracking = card.detailButton.trackingAreas.first
+        precondition(firstTracking != nil && firstButtonTracking != nil, "tracking identity controls must be nonempty")
+        card.viewDidLayout()
+        card.detailButton.updateTrackingAreas()
+        precondition(firstTracking === card.view.trackingAreas.first, "unchanged layout must preserve card tracking")
+        precondition(firstButtonTracking === card.detailButton.trackingAreas.first, "unchanged layout must preserve icon tracking")
         precondition(!card.currentBarVisibility, "an idle ready download keeps its hover-only bar")
         card.statusBadgeButton.performClick(nil)
         precondition(service.launchPendingID == item.id, "the play button must enter the pending launch")
         launchCard()
+        assertSymbolSize(card.statusBadgeButton.image, named: "hourglass")
         precondition(card.currentBarVisibility, "pending launch must pin the bar before playback starts")
         precondition(card.statusBadgeButton.accessibilityLabel()?.contains("正在切换") == true,
                      "pending keeps the launch badge; stop styling still waits for playback")
@@ -272,9 +293,23 @@ import Foundation
         precondition(!card.currentBarVisibility, "another card's launch must not pin this bar")
         service.launchPendingID = nil
         launchCard(playing: true)
+        assertSymbolSize(card.statusBadgeButton.image, named: "stop.fill")
         precondition(card.currentBarVisibility, "successful playback must keep the existing persistent bar")
         launchCard()
         precondition(!card.currentBarVisibility, "failed/cancelled launch returns to the original idle behavior")
+        assertSymbolSize(card.statusBadgeButton.image, named: "play.fill")
+        card.configure(displayContext: .browser, item: item, downloadRecord: nil,
+            downloadProgressStore: store, isDownloading: false, isDownloaded: false,
+            isKeyboardFocused: false, onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+        card.viewDidLayout()
+        service.steamSubscriptions.states[item.id] = .known(true)
+        card.refreshSubscribeHeart()
+        precondition(card.detailButton.accessibilityLabel() == "取消订阅：\(item.title)", "heart test must enter subscribed browser chrome")
+        assertSymbolSize(card.detailButton.image, named: "heart.fill")
+        service.steamSubscriptions.states[item.id] = .known(false)
+        card.refreshSubscribeHeart()
+        precondition(card.detailButton.accessibilityLabel() == "订阅：\(item.title)", "heart test must enter unsubscribed browser chrome")
+        assertSymbolSize(card.detailButton.image, named: "heart")
         print("Steam download card progress diffing PASS")
     }
 }

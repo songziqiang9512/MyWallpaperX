@@ -55,7 +55,7 @@ enum OLDownloadedThumbnailStore {
 
 // MARK: - 数据模型
 
-struct OLDownloadedEntry {
+struct OLDownloadedEntry: Equatable {
     let id: Int
     let localURL: URL
     let fileSize: Int
@@ -205,7 +205,15 @@ private final class OLDownloadsPlayBadgeView: NSView {
 
 // MARK: - 卡片
 
-final class AppKitOLDownloadsItem: NSCollectionViewItem {
+final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private struct LayoutInputs: Equatable {
+        let size: NSSize
+        let title: String
+        let metadata: String
+        let placeholder: String
+    }
+    private var lastLayoutInputs: LayoutInputs?
+
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("AppKitOLDownloadsItem")
     static let hoverScale: CGFloat = 1.03
     private static let pressedScale: CGFloat = 0.98
@@ -234,6 +242,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
     private var isMultiSelectMode = false
     private var isHoverOutlineVisible = false
     private var currentCardScale: CGFloat = 1
+    private var thumbnailRequestID = UUID()
+    private var presentedEntry: OLDownloadedEntry?
     private var currentEntryID = -1
     private var isSelectedState = false
     private var isPlaying = false
@@ -262,6 +272,9 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        lastLayoutInputs = nil
+        thumbnailRequestID = UUID()
+        presentedEntry = nil
         currentEntryID = -1
         thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
@@ -294,13 +307,21 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
     ) {
         applySelectionState(isSelected, multiSelectMode: isMultiSelectMode)
         applyPlayingState(isPlaying: isPlaying)
-        guard entry.id != currentEntryID else { return }
-
+        guard presentedEntry != entry else { return }
+        let imageChanged = currentEntryID != entry.id || presentedEntry?.localURL != entry.localURL
+            || presentedEntry?.fileSize != entry.fileSize
+        presentedEntry = entry
         currentEntryID = entry.id
         titleLabel.stringValue = entry.displayTitle
         metaLabel.stringValue = entry.metaLine
         view.needsLayout = true
 
+        guard imageChanged else { return }
+        let requestID = UUID()
+        thumbnailRequestID = requestID
+        thumbnailView.image = nil
+        placeholderLabel.stringValue = "加载中..."
+        placeholderLabel.isHidden = false
         let cacheKey = OLDownloadedThumbnailStore.cacheKey(for: entry.localURL)
         if let cached = OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: cacheKey) {
             thumbnailView.image = cached
@@ -317,7 +338,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
             Self.generateThumbnail(from: url)
         }, completion: { image in
             // ThumbnailCache 统一主线程回调；卡片已复用为其他条目时丢弃结果
-            guard let item, item.currentEntryID == id else { return }
+            guard let item, item.currentEntryID == id, item.thumbnailRequestID == requestID else { return }
             if let image {
                 item.thumbnailView.image = image
                 item.placeholderLabel.isHidden = true
@@ -463,6 +484,13 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
+            metadata: metaLabel.stringValue, placeholder: placeholderLabel.stringValue)
+        guard lastLayoutInputs != inputs else {
+            checkInitialHoverState()
+            return
+        }
+        lastLayoutInputs = inputs
 
         let width = view.bounds.width
         guard width > 0 else { return }
@@ -549,12 +577,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
     }
 
     private func checkInitialHoverState() {
-        guard let window = view.window else {
-            return
-        }
-        let mouseLocation = window.mouseLocationOutsideOfEventStream
-        let localPoint = view.convert(mouseLocation, from: nil)
-        let isHoveringNow = view.bounds.contains(localPoint)
+        guard !view.isGridHoverSuppressed else { return }
+        let isHoveringNow = view.isGridPointerInside
         if isHoveringNow && !isHovering {
             isHovering = true
             applyHoverVisibility(true, animated: false)
@@ -613,19 +637,29 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
         playActionButton.isHidden = (!visible && !isPlaying) || isMultiSelectMode
     }
 
+    func refreshGridHover(isScrolling: Bool) {
+        let hovered = !isScrolling && view.isGridPointerInside
+        guard hovered != isHovering else { return }
+        isHovering = hovered
+        applyHoverState(hovered)
+    }
+
     override func mouseEntered(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
         isHovering = true
         applyHoverState(true)
     }
 
     override func mouseExited(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
         isHovering = false
         applyHoverState(false)
     }
 
     override func mouseMoved(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         if !Self.hoverTrackingActivated {
             Self.hoverTrackingActivated = true
         }

@@ -48,9 +48,7 @@ final class SteamWorkshopOverlayIconButton: NSButton {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        if let trackingAreaRef {
-            removeTrackingArea(trackingAreaRef)
-        }
+        guard trackingAreaRef == nil else { return }
         let trackingArea = NSTrackingArea(
             rect: bounds,
             options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],

@@ -106,7 +106,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
 
     private let scrollView: NSScrollView = {
-        let s = NSScrollView()
+        let s = WallpaperGridScrollView()
         s.drawsBackground = false
         s.hasVerticalScroller = true
         s.hasHorizontalScroller = false
@@ -135,8 +135,8 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
             collectionView: collectionView
         ) { [weak self] cv, indexPath, id -> NSCollectionViewItem? in
             guard let self, let entry = self.entriesByID[id] else { return nil }
-            // 直接 init，避免 makeItem 触发 nib 查找导致崩溃
-            let item = AppKitOLDownloadsItem(nibName: nil, bundle: nil)
+            guard let item = self.collectionView.makeItem(
+                withIdentifier: AppKitOLDownloadsItem.reuseIdentifier, for: indexPath) as? AppKitOLDownloadsItem else { return nil }
             item.configure(
                 entry: entry,
                 isSelected: self.effectiveSelectedIDs.contains(id),
@@ -176,6 +176,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         }
 
         collectionView.collectionViewLayout = flowLayout
+        collectionView.register(AppKitOLDownloadsItem.self, forItemWithIdentifier: AppKitOLDownloadsItem.reuseIdentifier)
         collectionView.dataSource = dataSource
         collectionView.onBackgroundLeftClick = { [weak self] in
             self?.handleBackgroundClick()

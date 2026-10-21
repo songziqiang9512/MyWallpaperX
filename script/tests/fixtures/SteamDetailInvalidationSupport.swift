@@ -9,10 +9,21 @@ final class SteamWorkshopSceneInspectionController {
     let onStateChange: () -> Void
     init(onStateChange: @escaping () -> Void) { self.onStateChange = onStateChange }
     func reset() {}
+    func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) { preconditionFailure("outside detail preview gate") }
 }
 extension AppKitSteamWorkshopItemDetailView {
     func refreshDiagnosticsPanel() {}
-    @objc func openProperties() {}
+}
+final class SteamWorkshopWebPropertyEditorView: NSView {
+    init(record: SteamWorkshopDownloadRecord) { super.init(frame: .zero) }
+    required init?(coder: NSCoder) { fatalError() }
+    var presentsOnlyMessage: Bool { false }
+    var emptyStateMessage: String? { nil }
+}
+final class SteamWorkshopPropertyPanelController {
+    static let shared = SteamWorkshopPropertyPanelController()
+    func showMessage(title: String, subtitle: String, message: String) { preconditionFailure("outside detail preview gate") }
+    func show(title: String, subtitle: String, content: NSView) { preconditionFailure("outside detail preview gate") }
 }
 enum WebRuntimeDiagnosticsStore { static let didChangeNotification = Notification.Name("fixture-web-diagnostics") }
 extension Notification.Name { static let sceneWallpaperLaunchStateDidChange = Self("fixture-scene-launch") }
@@ -114,6 +125,18 @@ func steamWorkshopLoadAnimatedPreview(from url: URL, cacheKey: String, cancellat
 func steamWorkshopLoadLocalPreviewImage(from url: URL, cancellation: SteamWorkshopPreviewLoadCancellation? = nil, completion: @escaping (NSImage?) -> Void) {
     FixturePreview.localLoads.append(url)
     completion(FixturePreview.failLocal ? nil : FixturePreview.image)
+}
+func steamWorkshopLoadPreviewImage(from url: URL, maxPixelSize: Int = 800,
+    priority: SteamWorkshopPreviewRequestPriority = .visible,
+    cancellation: SteamWorkshopPreviewLoadCancellation? = nil, completion: @escaping (NSImage?) -> Void) {
+    if url.isFileURL { steamWorkshopLoadLocalPreviewImage(from: url, cancellation: cancellation, completion: completion) }
+    else {
+        SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(forKey: steamWorkshopPreviewCacheKey(for: url),
+            loader: { nil }, decoder: steamWorkshopPreviewImage(from:), cancellation: cancellation, completion: completion)
+    }
+}
+func steamWorkshopInvalidatePreview(_ url: URL) {
+    SteamWorkshopPreviewImageCache.shared.remove(forKey: steamWorkshopPreviewCacheKey(for: url))
 }
 func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool { false }
 func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool { true }

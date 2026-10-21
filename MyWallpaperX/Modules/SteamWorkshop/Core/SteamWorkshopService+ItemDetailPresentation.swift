@@ -319,8 +319,7 @@ extension SteamWorkshopService {
     private func retryInspectorPreviewLoad(for item: SteamWorkshopBrowserItem) {
         if let previewURL = item.previewImageURL {
             SteamWorkshopPreviewRequestCoordinator.shared.resetFailureState(for: previewURL)
-            let cacheKey = steamWorkshopPreviewCacheKey(for: previewURL)
-            SteamWorkshopPreviewImageCache.shared.remove(forKey: cacheKey)
+            steamWorkshopInvalidatePreview(previewURL)
         }
         previewReloadToken += 1
     }

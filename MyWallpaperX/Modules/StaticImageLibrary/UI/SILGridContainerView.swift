@@ -41,7 +41,7 @@ final class SILGridContainerView: NSView, ModuleFocusable {
     }()
 
     private let scrollView: NSScrollView = {
-        let sv = NSScrollView()
+        let sv = WallpaperGridScrollView()
         sv.drawsBackground = false; sv.hasVerticalScroller = true
         sv.hasHorizontalScroller = false
         sv.translatesAutoresizingMaskIntoConstraints = false

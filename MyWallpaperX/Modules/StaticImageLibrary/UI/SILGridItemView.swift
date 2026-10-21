@@ -122,7 +122,15 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
 
 // MARK: - SILGridItem
 
-final class SILGridItem: NSCollectionViewItem {
+final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private struct LayoutInputs: Equatable {
+        let size: NSSize
+        let title: String
+        let metadata: String
+        let placeholder: String
+    }
+    private var lastLayoutInputs: LayoutInputs?
+
     static let reuseID = NSUserInterfaceItemIdentifier("SILGridItem")
     private static var hoverTrackingActivated = false
     static func resetHoverTracking() { hoverTrackingActivated = false }
@@ -183,6 +191,13 @@ final class SILGridItem: NSCollectionViewItem {
     }
 
     private func layoutSubviewsManually() {
+        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
+            metadata: metaLabel.stringValue, placeholder: placeholderLabel.stringValue)
+        guard lastLayoutInputs != inputs else {
+            checkInitialHoverState()
+            return
+        }
+        lastLayoutInputs = inputs
         let b = view.bounds
         let fontSizes = fontSizeForWidth(b.width)
         titleLabel.font = .systemFont(ofSize: fontSizes.title, weight: .medium)
@@ -225,10 +240,8 @@ final class SILGridItem: NSCollectionViewItem {
     }
 
     private func checkInitialHoverState() {
-        guard let window = view.window else { return }
-        let mouseLocation = window.mouseLocationOutsideOfEventStream
-        let localPoint = view.convert(mouseLocation, from: nil)
-        let isHoveringNow = view.bounds.contains(localPoint)
+        guard !view.isGridHoverSuppressed else { return }
+        let isHoveringNow = view.isGridPointerInside
         if isHoveringNow && !isHovering {
             isHovering = true
             applyHoverVisibility(true, animated: false)
@@ -237,6 +250,7 @@ final class SILGridItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        lastLayoutInputs = nil
         wallpaperID = nil; imageTaskID = nil
         isHovering = false; isPressingCard = false
         isSelectedState = false; isMultiSelect = false
@@ -329,15 +343,25 @@ final class SILGridItem: NSCollectionViewItem {
 
     // MARK: - Hover
 
+    func refreshGridHover(isScrolling: Bool) {
+        let hovered = !isScrolling && view.isGridPointerInside
+        guard hovered != isHovering else { return }
+        isHovering = hovered
+        applyHoverCardScale(hovered)
+    }
+
     override func mouseEntered(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
         isHovering = true; applyHoverCardScale(true)
     }
     override func mouseExited(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
         isHovering = false; applyHoverCardScale(false)
     }
     override func mouseMoved(with event: NSEvent) {
+        guard !view.isGridHoverSuppressed else { return }
         if !Self.hoverTrackingActivated { Self.hoverTrackingActivated = true }
         let local = imageContainer.convert(event.locationInWindow, from: nil)
         let now = imageContainer.bounds.contains(local)

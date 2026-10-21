@@ -721,26 +721,9 @@ final class SteamWorkshopDownloadRowView: NSView {
         guard let url else { return }
         let cancellation = SteamWorkshopPreviewLoadCancellation()
         previewCancellation = cancellation
-        if url.isFileURL {
-            steamWorkshopLoadLocalPreviewImage(from: url, cancellation: cancellation) { [weak self] image in
-                guard let self, self.currentPreviewURL == url, !cancellation.cancelled, let image else { return }
-                self.thumbnailView.image = image
-            }
-            return
-        }
-        let key = steamWorkshopPreviewCacheKey(for: url)
-        if let cached = SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: key) {
-            thumbnailView.image = cached
-            return
-        }
         // The cache coalesces consumers and cancels the producer only after
         // the last consumer exits; this token belongs to the row's interest.
-        SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(forKey: key, loader: {
-            await SteamWorkshopPreviewRequestCoordinator.shared.loadData(
-                from: url,
-                priority: .visible
-            )
-        }, decoder: steamWorkshopPreviewImage(from:), cancellation: cancellation) { [weak self] image in
+        steamWorkshopLoadPreviewImage(from: url, cancellation: cancellation) { [weak self] image in
             guard let self, self.currentPreviewURL == url, !cancellation.cancelled, let image else { return }
             self.thumbnailView.image = image
             self.previewCancellation = nil

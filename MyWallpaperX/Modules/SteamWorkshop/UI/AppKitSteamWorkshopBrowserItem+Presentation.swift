@@ -53,15 +53,14 @@ extension AppKitSteamWorkshopBrowserItem {
             titleMarqueeView.font = metrics.titleFont
         }
         let overlaySymbolConfig = NSImage.SymbolConfiguration(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium)
+        overlaySymbolConfiguration = overlaySymbolConfig
         detailButton.contentTintColor = detailButton.iconTintColor
         detailButton.image = detailButton.image?.withSymbolConfiguration(overlaySymbolConfig)
         statusBadgeButton.image = statusBadgeButton.image?.withSymbolConfiguration(overlaySymbolConfig)
     }
 
     func refreshTrackingArea() {
-        if let trackingAreaRef {
-            view.removeTrackingArea(trackingAreaRef)
-        }
+        guard trackingAreaRef == nil else { return }
         let trackingArea = NSTrackingArea(
             rect: view.bounds,
             options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],

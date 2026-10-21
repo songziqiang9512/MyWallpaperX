@@ -997,6 +997,59 @@
         "g_EffectModelMatrix",
         "effectUnitModelMatrix"
       ]
+    },
+    {
+      "id": "appkit-grid-scroll-cost",
+      "title": "D15 全模块网格滚动与复用",
+      "owner": "AppKit grid scroll views and item presentation",
+      "status": "approved",
+      "designDoc": "docs/development/apple-silicon-optimization-plan.md",
+      "design_notes": "D15：滚动状态仅暂停可见卡片hover，不禁点击/键盘/框选；原生item复用与identity取消；布局按实际输入变化刷新；在线图后台下采样立即解码，保缓存失效、预算、原样式。按阶段独审、行为与真实窗口门后用户测试，不预支帧率或全量回归结论。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridItemView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift",
+        "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "grid-thumbnail-return-reuse",
+      "title": "D16 网格缩略图返回复用与Steam本地优先",
+      "owner": "ThumbnailCache / OLThumbnailCache / SteamWorkshopPreviewState",
+      "status": "approved",
+      "designDoc": "docs/development/apple-silicon-optimization-plan.md",
+      "design_notes": "D16实施前明确：既有owner内有界LRU、静态派生图与动画原始数据分键；卡片和预取同一本地优先链；保预算、文件版本、取消／清理失效、作者动画与原样式；冷暖和失败反例验证，不新增Release诊断。",
+      "matchPatterns": [
+        "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+        "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewSource.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseHydration.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+ItemDetailPresentation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

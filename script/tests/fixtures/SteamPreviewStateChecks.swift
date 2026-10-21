@@ -10,7 +10,7 @@ import AppKit
     var videos: [(NSImage?) -> Void] = []
     var invalidations = 0
     let state = SteamWorkshopPreviewState(loaders: .init(
-        image: { url, _, done in images.append((url, done)) }, animation: { _, _, done in animations.append(done) },
+        image: { url, _, _, done in images.append((url, done)) }, animation: { _, _, done in animations.append(done) },
         video: { _, done in videos.append(done) }, retryDelay: { _ in nil }, invalidate: { _ in invalidations += 1 }))
     var checks: [String: Bool] = [:]
     state.setAnimationActive(true)
@@ -75,7 +75,7 @@ import AppKit
     checks["resetReleasesAllPresentationImages"] = state.image == nil && !state.isAnimating
     var retryImages: [(NSImage?) -> Void] = []
     let retry = SteamWorkshopPreviewState(loaders: .init(
-        image: { _, _, done in retryImages.append(done) }, animation: { _, _, done in done(nil) },
+        image: { _, _, _, done in retryImages.append(done) }, animation: { _, _, done in done(nil) },
         video: { _, done in done(nil) }, retryDelay: { _ in 0 }, invalidate: { _ in }))
     retry.configure(previewURL: a, fallbackVideoURL: nil)
     retryImages[0](nil)
@@ -94,7 +94,7 @@ import AppKit
     RunLoop.main.run(until: Date().addingTimeInterval(0.7))
     checks["sourceSwitchCancelsScheduledRetry"] = retryImages.count == countAfterSwitch
     let exhausted = SteamWorkshopPreviewState(loaders: .init(
-        image: { _, _, done in done(nil) }, animation: { _, _, done in done(nil) },
+        image: { _, _, _, done in done(nil) }, animation: { _, _, done in done(nil) },
         video: { _, done in done(nil) }, retryDelay: { _ in 120 }, invalidate: { _ in }))
     exhausted.configure(previewURL: a, fallbackVideoURL: nil)
     checks["retryBeyondBudgetEndsWithoutSpinner"] = exhausted.placeholder == .unavailable
@@ -102,7 +102,7 @@ import AppKit
     var candidateAnimations: [URL] = []
     var fallbackImages: [(URL, (NSImage?) -> Void)] = []
     let candidateState = SteamWorkshopPreviewState(loaders: .init(
-        image: { url, token, done in candidates.append((url, token, done)) },
+        image: { url, _, token, done in candidates.append((url, token, done)) },
         animation: { url, _, done in candidateAnimations.append(url); done(animation) },
         video: { url, done in fallbackImages.append((url, done)) }, retryDelay: { _ in nil }, invalidate: { _ in }))
     candidateState.setAnimationActive(true)

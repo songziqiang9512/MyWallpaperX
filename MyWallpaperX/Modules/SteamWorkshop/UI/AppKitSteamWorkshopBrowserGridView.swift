@@ -49,7 +49,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var pendingItems: [SteamWorkshopBrowserItem]?
 
     private let scrollView: NSScrollView = {
-        let scrollView = NSScrollView()
+        let scrollView = WallpaperGridScrollView()
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
@@ -112,7 +112,8 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
                 return item
             }
             guard let item = self.itemsByID[id] else { return nil }
-            let cell = AppKitSteamWorkshopBrowserItem(nibName: nil, bundle: nil)
+            guard let cell = self.collectionView.makeItem(
+                withIdentifier: AppKitSteamWorkshopBrowserItem.reuseIdentifier, for: indexPath) as? AppKitSteamWorkshopBrowserItem else { return nil }
             self.configureCell(cell, for: id)
             return cell
         }
@@ -169,6 +170,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         layer?.backgroundColor = NSColor.clear.cgColor
 
         collectionView.collectionViewLayout = flowLayout
+        collectionView.register(AppKitSteamWorkshopBrowserItem.self, forItemWithIdentifier: AppKitSteamWorkshopBrowserItem.reuseIdentifier)
         collectionView.dataSource = dataSource
         collectionView.delegate = self
         scrollView.documentView = collectionView
@@ -598,7 +600,9 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         let prioritized = Array(visibleIDs.prefix(16))
         guard prioritized != lastPrioritizedVisibleIDs else { return }
         lastPrioritizedVisibleIDs = prioritized
-        service.prioritizeVisibleBrowserItemIDs(prioritized)
+        let pixels = min(800, GridThumbnailDecoder.pixelLimit(width: flowLayout.itemSize.width,
+            scale: window?.backingScaleFactor ?? 2))
+        service.prioritizeVisibleBrowserItemIDs(prioritized, maxPixelSize: pixels)
     }
 
     @discardableResult

@@ -30,7 +30,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     private var isApplyingRecords = false
 
     private let scrollView: NSScrollView = {
-        let s = NSScrollView()
+        let s = WallpaperGridScrollView()
         s.drawsBackground = false
         s.hasVerticalScroller = true
         s.hasHorizontalScroller = false
@@ -83,10 +83,11 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }()
 
     private lazy var dataSource: NSCollectionViewDiffableDataSource<Section, String> = {
-        NSCollectionViewDiffableDataSource<Section, String>(collectionView: collectionView) { [weak self] _, _, id in
+        NSCollectionViewDiffableDataSource<Section, String>(collectionView: collectionView) { [weak self] _, indexPath, id in
             guard let self,
                   let record = self.recordsByID[id] else { return nil }
-            let item = AppKitSteamWorkshopBrowserItem(nibName: nil, bundle: nil)
+            guard let item = self.collectionView.makeItem(
+                withIdentifier: AppKitSteamWorkshopBrowserItem.reuseIdentifier, for: indexPath) as? AppKitSteamWorkshopBrowserItem else { return nil }
             self.configureDownloadItem(item, for: record)
             return item
         }
@@ -166,6 +167,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         layer?.backgroundColor = NSColor.clear.cgColor
 
         collectionView.collectionViewLayout = flowLayout
+        collectionView.register(AppKitSteamWorkshopBrowserItem.self, forItemWithIdentifier: AppKitSteamWorkshopBrowserItem.reuseIdentifier)
         collectionView.dataSource = dataSource
         collectionView.delegate = self
         scrollView.documentView = collectionView

@@ -7,7 +7,7 @@ extension SteamWorkshopService {
         }
     }
 
-    func prioritizeVisibleBrowserItemIDs(_ ids: [String]) {
+    func prioritizeVisibleBrowserItemIDs(_ ids: [String], maxPixelSize: Int = 800) {
         let normalized = Array(NSOrderedSet(array: ids.filter { !$0.isEmpty })) as? [String] ?? []
         guard !normalized.isEmpty, !displayedBrowserItems.isEmpty else { return }
         let items = displayedBrowserItems
@@ -18,32 +18,29 @@ extension SteamWorkshopService {
         let startIndex = max(0, firstVisibleIndex - 12)
         let endIndex = min(items.count - 1, lastVisibleIndex + 12)
         guard startIndex <= endIndex else { return }
-        prefetchBrowserPreviewImages(for: Array(items[startIndex...endIndex]), limit: 24)
+        prefetchBrowserPreviewImages(for: Array(items[startIndex...endIndex]), limit: 24, maxPixelSize: maxPixelSize)
     }
 
     private func prefetchBrowserPreviewImages(
         for items: [SteamWorkshopBrowserItem],
-        limit: Int
+        limit: Int, maxPixelSize: Int
     ) {
-        let candidates = items.prefix(limit).compactMap { item -> (String, URL)? in
-            guard let url = item.previewImageURL else { return nil }
-            return (item.id, url)
+        let candidates = items.prefix(limit).compactMap { item -> (String, URL, URL?)? in
+            let sources = steamWorkshopPreviewSources(item: item, record: latestDownloadRecord(for: item.id))
+            guard let url = sources.primary else { return nil }
+            return (item.id, url, sources.fallback)
         }
         let nextIDSet = Set(candidates.map(\.0))
-        let delta = candidates.filter { id, url in
-            let cacheKey = steamWorkshopPreviewCacheKey(for: url)
-            return !lastPreviewPrefetchIDSet.contains(id)
-                || SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: cacheKey) == nil
+        let delta = candidates.filter { id, url, _ in
+            !lastPreviewPrefetchIDSet.contains(id) || steamWorkshopCachedPreviewImage(for: url, maxPixelSize: maxPixelSize) == nil
         }
         guard !delta.isEmpty else { return }
         lastPreviewPrefetchIDSet = nextIDSet
-        for (_, url) in delta {
-            let cacheKey = steamWorkshopPreviewCacheKey(for: url)
-            SteamWorkshopPreviewImageCache.shared.prefetchRawDataAsync(forKey: cacheKey) {
-                await SteamWorkshopPreviewRequestCoordinator.shared.loadData(
-                    from: url,
-                    priority: .prefetch
-                )
+        for (_, url, fallback) in delta {
+            steamWorkshopLoadPreviewImage(from: url, maxPixelSize: maxPixelSize, priority: .prefetch) { image in
+                if image == nil, let fallback, fallback != url {
+                    steamWorkshopLoadPreviewImage(from: fallback, maxPixelSize: maxPixelSize, priority: .prefetch) { _ in }
+                }
             }
         }
     }

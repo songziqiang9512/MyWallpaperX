@@ -60,8 +60,9 @@ class SteamGridUpdateTests(unittest.TestCase):
                      'SteamWorkshopGridKeyboardNavigation.swift', 'SteamWorkshopBrowserFooterSupport.swift',
                      'AppKitSteamWorkshopBrowserFooterComponents.swift']
             binary = work / 'container'
-            sources = [ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
-                       *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift']
+            sources = [ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift', ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
+                       *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift',
+                       ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
                                     *map(str, sources), '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
