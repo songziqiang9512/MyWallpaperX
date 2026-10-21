@@ -1961,12 +1961,13 @@
     "2999907577": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-21",
-      "reviewer": "Codex 隔离Debug诊断与独立原图复核；未作人工整样本裁决",
-      "note": "默认7号流体背景缺失已复现；876/1094 normal node16首先拒于launch color contract，20节点均透传，人物保持。legacy light数组不是已证首因。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
-      "remainingDifferences": "具体待修/待复验归现役队列；早截图、音频、视差、媒体状态差异不自动是缺陷。",
+      "reviewer": "Codex 同身份Debug实跑、日志与独立原图复核；未作整样本人工裁决",
+      "note": "默认7号金属流体背景与上方文字的最大缺失已修复，人物保留。共享opaque辅助颜色边界、alpha-only旁读反馈种子资格沿现Program/图/合成链修正；876/1094真实20节点(18material+2swap)首帧与后续Program/GPU/末合成成立。当前原包严格运行PASS、181提交/180完成/0失败，正常stop/GPU排空；独立313保持。旧normal/host数组/首帧PMA种子拒绝只描述旧执行身份。",
+      "remainingDifferences": "全部7种模式、完整属性/交互、精细灯光、HDR与官方同音频/鼠标/phase/比例未验；这些未知不自动记为新缺陷或整样本PASS。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json",
+        ".artifacts/scene-evidence/runs/independent-signal-opaque-aux-20261021/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"

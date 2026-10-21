@@ -10,12 +10,14 @@
 
 10-21[新增24诊断](../capabilities/runtime-evidence-current.md#intake-20261021)均实际播放并正常退出；按以下公共类型合并，不以矩阵PASS/FAIL或静态family数裁视觉。官方图23份，337无截屏；请求after8但pointer路径先在约2秒写after，实际时刻依日志。374时钟拼合、382延迟蝴蝶已由用户解释为正常作者行为，退出缺图候选。
 
+本次台账生成另发现5个新增目录 `3616476797 /3679907516 /3707474273 /3724289844 /3744157078`，目录分母现为356；这5项尚未关联本轮实跑，留待增量筛查，不把not-run称为播放缺陷，也不混入此前24项完成记录。
+
 
 ## 1. 画面合成与正常播放：可定位的开放项
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| Program颜色、前端及来源准入 · 2999907577 /2927205881 /3148125112 /3086016320 | **299默认7号流体仍缺失**：`d51848b98` 已解除876/1094的normal node16 alpha-only首拒；本批 [ordinary host](../architecture/runtime-architecture.md#ordinary-effect-lighting-host) 的灯数组及同帧 radius/world 输入已实现。真实 pilot 仍灰底，下一首拒为 combine node17 `colorContractUnproven`，details 为 `launch-color-projection-unresolved`、`transfer-alpha-signal-composite-0-1`；未恢复金属背景。冻结源8帧GPU及2项断言已通过，仅证宿主/几何与nil-world局部降级，不关闭原299背景缺失。292的1733/1736被global const initializer stage-link拒绝；314的2661/2663被varyingUnsupported拒绝；308的430为execution-stage-conservation及named binding失败。后三者有局部结构拒绝，尚无唯一可见损失归因，不与329的float[32]混为一因。 | 299下一门锁定 node17 的 launch color proof、信号合成及实际资源表示，保20-pass顺序/历史和局部回退；host 的GPU与实际原包后验归[运行证据](../capabilities/runtime-evidence-current.md)，首门越过不关闭画面单。292/314/308继续沿generic normalizer/stage-link或prepared来源闭包定位，先取得active consumer与可归因图像，不按effect名放门或把GPU完成的透传当原图执行。 |
+| Program颜色、前端及来源准入 · 2927205881 /3148125112 /3086016320 | 292的1733/1736被global const initializer stage-link拒绝；314的2661/2663被varyingUnsupported拒绝；308的430为execution-stage-conservation及named binding失败。后三者有局部结构拒绝，尚无唯一可见损失归因，不与329的float[32]混为一因。 | 292/314/308继续沿generic normalizer/stage-link或prepared来源闭包定位，先取得active consumer与可归因图像，不按effect名放门或把GPU完成的透传当原图执行。 |
 | 动态资产与动画metadata准入 · 2813240634 /2992924426 /3822822401 | 281的121、299292的371/413/452/4748在Bool visibility owner请求未准备asset时报invalid-argument；382的161→puppetAnimationLayer244.visible报prepared metadata unavailable。主体均呈现，独立可见损失未定；**382蝴蝶延迟正常**，不由该异常宣称缺蝴蝶。 | 核实际constructor/lookup、准备资源和target metadata的最早owner；只对合法可达输入续接原typed事务，不吞错误或新建动态资源链。先取该回调对应的可见作用，不能把脚本异常等同整景失败。 |
 | generic varying数组 · 3292370168 | 原generic normalizer的16元素门仍拒绝默认float[32]。实验曾通过严格link/SPIR-V/MSL、受控Metal和437 Program/末合成，但实际白波形尚未归因；候选已撤回，不进入发布。默认条带与视频上沿重叠，alpha/精确phase仍待确认。 | 先取得可归因波形ROI，再沿原type/normalizer/stage-link续接；不以Program关闭画面单，不改作者参数追图，bounded原门与更宽数组不外推。 |
 | forward copy-background composition · 2972071249 | 313引用后置隐藏composition234，首拒在dependency stage order；234隐式copyBackground使全局prepass不具作者顺序独立性。白色波形未归因234，不能据此闭合可见缺口。 | 先资格consumer边界prefix及跨consumer身份，再复用原graph执行/发布；官方自有单board的静态蓝slot1正控呈黄黑checker，已STOP_UNKNOWN，不能将其余两卡当语义结论，也不重复未资格载体。证据归[运行记录](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)。 |
@@ -153,6 +155,7 @@
 
 | 样本 / 状态 | 具体反馈与已有证据 |
 |---|---|
+| 2999907577 · 默认7号流体背景缺失已闭 | 共享opaque辅助颜色边界及alpha-only旁读反馈资格修正后，原包金属流体与上方文字实际恢复，人物保持；7/7 layer capability、原20节点及后续帧执行、正常stop/GPU排空。仅关闭最大缺失，全部模式/参数、精细灯光、HDR与官方同状态数值未验。[有界后验](../capabilities/runtime-evidence-current.md#independent-signal-opaque-auxiliary-20261021)。 |
 | 3766299002 · 面具开关失效本窗未复现 | 10-21 theme1初始true→live false、theme2初始false→live true，两条原226/370 visibility及脸/眼覆盖随定义变化，surface/window保持。仅这两个单向链，不是两主题完整往返、真实面板/持久化或官方全mask验收；用户笼统异常未取得更具体反例，暂不排产品修法。 |
 | 3742497499 /3822822401 · 早截图视觉候选撤下 | 用户明确374需鼠标移右让两块时钟拼合，382蝴蝶延迟出现，既往测试正常；不再排“孤立02/缺蝴蝶”。独立粒子profile与metadata首错保留，不与已解释现象建立因果。 |
 | 3448845950 · 本次无法启动已闭 | 原691依赖锚点错配导致零帧/首帧超时；共享compiler修后原包真实播放，独立302保持且正常排空。仅关闭启动阻断，局部脚本与旧布局余项仍归上表；[有界后验](../capabilities/runtime-evidence-current.md#named-dependency-direct-anchor-20261020)。 |

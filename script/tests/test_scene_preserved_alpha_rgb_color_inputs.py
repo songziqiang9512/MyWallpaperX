@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -109,6 +110,112 @@ private func facts(_ content: [Int: SceneTextureContent]) -> [Fact?] {
     }
 }
 
+private func independentAuxiliaryProfiles() -> [String: Bool] {
+    let signal = SceneTextureContent.color(.resolved(.independentAlphaSignal))
+    let opaque = SceneTextureContent.color(.resolved(.opaque))
+    let pma = SceneTextureContent.color(.resolved(.premultipliedAlpha))
+    let straight = SceneTextureContent.color(.resolved(.straightAlpha))
+    let unresolved = SceneTextureContent.color(.unresolved)
+    let transfer = SceneShaderColorTransfer.independentAlphaSignalCompositing(
+        signalSlot: 0, colorSlot: 1)
+    let boundary = SceneShaderColorBoundary(colorInputSlots: [1],
+        outputRepresentation: .premultipliedAlpha)
+    var result: [String: Bool] = [:]
+    let vertex = """
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_Point;
+    void main(){v_Point=a_TexCoord;gl_Position=vec4(a_Position,1.0);}
+    """
+    // These numerical vector producers establish opaque by their output
+    // alpha, independent of resource paths or the consumer's vector formula.
+    for (name, slot, sample, component, local, output) in [
+        ("own-vector", 2, "texSample2D", "a", "height", "vec4(axis*0.5+vec3(0.5),1.0)"),
+        ("relocated-field", 5, "texture2D", "w", "amount", "vec4(0.5*axis+vec3(0.5),1.0)")
+    ] {
+        let source = """
+        varying vec2 v_Point;
+        uniform sampler2D g_Texture\(slot);
+        void main(){
+            float \(local)=\(sample)(g_Texture\(slot),v_Point).\(component);
+            vec3 axis=normalize(vec3(\(local)-0.25,0.5,1.0));
+            gl_FragColor=\(output);
+        }
+        """
+        let compiled = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: source)
+        result["opaque-vector-source-" + name] = compiled.program?.colorTransfer == .opaque
+            && compiled.program?.textureBindings.map(\.slot) == [slot]
+            && compiled.program?.textureBindings.first?.channelUse == .alphaOnly
+    }
+    for (leftName, left) in [("data", SceneTextureContent.data), ("opaque", opaque)] {
+        for (rightName, right) in [("data", SceneTextureContent.data), ("opaque", opaque)] {
+            for (label, adapter) in [("native", Optional<SceneShaderColorBoundary>.none),
+                                     ("boundary", boundary)] {
+                result["signalAux-" + label + "-" + leftName + "-" + rightName] =
+                    Derivation.resolveColor(transfer: transfer,
+                        textureFacts: facts([0: signal, 1: pma, 2: left, 3: right]),
+                        colorBoundary: adapter) == .init(
+                            framebufferInput: adapter == nil ? .premultipliedAlpha : .straightAlpha,
+                            fragmentOutput: .premultipliedAlpha)
+            }
+        }
+    }
+    for (label, adapter) in [("native", Optional<SceneShaderColorBoundary>.none),
+                             ("boundary", boundary)] {
+        for (name, value) in [("pma", pma), ("straight", straight),
+                              ("signal", signal), ("unresolved", unresolved)] {
+            result["signalAux-" + label + "-reject-" + name] = Derivation.resolveColor(
+                transfer: transfer, textureFacts: facts([0: signal, 1: pma, 2: value, 3: .data]),
+                colorBoundary: adapter) == nil
+        }
+        for (name, value) in [("data", SceneTextureContent.data), ("opaque", opaque),
+                              ("pma", pma), ("straight", straight), ("unresolved", unresolved)] {
+            result["signalCarrier-" + label + "-reject-" + name] = Derivation.resolveColor(
+                transfer: transfer, textureFacts: facts([0: value, 1: pma, 2: .data]),
+                colorBoundary: adapter) == nil
+        }
+        for (name, value) in [("data", SceneTextureContent.data),
+                              ("signal", signal), ("unresolved", unresolved)] {
+            result["colorCarrier-" + label + "-reject-" + name] = Derivation.resolveColor(
+                transfer: transfer, textureFacts: facts([0: signal, 1: value, 2: .data]),
+                colorBoundary: adapter) == nil
+        }
+        result["signalCarrier-" + label + "-missing"] = Derivation.resolveColor(
+            transfer: transfer, textureFacts: facts([1: pma, 2: .data]), colorBoundary: adapter) == nil
+        result["colorCarrier-" + label + "-missing"] = Derivation.resolveColor(
+            transfer: transfer, textureFacts: facts([0: signal, 2: .data]), colorBoundary: adapter) == nil
+    }
+    result["colorCarrier-straight-requires-boundary"] = Derivation.resolveColor(
+        transfer: transfer, textureFacts: facts([0: signal, 1: straight, 2: .data])) == nil
+    result["colorCarrier-straight-adapted"] = Derivation.resolveColor(transfer: transfer,
+        textureFacts: facts([0: signal, 1: straight, 2: opaque]), colorBoundary: boundary) != nil
+    let underlay = SceneShaderColorTransfer.independentAlphaSignalUnderlayCompositing(
+        signalSlot: 0, colorSlot: 1, underlaySlot: 4)
+    let underlayBoundary = SceneShaderColorBoundary(colorInputSlots: [1, 4],
+        outputRepresentation: .premultipliedAlpha)
+    result["underlay-opaque-auxiliary"] = Derivation.resolveColor(transfer: underlay,
+        textureFacts: facts([0: signal, 1: pma, 2: opaque, 3: .data, 4: pma])) != nil
+    result["underlay-mixed-color-without-boundary-rejected"] = Derivation.resolveColor(
+        transfer: underlay, textureFacts: facts([0: signal, 1: pma, 2: .data, 4: opaque])) == nil
+    result["underlay-mixed-color-with-boundary"] = Derivation.resolveColor(transfer: underlay,
+        textureFacts: facts([0: signal, 1: pma, 2: opaque, 3: .data, 4: opaque]),
+        colorBoundary: underlayBoundary) != nil
+    result["underlay-data-color-carrier-rejected"] = Derivation.resolveColor(transfer: underlay,
+        textureFacts: facts([0: signal, 1: pma, 2: .data, 4: .data]),
+        colorBoundary: underlayBoundary) == nil
+    result["underlay-unresolved-color-carrier-rejected"] = Derivation.resolveColor(transfer: underlay,
+        textureFacts: facts([0: signal, 1: pma, 2: .data, 4: unresolved]),
+        colorBoundary: underlayBoundary) == nil
+    result["preserving-opaque-auxiliary-stays-rejected"] = Derivation.resolveColor(
+        transfer: .independentAlphaSignalPreserving(textureSlot: 0),
+        textureFacts: facts([0: signal, 2: opaque])) == nil
+    result["signal-passthrough-opaque-auxiliary-stays-rejected"] = Derivation.resolveColor(
+        transfer: .passthrough(textureSlot: 0), textureFacts: facts([0: signal, 2: opaque]),
+        colorBoundary: .init(colorInputSlots: [0], outputRepresentation: .independentAlphaSignal,
+            signalPassthroughSlot: 0)) == nil
+    return result
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -135,7 +242,7 @@ private enum Harness {
                 dataSlots: [1]
             )
 
-        let result: [String: Bool] = [
+        var result: [String: Bool] = [
             "twoPremultipliedAccepted":
                 Derivation.hasResolvedColorSampleContract(
                     colorSlots: [0, 2],
@@ -399,6 +506,7 @@ private enum Harness {
                     textureFacts: facts([0: premultiplied])
                 ),
         ]
+        result.merge(independentAuxiliaryProfiles()) { _, new in new }
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))
     }
 }
@@ -426,21 +534,29 @@ class ScenePreservedAlphaRGBColorInputTests(unittest.TestCase):
             environment["SWIFT_MODULECACHE_PATH"] = str(
                 root / "swift-module-cache"
             )
-            subprocess.run(
+            sources = []
+            hashes = {}
+            for index, path in enumerate(dict.fromkeys(SWIFT_SOURCES)):
+                data = path.read_bytes()
+                hashes[str(path)] = hashlib.sha256(data).hexdigest()
+                frozen = root / f"source-{index}-{path.name}"
+                frozen.write_bytes(data)
+                sources.append(frozen)
+            compilation = subprocess.run(
                 [
                     swiftc,
                     "-parse-as-library",
-                    *(str(path) for path in SWIFT_SOURCES),
+                    *(str(path) for path in sources),
                     str(support),
                     str(harness),
                     "-o", str(binary),
                 ],
                 cwd=REPOSITORY_ROOT,
                 env=environment,
-                check=True,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
                 [str(binary)],
                 cwd=REPOSITORY_ROOT,
@@ -448,7 +564,16 @@ class ScenePreservedAlphaRGBColorInputTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-        self.assertTrue(all(json.loads(completed.stdout).values()))
+            result = json.loads(completed.stdout)
+            evidence = os.environ.get("MWX_OPAQUE_AUX_EVIDENCE")
+            if evidence:
+                destination = Path(evidence)
+                destination.mkdir(parents=True, exist_ok=True)
+                (destination / "profiles.json").write_text(json.dumps(result, indent=2) + "\n")
+                (destination / "inputs.json").write_text(json.dumps(hashes, indent=2) + "\n")
+                (destination / "compile.log").write_text(compilation.stdout + compilation.stderr)
+        failed = {name: passed for name, passed in result.items() if not passed}
+        self.assertFalse(failed, failed)
 
 
 if __name__ == "__main__":

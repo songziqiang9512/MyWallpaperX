@@ -50,7 +50,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 131615
+      "bytes": 132136
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 482,
-      "bytes": 180780
+      "lines": 490,
+      "bytes": 183268
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -141,8 +141,8 @@
       "bytes": 92008
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 414,
-      "bytes": 89058
+      "lines": 419,
+      "bytes": 89682
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -181,8 +181,8 @@
       "bytes": 8029
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
-      "lines": 122,
-      "bytes": 27464
+      "lines": 131,
+      "bytes": 30044
     },
     "docs/scene/roadmap/batch2/host-render-power-protocol-design.md": {
       "lines": 54,
@@ -237,12 +237,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 57,
-      "bytes": 18547
+      "lines": 56,
+      "bytes": 17443
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 239,
-      "bytes": 74561
+      "lines": 242,
+      "bytes": 74464
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1179,56 +1179,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "dd7dd60deef3d289ec3bb76ae27b7540ac3f7513725df529f33bfbf5ad77defb",
-      "after": "9fee8a0cebc2c86d50f95e47a908cb28d0432154f6803d971613cb6289442a48",
-      "owner": "scene-material-host-inputs",
-      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+      "before": "9fee8a0cebc2c86d50f95e47a908cb28d0432154f6803d971613cb6289442a48",
+      "after": "0b07564c447a0090e83ba8219df61a168c977a5ac05360c245742c4469bfd155",
+      "owner": "scene-material-color-boundary",
+      "reason": "既有独立信号颜色/反馈合同补opaque辅助与alpha-only中间读取；原299默认金属背景和文字真实恢复，退出已修首断点并同步有界样本记录，不升级完整模式/HDR/性能。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b592bc92eb1764ffd8a7725ad02038e36e132e2f6c40ada78682c108ed0b75d8",
-      "after": "6bf00e789e348ad34b6a37c76f74a716d5d0165772f7492f85ebd33d55e3b207",
-      "owner": "scene-material-host-inputs",
-      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+      "before": "6bf00e789e348ad34b6a37c76f74a716d5d0165772f7492f85ebd33d55e3b207",
+      "after": "4ec0c5a38c8d140e43a6f9cda2c851ee09fe412be4d5289be568f57bea806c9b",
+      "owner": "scene-material-color-boundary",
+      "reason": "既有独立信号颜色/反馈合同补opaque辅助与alpha-only中间读取；原299默认金属背景和文字真实恢复，退出已修首断点并同步有界样本记录，不升级完整模式/HDR/性能。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "093e13191dc60fba1fd7506f662090f267e932d3eceffec9bc0a09f930b87683",
-      "after": "47f9cf112f3048ebe0ea65342ab9041314ec3ec97d5ac69aca27d82fbd0db6ec",
-      "owner": "scene-material-host-inputs",
-      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "b2478a48f842042096569813f6b11139029e019c4d049e7abf23452d79801093",
+      "after": "4b46d5078a2590f774932717fabffbf15bdc84aaf5414f7e99a1112b49f96ea4",
+      "owner": "scene-material-color-boundary",
+      "reason": "既有独立信号颜色/反馈合同补opaque辅助与alpha-only中间读取；原299默认金属背景和文字真实恢复，退出已修首断点并同步有界样本记录，不升级完整模式/HDR/性能。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "fb895891b4a9bacad043211fe9223e53342ee927c6b69856876cfbc8a0d99607",
-      "after": "68c25f6c26befa4bec6af100169e7ca93b940faa1edf500dd2c1b6c2e6c13060",
-      "owner": "scene-material-host-inputs",
-      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "405b9303b5ede6d4474732694718382409e50e521b262598f63a5aac8663a343",
-      "after": "9dbcdfd110d0e7ffcff6ebdc7df922e36b848c184965e2b937ee8073991a1270",
-      "owner": "scene-material-host-inputs",
-      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
+      "before": "d8664bb592c4ee3e4f4a5a469fe506c216c8d152988844a3cd6aa0a2c074dd48",
+      "after": "16fe161d1aacec13c584cb09c68b7239e3c737b922c8a2ffed961776e1af2eb7",
+      "owner": "scene-material-color-boundary",
+      "reason": "既有独立信号颜色/反馈合同补opaque辅助与alpha-only中间读取；原299默认金属背景和文字真实恢复，退出已修首断点并同步有界样本记录，不升级完整模式/HDR/性能。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4007b55abf4eac096b69ae32675a153c8b7e741d4b69f4578fe2602e08a37f68",
-      "after": "2f1d0e24563c8abb5631e7958d93e63de75074ca11e1e5934608d681a70ab876",
-      "owner": "scene-material-host-inputs",
-      "reason": "沿现有灯快照、几何及typed更新链补ordinary effect宿主；记录有限官方数值证据、GPU反例纠正及299仍缺背景的实际后继，不升级整景或性能结论。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs"
+      "before": "2f1d0e24563c8abb5631e7958d93e63de75074ca11e1e5934608d681a70ab876",
+      "after": "792806403d71bc33862aa87420f4de7c93ead32bfd16012d484683d3711a1bea",
+      "owner": "scene-material-color-boundary",
+      "reason": "既有独立信号颜色/反馈合同补opaque辅助与alpha-only中间读取；原299默认金属背景和文字真实恢复，退出已修首断点并同步有界样本记录，不升级完整模式/HDR/性能。",
+      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary"
     }
   ]
 }

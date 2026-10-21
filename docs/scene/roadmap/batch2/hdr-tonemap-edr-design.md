@@ -97,6 +97,15 @@ launch 与实际 finalization 共用原颜色推导，alpha 槽复用已存在�
 - 移屏、headroom改变、暂停恢复必须获得有效显示输出；allocation/encoder失败保留安全旧帧并能恢复，不导出错误颜色空间。
 - 2684431262 只作为后续隔离回归输入；官方高亮对照与平台 EDR 验收分别记录，不能用一项代替另一项。
 
+<a id="independent-signal-opaque-auxiliary"></a>
+## 独立信号合成的不透明辅助输入（2026-10-21）
+
+当前原299的combine已越过宿主数组，仍在共享颜色推导拒绝。源码表明normal producer输出alpha1，合成主颜色和独立信号以外的槽却一律要求data；先用真实prepared profile与2×2 typed反例核实，不能从normal名字或截图推资源标签。最小结果是在现有`resolveColor`中，仅独立信号合成及underlay合成的辅助槽允许现publication权威给出的`.opaque`，复用其既有恒等输入边界。保留原content、主color边界和发布身份，不把opaque重标data、不改作者运算或补法线算法；片元字面alpha1不能单独证明清区、顶点覆盖及过滤采样全域不透明，不在consumer另推或改标签。普通transfer、信号保留/直通及未知/PMA/straight辅助仍沿原严格合同。若实际首错不在此处，停止扩准入，先修最早producer事实。
+
+验收复用原Program/Finalizer及GPU链，覆盖data/opaque辅助组合、重命名与等价表达、underlay、非平凡RGB和输出alpha；PMA/straight/unresolved辅助、错误主角色及陈旧/缺publication继续拒绝。再以原299整图和实际流体画面、未参与修法的邻例验收，音频/鼠标/时机差异不作颜色缺陷；首门消失不足以关闭样本。此修复不引入逐帧解析/编译、另一个资源或合成owner，不据功能门声明性能收益。稳定合同归现运行时颜色边界，剩余断点继续入现役队列。
+
+**同一信号反馈原子的后继。** 当前颜色首门退出后，真实node15在首帧读到PMA种子而非独立信号；现反馈资格只允许update与terminal两位reader，新增的合法alpha-only中间consumer使整对信号表示证明退出。沿原`independentAlphaSignalTargetRepresentations`修闭合资格：仍须唯一update、透明零种子、同描述符唯一swap与terminal合成；附加reader仅可位于update与terminal之间、只读取scratch的alpha、无pair写入/其他pair绑定，并由现prepared channel/boundary逐variant证明。不得将所有RGBA或alpha1结果冒充signal，也不凭纹理名补标签。RGB/whole-vector/vertex读取、history旁读、额外writer、乱序/条件/swap冲突及缺variant证明继续拒；普通frame不重扫图，已有prepared表示沿原池/初始化/publication/历史与回滚链消费。先通过alpha-only/改名与上述相邻反例、首帧/下一帧种子和实际GPU，再回原299看画面；若另有首断点如实保留。
+
 ## 退役条件
 
 每阶段完成行为门、颜色权威归入稳定架构、旧输出路径按 route 撤权后归档。未验证的 metadata profile 继续显式禁用，不随 SDR 验收自动解锁。

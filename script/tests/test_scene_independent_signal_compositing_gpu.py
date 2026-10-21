@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
-"""Production Metal execution for independent-signal composition."""
+"""Production Program/PassEncoder Metal execution for independent-signal composition.
+
+The opaque-auxiliary cases use the real bounded frontend and Program color
+derivation. They do not exercise VariantCache, Finalizer or App publication.
+Opaque input is an authoritative fixture publication with all uploaded alpha
+bytes equal to one; a fragment's literal alpha is never used to label a target.
+"""
 
 from __future__ import annotations
 
@@ -211,6 +217,33 @@ class SceneIndependentSignalCompositingGPUTests(unittest.TestCase):
                                 self.assertEqual(len(frame["output"]), 4)
                                 for actual, expected in zip(frame["output"], frame["expected"]):
                                     self.assertAlmostEqual(actual, expected, delta=0.001)
+
+    def test_opaque_auxiliary_matches_raw_data_at_linear_edges_without_widening_roles(self) -> None:
+        cases = self.payload["opaqueAuxiliaries"]
+        self.assertEqual({case["name"] for case in cases},
+            {"signalCarrier", "colorCarrier", "underlay", "renamedEquivalent"})
+        for case in cases:
+            with self.subTest(carrier=case["name"]):
+                for key in ("frontendAccepted", "rawAssembled", "opaqueAssembled",
+                            "rawEncoded", "opaqueEncoded", "rawCompleted", "opaqueCompleted",
+                            "pixelsEquivalent", "rawPixelsMatch", "opaquePixelsMatch",
+                            "lookupRemainsData", "auxiliaryRemainsOpaque"):
+                    self.assertTrue(case[key], case)
+                self.assertEqual(case["frontendDiagnostics"], [], case)
+                rejected = {"pmaAuxiliary", "straightAuxiliary", "signalRole", "colorRole"}
+                if case["name"] == "underlay":
+                    rejected |= {"mixedUnderlayOpaqueAux", "mixedUnderlayDataAux"}
+                self.assertEqual(set(case["rejections"]), rejected)
+                self.assertTrue(all(case["rejections"].values()), case)
+                self.assertFalse(case["usesPreparedColorBoundary"], case)
+                self.assertEqual(case["auxiliaryInputRGBA"][3::4], [255]*4, case)
+                self.assertEqual(case["lookupInputRGBA"][3::4], [0]*4, case)
+                self.assertEqual(len(case["expectedPixels"]), 16, case)
+                self.assertGreater(len(set(tuple(case["expectedPixels"][i:i+4])
+                    for i in range(0,16,4))), 1, case)
+                self.assertTrue(any(0 < uv[0] < 1 and 0 < uv[1] < 1
+                    for uv in case["sampleUVs"]), case)
+                self.assertTrue(any(uv[0] < 0 or uv[1] > 1 for uv in case["sampleUVs"]), case)
 
 
 if __name__ == "__main__":

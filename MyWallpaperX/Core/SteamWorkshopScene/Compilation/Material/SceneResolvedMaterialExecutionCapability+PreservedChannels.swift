@@ -231,11 +231,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             node.kind == .material
                 && node.bindings.contains { identities.contains($0.texture) }
         }
-        guard readers.count == 2,
-              readers.contains(where: { $0.nodeIndex == update.nodeIndex }),
-              let consumer = readers.first(where: {
-                  $0.nodeIndex != update.nodeIndex
-              }),
+        guard readers.contains(where: { $0.nodeIndex == update.nodeIndex }),
+              let consumer = readers.filter({
+                  $0.nodeIndex != update.nodeIndex && $0.target == effect.output
+              }).only,
               consumer.effect == effect.key,
               consumer.target == effect.output,
               consumer.conditions == nil,
@@ -262,6 +261,28 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   signalSlot: scratchSlot,
                   colorSlot: colorSlot
               ) else { return false }
+
+        // Intermediate scalar-alpha consumers can derive their own output
+        // without changing the one update/terminal/swap feedback atom.
+        for reader in readers where reader.nodeIndex != update.nodeIndex
+            && reader.nodeIndex != consumer.nodeIndex {
+            let pairBindings = reader.bindings.filter { identities.contains($0.texture) }
+            guard reader.effect == effect.key, reader.conditions == nil,
+                  reader.nodeIndex > update.nodeIndex,
+                  reader.nodeIndex < consumer.nodeIndex,
+                  reader.compose == nil || reader.compose == .bool(false),
+                  let target = reader.target, target.kind == .framebuffer,
+                  target.layerID == effect.key.layerID, target.effect == effect.key,
+                  !identities.contains(target),
+                  reader.bindings.allSatisfy({ $0.conditions == nil }),
+                  let binding = pairBindings.only, binding.texture == scratch,
+                  let slot = binding.slot,
+                  let material = materials[.init(effect: reader.effect,
+                                                 nodeIndex: reader.nodeIndex)],
+                  material.variants.provesAlphaOnlySampling(slot: slot) else {
+                return false
+            }
+        }
 
         return graph.nodes.allSatisfy { node in
             guard node.nodeIndex > swap.nodeIndex else { return true }

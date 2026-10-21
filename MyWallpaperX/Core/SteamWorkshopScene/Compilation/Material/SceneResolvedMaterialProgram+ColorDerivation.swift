@@ -322,18 +322,18 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   ) else { return nil }
             if let slot = boundary.signalPassthroughSlot,
                representation(slot: slot, textureFacts: textureFacts) == .independentAlphaSignal {
-                guard auxiliarySlotsAreData(textureFacts, excluding: [slot]) else { return nil }
+                guard auxiliarySlotsAreAllowed(textureFacts, excluding: [slot]) else { return nil }
                 return .init(framebufferInput: .independentAlphaSignal,
                              fragmentOutput: .independentAlphaSignal)
             }
             // Signal channels remain raw. Only the source-proven color roles
             // use the shared adapter; a tag cannot turn arbitrary RGBA into a
-            // signal or admit an unrelated color auxiliary.
+            // signal or admit an alpha-associated color auxiliary.
             switch transfer {
             case let .independentAlphaSignal(slot):
                 guard output == .independentAlphaSignal,
                       boundary.colorInputSlots == [slot],
-                      auxiliarySlotsAreData(textureFacts, excluding: [slot]) else { return nil }
+                      auxiliarySlotsAreAllowed(textureFacts, excluding: [slot]) else { return nil }
             case let .independentAlphaSignalPreserving(slot):
                 guard output == .independentAlphaSignal, boundary.colorInputSlots.isEmpty,
                       representation(slot: slot, textureFacts: textureFacts) == .independentAlphaSignal
@@ -341,11 +341,13 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             case let .independentAlphaSignalCompositing(signal, color):
                 guard output == .premultipliedAlpha, boundary.colorInputSlots == [color],
                       representation(slot: signal, textureFacts: textureFacts) == .independentAlphaSignal,
-                      auxiliarySlotsAreData(textureFacts, excluding: [signal, color]) else { return nil }
+                      auxiliarySlotsAreAllowed(textureFacts, excluding: [signal, color],
+                                               allowOpaque: true) else { return nil }
             case let .independentAlphaSignalUnderlayCompositing(signal, color, underlay):
                 guard output == .premultipliedAlpha, Set(boundary.colorInputSlots) == [color, underlay],
                       representation(slot: signal, textureFacts: textureFacts) == .independentAlphaSignal,
-                      auxiliarySlotsAreData(textureFacts, excluding: [signal, color, underlay]) else { return nil }
+                      auxiliarySlotsAreAllowed(textureFacts, excluding: [signal, color, underlay],
+                                               allowOpaque: true) else { return nil }
             default:
                 guard output != .independentAlphaSignal else { return nil }
             }
@@ -422,9 +424,10 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                     == .independentAlphaSignal,
                   let color = representation(slot: colorSlot, textureFacts: textureFacts),
                   color == .opaque || color == .premultipliedAlpha,
-                  auxiliarySlotsAreData(
+                  auxiliarySlotsAreAllowed(
                     textureFacts,
-                    excluding: [signalSlot, colorSlot]
+                    excluding: [signalSlot, colorSlot],
+                    allowOpaque: true
                   ) else {
                 return nil
             }
@@ -444,9 +447,10 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   ),
                   color == underlay,
                   color == .opaque || color == .premultipliedAlpha,
-                  auxiliarySlotsAreData(
+                  auxiliarySlotsAreAllowed(
                       textureFacts,
-                      excluding: [signalSlot, colorSlot, underlaySlot]
+                      excluding: [signalSlot, colorSlot, underlaySlot],
+                      allowOpaque: true
                   ) else {
                 return nil
             }
@@ -528,7 +532,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 slot: slot,
                 textureFacts: textureFacts
             ), representation == .opaque || representation == .premultipliedAlpha,
-               auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
+               auxiliarySlotsAreAllowed(textureFacts, excluding: [slot]) else {
                 return nil
             }
             fragmentOutput = .opaque
@@ -606,7 +610,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   let fact = textureFacts[slot],
                   case let .color(.resolved(representation)) = fact.content,
                   representation == .opaque || representation == .premultipliedAlpha,
-                  auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
+                  auxiliarySlotsAreAllowed(textureFacts, excluding: [slot]) else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
@@ -614,7 +618,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             guard let representation = representation(
                 slot: slot, textureFacts: textureFacts
             ), representation == .opaque || representation == .premultipliedAlpha,
-               auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
+               auxiliarySlotsAreAllowed(textureFacts, excluding: [slot]) else {
                 return nil
             }
             fragmentOutput = .independentAlphaSignal
@@ -696,9 +700,10 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         )
     }
 
-    private static func auxiliarySlotsAreData(
+    private static func auxiliarySlotsAreAllowed(
         _ textureFacts: [ColorTextureFact?],
-        excluding colorSlots: Set<Int>
+        excluding colorSlots: Set<Int>,
+        allowOpaque: Bool = false
     ) -> Bool {
         textureFacts.enumerated().allSatisfy { index, fact in
             guard !colorSlots.contains(index), let fact else { return true }
@@ -706,6 +711,11 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
                  .redGreenFloat16, .data:
                 return true
+            case .color(.resolved(.opaque)):
+                // Opaque inputs already use the shared identity boundary.
+                // Keep their content tag and raw samples; do not relabel them
+                // as data or admit alpha-associated auxiliary colors.
+                return allowOpaque
             case .color:
                 return false
             }
@@ -727,7 +737,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
               let overlay = textureFacts[overlaySlot]
         else {
             return premultipliedColorInputSlots.isEmpty
-                && auxiliarySlotsAreData(
+                && auxiliarySlotsAreAllowed(
                     textureFacts,
                     excluding: [sourceSlot]
                 )
@@ -735,13 +745,13 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         switch overlay.content {
         case .data:
             return premultipliedColorInputSlots.isEmpty
-                && auxiliarySlotsAreData(
+                && auxiliarySlotsAreAllowed(
                 textureFacts,
                 excluding: [sourceSlot, overlaySlot]
             )
         case .color(.resolved(.premultipliedAlpha)):
             return premultipliedColorInputSlots == Set([overlaySlot])
-                && auxiliarySlotsAreData(
+                && auxiliarySlotsAreAllowed(
                     textureFacts,
                     excluding: [sourceSlot, overlaySlot]
                 )

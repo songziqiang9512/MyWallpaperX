@@ -472,10 +472,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a96715b20c76891ea1688663ffd1ab39c7166eeff139fac40f488b74e60f22db",
+        "sourceSHA256": "5130acb5945805088c445e845bbaf1e4e02e566fa1593a39f0af6e82ae4403e7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批同帧灯宿主、几何和radius owner；有限官方数值、GPU8帧、原299及独立313/372的当前结果与保留边界。",
-        "limitations": "仅本批输入与默认回归；299背景未恢复，非全库、真实radius面板、native lit/model、HDR、官方同phase或性能验收。"
+        "scope": "核独立信号opaque辅助、alpha-only反馈旁读的唯一owner；原299默认流体/文字恢复与独立313、有界GPU/leaf及旧失败状态。",
+        "limitations": "仅本批默认功能窗；未认最终反馈整模块重跑、全部模式/属性、HDR、官方同状态精细parity或性能收益。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "19d0b80bd4328000bbd933b900e6d04cc37771064b544fd9aaeaea1f4d450266",
+        "sourceSHA256": "cca1c7bbf33af9f8613d27b96309eb8fb3eb313e2a4c176a2f56ca246d7c5bdb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核本批同帧灯宿主、几何和radius owner；有限官方数值、GPU8帧、原299及独立313/372的当前结果与保留边界。",
-        "limitations": "仅本批输入与默认回归；299背景未恢复，非全库、真实radius面板、native lit/model、HDR、官方同phase或性能验收。"
+        "scope": "核独立信号opaque辅助、alpha-only反馈旁读的唯一owner；原299默认流体/文字恢复与独立313、有界GPU/leaf及旧失败状态。",
+        "limitations": "仅本批默认功能窗；未认最终反馈整模块重跑、全部模式/属性、HDR、官方同状态精细parity或性能收益。"
       }
     },
     {

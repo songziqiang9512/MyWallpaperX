@@ -165,6 +165,14 @@
 
 ## 3. 证据包
 
+### 独立信号合成的 opaque 辅助与 alpha-only 旁读（2026-10-21）
+
+<a id="independent-signal-opaque-auxiliary-20261021"></a>沿[既有颜色/反馈设计](../roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary)修两处通用语义：独立信号合成及underlay的辅助输入可消费已发布opaque的原恒等边界，主color/underlay适配、内容标签与其他transfer不变；原闭合反馈对允许update与terminal之间的scratch alpha-only旁读，逐prepared variant证明，保唯一update/terminal/swap、透明种子与原初始化/历史/publication/回滚owner。PMA/straight/未知辅助、RGB/whole/vertex旁读、history旁读、条件、乱序、额外writer或terminal、缺证明仍拒，不按样本/资源名推语义。
+
+冻结HEAD纯事实红门9项失败→最终83事实全绿；真实作者源码配重建候选的prepared探针确认normal为opaque、combine仅把该槽替data即可解除原拒，探针的generic禁用/重建资源不冒充真实App。自有GPU完整3项/54draw通过，新增8draw的opaque/raw逐字节一致、独立边缘双线性oracle误差0 U8；首轮underlay混合表示夹具失败保留。反馈旧夹具缺新增host字段的编译失败、未执行的compile-only、负例假绿与错误vertex拒绝职责均单列；同身份有效反馈40事实与6帧首/次帧精确像素复用，vertex另用108源CPU leaf证实launch可成功但channel unproven/无alpha边界，再收紧同用例断言，未把原40/41重写为最终整模块全绿。独审确认产品边界和测试修正，无开放must-fix。
+
+最终1117产品源增量Debug构建/两run前后无漂移，签名App dylib `295ef404…4535458`。原299默认7号从均匀灰底恢复银白金属流体与上方文字，人物保留；7/7 layer capability，876/1094的20节点（18material+2swap）在首帧/后续实际Program/GPU/末合成成立，0 rejected。严格运行PASS，181 submitted/180 completed/0 failed；独立313默认画面和运行门保持PASS，两run均exit0、stop1→0且GPU排空。只关闭最大缺失；完整七模式/属性、精细灯光、HDR及官方同音源/鼠标/phase/比例未验，无可比性能收益。限期证据 `.artifacts/scene-evidence/runs/independent-signal-opaque-aux-20261021/` 保真实current/heldout报告、颜色单修后仍灰的失败、GPU/leaf/独审与源身份；上一host及alpha-only首门的旧失败各保原日期身份，不代表本次当前结果。
+
 ### 普通 effect 灯光宿主与同帧半径（2026-10-21）
 
 <a id="ordinary-effect-light-host-20261021"></a>证据等级 `S3 shared host/geometry inputs executed`，不是流体恢复。[设计边界](../roadmap/batch2/2d-lighting-material-design.md#ordinary-effect-light-host-inputs)由同一 LightSnapshot 发布正交、最多四个可见 point 的位置/颜色/ambient；原 world-card geometry 沿 FrameInputs 到真实 node target，保留唯一资源与合成链。point/lpoint 的非负 radius 复用 typed 属性/脚本链，零半径保持关闭并可恢复；其他灯型、溢出选择和 native perspective 的 legacy 输入仍 unavailable。精确 vec3[4]/vec4[3] 在两 frontend、反射和16B stride一致，坏 ABI/非有限 payload/旧 host 失败仍严格拒绝；仅四个新增可选 host 的缺值进入原拓扑与回滚门约束的局部降级。

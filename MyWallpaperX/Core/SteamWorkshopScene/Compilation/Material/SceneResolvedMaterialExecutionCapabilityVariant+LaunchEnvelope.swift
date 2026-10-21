@@ -96,6 +96,26 @@ extension SceneResolvedMaterialVariantCache {
         )
     }
 
+    /// Alpha-only reads preserve the signal's storage semantics without
+    /// claiming that this reader produces or modifies the feedback signal.
+    func provesAlphaOnlySampling(slot: Int) -> Bool {
+        guard (0 ..< 8).contains(slot) else { return false }
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else { return false }
+        return snapshot.variants.allSatisfy { variant in
+            let bindings = variant.frontendProgram.textureBindings
+            let samples = bindings.filter { $0.slot == slot }
+            guard Set(bindings.map(\.slot)).count == bindings.count,
+                  samples.count == 1, samples[0].channelUse == .alphaOnly,
+                  variant.activeSamplers[slot] != nil,
+                  let boundary = variant.frontendProgram.colorBoundary,
+                  boundary.isValid, boundary.alphaInputSlots.contains(slot) else {
+                return false
+            }
+            return true
+        }
+    }
+
     private func launchEnvelopeProvesColorTransfer(
         _ transfer: SceneShaderColorTransfer,
         requiredSlots: Set<Int>

@@ -116,7 +116,8 @@ private func prepared(fragmentSource: String) -> SceneShaderPreparedProgram {
         _ kind: SceneShaderContract.StageKind,
         source: String
     ) -> SceneShaderPreparedSource {
-        .init(
+        let digest = SceneGenericShaderProgramArtifact.sha256(Data(source.utf8))
+        return .init(
             frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
             sourceDialect: .wallpaperEngineGLSLLike,
             backend: .mwxMetal,
@@ -127,16 +128,16 @@ private func prepared(fragmentSource: String) -> SceneShaderPreparedProgram {
             activeAnnotations: [],
             activeDeclarations: [],
             dependencies: [],
-            dependencySHA256: "signal-composite-dependency-\(kind.rawValue)",
-            variantSHA256: "signal-composite-variant-\(kind.rawValue)",
-            preparedSHA256: "signal-composite-prepared-\(kind.rawValue)"
+            dependencySHA256: digest,
+            variantSHA256: digest,
+            preparedSHA256: digest
         )
     }
     return .init(
         vertex: stage(.vertex, source: vertexSource),
         fragment: stage(.fragment, source: fragmentSource),
         colorContract: .unresolvedAuthoredPass,
-        cacheKey: "signal-composite-cache"
+        cacheKey: SceneGenericShaderProgramArtifact.sha256(Data(fragmentSource.utf8))
     )
 }
 
@@ -198,6 +199,9 @@ private func slot(
     let identity = graphIdentity(marker)
     let generation = UInt64(marker)
     let registry = SceneFrameTextureIdentity.graph(identity)
+    let purpose: SceneTextureLoadPurpose = content.isColorContent
+        ? (content == .color(.resolved(.straightAlpha)) ? .straightAlbedo : .premultipliedColor)
+        : .preservedChannels
     let publication = SceneTextureProviderPublication(
         requestIdentity: registry,
         candidate: .init(
@@ -207,7 +211,7 @@ private func slot(
                 physicalToken: "signal-composite-\(marker)"
             )),
             generation: .provider(contentGeneration: generation),
-            purpose: .premultipliedColor,
+            purpose: purpose,
             content: content,
             physicalSize: CGSize(width: 2, height: 2),
             mappedSize: CGSize(width: 2, height: 2),
@@ -221,7 +225,7 @@ private func slot(
         reference: .graph(identity),
         registryIdentity: registry,
         diagnosticSelectionProvenance: .authored(.explicitBinding),
-        expectedPurpose: .premultipliedColor,
+        expectedPurpose: purpose,
         resource: .init(
             publication: publication,
             resourceGeneration: generation
@@ -262,10 +266,13 @@ private func program(
     signal: Program.TextureSlot,
     previous: Program.TextureSlot
 ) -> Program? {
+    program(fragmentSource: fragmentSource, bindings: [0: signal, 1: previous])
+}
+
+private func program(fragmentSource: String, bindings: [Int: Program.TextureSlot]) -> Program? {
     let shader = prepared(fragmentSource: fragmentSource)
     var textureSlots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
-    textureSlots[0] = signal
-    textureSlots[1] = previous
+    for (index, binding) in bindings { textureSlots[index] = binding }
     return Program.assemble(.init(
         preparedShader: shader,
         textureSlots: textureSlots,
@@ -275,10 +282,7 @@ private func program(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
             nodeTarget: .effectOutput,
-            bindings: [
-                .init(slot: 0, texture: .framebuffer),
-                .init(slot: 1, texture: .framebuffer),
-            ]
+            bindings: bindings.keys.sorted().map { .init(slot: $0, texture: .framebuffer) }
         ),
         outputStorage: .color
     ))
@@ -570,6 +574,179 @@ private func runBoundaries(device: MTLDevice, queue: MTLCommandQueue) throws -> 
     return results
 }
 
+private struct AuxiliaryFixture {
+    let name: String
+    let source: String
+    let signal, color, auxiliary, lookup: Int
+    let underlay: Int?
+    var expectedTransfer: SceneShaderColorTransfer {
+        if let underlay {
+            return .independentAlphaSignalUnderlayCompositing(
+                signalSlot: signal, colorSlot: color, underlaySlot: underlay)
+        }
+        return .independentAlphaSignalCompositing(signalSlot: signal, colorSlot: color)
+    }
+}
+
+private func auxiliaryFixture(_ name: String) -> AuxiliaryFixture {
+    let renamed = name == "renamedEquivalent"
+    let signal = renamed ? 6 : 0, color = renamed ? 2 : 1
+    let auxiliary = renamed ? 5 : 3, lookup = renamed ? 7 : 4
+    let underlay: Int? = name == "underlay" ? 2 : nil
+    let impulse = renamed ? "injectedValue" : "impulse"
+    let canvas = renamed ? "oldCanvas" : "canvas"
+    let mainTail: String
+    if let underlay {
+        mainTail = """
+        vec4 \(impulse) = texSample2D(g_Texture\(signal), v_TexCoord);
+        vec4 \(canvas) = texSample2D(g_Texture\(color), v_TexCoord);
+        vec2 baseUV = v_TexCoord * 1.0;
+        vec4 backing = texSample2D(g_Texture\(underlay), baseUV);
+        \(canvas).rgb = mix(backing.rgb, \(canvas).rgb, \(canvas).a);
+        \(canvas).rgb = ApplyBlending(11, \(canvas).rgb, \(impulse).rgb, \(impulse).a);
+        \(canvas).a = saturate(\(canvas).a + \(impulse).a);
+        gl_FragColor = \(canvas);
+        """
+    } else if name == "colorCarrier" {
+        mainTail = """
+        vec4 \(impulse) = texSample2D(g_Texture\(signal), v_TexCoord);
+        vec4 \(canvas) = texSample2D(g_Texture\(color), v_TexCoord);
+        \(canvas).rgb = ApplyBlending(11, \(canvas).rgb, \(impulse).rgb, \(impulse).a);
+        \(canvas).a = saturate(\(canvas).a + \(impulse).a);
+        gl_FragColor = \(canvas);
+        """
+    } else {
+        mainTail = """
+        vec4 \(impulse) = texSample2D(g_Texture\(signal), v_TexCoord);
+        \(impulse).rgb *= vec3(1.0);
+        vec4 \(canvas) = texSample2D(g_Texture\(color), v_TexCoord);
+        \(impulse).rgb = ApplyBlending(11, \(canvas).rgb, \(impulse).rgb, \(impulse).a);
+        \(impulse).a = saturate(\(canvas).a + \(impulse).a);
+        gl_FragColor = \(impulse);
+        """
+    }
+    let source = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture\(signal);
+    uniform sampler2D g_Texture\(color);
+    uniform sampler2D g_Texture\(auxiliary);
+    uniform sampler2D g_Texture\(lookup);
+    \(underlay.map { "uniform sampler2D g_Texture\($0);" } ?? "")
+    vec3 ApplyBlending(const int mode, in vec3 base, in vec3 blend, in float opacity) {
+        vec4 \(renamed ? "vectorLookup" : "field") = texSample2D(g_Texture\(auxiliary), blend.xy * 2.0 - vec2(0.5));
+        float \(renamed ? "weight" : "gain") = texSample2D(g_Texture\(lookup), blend.xy * 2.0 - vec2(0.5)).r;
+        return \(renamed ? "base + (blend * vectorLookup.rgb) * (weight * opacity)" : "base + blend * opacity * field.rgb * gain");
+    }
+    void main() { \(mainTail) }
+    """
+    return .init(name: name, source: source, signal: signal, color: color,
+        auxiliary: auxiliary, lookup: lookup, underlay: underlay)
+}
+
+private func runOpaqueAuxiliaries(device: MTLDevice, queue: MTLCommandQueue,
+                                  encoder: SceneResolvedMaterialPassEncoder) -> [[String: Any]] {
+    let signalBytes: [UInt8] = [0,0,26,128, 128,128,26,128, 255,0,26,128, 255,255,26,128]
+    let colorBytes: [UInt8] = [26,51,76,128]
+    let auxiliaryBytes: [UInt8] = [128,64,192,255, 64,192,128,255, 192,128,64,255, 224,160,96,255]
+    let lookupBytes: [UInt8] = [128,255,0,0, 64,0,255,0, 192,255,255,0, 224,0,0,0]
+    let underlayBytes: [UInt8] = [20,40,60,128]
+    return ["signalCarrier", "colorCarrier", "underlay", "renamedEquivalent"].enumerated().map { ordinal, name in
+        let fixture = auxiliaryFixture(name)
+        var bindings: [Int: Program.TextureSlot] = [:]
+        func bind(_ index: Int, pixel: [UInt8], content: SceneTextureContent) -> Program.TextureSlot {
+            slot(index: index, texture: texture(device: device, usage: .shaderRead,
+                fill: pixel.count == 4 ? Array(repeating: pixel, count: 4).flatMap { $0 } : pixel), content: content,
+                marker: 300 + ordinal * 20 + index)
+        }
+        bindings[fixture.signal] = bind(fixture.signal, pixel: signalBytes,
+            content: .color(.resolved(.independentAlphaSignal)))
+        bindings[fixture.color] = bind(fixture.color, pixel: colorBytes,
+            content: .color(.resolved(.premultipliedAlpha)))
+        bindings[fixture.auxiliary] = bind(fixture.auxiliary, pixel: auxiliaryBytes, content: .data)
+        bindings[fixture.lookup] = bind(fixture.lookup, pixel: lookupBytes, content: .data)
+        if let underlay = fixture.underlay {
+            bindings[underlay] = bind(underlay, pixel: underlayBytes, content: .color(.resolved(.premultipliedAlpha)))
+        }
+        let raw = program(fragmentSource: fixture.source, bindings: bindings)
+        bindings[fixture.auxiliary] = bind(fixture.auxiliary, pixel: auxiliaryBytes,
+            content: .color(.resolved(.opaque)))
+        let opaque = program(fragmentSource: fixture.source, bindings: bindings)
+        var rejections: [String: Bool] = [:]
+        for (key, representation) in [("pmaAuxiliary", SceneShaderColorRepresentation.premultipliedAlpha),
+                                       ("straightAuxiliary", .straightAlpha)] {
+            var invalid = bindings
+            invalid[fixture.auxiliary] = bind(fixture.auxiliary, pixel: auxiliaryBytes,
+                content: .color(.resolved(representation)))
+            rejections[key] = program(fragmentSource: fixture.source, bindings: invalid) == nil
+        }
+        var wrongSignal = bindings
+        wrongSignal[fixture.signal] = bind(fixture.signal, pixel: signalBytes, content: .color(.resolved(.opaque)))
+        rejections["signalRole"] = program(fragmentSource: fixture.source, bindings: wrongSignal) == nil
+        var wrongColor = bindings
+        wrongColor[fixture.color] = bind(fixture.color, pixel: colorBytes,
+            content: .color(.resolved(.independentAlphaSignal)))
+        rejections["colorRole"] = program(fragmentSource: fixture.source, bindings: wrongColor) == nil
+        if let underlay = fixture.underlay {
+            // Raw assembly has no prepared representation boundary. Preserve
+            // its existing same-representation rule; this was the first failed
+            // fixture baseline, not evidence to widen the product contract.
+            var mixed = bindings
+            mixed[underlay] = bind(underlay, pixel: [20,40,60,255], content: .color(.resolved(.opaque)))
+            rejections["mixedUnderlayOpaqueAux"] = program(fragmentSource: fixture.source, bindings: mixed) == nil
+            mixed[fixture.auxiliary] = bind(fixture.auxiliary, pixel: auxiliaryBytes, content: .data)
+            rejections["mixedUnderlayDataAux"] = program(fragmentSource: fixture.source, bindings: mixed) == nil
+        }
+        let rawExecution = execute(raw, device: device, queue: queue, encoder: encoder)
+        let opaqueExecution = execute(opaque, device: device, queue: queue, encoder: encoder)
+        // Independent scalar oracle: PMA canvas is unassociated before authored
+        // math, opaque auxiliary is unchanged because alpha==1, lookup remains
+        // byte data even though its alpha is zero, output is associated once.
+        func linearClamp(_ pixels: [UInt8], channel: Int, uv: [Double]) -> Double {
+            let x = min(max(uv[0] * 2 - 0.5, 0), 1), y = min(max(uv[1] * 2 - 0.5, 0), 1)
+            let top = Double(pixels[channel]) * (1-x) + Double(pixels[4+channel]) * x
+            let bottom = Double(pixels[8+channel]) * (1-x) + Double(pixels[12+channel]) * x
+            return (top * (1-y) + bottom * y) / 255
+        }
+        let sampleUVs = (0..<4).map { index in
+            [Double(signalBytes[index*4]) / 255 * 2 - 0.5,
+             Double(signalBytes[index*4+1]) / 255 * 2 - 0.5]
+        }
+        let expectedPixels: [UInt8] = (0..<4).flatMap { index -> [UInt8] in
+            let signalAlpha = Double(signalBytes[index*4+3]) / 255
+            let colorAlpha = Double(colorBytes[3]) / 255, outputAlpha = min(colorAlpha + signalAlpha, 1)
+            let uv = sampleUVs[index]
+            let rgb = (0..<3).map { channel -> UInt8 in
+                let color = Double(colorBytes[channel]) / Double(colorBytes[3])
+                let base = fixture.underlay == nil ? color
+                    : Double(underlayBytes[channel]) / Double(underlayBytes[3]) * (1-colorAlpha) + color * colorAlpha
+                let injection = Double(signalBytes[index*4+channel]) / 255 * signalAlpha
+                    * linearClamp(auxiliaryBytes,channel:channel,uv:uv) * linearClamp(lookupBytes,channel:0,uv:uv)
+                return UInt8(((base + injection) * outputAlpha * 255).rounded())
+            }
+            return rgb + [UInt8((outputAlpha * 255).rounded())]
+        }
+        let frontend = SceneAuthoredShaderFrontend.compile(vertexSource: vertexSource,
+            fragmentSource: fixture.source)
+        let lookup = opaque?.textureSlots[fixture.lookup]?.resource.publication.candidate
+        let auxiliary = opaque?.textureSlots[fixture.auxiliary]?.resource.publication.candidate
+        return ["name": name, "source": fixture.source, "sampleUVs": sampleUVs,
+            "usesPreparedColorBoundary": frontend.program?.colorBoundary != nil,
+            "auxiliaryInputRGBA": auxiliaryBytes, "lookupInputRGBA": lookupBytes,
+            "frontendAccepted": frontend.program?.colorTransfer == fixture.expectedTransfer,
+            "frontendDiagnostics": frontend.diagnostics.map(\.code.rawValue),
+            "rawAssembled": raw != nil, "opaqueAssembled": opaque != nil,
+            "rawEncoded": rawExecution.encoded, "opaqueEncoded": opaqueExecution.encoded,
+            "rawCompleted": rawExecution.completed, "opaqueCompleted": opaqueExecution.completed,
+            "rawPixels": rawExecution.pixels, "opaquePixels": opaqueExecution.pixels,
+            "expectedPixels": expectedPixels, "pixelsEquivalent": rawExecution.pixels == opaqueExecution.pixels,
+            "rawPixelsMatch": close(rawExecution.pixels, expectedPixels),
+            "opaquePixelsMatch": close(opaqueExecution.pixels, expectedPixels),
+            "lookupRemainsData": lookup?.content == .data && lookup?.purpose == .preservedChannels,
+            "auxiliaryRemainsOpaque": auxiliary?.content == .color(.resolved(.opaque)),
+            "rejections": rejections] as [String: Any]
+    }
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -710,6 +887,7 @@ private enum Harness {
             "colorCarrierPixels": colorCarrierExecution.pixels,
         ]
         result["boundaries"] = try runBoundaries(device: device, queue: queue)
+        result["opaqueAuxiliaries"] = runOpaqueAuxiliaries(device: device, queue: queue, encoder: encoder)
         let data = try JSONSerialization.data(
             withJSONObject: result,
             options: [.sortedKeys]
