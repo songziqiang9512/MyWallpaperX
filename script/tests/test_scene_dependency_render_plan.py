@@ -36,6 +36,7 @@ UTILITY_RUNTIME_PLAN_SOURCE = (
 LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
     UTILITY_RUNTIME_PLAN_SOURCE,
+    SOURCE_ROOT / "Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
     Path(__file__).with_name("fixtures")
     / "SceneDependencyRenderPlanTestSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
@@ -53,6 +54,10 @@ SWIFT_SOURCES = [
 HARNESS_SOURCE = r'''
 import Foundation
 import Metal
+
+extension SceneOffscreenTexturePool {
+    var maxDimension: Int { fatalError("GPU allocation is outside dependency planning") }
+}
 
 // Dependency planning never encodes GPU work. Match the current constructor
 // contract while retaining the fixture's fail-fast encoding boundary.

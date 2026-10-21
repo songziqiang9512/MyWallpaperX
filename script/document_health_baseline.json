@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 25,
-      "bytes": 4622
+      "bytes": 4727
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 479,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 208857
+      "bytes": 209404
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -225,8 +225,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 58,
-      "bytes": 15860
+      "lines": 60,
+      "bytes": 16353
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -242,7 +242,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 249,
-      "bytes": 77415
+      "bytes": 77409
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1205,24 +1205,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "161d6baf42adaac5e958be38797a1c8c82624fcaa4c6c0606e7f64d8a91ac3b7",
-      "after": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
-      "owner": "scene-video-consumer-demand-design",
-      "reason": "同App实际337与12/1输入消融提供需求后继资格；在原视频合同先落唯一owner、逻辑clock/EOF/跨屏与eager退回设计，明确未实施/非收益及动态实例独立边界。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-consumer-demand"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "2341032d55b5dea332ea33fcbd8e00a437dc0b95ec5116c16c5b2933c8163563",
-      "after": "9c97a834b2ef30ac9f5f18020f9508b6ba0b429b36ef29d67785f551b47f17ce",
-      "owner": "scene-video-hidden-clock-qualification",
-      "reason": "保存官方自有可见正控及隐藏clock/EOF混合结果，停止未经证明的dormant；帧提取/包装独立筛选不改变生命周期，未认产品或性能收益。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-consumer-demand"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "e6924f1ac8bad1c87f1ca5c8cdca12aa9f4faebcca289d41d81fcadd2e4a34df",
       "after": "e0a779dcc4b97876e9f5309afefa4d0b09c0c2a933775835b3fa9f416e188002",
@@ -1259,15 +1241,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b4f0ad9d077ea139a5ada1f60f8932849bf27793ed8fb14b482287a7f52cd890",
-      "after": "66e99c26edf7f9973d62ad017efd37bc44338d0498471d816dcb81f8b2650138",
-      "owner": "root-scene-pulse-eye-response",
-      "reason": "278四臂实际PCM/accepted四bin及Pulse-off局部ROI资格；308/source361367只读诊断收窄，不新增产品修法。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pulse-eye-response-278-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "ae1f4c807f1a211ec2143bdef8e66756fe9e557934255724e0063623ae0f4648",
       "after": "f9784559f800ab30dcb35dc8a87347a1279ec4c134681189f2a755d2a4c72777",
@@ -1282,15 +1255,6 @@
       "after": "dc9055520c36d4d4ec05356fc7589d9e1f3be5db659ce6110867c35bc2201d4e",
       "owner": "root-scene-pulse-eye-response",
       "reason": "移除已由4fb8a175b关闭的32项float数组旧首拒；仅整理仍开放的静态能力缺口，不复跑旧审计。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pulse-eye-response-278-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0d19fe8e6270a6b6cf52a4e5e8ff3b929b3c7dbe1f0c64afa4c03e50e4f2d017",
-      "after": "2bfd7b21d059aac631acc03786bfb3c4a978e2bd6dd9e0bf7fee8cf8a35d5af3",
-      "owner": "root-scene-pulse-eye-response",
-      "reason": "278退出本窗完全缺眼部音频响应修法；308/source361367按默认显隐、媒体输入与实际执行收窄下一门，避免只修日志。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#pulse-eye-response-278-20261021"
     },
     {
@@ -1310,6 +1274,33 @@
       "owner": "apple-silicon-grid-demand-audit",
       "reason": "D16提交及普通Release交付闭环，D17全模块网格调度审查与分阶段候选；保持唯一执行路线，未实施新产品策略或预支性能收益。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#d17全模块网格缩略图调度审查与下一批顺序"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "9c97a834b2ef30ac9f5f18020f9508b6ba0b429b36ef29d67785f551b47f17ce",
+      "after": "ba79983778e8f64d58319d0488716cdb5271c8facb66e924bda46fcd14d9fc81",
+      "owner": "root-scene-video-extraction-stop",
+      "reason": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#video-publication-demand-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "66e99c26edf7f9973d62ad017efd37bc44338d0498471d816dcb81f8b2650138",
+      "after": "15d89a1cae70d107f6eb18e6d321405b400a4124b93de033f54e61aaf6bca977",
+      "owner": "root-scene-video-extraction-stop",
+      "reason": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#video-publication-demand-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
+      "after": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
+      "owner": "root-scene-video-extraction-stop",
+      "reason": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#video-publication-demand-20261021"
     }
   ]
 }

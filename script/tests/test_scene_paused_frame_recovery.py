@@ -133,6 +133,9 @@ final class VideoProviders {
     func commitPreparedFrame() {}
 }
 final class SoundProviders { func pause() {}; func resume() {} }
+// Shortcut delivery/scopes are outside the controlled frame transport. Keep
+// their teardown leaves available without replacing the production teardown.
+final class UserShortcutInput { func revoke() {} }
 
 final class SceneMetalView {
     enum Invalidation { case surface, mediaPublication }
@@ -188,6 +191,7 @@ final class SceneDesktopWallpaperSession {
     var onFirstFrameCompletion: ((Int, Bool) -> Void)?
     var videoTextureSourceRegistry: VideoProviders?
     var soundPlaybackRegistry: SoundProviders?
+    let userShortcutInput = UserShortcutInput()
     var isVisible = true
     var isOutputActive = true
     var initialUserVideoPreparation: WorkItem?
@@ -198,6 +202,7 @@ final class SceneDesktopWallpaperSession {
     var retiredSurfaces = 0
     func cancelPendingUserTextureUpdates() {}
     func removePointerEventMonitors() {}
+    func releaseUserShortcutScopes() {}
     func retireSurface(_ surface: Surface) { retiredSurfaces += 1 }
     // No new media input. The production driver still chooses its frozen path.
     func refreshPausedMediaPublications() -> Bool { false }

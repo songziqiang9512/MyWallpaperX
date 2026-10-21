@@ -674,10 +674,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e85e9468573c0554bba7bde4c683b4155c8e3df038f4888fcbd883d73559bb9f",
+        "sourceSHA256": "375f555281abc6b7564197bc3db05e21152db0efa50b4389a2126158e7581931",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役入口合同不变；新增layer视频消费需求与后台解码分离的owner/clock/失败/退出边界",
-        "limitations": "不是产品实现、性能收益、动态视频创建支持或官方parity。"
+        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "210ef3818463398cc8c7074497b1cf4b3694529777513b612eba71b6473e8ff4",
+        "sourceSHA256": "0a7c5917af73a8fcf1186aed15130bc4e23aae536d130c55cb358af649947c04",
         "method": "document_registry --audit + document_health --check",
-        "scope": "278四臂实际PCM/accepted四bin及Pulse-off局部ROI资格；308/source361367只读诊断收窄，不新增产品修法。",
-        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
+        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
       }
     },
     {
@@ -3577,10 +3577,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "542166bd3cc937383c44fa6f078ad988c61089acd71850dd6940939119a5cb87",
+        "sourceSHA256": "c3fec06a931d6e64c9d5487df52f1d8874ea15a85d9107a91d6e720eba271a8b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
-        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
+        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "60d8351966de9466c9f379bd1f9167e3ca1e6198c1bf6450fbb877adaa76c396",
+        "sourceSHA256": "a77e51b4d4e120d3ee0b28f7c76167c90dfe6d40dd0e2335070d1f437b16a48c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "278退出本窗完全缺眼部音频响应修法；308/source361367按默认显隐、媒体输入与实际执行收窄下一门，避免只修日志。",
-        "limitations": "受控PCM不代验正常系统采集需求、官方同phase强度、HDR或整样本；目录名373/新增17仅本轮快照且未纳入，旧样本未整体重跑。"
+        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
+        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
       }
     },
     {

@@ -1140,17 +1140,17 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 正式包 `.artifacts/scene-evidence/runs/vec3-equals-344-20261021/`保原report/log、五张必要原图、红门/green收据、身份与实图独审；普通14天。归档242行只替344和302、其他240行及顺序不变，目录分母356、人工337 unreviewed/19 fail/0 pass不变；历史混合身份不当全量当前复测。原全量census缓存仍351行，本轮用已有两静态行限定normalizer输入，不重扫样本或改census工具。临时HOME/样本与停用图/重复副本清理，仅保一份最新App及既有增量cache供下一批。
 
 <a id="video-publication-demand-20261021"></a>
-## 2026-10-21：视频多路需求与供帧空档的有界消融
+## 2026-10-21：视频多路需求、供帧空档及提取候选撤回
 
-复用Vec3批同一完整签名Debug App，主程序`6ffdcfb5…fc6955`/dylib`2d15e2d9…682fdd`，无产品改动。原337默认20s、30FPS、中心固定/独占零PCM、无resize，renderer约29.949FPS，可见100发布275次，非loop最长空档3.180s，故不是只凭旧Debug或截图报卡顿。12个视频为不同MP4，共约553.3MiB，均3750×2250/60FPS/12s；所选100源的720包PTS连续不排除供帧异常，sync间隔3.2s与部分跳跃吻合，不能据此唯一判AVFoundation内部根因。
+原完整签名Debug `6ffdcfb5…fc6955`/dylib`2d15e2d9…682fdd`默认337、20s/30FPS/零PCM/无resize，pointer实际outside→中心hold→outside，旧from_launch不作固定中心证明。renderer约29.949FPS，可见100发布275次、非loop最长空档3.180s。12个不同MP4共553.3MiB，均3750×2250/60FPS/12s；所选100的720包PTS连续、sync间隔3.2s不唯一裁AVFoundation根因。同loose入口one仅删11个隐藏视频后100发布588次/最大0.067s，twelve恢复后171次/3.202s，均约30FPS/同120 null.visible/正常stop。one还少143脚本owner，不能认产品收益或唯一解码竞争。原两after实看人物/伞/天空/日期保留，约2.2s非请求8s；正式最小复现`.artifacts/scene-evidence/runs/video-publication-337-20261021/`继续受保护。
 
-任务副本两侧同一loose入口/项目默认值和原pkg，仅one删11个隐藏视频对象，保100/120及其余值/顺序。one实际只有100供帧，20s发布588次，非loop最大0.067s、loop边界0.138s；twelve恢复12路后100仅171次，非loop最大3.202s。两侧仍约30FPS、同120 null.visible首错、无材质asset视频需求，均exit0/surface1→0/GPUdrain；两张原after已实际查看，人物/伞/天空/日期保留。after实际约2.2s，不是请求8s或流畅证明；one同时少143脚本owner，不能把有界输入干预升级为唯一解码竞争结论、产品优化或正式性能收益。
+官方2.8.0.42自有2s视频可见正控推进；首载体资格失败/prl错误不作语义证据。修正载体隐藏目标5.0s时C=.814/EOF2，O=1.374/EOF0且playing=true；5.6s显现C=1.416、P=1.714、O=1.679。advance需EOF≥2、held需近零均未过，**STOP_UNKNOWN**；循环相位混叠未排，不由POST接近或EOF0推停解码/持续解码，不重跑同载体/放宽门。dormant未实施；`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`保正式资格/独审，ZIP SHA`a89a576c…f3573f`。原337官方崩溃未复现。
 
-最早可行动候选是现FrameLayerTextureAssembly无消费过滤地prepare全部layer视频；不能直接skip：source首次prepare才启动逻辑clock，loop/EOF又依赖backend。先按[待实施需求设计](material-video-assets.md#video-consumer-demand)分开逻辑推进与backend工作，保脚本intent/相位/终结、取源依赖、跨屏及原提交寿命。120的动态视频constructor缺prepared资格，作者又每帧destroy/create；它是独立能力/成本切片，不以放开constructor或改作者参数绕过。官方崩溃未复现，无普通Release/长稳、全部属性或官方同相位裁决。
+10-21后继普通layer视频提取原型复用prepared潜在provider与同帧Boolean可见性，在首次prepare前汇合全部surface需求，unknown/model/动态拓扑及asset/property保持eager；原source照常启动/clock/anchor/seek/真实EOF，仅少做hasNew/copy/Metal包装，不暂停播放器。完整原337、同签名未优化Debug短筛，可见100发布26→160、隐藏11发布863→0，但最大非loop空档3.200→3.193s，卡顿未闭。12源ready/真实EOF与原callback首错保持，原图主构图保持；不以帧数/约30FPS推视频流畅或官方parity。
 
-正式包`.artifacts/scene-evidence/runs/video-publication-337-20261021/`保三份原report/log、两臂原after、输入变换/身份、发布间隔及独审；最小未解决复现受保护，问题关闭后转普通14天。此为后继资格，不重写全样本旧人工裁决或宣称又一轮全量运行；原样本/VM未改，临时副本及无独立价值截图清理，继续复用唯一最新App和既有增量cache。
+固定027cad065产品输入、两份Debug `SWIFT_OPTIMIZATION_LEVEL=-O`、执行观察关闭，App SHA基线`2c545d3d…db465`/候选`c993b6b9…1887f`。事前计划3+3交替；第二对已触非目标退步后提前停止，第三对未跑、不认正式接受。四轮各30s预热后61.495–61.504s、63次资源采样，3024×1964/30FPS、原project/pkg/零PCM/实际pointer序列一致；App exit0、stop1→0/GPUdrain。footprint两对289244384→489915880B（+69.38%）、272598240→353256888B（+29.59%）；二基线噪声2.96%，原非目标门5.93%，均超过。Metal设备currentAllocatedSize采样峰两对约-70.91%/-72.50%，CPU时间率约-3.75%/-0.53%，仅原观察，不能抵消footprint退步或认稳定收益；设备分配量不等于resident VRAM/RAM，未测温度/功耗。保留用户安装App，端点背景进程/热状态记录不证明无所有干扰，不从四轮推全局稳定性。
 
-官方2.8.0.42后继仅用自有3份2s测试视频。首载体缺视频flag/几何等资格并触发`prl_umd10.dll`错误，无语义结论；修正后可见正控两原图的内嵌帧由53→24跨loop，真实推进。隐藏目标在5.0s冻结：C=.814/EOF2，O=1.374/EOF0且playing=true；5.6s显现后C=1.416、P=1.714、O=1.679。原advance须EOF≥2、held须近零，两者均未过，**STOP_UNKNOWN**；2s循环/容差存在相位混叠，不由POST接近或EOF0推断持续解码/完全停止，不重跑同载体或放宽门。dormant未实施；仅帧提取/包装可另筛，仍须保原clock/anchor/EOF及跨屏。正式最小证据与独审归`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`，ZIP SHA`a89a576c…f3573f`；自有预览已定点关闭，主客户端在首载体异常后重启停安全启动提示，VM保持运行，原337官方崩溃仍未复现。无产品、性能或全API验收结论。
+**原型已全部撤回，现产品仍原eager链**；候选API/临时测试同撤，不做独立样本的接受性运行或额外全量验证。仅保两项HEAD已需的fixture依赖/teardown leaf维修，最近41方法通过。必要四轮原report/log、短筛供帧、两张原图、固定身份/计划、撤回patch与独审归`.artifacts/scene-evidence/runs/video-extraction-demand-stop-20261021/`，普通14天。后继须有不同backend消费机制或实际可见首门，再按[需求设计](material-video-assets.md#video-consumer-demand)资格，不重复包装消融。120动态视频constructor仍缺prepared实例/拓扑/资源资格，不能直接放门或每帧重建播放器。目录分母356、旧人工裁决不变；未验Release、HDR/多屏、长稳与官方同phase，秒级供帧问题保留。
 
 <a id="boolean-dynamic-text-20261021"></a>
 ## 2026-10-21：Bool可见性owner复用动态文字事务
