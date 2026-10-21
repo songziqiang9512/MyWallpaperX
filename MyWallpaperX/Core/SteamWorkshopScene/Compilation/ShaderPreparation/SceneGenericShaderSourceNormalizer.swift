@@ -186,7 +186,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                                    failure: .attributeUnsupported)
                     case "varying":
                         guard valueTypes.contains(item.type),
-                              item.count.map({ (1 ... 16).contains($0) }) ?? true else {
+                              item.count.map({
+                                  (1 ... (item.type == "float" ? 32 : 16)).contains($0)
+                              }) ?? true else {
                             throw Failure.varyingUnsupported
                         }
                         // A fragment declaration that is never referenced is
@@ -232,6 +234,22 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             }
             let vertexVaryings = stageVaryingShapes["vertex", default: [:]]
             let fragmentVaryings = stageVaryingShapes["fragment", default: [:]]
+            let expandedArrays = Set(vertexVaryings.filter {
+                ($0.value.count ?? 0) > 16
+            }.keys).union(fragmentVaryings.filter {
+                ($0.value.count ?? 0) > 16
+            }.keys)
+            // Native generic arrays retain their complete linked shape. They
+            // do not enter the bounded prefix/zero-fill or loop emitter paths.
+            if !expandedArrays.isEmpty {
+                guard expandedArrays.allSatisfy({ name in
+                    vertexVaryings[name]?.type == "float"
+                        && vertexVaryings[name] == fragmentVaryings[name]
+                }), varyingComponentsFit(vertexVaryings),
+                    varyingComponentsFit(fragmentVaryings) else {
+                    throw Failure.varyingUnsupported
+                }
+            }
             var varyingPrefixFacts: [
                 String: SceneAuthoredShaderVaryingPrefixLink.Fact
             ] = [:]
@@ -550,6 +568,32 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         guard type.hasPrefix("vec"), let width = Int(type.dropFirst(3)),
               (2 ... 4).contains(width) else { return nil }
         return width
+    }
+
+    /// Conservative fragment-input budget shared by Apple7/M1 and newer.
+    /// Existing arrays of at most 16 elements retain their original path.
+    private static func varyingComponentsFit(_ shapes: [String: Shape]) -> Bool {
+        var total = 0
+        for shape in shapes.values {
+            guard let type = SceneAuthoredShaderValueType(authoredName: shape.type) else {
+                return false
+            }
+            let components: Int = switch type {
+            case .bool, .int, .uint, .float: 1
+            case .int2, .uint2, .float2: 2
+            case .int3, .uint3, .float3: 3
+            case .int4, .uint4, .float4, .float2x2: 4
+            case .float3x3: 9
+            case .float4x4: 16
+            }
+            let product = components.multipliedReportingOverflow(by: shape.count ?? 1)
+            let sum = total.addingReportingOverflow(product.partialValue)
+            guard !product.overflow, !sum.overflow, sum.partialValue <= 124 else {
+                return false
+            }
+            total = sum.partialValue
+        }
+        return true
     }
 
     private static func isAudioSpectrumArray(_ declaration: Declaration) -> Bool {

@@ -4078,6 +4078,16 @@
         "test_scene_ordinary_effect_lighting_gpu",
         "test_scene_script_light_radius"
       ]
+    },
+    {
+      "id": "shader-generic-varying-arrays",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "script/tests/test_scene_generic_shader_varying_arrays.py"
+      ],
+      "modules": [
+        "test_scene_generic_shader_varying_arrays"
+      ]
     }
   ],
   "method_gates": {

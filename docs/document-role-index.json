@@ -551,13 +551,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "purpose": "Shader metadata记录级失败、源码/声明保真、共享准入与下游拒绝边界；不决定批次选序。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "201043ee9b8c861e8bc89f65184de094ecbdfc87b4def927fdcf2eb326f3eaba",
+        "sourceSHA256": "a7017965ce2f0584a62e7b60973fb5e5288172d6c5226548382207dae6614761",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Single macro expansion owner, physical provenance/token separation and early line budget; controlled actual red/cyan-to-red/red and bounded real347 visual execution; original watchdog failure retained.",
-        "limitations": "Owned topical facts and navigation only; no affected author corpus consumer or full-sample/official parity; real347 stop/GPU drain unverified; no CPU/GPU/memory/startup benefit claim."
+        "scope": "Generic scalar-array strict shape and component budget contract; current default437 waveform evidence and retired queue breakpoint; capability facts remain in runtime evidence.",
+        "limitations": "Navigation and this bounded change only; full-phase/official/HDR/multiscreen and performance not qualified."
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cdc77fb1d89499a13da8f2f894ad3866dcf12db041898b91379710d438fa9c7b",
+        "sourceSHA256": "d3c08074ad9dba66eba9a9c95f196e4bcffd6086aa83f5fe6093b3a0c84714f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享Vec3既有有界结果及后继337同App12/1输入消融；保独立首错、控制混杂和未实施设计边界。",
-        "limitations": "不代替产品优化、唯一解码根因或普通Release/性能/官方parity；全样本归档与人工裁决不变。"
+        "scope": "Generic scalar-array strict shape and component budget contract; current default437 waveform evidence and retired queue breakpoint; capability facts remain in runtime evidence.",
+        "limitations": "Navigation and this bounded change only; full-phase/official/HDR/multiscreen and performance not qualified."
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9f5ac535f19ab1baf1ad38506f2c6ae22c8fd21c6373bc7eb8b647dc73bde250",
+        "sourceSHA256": "4dd49d711031aaef0c1310b3493411e33be3d2066e7194ccf8a8a8cae7ba8a42",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
-        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
+        "scope": "329 runtime evidence refreshed and 374 observation appended; frozen356 ledger IDs/order and all human verdicts preserved; live368 directory scope disclosed.",
+        "limitations": "New12 directories excluded for next intake; original329 remains NONPASS; no full-sample/official parity claim."
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46841aa71c297d8c4dd6890ce8b716ee9fa5898b4ec7f47f644a158abcad91c5",
+        "sourceSHA256": "2b46d3a0be252192cfe39ae1e2263d4bd38427c1121b56801b6e0c16c97060c4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
-        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
+        "scope": "Generic scalar-array strict shape and component budget contract; current default437 waveform evidence and retired queue breakpoint; capability facts remain in runtime evidence.",
+        "limitations": "Navigation and this bounded change only; full-phase/official/HDR/multiscreen and performance not qualified."
       }
     },
     {

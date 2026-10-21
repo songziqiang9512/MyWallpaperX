@@ -77,8 +77,8 @@
       "bytes": 11603
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 47,
-      "bytes": 8890
+      "lines": 56,
+      "bytes": 10417
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -121,8 +121,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 580,
-      "bytes": 203104
+      "lines": 589,
+      "bytes": 205299
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 419,
-      "bytes": 90972
+      "bytes": 91135
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -241,8 +241,8 @@
       "bytes": 17443
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 248,
-      "bytes": 76974
+      "lines": 247,
+      "bytes": 76480
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1241,27 +1241,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2198faa1de4b5f3142fe7c7c5dbba728dcb0294a3a98da15ea6d6c8d1104aed9",
-      "after": "40a42954fa1b19137163008431b70ae4f518c6789b4c94227dc9e165700dab8b",
-      "owner": "scene-boolean-dynamic-text",
-      "reason": "Bool文字创建与既有typed文字事务统一；原包回调首拒、受控静态阴影及独立样本有界后验。只刷新三条混合身份运行记录，不改其余239行或人工裁决。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "e6924f1ac8bad1c87f1ca5c8cdca12aa9f4faebcca289d41d81fcadd2e4a34df",
       "after": "e0a779dcc4b97876e9f5309afefa4d0b09c0c2a933775835b3fa9f416e188002",
-      "owner": "scene-boolean-dynamic-text",
-      "reason": "Bool文字创建与既有typed文字事务统一；原包回调首拒、受控静态阴影及独立样本有界后验。只刷新三条混合身份运行记录，不改其余239行或人工裁决。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2f67fd3d12ab2a78a2294642525e9fdaa0ece7c441338eefd4f53b3b92b97dd6",
-      "after": "a97dd851b8143058196b198ada4261222b8ed78c8f1ab6c0a9e551c00c3031b2",
       "owner": "scene-boolean-dynamic-text",
       "reason": "Bool文字创建与既有typed文字事务统一；原包回调首拒、受控静态阴影及独立样本有界后验。只刷新三条混合身份运行记录，不改其余239行或人工裁决。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021"
@@ -1274,6 +1256,33 @@
       "owner": "apple-silicon-d13-color-analysis-reuse",
       "reason": "原D阶段计划补同次严格解析复用设计及完整事实／材质投影、局部固定工作量和小规模优化Debug冷暖资格；保暖慢轮、既有失败、测试与Release／视觉边界，不新增执行权威或兼容结论。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#深入实施-d1d62026-10-21"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
+      "after": "12753b912d18c77d1d7b55894fa375d387ef075308caf75c6758c521d4c6385a",
+      "owner": "Scene shader preparation and scoped evidence",
+      "reason": "Bounded fixed-float interface contract, current default-waveform result and two-row frozen-ledger refresh; exact current bodies, no duplicated state owner.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#generic-varying-array-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "40a42954fa1b19137163008431b70ae4f518c6789b4c94227dc9e165700dab8b",
+      "after": "37a37f4a482bacdabc214ab6a7169b94eedf2e01a141b9a492a75426dd83f59d",
+      "owner": "Scene shader preparation and scoped evidence",
+      "reason": "Bounded fixed-float interface contract, current default-waveform result and two-row frozen-ledger refresh; exact current bodies, no duplicated state owner.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#generic-varying-array-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "5433b5becfae7809997d89ba3ebea2e8e366487a075d8c0fa4cb13386dd588e1",
+      "after": "d29b1440ff3be5a65c9a35e7f174d6f831451f5f084dee16e8737a52f0aa0199",
+      "owner": "Scene shader preparation and scoped evidence",
+      "reason": "Bounded fixed-float interface contract, current default-waveform result and two-row frozen-ledger refresh; exact current bodies, no duplicated state owner.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#generic-varying-array-20261021"
     }
   ]
 }

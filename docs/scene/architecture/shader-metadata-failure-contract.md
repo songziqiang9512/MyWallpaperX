@@ -45,3 +45,12 @@
 **边界与退出。** directive、include、条件切换和文件边界保持作者执行时序；pending不能穿过环境变化悄悄改绑定。EOF的裸函数宏名保持原样，真实未闭实参仍有位置明确的局部失败；错误参数、递归和现depth/token/byte/input/output预算不放松。保留物理行与sourceMap的一一对应、注释/annotation/declaration来源和directive/module digest；展开不增删后续代码的来源行。新规则只作用准备阶段，无逐帧解析或第二owner。旧按物理行/segment截断函数调用的消费退出，未资格的其他语法不顺带开放。
 
 **验收与停止。** 同行/跨行、实参换行、注释、别名、改宏/资源名与等价表达式须得到相同语义；裸名、未知调用、quoted/inactive、directive/include重定义、未闭/错参数/递归和紧预算是相邻反例。复用最近预处理器门，再验受控shader实际Program/GPU/terminal/次帧与一个未参与修法的真实原包；Debug、独审与失败清理按影响面执行。无法保持映射/预算或实际颜色时先收窄或撤回，不能仅凭prepared字符串、编译或非黑宣称兼容与性能。
+
+<a id="generic-varying-array-budget"></a>
+### Generic固定float数组的阶段接口预算
+
+Generic固定float[1…32]沿现Normalizer与严格backend执行，退出误沿用bounded的16元素门；其余类型及bounded的16元素/索引/展开限制保持。不增加效果算法、数组打包、runtime或缓存owner。超过16的数组须两stage同名、类型和count完全一致，不与prefix/补零规则混用；未配对或未知接口局部拒绝。普通帧不重新分析。
+
+每stage对实际保留接口按标量/向量/矩阵宽度及array count做溢出安全累计，较宽数组路径不超过124分量；依据[Apple GPU限制表](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)的Apple7/M1及后续family预算，不把32称为硬件最大值。原严格link/reflection/Metal pipeline仍裁实际资格，矩阵location与其他既有边界不扩。原生成build identity随Normalizer源码变化退休缓存，不另加盐或cache；失败仍保局部原输入。
+
+验收覆盖改名/等价表达、动态索引与插值、stage错配/类型/预算及bounded邻例，实际Metal读回和未参与修法原包。真实收益须锁默认可见ROI、实际typed输入与Program/GPU/末合成/次帧，控制参数只用于定位，不能替代默认结果；没有可归因收益或存在回退时撤候选。当前有界结果归[运行记录](../capabilities/runtime-evidence-current.md#generic-varying-array-20261021)，选序归[队列](../roadmap/scene-open-breakpoint-queue.md)。

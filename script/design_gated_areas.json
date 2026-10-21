@@ -833,6 +833,18 @@
       "contentPatterns": []
     },
     {
+      "id": "scene-generic-varying-array-interface",
+      "title": "generic固定varying数组与后端组件预算",
+      "owner": "Scene existing shader preparation / generic compiler",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "design_notes": "设计先保存；现Normalizer只扩float至32，严格stage shape与124component，bounded原门/缓存owner保持。默认329顶部细白波形A/B及静音、独立原包/Metal读回归runtime-evidence-current#generic-varying-array-20261021；全phase/更宽类型/HDR与性能未验。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "scene-direct-model-bind-geometry",
       "title": "direct model验证bind几何局部恢复",
       "owner": "Scene Format / prepared model resources",
