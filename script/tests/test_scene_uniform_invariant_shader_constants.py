@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Direct-uniform readonly globals through the real generic compiler route.
+"""Uniform-derived readonly globals through the real generic compiler route.
 
 CPU methods never create a Metal device. The optional exact-pixel method reuses
 their generated MSL and the same fixture/PSO for an A/B/A uniform sequence.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -36,22 +37,36 @@ GPU_ENABLED = os.environ.get("MWX_SCENE_UNIFORM_CONSTANTS_GPU") == "1"
 
 def shader_cases() -> list[dict]:
     result = []
-    for name, drive, gain, vector, scalar, coordinate, parenthesized in (
-        ("direct-uniform", "u_drive", "u_gain", "derivedUV", "derivedLevel", "coordinate", False),
-        ("renamed-parenthesized", "u_control", "u_multiplier", "shifted", "brightness", "renamedUV", True),
+    for name, drive, gain, vector, scalar, coordinate, parenthesized, operation, threshold in (
+        ("direct-uniform", "u_drive", "u_gain", "derivedUV", "derivedLevel", "coordinate",
+         False, "linear", None),
+        ("renamed-parenthesized", "u_control", "u_multiplier", "shifted", "brightness", "renamedUV",
+         True, "linear", None),
+        ("pure-pow", "u_drive", "u_gamma", "derivedUV", "threshold", "coordinate",
+         False, "pow", "u_threshold"),
+        ("renamed-equivalent-pow", "u_motion", "u_exponent", "movedUV", "gate", "mappedUV",
+         True, "pow", "u_floor"),
+        ("nested-pure-builtins", "u_signal", "u_angle", "flowUV", "response", "surfaceUV",
+         True, "nested", "u_level"),
     ):
         vector_rhs = f"{drive}.xy * vec2({gain}, 0.5) + vec2(0.125)"
         scalar_rhs = f"{drive}.z * {gain} + 0.0625"
         if parenthesized:
             vector_rhs = f"(({drive}.xy) * (vec2(({gain}), 0.5))) + (vec2(0.125))"
             scalar_rhs = f"(({drive}.z) * ({gain})) + (0.0625)"
+        if operation == "pow":
+            scalar_rhs = (f"(pow((({threshold}) * 1.0), (({gain}) + 0.0)))" if parenthesized
+                          else f"pow({threshold}, {gain})")
+        elif operation == "nested":
+            scalar_rhs = f"smoothstep(0.0, 1.0, abs(({threshold}))) * sin(({gain}))"
+        extra_uniform = f"uniform float {threshold};\n" if threshold else ""
         declarations = f"const vec2 {vector} = {vector_rhs};\nconst float {scalar} = {scalar_rhs};"
         helpers = (f"vec2 readCurrentUV(){{return (({vector}));}}\n"
                    f"float readCurrentLevel(){{return (({scalar}));}}\n") if parenthesized else ""
         vector_use, scalar_use = ("readCurrentUV()", "readCurrentLevel()") if parenthesized else (vector, scalar)
         fragment = f"""uniform vec4 {drive};
 uniform float {gain};
-varying vec2 {coordinate};
+{extra_uniform}varying vec2 {coordinate};
 {declarations}
 {helpers}
 void main() {{
@@ -62,15 +77,23 @@ void main() {{
             "name": name,
             "pair": {"vertex": vertex_source(coordinate, width=2), "fragment": fragment},
             "drive": drive, "gain": gain, "vector": vector, "scalar": scalar,
+            "threshold": threshold, "operation": operation,
             "initializers": [vector_rhs, scalar_rhs],
         })
     return result
 
 
-def expected_pixels(drive: list[float], gain: float) -> list[float]:
+def expected_pixels(drive: list[float], gain: float, operation: str) -> list[float]:
     # Independent arithmetic for this self-owned shader, not a product lowering.
     base_x, base_y = drive[0] * gain + 0.125, drive[1] * 0.5 + 0.125
     level = drive[2] * gain + 0.0625
+    if operation == "pow":
+        level = math.pow(drive[2], gain)
+    elif operation == "nested":
+        fraction = min(1.0, max(0.0, abs(drive[2])))
+        level = fraction * fraction * (3.0 - 2.0 * fraction) * math.sin(gain)
+    elif operation != "linear":
+        raise AssertionError(f"missing independent oracle: {operation}")
     return [component for y in (0.25, 0.75) for x in (0.25, 0.75)
             for component in (base_x + x * 0.25, base_y + y * 0.25, level, drive[3])]
 
@@ -202,6 +225,8 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
         draws, expected = [], []
         for drive, gain in (variants[0], variants[1], variants[0]):
             values = {case["drive"]: drive, case["gain"]: [gain], "mwxRenderSize": [2.0, 2.0]}
+            if case["threshold"]:
+                values[case["threshold"]] = [drive[2]]
             buffers = {}
             for suffix, msl in (("vert", packet["vertexMSL"]), ("frag", fragment)):
                 reflection = json.loads((root / (suffix + "-reflect.stdout")).read_text())
@@ -209,7 +234,9 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             self.assertIsNotNone(buffers["frag"], "derived values must read the emitted fragment UBO")
             draws.append({"vertexBuffers": [buffers["vert"]] if buffers["vert"] else [],
                           "fragmentBuffers": [buffers["frag"]]})
-            expected.append(expected_pixels(drive, gain))
+            expected.append(expected_pixels(drive, gain, case["operation"]))
+        self.assertEqual(expected[0], expected[2])
+        self.assertNotEqual(expected[0][2], expected[1][2], "derived scalar must change, not only UV")
         sequence = {"program": packet, "draws": draws}
         (root / "generic-uniform-sequence.json").write_text(json.dumps(sequence, indent=2))
         (root / "expected.json").write_text(json.dumps(expected, indent=2))
@@ -225,6 +252,20 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
         for case in shader_cases():
             with self.subTest(name=case["name"]):
                 self.prepare_case(case)
+        # Preserve all three original CAST branches independently of the new
+        # pure-call proof, whose strict deletion policy intentionally rejects CAST3.
+        for width in (2, 3, 4):
+            with self.subTest(cast_width=width):
+                fragment = (f"uniform float u_gain;\nvarying vec2 coordinate;\n"
+                            f"const vec{width} derived = CAST{width}(u_gain);\n"
+                            "void main(){gl_FragColor=vec4(derived.xy,u_gain+coordinate.x*0.125,1.0);}\n")
+                root, output = self.analyze(f"preserved-cast{width}", {
+                    "vertex": vertex_source("coordinate", width=2), "fragment": fragment,
+                })
+                self.assertEqual(output["runtimeConstantFragment"],
+                                 output["canonicalFragment"].replace("const", ""))
+                self.assertIn(f"CAST{width}(u_gain)", output["runtimeConstantFragment"])
+                self.compile_generic(root, output)
 
     def test_unproved_bindings_consumers_and_constant_uses_are_unchanged(self) -> None:
         cases = {
@@ -253,6 +294,17 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             "matrix-global": "const mat2 k=mat2(u_gain);\nvoid main(){gl_FragColor=vec4(k[0],0.0,1.0);}",
             "mutable-global": "float k=u_gain;\nvoid main(){gl_FragColor=vec4(k);}",
             "compiletime-constant": "const vec2 k=vec2(0.25,0.5);\nvoid main(){gl_FragColor=vec4(k,0.0,1.0);}",
+            "pow-function-shadow": "float pow(float x,float y){return x+y;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-value-shadow": "float observe(float pow){return pow;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-uniform-shadow": "float observe(float u_gain){return u_gain;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-sample-rhs": "uniform sampler2D g_Texture0;\nconst float k=pow(texSample2D(g_Texture0,vec2(0.5)).r,u_gain);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-derivative-rhs": "const float k=pow(dFdx(u_gain),2.0);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-inout-consumer": "const float k=pow(u_gain,u_drive.z);\nfloat touch(inout float x){x+=0.5;return x;}\nvoid main(){gl_FragColor=vec4(touch(k));}",
+            "pow-out-consumer": "const float k=pow(u_gain,u_drive.z);\nfloat touch(out float x){x=0.5;return x;}\nvoid main(){gl_FragColor=vec4(touch(k));}",
+            "pow-compiletime-array-size": "const float k=pow(u_gain,u_drive.z);\nvoid main(){float values[int(k)];gl_FragColor=vec4(k);}",
+            "pow-derived-global-chain": "const float k=pow(u_gain,u_drive.z);\nconst float next=k*0.5;\nvoid main(){gl_FragColor=vec4(next);}",
+            "pow-vector-unproved": "const vec2 k=pow(u_drive.xy,vec2(u_gain));\nvoid main(){gl_FragColor=vec4(k,0.0,1.0);}",
+            "pow-missing-uniform-dependency": "const float k=pow(0.5,2.0);\nvoid main(){gl_FragColor=vec4(k);}",
         }
         for name, body in cases.items():
             fragment = "uniform vec4 u_drive;\nuniform float u_gain;\nvarying vec2 coordinate;\n" + body
@@ -260,7 +312,7 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
                 root, output = self.analyze(name, {"vertex": vertex_source("coordinate", width=2),
                                                  "fragment": fragment})
                 self.assertEqual(output["runtimeConstantFragment"], output["canonicalFragment"])
-                if name in ("mutable-global", "compiletime-constant"):
+                if name in ("mutable-global", "compiletime-constant", "pow-missing-uniform-dependency"):
                     self.compile_generic(root, output)
 
     def test_dynamic_loop_keeps_type_preparation_without_bounded_execution(self) -> None:
@@ -309,6 +361,8 @@ void main() {
                         self.assertAlmostEqual(left, right, places=6)
             self.assertEqual(observed[0], observed[2], "A/B/A must return to A without retained state")
             self.assertNotEqual(observed[0], observed[1], "the changed uniforms must affect this draw")
+            self.assertNotEqual(observed[0][2::4], observed[1][2::4],
+                                "the derived scalar channel must follow each uniform packet")
 
 
 if __name__ == "__main__":

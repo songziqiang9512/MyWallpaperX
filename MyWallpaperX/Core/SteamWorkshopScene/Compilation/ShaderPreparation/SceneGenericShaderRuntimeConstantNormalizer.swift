@@ -106,10 +106,20 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
         uniforms: [String: SceneAuthoredShaderValueType], valueNames: Set<String>
     ) -> Bool {
         let tokens = unit.tokens
-        guard let expression = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
-            range, tokens: tokens, unit: unit, valueTypes: uniforms,
-            permitsScalarVectorAddition: true, permitsVectorTruncation: true
-        ), expression.type == type, expression.conversions.isEmpty,
+        func valueExpression(_ range: Range<Int>) -> SceneAuthoredShaderBuiltInVectorConversion.Expression? {
+            // Keep the existing constructor/narrowing analysis first. The
+            // nontruncating analysis additionally proves scalar built-ins;
+            // purity and exact uniform ownership are checked below.
+            SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
+                range, tokens: tokens, unit: unit, valueTypes: uniforms,
+                permitsScalarVectorAddition: true, permitsVectorTruncation: true
+            ) ?? SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
+                range, tokens: tokens, unit: unit, valueTypes: uniforms,
+                permitsScalarVectorAddition: true, permitsVectorTruncation: false
+            )
+        }
+        guard let expression = valueExpression(range),
+              expression.type == type, expression.conversions.isEmpty,
               tokens[range].allSatisfy({ $0.kind == .identifier || $0.kind == .number
                 || ["+", "-", "*", "/", "%", "(", ")", ",", "."].contains($0.text) })
         else { return false }
@@ -119,19 +129,21 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
             if index > range.lowerBound, tokens[index - 1].text == "." { continue }
             if index + 1 < range.upperBound, tokens[index + 1].text == "(" {
                 let constructor = SceneAuthoredShaderValueType(authoredName: name)
-                guard (constructor.map(isFloatingValue) == true
-                       || ["CAST2", "CAST3", "CAST4"].contains(name)),
-                      !valueNames.contains(name), !unit.functions.contains(where: { $0.name == name }),
+                guard !valueNames.contains(name), !unit.functions.contains(where: { $0.name == name }),
                       let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                         tokens: tokens, opening: index + 1), close < range.upperBound,
+                      (constructor.map(isFloatingValue) == true
+                       || ["CAST2", "CAST3", "CAST4"].contains(name)
+                       || SceneAuthoredShaderColorTransferAnalyzer.helperCallsArePureAndUnsampled(
+                           fragment: unit, expressionRanges: [index..<(close + 1)],
+                           discardingExpression: true, permitsUnexpandedBlendingHelper: false,
+                           permitsAuthoredHelpers: false)),
                       let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
                         in: (index + 2)..<close, tokens: tokens),
                       arguments.allSatisfy({ argument in
                           // A constructor fixes its result type even when a
                           // child is unknown; purity also requires every child.
-                          guard let value = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
-                            argument, tokens: tokens, unit: unit, valueTypes: uniforms,
-                            permitsScalarVectorAddition: true, permitsVectorTruncation: true)
+                          guard let value = valueExpression(argument)
                           else { return false }
                           return value.conversions.isEmpty
                       })
