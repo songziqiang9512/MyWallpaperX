@@ -267,7 +267,6 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 独立原3396722575复用同一候选App，仅隔离3原输入/HOME/cache运行一次；人物、蓝紫背景、后方brush文字及运动前景字实际呈现，120的LeviBrush与843/1794的SourceHanSans-Heavy均embedded，3个text callback completed，textScriptDiagnosticCount0/missingResources0。App0/无漂移/stop1→0排空退出；仍有2265→2269、2248→2252两条getAnimationLayer prepared-nested-owner异常，旧同现UNKNOWN，严格零VM门FAIL保留，不记整样本/字体切换parity或启动性能。相关Puppet入口不在本次5产品源内；后继已定位为更早的[MDLA state1拒绝](#constant-dense-state1-20261018)，不以无font错误掩盖其他异常。
 证据与首失败保`.artifacts/tmp/font-value-type-official-20261018/`，真实C收据保`.artifacts/tmp/font-string-abi-behavior-20261018/execution/`。官方首次派发前VM suspended/0张输出为环境STOP；恢复既有VM后只更新receiver/执行namespace再做一次语义实验，不改原场景。旧native loose-only载体因无packageReport未ready，补单entry容器后形成有效对照，不是字体故障。两类STOP、容器同字节证明和首测试失败不覆盖；当时未正式归档，VM保持运行。修前/修后板的停止input/HOME已清，旧f263 stage完成对照后按manifest/无句柄清244,050,803逻辑B；保一个正常候选stage与连续迭代构建缓存，不报物理磁盘释放或性能收益。
 
-
 <a id="uniform-pure-initializer-20261021"></a>
 
 ### Uniform派生纯内建全局初始化（2026-10-21）
@@ -317,7 +316,6 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 首次只读资格未改产品：3351179520的碟片21、白环103和文字393在4785下各有独立TRS/Spin，393消费333文字provider；缺作者Atami走stock PoppinsMedium合法替代。字体raster尺寸可能影响CircularText自动尺度，但没有同帧raster/slot1/最终MVP，不能据此解释固定文字的周期漂移；原可见跨度不足整周期、静音opacity为零的STOP保持。3769688830的47黄球有合法单向UV Spin，同时从Puppet父21取得世界挂点运动；目录预览只见头肩，不够定位用户“玩偶”ROI/运动。两项均不改作者速度/中心、不认已修或作者设计，后继先取得可区分的实际consumer/目标ROI。中性收据分别保`.artifacts/tmp/335-text-ring-owner-qualification-20261018/qualification.json`与`.artifacts/tmp/u33-rotation-qualification-20261018/qualification.json`，无性能或整样本结论。
 
 恒定1500Hz PCM后继复用签名App`16a80fc1`（固定87a5bb加五个Puppet源，非整个be349/并行改动），原67输入未改；ready后短门取得可读文字、三路足额opacity、至少0.5s稳定distance及实际Program/GPU/末合成。根亲看原图，但写回超过预设16s期限，控制器仅终止本轮进程；exit−15、进程组已退、无观察VM失败/身份漂移，无正常stop/GPU排空。实际after→series仅4.379s，**不是完整周期或产品退出故障**；不与此前两轮合拼，不关闭原对齐反馈，也不再重试同载体。失败/原图/晚decision及独审保`.artifacts/tmp/335-tone-visible-cycle-20261018/native/original335/`；停止input/HOME已按manifest核验清理，借用App/构建缓存和VM保留。
-
 
 10-21后继复用当前d0ca80f5同源Debug App，固定1500Hz、默认属性、60s自动停止，无人工期限；8张实际可见原图after→末series跨53.496s。根与独审逐图核固定左右弧带：文字与碟片各自相位继续变化，未见明显整圈平移或半径突跳。启动333 raster为2048×56，非保存8119×224或393主输入2000²；仍无同帧slot1、完整world/最终MVP及shader g_Time，不能认精确全周期、贴合或官方parity。opacity收敛至约1/.6/.6、distance=-12后generation诊断去重，故机械typed整窗推进为UNKNOWN，不能据此判卡住；末图后frame1154/gen329同值消费、1047提交/1046完成/0failed仅证明对应运行范围。保留resize时frame7 allocation失败及frame10恢复，exit0、stop1→0/GPU排空、70输入/4App身份无漂移；无性能声明。完整raw/失败/身份及两份独审已归档`.artifacts/scene-evidence/runs/text-ring-visible-window-20261021/`（普通14天、11.9MB）；精确对齐保partial，后继需新的可区分几何/官方ROI证据，不再重复同类长窗。
 
@@ -434,7 +432,6 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 真实314同输入旧早拒`invalid-environment,VERSION`已推进到`neutral-texture-tint-proof`，layer50 source render-state仍拒，原视频保持；4条完成graph属于其他效果，不算目标层恢复。独立376原包未参与修法，31条完成graph/29条terminal消费记录，人物、烟花、日期与横向深云片实际呈现；旧云形/颜色余项仍开放。各run无输入漂移、退出0、进程组消失、surface1→0且GPU drained。完整相位、HDR、面板、多屏、长稳与官方parity未验。
 
 限期必要证据：`.artifacts/scene-evidence/runs/unused-version-combo-20261016/`，含同输入新旧截图/运行、测试、独审及font/impulse/CPU资格，普通14天；实际包身份以manifest为准。
-
 
 下方各 `E-*` 永久锚点转接归档中的原始输入、代码/产品身份、运行结果和边界；按单条查询。日期记录与后继修正不能合并成一个不存在的运行身份，旧 PASS 也不证明当前构建已复现。现役能力摘要从[能力台账](coverage-ledger.md#current-overview)进入。
 
@@ -1036,7 +1033,6 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 
 **身份与保留。** 根目录`.artifacts/tmp/n03-static-model-normal-coverage-20261018/`保存两产品投影、build/receipt、native两case、原图、独审及清理收据；测试原始红绿归同目录`tests/final-summary.json`。固定HEAD`20afa1c46`+两文件semantic overlay，4312产品输入无drift、Debug36.754s且签名通过；exe=`758f9b77…248a`、dylib=`56ec880f…a46a`、CDHash=`fada8669aa32be8fbb587740beea2f72d16bdcf6`。依赖门随后将normal比较下沉到现帧适配层，Metal只接收不透明颜色Bool事实；最终`build-final/receipt.json`为44.682s/4312输入无drift、exe=`6f501d7d…2621`、dylib=`81dd8db2…3374`、CDHash=`f859ebde1c467f0e00391f5113bbb9d131d47a0e`，仅接口收窄、计算/ABI/MSL/PSO不变。最终像素门另存`tests/final-interface-summary.json`；独审按值与调用等价复用758两原包实图，不冒称最终binary重播。必要结果暂存本机待证据库容量；已停runtime/HOME/旧888 stage及测试cache精确清理共904379941 logical bytes，非物理或运行内存收益。保留单份迭代缓存、758图证stage与全部失败原图/日志。未做同条件性能比较，不认领CPU/GPU/启动收益。
 
-
 <a id="logical-macro-invocation-20261018"></a>
 ### 2026-10-18：函数宏逻辑调用与物理来源行
 
@@ -1048,7 +1044,6 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 
 **验证、身份与保留。** 新6方法/41case及旧预处理3方法通过；改名/资源路径、等价表达、注释/quoted/inactive、裸名/未知调用、边界重定义、错参/未闭/递归、token分隔及紧预算均覆盖。首轮夹具缺nil参数的编译ERROR原样保留，修载体后40case绿；早拒5行delta后仅补跑新组41case（10.262s，1compile/1process、23Swift/28冻结文件无drift），旧组不重复。固定HEAD`1d0d11683`+两宏源的最终Debug40.704s/4312输入无drift、只同步1文件且其余mtime保持；exe=`834ae728…4365`、dylib=`e3c780ca…f64c`、CDHash=`397436eacabe1ae1dbdc37e005b5787f111b7366`，资源身份及签名通过。独审为有界GO并保独立样本watchdog限制。根`.artifacts/tmp/shader-macro-continuation-20261018/`保存红绿实际图、build-final、ROI/运行收据、独审与清理；测试冻结/首错误归相邻`shader-multiline-macro-qualification-20261018/tests/`。必要结果待正式库容量归档；保留单份迭代source/DerivedData与后继在用stage，清理仅停用的本轮输入/HOME/旧stage。没有同条件性能验收，不认领CPU/GPU、内存或启动收益。
 
-
 <a id="u02-three-lighting-fresh-20261018"></a>
 ### 2026-10-18：U02剩余三包照明现况复验
 
@@ -1059,7 +1054,6 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 **实际消费者与独立失败。** performance-particle为真实encode/CB完成观测：358554的204为138/137批、597/594实例；358188的113为201/200批、790/786实例；360的234与613各131/130批，实例457/454与321/318，failedFrames均0。它们不证明独占像素归属；preview current_nonempty只来自启动报告，不代GPU。358554背景17的五effect（含Godrays）也实际encoded。360原runner仍FAIL两项：666/effect2/672 Blur进入visual-failure-passthrough，后Opacity正常；实际诊断`source-proven-previous-blurred-composite-unowned`，不是新词法语法已证错误。666无子/依赖，Gaussian两pass的[.99,0]被GraphAdmission旧>=.01门挡住；这是该次保留的旧首拒证据，10-19[零轴后继](../history/previous-blurred-composite-admission-2026-10-12.md#zero-axis-followup-20261019)已将666转四Program/GPU执行、修后FAIL[]；无child不等于透明源，默认copyBackground/passthrough捕获背景，后画615遮住大部细条，未辨独立视觉收益，不归缺光根因。
 
 **身份与保留。** project/pkg：358554=`767455ce…20c2`/`09770fd1…6ece`；358188=`4ca743f3…a8c5`/原hash见输入收据；360同理逐file在冻结中，未覆盖旧归档人工verdict。三包仍unreviewed；当前记录只更新其限定反馈和实际运行。`.artifacts/tmp/358-rays-fresh-20261018/`及`u02-remaining-rays-fresh-20261018/`保输入身份、事前界限、原图、原FAIL、chain-observation与独审；只清本轮停用输入/HOME，继续留单份stage/迭代source/DD供后继。完整属性/互动、全随机周期及性能不在本次判断内。旧零轴数值首拒已沿[既有合同](previous-blurred-composite-admission.md)退出，旧光照观察仍保其范围，不复跑以追未定parity。
-
 
 <a id="named-dependency-direct-anchor-20261020"></a>
 ## 2026-10-20：命名依赖锚点一致性恢复首帧
@@ -1100,7 +1094,6 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 本片关闭普通Sprite材质首断点；Rope/Trail、其他combo/alpha/depth/cull、HDR、MSAA与跨设备覆盖响应保持边界。旧10-18无可见拖尾收益的撤回结论不改写。基线冷准备75.742秒、最终84.732秒只属这两个Debug取证窗，不构成性能收益；首个监督60秒额度不足的超时亦保留为取证失败，延等待不是引擎优化。
 
 必要证据由仓库主checkout正式库保存于 `.artifacts/scene-evidence/runs/sprite-alpha-coverage-20261020/final/samples/3745828537/runtime_evidence.zip`，117641B，SHA `625c515d39ca1cd14d37e91103071d8b067eaf90dc7712b00d4943a5adbe2a69`。内含有损审阅缩图及原图hash、App/源码身份、真实运行摘录、CPU/GPU原始读回与独审；无损原图已实际查看，缩图不承担像素等价断言。维持已授权1792MiB临时总限、单包32MiB和14天规则；本轮已结束执行副本与重试输出清理，连续迭代仅保隔离worktree一份 `.build-cache/scene-playback-debug`。
-
 
 <a id="intake-20261021"></a>
 ## 2026-10-21：新增24样本的Debug诊断入库
@@ -1180,3 +1173,10 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 自有真实App普通image两effect与非平凡前序采样，保持192×128源/256×128实际graph；预锁输出目标与旧预测相距约269.7px。旧target mask0/legacy7806，候选target9915/legacy0、质心误差0.059px（门2px），前序两探针RGB保持；变量/资源改名等价图原PNG SHA一致，fragment raster读取反例仍旧位。独立原3747190633人物/背景/星点/蓝条与时钟保留；时钟旧布局差异已存在，音频/时相未锁，不作整图parity或新增故障。
 
 签名Debug 34.561s/0warning、4359输入无漂移，候选App afab766d…cb9cfcb；三次原包运行exit0/stop1→0/GPU排空。CPU入口22case、frontend五方法通过/一GPU跳过，graph九方法通过/一未取得PMA Program资格跳过；自有App三变体通过。早期夹具重复声明、inactive候选回退首失败及错误PSO角色注入均保资格记录，最终独审无must-fix；正式收据核原图、构建源与归档身份。证据包`.artifacts/scene-evidence/runs/image-terminal-placement-20261021/`保存必要原图、原报告、身份与失败；无整体性能收益结论。PMA专项、完整alpha/profile、HDR/官方同phase与真实鼠标入口未扩验。
+## 2026-10-22：新增17原包默认诊断 <a id="intake-20261022"></a>
+
+本批只诊断与文档，不改产品/脚本/测试。复核4326产品输入与8cde701af产物无漂移，沿用签名优化Debug，App `c02fbf11…0ebb`。17原包各20s/30FPS、固定PCM与中心pointer，全部exit0/未timeout、stop1→0/GPUdrain；after约2s，逐包另核5/10/15s系列。无一目录有官方“截屏”；作者预览非golden，PCM不提供媒体信息，未验点击/拖动、全属性、同官方时相或性能。矩阵17PASS、归一5degraded/12structural均不作视觉裁决；隐藏分支/特殊solid归一误报保raw并限定，不据此改产品。
+
+[队列](../roadmap/scene-open-breakpoint-queue.md)合并377默认四Compose/12效果无owner、379 count-only控制点初始化跳过、318骨physics回退；378分栏边界与332时钟碎片保可见候选，根因未定。51张series留证，两代理逐例核晚图并交叉审查三强候选。声明373目录/372可解析、176762occurrence/4609family；旧376仅shader导致renderer失败，保raw及exact索引重建收据，不称generate/verify通过。静态清单独立分出，原writer两页输出待修。运行归档仅追加17、原243行及旧裁决不变，台账373/260关联，人工354unreviewed/19fail/0pass。
+
+正式包`.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip`（20,201,223B、SHA`c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10`）保完整report/日志、身份、静态/独审与renderer失败、51张有损缩小series及332/378末张原图；其余PNG保原SHA/尺寸，非精确像素oracle。raw census另留唯一cache；普通14天/总5GiB/单包32MiB。运行副本与停用输出清理，一份既有增量cache留后继；未重建/重跑旧356或官方客户端，不认整样本通过。

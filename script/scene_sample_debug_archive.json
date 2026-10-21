@@ -3454,10 +3454,27 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "bundle_version": "283",
+      "cdhash": "c97bcc1f3d9da77bae9dfee906c7e0227aa1d5ef",
+      "executable_sha256": "c02fbf118221f26847959fc2197b61b2838799bd4ccd0d107101fa12a5fc0ebb",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "runtime_root_path": null,
+      "short_version": "2.11.0",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.build-cache/video-extraction-demand-20261021/Build/Products/Debug/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.build-cache/video-extraction-demand-20261021/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "source_signature_verified": true,
+      "team_identifier": "H9QWU9XN8R",
+      "verified_after": true,
+      "verified_before": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-21T13:05:25.272756+00:00",
+  "generatedAtUtc": "2026-10-21T23:48:09.090533+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -5434,6 +5451,19 @@
       "matrix": "278-original-strong-frozen-afab-control",
       "matrixSha256": "887f96df00e1aa21e9176fb499aca55d89c7b4a9d7f08c0da8614dc9ae6dd56c",
       "sampleCount": 1
+    },
+    {
+      "format": "zip-member",
+      "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+      "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+      "member": "report.json",
+      "bytes": 24519862,
+      "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+      "crc32": "5ea240e6",
+      "status": "retained-byte-verified",
+      "sampleCount": 17,
+      "matrix": "new17-debug-screen-20261022",
+      "matrixSha256": "d61614929c19e013f8e6fa24b9adeb96532bdcf96e31d745022f4e604aeabd25"
     }
   ],
   "samples": [
@@ -30843,15 +30873,1986 @@
         }
       },
       "nextAction": "perform-authored-preview-and-next-frame-visual-review"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 1,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        },
+        "effectInstanceCount": 6,
+        "objectCount": 1,
+        "occurrenceCount": 63,
+        "packageSha256": "c7d1d0b3e882920df1e63cf599b2fbe21d9055e97106ea796e2e1df84420d09b",
+        "parseState": "parsed",
+        "particleLayerCount": 0,
+        "projectSha256": "b317912ccf1d4660c1b96d041ec70652c5c1f3945131e9358e4f6f2c3ebb8f85",
+        "visibleOccurrenceCount": 39
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 0,
+          "jsonPointer": "/samples/0"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3187857248/app.log",
+            "bytes": 54191,
+            "sha256": "f9c041e7b9bb8bd5ad84f022525dbb70d7e35b769d3652c8ed4bd7ad3812c93e",
+            "crc32": "00ead2b9",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3187857248/scene-preview.log",
+            "bytes": 9482,
+            "sha256": "8e1d1f8d1ec49207ea3204b63b2b564406c9f6e369e291b3cd2f8cd071892296",
+            "crc32": "0765a119",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3187857248/scene-runtime-evidence.json",
+            "bytes": 110688,
+            "sha256": "3d05c1d984331adaf2269808589f4ca57d586005e6404815b1ea74fe0324d1f5",
+            "crc32": "e63ece17",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3187857248",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 1,
+          "afterFlatBorderRatio": 0.5802276390008058,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 1,
+          "previewSpatialColorSimilarityAdvisory": 0.8684,
+          "readyFlatBorderRatio": 0.5807732339511147,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 1
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "黑丝狱卒.4K.动态.视差.可拖拽"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 26,
+          "script_wrappers": 116,
+          "timeline_wrappers": 3,
+          "user_bindings": 157
+        },
+        "effectInstanceCount": 47,
+        "objectCount": 66,
+        "occurrenceCount": 1047,
+        "packageSha256": "788177ed266b01821888f1e14c4750764df7090de065b7178dbf5a78a27eee1a",
+        "parseState": "parsed",
+        "particleLayerCount": 2,
+        "projectSha256": "307f01fc08f136584a6f7716d3386a70b063ffc71cec99b0169bcd12d89b2a19",
+        "visibleOccurrenceCount": 223
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 1,
+          "jsonPointer": "/samples/1"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3321237804/app.log",
+            "bytes": 2957222,
+            "sha256": "6324dd0c5a8387259c4c1fe727e1af4e2bf809b082b85d2e30b756aec8b84d02",
+            "crc32": "c175d589",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3321237804/scene-preview.log",
+            "bytes": 59000,
+            "sha256": "7efd3404dec68d7a60e09129439b48034f452572f350dbd75c59333552527b45",
+            "crc32": "885069c2",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3321237804/scene-runtime-evidence.json",
+            "bytes": 1843057,
+            "sha256": "267964f3a854c066d7ab457e186f97cb6855154cc38a7129b271b4df3f4f7118",
+            "crc32": "d1f7ad77",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3321237804",
+      "nextAction": "inspect-fallback-and-authored-visual-ROI",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 23,
+          "afterFlatBorderRatio": 0.029159951651893633,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 8,
+          "previewSpatialColorSimilarityAdvisory": 0.8516,
+          "readyFlatBorderRatio": 0.9853948428686543,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 8
+        },
+        "firstBreakpoint": {
+          "capabilityProfileOrAuthoredShape": "target:layer:color",
+          "evidenceBasis": "evidence.app_log typed SceneScript failure",
+          "failureRadius": "script",
+          "fallbackPreservedTerminalCompositor": null,
+          "owner": "SceneScriptVM",
+          "reasonCode": "scene-script-bad-return",
+          "severity": "degraded",
+          "stage": "script-execution",
+          "unit": {
+            "kind": "script",
+            "layerId": 376
+          }
+        },
+        "secondaryEvents": [],
+        "status": "degraded-runtime"
+      },
+      "title": "【4k 动态】初音未来 秋绪——夜莺Night [4k Dynamics] Hatsune Miku Autumn Sentiment - 夜莺Night"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 17,
+          "script_wrappers": 11,
+          "timeline_wrappers": 5,
+          "user_bindings": 90
+        },
+        "effectInstanceCount": 60,
+        "objectCount": 41,
+        "occurrenceCount": 593,
+        "packageSha256": "7595512dee824edef228a191a35dbd0f6a3f22e35b2233b4567b886b455072d9",
+        "parseState": "parsed",
+        "particleLayerCount": 2,
+        "projectSha256": "6bcfc79606b3f730d69cd5fdddbe82af32e572cdaeefacd164be5658c2c94664",
+        "visibleOccurrenceCount": 217
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 2,
+          "jsonPointer": "/samples/2"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3443450456/app.log",
+            "bytes": 265418,
+            "sha256": "ae68b2e2d552fdeb96cbd8ae6c61d43b5f9fa73b5fc5eff1d576e7c10170914f",
+            "crc32": "c5425fbc",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3443450456/scene-preview.log",
+            "bytes": 48333,
+            "sha256": "a6c2cd855f499c55c42169eeccc3cb6e3f95129880f1587a407d6487c236679c",
+            "crc32": "a6ccb7d1",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3443450456/scene-runtime-evidence.json",
+            "bytes": 1167371,
+            "sha256": "73759704ec08d0b9d04319a2795bc04b180bff0bcb8855bef8a318af9258a20c",
+            "crc32": "09c00232",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3443450456",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 26,
+          "afterFlatBorderRatio": 0.3608732876712329,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 20,
+          "previewSpatialColorSimilarityAdvisory": 0.6658,
+          "readyFlatBorderRatio": 0.4178166129465485,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 20
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "蛊真人-坚持（高度自定义） Reverend Insanity-Persist"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 3,
+          "user_bindings": 12
+        },
+        "effectInstanceCount": 43,
+        "objectCount": 19,
+        "occurrenceCount": 600,
+        "packageSha256": "6d689cc53a4b3084973ac3f324999f633e7974bb028d8fe2abeaa1587066f246",
+        "parseState": "parsed",
+        "particleLayerCount": 5,
+        "projectSha256": "ea6053680177a00771b57ce6f912cd3cf017fabef2b8522a3996b60469dc5a1f",
+        "visibleOccurrenceCount": 378
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 3,
+          "jsonPointer": "/samples/3"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3454689854/app.log",
+            "bytes": 179485,
+            "sha256": "8c0184473dad2aea7a14d75197aa2a5d76c2b04eaf7e41aea18b1ab654865b26",
+            "crc32": "46b5dd10",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3454689854/scene-preview.log",
+            "bytes": 33680,
+            "sha256": "e127201976e6deda6a8df63367fea39d4d6c65fbe7101f7d257d8f12f7212c7f",
+            "crc32": "3135ca56",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3454689854/scene-runtime-evidence.json",
+            "bytes": 1004608,
+            "sha256": "266799d3657403843b0157b5f5342e37a86a1a654f5d4cc18797acc49e52f545",
+            "crc32": "502d2c6f",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3454689854",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 10,
+          "afterFlatBorderRatio": 0.3335767526188558,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 10,
+          "previewSpatialColorSimilarityAdvisory": 0.8294,
+          "readyFlatBorderRatio": 0.3528908138597905,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 10
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "晦光织梦-MPGB202508"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        },
+        "effectInstanceCount": 3,
+        "objectCount": 1,
+        "occurrenceCount": 41,
+        "packageSha256": "b8cc5235a0c9d01e073fc75dc64eba2c7cc868d4470e219c634e33c9464369db",
+        "parseState": "parsed",
+        "particleLayerCount": 0,
+        "projectSha256": "eee215c0474ae80d000b7ddd45c98b2a537afa9f6e97f5c7ccce50f32838a879",
+        "visibleOccurrenceCount": 22
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 4,
+          "jsonPointer": "/samples/4"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3576374111/app.log",
+            "bytes": 39031,
+            "sha256": "bdd2574cc0a31d7733d5d467b995683619b0eb61c839427ed089cabf9b3cb120",
+            "crc32": "e104bf27",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3576374111/scene-preview.log",
+            "bytes": 7919,
+            "sha256": "80808fc97617329537cd7a3c3b16a64879d16680a92d9c7eadcdc517368001a0",
+            "crc32": "e08dc464",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3576374111/scene-runtime-evidence.json",
+            "bytes": 99481,
+            "sha256": "e0a77684e3e064db894b6c03f335004f10e6097b514f6c5e92cea9d9adf0ff5c",
+            "crc32": "99e78b73",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3576374111",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 1,
+          "afterFlatBorderRatio": 0.036395380069836156,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 1,
+          "previewSpatialColorSimilarityAdvisory": 0.9246,
+          "readyFlatBorderRatio": 0.036395380069836156,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 1
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "原神 甘雨 户型展示丨 Genshin impact ganyu"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 11,
+          "timeline_wrappers": 0,
+          "user_bindings": 6
+        },
+        "effectInstanceCount": 9,
+        "objectCount": 9,
+        "occurrenceCount": 176,
+        "packageSha256": "139e4309dfcff66dd3cfedd120386557345ecb43afcfc423491e0b6ceab04b90",
+        "parseState": "parsed",
+        "particleLayerCount": 1,
+        "projectSha256": "a33e66c0accb4ffedb1822ce9a0d5fab6b0a91909f0333756659a874495a7d76",
+        "visibleOccurrenceCount": 96
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 5,
+          "jsonPointer": "/samples/5"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3696646175/app.log",
+            "bytes": 289429,
+            "sha256": "3ab8e0c176d5fd6615458f09c26420975a2e51dc67b7c98628a3c8d024d50f8c",
+            "crc32": "43b8803b",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3696646175/scene-preview.log",
+            "bytes": 14175,
+            "sha256": "3e693b3147ac9118df6c054a6887d36099339b4d9f63a5785fcb072cf55749c5",
+            "crc32": "ff233461",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3696646175/scene-runtime-evidence.json",
+            "bytes": 495647,
+            "sha256": "344959dc5d8c6bc93f2c95904b816df2b42112e7faf7b01bde1ce9b7f6c31b49",
+            "crc32": "7e2fffbb",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3696646175",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 6,
+          "afterFlatBorderRatio": 0.31389336556540426,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 5,
+          "previewSpatialColorSimilarityAdvisory": 0.9335,
+          "readyFlatBorderRatio": 0.30458467633628794,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 5
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "老人-海边少女 [3440x1440]"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 5
+        },
+        "effectInstanceCount": 3,
+        "objectCount": 6,
+        "occurrenceCount": 61,
+        "packageSha256": "8e435d7f3c83fb9668ead101873e06932bc532a40d6368a3085534d1579a647b",
+        "parseState": "parsed",
+        "particleLayerCount": 0,
+        "projectSha256": "6fcd2e5b4c2812f24f0fabceb05db73c0e8a9e5d376db96af109f0090a4eec53",
+        "visibleOccurrenceCount": 32
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 6,
+          "jsonPointer": "/samples/6"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3701177677/app.log",
+            "bytes": 42627,
+            "sha256": "8c6ee060c0d5bf2c3738896c0fc46f26d6d63dc1eef61af7a83ce3a1481becb9",
+            "crc32": "01bb979c",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3701177677/scene-preview.log",
+            "bytes": 9954,
+            "sha256": "9a14c55d8a1158e776c06ee8b9aee23905258312c62529bcd6c913292ce46c26",
+            "crc32": "f3511cb7",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3701177677/scene-runtime-evidence.json",
+            "bytes": 137681,
+            "sha256": "9352e4da4e5f7ee77fda92baaa2b02560883e457792b8dc8b52d1889016c85aa",
+            "crc32": "23cde781",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3701177677",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 3,
+          "afterFlatBorderRatio": 0.05673348106365834,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 3,
+          "previewSpatialColorSimilarityAdvisory": 0.4781,
+          "readyFlatBorderRatio": 0.05673348106365834,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 3
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "老人-夕阳女孩 [4K]"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 2,
+          "script_wrappers": 42,
+          "timeline_wrappers": 0,
+          "user_bindings": 5
+        },
+        "effectInstanceCount": 9,
+        "objectCount": 26,
+        "occurrenceCount": 263,
+        "packageSha256": "66eb7715804ee12b707ac2430f0a2958a75df4d0207ced65d1b8fd97791d3e7f",
+        "parseState": "parsed",
+        "particleLayerCount": 3,
+        "projectSha256": "db9720952476adc87faf1a3a61ecec5a811ce6fabb87a7dfcddf1c8d7ea42e97",
+        "visibleOccurrenceCount": 68
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 7,
+          "jsonPointer": "/samples/7"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3716328771/app.log",
+            "bytes": 67990,
+            "sha256": "345bedc7b17d4c0f6ab043a6ace5f7b5ff32fd4cd4e6f552c0b5586dbcbbc972",
+            "crc32": "2fd4fde5",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3716328771/scene-preview.log",
+            "bytes": 15754,
+            "sha256": "3588350e92caf7c90efaa68df36b6fa97fb818d2996c0728c7e30dce439852c1",
+            "crc32": "4ddde3c5",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3716328771/scene-runtime-evidence.json",
+            "bytes": 659785,
+            "sha256": "dfaa537fbebb2757f3d46cc6bc35c8024948a982dc3b7c09ee215978885726f2",
+            "crc32": "adcb6cae",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3716328771",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 4,
+          "afterFlatBorderRatio": 0.2306607574536664,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 3,
+          "previewSpatialColorSimilarityAdvisory": 0.9852,
+          "readyFlatBorderRatio": 0.22935972334139135,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 3
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "老人-暗调少女"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 8
+        },
+        "effectInstanceCount": 14,
+        "objectCount": 2,
+        "occurrenceCount": 196,
+        "packageSha256": "0156e7501c14d6857bad6620dd8fb6cdd437c3ec50cd626ed96979c96b4840be",
+        "parseState": "parsed",
+        "particleLayerCount": 1,
+        "projectSha256": "01dc42c69eab5cbda0d224c6d56503f059a74676006d9035541b798320422560",
+        "visibleOccurrenceCount": 123
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 8,
+          "jsonPointer": "/samples/8"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3721991999/app.log",
+            "bytes": 13082375,
+            "sha256": "e4d840983f32aa0aa32770050cc05396b3666c1cc808dcd114f41a73216067ec",
+            "crc32": "6292e961",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3721991999/scene-preview.log",
+            "bytes": 13231,
+            "sha256": "72d5d92b4cc751614ce717e8c45385cb3eaba0a726ea4e40588aa9230eb95355",
+            "crc32": "c0852dfc",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3721991999/scene-runtime-evidence.json",
+            "bytes": 433926,
+            "sha256": "8df83047cc630c63e1779a0cbe2404fb6727cc0faffc07707cba3b0743a651c9",
+            "crc32": "4f8bb1ba",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3721991999",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 1,
+          "afterFlatBorderRatio": 0.09319601128122482,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 1,
+          "previewSpatialColorSimilarityAdvisory": 0.8868,
+          "readyFlatBorderRatio": 0.0915172575879667,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 1
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "无职转生 洛琪希 Mushoku Tensei Roxy"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 2,
+          "script_wrappers": 11,
+          "timeline_wrappers": 0,
+          "user_bindings": 12
+        },
+        "effectInstanceCount": 16,
+        "objectCount": 13,
+        "occurrenceCount": 258,
+        "packageSha256": "d2ddafb1d567345eb39911bb3f1359b7bf17f909022d113011c87895cf3b859f",
+        "parseState": "parsed",
+        "particleLayerCount": 1,
+        "projectSha256": "beb5d8622f2082244a361d805b1179bd39c0a3ef01ea273a16687a38df98a184",
+        "visibleOccurrenceCount": 102
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 9,
+          "jsonPointer": "/samples/9"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3737432178/app.log",
+            "bytes": 112233,
+            "sha256": "1c2dc576fb80e521fd2f4f295b0f0e132d9d9a0b9f8e5615c94738f93c729505",
+            "crc32": "1a72b1c0",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3737432178/scene-preview.log",
+            "bytes": 18825,
+            "sha256": "19f0fe25c93d5d8d55c47025999bd2403f964e1075d43ecdcf4742855aad4adf",
+            "crc32": "50ff5c00",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3737432178/scene-runtime-evidence.json",
+            "bytes": 812071,
+            "sha256": "cb28fe9d9964199f77635422ecdd49275cdad8323b500ea2b3130eb4885b4eb4",
+            "crc32": "32bf59f0",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3737432178",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 7,
+          "afterFlatBorderRatio": 0.6788795997851196,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 6,
+          "previewSpatialColorSimilarityAdvisory": 0.5039,
+          "readyFlatBorderRatio": 0.6788124496373892,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 6
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "老人-嘉宾身影"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 9
+        },
+        "effectInstanceCount": 14,
+        "objectCount": 14,
+        "occurrenceCount": 349,
+        "packageSha256": "858e026fabb5fbe0d85093a4fab3893e130d8dfc32c15a0d9e565b0b0dbf6636",
+        "parseState": "parsed",
+        "particleLayerCount": 5,
+        "projectSha256": "5fb5d1f714c9164ea5d5742e622bbf068bc8e2f6b57bf403aaf09c25ba98bb05",
+        "visibleOccurrenceCount": 278
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 10,
+          "jsonPointer": "/samples/10"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3775655074/app.log",
+            "bytes": 50135,
+            "sha256": "49413ab6269f5a8c21e074ee19aed6eb9edfa773c51c8faf40023e76b0b1c171",
+            "crc32": "24cba507",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3775655074/scene-preview.log",
+            "bytes": 18665,
+            "sha256": "102548d3bc40ddf91e20e1aaa416c65b413811def33355982363a8fdb81ef41d",
+            "crc32": "f8d55f56",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3775655074/scene-runtime-evidence.json",
+            "bytes": 366424,
+            "sha256": "fc3a85295dfa7e779a315a99791e70152e677a04d6d6ffa2f24a4548bb353cf4",
+            "crc32": "c4d00b69",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3775655074",
+      "nextAction": "inspect-fallback-and-authored-visual-ROI",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 1,
+          "afterFlatBorderRatio": 0.08907467096427613,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 1,
+          "previewSpatialColorSimilarityAdvisory": 0.8153,
+          "readyFlatBorderRatio": 0.08619560838033843,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 1
+        },
+        "firstBreakpoint": {
+          "capabilityProfileOrAuthoredShape": "backend:effect-family:pixelate",
+          "evidenceBasis": "runtime.effect_stage_admission.records",
+          "failureRadius": "effect",
+          "fallbackPreservedTerminalCompositor": null,
+          "owner": "EffectStageAdmission",
+          "reasonCode": "unified-capability-unavailable",
+          "severity": "degraded",
+          "stage": "effect-admission",
+          "unit": {
+            "descriptorId": "114#effect#115",
+            "effectIndex": 0,
+            "kind": "effect",
+            "layerId": 114
+          }
+        },
+        "secondaryEvents": [
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pixelate",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "28#effect#30",
+              "effectIndex": 0,
+              "kind": "effect",
+              "layerId": 28
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pixelate",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "61#effect#62",
+              "effectIndex": 0,
+              "kind": "effect",
+              "layerId": 61
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pixelate",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "99#effect#100",
+              "effectIndex": 0,
+              "kind": "effect",
+              "layerId": 99
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pulse",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "114#effect#119",
+              "effectIndex": 2,
+              "kind": "effect",
+              "layerId": 114
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pulse",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "28#effect#42",
+              "effectIndex": 2,
+              "kind": "effect",
+              "layerId": 28
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pulse",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "61#effect#66",
+              "effectIndex": 2,
+              "kind": "effect",
+              "layerId": 61
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pulse",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "99#effect#104",
+              "effectIndex": 2,
+              "kind": "effect",
+              "layerId": 99
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:vhs",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "114#effect#117",
+              "effectIndex": 1,
+              "kind": "effect",
+              "layerId": 114
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:vhs",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "28#effect#39",
+              "effectIndex": 1,
+              "kind": "effect",
+              "layerId": 28
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:vhs",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "61#effect#64",
+              "effectIndex": 1,
+              "kind": "effect",
+              "layerId": 61
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:vhs",
+            "evidenceBasis": "runtime.effect_stage_admission.records",
+            "failureRadius": "effect",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "severity": "degraded",
+            "stage": "effect-admission",
+            "unit": {
+              "descriptorId": "99#effect#102",
+              "effectIndex": 1,
+              "kind": "effect",
+              "layerId": 99
+            }
+          }
+        ],
+        "status": "degraded-runtime"
+      },
+      "title": "原神"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        },
+        "effectInstanceCount": 29,
+        "objectCount": 14,
+        "occurrenceCount": 296,
+        "packageSha256": "042e8b20cac05c4087a9e7e27683e92274313eff947cb80af545e56f5cbee1bc",
+        "parseState": "parsed",
+        "particleLayerCount": 0,
+        "projectSha256": "f35a6c59e67a9fccefdcb3e9d1099db9bb0fe799baad173dda25d149c5415013",
+        "visibleOccurrenceCount": 230
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 11,
+          "jsonPointer": "/samples/11"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3782614820/app.log",
+            "bytes": 161096,
+            "sha256": "898e4c06a3c2d0c065332b31702eed620bfa904935aaf9d0a27a53db0f10e668",
+            "crc32": "83610094",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3782614820/scene-preview.log",
+            "bytes": 25190,
+            "sha256": "3521f4ab54ec8105fa0ce6bd03dc8c1e855c28ce05016e031651620f60300139",
+            "crc32": "644aa85f",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3782614820/scene-runtime-evidence.json",
+            "bytes": 309546,
+            "sha256": "7eadc13bd020ad9d9b8e946a6d693b60fd8df1389bfa4f08b83e9ff07ea24f92",
+            "crc32": "de6cce41",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3782614820",
+      "nextAction": "inspect-fallback-and-authored-visual-ROI",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 5,
+          "afterFlatBorderRatio": 0.0717247515444534,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 5,
+          "previewSpatialColorSimilarityAdvisory": 0.8404,
+          "readyFlatBorderRatio": 0.0715484824066613,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 5
+        },
+        "firstBreakpoint": {
+          "capabilityProfileOrAuthoredShape": "solid-layer",
+          "evidenceBasis": "runtime.loaded_solid_layers/solid_candidates",
+          "failureRadius": "scene",
+          "fallbackPreservedTerminalCompositor": null,
+          "owner": "SceneSolidTextureLoader",
+          "reasonCode": "solid-texture-load-incomplete",
+          "severity": "degraded",
+          "stage": "resource-load",
+          "unit": {
+            "kind": "scene"
+          }
+        },
+        "secondaryEvents": [],
+        "status": "degraded-runtime"
+      },
+      "title": "MYGO 女上位 素世 立希 爱音 高松灯 要乐奈 Soyo Taki Anon Tomori Rana"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 10,
+          "timeline_wrappers": 5,
+          "user_bindings": 4
+        },
+        "effectInstanceCount": 18,
+        "objectCount": 25,
+        "occurrenceCount": 464,
+        "packageSha256": "bc1866a8085ce4f3485327f9d417e7278d88cb33f2dcd86348e5131d268065ed",
+        "parseState": "parsed",
+        "particleLayerCount": 5,
+        "projectSha256": "62fe0d3604501cc3b58a402dca08469e9327966234ab612b5f17e071dcfc6d23",
+        "visibleOccurrenceCount": 319
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 12,
+          "jsonPointer": "/samples/12"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3795384177/app.log",
+            "bytes": 1207876,
+            "sha256": "0538b1bdd5b9a012dc2d3511c9314bc6b3d21b9a5cd4ebd289a9715d4306bf86",
+            "crc32": "ba020fbb",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3795384177/scene-preview.log",
+            "bytes": 23983,
+            "sha256": "ebec5e602c7644472d63a1f8ca021012ab162761d2d1ebced4e2b06193db9e72",
+            "crc32": "2147a18a",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3795384177/scene-runtime-evidence.json",
+            "bytes": 739062,
+            "sha256": "a5d3f7c9ec9bb89b73fdae92fa53478523e272f33f163f38486e116933ecf8ae",
+            "crc32": "e53183a2",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3795384177",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 8,
+          "afterFlatBorderRatio": 0.022360999194198226,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 8,
+          "previewSpatialColorSimilarityAdvisory": 0.8701,
+          "readyFlatBorderRatio": 0.02732171635777599,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 8
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "亡灵法师-马莫尼勒"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 3,
+          "timeline_wrappers": 0,
+          "user_bindings": 11
+        },
+        "effectInstanceCount": 10,
+        "objectCount": 10,
+        "occurrenceCount": 169,
+        "packageSha256": "ee6b2556661dbc79230d86dd9da4889943de880ba2b117904912af324767d263",
+        "parseState": "parsed",
+        "particleLayerCount": 1,
+        "projectSha256": "30c568bee2e583547393e892f7787c16d106f61a0cfa4620343e3d6a3c491aa0",
+        "visibleOccurrenceCount": 61
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 13,
+          "jsonPointer": "/samples/13"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3806836928/app.log",
+            "bytes": 59545,
+            "sha256": "10fe29e8b0cc92b5a508a75c3916ed0cafca9de4a5e7cf1ff4040a015fc72e9c",
+            "crc32": "b6904af5",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3806836928/scene-preview.log",
+            "bytes": 14341,
+            "sha256": "459a08f00a0796184617804a3bdd2165f3b4a94d6c824230cc21b723981d2456",
+            "crc32": "bd38509a",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3806836928/scene-runtime-evidence.json",
+            "bytes": 293864,
+            "sha256": "db214de535ee53db07944990faca7e179e6debb81f29c1d6469c6ab0f8bc7cf3",
+            "crc32": "de4120d0",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3806836928",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 5,
+          "afterFlatBorderRatio": 0.6456654579640075,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 3,
+          "previewSpatialColorSimilarityAdvisory": 0.9945,
+          "readyFlatBorderRatio": 0.6447421434327155,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 3
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "老人-妆容少女暗黑系[4K]"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 6,
+          "script_wrappers": 38,
+          "timeline_wrappers": 1,
+          "user_bindings": 19
+        },
+        "effectInstanceCount": 17,
+        "objectCount": 43,
+        "occurrenceCount": 411,
+        "packageSha256": "aefc5b5f0652e8c343ea8f607d9d60225e74f52bed61850b65e92a071dafb847",
+        "parseState": "parsed",
+        "particleLayerCount": 1,
+        "projectSha256": "cfa2ce3699fb4b5cdd3a52bc1e4b9c94e0e4f1b3023e742238f99b0e9f52b1f4",
+        "visibleOccurrenceCount": 61
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 14,
+          "jsonPointer": "/samples/14"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3806887870/app.log",
+            "bytes": 80873,
+            "sha256": "8207ecd400cb5d3697b9d4fe340817a4ce8a36158a4777983dd4b6a28d6fd6f6",
+            "crc32": "4c61db9f",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3806887870/scene-preview.log",
+            "bytes": 30673,
+            "sha256": "36ca6d85cff47b959622dd3f1f11758a37b7bf8620291d756f9d827b419266ac",
+            "crc32": "edf0bb0c",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3806887870/scene-runtime-evidence.json",
+            "bytes": 1268095,
+            "sha256": "0c632c24f2c97e7245315f68503b6396049aa484f7afaa6b98119e596a059636",
+            "crc32": "0b5f7acf",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3806887870",
+      "nextAction": "inspect-fallback-and-authored-visual-ROI",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 9,
+          "afterFlatBorderRatio": 0.21643331990330378,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 2,
+          "previewSpatialColorSimilarityAdvisory": 0.972,
+          "readyFlatBorderRatio": 0.2162486569970454,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 2
+        },
+        "firstBreakpoint": {
+          "capabilityProfileOrAuthoredShape": "target:layer:alpha",
+          "evidenceBasis": "evidence.app_log typed SceneScript failure",
+          "failureRadius": "script",
+          "fallbackPreservedTerminalCompositor": null,
+          "owner": "SceneScriptVM",
+          "reasonCode": "scene-script-exception-type-error",
+          "severity": "degraded",
+          "stage": "script-execution",
+          "unit": {
+            "kind": "script",
+            "layerId": 88
+          }
+        },
+        "secondaryEvents": [
+          {
+            "capabilityProfileOrAuthoredShape": "target:layer:origin",
+            "evidenceBasis": "evidence.app_log typed SceneScript failure",
+            "failureRadius": "script",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "SceneScriptVM",
+            "reasonCode": "scene-script-exception-type-error",
+            "severity": "degraded",
+            "stage": "script-execution",
+            "unit": {
+              "kind": "script",
+              "layerId": 88
+            }
+          },
+          {
+            "capabilityProfileOrAuthoredShape": "target:layer:visibility",
+            "evidenceBasis": "evidence.app_log typed SceneScript failure",
+            "failureRadius": "script",
+            "fallbackPreservedTerminalCompositor": null,
+            "owner": "SceneScriptVM",
+            "reasonCode": "scene-script-exception-type-error",
+            "severity": "degraded",
+            "stage": "script-execution",
+            "unit": {
+              "kind": "script",
+              "layerId": 76
+            }
+          }
+        ],
+        "status": "degraded-runtime"
+      },
+      "title": "老人-暗调少女 2[4K]"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 25,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        },
+        "effectInstanceCount": 26,
+        "objectCount": 54,
+        "occurrenceCount": 380,
+        "packageSha256": "bfb3616136eaeb535000d2a658b30c342256ac49862d0635f325f2bac6059e39",
+        "parseState": "parsed",
+        "particleLayerCount": 0,
+        "projectSha256": "e23dfef235c0c4d2f03952d363e659a2dbfe03936e59bdc5c8c3f76394005347",
+        "visibleOccurrenceCount": 201
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 15,
+          "jsonPointer": "/samples/15"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3810092560/app.log",
+            "bytes": 150552,
+            "sha256": "08a33889f49778a7bbb7c966aabbc818f8245c85a247bead5f247ececd57cff2",
+            "crc32": "232e1bab",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3810092560/scene-preview.log",
+            "bytes": 51114,
+            "sha256": "6a7b729d83effcb6265063ab173ef9a22bd5ad1da7e76aebfc68a8e35a7d91b0",
+            "crc32": "a3431181",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3810092560/scene-runtime-evidence.json",
+            "bytes": 736769,
+            "sha256": "e55c1533ab7ad307e79c628b920e1d6fd207148f364cf576f13edbf8ee4029da",
+            "crc32": "e39f2d3c",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3810092560",
+      "nextAction": "inspect-fallback-and-authored-visual-ROI",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 25,
+          "afterFlatBorderRatio": 0.2222502014504432,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 21,
+          "previewSpatialColorSimilarityAdvisory": 0.819,
+          "readyFlatBorderRatio": 0.22247683319903303,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 21
+        },
+        "firstBreakpoint": {
+          "capabilityProfileOrAuthoredShape": "solid-layer",
+          "evidenceBasis": "runtime.loaded_solid_layers/solid_candidates",
+          "failureRadius": "scene",
+          "fallbackPreservedTerminalCompositor": null,
+          "owner": "SceneSolidTextureLoader",
+          "reasonCode": "solid-texture-load-incomplete",
+          "severity": "degraded",
+          "stage": "resource-load",
+          "unit": {
+            "kind": "scene"
+          }
+        },
+        "secondaryEvents": [],
+        "status": "degraded-runtime"
+      },
+      "title": "DeepSeek 鲸鱼娘 点击互动"
+    },
+    {
+      "authored": {
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 2
+        },
+        "effectInstanceCount": 1,
+        "objectCount": 1,
+        "occurrenceCount": 26,
+        "packageSha256": "3bd29528b4625a124d842a20817763b89f0ee7862e65a0692aac38431ce52f7f",
+        "parseState": "parsed",
+        "particleLayerCount": 0,
+        "projectSha256": "4c48b999652d29f0bd90d48d61860fd110a96da535ee4f97e3120d63d9854eed",
+        "visibleOccurrenceCount": 10
+      },
+      "evidence": {
+        "report": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified",
+          "sampleIndex": 16,
+          "jsonPointer": "/samples/16"
+        },
+        "sampleEvidencePaths": {
+          "app_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3822255386/app.log",
+            "bytes": 30593,
+            "sha256": "c827e1ddcf3e62436ab9f634e998a62728c01e3311bcf8f13769f825bb804deb",
+            "crc32": "f0c9799a",
+            "status": "retained-byte-verified"
+          },
+          "preview_log": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3822255386/scene-preview.log",
+            "bytes": 7354,
+            "sha256": "527f662daf29d4c35b92a31bf5e94486191200983e852cdf185475979060a77c",
+            "crc32": "e6dbc8e0",
+            "status": "retained-byte-verified"
+          },
+          "runtime_evidence": {
+            "format": "zip-member",
+            "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+            "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+            "member": "results/3822255386/scene-runtime-evidence.json",
+            "bytes": 49812,
+            "sha256": "1db506d5b19922a36069217918bed2b533154fb112bc0e35be1d322b493eedf9",
+            "crc32": "e5033a15",
+            "status": "retained-byte-verified"
+          }
+        },
+        "reviewReceipt": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "retention-receipt.json",
+          "bytes": 96087,
+          "sha256": "8bc61467e3e7d2795645c9e591cf5cdfd3439cf3a9d6aae8185b3aec696bb914",
+          "crc32": "5ec16e6b",
+          "status": "retained-byte-verified",
+          "boundary": "51 lossy late-series reviews; exact PNG only332/378 late2; all original PNG hashes retained"
+        }
+      },
+      "id": "3822255386",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
+      "runtime": {
+        "benchmarkResultIgnored": {
+          "failureCount": 0,
+          "passed": true,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        },
+        "evidenceSummary": {
+          "acceptedGraphLayerCount": 1,
+          "afterFlatBorderRatio": 0.038191646521622345,
+          "afterNonBlackObserved": true,
+          "graphEvidenceObserved": true,
+          "nextFrameLayerCount": 1,
+          "previewSpatialColorSimilarityAdvisory": 0.8337,
+          "readyFlatBorderRatio": 0.038191646521622345,
+          "readyNonBlackObserved": true,
+          "surfaceCount": 1,
+          "terminalCompositorLayerCount": 1
+        },
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "status": "structural-chain-complete-visual-review"
+      },
+      "title": "绝区零 X-ray/liang xing"
     }
   ],
   "schemaVersion": 1,
   "source": {
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene",
-    "sampleCount": 243,
-    "sampleIdManifestSha256": "aac86e1a7ba1eb14620fd037edc363db2b1a856991dd6557c2f078af8ae44c55",
-    "currentDirectoryCount": 356,
-    "completeSceneInputPairCount": 354,
+    "sampleCount": 260,
+    "sampleIdManifestSha256": "c4b5b37010a614ba1a3aa446a304d65ad3f117c1b2c9e0cdd40f3387996752c0",
+    "currentDirectoryCount": 373,
+    "completeSceneInputPairCount": 371,
     "historicalCensusOnly": {
       "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_capability_census_snapshot.json",
       "sampleCount": 159,
@@ -30939,7 +32940,7 @@
       "sha256": "b86322c623c2190f13e27a90261b38e1355929825a4e718db4f711bdb29a18cf",
       "registeredSampleCount": 1
     },
-    "membershipBoundary": "243 bounded mixed-identity runtime rows;356 frozen ledger samples. This batch directory-name snapshot was373 with17 added directories excluded; it is not a current full-corpus census. This delta refreshes runtime/evidence only2784267518; other242 row objects, all order/authored/title and human verdicts preserved; no new IDs included, no full current-HEAD rerun or static census refresh.",
+    "membershipBoundary": "260 mixed-identity runtime rows joined to373 current directories; only17 new IDs rerun on8cde701af. Old243 row objects unchanged. Census373/parsed372 is declaration evidence, not full current-HEAD visual acceptance.",
     "candidateOnly": true,
     "evidencePathRetentionBoundary": "Twenty delta rows reference promoted ZIP members with actual container and member hashes. Four report references preserve original five-sample group report bytes, not the single-sample formal/report.json projection. Unselected ready snapshots and full runtime JSON are historical-not-retained. Original159 rows and paths remain unchanged historical records.",
     "promotionMap": {
@@ -31398,6 +33399,48 @@
         },
         "manualQualification": "378 default-disabled/retired Logo missing expectation is not a product blocked claim;382 scriptInstanceProperty exception supplemented from actual log. Raw observations retained per row.",
         "oldRuntimeObjectsPreserved": 212
+      },
+      {
+        "importedAtUtc": "2026-10-21T23:48:09.090533+00:00",
+        "sampleIDs": [
+          "3187857248",
+          "3321237804",
+          "3443450456",
+          "3454689854",
+          "3576374111",
+          "3696646175",
+          "3701177677",
+          "3716328771",
+          "3721991999",
+          "3737432178",
+          "3775655074",
+          "3782614820",
+          "3795384177",
+          "3806836928",
+          "3806887870",
+          "3810092560",
+          "3822255386"
+        ],
+        "parentArchiveSHA256": "e1b1d2a8b0e6d5ca5c7f72e444a2720295c283bb1821c05b913dc38f701c9eb8",
+        "currentDirectoryCount": 373,
+        "parsedCensusCount": 372,
+        "selectedPackageBoundary": "371 literal scene.pkg pairs plus3766415113 gifscene.pkg;3763323436 shaders only",
+        "method": "Existing archive normalizer then append only17 observations; preserve all243 old row objects.",
+        "rawReport": {
+          "format": "zip-member",
+          "containerPath": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+          "containerSha256": "c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10",
+          "member": "report.json",
+          "bytes": 24519862,
+          "sha256": "25ccdc20299ba3eae291d0aa2fab8d4a552afd47afbf4e12e2a3309c86960b65",
+          "crc32": "5ea240e6",
+          "status": "retained-byte-verified"
+        },
+        "retentionReceipt": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip",
+        "classificationBoundary": "raw5 degraded/12 structural, not visual verdicts; hidden script and solid diagnostics qualified separately in queue",
+        "sourceRevision": "8cde701afd3e3c2eaef62ffc98ab07bb32a1f80b",
+        "staticCensusRefreshed": true,
+        "officialScreenshotCount": 0
       }
     ],
     "runtimeFollowups": [
@@ -31496,8 +33539,8 @@
     ],
     "censusSnapshot": {
       "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/census/scene_capability_census_snapshot.json",
-      "sampleCount": 351,
-      "sha256": "c29a4bec073b58e861802b48ee27f2020a0c5897b2cf2949012975699b11768d"
+      "sampleCount": 373,
+      "sha256": "1f320ef2f8b061b5c88185d7980d77a422e45ed3b5d9e695974105b49dd272a0"
     },
     "runtimeUpdates": [
       {
@@ -31694,28 +33737,28 @@
     ]
   },
   "summary": {
-    "sampleCount": 243,
-    "reportedSampleCount": 243,
+    "sampleCount": 260,
+    "reportedSampleCount": 260,
     "statusCounts": {
       "blocked": 2,
-      "degraded-runtime": 51,
+      "degraded-runtime": 56,
       "runtime-evidence-incomplete": 2,
-      "structural-chain-complete-visual-review": 188
+      "structural-chain-complete-visual-review": 200
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 7,
-      "effect-admission:unified-capability-unavailable": 3,
+      "effect-admission:unified-capability-unavailable": 4,
       "effect-execution:effect-local-passthrough-material-dynamic-uniform-producer-unavailable": 1,
       "graph-execution:layer-source-not-ready": 5,
       "process:process-timeout": 1,
       "resource-load:base-image-texture-load-incomplete": 5,
       "resource-load:particle-layer-load-incomplete": 11,
-      "resource-load:solid-texture-load-incomplete": 3,
-      "script-execution:scene-script-bad-return": 2,
+      "resource-load:solid-texture-load-incomplete": 5,
+      "script-execution:scene-script-bad-return": 3,
       "script-execution:scene-script-exception-internal-error": 1,
       "script-execution:scene-script-exception-range-error": 1,
       "script-execution:scene-script-exception-reference-error": 1,
-      "script-execution:scene-script-exception-type-error": 12
+      "script-execution:scene-script-exception-type-error": 13
     },
     "normalizedDiagnosticClaim": "runtime-and-output-diagnostics-only-not-visual-correctness"
   }

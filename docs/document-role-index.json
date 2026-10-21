@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a47ae014c5af30a6bcc21fca09580b387b53ffa7e5f2399c036ff785e93bf998",
+        "sourceSHA256": "e6c9100ed39c04746d2db59f1ebcbf9f07e0aabc966108ce3a6d5f517d0a6e1b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
-        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
+        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
       }
     },
     {
@@ -804,13 +804,27 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b0c418410eb7d55ed84bf62bc8ea0c4301f618bd27c62f19d0d1e2fa3118f87b",
+        "sourceSHA256": "f57641f049dec3dc9d0106a0cc300025a4b636ef895d5c6ba6c588b1eec2f41a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
-        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
+        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
+      }
+    },
+    {
+      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "purpose": "373目录的静态声明逐样本清单；统计方法归corpus总览，运行/视觉裁决归验收台账。",
+      "lastReviewed": "2026-10-22",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "e1aeb69f0bbe373c888e054636fedfe5625fee256cedcf6a6d453d08571a04c2",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
       }
     },
     {
@@ -836,10 +850,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c7c107a0cc377e5673f315374908177f2ffeabd7acb1c273652e17e23d5ba5c5",
+        "sourceSHA256": "e99d47606c820c18e97664a486b4226250b501ca640c5eb24069a6eb26991c10",
         "method": "document_registry --audit + document_health --check",
-        "scope": "从原356范围重新生成；304有界结论、199/278旧页与覆盖层同步，311证据字段改为真实文件身份；归档/人工裁决不变。",
-        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
+        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
       }
     },
     {
@@ -3619,10 +3633,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "79499e8612bf85ef513f2e0682ea2c82537f9bfb0e7cee7be51912d1a5891548",
+        "sourceSHA256": "9a69c22fc768ff50ea0aedec8f3ff56db80ae2a6a37297b291cdae3443c73a4b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "只补3742497499活跃距离约束的有界资格与零值预设失败，保原缺口；队列另沿用已记N08停止门。",
-        "limitations": "未实施距离约束，未取得零值/时间步公式或真实轨迹恢复；未重审其他条目及全样本。"
+        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
       }
     },
     {
@@ -3633,10 +3647,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ec18822dadba955c92ff181a600289facb49e8c5397ccc6f5b75d292d7bcff13",
+        "sourceSHA256": "77a4007c6b3a42c5d6040d6e178c39fc3fdec57fcdd33713fbbb8136971eced3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
-        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
+        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
       }
     },
     {

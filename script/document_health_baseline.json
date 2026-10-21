@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 212500
+      "bytes": 214364
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -137,12 +137,16 @@
       "bytes": 3104
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
-      "lines": 599,
-      "bytes": 92008
+      "lines": 246,
+      "bytes": 46810
+    },
+    "docs/scene/capabilities/scene-corpus-sample-inventory.md": {
+      "lines": 383,
+      "bytes": 34306
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 419,
-      "bytes": 91035
+      "lines": 436,
+      "bytes": 97275
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -237,12 +241,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 55,
-      "bytes": 17012
+      "lines": 57,
+      "bytes": 18402
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 249,
-      "bytes": 77106
+      "lines": 251,
+      "bytes": 78966
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1223,15 +1227,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "83b90c6f2b37d30039a9518e6e32902ddedc33ba0e963dd2266c1be1ef2f7682",
-      "after": "dc9055520c36d4d4ec05356fc7589d9e1f3be5db659ce6110867c35bc2201d4e",
-      "owner": "root-scene-pulse-eye-response",
-      "reason": "移除已由4fb8a175b关闭的32项float数组旧首拒；仅整理仍开放的静态能力缺口，不复跑旧审计。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pulse-eye-response-278-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
       "after": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
@@ -1286,21 +1281,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1cbd462b8eb27634393a4ff77858653c93bcb0e017884730bf7d65de2776cb8e",
-      "after": "5e3cfe32272edd1841e0f5a3138ba612b678186836274f477df9a2f52953fbc1",
-      "owner": "Scene prepared material / unique MainPass",
-      "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
       "after": "043161750ad45f597dbd859233a7f41c8a7434a4f10db6920c257fda4a2b604b",
       "owner": "Scene prepared material / unique MainPass",
       "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
       "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "5e3cfe32272edd1841e0f5a3138ba612b678186836274f477df9a2f52953fbc1",
+      "after": "6f4bea9f5533b6b2543b32a304d30e2527c6c6f6aa3655bf7a5c9fd841fd7181",
+      "owner": "scene-new17-diagnosis",
+      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "e401b918b58848bd8e5709915cc7d105e70981abe2beec29a471bf55ce75af17",
+      "owner": "scene-new17-diagnosis",
+      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "f6227e8452d55af9eec2d81e0433f774ce022168e3bdc9f21978d5d98ee2298f",
+      "after": "fb46eb8a83bd53ff54aafe910f01a75aad2de3210b9b3e61149ce1281b2dcf52",
+      "owner": "scene-new17-diagnosis",
+      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "780a1c7f1e040b90c108c739e14520f01d43f5c84fdb6b0afb6da424d3331a22",
+      "after": "5f537dc8dfaa1eb738cbb671e89f9ec579045a31eb30604fddff2f5973d3fd93",
+      "owner": "scene-new17-diagnosis",
+      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "6b631f7ca6dd15a7925f05d9b4bc8082cc16f93ae3eff9297cdbcd1ec5966d06",
+      "after": "9bdd2c28d76b432d342d8cb48ebb1dea66d70002b9fbebbc8f282d7cb5046d22",
+      "owner": "scene-new17-diagnosis",
+      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
     }
   ]
 }

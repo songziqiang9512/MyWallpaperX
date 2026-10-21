@@ -2107,6 +2107,244 @@
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
+    },
+    "3187857248": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "人物、背景和效果可见；骨0/1 unsupported-enabled-physics沿作者姿态回退。拖动/释放未测试，不归因U40或宣称人物不可用。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3321237804": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "人物、视频、日期/星期、频谱可见；639时钟晚图均为小白碎片，provider与pulse实际执行，字体回退/首effect输入待区分。四triangle默认关闭；376 nonfinite媒体颜色待媒体正控，不当时钟根因。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3443450456": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "默认文字主题与中央“坚持”可见，26/26 graph准入，默认活跃链完成输出；Puppet/walk主题默认隐藏，不算默认缺失。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3454689854": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "主体、环、线条及粒子可见；10个活跃graph执行，三拒绝text层作者显式隐藏。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3576374111": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "单图与三效果执行，三张晚图有变化；未定位默认明显缺层。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3696646175": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "synthVis波形可见；“delete this text”属作者queuedWord默认文本，无媒体事件的歌名/歌手空串不算故障。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3701177677": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "两组轨道音频与作者提示可见，三活跃graph执行，未定位默认明显缺层。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3716328771": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "默认时钟/日期/星期和底部音频可见；time2备用104及子符号默认隐藏，不算缺失。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3721991999": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "人物及水面波纹可见，14效果graph完成；眨眼/交互未测试，不认完整动画通过。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3737432178": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "底图、时钟/日期、颜色变化及粒子可见；VHS/CRT/godrays和模式2音条默认关。无媒体事件时标题/alpha按作者回调清空。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3775655074": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "底图、TV框与运动粒子可见；四默认compose unsupportedChildren，12个pixelate/VHS/pulse效果未有执行owner。沿SourceRoute资格，官方精确取源语义未证。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3782614820": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "五列人物切片与黑分隔线在晚图错位，五无effect组skippedNoEffect/capture0；作者省略copybackground而当前默认true。裁切/父子extent为候选，未证官方目标或根因。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3795384177": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "人物三clip实际叠加推进，五粒子层和音圈可见；122/116 count-only mapsequencearoundcontrolpoint因省略字段跳过initializer，仍有child/粒子，不把红圈形状归因此门。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3806836928": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "底图、前景、音圈、时钟日期及尘埃可见；Consolas→Menlo为字体回退，精确字形未验。两Simple Audio Bars默认关闭。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3806887870": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "默认模式2底图/频谱/时间可见，空媒体字/alpha有成功回调解释；三VM异常落隐藏模式1，至少两项引用作者缺席名称，不判默认缺图或缺host API。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3810092560": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "重复小图与右侧大图符合作者预览布局；25scale/cursor owner装载且无VM异常，未点击，不能判交互unsupported；隐藏hitbox不直接当solid缺失。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3822255386": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-22",
+      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
+      "note": "单图X-ray在中心pointer默认参数下实际GPU/末消费，未定位该条件下明显缺陷；开关/size/鼠标轨迹尚未测试。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
+      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     }
   },
   "localEvidenceRetirement": {
