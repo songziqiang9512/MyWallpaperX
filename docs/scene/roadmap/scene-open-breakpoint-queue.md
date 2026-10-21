@@ -10,14 +10,17 @@
 
 10-21[新增24诊断](../capabilities/runtime-evidence-current.md#intake-20261021)均实际播放并正常退出；按以下公共类型合并，不以矩阵PASS/FAIL或静态family数裁视觉。官方图23份，337无截屏；请求after8但pointer路径先在约2秒写after，实际时刻依日志。374时钟拼合、382延迟蝴蝶已由用户解释为正常作者行为，退出缺图候选。
 
-本次台账生成另发现5个新增目录 `3616476797 /3679907516 /3707474273 /3724289844 /3744157078`，目录分母现为356；这5项尚未关联本轮实跑，留待增量筛查，不把not-run称为播放缺陷，也不混入此前24项完成记录。
+10-21[后继5包](../capabilities/runtime-evidence-current.md#intake-five-20261021) `3616476797 /3679907516 /3707474273 /3724289844 /3744157078`已全部实际播放，目录分母356。均正常退出/排空；4个矩阵PASS、370局部透传FAIL只属运行门。5包无官方“截屏”，仅作者预览；after实际约2.1s，另核4/8/12s系列。缺层候选按默认条件和媒体资格收窄，视觉均unreviewed，不把预览/早截图差异当确认缺陷。
 
 
 ## 1. 画面合成与正常播放：可定位的开放项
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| Program颜色、前端及来源准入 · 2927205881 /3148125112 /3086016320 | 292的1733/1736被global const initializer stage-link拒绝；314的2661/2663被varyingUnsupported拒绝；308的430为execution-stage-conservation及named binding失败。后三者有局部结构拒绝，尚无唯一可见损失归因，不与329的float[32]混为一因。 | 292/314/308继续沿generic normalizer/stage-link或prepared来源闭包定位，先取得active consumer与可归因图像，不按effect名放门或把GPU完成的透传当原图执行。 |
+| Program前端及来源准入 · 3148125112 /3707474273 /3086016320 | 314的2661/effect2663与新370的130/effect2均有varyingUnsupported局部透传，370主体33正常执行；两包同combo的实际canonical亦相同，现CPU叶确认reverse prefix-link误拒单值分组后.xy。308的430仍为execution-stage-conservation及named binding失败。292的uniform派生pow全局const首拒已修：默认1733/白色536的四节点Program/GPU/末合成及次帧恢复；小窗和全像素仍未证明可见Bloom收益，不宣称彩线已修。 | 沿generic normalizer/stage-link或prepared来源闭包定位。370/314复用原prefix-link识别合法分组后的XY跨度，保整向量归约/高分量/escape反例并验真实ROI；不与329 float[32]混因；以active consumer和可归因ROI决定修法。292不重复已闭const门；[后验](../capabilities/runtime-evidence-current.md#uniform-pure-initializer-20261021)。 |
+| Compose子树准入 · 3707474273 | 默认197 Compose及子206 TV实际可见，现三effect因`execution-route-utility-composition-subtree-shape`未入group；与130星座shader拒绝独立。短窗主体/框均在，具体缺失像素未定。 | 核现composition/source闭包最早owner，保child/previous/source身份与局部fallback，不为TV路径特判或以框出现认效果已播。 |
+| 已打包声音资源 · 3724289844 | 声源162实际报resourceUnavailable，但`sounds/自然02.ogg`确在原pkg；不是原包缺文件。 | 查原resource resolver→已有音频准备/播放owner的拒绝，取实际解码/播放资格再认缺能力；不另建音频链。 |
+| source材质/lookup余项 · 3616476797 /3679907516 | 361的113与367的71/74/83实际报`source-material-render-state-unsupported`（translucent/VERSION2等原pass组合），缺现raw-interface资格；不能泛化所有translucent不支持。361右下黑媒体面板无同控系统媒体，尚非已证缺图。367另有两个名称查找及87祖父缺席异常，未证明缺host API。 | 沿原sourceEvaluationState/typed材质与lookup producer核最早拒绝，先取可归因缺失ROI或官方行为；保已有媒体/材质消费者，不把missing对象异常改为全局吞错。 |
 | 动态资产与动画metadata准入 · 2813240634 /2992924426 /3822822401 | 281的121、299292的371/413/452/4748在Bool visibility owner请求未准备asset时报invalid-argument；382的161→puppetAnimationLayer244.visible报prepared metadata unavailable。主体均呈现，独立可见损失未定；**382蝴蝶延迟正常**，不由该异常宣称缺蝴蝶。 | 核实际constructor/lookup、准备资源和target metadata的最早owner；只对合法可达输入续接原typed事务，不吞错误或新建动态资源链。先取该回调对应的可见作用，不能把脚本异常等同整景失败。 |
 | generic varying数组 · 3292370168 | 原generic normalizer的16元素门仍拒绝默认float[32]。实验曾通过严格link/SPIR-V/MSL、受控Metal和437 Program/末合成，但实际白波形尚未归因；候选已撤回，不进入发布。默认条带与视频上沿重叠，alpha/精确phase仍待确认。 | 先取得可归因波形ROI，再沿原type/normalizer/stage-link续接；不以Program关闭画面单，不改作者参数追图，bounded原门与更宽数组不外推。 |
 | forward copy-background composition · 2972071249 | 313引用后置隐藏composition234，首拒在dependency stage order；234隐式copyBackground使全局prepass不具作者顺序独立性。白色波形未归因234，不能据此闭合可见缺口。 | 先资格consumer边界prefix及跨consumer身份，再复用原graph执行/发布；官方自有单board的静态蓝slot1正控呈黄黑checker，已STOP_UNKNOWN，不能将其余两卡当语义结论，也不重复未资格载体。证据归[运行记录](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)。 |
@@ -114,7 +117,7 @@
 
 | 样本 | 用户观察 / 下一关闭门 |
 |---|---|
-| 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 巨大斜片、白环贴合与空透明源2000²首门已闭；文字精确对齐仍partial。最长可见跨度38.849s仍短于41.888s周期。恒定PCM后继短门已证三路opacity与稳定distance、可读文字；人工复核写回超时使控制器终止，不能拼接或认整周期。碟片/两环有独立TRS/Spin，缺字体走合法替代；不强制同速同心、不从glyph包围框判漂移。待取得同帧slot1/最终几何及可归因ROI，不重复静音或人工短期限载体；[最近资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018)，[已闭源语义](../capabilities/runtime-evidence-current.md#composition-local-source-20261018)。 |
+| 3351179520 · 文字环精确位置/尺度与旋转漂移复核 | 巨大斜片、白环贴合与空透明源2000²首门已闭；文字精确对齐仍partial。10-21固定1500Hz自动播放正常退出，8张可见原图跨53.496s，文字/盘相位继续变化，固定左右弧带未见明显整圈平移或半径突跳；未取同帧slot1/最终MVP/g_Time，不能认精确整周期或官方贴合已闭。动态值收敛后的日志去重不作卡帧证据。三者有独立TRS，21与393各自Spin，缺字体合法替代；不强制同速同心或用glyph包围框补偿。仅有可区分的新几何/官方ROI证据时再开，不重复长窗；[最近资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018)。 |
 
 <a id="qv-cccea6c-user-report"></a>
 
@@ -190,6 +193,8 @@
 | 3509243656 · 关闭裁决待补身份 | [旧用户反馈表](../capabilities/scene-sample-debug-ledger.md#用户可见失败待办按当前复现更新不以公共修复代替逐项验收)写“当前渲染正常、实机确认，旧记录过期”；具体App/输入/图片身份弱，先补链，不从旧fail重开开场/模拟画面或坐标文字故障，也不记HEAD通过。 |
 | 3766387484 /3792817546 /3790726145 /2986218263 · 仅保验收边界 | 前者日期/星期/时钟旧首门、后三者CP/Rope/pointer准入已记恢复；剩“其他effect、原生输入、官方宽度/UV/颜色未验”不是新的具体故障。保台账/专项范围，新具体现象出现时逐项补证，不新增泛化任务。 |
 ## 3. 性能：先取得当前可避免工作的证据
+
+新增3724289844在target/driver30的16s Debug观察窗submitted约15.046FPS、CPU帧p95约25.875ms/GPU约11.283ms；带执行观察器和resize，仅为成本线索。先以普通同条件窗定位帧准入/CPU职责，不认瓶颈、温度根因或优化收益；[后继5包](../capabilities/runtime-evidence-current.md#intake-five-20261021)。
 
 专项阈值、有效基线与NO-GO/STOP只由[性能卡](performance-convergence-card.md)维护；本页不另建优化campaign。以下不是永久启动失败、泄漏或整引擎掉帧结论。
 

@@ -267,6 +267,23 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 独立原3396722575复用同一候选App，仅隔离3原输入/HOME/cache运行一次；人物、蓝紫背景、后方brush文字及运动前景字实际呈现，120的LeviBrush与843/1794的SourceHanSans-Heavy均embedded，3个text callback completed，textScriptDiagnosticCount0/missingResources0。App0/无漂移/stop1→0排空退出；仍有2265→2269、2248→2252两条getAnimationLayer prepared-nested-owner异常，旧同现UNKNOWN，严格零VM门FAIL保留，不记整样本/字体切换parity或启动性能。相关Puppet入口不在本次5产品源内；后继已定位为更早的[MDLA state1拒绝](#constant-dense-state1-20261018)，不以无font错误掩盖其他异常。
 证据与首失败保`.artifacts/tmp/font-value-type-official-20261018/`，真实C收据保`.artifacts/tmp/font-string-abi-behavior-20261018/execution/`。官方首次派发前VM suspended/0张输出为环境STOP；恢复既有VM后只更新receiver/执行namespace再做一次语义实验，不改原场景。旧native loose-only载体因无packageReport未ready，补单entry容器后形成有效对照，不是字体故障。两类STOP、容器同字节证明和首测试失败不覆盖；当时未正式归档，VM保持运行。修前/修后板的停止input/HOME已清，旧f263 stage完成对照后按manifest/无句柄清244,050,803逻辑B；保一个正常候选stage与连续迭代构建缓存，不报物理磁盘释放或性能收益。
 
+
+<a id="uniform-pure-initializer-20261021"></a>
+
+### Uniform派生纯内建全局初始化（2026-10-21）
+
+既有RuntimeConstantNormalizer保持构造器/CAST原路径，以既有非截断类型证明和严格无副作用调用证明承接标量pow/step/smoothstep等已证形态，仅移除不适用const；初始化表达式、glslang调用私有值与每帧uniform均保持，无新求值器/cache。未知、作者helper、shadow、采样/导数、out/inout/写、编译期用途、依赖global链及未证vector overload不扩。一次CPU编译32.420s中新增CAST3个断言仅空格oracle失败；修正后复用fixture定点1方法1.485s通过，其余原CPU方法首轮通过；最终冻结5例A/B/A共15次真实GPU读回与独立数学oracle一致。第一次GPU与CPU写包有潜在重叠，首结果保留，仅最终冻结后重核为验收；Debug build、source1176项无漂移、静态独审0 must-fix。
+
+原292默认1733与作者白色时间分支536分别从四节点拒绝透传到四material节点Program/GPU/末合成及次帧执行，普通运行均exit0/stop1→0排空；536不是1733。30%窗与原3024×1964白色对照均未建立可归因Bloom增益，彩线短段仍开放，不能把执行恢复当画质改善或整景PASS；不盲改作者阈值/增益。App`c820f615…ac0c6`/dylib`44bdb507…7346`，原基线`0c0cb159…337c`/`295ef404…5458`；签名staging先修正unsigned Xcode拷贝留下的Sparkle头文件seal引用，再strict验证后运行，无产品签名逻辑变更。原默认/白色两种可见分支保持机器人、背景、盘和文字，另5个未参与修法样本真实筛查见下条；未认全部参数/HDR/官方parity或性能收益。必要原图、CPU/GPU失败与更正、构建/身份及独审归档`.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/`（普通14天，约24.3MB）。
+
+<a id="intake-five-20261021"></a>
+
+### 后继5包增量诊断（2026-10-21）
+
+复用同一候选Debug App，不重build：3616476797、3679907516、3707474273、3724289844、3744157078逐包默认属性、非零PCM、中心进入后移出，16s请求窗，原project/pkg只读复制。after实际ready+2.122…2.194s，另有约4/8/12s系列；5包均App0、stop1→0/GPU排空，矩阵4PASS/370FAIL仅属执行门。5包均无官方“截屏”，只对作者预览作有界构图参考，视觉均unreviewed；目录356、全样本历史归档为混合身份，不宣称全体当前HEAD实跑。
+
+370主体33与心形层130其他effect实际Program，130/effect2星座仅局部透传；同源314的2661/effect2663亦拒varying，不能与329 float[32]混因。Compose197与TV子206默认可见，三effect另因subtree-shape无owner，不把TV框出现当全效果已播。361113、36771/74/83的raw source材质资格拒绝和367三处lookup异常保各自边界，未证host API缺失；361黑媒体面板无同控媒体，374彩条与相关父/子默认关闭，不新增缺层结论。372声源162报resourceUnavailable但原Ogg在包内；其15.046FPS、CPU p95 25.875ms/GPU11.283ms只属带观察/resize短窗线索，不认性能基线。独立原图复核与最早owner诊断、原报告及必要截图归`.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/`，普通14天；未改5包定义，不以静态声明数补兼容PASS。
+
 <a id="ring-motion-qualification-20261018"></a>
 
 ### 文字环与挂点运动资格（2026-10-18）
@@ -274,6 +291,9 @@ CP0准入已接；真实sickle 64²有226个alpha255 texel且作者自带6 mip�
 首次只读资格未改产品：3351179520的碟片21、白环103和文字393在4785下各有独立TRS/Spin，393消费333文字provider；缺作者Atami走stock PoppinsMedium合法替代。字体raster尺寸可能影响CircularText自动尺度，但没有同帧raster/slot1/最终MVP，不能据此解释固定文字的周期漂移；原可见跨度不足整周期、静音opacity为零的STOP保持。3769688830的47黄球有合法单向UV Spin，同时从Puppet父21取得世界挂点运动；目录预览只见头肩，不够定位用户“玩偶”ROI/运动。两项均不改作者速度/中心、不认已修或作者设计，后继先取得可区分的实际consumer/目标ROI。中性收据分别保`.artifacts/tmp/335-text-ring-owner-qualification-20261018/qualification.json`与`.artifacts/tmp/u33-rotation-qualification-20261018/qualification.json`，无性能或整样本结论。
 
 恒定1500Hz PCM后继复用签名App`16a80fc1`（固定87a5bb加五个Puppet源，非整个be349/并行改动），原67输入未改；ready后短门取得可读文字、三路足额opacity、至少0.5s稳定distance及实际Program/GPU/末合成。根亲看原图，但写回超过预设16s期限，控制器仅终止本轮进程；exit−15、进程组已退、无观察VM失败/身份漂移，无正常stop/GPU排空。实际after→series仅4.379s，**不是完整周期或产品退出故障**；不与此前两轮合拼，不关闭原对齐反馈，也不再重试同载体。失败/原图/晚decision及独审保`.artifacts/tmp/335-tone-visible-cycle-20261018/native/original335/`；停止input/HOME已按manifest核验清理，借用App/构建缓存和VM保留。
+
+
+10-21后继复用当前d0ca80f5同源Debug App，固定1500Hz、默认属性、60s自动停止，无人工期限；8张实际可见原图after→末series跨53.496s。根与独审逐图核固定左右弧带：文字与碟片各自相位继续变化，未见明显整圈平移或半径突跳。启动333 raster为2048×56，非保存8119×224或393主输入2000²；仍无同帧slot1、完整world/最终MVP及shader g_Time，不能认精确全周期、贴合或官方parity。opacity收敛至约1/.6/.6、distance=-12后generation诊断去重，故机械typed整窗推进为UNKNOWN，不能据此判卡住；末图后frame1154/gen329同值消费、1047提交/1046完成/0failed仅证明对应运行范围。保留resize时frame7 allocation失败及frame10恢复，exit0、stop1→0/GPU排空、70输入/4App身份无漂移；无性能声明。完整raw/失败/身份及两份独审已归档`.artifacts/scene-evidence/runs/text-ring-visible-window-20261021/`（普通14天、11.9MB）；精确对齐保partial，后继需新的可区分几何/官方ROI证据，不再重复同类长窗。
 
 <a id="u37-scalar-loop-20261018"></a>
 

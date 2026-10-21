@@ -472,10 +472,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5130acb5945805088c445e845bbaf1e4e02e566fa1593a39f0af6e82ae4403e7",
+        "sourceSHA256": "759f6690bf47eac9bbc8e7be07eb40b81cdca4ace86e4ae3591e47697cea7e3d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核独立信号opaque辅助、alpha-only反馈旁读的唯一owner；原299默认流体/文字恢复与独立313、有界GPU/leaf及旧失败状态。",
-        "limitations": "仅本批默认功能窗；未认最终反馈整模块重跑、全部模式/属性、HDR、官方同状态精细parity或性能收益。"
+        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
+        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
       }
     },
     {
@@ -744,10 +744,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cca1c7bbf33af9f8613d27b96309eb8fb3eb313e2a4c176a2f56ca246d7c5bdb",
+        "sourceSHA256": "7a301e789edbbaa5a183ef66b3e013e83ed347049dd1565e39d58e360998c06a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核独立信号opaque辅助、alpha-only反馈旁读的唯一owner；原299默认流体/文字恢复与独立313、有界GPU/leaf及旧失败状态。",
-        "limitations": "仅本批默认功能窗；未认最终反馈整模块重跑、全部模式/属性、HDR、官方同状态精细parity或性能收益。"
+        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
+        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
       }
     },
     {
@@ -836,10 +836,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "02dab14ffe7cf32d8545e15859e61eec334602a4e25d209f48f48a4a5b15d83e",
+        "sourceSHA256": "085e34cf996074fdd18d48aa67f4789268a6d19f84df0db1346809995da48f02",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增24原包Debug诊断及独审、351目录统计；统一公共首错、用户解释的正常行为、实际截图时刻及归档引用，保持旧212运行对象和113裁决对象。",
-        "limitations": "仅本批冻结源码与短窗/两类定点变体；非全351运行、完整参数/动画、官方同状态parity、普通daemon或性能验收。census展示失败有界同步，未称verify通过。"
+        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
+        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
       }
     },
     {
@@ -3619,10 +3619,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e62c94151f3ce51ff9826cc0dee967eaa357078ad64df7e1cb140a4588907607",
+        "sourceSHA256": "2b94bb5dc64448b67a0feff9aecf3442a061c81efd873d7127127dcb6745cda5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
-        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
+        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
+        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
       }
     },
     {
@@ -3633,10 +3633,10 @@
       "lastReviewed": "2026-10-21",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6a7bfb9a5ff1294b63d949151b1a74993a117a14fdf582377b935123d0589ee0",
+        "sourceSHA256": "0e5648ef8a78eebb120a9f0189b9023c873b736b2ccb3abc106eb9cb26d19220",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核alpha-only公共Program合同、定点GPU/实际原包及邻例后验、299后继未支持宿主光照数组；维持既有队列其余状态。",
-        "limitations": "只更新本批owner与原299/独立313、372默认静音窗口；非全样本重审、官方同状态parity、性能或流体整图完成。"
+        "scope": "核本批generic纯内建准备首门、335可见长窗与后继5包增量事实及导航；旧历史结果未整体重跑。",
+        "limitations": "不认292 Bloom画质/性能收益、335精确周期或官方贴合、5包整景与官方parity；数据归档仍为混合历史身份。"
       }
     },
     {

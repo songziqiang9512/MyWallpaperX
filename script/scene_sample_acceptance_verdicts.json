@@ -639,10 +639,14 @@
     },
     "3351179520": {
       "verdict": "unreviewed",
-      "note": "10-18巨裂片/白环/2000²首门已闭；文字位置尺度/漂移partial。可见38.849s<T；静音opacity0不可测，不能合拼周期。 参考 docs/scene/capabilities/runtime-evidence-current.md#composition-local-source-20261018 与同页 #visual-feedback-followup-20261018。",
-      "runs": [],
-      "evidence": [],
-      "remainingDifferences": "文字精确位置、尺度与旋转漂移仍partial；ordinary可见38.849s<文字周期41.8879s，silence作者opacity0不可测，不得合拼完整周期；官方同媒体/phase与整景验收未完成。",
+      "note": "巨裂片/白环/2000²首门已闭；10-21恒定1500Hz自动播放，8张可见原图跨53.496s，固定左右文字弧带未见明显整圈平移/半径跳变，文字/盘相位继续变化。精确位置尺度/贴合仍partial，不再以旧38.849s为最长可见窗。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/text-ring-visible-window-20261021/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "remainingDifferences": "同帧slot1/最终MVP/g_Time、精确中心尺度及官方同媒体/phase未取得，不认精确全周期、整景或性能验收。值收敛后generation日志去重不作卡住证据；仅有新的可区分几何/官方ROI证据再开。",
       "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/report.json",
@@ -652,7 +656,8 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
-      ]
+      ],
+      "reviewedOn": "2026-10-21"
     },
     "3617056047": {
       "verdict": "unreviewed",
@@ -1764,11 +1769,12 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-21",
       "reviewer": "Codex 隔离Debug诊断与独立原图复核；未作人工整样本裁决",
-      "note": "左侧机器人、灰色背景、文字、时间日期、卡片、圆形缩略图和下方槽均存在，未见大范围黑块或主背景缺层。 官方卡片下方彩色曲线横跨卡片大部；actual只见右侧很短彩色线段，且形状更平。缩略图旋转角度不同。 1733/1736另有global const initializer stage-link拒绝，不据此断言彩线差异共根。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
+      "note": "10-21当前候选保机器人、灰背景、时间日期、卡片与盘；默认1733与作者白色时间536分支四节点Bloom已从global const拒绝透传恢复实际Program/GPU/末合成/次帧。30%与3024×1964对照仍未证明可见Bloom收益；彩线短段/较平与官方条件未同控，保待复验，不认同因或整样本已修。1736是pass ID，不是另一个layer。",
       "remainingDifferences": "具体待修/待复验归现役队列；早截图、音频、视差、媒体状态差异不自动是缺陷。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json",
+        ".artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
@@ -1998,6 +2004,76 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-06/current/report.json",
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/mask-theme1/current/report.json",
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/mask-theme2/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3616476797": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-21",
+      "reviewer": "Codex 当前隔离Debug运行、原图及独立原图筛查；非人工整样本裁决",
+      "note": "人物、角、水面倒影、雾暗背景与时钟均在；右下黑媒体面板稳定但无同控系统媒体，不能判黑块故障。113材质资格拒绝另保，未认独立可见损失。 本轮after实际约2.1s并核约12s系列；均正常退出/GPU排空。",
+      "remainingDifferences": "媒体面板需同控media/thumbnail；未认完整参数、交互或官方parity。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3679907516": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-21",
+      "reviewer": "Codex 当前隔离Debug运行、原图及独立原图筛查；非人工整样本裁决",
+      "note": "樱花、天空、银车、前景人物、地面/标识和时钟均在，未见gross缺层；71/74/83 source材质资格与三处lookup异常保独立首错，不能泛化缺host API。 本轮after实际约2.1s并核约12s系列；均正常退出/GPU排空。",
+      "remainingDifferences": "无官方截屏；作者预览裁切与当前视口不同，未认完整动态/属性/媒体/性能。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3707474273": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-21",
+      "reviewer": "Codex 当前隔离Debug运行、原图及独立原图筛查；非人工整样本裁决",
+      "note": "主体、暗粒子背景、底部音频、时钟、TV框与心形均在。130/effect2星座varyingUnsupported局部透传；197/子206默认可见但三effect另被composition subtree-shape拒绝。作者预览内区像素化可能含编辑遮挡，不当官方效果算法证据。 本轮after实际约2.1s并核约12s系列；均正常退出/GPU排空。",
+      "remainingDifferences": "先查实际varying-prefix分组读取与独立Compose来源闭包，不按作者预览补马赛克，不认整景PASS。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3724289844": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-21",
+      "reviewer": "Codex 当前隔离Debug运行、原图及独立原图筛查；非人工整样本裁决",
+      "note": "水池、腿/扶手、樱花和时钟构图均在；162声源resourceUnavailable但Ogg在包内，保资源准备首错。带执行观察和resize短窗submitted约15FPS，仅为CPU/帧准入线索。 本轮after实际约2.1s并核约12s系列；均正常退出/GPU排空。",
+      "remainingDifferences": "声音实际解码/播放与普通同条件性能窗待验；无官方截屏，不认整景/性能通过。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3744157078": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-21",
+      "reviewer": "Codex 当前隔离Debug运行、原图及独立原图筛查；非人工整样本裁决",
+      "note": "宽屏人脸横幅、前景人物、暗周边、光线/粒子与时钟均在。作者预览彩条缺席已由相关父/子默认关闭解释，退出缺层候选；横幅短时撕裂有作者效果/phase因素，未定闪块故障。 本轮after实际约2.1s并核约12s系列；均正常退出/GPU排空。",
+      "remainingDifferences": "须同属性/音频/时相再比；黑周边符合作者宽屏布局，无官方截屏，不认完整动态/属性或官方parity。",
+      "officialComparison": "not-run",
+      "runs": [
+        ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"

@@ -3301,10 +3301,44 @@
       "verified_before": true,
       "verified_after": true,
       "debug_dylib_sha256": "089f21ed4d5a1383ab1d6a67559e2c863b62c2a4a4407c5a465e8e48c0e744b1"
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "1b4edb10b4eb3a88757fd16ea1e1cc09842b4675",
+      "short_version": "2.11.0",
+      "bundle_version": "283",
+      "executable_sha256": "c820f6159442d8b32c44260177f32d5a4fd7f1efce1149b8edb39160719ac0c6",
+      "runtime_root_path": null,
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/uniform-pure-initializer-20261021/runtime/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/uniform-pure-initializer-20261021/runtime/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "1b4edb10b4eb3a88757fd16ea1e1cc09842b4675",
+      "short_version": "2.11.0",
+      "bundle_version": "283",
+      "executable_sha256": "c820f6159442d8b32c44260177f32d5a4fd7f1efce1149b8edb39160719ac0c6",
+      "runtime_root_path": null,
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/uniform-pure-initializer-20261021/runtime/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/uniform-pure-initializer-20261021/runtime/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-20T19:08:24.852616+00:00",
+  "generatedAtUtc": "2026-10-21T03:22:23.863129+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -5146,6 +5180,20 @@
       "matrix": "new-24-scene-runtime-intake-20261021-controlled-pcm-center",
       "matrixSha256": "1bcbba85815598a455dbee191d69a86ded2be8282f2c33a140e5a1fc62aae42e",
       "kind": "bounded-projection-of-original-benchmark-report"
+    },
+    {
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/report.json",
+      "sha256": "9e532fb73d9f61ef1cbda846c6e21de79cbb70048c5d01c8399dc744f4de7923",
+      "matrix": "292-runtime-initializer-before-after",
+      "matrixSha256": "0405a4b5954b4dcb6453bd76d96dc3775e047485d92ca28892f53c8a8d1557e8",
+      "sampleCount": 1
+    },
+    {
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+      "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
+      "matrix": "new-five-runtime-intake-20261021-default-controlled-pcm",
+      "matrixSha256": "eef5ef1e232ce5ed9c6628700340646cd986db1105ea5e5c69ffb7408943cecb",
+      "sampleCount": 5
     }
   ],
   "samples": [
@@ -28743,188 +28791,61 @@
       "title": "麻匪 辉夜 AHEGAO"
     },
     {
+      "id": "2927205881",
+      "title": "麻匪 音频识别 多素材自定义",
       "authored": {
+        "projectSha256": "d74401868f1504ade54c72c3210aad35f5fc05175e296b3e11985e7cdd725325",
+        "packageSha256": "9170e8b0a9f2afb6dc980ac791b568bb799d5016290a656503e288c89ef984b5",
+        "parseState": "parsed",
+        "objectCount": 65,
+        "occurrenceCount": 1594,
+        "visibleOccurrenceCount": 389,
+        "effectInstanceCount": 97,
+        "particleLayerCount": 9,
         "dynamicFeatureCounts": {
           "condition_wrappers": 28,
           "script_wrappers": 73,
           "timeline_wrappers": 11,
           "user_bindings": 32
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.10648462234283129,
+          "afterFlatBorderRatio": 0.10713478064224333,
+          "previewSpatialColorSimilarityAdvisory": 0.8151,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 41,
+          "terminalCompositorLayerCount": 18,
+          "nextFrameLayerCount": 18
         },
-        "effectInstanceCount": 97,
-        "objectCount": 65,
-        "occurrenceCount": 1594,
-        "packageSha256": "9170e8b0a9f2afb6dc980ac791b568bb799d5016290a656503e288c89ef984b5",
-        "parseState": "parsed",
-        "particleLayerCount": 9,
-        "projectSha256": "d74401868f1504ade54c72c3210aad35f5fc05175e296b3e11985e7cdd725325",
-        "visibleOccurrenceCount": 389
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
       },
       "evidence": {
         "report": {
-          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json",
-          "sha256": "76352612486e09e55983a0a7269cf40b10c8fed22815a5f8a9342b6a49a873cb",
-          "sampleIndex": 3
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/report.json",
+          "sha256": "9e532fb73d9f61ef1cbda846c6e21de79cbb70048c5d01c8399dc744f4de7923",
+          "sampleIndex": 0
         },
         "sampleEvidencePaths": {
-          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/samples/2927205881/app_log.log",
-          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/samples/2927205881/preview_log.log",
-          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/samples/2927205881/runtime_evidence.zip",
-          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/samples/2927205881/after_snapshot.png"
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/samples/2927205881/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/samples/2927205881/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/samples/2927205881/runtime_evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/samples/2927205881/ready_snapshot.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/samples/2927205881/after_snapshot.png"
         }
       },
-      "id": "2927205881",
-      "nextAction": "inspect-fallback-and-authored-visual-ROI",
-      "runtime": {
-        "benchmarkResultIgnored": {
-          "failureCount": 2,
-          "passed": false,
-          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
-        },
-        "evidenceSummary": {
-          "acceptedGraphLayerCount": 41,
-          "afterFlatBorderRatio": 0.10455278001611604,
-          "afterNonBlackObserved": true,
-          "graphEvidenceObserved": true,
-          "nextFrameLayerCount": 18,
-          "previewSpatialColorSimilarityAdvisory": 0.8145,
-          "readyFlatBorderRatio": 0.1041414853612678,
-          "readyNonBlackObserved": true,
-          "surfaceCount": 1,
-          "terminalCompositorLayerCount": 18
-        },
-        "firstBreakpoint": {
-          "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-          "evidenceBasis": "runtime.effect_stage_admission.records",
-          "failureRadius": "effect",
-          "fallbackPreservedTerminalCompositor": true,
-          "owner": "EffectStageAdmission",
-          "reasonCode": "admitted-fallback",
-          "severity": "degraded",
-          "stage": "effect-admission",
-          "unit": {
-            "descriptorId": "1733#effect#1734",
-            "effectIndex": 0,
-            "kind": "effect",
-            "layerId": 1733
-          }
-        },
-        "secondaryEvents": [
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": true,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "2375#effect#1128",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 2375
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "536#effect#1138",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 536
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "545#effect#1144",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 545
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "evidenceBasis": "runtime.effect_execution.cpu_invocations",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": true,
-            "owner": "ResolvedMaterialExecution",
-            "reasonCode": "effect-local-passthrough-material-generic-owner-revoked",
-            "severity": "degraded",
-            "stage": "effect-execution",
-            "unit": {
-              "descriptorId": "1733#effect#1734",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 1733
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "evidenceBasis": "runtime.effect_execution.cpu_invocations",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": true,
-            "owner": "ResolvedMaterialExecution",
-            "reasonCode": "effect-local-passthrough-material-generic-owner-revoked",
-            "severity": "degraded",
-            "stage": "effect-execution",
-            "unit": {
-              "descriptorId": "2375#effect#1128",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 2375
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
-            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": true,
-            "owner": "GraphExecutor",
-            "reasonCode": "material-generic-owner-revoked",
-            "severity": "degraded",
-            "stage": "graph-execution",
-            "unit": {
-              "descriptorId": "1733#effect#1734",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 1733
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
-            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": true,
-            "owner": "GraphExecutor",
-            "reasonCode": "material-generic-owner-revoked",
-            "severity": "degraded",
-            "stage": "graph-execution",
-            "unit": {
-              "descriptorId": "2375#effect#1128",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 2375
-            }
-          }
-        ],
-        "status": "degraded-runtime"
-      },
-      "title": "麻匪 音频识别 多素材自定义"
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
     },
     {
       "authored": {
@@ -30108,15 +30029,455 @@
         }
       },
       "title": "麻匪 穿云"
+    },
+    {
+      "id": "3616476797",
+      "title": "Zero Two",
+      "authored": {
+        "projectSha256": "e13776c06cf09e3e0b0aaf1093111ad5c7420938ea13207e0dd026e7b79300fd",
+        "packageSha256": "6125122b30f9bb788d20644c35d1ca33ddd5021ca40523e3b64f770464c1e0dc",
+        "parseState": "parsed",
+        "objectCount": 15,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": 15,
+        "particleLayerCount": 1,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 23,
+          "timeline_wrappers": 7,
+          "user_bindings": 9
+        }
+      },
+      "runtime": {
+        "status": "degraded-runtime",
+        "firstBreakpoint": {
+          "stage": "resource-load",
+          "owner": "SceneSolidTextureLoader",
+          "reasonCode": "solid-texture-load-incomplete",
+          "capabilityProfileOrAuthoredShape": "solid-layer",
+          "failureRadius": "scene",
+          "severity": "degraded",
+          "unit": {
+            "kind": "scene"
+          },
+          "fallbackPreservedTerminalCompositor": null,
+          "evidenceBasis": "runtime.loaded_solid_layers/solid_candidates"
+        },
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.4287652645861601,
+          "afterFlatBorderRatio": 0.4238749434644957,
+          "previewSpatialColorSimilarityAdvisory": 0.7572,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 8,
+          "terminalCompositorLayerCount": 7,
+          "nextFrameLayerCount": 7
+        },
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+          "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
+          "sampleIndex": 0
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3616476797/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3616476797/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3616476797/runtime_evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3616476797/ready_snapshot.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3616476797/hover_snapshot.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3616476797/after_snapshot.png"
+        }
+      },
+      "nextAction": "inspect-fallback-and-authored-visual-ROI"
+    },
+    {
+      "id": "3679907516",
+      "title": "老人-樱花-Porsche 718 Cayman",
+      "authored": {
+        "projectSha256": "f6e7545b946073c05cd98e522c5817c850773a458fa69dc6e469936ce4c76bf9",
+        "packageSha256": "12c3383580557019dd788e0c3c4695d8641929ed5d808a92efb19088037037c3",
+        "parseState": "parsed",
+        "objectCount": 25,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": 15,
+        "particleLayerCount": 1,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 3,
+          "script_wrappers": 26,
+          "timeline_wrappers": 1,
+          "user_bindings": 9
+        }
+      },
+      "runtime": {
+        "status": "degraded-runtime",
+        "firstBreakpoint": {
+          "stage": "script-execution",
+          "owner": "SceneScriptVM",
+          "reasonCode": "scene-script-exception-type-error",
+          "capabilityProfileOrAuthoredShape": "target:layer:alpha",
+          "failureRadius": "script",
+          "severity": "degraded",
+          "unit": {
+            "kind": "script",
+            "layerId": 100
+          },
+          "fallbackPreservedTerminalCompositor": null,
+          "evidenceBasis": "evidence.app_log typed SceneScript failure"
+        },
+        "secondaryEvents": [
+          {
+            "stage": "script-execution",
+            "owner": "SceneScriptVM",
+            "reasonCode": "scene-script-exception-type-error",
+            "capabilityProfileOrAuthoredShape": "target:layer:origin",
+            "failureRadius": "script",
+            "severity": "degraded",
+            "unit": {
+              "kind": "script",
+              "layerId": 100
+            },
+            "fallbackPreservedTerminalCompositor": null,
+            "evidenceBasis": "evidence.app_log typed SceneScript failure"
+          },
+          {
+            "stage": "script-execution",
+            "owner": "SceneScriptVM",
+            "reasonCode": "scene-script-exception-type-error",
+            "capabilityProfileOrAuthoredShape": "target:layer:visibility",
+            "failureRadius": "script",
+            "severity": "degraded",
+            "unit": {
+              "kind": "script",
+              "layerId": 87
+            },
+            "fallbackPreservedTerminalCompositor": null,
+            "evidenceBasis": "evidence.app_log typed SceneScript failure"
+          }
+        ],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.01557553143374039,
+          "afterFlatBorderRatio": 0.015716870194482136,
+          "previewSpatialColorSimilarityAdvisory": 0.7655,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 10,
+          "terminalCompositorLayerCount": 9,
+          "nextFrameLayerCount": 9
+        },
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+          "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
+          "sampleIndex": 1
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3679907516/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3679907516/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3679907516/runtime_evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3679907516/ready_snapshot.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3679907516/hover_snapshot.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3679907516/after_snapshot.png"
+        }
+      },
+      "nextAction": "inspect-fallback-and-authored-visual-ROI"
+    },
+    {
+      "id": "3707474273",
+      "title": "EVE",
+      "authored": {
+        "projectSha256": "c6835cf29879974c373c55af76ce4b81795799712c13c2a03f6fffa9603d90b6",
+        "packageSha256": "8d9f7139c7d1452c2a088c39767cb622bc0c788b11842db8aaf73ca76d090810",
+        "parseState": "parsed",
+        "objectCount": 22,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": 22,
+        "particleLayerCount": 2,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 36,
+          "timeline_wrappers": 0,
+          "user_bindings": 14
+        }
+      },
+      "runtime": {
+        "status": "degraded-runtime",
+        "firstBreakpoint": {
+          "stage": "effect-admission",
+          "owner": "EffectStageAdmission",
+          "reasonCode": "admitted-fallback",
+          "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
+          "failureRadius": "effect",
+          "severity": "degraded",
+          "unit": {
+            "kind": "effect",
+            "layerId": 130,
+            "effectIndex": 2,
+            "descriptorId": "130#effect#144"
+          },
+          "fallbackPreservedTerminalCompositor": true,
+          "evidenceBasis": "runtime.effect_stage_admission.records"
+        },
+        "secondaryEvents": [
+          {
+            "stage": "effect-admission",
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pixelate",
+            "failureRadius": "effect",
+            "severity": "degraded",
+            "unit": {
+              "kind": "effect",
+              "layerId": 197,
+              "effectIndex": 0,
+              "descriptorId": "197#effect#198"
+            },
+            "fallbackPreservedTerminalCompositor": null,
+            "evidenceBasis": "runtime.effect_stage_admission.records"
+          },
+          {
+            "stage": "effect-admission",
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:pulse",
+            "failureRadius": "effect",
+            "severity": "degraded",
+            "unit": {
+              "kind": "effect",
+              "layerId": 197,
+              "effectIndex": 2,
+              "descriptorId": "197#effect#202"
+            },
+            "fallbackPreservedTerminalCompositor": null,
+            "evidenceBasis": "runtime.effect_stage_admission.records"
+          },
+          {
+            "stage": "effect-admission",
+            "owner": "EffectStageAdmission",
+            "reasonCode": "unified-capability-unavailable",
+            "capabilityProfileOrAuthoredShape": "backend:effect-family:vhs",
+            "failureRadius": "effect",
+            "severity": "degraded",
+            "unit": {
+              "kind": "effect",
+              "layerId": 197,
+              "effectIndex": 1,
+              "descriptorId": "197#effect#200"
+            },
+            "fallbackPreservedTerminalCompositor": null,
+            "evidenceBasis": "runtime.effect_stage_admission.records"
+          },
+          {
+            "stage": "effect-execution",
+            "owner": "ResolvedMaterialExecution",
+            "reasonCode": "effect-local-passthrough-material-generic-owner-revoked",
+            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
+            "failureRadius": "effect",
+            "severity": "degraded",
+            "unit": {
+              "kind": "effect",
+              "layerId": 130,
+              "effectIndex": 2,
+              "descriptorId": "130#effect#144"
+            },
+            "fallbackPreservedTerminalCompositor": true,
+            "evidenceBasis": "runtime.effect_execution.cpu_invocations"
+          },
+          {
+            "stage": "graph-execution",
+            "owner": "GraphExecutor",
+            "reasonCode": "material-generic-owner-revoked",
+            "capabilityProfileOrAuthoredShape": "visual-failure-passthrough",
+            "failureRadius": "effect",
+            "severity": "degraded",
+            "unit": {
+              "kind": "effect",
+              "layerId": 130,
+              "effectIndex": 2,
+              "descriptorId": "130#effect#144"
+            },
+            "fallbackPreservedTerminalCompositor": true,
+            "evidenceBasis": "runtime.resolved_material_graph_execution.graph_observations.visual_failure_passthroughs"
+          }
+        ],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.11818747173224785,
+          "afterFlatBorderRatio": 0.11818747173224785,
+          "previewSpatialColorSimilarityAdvisory": 0.8062,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 7,
+          "terminalCompositorLayerCount": 7,
+          "nextFrameLayerCount": 7
+        },
+        "benchmarkResultIgnored": {
+          "passed": false,
+          "failureCount": 2,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+          "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
+          "sampleIndex": 2
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3707474273/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3707474273/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3707474273/runtime_evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3707474273/ready_snapshot.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3707474273/hover_snapshot.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3707474273/after_snapshot.png"
+        }
+      },
+      "nextAction": "inspect-fallback-and-authored-visual-ROI"
+    },
+    {
+      "id": "3724289844",
+      "title": "老人-水[4K]",
+      "authored": {
+        "projectSha256": "8e327d8c3cbc5d91836b15b3ba6c0097c28e57da6760cb865cffc01ae568c873",
+        "packageSha256": "80bedf2c69b26ab1f33dccfc2013ab53b3f0ad21bfa8b9b2a877608cdda8c467",
+        "parseState": "parsed",
+        "objectCount": 38,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": 34,
+        "particleLayerCount": 5,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 9,
+          "timeline_wrappers": 0,
+          "user_bindings": 7
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.039066033469018546,
+          "afterFlatBorderRatio": 0.039094301221166895,
+          "previewSpatialColorSimilarityAdvisory": 0.5536,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 32,
+          "terminalCompositorLayerCount": 32,
+          "nextFrameLayerCount": 32
+        },
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+          "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
+          "sampleIndex": 3
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/runtime_evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/ready_snapshot.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/hover_snapshot.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3724289844/after_snapshot.png"
+        }
+      },
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
+    },
+    {
+      "id": "3744157078",
+      "title": "老人-边缘行者 动态壁纸 [带鱼屏4K]",
+      "authored": {
+        "projectSha256": "981ead30a74e7441ebb31317d8150cef89ea6bb465f95419707ed5eb30303063",
+        "packageSha256": "a49b892c5039584fc1c168902b3d38d09fc5476fd7b2f41bf7caa8ba6014dbc6",
+        "parseState": "parsed",
+        "objectCount": 39,
+        "occurrenceCount": null,
+        "visibleOccurrenceCount": null,
+        "effectInstanceCount": 43,
+        "particleLayerCount": 2,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 6,
+          "script_wrappers": 14,
+          "timeline_wrappers": 3,
+          "user_bindings": 37
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.96712460425147,
+          "afterFlatBorderRatio": 0.9670680687471732,
+          "previewSpatialColorSimilarityAdvisory": 0.836,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 20,
+          "terminalCompositorLayerCount": 13,
+          "nextFrameLayerCount": 13
+        },
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
+          "sha256": "6dd9b44f5009e5402233c066900c0983181970fd73d56bbf3289f22827b1a799",
+          "sampleIndex": 4
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3744157078/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3744157078/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3744157078/runtime_evidence.json",
+          "ready_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3744157078/ready_snapshot.png",
+          "hover_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3744157078/hover_snapshot.png",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/samples/3744157078/after_snapshot.png"
+        }
+      },
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
     }
   ],
   "schemaVersion": 1,
   "source": {
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene",
-    "sampleCount": 236,
-    "sampleIdManifestSha256": "91b202ff847d2b041d6016e3b9c0c5e1bb3d531161e070fdaedc2d10606da8e3",
-    "currentDirectoryCount": 351,
-    "completeSceneInputPairCount": 350,
+    "sampleCount": 241,
+    "sampleIdManifestSha256": "b86e8d1359595de2f5e96362322aeee38c5c4793fa22a48a64b2b1aba099cba6",
+    "currentDirectoryCount": 356,
+    "completeSceneInputPairCount": 354,
     "historicalCensusOnly": {
       "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_capability_census_snapshot.json",
       "sampleCount": 159,
@@ -30763,16 +31124,35 @@
       "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/census/scene_capability_census_snapshot.json",
       "sampleCount": 351,
       "sha256": "c29a4bec073b58e861802b48ee27f2020a0c5897b2cf2949012975699b11768d"
-    }
+    },
+    "runtimeUpdates": [
+      {
+        "importedAtUtc": "2026-10-21T03:22:23.923831+00:00",
+        "sampleIDs": [
+          "2927205881",
+          "3616476797",
+          "3679907516",
+          "3707474273",
+          "3724289844",
+          "3744157078"
+        ],
+        "reason": "Bounded typed readonly-builtin first-gate recovery and five-sample runtime intake; older unrelated rows remain byte-equivalent values, no full current-HEAD rerun.",
+        "qualification": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/new-five-intake-followup-20261021/supporting/report.json",
+          "sha256": "1b0afc13b3b286a967aca0b22efa8d5c6e3c184598b4d09b0e760cba56e3faed"
+        },
+        "staticCensusRefreshed": false
+      }
+    ]
   },
   "summary": {
-    "sampleCount": 236,
-    "reportedSampleCount": 236,
+    "sampleCount": 241,
+    "reportedSampleCount": 241,
     "statusCounts": {
       "blocked": 2,
-      "degraded-runtime": 54,
+      "degraded-runtime": 56,
       "runtime-evidence-incomplete": 2,
-      "structural-chain-complete-visual-review": 178
+      "structural-chain-complete-visual-review": 181
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 9,
@@ -30782,12 +31162,12 @@
       "process:process-timeout": 1,
       "resource-load:base-image-texture-load-incomplete": 5,
       "resource-load:particle-layer-load-incomplete": 11,
-      "resource-load:solid-texture-load-incomplete": 2,
+      "resource-load:solid-texture-load-incomplete": 3,
       "script-execution:scene-script-bad-return": 2,
       "script-execution:scene-script-exception-internal-error": 1,
       "script-execution:scene-script-exception-range-error": 1,
       "script-execution:scene-script-exception-reference-error": 1,
-      "script-execution:scene-script-exception-type-error": 12,
+      "script-execution:scene-script-exception-type-error": 13,
       "script-execution:scene-script-invalid-argument": 2
     },
     "normalizedDiagnosticClaim": "runtime-and-output-diagnostics-only-not-visual-correctness"
