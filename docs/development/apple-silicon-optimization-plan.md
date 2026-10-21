@@ -2,12 +2,12 @@
 
 # Apple silicon 与全 App 性能优化执行方案
 
-状态：2026-10-21 D13同次颜色分析复用完成完整输出对照、局部计时及同配置App冷暖资格／独审（暖轮未证收益，全仓存量两门另列）；D12词法快路完成行为门、冷暖资格与独审（全仓两门存量FAIL另列）；D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
+状态：2026-10-21 D14分配栈／持有链实证与独审完成、未定位可修冗余owner而STOP产品修改；D13同次颜色分析复用完成完整输出对照、局部计时及同配置App冷暖资格／独审（暖轮未证收益，全仓存量两门另列）；D12词法快路完成行为门、冷暖资格与独审（全仓两门存量FAIL另列）；D9启动库结算完成最近门、最终构建与独审；D10普通Release归因及D11手动Space对照已采集并经独审收口；仅保已证范围，不据未归因数据改产品；D1–D3、D7–D8保留，D4–D6原处置不变；D7同次采样器分析复用、D8准备批次取消已完成最近行为门、隔离原生运行和独立审查。原24项与STOP继续有效。正向成果分批提交，不推送；D1–D6基准 `039d164cb048787557068a2412335937db809bc5`，D7–D8基准 `e76a1e58a`。
 
 本计划独占原24项及本次D阶段的执行顺序、状态与取舍；[Scene 性能卡](../scene/roadmap/performance-convergence-card.md)保留专项历史和正式测量口径，不另开下一步队列。本轮不因旧卡的选序切回兼容待办。[技术栈合同](../architecture/technology-stack-boundaries.md)、[播放切换事务](../architecture/playback-lifecycle-transaction-design.md)与各引擎合同继续规定正确性；[Web 当前状态](../web/current-state.md)等只记录各自事实。重要变更先在原所属设计补实施细则，再接入原设计登记，不另建重复owner。
 
 <a id="深入实施-d1d62026-10-21"></a>
-## 深入实施 D1–D13（2026-10-21）
+## 深入实施 D1–D14（2026-10-21）
 
 来源：冻结 `039d164cb` 的优化Debug外部CPU/System/Metal采样、752组词法完整输出对照与75s真实Web音频端点退役反例；证据在忽略的 `apple-silicon-deep-analysis-20261021` 包。局部词法多线程收益不代表整App；GPU类别区间重叠，不相加为可省时间。方案经独立研究复核后获用户实施授权。
 
@@ -26,6 +26,7 @@
 | D11 Web物理Space | 同一最小WK二进制A／B只差reassert，另测真实WebDaemon C；同页、真实手动普通桌面切换、连续RAF／timer与原生事件，不能用模拟通知代替 | 已完成并独审：A4／B6／C5事件不支持reassert为主要停顿原因，停止该方向产品修改 |
 | D12 Scene资源关键路径 | 先沿既有Debug阶段日志＋启动外采样拆清launch／device／first-surface三链与真实join；有昂贵重复且完整身份等价才在原owner内小修、冷暖验证 | 已保留：562完整输出等价、5对局部／3对启动、独立L及最近行为门／独审；全仓两门存量失败另列，旧STOP不变 |
 | D13 同次颜色分析 | 从最新2da624b21冻结，先量同canonical fragment的strict解析重复；一次不可变fragment／main／outputUses供原证明函数使用，上游颜色结论优先，失败仍原nil／false／unresolved | 已保留：56完整事实／90完整分析等价、5对局部材质分析约−12%、3对优化Debug首次H小幅改善；暖轮未证收益，独立L／独审通过，存量失败另列 |
+| D14 切换后内存持有者 | 先验证外部分配栈／引用图正反控，再由实际L/H/L追踪allocation／retain owner；只修已定位冗余持有，保原总账、在途pin与有效暖缓存 | 取证／独审完成，0产品改动：所选旧H对象退役、暖缓存有界；剩余分配未证冗余owner，不重复总量测试、不清有效缓存、不新增Release诊断 |
 
 每批列明owned源码/测试，构建和实际播放串行；子代理实现可并行，性能计量不与构建/测试重叠。Debug保现开发入口，Release无新增探针；真实媒体只读，用户偏好按精确任务值回收。保留低复杂度可靠局部收益，整体比例未知如实注明；性能或功能回归先修，不能机械追逐数值。阶段结果在本表更新，原24项历史不覆盖新事实。
 
@@ -72,6 +73,15 @@ D13结果：冻结2da624b21，仅覆盖3份owned Swift；并行9e9c03dda未带�
 D13 App资格：同签名配置、-O／WMO／DEBUG、关闭debug dylib的两份隔离App，3对BC／CB／BC，H=3042492564同进程H,H、每臂全新HOME／应用shader cache；首呈现两臂中位10.734／10.595秒，配对−6.36%／−1.60%／−1.30%。暖轮−2.29%／+0.81%／+0.13%（后两轮慢约30／5ms），不认暖启动收益；数据页经身份哈希预热，非OS／driver冷启动。12个H请求及独立L=3766415113两臂均完成prepared／firstPresent、旧资源释放（第二H）、GPU drain／code0、实际退出／PID消失和原件／副本未变。H每臂原有2条launch／30条source failure逐条相同；L两臂各同一条source-domain-variant-dependent。不能称零视觉失败、完整兼容、普通Release、完整主App点击延迟或稳定启动比例。
 
 D13验证与收尾：最近颜色合同／typed input／frontend／持久缓存／carrier CPU两组50＋85项执行通过（新增4项重复复验，1项缺3141421197隔离fixture跳过）；Debug两臂构建零warning。结构15项的3个失败（6个既有目录登记及UserShortcuts analyzer fleet）与test-assertions两条既有literal库存失配在冻结基线复现，不改并行来源或放宽门禁。依赖／职责防御／code health／设计／产物门通过；未跑广域无关GPU／图路由全部测试。静态和局部／App证据经同一独立审查者复核，保原失败和暖慢轮；必要日志、工具、完整投影、身份与失败收据提取至忽略的`.artifacts/scene-evidence/runs/apple-silicon-scene-color-analysis-d13-20261021/`，14天有界保留，停止后的隔离App／DerivedData／HOME／样本副本／缓存精确清理。下一批再判断分析／compiler规范化复用及切换后内存持有，旧STOP继续有效，不在本批顺带实施。
+
+D14实施细则：沿S8与D10已知缺口先做工具资格，不把旧footprint升高认作泄漏。独立小型可调试fixture以明确分配caller、根→holder→buffer及释放caller作正反控，验证malloc_history／leaks memgraph的实际输出、退出、文件身份；工具参数以本机help及Apple内存分析指导为准。通过后再冻结最新已提交树，签名优化Debug保dSYM、使用进程启动时的外部MallocStackLogging环境，不向Release加产品诊断入口；与无stack logging的性能窗分开，记录工具对运行的扰动，不用诊断运行认领速度／footprint收益。只有原生产Scene v2请求准备、首呈现、finalize及旧资源释放后，才对L/H/L的具体地址、分配栈和引用链定位，区别既有有界CPU Program缓存、allocator驻留、GPU在途pin和旧Session／资源owner。先证明工具可用，拿不到caller即保FAIL停工；不重跑无归因总量循环，不全清缓存或修改资源／完整性预算。最小实现与反例在定位后再确定；有产品改动才补最近行为门、固定源Debug、隔离实际切换／drain及无诊断冷暖对照，阶段由独立子代理审查后窄批提交、不推送。设备窗口先协调，构建／采集串行，真实媒体只读，临时环境放任务隔离根；本批先拥有此计划及document_health_baseline对应单条调整，不动并行SourceNormalizer／varying与设计文件。
+
+
+D14工具与运行资格：独立C正反控先保留MallocStackLogging=1默认为lite而不能导出full history的原始FAIL，显式full后证明分配caller、根→holder→buffer、释放caller与退出；实际Swift App再单独通过live分配栈／strong字段链资格。冻结4fc8e7cf7、匹配签名优化Debug与dSYM、构建零warning，以外部lite采集原生产Scene v2；它没有释放历史且较早分配缺栈，不能代表普通Release性能。首次L/H全callTree文本达16 MiB工具上限，失败记录及正常drain／退出保留；离线验证Session限定callTree后再完成L/H/L，未减少完整heap／类型地址／引用图采集。三阶段均在首呈现和finalize后采集，H及返L另等待匹配旧UUID资源释放，输入未变、GPU drain／code0／实际退出通过。此为单次诊断序列，不是普通Release冷暖或视觉对照。
+
+D14持有者结论：完整heap分类逐阶段精确合计原生All zones；所选11个旧H关键地址在返L时均不再以同类型出现，包括Session、Surface、窗口、MetalView、两个loader、base images、脚本domain／handle、pass encoder与offscreen cache。Session／View／Domain等数量均1→1→1，资源lease为2→249→2；仅证明该范围退役，不宣称全部GPU／heap释放或无泄漏。采样source-map和字符串有实际preprocessor分配栈，根为既有preparationCache，受64 MiB／256项预算约束；不能外推全部字符串增量。最大purgeable组28,737,536 B（27.4 MiB）在H和返L均仅64 KiB resident／dirty；关联256 B RIP metadata的caller可追到纹理栅格化，但payload本身无栈，38条保守路径含假边，未证唯一强owner或冗余持有。诊断LiteZone明显增加驻留／碎片，不能据此解释D10普通Release返L的143 MiB增量。
+
+D14收口：工具资格、实际Swift gate和最终L/H/L经同一独立子代理分别审查，无可行动产品缺陷；保留缺栈、Session限定callTree、lite无释放历史及所选地址范围限制。停止产品修改，不再跑只有总量的循环、不清有效暖缓存、不动预算／在途pin；0产品改动、0新增运行时开销，不认领内存或启动收益。必要memgraph、原生原文、工具正反控与失败、身份／输入清单及独审记录有界提取至忽略的`.artifacts/scene-evidence/runs/apple-silicon-scene-memory-holders-d14-20261021/`，14天保留；停止的隔离App／DerivedData／HOME／样本副本／缓存提取后精确清理。只提交本计划与对应文档预算，不带入并行源码／合同；后续仅有新的具体holder证据才重开S8。
 
 ## 目标、取舍与职责
 
