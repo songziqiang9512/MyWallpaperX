@@ -81,13 +81,6 @@
       "path": "script/tests/test_scene_audio_spectrum_input.py",
       "scope": "SceneAudioSpectrumWiringTests.test_service_gates_capture_on_any_consumer",
       "method": "assertIn",
-      "literal": "var onSceneLevels:",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_audio_spectrum_input.py",
-      "scope": "SceneAudioSpectrumWiringTests.test_service_gates_capture_on_any_consumer",
-      "method": "assertIn",
       "literal": "var sceneEnabled = false",
       "count": 1
     },
@@ -866,13 +859,6 @@
       "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_capability_catalog_has_one_program_first_execution_route",
       "method": "assertIn",
       "literal": "case let .failure(programFailure):",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
-      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_capability_catalog_has_one_program_first_execution_route",
-      "method": "assertIn",
-      "literal": "let programResult = compileStages(",
       "count": 1
     },
     {

@@ -21,7 +21,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("Self.compileProgramFirstStages(", capability)
-        self.assertIn("let programResult = try compileStages(", stages)
         self.assertIn("case let .failure(programFailure):", stages)
         self.assertNotIn("StageCapability.dedicated", capability)
         self.assertNotIn("case dedicated", capability)

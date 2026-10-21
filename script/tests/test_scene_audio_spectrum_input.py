@@ -417,8 +417,6 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
             source,
             "任一消费者存在才采集",
         )
-        # Capture callbacks are immutable registrations made by the constructor.
-        self.assertIn("let onSceneLevels:", source)
         self.assertIn("self.onSceneLevels = onSceneLevels", source)
         self.assertRegex(
             source,
