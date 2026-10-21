@@ -1139,18 +1139,18 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 
 正式包 `.artifacts/scene-evidence/runs/vec3-equals-344-20261021/`保原report/log、五张必要原图、红门/green收据、身份与实图独审；普通14天。归档242行只替344和302、其他240行及顺序不变，目录分母356、人工337 unreviewed/19 fail/0 pass不变；历史混合身份不当全量当前复测。原全量census缓存仍351行，本轮用已有两静态行限定normalizer输入，不重扫样本或改census工具。临时HOME/样本与停用图/重复副本清理，仅保一份最新App及既有增量cache供下一批。
 
+<a id="video-position-publication-20261022"></a>
+## 2026-10-22：视频定位完成、已取像素与呈现提交分责
+
+- [合同](material-video-assets.md#video-position-publication)复用唯一Source/item定位状态；真实seek完成后按最新Scene plan重锚，不再把旧解码序列当目标新帧。普通拒帧只撤提交，保实际backend anchor/EOF；首次start单独回滚。原快照回滚路径删除，至多一份未发布decoded payload供精确目标重试，新定位/commit/stop清理，generation仍仅commit。原priming、同item/UUID迟到拒绝、loop相位及局部last-ready保持。
+- 未改Source的自有红0–4s/蓝4–10s载体，seek6首新generation25仍红；初版定位候选同输入首新26为蓝。该版seek2超时保留，其后固定旧版commit/discard双臂均成功，不能唯一归因该超时。最终Source`c9e89ad6…53764`通过9种首像素/覆盖命令/拒帧场景、两种无后续prepare自然EOF及原暂停/loop等门；联合最近15方法通过，已绿不重复。WebM及重复命令旧门把display deadline当源PTS网格的断言撤除，所有实际帧保留，像素/时钟/EOF/取消门继续执行，不用时间容差挑帧。独立代码审查无must-fix；结构门3项失败在未改HEAD同样存在，等值复核保留，不作本批绿门。
+- 固定fd71880d5加本批overlay，优化Debug构建0警告/错误、签名通过，App`36395ab0…94175`。原包3775373546默认双视频各339次发布、各一次真实EOF，隐藏21被22的实际X-ray Program/GPU/末合成及次帧消费；独立3662390671的WebM185发布359次、一次EOF，人物/日期背景保持。两者各12s、退出0、stop1→0/GPUdrain、原包哈希不变，主画面原图已查看。377的after实际约2.25s，非请求6s；两组截图均在EOF前，后续发布由日志另证。366既有mask/scale脚本诊断保留，矩阵/preview相似度不当整景支持或官方同phase；最终实图独审无must-fix；正式主包`.artifacts/scene-evidence/runs/video-position-publication-20261022/`及独立WebM包`.artifacts/scene-evidence/runs/video-position-publication-webm-20261022/`各≤32MiB/14天。未验Release、HDR/多屏、长稳、真实音频或性能；337秒级空档/动态实例和dormant仍开放，356分母及人工裁决不变。
+
 <a id="video-publication-demand-20261021"></a>
 ## 2026-10-21：视频多路需求、供帧空档及提取候选撤回
 
-原完整签名Debug `6ffdcfb5…fc6955`/dylib`2d15e2d9…682fdd`默认337、20s/30FPS/零PCM/无resize，pointer实际outside→中心hold→outside，旧from_launch不作固定中心证明。renderer约29.949FPS，可见100发布275次、非loop最长空档3.180s。12个不同MP4共553.3MiB，均3750×2250/60FPS/12s；所选100的720包PTS连续、sync间隔3.2s不唯一裁AVFoundation根因。同loose入口one仅删11个隐藏视频后100发布588次/最大0.067s，twelve恢复后171次/3.202s，均约30FPS/同120 null.visible/正常stop。one还少143脚本owner，不能认产品收益或唯一解码竞争。原两after实看人物/伞/天空/日期保留，约2.2s非请求8s；正式最小复现`.artifacts/scene-evidence/runs/video-publication-337-20261021/`继续受保护。
-
-官方2.8.0.42自有2s视频可见正控推进；首载体资格失败/prl错误不作语义证据。修正载体隐藏目标5.0s时C=.814/EOF2，O=1.374/EOF0且playing=true；5.6s显现C=1.416、P=1.714、O=1.679。advance需EOF≥2、held需近零均未过，**STOP_UNKNOWN**；循环相位混叠未排，不由POST接近或EOF0推停解码/持续解码，不重跑同载体/放宽门。dormant未实施；`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`保正式资格/独审，ZIP SHA`a89a576c…f3573f`。原337官方崩溃未复现。
-
-10-21后继普通layer视频提取原型复用prepared潜在provider与同帧Boolean可见性，在首次prepare前汇合全部surface需求，unknown/model/动态拓扑及asset/property保持eager；原source照常启动/clock/anchor/seek/真实EOF，仅少做hasNew/copy/Metal包装，不暂停播放器。完整原337、同签名未优化Debug短筛，可见100发布26→160、隐藏11发布863→0，但最大非loop空档3.200→3.193s，卡顿未闭。12源ready/真实EOF与原callback首错保持，原图主构图保持；不以帧数/约30FPS推视频流畅或官方parity。
-
-固定027cad065产品输入、两份Debug `SWIFT_OPTIMIZATION_LEVEL=-O`、执行观察关闭，App SHA基线`2c545d3d…db465`/候选`c993b6b9…1887f`。事前计划3+3交替；第二对已触非目标退步后提前停止，第三对未跑、不认正式接受。四轮各30s预热后61.495–61.504s、63次资源采样，3024×1964/30FPS、原project/pkg/零PCM/实际pointer序列一致；App exit0、stop1→0/GPUdrain。footprint两对289244384→489915880B（+69.38%）、272598240→353256888B（+29.59%）；二基线噪声2.96%，原非目标门5.93%，均超过。Metal设备currentAllocatedSize采样峰两对约-70.91%/-72.50%，CPU时间率约-3.75%/-0.53%，仅原观察，不能抵消footprint退步或认稳定收益；设备分配量不等于resident VRAM/RAM，未测温度/功耗。保留用户安装App，端点背景进程/热状态记录不证明无所有干扰，不从四轮推全局稳定性。
-
-**原型已全部撤回，现产品仍原eager链**；候选API/临时测试同撤，不做独立样本的接受性运行或额外全量验证。仅保两项HEAD已需的fixture依赖/teardown leaf维修，最近41方法通过。必要四轮原report/log、短筛供帧、两张原图、固定身份/计划、撤回patch与独审归`.artifacts/scene-evidence/runs/video-extraction-demand-stop-20261021/`，普通14天。后继须有不同backend消费机制或实际可见首门，再按[需求设计](material-video-assets.md#video-consumer-demand)资格，不重复包装消融。120动态视频constructor仍缺prepared实例/拓扑/资源资格，不能直接放门或每帧重建播放器。目录分母356、旧人工裁决不变；未验Release、HDR/多屏、长稳与官方同phase，秒级供帧问题保留。
+- 原完整337默认20s/30FPS、零PCM、12个不同MP4共553.3MiB，renderer约29.949FPS，可见100发布275次、非loop最大空档3.180s。one删除11隐藏源后588次/0.067s，twelve恢复后171次/3.202s；one还少143脚本owner，不能唯一归因解码竞争。原构图保持，120 null.visible及官方崩溃未复现仍分列。最小复现`.artifacts/scene-evidence/runs/video-publication-337-20261021/`受保护。官方2.8.0.42自有2s视频正控推进，隐藏目标5.0s的C=.814/EOF2、O=1.374/EOF0，5.6s显现C=1.416/P=1.714/O=1.679；原advance/held均未过、相位混叠未排，**STOP_UNKNOWN**，dormant未实施。资格/独审在`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`。
+- 帧提取/Metal包装原型保clock/anchor/EOF与首次prepare前跨屏需求并集，unknown/model/动态拓扑及asset/property保持eager。短筛可见26→160、隐藏863→0，空档3.200→3.193s未闭。固定027cad065、优化Debug、关闭执行观察的3+3计划在第二对触退步提前停止：两对footprint289244384→489915880B（+69.38%）、272598240→353256888B（+29.59%），超5.93%非目标门；第三对未跑，Metal分配峰下降及CPU小降只是原观察，不能认稳定收益或抵消footprint。**全部产品候选与临时API已撤回，仍原eager链**，仅保两项fixture leaf维修/41方法通过。身份、四轮原report/log、原图、撤回patch和独审归`.artifacts/scene-evidence/runs/video-extraction-demand-stop-20261021/`，普通14天。后继须先资格不同backend消费或实际供帧机制，不重复包装消融；120动态实例仍缺prepared/拓扑/资源资格，不能直接放constructor或每帧重建播放器。[设计](material-video-assets.md#video-consumer-demand)保取消、last-ready及生命周期合同；337秒级空档开放，356分母/人工裁决不变，未验Release/HDR/多屏、长稳、功耗及官方同phase。
 
 <a id="boolean-dynamic-text-20261021"></a>
 ## 2026-10-21：Bool可见性owner复用动态文字事务

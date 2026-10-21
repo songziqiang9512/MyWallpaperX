@@ -141,6 +141,10 @@ nonisolated struct SceneVideoProviderLifecycleState {
         lastPlan = nil
     }
 
+    nonisolated func hasPlannedFrame(frameIndex: UInt64) -> Bool {
+        lastPlan?.frameIndex == frameIndex
+    }
+
     nonisolated mutating func pause(
         sceneTime: TimeInterval,
         hostTime: TimeInterval
@@ -199,6 +203,12 @@ nonisolated struct SceneVideoProviderLifecycleState {
     nonisolated mutating func setLoop(_ value: Bool) {
         guard !isStopped else { return }
         loop = value
+    }
+
+    nonisolated mutating func requestFrameRefresh() {
+        guard !isStopped else { return }
+        lastPlan = nil
+        needsFrameRefresh = true
     }
 
     nonisolated mutating func suspend(

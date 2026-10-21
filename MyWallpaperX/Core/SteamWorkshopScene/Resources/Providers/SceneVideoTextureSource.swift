@@ -81,26 +81,34 @@ final class SceneVideoTextureSource {
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
     private var pendingFrameIndex: UInt64?
-    private struct PrimedFrame {
+    private struct DecodedFrame {
         let texture: MTLTexture
         let content: SceneTextureContent
+        let requestedItemTime: TimeInterval
         let decodedItemTime: TimeInterval?
     }
-    private var primedFrame: PrimedFrame?
+    private var primedFrame: DecodedFrame?
+    private var decodedFrameCandidate: DecodedFrame?
     private var primeOperationID: UUID?
     private var primeSeekResult: Bool?
     private var primePrerollResult: Bool?
-    private struct FramePreparationSnapshot {
+    private struct InitialPreparationSnapshot {
         let lifecycle: SceneVideoProviderLifecycleState
         let endedGeneration: UInt64
-        let hasStarted: Bool
-        let needsPlayerAnchor: Bool
-        let playerEventState: SceneVideoPlayerEventState
+        let itemTime: TimeInterval
     }
-    private var pendingPreparationSnapshot: FramePreparationSnapshot?
+    private var pendingInitialPreparation: InitialPreparationSnapshot?
     private var hasStarted = false
     private var needsPlayerAnchor = true
-    private var pendingSeekID: UUID?
+    // Backend positioning outlives a rejected frame. The Scene clock and
+    // publication still belong to lifecycle and the host commit barrier.
+    private enum PlayerPositionState {
+        case unchanged
+        case required(TimeInterval?)
+        case pending(UUID, AVPlayerItem, CMTime, TimeInterval?)
+        case ready(AVPlayerItem, CMTime)
+    }
+    private var playerPositionState: PlayerPositionState = .unchanged
     private var playerEventState = SceneVideoPlayerEventState()
     private var endedGeneration: UInt64 = 0
 
@@ -252,6 +260,7 @@ final class SceneVideoTextureSource {
             )
             endedGeneration &+= 1
             lifecycle.didReachEnd(duration: itemDuration)
+            requestPlayerPosition()
             markPlayerAnchorRequired()
         }
     }
@@ -316,7 +325,8 @@ final class SceneVideoTextureSource {
         guard let buffer = videoOutput.copyPixelBuffer(forItemTime: .zero, itemTimeForDisplay: &displayTime),
               let texture = makeTexture(from: buffer),
               primeOperationID == operationID, !isCancelled(), !Task.isCancelled else { return false }
-        primedFrame = PrimedFrame(texture: texture, content: resolvedColorContent(for: buffer),
+        primedFrame = DecodedFrame(texture: texture, content: resolvedColorContent(for: buffer),
+            requestedItemTime: 0,
             decodedItemTime: displayTime.isNumeric ? CMTimeGetSeconds(displayTime) : nil)
         guard hasCompletePrimedPublication(for: property) else {
             primedFrame = nil
@@ -342,7 +352,7 @@ final class SceneVideoTextureSource {
 
     func hasCompletePrimedPublication(for property: SceneUserPropertyTextureIdentity) -> Bool {
         guard lifecycle.contentGeneration == 0, let primedFrame,
-              let publication = makePrimedFrame(from: primedFrame, epoch: lifecycle.epoch)
+              let publication = makeFrame(from: primedFrame, epoch: lifecycle.epoch)
                 .userPropertyPublication(for: property) else { return false }
         return publication.isComplete && publication.generationIsCurrent
     }
@@ -367,9 +377,11 @@ final class SceneVideoTextureSource {
         return true
     }
 
-    private func makePrimedFrame(from seed: PrimedFrame, epoch: UInt64) -> Frame {
-        Frame(texture: seed.texture, content: seed.content, contentGeneration: 1,
-            requestedItemTime: 0, decodedItemTime: seed.decodedItemTime, epoch: epoch,
+    private func makeFrame(from decoded: DecodedFrame, epoch: UInt64) -> Frame {
+        Frame(texture: decoded.texture, content: decoded.content,
+            contentGeneration: lifecycle.contentGeneration &+ 1,
+            requestedItemTime: decoded.requestedItemTime,
+            decodedItemTime: decoded.decodedItemTime, epoch: epoch,
             owner: owner, sourceIncarnation: sourceIncarnation)
     }
 
@@ -384,19 +396,17 @@ final class SceneVideoTextureSource {
     /// the frame, so a drawable miss or graph rejection cannot consume video
     /// content generation or replace the last-ready frame.
     func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
-        if pendingFrameIndex == timing.frameIndex {
+        if pendingFrameIndex == timing.frameIndex,
+           lifecycle.hasPlannedFrame(frameIndex: timing.frameIndex) {
             return pendingFrame ?? lastFrame
         }
         pendingFrame = nil
         pendingFrameIndex = nil
-        pendingPreparationSnapshot = .init(
-            lifecycle: lifecycle,
-            endedGeneration: endedGeneration,
-            hasStarted: hasStarted,
-            needsPlayerAnchor: needsPlayerAnchor,
-            playerEventState: playerEventState
-        )
+        pendingInitialPreparation = nil
         if !hasStarted {
+            pendingInitialPreparation = .init(lifecycle: lifecycle,
+                endedGeneration: endedGeneration,
+                itemTime: lifecycle.currentTime(at: timing.sceneTime))
             lifecycle.start(
                 sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
@@ -414,9 +424,12 @@ final class SceneVideoTextureSource {
         // must be discarded so the same frame index can retry decoding after
         // AVPlayer publishes a buffer.
         pendingFrameIndex = timing.frameIndex
-        guard plan.shouldDecode else { return lastFrame }
+        guard plan.shouldDecode else {
+            decodedFrameCandidate = nil
+            return lastFrame
+        }
         if let primedFrame, lifecycle.contentGeneration == 0 {
-            let frame = makePrimedFrame(from: primedFrame, epoch: plan.epoch)
+            let frame = makeFrame(from: primedFrame, epoch: plan.epoch)
             pendingFrame = frame
             return frame
         }
@@ -431,6 +444,7 @@ final class SceneVideoTextureSource {
         }
 
         let itemTime = boundedItemTime(plan.itemTime)
+        guard preparePlayerPosition(for: itemTime) else { return lastFrame }
         if lifecycle.isAdvancingPlayback && (needsPlayerAnchor || player.rate == 0) {
             player.setRate(
                 Float(lifecycle.rate),
@@ -440,29 +454,25 @@ final class SceneVideoTextureSource {
             needsPlayerAnchor = player.rate == 0
             if !needsPlayerAnchor {
                 playerEventState.didAnchorPlayback()
+                // Once playback leaves the positioned target, a later same-
+                // value seek must qualify again, even if this frame is rejected.
+                if case .ready = playerPositionState { playerPositionState = .unchanged }
             }
-        } else if !lifecycle.isAdvancingPlayback && needsPlayerAnchor {
-            if pendingSeekID == nil {
-                let seekID = UUID()
-                pendingSeekID = seekID
-                player.pause()
-                player.seek(to: itemTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
-                    DispatchQueue.main.async {
-                        guard let self, self.pendingSeekID == seekID else { return }
-                        self.pendingSeekID = nil
-                        self.needsPlayerAnchor = !finished
-                    }
-                }
-            }
-            // Seeking is asynchronous. Consuming the previous buffer here
-            // would acknowledge the refresh while leaving paused playback
-            // permanently on the old image.
-            return lastFrame
         }
         if lifecycle.isAdvancingPlayback && player.rate == 0 {
             needsPlayerAnchor = true
             return lastFrame
         }
+        // Acquisition cannot be rolled back with a surface. Reuse this one
+        // unpublished payload for the exact target, rebuilding only its typed
+        // publication under the current lifecycle epoch/generation.
+        if let decodedFrameCandidate,
+           decodedFrameCandidate.requestedItemTime == CMTimeGetSeconds(itemTime) {
+            let frame = makeFrame(from: decodedFrameCandidate, epoch: plan.epoch)
+            pendingFrame = frame
+            return frame
+        }
+        decodedFrameCandidate = nil
         let expectedCommandGeneration = playerEventState.commandGeneration
         guard videoOutput.hasNewPixelBuffer(forItemTime: itemTime) else {
             return lastFrame
@@ -476,19 +486,15 @@ final class SceneVideoTextureSource {
         let texture = makeTexture(from: pixelBuffer) else {
             return lastFrame
         }
-        let contentGeneration = lifecycle.contentGeneration &+ 1
-
-        let frame = Frame(
+        let decoded = DecodedFrame(
             texture: texture,
             content: resolvedColorContent(for: pixelBuffer),
-            contentGeneration: contentGeneration,
             requestedItemTime: CMTimeGetSeconds(itemTime),
             decodedItemTime: itemTimeForDisplay.isNumeric
-                ? CMTimeGetSeconds(itemTimeForDisplay) : nil,
-            epoch: plan.epoch,
-            owner: owner,
-            sourceIncarnation: sourceIncarnation
+                ? CMTimeGetSeconds(itemTimeForDisplay) : nil
         )
+        decodedFrameCandidate = decoded
+        let frame = makeFrame(from: decoded, epoch: plan.epoch)
         needsPlayerAnchor = false
         if !lifecycle.isAdvancingPlayback { player.pause() }
         pendingFrame = frame
@@ -500,7 +506,7 @@ final class SceneVideoTextureSource {
         defer {
             pendingFrame = nil
             pendingFrameIndex = nil
-            pendingPreparationSnapshot = nil
+            pendingInitialPreparation = nil
         }
         guard let pendingFrame else {
             // A successful host submission may have used the previous frame
@@ -514,6 +520,10 @@ final class SceneVideoTextureSource {
             return
         }
         lastFrame = pendingFrame
+        decodedFrameCandidate = nil
+        // Paused positioning stays reusable until its first publication;
+        // advancing playback already consumed it when the backend restarted.
+        if case .ready = playerPositionState { playerPositionState = .unchanged }
         if primedFrame?.texture === pendingFrame.texture { primedFrame = nil }
         if capturesLifecycleObservations, let layerID = owner.layerID {
 #if DEBUG
@@ -541,26 +551,18 @@ final class SceneVideoTextureSource {
 
     func discardPreparedFrame() {
         guard let frameIndex = pendingFrameIndex else { return }
-        let preparation = pendingPreparationSnapshot
+        let initial = pendingInitialPreparation
         pendingFrame = nil
         pendingFrameIndex = nil
-        pendingPreparationSnapshot = nil
+        pendingInitialPreparation = nil
         lifecycle.discardPlannedFrame(frameIndex: frameIndex)
-        if let preparation {
-            // A confirmed backend EOF is not an unsubmitted frame mutation.
-            // Keep its exact loop phase or stopped state across frame rejection;
-            // content generation and lastFrame still advance only on commit.
-            if endedGeneration == preparation.endedGeneration {
-                lifecycle = preparation.lifecycle
-                hasStarted = preparation.hasStarted
-            }
-            needsPlayerAnchor = preparation.needsPlayerAnchor
-            playerEventState = preparation.playerEventState
-        }
-        // AVPlayer may have advanced while the candidate was being encoded.
-        // Re-anchor on the next attempt so a rejected surface cannot move the
-        // provider clock ahead of the last submitted content.
-        if preparation?.hasStarted ?? true {
+        // Ordinary presentation failure does not rewind SceneClock or undo
+        // a real backend anchor/EOF. Only the first, unsubmitted start has an
+        // origin to restore; a confirmed EOF already superseded that origin.
+        if let initial, endedGeneration == initial.endedGeneration {
+            lifecycle = initial.lifecycle
+            hasStarted = false
+            requestPlayerPosition(to: initial.itemTime)
             markPlayerAnchorRequired()
         }
     }
@@ -636,6 +638,7 @@ final class SceneVideoTextureSource {
                 sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
             )
+            requestPlayerPosition(to: 0)
             markPlayerAnchorRequired()
         case let .setCurrentTime(value):
             lifecycle.seek(
@@ -643,6 +646,7 @@ final class SceneVideoTextureSource {
                 sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
             )
+            requestPlayerPosition(to: value)
             markPlayerAnchorRequired()
         case let .setRate(value):
             guard value != lifecycle.rate else { return }
@@ -654,7 +658,13 @@ final class SceneVideoTextureSource {
             markPlayerAnchorRequired()
         case let .setLoop(value):
             guard value != lifecycle.loop else { return }
+            let currentTime = lifecycle.currentTime(at: timing.sceneTime)
+            let previousPosition = boundedItemTime(currentTime)
             lifecycle.setLoop(value)
+            if CMTimeCompare(previousPosition, boundedItemTime(currentTime)) != 0 {
+                lifecycle.requestFrameRefresh()
+                requestPlayerPosition()
+            }
             markPlayerAnchorRequired()
         }
     }
@@ -715,6 +725,7 @@ final class SceneVideoTextureSource {
             self.endObserver = nil
         }
         player.pause()
+        playerPositionState = .unchanged
         player.cancelPendingPrerolls()
         item?.cancelPendingSeeks()
         player.replaceCurrentItem(with: nil)
@@ -722,21 +733,88 @@ final class SceneVideoTextureSource {
         lastFrame = nil
         pendingFrame = nil
         pendingFrameIndex = nil
-        pendingPreparationSnapshot = nil
+        pendingInitialPreparation = nil
         primedFrame = nil
-        pendingSeekID = nil
+        decodedFrameCandidate = nil
         playerEventState.invalidateAnchor()
         CVMetalTextureCacheFlush(textureCache, 0)
         ownedFile = nil
     }
 
     private func markPlayerAnchorRequired() {
-        // Tokens are backend operations, never restored with frame state.
-        // A rejected frame or newer command cannot accept an old completion.
-        pendingSeekID = nil
         player.pause()
         needsPlayerAnchor = true
         playerEventState.invalidateAnchor()
+    }
+
+    private func requestPlayerPosition(to target: TimeInterval? = nil) {
+        if let target {
+            switch playerPositionState {
+            case let .pending(_, expectedItem, pendingTarget, _), let .ready(expectedItem, pendingTarget):
+                if expectedItem === item, expectedItem === player.currentItem,
+                   CMTimeCompare(pendingTarget, boundedItemTime(target)) == 0 { return }
+            case .unchanged, .required:
+                break
+            }
+        }
+        let wasPending: Bool
+        if case .pending = playerPositionState { wasPending = true } else { wasPending = false }
+        // Revoke the old operation before cancellation can deliver its callback.
+        playerPositionState = .required(target)
+        decodedFrameCandidate = nil
+        if wasPending { item?.cancelPendingSeeks() }
+    }
+
+    /// A timebase anchor does not wait for media at the new position. Hold
+    /// last-ready until the one accepted seek completes, then use the latest
+    /// Scene plan to anchor playback; callbacks never publish or start it.
+    private func preparePlayerPosition(for itemTime: CMTime) -> Bool {
+        guard let expectedItem = item, player.currentItem === expectedItem else { return false }
+        if !lifecycle.isAdvancingPlayback && needsPlayerAnchor {
+            switch playerPositionState {
+            case let .pending(_, positionedItem, target, _), let .ready(positionedItem, target):
+                if positionedItem !== expectedItem || CMTimeCompare(target, itemTime) != 0 {
+                    requestPlayerPosition()
+                }
+            case .unchanged:
+                requestPlayerPosition()
+            case .required:
+                break
+            }
+        }
+        switch playerPositionState {
+        case .unchanged:
+            return true
+        case let .ready(positionedItem, _):
+            guard positionedItem === expectedItem else {
+                requestPlayerPosition()
+                return false
+            }
+            if !lifecycle.isAdvancingPlayback { needsPlayerAnchor = false }
+            return true
+        case .pending:
+            return false
+        case let .required(rawTarget):
+            let target = lifecycle.isAdvancingPlayback
+                ? (rawTarget.map(boundedItemTime) ?? itemTime) : itemTime
+            let operationID = UUID()
+            playerPositionState = .pending(operationID, expectedItem, target, rawTarget)
+            player.pause()
+            player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+                DispatchQueue.main.async {
+                    guard let self,
+                          case let .pending(currentID, positionedItem, _, _) = self.playerPositionState,
+                          currentID == operationID, positionedItem === expectedItem,
+                          self.item === expectedItem, self.player.currentItem === expectedItem else { return }
+                    self.playerPositionState = finished
+                        ? .ready(expectedItem, target) : .required(rawTarget)
+                    // Pause or suspension can have changed the held Scene
+                    // position during the seek. The next prepare verifies it.
+                    self.needsPlayerAnchor = true
+                }
+            }
+            return false
+        }
     }
 
     private var endEventTolerance: TimeInterval {

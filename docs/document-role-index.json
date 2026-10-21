@@ -671,13 +671,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "375f555281abc6b7564197bc3db05e21152db0efa50b4389a2126158e7581931",
+        "sourceSHA256": "87bb0c600a15b2fce98e1736847e5e0ad372996673f82c46ecc7031e37075a79",
         "method": "document_registry --audit + document_health --check",
-        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
+        "scope": "单一视频定位状态、普通拒帧与backend事实分界及单份未发布像素复用；native/Debug/真实双视频和独立WebM验收由运行记录拥有，消费需求优化仍未实施。",
+        "limitations": "导航收据不替代运行；未验Release/HDR/多屏/长稳/性能或官方同phase，不关闭337空档及动态实例。"
       }
     },
     {
@@ -741,13 +741,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0a7c5917af73a8fcf1186aed15130bc4e23aae536d130c55cb358af649947c04",
+        "sourceSHA256": "153f416dbba4f7f406564bc636f4f70fc349b06c3be74eac1778880b566d03d5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
+        "scope": "单一视频定位状态、普通拒帧与backend事实分界及单份未发布像素复用；native/Debug/真实双视频和独立WebM验收由运行记录拥有，消费需求优化仍未实施。",
+        "limitations": "导航收据不替代运行；未验Release/HDR/多屏/长稳/性能或官方同phase，不关闭337空档及动态实例。"
       }
     },
     {

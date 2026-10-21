@@ -101,8 +101,8 @@
       "bytes": 177846
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 25,
-      "bytes": 4727
+      "lines": 37,
+      "bytes": 7388
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 479,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 209404
+      "bytes": 209973
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -1259,24 +1259,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "9c97a834b2ef30ac9f5f18020f9508b6ba0b429b36ef29d67785f551b47f17ce",
-      "after": "ba79983778e8f64d58319d0488716cdb5271c8facb66e924bda46fcd14d9fc81",
-      "owner": "root-scene-video-extraction-stop",
-      "reason": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#video-publication-demand-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "66e99c26edf7f9973d62ad017efd37bc44338d0498471d816dcb81f8b2650138",
-      "after": "15d89a1cae70d107f6eb18e6d321405b400a4124b93de033f54e61aaf6bca977",
-      "owner": "root-scene-video-extraction-stop",
-      "reason": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#video-publication-demand-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
       "after": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
@@ -1301,6 +1283,24 @@
       "owner": "grid-thumbnail-demand-scheduling",
       "reason": "D17请求职责、实际owner行为门、独审及最终签名Release闭环；记录局部机制收益、停止取舍与未覆盖范围，不预支整App性能。",
       "decision": "docs/development/apple-silicon-optimization-plan.md#d17实施与验收2026-10-22"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "ba79983778e8f64d58319d0488716cdb5271c8facb66e924bda46fcd14d9fc81",
+      "after": "2c31888e57a2741d6f1016f4c0fe50feae56fa5f4d966596f93dbaf00070bd6c",
+      "owner": "scene-video-position-publication",
+      "reason": "原Source定位/解码获取/呈现提交分责限定验收；旧提取候选过程收敛为必要结论与正式证据链接，保未闭337边界及600行上限。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-position-publication"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "15d89a1cae70d107f6eb18e6d321405b400a4124b93de033f54e61aaf6bca977",
+      "after": "3d72133efb1de04743eb07c5ff209143e001e9ac70b0cc41063235ab1da58c2f",
+      "owner": "scene-video-position-publication",
+      "reason": "原Source定位/解码获取/呈现提交分责限定验收；旧提取候选过程收敛为必要结论与正式证据链接，保未闭337边界及600行上限。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-position-publication"
     }
   ]
 }

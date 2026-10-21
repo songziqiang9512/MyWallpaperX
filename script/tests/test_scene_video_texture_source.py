@@ -480,16 +480,6 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             current_frame,
             "a no-buffer plan must remain discardable when another surface drops",
         )
-        for token in (
-            "pendingPreparationSnapshot",
-            "lifecycle: lifecycle",
-            "hasStarted: hasStarted",
-            "needsPlayerAnchor: needsPlayerAnchor",
-            "playerEventState: playerEventState",
-        ):
-            with self.subTest(snapshot=token):
-                self.assertIn(token, current_frame)
-
         commit = swift_block(self.source, "func commitPreparedFrame()")
         self.assertIsNotNone(commit)
         assert commit is not None
@@ -506,15 +496,9 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             discard,
             "a dropped surface must make the no-buffer plan retryable",
         )
-        for token in (
-            "lifecycle = preparation.lifecycle",
-            "hasStarted = preparation.hasStarted",
-            "needsPlayerAnchor = preparation.needsPlayerAnchor",
-            "playerEventState = preparation.playerEventState",
-            "if preparation?.hasStarted ?? true",
-        ):
-            with self.subTest(restore=token):
-                self.assertIn(token, discard)
+        # Real provider tests cover held texture/generation, same-index retry,
+        # and backend progression. Do not freeze a particular snapshot layout
+        # or require rollback of irreversible backend actions here.
 
     def test_stop_is_idempotent_and_releases_all_owned_resources(self) -> None:
         stop = swift_block(self.source, "func stop(")
