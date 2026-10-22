@@ -546,7 +546,6 @@
           "SceneBaseImageTextureLoad.swift",
           "SceneBaseMaterialTextureResolver.swift",
           "SceneCompressedTextureUploader.swift",
-          "SceneEffectTextureLoadResult.swift",
           "SceneFrameTextureRegistry.swift",
           "SceneImageTextureUploader+Resample.swift",
           "SceneImageTextureUploader.swift",

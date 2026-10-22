@@ -101,7 +101,7 @@
     },
     {
       "name": "matches",
-      "allowedCopies": 8,
+      "allowedCopies": 7,
       "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
       "note": "Reviewed non-private regex pipeline; literal patterns must not be re-plumbed per file.",
       "owner": "Compilation/ShaderPreparation family merge",
