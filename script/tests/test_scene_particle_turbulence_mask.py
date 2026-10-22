@@ -21,6 +21,7 @@ from script.tests.test_scene_particle_turbulent_forward import PARTICLE_SOURCES
 
 HARNESS = r'''
 import Foundation
+import Darwin
 
 @main enum Harness {
     static let step = 0.125
@@ -79,6 +80,66 @@ import Foundation
         return ["first": first, "final": observe(sim)]
     }
 
+    static func equalRangeSampling() throws -> [String: Any] {
+        var saved = fenv_t()
+        guard fegetenv(&saved) == 0 else { throw NSError(domain: "save-fenv", code: 1) }
+        defer { precondition(fesetenv(&saved) == 0, "restore fenv") }
+        let sim = try make(1.0)
+        sim.advance(by: step)
+        guard sim.particles.count == 1,
+              let scalar = sim.initializerExecutionPlans.first?.scalar else {
+            throw NSError(domain: "missing-real-birth-sampler", code: 1)
+        }
+        let cases: [(String, Double, Double)] = [
+            ("plus-zero", 0.0, 0.0), ("plus-minus-zero", 0.0, -0.0),
+            ("minus-plus-zero", -0.0, 0.0), ("minus-zero", -0.0, -0.0),
+            ("one", 1, 1), ("minus-one", -1, -1),
+            ("least-subnormal", .leastNonzeroMagnitude, .leastNonzeroMagnitude),
+            ("minus-least-subnormal", -.leastNonzeroMagnitude, -.leastNonzeroMagnitude),
+            ("largest-subnormal", Double.leastNormalMagnitude.nextDown,
+             Double.leastNormalMagnitude.nextDown),
+            ("minus-largest-subnormal", -Double.leastNormalMagnitude.nextDown,
+             -Double.leastNormalMagnitude.nextDown),
+            ("greatest", .greatestFiniteMagnitude, .greatestFiniteMagnitude),
+            ("minus-greatest", -.greatestFiniteMagnitude, -.greatestFiniteMagnitude)]
+        let modes: [(String, Int32)] = [("nearest", FE_TONEAREST),
+            ("downward", FE_DOWNWARD), ("upward", FE_UPWARD), ("toward-zero", FE_TOWARDZERO)]
+        var samples: [[String: Any]] = [], births: [[String: Any]] = []
+        for (name, mode) in modes {
+            guard fesetround(mode) == 0, fegetround() == mode else {
+                throw NSError(domain: "set-rounding-mode", code: Int(mode))
+            }
+            let beforeKeyed = sim.random.state
+            for (label, first, second) in cases {
+                for salt in 0...1 {
+                    var oracle = SceneParticleRandomGenerator(state: sim.simulationSeed)
+                    let expected = oracle.value(first, second)
+                    let actual = sim.turbulenceRandom(first, second, 0, 0, salt)
+                    samples.append(["mode": name, "case": label, "salt": salt,
+                        "actual": actual.bitPattern, "expected": expected.bitPattern])
+                }
+            }
+            let afterKeyed = sim.random.state
+            var scalarOracle = sim.random, oneDraw = sim.random
+            let expectedScalar = scalarOracle.value(scalar.minimum, scalar.maximum)
+            _ = oneDraw.unit()
+            let expectedState = oneDraw.state
+            let actualScalar = sim.randomScalar(scalar)
+            let afterScalar = sim.random.state
+            let actualNext = sim.random.value(-7, 13)
+            let expectedNext = oneDraw.value(-7, 13)
+            births.append(["mode": name, "beforeKeyed": beforeKeyed, "afterKeyed": afterKeyed,
+                "scalar": actualScalar.bitPattern, "scalarOracle": expectedScalar.bitPattern,
+                "afterScalar": afterScalar, "oneDrawState": expectedState,
+                "scalarOracleState": scalarOracle.state, "next": actualNext.bitPattern,
+                "nextOracle": expectedNext.bitPattern, "finalState": sim.random.state,
+                "finalOracleState": oneDraw.state])
+        }
+        return ["samples": samples, "births": births,
+                "birthRange": [scalar.minimum, scalar.maximum],
+                "birthExponentAbsent": scalar.exponent == nil]
+    }
+
     static func main() throws {
         var output: [String: Any] = [:]
         output["unit"] = try run(1.0)
@@ -119,6 +180,10 @@ import Foundation
                 && SceneParticleSimulationMath.isGPUFinite(expectedDelta),
             "unsafeSumRejectedByFloat": !Float(prior.x + expectedDelta.x).isFinite,
             "otherAxisWouldChange": abs(expectedDelta.z) > 1e-6]
+        let originalRound = fegetround(), originalExceptions = fetestexcept(FE_ALL_EXCEPT)
+        output["equalRangeSampling"] = try equalRangeSampling()
+        output["samplingFenvRestored"] = fegetround() == originalRound
+            && fetestexcept(FE_ALL_EXCEPT) == originalExceptions
         print(String(decoding: try JSONSerialization.data(withJSONObject: output,
             options: [.sortedKeys]), as: UTF8.self))
     }
@@ -162,6 +227,34 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
     def delta(self, key):
         velocity = self.result[key]["first"]["velocities"][0]
         return [v - prior for v, prior in zip(velocity, [3, -2, 1])]
+
+    def test_equal_range_keyed_sampling_matches_scalar_bits_and_preserves_birth_rng(self):
+        result = self.result["equalRangeSampling"]
+        modes = {"nearest", "downward", "upward", "toward-zero"}
+        cases = {"plus-zero", "plus-minus-zero", "minus-plus-zero", "minus-zero",
+                 "one", "minus-one", "least-subnormal", "minus-least-subnormal",
+                 "largest-subnormal", "minus-largest-subnormal", "greatest", "minus-greatest"}
+        expected = {(mode, case, salt) for mode in modes for case in cases for salt in (0, 1)}
+        samples = result["samples"]
+        self.assertEqual({(r["mode"], r["case"], r["salt"]) for r in samples}, expected)
+        self.assertEqual(len(samples), len(expected))
+        for row in samples:
+            with self.subTest(mode=row["mode"], case=row["case"], salt=row["salt"]):
+                self.assertEqual(row["actual"], row["expected"])
+        self.assertEqual(result["birthRange"], [8, 8])
+        self.assertTrue(result["birthExponentAbsent"])
+        self.assertEqual({r["mode"] for r in result["births"]}, modes)
+        self.assertEqual(len(result["births"]), len(modes))
+        for row in result["births"]:
+            with self.subTest(birth_mode=row["mode"]):
+                self.assertEqual(row["beforeKeyed"], row["afterKeyed"])
+                self.assertEqual(row["scalar"], row["scalarOracle"])
+                self.assertNotEqual(row["afterScalar"], row["afterKeyed"])
+                self.assertEqual(row["afterScalar"], row["oneDrawState"])
+                self.assertEqual(row["scalarOracleState"], row["oneDrawState"])
+                self.assertEqual(row["next"], row["nextOracle"])
+                self.assertEqual(row["finalState"], row["finalOracleState"])
+        self.assertTrue(self.result["samplingFenvRestored"])
 
     def test_scalar_mask_scales_actual_operator_velocity_increment(self):
         unit = self.delta("unit")

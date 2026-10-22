@@ -3608,13 +3608,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c3fec06a931d6e64c9d5487df52f1d8874ea15a85d9107a91d6e720eba271a8b",
+        "sourceSHA256": "1f3b223a81b179a0ee0f5af24a97c1e0a64a3092e7928e09d9c029ac6f825d6b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-        "limitations": "两对提前拒绝不是3+3接受；无产品改动或新稳定收益、Release/功耗/完整视频验收；目录分母356和人工裁决不变。"
+        "scope": "Scene当前自主选序与粒子等值keyed采样的小幅CPU有界结果；376旧来源证据纠正，未将历史记录冒认当前实播。",
+        "limitations": "仅优化Debug隔离Host三对与独立311本窗；非整引擎/Release/能耗验收，376本轮未播、机制仍unknown。"
       }
     },
     {
@@ -3664,13 +3664,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5580fd5cbc850bf81f49679aa7d3dcd23ab30e9bfc5df25fe55f9c1736d75fde",
+        "sourceSHA256": "c823a19060905a13e91fc4845e44d8e8c1e9f7b91fd976f7b488d6e64e14b86d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
-        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
+        "scope": "Scene当前自主选序与粒子等值keyed采样的小幅CPU有界结果；376旧来源证据纠正，未将历史记录冒认当前实播。",
+        "limitations": "仅优化Debug隔离Host三对与独立311本窗；非整引擎/Release/能耗验收，376本轮未播、机制仍unknown。"
       }
     },
     {

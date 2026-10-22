@@ -67,6 +67,12 @@ extension SceneParticleSimulator {
     nonisolated func turbulenceRandom(
         _ first: Double, _ second: Double, _ index: Int, _ operatorIndex: Int, _ salt: Int
     ) -> Double {
+        // This keyed sample has no subsequent RNG state. Keep the constant
+        // interval arithmetic (including signed zero) without hashing.
+        if first.isFinite, first == second {
+            let lower = min(first, second)
+            return lower + (max(first, second) - lower)
+        }
         var state = simulationSeed ^ (particles[index].id &* 0x9E3779B97F4A7C15)
         state ^= UInt64(operatorIndex &* 31 &+ salt) &* 0xBF58476D1CE4E5B9
         var generator = SceneParticleRandomGenerator(state: state)

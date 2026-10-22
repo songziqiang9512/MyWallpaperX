@@ -253,8 +253,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 60,
-      "bytes": 16353
+      "lines": 64,
+      "bytes": 17376
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -270,7 +270,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 252,
-      "bytes": 78882
+      "bytes": 79128
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1222,15 +1222,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
-      "after": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
-      "owner": "root-scene-video-extraction-stop",
-      "reason": "337帧提取候选因两对稳态footprint退步撤回；保最小反例、原供帧空档和不同backend后继准入，避免重复包装验收。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#video-publication-demand-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
       "before": "146c3ed3805646cad0ab7f6308ff2a3ac2e484f111df8ba9ad106084e660cd5a",
       "after": "a83dfefa46b5a2a0fa2db40fd9d7df7045ca103f358ce403661a6287c3b47b93",
@@ -1375,15 +1366,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8288d4391209e3b27487fb15b87c4215aca9bc7db682d806afccad0556c2c215",
-      "after": "2002d9e8566f241160ce3f5ecfafa94fbcede30115c312fcfdbdd69703a15ba7",
-      "owner": "Scene native text bounds",
-      "reason": "主时钟已修首断点退出并保精简后验；新复核的6条既存目录登记债与固定基线一致，单列防重复误判，不混入产品修法。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "cc61c7035cc5a5a85302e8cfa65bfcc12cd819f635965941ca4486a15ecb050c",
       "after": "a404484ebd220382365377450e1b27bb05b15ba4d5ef5c2cc09c891bf536c765",
@@ -1426,6 +1408,24 @@
       "owner": "code-slimming-b12",
       "reason": "按第十二批用户授权同步精简合同及有界验证，替换退役说明并按实际正文调整预算。",
       "decision": "docs/development/code-slimming-program.md#第十二批范围与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
+      "after": "06f57d2b2462fd48d6a6ad70016f42215853af5dc5dc14b22f2db45c72325bc7",
+      "owner": "scene-keyed-sampling-local-cpu",
+      "reason": "记录用户允许可靠小收益后的三对实际CPU结果与精确未验范围，保留原正式门；同时纠正Scene执行路线与376历史来源，避免误开旧实现。",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md#keyed-sampling-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1bbf8809f86e1cc4b1d4bbd104a590d54e3912091aceb18ff89f95e38be1d87e",
+      "after": "02a993e9059f2ecec2fa550d9ccbab9bf1f106d8805bc815f48395a69e8c8086",
+      "owner": "scene-keyed-sampling-local-cpu",
+      "reason": "记录用户允许可靠小收益后的三对实际CPU结果与精确未验范围，保留原正式门；同时纠正Scene执行路线与376历史来源，避免误开旧实现。",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md#keyed-sampling-20261023"
     }
   ]
 }

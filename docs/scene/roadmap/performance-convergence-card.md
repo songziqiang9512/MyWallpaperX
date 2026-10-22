@@ -4,7 +4,7 @@
 
 本卡维护CPU/GPU、内存、启动与能耗专项。全局按[兼容路线](scene-compatibility-roadmap.md)先处理合成/正常播放问题，再选择有证成本；属性热更新接线归[属性卡](properties-panel-card.md)，开放问题归[队列](scene-open-breakpoint-queue.md)。
 
-**执行顺序。** 2026-10-20用户指定[Apple silicon全App优化方案](../../development/apple-silicon-optimization-plan.md)为本轮唯一执行路线；本卡保留下述历史、正式测量与安全口径，不另维护本轮下一步，不将低复杂度局部正收益机械等同正式百分比验收。兼容路线继续拥有作者能力合同及其他功能工作，本轮不据此离开24项路线。旧E/AS不作前置，[顶层设计](engine-refactor-program.md)只规定边界。
+**执行顺序。** 当前Scene自主选题服从[兼容路线](scene-compatibility-roadmap.md)与[断点队列](scene-open-breakpoint-queue.md)；本卡维护性能专项选序与验收。原24项和D阶段内部顺序、状态归[Apple silicon全App方案](../../development/apple-silicon-optimization-plan.md)，不扩成后续Scene工作的前置。保留低复杂度可靠局部收益，整体比例未知如实注明；正式整体收益按下述同条件门验收。旧E/AS不作前置，[顶层设计](engine-refactor-program.md)只规定边界。
 
 1. 整体 CPU/GPU 先联合归因，再联查内存与启动：采样每帧求值/分配、序列化/诊断、主线程阻塞与后台争用，再查压缩纹理展开、解码峰值、重复解析/上传。优先比较 VM/帧桥重复工作、调度 attempt 与实际最贵 GPU pass/shader；局部准备已降而整进程未降时重新选题，不惯性继续微调。温度高、低频与GPU满载须绑定实际工作，不能凭频率或旧样本帧预算判瓶颈。
 2. GPU：按真实pass/shader成本选题，持续筛高级混合复制及满足条件的HDR历史画面路径；实际需要的背景、history、反馈及完成屏障必须保留。
@@ -26,6 +26,10 @@
 - **启动**：[10-18链接产物复用](../history/linked-stage-startup-convergence-2026-10-18.md)窄接受五对优化Debug产品入口冷启动中位4869→4331ms，Program字节一致；暖启动无确定收益，Web短筛未改产品。原366未见可见结果；[类型名lookup](../history/shader-value-type-recognition-2026-10-16.md)仅局部收益，[原322同次栈](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)仍不足重开旧声明扫描。cold/warm分阶段按实际入口验收，保base-image/natural-size依赖，增timeout不算优化。
 
 **10-18工具链资格短筛：STOP。** 同源真实resolve/严格验签与双version，三进程各11次全部成功，但总计时噪声306.98%超过事前5%门；未剔首次慢探针，三个真实normalized pair的工具子链0执行。后10次的乐观可省上界中位103.845ms不是实测收益，不据此加缓存或认App启动收益。原数、固定输入、清理与独审仅保本机收据 `../../../.artifacts/tmp/shader-toolchain-qualification-cost-20261018/summary.json`；本方向无产品修改，不重复旧筛或放宽阈值，先回可执行能力断点。
+
+<a id="keyed-sampling-20261023"></a>
+
+**10-23等值keyed粒子采样：窄保留。** 有限等值范围沿原标量算术直接取值，省去无后续状态的局部hash；出生共享RNG、非等值/非有限路径不变。用户明确允许可靠小收益后，原3%早停门撤销；新HEAD优化Debug隔离Host、原199静音/30FPS、30s预热+≥60s稳态三对AB/BA/AB，每完成帧进程CPU下降1.667%/1.927%/2.467%，中位1.927%，基线噪声0.961%，仅略过两倍噪声。非目标中位未越原门，不认GPU/内存收益；四舍入模式位值/共享RNG门及独立311非等值phase实际输出、正常stop/排空成立。仅本条件小幅CPU改善；普通Service/daemon、Release、能耗与全样本未验。身份、原数、协议覆盖与旧STOP归本机限期包 `.artifacts/scene-evidence/runs/particle-keyed-sampling-20261023/`，首对原始图/CLI归其前驱 `particle-keyed-sampling-stop-20261023`；不扩为正式10%验收。
 
 **10-19粒子phase cosine缓存筛选：STOP。** 原343的Debug instrumented `particle-advance`约15ms仅为局部阶段，不能当整进程CPU或Release成本。隔离副本在原phase cache存Double baseline，真实Runtime→Simulator→instance链按5000+75星、`-O/WMO`前后各编译一次，预登记六进程三组AB的优化链计时窗CPU中位**增加0.979%**，无稳定收益，未实施产品。实际cache值stride96→128，5000项多156.25KiB值载荷；不是RAM footprint，字典容量/开销未据此推算。所测数值/RNG/快照取消恢复指纹一致仅限已覆盖字段，有限筛选结束不扩试；最小收据 `../../../.artifacts/tmp/343-model-lighting-20261019/particle-phase-cache-stop.json`。
 
