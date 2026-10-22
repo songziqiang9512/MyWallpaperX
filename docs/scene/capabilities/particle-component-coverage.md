@@ -2,7 +2,7 @@
 
 > 状态：现役专题能力表
 >
-> 最近核对：2026-10-22（本次核I13 Number Count；其他行保各自证据边界）
+> 最近核对：2026-10-23（I13默认值及位置映射资格；其他行保各自证据边界）
 >
 > 口径来源：[官方页面目录](../history/reference/official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](../development/source-index.md)
 > 现役段位：本表所列 bounded V3 架构完成门已于 2026-08-29 闭合，主线进入 V4；`L0-L2` 与每行下一门继续表示明确 unsupported/偏差债务，不等于已完整兼容 Particle System，也不倒灌阻塞 V4。
@@ -245,6 +245,13 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 官方 2.8.0.42 新建组件的编辑器显示 bounds `0 1`、Repeat、两端 speed `0 0 0`，保存时会省略这些字段；当前 plan 要求它们显式存在，导致只写合法 Count 的初始化器被跳过。本批只补这四字段的省略语义，Count 仍须显式 finite `1...1024`，不扩默认 Count、Mirror、flags、CP 或空间资格。
 
 沿现有 raw definition → initializer plan → simulator birth：raw 保留省略为 nil，plan 分别补默认值；字段存在但为 null、畸形或非法值仍局部拒绝，不能把错误输入当省略。单端 speed 省略独立取零，显式值及现有向量、顺序、有限值检查优先。保持原 circle basis、作者顺序和三轴 RNG 消费，不增 owner、状态或资源。验收覆盖省略组合、等价表达与改名、非法邻例、出生状态及后续 RNG、真实输入和独立样本。默认值依据直接编辑器/保存事实；官方省略/显式/半环板只补有界观察。首轮绝对相位预测失败、后继采图超过自定 60 秒调度门均保留 STOP，不能称严格 golden 通过；两帧仍在 120 秒寿命内，不据此否定独立默认值事实或反复补跑。仅记录固定 marker 下的几何观察，不关闭 global phase、旋向、跨周期或官方 RNG，不调参数凑画面。
+
+<a id="position-around-position-mapping"></a>
+### I13 位置映射资格（2026-10-23，未改实现）
+
+固定官方自有板反证了现有默认 `+Z` 的可见位置公式：仅改变发射径向 `+X`→`+Y`，点集保持，而现有 `(+X cosθ,+Y sinθ)` 不能复现该点集。相同相位下 `(+X sinθ,+Y cosθ)` 可解释这两块 Z 板及首个可见出生点；它只是有效 XY 映射，不唯一确定官方内部 basis、角度符号或粒子 ID。两组斜轴使六个预设通用候选全部失败，故停止选公式与产品修改；不能把 Z 板结论推广到任意轴，或将未知唯一归因于 circle basis。发射位置、半径/轴向空间与投影组合仍需区分。
+
+当前位置、三轴共享 RNG 和独立初速 Rodrigues 旋转均保持原实现；零初速板不证明速度方向。下一门须有新的可区分 producer/空间证据，不拟合相位、不按样本补偿、不重复原矩阵。实际小提琴/漩涡的方向与密度仍开放，不能以这份小实验关闭。原始输入、控制、测量与停止边界归[运行证据](runtime-evidence-current.md#particle-position-mapping-20261023)。
 
 ## 6. Operators
 

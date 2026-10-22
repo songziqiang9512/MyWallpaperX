@@ -695,10 +695,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8b4f715def1ea11390339ac12b47aebd078f08f3119af801455044966eb4211b",
+        "sourceSHA256": "f8e8d0523921dee3668028928a27596b4530e322fe825eefccb7fe773131f483",
         "method": "document_registry --audit + document_health --check",
-        "scope": "I13 omitted-default input contract, current actual379/independent311 and owned-board results; retain official protocol STOP and unrelated gaps. Current376 late-window source remains unknown.",
-        "limitations": "Navigation identity only; linked bounded runtime receipts own validation. No complete sample, official golden, HDR or performance claim."
+        "scope": "I13 position-mapping fixed official five-panel qualification and strict UNKNOWN; retain current implementation, omitted-default result and actual-sample open boundaries.",
+        "limitations": "Navigation identity only; bounded original captures and frozen protocol own the experiment. No generic formula, internal basis, velocity, sample repair or performance claim."
       }
     },
     {
@@ -751,10 +751,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2713f63c2a6d8015756d679cddca24d6a96a1137224bc0adc9c0363533a51a68",
+        "sourceSHA256": "123e1cd0eccae9b1a3b8846ef4389a1c114f0dfd441cab85025ae3bed2329de1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "I13 omitted-default input contract, current actual379/independent311 and owned-board results; retain official protocol STOP and unrelated gaps. Current376 late-window source remains unknown.",
-        "limitations": "Navigation identity only; linked bounded runtime receipts own validation. No complete sample, official golden, HDR or performance claim."
+        "scope": "I13 position-mapping fixed official five-panel qualification and strict UNKNOWN; retain current implementation, omitted-default result and actual-sample open boundaries.",
+        "limitations": "Navigation identity only; bounded original captures and frozen protocol own the experiment. No generic formula, internal basis, velocity, sample repair or performance claim."
       }
     },
     {
@@ -3667,10 +3667,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "acf8016a6411f01cca5426b2fe67505c5e657259e2a2d23aea4d956c816349d6",
+        "sourceSHA256": "14c2147fdaa3c1175ab645df97f7d54bea5b5e294ba18fcee4306a75d07f600e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "I13 omitted-default input contract, current actual379/independent311 and owned-board results; retain official protocol STOP and unrelated gaps. Current376 late-window source remains unknown.",
-        "limitations": "Navigation identity only; linked bounded runtime receipts own validation. No complete sample, official golden, HDR or performance claim."
+        "scope": "I13 position-mapping fixed official five-panel qualification and strict UNKNOWN; retain current implementation, omitted-default result and actual-sample open boundaries.",
+        "limitations": "Navigation identity only; bounded original captures and frozen protocol own the experiment. No generic formula, internal basis, velocity, sample repair or performance claim."
       }
     },
     {

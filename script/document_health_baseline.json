@@ -125,8 +125,8 @@
       "bytes": 7388
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 495,
-      "bytes": 161550
+      "lines": 502,
+      "bytes": 162715
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -141,8 +141,8 @@
       "bytes": 349060
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 597,
-      "bytes": 216323
+      "lines": 599,
+      "bytes": 217665
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -270,7 +270,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 253,
-      "bytes": 79422
+      "bytes": 79660
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1403,29 +1403,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "98daacafb9cfd2970fd39fd6c4880458115a3333e54dcc77b7453e40b1938edd",
-      "after": "42bd3f2f30d1698192342c09a4aa086d4f292d9a068e8820b9c2272d5551e1e5",
-      "owner": "Scene particle initializer / current evidence",
-      "reason": "Existing I13 plan admits observed omitted defaults and rejects explicit invalid values. Bounded runtime and independent evidence replace stale unsupported status; preserve official STOP and other gaps, correct obsolete local artifact routing.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-omitted-defaults"
+      "before": "42bd3f2f30d1698192342c09a4aa086d4f292d9a068e8820b9c2272d5551e1e5",
+      "after": "221ef81fe7c61f4b4657edf662a6e096579b88fa703ad68f177e883fbdac5838",
+      "owner": "Scene particle position-mapping qualification",
+      "reason": "Preserve a new fixed-input official counterexample and strict no-candidate stop; document the bounded observable and reentry condition without changing product semantics or claiming a sample repair.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-position-mapping"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6149b0d0b54743137a840781afbcde1e6ef566646cbd9c15a74c576f2c0f6e91",
-      "after": "485dc458cdca9fedccccc2a41dad49db194f59cdaf9ee5e959661f0c0e1633ff",
-      "owner": "Scene particle initializer / current evidence",
-      "reason": "Existing I13 plan admits observed omitted defaults and rejects explicit invalid values. Bounded runtime and independent evidence replace stale unsupported status; preserve official STOP and other gaps, correct obsolete local artifact routing.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-omitted-defaults"
+      "before": "485dc458cdca9fedccccc2a41dad49db194f59cdaf9ee5e959661f0c0e1633ff",
+      "after": "ca5c6c72fdd0ae9c50fabc2f0c6e09f71e0dc4ee3f371c317b0e8583d23b9652",
+      "owner": "Scene particle position-mapping qualification",
+      "reason": "Preserve a new fixed-input official counterexample and strict no-candidate stop; document the bounded observable and reentry condition without changing product semantics or claiming a sample repair.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-position-mapping"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "02a993e9059f2ecec2fa550d9ccbab9bf1f106d8805bc815f48395a69e8c8086",
-      "after": "173778315ef04d8c7e68b2a9eded85ca121a640335b07cff1d37f9f28c0c7314",
-      "owner": "Scene particle initializer / current evidence",
-      "reason": "Existing I13 plan admits observed omitted defaults and rejects explicit invalid values. Bounded runtime and independent evidence replace stale unsupported status; preserve official STOP and other gaps, correct obsolete local artifact routing.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-omitted-defaults"
+      "before": "173778315ef04d8c7e68b2a9eded85ca121a640335b07cff1d37f9f28c0c7314",
+      "after": "edfa0e177c2c54d604105020a7696b7cc3695849b12e09a1b6a17ce6af29a542",
+      "owner": "Scene particle position-mapping qualification",
+      "reason": "Preserve a new fixed-input official counterexample and strict no-candidate stop; document the bounded observable and reentry condition without changing product semantics or claiming a sample repair.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-position-mapping"
     }
   ]
 }
