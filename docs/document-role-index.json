@@ -695,10 +695,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f8e8d0523921dee3668028928a27596b4530e322fe825eefccb7fe773131f483",
+        "sourceSHA256": "c664ce9f1e3829fcab878ce92b1fbd321ce403f5cd6f5bdd6df93ba89848aa70",
         "method": "document_registry --audit + document_health --check",
-        "scope": "I13 position-mapping fixed official five-panel qualification and strict UNKNOWN; retain current implementation, omitted-default result and actual-sample open boundaries.",
-        "limitations": "Navigation identity only; bounded original captures and frozen protocol own the experiment. No generic formula, internal basis, velocity, sample repair or performance claim."
+        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
+        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
       }
     },
     {
@@ -751,10 +751,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "123e1cd0eccae9b1a3b8846ef4389a1c114f0dfd441cab85025ae3bed2329de1",
+        "sourceSHA256": "4f282667732e8c137f56789f8dd614becc4bd149a850d65299cbc36c109103f2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "I13 position-mapping fixed official five-panel qualification and strict UNKNOWN; retain current implementation, omitted-default result and actual-sample open boundaries.",
-        "limitations": "Navigation identity only; bounded original captures and frozen protocol own the experiment. No generic formula, internal basis, velocity, sample repair or performance claim."
+        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
+        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
       }
     },
     {
@@ -1025,13 +1025,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8d69c1b5def262f758fc42f20bc26699009f9d9e8c74ab47a2dfe1c2bae4809e",
+        "sourceSHA256": "dbd00b851e4e30502576dbadee66b73b764940ce818e544682c3127369085f65",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile explicit ordinary native image terminal depth, DTO/compiler ownership and live code links; keep real333 occlusion, text defaults and exact real358 benefit open.",
-        "limitations": "Bounded authored-state and visible regression evidence only. No whole-sample, default text, replay, official parity or performance claim."
+        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
+        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
       }
     },
     {
@@ -2111,6 +2111,17 @@
       ],
       "cutoffDate": "2026-10-19",
       "uniqueValue": "普通原生平面显式深度读写与剔除的App红绿、唯一帧资源与DTO/解析职责分离；真实333未受益及text默认未知边界。"
+    },
+    {
+      "path": "docs/scene/history/particle-initializer-qualification-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     {
       "path": "docs/scene/history/particle-material-coverage-qualification-2026-10-18.md",
@@ -3667,10 +3678,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "14c2147fdaa3c1175ab645df97f7d54bea5b5e294ba18fcee4306a75d07f600e",
+        "sourceSHA256": "2f07098853c18462a8f483524145857e94ce4eef5a5b57ea2579565fd2ed7906",
         "method": "document_registry --audit + document_health --check",
-        "scope": "I13 position-mapping fixed official five-panel qualification and strict UNKNOWN; retain current implementation, omitted-default result and actual-sample open boundaries.",
-        "limitations": "Navigation identity only; bounded original captures and frozen protocol own the experiment. No generic formula, internal basis, velocity, sample repair or performance claim."
+        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
+        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
       }
     },
     {

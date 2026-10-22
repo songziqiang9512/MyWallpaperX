@@ -126,7 +126,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 502,
-      "bytes": 162715
+      "bytes": 162809
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 217665
+      "bytes": 217108
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -270,7 +270,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 253,
-      "bytes": 79660
+      "bytes": 79979
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1403,29 +1403,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "42bd3f2f30d1698192342c09a4aa086d4f292d9a068e8820b9c2272d5551e1e5",
-      "after": "221ef81fe7c61f4b4657edf662a6e096579b88fa703ad68f177e883fbdac5838",
-      "owner": "Scene particle position-mapping qualification",
-      "reason": "Preserve a new fixed-input official counterexample and strict no-candidate stop; document the bounded observable and reentry condition without changing product semantics or claiming a sample repair.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-position-mapping"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "485dc458cdca9fedccccc2a41dad49db194f59cdaf9ee5e959661f0c0e1633ff",
-      "after": "ca5c6c72fdd0ae9c50fabc2f0c6e09f71e0dc4ee3f371c317b0e8583d23b9652",
-      "owner": "Scene particle position-mapping qualification",
-      "reason": "Preserve a new fixed-input official counterexample and strict no-candidate stop; document the bounded observable and reentry condition without changing product semantics or claiming a sample repair.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-position-mapping"
+      "before": "221ef81fe7c61f4b4657edf662a6e096579b88fa703ad68f177e883fbdac5838",
+      "after": "42ae786d7de7e384df7ed13a54ee4c077794799317e2c661fa370e011a7c24a5",
+      "owner": "Scene particle initializer qualification",
+      "reason": "Keep strict eventdeath no-pattern result and corrected active-child identity; move detailed experiment facts to one historical record and keep current authority compact. No product semantics or coverage expansion.",
+      "decision": "docs/scene/history/particle-initializer-qualification-2026-10-23.md#event-inheritance"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "173778315ef04d8c7e68b2a9eded85ca121a640335b07cff1d37f9f28c0c7314",
-      "after": "edfa0e177c2c54d604105020a7696b7cc3695849b12e09a1b6a17ce6af29a542",
-      "owner": "Scene particle position-mapping qualification",
-      "reason": "Preserve a new fixed-input official counterexample and strict no-candidate stop; document the bounded observable and reentry condition without changing product semantics or claiming a sample repair.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-position-mapping"
+      "before": "edfa0e177c2c54d604105020a7696b7cc3695849b12e09a1b6a17ce6af29a542",
+      "after": "82fe7e9823f1e700b4e945610d641d4c7e11d110896d6651891485079414c626",
+      "owner": "Scene particle initializer qualification",
+      "reason": "Keep strict eventdeath no-pattern result and corrected active-child identity; move detailed experiment facts to one historical record and keep current authority compact. No product semantics or coverage expansion.",
+      "decision": "docs/scene/history/particle-initializer-qualification-2026-10-23.md#event-inheritance"
     }
   ]
 }

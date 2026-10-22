@@ -10,7 +10,7 @@
 >
 > [样本台账](scene-sample-acceptance-ledger.md)分别记录可用引用与已清理来源；裁决覆盖层的`unavailableLocalRuns/unavailableLocalEvidence`保留旧路径，不计可用载荷，现役引用仍须实际存在。旧容量申请已失效，后续按[当前保留规则](../../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)归档仍存在且必要的结果；无法找回的不补造，也不为补齐旧缓存重跑全库。现役引用须核验文件与manifest。
 
-<a id="particle-position-mapping-20261023"></a>**I13位置映射资格（2026-10-23）：STOP_UNKNOWN，产品未改。** HEAD `809219140`，固定官方2.8.0.42/EXE `daac1ea7…6bda07`，自有 `80025025` PKG `5b041926…c500f1b`。五板锁 Count5、bounds .05… .85、R50、零初速、900s寿命，Z/两组带符号单位斜轴/+Y发射径向/单可见出生；640×360原JPEG两帧在31.57…34.60s、非重叠间隔2.503s。49条固定控制记录残差≤0.767px（44个独立中心，尺与中心tick重合），A-D各5点/E1点、两帧配对0px。六个冻结候选没有一个同时匹配ABCD，不能按最小误差选公式；Z的A/D同点集、有效sin/cos映射误差≤0.636px，E仅支持首可见phase .05/k0，不认隐藏id0。B有一点超出全部候选共用的投影圆假设，不能仅调平面角度解释，也不能唯一归因内部basis。独审确认有界UNKNOWN；原位置/初速/RNG/空间实现保持，无App构建、真实样本修后运行或性能声明。必要原图、冻结输入、预测/测量、身份与关闭收据归 `.artifacts/scene-evidence/runs/particle-position-mapping-20261023/`，普通14天；仅关闭自有预览，VM/官方主界面保持。实际样本的方向/密度未销账，下一门见[能力边界](particle-component-coverage.md#position-around-position-mapping)。
+<a id="particle-position-mapping-20261023"></a><a id="particle-event-inheritance-20261023"></a>**粒子初始化资格（2026-10-23），均STOP_UNKNOWN、产品未改。** [位置五板](../history/particle-initializer-qualification-2026-10-23.md#position-mapping)反证当前默认Z的有效位置公式，但斜轴六候选全拒，不能据此改任意轴或初速；[死亡事件六板](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance)纠正374目标为135的death child，尺寸与alpha输出均无冻结组合，不能放开multiplysize/setopacity。固定输入、控制、全部比较、原图与独审分别归上述记录及本机正式包。默认值已修范围保持，真实方向/密度与水花未关闭；无修后App或性能收益。
 
 <a id="current-snapshot"></a>
 ## 1. 当前证据快照
