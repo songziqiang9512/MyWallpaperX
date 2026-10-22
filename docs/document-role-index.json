@@ -8,6 +8,7 @@
       "docs/architecture/system-audio-spectrum-design.md",
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/apple-silicon-optimization-plan.md",
+      "docs/development/code-slimming-program.md",
       "docs/development/repository-workflow.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
@@ -188,6 +189,12 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "原24项及用户后继D阶段逐项处置、实施合同迁入原owner且设计登记完成替换/退役后归档；此前本页独占本轮顺序与状态，不维护第二份Scene长期选序或能力台账。"
+    },
+    {
+      "path": "docs/development/code-slimming-program.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "已证候选按批验收或由用户结束专项后，稳定职责回归原合同，本页归档且退役专项设计登记。"
     },
     {
       "path": "docs/development/repository-improvement.md",
@@ -3733,13 +3740,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ab014a5496b2fc282a2e8934022d3d610684f4a299107572f259f104912d6ddc",
+        "sourceSHA256": "bf53bb54a3732c4794be6b489698b1a95c3c40a4ec39626735a9f8f6a63c6d60",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核稳定合同角色、Web入口及current-state权威链接；核对原始project保留与descriptor/runtime/context分层的导航。",
-        "limitations": "仅文档职责与导航复核；未重新验收Web兼容、作者效果、真实运行或启动性能。"
+        "scope": "B1 code slimming: preserve descriptor/session/context responsibilities and align references after retiring the unconsumed aggregate model.",
+        "limitations": "Source and contract routing review. Product regressions and build are recorded in code-slimming-program; no full Web compatibility or release claim."
       }
     },
     {
@@ -3747,13 +3754,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e84b211d50e1c5758245d38fbb9c0c214cf9e0de44209cdf586a13a3b7b38235",
+        "sourceSHA256": "b724561686df3eb27b1f730d77cfed68eb46bbb22e92409a4c501c96317cd072",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene/Web共用原生属性展示；完整作者文案、独立展示译文、原有条件/值保留与分析缓存失效边界。",
-        "limitations": "只覆盖本批展示合同及对应原生控件/解析验证，不代表全部作者属性或播放画面兼容。"
+        "scope": "B1 code slimming: preserve descriptor/session/context responsibilities and align references after retiring the unconsumed aggregate model.",
+        "limitations": "Source and contract routing review. Product regressions and build are recorded in code-slimming-program; no full Web compatibility or release claim."
       }
     },
     {
@@ -3761,13 +3768,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2936de623187ee7eec38b297b23ff4e338d040e5ce244a24ee202bc15d6429c7",
+        "sourceSHA256": "fafa39d3f3ed6dc1edb018b44cbfce39d145aeecc7b210c3d1d0801c1323a714",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current Web grants/cache rejection/recovery and Scene cooperative cancellation boundaries documented at existing owners.",
-        "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
+        "scope": "B1 code slimming: preserve descriptor/session/context responsibilities and align references after retiring the unconsumed aggregate model.",
+        "limitations": "Source and contract routing review. Product regressions and build are recorded in code-slimming-program; no full Web compatibility or release claim."
       }
     },
     {
@@ -4235,6 +4242,44 @@
           "phase": "inner",
           "gateRefs": [
             "release-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-slimming",
+      "title": "代码精简与无消费者链路退役",
+      "keywords": [
+        "精简",
+        "瘦身",
+        "无调用",
+        "死代码",
+        "冗余"
+      ],
+      "documents": [
+        "docs/development/code-slimming-program.md",
+        "docs/development/repository-workflow.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX",
+        "SteamService",
+        "script/scene_validation_gates.json"
+      ],
+      "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
+      "owner": "repository-maintainer",
+      "firstRead": "docs/development/code-slimming-program.md",
+      "nearestTestGroups": [
+        "documentation"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "document-links",
+            "scene-structure"
           ],
           "requiredArguments": [
             "--path"

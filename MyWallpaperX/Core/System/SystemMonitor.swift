@@ -2,14 +2,13 @@
 //  SystemMonitor.swift
 //  MyWallpaperX
 //
-//  系统状态监控 — CPU、内存、网络速率、GPU 使用率、SMC 温度（沙盒降级）
+//  系统状态监控 — CPU、内存、网络速率、GPU 使用率
 //  本文件遵循 macOS26 设计规范，尽量调用原生接口实现
 //
 
 import Foundation
 import Darwin
 import IOKit
-import IOKit.ps
 
 // MARK: - 数据模型
 
@@ -26,16 +25,12 @@ struct SystemStats {
     var netDownBytesPerSec: Double = 0
     /// GPU 使用率 0.0 ~ 1.0，nil 表示读取失败
     var gpuUsage: Double? = nil
-    /// CPU 温度（摄氏度），nil 表示沙盒/权限受限读不到
-    var cpuTemperature: Double? = nil
-    /// GPU 温度（摄氏度），nil 表示读不到
-    var gpuTemperature: Double? = nil
 }
 
 // MARK: - SystemMonitor
 
 /// 轻量系统指标采集器。
-/// 调用 `refresh()` 更新 `stats`，由外部驱动（菜单打开时 / 定时器）。
+/// 调用 `refreshRuntimeStats()` 更新 `stats`，由外部驱动（菜单打开时 / 定时器）。
 /// 网速计算需要两次采样差值，第一次调用时速率显示为 0。
 final class SystemMonitor {
 
@@ -55,14 +50,7 @@ final class SystemMonitor {
 
     // MARK: - 主入口
 
-    /// 刷新所有指标，写入 `stats`。在 main thread 调用安全（I/O 开销极小）。
-    func refresh() {
-        refreshRuntimeStats()
-        readSMCTemperatures(into: &stats)
-    }
-
     /// 刷新状态栏运行时指标。
-    /// 只覆盖 CPU / 内存 / 网络 / GPU，避免高频刷新时反复访问 SMC。
     func refreshRuntimeStats() {
         stats.cpuUsage  = readCPUUsage()
         readMemory(into: &stats)
@@ -206,114 +194,6 @@ final class SystemMonitor {
         }
         return maxUsage
     }
-
-    // MARK: - SMC 温度（沙盒降级：读不到时返回 nil）
-    //
-    // Apple Silicon 上 SMC 键名：
-    //   CPU 温度: "Tp09"（效能核）或 "Tp05"（性能核）
-    //   GPU 温度: "Tg05"
-    // 以上键名在不同 M 系列型号上可能不同，以实际可读到的为准。
-
-    private func readSMCTemperatures(into s: inout SystemStats) {
-        // 尝试打开 AppleSMC 服务
-        let smcService = IOServiceGetMatchingService(
-            kIOMainPortDefault,
-            IOServiceMatching("AppleSMC")
-        )
-        guard smcService != IO_OBJECT_NULL else {
-            // 沙盒下无法访问 SMC，正常降级
-            s.cpuTemperature = nil
-            s.gpuTemperature = nil
-            return
-        }
-        defer { IOObjectRelease(smcService) }
-
-        // Apple Silicon CPU 温度候选键（按优先级排列）
-        let cpuKeys = ["Tp09", "Tp05", "Tp01", "TC0P", "TC0D"]
-        // Apple Silicon GPU 温度候选键
-        let gpuKeys = ["Tg05", "Tg0D", "TGDD"]
-
-        s.cpuTemperature = readSMCKey(from: smcService, candidates: cpuKeys)
-        s.gpuTemperature = readSMCKey(from: smcService, candidates: gpuKeys)
-    }
-
-    /// 依次尝试候选键名，返回第一个成功读取的温度值（摄氏度）
-    private func readSMCKey(from service: io_object_t, candidates: [String]) -> Double? {
-        for key in candidates {
-            if let temp = smcReadTemperature(service: service, key: key), temp > 0 {
-                return temp
-            }
-        }
-        return nil
-    }
-
-    /// 通过 IOConnectCallStructMethod 读取单个 SMC 键值
-    private func smcReadTemperature(service: io_object_t, key: String) -> Double? {
-        var conn: io_connect_t = 0
-        guard IOServiceOpen(service, mach_task_self_, 0, &conn) == KERN_SUCCESS else { return nil }
-        defer { IOServiceClose(conn) }
-
-        // SMCKeyData 结构体（64 字节，与 AppleSMC kext 匹配）
-        var inputStruct  = SMCKeyData()
-        var outputStruct = SMCKeyData()
-        let inputSize    = MemoryLayout<SMCKeyData>.size
-        var outputSize   = MemoryLayout<SMCKeyData>.size
-
-        // 先查询键信息（selector 9 = kSMCGetKeyInfo）
-        inputStruct.key = fourCharCode(key)
-        inputStruct.data8 = UInt8(kSMCGetKeyInfo)
-        let infoResult = IOConnectCallStructMethod(
-            conn, UInt32(kSMCHandleYPCEvent),
-            &inputStruct, inputSize,
-            &outputStruct, &outputSize
-        )
-        guard infoResult == KERN_SUCCESS, outputStruct.result == 0 else { return nil }
-
-        let dataType = outputStruct.keyInfo.dataType
-        let dataSize = Int(outputStruct.keyInfo.dataSize)
-
-        // 读取键值（selector 5 = kSMCReadKey）
-        inputStruct = SMCKeyData()
-        inputStruct.key = fourCharCode(key)
-        inputStruct.keyInfo.dataSize = outputStruct.keyInfo.dataSize
-        inputStruct.data8 = UInt8(kSMCReadKey)
-        var readOutput = SMCKeyData()
-
-        let readResult = IOConnectCallStructMethod(
-            conn, UInt32(kSMCHandleYPCEvent),
-            &inputStruct, inputSize,
-            &readOutput, &outputSize
-        )
-        guard readResult == KERN_SUCCESS, readOutput.result == 0 else { return nil }
-
-        // 解析温度值（sp78 格式：Apple 定点数，1/256 摄氏度）
-        let sp78Type = fourCharCode("sp78")
-        let flt_Type = fourCharCode("flt ")
-        let ui8_Type = fourCharCode("ui8 ")
-
-        if dataType == sp78Type, dataSize >= 2 {
-            let raw = (Int16(readOutput.bytes.0) << 8) | Int16(readOutput.bytes.1)
-            return Double(raw) / 256.0
-        } else if dataType == flt_Type, dataSize >= 4 {
-            var raw: UInt32 = 0
-            raw |= UInt32(readOutput.bytes.0) << 24
-            raw |= UInt32(readOutput.bytes.1) << 16
-            raw |= UInt32(readOutput.bytes.2) << 8
-            raw |= UInt32(readOutput.bytes.3)
-            return Double(Float(bitPattern: raw))
-        } else if dataType == ui8_Type, dataSize >= 1 {
-            return Double(readOutput.bytes.0)
-        }
-        return nil
-    }
-
-    private func fourCharCode(_ s: String) -> UInt32 {
-        var result: UInt32 = 0
-        for (i, c) in s.utf8.prefix(4).enumerated() {
-            result |= UInt32(c) << (24 - i * 8)
-        }
-        return result
-    }
 }
 
 // MARK: - 格式化工具
@@ -342,18 +222,6 @@ extension SystemStats {
     /// 网络下行速率，如 "850 KB/s"
     var netDownString: String { formatBytes(UInt64(netDownBytesPerSec), style: .speed) }
 
-    /// CPU 温度字符串，如 "52°C"，读不到时返回 nil
-    var cpuTempString: String? {
-        guard let t = cpuTemperature else { return nil }
-        return String(format: "%.0f°C", t)
-    }
-
-    /// GPU 温度字符串，如 "61°C"，读不到时返回 nil
-    var gpuTempString: String? {
-        guard let t = gpuTemperature else { return nil }
-        return String(format: "%.0f°C", t)
-    }
-
     private enum FormatStyle { case memory, speed }
 
     private func formatBytes(_ bytes: UInt64, style: FormatStyle) -> String {
@@ -367,39 +235,3 @@ extension SystemStats {
         return "\(bytes) B" + suffix
     }
 }
-
-// MARK: - SMC 数据结构
-// 与 AppleSMC kext 内部 C 结构体对应，必须保持 64 字节对齐
-
-private let kSMCHandleYPCEvent = 2
-private let kSMCReadKey        = 5
-private let kSMCGetKeyInfo     = 9
-
-private struct SMCKeyInfo {
-    var dataSize: UInt32 = 0
-    var dataType: UInt32 = 0
-    var dataAttributes: UInt8 = 0
-}
-
-private struct SMCKeyData {
-    var key: UInt32 = 0
-    var vers: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) = (0, 0, 0, 0, 0, 0)
-    var pLimitData: UInt16 = 0
-    var keyInfo: SMCKeyInfo = SMCKeyInfo()
-    var result: UInt8 = 0
-    var status: UInt8 = 0
-    var data8: UInt8 = 0
-    var data32: UInt32 = 0
-    // 32 字节数据区，覆盖所有 SMC 数据类型（sp78/flt/ui8 等）
-    var bytes: (
-        UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-        UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-        UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-        UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8
-    ) = (
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0
-    )
-} 

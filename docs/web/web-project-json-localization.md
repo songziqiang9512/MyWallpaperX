@@ -45,7 +45,7 @@
 4. `MyWallpaperX` 的本地化、属性面板、路径规则、宿主行为，应以我们自己的运行模型为准，而不是完全照搬 Windows 宿主文件的最终呈现方式。
 5. 换句话说：
    - 原始 `project.json` 是输入
-   - `MyWallpaperX` 的 resolved runtime model 才是执行依据
+   - `MyWallpaperX` 的 descriptor 与会话派生配置才是执行依据
 
 ---
 
@@ -186,9 +186,9 @@
 - 区分官方明确字段与推断字段
 - 给后续运行层提供稳定输入
 
-## 5.3 运行层：Runtime Model Layer
+## 5.3 运行层：会话编排
 
-在播放前，基于解析结果生成会话级 `ResolvedWebRuntimeModel`。
+基于 descriptor 与当前 overrides 生成 effective values；不要求建立独立的全量会话模型或缓存。
 
 这一层的职责：
 
@@ -201,7 +201,7 @@
 
 ## 5.4 执行层：Playback Context Layer
 
-运行模型投影为最小 `ResolvedWebPlaybackContext` 后才交给宿主执行。这一层只携带入口、资源根、属性 payload 与实时桥接所需状态，不复制解析诊断或展示摘要。
+播放准备直接生成最小 `ResolvedWebPlaybackContext`，并将同一 descriptor 用于 profile 选择，再交给宿主执行。这一层只携带入口、资源根、属性 payload 与实时桥接所需状态，不复制解析诊断或展示摘要。
 
 ---
 
@@ -428,7 +428,7 @@
 
 ### 规则 5
 
-运行前应生成统一的 resolved runtime model，避免运行过程中零散判断。
+运行前应复用统一的 descriptor 与属性解释，生成最小播放 context，避免运行过程中零散判断。
 
 ### 规则 6
 

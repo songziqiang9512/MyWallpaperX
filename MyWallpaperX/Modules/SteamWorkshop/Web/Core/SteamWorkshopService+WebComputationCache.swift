@@ -13,11 +13,6 @@ struct CachedWebValidationReport {
 
 #endif
 
-struct CachedWebRuntimeModel {
-    let signature: String
-    let model: ResolvedWebRuntimeModel
-}
-
 struct CachedWebProjectDescriptor {
     let signature: String
     let descriptor: ResolvedWebProjectDescriptor
@@ -49,38 +44,6 @@ extension SteamWorkshopService {
             Self.resolvedWebWallpaperLanguage()
         ].joined(separator: "|")
     }
-    func webRuntimeComputationSignature(for record: SteamWorkshopDownloadRecord) -> String {
-        let descriptorModifiedAt = webRuntimeCacheProjectModifiedAt(for: record)?.timeIntervalSince1970 ?? 0
-        let propertySourceModifiedAt = webRuntimeCachePropertySourceProjectModifiedAt(for: record)?.timeIntervalSince1970 ?? 0
-        let entryModifiedAt = webRuntimeCacheResolvedEntryModifiedAt(for: record)?.timeIntervalSince1970 ?? 0
-        let entryPath = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? ""
-        let rootPath = record.webHostRootURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? ""
-        let dependencyItemID = record.dependencyItemID ?? ""
-        let dependencyStatus = String(describing: record.dependencyStatus)
-        let overridesData = (try? Self.webSignatureJSONEncoder.encode(webPropertyOverrides(for: record))) ?? Data()
-        let overridesBase64 = overridesData.base64EncodedString()
-        let failureRecordID = lastWebPlaybackFailureRecordID ?? ""
-        let failurePath = lastWebPlaybackFailurePath ?? ""
-        let failureMessage = lastWebPlaybackFailureMessage ?? ""
-        let activeFlag = isActiveWebRecord(record) ? "1" : "0"
-        return [
-            record.id,
-            String(descriptorModifiedAt),
-            String(propertySourceModifiedAt),
-            String(entryModifiedAt),
-            entryPath,
-            rootPath,
-            dependencyItemID,
-            dependencyStatus,
-            overridesBase64,
-            Self.resolvedWebWallpaperLanguage(),
-            failureRecordID,
-            failurePath,
-            failureMessage,
-            activeFlag
-        ].joined(separator: "|")
-    }
-
 #if DEBUG
     func webValidationSignature(for record: SteamWorkshopDownloadRecord) -> String {
         let descriptorModifiedAt = webRuntimeCacheProjectModifiedAt(for: record)?.timeIntervalSince1970 ?? 0
@@ -116,7 +79,6 @@ extension SteamWorkshopService {
 #if DEBUG
         webValidationReportCache.removeValue(forKey: recordID)
 #endif
-        webRuntimeModelCache.removeValue(forKey: recordID)
         webProjectDescriptorCache.removeValue(forKey: recordID)
     }
 
@@ -125,7 +87,6 @@ extension SteamWorkshopService {
 #if DEBUG
         webValidationReportCache.removeAll()
 #endif
-        webRuntimeModelCache.removeAll()
         webProjectDescriptorCache.removeAll()
     }
 }

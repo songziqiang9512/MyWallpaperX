@@ -5,8 +5,12 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 212,
-      "bytes": 18600
+      "lines": 206,
+      "bytes": 18316
+    },
+    "docs/architecture/playback-lifecycle-transaction-design.md": {
+      "lines": 47,
+      "bytes": 6779
     },
     "docs/architecture/repository-map.md": {
       "lines": 32,
@@ -23,6 +27,14 @@
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 259,
       "bytes": 26517
+    },
+    "docs/development/apple-silicon-optimization-plan.md": {
+      "lines": 554,
+      "bytes": 116385
+    },
+    "docs/development/code-slimming-program.md": {
+      "lines": 75,
+      "bytes": 10564
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -96,6 +108,14 @@
       "lines": 371,
       "bytes": 175730
     },
+    "docs/scene/capabilities/direct-model-bind-geometry.md": {
+      "lines": 23,
+      "bytes": 3055
+    },
+    "docs/scene/capabilities/direct-model-skeletal-animation.md": {
+      "lines": 88,
+      "bytes": 19066
+    },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
       "bytes": 177846
@@ -159,6 +179,10 @@
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
       "bytes": 5848
+    },
+    "docs/scene/capabilities/uniform-invariant-shader-constants.md": {
+      "lines": 23,
+      "bytes": 3517
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 77,
@@ -261,8 +285,12 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 137,
-      "bytes": 51402
+      "lines": 138,
+      "bytes": 51713
+    },
+    "docs/web/dedicated-host-process-design.md": {
+      "lines": 76,
+      "bytes": 15163
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -274,43 +302,19 @@
     },
     "docs/web/wallpaper-engine-web-rules.md": {
       "lines": 233,
-      "bytes": 5763
+      "bytes": 5863
     },
     "docs/web/web-project-json-localization.md": {
       "lines": 452,
-      "bytes": 12785
+      "bytes": 12911
     },
     "docs/web/web-project-json-runtime-model.md": {
-      "lines": 185,
-      "bytes": 5675
+      "lines": 180,
+      "bytes": 5986
     },
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
-    },
-    "docs/web/dedicated-host-process-design.md": {
-      "lines": 76,
-      "bytes": 15163
-    },
-    "docs/architecture/playback-lifecycle-transaction-design.md": {
-      "lines": 47,
-      "bytes": 6779
-    },
-    "docs/scene/capabilities/uniform-invariant-shader-constants.md": {
-      "lines": 23,
-      "bytes": 3517
-    },
-    "docs/scene/capabilities/direct-model-bind-geometry.md": {
-      "lines": 23,
-      "bytes": 3055
-    },
-    "docs/scene/capabilities/direct-model-skeletal-animation.md": {
-      "lines": 88,
-      "bytes": 19066
-    },
-    "docs/development/apple-silicon-optimization-plan.md": {
-      "lines": 554,
-      "bytes": 116385
     }
   },
   "archives": [
@@ -1341,6 +1345,51 @@
       "owner": "scene-composition-source-and-terminal",
       "reason": "无根效果组边界已由实际画面闭合；带效果子树仍缺分组颜色合同，旧失败保留，更新同一待修状态。",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/code-slimming-program.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "c1955d0e723ef39b4d528b09cced73a3c2a6e45698ccea6c3b7c9288fcafd87c",
+      "owner": "repository-maintainer",
+      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
+      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
+      "after": "ca6e48eaa48baad4d38179e9d0121297becd0a1564075b24e0af9310dd0329f8",
+      "owner": "repository-maintainer",
+      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
+      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/wallpaper-engine-web-rules.md",
+      "before": "e694bedade49595c1ea576ca9fa604f246fd08d2904d899a4c5c1c3e27a49dfe",
+      "after": "f03a633442498df351643256b2fc946abe0717e5f4c440b8d1f27583c87ca0c6",
+      "owner": "repository-maintainer",
+      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
+      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-project-json-localization.md",
+      "before": "5a565ee9c5cde9152162fcbd714c96c9fce264e00e286518f71ba157b9c91d23",
+      "after": "a58389afe426f31afd71469303d5707170ee4dbdf11e782d1b3e65c56b2f5fc1",
+      "owner": "repository-maintainer",
+      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
+      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-project-json-runtime-model.md",
+      "before": "73fbfd127ddbac841772c49266f61301b83270322bdced198d60dab1892c89c8",
+      "after": "fb1026783831c15621d04a6f0ddfe702729c6d03c66d2204cdb01901dfbddcff",
+      "owner": "repository-maintainer",
+      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
+      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
     }
   ]
 }

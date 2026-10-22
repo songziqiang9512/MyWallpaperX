@@ -159,7 +159,6 @@ final class SteamWorkshopPreviewRequestCoordinator {
     typealias Priority = SteamWorkshopPreviewRequestPriority
     static let shared = SteamWorkshopPreviewRequestCoordinator()
     func loadData(from url: URL, priority: Priority) async -> Data? { nil }
-    func markCachedImageSuspicious(forKey key: String) {}
     func resetFailureState(for url: URL) {}
     func nextRetryDelay(for url: URL, priority: Priority) -> TimeInterval? { nil }
 }

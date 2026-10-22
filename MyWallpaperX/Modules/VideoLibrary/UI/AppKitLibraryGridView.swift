@@ -84,9 +84,6 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         collectionView.contextMenuProvider = { [weak self] indexPath in
             self?.makeContextMenu(for: indexPath)
         }
-        collectionView.cardInteractionHandler = { [weak self] in
-            self?.wallpaperManager.markCardInteraction()
-        }
         collectionView.playRequestHandler = { [weak self] indexPath in
             self?.handlePlayRequest(at: indexPath)
         }

@@ -104,6 +104,7 @@ struct OLLocalFile { let url: URL; let fileSize: Int; let creationDate: Date }
     var reloadEntriesGeneration = 0
     var deletionBatchReloadGeneration: Int?
     var reloads = 0
+    var thumbnailDemandSchedules = 0
     func reloadEntries() {
         reloads += 1; reloadEntriesGeneration += 1
         if pendingPostDeletionSelectionIndex != nil { pendingPostDeletionSelectionGeneration = reloadEntriesGeneration }
@@ -112,6 +113,7 @@ struct OLLocalFile { let url: URL; let fileSize: Int; let creationDate: Date }
     func scrollToSelectedItemIfNeeded() {}
     func reloadVisibleSelectionItems(forceReload: Bool = false) {}
     func syncInspectorSelectionIfNeeded() {}
+    func scheduleThumbnailDemand() { thumbnailDemandSchedules += 1 }
     // ONLINE_METHODS
 }
 struct SILWallpaper { let id: String; var tags = ["tag"] }
@@ -231,9 +233,12 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         // selection then cancels it even if a later scan completes afterwards.
         let queued = OnlineProbe()
         queued.applySnapshot(ids: [1, 2, 3])
+        let thumbnailDemandBeforeCompletion = queued.thumbnailDemandSchedules
         queued.deleteSelected()
         queued.dataSource.release()
         checks["olderOnlineSnapshotCannotConsumeDeletionRestore"] = queued.pendingPostDeletionSelectionIndex != nil
+        checks["onlineSnapshotSchedulesThumbnailDemandOnlyAfterCompletion"] = thumbnailDemandBeforeCompletion == 0
+            && queued.thumbnailDemandSchedules == 1
         queued.toggleMultiSelect(); queued.orderedIDs = [3, 4]; queued.selectAll()
         queued.applySnapshot(ids: [3, 4])
         DispatchQueue.main.async { queued.dataSource.release() }

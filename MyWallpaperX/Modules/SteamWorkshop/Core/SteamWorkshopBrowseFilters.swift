@@ -378,16 +378,3 @@ struct SteamWorkshopBrowseFacetFilters: Equatable {
         T.allCases.filter { set.contains($0) }
     }
 }
-
-enum SteamWorkshopAuthenticationPhase: Equatable {
-    case credentials
-    case awaitingGuardCode
-    case authenticated
-}
-
-enum SteamWorkshopAuthSessionState: Equatable {
-    case unknown
-    case valid
-    case expired
-    case authenticating
-}

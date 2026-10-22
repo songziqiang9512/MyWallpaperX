@@ -67,8 +67,6 @@ internal static class ProtocolErrorCodes
     }
 }
 
-internal sealed record ProtocolError(string Code, string Message);
-
 // 出站帧构造：只产 envelope 形状，不决定业务语义。
 internal static class ProtocolMessages
 {
@@ -116,17 +114,6 @@ internal static class ProtocolMessages
         requestId,
         sequence,
         processEpoch,
-        payload,
-    };
-
-    public static object Request(string requestId, string command, int processEpoch, int accountEpoch, object? payload) => new
-    {
-        v = ProtocolLimits.Version,
-        type = "request",
-        requestId,
-        command,
-        processEpoch,
-        accountEpoch,
         payload,
     };
 }
@@ -349,8 +336,6 @@ internal sealed class TerminalTracker
         }
     }
 
-    public bool IsTerminal(string requestId) => terminals.ContainsKey(requestId);
-
     public void Reset()
     {
         lock (gate)
@@ -360,16 +345,6 @@ internal sealed class TerminalTracker
             terminalOrder.Clear();
         }
     }
-}
-
-// 进度序号：发送侧保证每 requestId 单调；接收侧容忍乱序，terminal 一到即封口。
-internal sealed class ProgressSequencer
-{
-    private readonly ConcurrentDictionary<string, int> lastSequence = new();
-
-    public int Next(string requestId) => lastSequence.AddOrUpdate(requestId, 1, (_, value) => value + 1);
-
-    public void Remove(string requestId) => lastSequence.TryRemove(requestId, out _);
 }
 
 internal static partial class ProtocolRedactor

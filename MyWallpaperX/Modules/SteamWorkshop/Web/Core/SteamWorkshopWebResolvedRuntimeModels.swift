@@ -6,9 +6,9 @@ extension SteamWorkshopService {
             return nil
         }
 
-        // mtime 键记忆缓存（与 webValidationReportCache / webRuntimeModelCache
-        // 同一纪律）：属性面板 rebuild、详情页、宿主桥解析闭包等高频同步
-        // 调用面在 mtime 态未变时零 IO 返回，只有首个未命中才走读盘校验
+        // mtime 键记忆缓存（与 webValidationReportCache 同一纪律）：
+        // 属性面板 rebuild、详情页、宿主桥解析闭包等高频同步调用面在 mtime
+        // 态未变时零 IO 返回，只有首个未命中才走读盘校验
         // 或冷解析。
         let memoSignature = webProjectDescriptorSignature(for: record)
         if let cached = webProjectDescriptorCache[record.id], cached.signature == memoSignature {
@@ -336,182 +336,10 @@ extension SteamWorkshopService {
         )
         return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor)
     }
-
-    func resolvedWebRuntimeModel(for record: SteamWorkshopDownloadRecord) -> ResolvedWebRuntimeModel? {
-        let signature = webRuntimeComputationSignature(for: record)
-        if let cached = webRuntimeModelCache[record.id], cached.signature == signature {
-            return cached.model
-        }
-        guard let descriptor = resolvedWebProjectDescriptor(for: record) else {
-            return nil
-        }
-
-        let userOverrides = webPropertyOverrides(for: record)
-        let effectiveValues = effectiveWebPropertyValues(for: record, descriptor: descriptor)
-        let visiblePropertyKeys = descriptor.propertyDefinitions
-            .filter {
-                shouldDisplayWebProperty(
-                    $0,
-                    values: effectiveValues,
-                    definitions: descriptor.propertyDefinitions
-                )
-            }
-            .map(\.key)
-
-        let visibleOptionsByKey = Dictionary(uniqueKeysWithValues: descriptor.propertyDefinitions.map { definition in
-            (
-                definition.key,
-                visibleWebPropertyOptions(
-                    for: definition,
-                    values: effectiveValues,
-                    definitions: descriptor.propertyDefinitions
-                )
-            )
-        })
-
-        let resolvedRuntimeValues = Dictionary(uniqueKeysWithValues: descriptor.propertyDefinitions.map { definition in
-            let rawValue = effectiveValues[definition.key] ?? definition.defaultValue
-            return (
-                definition.key,
-                resolvedWebRuntimeValue(
-                    forKey: definition.key,
-                    definition: definition,
-                    rawValue: rawValue,
-                    record: record
-                )
-            )
-        })
-
-        var resourceBindings = descriptor.presetResourceBindingsByKey
-
-        let definitionBindings = descriptor.propertyDefinitions.compactMap { definition -> (String, ResolvedWebResourceBinding)? in
-            let rawValue = effectiveValues[definition.key] ?? definition.defaultValue
-            guard let binding = resolvedWebResourceBinding(
-                forKey: definition.key,
-                definition: definition,
-                rawValue: rawValue,
-                record: record
-            ) else {
-                return nil
-            }
-            return (definition.key, binding)
-        }
-
-        for (key, binding) in definitionBindings {
-            resourceBindings[key] = binding
-        }
-
-        let fallbackResourceKeys = resourceBindings.values
-            .filter { $0.origin == .presetFallback }
-            .map(\.key)
-            .sorted()
-
-        let propertyPayloadJSON = effectiveWebPropertiesJSONString(
-            for: record,
-            definitions: descriptor.propertyDefinitions,
-            valuesOverride: effectiveValues
-        )
-
-        let preconditionStates = if userOverrides.isEmpty {
-            descriptor.baselinePreconditionStates
-        } else {
-            resolvedWebRuntimePreconditions(
-                for: record,
-                definitions: descriptor.propertyDefinitions,
-                effectiveValues: effectiveValues
-            )
-        }
-
-        let lastPlaybackFailureMessage = webPlaybackFailureMessage(for: record)
-        let runtimeRiskFlags = descriptor.runtimeRiskFlags
-            .union(with: preconditionStates.compactMap { precondition in
-                guard precondition.status == .unmet else { return nil }
-                switch precondition.kind {
-                case .file:
-                    return .missingAccessibleFileBinding
-                case .directory:
-                    return .missingAccessibleDirectoryBinding
-                }
-            })
-
-        var runtimeModel = ResolvedWebRuntimeModel(
-            recordID: record.id,
-            descriptor: descriptor,
-            resolvedLanguage: Self.resolvedWebWallpaperLanguage(),
-            effectiveEntryURL: descriptor.resolvedEntryURL,
-            effectiveRootURL: descriptor.effectiveRootURL,
-            defaultValues: descriptor.defaultValueMap,
-            presetOverrides: descriptor.presetOverrideMap,
-            userOverrides: userOverrides,
-            resolvedRuntimeValues: resolvedRuntimeValues,
-            resourceBindings: resourceBindings,
-            fallbackResourceKeys: fallbackResourceKeys,
-            visiblePropertyKeys: visiblePropertyKeys,
-            visibleOptionsByKey: visibleOptionsByKey,
-            propertyPayloadJSON: propertyPayloadJSON,
-            preconditionStates: preconditionStates,
-            runtimeRiskFlags: runtimeRiskFlags,
-            lastPlaybackFailureMessage: lastPlaybackFailureMessage
-        )
-#if DEBUG
-        runtimeModel.validationReport = webValidationReport(for: record)
-        runtimeModel.lastPlaybackFailureIssue = lastPlaybackFailureMessage.map(webPlaybackFailureIssue(for:))
-        runtimeModel.diagnosticsSnapshot = ResolvedWebRuntimeDiagnosticsSnapshot(
-            recordID: record.id,
-            entryRelativePath: descriptor.resolvedEntryRelativePath,
-            entryPath: descriptor.resolvedEntryURL.path,
-            rootPath: descriptor.effectiveRootURL.path,
-            propertySource: descriptor.propertySource.displayName,
-            sourceKind: descriptor.sourceKind.displayName,
-            entrySource: descriptor.entrySource.displayName,
-            sampleStructure: descriptor.sampleStructure.displayName,
-            presetOverrideCount: descriptor.presetOverrideMap.count,
-            visiblePropertyCount: visiblePropertyKeys.count,
-            validationIssueCount: runtimeModel.validationReport?.issueCount ?? 0,
-            propertyPayloadSize: propertyPayloadJSON?.utf8.count ?? 0,
-            unmetPreconditionMessages: preconditionStates.filter { $0.status == .unmet }.map(\.message),
-            runtimeRiskFlags: runtimeRiskFlags,
-            lastPlaybackFailureMessage: lastPlaybackFailureMessage,
-            isActivePlayback: isActiveWebRecord(record)
-        )
-#endif
-        webRuntimeModelCache[record.id] = CachedWebRuntimeModel(signature: signature, model: runtimeModel)
-        return runtimeModel
-    }
-
-}
-
-private extension ResolvedWebProjectDescriptor.SourceKind {
-    var displayName: String {
-        switch self {
-        case .ownProject:
-            return "独立项目"
-        case .dependencyBackedShell:
-            return "依赖补丁壳"
-        case .inferredProject:
-            return "推断项目"
-        }
-    }
-}
-
-private extension ResolvedWebProjectDescriptor.EntrySource {
-    var displayName: String {
-        switch self {
-        case .declaredProjectEntry:
-            return "project.json 声明入口"
-        case .dependencyHostEntry:
-            return "依赖宿主入口"
-        case .inferredFallbackEntry:
-            return "推断回退入口"
-        }
-    }
 }
 
 private extension Array where Element == ResolvedWebRuntimeRiskFlag {
     nonisolated func union(with other: [ResolvedWebRuntimeRiskFlag]) -> [ResolvedWebRuntimeRiskFlag] {
         Array(Set(self).union(other))
     }
-}
-
-private extension SteamWorkshopService {
 }

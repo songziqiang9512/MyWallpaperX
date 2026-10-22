@@ -337,8 +337,6 @@ class WallpaperManager: ObservableObject {
         }
     }
 
-    var pendingCardInteraction = false
-    var pendingCardInteractionResetWorkItem: DispatchWorkItem?
     let thumbnailFailureRetryCooldown: TimeInterval = 12
 
     func normalizedPath(_ path: String) -> String {

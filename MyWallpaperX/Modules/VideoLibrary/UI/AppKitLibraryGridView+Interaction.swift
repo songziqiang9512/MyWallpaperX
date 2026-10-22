@@ -166,7 +166,6 @@ extension AppKitLibraryGridContainerView {
     }
 
     func handlePlayRequest(_ wallpaper: VideoWallpaper) {
-        wallpaperManager.markCardInteraction()
         // 播放/停止互斥：点击正在播放的壁纸 = 主动停止（该入口原先对当前
         // 项是空操作）。stopCurrentPlayback 是停止状态的唯一归属。
         if wallpaperManager.effectiveCurrentWallpaper?.path == wallpaper.path {

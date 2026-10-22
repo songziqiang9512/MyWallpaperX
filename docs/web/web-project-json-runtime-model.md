@@ -2,7 +2,7 @@
 
 <!-- document-role: stable-contract -->
 
-> 状态：稳定合同。本文规定 project/descriptor/runtime/context 的职责分层，不声明当前代码仍有哪些类型或字段；能力、证据、源码所有权与剩余缺口只查 [Web 现役状态](current-state.md)。
+> 状态：稳定合同。本文规定 project/descriptor/会话编排/context 的职责分层，不声明当前代码仍有哪些类型或字段；能力、证据、源码所有权与剩余缺口只查 [Web 现役状态](current-state.md)。
 >
 > 目的：保留 Web 解析层与运行层设计的最小共识，作为后续实现的稳定参考。
 
@@ -14,7 +14,7 @@
 
 - 原始 `project.json` = 声明源 / 事实源
 - `ResolvedWebProjectDescriptor` = 静态解释结果
-- `ResolvedWebRuntimeModel` = 当前会话的动态运行结果
+- 会话编排 = 基于 descriptor 和当前 overrides 生成各消费者的 effective values
 - `ResolvedWebPlaybackContext` = 最小播放执行态
 
 不采用：
@@ -46,7 +46,7 @@
 - 前置生成 baseline visible / precondition / static summary
 - 承载静态宿主能力快照与风险标记
 
-### 2.3 Runtime Model Layer
+### 2.3 会话编排
 
 职责：
 
@@ -54,7 +54,9 @@
 - 生成会话 effective values
 - 计算会话 visible properties / options
 - 绑定会话文件与目录资源
-- 输出 property payload / diagnostics snapshot
+- 为播放生成 property payload，为详情和诊断生成各自投影
+
+会话职责不要求建立独立的全量聚合模型或模型缓存。解析解释复用 descriptor，动态值在准备/更新入口合并；播放、面板和诊断各取所需结果，不再重复保留同一会话事实。
 
 ### 2.4 Playback Context
 
@@ -87,16 +89,9 @@ execution 清单先比较已有的版本、作品、语言、项目/来源 metad
 - baseline 可见性与 precondition
 - 宿主能力快照、静态内容摘要与风险标记
 
-### 3.2 `ResolvedWebRuntimeModel`
+### 3.2 会话投影
 
-应承载的核心信息：
-
-- 会话 user overrides
-- 会话 effective values
-- 会话 visible properties / options
-- 会话 resource bindings 与 preconditions
-- property payload JSON
-- validation report / diagnostics snapshot
+user overrides 与 descriptor 合成 effective values；可见属性/选项、资源绑定、preconditions 和诊断由各消费入口投影。播放准备把所需字段写入 context，并将同一 descriptor 交给 profile 选择，不另建聚合模型。
 
 ### 3.3 `ResolvedWebPlaybackContext`
 
@@ -137,12 +132,12 @@ execution 清单先比较已有的版本、作品、语言、项目/来源 metad
 
 而把播放执行层保持在最小范围。
 
-### 5.2 validation / detail 优先消费 descriptor / runtime model
+### 5.2 validation / detail 复用 descriptor 与属性解释
 
 后续代码继续收口时，应优先：
 
 - 少做二次解析
-- 多复用 descriptor / runtime model
+- 从同一 descriptor 和属性解释入口生成各自最小投影
 
 ### 5.3 不把 descriptor 做成第二份原始 `project.json`
 
@@ -169,7 +164,7 @@ descriptor 的职责是：
 - 仍需前置的最小语义
 - 四层之间不可反转的依赖与执行边界
 
-真实已落地字段、绕过 descriptor/runtime model 的消费方和迁移缺口统一记录在[现役状态](current-state.md)，不复制到稳定合同。
+真实已落地字段、重复解释声明的消费方和迁移缺口统一记录在[现役状态](current-state.md)，不复制到稳定合同。
 
 ---
 

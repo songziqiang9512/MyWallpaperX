@@ -21,7 +21,7 @@
    - 生命周期
    - 暂停 / 音频 / 媒体语义
 3. Web 链路必须与本地视频播放链路保持解耦。
-4. 原始 `project.json` 是声明源，`MyWallpaperX` 的 descriptor / runtime model 是执行依据。
+4. 原始 `project.json` 是声明源，`MyWallpaperX` 的 descriptor 与会话属性解释生成最小播放 context。
 
 ---
 
@@ -67,7 +67,7 @@ Web 壁纸应按“目录级项目”处理：
 
 - `Raw project`：原始输入
 - `ResolvedWebProjectDescriptor`：静态解释结果
-- `ResolvedWebRuntimeModel`：当前会话运行态
+- 会话编排：基于同一 descriptor 合并 overrides，按消费者生成 effective values 与授权，不要求独立聚合模型
 - `ResolvedWebPlaybackContext`：最小播放执行态
 
 ---

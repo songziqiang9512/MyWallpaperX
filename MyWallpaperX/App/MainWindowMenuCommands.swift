@@ -60,7 +60,6 @@ enum MainWindowMenuCommands {
         let manager = WallpaperManager.shared
         if let id = manager.selectedWallpaperId,
            let wallpaper = manager.wallpapers.first(where: { $0.id == id }) {
-            manager.markCardInteraction()
             manager.requestSetAsWallpaper(wallpaper)
         }
     }

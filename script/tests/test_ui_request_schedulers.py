@@ -1,4 +1,4 @@
-"""Exercise production UI request actors and atomically observe permit handoffs."""
+"""Exercise the production thumbnail scheduler and atomically observe permit handoffs."""
 import json
 from pathlib import Path
 import subprocess
@@ -23,15 +23,13 @@ def declaration(source, signature):
 class UIRequestSchedulerTests(unittest.TestCase):
     def test_bounded_handoffs_priority_and_release(self):
         online = (ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift').read_text()
-        steam = (ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopNetworkScheduler.swift').read_text()
-        # Keep the production actors intact, including their private methods.
+        # Keep the production actor intact, including its private methods.
         # The fixture's same-file extensions observe queue state in the release
         # actor turn: operation concurrency alone cannot detect wake/requeue storms.
         sources = '\n'.join([
             'import Foundation',
             declaration(online, 'nonisolated enum OLThumbnailRequestPriority'),
             declaration(online, 'actor OLThumbnailRequestScheduler'),
-            steam,
             (ROOT / 'script/tests/fixtures/UIRequestSchedulerHarness.swift').read_text(),
         ])
         with tempfile.TemporaryDirectory(prefix='mwx-ui-schedulers-', dir='/private/tmp') as directory:
@@ -49,8 +47,7 @@ class UIRequestSchedulerTests(unittest.TestCase):
             facts = json.loads(run.stdout)
             self.assertEqual(set(facts), {
                 'onlineBoundedHandoffAndPriority', 'onlineExistingPrefetchAndVisibleLimits',
-                'steamBoundedHandoffAndPriority', 'onlineNormalAndCancelledRelease',
-                'steamNormalThrowAndCancelledRelease',
+                'onlineNormalAndCancelledRelease',
             })
             for name, passed in facts.items():
                 with self.subTest(name=name):

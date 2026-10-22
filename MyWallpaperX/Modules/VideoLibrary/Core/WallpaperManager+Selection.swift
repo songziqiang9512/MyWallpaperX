@@ -253,24 +253,6 @@ extension WallpaperManager {
         clearSelectionState()
     }
 
-    func markCardInteraction() {
-        pendingCardInteractionResetWorkItem?.cancel()
-        pendingCardInteraction = true
-        let resetWorkItem = DispatchWorkItem { [weak self] in
-            self?.pendingCardInteraction = false
-        }
-        pendingCardInteractionResetWorkItem = resetWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: resetWorkItem)
-    }
-
-    func consumePendingCardInteraction() -> Bool {
-        let pending = pendingCardInteraction
-        pendingCardInteraction = false
-        pendingCardInteractionResetWorkItem?.cancel()
-        pendingCardInteractionResetWorkItem = nil
-        return pending
-    }
-
     func toggleMultiSelectMode() {
         // 进入/退出多选时只保留一个选择槽，避免单选态和多选态互相覆盖。
         if isMultiSelectMode {

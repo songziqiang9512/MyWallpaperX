@@ -525,7 +525,6 @@ final class VideoLibraryInspectorView: NSView {
     }
 
     @objc private func setAsWallpaper() {
-        wallpaperManager.markCardInteraction()
         // 播放/停止互斥：面板按钮与卡片徽章同一语义——正在播放时点击即停止。
         if wallpaperManager.effectiveCurrentWallpaper?.path == currentWallpaper.path {
             wallpaperManager.stopCurrentPlayback()

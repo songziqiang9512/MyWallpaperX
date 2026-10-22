@@ -259,27 +259,6 @@ enum ResolvedWebRuntimeRiskFlag: String, Codable, Equatable, Hashable {
     }
 }
 
-#if DEBUG
-struct ResolvedWebRuntimeDiagnosticsSnapshot: Equatable {
-    let recordID: String
-    let entryRelativePath: String
-    let entryPath: String
-    let rootPath: String
-    let propertySource: String
-    let sourceKind: String
-    let entrySource: String
-    let sampleStructure: String
-    let presetOverrideCount: Int
-    let visiblePropertyCount: Int
-    let validationIssueCount: Int
-    let propertyPayloadSize: Int
-    let unmetPreconditionMessages: [String]
-    let runtimeRiskFlags: [ResolvedWebRuntimeRiskFlag]
-    let lastPlaybackFailureMessage: String?
-    let isActivePlayback: Bool
-}
-#endif
-
 /// 纯数据值：由运行时缓存的后台解析段构造并跨执行器返回，不随
 /// default-MainActor 隔离。
 nonisolated struct ResolvedWebPlaybackContext: Equatable {
@@ -356,29 +335,4 @@ struct ResolvedWebResourceBinding: Codable, Equatable, Hashable {
     var resolvedPath: String? {
         resolvedURL?.path
     }
-}
-
-struct ResolvedWebRuntimeModel: Equatable {
-    let recordID: String
-    let descriptor: ResolvedWebProjectDescriptor
-    let resolvedLanguage: String
-    let effectiveEntryURL: URL
-    let effectiveRootURL: URL
-    let defaultValues: [String: SteamWorkshopWebPropertyValue]
-    let presetOverrides: [String: SteamWorkshopWebPropertyValue]
-    let userOverrides: [String: SteamWorkshopWebPropertyValue]
-    let resolvedRuntimeValues: [String: SteamWorkshopWebPropertyValue]
-    let resourceBindings: [String: ResolvedWebResourceBinding]
-    let fallbackResourceKeys: [String]
-    let visiblePropertyKeys: [String]
-    let visibleOptionsByKey: [String: [SteamWorkshopWebPropertyOption]]
-    let propertyPayloadJSON: String?
-    let preconditionStates: [ResolvedWebRuntimePrecondition]
-    let runtimeRiskFlags: [ResolvedWebRuntimeRiskFlag]
-    let lastPlaybackFailureMessage: String?
-#if DEBUG
-    var validationReport: SteamWorkshopWebValidationReport? = nil
-    var lastPlaybackFailureIssue: SteamWorkshopWebValidationIssue? = nil
-    var diagnosticsSnapshot: ResolvedWebRuntimeDiagnosticsSnapshot? = nil
-#endif
 }

@@ -2,7 +2,7 @@
 
 > 状态：Web 当前状态唯一入口
 >
-> 源码复核：2026-10-18（独立播放进程）；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
+> 源码复核：2026-10-22（未接入会话模型退役）；2026-10-18（独立播放进程）；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
 >
 > 证据边界：2026-09-28 共享暂停批已完成 Debug 构建、实际 WKWebView 暂停测试与隔离 Scene 子进程验证；没有重跑 Web 样本矩阵。2026-09-30 宿主缺陷批按 229a6b25 / c5719a0d 的记录完成免签名 Debug checkpoint 构建（退出码 0）与 F01/F29/F40 的 node vm 拼接 15 段注入脚本实跑，但没有在同一身份跑运行门（无 App 运行、无样本门）。导航/兼容脚本收敛批与收尾修复批（同一工作树，未提交）批内实际执行：`py_compile`、`swiftc -parse`、门禁选择器干跑（inner/checkpoint），以及**真实 WKWebView harness 实跑**——`test_web_compat_parity`（F01/F19/F29/F40/frames 全过）、`test_web_playback_pause`（暂停/恢复、帧边界与 AudioContext 暂停回合）、`test_web_navigation_policy`、`test_web_response_transformer`、`test_web_static_content_signals`、`test_web_display_conditions`。未执行 App 构建、`swiftc` 类型检查（只有语法解析）、`checkpoint` 构建与任何样本门。
 
@@ -12,7 +12,7 @@
 
 | 系统 | 当前所有者 | 当前边界 |
 |---|---|---|
-| 项目解释 | `SteamWorkshopService` 的 Web Core | 原始 `project.json` 是声明源；构建 descriptor、runtime model、playback context 与诊断，不覆盖作者文件 |
+| 项目解释 | `SteamWorkshopService` 的 Web Core | 原始 `project.json` 是声明源；构建 descriptor，由共享属性解释入口生成会话值、playback context 与诊断，不覆盖作者文件 |
 | 播放协调 | `WallpaperEngine` | 保存当前 Web request/content/property 状态，执行共享暂停结果，处理属性、音频需求、显示器与 runtime 切换 |
 | 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b 历史验收](../scene/history/engine-refactor-program-through-2026-10-14.md#e2-收敛控制意图与公共依赖) |
 | 生产宿主 | `WebDaemonHostAdapter` → `WebDaemonRuntime` → `DedicatedWebWallpaperHostPlaceholderAdapter` | 主 App 控制端通过带 request UUID 的有界 IPC 管理独立后台 AppKit 播放进程；每屏 WKWebView、桌面窗口、输入、属性与资源桥接只在子进程创建 |
@@ -26,7 +26,6 @@
 ```text
 project.json / Workshop directory
   -> ResolvedWebProjectDescriptor
-  -> ResolvedWebRuntimeModel
   -> ResolvedWebPlaybackContext
   -> WallpaperEngine
   -> WebDaemonHostAdapter (main App)
@@ -35,6 +34,8 @@ project.json / Workshop directory
   -> DedicatedWebWallpaperHostPlaceholderAdapter
   -> per-display WKWebView surface
 ```
+
+`prepareWebPlaybackContext` 在 descriptor 上合并会话属性并重建当前资源授权，返回 context 与同一 descriptor；profile 选择复用后者。无消费者的全量会话模型、内存缓存及专属诊断快照已退役；现役属性、诊断、授权与磁盘缓存语义不变。
 
 `Placeholder` 是尚未完成命名收口的历史名称，不表示该类型没有产品执行权。重命名必须作为独立机械批次完成源码、测试、日志 schema 和文档同步；不得同时改变宿主行为。
 
@@ -79,7 +80,7 @@ Web Combo使用显式原生菜单项保留同标题不同值，按原option iden
 | 2026-10-09 Web 引擎缺口批（本批，工作树未提交） | 实跑：`test_web_response_transformer`（新增 mwx-local resolve 百分号合同断言——swiftc 编译生产 Support 源，修复前 HEAD 逻辑反证 FAIL "literal %20 filename must resolve to itself"；新增 Google Fonts @import 裸 `screen` 限定符改写与复合媒体保留断言）、`test_web_playback_pause` 与 `test_web_compat_parity`（真实 WKWebView 装配全量兼容脚本，XHR open() 清理改动入链）、`test_web_navigation_policy`（补 D5 `frameEndpointRegistry` 桩，清偿 ff267b62 落地时的预存红）、`test_playback_policy_delivery`、`test_web_display_conditions`、`test_web_static_content_signals`；loopback cluster（Server+Connection+SchemeHandler+Transformers）`swiftc -typecheck` 通过；XHR open() 清理语义经 node vm 原型访问器探针验证；隔离 DerivedData Debug 构建（退出码 0，`** BUILD SUCCEEDED **`） | 可称五项缺口（mwx-local 双重解码 / fetchall 事件无合并 / XHR 实例访问器残留 / loopback 无上限缓冲与滴流续窗 / 裸 screen @import 漏改写）已按批落地并有可复跑断言；实机多显示器与真实网络不可达场景未验收 |
 | 2026-10-09 Web 运行时缓存主线程重构批（B27，工作树未提交） | 实跑：`web_property_persistence_gate`（隔离 workshop 副本 + 空 HOME + 本批隔离 DerivedData 构建，**PASS**——三阶段×三次 App 启动、A→B→A 三次 web 启动、运行时缓存冷写/热校验全链路；顺带修复该 gate 的预存断裂：整库扫描自 875a104a 起异步单飞而 debug runner 仍 reload→同步 guard，`samples-required` 恒失败，本批为 runner 补 `awaitInstalledRecord` 有界等待）、`test_web_playback_pause` / `test_web_compat_parity`（真实 WKWebView）、`test_web_response_transformer` / `test_web_navigation_policy` / `test_web_display_conditions` / `test_web_static_content_signals` / `test_playback_policy` / `test_playback_policy_delivery` / `test_debug_scene_product_entry_policy` 全绿；隔离 DerivedData Debug 构建 `** BUILD SUCCEEDED **`（含 IsolatedConformances 零残留：清单值类型显式 nonisolated） | 可称：点击播放热路径不再做任何文件 IO（读盘/签名扫描/比对全在 detached 段）；冷路径扫描+编码+双清单写盘下沉后台；preload 逐记录让出主线程；未覆盖：冷路径的 descriptor 解析（读 actor 状态）与 `loadCachedWebProjectDescriptor` 分析缓存校验仍在主线程（属性面板打开路径，后续批） |
 | 2026-10-09 Web 点击代际批（批三，已提交 34b386ec） | 实跑：`web_property_persistence_gate` PASS（同批二口径，隔离 workshop 副本+空 HOME+本批构建，三阶段三 App 启动全过——单启动路径无回归）、`test_web_playback_pause` / `test_web_compat_parity`（真实 WKWebView）、`test_response_transformer` 等七个焦点模块全绿、隔离 DerivedData Debug 构建 SUCCESS。代际逻辑本身（双击/同名重击/跨类型点击/早退超跃/preload 抢占七场景）由独立子代理审查按 MainActor 串行化对抗推演闭合，未做双击实机序列 | 可称：web 异步启动的完成序倒置已由每点击代际关闭（旧请求的迟到通知与失败出口整体退役且不触碰共享状态）；preload 任务句柄竞态同步关闭（被抢占任务只清自己的句柄）。未覆盖：真实 UI 双击连点序列 |
-| 2026-10-09 Web descriptor 记忆缓存批（批四，工作树未提交） | 实跑：`web_property_persistence_gate` PASS（隔离 workshop 副本+空 HOME+本批构建）、`test_web_playback_pause` / `test_web_compat_parity`（真实 WKWebView）、`test_web_response_transformer` / `test_web_navigation_policy` / `test_web_display_conditions` / `test_web_static_content_signals` / `test_playback_policy_delivery` / `test_web_property_persistence_gate`（评分器）全绿；隔离 DerivedData Debug 构建 SUCCESS | 可称：`resolvedWebProjectDescriptor` 的四个同步调用面（属性面板 rebuild / 详情页 / 诊断 / 宿主桥解析闭包）在 mtime 态未变时零 IO 返回（`webProjectDescriptorCache`，与 `webValidationReportCache`/`webRuntimeModelCache` 同一 mtime 键纪律，失效钩子同步）；本会话后台保存段写入的分析清单在会话内校验免再扫（会话新鲜快速路径，跨会话清单仍逐次全量签名比对）。设计取舍：descriptor 保持同步 API——四个调用面是同步 UI 表面（列表行渲染/宿主同步闭包），全异步化不成比例；首个未命中的冷解析/跨会话校验仍在主线程（有界，一次每 mtime 态）。未覆盖：主线程冷解析的下沉（需 actor 输入快照重构，独立设计批）、真实 UI 双击连点序列 |
+| 2026-10-09 Web descriptor 记忆缓存批（批四，工作树未提交） | 实跑：`web_property_persistence_gate` PASS（隔离 workshop 副本+空 HOME+本批构建）、`test_web_playback_pause` / `test_web_compat_parity`（真实 WKWebView）、`test_web_response_transformer` / `test_web_navigation_policy` / `test_web_display_conditions` / `test_web_static_content_signals` / `test_playback_policy_delivery` / `test_web_property_persistence_gate`（评分器）全绿；隔离 DerivedData Debug 构建 SUCCESS | 可称：`resolvedWebProjectDescriptor` 的四个同步调用面（属性面板 rebuild / 详情页 / 诊断 / 宿主桥解析闭包）在 mtime 态未变时零 IO 返回（`webProjectDescriptorCache`，与诊断缓存共用 mtime 键纪律，失效钩子同步）；本会话后台保存段写入的分析清单在会话内校验免再扫（会话新鲜快速路径，跨会话清单仍逐次全量签名比对）。设计取舍：descriptor 保持同步 API——四个调用面是同步 UI 表面（列表行渲染/宿主同步闭包），全异步化不成比例；首个未命中的冷解析/跨会话校验仍在主线程（有界，一次每 mtime 态）。未覆盖：主线程冷解析的下沉（需 actor 输入快照重构，独立设计批）、真实 UI 双击连点序列 |
 | 2026-10-09 Web 层保持 @import 恢复批（批五，工作树未提交） | 实跑：`test_web_response_transformer`（layer(fonts)/裸 layer 改写保留层段、需再序列化层名与 layer+媒体复合保持不动的新断言集）、`test_web_playback_pause` / `test_web_compat_parity`（真实 WKWebView 装配含新 JS 的全量兼容脚本）、`web_property_persistence_gate` PASS、`test_playback_policy_delivery` / `test_web_navigation_policy` 绿；真实脚本文本 node vm 行为探针：扫描发现中和层 import（media `not all` + layerName）→ 恢复 link 带层标记 → preload 成功后以 `<style>@import … layer(fonts);</style>` 重插（探针 link 保留惰性 preload，不删不剥属性——删除会触发 invalidateState/rescan 无限循环）→ CSSOM 轮询确认应用（`layer=fonts`/`layer=(anonymous)` 日志），命名层与匿名层全命中；Debug 构建 SUCCESS | 可称：带 layer()/layer 限定符的 Google Fonts @import 已改写为非阻塞且层语义保持（离线不再阻塞启动，可达后按原层恢复）；`<link>` 恢复路径行为不变。未覆盖：真实网络可达场景的端到端层叠效果（探针为 CSSOM 桩驱动）、layer+媒体复合限定符仍保持作者语义不动 |
 | 2026-10-09 Web 冷解析下沉批（批六，工作树未提交，设计文档 cold-descriptor-parse-offload-design.md） | 实跑：`web_property_persistence_gate` PASS×3（含空 HOME 冷启动场景——首个未命中冷解析全链走后台段）；八个焦点模块全绿（含真实 WKWebView×2 与评分器）；隔离 DerivedData Debug 构建 SUCCESS。后台段封闭性为编译期断言：default-MainActor 下 nonisolated 回读 MainActor 是编译错误，~60 个解析核函数（roots/definitions/sampleStructure/staticSummary BFS/riskFlags/内容信号扫描族）全部 nonisolated 且构建通过=后台段零 actor 回读。独立子代理审查 APPROVE（拆分逐行等价/同步路径零改动语义/书签相邻段封闭/两编排 memo 竞态/启动链路/nonisolated 标记逐函数核对/跨批污染七点全 PASS；两条建议已采纳：廉价键先行短路恢复 HEAD 校验序、scanner 私有 helper 补标记） | 可称：启动冷路径的分析缓存校验与冷解析（project.json 读盘、入口 HTML 与依赖 JS/CSS 的 BFS 静态扫描、目录 listing）全部下沉后台；主线程只做 actor 快照与书签相邻段收尾（preconditions/presetBindings——触 security scope 副作用）。同步 UI 表面保持批四形态（memo+同步装载，装载器与启动路径单一实现共享）。登记：launch 路径在 requiresLiveResolution 分支不再持久化分析清单（下次会话后台重解析自愈，性能级）；未覆盖：真实 UI 双击连点序列 |
 | 2026-10-09 Web 双击实机序列批（批七，工作树未提交） | 实机运行：新增 `--mwx-debug-web-rapid-double-launch <idA>,<idB>` 调试序列（DebugWebPlaybackRunner，记录先就绪再连点、50ms 间隔、通知发布序观察者、6s 终态摘要）；隔离 workshop 副本+隔离 HOME 下两次完整运行——run1：A 发布先于 B 点击（顺序合法），最终 `currentRecord=B`；run2：**B 点击落在 A 解析在飞窗口内，A 的完成通知被代际护栏静默退役（全程无 `posted record=A`、A 零宿主启动日志）**，仅 B 发布并 `host.ready`（1 surface），终态 `currentRecord=B phase=ready`——批三代际护栏的实机证明；Debug 构建 SUCCESS（新旗标路由由代码检视确认：经 `scheduleWebWorkshopRuntimeIfRequested` 既有分发链插入，`runsIsolatedWebWorkshopSample` 隔离待遇与兄弟序列一致） | 可称：真实 App 进程内的双击连点序列已验证（冷 A 137MB/热 B，通知→协调器→引擎→WKWebView 全链），完成序倒置防护闭合。注：序列点击间隔在主线程忙期会被拉长（记录扫描/装配），窗口踩中依赖时序，评分以「无 B 后 A 的倒置发布 + 终态=B」为不变量 |

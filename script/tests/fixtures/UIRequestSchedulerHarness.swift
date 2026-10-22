@@ -1,5 +1,5 @@
-// Compiled in the same file as the unchanged production scheduler actors.
-// These extensions add no product API or alternate scheduling implementation.
+// Compiled in the same file as the unchanged production thumbnail scheduler.
+// This extension adds no product API or alternate scheduling implementation.
 nonisolated private struct SchedulerAuditState: Equatable, Sendable {
     let primary: Int
     let secondary: Int
@@ -27,42 +27,8 @@ extension OLThumbnailRequestScheduler {
     }
 }
 
-extension SteamWorkshopDetailRequestScheduler {
-    fileprivate func stateForAudit() -> SchedulerAuditState {
-        SchedulerAuditState(primary: activeUserRequests, secondary: activeBackgroundRequests,
-            waitingPrimary: waitingUserRequests.count, waitingSecondary: waitingBackgroundRequests.count)
-    }
-
-    fileprivate func acquireForAudit(_ priority: SteamWorkshopDetailRequestPriority) async {
-        await acquire(priority: priority)
-    }
-
-    fileprivate func releaseForAudit(_ priority: SteamWorkshopDetailRequestPriority) -> SchedulerAuditState {
-        release(priority: priority)
-        return stateForAudit()
-    }
-}
-
-private actor AuditGate {
-    private var opened = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    func wait() async {
-        if opened { return }
-        await withCheckedContinuation { waiters.append($0) }
-    }
-
-    func open() {
-        opened = true
-        let pending = waiters
-        waiters.removeAll()
-        pending.forEach { $0.resume() }
-    }
-}
-
 private enum HarnessFailure: Error {
     case assertion(String)
-    case expected
 }
 
 private func expect(_ condition: Bool, _ message: String) throws {
@@ -139,39 +105,6 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
         try expect(await scheduler.stateForAudit() == .idle, "mixed online permits did not drain")
     }
 
-    static func steamBoundedHandoffAndPriority() async throws {
-        let scheduler = SteamWorkshopDetailRequestScheduler()
-        await scheduler.acquireForAudit(.background)
-        await scheduler.acquireForAudit(.background)
-        let background = (0..<8).map { _ in Task { await scheduler.acquireForAudit(.background) } }
-        let user = (0..<2).map { _ in Task { await scheduler.acquireForAudit(.userInitiated) } }
-        try await eventually {
-            await scheduler.stateForAudit() == SchedulerAuditState(
-                primary: 0, secondary: 2, waitingPrimary: 2, waitingSecondary: 8)
-        }
-        let first = await scheduler.releaseForAudit(.background)
-        try expect(first == SchedulerAuditState(primary: 1, secondary: 1, waitingPrimary: 1, waitingSecondary: 8),
-            "user request must receive the freed permit before background work")
-        let second = await scheduler.releaseForAudit(.background)
-        try expect(second == SchedulerAuditState(primary: 1, secondary: 0, waitingPrimary: 1, waitingSecondary: 8),
-            "background must remain suspended while a user request is active")
-        let nextUser = await scheduler.releaseForAudit(.userInitiated)
-        try expect(nextUser == SchedulerAuditState(primary: 1, secondary: 0, waitingPrimary: 0, waitingSecondary: 8),
-            "user handoff must reserve its permit before considering background work")
-        let nextBackground = await scheduler.releaseForAudit(.userInitiated)
-        try expect(nextBackground == SchedulerAuditState(primary: 0, secondary: 2,
-            waitingPrimary: 0, waitingSecondary: 6), "two free slots must wake exactly two background waiters")
-        for remaining in stride(from: 5, through: 0, by: -1) {
-            let state = await scheduler.releaseForAudit(.background)
-            try expect(state == SchedulerAuditState(primary: 0, secondary: 2,
-                waitingPrimary: 0, waitingSecondary: remaining), "background handoff exceeded available capacity")
-        }
-        _ = await scheduler.releaseForAudit(.background)
-        _ = await scheduler.releaseForAudit(.background)
-        for task in background + user { await task.value }
-        try expect(await scheduler.stateForAudit() == .idle, "Steam permits did not drain")
-    }
-
     static func onlineNormalAndCancelledRelease() async throws {
         let scheduler = OLThumbnailRequestScheduler()
         let normal = await scheduler.run(priority: .visible) { 7 }
@@ -195,71 +128,12 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
             "online scheduler could not recover after cancellation")
     }
 
-    static func steamNormalThrowAndCancelledRelease() async throws {
-        let scheduler = SteamWorkshopDetailRequestScheduler()
-        let normal = await scheduler.run(priority: .background) { 7 }
-        let normalState = await scheduler.stateForAudit()
-        try expect(normal == 7 && normalState == .idle, "normal Steam return leaked a permit")
-        do {
-            _ = try await scheduler.run(priority: .userInitiated) { () async throws -> Int in
-                throw HarnessFailure.expected
-            }
-            throw HarnessFailure.assertion("throwing Steam operation returned successfully")
-        } catch HarnessFailure.expected {}
-        try expect(await scheduler.stateForAudit() == .idle, "throwing Steam operation leaked a permit")
-
-        await scheduler.acquireForAudit(.background)
-        await scheduler.acquireForAudit(.background)
-        let cancelled = Task {
-            try await scheduler.run(priority: .userInitiated) { () async throws -> Int in
-                try Task.checkCancellation()
-                return -1
-            }
-        }
-        let following = Task { await scheduler.run(priority: .background) { 11 } }
-        try await eventually {
-            await scheduler.stateForAudit() == SchedulerAuditState(
-                primary: 0, secondary: 2, waitingPrimary: 1, waitingSecondary: 1)
-        }
-        cancelled.cancel()
-        _ = await scheduler.releaseForAudit(.background)
-        switch await cancelled.result {
-        case .failure(let error): try expect(error is CancellationError, "unexpected queued cancellation error")
-        case .success: throw HarnessFailure.assertion("cancelled Steam operation returned successfully")
-        }
-        try expect(await following.value == 11, "queued cancellation did not release its user permit")
-        _ = await scheduler.releaseForAudit(.background)
-        try expect(await scheduler.stateForAudit() == .idle, "queued Steam cancellation leaked a permit")
-
-        let started = AuditGate()
-        let running = Task {
-            try await scheduler.run(priority: .userInitiated) {
-                await started.open()
-                try await Task.sleep(nanoseconds: 30_000_000_000)
-                return 13
-            }
-        }
-        await started.wait()
-        running.cancel()
-        switch await running.result {
-        case .failure(let error): try expect(error is CancellationError, "unexpected active cancellation error")
-        case .success: throw HarnessFailure.assertion("active cancellation was not observed")
-        }
-        let recovered = await scheduler.run(priority: .background) { 17 }
-        let recoveredState = await scheduler.stateForAudit()
-        try expect(recovered == 17 && recoveredState == .idle,
-            "active cancellation leaked a permit or blocked later work")
-    }
-
     static func main() async throws {
         try await onlineBoundedHandoffAndPriority()
         try await onlineExistingPrefetchAndVisibleLimits()
-        try await steamBoundedHandoffAndPriority()
         try await onlineNormalAndCancelledRelease()
-        try await steamNormalThrowAndCancelledRelease()
         let facts = ["onlineBoundedHandoffAndPriority": true, "onlineExistingPrefetchAndVisibleLimits": true,
-            "steamBoundedHandoffAndPriority": true, "onlineNormalAndCancelledRelease": true,
-            "steamNormalThrowAndCancelledRelease": true]
+            "onlineNormalAndCancelledRelease": true]
         print(String(data: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

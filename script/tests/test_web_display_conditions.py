@@ -173,7 +173,8 @@ import Foundation
                     ]],
                 "empty_mode": ["type": "combo", "order": 3,
                     "options": [["value": "", "label": "Empty"]]],
-                "policy": ["type": "usershortcut", "value": true, "order": 4],
+                // Keep an unknown type: usershortcut now has a real editor and runtime.
+                "policy": ["type": "fixture-unknown-property", "value": true, "order": 4],
                 "amount": ["type": "slider", "value": 1.0, "condition": textCondition, "order": 5],
                 "choices": ["type": "combo", "value": "main", "order": 6, "options": [
                     ["value": "main", "label": "Main"],
@@ -250,7 +251,7 @@ import Foundation
                 "literal": ["type": "textinput", "value": "unused.value", "order": 12],
                 "invalid_only": ["type": "bool", "value": false, "order": 13],
                 "media": ["type": "scenetexture", "value": "fallback.png", "order": 14],
-                "unsupported": ["type": "usershortcut", "value": true, "order": 15],
+                "unsupported": ["type": "fixture-unknown-property", "value": true, "order": 15],
                 "unrelated": ["type": "bool", "value": true, "order": 16]
             ])
             let roots: Set<String> = ["root", "option_root"]

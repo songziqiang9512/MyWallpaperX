@@ -55,7 +55,6 @@ final class SteamWorkshopPreviewRequestCoordinator {
     private let scheduler = SteamWorkshopPreviewRequestScheduler()
     private let stateQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.steamworkshop.preview.failures")
     private var failureStates: [String: FailureState] = [:]
-    private var suspiciousCacheKeys = Set<String>()
 
     private struct FailureState {
         var attempts: Int
@@ -122,34 +121,9 @@ final class SteamWorkshopPreviewRequestCoordinator {
         }
     }
 
-    func shouldBypassCachedImage(forKey key: String) -> Bool {
-        stateQueue.sync {
-            suspiciousCacheKeys.contains(key)
-        }
-    }
-
-    func markCachedImageSuspicious(forKey key: String) {
-        stateQueue.async {
-            self.suspiciousCacheKeys.insert(key)
-        }
-    }
-
-    func clearCachedImageSuspicion(forKey key: String) {
-        stateQueue.async {
-            self.suspiciousCacheKeys.remove(key)
-        }
-    }
-
     func resetFailureState(for url: URL) {
         stateQueue.async {
             self.failureStates.removeValue(forKey: url.absoluteString)
-        }
-    }
-
-    func resetAllFailureStates() {
-        stateQueue.async {
-            self.failureStates.removeAll()
-            self.suspiciousCacheKeys.removeAll()
         }
     }
 

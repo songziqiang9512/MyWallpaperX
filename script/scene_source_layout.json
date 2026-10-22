@@ -414,8 +414,7 @@
           "SceneLayerVisibility.swift",
           "SceneLayerWorldFrameResolver.swift",
           "SceneMatrix.swift",
-          "SceneTextLayerPivot.swift",
-          "SceneTextureMappedUVScale.swift"
+          "SceneTextLayerPivot.swift"
         ],
         "responsibility": "Geometry: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },

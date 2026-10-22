@@ -43,7 +43,7 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
         }
 
         if let indexPath {
-            // 这次点击属于卡片交互，外层 SwiftUI 的 TapGesture 需要把它当成内部点击而不是背景清空。
+            // 将卡片区域交互交给协议提供的可选处理器。
             cardInteractionHandler?()
 
             if let item = item(at: indexPath) as? AppKitWallpaperItem {
@@ -143,7 +143,6 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
             let manager = WallpaperManager.shared
             if let id = manager.selectedWallpaperId,
                let wallpaper = manager.wallpapers.first(where: { $0.id == id }) {
-                manager.markCardInteraction()
                 if manager.effectiveCurrentWallpaper?.path == wallpaper.path {
                     manager.stopCurrentPlayback()
                 } else {

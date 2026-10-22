@@ -4,7 +4,7 @@
 
 > 状态：现役迁移目标与剩余工作入口
 >
-> 最近核对：2026-10-17（SwiftUI 残留与 Steam 预览职责）。下文各阶段的“当前进展”保留 2026-05-17 批次记录；当前残留以本节清单和代码扫描为准。
+> 最近核对：2026-10-22（未接入 SwiftUI 代码退役）。下文保留 2026-05-17 批次记录；当前源码状态以下节为准，静态扫描不代替 UI 验收。
 >
 > 长期权威：本计划与[技术栈与架构路线边界](technology-stack-boundaries.md)共同确定最终 UI 为 Swift + AppKit。迁移完成前只维护下列 SwiftUI 残留，不新增 SwiftUI 产品面、设置页、桌面宿主或 hosting bridge；若要改变 0 SwiftUI 目标，必须先修改长期技术路线，而不是在功能批次中隐式扩张。
 
@@ -12,12 +12,7 @@
 
 ## 当前判断
 
-截至 2026-10-17，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 2 个文件：
-
-- `Shared/UI/InspectorHostBridge.swift`
-- `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift`
-
-Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 inspector bridge 和 Steam Workshop 详情辅助 UI。迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
+2026-10-22 源码核查：App 生命周期、Shell、菜单、网格、Inspector、Scene 属性窗口与 Steam 详情均已走 AppKit。最后两个 SwiftUI 文件中的 bridge 与详情辅助组件没有产品消费者，现已退役；`InspectorHostPresentation` 仍供 AppKit 使用并保留。产品源码的 `import SwiftUI`、`NSHostingView` 与 `NSHostingController` 已清零。此结论只说明源码依赖；构建与实际操作验收归[代码精简专项](../development/code-slimming-program.md)，不重写现役 Shell 或网格。
 
 ## 最终结构
 
@@ -125,7 +120,7 @@ Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 
 - 2026-05-17：左侧 sidebar 已由 `AppKitSidebarViewController` 直接承载 `AppKitSidebarContainerView`。
 - 2026-05-17：`ContentView.swift` 已删除。
 - 2026-05-17：`DetailView` 已删除；右侧路由已迁入 `AppKitDetailHostViewController`。
-- 待完成：`AppKitMainSplitView` 仍通过 `NSHostingController` 承载共享 `InspectorHost`；`AppKitDetailHostViewController` 仍临时由 `NSHostingController` 承载 Steam 浏览 / 下载入口。
+- 2026-10-22 核查：共享 Inspector 由 `InspectorHostViewController` 承载，Steam 浏览／下载由 AppKit 视图直接承载，无 hosting controller。
 
 ### 阶段 3：模块入口去 SwiftUI 包装
 
@@ -150,7 +145,7 @@ Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 
 - 2026-05-17：`SILEntryView.swift` 已删除；图片库 inspector 触发已由 `AppKitDetailHostViewController` 接管，内容已在阶段 4 改为 AppKit `SILInspectorView`。
 - 2026-05-17：在线库浏览入口已改为 AppKit `OnlineLibraryBrowserView`，API key、loading、空态、错误态和下载完成提示均由 AppKit support view 承载。
 - 2026-05-17：在线库下载入口已由 `AppKitDetailHostViewController` 直接承载 `AppKitOLDownloadsContainerView`，`OnlineLibraryDownloadsView.swift` 已删除。
-- 待完成：Steam 浏览 / 下载入口仍为 SwiftUI，需要按登录 sheet、空态、错误态、详情面板等边界分步迁移。
+- 2026-10-22 核查：Steam 浏览／下载、登录与详情均有 AppKit 入口；未接入的 SwiftUI 详情 helper 已删除。
 
 ### 阶段 4：Inspector 与弹层全 AppKit 化
 
@@ -172,9 +167,8 @@ Scene 属性窗口与诊断详情已迁为 AppKit；剩余工作集中在共享 
   - `SILInspectorView.swift` / `SILInspectorSupport.swift`
   - `OnlineLibraryDownloadsInspectorView.swift` / `OnlineLibraryDownloadsInspectorSupport.swift`
 - 2026-05-17：`AppKitDetailHostViewController` 负责视频库、图片库、在线库下载 inspector 的 open / mount / close，同步仍通过 `InspectorHostActions` 与通知边界。
-- 2026-05-17：共享 `InspectorHost` 外壳仍是 SwiftUI，但已按 AppKit 内容面板需要修正浅色 / 深色玻璃质感、缩略图宽度、内容垂直居中、分隔线、底部按钮宽度 / 高度 / 图文间距。
-- 待完成：将共享 `InspectorHost` / `InspectorHostBridge` / `InspectorHostActions` 替换为 AppKit 宿主后，移除 `NSHostingController` / `NSHostingView`。
-- 待完成：Steam 详情、Steam Web inspector、登录 sheet，以及在线库剩余 toast / alert / sheet 继续按单一边界迁移。
+- 2026-10-22 核查：共享 `InspectorHostStore` 与通知请求继续由 AppKit 宿主消费；无消费者的 SwiftUI bridge 及其私有 hosting/观察状态已删除。
+- Steam 详情、Web 属性、登录与在线库 toast／alert／sheet 已采用 AppKit；完整操作验收仍按阶段 5 执行。
 
 UI 保真要求：
 
