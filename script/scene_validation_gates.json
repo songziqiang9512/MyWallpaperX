@@ -4255,12 +4255,15 @@
       "patterns": [
         "MyWallpaperX/App/MainWindowMenuCommands.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift",
-        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Selection.swift"
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Selection.swift",
+        "script/tests/test_video_selection_navigation.py",
+        "script/tests/fixtures/VideoSelectionNavigationHarness.swift"
       ],
       "modules": [
         "test_ui_projection_efficiency",
         "test_library_toolbar_behaviors",
-        "test_video_inspector_preview_reload"
+        "test_video_inspector_preview_reload",
+        "test_video_selection_navigation"
       ]
     },
     {
