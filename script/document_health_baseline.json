@@ -270,7 +270,7 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 55,
-      "bytes": 17227
+      "bytes": 17446
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 253,
@@ -1271,15 +1271,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "5f537dc8dfaa1eb738cbb671e89f9ec579045a31eb30604fddff2f5973d3fd93",
-      "after": "813d6f983167cd55f1fea029ecca28ab372a4857ab9db580ccde6e652f809f85",
-      "owner": "scene-composition-source-and-terminal",
-      "reason": "无根效果组边界已由实际画面闭合；带效果子树仍缺分组颜色合同，旧失败保留，更新同一待修状态。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
       "after": "ca6e48eaa48baad4d38179e9d0121297becd0a1564075b24e0af9310dd0329f8",
@@ -1439,6 +1430,15 @@
       "owner": "Scene corpus diagnostic reporting",
       "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
       "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "0fd0134c670c82ba8b625a15c1a48a382e2aa7d619c41ab5a31324f357c3dba2",
+      "after": "fc2aa513cb4c3d892a4196cc7f13e68be05d280033fcc40227b0d7e211475d33",
+      "owner": "Scene model material qualification",
+      "reason": "Replace the next gate with the bounded real contribution result and stop condition; no capability closure.",
+      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md#画面合成与播放"
     }
   ]
 }

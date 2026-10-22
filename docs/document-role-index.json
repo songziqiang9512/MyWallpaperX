@@ -3680,10 +3680,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c11af283ca6771a211bba10331d98fcd8c899976ee27a35456860af68672eefa",
+        "sourceSHA256": "16d1d073fb70763b87d2e7259f4b3508ace15b1b0c15f6d9ae161d3c252df400",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Remove only I13 four omitted-field rejection now handled in the existing plan; preserve all other declared gaps.",
-        "limitations": "Not a full runtime re-audit; current bounded evidence is linked separately."
+        "scope": "Preserve static-model additive state-loss debt; real68-only and original full347 contribution are visible, but no nonzero-background ROI qualifies blend benefit. Two bounded runs stop without implementation.",
+        "limitations": "No blend factors, complete lighting, model parity or product benefit qualified; spot38/59 failures remain."
       }
     },
     {
