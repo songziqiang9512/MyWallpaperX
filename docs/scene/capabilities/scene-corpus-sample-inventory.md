@@ -2,9 +2,10 @@
 
 # Scene 全样本静态明细
 
-本页由373目录的本轮静态快照投影；统计方法、family及参数汇总归[声明统计](scene-corpus-capability-inventory.md)。每行只记作者声明和材料是否存在，不判断缺能力或视觉通过；播放与人工裁决归[验收台账](scene-sample-acceptance-ledger.md)；末列仅记旧45个matrix成员，不表示从未运行或本轮新增。
+本页由373目录的同一次静态观察投影；统计方法、family 及参数汇总归[声明统计](scene-corpus-capability-inventory.md)。每行只记作者声明和材料是否存在，不判断缺能力或视觉通过；播放与人工裁决归[验收台账](scene-sample-acceptance-ledger.md)。
+372个可解析；解析失败目录也保留，零计数不表示成功播放。末列仅记旧45个 matrix 成员，不表示从未运行或本轮新增。作者 preview 不能代替官方金标。
 
-机器快照：`.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`；SHA-256 `1f320ef2f8b061b5c88185d7980d77a422e45ed3b5d9e695974105b49dd272a0`。372个可解析，旧3763323436只有shader而无project；0计数不表示已成功播放。新增17无官方“截屏”图；作者preview不代官方金标。
+同次机器快照 SHA-256：`553b1cfe3c8d9169d03f0a1b141893874ba4a453ac57e6ab93743083cf9dbdf3`。
 
 | 样本 | 标题 | 对象 | Effect | 粒子层 | occurrence | 人工对照 | 旧45 matrix成员 |
 |---|---|---:|---:|---:|---:|---|---|
@@ -381,3 +382,7 @@
 | `3822255386` | 绝区零 X-ray/liang xing | 1 | 1 | 0 | 26 | 无 | 否 |
 | `3822822401` | 麻匪 穿云 | 56 | 57 | 6 | 1016 | 截图 | 否 |
 | `833227004` | 星云变换t001 | 1 | 0 | 0 | 13 | 截图 | 否 |
+
+## 解析失败目录
+
+- `3763323436`（parse_state=`failed`）：`project-json-missing`。

@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 import io
-import struct
 import sys
 import tempfile
 import unittest
-from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -22,35 +21,12 @@ import scene_capability_census as census
 import scene_sample_debug_archive as debug_archive
 from scene_capability_census_io import (
     PkgArchive,
-    ResolvedResource,
     ensure_outputs_outside_roots,
     is_sample_directory_name,
     iter_sample_directories,
     validated_sample_id,
 )
-from scene_capability_census_profiles import (
-    family_key,
-    scenescript_audio_registrations,
-    script_profile,
-)
-
-
-def pkg(entries: list[tuple[str, bytes]], magic: str = "PKGV0024") -> bytes:
-    table = bytearray()
-    magic_bytes = magic.encode("utf-8")
-    table += struct.pack("<I", len(magic_bytes)) + magic_bytes
-    table += struct.pack("<I", len(entries))
-    payload = bytearray()
-    for path, value in entries:
-        path_bytes = path.encode("utf-8")
-        table += struct.pack("<I", len(path_bytes)) + path_bytes
-        table += struct.pack("<II", len(payload), len(value))
-        payload += value
-    return bytes(table + payload)
-
-
-def json_bytes(value: object) -> bytes:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+from script.tests.scene_capability_census_test_support import json_bytes, make_fixture, pkg
 
 
 class SceneCapabilityCensusTests(unittest.TestCase):
@@ -58,6 +34,10 @@ class SceneCapabilityCensusTests(unittest.TestCase):
         expected = census.REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
         for command in ("generate", "verify", "query"):
             self.assertEqual(census.parse_args([command]).snapshot, expected)
+        self.assertEqual(
+            census.parse_args(["generate", "--sample-markdown", "/tmp/details.md"]).sample_markdown,
+            Path("/tmp/details.md"),
+        )
         self.assertEqual(
             debug_archive.parse_args(["--report", "/tmp/report.json", "--output", "/tmp/archive.json"]).snapshot,
             expected,
@@ -81,659 +61,10 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                     debug_archive.build_archive(root, root / "absent.json", [root / "report.json"])
                 discover.assert_not_called()
 
-    def test_scenescript_cursor_hook_profile_requires_proven_export(self) -> None:
-        profile = script_profile(r'''
-            // export function cursorClick() {}
-            const ignored = "export function cursorEnter() {}";
-            function clickHandler() {}
-            export { clickHandler as cursorClick };
-            export function cursorDown() {}
-            export const cursorMove = event => event.worldPosition;
-            export const cursorLeave = dynamicHandler;
-        ''')
-        self.assertEqual(
-            profile["hooks"], ["cursorClick", "cursorDown", "cursorMove"]
-        )
-        self.assertEqual(profile["unresolved_cursor_hooks"], ["cursorLeave"])
-
-    def test_family_key_ignores_concrete_revision_values(self) -> None:
-        left = family_key("fixture", "binding", {
-            "kind": "object",
-            "numeric_min": 0,
-            "numeric_max": 1,
-            "script": {"sha256": "first", "hooks": ["update"]},
-        })
-        right = family_key("fixture", "binding", {
-            "kind": "object",
-            "numeric_min": -200,
-            "numeric_max": 900,
-            "script": {"sha256": "second", "hooks": ["update"]},
-        })
-        changed_semantics = family_key("fixture", "binding", {
-            "kind": "object",
-            "numeric_min": 0,
-            "numeric_max": 1,
-            "script": {"sha256": "first", "hooks": ["cursorDown"]},
-        })
-        self.assertEqual(left, right)
-        self.assertNotEqual(left, changed_semantics)
-
-    def make_fixture(self, root: Path) -> tuple[Path, Path, Path, Path]:
-        samples = root / "samples"
-        stock = root / "stock"
-        sample = samples / "0000000001"
-        sample.mkdir(parents=True)
-        stock.mkdir(parents=True)
-        (sample / "project.json").write_text(
-            json.dumps({
-                "type": "Scene",
-                "file": "scene.json",
-                "title": "Fixture",
-                "general": {
-                    "supportsaudioprocessing": True,
-                    "properties": {
-                        "toggle": {"type": "bool", "value": True, "order": 0, "text": "Toggle"}
-                    }
-                },
-            }),
-            encoding="utf-8",
-        )
-        scene = {
-            "version": 1,
-            "objects": [{
-                "id": 6,
-                "name": "Hidden Parent",
-                "visible": False,
-            }, {
-                "id": 7,
-                "name": "Layer",
-                "image": "models/layer.json",
-                "visible": True,
-                "parent": 6,
-                "origin": "10 20 0",
-                "instance": {
-                    "usertextures": [
-                        {"type": "system", "name": "$mediaThumbnail"},
-                        {"type": "property", "name": "not-system"},
-                        {"type": "system", "name": ""},
-                        42,
-                    ],
-                },
-                "effects": [{
-                    "id": 9,
-                    "file": "effects/fixture/effect.json",
-                    "visible": True,
-                    "passes": [{
-                        "id": 0,
-                        "combos": {"MASK": 0},
-                        "constantshadervalues": {
-                            "alpha": {
-                                "script": (
-                                    "// engine.registerAudioBuffers(64);\n"
-                                    "const ignored = 'engine.registerAudioBuffers(16)';\n"
-                                    "const audio = engine.registerAudioBuffers("
-                                    "engine.AUDIO_RESOLUTION_32);\n"
-                                    "export function update() { return engine.frametime; }"
-                                ),
-                                "value": 1,
-                            }
-                        },
-                        "textures": [None, "mask"],
-                        "usertextures": [
-                            None,
-                            {"type": "system", "name": "$mediaPreviousThumbnail"},
-                            {"type": "system"},
-                        ],
-                    }],
-                }],
-            }, {
-                "id": 10,
-                "name": "Visible Material Reuse",
-                "image": "models/layer.json",
-                "visible": True,
-            }, {
-                "id": 8,
-                "particle": "particles/root.json",
-                "visible": True,
-                "instanceoverride": {"id": 8, "rate": {"user": "toggle", "value": 2}},
-            }],
-        }
-        entries = [
-            ("scene.json", json_bytes(scene)),
-            ("models/layer.json", json_bytes({"autosize": True, "material": "materials/layer.json"})),
-            ("materials/layer.json", json_bytes({"passes": [{
-                "shader": "genericimage2", "blending": "translucent",
-                "depthtest": "disabled", "depthwrite": "disabled",
-                "cullmode": "nocull", "textures": ["image"],
-                "usertextures": [
-                    {"type": "system", "name": "$mediaThumbnail"},
-                    {"type": "system", "name": "$mediaPreviousThumbnail"},
-                    {"type": "system", "name": "$customProvider"},
-                    {"type": "property", "name": "not-system"},
-                    {"type": "system", "name": ""},
-                    "plain-string",
-                ],
-            }]})),
-            ("materials/image.tex", b"not-a-real-tex"),
-            ("materials/mask.tex", b"not-a-real-tex"),
-            ("effects/fixture/effect.json", json_bytes({
-                "name": "Fixture", "group": "Test", "dependencies": [],
-                "passes": [{
-                    "material": "materials/effects/fixture.json",
-                    "target": "_rt_fixture",
-                    "bind": [{"name": "previous", "index": 0}],
-                }],
-                "fbos": [{"name": "_rt_fixture", "format": "rgba8888", "scale": 2}],
-            })),
-            ("effects/fixture/materials/effects/fixture.json", json_bytes({"passes": [{
-                "shader": "effects/fixture", "blending": "translucent",
-                "depthtest": "disabled", "depthwrite": "disabled",
-                "cullmode": "nocull", "textures": [None, "mask"],
-                "combos": {"AUDIOPROCESSING": 0},
-                "constantshadervalues": {"audioamount": 1},
-                "usertextures": [
-                    {"type": "SYSTEM", "name": "  $mediaThumbnail  "},
-                    {"type": "property", "name": "not-system"},
-                    {"type": "system", "name": ""},
-                ],
-            }]})),
-            ("particles/root.json", json_bytes({
-                "maxcount": 10, "starttime": 0,
-                "material": "materials/particle.json",
-                "emitter": [{
-                    "id": 1, "name": "sphererandom", "rate": 2,
-                    "audioprocessingmode": 3,
-                }],
-                "initializer": [{"id": 2, "name": "lifetimerandom", "min": 1, "max": 2}],
-                "operator": [{"id": 3, "name": "movement", "gravity": "0 1 0"}],
-                "renderer": [{"id": 4, "name": "sprite"}],
-                "children": [{"id": 5, "name": "particles/child.json", "type": "static"}],
-            })),
-            ("particles/child.json", json_bytes({
-                "maxcount": 1, "starttime": 0,
-                "material": "materials/particle.json",
-                "emitter": [{"id": 1, "name": "boxrandom", "rate": 1}],
-                "initializer": [], "operator": [],
-                "renderer": [{"id": 2, "name": "sprite"}],
-            })),
-            ("materials/particle.json", json_bytes({"passes": [{
-                "shader": "particle", "textures": ["particle"],
-                "blending": "additive", "depthtest": "disabled",
-                "depthwrite": "disabled", "cullmode": "nocull",
-            }]})),
-            ("materials/particle.tex", b"not-a-real-tex"),
-            ("shaders/effects/fixture.vert", b"uniform mat4 g_ModelViewProjectionMatrix;\nvoid main() {}\n"),
-            ("shaders/effects/fixture.frag", (
-                b'uniform sampler2D g_Texture0; // {"mode":"rgbmask","combo":"MASK"}\n'
-                b"// uniform float g_AudioSpectrum64Right[64];\n"
-                b"uniform float g_AudioSpectrum16Left[16];\n"
-                b"uniform float g_AudioSpectrum16Right[16];\n"
-                b"uniform vec2 g_AudioSpectrum32Left[32];\n"
-                b"uniform float g_AudioSpectrum32Right[16];\n"
-                b"#if 0\n"
-                b"uniform float g_AudioSpectrum64Left[64];\n"
-                b"#endif\n"
-                b"uniform float g_Alpha;\nvoid main() {}\n"
-            )),
-        ]
-        (sample / "scene.pkg").write_bytes(pkg(entries))
-        matrix = root / "matrix.json"
-        matrix.write_text(json.dumps({"schema_version": 1, "samples": []}), encoding="utf-8")
-        ledger = root / "ledger.json"
-        ledger.write_text(json.dumps({"schema_version": 1, "families": []}), encoding="utf-8")
-        return samples, stock, matrix, ledger
-
-    def test_census_is_deterministic_conserving_and_payload_free(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
-            root = Path(directory)
-            samples, stock, matrix, ledger = self.make_fixture(root)
-            first = census.build_census(samples, stock, matrix, ledger)
-            second = census.build_census(samples, stock, matrix, ledger)
-            self.assertEqual(census.canonical_json_bytes(first), census.canonical_json_bytes(second))
-            self.assertEqual(first["summary"]["discovered_sample_count"], 1)
-            self.assertEqual(first["summary"]["parsed_sample_count"], 1)
-            self.assertEqual(first["summary"]["added_since_matrix"], ["0000000001"])
-            self.assertTrue(first["validation"]["conservation"]["occurrences_balanced"])
-            self.assertTrue(first["validation"]["conservation"]["schema_fields"]["balanced"])
-            self.assertTrue(first["validation"]["conservation"]["package_resources"]["balanced"])
-            self.assertTrue(first["validation"]["conservation"]["parameter_occurrence_refs"]["balanced"])
-            self.assertTrue(first["validation"]["conservation"]["revisions"]["balanced"])
-            self.assertTrue(first["validation"]["conservation"]["texture_use_visibility"]["balanced"])
-            self.assertEqual(first["summary"]["package_entry_count"], 13)
-            self.assertEqual(first["summary"]["texture"]["physical_resource_count"], 3)
-            self.assertFalse(first["validation"]["failures"])
-            domains = first["summary"]["occurrences_by_domain"]
-            for domain in (
-                "resource", "shader", "layer", "effect", "material", "render-graph", "render-target",
-                "texture", "particle", "audio-declaration", "dynamic-input", "project-property",
-            ):
-                self.assertGreater(domains.get(domain, 0), 0, domain)
-            serialized = census.canonical_json_bytes(first)
-            self.assertNotIn(b"export function update", serialized)
-            self.assertNotIn(b"engine.frametime", serialized)
-            script_fields = [field for field in first["schema_fields"] if field["field_name"] == "script"]
-            self.assertTrue(script_fields)
-            self.assertTrue(script_fields[0]["script_hashes"])
-            graph_bindings = [
-                item for item in first["occurrences"] if item["kind"] == "graph-binding"
-            ]
-            self.assertTrue(graph_bindings)
-            self.assertEqual({item["slot_state"] for item in graph_bindings}, {"runtime-provided"})
-            texture_uses = [
-                item for item in first["occurrences"]
-                if item["domain"] == "texture" and item["kind"] != "package-resource"
-            ]
-            self.assertTrue(all("effective_visibility" in item for item in texture_uses))
-            image_slots = [item for item in texture_uses if item["kind"] == "image-material-slot"]
-            self.assertEqual(
-                {item["effective_visibility"] for item in image_slots},
-                {"hidden", "visible"},
-            )
-            self.assertTrue(all(profile.get("occurrence_refs") for profile in first["parameter_profiles"]))
-            audio = [
-                item for item in first["occurrences"]
-                if item["domain"] == "audio-declaration"
-            ]
-            self.assertEqual(
-                Counter(item["kind"] for item in audio),
-                {
-                    "project-support-enabled": 1,
-                    "material-host-spectrum": 1,
-                    "material-audio-response": 1,
-                    "particle-audio-response": 1,
-                    "scenescript-registration": 1,
-                },
-            )
-            script_audio = next(
-                item for item in audio if item["kind"] == "scenescript-registration"
-            )
-            self.assertEqual(script_audio["resolution_states"], ["32"])
-            self.assertEqual(script_audio["call_count"], 1)
-            self.assertEqual(script_audio["scope_states"], ["proven-global"])
-            self.assertEqual(script_audio["admission_states"], ["statically-admitted"])
-            material_audio = next(
-                item for item in audio if item["kind"] == "material-host-spectrum"
-            )
-            self.assertEqual(material_audio["resolutions"], [16, 32, 64])
-            self.assertEqual(material_audio["channels"], ["left", "right"])
-            self.assertEqual(material_audio["source_exact_resolutions"], [16])
-            self.assertEqual(
-                material_audio["source_abi_state_counts"],
-                {
-                    "preprocessor-conditioned": 1,
-                    "source-shape-exact": 2,
-                    "wrong-array-length": 1,
-                    "wrong-type": 1,
-                },
-            )
-            self.assertEqual(
-                material_audio["runtime_admission_state"],
-                "launch-envelope-unjoined",
-            )
-            self.assertEqual(material_audio["effective_visibility"], "hidden")
-            audio_summary = first["summary"]["audio_declarations"]
-            self.assertEqual(audio_summary["project_support_sample_count"], 1)
-            self.assertEqual(audio_summary["relationship_sample_count"], 1)
-            self.assertEqual(audio_summary["relationship_sample_ids"], ["0000000001"])
-            self.assertEqual(audio_summary["static_consumer_intent_sample_count"], 1)
-            self.assertEqual(
-                audio_summary["static_consumer_intent_sample_ids"],
-                ["0000000001"],
-            )
-            self.assertEqual(audio_summary["runtime_confirmed_sample_count"], 0)
-            self.assertFalse(audio_summary["support_without_relationship"])
-            self.assertFalse(audio_summary["relationship_without_support"])
-
-    def test_scenescript_audio_registration_scope_is_conservative(self) -> None:
-        profile = scenescript_audio_registrations("""
-            // engine.registerAudioBuffers(16)
-            const ignored = "engine.registerAudioBuffers(32)";
-            const pattern = /engine.registerAudioBuffers\\(/;
-            const direct = engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_32);
-            const computed = engine["registerAudioBuffers"](
-                engine["AUDIO_RESOLUTION_64"]
-            );
-            const interpolated = `${engine.registerAudioBuffers(16)}`;
-            function callback() { return engine.registerAudioBuffers(16); }
-            const arrow = () => engine.registerAudioBuffers(16);
-            const bare = engine.registerAudioBuffers(AUDIO_RESOLUTION_16);
-        """)
-        self.assertIsNotNone(profile)
-        assert profile is not None
-        self.assertEqual(profile["call_count"], 6)
-        self.assertEqual(profile["statically_admitted_call_count"], 3)
-        self.assertEqual(
-            profile["resolution_state_counts"],
-            {"16": 3, "32": 1, "64": 1, "dynamic-or-invalid": 1},
-        )
-        self.assertEqual(
-            profile["scope_state_counts"],
-            {"non-global-or-nested": 2, "proven-global": 4},
-        )
-        self.assertEqual(
-            profile["admission_state_counts"],
-            {
-                "resolution-unresolved": 1,
-                "scope-unproven": 2,
-                "statically-admitted": 3,
-            },
-        )
-        self.assertEqual(profile["cursor_event_exports"], [])
-        self.assertEqual(profile["cursor_event_unresolved_exports"], [])
-        self.assertEqual(
-            profile["cursor_audio_consumer_state"], "no-cursor-event"
-        )
-
-    def test_scenescript_cursor_audio_relation_ignores_non_code_mentions(self) -> None:
-        profile = scenescript_audio_registrations(r'''
-            const audio = engine.registerAudioBuffers(16);
-            // export function cursorMove() {}
-            const ignored = "export function cursorClick() {}";
-            const pattern = /export function cursorEnter\(/;
-            export function cursorDown() { return audio.left[0]; }
-            export async function cursorUp() { return audio.right[0]; }
-            export async function* cursorEnter() { yield audio.average[0]; }
-            export const cursorMove = () => audio.average[0];
-            const localClick = async () => audio.average[1];
-            export { localClick as cursorClick };
-            function localLeave() { return audio.average[2]; }
-            export { localLeave as cursorLeave };
-        ''')
-        self.assertIsNotNone(profile)
-        assert profile is not None
-        self.assertEqual(
-            profile["cursor_event_exports"],
-            [
-                "cursorClick", "cursorDown", "cursorEnter", "cursorLeave",
-                "cursorMove", "cursorUp",
-            ],
-        )
-        self.assertEqual(profile["cursor_event_unresolved_exports"], [])
-        self.assertEqual(
-            profile["cursor_audio_consumer_state"], "statically-admitted"
-        )
-
-        non_module = scenescript_audio_registrations(r'''
-            engine.registerAudioBuffers(16);
-            if (true) { export function cursorMove() {} }
-            const template = `${export function cursorClick() {}}`;
-            const text = "export function cursorDown() {}";
-        ''')
-        self.assertIsNotNone(non_module)
-        assert non_module is not None
-        self.assertEqual(non_module["cursor_event_exports"], [])
-        self.assertEqual(non_module["cursor_event_unresolved_exports"], [])
-        self.assertEqual(
-            non_module["cursor_audio_consumer_state"], "no-cursor-event"
-        )
-
-        unresolved = scenescript_audio_registrations('''
-            const audio = engine.registerAudioBuffers(dynamicResolution);
-            export function cursorMove() { return audio.average[0]; }
-        ''')
-        self.assertIsNotNone(unresolved)
-        assert unresolved is not None
-        self.assertEqual(
-            unresolved["cursor_audio_consumer_state"],
-            "audio-registration-unresolved",
-        )
-
-        unresolved_export = scenescript_audio_registrations('''
-            const audio = engine.registerAudioBuffers(16);
-            const localUp = resolveCursorHandler();
-            export { localUp as cursorUp };
-            export const cursorMove = resolveCursorHandler();
-            export const cursorClick = function () {}();
-            export const { cursorEnter } = dynamicHandlers;
-            export let cursorLeave = () => audio.average[0];
-            export function cursorDown() { return audio.left[0]; }
-            cursorDown = resolveCursorHandler();
-        ''')
-        self.assertIsNotNone(unresolved_export)
-        assert unresolved_export is not None
-        self.assertEqual(unresolved_export["cursor_event_exports"], [])
-        self.assertEqual(
-            unresolved_export["cursor_event_unresolved_exports"],
-            [
-                "cursorClick", "cursorDown", "cursorEnter", "cursorLeave",
-                "cursorMove", "cursorUp",
-            ],
-        )
-        self.assertEqual(
-            unresolved_export["cursor_audio_consumer_state"],
-            "cursor-export-unresolved",
-        )
-
-        unresolved_reexport = scenescript_audio_registrations('''
-            engine.registerAudioBuffers(16);
-            export { remote as cursorMove } from "./callbacks.js";
-            export * from "./more-callbacks.js";
-        ''')
-        self.assertIsNotNone(unresolved_reexport)
-        assert unresolved_reexport is not None
-        self.assertEqual(unresolved_reexport["cursor_event_exports"], [])
-        self.assertEqual(
-            unresolved_reexport["cursor_event_unresolved_exports"],
-            ["<wildcard-reexport>", "cursorMove"],
-        )
-        self.assertEqual(
-            unresolved_reexport["cursor_audio_consumer_state"],
-            "cursor-export-unresolved",
-        )
-
-        for write in (
-            "++cursorMove;",
-            "({x: cursorMove} = {x: null});",
-            "for (cursorMove of [null]) {}",
-        ):
-            with self.subTest(write=write):
-                changed_binding = scenescript_audio_registrations(f'''
-                    engine.registerAudioBuffers(16);
-                    export function cursorMove() {{}}
-                    {write}
-                ''')
-                self.assertIsNotNone(changed_binding)
-                assert changed_binding is not None
-                self.assertEqual(changed_binding["cursor_event_exports"], [])
-                self.assertEqual(
-                    changed_binding["cursor_event_unresolved_exports"],
-                    ["cursorMove"],
-                )
-
-        exported_class = scenescript_audio_registrations('''
-            engine.registerAudioBuffers(16);
-            export class cursorMove {}
-        ''')
-        self.assertIsNotNone(exported_class)
-        assert exported_class is not None
-        self.assertEqual(exported_class["cursor_event_exports"], [])
-        self.assertEqual(
-            exported_class["cursor_event_unresolved_exports"],
-            ["cursorMove"],
-        )
-
-        property_key_only = scenescript_audio_registrations('''
-            engine.registerAudioBuffers(16);
-            export const { cursorMove: handler } = dynamicHandlers;
-        ''')
-        self.assertIsNotNone(property_key_only)
-        assert property_key_only is not None
-        self.assertEqual(property_key_only["cursor_event_exports"], [])
-        self.assertEqual(property_key_only["cursor_event_unresolved_exports"], [])
-        self.assertEqual(
-            property_key_only["cursor_audio_consumer_state"],
-            "no-cursor-event",
-        )
-
-        destructured_cursor = scenescript_audio_registrations('''
-            engine.registerAudioBuffers(16);
-            export const { handler: cursorMove } = dynamicHandlers;
-        ''')
-        self.assertIsNotNone(destructured_cursor)
-        assert destructured_cursor is not None
-        self.assertEqual(destructured_cursor["cursor_event_exports"], [])
-        self.assertEqual(
-            destructured_cursor["cursor_event_unresolved_exports"],
-            ["cursorMove"],
-        )
-
-        named_async_expression = scenescript_audio_registrations('''
-            engine.registerAudioBuffers(16);
-            export const cursorDown = async function cursorDown() {};
-        ''')
-        self.assertIsNotNone(named_async_expression)
-        assert named_async_expression is not None
-        self.assertEqual(
-            named_async_expression["cursor_event_exports"], ["cursorDown"]
-        )
-        self.assertEqual(
-            named_async_expression["cursor_event_unresolved_exports"], []
-        )
-
-    def test_cursor_audio_family_summary_explains_family_split(self) -> None:
-        occurrence = {
-            "occurrence_id": "audio/fixture",
-            "family_key": "audio-declaration/scenescript-registration@fixture",
-            "revision_key": "revision",
-            "domain": "audio-declaration",
-            "kind": "scenescript-registration",
-            "location": {"sample_id": "0000000001"},
-            "effective_visibility": "visible",
-            "cursor_event_exports": ["cursorDown"],
-            "cursor_event_unresolved_exports": ["cursorMove"],
-            "cursor_audio_consumer_state": "cursor-export-unresolved",
-        }
-        row = census._family_rollup([occurrence], {"families": []})[0]
-        self.assertEqual(
-            row["feature_summary"]["cursor_event_exports"],
-            [["cursorDown"]],
-        )
-        self.assertEqual(
-            row["feature_summary"]["cursor_event_unresolved_exports"],
-            [["cursorMove"]],
-        )
-        self.assertEqual(
-            row["feature_summary"]["cursor_audio_consumer_state"],
-            ["cursor-export-unresolved"],
-        )
-
-    def test_shader_combo_annotation_does_not_imply_material_activation(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-audio-shader-") as directory:
-            shader = Path(directory) / "fixture.frag"
-            shader.write_text(
-                "uniform float g_AudioSpectrum16Left[16]; "
-                "// {\"combo\":\"AUDIOPROCESSING\",\"default\":1}\n",
-                encoding="utf-8",
-            )
-
-            class FixtureView:
-                def resolve(self, path: str) -> ResolvedResource | None:
-                    if path == "shaders/fixture.frag":
-                        return ResolvedResource(
-                            origin="fixture",
-                            relative_path=path,
-                            file_path=shader,
-                        )
-                    return None
-
-            owner = {
-                "occurrence_id": "material/fixture",
-                "domain": "material",
-                "shader_identity": "fixture",
-                "audio_processing_state": "absent",
-                "effective_visibility": "visible",
-                "combo_keys": [],
-                "instance_combo_keys": [],
-                "constant_keys": [],
-                "instance_constant_keys": [],
-            }
-            relationships = census._audio_owner_occurrences(
-                sample_id="fixture",
-                occurrences=[owner],
-                view=FixtureView(),
-            )
-            host = next(
-                item for item in relationships
-                if item["kind"] == "material-host-spectrum"
-            )
-            self.assertTrue(host["source_declares_audio_processing_combo"])
-            self.assertEqual(host["activation_state"], "not-authored")
-            self.assertEqual(
-                host["runtime_admission_state"], "launch-envelope-unjoined"
-            )
-
-    def test_system_usertextures_are_typed_by_scope_role_and_visibility(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
-            samples, stock, matrix, ledger = self.make_fixture(Path(directory))
-            result = census.build_census(samples, stock, matrix, ledger)
-            system_textures = [
-                item for item in result["occurrences"]
-                if item.get("provider_kind") == "system"
-            ]
-
-            self.assertEqual(len(system_textures), 9)
-            self.assertEqual(len({item["occurrence_id"] for item in system_textures}), 9)
-            self.assertEqual(
-                Counter(item["consumer_scope"] for item in system_textures),
-                {"base-image": 7, "effect": 2},
-            )
-            self.assertEqual(
-                Counter(item["system_role"] for item in system_textures),
-                {"current": 4, "previous": 3, "named": 2},
-            )
-            self.assertEqual(
-                Counter(item["system_name"] for item in system_textures),
-                {
-                    "$mediaThumbnail": 4,
-                    "$mediaPreviousThumbnail": 3,
-                    "$customProvider": 2,
-                },
-            )
-            self.assertEqual(
-                Counter(item["provenance"] for item in system_textures),
-                {"material-user": 7, "instance-user": 2},
-            )
-            self.assertEqual(
-                {item["kind"] for item in system_textures},
-                {
-                    "base-image-system-current",
-                    "base-image-system-previous",
-                    "base-image-system-named",
-                    "effect-system-current",
-                    "effect-system-previous",
-                },
-            )
-            self.assertEqual(
-                {item["effective_visibility"] for item in system_textures},
-                {"hidden", "visible"},
-            )
-            self.assertEqual(
-                Counter(item["effective_visibility"] for item in system_textures),
-                {"hidden": 6, "visible": 3},
-            )
-            self.assertEqual(
-                {item["slot_state"] for item in system_textures},
-                {"runtime-provided"},
-            )
-            self.assertNotIn("not-system", {item["system_name"] for item in system_textures})
-            self.assertTrue(result["validation"]["conservation"]["occurrences_balanced"])
-            self.assertTrue(result["validation"]["conservation"]["texture_use_visibility"]["balanced"])
-            self.assertFalse(result["validation"]["failures"])
-            base_current = next(
-                item for item in result["families"]
-                if item["kind"] == "base-image-system-current"
-            )
-            self.assertEqual(base_current["occurrence_count"], 3)
-            self.assertEqual(base_current["visible_occurrence_count"], 1)
-            self.assertEqual(
-                base_current["feature_summary"]["provenance"],
-                ["instance-user", "material-user"],
-            )
-
     def test_generate_verify_and_input_root_write_rejection(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
             root = Path(directory)
-            samples, stock, matrix, ledger = self.make_fixture(root)
+            samples, stock, matrix, ledger = make_fixture(root)
             snapshot = root / "out/census.json"
             markdown = root / "out/census.md"
             args = type("Args", (), {
@@ -741,7 +72,12 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "matrix": matrix, "ledger": ledger,
                 "snapshot": snapshot, "markdown": markdown,
             })()
-            self.assertEqual(census.generate(args), 0)
+            with patch.object(census, "atomic_write", wraps=census.atomic_write) as write:
+                self.assertEqual(census.generate(args), 0)
+            self.assertEqual(
+                [call.args[0] for call in write.call_args_list],
+                [snapshot, markdown, markdown.with_name("scene-corpus-sample-inventory.md")],
+            )
             stored = json.loads(snapshot.read_text(encoding="utf-8"))
             self.assertNotIn("occurrences", stored)
             self.assertEqual(stored["validation"]["occurrence_index"]["count"], 61)
@@ -765,6 +101,9 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 generated_markdown,
             )
             self.assertIn("_尚无已登记修复_", generated_markdown)
+            sample_page = markdown.with_name("scene-corpus-sample-inventory.md")
+            self.assertIn("(scene-corpus-sample-inventory.md)", generated_markdown)
+            self.assertIn("(census.md)", sample_page.read_text(encoding="utf-8"))
             self.assertEqual(census.verify(args), 0)
             snapshot_query = type("Args", (), {
                 "samples_root": samples, "stock_root": stock,
@@ -783,7 +122,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
 
     def test_query_requires_a_filter_and_reconstructs_occurrences(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
-            samples, stock, matrix, ledger = self.make_fixture(Path(directory))
+            samples, stock, matrix, ledger = make_fixture(Path(directory))
             filtered = type("Args", (), {
                 "samples_root": samples,
                 "stock_root": stock,
@@ -982,7 +321,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "regression_gates": [
                     {
                         "kind": "synthetic-positive",
-                        "reference": "script/tests/test_scene_capability_census.py"
+                        "reference": "script/tests/test_scene_capability_census_observations.py"
                                      "#test_family_key_ignores_concrete_revision_values",
                     },
                     {
@@ -1178,6 +517,166 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             [failure["code"] for failure in failures],
             ["repair-gate-symbol-missing"],
         )
+
+
+class SceneCapabilityCensusOutputTests(unittest.TestCase):
+    def output_args(self, root: Path, *, failed_samples: bool = False) -> SimpleNamespace:
+        samples, stock, matrix, ledger = make_fixture(root, include_failures=failed_samples)
+        return SimpleNamespace(samples_root=samples, stock_root=stock, matrix=matrix, ledger=ledger,
+                               snapshot=root / "out/census.json", markdown=root / "out/overview.md",
+                               sample_markdown=root / "out/details.md")
+
+    def test_two_pages_share_one_observation_and_keep_failure_rows_and_matrix_labels(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-pages-") as directory:
+            root = Path(directory)
+            args = self.output_args(root, failed_samples=True)
+            args.sample_markdown = root / "details/samples.md"
+            args.matrix.write_bytes(json_bytes({"schema_version": 1, "samples": [{"id": "0000000001"}]}))
+            with patch.object(census, "build_census", wraps=census.build_census) as build, \
+                    patch.object(census, "render_markdown", wraps=census.render_markdown) as overview, \
+                    patch.object(census, "render_sample_markdown", wraps=census.render_sample_markdown) as detail, \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(census.generate(args), 0)
+                build.assert_called_once()
+                overview.assert_called_once()
+                detail.assert_called_once()
+                self.assertIs(overview.call_args.args[0], detail.call_args.args[0])
+            summary_page = args.markdown.read_text(encoding="utf-8")
+            sample_page = args.sample_markdown.read_text(encoding="utf-8")
+            self.assertIn("[全样本静态明细](../details/samples.md)", summary_page)
+            self.assertIn("[声明统计](../out/overview.md)", sample_page)
+            self.assertIn("旧1 matrix成员", sample_page)
+            for sample_id, member in (("0000000001", "是"), ("0000000002", "否"), ("0000000003", "否")):
+                row = next(line for line in sample_page.splitlines() if line.startswith(f"| `{sample_id}` |"))
+                self.assertTrue(row.endswith(f"| {member} |"), row)
+                self.assertNotIn("新增", row)
+                self.assertNotIn("census未join runtime", row)
+                self.assertNotIn(f"| `{sample_id}` |", summary_page)
+            bad_project = next(line for line in sample_page.splitlines() if line.startswith("| `0000000003` |"))
+            self.assertIn("截图+说明", bad_project)
+            self.assertIn("project-json-missing", sample_page)
+            self.assertIn("json-decode-failed", sample_page)
+            stored = json.loads(args.snapshot.read_text(encoding="utf-8"))
+            self.assertEqual(stored["summary"]["failed_sample_count"], 2)
+            self.assertEqual(len(stored["samples"]), 3)
+            with patch.object(census, "build_census", wraps=census.build_census) as build, redirect_stdout(io.StringIO()):
+                self.assertEqual(census.verify(args), 0)
+                build.assert_called_once()
+
+    def test_verify_identifies_each_output_drift_independently(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-drift-") as directory:
+            args = self.output_args(Path(directory))
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(census.generate(args), 0)
+            for field, code in (("snapshot", "snapshot-drift"), ("markdown", "markdown-drift"),
+                                ("sample_markdown", "sample-markdown-drift")):
+                with self.subTest(output=field):
+                    path = getattr(args, field)
+                    original = path.read_bytes()
+                    try:
+                        path.write_bytes(b"independent drift")
+                        output = io.StringIO()
+                        with patch.object(census, "build_census", wraps=census.build_census) as build, redirect_stdout(output):
+                            self.assertEqual(census.verify(args), 1)
+                            build.assert_called_once()
+                        self.assertEqual([item["code"] for item in json.loads(output.getvalue())["failures"]], [code])
+                    finally:
+                        path.write_bytes(original)
+
+    def test_cli_default_detail_is_sibling_of_custom_overview(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-default-detail-") as directory:
+            root = Path(directory)
+            samples, stock, matrix, ledger = make_fixture(root)
+            overview = root / "custom/custom-overview.md"
+            args = census.parse_args(["generate", "--samples-root", str(samples), "--stock-root", str(stock),
+                "--matrix", str(matrix), "--ledger", str(ledger), "--snapshot", str(root / "cache.json"),
+                "--markdown", str(overview)])
+            with patch.object(census, "atomic_write", wraps=census.atomic_write) as write, redirect_stdout(io.StringIO()):
+                self.assertEqual(census.generate(args), 0)
+            detail = overview.with_name("scene-corpus-sample-inventory.md")
+            self.assertEqual([call.args[0] for call in write.call_args_list], [args.snapshot, overview, detail])
+            self.assertTrue(detail.is_file())
+            self.assertIn("(custom-overview.md)", detail.read_text(encoding="utf-8"))
+            self.assertIn("(scene-corpus-sample-inventory.md)", overview.read_text(encoding="utf-8"))
+
+    def test_outputs_in_input_roots_or_resolving_there_fail_before_scan_or_write(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-protected-") as directory:
+            root = Path(directory)
+            args = self.output_args(root)
+            args.snapshot.parent.mkdir()
+            args.snapshot.write_bytes(b"existing snapshot")
+            for input_root in (args.samples_root, args.stock_root):
+                protected = input_root / "protected.json"
+                protected.write_bytes(b"unchanged input")
+                link = root / f"link-{input_root.name}"
+                link.symlink_to(input_root, target_is_directory=True)
+                for field in ("snapshot", "markdown", "sample_markdown"):
+                    for target in (protected, link / "protected.json"):
+                        for command in (census.generate, census.verify):
+                            with self.subTest(root=input_root.name, output=field, target=target, command=command.__name__):
+                                bad = SimpleNamespace(**vars(args))
+                                setattr(bad, field, target)
+                                with patch.object(census, "build_census") as build, patch.object(census, "atomic_write") as write:
+                                    with self.assertRaises(ValueError):
+                                        command(bad)
+                                    build.assert_not_called()
+                                    write.assert_not_called()
+                                self.assertEqual(protected.read_bytes(), b"unchanged input")
+            self.assertFalse(args.markdown.exists())
+            self.assertFalse(args.sample_markdown.exists())
+            self.assertEqual(args.snapshot.read_bytes(), b"existing snapshot")
+
+    def test_pairwise_output_collisions_include_symlink_aliases(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-collision-") as directory:
+            root = Path(directory)
+            args = self.output_args(root)
+            args.snapshot.parent.mkdir()
+            args.snapshot.write_bytes(b"existing snapshot")
+            fields = ("snapshot", "markdown", "sample_markdown")
+            common = root / "shared-output"
+            common.write_bytes(b"preserve shared output")
+            alias = root / "shared-alias"
+            alias.symlink_to(common)
+            for left, right in ((fields[0], fields[1]), (fields[0], fields[2]), (fields[1], fields[2])):
+                for second in (common, alias):
+                    for command in (census.generate, census.verify):
+                        with self.subTest(left=left, right=right, symlink=second == alias, command=command.__name__):
+                            bad = SimpleNamespace(**vars(args))
+                            setattr(bad, left, common)
+                            setattr(bad, right, second)
+                            with patch.object(census, "build_census") as build, patch.object(census, "atomic_write") as write:
+                                with self.assertRaises(ValueError):
+                                    command(bad)
+                                build.assert_not_called()
+                                write.assert_not_called()
+                            self.assertEqual(common.read_bytes(), b"preserve shared output")
+
+    def test_every_projection_failure_precedes_all_writes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-projection-") as directory:
+            root = Path(directory)
+            args = self.output_args(root)
+            outputs = (args.snapshot, args.markdown, args.sample_markdown)
+            for existing in (False, True):
+                if existing:
+                    args.snapshot.parent.mkdir()
+                    for output in outputs:
+                        output.write_bytes(b"old generation")
+                for renderer in ("snapshot_payload", "render_markdown", "render_sample_markdown"):
+                    with self.subTest(existing=existing, projection=renderer):
+                        with patch.object(census, renderer, side_effect=RuntimeError("projection failure")), \
+                                patch.object(census, "build_census", wraps=census.build_census) as build, \
+                                patch.object(census, "atomic_write") as write:
+                            with self.assertRaisesRegex(RuntimeError, "projection failure"):
+                                census.generate(args)
+                            build.assert_called_once()
+                            write.assert_not_called()
+                        for output in outputs:
+                            if existing:
+                                self.assertEqual(output.read_bytes(), b"old generation")
+                            else:
+                                self.assertFalse(output.exists())
+                if not existing:
+                    self.assertFalse(args.snapshot.parent.exists())
 
 
 class SceneCapabilityFamilyMapTests(unittest.TestCase):
@@ -1401,7 +900,7 @@ class SceneSampleIdentityTests(unittest.TestCase):
     def test_census_discovers_a_current_layout_sample_as_its_directory_name(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-v2-") as directory:
             root = Path(directory)
-            samples, stock, matrix, ledger = SceneCapabilityCensusTests().make_fixture(root)
+            samples, stock, matrix, ledger = make_fixture(root)
             (samples / "0000000001").rename(samples / V2_LAYOUT_SAMPLE)
             built = census.build_census(samples, stock, matrix, ledger)
             self.assertEqual(built["summary"]["discovered_sample_count"], 1)

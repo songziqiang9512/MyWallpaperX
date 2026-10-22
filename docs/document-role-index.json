@@ -32,6 +32,7 @@
       "docs/scene/capabilities/scalar-mask-data-purpose.md",
       "docs/scene/capabilities/static-source-draw-only-degradation.md",
       "docs/scene/capabilities/uniform-invariant-shader-constants.md",
+      "docs/scene/development/corpus-diagnostic-workflow.md",
       "docs/scene/development/development-workflow.md",
       "docs/scene/development/official-client-behavior-research-workflow.md",
       "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
@@ -811,13 +812,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f57641f049dec3dc9d0106a0cc300025a4b636ef895d5c6ba6c588b1eec2f41a",
+        "sourceSHA256": "5ad128c3a04fc46e3625ad7a3a39923f68ac344fe8560311256e1a3110ffa011",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
-        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
+        "scope": "Same-corpus generate and verify pass for 373 directories; declaration summary/families/profiles unchanged. Runtime decisions remain only in the acceptance ledger.",
+        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
       }
     },
     {
@@ -825,13 +826,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
       "purpose": "373目录的静态声明逐样本清单；统计方法归corpus总览，运行/视觉裁决归验收台账。",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e1aeb69f0bbe373c888e054636fedfe5625fee256cedcf6a6d453d08571a04c2",
+        "sourceSHA256": "e9eaa910e302faf2500e3ccbff222e327cefff96a89064a997337f2b59fcf329",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
-        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
+        "scope": "All 373 sample rows preserved; failed 3763323436 retains project-json-missing and actual material flags. Page references the exact verified snapshot bytes.",
+        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
       }
     },
     {
@@ -926,17 +927,32 @@
       "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md"
     },
     {
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/development/development-workflow.md",
+      "currentStateAuthority": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "lastReviewed": "2026-10-23",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "d790549978fd50825fb261cdf7426ca65227744de574ad107568503412b53148",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Design-first migration preserves the unique scanner and import API; complete failed-row facts, three-output preflight/projection/write/verify. 43 focused tests and real 373-directory generate/verify pass.",
+        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
+      },
+      "purpose": "唯一声明扫描、失败材料事实及机器快照/总览/明细生成与验证合同；运行与视觉裁决归验收台账。"
+    },
+    {
       "path": "docs/scene/development/development-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3104bc9a4bad451beff88b7d02c60ed764b0e5e873c1c7543c6e6c9e07932020",
+        "sourceSHA256": "a49e2620324bd8e9469eaa1f879ecc70a5453a52122fd14be29677b74bbb9b9e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire only the existing blur exception lower0.01 restriction; preserve the same source-shape migration debt and public proof owner.",
-        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
+        "scope": "Add navigation to the corpus diagnostic responsibility and report contract; other development flow unchanged.",
+        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
       }
     },
     {
@@ -3678,10 +3694,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2f07098853c18462a8f483524145857e94ce4eef5a5b57ea2579565fd2ed7906",
+        "sourceSHA256": "0cad2894469fdc09406af61a649414c3e6ca9ae5b77ab1ffe305d8f099df4bd1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
-        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
+        "scope": "Retire resolved static report failure/dual-page writer tasks; preserve pointer-after timing and visibility-normalizer work without changing visual verdicts.",
+        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
       }
     },
     {
@@ -3816,7 +3832,8 @@
       "documents": [
         "docs/development/repository-workflow.md",
         "docs/architecture/repository-map.md",
-        "docs/scene/architecture/scene-dependency-boundaries.md"
+        "docs/scene/architecture/scene-dependency-boundaries.md",
+        "docs/scene/development/corpus-diagnostic-workflow.md"
       ],
       "sourcePaths": [
         "AGENTS.md",

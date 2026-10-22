@@ -157,12 +157,12 @@
       "bytes": 3104
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
-      "lines": 246,
-      "bytes": 46810
+      "lines": 247,
+      "bytes": 46598
     },
     "docs/scene/capabilities/scene-corpus-sample-inventory.md": {
-      "lines": 383,
-      "bytes": 34306
+      "lines": 388,
+      "bytes": 34298
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
@@ -184,9 +184,13 @@
       "lines": 23,
       "bytes": 3517
     },
+    "docs/scene/development/corpus-diagnostic-workflow.md": {
+      "lines": 47,
+      "bytes": 4656
+    },
     "docs/scene/development/development-workflow.md": {
-      "lines": 77,
-      "bytes": 11930
+      "lines": 78,
+      "bytes": 12093
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 270,
@@ -270,7 +274,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 253,
-      "bytes": 79979
+      "bytes": 79830
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1258,15 +1262,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "e401b918b58848bd8e5709915cc7d105e70981abe2beec29a471bf55ce75af17",
-      "owner": "scene-new17-diagnosis",
-      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "4a88f10511c1a0f17d31a404b09155d7645cb0a705c1b86c2514602b92b95786",
       "after": "bdbfef7a0128402439ebcf73e88d85eecd1f3bb819323dbd159d8ab001044dd5",
@@ -1411,12 +1406,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "edfa0e177c2c54d604105020a7696b7cc3695849b12e09a1b6a17ce6af29a542",
-      "after": "82fe7e9823f1e700b4e945610d641d4c7e11d110896d6651891485079414c626",
-      "owner": "Scene particle initializer qualification",
-      "reason": "Keep strict eventdeath no-pattern result and corrected active-child identity; move detailed experiment facts to one historical record and keep current authority compact. No product semantics or coverage expansion.",
-      "decision": "docs/scene/history/particle-initializer-qualification-2026-10-23.md#event-inheritance"
+      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "before": "961efa0aee6eff68c54bad3bcc9ee73994eb0f89a3a7b974ee9b9bc1986b8a6e",
+      "after": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
+      "owner": "Scene corpus diagnostic reporting",
+      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
+      "before": "e401b918b58848bd8e5709915cc7d105e70981abe2beec29a471bf55ce75af17",
+      "after": "259e5194f4bd534b7eb5af6e27ca7a64c7f78e3d827410f9b334b6f85ee4c003",
+      "owner": "Scene corpus diagnostic reporting",
+      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "01baca69f55103861eb1f2d23f1c49eab5f362f1753bad44176831791347be9b",
+      "owner": "Scene corpus diagnostic reporting",
+      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "460072c339a100e83a73a4caf6cd076498aed55c8722f59b3639ec9e6abf6c21",
+      "after": "86f807d898ec463c48232d7a673e5bec6bd696ae4f30d29f3510455a7b2aff24",
+      "owner": "Scene corpus diagnostic reporting",
+      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
     }
   ]
 }

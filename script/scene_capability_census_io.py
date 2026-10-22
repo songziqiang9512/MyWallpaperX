@@ -675,10 +675,17 @@ def ensure_outputs_outside_roots(outputs: Iterable[Path], roots: Iterable[Path])
     expanded_roots = [root.expanduser() for root in roots]
     lexical_roots = [Path(os.path.abspath(root)) for root in expanded_roots]
     resolved_roots = [root.resolve() for root in expanded_roots]
+    resolved_outputs: dict[Path, Path] = {}
     for output in outputs:
         expanded = output.expanduser()
         lexical_candidate = Path(os.path.abspath(expanded))
         resolved_candidate = expanded.resolve()
+        if resolved_candidate in resolved_outputs:
+            raise ValueError(
+                f"census outputs resolve to the same path: "
+                f"{resolved_outputs[resolved_candidate]} and {output}"
+            )
+        resolved_outputs[resolved_candidate] = output
         resolved_parent = expanded.parent.resolve()
         for lexical_root, resolved_root in zip(lexical_roots, resolved_roots):
             candidates = (lexical_candidate, resolved_candidate, resolved_parent)

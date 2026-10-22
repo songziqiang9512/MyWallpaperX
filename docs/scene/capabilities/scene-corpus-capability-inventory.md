@@ -2,12 +2,12 @@
 
 > 状态：现役 corpus 事实、公共结构影响面与修复事件索引。
 >
-> 本页由 `script/scene_capability_census.py` 的只读 authored corpus 快照投影；当前373行明细独立在[静态清单](scene-corpus-sample-inventory.md)，renderer失败/两页writer边界见下文；完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。
+> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；逐样本材料事实见[静态清单](scene-corpus-sample-inventory.md)。完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。
 
 ## 1. 当前结论
 
 - 当前真实 Scene 根发现 **373** 个样本，**372/373** 的 project、PKGV 索引和入口 JSON 可解析。
-- tracked full-matrix baseline仅45个历史成员、`pending-expansion`；该集合不是本轮运行分母。[验收台账](scene-sample-acceptance-ledger.md)现373目录关联260条混合身份运行、113未关联；本轮仅17新增样本重跑，不能把census未join旧matrix解释为从未播放。
+- tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；该成员关系不表示本轮新增或从未运行。实际播放与人工裁决见[验收台账](scene-sample-acceptance-ledger.md)，本 census 不 join 运行证据。
 - 全量 authored census 共保存 **176762** 个 typed occurrence、**4609** 个公共结构 family、**2394** 个参数 profile 与 **23126** 个 JSON 字段 profile。
 - 物理 corpus 共 **29248** 个 PKG entry / **29244** 个唯一路径，包体约 **17.351 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3690065713` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 36/54，同字节；该包 107 entries / 106 unique paths）；样本 `3744157078` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 93/160，同字节；该包 167 entries / 166 unique paths）；样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；样本 `3807013762` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 49/57，同字节；该包 73 entries / 72 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
@@ -189,9 +189,8 @@
 
 ## 5. 全部样本清单
 
-逐样本的对象、Effect、粒子、occurrence与人工材料状态见[全样本静态明细](scene-corpus-sample-inventory.md)。此处只导航，实际播放与视觉裁决仍归[验收台账](scene-sample-acceptance-ledger.md)。
-
-本轮373目录中372可解析；旧3763323436仅有shader、无project，不列新增播放故障。原生成CLI在该失败目录缺报告元数据时中止Markdown；本页使用同一快照的精确occurrence索引与目录事实恢复报告视图，原失败保留，工具问题归断点队列。
+逐样本的对象、Effect、粒子、occurrence 与人工材料状态见[全样本静态明细](scene-corpus-sample-inventory.md)。此处只导航，实际播放与视觉裁决仍归[验收台账](scene-sample-acceptance-ledger.md)。
+解析失败的目录仍在明细中保留 identity、失败原因与实际材料事实；零计数不表示已成功播放。
 
 ## 6. 修复事件记录与防回归合同
 
@@ -229,17 +228,19 @@
 5. 同批实现公共代码、synthetic 正反门和与声明相称的代表运行门；只有具体 fidelity 修复才强制真实 ROI。再写 repair event 和必要的专项文档，不建立样本专用分支，也不复制第三方算法或 payload。
 6. `targeted_samples` 与 `regression_gates` 是后续必须重跑的 sentinel 合同；触达同 family 或它依赖的 selection/Program/publication/composition 时必须执行，不能用新的 aggregate count 覆盖旧视觉正证。
 
-诊断命令（当前失败行renderer及两页writer尚待修；先写忽略目录，不能直写现役总览/清单，也未声称以下generate/verify已通过）：
+生成命令：
 
 ```bash
 python3.12 script/scene_capability_census.py generate \
   --samples-root "$HOME/Movies/MyWallpaperX/创意工坊/Scene" \
   --snapshot .artifacts/scene-evidence/census/scene_capability_census_snapshot.json \
-  --markdown .artifacts/scene-census-generated.md
+  --markdown docs/scene/capabilities/scene-corpus-capability-inventory.md \
+  --sample-markdown docs/scene/capabilities/scene-corpus-sample-inventory.md
 python3.12 script/scene_capability_census.py verify \
   --samples-root "$HOME/Movies/MyWallpaperX/创意工坊/Scene" \
   --snapshot .artifacts/scene-evidence/census/scene_capability_census_snapshot.json \
-  --markdown .artifacts/scene-census-generated.md
+  --markdown docs/scene/capabilities/scene-corpus-capability-inventory.md \
+  --sample-markdown docs/scene/capabilities/scene-corpus-sample-inventory.md
 python3.12 script/scene_capability_census.py query \
   --family <family-key>
 # 需要当前私有 corpus 的详细 resource/owner 事实时显式追加 --live

@@ -1084,6 +1084,22 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionAroundControlPoint.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-corpus-diagnostic-reporting",
+      "title": "Scene 声明诊断单次观察与双页报告",
+      "owner": "Existing corpus CLI/build orchestrator, samples, contracts and reporting owners",
+      "status": "approved",
+      "designDoc": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "design_notes": "2026-10-23 implementation design is recorded before source changes. Complete sample/contract/report responsibilities move out of oversized main; original definitions exit and explicit same-function exports preserve imports. Failed rows retain real directory materials before early returns. One build projects snapshot/overview/sample detail before writing; resolved outputs stay outside readonly inputs and distinct; existing query and semantic scanners remain. No App/VM/normalizer changes or new census owner.",
+      "matchPatterns": [
+        "script/scene_capability_census.py",
+        "script/scene_capability_census_io.py",
+        "script/scene_capability_census_samples.py",
+        "script/scene_capability_census_contracts.py",
+        "script/scene_capability_census_reporting.py"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -2513,10 +2513,13 @@
         "script/scene_capability_census_snapshot.json",
         "script/scene_capability_family_map.json",
         "script/scene_capability_repair_ledger.json",
-        "docs/scene/capabilities/scene-corpus-capability-inventory.md"
+        "script/tests/scene_capability_census_test_support.py",
+        "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+        "docs/scene/capabilities/scene-corpus-sample-inventory.md"
       ],
       "modules": [
-        "test_scene_capability_census"
+        "test_scene_capability_census",
+        "test_scene_capability_census_observations"
       ]
     },
     {
