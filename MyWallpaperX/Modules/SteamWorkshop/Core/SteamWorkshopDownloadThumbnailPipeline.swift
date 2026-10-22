@@ -10,7 +10,6 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         label: "com.songziqiang.MyWallpaperX.steamworkshop.download-thumbnail",
         qos: .utility
     )
-    private let generationLimiter = DispatchSemaphore(value: 2)
     private let lock = NSLock()
     private var inFlight: [String: [(NSImage?) -> Void]] = [:]
     /// 已生成缩略图的内存缓存：卡片配置链路重复刷新时不再磁盘读+解码。
@@ -69,8 +68,6 @@ final class SteamWorkshopDownloadThumbnailPipeline {
                 return
             }
 
-            self.generationLimiter.wait()
-            defer { self.generationLimiter.signal() }
 
             let image = self.createThumbnail(for: videoURL)
             if let image {

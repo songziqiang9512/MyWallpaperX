@@ -7,8 +7,9 @@ import Foundation
 import QuartzCore
 
 extension WallpaperEngine {
-    func makeSystemAudioSpectrumService(barCount: Int) -> SystemAudioSpectrumService {
-        let delivery = spectrumDelivery
+    static func makeSystemAudioSpectrumService(
+        barCount: Int, delivery: PlaybackSpectrumDelivery
+    ) -> SystemAudioSpectrumService {
         return SystemAudioSpectrumService(
             barCount: barCount,
             onLevels: { delivery.publishOverlay($0) },

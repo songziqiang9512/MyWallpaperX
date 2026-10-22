@@ -4339,6 +4339,34 @@
       "modules": [
         "test_video_index_ordered_save"
       ]
+    },
+    {
+      "id": "shared-spectrum-owner-initialization",
+      "patterns": [
+        "MyWallpaperX/Core/Playback/WallpaperEngine.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift",
+        "script/tests/test_system_audio_spectrum_owner.py",
+        "script/tests/test_playback_switch_endpoints.py"
+      ],
+      "modules": [
+        "test_system_audio_spectrum_owner",
+        "test_playback_switch_endpoints",
+        "test_system_audio_spectrum",
+        "test_system_audio_spectrum_recovery",
+        "test_scene_audio_capture_scope",
+        "test_playback_process_isolation"
+      ]
+    },
+    {
+      "id": "steam-download-thumbnail-generation",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadThumbnailPipeline.swift",
+        "script/tests/test_steam_download_thumbnail_pipeline.py"
+      ],
+      "modules": [
+        "test_steam_download_thumbnail_pipeline",
+        "test_thumbnail_return_reuse"
+      ]
     }
   ],
   "method_gates": {
