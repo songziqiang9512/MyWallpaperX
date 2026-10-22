@@ -1165,13 +1165,11 @@ copied-background+双成员+根invert实际验背景孔、半透明、X/Y越界�
 <a id="image-terminal-placement-20261021"></a>
 ## 2026-10-21：普通图片末材质响应最终放置坐标
 
-[终端合同](../architecture/runtime-architecture.md#terminal-material-raster)沿原简单color链扩普通正交image，prepared事实核合法MVP/renderSize ABI及无fragment raster读取；旧/未知事实保graph-final。完整源捕获/前序graph、采样对象/Resolution/颜色保留，仅末材质的forward/inverse成对使用真实输出卡放置。可选终端PSO编译/函数准备失败回完整graph-final；后继真实材质覆盖旧候选，inactive/passthrough不误撤；资源/身份错误仍严格拒绝。没有pointer倍率或样本特判。
+[终端合同](../architecture/runtime-architecture.md#terminal-material-raster)沿简单color链扩普通正交image，prepared事实核合法MVP/renderSize ABI且无fragment raster读取；其余保graph-final。完整源/前序graph、采样/Resolution/颜色不变，末材质forward/inverse成对使用真实输出卡放置。可选PSO/函数准备失败回完整graph-final；后继真实材质覆盖旧候选，inactive不误撤，资源/身份错误严格拒绝。没有pointer倍率或样本特判。
 
-原199同4096×2048输入/3024×1964 cover与预锁三点，旧App目标01/03不揭露、左移02揭露；候选目标01/03揭露、旧点02不揭露，完整构图保持。官方2.8.0.42原包预览中用户确认揭露贴鼠标，只支持行为方向；自动鼠标noWindowsAvailable，未取得官方端点/像素金标，旧mul错误board与早期无ROI结果不充正控。受控pointer覆盖绕过物理输入入口，不能由此宣称AppKit/DPI、多屏或357hover已修。
+原199同4096×2048输入/3024×1964 cover，旧App目标01/03不揭露、左移02揭露；候选目标01/03揭露、旧点02不揭露，构图保持。官方2.8.0.42仅用户方向确认，无端点/像素金标；早期错误board不充正控。10-21 normalized注入绕过物理入口。<a id="physical-pointer-ingress-20261023"></a>10-23同Scene链签名Debug `3848fb5e…992bb`，固定视口、fresh host且无pointer注入；用户分别确认自有圆标与原199左/中/右揭露始终贴鼠标。原199 App0、stop1→0/GPU排空，原件/副本及App无漂移，只退出该视口比例错位反馈。自动组跨resize且CUA未驱动标记，保NOT_QUALIFIED；首人工窗无反馈，第二自有窗精确TERM无drain结论。限量包`.artifacts/scene-evidence/runs/physical-pointer-input-qualification-20261023/physical/report.json`保原图/身份/独审；不外推DPI、多屏或357作者hover半径，CPU采样只定位不认收益。
 
-自有真实App普通image两effect与非平凡前序采样，保持192×128源/256×128实际graph；预锁输出目标与旧预测相距约269.7px。旧target mask0/legacy7806，候选target9915/legacy0、质心误差0.059px（门2px），前序两探针RGB保持；变量/资源改名等价图原PNG SHA一致，fragment raster读取反例仍旧位。独立原3747190633人物/背景/星点/蓝条与时钟保留；时钟旧布局差异已存在，音频/时相未锁，不作整图parity或新增故障。
-
-签名Debug 34.561s/0warning、4359输入无漂移，候选App afab766d…cb9cfcb；三次原包运行exit0/stop1→0/GPU排空。CPU入口22case、frontend五方法通过/一GPU跳过，graph九方法通过/一未取得PMA Program资格跳过；自有App三变体通过。早期夹具重复声明、inactive候选回退首失败及错误PSO角色注入均保资格记录，最终独审无must-fix；正式收据核原图、构建源与归档身份。证据包`.artifacts/scene-evidence/runs/image-terminal-placement-20261021/`保存必要原图、原报告、身份与失败；无整体性能收益结论。PMA专项、完整alpha/profile、HDR/官方同phase与真实鼠标入口未扩验。
+自有普通image两effect保非平凡前序采样，192×128源/256×128 graph；目标与旧预测相距约269.7px。旧target0/legacy7806，候选target9915/legacy0、质心误差0.059px（门2px），前序RGB保持；改名等价原PNG SHA一致，fragment raster反例仍旧位。独立374人物/背景/星点/蓝条与时钟保持；旧时钟布局、声源/时相未齐，不作整图parity。原签名Debug `afab766d…cb9cfcb`、4359输入无漂移，三次原包正常排空，CPU/frontend/graph及三变体门和独审通过，GPU/PMA未资格跳过保原记录。旧原图/报告与失败归`.artifacts/scene-evidence/runs/image-terminal-placement-20261021/`；完整alpha/profile、HDR/官方同phase及更多物理输入仍未验，无性能收益结论。
 ## 2026-10-22：新增17原包默认诊断 <a id="intake-20261022"></a>
 
 本批只诊断与文档，不改产品/脚本/测试。复核4326产品输入与8cde701af产物无漂移，沿用签名优化Debug，App `c02fbf11…0ebb`。17原包各20s/30FPS、固定PCM与中心pointer，全部exit0/未timeout、stop1→0/GPUdrain；after约2s，逐包另核5/10/15s系列。无一目录有官方“截屏”；作者预览非golden，PCM不提供媒体信息，未验点击/拖动、全属性、同官方时相或性能。矩阵17PASS、归一5degraded/12structural均不作视觉裁决；隐藏分支/特殊solid归一误报保raw并限定，不据此改产品。

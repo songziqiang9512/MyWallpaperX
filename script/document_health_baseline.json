@@ -141,8 +141,8 @@
       "bytes": 349147
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 600,
-      "bytes": 215296
+      "lines": 598,
+      "bytes": 215276
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -270,7 +270,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 252,
-      "bytes": 78984
+      "bytes": 78882
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,

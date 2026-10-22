@@ -751,10 +751,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "157ae5f98c58a56a52d4a7ecaa6b0864b8740d5ac80db679af95624ec5a4c762",
+        "sourceSHA256": "ab0b411e34bb372c317d175587db38b5497ff5562e4c1f9172856799216b97a9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅核N03当前资格、证据可用性和导航；其他能力与旧记录未重验。",
-        "limitations": "新官方载体一次正控失败，STOP_UNKNOWN；无产品或默认文字depth/整景/性能结论。"
+        "scope": "仅同步N03资格/证据可用性及固定视口物理pointer后验；其余能力未重验。",
+        "limitations": "N03一次正控失败不裁深度；199人工确认不扩DPI/多屏/357半径，CPU采样不算收益。"
       }
     },
     {
