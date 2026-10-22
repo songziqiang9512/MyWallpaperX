@@ -38,6 +38,9 @@ struct SILWallpaper: Equatable {
     @Published var inspectedWallpaperID: String?
     var tags: [String] = []
     var settings = WallpaperSettings()
+    var isMultiSelectMode = false
+    var selectedWallpaperId: String?
+    var selectedWallpaperIds: Set<String> = []
     var derivations = 0
     var favoriteWallpapers: [VideoWallpaper] { wallpapers.filter(\.isFavorite) }
     // VIDEO_PROJECTION_METHODS
@@ -277,6 +280,7 @@ enum GridThumbnailDecoder {
         OnlineLibraryService.downloadDirectory = downloadRoot
         var checks: [String: Bool] = [:]
         testShell(&checks)
+        testVideoQuickLook(&checks)
         testSidebar(&checks)
         testSILTagProjection(&checks)
         try testOnline(&checks)
@@ -402,6 +406,70 @@ enum GridThumbnailDecoder {
         checks["shellPendingDispatchAndCombineDoNotRetainController"] = weakShell == nil
         pump()
         checks["shellReleasedControllerRemainsReleasedAfterQueuedDelivery"] = weakShell == nil
+    }
+
+    @MainActor static func testVideoQuickLook(_ checks: inout [String: Bool]) {
+        let manager = WallpaperManager()
+        let one = VideoWallpaper(id: "1", title: "Middle")
+        let ten = VideoWallpaper(id: "10", title: "Zulu")
+        let two = VideoWallpaper(id: "2", title: "Alpha")
+        manager.wallpapers = [two, ten, one]
+        manager.selectedWallpaperIds = ["1", "2"]
+        checks["videoQuickLookEmptySingleSelectionReturnsNil"] = manager.selectedWallpaperForQuickLook == nil
+        manager.selectedWallpaperId = "2"
+        checks["videoQuickLookSingleSelectionIgnoresMultiSelectionSlot"] = manager.selectedWallpaperForQuickLook == two
+        manager.selectedWallpaperId = "missing"
+        checks["videoQuickLookStaleSingleSelectionReturnsNil"] = manager.selectedWallpaperForQuickLook == nil
+
+        manager.isMultiSelectMode = true
+        manager.selectedWallpaperId = "2"
+        manager.selectedWallpaperIds = []
+        checks["videoQuickLookEmptyMultiSelectionIgnoresSingleSelectionSlot"] = manager.selectedWallpaperForQuickLook == nil
+        manager.selectedWallpaperIds = ["2"]
+        checks["videoQuickLookSingleItemMultiSelectionReturnsItsRecord"] = manager.selectedWallpaperForQuickLook == two
+        var lexicalSelection = true
+        for insertionOrder in [["2", "10"], ["10", "2"], ["2", "10", "2"]] {
+            manager.selectedWallpaperIds = []
+            insertionOrder.forEach { manager.selectedWallpaperIds.insert($0) }
+            lexicalSelection = lexicalSelection && manager.selectedWallpaperForQuickLook == ten
+        }
+        manager.selectedWallpaperIds = ["2", "10", "1"]
+        checks["videoQuickLookUsesLexicalIDAcrossInsertionOrdersInsteadOfTitleOrLibraryOrder"] = lexicalSelection
+            && manager.selectedWallpaperForQuickLook == one
+        manager.selectedWallpaperIds = ["0-missing", "1", "2"]
+        checks["videoQuickLookStaleSmallestIDDoesNotFallThroughToAValidRecord"] = manager.selectedWallpaperForQuickLook == nil
+        manager.selectedWallpaperIds = ["z-missing", "10"]
+        checks["videoQuickLookLargerStaleIDDoesNotHideTheValidSmallestID"] = manager.selectedWallpaperForQuickLook == ten
+
+        let firstDuplicate = VideoWallpaper(id: "10", title: "First duplicate", tags: ["first"], fileSize: 5)
+        manager.wallpapers = [firstDuplicate, two, ten]
+        manager.selectedWallpaperIds = ["2", "10"]
+        checks["videoQuickLookDuplicateLibraryIDKeepsTheFirstCompleteRecord"] = manager.selectedWallpaperForQuickLook == firstDuplicate
+        let replacement = VideoWallpaper(id: "10", title: "Replacement", tags: ["new"], fileSize: 9)
+        manager.wallpapers = [two, replacement]
+        let changedRecord = manager.selectedWallpaperForQuickLook
+        manager.selectedWallpaperIds = ["2"]
+        checks["videoQuickLookNextReadReflectsLibraryAndSelectionMutation"] = changedRecord == replacement
+            && manager.selectedWallpaperForQuickLook == two
+        manager.selectedWallpaperIds = ["10", "2"]
+        manager.wallpapers = [two]
+        checks["videoQuickLookRemovedSmallestRecordBecomesNilOnNextRead"] = manager.selectedWallpaperForQuickLook == nil
+
+        manager.wallpapers = [two, ten, one]
+        manager.selectedWallpaperIds = ["2", "10"]
+        manager.searchQuery = "nothing-matches"
+        manager.settings = WallpaperSettings(sortMode: .name, sortAscending: false)
+        manager.perSelectionSortStates = ["category.myWallpapers": SortState(mode: .size, ascending: true)]
+        let recordsBeforeRead = manager.wallpapers
+        let multiSelectionBeforeRead = manager.selectedWallpaperIds
+        let singleSelectionBeforeRead = manager.selectedWallpaperId
+        let result = manager.selectedWallpaperForQuickLook
+        checks["videoQuickLookReadIgnoresSearchSortAndLeavesSelectionAndLibraryUntouched"] = result == ten
+            && manager.wallpapers == recordsBeforeRead && manager.selectedWallpaperIds == multiSelectionBeforeRead
+            && manager.selectedWallpaperId == singleSelectionBeforeRead && manager.isMultiSelectMode
+            && manager.searchQuery == "nothing-matches" && manager.settings.sortMode == .name
+            && !manager.settings.sortAscending && manager.perSelectionSortStates["category.myWallpapers"]?.mode == .size
+            && manager.perSelectionSortStates["category.myWallpapers"]?.ascending == true && manager.derivations == 0
     }
 
     @MainActor static func testSidebar(_ checks: inout [String: Bool]) {

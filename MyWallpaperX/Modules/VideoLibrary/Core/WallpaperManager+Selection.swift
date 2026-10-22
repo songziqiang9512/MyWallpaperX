@@ -167,7 +167,7 @@ extension WallpaperManager {
 
     var selectedWallpaperForQuickLook: VideoWallpaper? {
         if isMultiSelectMode {
-            guard let selectedID = selectedWallpaperIds.sorted().first else { return nil }
+            guard let selectedID = selectedWallpaperIds.min() else { return nil }
             return wallpapers.first { $0.id == selectedID }
         }
 
