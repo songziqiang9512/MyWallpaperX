@@ -113,15 +113,19 @@ public final class WallpaperEngine: NSObject {
     var sceneDaemonAudioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
     var sceneDaemonAudioSpectrumGeneration: UInt64?
     var sceneAudioSpectrumCaptureRouting = SceneAudioSpectrumCaptureRoutingState()
-    let spectrumDelivery = PlaybackSpectrumDelivery()
+    let spectrumDelivery: PlaybackSpectrumDelivery
 
     var lastFailureVideoPath: String?
     var lastFailureAt: TimeInterval = 0
     static let defaultSpectrumBarCount = 28
 
     override init() {
+        let delivery = PlaybackSpectrumDelivery()
+        self.spectrumDelivery = delivery
         currentSpectrumLevels = Array(repeating: 0, count: WallpaperEngine.defaultSpectrumBarCount)
-        systemAudioSpectrumService = SystemAudioSpectrumService(barCount: WallpaperEngine.defaultSpectrumBarCount)
+        systemAudioSpectrumService = WallpaperEngine.makeSystemAudioSpectrumService(
+            barCount: WallpaperEngine.defaultSpectrumBarCount, delivery: delivery
+        )
         super.init()
         dedicatedWebHostAdapter.eventHandler = { [weak self] event in
             if Thread.isMainThread {
@@ -133,7 +137,6 @@ public final class WallpaperEngine: NSObject {
             }
         }
         configureWebSwitchCallbacks()
-        systemAudioSpectrumService = makeSystemAudioSpectrumService(barCount: WallpaperEngine.defaultSpectrumBarCount)
         observeSceneAudioSpectrumDemand()
         NotificationCenter.default.addObserver(self, selector: #selector(handleScreenParametersChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)

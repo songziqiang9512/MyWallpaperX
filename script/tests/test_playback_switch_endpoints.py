@@ -45,7 +45,8 @@ final class PlaybackSpectrumDelivery {
 final class SystemMediaService {
     static let shared = SystemMediaService(); let currentSnapshot = SystemMediaSnapshot.empty
     func unsubscribe(_ id: UUID) {}
-    func subscribe(_ id: UUID, needsMedia: Bool, handler: @escaping (SystemMediaSnapshot)->Void) {}
+    func subscribe(_ id: UUID, needsMedia: Bool, needsWebArtwork: Bool = false,
+                   handler: @escaping (SystemMediaSnapshot)->Void) {}
 }
 final class WebRuntimeDiagnosticsStore {
     enum Severity: String { case warning }
@@ -135,7 +136,7 @@ struct SceneAudioSpectrumCaptureRoutingState {}
 extension PlaybackSpectrumDelivery { func setVideoTargets(_ values: [DaemonProcessTransport]) {} }
 extension WallpaperEngine {
     func refreshSystemAudioSpectrumCapture() {}
-    func makeSystemAudioSpectrumService(barCount: Int) -> SystemAudioSpectrumService { .init(barCount: barCount) }
+    static func makeSystemAudioSpectrumService(barCount: Int, delivery: PlaybackSpectrumDelivery) -> SystemAudioSpectrumService { .init(barCount: barCount) }
     func observeSceneAudioSpectrumDemand() {}
     func currentWebSpectrumSnapshot() -> [Float]? { nil }
     func setWebAudioSpectrumRequested(_ active: Bool) { currentWebAudioSpectrumRequested = active }

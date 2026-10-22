@@ -37,7 +37,7 @@
 | 测试独占恢复 | helper 超长帧 resync | 统一当前有界关闭合同，保留超长拒绝；不扩大协议错误恢复 |
 | 重复计算 | shader 多次 lex/parse；在线列表全量元数据重读与比较器属性查询；视频搜索/导航重复排序 | 同语义上下文复用，文件 revision 和稳定排序反例；收益须实测 |
 | 小型算法 | Web 重复小写/正则和 BFS 队列、下载计数排序、失败历史重复扫描、协议 buffer 复制 | 相同输入/输出/失败边界；不引入多余缓存或 owner |
-| 冗余构造 | 音频服务二次初始化、串行缩略图队列内 semaphore、状态栏无消费者采样 | 初始化、取消、差分采样及真实 demand 回归 |
+| 冗余构造 | 音频服务二次初始化、Steam 下载缩略图串行队列的外层 semaphore、状态栏无消费者采样 | 初始化、取消、差分采样及真实 demand 回归；Video 队列并发，现役限流保留 |
 | 构建 | Steam restore/publish/签名和 stock assets 全量扫描 | 完整输入身份、资源增删、配置与签名失效；不能只关闭 alwaysOutOfDate |
 | 内容判定 | 暗色视频被当作缩略图失败 | 暗色仅评分，保留真实解码 fallback；暗场/损坏/负缓存反例 |
 | 数据策略 | 暂不可用文件自动删除索引 | 区分外接卷未挂载与确认删除，先设计数据保留与恢复 |
@@ -136,6 +136,29 @@
 再次由三个独立子代理复核 Online、SIL/断言和完整登记/证据，未发现误删真实调用、功能退步或断言削弱。8 路径及证据 manifest 与上一轮一致，复用相同产品/夹具的基线、4 模块候选及冷 Debug 结果，本轮重跑 111 项路由/链接与断言门。路由预览不当作已执行门，Scene 依赖门也不冒充 Online/SIL 完整依赖审计；消费者和参数传递另经源码复核。
 
 证据在复用 worktree 的 `.artifacts/code-slimming-b4-20261022/` 及本轮 `.artifacts/code-slimming-b4-crossreview-20261022/` 保留至 2026-11-05。固定基线/候选导出、临时 HOME/缓存当轮清理，成功构建原始日志提取摘要后删除，checkpoint DerivedData/App 自动清理；前三批证据和其他会话材料保留。整合按 key 保留并行 `6fd3faf56` 的两份 Scene 文档及两个文档预算收紧；该提交不改变产品/夹具/构建输入，文档组合另验，不额外重建产品。提交/合并身份以 Git 记录为准，不推送。
+
+## 第五批范围与停止条件
+
+基线：第四批 `59590f7a1` 与并行 `6fd3faf56` 已通过 `02188e5db` 整合。状态：实施、对应回归、构建及再次三路交叉审查完成，按用户授权窄提交并整合原分支；提交与合并身份以 Git 记录为准，未推送。比较 Web/Online 文件元数据重复读取、音频重复构造和缩略图无效同步后，选择后两项；前者的文件变更与排序快照语义需另论证，不与本批混改。
+
+| 编号 | 简化 | 保留职责与验收 |
+|---|---|---|
+| B5-A | `WallpaperEngine` 不先创建无回调音频占位实例；用同一个局部 `PlaybackSpectrumDelivery` 立即创建唯一正式实例，工厂显式接收 delivery | 保持 eager 初始化、三个回调、需求驱动采集、scope/generation、pause 与恢复；真实 initializer/工厂装配回归、现役音频/IPC/切换门与 Debug 构建 |
+| B5-B | 删除 Steam 下载缩略图私有串行队列内 `generationLimiter(value: 2)` 及 wait/signal | 同队列执行串行性、合并/缓存/失败、主线程 completion 和实际异步取帧等待均保留；现役缩略图门与 Debug 构建 |
+
+Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设备采集提前到初始化；正式服务在原占位构造阶段创建，采集仍由 `setConsumers` 驱动。Steam 只移除同一串行闭包内无法竞争的外层信号量；`generateCGImage` 的零值等待用于异步回调，Video 缩略图队列本身并发，两者均不得顺带删除。没有权限、路径、数值或身份防护退役。新增装配检查直接使用生产 initializer 与工厂，不复制回调算法，原有断言保留；若出现提前采集、回调错误、重复 owner 或并发变化，撤回该片而不追加兜底。
+
+实施：三个产品文件只收敛构造与同步。音频工厂三个回调体、需求/暂停/scope/generation 与采集服务内部不变；Steam 除三行外逐字保留。收益只陈述少建一次占位服务、少一次无效 permit 配对，不认领代码体积、性能、包体或能耗实测。两个实施子代理分工后，由另一个独立子代理审查完整改动、真实初始化/调用及新旧断言，未发现阻塞。
+
+新增 `test_system_audio_spectrum_owner` 使用真实字段、完整 initializer、工厂、frame/token 和记录叶：原基线实际观察到两次构造，4 项构造/身份不变量失败，候选为一次构造，三个回调、六数组/两种 token 和 delivery 身份均通过。原服务初始化只建缓冲、分析器与 dispatch source，不启动 tap；这一点由真实初始化源码与现役恢复门核对，记录叶本身不证明硬件采集。
+
+新增 `test_steam_download_thumbnail_pipeline` 使用真实完整 pipeline、helper/cache、ffmpeg 自有小视频及隔离 HOME；仅在抽帧入口加观测和首请求闸门，不替代生成/缓存算法。原基线和候选均通过 12 项冷帧、同 key 合并、不同 key 完成、内存/负缓存、坏/缺失文件、JPEG 落盘和主线程 completion 检查，生成最大并发为 1。复用现役 isolation flags，并启用 warnings-as-errors；原有近邻门只编译该 pipeline，不能反称已覆盖冷抽帧。
+
+验证按冻结身份累计闭合 8 个模块：两个新门、`test_playback_switch_endpoints`、`test_system_audio_spectrum`、`test_system_audio_spectrum_recovery`、`test_scene_audio_capture_scope`、`test_playback_process_isolation`、`test_thumbnail_return_reuse`。首次候选 7 项通过，endpoints 因媒体订阅替身缺少生产已有 `needsWebArtwork` 参数编译失败；在原始 `02188e5db` 产品及原测试上复现相同两项失败后，只补替身参数，保留原全部断言，单独复跑 endpoints 通过。其余 5 个代码输入身份未变，复用已通过结果；最终 6 个代码输入均与隔离冷 Debug 构建前后相同，构建通过。不表述为一次 8/8 全绿。
+
+选测只追加两个现役职责组；3 个产品路径均映射，无失效/未映射项。111 项路由/链接、代码健康、断言信号、设计、依赖及文档门通过。专项全文增长触发首读 150 行上限后，首读仅定位现有第五批章节，完整记录仍由同一文档及正文预算管理；150/600 上限、扫描脚本和旧路由均不放宽。既有 3 个全局 Scene 结构失败未在本批修复，本批未重跑完整结构组，不报全局全绿。
+
+覆盖限制：装配门的服务/外部观察是记录叶；真实 service 恢复、scope/IPC 门与冷视频门分别承担对应行为，不将其合成真实硬件采集、全 App UI 或全媒体兼容验收。未作真实音乐、多屏或长期并发性能测量。必要证据在复用 worktree 的 `.artifacts/code-slimming-b5-20261022/` 至 2026-11-05；保留初次失败、基线同错和修复复跑，成功原始构建日志提取摘要后删除。临时导出、视频、HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理；其他会话材料不动。再次三路静态复核未发现真实调用丢失、行为回退或断言削弱；6 个代码输入与既有回归/冷 Debug 身份一致，复用该结果。整合保留并行 `52adbf5a7` 的三份 Scene 正文、三个收紧预算及 runtime 导航收据，组合文档与 111 项路由/链接另验。
 
 ## 退出
 
