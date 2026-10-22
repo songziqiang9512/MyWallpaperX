@@ -28,6 +28,7 @@ extension SteamWorkshopService {
                 return record.contentType == .scene
             }
         }
+        var failedHistoryItemIDs: Set<String>?
         let visible = modeFiltered.filter { record in
             if !downloadsShowsAdultContent, let item = record.browserItem,
                item.hasAdultContent || SteamWorkshopContentRatingSupport.hasAdultContent(tags: item.tags) {
@@ -39,7 +40,7 @@ extension SteamWorkshopService {
             case .queued, .downloading:
                 // 进行中意图 = 失败后的重试（同卡续显进度）；从未失败的新任务
                 // 属弹窗队列，不进下载页。
-                return hasFailedDownloadHistory(itemID: record.id)
+                return hasFailedDownloadHistory(itemID: record.id, failedItemIDs: &failedHistoryItemIDs)
             }
         }
         return sortedDownloadRecords(visible)
@@ -63,6 +64,7 @@ extension SteamWorkshopService {
         // 不删 job，只保证不产生同 item 两张卡。
         var synthesizedItemIDs = Set(records.map(\.id))
         var synthesized: [SteamWorkshopDownloadRecord] = []
+        var failedHistoryItemIDs: Set<String>?
         for job in downloadJobStore.jobs {
             guard job.accountSteamId == account,
                   synthesizedItemIDs.contains(job.workshopItemId) == false else { continue }
@@ -72,7 +74,9 @@ extension SteamWorkshopService {
                 record = synthesizedFailedIntentRecord(from: job)
             case .queued, .running, .staged, .committing:
                 // 失败后的重试：同 workshop intent 的卡续显；从未失败的任务不合成。
-                record = hasFailedDownloadHistory(itemID: job.workshopItemId, accountSteamId: account)
+                record = hasFailedDownloadHistory(
+                    itemID: job.workshopItemId, accountSteamId: account, failedItemIDs: &failedHistoryItemIDs
+                )
                     ? synthesizedActiveRetryRecord(from: job)
                     : nil
             case .cancelled, .completed:
@@ -92,14 +96,17 @@ extension SteamWorkshopService {
         return account
     }
 
-    /// 该 item 在现役账号下是否存在失败历史（重试中/未完成的判定事实）。
-    func hasFailedDownloadHistory(itemID: String, accountSteamId account: String? = nil) -> Bool {
+    /// 调用方在一次同步投影内复用当前账号的失败集合；首次遇到重试才读取历史。
+    func hasFailedDownloadHistory(
+        itemID: String, accountSteamId account: String? = nil, failedItemIDs: inout Set<String>?
+    ) -> Bool {
         guard let account = account ?? currentSteamDownloadAccount else { return false }
-        return downloadJobStore.history.contains { entry in
-            entry.workshopItemId == itemID
-                && entry.accountSteamId == account
-                && entry.outcome == .failed
-        }
+        if let failedItemIDs { return failedItemIDs.contains(itemID) }
+        let itemIDs = Set(downloadJobStore.history.lazy.filter {
+            $0.accountSteamId == account && $0.outcome == .failed
+        }.map(\.workshopItemId))
+        failedItemIDs = itemIDs
+        return itemIDs.contains(itemID)
     }
 
     /// 现役账号下该 item 是否存在持久失败意图（ready 卡「更新失败」附加状态的判定）。

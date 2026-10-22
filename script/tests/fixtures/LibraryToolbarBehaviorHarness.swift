@@ -28,14 +28,19 @@ struct SteamDownloadJob {
     var state: SteamDownloadJobState
 }
 struct IntentHistory {
-    enum Outcome { case failed, completed }
+    enum Outcome { case failed, completed, cancelled }
     let accountSteamId: String
     let workshopItemId: String
     let outcome: Outcome
 }
 final class IntentStore {
     var jobs: [SteamDownloadJob] = []
-    var history = [IntentHistory(accountSteamId: "A", workshopItemId: "retry", outcome: .failed)]
+    private var storedHistory = [IntentHistory(accountSteamId: "A", workshopItemId: "retry", outcome: .failed)]
+    private(set) var historyReadCount = 0
+    var history: [IntentHistory] {
+        get { historyReadCount += 1; return storedHistory }
+        set { storedHistory = newValue }
+    }
 }
 final class IntentAuth { var steamId: String? = "A" }
 @MainActor final class SteamWorkshopService {
@@ -328,6 +333,186 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         checks["signedOutProjectionCannotSynthesizeFailedIntents"] = intent.filteredAndSortedDownloads(from: [ready]) == [ready]
         intentSubscription.cancel()
 
+        // Count reads at the real history input; projection and synthesis bodies
+        // remain production code. Each measured call gets its own input snapshot.
+        var historyReadMetrics: [String: Int] = [:]
+        @MainActor func measuredHistory(_ name: String, on probe: SteamWorkshopService,
+            _ operation: () -> [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
+            let before = probe.downloadJobStore.historyReadCount
+            let result = operation()
+            historyReadMetrics[name] = probe.downloadJobStore.historyReadCount - before
+            return result
+        }
+        let historyProbe = SteamWorkshopService()
+        historyProbe.downloadJobStore.history = [
+            .init(accountSteamId: "A", workshopItemId: "retry-one", outcome: .failed),
+            .init(accountSteamId: "A", workshopItemId: "retry-one", outcome: .completed),
+            .init(accountSteamId: "A", workshopItemId: "retry-two", outcome: .completed),
+            .init(accountSteamId: "A", workshopItemId: "retry-two", outcome: .failed),
+            .init(accountSteamId: "A", workshopItemId: "retry-two", outcome: .cancelled),
+            .init(accountSteamId: "A", workshopItemId: "failed-then-success", outcome: .failed),
+            .init(accountSteamId: "A", workshopItemId: "failed-then-success", outcome: .completed),
+            .init(accountSteamId: "A", workshopItemId: "shared", outcome: .completed),
+            .init(accountSteamId: "B", workshopItemId: "shared", outcome: .failed),
+            .init(accountSteamId: "B", workshopItemId: "retry-two", outcome: .completed),
+            .init(accountSteamId: "A", workshopItemId: "completed-only", outcome: .completed),
+            .init(accountSteamId: "A", workshopItemId: "cancelled-only", outcome: .cancelled)]
+        let retryRecords: [SteamWorkshopDownloadRecord] = [
+            ready, .init(id: "retry-one", status: .queued),
+            .init(id: "retry-two", status: .downloading),
+            .init(id: "failed-then-success", status: .queued),
+            .init(id: "shared", status: .queued),
+            .init(id: "completed-only", status: .downloading),
+            .init(id: "cancelled-only", status: .queued),
+            .init(id: "failed-card", status: .failed("retained"))]
+        let mergedRetries = measuredHistory("mergedManyRetries", on: historyProbe) {
+            historyProbe.filteredAndSortedMergedDownloads(from: retryRecords)
+        }
+        checks["mixedAccountHistoryKeepsOnlyCurrentAccountFailedRetries"] = Set(mergedRetries.map(\.id))
+            == ["ready", "retry-one", "retry-two", "failed-then-success", "failed-card"]
+        checks["anyFailureSurvivesLaterSuccessOrCancellation"] = mergedRetries.contains { $0.id == "retry-one" }
+            && mergedRetries.contains { $0.id == "retry-two" }
+            && mergedRetries.contains { $0.id == "failed-then-success" }
+        checks["completedAndCancelledHistoryAloneNeverCreateRetryCards"] = !mergedRetries.contains { $0.id == "completed-only" }
+            && !mergedRetries.contains { $0.id == "cancelled-only" }
+        checks["mergedProjectionReadsHistoryAtMostOnce"] = historyReadMetrics["mergedManyRetries"] == 1
+
+        historyProbe.downloadJobStore.jobs = [
+            .init(accountSteamId: "A", workshopItemId: "ready", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "failure", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "failure", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "retry-one", state: .queued),
+            .init(accountSteamId: "A", workshopItemId: "retry-one", state: .running),
+            .init(accountSteamId: "A", workshopItemId: "retry-two", state: .staged),
+            .init(accountSteamId: "A", workshopItemId: "failed-then-success", state: .committing),
+            .init(accountSteamId: "A", workshopItemId: "shared", state: .queued),
+            .init(accountSteamId: "B", workshopItemId: "other-account", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "completed-only", state: .running),
+            .init(accountSteamId: "A", workshopItemId: "cancelled-only", state: .queued),
+            .init(accountSteamId: "A", workshopItemId: "new-task", state: .running),
+            .init(accountSteamId: "A", workshopItemId: "terminal-cancelled", state: .cancelled),
+            .init(accountSteamId: "A", workshopItemId: "terminal-completed", state: .completed)]
+        let synthesizedRetries = measuredHistory("synthesisManyRetries", on: historyProbe) {
+            historyProbe.downloadsWithFailedIntents(from: [ready])
+        }
+        checks["synthesisPreservesReadyAndDeduplicatesMixedRetryJobs"] = synthesizedRetries.count == 5
+            && Set(synthesizedRetries.map(\.id)) == ["ready", "failure", "retry-one", "retry-two", "failed-then-success"]
+            && synthesizedRetries.first { $0.id == "ready" } == ready
+            && synthesizedRetries.first { $0.id == "retry-one" }?.status == .queued
+            && synthesizedRetries.first { $0.id == "retry-two" }?.status == .downloading
+            && synthesizedRetries.first { $0.id == "failed-then-success" }?.status == .downloading
+        checks["intentSynthesisReadsHistoryAtMostOnce"] = historyReadMetrics["synthesisManyRetries"] == 1
+
+        let retryMissProbe = SteamWorkshopService()
+        retryMissProbe.downloadJobStore.jobs = [
+            .init(accountSteamId: "A", workshopItemId: "miss-one", state: .queued),
+            .init(accountSteamId: "A", workshopItemId: "miss-two", state: .running),
+            .init(accountSteamId: "A", workshopItemId: "miss-three", state: .staged)]
+        let retryMissRecords: [SteamWorkshopDownloadRecord] = [
+            .init(id: "miss-one", status: .queued),
+            .init(id: "miss-two", status: .downloading),
+            .init(id: "miss-three", status: .downloading)]
+        let missHistories: [(String, [IntentHistory])] = [
+            ("emptyHistoryManyRetries", []),
+            ("foreignOnlyHistoryManyRetries", [
+                .init(accountSteamId: "B", workshopItemId: "miss-one", outcome: .failed),
+                .init(accountSteamId: "B", workshopItemId: "miss-two", outcome: .failed),
+                .init(accountSteamId: "B", workshopItemId: "miss-three", outcome: .failed)])]
+        var emptyHistoryMergeBehavior = true, emptyHistorySynthesisBehavior = true
+        for (label, history) in missHistories {
+            retryMissProbe.downloadJobStore.history = history
+            let projected = measuredHistory(label + "Merged", on: retryMissProbe) {
+                retryMissProbe.filteredAndSortedMergedDownloads(from: retryMissRecords)
+            }
+            let synthesized = measuredHistory(label + "Synthesis", on: retryMissProbe) {
+                retryMissProbe.downloadsWithFailedIntents(from: [])
+            }
+            emptyHistoryMergeBehavior = emptyHistoryMergeBehavior && projected.isEmpty
+            emptyHistorySynthesisBehavior = emptyHistorySynthesisBehavior && synthesized.isEmpty
+        }
+        checks["emptyOrForeignOnlyHistoryKeepsAllMergedRetriesHidden"] = emptyHistoryMergeBehavior
+        checks["emptyOrForeignOnlyHistorySynthesizesNoRetryCards"] = emptyHistorySynthesisBehavior
+        checks["emptyOrForeignOnlyMergedHistoryReadsOnce"] = ["emptyHistoryManyRetriesMerged",
+            "foreignOnlyHistoryManyRetriesMerged"].allSatisfy { historyReadMetrics[$0] == 1 }
+        checks["emptyOrForeignOnlySynthesisHistoryReadsOnce"] = ["emptyHistoryManyRetriesSynthesis",
+            "foreignOnlyHistoryManyRetriesSynthesis"].allSatisfy { historyReadMetrics[$0] == 1 }
+
+        let noRetryProbe = SteamWorkshopService()
+        let settledRecords: [SteamWorkshopDownloadRecord] = [ready, .init(id: "failed-card", status: .failed("retained"))]
+        let settled = measuredHistory("mergedNoEligibleRetry", on: noRetryProbe) {
+            noRetryProbe.filteredAndSortedMergedDownloads(from: settledRecords)
+        }
+        noRetryProbe.downloadsDisplayMode = .web
+        let modeFiltered = measuredHistory("mergedModeFilteredRetries", on: noRetryProbe) {
+            noRetryProbe.filteredAndSortedMergedDownloads(from: retryRecords)
+        }
+        noRetryProbe.downloadsDisplayMode = .all
+        noRetryProbe.downloadsShowsAdultContent = false
+        let adultFiltered = measuredHistory("mergedAdultFilteredRetry", on: noRetryProbe) {
+            noRetryProbe.filteredAndSortedMergedDownloads(from: [
+                .init(id: "retry", browserItem: .init(tags: ["Mature"]), status: .queued)])
+        }
+        noRetryProbe.downloadJobStore.jobs = [
+            .init(accountSteamId: "A", workshopItemId: "ready", state: .queued),
+            .init(accountSteamId: "A", workshopItemId: "failure", state: .failed),
+            .init(accountSteamId: "B", workshopItemId: "foreign-retry", state: .queued),
+            .init(accountSteamId: "A", workshopItemId: "terminal", state: .completed)]
+        let noEligibleSynthesis = measuredHistory("synthesisNoEligibleRetry", on: noRetryProbe) {
+            noRetryProbe.downloadsWithFailedIntents(from: [ready])
+        }
+        checks["nonRetryAndFilteredPathsKeepTheirExistingOutputs"] = Set(settled.map(\.id)) == ["ready", "failed-card"]
+            && modeFiltered.isEmpty && adultFiltered.isEmpty
+            && Set(noEligibleSynthesis.map(\.id)) == ["ready", "failure"]
+        checks["noEligibleRetryPathsNeverReadHistory"] = ["mergedNoEligibleRetry", "mergedModeFilteredRetries",
+            "mergedAdultFilteredRetry", "synthesisNoEligibleRetry"].allSatisfy { historyReadMetrics[$0] == 0 }
+
+        let mutableHistory = SteamWorkshopService()
+        mutableHistory.downloadJobStore.history = []
+        let sharedRetry = SteamWorkshopDownloadRecord(id: "shared", status: .queued)
+        mutableHistory.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "shared", state: .queued),
+            .init(accountSteamId: "B", workshopItemId: "shared", state: .queued)]
+        func currentRetries(_ name: String) -> (projection: [SteamWorkshopDownloadRecord], synthesis: [SteamWorkshopDownloadRecord]) {
+            let projected = measuredHistory(name, on: mutableHistory) {
+                mutableHistory.filteredAndSortedMergedDownloads(from: [sharedRetry])
+            }
+            let synthesized = measuredHistory(name + "Synthesis", on: mutableHistory) {
+                mutableHistory.downloadsWithFailedIntents(from: [])
+            }
+            return (projected, synthesized)
+        }
+        let beforeAdd = currentRetries("emptyHistory")
+        mutableHistory.downloadJobStore.history = [.init(accountSteamId: "A", workshopItemId: "shared", outcome: .failed)]
+        let afterAdd = currentRetries("addedHistory")
+        mutableHistory.steamAuth.steamId = "B"
+        let afterAccountChange = currentRetries("changedAccount")
+        mutableHistory.downloadJobStore.history = [.init(accountSteamId: "B", workshopItemId: "shared", outcome: .failed)]
+        let afterAccountHistoryAdd = currentRetries("changedAccountAddedHistory")
+        mutableHistory.downloadJobStore.history = []
+        let afterClear = currentRetries("clearedHistory")
+        checks["historyAddClearAndAccountChangeAffectTheNextProjection"] = beforeAdd.projection.isEmpty
+            && afterAdd.projection == [sharedRetry] && afterAccountChange.projection.isEmpty
+            && afterAccountHistoryAdd.projection == [sharedRetry] && afterClear.projection.isEmpty
+        checks["historyAddClearAndAccountChangeAffectTheNextSynthesis"] = beforeAdd.synthesis.isEmpty
+            && afterAdd.synthesis.map(\.id) == ["shared"] && afterAccountChange.synthesis.isEmpty
+            && afterAccountHistoryAdd.synthesis.map(\.id) == ["shared"] && afterClear.synthesis.isEmpty
+        mutableHistory.downloadJobStore.history = [.init(accountSteamId: "A", workshopItemId: "shared", outcome: .failed)]
+        var noAccountBehavior = true
+        for (label, account) in [("nilAccount", Optional<String>.none), ("emptyAccount", Optional(""))] {
+            mutableHistory.steamAuth.steamId = account
+            let projected = measuredHistory(label + "Merged", on: mutableHistory) {
+                mutableHistory.filteredAndSortedMergedDownloads(from: retryRecords)
+            }
+            mutableHistory.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "shared", state: .queued)]
+            let synthesized = measuredHistory(label + "Synthesis", on: mutableHistory) {
+                mutableHistory.downloadsWithFailedIntents(from: [ready])
+            }
+            noAccountBehavior = noAccountBehavior && Set(projected.map(\.id)) == ["ready", "failed-card"]
+                && synthesized == [ready]
+        }
+        checks["nilAndEmptyAccountsKeepReadyAndFailureWithoutRetrySynthesis"] = noAccountBehavior
+        checks["nilAndEmptyAccountPathsNeverReadHistory"] = ["nilAccountMerged", "nilAccountSynthesis",
+            "emptyAccountMerged", "emptyAccountSynthesis"].allSatisfy { historyReadMetrics[$0] == 0 }
+
         let previousDownloads = service.downloads
         func sortable(_ id: String, _ title: String, _ date: TimeInterval, _ bytes: Int64) -> SteamWorkshopDownloadRecord {
             var record = SteamWorkshopDownloadRecord(id: id, title: title)
@@ -449,6 +634,8 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         }
         toolbar.menuPopover.close()
         window.close()
+        let historyMetricsData = try JSONSerialization.data(withJSONObject: ["historyReads": historyReadMetrics], options: [.sortedKeys])
+        FileHandle.standardError.write(historyMetricsData + Data("\n".utf8))
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
