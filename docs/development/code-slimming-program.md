@@ -192,6 +192,18 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 读取计数只证明历史输入访问减少，不证明元素比较总量、CPU、耗时或能耗改善；首次查询从可提前命中的 contains 改为全量构建 Set，存在分配与单项查询成本取舍。两个函数及刷新重入各有自己的调用期集合，不声称整轮刷新只读取一次。未做真实账号或完整人工 UI 验收。必要证据在 `.artifacts/code-slimming-b7-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理，成功原始构建日志提取摘要后删除。复用 worktree 为审核及前批证据保留，其他会话材料不动。
 
+## 第八批范围与停止条件
+
+基线：第七批 `c0673f65d` 已通过 `58d71c9e7` 整合；保留并行 `52adbf5a7` 的 Scene 正文、预算与 runtime 导航收据。状态：在独立分支 `MWX/code-slimming-b8` 完成实施、双路独审、回归与构建，按当前授权本地提交并整合；身份以 Git 记录为准，未推送。比较 Quick Look 排序取首、搜索前置过滤和其他无消费者链后，先选前者；网格 source 仍供搜索隐藏选中项的右键操作回退，不把全 source 换成过滤数组，箭头导航排序另批研究。
+
+最小结果：`selectedWallpaperForQuickLook` 多选分支用 `selectedWallpaperIds.min()` 代替完整排序取首；保持 String 字典序、空集合、单选槽独立、最小失效 ID 返回 nil、不跳至其他有效 ID、重复模型取库中第一条与读取无副作用。Space、菜单、Shell 同步和预览内箭头仍走同一 getter，不新增选择 owner 或缓存。不把算法工作减少表述为 CPU、内存峰值或能耗实测。
+
+现役 UIProjection harness 抽取完整真实 getter，补上述正反例，全部旧检查保持。相同增强夹具先验证原实现，再验证候选；最近 UI/库行为门、独立交叉审查与隔离 Debug 构建通过后本地提交、整合原分支并开始下一批，不推送。任何输出或真实消费者变化即撤回本片，不增加兜底逻辑。
+
+实施与验证：产品仅替换一处完整排序取首，现役 runner 抽完整真实 getter。原 UIProjection 40 项检查/时序及执行配置逐字保留，追加 12 项 Quick Look 正反例，共 52 项；没有复制 min/sorted 算预期。固定 `58d71c9e7` 原产品配同一增强夹具全部通过；固定候选的 `test_ui_projection_efficiency`、`test_library_toolbar_behaviors`、`test_video_inspector_preview_reload` 三模块串行一次通过，原基线与候选 52 项同键同真，随后隔离冷 Debug 通过。三份产品/runner/fixture 身份在独审、回归和构建前后一致。两独立代理复核全部调用及差分，未发现回退或断言削弱。
+
+现有测试映射覆盖该产品路径，没有新增/修改扫描、映射或棘轮；111 项路由/链接、代码健康、断言、设计、依赖及文档/产物/残留门通过。依赖门只证明其明示的 Scene/测试扫描范围，既有三项全局 Scene 结构失败未修复、未重跑完整结构组。真实 Quick Look 面板操作、全 App UI 与性能未在本批验收；这里只证明 getter 语义与最近消费者门，不外推完整窗口表现。必要证据在 `.artifacts/code-slimming-b8-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存与成功原始构建日志提取摘要后清理，checkpoint DerivedData/App 自动清理。其他会话材料保留，原分支整合不暂存并行 Scene 实施路径。
+
 ## 退出
 
 候选按用户价值、证据与风险选择，达到验收或收益递减时停止该批，不扩成无界清理。专项完成或用户终止后，把稳定职责留在原合同，本文归档为历史证据并退出设计登记；不长期维持第二套引擎路线。
