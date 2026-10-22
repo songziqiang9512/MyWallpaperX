@@ -188,12 +188,14 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             if let utility = layer.utilityLayer {
                 // Resolve each nested group too: a valid outer member list
                 // does not prove a nested group's dependency/source contract.
-                guard utility.kind == .composition, !utility.passthrough,
+                guard utility.kind == .composition,
                       layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
-                      (try? SceneUtilityLayerSourceRoute.resolve(
+                      let sourceRoute = try? SceneUtilityLayerSourceRoute.resolve(
                         layer: layer, descriptor: descriptor
-                      ).get()) != nil else { return nil }
+                      ).get(),
+                      !utility.passthrough || sourceRoute.usesAuthoredLocalSource
+                else { return nil }
             } else {
                 let particleLeaf = layer.contentKind == "particle"
                     && layer.particlePath != nil

@@ -479,10 +479,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ace117a93883a8dbcf6cb16025d3ccb0f2b0cb9d979274ed60937bb3ddb2d901",
+        "sourceSHA256": "1f1b1b812f443471d9e34089a2f58bb39520e31c2b4dd7ba330d5549a1516b6f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原生字形段落坐标失效时同一准备链统一边界降级；332主时钟恢复及独立347后验由运行证据持有。",
-        "limitations": "仅本批职责和导航；未跨分钟、未验异常字体精确ink限宽、post-scale/多语言、官方parity、Release/HDR/多屏或性能；旧条目不冒fresh复验。"
+        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
     {
@@ -624,10 +624,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "28fbb0fe1fb932e15e2e81cfde16197f4bbfbcc72c25a8a4058d8872db87ec8d",
+        "sourceSHA256": "0abc42da80f15212014a4f516c703f160d9b08263508601ae3b9e0cc6f5414de",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
-        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
+        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
     {
@@ -751,10 +751,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "717dd402069b70b4a42777ec4ecc22d54b8d3696cc0a876a0692803c0e6f5b93",
+        "sourceSHA256": "5168a07f81c12844626eaf68784b8ceb82c58d42698739649ae666e10df396e3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅更新Compose RGBA载体资格与既有稳定锚点；实际两帧正控、通道观测和旧STOP由本轮正式运行证据持有。",
-        "limitations": "只复核所改段落与导航；未跑真实370/377，线性探针不裁处理顺序、extent/UV，未改产品，不声明HDR/嵌套、官方parity或性能收益；其他历史条目未重验。"
+        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
     {
@@ -3477,10 +3477,10 @@
       "lastReviewed": "2026-10-20",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "11004937731298b46afb4a6cabcf3fdb5e012d327ebd57e53580911ac695b07d",
+        "sourceSHA256": "d8ee07b62179ce737f8d932127026c353bedaacba0c5adb94d54b1f373d2bd5c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CI link audit: local evidence references are literal paths, durable repository targets and permanent IDs remain checked. No product revalidation claim.",
-        "limitations": "固定双卡及同PCM离散原图/用户最新App反馈；无完整源32 GPU readback、连续运动、全音源/variant、精确phase、HDR、整样本或性能声明。"
+        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
     {
@@ -3653,10 +3653,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a69c22fc768ff50ea0aedec8f3ff56db80ae2a6a37297b291cdae3443c73a4b",
+        "sourceSHA256": "09efd1ec597891372ed10aba8b8ca2e2fe96ae5681fcc5bd51f2c25296db262a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
-        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
+        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
     {
@@ -3667,10 +3667,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "77a4007c6b3a42c5d6040d6e178c39fc3fdec57fcdd33713fbbb8136971eced3",
+        "sourceSHA256": "5580fd5cbc850bf81f49679aa7d3dcd23ab30e9bfc5df25fe55f9c1736d75fde",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
-        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
+        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
     {

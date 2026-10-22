@@ -400,6 +400,67 @@ struct SceneDependencyRenderPlan {
             invalidCompositionCases.map { ($0, inactiveComposition($0)) })
         output["invalidScriptOwnedInactiveCompositions"] = Dictionary(uniqueKeysWithValues:
             invalidCompositionCases.map { ($0, inactiveComposition($0, scriptOwned: true)) })
+        func populatedInactiveComposition(_ violation: String? = nil,
+                                          ids layerIDs: [Int] = [710, 713, 719]) -> [String: Bool] {
+            let owner = layerIDs[0], childID = layerIDs[1], peer = layerIDs[2]
+            var root = SceneRenderDescriptor.Layer(id: owner, visible: true,
+                childLayerIDs: [childID], contentKind: "composition",
+                utilityLayer: .init(kind: .composition, passthrough: true),
+                effects: [.init(visible: false)])
+            var child = SceneRenderDescriptor.Layer(id: childID, visible: true,
+                parentID: owner, contentKind: "solid")
+            var extra = SceneRenderDescriptor.Layer(id: peer, visible: true, contentKind: "solid")
+            var plan = SceneDependencyRenderPlan()
+            var ortho = true
+            var nestedLeaves: [SceneRenderDescriptor.Layer] = []
+            switch violation {
+            case "nested": root.parentID = peer; extra.childLayerIDs = [owner]; extra.contentKind = "container"
+            case "not-orthographic": ortho = false
+            case "root-perspective": root.usesPerspective = true
+            case "child-perspective": child.usesPerspective = true
+            case "model-member": child.contentKind = "model"
+            case "nested-background", "nested-passthrough":
+                child.contentKind = "composition"
+                child.utilityLayer = .init(kind: .composition,
+                    copyBackground: violation == "nested-background", passthrough: violation == "nested-passthrough")
+                child.childLayerIDs = [childID + 1]
+                nestedLeaves = [.init(id: childID + 1, visible: true, parentID: childID)]
+            case "dependency": root.dependencyLayerIDs = [peer]
+            case "authored-dependency": root.authoredDependencies = [peer]
+            case "provider": plan.requiredProviderLayerIDs = [owner]
+            case "graph-provider": plan.requiredGraphOutputProviderLayerIDs = [owner]
+            case "effect-consumer": plan.requiredEffectConsumerLayerIDs = [owner]
+            case "blocked-source": plan.staticLayerSourcePassthroughBlockedLayerIDs = [owner]
+            case "transparent-nonpassthrough":
+                root.utilityLayer?.passthrough = false; root.utilityLayer?.copyBackground = false
+            case "background-nonpassthrough": root.utilityLayer?.passthrough = false
+            case nil: break
+            default: fatalError("unknown populated inactive composition fixture")
+            }
+            var descriptor = SceneRenderDescriptor(layers: [child, extra, root] + nestedLeaves)
+            descriptor.camera.authoredOrthographicProjectionActive = ortho
+            let effect = SceneDynamicTarget.effectVisibility(layerID: owner, effectIndex: 0)
+            let layerTarget = target(owner)
+            func inactive(_ scriptOwned: Bool) -> Bool {
+                SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
+                    in: descriptor, candidates: [effect], visibleLayerIDs: [owner],
+                    dependencyPlan: plan, scriptOwnedCandidates: scriptOwned ? [effect] : []
+                ).contains(effect)
+            }
+            let source = try? SceneUtilityLayerSourceRoute.resolve(layer: root, descriptor: descriptor).get()
+            return ["sourceAccepted": source != nil, "local": source?.usesAuthoredLocalSource == true,
+                "layer": ids(descriptor, candidates: [layerTarget]).contains(owner),
+                "preparesMembers": SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+                    in: descriptor, candidates: [layerTarget]) == Set([owner, childID]),
+                "inactive": inactive(false), "scriptInactive": inactive(true)]
+        }
+        output["populatedInactiveComposition"] = populatedInactiveComposition()
+        output["renamedPopulatedInactiveComposition"] = populatedInactiveComposition(ids: [9017, 2208, 3301])
+        output["populatedInactiveNeighbors"] = Dictionary(uniqueKeysWithValues:
+            ["nested", "not-orthographic", "root-perspective", "child-perspective", "model-member",
+             "nested-background", "nested-passthrough", "dependency", "authored-dependency", "provider", "graph-provider",
+             "effect-consumer", "blocked-source", "transparent-nonpassthrough", "background-nonpassthrough"]
+                .map { ($0, populatedInactiveComposition($0)) })
 #endif
         func modelTargets(_ layers: [SceneRenderDescriptor.Layer], prepared: Set<Int> = [81],
                           candidate: Int = 81) -> [Int] {
@@ -766,6 +827,27 @@ class ScriptVisibleRootTests(unittest.TestCase):
         for name, admitted in self.result['invalidScriptOwnedInactiveCompositions'].items():
             with self.subTest(case=name):
                 self.assertFalse(admitted)
+
+    def test_populated_passthrough_prepares_hidden_effect_and_members_with_renamed_ids(self):
+        # Real visibility/source admissions only; complete Program preparation
+        # and GPU toggle results remain the integration gate's responsibility.
+        for key in ('populatedInactiveComposition', 'renamedPopulatedInactiveComposition'):
+            with self.subTest(case=key):
+                self.assertEqual(self.result[key], {
+                    'sourceAccepted': True, 'local': True, 'layer': True, 'preparesMembers': True,
+                    'inactive': True, 'scriptInactive': True})
+
+    def test_populated_hidden_effect_keeps_profile_hierarchy_and_dependency_boundaries(self):
+        for name, facts in self.result['populatedInactiveNeighbors'].items():
+            with self.subTest(case=name):
+                self.assertFalse(facts['inactive'], facts)
+                self.assertFalse(facts['scriptInactive'], facts)
+                if name in ('nested', 'not-orthographic', 'root-perspective', 'child-perspective',
+                            'model-member', 'nested-background', 'nested-passthrough',
+                            'dependency', 'authored-dependency'):
+                    self.assertFalse(facts['sourceAccepted'], facts)
+                    self.assertFalse(facts['local'], facts)
+                    self.assertFalse(facts['layer'], facts)
 
     def test_prepared_model_leaf_uses_actual_resources_without_opening_parent_or_effect_routes(self):
         self.assertEqual(self.result['modelPrepared'], [81])

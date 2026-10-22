@@ -1110,15 +1110,15 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 正式索引 `.artifacts/scene-evidence/runs/new-sample-intake-20261021/index/current/report.json` 关联分包原始report/日志、24张after、必要变体原图、自有PCM、App/源码身份与独审；目录官方图仅保原路径/SHA。全样本台账增至351行，归档新增24条且保原212条不变、旧人工verdict不改；不是全351本轮运行。包遵循总量5GiB/单包32MiB，普通结果14天、明确未解决首错包注明保护理由。测试结束后临时source/DerivedData/App/HOME/样本副本与未保留重复输出清理，Goal维持暂停。
 
 <a id="compose-subtree-qualification-20261021"></a>
-## 2026-10-22：Compose子树载体已资格，空间语义仍开放
+## 2026-10-22：顶层普通成员组合的根效果接入局部源
 
-原370的197/206与377四组首拒仍为SourceRoute的passthrough+children；现effectful copy-background走全viewport源/回绘，不能只删guard认作作者本地700×512输入。本轮未改产品，未跑真实370/377，无画面或性能收益声明。
+SourceRoute新增顶层passthrough、正交二维、无utility后代的普通成员组；根效果消费作者逻辑画布与实际enclosing背景截点，经原Program/graph按root world MVP输出一次。隐藏/无效果不切源域，原typed准备复用同一route；旧viewport/nested身份保持。独审发现的嵌套utility初始active/inactive准备不一致，以新profile整体拒绝关闭。
 
-固定官方2.8.0.42/exe`daac1ea7…bda07`、stock Compose`46873426…c3854`。V2只将8自有材质的物理纹理路径改为逻辑名，8 TEX/observer/scene/ROI逐字不变；官方实际载体已加载。旧V1黄黑占位、PNG-only工具前置及V2漏标签/无ICC读取失败均保留STOP，不追认通过。10-21 OFF的15/25失败另保于`.artifacts/scene-evidence/runs/compose-subtree-qualification-20261021/`；不由这些失败裁算法。后验17控制点定位截图色彩域后，另行事前冻结CMS协议并重新采集两张CUA原JPEG。嵌入显示ICC`cf2d5fc2…8e92e`→系统sRGB`2b3aa164…9af7e`，Pillow12.2.0/LCMS2.18、intent0/flags0；只对既定5×5内存转换，保原storedRGB，不转码/重采样或修改ROI/±8与23/25门。独立四角注册960×640；两新帧17控制点均25/25，输入/脚本/profile身份无漂移，独审通过。
+370的197及377的28/61/99/114原15个pixelate/VHS/pulse由无owner进入实际Program，700×512输入、GPU/末消费及次帧可追；五TV区域由清晰孔内容/边框恢复马赛克、噪声与RGB彩边，人物/背景保留，独立378五栏/黑边保持。旧基线复用Scene输入未变的签名Debug，各窗零PCM。时相/鼠标未锁官方等价，不由位置微差或短播帧率推性能。
 
-config false/true两根、两帧的R/G/B/A三行读数均为`[0,0,255,255]`、`[128,0,127,191]`、`[64,128,63,159]`；普通half-red的R为255、A为128。只证明本探针通道响应；线性observer与外alpha可能可交换，不能裁逐child/flatten、原alpha保持或修改全局blend。stock model.passthrough固定true，不等同config字段。
+copied-background+双成员+根invert实际验背景孔、半透明、X/Y越界和健康后层；改名/换序与两方向显隐往返保同window/surface。最终签名Debug SHA `3848fb5e…992bb`，38项受影响门、active起点往返及三原包均过；此前资源门、两hidden起点及两旧组App门按原身份保留。只闭根FX未接入；任意alpha/tint、utility后代/透视、官方FBO/精确grid/UV、全音源/属性、HDR及整景parity未验，无性能收益声明。
 
-下一门只核首pixelate的源extent/UV、TV透明孔内非均匀背景与Yscale2.49382的grid/局部输出；不加VHS/pulse、alpha或TEX格式矩阵。自有输入、两轮原图、旧失败、CMS协议/数值和独审归`.artifacts/scene-evidence/runs/compose-rgba-entry-qualified-20261022/`（14天/32MiB/5GiB）；关闭本轮预览，官方主客户端/VM保留。未重build、未改全样本运行分母/verdict，完整顺序、HDR/嵌套及真实样本parity未验。
+官方2.8.0.42 RGBA V2两新帧17控制合格，仅证通道响应，线性observer不裁逐child/flatten或全局blend；原资格包`.artifacts/scene-evidence/runs/compose-rgba-entry-qualified-20261022/`保留。空间严格版两小角标颜色STOP；前瞻改颜色为诊断并另取两帧后，13颜色全过但X参考边4px混色超原2px门、Y通过，语义仍空；未调ROI/阈值或追认旧失败。独立按画布源合同实施；STOP不裁官方尺寸/overflow。完整收据归`.artifacts/scene-evidence/runs/composition-passthrough-local-fx-20261022/`，14天/32MiB/5GiB；预览已关、主客户端/VM保留，停用副本清理，仅保一份原增量cache/固定source续用。
 
 <a id="vec3-equals-color-20261021"></a>
 ## 2026-10-21：共享Vec3判等恢复作者颜色过渡

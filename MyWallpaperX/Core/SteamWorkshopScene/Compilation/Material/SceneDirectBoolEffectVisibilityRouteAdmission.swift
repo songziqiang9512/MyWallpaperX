@@ -108,8 +108,12 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             // stages so a typed toggle can activate the existing graph later.
             let standaloneComposition = layer.contentKind == "composition"
                 && layer.utilityLayer?.kind == .composition
-                && layer.utilityLayer?.passthrough == false
-                && layer.parentID == nil && layer.childLayerIDs.isEmpty
+                && layer.parentID == nil
+                && ((layer.utilityLayer?.passthrough == false && layer.childLayerIDs.isEmpty)
+                    || (layer.utilityLayer?.passthrough == true
+                        && (try? SceneUtilityLayerSourceRoute.resolve(
+                        layer: layer, descriptor: descriptor
+                    ).get())?.usesAuthoredLocalSource == true))
                 && ordinaryHierarchy
             let standaloneUtility = standaloneFullscreen || standaloneComposition
             guard standaloneUtility

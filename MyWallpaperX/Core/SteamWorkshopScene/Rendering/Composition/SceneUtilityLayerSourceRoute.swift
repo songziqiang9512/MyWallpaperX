@@ -39,7 +39,6 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         // A childless passthrough has no members to pass through. Its explicit
         // background choice still owns the effect input, including transparency.
         guard utility.kind == .composition,
-              !utility.passthrough || layer.childLayerIDs.isEmpty,
               layer.childLayerIDs.isEmpty
                 || (layer.dependencyLayerIDs.isEmpty
                     && layer.authoredDependencies.isEmpty) else {
@@ -79,11 +78,14 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 pending.append(childID)
             }
         }
-        // Hidden authored effects can become active without a topology change.
-        // Keep their background source policy stable; only genuinely effectless
-        // background groups join the already qualified transparent local source.
+        // A top-level passthrough still owns its authored group effects. Keep
+        // the local input stable across effect visibility changes. Nested
+        // passthroughs retain their existing structural membership instead of
+        // becoming additional source/output owners.
         let localSource = descriptor.camera.authoredOrthographicProjectionActive == true
-            && (!utility.copyBackground || layer.effects.isEmpty) && !descendants.isEmpty
+            && (!utility.copyBackground || layer.effects.isEmpty
+                || (utility.passthrough && layer.parentID == nil))
+            && !descendants.isEmpty
             && layer.usesPerspective != true
             && descendants.allSatisfy { childID in
                 guard let child = layersByID[childID], child.usesPerspective != true else {
@@ -96,6 +98,10 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                     || child.utilityLayer?.copyBackground != true
                     || child.childLayerIDs.isEmpty
             }
+        guard !utility.passthrough || layer.childLayerIDs.isEmpty
+                || (layer.parentID == nil && localSource) else {
+            return .failure(.compositionSubtreeShape)
+        }
         // Existing color producers can draw into this target. Depth-tested
         // models, particles and lights retain their existing unsupported route.
         // Plain members may own transform-parent chains; membership follows
@@ -105,7 +111,10 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 return .failure(.compositionSubtreeShape)
             }
             if let childUtility = child.utilityLayer {
-                guard childUtility.kind == .composition,
+                // Newly admitted passthrough roots contain plain producers.
+                // Nested utilities retain their original group/preparation
+                // policy until their effect-visibility closure is qualified.
+                guard !utility.passthrough, childUtility.kind == .composition,
                       child.contentKind == childUtility.kind.rawValue,
                       !childUtility.passthrough || (localSource
                         && (child.childLayerIDs.isEmpty || child.effects.isEmpty)) else {

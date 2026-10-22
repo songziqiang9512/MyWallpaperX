@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-22 | 组合层/局部源 | 有界修复证据 | [无根效果背景组边界](composition-background-bounds-2026-10-22.md) | 两轴裁切、终端alpha红绿与378五栏实景；保官方资格及签名失败边界 | [D1](../roadmap/batch2/composition-render-target-design.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 相机/坐标 | 有界修复证据 | [原生相机帧变换](native-camera-frame-transforms-2026-10-19.md) | 当前 world、eye/basis 与投影的共享输入及反例；保官方与整景边界 | [属性输入](../capabilities/runtime-input-property-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 原生平面/材质 | 有界修复证据 | [Framebuffer材质源](native-framebuffer-material-source-2026-10-19.md) | 原 source Program、depth lease 与层序后验；保原包和剩余 fallback 边界 | [D1](../roadmap/batch2/composition-render-target-design.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-19 | 模型/深度 | 公共语义修复 | [模型共享场景域](model-scene-depth-domain-2026-10-19.md) | 单位变换公共红绿、近共面透明壳与真实在飞压力；333/343余项保持 | [F6](../roadmap/batch2/2d-lighting-material-design.md#model-scene-depth-domain)、[运行架构](../architecture/runtime-architecture.md)、[队列](../roadmap/scene-open-breakpoint-queue.md)、[性能卡](../roadmap/performance-convergence-card.md) |
@@ -221,5 +222,3 @@
 - [Native framebuffer source Program](native-framebuffer-material-source-2026-10-19.md)：有序主源与只读深度、333音频条及资源失败边界。
 
 - [原生相机当帧变换](native-camera-frame-transforms-2026-10-19.md)：相机/父变换与同阶段world、双深度像素及盒体未闭边界。
-
-- [无根效果背景组局部边界与终端透明度](composition-background-bounds-2026-10-22.md)：仅378裁切/分栏断点的有界证据，带根效果子树、完整parity与性能仍开放。

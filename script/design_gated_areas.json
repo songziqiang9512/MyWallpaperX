@@ -109,7 +109,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "design_notes": "D1为唯一设计：parent成员/根顺序/copybackground、透明本地源及native framebuffer source沿原prepared graph/pool/StaticModelFrame/唯一compositor。affine无成员背景采集按局部X/Y投影边长分配，保原sourceUV/output；projective、有成员和其他源不借此扩。普通native平面显式render state复用原MaterialRenderState、共享depth首次clear/lease/取消与terminal reverse-depth；text及省略默认待官方资格，solid材料漏收回原catalog修。实施验读写/剔除、disabled/overlay、陈旧资源及真实画面；approved不代表实现、整景parity或性能收益。 2026-10-22：无authored根效果、正交非passthrough有成员背景组沿既有localSource裁切；首次写入按实际enclosing映射复用captureSource采背景。隐藏根效果不扩域，其他背景viewport路径保留；原pin/epoch及唯一compositor不变，验收未完成不升能力。",
+      "design_notes": "D1为唯一设计：parent成员/根顺序/copybackground、透明本地源及native framebuffer source沿原prepared graph/pool/StaticModelFrame/唯一compositor。affine无成员背景采集按局部X/Y投影边长分配，保原sourceUV/output；projective、有成员和其他源不借此扩。普通native平面显式render state复用原MaterialRenderState、共享depth首次clear/lease/取消与terminal reverse-depth；text及省略默认待官方资格，solid材料漏收回原catalog修。实施验读写/剔除、disabled/overlay、陈旧资源及真实画面；approved不代表实现、整景parity或性能收益。 2026-10-22：无authored根效果、正交非passthrough有成员背景组沿既有localSource裁切；首次写入按实际enclosing映射复用captureSource采背景。隐藏根效果不扩域，其他背景viewport路径保留；原pin/epoch及唯一compositor不变，验收未完成不升能力。 同日后继：仅新增顶层有普通成员且无utility后代的passthrough正交二维localSource profile，根效果与隐藏/无效果共用作者逻辑画布；沿原typed inactive准备、Program/graph及一次root输出，不迁移旧非passthrough带根效果viewport。空间板STOP不作官方尺寸/overflow资格，实际370/377与独立组景有收益且无回归后才记能力。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ImageLayerEncoding.swift",

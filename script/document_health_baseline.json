@@ -62,7 +62,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 133901
+      "bytes": 134037
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -106,7 +106,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175881
+      "bytes": 175942
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 23,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 215286
+      "bytes": 215316
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -197,8 +197,8 @@
       "bytes": 128946
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 128,
-      "bytes": 30183
+      "lines": 136,
+      "bytes": 32415
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -265,12 +265,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 57,
-      "bytes": 18370
+      "lines": 56,
+      "bytes": 17858
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 252,
-      "bytes": 79113
+      "bytes": 79051
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1286,10 +1286,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "0083a960a5a1263c47408773e62439e3704952962a9dc568c039e2941901e6e6",
-      "after": "4a88f10511c1a0f17d31a404b09155d7645cb0a705c1b86c2514602b92b95786",
-      "owner": "scene-composition-source-and-terminal",
-      "reason": "同一D1增补无根效果背景组局部源及终端alpha消费，378实景分栏恢复；限定证据独立归历史，原运行分母/整景裁决保留。",
+      "before": "4a88f10511c1a0f17d31a404b09155d7645cb0a705c1b86c2514602b92b95786",
+      "after": "bdbfef7a0128402439ebcf73e88d85eecd1f3bb819323dbd159d8ab001044dd5",
+      "owner": "scene-composition-local-root-fx",
+      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
       "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
@@ -1340,11 +1340,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8fa48c55a62ca0b442cb583084aedff53c7dbfd314942a4656dc679a3a2e538b",
-      "after": "541806d5654afb3d10ae1cbf0fdd9b6afd5ff94ca0fcd06e5fe3564049926de4",
-      "owner": "Scene native text bounds",
-      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+      "before": "541806d5654afb3d10ae1cbf0fdd9b6afd5ff94ca0fcd06e5fe3564049926de4",
+      "after": "c89fe6cb3f2f6ebc541fcba67561a4c5b9813b59df58457cbf0913f901159710",
+      "owner": "scene-composition-local-root-fx",
+      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
@@ -1358,20 +1358,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "4951c277cad6a1d7f3bd3b1434ee3b5892b77623f7ca7c167bcf19046aa56020",
-      "after": "76fd8f90c2e67355b35dc0d229c389c1f850152448cb8c96841e9a8dedf6e8bb",
-      "owner": "Scene native text bounds",
-      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+      "before": "76fd8f90c2e67355b35dc0d229c389c1f850152448cb8c96841e9a8dedf6e8bb",
+      "after": "48d3962d9e3e5e6db990b9c6e14fd4a5ced8ee261cc4169921af0f32346617bb",
+      "owner": "scene-composition-local-root-fx",
+      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6f4bea9f5533b6b2543b32a304d30e2527c6c6f6aa3655bf7a5c9fd841fd7181",
-      "after": "404b650804d97135faff3aafcff0eee66a28c539118d98d54df4f53497bf023c",
-      "owner": "Scene native text bounds",
-      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+      "before": "7ed2fcc143c3aaf596b2a0fea8a3eee11e4401ff1ebbdc034967ae170e272d15",
+      "after": "4f2f8f892adc53a9746a5d9e51fb4ef2d9227a1f521acbb98af07cdb82ad9c46",
+      "owner": "scene-composition-local-root-fx",
+      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",

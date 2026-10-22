@@ -1,9 +1,11 @@
-"""No authored root effects: copied local background, bounds and one output.
+"""Local composition background, bounds and root-effect visibility.
 
 The pixel oracle is fixed independently of captures. App execution, PNG parsing,
 hash freezing, isolated HOME and evidence retention reuse the authored-order
 integration gate. These owned solids qualify the bounded local-source profile;
 they do not infer the official client's algorithm for effect-bearing groups.
+Top-level passthrough cases additionally exercise an owned root Program through
+the existing live-effect runner; planner admission alone never proves a Program.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from unittest.mock import patch
 
 from script.tests import test_scene_composition_authored_order_integration as app_fixture
 from script.tests import test_scene_composition_source_identity as source_fixture
+from script.tests import test_scene_fullscreen_visibility_integration as visibility_fixture
 
 
 PLANNER_HARNESS = source_fixture.HARNESS.split("@main", 1)[0] + r'''
@@ -30,11 +33,13 @@ enum BackgroundLocalPlannerProbe {
                    childEffects: [SceneRenderDescriptor.EffectDescriptor] = [],
                    ortho: Bool = true, perspective: Bool = false,
                    passthrough: Bool = false, childKind: String = "solid",
-                   dependencies: [Int] = [], admitted: Bool = false) -> [String: Any] {
+                   dependencies: [Int] = [], admitted: Bool = false,
+                   nested: Bool = false) -> [String: Any] {
             var utility = SceneUtilityLayer(kind: .composition)
             utility.copyBackground = copy
             utility.passthrough = passthrough
-            var root = SceneRenderDescriptor.Layer(id: rootID, contentKind: "composition",
+            var root = SceneRenderDescriptor.Layer(parentID: nested ? 900 : nil,
+                id: rootID, contentKind: "composition",
                 utilityLayer: utility, dependencyLayerIDs: dependencies,
                 childLayerIDs: [childID], visible: true, effects: effects)
             root.usesPerspective = perspective
@@ -42,8 +47,21 @@ enum BackgroundLocalPlannerProbe {
                 contentKind: childKind, utilityLayer: nil, dependencyLayerIDs: [],
                 childLayerIDs: [], visible: true, effects: childEffects)
             // Array order is deliberately different from the authored order.
-            var descriptor = SceneRenderDescriptor(layers: [child, root],
-                renderOrderLayerIDs: [rootID, childID])
+            var layers = [child, root]
+            var order = [rootID, childID]
+            if nested {
+                var parentUtility = SceneUtilityLayer(kind: .composition)
+                parentUtility.copyBackground = false
+                let inner = SceneRenderDescriptor.Layer(parentID: 901, id: 900,
+                    contentKind: "composition", utilityLayer: parentUtility,
+                    dependencyLayerIDs: [], childLayerIDs: [rootID], visible: true, effects: [])
+                let outer = SceneRenderDescriptor.Layer(id: 901,
+                    contentKind: "composition", utilityLayer: parentUtility,
+                    dependencyLayerIDs: [], childLayerIDs: [900], visible: true, effects: [])
+                layers = [child, root, inner, outer]
+                order = [childID, 901, rootID, 900]
+            }
+            var descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: order)
             descriptor.camera.authoredOrthographicProjectionActive = ortho
             let plans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor,
                 resolvedMaterialLayerIDs: admitted ? [rootID] : [])
@@ -73,7 +91,17 @@ enum BackgroundLocalPlannerProbe {
             "visible-authored-effect": probe(effects: [visible], admitted: true),
             "not-orthographic": probe(ortho: false),
             "perspective": probe(perspective: true),
-            "passthrough": probe(passthrough: true),
+            "passthrough-no-effect": probe(passthrough: true),
+            "passthrough-renamed": probe(709, 218, copy: false, passthrough: true),
+            "passthrough-hidden-effect": probe(effects: [hidden], passthrough: true, admitted: true),
+            "passthrough-visible-effect": probe(effects: [visible], passthrough: true, admitted: true),
+            "passthrough-unprepared-visible-effect": probe(effects: [visible], passthrough: true),
+            "passthrough-not-orthographic": probe(ortho: false, passthrough: true),
+            "passthrough-perspective": probe(perspective: true, passthrough: true),
+            "passthrough-model-member": probe(passthrough: true, childKind: "model"),
+            "passthrough-particle-member": probe(passthrough: true, childKind: "particle"),
+            "passthrough-external-dependency": probe(passthrough: true, dependencies: [901]),
+            "nested-passthrough-structural": probe(copy: false, passthrough: true, nested: true),
             "model-member": probe(childKind: "model"),
             "particle-member": probe(childKind: "particle"),
             "external-dependency": probe(dependencies: [901]),
@@ -133,9 +161,44 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
                 self.assertEqual(value["members"], [21], value)
                 self.assertEqual(value["childOwner"], 20, value)
 
+    def test_top_level_passthrough_plans_keep_one_local_source_for_all_effect_seeds(self):
+        # admitted is a planner input, not a fabricated compile/Program result.
+        for name, root, child, copies in (
+                ("passthrough-no-effect", 20, 21, True),
+                ("passthrough-renamed", 709, 218, False),
+                ("passthrough-hidden-effect", 20, 21, True),
+                ("passthrough-visible-effect", 20, 21, True)):
+            with self.subTest(case=name):
+                self.assertEqual(self.facts[name], {
+                    "root": root, "child": child, "disposition": "capture", "local": True,
+                    "captureRoots": [root], "localRoots": [root],
+                    "backgroundRoots": [root] if copies else [], "members": [child],
+                    "childOwner": root, "order": [child, root]})
+
+    def test_unprepared_visible_passthrough_effect_does_not_gain_execution(self):
+        value = self.facts["passthrough-unprepared-visible-effect"]
+        self.assertTrue(value["local"], value)
+        self.assertEqual(value["disposition"], "unsupportedEffects", value)
+        self.assertEqual(value["captureRoots"], [], value)
+        self.assertEqual(value["localRoots"], [], value)
+        self.assertEqual(value["members"], [], value)
+
+    def test_nested_passthrough_remains_a_structural_member_not_a_new_owner(self):
+        value = self.facts["nested-passthrough-structural"]
+        self.assertEqual(value["disposition"], "skippedNoEffect", value)
+        self.assertFalse(value["local"], value)
+        self.assertEqual(value["captureRoots"], [900, 901], value)
+        self.assertEqual(value["localRoots"], [900, 901], value)
+        self.assertEqual(value["members"], [], value)
+        self.assertEqual(value["childOwner"], 900, value)
+        self.assertEqual(value["order"], [21, 20, 900, 901], value)
+
     def test_neighboring_unqualified_profiles_do_not_gain_local_capture(self):
         for name in ("unprepared-hidden-effect", "not-orthographic", "perspective",
-                     "passthrough", "model-member", "particle-member", "external-dependency"):
+                     "model-member", "particle-member", "external-dependency",
+                     "passthrough-not-orthographic", "passthrough-perspective",
+                     "passthrough-model-member", "passthrough-particle-member",
+                     "passthrough-external-dependency"):
             with self.subTest(case=name):
                 value = self.facts[name]
                 self.assertFalse(value["local"], value)
@@ -271,6 +334,114 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
 
     def test_true_background_renamed_quarter_turn_keeps_source_axes_and_order(self):
         self.run_fixture(copy_background=True, renamed=True, quarter_turn=True)
+
+
+def passthrough_fixture(*, renamed=False, initial_visible=False):
+    """Use the existing local solids plus the existing owned invert Program."""
+    project, entries = fixture_entries(copy_background=True)
+    scene = json.loads(entries["scene.json"])
+    root = next(row for row in scene["objects"] if row["id"] == 20)
+    key = "renamed_filter_enabled" if renamed else "filter_enabled"
+    root["config"]["passthrough"] = True
+    root["effects"] = [{"id": 200, "file": "effects/own_invert/effect.json",
+                        "visible": {"user": key, "value": initial_visible}}]
+    _, effect_entries = app_fixture.fixture_entries(effect=True)
+    entries.update({name: data for name, data in effect_entries.items()
+                    if name.startswith(("effects/", "materials/", "shaders/"))})
+    project["general"] = {"properties": {key: {"type": "bool", "value": initial_visible}}}
+    if renamed:
+        ids = {10: 405, 21: 618, 22: 902, 30: 701}
+        for row in scene["objects"]:
+            row["id"] = ids.get(row["id"], row["id"])
+            row["name"] = f"Unseen local-source object {row['id']}"
+            if row.get("image") == "models/owned-bounds-solid.json":
+                row["image"] = "models/another-plain-card.json"
+        entries["models/another-plain-card.json"] = entries.pop("models/owned-bounds-solid.json")
+        # Both children precede the root in the authored array; the root's
+        # cut point remains after the prior peer and before the healthy peer.
+        by_id = {row["id"]: row for row in scene["objects"]}
+        scene["objects"] = [by_id[value] for value in (1, 2, 3, 405, 618, 902, 20, 701)]
+    entries["scene.json"] = app_fixture.encoded(scene)
+    if renamed:
+        entries = {name.replace("own_invert", "unseen_local_filter"):
+                   data.replace(b"own_invert", b"unseen_local_filter") for name, data in entries.items()}
+    protocol = passthrough_preregistration(renamed=renamed, initial_visible=initial_visible)
+    entries["owned-local-passthrough-oracle.json"] = app_fixture.encoded(protocol)
+    return project, entries, protocol, key
+
+
+def passthrough_preregistration(*, renamed=False, initial_visible=False):
+    """Same background/member arithmetic, with one root RGB inversion."""
+    protocol = preregistration(copy_background=True)
+    hidden = protocol["oracle"]
+    hidden["plain_child_second_patch"] = {
+        "canvasRect": (105, 116, 111, 122), "expectedRGB": (64, 0, 191)}
+    # Invert the composed local source once, retaining its alpha; the root's
+    # .5 alpha then composites once over the original opaque framebuffer.
+    active_colors = {
+        "background_x_position": (128, 128, 128),
+        "background_y_position": (128, 128, 128),
+        "background_other_region": (128, 128, 128),
+        "half_alpha_overlap": (96, 64, 223),
+        "red_only_alpha": (64, 128, 191),
+        "plain_child_second_patch": (64, 128, 191),
+        "green_only_alpha": (128, 64, 191),
+        "prior_peer_enters_background": (96, 159, 223),
+    }
+    active = {name: dict(row, expectedRGB=active_colors.get(name, row["expectedRGB"]))
+              for name, row in hidden.items()}
+    protocol.update(
+        parameters=dict(protocol["parameters"], passthrough=True, renamed=renamed,
+                        rootAuthoredEffectCount=1, effectInitiallyVisible=initial_visible),
+        oracle=active if initial_visible else hidden,
+        snapshotOracles={"scene-ready-window.png": active if initial_visible else hidden,
+                         "scene-series-0002-window.png": hidden if initial_visible else active,
+                         "scene-after-window.png": active if initial_visible else hidden},
+        effectSequence=[initial_visible, not initial_visible, initial_visible],
+        transparentHole="No child covers the two background_position patches; copied background must retain its authored source position before the root FX.",
+        evidenceBoundary="owned top-level passthrough local source, completed invert Program and typed Bool roundtrip; no official spatial/alpha parity")
+    return protocol
+
+
+class SceneCompositionPassthroughEffectBoundsIntegrationTests(unittest.TestCase):
+    setUpClass = classmethod(visibility_fixture.SceneFullscreenVisibilityIntegrationTests.setUpClass.__func__)
+
+    def run_passthrough(self, *, renamed=False, initial_visible=False):
+        source_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+        project, entries, protocol, key = passthrough_fixture(
+            renamed=renamed, initial_visible=initial_visible)
+        # The existing live-effect runner owns App identity, isolated HOME,
+        # property acknowledgements, same surface/window, actual Program/GPU,
+        # three settled snapshots, hash checks, cleanup and optional retention.
+        # Its three smoke ROIs are a subset of this fixture's fixed full oracle.
+        rects = {"background": protocol["oracle"]["red_only_alpha"]["canvasRect"],
+                 "child": protocol["oracle"]["plain_child_second_patch"]["canvasRect"],
+                 "nonchild": protocol["oracle"]["later_peer_stays_front"]["canvasRect"]}
+
+        def measure(path, _smoke_protocol):
+            return app_fixture.measure_capture(path, protocol)
+
+        with patch.object(visibility_fixture, "fixture_entries", return_value=(project, entries)), \
+                patch.object(visibility_fixture, "measure_capture", side_effect=measure), \
+                patch.object(visibility_fixture, "RECTS", rects), \
+                patch.object(visibility_fixture, "WHITE", (64, 0, 191)), \
+                patch.object(visibility_fixture, "GRAY", (64, 128, 191)), \
+                patch.object(visibility_fixture, "GREEN", (255, 255, 255)):
+            result = visibility_fixture.SceneFullscreenVisibilityIntegrationTests.run_case(
+                self, inactive_effect=not initial_visible, launch={key: initial_visible},
+                sequence=[{key: not initial_visible}, {key: initial_visible}],
+                expected_dims=[not initial_visible, initial_visible])
+        self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), source_digest)
+        return result
+
+    def test_top_level_passthrough_effect_roundtrip_keeps_local_background_holes_and_bounds(self):
+        self.run_passthrough()
+
+    def test_renamed_reordered_passthrough_effect_uses_the_same_source_and_single_output(self):
+        self.run_passthrough(renamed=True)
+
+    def test_initially_active_passthrough_effect_roundtrip_keeps_the_same_local_source(self):
+        self.run_passthrough(initial_visible=True)
 
 
 if __name__ == "__main__":

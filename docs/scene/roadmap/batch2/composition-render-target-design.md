@@ -109,13 +109,21 @@ CaptureGeometry 的源采样使用 enclosing attachment 的相同映射与实际
 
 ## 现有资源合同与历史依据
 
-### 无作者根效果的背景局部源（2026-10-22，实施前决定）
+### 无作者根效果的背景局部源（2026-10-22，设计与有界实施）
 
 新增378的五个无效果组合根省略copybackground，现解析为true，却只保次序、未裁切宽于父画布的子图。官方2.8.42自有双子重叠板的独立普通/效果/半透明与四角正控合格后，无效果普通组在X/Y越界点均保背景，内部半透明RGB符合背景顺序合成；省略背景字段不取消局部边界。非线性根效果的RGB仍不能区分完整分组算法，故本片只推广**正交、非passthrough、有成员且根authored effects为空**的背景组；子图自己的效果不移除。含隐藏根效果、未知passthrough、透视及原未准入成员/依赖保持原路径；不以当前效果显隐切换源空间。
 
 原SourceRoute/Planner准备唯一成员与localSource资格，退出该profile旧skippedNoEffect直通。原SourceGeometry保存已算root世界MVP；原GroupRuntime在首次实际写入、根的作者顺序截点初始化背景。使用实际enclosing pass的raster映射和现CaptureGeometryResolver取得背景UV，经renderer注入的同一captureSource/imagePipeline填入局部目标，随后成员load保留背景。透明局部组仍clear，其他背景组仍原viewport blit；预留先于graph preparation且不提前采背景。root alpha由既有最终compositor消费，补齐无offscreen直绘遗漏的finalCompositeAlpha，背景采样使用中性PMA输入，不重复调制。不新增shader、相机、pool、graph或输出owner。
 
 尺寸/映射非法、源目标身份/格式错误、采集或分配失败沿原degraded group抑制成员，pin/epoch、取消与GPU completion保持。验收为同输入修前/修后局部背景标记、X/Y裁切、半透明重叠/健康后层及改名/变换反例，最近资源/顺序/显隐门、Debug构建、378实际画面及独立原包。背景边界外采样、全部alpha/变换/嵌套、HDR官方数值与带根效果算法不据此宣称一致；无可归因改善或出现旧路径回归即撤新资格，不改作者位置或颜色补图。
+
+### 有成员 passthrough 的局部效果（2026-10-22，设计与有界实施）
+
+370/377的组合根有作者宽高和子图，却因config.passthrough在SourceRoute首拒，根的pixelate/VHS/pulse未进入Program。组合定义的明确画布尺寸、成员合为单纹理及原背景采样坐标分工，支持沿已有局部source实施；不需要恢复官方内部FBO。RGBA正控只证通道响应；空间板的两轮STOP分别保留小角标颜色及参考X边混色失败，未读语义，不能据此声称官方物理extent、精确grid或overflow一致。
+
+本片只新增**顶层passthrough、有普通成员且无utility后代、既有正交二维profile**，让根效果消费作者逻辑宽高的局部输入；嵌套passthrough保持结构成员身份，不新建source/output；旧非passthrough背景+根效果的viewport路径本片不迁移。仍由SourceRoute准备唯一成员/源政策，SourceGeometry与GroupRuntime在原顺序截点采实际enclosing背景和成员，原Program/graph消费同一attachment，最后按root world MVP合成一次。物理附件extent及UV按本项目实际资源发布，不借TV容器头伪造尺寸；无效果与隐藏效果保持同一源边界，不能按显隐改空间。新增profile继续拒绝透视、模型/粒子成员、外部依赖和utility后代（含结构passthrough），保旧嵌套组路径，不新增shader、clock、资源或输出owner。
+
+隐藏根效果的准备沿原DirectBoolEffectVisibility/ExecutionCapabilityAdmission复用同一合法source route，仅扩上述组合的现有typed显隐链；必须取得实际Program，不能以source-only计划代替。非法几何、分配、准备及取消仍由原最小组失败/抑制成员和pin/epoch退出，不让子层回漏。验收先跑改名/换序/变换与不应准入的邻例，再验实际背景+成员+根空间效果、初始隐藏及往返显隐、健康邻层和取消/resize；同构建运行370/377与独立组景，确认原缺失效果产生可归因画面收益。全部alpha/tint、任意溢出/嵌套、HDR官方数值和整景parity保持未验；若实际结果无收益或回归则撤回新profile并重排，不调作者位置、尺寸或增益补画面。
 
 资源/source 窄片已经独立实施：compositionGroup key/分配一致，exact extent，source 在 graph preparation 前预留并 pin，准备、写入、采样是同一有效 generation 的纹理。GPU completion/cancel 释放、resize 在飞占用、无历史的透明初始化和同帧保留由[架构§3.3](../../architecture/runtime-architecture.md#33-保留事务安全不扩大视觉失败半径)接管。本次改变输入内容与顺序，不重建资源系统。旧反例、首次错源与实际 App 修复见[执行记录](../../history/d1-composition-source-implementation-2026-10-02.md)。
 
