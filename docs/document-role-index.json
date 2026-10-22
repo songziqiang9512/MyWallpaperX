@@ -858,10 +858,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5b7912c1ec26bb424c8dadf0c06d7b0113b668d4de53d1cb38fc48abf44cae56",
+        "sourceSHA256": "cd2f50bb6e17ffccfc495f1b809e3a10714664e39cd162bbeb74c3775d1afd0d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retired authored layer DEBUG visibility consumes canonical captured topology; actual Host red/green and two original samples. Replace only378 and add381 runtime association, preserve other259 runtime rows and human verdicts.",
-        "limitations": "Diagnostic correction and bounded gross screen only; no rendering feature, full official parity, audio, physical multiscreen or performance acceptance."
+        "scope": "Append two original-sample gross screens to263 mixed-identity runtime associations; all261 prior runtime rows and human verdicts preserved. Independent original-image/log reviews.",
+        "limitations": "One20s silence window per sample; no new actionable gross defect, full parity, audio/property/interaction or performance acceptance."
       }
     },
     {

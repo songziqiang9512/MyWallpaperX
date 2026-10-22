@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
-      "bytes": 97667
+      "bytes": 98137
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -1442,21 +1442,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "cd8abc144309bf9c855e09cf779e540a952c0790eb0ea97af6a282948dc1e072",
-      "after": "801f984fd2455e1d1f32128e3edde8502aee68078452191286e34d09fe79fa26",
-      "owner": "Scene runtime evidence diagnostics",
-      "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "e6fe683fbf09ff9c75003da0f54babb534fc5ca035459dad23662907e4894ec9",
       "after": "151eb9900675ad8b2b1f6eac4f3963b4f126618ac2ab4e15627cf2ccd1ed56e2",
       "owner": "Scene runtime evidence diagnostics",
       "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "801f984fd2455e1d1f32128e3edde8502aee68078452191286e34d09fe79fa26",
+      "after": "0bab4d9d1e88551c190cf3b93e6730156158d6eacdd27fa7c66739825be300e3",
+      "owner": "Scene sample runtime ledger",
+      "reason": "Add two original gross-screen observations and their exact identities; preserve261 prior rows and every human verdict. No invented repair or whole-sample pass.",
+      "decision": "docs/scene/capabilities/scene-sample-acceptance-ledger.md#1-来源"
     }
   ]
 }

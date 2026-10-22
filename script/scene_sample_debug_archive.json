@@ -3488,10 +3488,27 @@
       "source_signature_verified": true,
       "verified_before": true,
       "verified_after": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "team_identifier": "H9QWU9XN8R",
+      "cdhash": "917ca54c26413309c3f78f800b84b05ec2c90d98",
+      "short_version": "2.11.0",
+      "bundle_version": "283",
+      "executable_sha256": "49e1a4767c5cd16a4c7cfb2a9f9dd8a8637e3b9340d52d5ff42b32445df08e25",
+      "runtime_root_path": null,
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.build-cache/video-extraction-demand-20261021/Build/Products/Debug/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.build-cache/video-extraction-demand-20261021/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "source_signature_verified": true,
+      "verified_before": true,
+      "verified_after": true
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-10-22T22:34:36.543320+00:00",
+  "generatedAtUtc": "2026-10-22T22:49:47.917892+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -5487,6 +5504,13 @@
       "sha256": "bcd723c7ee1dbdfea6ddd069fafaf715d3cd72a69f3db28d88ec48c310aae6a1",
       "matrix": "Fresh gross composition screen; no engine changes",
       "matrixSha256": "65df4e0ba0e8a33f2e244d393cb8404d677b3beb1b24fcc5f22d2bfda8863aa5",
+      "sampleCount": 2
+    },
+    {
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/report.json",
+      "sha256": "aef2eb488e376a1374e74247c8ff2836585da174c9680598ec935cbabf1845f2",
+      "matrix": "Next original gross composition screen; not parity acceptance",
+      "matrixSha256": "dfcbc1109a28755e4cdf49739558686943054253a9104cee3b6be02dc1e40f55",
       "sampleCount": 2
     }
   ],
@@ -32880,13 +32904,125 @@
         "evidence": ".artifacts/scene-evidence/runs/retired-layer-diagnostic-20261023-final/current/samples/3815761795/runtime_evidence.zip#review-candidate.json",
         "bounds": "Original20s silence/after16; diagnostic1780 correction only;381 aggregate solid status preserved. No full visual/audio/parity/performance acceptance."
       }
+    },
+    {
+      "id": "3446316682",
+      "title": "【完美世界】柳神 无敌道",
+      "authored": {
+        "projectSha256": "aa7dfae2e1ca68af598930d463cb10ece37000034958825acb2cb8f5b71787ea",
+        "packageSha256": "fcb7e43835fefcbeffa60e9ec4a3f2d7a4b690a7bb6b1b7c04e19b5f37eb7006",
+        "parseState": "parsed",
+        "objectCount": 6,
+        "occurrenceCount": 248,
+        "visibleOccurrenceCount": 197,
+        "effectInstanceCount": 10,
+        "particleLayerCount": 4,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 0,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.040558689229116304,
+          "afterFlatBorderRatio": 0.03549724684394306,
+          "previewSpatialColorSimilarityAdvisory": 0.7366,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 1,
+          "terminalCompositorLayerCount": 1,
+          "nextFrameLayerCount": 1
+        },
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/report.json",
+          "sha256": "aef2eb488e376a1374e74247c8ff2836585da174c9680598ec935cbabf1845f2",
+          "sampleIndex": 1
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3446316682/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3446316682/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3446316682/runtime_evidence.json",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3446316682/after_snapshot.png"
+        }
+      },
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
+    },
+    {
+      "id": "3722749868",
+      "title": "Porsche GT3 RS",
+      "authored": {
+        "projectSha256": "53f5b46ba971363fc331cf4eb4b036bd1241f5b65864288c84cb029390b36161",
+        "packageSha256": "d1e43eac9647506d9eccdbd37117afa346d0038f62cff7795a3fc563c90e5ec3",
+        "parseState": "parsed",
+        "objectCount": 11,
+        "occurrenceCount": 265,
+        "visibleOccurrenceCount": 227,
+        "effectInstanceCount": 6,
+        "particleLayerCount": 7,
+        "dynamicFeatureCounts": {
+          "condition_wrappers": 0,
+          "script_wrappers": 6,
+          "timeline_wrappers": 0,
+          "user_bindings": 0
+        }
+      },
+      "runtime": {
+        "status": "structural-chain-complete-visual-review",
+        "firstBreakpoint": null,
+        "secondaryEvents": [],
+        "evidenceSummary": {
+          "surfaceCount": 1,
+          "readyNonBlackObserved": true,
+          "afterNonBlackObserved": true,
+          "readyFlatBorderRatio": 0.04088604619930164,
+          "afterFlatBorderRatio": 0.041188221864088104,
+          "previewSpatialColorSimilarityAdvisory": 0.886,
+          "graphEvidenceObserved": true,
+          "acceptedGraphLayerCount": 4,
+          "terminalCompositorLayerCount": 4,
+          "nextFrameLayerCount": 4
+        },
+        "benchmarkResultIgnored": {
+          "passed": true,
+          "failureCount": 0,
+          "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
+        }
+      },
+      "evidence": {
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/report.json",
+          "sha256": "aef2eb488e376a1374e74247c8ff2836585da174c9680598ec935cbabf1845f2",
+          "sampleIndex": 0
+        },
+        "sampleEvidencePaths": {
+          "app_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/app_log.log",
+          "preview_log": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/preview_log.log",
+          "runtime_evidence": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/runtime_evidence.zip",
+          "after_snapshot": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/after_snapshot.png"
+        }
+      },
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review"
     }
   ],
   "schemaVersion": 1,
   "source": {
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene",
-    "sampleCount": 261,
-    "sampleIdManifestSha256": "30de311ec5463bdd2b6e0c418299baa6b78b3973ac9cbc39002ed21d3c95adcb",
+    "sampleCount": 263,
+    "sampleIdManifestSha256": "b01719cc8351c6a460293dae589d0d640d53dd4dfb47cde2b5597f745ebd58c0",
     "currentDirectoryCount": 373,
     "completeSceneInputPairCount": 371,
     "historicalCensusOnly": {
@@ -33793,17 +33929,33 @@
         },
         "baselineReport": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/fresh-composition-screen-20261023-baseline/baseline/report.json",
         "claimBoundary": "retirement diagnosis plus gross screening only"
+      },
+      {
+        "kind": "two-original-gross-screen",
+        "parentArchiveSHA256": "77a6117525bc56d15800c7a86fecb3128db5b525bc65b1be7cc0f7025deb80ea",
+        "sampleIds": [
+          "3446316682",
+          "3722749868"
+        ],
+        "report": {
+          "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/report.json",
+          "sha256": "aef2eb488e376a1374e74247c8ff2836585da174c9680598ec935cbabf1845f2",
+          "matrix": "Next original gross composition screen; not parity acceptance",
+          "matrixSha256": "dfcbc1109a28755e4cdf49739558686943054253a9104cee3b6be02dc1e40f55",
+          "sampleCount": 2
+        },
+        "claimBoundary": "Gross subjects/background preserved in one20s silence window; not whole-scene acceptance"
       }
     ]
   },
   "summary": {
-    "sampleCount": 261,
-    "reportedSampleCount": 261,
+    "sampleCount": 263,
+    "reportedSampleCount": 263,
     "statusCounts": {
       "blocked": 2,
       "degraded-runtime": 57,
       "runtime-evidence-incomplete": 1,
-      "structural-chain-complete-visual-review": 201
+      "structural-chain-complete-visual-review": 203
     },
     "firstBreakpointCounts": {
       "effect-admission:admitted-fallback": 7,

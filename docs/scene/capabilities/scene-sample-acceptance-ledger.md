@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（373 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `77a6117525bc56d15800c7a86fecb3128db5b525bc65b1be7cc0f7025deb80ea`（生成于 2026-10-22T22:34:36.543320+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `e7155d83cae50d0cd34bfdba983cc9262f58ac13944c5aa2420752bf2b79456a`（生成于 2026-10-22T22:49:47.917892+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`、CDHash `6383c520523c85a42542662b29dc2b16a5552897`、CDHash `6c57aab5c9af57e61c72249ec963b626e0a653da`、CDHash `8240229d3600bddd49269e2c44cfe564691328f2`、CDHash `c97bcc1f3d9da77bae9dfee906c7e0227aa1d5ef`、CDHash `917ca54c26413309c3f78f800b84b05ec2c90d98`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `91499eda99475004468999bd79be22ece136c7246b9a18d58d13d8d9d5c69278`。
-- 本页生成于 2026-10-22T22:34:36.726031+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `b774ac02d41244c52b8111f49b6cbdf481e46d1ae6d8312d5df1d15b200f1ee3`。
+- 本页生成于 2026-10-22T22:49:48.120617+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -28,10 +28,10 @@
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 268 |
+| `unknown` | 266 |
 | `not-run` | 25 |
 | `blocked` | 0 |
-| `compared` | 80 |
+| `compared` | 82 |
 
 - 已裁决但缺观看者身份的条目：**17**；已裁决但缺截图/视频身份的条目：**14**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
@@ -42,16 +42,16 @@
 | `texture-load` | 基础图片纹理加载 | 11 |
 | `scenescript` | SceneScript 异常 | 19 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
-| `visual-review` | 结构链完整，待视觉验收 | 203 |
-| `not-run` | 未关联本归档运行证据 | 112 |
+| `visual-review` | 结构链完整，待视觉验收 | 205 |
+| `not-run` | 未关联本归档运行证据 | 110 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
 | `degraded-runtime` | 57 |
-| `not-run` | 112 |
+| `not-run` | 110 |
 | `runtime-evidence-incomplete` | 1 |
-| `structural-chain-complete-visual-review` | 201 |
+| `structural-chain-complete-visual-review` | 203 |
 
 作者参数：289 个样本声明了 schemecolor 之外的用户参数，共 9206 项，其中 2972 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -225,7 +225,7 @@
 | `3436945972` | 麻匪 Wlop 远方来客 | 45(9) bool 3 color 2 combo 4 slider 6 text 27 textinput 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 补足启动余量后已见开场过渡及双人物桥景；旧70s工具超时保留，不判主体缺失。冷启动单次64.8s，非性能收益。 |
 | `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-10-19 | 10-19共享roughness零端点后原Earth圆白热点退出，地表/云层/蓝边/银河仍在；夜侧/光色、偶发闪烁及collision继续开放，整样本fail… |
 | `3443450456` | 蛊真人-坚持（高度自定义） Reverend Insanity-Persist | 57(28) bool 10 color 9 combo 4 group 1 scenetexture 1 slide… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 默认文字主题与中央“坚持”可见，26/26 graph准入，默认活跃链完成输出；Puppet/walk主题默认隐藏，不算默认缺失。 本轮20s/30FPS固定… |
-| `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3446316682` | 【完美世界】柳神 无敌道 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-23 | 原包20s/after16静音，人物五官、发饰/玉珠与护甲、绿色背景及大范围光雾均呈现，十effect与四粒子实际执行；未发现可行动的active首错。 正常… |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 10-20首帧命名锚点首门已闭；10-21补共享Vec3.equals后，原180/effect10高亮回调由TypeError恢复持续typed颜色，真实背… |
 | `3448877775` | 【Time Variation 时间变化】Alone 孤独の少女——夜莺Nig… | 145(62) bool 38 color 19 combo 6 group 9 scenetexture 1 sli… | `not-run` | - | `not-run` | `unreviewed` 2026-10-19 | mixed组未参与修法原包独立8s/native/默认：人物、帘、城市、时钟实际呈现，App0、正常stop/GPU排空、输入/App无漂移。1733 alp… |
 | `3454689854` | 晦光织梦-MPGB202508 | 7(0) bool 3 color 2 text 1 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 主体、环、线条及粒子可见；10个活跃graph执行，三拒绝text层作者显式隐藏。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系… |
@@ -296,7 +296,7 @@
 | `3719111841` | 【明日方舟/Arknights】凯尔希•思衡托——Kal'tsit·Esper… | 22(0) bool 13 color 3 combo 1 group 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物和绿色横线呈现；未把横线据图猜成故障，完整参数与同状态细节未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3721456868` | 绯雪1 \|\| 鸣潮 | 44(17) bool 15 color 7 group 4 slider 6 text 10 textinput 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3721991999` | 无职转生 洛琪希 Mushoku Tensei Roxy | 5(0) bool 3 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 人物及水面波纹可见，14效果graph完成；眨眼/交互未测试，不认完整动画通过。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列… |
-| `3722749868` | Porsche GT3 RS | 4(0) bool 3 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3722749868` | Porsche GT3 RS | 4(0) bool 3 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-23 | 原包20s/after16静音，车辆/轮胎尾翼、樱花树与富士山/塔楼、时钟日期和花瓣均呈现，六effect与七粒子实际执行；base-color回退未与缺图建… |
 | `3723344874` | 【凡人修仙传】玄骨 借尸还魂 | 25(0) bool 7 color 4 slider 14 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18有界内容资格：10-17 numeric/carrier首门保持；固定64d6ac8c2+临时DEBUG观察器的原包frame31实际双D… |
 | `3724289844` | 老人-水[4K] | 9(0) bool 6 color 1 group 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-21 | sounds/下OGG漏提取已修；自然02.ogg从resourceUnavailable到admitted1/rejected0、ready/rate1、时… |
 | `3737432178` | 老人-嘉宾身影 | 10(0) bool 7 color 1 combo 1 group 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 底图、时钟/日期、颜色变化及粒子可见；VHS/CRT/godrays和模式2音条默认关。无媒体事件时标题/alpha按作者回调清空。 本轮20s/30FPS固… |

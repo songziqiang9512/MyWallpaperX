@@ -2363,6 +2363,34 @@
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
+    },
+    "3446316682": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-23",
+      "reviewer": "Codex原图与运行复核，独立代理交叉审查；无人工整景裁决",
+      "note": "原包20s/after16静音，人物五官、发饰/玉珠与护甲、绿色背景及大范围光雾均呈现，十effect与四粒子实际执行；未发现可行动的active首错。 正常stop1→0/GPU排空，独审本窗未见明显主体/背景缺失；仅gross筛查，官方viewport、相位/声源未齐，裁切、时钟和粒子差异不判故障。",
+      "remainingDifferences": "未验全部属性/交互、音频、完整动画phase、HDR/多屏或性能；整景unreviewed，不增虚构待修项。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/original-gross-screen-20261023/current/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3446316682/after_snapshot.png"
+      ]
+    },
+    "3722749868": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-23",
+      "reviewer": "Codex原图与运行复核，独立代理交叉审查；无人工整景裁决",
+      "note": "原包20s/after16静音，车辆/轮胎尾翼、樱花树与富士山/塔楼、时钟日期和花瓣均呈现，六effect与七粒子实际执行；base-color回退未与缺图建立关联。 正常stop1→0/GPU排空，独审本窗未见明显主体/背景缺失；仅gross筛查，官方viewport、相位/声源未齐，裁切、时钟和粒子差异不判故障。",
+      "remainingDifferences": "未验全部属性/交互、音频、完整动画phase、HDR/多屏或性能；整景unreviewed，不增虚构待修项。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/original-gross-screen-20261023/current/report.json"
+      ],
+      "evidence": [
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/after_snapshot.png"
+      ]
     }
   },
   "localEvidenceRetirement": {
