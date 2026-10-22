@@ -536,8 +536,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         deletionBatchReloadGeneration = batchGeneration
         for id in targets {
             guard let entry = entriesByID[id] else { continue }
-            let local = OLLocalFile(url: entry.localURL, fileSize: 0, creationDate: Date())
-            OnlineLibraryService.shared.deleteLocalFile(local)
+            OnlineLibraryService.shared.deleteLocalFile(at: entry.localURL)
         }
         if isMultiSelectMode { toggleMultiSelect() }
         pendingPostDeletionSelectionIndex = currentIndex

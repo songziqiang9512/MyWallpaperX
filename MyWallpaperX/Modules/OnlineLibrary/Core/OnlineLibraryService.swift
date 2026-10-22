@@ -416,33 +416,11 @@ final class OnlineLibraryService: ObservableObject {
             .appendingPathComponent("在线图库",      isDirectory: true)
     }
 
-    /// 扫描本地目录，返回所有已下载文件信息
-    func loadDownloadedFiles() -> [OLLocalFile] {
-        let dir = Self.downloadDirectory
-        guard let urls = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey],
-            options: .skipsHiddenFiles
-        ) else { return [] }
-        return urls
-            .filter { $0.pathExtension.lowercased() == "mp4" }
-            .compactMap { url -> OLLocalFile? in
-                let name = url.lastPathComponent
-                guard name.hasPrefix("online_") else { return nil }
-                let attrs = (try? url.resourceValues(forKeys: [.fileSizeKey, .creationDateKey]))
-                return OLLocalFile(
-                    url:          url,
-                    fileSize:     attrs?.fileSize ?? 0,
-                    creationDate: attrs?.creationDate ?? Date()
-                )
-            }
-            .sorted { $0.creationDate > $1.creationDate }  // 最新下载在最前
-    }
-
     /// 删除本地已下载文件
-    func deleteLocalFile(_ file: OLLocalFile) {
-        try? FileManager.default.removeItem(at: file.url)
+    func deleteLocalFile(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
         // 从文件名反解 ID，移出 downloadedIDs
-        let name = file.url.lastPathComponent
+        let name = url.lastPathComponent
         let idStr = name.dropFirst("online_".count).dropLast(".mp4".count)
         if let id = Int(idStr) { downloadedIDs.remove(id) }
     }
