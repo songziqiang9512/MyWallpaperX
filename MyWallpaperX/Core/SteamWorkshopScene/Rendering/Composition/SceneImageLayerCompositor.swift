@@ -572,10 +572,15 @@ struct SceneImageLayerCompositor {
                 reasonCode: "offscreen-pool-unavailable")
             return .failed
         }
+        // A prepared source can reach the terminal draw without another
+        // offscreen pass. Its final visibility must match the graph path;
+        // it is independent of the source's own alpha/color preparation.
+        var finalDirectUniforms = directUniforms
+        finalDirectUniforms.alpha *= request.finalCompositeAlpha ?? 1
         let rendered = SceneImageLayerMainPassRenderer.draw(
             texture: request.texture,
             mvp: request.mvp,
-            uniforms: directUniforms,
+            uniforms: finalDirectUniforms,
             dependencyTexture: dependencyEffect?.texture,
             layer: request.layer,
             pipeline: pipeline,

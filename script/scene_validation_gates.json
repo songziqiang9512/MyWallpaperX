@@ -3579,6 +3579,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift",
         "script/tests/test_scene_utility_layers.py",
         "script/tests/test_scene_composition_source_identity.py",
+        "script/tests/test_scene_composition_background_bounds.py",
         "script/tests/test_scene_capture_geometry.py",
         "script/tests/test_scene_dynamic_layer_values.py",
         "script/tests/fixtures/ScenePersistentColorOutputHarness.swift",
@@ -3588,6 +3589,7 @@
         "test_scene_utility_layers",
         "test_scene_composition_source_identity",
         "test_scene_capture_geometry",
+        "test_scene_composition_background_bounds",
         "test_scene_dynamic_layer_values"
       ]
     },

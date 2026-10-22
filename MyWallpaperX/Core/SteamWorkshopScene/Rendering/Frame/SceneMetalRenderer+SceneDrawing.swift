@@ -118,7 +118,8 @@ extension SceneMetalRenderer {
             pool: offscreenTexturePool,
             viewportSize: viewportSize, commandBuffer: commandBuffer,
             utilityExecution: frameProjection.utilityExecution,
-            sourceGeometriesByRootID: sourceGeometriesByRootID)
+            sourceGeometriesByRootID: sourceGeometriesByRootID,
+            imagePipeline: imagePipeline)
         compositionGroupRuntime = groups
         mainPassForSubmission = mainPass
 #if DEBUG

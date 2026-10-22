@@ -369,6 +369,8 @@ final class SceneCompositionGroupFrameRuntime {
     private let copyBackgroundRootIDs: Set<Int>
     private let viewportSize: CGSize
     private let sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry]
+    private let captureBackground: ((MTLTexture, MTLTexture, simd_float4x4,
+                                     MTLCommandBuffer) -> Bool)?
     private var passesByRootID: [Int: SceneMainPassEncoder] = [:]
     private var texturesByRootID: [Int: MTLTexture] = [:]
     private var emptySourceRootID: Int?
@@ -386,7 +388,9 @@ final class SceneCompositionGroupFrameRuntime {
         viewportSize: CGSize,
         copyBackgroundRootIDs: Set<Int> = [],
         localSourceRootIDs: Set<Int> = [],
-        sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:]
+        sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:],
+        captureBackground: ((MTLTexture, MTLTexture, simd_float4x4,
+                             MTLCommandBuffer) -> Bool)? = nil
     ) {
         self.parentPass = parentPass
         self.commandBuffer = commandBuffer
@@ -396,6 +400,7 @@ final class SceneCompositionGroupFrameRuntime {
         self.copyBackgroundRootIDs = copyBackgroundRootIDs
         self.viewportSize = viewportSize
         self.sourceGeometriesByRootID = sourceGeometriesByRootID
+        self.captureBackground = captureBackground
         self.degradedRootIDs = localSourceRootIDs.subtracting(sourceGeometriesByRootID.keys)
         self.resetEpoch = offscreenTexturePool.sceneColorResetEpoch
     }
@@ -567,6 +572,15 @@ final class SceneCompositionGroupFrameRuntime {
         if copyBackgroundRootIDs.contains(rootID) {
             initialized = enclosingPass.withReadableTarget { source, _ in
                 pass.withReadableTarget { target, commandBuffer in
+                    if let localGeometry = sourceGeometriesByRootID[rootID] {
+                        // Sample the root's plane from its actual enclosing
+                        // attachment, including an enclosing local group's map.
+                        // Allocation and member raster extent remain local.
+                        guard let captureBackground else { return false }
+                        return captureBackground(source, target,
+                            enclosingPass.rasterModelViewProjection(
+                                localGeometry.worldModelViewProjection), commandBuffer)
+                    }
                     // Both targets come from the viewport-sized frame/pool
                     // producers; a resize or format mismatch cannot be blitted.
                     guard source.width == target.width,

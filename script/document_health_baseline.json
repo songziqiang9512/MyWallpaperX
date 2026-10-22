@@ -94,7 +94,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175565
+      "bytes": 175730
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
-      "bytes": 97275
+      "bytes": 97294
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -173,8 +173,8 @@
       "bytes": 128946
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 120,
-      "bytes": 28087
+      "lines": 128,
+      "bytes": 30183
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -242,11 +242,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 57,
-      "bytes": 18402
+      "bytes": 18426
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 251,
-      "bytes": 78966
+      "bytes": 78963
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1281,15 +1281,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "5f4e4cd4540c8b2529aad7f4ff4f2b27f1f57c549186c32e2929f3a6b6382d88",
-      "after": "043161750ad45f597dbd859233a7f41c8a7434a4f10db6920c257fda4a2b604b",
-      "owner": "Scene prepared material / unique MainPass",
-      "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "5e3cfe32272edd1841e0f5a3138ba612b678186836274f477df9a2f52953fbc1",
       "after": "6f4bea9f5533b6b2543b32a304d30e2527c6c6f6aa3655bf7a5c9fd841fd7181",
@@ -1308,30 +1299,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "f6227e8452d55af9eec2d81e0433f774ce022168e3bdc9f21978d5d98ee2298f",
-      "after": "fb46eb8a83bd53ff54aafe910f01a75aad2de3210b9b3e61149ce1281b2dcf52",
-      "owner": "scene-new17-diagnosis",
-      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "780a1c7f1e040b90c108c739e14520f01d43f5c84fdb6b0afb6da424d3331a22",
-      "after": "5f537dc8dfaa1eb738cbb671e89f9ec579045a31eb30604fddff2f5973d3fd93",
-      "owner": "scene-new17-diagnosis",
-      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "6b631f7ca6dd15a7925f05d9b4bc8082cc16f93ae3eff9297cdbcd1ec5966d06",
       "after": "9bdd2c28d76b432d342d8cb48ebb1dea66d70002b9fbebbc8f282d7cb5046d22",
       "owner": "scene-new17-diagnosis",
       "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "043161750ad45f597dbd859233a7f41c8a7434a4f10db6920c257fda4a2b604b",
+      "after": "4951c277cad6a1d7f3bd3b1434ee3b5892b77623f7ca7c167bcf19046aa56020",
+      "owner": "scene-composition-source-and-terminal",
+      "reason": "同一D1增补无根效果背景组局部源及终端alpha消费，378实景分栏恢复；限定证据独立归历史，原运行分母/整景裁决保留。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "fb46eb8a83bd53ff54aafe910f01a75aad2de3210b9b3e61149ce1281b2dcf52",
+      "after": "0e2f9c4155f285081c08f5bd262878ba2d0edf40757c045e96b4861bbcb665f7",
+      "owner": "scene-composition-source-and-terminal",
+      "reason": "同一D1增补无根效果背景组局部源及终端alpha消费，378实景分栏恢复；限定证据独立归历史，原运行分母/整景裁决保留。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "0083a960a5a1263c47408773e62439e3704952962a9dc568c039e2941901e6e6",
+      "after": "4a88f10511c1a0f17d31a404b09155d7645cb0a705c1b86c2514602b92b95786",
+      "owner": "scene-composition-source-and-terminal",
+      "reason": "同一D1增补无根效果背景组局部源及终端alpha消费，378实景分栏恢复；限定证据独立归历史，原运行分母/整景裁决保留。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "5f537dc8dfaa1eb738cbb671e89f9ec579045a31eb30604fddff2f5973d3fd93",
+      "after": "813d6f983167cd55f1fea029ecca28ab372a4857ab9db580ccde6e652f809f85",
+      "owner": "scene-composition-source-and-terminal",
+      "reason": "无根效果组边界已由实际画面闭合；带效果子树仍缺分组颜色合同，旧失败保留，更新同一待修状态。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     }
   ]
 }

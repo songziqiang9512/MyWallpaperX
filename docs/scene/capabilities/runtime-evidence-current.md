@@ -1180,3 +1180,4 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 [队列](../roadmap/scene-open-breakpoint-queue.md)合并377默认四Compose/12效果无owner、379 count-only控制点初始化跳过、318骨physics回退；378分栏边界与332时钟碎片保可见候选，根因未定。51张series留证，两代理逐例核晚图并交叉审查三强候选。声明373目录/372可解析、176762occurrence/4609family；旧376仅shader导致renderer失败，保raw及exact索引重建收据，不称generate/verify通过。静态清单独立分出，原writer两页输出待修。运行归档仅追加17、原243行及旧裁决不变，台账373/260关联，人工354unreviewed/19fail/0pass。
 
 正式包`.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip`（20,201,223B、SHA`c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10`）保完整report/日志、身份、静态/独审与renderer失败、51张有损缩小series及332/378末张原图；其余PNG保原SHA/尺寸，非精确像素oracle。raw census另留唯一cache；普通14天/总5GiB/单包32MiB。运行副本与停用输出清理，一份既有增量cache留后继；未重建/重跑旧356或官方客户端，不认整样本通过。
+<a id="composition-background-bounds-20261022"></a> [归档记录](../history/composition-background-bounds-2026-10-22.md#composition-background-bounds-20261022) <!-- archive-redirect -->

@@ -2266,11 +2266,12 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-22",
       "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
-      "note": "五列人物切片与黑分隔线在晚图错位，五无effect组skippedNoEffect/capture0；作者省略copybackground而当前默认true。裁切/父子extent为候选，未证官方目标或根因。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
-      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "note": "10-22无根authored效果背景组沿局部源裁切后，同原包/3024×1964 cover/静音/中心pointer的五人物切片接缝与四黑分隔线对齐，5组capture、子效果及GPU/末合成/正常排空成立。只关闭此公共越界断点，保unreviewed，不称整样本或官方parity。",
+      "remainingDifferences": "无目录官方“截屏”；全属性/交互、同官方时相/音频、HDR与完整视觉parity未验。原17例诊断为历史构建，本次仅补378及独立347限定复验，不刷新全样本运行分母。",
       "officialComparison": "not-run",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json",
+        ".artifacts/scene-evidence/runs/composition-background-bounds-20261022/final/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"

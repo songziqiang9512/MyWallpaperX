@@ -1,3 +1,4 @@
+import CoreGraphics
 import Metal
 
 extension SceneMetalRenderer {
@@ -93,7 +94,8 @@ extension SceneMetalRenderer {
                        pool: SceneOffscreenTexturePool?,
                        viewportSize: CGSize, commandBuffer: MTLCommandBuffer,
                        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
-                       sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:])
+                       sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:],
+                       imagePipeline: SceneImageLayerPipeline? = nil)
         -> (SceneMainPassEncoder, SceneCompositionGroupFrameRuntime?) {
         let mainPass = SceneMainPassEncoder(commandBuffer: commandBuffer,
             target: target, clearColor: sceneClearColor(dynamicValues: dynamicValues), clearEnabled: clearEnabled)
@@ -105,7 +107,25 @@ extension SceneMetalRenderer {
                 membersByRootID: utilityExecution.membersByRootID, viewportSize: viewportSize,
                 copyBackgroundRootIDs: utilityExecution.copyBackgroundRootIDs,
                 localSourceRootIDs: utilityExecution.localSourceRootIDs,
-                sourceGeometriesByRootID: sourceGeometriesByRootID)
+                sourceGeometriesByRootID: sourceGeometriesByRootID,
+                captureBackground: { [imagePipeline] source, target, mvp, commandBuffer in
+                    guard source !== target, source.pixelFormat == target.pixelFormat,
+                          let pipeline = imagePipeline,
+                          pipeline.pixelFormat == target.pixelFormat,
+                          let geometry = SceneCaptureGeometryResolver.resolve(
+                            kind: .composition, layerMVP: mvp,
+                            viewportSize: CGSize(width: source.width, height: source.height))
+                    else { return false }
+                    let uv = geometry.sourceUV
+                    return SceneOffscreenEffectRenderer.captureSource(
+                        sourceTexture: source, target: target,
+                        sourceUniforms: SceneLayerFragmentUniforms(
+                            time: 0, alpha: 1, dependencyBlendMode: 0, usesDependencyBlend: 0,
+                            cursorUV: .zero, sourceSampling: .zero,
+                            tint: .init(repeating: 1), textureFrame0: uv.uniform0,
+                            textureFrame1: uv.uniform1),
+                        pipeline: pipeline, commandBuffer: commandBuffer)
+                })
         }
         return (mainPass, groups)
     }

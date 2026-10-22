@@ -221,3 +221,5 @@
 - [Native framebuffer source Program](native-framebuffer-material-source-2026-10-19.md)：有序主源与只读深度、333音频条及资源失败边界。
 
 - [原生相机当帧变换](native-camera-frame-transforms-2026-10-19.md)：相机/父变换与同阶段world、双深度像素及盒体未闭边界。
+
+- [无根效果背景组局部边界与终端透明度](composition-background-bounds-2026-10-22.md)：仅378裁切/分栏断点的有界证据，带根效果子树、完整parity与性能仍开放。

@@ -65,6 +65,7 @@ struct SceneCaptureGeometry {
 nonisolated struct SceneCompositionSourceGeometry {
     let pixelSize: CGSize
     let worldClipToSourceClip: simd_float4x4
+    let worldModelViewProjection: simd_float4x4
 
     init?(authoredRenderSizeWH: [Float]?, worldMVP: simd_float4x4) {
         guard let extent = SceneLayerEffectSourceExtent.resolve(
@@ -92,6 +93,7 @@ nonisolated struct SceneCompositionSourceGeometry {
         }
         pixelSize = extent.pixelSize
         worldClipToSourceClip = mapping
+        worldModelViewProjection = worldMVP
     }
 
     func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {

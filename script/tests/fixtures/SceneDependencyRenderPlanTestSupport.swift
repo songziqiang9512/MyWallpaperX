@@ -144,6 +144,7 @@ enum SceneBlendModeShaderSource { static let maximumMode = 31 }
 // This harness executes planning only. GPU dependencies share the production
 // source file but must never execute through these link-only test doubles.
 struct SceneCompositionSourceGeometry {
+    var worldModelViewProjection: simd_float4x4 { fatalError("planner fixture cannot capture pixels") }
     var pixelSize: CGSize { fatalError("Source geometry is outside dependency planning") }
     var worldClipToSourceClip: simd_float4x4 {
         fatalError("Source geometry is outside dependency planning")
@@ -158,6 +159,9 @@ enum SceneGPUCensus {
     }
 }
 final class SceneMainPassEncoder {
+    func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {
+        fatalError("GPU encoding is outside the dependency planning harness")
+    }
     init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
          clearColor: MTLClearColor, clearEnabled: Bool) {
         fatalError("GPU encoding is outside the dependency planning harness")

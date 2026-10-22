@@ -744,9 +744,9 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e6c9100ed39c04746d2db59f1ebcbf9f07e0aabc966108ce3a6d5f517d0a6e1b",
+        "sourceSHA256": "475c729ff2fe04d7c299db5ec97cc4c6766ebf3765ff9f00b7ba9fcfeddc7749",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增17默认诊断；373静态目录、260混合身份运行及原243行/旧裁决保留；合并代码可证与可见候选，静态逐样本清单分出。",
+        "scope": "新增17诊断及378分栏边界限定后验入口；原373静态目录/260混合运行分母和unreviewed整景裁决保持；代码/像素证明归独立限窗证据。",
         "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
       }
     },
@@ -1156,6 +1156,19 @@
         "scope": "static projection owner and live validation boundaries; measurements tracked in same archived receipt",
         "limitations": "small CPU observation below old noise, control4 present debt retained; later unused metadata and fixture consumers closed with grouped tests/normal desktop frames; no stable gain, full sample, thermal, release or cohort acceptance"
       }
+    },
+    {
+      "path": "docs/scene/history/composition-background-bounds-2026-10-22.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-22",
+      "uniqueValue": "无根效果背景组的局部背景/两轴边界、终端alpha红绿及378分栏实景；官方正控、失格输入和测试包签名失败边界。"
     },
     {
       "path": "docs/scene/history/composition-effect-activation-implementation-2026-10-05.md",

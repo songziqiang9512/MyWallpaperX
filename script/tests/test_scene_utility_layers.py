@@ -74,6 +74,7 @@ struct SceneLayerDisplayScriptOwnership {
 }
 struct SceneRenderDescriptor {
     struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
+    struct EffectDescriptor { var visible: Bool? = true }
     struct Layer {
         let id: Int
         var visible: Bool? = true
@@ -86,7 +87,7 @@ struct SceneRenderDescriptor {
         var colorBlendMode: Int? = nil
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         var usesPerspective: Bool? = nil
-        var effects: [Int] = []
+        var effects: [EffectDescriptor] = []
     }
     struct MaterialPass { let combos: [String: Int] }
     let layers: [Layer]
@@ -101,6 +102,53 @@ struct SceneDependencyRenderPlan {
 
 @main
 enum Harness {
+    static func backgroundLocalSourceRoutes() -> [String: [String: Any]] {
+        func probe(_ name: String, ids: [Int] = [20, 21], copy: Bool? = nil,
+                   rootEffects: [SceneRenderDescriptor.EffectDescriptor] = [],
+                   childEffects: [SceneRenderDescriptor.EffectDescriptor] = [],
+                   ortho: Bool = true, rootPerspective: Bool = false,
+                   childPerspective: Bool = false, passthrough: Bool = false,
+                   childKind: String = "solid", dependencies: [Int] = []) -> [String: Any] {
+            var object: [String: Any] = ["config": ["passthrough": passthrough]]
+            if let copy { object["copybackground"] = copy }
+            let utility = SceneUtilityLayer.parse(imagePath: "models/util/composelayer.json",
+                object: object)!
+            let root = SceneRenderDescriptor.Layer(id: ids[0], childLayerIDs: [ids[1]],
+                dependencyLayerIDs: dependencies, contentKind: "composition", utilityLayer: utility,
+                usesPerspective: rootPerspective, effects: rootEffects)
+            let child = SceneRenderDescriptor.Layer(id: ids[1], parentID: ids[0],
+                contentKind: childKind, usesPerspective: childPerspective, effects: childEffects)
+            var descriptor = SceneRenderDescriptor(layers: [child, root],
+                renderOrderOverride: [ids[0], ids[1]])
+            descriptor.camera.authoredOrthographicProjectionActive = ortho
+            switch SceneUtilityLayerSourceRoute.resolve(layer: root, descriptor: descriptor) {
+            case let .failure(failure): return ["failure": failure.rawValue]
+            case let .success(route): return [
+                "root": route.triggerLayerID, "members": route.orderedCompositionSubtreeLayerIDs,
+                "isolated": route.usesIsolatedGroupTarget, "local": route.usesAuthoredLocalSource,
+                "copyBackground": utility.copyBackground,
+                "authoredCopyOmitted": utility.authoredCopyBackground == nil,
+            ]
+            }
+        }
+        return [
+            "omitted": probe("omitted"),
+            "true": probe("true", copy: true),
+            "transparent": probe("transparent", copy: false),
+            "renamed": probe("renamed", ids: [709, 218], copy: true),
+            "hidden-authored-effect": probe("hidden", rootEffects: [.init(visible: false)]),
+            "visible-authored-effect": probe("visible", rootEffects: [.init(visible: true)]),
+            "child-effect": probe("child-effect", childEffects: [.init(visible: true)]),
+            "not-orthographic": probe("native", ortho: false),
+            "root-perspective": probe("perspective", rootPerspective: true),
+            "child-perspective": probe("child-perspective", childPerspective: true),
+            "passthrough": probe("passthrough", passthrough: true),
+            "model-member": probe("model", childKind: "model"),
+            "particle-member": probe("particle", childKind: "particle"),
+            "external-dependency": probe("dependent", dependencies: [901]),
+        ]
+    }
+
     static func sourceRoutes() -> [String: [String: Any]] {
         func utility(_ path: String = "models/util/composelayer.json",
                      copy: Bool = false, passthrough: Bool = false) -> SceneUtilityLayer {
@@ -229,6 +277,7 @@ enum Harness {
         }
         let result: [String: Any] = [
             "sourceRoutes": sourceRoutes(),
+            "backgroundLocalSourceRoutes": backgroundLocalSourceRoutes(),
             "kinds": parsed.map { $0?.kind.rawValue ?? "none" },
             "copyBackground": parsed.map { $0?.copyBackground ?? false },
             "passthrough": parsed.map { $0?.passthrough ?? false },
@@ -297,6 +346,32 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_composition_background_default_and_explicit_flags(self) -> None:
         self.assertEqual(self.result["copyBackground"], [True, True, False, False, False, False, True])
         self.assertEqual(self.result["passthrough"], [True, False, False, False, False, False, False])
+
+    def test_no_authored_root_effect_background_groups_use_local_sources(self) -> None:
+        routes = self.result["backgroundLocalSourceRoutes"]
+        for name, root, members, copies, omitted in (
+            ("omitted", 20, [21], True, True),
+            ("true", 20, [21], True, False),
+            ("transparent", 20, [21], False, False),
+            ("renamed", 709, [218], True, False),
+            ("child-effect", 20, [21], True, True),
+        ):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {
+                    "root": root, "members": members, "isolated": True, "local": True,
+                    "copyBackground": copies, "authoredCopyOmitted": omitted})
+
+    def test_authored_effect_presence_and_projection_keep_legacy_background_source(self) -> None:
+        routes = self.result["backgroundLocalSourceRoutes"]
+        for name in ("hidden-authored-effect", "visible-authored-effect", "not-orthographic",
+                     "root-perspective", "child-perspective"):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {
+                    "root": 20, "members": [21], "isolated": True, "local": False,
+                    "copyBackground": True, "authoredCopyOmitted": True})
+        for name in ("passthrough", "model-member", "particle-member", "external-dependency"):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
 
     def test_named_sampler_dependencies_do_not_become_composition_main_source(self) -> None:
         routes = self.result["sourceRoutes"]

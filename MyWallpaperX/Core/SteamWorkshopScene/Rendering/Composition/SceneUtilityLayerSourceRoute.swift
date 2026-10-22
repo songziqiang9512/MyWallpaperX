@@ -79,8 +79,11 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 pending.append(childID)
             }
         }
+        // Hidden authored effects can become active without a topology change.
+        // Keep their background source policy stable; only genuinely effectless
+        // background groups join the already qualified transparent local source.
         let localSource = descriptor.camera.authoredOrthographicProjectionActive == true
-            && !utility.copyBackground && !descendants.isEmpty
+            && (!utility.copyBackground || layer.effects.isEmpty) && !descendants.isEmpty
             && layer.usesPerspective != true
             && descendants.allSatisfy { childID in
                 guard let child = layersByID[childID], child.usesPerspective != true else {
