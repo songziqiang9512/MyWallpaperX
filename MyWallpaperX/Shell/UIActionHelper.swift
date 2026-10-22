@@ -146,20 +146,6 @@ enum UIActionHelper {
         }
     }
 
-    static func presentInfo(manager: WallpaperManager, window: NSWindow?) {
-        // 信息面板只展示单选项；多选态没有进入这个入口的意义。
-        guard let selectedId = manager.selectedWallpaperId,
-              let wallpaper = manager.wallpapers.first(where: { $0.id == selectedId }) else { return }
-        // AVAsset 读取放到后台，完成后再弹窗，避免主线程卡顿。
-        wallpaperDetailInfoText(for: wallpaper) { infoText in
-            let alert = makeAppAlert(
-                title: "壁纸信息",
-                message: infoText
-            )
-            presentAppAlert(alert, in: resolvedHostWindow(window))
-        }
-    }
-
     static func presentCreateTag(
         manager: WallpaperManager,
         window: NSWindow?

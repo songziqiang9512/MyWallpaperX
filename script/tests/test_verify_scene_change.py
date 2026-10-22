@@ -887,7 +887,16 @@ class ProductTestMappingTests(unittest.TestCase):
     def test_local_video_policy_does_not_expand_to_unrelated_scene_daemon_suite(self) -> None:
         path = "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift"
         modules, _, _ = verify.mapped_tests([path], self.registry)
-        self.assertEqual(modules, {"test_playback_policy", "test_playback_policy_delivery"})
+        self.assertEqual(modules, {"test_playback_policy", "test_playback_policy_delivery",
+                                   "test_video_index_ordered_save"})
+
+    def test_video_index_owner_routes_only_to_ordered_save(self) -> None:
+        for path in ["MyWallpaperX/Modules/VideoLibrary/Core/WallpaperIndexStore.swift",
+                     "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+InitialIndexLoad.swift",
+                     "script/tests/fixtures/VideoIndexOrderedSaveHarness.swift"]:
+            with self.subTest(path=path):
+                modules, _, _ = verify.mapped_tests([path], self.registry)
+                self.assertEqual(modules, {"test_video_index_ordered_save"})
 
     def test_untested_static_image_and_shell_neighbors_remain_visible(self) -> None:
         paths = ["MyWallpaperX/Modules/StaticImageLibrary/UI/SILQuickLookController.swift",

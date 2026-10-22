@@ -43,34 +43,10 @@ final class WallpaperIndexStore {
         }
     }
 
-    func hasPersistedIndex() throws -> Bool {
-        // 是否存在索引分两层判断：先看初始化标记，再看表里是否已有记录，兼容旧库迁移前后状态。
-        try queue.sync {
-            try openIfNeeded()
-            if let value = try selectMetaValue(forKey: "library_initialized"), value == "1" {
-                return true
-            }
-            return try countRowsInWallpapersTable() > 0
-        }
-    }
-
     func loadWallpapers() throws -> [VideoWallpaper] {
         // 读取时只按 sort_index 还原顺序，不在这里做去重或业务修补。
-        // 注意：此方法在调用方线程同步阻塞；启动路径请改用 loadWallpapersAsync。
+        // 此方法在调用方线程同步阻塞；启动路径使用 loadInitialIndexAsync。
         try queue.sync { try loadWallpapersInternal() }
-    }
-
-    /// 异步版本：在 store 内部队列执行，不阻塞调用方线程。
-    /// 结果通过 completion 回调，保证在 main queue 上返回。
-    func loadWallpapersAsync(completion: @escaping (Result<[VideoWallpaper], Error>) -> Void) {
-        queue.async {
-            do {
-                let wallpapers = try self.loadWallpapersInternal()
-                DispatchQueue.main.async { completion(.success(wallpapers)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
     }
 
     func loadInitialIndex() throws -> LoadedIndex {
@@ -90,7 +66,7 @@ final class WallpaperIndexStore {
         return LoadedIndex(wallpapers: wallpapers, initialized: initialized)
     }
 
-    // 内部同步实现，供 loadWallpapers 和 loadWallpapersAsync 共用。
+    // 完整 SQL 读取由同步查询和初始索引加载共用。
     private func loadWallpapersInternal() throws -> [VideoWallpaper] {
         try openIfNeeded()
         let sql = """
@@ -307,21 +283,6 @@ final class WallpaperIndexStore {
                 try fileManager.removeItem(at: url)
             }
         }
-    }
-
-    private func countRowsInWallpapersTable() throws -> Int {
-        // 只在 hasPersistedIndex 这种轻量判断里用，避免把计数当成业务查询。
-        let sql = "SELECT COUNT(1) FROM wallpapers;"
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-            throw StoreError.statementPrepareFailed(lastSQLiteErrorMessage())
-        }
-        defer { sqlite3_finalize(statement) }
-
-        guard sqlite3_step(statement) == SQLITE_ROW else {
-            throw StoreError.statementStepFailed(lastSQLiteErrorMessage())
-        }
-        return Int(sqlite3_column_int64(statement, 0))
     }
 
     private func selectMetaValue(forKey key: String) throws -> String? {

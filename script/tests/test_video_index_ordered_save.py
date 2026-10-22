@@ -40,7 +40,7 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
             "    private func applyWallpaperIndexSaveResult(", "    private func flushWallpaperIndex(",
             "    private func invalidateWallpaperIndexPersistence(", "    func flushPersistentState(",
             "    func loadWallpapers(", "    func deduplicatedWallpapersByPath(",
-            "    func migrateLegacyWallpaperIndexToSQLite(", "    func loadRecentWallpapers(",
+            "    func loadRecentWallpapers(",
             "    func saveRecentWallpapers(",
             "    private func loadCodableValue<", "    func saveCodableValue<",
             "    private func decode<", "    private func encode<",

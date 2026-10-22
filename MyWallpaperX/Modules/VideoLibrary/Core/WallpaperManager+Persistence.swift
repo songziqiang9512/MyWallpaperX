@@ -135,24 +135,6 @@ extension WallpaperManager {
         return loaded
     }
 
-    func loadWallpapersFromSQLiteIfAvailable() -> [VideoWallpaper]? {
-        // SQLite 已经是主索引后端时，直接从它读，不再同时读旧 UserDefaults。
-        guard let hasIndex = try? WallpaperIndexStore.shared.hasPersistedIndex(), hasIndex else {
-            return nil
-        }
-        return try? WallpaperIndexStore.shared.loadWallpapers()
-    }
-
-    func migrateLegacyWallpaperIndexToSQLite(_ legacyWallpapers: [VideoWallpaper]) {
-        // 迁移失败时保留旧路径，避免把用户库写成空。
-        do {
-            try WallpaperIndexStore.shared.saveWallpapers(legacyWallpapers)
-            UserDefaults.standard.removeObject(forKey: wallpapersKey)
-        } catch {
-            // 迁移失败时保留旧索引，避免影响现有数据可用性。
-        }
-    }
-
     func hasPersistedWallpaperIndex() -> Bool {
         // 启动时判断是否已有壁纸索引，决定要不要注入内置示例。
         // #11 修复：不再在主线程同步查询 SQLite（queue.sync 会阻塞）。

@@ -28,7 +28,6 @@ enum UIActionHelper {
 }
 
 struct WallpaperInspectorDetails: Equatable {
-    let fileName: String
     let fileSizeText: String
     let formatText: String
     let durationText: String
@@ -46,7 +45,6 @@ func loadWallpaperInspectorDetails(
     Task {
         await MainActor.run {
             completion(WallpaperInspectorDetails(
-                fileName: wallpaper.lastComponent,
                 fileSizeText: "",
                 formatText: "",
                 durationText: "",

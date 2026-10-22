@@ -103,7 +103,6 @@ struct WallpaperDeletionSummary {
 }
 
 struct WallpaperInspectorDetails: Equatable {
-    let fileName: String
     let fileSizeText: String
     let formatText: String
     let durationText: String
@@ -111,19 +110,6 @@ struct WallpaperInspectorDetails: Equatable {
     let resolutionText: String
     let addedDateText: String
     let pathText: String
-
-    var infoText: String {
-        """
-        文件名: \(fileName)
-        大小: \(fileSizeText)
-        格式: \(formatText)
-        持续时间: \(durationText)
-        编解码器: \(codecText)
-        分辨率: \(resolutionText)
-        添加时间: \(addedDateText)
-        路径: \(pathText)
-        """
-    }
 }
 
 @discardableResult
@@ -159,7 +145,6 @@ func loadWallpaperInspectorDetails(
         guard !Task.isCancelled else { return }
 
         let details = WallpaperInspectorDetails(
-            fileName: url.lastPathComponent,
             fileSizeText: fileSizeText,
             formatText: formatText,
             durationText: durationText,
@@ -172,12 +157,6 @@ func loadWallpaperInspectorDetails(
         await MainActor.run {
             completion(details)
         }
-    }
-}
-
-func wallpaperDetailInfoText(for wallpaper: VideoWallpaper, completion: @escaping (String) -> Void) {
-    loadWallpaperInspectorDetails(for: wallpaper) { details in
-        completion(details.infoText)
     }
 }
 

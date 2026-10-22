@@ -2812,7 +2812,9 @@
         "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
         "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift",
-        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift"
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift",
+        "script/tests/fixtures/VideoInspectorPreviewHarness.swift"
       ],
       "modules": [
         "test_video_inspector_preview_reload"
@@ -4320,6 +4322,19 @@
       "modules": [
         "test_web_dependency_traversal",
         "test_web_runtime_cache"
+      ]
+    },
+    {
+      "id": "video-index-persistence",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+InitialIndexLoad.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperIndexStore.swift",
+        "script/tests/test_video_index_ordered_save.py",
+        "script/tests/fixtures/VideoIndexOrderedSaveHarness.swift"
+      ],
+      "modules": [
+        "test_video_index_ordered_save"
       ]
     }
   ],

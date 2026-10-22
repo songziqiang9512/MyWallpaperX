@@ -91,6 +91,29 @@
 
 第二批在独立 `code-slimming-b2` worktree、分支 `MWX/code-slimming-b2` 收敛，7 个产品/测试文件在转移前后逐字一致；原 checkout 的本批副本精确恢复，第一批提交及并行 Scene 工作保留。第一批本机证据留原 checkout，第二批必要证据在本 worktree 的 `.artifacts/code-slimming-b2-20261022/`，期限至 2026-11-05。本轮固定导出、临时 HOME/缓存和原始构建日志提取后清理，checkpoint DerivedData/App 已自动清理；其他会话缓存与材料不动。整合保留并行 Scene 提交 `d6d500009` 的全部产品、测试、文档及共享登记；固定组合候选的 11 个模块（上述 10 个及 `test_scene_text_native_bounds`）和隔离冷 Debug 构建再次通过，路由/链接 110 项、断言、文档健康与登记门通过。组合验证只补强相应范围；未扩大 UI、真实 Steam 或全量内容声明。合并身份以 Git 记录为准，不推送。
 
+## 第三批范围与停止条件
+
+基线：整合提交 `2915823cf`。状态：实施、对应回归及再次三路交叉审查完成，按用户授权本地提交并整合原分支，不推送。比较旧接口退役、音频/缩略图调度和 Web 文本重复扫描后，本批选择已能完整证明消费者的旧接口；另两类涉及并发或内容判定，继续保留候选。最小结果为删除以下无人调用支链，并通过现役持久化、Inspector、工具栏与库算法回归和 Debug 构建；出现实际消费者或反例即撤回相应删除。
+
+| 编号 | 退役范围 | 保留职责与验证 |
+|---|---|---|
+| B3-A | Manager 旧 SQLite 读取/迁移 wrapper、只为其服务的已持久化判断/行数查询、无消费者的旧异步读取 | `loadInitialIndex`/异步启动、完整 SQL 读取、失败恢复、UserDefaults 迁移、退出合并及保存；现役 ordered-save 门断言逐字保留，仅去掉无调用声明的提取 |
+| B3-B | `UIActionHelper.presentInfo → wallpaperDetailInfoText → infoText` 旧信息弹窗链及仅为它准备的文件名字段 | 菜单/卡片仍进入现役 Inspector，可取消 metadata Task、全部仍显示字段及预览生命周期；工具栏、Inspector 和库算法门 |
+
+静态追踪包含全仓调用、selector、菜单、卡片、资源和测试。Online 下载 Inspector 的 Snapshot/Views 有完整用户入口，整条保留；同步 SQLite 读取仍用于真实 SQL 回归，不因测试专用就移除。初始化、授权、路径/文件扫描边界、缺失文件清理策略和数据格式均不在本批修改范围。只在现有 owner 删除退役声明，不加 wrapper 或新的测试算法；文档继续由本文拥有专项状态。
+
+实施结果：4 个产品文件净减少 92 行。保留的方法与基线逐字核对，仅调整两处已陈旧的 Store 注释；metadata loader 只去掉无人读取的文件名构造参数，其余字段、取消检查和 MainActor completion 保持原样。两个实施子代理分工修改后，另一个独立子代理交叉检查完整 diff、真实入口与全部测试断言，未发现产品或测试阻塞。
+
+验证：固定 `2915823cf` 导出的 `test_video_index_ordered_save` 先通过；固定候选的 `test_video_index_ordered_save`、`test_video_inspector_preview_reload`、`test_library_toolbar_behaviors`、`test_ui_library_algorithms`、`test_playback_policy`、`test_playback_policy_delivery` 六模块串行通过，随后隔离冷 Debug 构建通过。6 个产品/行为测试输入在运行和构建前后哈希一致。持久化真实 SQL、失败/中断、回退、迁移、退出与重启断言完整保留；Inspector 门仍证明预览/迟到回调，metadata 实现的保留另经静态差分与 App 编译，未声称完整人工 UI 或真实用户库迁移实测。
+
+最近测试关联补齐 IndexStore/恢复 owner 和共享详情载体。原路由测试把 Persistence 精确限定为两项 policy 门；加入实际 ordered-save 门后，同步精确集合为三项，并新增 IndexStore、InitialIndex 与 fixture 只选择 ordered-save 的反例，未改为宽松包含判断。111 项路由/链接门通过，4 个产品路径均有最近关联，无失效/未映射项；关联仍不代表完整覆盖。代码健康、断言信号、设计、依赖、Debug 布局及文档门通过。
+
+全局 Scene 结构门 15 项中仍有 3 个既有失败（目录登记、authority 和 completion）；固定基线与候选的这三项断言消息逐字相同，12 个其他结构项通过。未修改相关白名单、ratchet、扫描范围或 Scene 产品；不得把此门报为全绿。本批不认领性能、包体、能耗、全 App 交互或全量内容兼容。
+
+再次由三个独立子代理分别复核持久化、Inspector 和完整测试/登记，未发现真实调用误删、功能回退或断言削弱。10 个文件及既有证据 manifest 身份一致，六个行为输入与已通过的构建/回归相同，按工作流复用这些结果；本轮重跑 111 项路由/链接与断言门，补跑并归档此前未入包的设计门输出。原分支未出现产品整合漂移，不额外占用并行 Scene 诊断窗口；纯文档状态修订只重验文档门。
+
+证据保留在复用 worktree 的 `.artifacts/code-slimming-b3-20261022/` 及本轮 `.artifacts/code-slimming-b3-crossreview-20261022/` 至 2026-11-05；包含输入身份、基线/候选与构建摘要、独审、路由及既有结构失败对照。默认 checkpoint DerivedData/App 自动清理，固定导出和临时 HOME/缓存当轮清理，第一/二批证据与其他会话材料保留。本批从 `2915823cf` 在隔离分支收敛，提交/整合身份以 Git 记录为准，不推送。
+
 ## 退出
 
 候选按用户价值、证据与风险选择，达到验收或收益递减时停止该批，不扩成无界清理。专项完成或用户终止后，把稳定职责留在原合同，本文归档为历史证据并退出设计登记；不长期维持第二套引擎路线。
