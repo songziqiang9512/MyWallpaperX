@@ -289,8 +289,8 @@ extension WallpaperManager {
         let selectionKey = currentSelectionContext.scrollPersistenceKey
         let query = normalizedSearchQuery
         // 必须用排序后的列表，保证 index 与网格实际渲染顺序一致。
-        let sorted = sortedWallpapers(source, selectionKey: selectionKey)
-        let wallpapers = filterWallpapers(sorted, usingNormalizedQuery: query)
+        let filtered = filterWallpapers(source, usingNormalizedQuery: query)
+        let wallpapers = sortedWallpapers(filtered, selectionKey: selectionKey)
         guard !wallpapers.isEmpty else { return false }
 
         // 方向键导航必须基于当前过滤后的可见集合，而不是完整库集合。
