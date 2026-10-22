@@ -376,7 +376,7 @@ extension SteamWorkshopService {
             return resolvedContainedHTMLURL(url)
         }
 
-        return candidateURLs.sorted { lhs, rhs in
+        return candidateURLs.min(by: { lhs, rhs in
             let lhsRelativePath = relativePath(for: lhs, under: normalizedDirectory)
             let rhsRelativePath = relativePath(for: rhs, under: normalizedDirectory)
             let lhsLower = lhsRelativePath.localizedLowercase
@@ -404,7 +404,7 @@ extension SteamWorkshopService {
             }
 
             return lhsLower.localizedStandardCompare(rhsLower) == .orderedAscending
-        }.first
+        })
     }
 
     nonisolated static func resolveContentType(
