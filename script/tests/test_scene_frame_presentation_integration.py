@@ -53,7 +53,7 @@ print(Double(green) / Double(image.width * image.height))
         if hasattr(cls, "probe_temp"):
             cls.probe_temp.cleanup()
 
-    def run_scene(self, screens, fault, switching=False):
+    def run_scene(self, screens, fault, switching=False, retiring=False):
         with tempfile.TemporaryDirectory(prefix="mwx-frame-presentation-") as temp:
             root = Path(temp)
             scene = root / "content"
@@ -70,15 +70,35 @@ print(Double(green) / Double(image.width * image.height))
                     return shared.updates%2===1;
                 }
             """
+            if retiring:
+                script = """
+                    export function update(value) {
+                        if (engine.runtime < 0.5) return value;
+                        thisScene.destroyLayer('Owned retiring child');
+                        thisScene.destroyLayer(thisLayer);
+                        return false;
+                    }
+                """
+            objects = [
+                {"id": 1, "name": "Shared callback state", "image": "models/util/solidlayer.json",
+                 "origin": "64 64 0", "size": "64 64", "color": "1 0 0",
+                 "visible": {"value": True, "script": script}},
+                {"id": 2, "name": "Stable peer", "image": "models/util/solidlayer.json",
+                 "origin": "100 100 0", "size": "16 16", "color": "0 1 0"},
+            ]
+            if retiring:
+                objects += [
+                    {"id": 3, "name": "Owned retiring child", "parent": 1,
+                     "image": "models/util/solidlayer.json", "origin": "0 0 0",
+                     "size": "12 12", "color": "1 0 0", "visible": True},
+                    {"id": 4, "name": "Live Bool owner", "image": "models/util/solidlayer.json",
+                     "origin": "40 64 0", "size": "12 12", "color": "0 0 1",
+                     "visible": {"value": True,
+                                 "script": "export function update(value) { return true; }"}},
+                ]
             payload = json.dumps({"version": 3,
                 "general": {"orthogonalprojection": {"width": 128, "height": 128}},
-                "objects": [
-                    {"id": 1, "name": "Shared callback state", "image": "models/util/solidlayer.json",
-                     "origin": "64 64 0", "size": "64 64", "color": "1 0 0",
-                     "visible": {"value": True, "script": script}},
-                    {"id": 2, "name": "Stable peer", "image": "models/util/solidlayer.json",
-                     "origin": "100 100 0", "size": "16 16", "color": "0 1 0"},
-                ]}).encode()
+                "objects": objects}).encode()
             (scene / "scene.pkg").write_bytes(make_package([("scene.json", payload)]))
             home = root / "home"
             home.mkdir()
@@ -101,13 +121,14 @@ print(Double(green) / Double(image.width * image.height))
                 self.assertRegex(log, rf"phase=ready .*surfaces={screens} ")
                 self.assertIn(f"phase=stopped surfacesBefore={screens} surfacesAfter=0", log)
                 values = re.findall(r"dynamic-layer-visibility-v1 frame=(\d+) generation=(\d+) layer=1 source=sceneScript value=(true|false)", log)
-                self.assertGreater(len(values), 20, log[-5000:])
-                frames = [int(row[0]) for row in values]
-                if not switching:
-                    self.assertEqual(frames, sorted(set(frames)), "executed state was replayed for one frame")
-                for frame, generation, value in values:
-                    self.assertEqual(int(generation), int(frame) + 1)
-                    self.assertEqual(value, "true" if int(frame) % 2 == 0 else "false")
+                if not retiring:
+                    self.assertGreater(len(values), 20, log[-5000:])
+                    frames = [int(row[0]) for row in values]
+                    if not switching:
+                        self.assertEqual(frames, sorted(set(frames)), "executed state was replayed for one frame")
+                    for frame, generation, value in values:
+                        self.assertEqual(int(generation), int(frame) + 1)
+                        self.assertEqual(value, "true" if int(frame) % 2 == 0 else "false")
                 completed = {(int(frame), int(surface)) for frame, surface in re.findall(
                     r"state=completed frame=(\d+) surface=(\d+) gpu=completed", log)}
                 self.assertTrue(any(frame == 2 for frame, _ in completed), log[-5000:])
@@ -129,7 +150,7 @@ print(Double(green) / Double(image.width * image.height))
                     (saved / "app.log").write_text(log)
                     (saved / "run.json").write_text(json.dumps({"command": command,
                         "returncode": result.returncode if result is not None else None,
-                        "screens": screens, "fault": fault}, indent=2) + "\n")
+                        "screens": screens, "fault": fault, "retiring": retiring}, indent=2) + "\n")
                     for source in (root / "evidence").rglob("*"):
                         if source.is_file():
                             target = saved / source.relative_to(root / "evidence")
@@ -137,6 +158,32 @@ print(Double(green) / Double(image.width * image.height))
                             shutil.copy2(source, target)
                     for name in ("project.json", "scene.pkg"):
                         shutil.copy2(scene / name, saved / name)
+
+    def test_retired_authored_branch_does_not_reappear_in_visibility_diagnostics(self):
+        log, _ = self.run_scene(1, {}, retiring=True)
+        self.assertRegex(log,
+            r"lifecycle=layer-retirement owners=1 destroyCallbacks=0 quiescent=1 failures=0")
+        rows = [(int(frame), int(layer), source, value, effective)
+                for frame, layer, source, value, effective in re.findall(
+                    r"dynamic-layer-visibility-v1 frame=(\d+) generation=\d+ "
+                    r"layer=([1-4]) source=(\w+) value=(true|false) effective=(true|false)", log)]
+        cleared = [row for row in rows if row[1:4] == (1, "authored", "true")]
+        self.assertTrue(cleared, "retired visibility source never cleared to its authored fallback")
+        first_cleared_frame = min(row[0] for row in cleared)
+        self.assertTrue(any(frame < first_cleared_frame and layer == 1
+                            and (source, value, effective) == ("sceneScript", "true", "true")
+                            for frame, layer, source, value, effective in rows), log[-5000:])
+        post_retirement = [row for row in rows if row[0] >= first_cleared_frame]
+        for layer in (1, 3):
+            retired_rows = [row for row in post_retirement if row[1] == layer]
+            self.assertTrue(retired_rows, f"missing post-retirement diagnostic for layer {layer}")
+            for _, _, source, value, effective in retired_rows:
+                self.assertEqual((source, value), ("authored", "true"))
+                self.assertEqual(effective, "false",
+                    "destroyed authored layer was diagnosed as live after its field source cleared")
+        for frame in {row[0] for row in post_retirement}:
+            self.assertIn((frame, 2, "authored", "true", "true"), post_retirement)
+            self.assertIn((frame, 4, "sceneScript", "true", "true"), post_retirement)
 
     def test_missing_drawable_keeps_peer_playing_and_recovers_latest(self):
         log, completed = self.run_scene(2, {"MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES": "2"})

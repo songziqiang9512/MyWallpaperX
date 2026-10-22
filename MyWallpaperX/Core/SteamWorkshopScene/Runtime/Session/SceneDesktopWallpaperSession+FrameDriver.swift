@@ -843,7 +843,7 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(
                 descriptor: launchContext.runtimeInput.renderDescriptor,
-                snapshot: dynamicValues
+                snapshot: dynamicValues, destroyedAuthoredLayerIDs: layerTopology.destroyedAuthoredLayerIDs
             )
 #endif
             surface.metalView.applyParticlePlaybackTransitions(admission.layerPlan.particleTransitions)

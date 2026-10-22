@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（373 个 sample 目录）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `ded852e90cd113b05dc8f8f1f33cc3f576e0d2c0e72fb0b899e8a89939ff3c82`（生成于 2026-10-21T23:48:09.090533+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`、CDHash `6383c520523c85a42542662b29dc2b16a5552897`、CDHash `6c57aab5c9af57e61c72249ec963b626e0a653da`、CDHash `8240229d3600bddd49269e2c44cfe564691328f2`、CDHash `c97bcc1f3d9da77bae9dfee906c7e0227aa1d5ef`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `3fde87ebcb5d22431d91f533f98fb63b2a05ee72a59f9207f830e694e4bc6e3f`。
-- 本页生成于 2026-10-22T11:44:18.072232+00:00。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `77a6117525bc56d15800c7a86fecb3128db5b525bc65b1be7cc0f7025deb80ea`（生成于 2026-10-22T22:34:36.543320+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`、CDHash `9fe554ffa22e9ace078be9b6cc385a40cec899cb`、CDHash `46aff1be5b9026dd015fb14a7e07fbdd0c204a9e`、CDHash `0a919f0b1e6f400f1853ec907480e7c3e8c4b866`、CDHash `2e39ab56d414e66778072e79f163c840a462ec77`、CDHash `bfbd4b5823f9bdc10de699b340b919a9d8a063ef`、CDHash `319e24b41bcd8fc957c08ff36e330cc98f49efe1`、CDHash `0d160d95ee2127e1c981b8d3c59d23adb225d88d`、CDHash `294fe268de3b34647b2313b5947b77ff174d4bb3`、CDHash `62f0950cd9a3c69797f5e337a00608207245e342`、CDHash `58a826b8f5a174cc376be37b36d79176c879304c`、CDHash `ff143e5473c638e46ba0cf5a4d2fa1fe98d34b88`、CDHash `1b4edb10b4eb3a88757fd16ea1e1cc09842b4675`、CDHash `3d69349b727be2df2c7e22f8291a79560b6fc451`、CDHash `efe92a7484bdc92f9dceb1802fa49c5f156175fd`、CDHash `b8c633ed63d927f18419d8c4926710c0a7277d6e`、CDHash `6383c520523c85a42542662b29dc2b16a5552897`、CDHash `6c57aab5c9af57e61c72249ec963b626e0a653da`、CDHash `8240229d3600bddd49269e2c44cfe564691328f2`、CDHash `c97bcc1f3d9da77bae9dfee906c7e0227aa1d5ef`、CDHash `917ca54c26413309c3f78f800b84b05ec2c90d98`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `91499eda99475004468999bd79be22ece136c7246b9a18d58d13d8d9d5c69278`。
+- 本页生成于 2026-10-22T22:34:36.726031+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -28,10 +28,10 @@
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 269 |
+| `unknown` | 268 |
 | `not-run` | 25 |
 | `blocked` | 0 |
-| `compared` | 79 |
+| `compared` | 80 |
 
 - 已裁决但缺观看者身份的条目：**17**；已裁决但缺截图/视频身份的条目：**14**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
@@ -39,19 +39,19 @@
 |---|---|---:|
 | `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 17 |
 | `particle-load` | 粒子层资源加载 | 11 |
-| `texture-load` | 基础图片纹理加载 | 10 |
+| `texture-load` | 基础图片纹理加载 | 11 |
 | `scenescript` | SceneScript 异常 | 19 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
 | `visual-review` | 结构链完整，待视觉验收 | 203 |
-| `not-run` | 未关联本归档运行证据 | 113 |
+| `not-run` | 未关联本归档运行证据 | 112 |
 
 | 归档运行状态 | 样本数 |
 |---|---:|
 | `blocked` | 2 |
-| `degraded-runtime` | 56 |
-| `not-run` | 113 |
-| `runtime-evidence-incomplete` | 2 |
-| `structural-chain-complete-visual-review` | 200 |
+| `degraded-runtime` | 57 |
+| `not-run` | 112 |
+| `runtime-evidence-incomplete` | 1 |
+| `structural-chain-complete-visual-review` | 201 |
 
 作者参数：289 个样本声明了 schemecolor 之外的用户参数，共 9206 项，其中 2972 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -361,7 +361,7 @@
 | `3784012236` | >R-18< 蔚蓝档案 Blue_Archive\|06\|飛鳥馬 トキ 时 … | 4(2) bool 1 color 1 combo 1 slider 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` |  |
 | `3786048634` | 2B and A2 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3786185473` | ELF PARADISE～欢迎来到性夜♪色情精灵们的淫乱圣诞节特别篇～ \| … | 6(0) bool 2 color 1 combo 1 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3786330502` | 麻匪 Astra GamingGear 含羞 | 53(21) bool 15 color 4 combo 1 slider 3 text 30 | `runtime-evidence-incomplete` | - | `visual-review` | `unreviewed` 2026-10-21 | 龙形左图、白发人物、中央青色裂缝、泡泡、右上文字与左下标志均呈现；未见大缺层或黑块。 实际右下有绿色圆角频谱/媒体面板，官方参考本窗未见；媒体状态与作者属性未… |
+| `3786330502` | 麻匪 Astra GamingGear 含羞 | 53(21) bool 15 color 4 combo 1 slider 3 text 30 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-23 | 龙形左图、白发人物、中央青色裂缝、泡泡、右上文字与左下标志均呈现；未见大缺层或黑块。 实际右下有绿色圆角频谱/媒体面板，官方参考本窗未见；媒体状态与作者属性未… |
 | `3786641495` | Albedo - Look at here my master | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3787355076` | 维琳娜-申请入股 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3787382101` | 清宵 \|\| 万剑 \|\| 鸣潮 | 49(23) bool 15 color 8 group 4 slider 10 text 10 textinput 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-06 | 旧Water Waves影响人物全身的理由已被六组同构A/B否定，实际效果限于对应作者mask；该精确反馈已退出。保留09-06历史整体fail，不把过时理由… |
@@ -428,7 +428,7 @@
 | `3812249745` | 完美世界-九劫柳神 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3812473896` | 原神芙宁娜-水畔芙谣[Furina's Ballad by the Water… | 52(0) bool 3 color 7 group 6 scenetexture 1 slider 35 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3814040466` | Nikke - Privaty - Sharp Lesson | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
-| `3815761795` | 明日方舟・夕｜画桥（4K） | 13(0) bool 7 color 3 combo 1 textinput 2 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3815761795` | 明日方舟・夕｜画桥（4K） | 13(0) bool 7 color 3 combo 1 textinput 2 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` 2026-10-23 | 原包20s/after16、30FPS/静音，人物、伞、雨、云景及右下青色装饰呈现并推进，未见明显主体/背景缺失；独立候选运行保持，正常stop1→0/GPU… |
 | `3818943255` | 美女肚兜 | 3(0) color 1 slider 2 | `runtime-evidence-incomplete` | - | `visual-review` | `unreviewed` 2026-10-17 | 新发现后复用同签名App单次默认direct短播放：1image/0effects、0.971s ready，实际图像呈现、exit0/stop1→0/GPU… |
 | `3820312181` | Void Edge Theme R6S [High Resolution] | 4(0) bool 2 color 1 slider 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` 2026-10-17 | 10-17原包默认参数的右上缺光已恢复：sampler presence误用editor条件的首错退出，17/effect1真实Program/GPU/末合成… |
 | `3822255386` | 绝区零 X-ray/liang xing | 3(0) bool 1 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 单图X-ray在中心pointer默认参数下实际GPU/末消费，未定位该条件下明显缺陷；开关/size/鼠标轨迹尚未测试。 本轮20s/30FPS固定PCM、… |

@@ -12,6 +12,7 @@
 
 <a id="particle-position-mapping-20261023"></a><a id="particle-event-inheritance-20261023"></a>**粒子初始化资格（2026-10-23），均STOP_UNKNOWN、产品未改。** [位置五板](../history/particle-initializer-qualification-2026-10-23.md#position-mapping)反证当前默认Z的有效位置公式，但斜轴六候选全拒，不能据此改任意轴或初速；[死亡事件六板](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance)纠正374目标为135的death child，尺寸与alpha输出均无冻结组合，不能放开multiplysize/setopacity。固定输入、控制、全部比较、原图与独审分别归上述记录及本机正式包。默认值已修范围保持，真实方向/密度与水花未关闭；无修后App或性能收益。
 
+<a id="retired-layer-diagnostic-20261023"></a>**退休层诊断（2026-10-23）**：DEBUG显隐报告只补消费与render同cadence已提交的canonical销毁集合；保authored source/value，未改图、绘制或生命周期。真实Host根/子销毁与存活Bool/普通peer门旧App红→候选绿，最近graph-route9门及独审通过。优化Debug `49e1a476…08e25`、4315输入无漂移/零警告/严格深签名；首包装签名失败排除，内外层重签后才验收。原378的1780由authored true/effective true改为effective false，四项GPU/合成/次帧/backend误报退出，实际活跃图仍受检；独立381人物/伞/雨与两包gross构图保持。20s/after16/30FPS/静音均exit0、stop1→0/GPU排空。原图、红绿、失败、身份/独审归`.artifacts/scene-evidence/runs/retired-layer-diagnostic-20261023-final/`，旧失败归`fresh-composition-screen-20261023-baseline/`；381特殊solid归一标签保留，两景仍unreviewed，不认整景、同phase/HDR/多屏、音频或性能收益。
 <a id="current-snapshot"></a>
 ## 1. 当前证据快照
 | 查询主题 | 本页证据入口 |

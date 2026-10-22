@@ -141,8 +141,8 @@
       "bytes": 349060
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 599,
-      "bytes": 217108
+      "lines": 600,
+      "bytes": 218141
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
-      "bytes": 97308
+      "bytes": 97667
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -274,7 +274,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 253,
-      "bytes": 79830
+      "bytes": 79962
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1325,15 +1325,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "0e2f9c4155f285081c08f5bd262878ba2d0edf40757c045e96b4861bbcb665f7",
-      "after": "cd8abc144309bf9c855e09cf779e540a952c0790eb0ea97af6a282948dc1e072",
-      "owner": "Scene native text bounds",
-      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "cc61c7035cc5a5a85302e8cfa65bfcc12cd819f635965941ca4486a15ecb050c",
       "after": "a404484ebd220382365377450e1b27bb05b15ba4d5ef5c2cc09c891bf536c765",
@@ -1439,6 +1430,33 @@
       "owner": "Scene model material qualification",
       "reason": "Replace the next gate with the bounded real contribution result and stop condition; no capability closure.",
       "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md#画面合成与播放"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "5e4a0df02d443b4ec04c8d96915e4700d0df9765f2bbe3a7c12e3cd1892c97b1",
+      "after": "bdfa041d8702ce4f4870e94718c2c6227599e5db3c9dc89cf1322a186ebbf1e2",
+      "owner": "Scene runtime evidence diagnostics",
+      "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "cd8abc144309bf9c855e09cf779e540a952c0790eb0ea97af6a282948dc1e072",
+      "after": "801f984fd2455e1d1f32128e3edde8502aee68078452191286e34d09fe79fa26",
+      "owner": "Scene runtime evidence diagnostics",
+      "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "e6fe683fbf09ff9c75003da0f54babb534fc5ca035459dad23662907e4894ec9",
+      "after": "151eb9900675ad8b2b1f6eac4f3963b4f126618ac2ab4e15627cf2ccd1ed56e2",
+      "owner": "Scene runtime evidence diagnostics",
+      "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
     }
   ]
 }

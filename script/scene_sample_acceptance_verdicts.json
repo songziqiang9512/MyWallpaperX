@@ -1934,13 +1934,14 @@
     },
     "3786330502": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-21",
+      "reviewedOn": "2026-10-23",
       "reviewer": "Codex 隔离Debug诊断与独立原图复核；未作人工整样本裁决",
-      "note": "龙形左图、白发人物、中央青色裂缝、泡泡、右上文字与左下标志均呈现；未见大缺层或黑块。 实际右下有绿色圆角频谱/媒体面板，官方参考本窗未见；媒体状态与作者属性未对齐，按当前约束保留差异，不据此认定多画黑块或错误图层。 人物眼睛/气泡/裂缝相位及窄viewport造成的字样裁切未记为错误。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
+      "note": "龙形左图、白发人物、中央青色裂缝、泡泡、右上文字与左下标志均呈现；未见大缺层或黑块。 实际右下有绿色圆角频谱/媒体面板，官方参考本窗未见；媒体状态与作者属性未对齐，按当前约束保留差异，不据此认定多画黑块或错误图层。 人物眼睛/气泡/裂缝相位及窄viewport造成的字样裁切未记为错误。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。 10-23同原包静音20s/after16复验主要构图保持；默认销毁1780的DEBUG显隐误报已修，四项missing退出，活跃执行集合保留。未改变绘制，不升级整景裁决；默认Logo隐藏正常。",
       "remainingDifferences": "具体待修/待复验归现役队列；早截图、音频、视差、媒体状态差异不自动是缺陷。",
       "officialComparison": "compared",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-06/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-06/current/report.json",
+        ".artifacts/scene-evidence/runs/retired-layer-diagnostic-20261023-final/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
@@ -2343,6 +2344,21 @@
       "officialComparison": "not-run",
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+      ],
+      "evidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
+    },
+    "3815761795": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-23",
+      "reviewer": "Codex原包Debug诊断与独立原图复核；无人工整景裁决",
+      "note": "原包20s/after16、30FPS/静音，人物、伞、雨、云景及右下青色装饰呈现并推进，未见明显主体/背景缺失；独立候选运行保持，正常stop1→0/GPU排空。特殊solid聚合仍被归一为degraded，保raw；不把其标签当可见缺层。官方宽屏与当前cover裁切、音频与phase未齐，不据右上clock裁切或零频谱判新缺陷。",
+      "remainingDifferences": "未验全部属性、音频/交互、长稳或同官方viewport/phase；整景保持unreviewed。",
+      "officialComparison": "compared",
+      "runs": [
+        ".artifacts/scene-evidence/runs/fresh-composition-screen-20261023-baseline/baseline/report.json",
+        ".artifacts/scene-evidence/runs/retired-layer-diagnostic-20261023-final/current/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"

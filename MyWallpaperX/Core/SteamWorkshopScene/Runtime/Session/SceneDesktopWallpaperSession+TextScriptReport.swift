@@ -58,13 +58,14 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
     func logDebugDynamicLayerVisibilityIfChanged(
         descriptor: SceneRenderDescriptor,
-        snapshot: SceneDynamicSnapshot
+        snapshot: SceneDynamicSnapshot,
+        destroyedAuthoredLayerIDs: Set<Int>
     ) {
         guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow else { return }
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: descriptor,
             snapshot: snapshot
-        )
+        ).subtracting(destroyedAuthoredLayerIDs)
         let records = descriptor.layers.compactMap { layer -> String? in
             let resolved = snapshot[.layer(layerID: layer.id, field: .visibility)]
             let value: Bool
