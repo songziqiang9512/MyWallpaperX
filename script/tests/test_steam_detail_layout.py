@@ -50,7 +50,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
                 'struct SteamWorkshopDownloadRecord']]
             validation = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift')
             fragments += [declaration(validation, prefix) for prefix in [
-                'enum SteamWorkshopWebDependencyStatus', 'enum SteamWorkshopWebValidationSeverity']]
+                'enum SteamWorkshopWebDependencyStatus']]
             fragments.append(declaration(read(ui / 'AppKitSteamWorkshopBrowserItemSupportViews.swift'), 'enum SteamWorkshopDownloadProgressPalette'))
             service = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift')
             fragments.append('extension SteamWorkshopService {\n' + '\n\n'.join(declaration(service, prefix) for prefix in [

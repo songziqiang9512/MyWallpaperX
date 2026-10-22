@@ -13,21 +13,10 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     var currentItem: SteamWorkshopBrowserItem
     var cancellables = Set<AnyCancellable>()
     var subscriptionHint: String?
-#if DEBUG
-    var diagnosticsPanelToken: UUID?
-    var diagnosticsPanelStack: NSStackView?
-    var webDiagnosticsExpanded = false
-#endif
     private var downloadProgressObserverID: UUID?
     private var downloadProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
     private weak var primaryProgressButton: InspectorFooterButton?
     private var didBuildInitialContent = false
-    lazy var sceneInspectionController = SteamWorkshopSceneInspectionController { [weak self] in
-        self?.rebuild(preservingScrollPosition: true)
-#if DEBUG
-        self?.refreshDiagnosticsPanel()
-#endif
-    }
 
     private let rootStack = NSStackView()
     private let scrollView = InspectorFadingScrollView(fadeRatio: 0)
@@ -77,13 +66,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     func configure(item: SteamWorkshopBrowserItem) {
         let isSameItem = item.id == currentItem.id
         if !isSameItem {
-#if DEBUG
-            diagnosticsPanelStack = nil
-            diagnosticsPanelToken = nil
-            webDiagnosticsExpanded = false
-#endif
             subscriptionHint = nil
-            sceneInspectionController.reset()
             bindDownloadProgress(to: item.id)
         }
         currentItem = resolvedCurrentItem(fallback: item)
@@ -510,13 +493,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let properties = footerIconButton(symbolName: "gearshape", help: "属性调节", action: #selector(openProperties))
         properties.isEnabled = latestDownloadRecord?.status == .ready && latestDownloadRecord?.contentType != .unknown
         if latestDownloadRecord?.status != .ready { properties.toolTip = "下载完成后可查看属性" }
-        // 诊断菜单是开发调试入口，只在 Debug 构建挂在属性按钮上；Release
-        // 的详情面板不提供该入口。元数据时效由打开面板时的 72h 陈旧判定兜底。
-        #if DEBUG
-        let diagnosticsMenu = NSMenu()
-        diagnosticsMenu.addItem(SteamWorkshopMenuItem(title: "播放诊断", symbol: "stethoscope") { [weak self] in self?.openDiagnostics() })
-        properties.menu = diagnosticsMenu
-        #endif
         footerView.configure(primary: primary, webpage: webpage, properties: properties)
     }
 
@@ -771,50 +747,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return row
     }
 
-#if DEBUG
-    func validationPill(severity: SteamWorkshopWebValidationSeverity, levelTitle: String?, message: String) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .top
-        row.spacing = 8
-        row.edgeInsets = NSEdgeInsets(top: 9, left: 10, bottom: 9, right: 10)
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.wantsLayer = true
-        let tint = validationTint(severity)
-        row.layer?.cornerRadius = 10
-        row.layer?.backgroundColor = tint.withAlphaComponent(0.10).cgColor
-        row.layer?.borderColor = tint.withAlphaComponent(0.20).cgColor
-        row.layer?.borderWidth = 0.7
-
-        let iconName: String
-        switch severity {
-        case .error: iconName = "xmark.octagon.fill"
-        case .warning: iconName = "exclamationmark.triangle.fill"
-        case .info: iconName = "info.circle.fill"
-        }
-        let icon = NSImageView(image: NSImage(systemSymbolName: iconName, accessibilityDescription: nil) ?? NSImage())
-        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-        icon.contentTintColor = tint
-        row.addArrangedSubview(icon)
-        let textStack = verticalStack(spacing: 4)
-        if let levelTitle, !levelTitle.isEmpty {
-            textStack.addArrangedSubview(label(levelTitle, font: .systemFont(ofSize: 10, weight: .semibold), color: tint, lines: 1))
-        }
-        textStack.addArrangedSubview(label(message, font: .systemFont(ofSize: 12), color: .labelColor, lines: 0))
-        row.addArrangedSubview(textStack)
-        return row
-    }
-
-    private func validationTint(_ severity: SteamWorkshopWebValidationSeverity) -> NSColor {
-        switch severity {
-        case .error: return .systemRed
-        case .warning: return .systemOrange
-        case .info: return .secondaryLabelColor
-        }
-    }
-
-#endif
-
     private func footerButton(title: String, symbolName: String, kind: InspectorFooterButtonKind, target: AnyObject?, action: Selector?) -> InspectorFooterButton {
         InspectorFooterButton(title: title, image: NSImage(systemSymbolName: symbolName, accessibilityDescription: title), kind: kind, target: target, action: action)
     }
@@ -832,7 +764,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         switch record.contentType {
         case .unknown: return
         case .scene:
-            sceneInspectionController.requestPropertyEditor(for: record)
+            SteamWorkshopSceneInspectionController.requestPropertyEditor(for: record)
         case .web:
             let editor = SteamWorkshopWebPropertyEditorView(record: record)
             if editor.presentsOnlyMessage, let message = editor.emptyStateMessage {

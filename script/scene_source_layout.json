@@ -1459,7 +1459,6 @@
     "Diagnostics": {
       "files": [
         "SceneDebugFrameCapture.swift",
-        "SceneDiagnostics.swift",
         "SceneEffectExecutionFrameTrace.swift",
         "SceneEffectExecutionTelemetry.swift",
         "SceneFramePerformanceTelemetry.swift",

@@ -16,8 +16,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var lastLayoutInputs: LayoutInputs?
 
     static let reuseIdentifier = NSUserInterfaceItemIdentifier(NSStringFromClass(AppKitWallpaperItem.self))
-    static let hoverScale: CGFloat = 1.03
-    private static let pressedScale: CGFloat = 0.98
     // hoverTrackingActivated 是全局开关：首次真正收到鼠标移动后再开启 hover 跟踪，避免冷启动时过早绑定轨迹事件。
     private static var hoverTrackingActivated = false
 
@@ -50,12 +48,10 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var thumbnailRequestIsPending = false
     private var trackingAreaRef: NSTrackingArea?
     private var isHovering = false
-    private var isPressingCard = false
     private var isPlaying = false
     private var isMultiSelectMode = false
     private var isHoverOutlineVisible = false
     private var isSelectedState = false
-    private var currentCardScale: CGFloat = 1.0
     
     override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nil, bundle: nil)
@@ -88,7 +84,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         isThumbnailDemandPaused = false
         thumbnailRequestIsPending = false
         isHovering = false
-        isPressingCard = false
         isPlaying = false
         isMultiSelectMode = false
         isSelectedState = false
@@ -101,10 +96,8 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         multiSelectBadge.isHidden = true
         playActionButton.isHidden = true
         playActionButton.isPlaying = false
-        imageContainer.layer?.transform = CATransform3DIdentity
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
-        currentCardScale = 1.0
         selectionTintView.alphaValue = 0
         titleLabel.stringValue = ""
         metaLabel.stringValue = ""
@@ -457,7 +450,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
             return
         }
         lastLayoutInputs = inputs
-        ensureCardAnchorCenteredIfNeeded()
 
         let width = imageContainer.bounds.width
         guard width > 0 else { return }
@@ -537,15 +529,11 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         }
     }
 
-    private func ensureCardAnchorCenteredIfNeeded() {
-        imageContainer.ensureLayerAnchorCentered()
-    }
-
     func refreshGridHover(isScrolling: Bool) {
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered
-        applyHoverCardScale(hovered)
+        updateHoverOutline(hovered)
         updatePlayButtonVisibility()
         applyHoverVisibility(hovered, animated: false)
     }
@@ -555,17 +543,17 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         // hover 进入只触发视觉态，不改 selection。
         guard Self.hoverTrackingActivated else { return }
         isHovering = true
-        applyHoverCardScale(true)
+        updateHoverOutline(true)
         updatePlayButtonVisibility()
         applyHoverVisibility(true, animated: true)
     }
 
     override func mouseExited(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
-        // hover 离开恢复卡片缩放和播放按钮可见性。
+        // hover 离开恢复描边和播放按钮可见性。
         guard Self.hoverTrackingActivated else { return }
         isHovering = false
-        applyHoverCardScale(false)
+        updateHoverOutline(false)
         updatePlayButtonVisibility()
         applyHoverVisibility(false, animated: true)
     }
@@ -580,7 +568,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         let hoveringNow = imageContainer.bounds.contains(localPoint)
         guard hoveringNow != isHovering else { return }
         isHovering = hoveringNow
-        applyHoverCardScale(hoveringNow)
+        updateHoverOutline(hoveringNow)
         updatePlayButtonVisibility()
         applyHoverVisibility(hoveringNow, animated: true)
     }
@@ -615,7 +603,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) {
-        // selection 只改边框和遮罩，不碰当前缩放态，避免 hover / press 动画互相打架。
+        // selection 只改边框和遮罩，hover 描边独立更新。
         isMultiSelectMode = multiSelectMode
         isSelectedState = isSelected
         refreshThemeAwareAppearance()
@@ -641,51 +629,10 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         updatePlayButtonVisibility()
     }
 
-    func applyPressedState(_ pressed: Bool) {
-        // 按压态只在 hover 基础上做二级缩放，松手后回到 hover 或原始大小。
-        guard isPressingCard != pressed else { return }
-        isPressingCard = pressed
-        guard isHovering else { return }
-        applyCardScale(
-            targetScale: pressed ? Self.pressedScale : Self.hoverScale,
-            duration: pressed ? UIInteractionAnimation.cardPressDownDuration : UIInteractionAnimation.cardPressUpDuration,
-            timing: pressed ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-        )
-    }
-
-    private func applyHoverCardScale(_ hovered: Bool) {
-        // hover 和 pressed 共用同一层 scale，避免双层 transform 叠加产生偏移。
+    private func updateHoverOutline(_ hovered: Bool) {
         let duration = hovered ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
         let timing = hovered ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
         applyHoverOutline(hovered, duration: duration, timing: timing)
-        let targetScale: CGFloat
-        if hovered {
-            targetScale = isPressingCard ? Self.pressedScale : Self.hoverScale
-        } else {
-            targetScale = 1.0
-        }
-        applyCardScale(targetScale: targetScale, duration: duration, timing: timing)
-    }
-
-    private func applyCardScale(targetScale: CGFloat, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
-        // 直接改 layer.transform，比通过 frame 反推更稳定，也更容易保持中心点缩放。
-        guard let layer = imageContainer.layer else { return }
-        ensureCardAnchorCenteredIfNeeded()
-        guard abs(currentCardScale - targetScale) > 0.0001 else { return }
-
-        let fromScale = (layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat) ?? currentCardScale
-        let animation = CABasicAnimation(keyPath: "transform.scale")
-        animation.fromValue = fromScale
-        animation.toValue = targetScale
-        animation.duration = duration
-        animation.timingFunction = timing
-        layer.add(animation, forKey: "card.hover.scale")
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.transform = CATransform3DMakeScale(targetScale, targetScale, 1)
-        CATransaction.commit()
-        currentCardScale = targetScale
     }
 
     private func applyHoverOutline(_ hovered: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {

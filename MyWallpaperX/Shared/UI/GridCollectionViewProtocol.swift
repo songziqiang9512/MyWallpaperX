@@ -24,9 +24,6 @@ protocol GridCollectionViewProtocol: NSCollectionView, WallpaperGridIdentifiable
     /// 卡片区域内发生交互（用于通知外层视图区分卡片点击与背景点击）
     var cardInteractionHandler: (() -> Void)? { get set }
 
-    /// 卡片按压状态变化（indexPath, isPressed）
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)? { get set }
-
     // MARK: - 框选
 
     /// 是否启用框选（多选模式下开启）

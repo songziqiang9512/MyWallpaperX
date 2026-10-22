@@ -3,6 +3,19 @@ import ImageIO
 
 @main struct SteamPreviewLifecycleHarness {
     @MainActor static func main() throws {
+        if CommandLine.arguments.dropFirst().first == "--card-interactions" {
+            initializeNativeAppHarness()
+            var checks: [String: Bool] = [:]
+            for context in [AppKitSteamWorkshopBrowserItem.DisplayContext.browser, .downloads] {
+                let card = AppKitSteamWorkshopBrowserItem(); _ = card.view
+                card.currentDisplayContext = context
+                checks.merge(gridCardInteractionChecks(item: card, cardRoot: card.cardView,
+                    outline: card.hoverOutlineView, isHovering: { card.isHovering },
+                    label: context == .browser ? "steam-browser" : "steam-downloads")) { _, new in new }
+            }
+            print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
+            return
+        }
         _ = NSApplication.shared
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         func cgImage(_ color: NSColor) -> CGImage {

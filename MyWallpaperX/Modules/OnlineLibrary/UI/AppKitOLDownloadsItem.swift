@@ -297,8 +297,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private var lastLayoutInputs: LayoutInputs?
 
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("AppKitOLDownloadsItem")
-    static let hoverScale: CGFloat = 1.03
-    private static let pressedScale: CGFloat = 0.98
 
     private static var hoverTrackingActivated = false
 
@@ -320,10 +318,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private let multiSelectBadgeIcon = NSImageView()
 
     private var isHovering = false
-    private var isPressingCard = false
     private var isMultiSelectMode = false
     private var isHoverOutlineVisible = false
-    private var currentCardScale: CGFloat = 1
     private var thumbnailRequestID = UUID()
     private var thumbnailCancellation: ThumbnailCacheRequestCancellation?
     private var thumbnailLoadingWork: DispatchWorkItem?
@@ -372,14 +368,11 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         metaLabel.stringValue = ""
         titleLabel.layer?.mask = nil
         isHovering = false
-        isPressingCard = false
         isSelectedState = false
         isMultiSelectMode = false
         isPlaying = false
-        imageContainer.layer?.transform = CATransform3DIdentity
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
-        currentCardScale = 1
         selectionTintView.alphaValue = 0
         multiSelectBadge.isHidden = true
         multiSelectBadgeIcon.isHidden = true
@@ -786,27 +779,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         let timing = hovered ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
         applyHoverOutline(hovered, duration: duration, timing: timing)
 
-        let targetScale: CGFloat
-        if hovered {
-            targetScale = isPressingCard ? Self.pressedScale : Self.hoverScale
-        } else {
-            targetScale = 1
-        }
-
-        applyCardScale(targetScale: targetScale, duration: duration, timing: timing)
         applyHoverVisibility(hovered, animated: true)
-    }
-
-    func applyPressedState(_ pressed: Bool) {
-        guard isPressingCard != pressed else { return }
-        isPressingCard = pressed
-        // 多选模式下不触发按下动画，保持卡片视觉干净
-        guard isHovering && !isMultiSelectMode else { return }
-        applyCardScale(
-            targetScale: pressed ? Self.pressedScale : Self.hoverScale,
-            duration: pressed ? UIInteractionAnimation.cardPressDownDuration : UIInteractionAnimation.cardPressUpDuration,
-            timing: pressed ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-        )
     }
 
     func applySelectionState(_ isSelected: Bool, multiSelectMode: Bool = false) {
@@ -850,24 +823,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     func shouldTriggerPlayAction(at pointInItem: NSPoint) -> Bool {
         guard !playActionButton.isHidden else { return false }
         return playActionButton.frame.insetBy(dx: -8, dy: -8).contains(pointInItem)
-    }
-
-    private func applyCardScale(targetScale: CGFloat, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
-        guard let layer = imageContainer.layer else { return }
-        imageContainer.ensureLayerAnchorCentered()
-        guard abs(currentCardScale - targetScale) > 0.0001 else { return }
-        let fromScale = (layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat) ?? currentCardScale
-        let animation = CABasicAnimation(keyPath: "transform.scale")
-        animation.fromValue = fromScale
-        animation.toValue = targetScale
-        animation.duration = duration
-        animation.timingFunction = timing
-        layer.add(animation, forKey: "card.hover.scale")
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.transform = CATransform3DMakeScale(targetScale, targetScale, 1)
-        CATransaction.commit()
-        currentCardScale = targetScale
     }
 
     private func applyHoverOutline(_ hovered: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {

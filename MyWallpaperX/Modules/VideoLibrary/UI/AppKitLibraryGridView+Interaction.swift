@@ -314,13 +314,6 @@ extension AppKitLibraryGridContainerView {
         boxSelectionState = nil
     }
 
-    func updateCardPressState(at indexPath: IndexPath, isPressed: Bool) {
-        // 卡片按压只改变 item 的局部视觉态，不反向改 selection。
-        guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return }
-        guard let item = collectionView.item(at: indexPath) as? AppKitWallpaperItem else { return }
-        item.applyPressedState(isPressed)
-    }
-
     private func wallpaperIDs(intersecting rect: NSRect) -> Set<String> {
         guard !orderedIDs.isEmpty else { return [] }
         let normalizedRect = rect.standardized

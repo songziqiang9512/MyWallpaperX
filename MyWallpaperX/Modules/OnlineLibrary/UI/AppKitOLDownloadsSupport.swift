@@ -122,7 +122,6 @@ final class OLDownloadsQuickLookController: NSObject, QLPreviewPanelDataSource, 
 
 final class AppKitOLDownloadsCollectionView: NSCollectionView {
     var onBackgroundLeftClick: (() -> Void)?
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
     var primaryClickHandler: ((IndexPath, NSEvent) -> Void)?
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
     var deleteHandler: (() -> Void)?
@@ -131,14 +130,8 @@ final class AppKitOLDownloadsCollectionView: NSCollectionView {
     var selectAllHandler: (() -> Void)?
     var arrowHandler: ((UInt16) -> Void)?
     private(set) var lastPrimaryClickIndexPath: IndexPath?
-    private var pressedCardIndexPath: IndexPath?
-    private var pressedCardTimestamp: TimeInterval = 0
-    private var pendingPressReleaseWorkItem: DispatchWorkItem?
 
     override func mouseDown(with event: NSEvent) {
-        pendingPressReleaseWorkItem?.cancel()
-        pendingPressReleaseWorkItem = nil
-
         guard event.type == .leftMouseDown else {
             super.mouseDown(with: event)
             return
@@ -149,9 +142,6 @@ final class AppKitOLDownloadsCollectionView: NSCollectionView {
         lastPrimaryClickIndexPath = indexPath
 
         if let ip = indexPathForItem(at: point) {
-            pressedCardIndexPath = ip
-            pressedCardTimestamp = ProcessInfo.processInfo.systemUptime
-            cardPressStateHandler?(ip, true)
             primaryClickHandler?(ip, event)
         }
         super.mouseDown(with: event)
@@ -160,15 +150,6 @@ final class AppKitOLDownloadsCollectionView: NSCollectionView {
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         guard event.type == .leftMouseUp else { return }
-
-        if let ip = pressedCardIndexPath {
-            pendingPressReleaseWorkItem = OnlineLibraryCollectionInteractionSupport.schedulePressRelease(
-                pressedAt: pressedCardTimestamp
-            ) { [weak self] in
-                self?.cardPressStateHandler?(ip, false)
-            }
-            pressedCardIndexPath = nil
-        }
 
         let point = convert(event.locationInWindow, from: nil)
         if lastPrimaryClickIndexPath == nil, indexPathForItem(at: point) == nil {

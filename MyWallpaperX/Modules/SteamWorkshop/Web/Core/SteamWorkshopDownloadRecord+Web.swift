@@ -41,23 +41,6 @@ nonisolated extension SteamWorkshopDownloadRecord {
         status == .ready && webEntryURL != nil
     }
 
-#if DEBUG
-    var webValidationFailureSeverity: SteamWorkshopWebValidationSeverity? {
-        webValidationFailureLevel?.severity
-    }
-
-    var webValidationFailureLevel: SteamWorkshopWebValidationLevel? {
-        guard contentType == .web else { return nil }
-        if webEntryURL == nil {
-            return dependencyItemID != nil ? .preconditionUnmet : .fatal
-        }
-        if case .missing = dependencyStatus {
-            return .preconditionUnmet
-        }
-        return nil
-    }
-
-#endif
 
     var isDependencyBackedWeb: Bool {
         contentType == .web && dependencyItemID != nil

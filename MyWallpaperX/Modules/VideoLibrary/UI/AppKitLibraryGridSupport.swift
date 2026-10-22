@@ -12,20 +12,13 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
     var cardInteractionHandler: (() -> Void)?
     var playRequestHandler: ((IndexPath) -> Void)?
     var primaryClickHandler: ((IndexPath) -> Bool)?
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
     var boxSelectionBeginHandler: ((IndexPath?) -> Bool)?
     var boxSelectionUpdateHandler: ((NSRect) -> Void)?
     var boxSelectionEndHandler: (() -> Void)?
     var isBoxSelectionEnabled = false
     private(set) var lastPrimaryClickIndexPath: IndexPath?
-    private var pressedCardIndexPath: IndexPath?
-    private var pressedCardTimestamp: TimeInterval = 0
-    private var pendingPressReleaseWorkItem: DispatchWorkItem?
 
     override func mouseDown(with event: NSEvent) {
-        pendingPressReleaseWorkItem?.cancel()
-        pendingPressReleaseWorkItem = nil
-
         guard event.type == .leftMouseDown else {
             super.mouseDown(with: event)
             return
@@ -53,12 +46,6 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
                     return // Playback consumes this click; never also open the inspector.
                 }
             }
-        }
-
-        if let indexPath {
-            pressedCardIndexPath = indexPath
-            pressedCardTimestamp = ProcessInfo.processInfo.systemUptime
-            cardPressStateHandler?(indexPath, true)
         }
 
         if let indexPath {
@@ -103,15 +90,6 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         guard event.type == .leftMouseUp else { return }
-        if let pressedCardIndexPath {
-            pendingPressReleaseWorkItem = VideoLibraryCollectionInteractionSupport.schedulePressRelease(
-                pressedAt: pressedCardTimestamp
-            ) { [weak self] in
-                guard let self else { return }
-                self.cardPressStateHandler?(pressedCardIndexPath, false)
-                self.pressedCardIndexPath = nil
-            }
-        }
         let point = convert(event.locationInWindow, from: nil)
         if lastPrimaryClickIndexPath == nil, indexPathForItem(at: point) == nil {
             onBackgroundLeftClick?()

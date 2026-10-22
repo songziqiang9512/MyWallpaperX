@@ -148,11 +148,9 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private let completionBadgeIcon = NSImageView()
 
     private var isHovering        = false
-    private var isPressingCard    = false
     private var isHoverOutlineVis = false
     private var isDownloadingState = false
     private var isDownloadedState = false
-    private var currentCardScale  = CGFloat(1)
     private var presentedItem: OnlineLibraryVideoItem?
     private var currentItemID     = -1
     private var currentPageURL:   String? = nil
@@ -207,11 +205,10 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         durationBadgeTextLayer.string = nil
         metaLabel.stringValue = ""
         setDownloadState(isDownloading: false, isDownloaded: false, downloadProgress: nil)
-        isHovering = false; isPressingCard = false; hoverVisible = false
+        isHovering = false; hoverVisible = false
         isDownloadedState = false
-        imageContainer.layer?.transform = CATransform3DIdentity
         hoverOutlineView.alphaValue = 0
-        isHoverOutlineVis = false; currentCardScale = 1
+        isHoverOutlineVis = false
         completionBadgeView.alphaValue = 0
         completionBadgeView.isHidden = true
         completionBadgeView.layer?.transform = CATransform3DIdentity
@@ -791,8 +788,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
         // 检查当前鼠标是否已经在卡片范围内（解决导入新文件时不显示 meta 的问题）
         checkInitialHoverState()
-
-        imageContainer.ensureLayerAnchorCentered()
     }
 
     private func checkInitialHoverState() {
@@ -895,40 +890,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         let dur = hovered ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
         let tim = hovered ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
         applyHoverOutline(hovered, duration: dur, timing: tim)
-        let targetScale: CGFloat
-        if hovered {
-            targetScale = isPressingCard ? UIInteractionAnimation.cardPressedScale : UIInteractionAnimation.cardHoverScale
-        } else {
-            targetScale = 1.0
-        }
-        applyCardScale(targetScale: targetScale, duration: dur, timing: tim)
         applyHoverVisibility(hovered, animated: true)
-    }
-
-    func applyPressedState(_ pressed: Bool) {
-        guard isPressingCard != pressed else { return }
-        isPressingCard = pressed
-        guard isHovering else { return }
-        applyCardScale(
-            targetScale: pressed ? UIInteractionAnimation.cardPressedScale : UIInteractionAnimation.cardHoverScale,
-            duration: pressed ? UIInteractionAnimation.cardPressDownDuration : UIInteractionAnimation.cardPressUpDuration,
-            timing: pressed ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-        )
-    }
-
-    private func applyCardScale(targetScale: CGFloat, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
-        guard let layer = imageContainer.layer else { return }
-        imageContainer.ensureLayerAnchorCentered()
-        guard abs(currentCardScale - targetScale) > 0.0001 else { return }
-        let from = (layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat) ?? currentCardScale
-        let anim = CABasicAnimation(keyPath: "transform.scale")
-        anim.fromValue = from; anim.toValue = targetScale
-        anim.duration = duration; anim.timingFunction = timing
-        layer.add(anim, forKey: "card.hover.scale")
-        CATransaction.begin(); CATransaction.setDisableActions(true)
-        layer.transform = CATransform3DMakeScale(targetScale, targetScale, 1)
-        CATransaction.commit()
-        currentCardScale = targetScale
     }
 
     private func applyHoverOutline(_ hovered: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {

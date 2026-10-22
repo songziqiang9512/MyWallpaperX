@@ -68,6 +68,21 @@ import UniformTypeIdentifiers
         precondition(CGImageDestinationFinalize(destination))
     }
     @MainActor static func main() throws {
+        if CommandLine.arguments.dropFirst().first == "--card-interactions" {
+            initializeNativeAppHarness()
+            let item = SILGridItem(); _ = item.view
+            // Decode the real Codable model from fixture data: no media is read.
+            let model = try JSONDecoder().decode(SILWallpaper.self, from: Data("""
+                {"id":"interaction","path":"fixture-only.png","title":"interaction","tags":[],"lastUsed":0,"addedAt":0}
+                """.utf8))
+            item.configure(wallpaper: model, isSelected: false, isMultiSelectMode: false, thumbnailVisible: false) { _, _ in
+                preconditionFailure("hidden interaction fixture must not load thumbnails")
+            }
+            let checks = gridCardInteractionChecks(item: item, cardRoot: item.imageContainer,
+                outline: item.hoverOutline, isHovering: { item.isHovering }, label: "static-image")
+            print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
+            return
+        }
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)

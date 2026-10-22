@@ -5,7 +5,6 @@ import Combine
 enum ModuleIdentifier: String { case steamWorkshop }
 extension Notification.Name { static let moduleDidBecomeActive = Notification.Name("moduleActive") }
 enum InspectorHostActions { @MainActor static func postClose() {} }
-enum UIInteractionAnimation { static let minimumPressVisualDuration: TimeInterval = 0.01 }
 struct SteamWorkshopBrowserItem: Equatable { let id: String; var title = "Wallpaper" }
 struct SteamWorkshopDownloadRecord {}
 enum SteamWorkshopItemMenu {
@@ -51,7 +50,6 @@ enum SteamWorkshopItemMenu {
 }
 @MainActor final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("SteamProbeCard")
-    static let hoverScale: CGFloat = 1.04
     enum Context { case browser }
     var id = ""
     var keyboardFocused = false
@@ -76,7 +74,6 @@ enum SteamWorkshopItemMenu {
                    onSetAsWallpaper: @escaping () -> Void, onCancelDownload: @escaping () -> Void) {
         id = item.id; keyboardFocused = isKeyboardFocused; (view as! NSTextField).stringValue = item.id
     }
-    func applyPressedState(_ value: Bool) {}
     func setKeyboardFocus(_ value: Bool) { keyboardFocused = value }
     func forceReloadPreview() {}
     func setPreviewVisible(_ value: Bool) {}

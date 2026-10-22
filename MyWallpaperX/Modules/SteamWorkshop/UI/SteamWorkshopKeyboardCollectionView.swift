@@ -13,10 +13,7 @@ final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
     override func accessibilityRole() -> NSAccessibility.Role? { accessibleItemsProvider != nil ? .list : super.accessibilityRole() }
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
     var primaryClickHandler: ((IndexPath) -> Bool)?
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
-    private var pressedCardIndexPath: IndexPath?
-    private var pressedCardTimestamp: TimeInterval = 0
-    private var pendingPressReleaseWorkItem: DispatchWorkItem?
+    private var primaryClickIndexPath: IndexPath?
     private var isTrackingPrimaryClick = false
 
     override func mouseDown(with event: NSEvent) {
@@ -24,17 +21,8 @@ final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
             super.mouseDown(with: event)
             return
         }
-        pendingPressReleaseWorkItem?.cancel()
-        pendingPressReleaseWorkItem = nil
-        if let previous = pressedCardIndexPath {
-            cardPressStateHandler?(previous, false)
-        }
         isTrackingPrimaryClick = true
-        pressedCardIndexPath = cardIndexPath(at: convert(event.locationInWindow, from: nil))
-        pressedCardTimestamp = ProcessInfo.processInfo.systemUptime
-        if let indexPath = pressedCardIndexPath {
-            cardPressStateHandler?(indexPath, true)
-        }
+        primaryClickIndexPath = cardIndexPath(at: convert(event.locationInWindow, from: nil))
         // Selection is owned by the grid. Do not enter NSCollectionView's
         // selection tracking loop, which may consume mouseUp internally.
     }
@@ -45,7 +33,9 @@ final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
             return
         }
         isTrackingPrimaryClick = false
-        finishPrimaryMouseInteraction(from: event, pressedIndexPath: pressedCardIndexPath)
+        let pressedIndexPath = primaryClickIndexPath
+        primaryClickIndexPath = nil
+        finishPrimaryMouseInteraction(from: event, pressedIndexPath: pressedIndexPath)
     }
 
     /// indexPathForItem(at:) uses hit testing. Our hitTest intentionally returns
@@ -87,22 +77,6 @@ final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
     private func finishPrimaryMouseInteraction(from event: NSEvent, pressedIndexPath: IndexPath?) {
         let point = convert(event.locationInWindow, from: nil)
         let releasedIndexPath = cardIndexPath(at: point)
-
-        if let pressedCardIndexPath {
-            let elapsed = ProcessInfo.processInfo.systemUptime - pressedCardTimestamp
-            let remaining = max(0, UIInteractionAnimation.minimumPressVisualDuration - elapsed)
-            let releaseWork = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                self.cardPressStateHandler?(pressedCardIndexPath, false)
-                self.pressedCardIndexPath = nil
-            }
-            pendingPressReleaseWorkItem = releaseWork
-            if remaining <= 0 {
-                releaseWork.perform()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + remaining, execute: releaseWork)
-            }
-        }
 
         if let pressedIndexPath, releasedIndexPath == pressedIndexPath {
             _ = primaryClickHandler?(pressedIndexPath)

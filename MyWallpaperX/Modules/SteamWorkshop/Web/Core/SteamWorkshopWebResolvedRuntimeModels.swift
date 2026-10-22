@@ -6,7 +6,7 @@ extension SteamWorkshopService {
             return nil
         }
 
-        // mtime 键记忆缓存（与 webValidationReportCache 同一纪律）：
+        // mtime 键记忆缓存：
         // 属性面板 rebuild、详情页、宿主桥解析闭包等高频同步调用面在 mtime
         // 态未变时零 IO 返回，只有首个未命中才走读盘校验
         // 或冷解析。

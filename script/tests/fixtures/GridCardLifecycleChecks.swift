@@ -349,12 +349,12 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     if let card = item as? AppKitOLBrowserItem {
         return !card.isHovering && !card.hoverVisible && close(card.titleLabel.alphaValue, 0)
             && close(card.metaLabel.alphaValue, 0) && card.gradientLayer.opacity == 0
-            && close(card.currentCardScale, 1)
+            && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
     if let card = item as? AppKitOLDownloadsItem {
         return !card.isHovering && close(card.titleLabel.alphaValue, 0)
             && close(card.metaLabel.alphaValue, 0) && close(card.playActionButton.alphaValue, 0)
-            && card.gradientLayer.opacity == 0 && close(card.currentCardScale, 1)
+            && card.gradientLayer.opacity == 0 && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
     return false
 }
@@ -972,6 +972,15 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         case "loading-delay": loadingDelay(facts)
         case "visibility-requests": visibilityRequests(facts)
         case "real-card-scroll": realCardScrollHover(facts)
+        case "card-interactions":
+            let browser = AppKitOLBrowserItem(); _ = browser.view
+            configure(browser, browserModel(10_001, thumbnail: nil))
+            for (key, value) in gridCardInteractionChecks(item: browser, cardRoot: browser.imageContainer,
+                outline: browser.hoverOutlineView, isHovering: { browser.isHovering }, label: "online-browser") { facts.expect(key, value) }
+            let downloads = AppKitOLDownloadsItem(); _ = downloads.view
+            downloads.configure(entry: downloadModel(10_002, name: "interaction.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
+            for (key, value) in gridCardInteractionChecks(item: downloads, cardRoot: downloads.imageContainer,
+                outline: downloads.hoverOutlineView, isHovering: { downloads.isHovering }, label: "online-downloads") { facts.expect(key, value) }
         case "backing-scale": backingScaleRequests(facts)
         case "animation-delayed": animationCase("delayed", facts)
         case "animation-move": animationCase("move", facts)

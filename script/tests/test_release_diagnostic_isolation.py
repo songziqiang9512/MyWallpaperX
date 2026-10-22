@@ -61,7 +61,6 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 command += [str(SCENE / "Diagnostics" / name) for name in [
                     "SceneFramePerformanceTelemetry.swift", "SceneEffectExecutionFrameTrace.swift",
                     "SceneEffectExecutionTelemetry.swift", "SceneGraphExecutionTelemetry.swift",
-                    "SceneDiagnostics.swift",
                 ]]
             command += [str(harness), "-o", str(binary)]
             compiled = subprocess.run(command, capture_output=True, text=True)

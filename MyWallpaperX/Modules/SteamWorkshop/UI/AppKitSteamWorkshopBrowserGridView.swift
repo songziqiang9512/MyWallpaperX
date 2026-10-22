@@ -93,11 +93,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             guard let self, let id = self.dataSource.itemIdentifier(for: path) else { return false }
             return self.openItem(withID: id)
         }
-        collectionView.cardPressStateHandler = { [weak self] indexPath, pressed in
-            guard let self,
-                  let item = self.collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem else { return }
-            item.applyPressedState(pressed)
-        }
         return collectionView
     }()
 
@@ -672,7 +667,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         let metrics = SteamWorkshopGridLayoutSupport.metrics(
             boundsWidth: layoutWidth,
             zoomOffset: service.zoomOffset,
-            hoverScale: AppKitSteamWorkshopBrowserItem.hoverScale,
             sectionInset: flowLayout.sectionInset
         )
         currentColumnCount = metrics.columns

@@ -2,9 +2,12 @@
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
+
+from script.tests.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -77,6 +80,44 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(passed)
+
+    def test_complete_video_card_hover_click_exit_and_restore_never_scale(self):
+        ui = ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI'
+        shared = ROOT / 'MyWallpaperX/Shared/UI'
+        fixtures = ROOT / 'script/tests/fixtures'
+        provider = (ui / 'AppKitLibraryGridSupport.swift').read_text()
+        provider = provider[provider.index('enum VideoLibraryThumbnailStore {'):]
+        # Reuse only the existing model/controlled asset-validation leaves. The
+        # complete card (including its real hierarchy/events) replaces no method.
+        leaves = (fixtures / 'VideoThumbnailPrefetchChecks.swift').read_text().split('@main struct VideoThumbnailPrefetchChecks {')[0]
+        card = re.sub(r"\bprivate\s+", "", (ui / 'AppKitLibraryGridItemView.swift').read_text())
+        with tempfile.TemporaryDirectory(prefix='mwx-video-card-interaction-', dir='/private/tmp') as directory:
+            work = Path(directory)
+            actual = work / 'ActualCard.swift'
+            actual.write_text(leaves + '\n' + provider + '\n' + card)
+            sources = [actual, fixtures / 'VideoCardInteractionHarness.swift',
+                       fixtures / 'GridCardInteractionChecks.swift', fixtures / 'NativeAppHarness.swift', *[shared / name for name in [
+                           'GridThumbnailDecoder.swift', 'DecodedThumbnailMemoryCache.swift', 'ThumbnailCache.swift',
+                           'AppearanceAwareContainerView.swift', 'NSViewExtensions.swift',
+                           'UIInteractionAnimation.swift', 'WallpaperGridScrollView.swift']]]
+            binary = prepare_native_app(work, 'VideoCardInteractionChecks')
+            build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
+                *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = run_native_app(binary, timeout=30, proof_environment="MWX_VIDEO_PREFETCH_PROOF_DIR")
+            if proof := os.environ.get("MWX_VIDEO_PREFETCH_PROOF_DIR"):
+                target = Path(proof); target.mkdir(parents=True, exist_ok=True)
+                (target / "whole-card-interaction-build.log").write_text(build.stdout + build.stderr)
+                (target / "whole-card-interaction.json").write_text(run.stdout)
+                (target / "whole-card-interaction-runtime.log").write_text(run.stderr)
+            # LaunchServices reports launcher status; this added group does not
+            # replace either pre-existing direct-child exit assertion.
+            self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            checks = json.loads(run.stdout)
+            self.assertEqual(len(checks), 9)
+            for name, passed in checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True)
 
 
 if __name__ == '__main__':

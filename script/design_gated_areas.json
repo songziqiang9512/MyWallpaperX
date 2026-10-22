@@ -813,7 +813,6 @@
         "SteamService/Program.cs",
         "SteamService/SteamService.csproj",
         "script/publish-steam-helper.sh",
-        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation*.swift",

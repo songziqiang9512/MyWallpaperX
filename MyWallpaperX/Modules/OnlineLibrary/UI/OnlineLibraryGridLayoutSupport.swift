@@ -16,7 +16,6 @@ enum OnlineLibraryGridLayoutSupport {
     static func metrics(
         boundsWidth: CGFloat,
         zoomOffset: Int,
-        hoverScale: CGFloat,
         sectionInset: NSEdgeInsets
     ) -> OnlineLibraryGridLayoutMetrics {
         let available = max(0, boundsWidth - sectionInset.left - sectionInset.right)
@@ -27,12 +26,7 @@ enum OnlineLibraryGridLayoutSupport {
             maxCols: 6,
             minimumItemWidth: 100
         )
-        let estimatedWidth = max(
-            100,
-            (available - 8 * CGFloat(max(0, columns - 1))) / CGFloat(columns)
-        )
-        let minSpacing = estimatedWidth * (hoverScale - 1.0)
-        let spacing = max(8, minSpacing)
+        let spacing: CGFloat = 8
         let totalSpacing = CGFloat(max(0, columns - 1)) * spacing
         let cardWidth = max(100, (available - totalSpacing) / CGFloat(columns))
         let cardHeight = max(56, cardWidth / (16.0 / 9.0))

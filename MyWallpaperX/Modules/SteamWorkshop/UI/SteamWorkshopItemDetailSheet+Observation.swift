@@ -64,22 +64,5 @@ extension AppKitSteamWorkshopItemDetailView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.scheduleRebuild(force: true) }
             .store(in: &cancellables)
-#if DEBUG
-        NotificationCenter.default.publisher(for: WebRuntimeDiagnosticsStore.didChangeNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] notification in
-                guard let self,
-                      self.webDiagnosticsExpanded,
-                      let webDownloadRecord = self.webDownloadRecord else {
-                    return
-                }
-                if let changedRecordID = notification.object as? String,
-                   changedRecordID != webDownloadRecord.id {
-                    return
-                }
-                self.refreshDiagnosticsPanel()
-            }
-            .store(in: &cancellables)
-#endif
     }
 }

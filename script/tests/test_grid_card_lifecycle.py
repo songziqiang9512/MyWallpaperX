@@ -38,6 +38,7 @@ DEPENDENCIES = [
     SHARED / "UIInteractionAnimation.swift",
     SHARED / "WallpaperGridScrollView.swift",
     SHARED / "GridThumbnailDecoder.swift",
+    ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
 ]
 FIXTURE = ROOT / "script/tests/fixtures/GridCardLifecycleChecks.swift"
 
@@ -177,6 +178,9 @@ class GridCardLifecycleTests(unittest.TestCase):
 
     def test_real_online_cards_ignore_scroll_hover_events_and_restore_from_current_clip(self):
         self.check_case("real-card-scroll")
+
+    def test_active_whole_cards_keep_size_and_white_outline_across_hover_exit_restore_and_card_responder_click(self):
+        self.check_case("card-interactions")
 
     def test_same_size_backing_change_invalidates_real_cards_and_upgrades_thumbnail_request(self):
         self.check_case("backing-scale")

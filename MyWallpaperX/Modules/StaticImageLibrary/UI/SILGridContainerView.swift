@@ -75,7 +75,6 @@ final class SILGridContainerView: NSView, ModuleFocusable {
         cv.onBackgroundLeftClick = { [weak self] in self?.handleBackgroundClick() }
         cv.contextMenuProvider = { [weak self] ip in self?.makeContextMenu(for: ip) }
         cv.cardInteractionHandler = {}
-        cv.cardPressStateHandler = { [weak self] ip, p in self?.updateCardPressState(at: ip, isPressed: p) }
         // 已选中卡片再次点击：呼出详情面板（新选中由 didSelect 处理）。
         cv.primaryClickHandler = { [weak self] ip in
             guard let self, !SILService.shared.isMultiSelectMode,
@@ -698,10 +697,6 @@ extension SILGridContainerView {
     func handleBackgroundClick() {
         guard !SILService.shared.isMultiSelectMode else { return }
         SILService.shared.clearSingleSelection(); collectionView.selectionIndexPaths = []
-    }
-    func updateCardPressState(at ip: IndexPath, isPressed: Bool) {
-        guard ip.item < orderedIDs.count else { return }
-        (collectionView.item(at: ip) as? SILGridItem)?.applyPressedState(isPressed)
     }
     func beginBoxSelection(at ip: IndexPath?) -> Bool {
         guard SILService.shared.isMultiSelectMode else { return false }

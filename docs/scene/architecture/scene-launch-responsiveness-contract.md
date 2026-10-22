@@ -33,7 +33,7 @@ MirageWallpaper 只提供 `candidate / active / standby`、request generation、
 
 ### 3.0 发布构建的诊断边界
 
-正式 Release 从编译输入、实现与 IPC 入口排除开发观测链：启动/逐帧计时、带锁性能计数、signpost、GPU census/完成日志、周期资源统计、诊断 IPC、Web 事件缓存/通知及脚本日志桥均由 `DEBUG` 编译条件隔离。Steam helper 的 `Probe/` 与 `*SelfTest.cs` 不参与 Release 编译，`probe`／`selftest` 和 Web `inspect`／诊断事件只在 Debug 提供；Scene／Web 属性面板的样本诊断、完整 Web 依赖诊断扫描及报告缓存仅在 Debug 存在；普通 Web 发布播放不开放 Web Inspector。Scene 的资源引用与能力缺口汇总、effect 报告和 descriptor 诊断投影也只在 Debug 构造，真实资源解析与编译准入继续执行。产品 Web 启动准入只检查入口与依赖可用事实，不调用样本诊断；runtime profile 仍由产品 descriptor 风险事实决定。Scene 详情的诊断构建与属性准备分离。着色器归一化源码与编译后 MSL 的证据目录解析和写盘也仅在 Debug 构建；工具版本探测继续承担安全身份校验。Debug 保留现有显式证据入口，helper 随 App 的构建配置发布；不能用运行时开关冒充 Release 编译隔离，也不能在空日志调用前计算 payload 或注册 observer/timer。发布验收核对实际无 `DEBUG` 的构建、主 App／Video helper 符号、Steam 程序集类型与成员、开发命令拒绝及普通播放运行，而不是带 DEBUG 的优化诊断配置。
+正式 Release 从编译输入、实现与 IPC 入口排除开发观测链：启动/逐帧计时、带锁性能计数、signpost、GPU census/完成日志、周期资源统计、诊断 IPC、Web 事件缓存/通知及脚本日志桥均由 `DEBUG` 编译条件隔离。Steam helper 的 `Probe/` 与 `*SelfTest.cs` 不参与 Release 编译，`probe`／`selftest` 和 Web `inspect`／诊断事件只在 Debug 提供；Scene／Web 详情隐藏诊断面板及其专属样本报告、完整 Web 依赖诊断扫描与报告缓存已退役；普通 Web 发布播放不开放 Web Inspector。Scene 的资源引用与能力缺口汇总、effect 报告和 descriptor 诊断投影也只在 Debug 构造，真实资源解析与编译准入继续执行。产品 Web 启动准入只检查入口与依赖可用事实，不调用样本诊断；runtime profile 仍由产品 descriptor 风险事实决定。Scene 属性准备由现有独立 owner 处理，不再持有详情诊断 consumer。着色器归一化源码与编译后 MSL 的证据目录解析和写盘也仅在 Debug 构建；工具版本探测继续承担安全身份校验。Debug 保留现有显式证据入口，helper 随 App 的构建配置发布；不能用运行时开关冒充 Release 编译隔离，也不能在空日志调用前计算 payload 或注册 observer/timer。发布验收核对实际无 `DEBUG` 的构建、主 App／Video helper 符号、Steam 程序集类型与成员、开发命令拒绝及普通播放运行，而不是带 DEBUG 的优化诊断配置。
 
 播放请求/代次、首帧与可见确认、资源预算、GPU drain、错误返回和局部降级是产品控制，继续由原 owner 执行；它们不能依赖统计或诊断返回值。共享渲染签名只可保留无观测实现的占位类型；已有只做 GPU 观测的参数通道在 Release 使用无状态且可内联消除的值，不分配观测对象、加锁或安装 GPU handler。失败原因仍作为用户可见 typed 状态返回。
 
@@ -41,27 +41,13 @@ MirageWallpaper 只提供 `candidate / active / standby`、request generation、
 
 ### 3.1 默认状态
 
-Scene 详情的齿轮次级菜单提供“播放诊断”入口（2026-10-07 起该菜单入口仅 Debug 构建提供；Release 详情面板没有诊断入口，诊断能力保留给开发调试）。打开诊断面板只显示说明或已存在的结果，初始状态为 `idle`，不开始诊断；只有用户点击“开始诊断”才可创建诊断请求。
+详情只保留本地元数据、预览、播放/下载与属性入口。原仅 Debug 挂在属性按钮次级菜单的 Web/Scene 样本诊断面板及报告专属链已退役；属性齿轮的普通点击、Scene 属性准备与真实开发工具保留。详情不得为了摘要或决定属性入口而构建完整诊断、解析 Scene 或触发 preparation。
 
-详情先显示本地元数据。缺少作者昵称或链接时可异步补充公开作品资料，沿用统一 Steam 获取链的请求取消与身份检查；不得借元数据补全触发 Scene 文件解析或 preparation。
-
-详情普通内容不得调用完整诊断来生成摘要，也不得为了决定是否显示属性入口而构建完整诊断报告。Scene 属性准备和 Scene 诊断是两个显式、可取消的 consumer；两者可以复用同一份基础解析产物，但不能互相成为启动前置。
+缺少作者昵称或链接时可异步补充公开作品资料，沿用统一 Steam 获取链的请求取消与身份检查，不借元数据补全触发 Scene 解析。开发诊断继续通过现有 DebugApp、CLI、benchmark、runtime evidence、GPU/FrameCapture 与 telemetry 入口显式执行，不借详情页保留另一条请求链。
 
 ### 3.2 状态机
 
-```text
-idle
-  -> running(stage, completed?, total?)
-  -> success(report, contentIdentity)
-  -> failed(typedError)
-  -> cancelled
-```
-
-- `success` 报告按稳定 content identity 缓存；内容或会影响解析拓扑的属性 identity 改变后标为 stale，不自动重跑；
-- service 的无关状态变化不能重新开始诊断；
-- 新请求原子取消同记录旧请求，旧 generation 的完成结果不得覆盖新记录或已经关闭的详情；
-- 诊断失败只影响诊断区，不能改变下载记录、属性值、运行缓存或当前壁纸；
-- UI 更新回到 MainActor/AppKit owner，文件、解析和 hash 工作不得占用主线程。
+属性请求直接进入现有唯一 preparation owner。命中同身份 prepared context 时复用，否则沿原异步准备、加载反馈和窗口 token 发布；记录/属性/locale/active-session 版本、cache epoch、关闭/压力与取消检查共同拒绝陈旧结果。无关 service 更新不得重启工作，失败只影响本次属性准备，不改变当前壁纸或持久记录。文件、解析和 hash 工作保持在原后台队列，UI 提交回 MainActor/AppKit；不因诊断退役新增 owner、轮询或缓存。
 
 <a id="timeline-frame-input-observation"></a>
 ### 3.3 有界 Timeline 帧输入观测
@@ -194,7 +180,7 @@ CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal
 
 以下是职责分解，不是第二份任务队列；具体进入时机仍由唯一现役 roadmap 决定，并且每次只冻结一个结果：
 
-1. **按需诊断**：详情默认不诊断，显式异步运行、取消、缓存和 stale rejection；属性入口不依赖完整诊断。
+1. **详情与开发观测分离**：详情不再提供样本诊断链；属性准备保持异步、可取消、缓存与 stale rejection，开发证据沿独立显式工具入口。
 2. **异步准备与状态反馈**：点击立即返回，CPU preparation 离开主线程，中心状态可观察，成功前不改变持久化当前壁纸。
 3. **候选首帧与原子切换**：active/pending/standby、首帧门、失败回滚和 newer-wins 在单一 Scene host 内闭合。
 4. **内容缓存与 device 资源复用**：分层 cache、下载后预热、固定 MSL、按需作者 shader preflight 和多 surface immutable resource sharing。

@@ -290,20 +290,7 @@ extension AppKitSteamWorkshopBrowserItem {
         let suppressDownloadsBar = currentDisplayContext == .downloads && isMultiSelectMode
         let shouldRevealBar = !suppressDownloadsBar && (isHovering || shouldPersistBarVisibility)
         let shouldShowOutline = isHovering || isSelectionHighlighted
-        let targetScale: CGFloat
-        if isHovering {
-            targetScale = isPressingCard ? Self.pressedScale : Self.hoverScale
-        } else {
-            targetScale = 1.0
-        }
-
         refreshThemeAwareAppearance()
-        let cardDuration = isHovering
-            ? UIInteractionAnimation.cardHoverExpandDuration
-            : UIInteractionAnimation.cardHoverCollapseDuration
-        let cardTiming = isHovering
-            ? UIInteractionAnimation.cardEnterTiming
-            : UIInteractionAnimation.cardExitTiming
         let barDuration = shouldRevealBar
             ? UIInteractionAnimation.cardHoverExpandDuration
             : UIInteractionAnimation.cardHoverCollapseDuration
@@ -314,12 +301,10 @@ extension AppKitSteamWorkshopBrowserItem {
         guard animated else {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            cardView.layer?.transform = CATransform3DMakeScale(targetScale, targetScale, 1)
             overlayBar.alphaValue = shouldRevealBar ? (isHovering ? 0.92 : 0.84) : 0
             overlayBar.layer?.transform = CATransform3DMakeTranslation(0, shouldRevealBar ? 0 : 4, 0)
             CATransaction.commit()
             hoverOutlineView.alphaValue = shouldShowOutline ? 1 : 0
-            currentCardScale = targetScale
             currentBarVisibility = shouldRevealBar
             isHoverOutlineVisible = shouldShowOutline
             updateContinuousAnimationState(barVisible: shouldRevealBar)
@@ -334,7 +319,6 @@ extension AppKitSteamWorkshopBrowserItem {
             self.hoverOutlineView.animator().alphaValue = shouldShowOutline ? 1 : 0
         }
 
-        applyCardTransform(targetScale: targetScale, duration: cardDuration, timing: cardTiming)
         applyBarTransform(isVisible: shouldRevealBar, duration: barDuration, timing: barTiming)
         currentBarVisibility = shouldRevealBar
         isHoverOutlineVisible = shouldShowOutline
@@ -356,37 +340,6 @@ extension AppKitSteamWorkshopBrowserItem {
         case .idle:
             return .neutral
         }
-    }
-
-    func applyPressedState(_ pressed: Bool) {
-        guard isPressingCard != pressed else { return }
-        isPressingCard = pressed
-        guard isHovering else { return }
-        guard !(currentDisplayContext == .downloads && isMultiSelectMode) else { return }
-        applyCardTransform(
-            targetScale: pressed ? Self.pressedScale : Self.hoverScale,
-            duration: pressed ? UIInteractionAnimation.cardPressDownDuration : UIInteractionAnimation.cardPressUpDuration,
-            timing: pressed ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-        )
-    }
-
-    private func applyCardTransform(targetScale: CGFloat, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
-        guard let layer = cardView.layer else { return }
-        ensureCardAnchorCenteredIfNeeded()
-        guard abs(currentCardScale - targetScale) > 0.001 else { return }
-        let fromScale = (layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat) ?? currentCardScale
-        let animation = CABasicAnimation(keyPath: "transform.scale")
-        animation.fromValue = fromScale
-        animation.toValue = targetScale
-        animation.duration = duration
-        animation.timingFunction = timing
-        layer.add(animation, forKey: "steam.card.hover.scale")
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.transform = CATransform3DMakeScale(targetScale, targetScale, 1)
-        CATransaction.commit()
-        currentCardScale = targetScale
     }
 
     private func applyBarTransform(isVisible: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {

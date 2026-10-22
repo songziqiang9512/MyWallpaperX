@@ -5,14 +5,8 @@ import Foundation
 // External leaves only. The exercised detail, observation, footer, preview,
 // placeholder, scrolling, tag and ordinary property-store code are production.
 struct ResolvedWebProjectDescriptor {}
-final class SteamWorkshopSceneInspectionController {
-    let onStateChange: () -> Void
-    init(onStateChange: @escaping () -> Void) { self.onStateChange = onStateChange }
-    func reset() {}
-    func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) { preconditionFailure("outside detail preview gate") }
-}
-extension AppKitSteamWorkshopItemDetailView {
-    func refreshDiagnosticsPanel() {}
+enum SteamWorkshopSceneInspectionController {
+    static func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) { preconditionFailure("outside detail preview gate") }
 }
 final class SteamWorkshopWebPropertyEditorView: NSView {
     init(record: SteamWorkshopDownloadRecord) { super.init(frame: .zero) }
@@ -25,7 +19,6 @@ final class SteamWorkshopPropertyPanelController {
     func showMessage(title: String, subtitle: String, message: String) { preconditionFailure("outside detail preview gate") }
     func show(title: String, subtitle: String, content: NSView) { preconditionFailure("outside detail preview gate") }
 }
-enum WebRuntimeDiagnosticsStore { static let didChangeNotification = Notification.Name("fixture-web-diagnostics") }
 extension Notification.Name { static let sceneWallpaperLaunchStateDidChange = Self("fixture-scene-launch") }
 final class SceneDaemonClient { static let shared = SceneDaemonClient(); var activeRecordID: String? }
 final class WallpaperManager { static let shared = WallpaperManager(); let objectWillChange = ObservableObjectPublisher() }

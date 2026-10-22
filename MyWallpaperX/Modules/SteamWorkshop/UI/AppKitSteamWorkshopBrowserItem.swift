@@ -32,8 +32,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     private var lastLayoutInputs: LayoutInputs?
 
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("AppKitSteamWorkshopBrowserItem")
-    static let hoverScale: CGFloat = 1.03
-    static let pressedScale: CGFloat = 0.98
     private var cancellables = Set<AnyCancellable>()
 
     let cardView = AppearanceAwareContainerView()
@@ -68,8 +66,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     private var isLaunchPendingBadge = false
     var trackingAreaRef: NSTrackingArea?
     var isHovering = false
-    var isPressingCard = false
-    var currentCardScale: CGFloat = 1.0
     var currentBarVisibility = false
     var isHoverOutlineVisible = false
     var isSelectionHighlighted = false
@@ -195,8 +191,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         currentActionKind = .download
         prefersCircularPlayBadge = false
         isHovering = false
-        isPressingCard = false
-        currentCardScale = 1.0
         currentBarVisibility = false
         isHoverOutlineVisible = false
         isSelectionHighlighted = false
@@ -218,7 +212,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         lastBadgeKey = nil
         lastHeartKey = nil
         lastThemedChromeInputs = nil
-        cardView.layer?.transform = CATransform3DIdentity
         overlayBar.alphaValue = 0
         hoverOutlineView.alphaValue = 0
         titleMarqueeView.setActive(false)
@@ -370,7 +363,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         let bounds = view.bounds
         guard bounds.width.isFinite, bounds.height.isFinite else { return }
         cardView.frame = bounds.insetBy(dx: Layout.cardInset, dy: Layout.cardInset)
-        ensureCardAnchorCenteredIfNeeded()
 
         let metrics = metrics(for: cardView.bounds.size)
         previewContainer.frame = cardView.bounds
@@ -775,10 +767,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
         statusBadgeButton.isEnabled = actionKind != .saving
         updateContinuousAnimationState()
-    }
-
-    func ensureCardAnchorCenteredIfNeeded() {
-        cardView.ensureLayerAnchorCentered()
     }
 
     private func syncHoverState(with event: NSEvent, animated: Bool) {

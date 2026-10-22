@@ -263,12 +263,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertNotIn("installExecutionEvidence(", runtime_report)
 
 
-    def test_detail_projects_progress_and_user_cancellation(self) -> None:
+    def test_property_owner_observes_launch_state_changes(self) -> None:
         self.assertIn("sceneWallpaperLaunchStateDidChange", self.inspection)
-        self.assertIn("launchState.isInProgress", self.inspection)
-        self.assertIn("当前壁纸会继续播放", self.inspection)
-        self.assertIn(".cancelSceneLaunch(recordID: record.id)", self.inspection)
-        self.assertIn("to: .scene", self.inspection)
 
     def test_host_stop_cancels_pending_preparation(self) -> None:
         stop = function_body(self.host, "func stop()")

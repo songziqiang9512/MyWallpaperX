@@ -6,13 +6,8 @@
 import AppKit
 
 enum UIInteractionAnimation {
-    static let cardHoverScale: CGFloat = 1.05
-    static let cardPressedScale: CGFloat = 0.96
-
     static let cardHoverExpandDuration: CFTimeInterval = 0.30
     static let cardHoverCollapseDuration: CFTimeInterval = 0.34
-    static let cardPressDownDuration: CFTimeInterval = 0.08
-    static let cardPressUpDuration: CFTimeInterval = 0.12
 
     static let sidebarReorderDuration: CFTimeInterval = 0.10
     static let minimumPressVisualDuration: TimeInterval = 0.05

@@ -3,51 +3,11 @@
 //  MyWallpaperX — Modules/OnlineLibrary/UI
 //
 //  在线库搜索结果 AppKit NSCollectionView 容器。
-//  替换原 SwiftUI LazyVGrid，彻底解决 hover 放大被裁剪的 bug。
+//  使用原生 NSCollectionView 展示在线库卡片。
 //
 
 import AppKit
 import Combine
-
-// MARK: - Collection View
-
-final class AppKitOLCollectionView: NSCollectionView {
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
-    private var pressedCardIndexPath: IndexPath?
-    private var pressedCardTimestamp: TimeInterval = 0
-    private var pendingPressReleaseWorkItem: DispatchWorkItem?
-
-    override func mouseDown(with event: NSEvent) {
-        pendingPressReleaseWorkItem?.cancel()
-        pendingPressReleaseWorkItem = nil
-
-        guard event.type == .leftMouseDown else {
-            super.mouseDown(with: event)
-            return
-        }
-
-        let point = convert(event.locationInWindow, from: nil)
-        if let indexPath = indexPathForItem(at: point) {
-            pressedCardIndexPath = indexPath
-            pressedCardTimestamp = ProcessInfo.processInfo.systemUptime
-            cardPressStateHandler?(indexPath, true)
-        }
-
-        super.mouseDown(with: event)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        super.mouseUp(with: event)
-        guard event.type == .leftMouseUp, let pressedCardIndexPath else { return }
-        pendingPressReleaseWorkItem = OnlineLibraryCollectionInteractionSupport.schedulePressRelease(
-            pressedAt: pressedCardTimestamp
-        ) { [weak self] in
-            guard let self else { return }
-            self.cardPressStateHandler?(pressedCardIndexPath, false)
-            self.pressedCardIndexPath = nil
-        }
-    }
-}
 
 // MARK: - 容器
 
@@ -83,8 +43,8 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         return s
     }()
 
-    private lazy var collectionView: AppKitOLCollectionView = {
-        let cv = AppKitOLCollectionView()
+    private lazy var collectionView: NSCollectionView = {
+        let cv = NSCollectionView()
         cv.isSelectable = false
         cv.backgroundColors = [.clear]
         cv.translatesAutoresizingMaskIntoConstraints = false
@@ -149,12 +109,6 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         collectionView.register(AppKitOLBrowserItem.self, forItemWithIdentifier: AppKitOLBrowserItem.reuseIdentifier)
         collectionView.dataSource = dataSource
         collectionView.delegate = self
-        collectionView.cardPressStateHandler = { [weak self] indexPath, isPressed in
-            guard let self,
-                  let cell = self.collectionView.item(at: indexPath) as? AppKitOLBrowserItem
-            else { return }
-            cell.applyPressedState(isPressed)
-        }
         scrollView.documentView = collectionView
         scrollView.contentView.postsBoundsChangedNotifications = true
 
@@ -399,7 +353,6 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         let metrics = OnlineLibraryGridLayoutSupport.metrics(
             boundsWidth: layoutWidth,
             zoomOffset: service.zoomOffset,
-            hoverScale: 1.05,
             sectionInset: flowLayout.sectionInset
         )
         flowLayout.minimumInteritemSpacing = metrics.interitemSpacing

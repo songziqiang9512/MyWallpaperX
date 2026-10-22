@@ -43,19 +43,14 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.detail = DETAIL_PATH.read_text(encoding="utf-8")
-        cls.diagnostics = DETAIL_PATH.with_name(
-            "SteamWorkshopItemDetailSheet+Diagnostics.swift"
-        ).read_text(encoding="utf-8")
         cls.controller = CONTROLLER_PATH.read_text(encoding="utf-8")
 
-    def test_detail_rebuild_only_delegates_scene_section(self) -> None:
-        body = function_body(
-            self.diagnostics,
-            "func buildSceneDiagnosticsSection(in destination:",
-        )
-        self.assertIn("sceneInspectionController.makeSection(for: record)", body)
-        self.assertNotIn("SceneDiagnosticsBuilder", body)
-        self.assertNotIn("sceneDiagnosticsReport", body)
+    def test_detail_keeps_only_the_real_property_entry(self) -> None:
+        body = function_body(self.detail, "@objc func openProperties()")
+        self.assertIn("SteamWorkshopSceneInspectionController.requestPropertyEditor(for: record)", body)
+        self.assertNotIn("openDiagnostics", self.detail)
+        self.assertNotIn("diagnosticsPanel", self.detail)
+        self.assertFalse(DETAIL_PATH.with_name("SteamWorkshopItemDetailSheet+Diagnostics.swift").exists())
 
     def test_ordinary_content_does_not_build_scene_diagnostics_summary(self) -> None:
         body = function_body(self.detail, "private func buildContentSection()")
@@ -63,35 +58,14 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         self.assertNotIn("sceneDiagnosticsReport", body)
         self.assertNotIn("SceneDiagnosticsBuilder", body)
 
-    def test_default_expansion_is_explanatory_only(self) -> None:
-        body = function_body(self.controller, "private func appendExpandedContent(")
-        self.assertIn("诊断默认关闭", body)
-        self.assertNotIn("startInspection", body)
-        self.assertNotIn("SceneDiagnosticsBuilder", body)
-
-    def test_explicit_actions_are_the_only_inspection_entrypoints(self) -> None:
-        diagnostics = function_body(
-            self.controller,
-            "private func requestDiagnostics(for record:",
-        )
-        properties = function_body(
-            self.controller,
-            "private func preparePropertyEditor(for record:",
-        )
-        self.assertIn("startInspection(for: record, purpose: .diagnostics)", diagnostics)
-        self.assertIn("startInspection(for: record, purpose: .properties)", properties)
+    def test_properties_retain_the_independent_preparation_owner(self) -> None:
+        properties = function_body(self.controller, "private func preparePropertyEditor(for record:")
+        self.assertIn("startInspection(for: record)", properties)
         self.assertIn("retaining: self", properties)
-        entry = function_body(self.controller, "func requestPropertyEditor(for record:")
-        self.assertIn("Self.propertyPreparation.preparePropertyEditor(for: current)", entry)
-        self.assertEqual(self.controller.count("SceneDiagnosticsBuilder().build("), 1)
-        start = function_body(self.controller, "private func startInspection(")
-        diagnostics_branch = start[
-            start.index("case .diagnostics:") : start.index("case .properties:")
-        ]
-        properties_branch = start[start.index("case .properties:") :]
-        self.assertIn("SceneDiagnosticsBuilder().build(", diagnostics_branch)
-        self.assertNotIn("SceneDiagnosticsBuilder", properties_branch)
-        self.assertIn("Self.buildPropertyInspection(", properties_branch)
+        entry = function_body(self.controller, "static func requestPropertyEditor(for record:")
+        self.assertIn("propertyPreparation.preparePropertyEditor(for: current)", entry)
+        self.assertNotIn("SceneDiagnosticsBuilder", self.controller)
+        self.assertNotIn("makeSection", self.controller)
         build = function_body(self.controller, "private static func buildPropertyInspection(")
         self.assertIn("SceneRuntimeSourceFactsBuilder().build(", build)
 
@@ -103,7 +77,6 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         # Delivery, cancellation and replacement are exercised by the native
         # request-owner fixture rather than by a particular guard spelling.
         self.assertIn("guard presentedIdentity == identity", finish)
-
 
 
 if __name__ == "__main__":

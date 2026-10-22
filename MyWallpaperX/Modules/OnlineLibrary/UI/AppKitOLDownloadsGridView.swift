@@ -188,12 +188,6 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         collectionView.onBackgroundLeftClick = { [weak self] in
             self?.handleBackgroundClick()
         }
-        collectionView.cardPressStateHandler = { [weak self] indexPath, isPressed in
-            guard let self,
-                  let cell = self.collectionView.item(at: indexPath) as? AppKitOLDownloadsItem
-            else { return }
-            cell.applyPressedState(isPressed)
-        }
         collectionView.primaryClickHandler = { [weak self] indexPath, event in
             self?.handlePrimaryClick(indexPath: indexPath, event: event)
         }
@@ -453,7 +447,6 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         let metrics = OnlineLibraryGridLayoutSupport.metrics(
             boundsWidth: layoutWidth,
             zoomOffset: OnlineLibraryService.shared.zoomOffset,
-            hoverScale: AppKitOLDownloadsItem.hoverScale,
             sectionInset: flowLayout.sectionInset
         )
         lastComputedColumns = metrics.columns

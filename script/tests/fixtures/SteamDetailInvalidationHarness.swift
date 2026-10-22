@@ -80,9 +80,6 @@ import Foundation
         let beforeConfigure = roots(detail)
         detail.configure(item: service.selectedDownloadDetailItem!); settle(detail)
         checks["explicitConfigureStillForcesRebuild"] = !same(beforeConfigure, roots(detail))
-        let beforeInspection = roots(detail)
-        detail.sceneInspectionController.onStateChange(); settle(detail)
-        checks["inspectionCallbackStillForcesRebuild"] = !same(beforeInspection, roots(detail))
         checks["forceRefreshAlsoKeepsOnePreviewHeight"] = previewHeights(detail) == 1
             && previewHeightConstraints(detail).first === initialHeightConstraint && previewHeight(detail) == 156
 

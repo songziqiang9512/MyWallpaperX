@@ -11,12 +11,14 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
 from script.tests.test_ui_library_algorithms import declaration
+from script.tests.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = Path(__file__).resolve().parents[2]
 SHARED = ROOT / "MyWallpaperX/Shared/UI"
@@ -60,6 +62,8 @@ class SILThumbnailDemandTests(unittest.TestCase):
             "GridThumbnailPrefetchDemand.swift", "AppearanceAwareContainerView.swift",
             "NSViewExtensions.swift", "UIInteractionAnimation.swift", "WallpaperGridScrollView.swift",
         ]]
+        sources += [ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
+                    ROOT / "script/tests/fixtures/NativeAppHarness.swift"]
         inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
                   for p in sources + [grid_path, card_path, model_path, fixture_path]}
         with tempfile.TemporaryDirectory(prefix="mwx-sil-demand-", dir="/private/tmp") as folder:
@@ -93,6 +97,22 @@ class SILThumbnailDemandTests(unittest.TestCase):
             self.assertGreaterEqual(len(checks), 25)
             self.assertEqual(inputs, {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in sources + [grid_path, card_path, model_path, fixture_path]})
+
+            # Additional active-hover checks have the same LaunchServices status
+            # boundary as the native Online gate, not a claimed App exit code.
+            native_binary = prepare_native_app(work, "SILThumbnailDemandChecks")
+            shutil.copy2(binary, native_binary)
+            interaction = run_native_app(native_binary, ["--card-interactions"], timeout=45,
+                                         proof_environment="MWX_SIL_DEMAND_PROOF_DIR")
+            self.assertEqual(interaction.launch_returncode, 0, interaction.stdout + interaction.stderr)
+            interaction_checks = json.loads(interaction.stdout)
+            self.assertEqual(len(interaction_checks), 9)
+            for name, passed in interaction_checks.items():
+                with self.subTest(name=name):
+                    self.assertIs(passed, True)
+            if proof:
+                (proof / "card-interactions.json").write_text(interaction.stdout)
+                (proof / "card-interactions-runtime.log").write_text(interaction.stderr)
 
 
 if __name__ == "__main__":

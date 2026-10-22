@@ -90,9 +90,6 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         collectionView.primaryClickHandler = { [weak self] indexPath in
             self?.handlePrimaryClick(at: indexPath) ?? false
         }
-        collectionView.cardPressStateHandler = { [weak self] indexPath, isPressed in
-            self?.updateCardPressState(at: indexPath, isPressed: isPressed)
-        }
         collectionView.boxSelectionBeginHandler = { [weak self] indexPath in
             self?.beginBoxSelection(at: indexPath) ?? false
         }
@@ -459,21 +456,16 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         let availableWidth = max(0, layoutWidth - flowLayout.sectionInset.left - flowLayout.sectionInset.right)
         let columnCount = calculateColumnCount(width: availableWidth)
         let baseSpacing: CGFloat = 8
-        // 动态间距：卡片宽 × (scale-1)，刚好容纳放大量不遮盖相邻卡片
-        let estimatedCardWidth = max(100, (availableWidth - baseSpacing * CGFloat(max(0, columnCount - 1))) / CGFloat(columnCount))
-        let hoverScale: CGFloat = AppKitWallpaperItem.hoverScale
-        let minSpacing = estimatedCardWidth * (hoverScale - 1.0)
-        let effectiveSpacing = max(baseSpacing, minSpacing)
-        flowLayout.minimumInteritemSpacing = effectiveSpacing
-        flowLayout.minimumLineSpacing = effectiveSpacing
-        let totalSpacing = CGFloat(max(0, columnCount - 1)) * effectiveSpacing
+        flowLayout.minimumInteritemSpacing = baseSpacing
+        flowLayout.minimumLineSpacing = baseSpacing
+        let totalSpacing = CGFloat(max(0, columnCount - 1)) * baseSpacing
         let cardWidth = max(100, (availableWidth - totalSpacing) / CGFloat(columnCount))
         let cardHeight = max(56, cardWidth / (16.0 / 9.0))
         let newSize = NSSize(width: floor(cardWidth), height: floor(cardHeight + 2))
 
         if flowLayout.itemSize != newSize {
             flowLayout.itemSize = newSize
-            // 布局变化与悬停视觉同步生效，避免渐变层在缩放期间出现跟随滞后。
+            // 卡片尺寸变化后同步布局与缩略图需求。
             self.collectionView.collectionViewLayout?.invalidateLayout()
             scheduleViewportPrefetch()
         }

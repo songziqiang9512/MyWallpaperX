@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.test_scene_detail_diagnostics_on_demand import CONTROLLER_PATH, function_body
+from script.tests.test_scene_detail_diagnostics_on_demand import CONTROLLER_PATH
 
 ROOT = CONTROLLER_PATH.parents[4]
 PROPERTY_MODEL = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift'
@@ -16,17 +16,6 @@ PROPERTY_MODEL = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties
 def controller_fixture_source() -> str:
     """Compile the real request/cache/version owner; replace UI and builder leaves."""
     source = CONTROLLER_PATH.read_text()
-    for signature in ['    func makeSection(', '    private func requestDiagnostics(']:
-        start = source.index(signature)
-        body = function_body(source, signature)
-        opening = source.index('{', start)
-        source = source[:start] + source[opening + len(body):]
-    start = source.index('    private func statusText(')
-    conditional = source.rfind('#if DEBUG', 0, start)
-    assert source[conditional:start].strip() == '#if DEBUG'
-    start = conditional
-    version = source.index('/// Conservative version')
-    source = source[:start] + '}\n\n' + source[version:]
     models = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift'
     reachability = models.read_text().split('nonisolated struct SceneWallpaperLaunchState:', 1)[0]
     return reachability + source.replace('private ', '').replace('WorkshopPropertyDisplayResolver.languageVersion', 'FixtureDisplayLanguage.keys')
@@ -57,10 +46,6 @@ struct SteamWorkshopDownloadRecord {
     enum Status { case ready, removed }
     var id: String; var folderURL: URL; var updatedAt = Date(timeIntervalSince1970: 0)
     var title = "fixture"; var status = Status.ready; var contentType = ContentType.scene
-}
-struct SceneDiagnosticsReport {}
-struct SceneDiagnosticsBuilder {
-    func build(rootURL: URL, propertyOverrides: [String: SceneUserPropertyValue]) -> SceneDiagnosticsReport { .init() }
 }
 struct SceneResourceView {
     struct Root { let url: URL }
@@ -169,7 +154,7 @@ struct SteamWorkshopScenePropertyContext {
         let panel = SteamWorkshopPropertyPanelController.shared, output = ScenePropertyWindowController.shared
         var record = SteamWorkshopDownloadRecord(id: "own", folderURL: root)
         service.records[record.id] = record
-        let owner = SteamWorkshopSceneInspectionController(onStateChange: {}, ownsPropertyPreparation: true)
+        let owner = SteamWorkshopSceneInspectionController()
         var results: [String] = []
         func check(_ condition: @autoclosure () -> Bool, _ label: String) {
             guard condition() else { fatalError("FAIL: " + label) }; results.append(label)

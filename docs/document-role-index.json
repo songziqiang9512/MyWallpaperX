@@ -518,13 +518,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f29a91f9dbbf1d41a0bffe720c2036f4dfcf676c6784012961533058e30d40fd",
+        "sourceSHA256": "c6494fcf39d89b4230a70bc5915a6162145f3fe1fa75686390366dd5ed75e0ba",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现Scene准备token接入capability批次、并行完整join及原Host退出/失败边界；当前输入/输出行为门和文档路由核对。",
-        "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
+        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
+        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
       }
     },
     {
@@ -734,13 +734,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ab1b7649a4525017d31e6d315bd54b8a731117c761488442857cabad427b1a98",
+        "sourceSHA256": "d087849c23f54f57c4c4242396d9117326274dc70b3017caafe9d3492e596d90",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared shader call facts, readonly uniform initialization and actual1042 radial blur/heldout284; retire proven first gates, preserve other capability and condition limits.",
-        "limitations": "Bounded source/runtime evidence only; no whole-sample official parity, HDR/full modes or stable performance claim."
+        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
+        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
       }
     },
     {
@@ -3622,13 +3622,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2403b92dc71a2f3228c8d96550315e661ebf944a411eb28ce7fae11ef6a26428",
+        "sourceSHA256": "d4fad7460306271c9a9a258f939ebf805af174e35008ecd0d9dfdb9f1dff1d51",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Animation rate Number来源、唯一callback cohort与实际329变速有界后验；退出旧未消费状态。其余正文未重审。",
-        "limitations": "不升级整样本/官方时相、rate live-property hook、全部动作、视频连续播放或性能；Graph/utility及particle诊断失败保留。"
+        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
+        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
       }
     },
     {
@@ -3768,13 +3768,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fafa39d3f3ed6dc1edb018b44cbfce39d145aeecc7b210c3d1d0801c1323a714",
+        "sourceSHA256": "e843007ebffd3ba9995378f470197804670501842b674cabc2e4e08d4e3d7391",
         "method": "document_registry --audit + document_health --check",
-        "scope": "B1 code slimming: preserve descriptor/session/context responsibilities and align references after retiring the unconsumed aggregate model.",
-        "limitations": "Source and contract routing review. Product regressions and build are recorded in code-slimming-program; no full Web compatibility or release claim."
+        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
+        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
       }
     },
     {
@@ -4270,7 +4270,7 @@
       ],
       "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
       "owner": "repository-maintainer",
-      "firstRead": "docs/development/code-slimming-program.md#第十一批范围与停止条件",
+      "firstRead": "docs/development/code-slimming-program.md#第十二批范围与停止条件",
       "nearestTestGroups": [
         "documentation"
       ],

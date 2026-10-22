@@ -11,7 +11,6 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
     var onBackgroundLeftClick: (() -> Void)?
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
     var cardInteractionHandler: (() -> Void)?
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
     /// 返回 true 时吞掉本次点击（不进入系统选择流程）。
     var primaryClickHandler: ((IndexPath) -> Bool)?
     var isBoxSelectionEnabled = false
@@ -19,36 +18,18 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
     var boxSelectionUpdateHandler: ((NSRect) -> Void)?
     var boxSelectionEndHandler: (() -> Void)?
     private(set) var lastPrimaryClickIndexPath: IndexPath?
-    private var pressedCardIndexPath: IndexPath?
-    private var pressedCardTimestamp: TimeInterval = 0
-    private var pendingPressReleaseWorkItem: DispatchWorkItem?
-    /// 待执行的按压释放所属的卡片；新按压落在其他位置时需先立即复位，避免按压态滞留
-    private var pendingPressReleaseIndexPath: IndexPath?
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let indexPath = indexPathForItem(at: point)
-        if let pendingIP = pendingPressReleaseIndexPath {
-            pendingPressReleaseWorkItem?.cancel()
-            pendingPressReleaseWorkItem = nil
-            pendingPressReleaseIndexPath = nil
-            // 同一卡片：由本次按压接管，释放延后到新 mouseUp 重新排队；
-            // 不同卡片/空白处：取消前先同步复位旧卡片，保证释放不丢失
-            if pendingIP != indexPath {
-                cardPressStateHandler?(pendingIP, false)
-            }
-        }
         guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
         lastPrimaryClickIndexPath = indexPath
         if isBoxSelectionEnabled, event.clickCount == 1,
            boxSelectionBeginHandler?(indexPath) == true {
             handleBoxSelectionLoop(startPoint: point); return
         }
-        if let indexPath {
+        if indexPath != nil {
             cardInteractionHandler?()
-            pressedCardIndexPath = indexPath
-            pressedCardTimestamp = ProcessInfo.processInfo.systemUptime
-            cardPressStateHandler?(indexPath, true)
         }
         if let indexPath, primaryClickHandler?(indexPath) == true {
             return
@@ -79,15 +60,6 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         guard event.type == .leftMouseUp else { return }
-        if let ip = pressedCardIndexPath {
-            pendingPressReleaseIndexPath = ip
-            pendingPressReleaseWorkItem = SILCollectionInteractionSupport.schedulePressRelease(
-                pressedAt: pressedCardTimestamp
-            ) { [weak self] in
-                self?.cardPressStateHandler?(ip, false)
-                self?.pressedCardIndexPath = nil
-            }
-        }
         let point = convert(event.locationInWindow, from: nil)
         if lastPrimaryClickIndexPath == nil, indexPathForItem(at: point) == nil {
             onBackgroundLeftClick?()
@@ -156,10 +128,8 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var loadingPlaceholderWork: DispatchWorkItem?
     private var trackingArea: NSTrackingArea?
     private var isHovering      = false
-    private var isPressingCard  = false
     private var isSelectedState = false
     private var isMultiSelect   = false
-    private var currentScale: CGFloat = 1.0
     private var isHoverOutlineVisible = false
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) { super.init(nibName: nil, bundle: nil) }
@@ -213,7 +183,6 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         titleLabel.font = .systemFont(ofSize: fontSizes.title, weight: .medium)
         metaLabel.font = .monospacedDigitSystemFont(ofSize: fontSizes.meta, weight: .regular)
         imageContainer.frame = b
-        imageContainer.ensureLayerAnchorCentered()
         thumbnailView.frame = imageContainer.bounds
         selectionTint.frame = imageContainer.bounds
         hoverOutline.frame = imageContainer.bounds.insetBy(dx: 1, dy: 1)
@@ -268,15 +237,14 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         loadingPlaceholderWork?.cancel()
         loadingPlaceholderWork = nil
         wallpaperID = nil; imageTaskID = nil
-        isHovering = false; isPressingCard = false
+        isHovering = false
         isSelectedState = false; isMultiSelect = false
         thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
         placeholderLabel.isHidden = true
         multiSelectBadge.isHidden = true; multiSelectIcon.isHidden = true
-        imageContainer.layer?.transform = CATransform3DIdentity
         hoverOutline.alphaValue = 0; isHoverOutlineVisible = false
-        selectionTint.alphaValue = 0; currentScale = 1.0
+        selectionTint.alphaValue = 0
         titleLabel.alphaValue = 0; metaLabel.alphaValue = 0; overlayView.alphaValue = 0
         titleLabel.stringValue = ""; metaLabel.stringValue = ""
         refreshThemeAwareAppearance()
@@ -387,35 +355,24 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         }
     }
 
-    func applyPressedState(_ pressed: Bool) {
-        guard isPressingCard != pressed else { return }
-        isPressingCard = pressed
-        guard isHovering else { return }
-        applyCardScale(
-            targetScale: pressed ? UIInteractionAnimation.cardPressedScale : UIInteractionAnimation.cardHoverScale,
-            duration: pressed ? UIInteractionAnimation.cardPressDownDuration : UIInteractionAnimation.cardPressUpDuration,
-            timing: pressed ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-        )
-    }
-
     // MARK: - Hover
 
     func refreshGridHover(isScrolling: Bool) {
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered
-        applyHoverCardScale(hovered)
+        applyHoverPresentation(hovered)
     }
 
     override func mouseEntered(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
-        isHovering = true; applyHoverCardScale(true)
+        isHovering = true; applyHoverPresentation(true)
     }
     override func mouseExited(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
         guard Self.hoverTrackingActivated else { return }
-        isHovering = false; applyHoverCardScale(false)
+        isHovering = false; applyHoverPresentation(false)
     }
     override func mouseMoved(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
@@ -423,17 +380,15 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         let local = imageContainer.convert(event.locationInWindow, from: nil)
         let now = imageContainer.bounds.contains(local)
         guard now != isHovering else { return }
-        isHovering = now; applyHoverCardScale(now)
+        isHovering = now; applyHoverPresentation(now)
     }
 
     // MARK: - Animation
 
-    private func applyHoverCardScale(_ hovered: Bool) {
+    private func applyHoverPresentation(_ hovered: Bool) {
         let dur    = hovered ? UIInteractionAnimation.cardHoverExpandDuration   : UIInteractionAnimation.cardHoverCollapseDuration
         let timing = hovered ? UIInteractionAnimation.cardEnterTiming           : UIInteractionAnimation.cardExitTiming
         applyHoverOutline(hovered, duration: dur, timing: timing)
-        let target: CGFloat = hovered ? (isPressingCard ? UIInteractionAnimation.cardPressedScale : UIInteractionAnimation.cardHoverScale) : 1.0
-        applyCardScale(targetScale: target, duration: dur, timing: timing)
         applyHoverVisibility(hovered, animated: true)
     }
 
@@ -452,21 +407,6 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
             metaLabel.alphaValue = alpha
             overlayView.alphaValue = alpha
         }
-    }
-
-    private func applyCardScale(targetScale: CGFloat, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
-        guard let layer = imageContainer.layer else { return }
-        imageContainer.ensureLayerAnchorCentered()
-        guard abs(currentScale - targetScale) > 0.0001 else { return }
-        let from = (layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat) ?? currentScale
-        let anim = CABasicAnimation(keyPath: "transform.scale")
-        anim.fromValue = from; anim.toValue = targetScale
-        anim.duration = duration; anim.timingFunction = timing
-        layer.add(anim, forKey: "card.hover.scale")
-        CATransaction.begin(); CATransaction.setDisableActions(true)
-        layer.transform = CATransform3DMakeScale(targetScale, targetScale, 1)
-        CATransaction.commit()
-        currentScale = targetScale
     }
 
     private func applyHoverOutline(_ hovered: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {

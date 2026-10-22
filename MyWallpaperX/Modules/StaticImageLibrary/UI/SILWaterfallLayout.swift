@@ -61,14 +61,7 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
         }
 
         let cols = max(1, columnCount)
-        // 先用配置间距估算列宽，再计算动态间距，最后重算列宽
-        // 间距 = 卡片宽 × (scale-1)，刚好容纳放大量不遮盖相邻卡片
-        let estimatedColWidth = max(60, (contentWidth - columnSpacing * CGFloat(cols - 1)) / CGFloat(cols))
-        let hoverScale: CGFloat = 1.05
-        let minSpacing = estimatedColWidth * (hoverScale - 1.0)
-        let effectiveColSpacing = max(columnSpacing, minSpacing)
-        let effectiveRowSpacing = max(rowSpacing, minSpacing)
-        let colWidth = max(60, (contentWidth - effectiveColSpacing * CGFloat(cols - 1)) / CGFloat(cols))
+        let colWidth = max(60, (contentWidth - columnSpacing * CGFloat(cols - 1)) / CGFloat(cols))
 
         var colHeights = [CGFloat](repeating: sectionInset.top, count: cols)
 
@@ -78,7 +71,7 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
 
             // 找最短列
             let shortestCol = colHeights.indices.min(by: { colHeights[$0] < colHeights[$1] }) ?? 0
-            let x = sectionInset.left + CGFloat(shortestCol) * (colWidth + effectiveColSpacing)
+            let x = sectionInset.left + CGFloat(shortestCol) * (colWidth + columnSpacing)
             let y = colHeights[shortestCol]
 
             // 计算卡片高度
@@ -96,7 +89,7 @@ final class SILWaterfallLayout: NSCollectionViewLayout {
             cache.append(attrs)
             prefixMaxY.append(max(prefixMaxY.last ?? attrs.frame.maxY, attrs.frame.maxY))
 
-            colHeights[shortestCol] += cardH + effectiveRowSpacing
+            colHeights[shortestCol] += cardH + rowSpacing
         }
 
         contentHeight = (colHeights.max() ?? sectionInset.top) + sectionInset.bottom - rowSpacing

@@ -26,7 +26,6 @@ SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
 RUNTIME_INPUT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeInput.swift"
 PREPARED_GEOMETRY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
-DIAGNOSTICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
@@ -376,12 +375,10 @@ class SceneRuntimeInputTests(unittest.TestCase):
     def test_builder_compiles_runtime_input_without_file_round_trip(self) -> None:
         runtime_input = RUNTIME_INPUT_SOURCE.read_text(encoding="utf-8")
         source = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
-        diagnostics = DIAGNOSTICS_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let runtimeInput: SceneRuntimeInput", source)
         self.assertIn("runtimeInput: runtimeInput", source)
         self.assertIn("sceneDocument.userPropertyResolution.bindingReport", source)
         self.assertIn("shaderContracts: assetCatalog.shaderContracts", source)
-        self.assertIn("sceneDocumentLoadErrorDescription", diagnostics)
         self.assertIn(
             "sourceFacts.sceneDocumentLoadErrorDescription",
             source,
@@ -398,12 +395,10 @@ class SceneRuntimeInputTests(unittest.TestCase):
     def test_production_playback_passes_the_original_project_root(self) -> None:
         playback = PLAYBACK_SOURCE.read_text(encoding="utf-8")
         host = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
-        diagnostics = DIAGNOSTICS_SOURCE.read_text(encoding="utf-8")
         self.assertIn("rootURL: record.folderURL", playback)
         self.assertNotIn("SceneDiagnosticsBuilder", playback)
         self.assertIn("rootURL: URL", host)
         self.assertIn("SceneRuntimeModelBuilder().build(", host)
-        self.assertNotIn("Interpretation", diagnostics)
 
     def test_legacy_files_are_not_part_of_the_swift_playback_contract(self) -> None:
         source = "\n".join(

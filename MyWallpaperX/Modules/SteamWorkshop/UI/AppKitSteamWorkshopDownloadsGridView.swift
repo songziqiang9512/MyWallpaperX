@@ -58,11 +58,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
                 self.collectionView.item(at: $0)?.view
             }
         }
-        cv.cardPressStateHandler = { [weak self] indexPath, pressed in
-            guard let self,
-                  let item = self.collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem else { return }
-            item.applyPressedState(pressed)
-        }
         cv.primaryClickHandler = { [weak self] indexPath in
             self?.handlePrimaryClick(at: indexPath) ?? false
         }
@@ -487,7 +482,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         let metrics = SteamWorkshopGridLayoutSupport.metrics(
             boundsWidth: layoutWidth,
             zoomOffset: service.zoomOffset,
-            hoverScale: AppKitSteamWorkshopBrowserItem.hoverScale,
             sectionInset: flowLayout.sectionInset
         )
         currentColumnCount = metrics.columns

@@ -101,7 +101,7 @@ private final class LayoutCell: NSCollectionViewItem {
     }
 }
 
-/// Frozen pre-index frame calculation and linear rectangle query oracle. This
+/// Original linear placement/query oracle using configured base gaps. This
 /// deliberately retains the original scan so the candidate index cannot define
 /// which tall cards, boundary intersections, or item order count as correct.
 @MainActor private func legacyWaterfall(
@@ -111,11 +111,7 @@ private final class LayoutCell: NSCollectionViewItem {
     guard !noSections else { return ([], NSSize(width: width, height: 0)) }
     let cols = max(1, layout.columnCount)
     let contentWidth = width - layout.sectionInset.left - layout.sectionInset.right
-    let estimatedColWidth = max(60, (contentWidth - layout.columnSpacing * CGFloat(cols - 1)) / CGFloat(cols))
-    let minSpacing = estimatedColWidth * (CGFloat(1.05) - 1)
-    let effectiveColSpacing = max(layout.columnSpacing, minSpacing)
-    let effectiveRowSpacing = max(layout.rowSpacing, minSpacing)
-    let colWidth = max(60, (contentWidth - effectiveColSpacing * CGFloat(cols - 1)) / CGFloat(cols))
+    let colWidth = max(60, (contentWidth - layout.columnSpacing * CGFloat(cols - 1)) / CGFloat(cols))
     var heights = [CGFloat](repeating: layout.sectionInset.top, count: cols)
     var frames: [NSRect] = []
     for ratio in ratios {
@@ -123,9 +119,9 @@ private final class LayoutCell: NSCollectionViewItem {
         let resolvedRatio = useDefaultRatio ? CGFloat(16.0 / 9.0) : ratio
         let clamped = max(layout.minAspectRatio, min(layout.maxAspectRatio, resolvedRatio))
         let height = colWidth / clamped
-        frames.append(NSRect(x: layout.sectionInset.left + CGFloat(column) * (colWidth + effectiveColSpacing),
+        frames.append(NSRect(x: layout.sectionInset.left + CGFloat(column) * (colWidth + layout.columnSpacing),
                              y: heights[column], width: colWidth, height: height))
-        heights[column] += height + effectiveRowSpacing
+        heights[column] += height + layout.rowSpacing
     }
     let height = max((heights.max() ?? layout.sectionInset.top) + layout.sectionInset.bottom - layout.rowSpacing,
                      layout.sectionInset.top + layout.sectionInset.bottom)

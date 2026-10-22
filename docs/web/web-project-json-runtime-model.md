@@ -54,9 +54,9 @@
 - 生成会话 effective values
 - 计算会话 visible properties / options
 - 绑定会话文件与目录资源
-- 为播放生成 property payload，为详情和诊断生成各自投影
+- 为播放生成 property payload，为属性和详情生成面板投影
 
-会话职责不要求建立独立的全量聚合模型或模型缓存。解析解释复用 descriptor，动态值在准备/更新入口合并；播放、面板和诊断各取所需结果，不再重复保留同一会话事实。
+会话职责不要求建立独立的全量聚合模型或模型缓存。解析解释复用 descriptor，动态值在准备/更新入口合并；播放与面板各取所需结果，不再重复保留同一会话事实。
 
 ### 2.4 Playback Context
 

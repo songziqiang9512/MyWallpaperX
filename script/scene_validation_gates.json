@@ -301,7 +301,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog+Conservation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionFrameTrace.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionTelemetry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneFramePerformanceTelemetry.swift",
@@ -4225,7 +4224,11 @@
         "script/tests/test_online_grid_thumbnail_demand.py",
         "script/tests/fixtures/OnlineGridThumbnailDemandHarness.swift",
         "script/tests/fixtures/OnlineDownloadedIdentityHarness.swift",
-        "script/tests/test_online_downloaded_thumbnail_identity.py"
+        "script/tests/test_online_downloaded_thumbnail_identity.py",
+        "script/tests/fixtures/GridCardInteractionChecks.swift",
+        "script/tests/fixtures/VideoCardInteractionHarness.swift",
+        "script/tests/native_app_harness.py",
+        "script/tests/fixtures/NativeAppHarness.swift"
       ],
       "modules": [
         "test_thumbnail_return_reuse",

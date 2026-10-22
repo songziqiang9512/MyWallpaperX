@@ -1,9 +1,6 @@
 import AppKit
 @MainActor final class Zoom { static let shared = Zoom(); var zoomOffset = 0; var gridZoomOffset: Int { zoomOffset } }
 typealias OnlineLibraryService = Zoom
-enum AppKitWallpaperItem { static let hoverScale: CGFloat = 1.05 }
-enum AppKitSteamWorkshopBrowserItem { static let hoverScale: CGFloat = 1.04 }
-enum AppKitOLDownloadsItem { static let hoverScale: CGFloat = 1.05 }
 @MainActor class Probe: NSView {
  let scrollView = NSScrollView(); let collectionView = NSCollectionView(); let flowLayout = NSCollectionViewFlowLayout()
  let service = Zoom.shared; let wallpaperManager = Zoom.shared

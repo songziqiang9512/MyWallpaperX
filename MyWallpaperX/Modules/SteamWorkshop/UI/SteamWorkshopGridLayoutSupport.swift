@@ -38,7 +38,6 @@ enum SteamWorkshopGridLayoutSupport {
     static func metrics(
         boundsWidth: CGFloat,
         zoomOffset: Int,
-        hoverScale: CGFloat,
         sectionInset: NSEdgeInsets = sectionInset
     ) -> SteamWorkshopGridLayoutMetrics {
         let availableWidth = max(0, boundsWidth - sectionInset.left - sectionInset.right)
@@ -47,12 +46,7 @@ enum SteamWorkshopGridLayoutSupport {
             zoomOffset: zoomOffset,
             minimumItemWidth: minimumCardWidth
         ))
-        let estimatedWidth = max(
-            minimumCardWidth,
-            (availableWidth - baseSpacing * CGFloat(max(0, columns - 1))) / CGFloat(columns)
-        )
-        let minSpacing = estimatedWidth * (hoverScale - 1.0)
-        let spacing = max(baseSpacing, minSpacing)
+        let spacing = baseSpacing
         let verticalSpacing = spacing + verticalSpacingOffset
         let totalSpacing = CGFloat(max(0, columns - 1)) * spacing
         let cardWidth = max(minimumCardWidth, (availableWidth - totalSpacing) / CGFloat(columns))

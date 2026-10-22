@@ -8,11 +8,13 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import unittest
 
 from script.tests.test_steam_list_thumbnail_animation import SOURCES, SUPPORT, UI
+from script.tests.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -25,7 +27,9 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
             support.write_text(SUPPORT.replace(
                 "@Published var source: Int = 0",
                 "@Published var source: Int = 0\n    @Published var previewReloadToken: Int = 0"))
-            sources = [*SOURCES, UI / "SteamWorkshopItemDetailPreviewSupport.swift"]
+            sources = [*SOURCES, UI / "SteamWorkshopItemDetailPreviewSupport.swift",
+                       ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
+                       ROOT / "script/tests/fixtures/NativeAppHarness.swift"]
             # Execute the real row preview method without account/job UI leaves.
             row = (UI / "SteamWorkshopDownloadTasksPopover.swift").read_text()
             start = row.index("    private func loadPreviewIfNeeded(itemID: String) {")
@@ -63,6 +67,22 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
                 with self.subTest(name=name):
                     self.assertTrue(passed)
             self.assertTrue(facts)
+
+            # Added active-hover checks need LaunchServices. Its status is only
+            # the launcher's; the original direct-child exit assertion above stays.
+            native_binary = prepare_native_app(work, "SteamPreviewChecks")
+            shutil.copy2(binary, native_binary)
+            interaction = run_native_app(native_binary, ["--card-interactions"], timeout=45,
+                                         proof_environment="MWX_PREVIEW_PROOF_DIR")
+            self.assertEqual(interaction.launch_returncode, 0, interaction.stdout + interaction.stderr)
+            interaction_checks = json.loads(interaction.stdout)
+            self.assertEqual(len(interaction_checks), 18)
+            for name, passed in interaction_checks.items():
+                with self.subTest(name=name):
+                    self.assertIs(passed, True)
+            if proof:
+                (target / "card-interactions.json").write_text(interaction.stdout)
+                (target / "card-interactions-runtime.log").write_text(interaction.stderr)
 
 
 

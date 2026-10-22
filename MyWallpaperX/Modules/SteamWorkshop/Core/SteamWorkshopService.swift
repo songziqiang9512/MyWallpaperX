@@ -320,9 +320,6 @@ final class SteamWorkshopService: ObservableObject {
     @Published var lastWebPlaybackFailureMessage: String?
 
     var webLaunchEligibilityCache: [String: CachedWebLaunchEligibility] = [:]
-#if DEBUG
-    var webValidationReportCache: [String: CachedWebValidationReport] = [:]
-#endif
     var webProjectDescriptorCache: [String: CachedWebProjectDescriptor] = [:]
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
     /// 会话新鲜清单快速路径的起点：本实例存续期间由保存路径写入的分析
