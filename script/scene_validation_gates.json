@@ -878,7 +878,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneEffectTextureLoadResult.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",

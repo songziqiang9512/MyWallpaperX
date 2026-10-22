@@ -236,6 +236,22 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 必要证据迁至原工作区 `.artifacts/code-slimming-b10-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理，成功原始构建日志提取摘要后删除。本批完成合并与证据迁出后删除临时工作树和已合并分支，保留并行改动，随后开始下一批调查。
 
+## 第十一批范围与停止条件
+
+基线：第十批 `d9ca74b32` 已通过 `eed9f9dd5` 整合；并行 Scene 的 `646a2557d` 产品、权威文档、导航与预算保持。状态：在独立分支 `MWX/code-slimming-b11` 完成实施、三路交叉审查、回归及构建，按授权窄提交整合并审查最终提交，身份以 Git 记录为准，未推送。比较测试独占纹理包装、LatestValueHandoff 与旧 material assemble/derive 后选择第一项：两个 Swift struct 共 100 行，当前仅旧专属测试构造，现役纹理事实已由 candidate、slot binding 和 frame registry 持有；其他两项仍需迁移真实 mailbox 或多个 GPU 回归，不混入。
+
+最小结果：退役 SceneEffectTextureLoadResult/Binding 及唯一专属旧测试，精确移除 layout 文件和选测路径登记。现役资源 Swift、candidate/registry 回归和全部断言保持逐字不变。先核对旧 absent/unavailable/purpose/ready/generation/extent/pending/wrongPurpose 八项的有价语义在真实 owner 的输入/输出与反例断言；旧 wrapper 私有 matches 的 slash/case 规范化随其退役，不给现役 owner 新增该行为。发现真实产品/daemon/selector/协议/脚本/工具消费者或未覆盖且有独立价值的断言即停止删除。
+
+先跑固定原实现的旧门和现役门，再在固定候选运行现役 candidate、registry、resource view 与隔离 Debug；Metal 门须实际执行，跳过不算通过。结构合同用原基线和候选比较，不能放松既有扫描或棘轮来过门，已知全局债须明确披露。独立审查完成后窄提交整合，再审最终提交身份；迁出必要证据后删除临时工作树/分支，不推送。之后按用户新要求开始第十二批：卡片去 hover/按压缩放并保白描边，清理不可见 Web/Scene 详情诊断入口链、保正常播放及开发调试；B12 不提交，最终用含并行未提交改动的最新完整代码构建 Release App 供测试。
+
+实施与审查：只删 100 行 Swift 载体及 196 行专属测试；全部剩余产品源与长期测试共 5242 份输入逐字等于基线。真实链为 catalog loadCandidate → candidate → publication/registry → slot → encoder，不依赖旧结构；两值类型没有公开 ABI、ObjC/selector、协议、脚本或工具注册。八项有价机制已核对到现役输入/输出与失败反例，未改长期断言。旧 unavailable 与现役 incomplete 并非相同枚举；8×4/4×4/0.5×1 与现役多 mip 用例属于机制覆盖，不声称旧手建 mask+mips 组合逐字复刻。
+
+固定基线的旧包装、candidate、registry 三模块 14 项通过；候选 candidate、registry、asset-catalog resource-view 三模块 16 项通过，无跳过，Metal 实际执行。观察器只记录原 subprocess JSON，不替换断言；两现役二进制的 123/81 项完整结果在原实现与候选相同。隔离冷 Debug 95.01 秒通过，5242 份输入在运行/构建前后保持身份。
+
+layout 与 gate 各删一个失效路径；防御门实测 matches 定义从 8 降为 7，按既有工具同步收紧这一基线，扫描、其他 allowance 与 acknowledgement 全保留。历史旧测试链接改为退役路径字面，保留当时结果和锚点。90 项编排/路由/链接、14 项文档角色及代码健康、断言、防御、依赖、设计、文档与产物/残留门通过；关联无失效或未映射模块。固定原/候选的结构校验完全相同：目录仍有 6 个既有登记缺口，authority/completion 各 2 条既有错误，未放宽扫描或宣称全局通过。
+
+本批不改变视觉算法或播放入口，不认领全 App 人工、多屏、全样本、性能、包体或能耗验收。必要证据迁至原工作区 `.artifacts/code-slimming-b11-20261023/` 保留至 2026-11-06；固定导出和临时 HOME/缓存清理，checkpoint DerivedData/App 自动清理，成功原始构建日志提取摘要后删除。完成合并与最终提交复核后删除临时工作树/分支，保留并行改动；B12 保持独立未提交范围。
+
 ## 退出
 
 候选按用户价值、证据与风险选择，达到验收或收益递减时停止该批，不扩成无界清理。专项完成或用户终止后，把稳定职责留在原合同，本文归档为历史证据并退出设计登记；不长期维持第二套引擎路线。
